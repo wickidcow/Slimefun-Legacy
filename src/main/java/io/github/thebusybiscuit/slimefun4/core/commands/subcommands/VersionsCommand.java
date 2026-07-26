@@ -94,10 +94,12 @@ class VersionsCommand extends SubCommand {
             // Declare that we are NOT OFFICIAL build so no support from upstream
             builder.append(Component.text("\nEnglish-Albion community build", Style.style(NamedTextColor.WHITE)))
                     .append(Component.text(
-                            "\nThis is an unofficial community build. Report issues to this fork.\n", Style.style(NamedTextColor.RED)));
+                            "\nThis is an unofficial community build. Report issues to this fork.\n",
+                            Style.style(NamedTextColor.RED)));
 
             if (Slimefun.getConfigManager().isBypassEnvironmentCheck()) {
-                builder.append(Component.text("\n\nEnvironment compatibility check is disabled", Style.style(NamedTextColor.RED)));
+                builder.append(Component.text(
+                        "\n\nEnvironment compatibility check is disabled", Style.style(NamedTextColor.RED)));
             }
 
             if (Slimefun.getConfigManager().isBypassItemLengthCheck()) {
@@ -136,7 +138,8 @@ class VersionsCommand extends SubCommand {
         Collection<Plugin> addons = Slimefun.getInstalledAddons();
 
         if (addons.isEmpty()) {
-            builder.append(Component.text("No addon plugins installed", NamedTextColor.GRAY).decorate(TextDecoration.ITALIC));
+            builder.append(Component.text("No addon plugins installed", NamedTextColor.GRAY)
+                    .decorate(TextDecoration.ITALIC));
             return;
         }
 
@@ -175,7 +178,8 @@ class VersionsCommand extends SubCommand {
                         Component hoverComp = Component.text()
                                 .append(Component.text("Authors: ", NamedTextColor.YELLOW))
                                 .append(Component.text(authors, NamedTextColor.YELLOW))
-                                .append(Component.text("\n> The addon provided an invalid issue tracker URL!", NamedTextColor.RED))
+                                .append(Component.text(
+                                        "\n> The addon provided an invalid issue tracker URL!", NamedTextColor.RED))
                                 .build();
 
                         hoverEvent = HoverEvent.showText(hoverComp);
@@ -201,15 +205,19 @@ class VersionsCommand extends SubCommand {
                             clickEvent = ClickEvent.openUrl(uri.toString());
                         }
                         Component hoverComp = Component.text()
-                                .append(Component.text("This plugin is disabled.\nCheck the console for errors.", NamedTextColor.RED))
+                                .append(Component.text(
+                                        "This plugin is disabled.\nCheck the console for errors.", NamedTextColor.RED))
                                 .append(Component.text("\n> Click to open the issue tracker", NamedTextColor.DARK_RED))
                                 .build();
 
                         hoverEvent = HoverEvent.showText(hoverComp);
                     } catch (IllegalArgumentException e) {
                         Component hoverComp = Component.text()
-                                .append(Component.text("This plugin is disabled.\nCheck the console for errors.", NamedTextColor.RED))
-                                .append(Component.text("\n> The plugin provided an invalid issue tracker URL", NamedTextColor.DARK_RED))
+                                .append(Component.text(
+                                        "This plugin is disabled.\nCheck the console for errors.", NamedTextColor.RED))
+                                .append(Component.text(
+                                        "\n> The plugin provided an invalid issue tracker URL",
+                                        NamedTextColor.DARK_RED))
                                 .build();
 
                         hoverEvent = HoverEvent.showText(hoverComp);

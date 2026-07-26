@@ -169,14 +169,19 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
         var blockData = StorageCacheUtils.getBlock(b.getLocation());
         String val;
         if (blockData == null || (val = blockData.getData(KEY_ENABLED)) == null || val.equals(String.valueOf(false))) {
-            menu.replaceExistingItem(22, new CustomItemStack(Material.GUNPOWDER, "&7Status: &4\u2718", "", "&e> Click to enable machine"));
+            menu.replaceExistingItem(
+                    22,
+                    new CustomItemStack(Material.GUNPOWDER, "&7Status: &4\u2718", "", "&e> Click to enable machine"));
             menu.addMenuClickHandler(22, (p, slot, item, action) -> {
                 StorageCacheUtils.setData(b.getLocation(), KEY_ENABLED, String.valueOf(true));
                 updateBlockInventory(menu, b);
                 return false;
             });
         } else {
-            menu.replaceExistingItem(22, new CustomItemStack(Material.REDSTONE, "&7Enabled: &2\u2714", "", "&e> Click to disable this Machine"));
+            menu.replaceExistingItem(
+                    22,
+                    new CustomItemStack(
+                            Material.REDSTONE, "&7Enabled: &2\u2714", "", "&e> Click to disable this Machine"));
             menu.addMenuClickHandler(22, (p, slot, item, action) -> {
                 StorageCacheUtils.setData(b.getLocation(), KEY_ENABLED, String.valueOf(false));
                 updateBlockInventory(menu, b);
@@ -191,7 +196,11 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
         menu.replaceExistingItem(
                 31,
                 new CustomItemStack(
-                        Material.PISTON, "&7Offset: &3" + offset + " Block(s)", "", "&fLeft Click: &7+0.1", "&fRight Click: &7-0.1"));
+                        Material.PISTON,
+                        "&7Offset: &3" + offset + " Block(s)",
+                        "",
+                        "&fLeft Click: &7+0.1",
+                        "&fRight Click: &7-0.1"));
         menu.addMenuClickHandler(31, (p, slot, item, action) -> {
             double offsetv =
                     NumberUtils.reparseDouble(Double.parseDouble(StorageCacheUtils.getData(b.getLocation(), KEY_OFFSET))
@@ -316,7 +325,12 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
                 ChestMenuUtils.getEmptyClickHandler());
         preset.addItem(
                 13,
-                new CustomItemStack(Material.CLOCK, "&7Cooldown: &b30 Seconds", "", "&fThis Machine takes up to half a Minute to operate", "&fso give it some Time!"),
+                new CustomItemStack(
+                        Material.CLOCK,
+                        "&7Cooldown: &b30 Seconds",
+                        "",
+                        "&fThis Machine takes up to half a Minute to operate",
+                        "&fso give it some Time!"),
                 ChestMenuUtils.getEmptyClickHandler());
     }
 

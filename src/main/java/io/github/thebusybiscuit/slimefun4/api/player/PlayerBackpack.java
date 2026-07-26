@@ -146,7 +146,8 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
             return OptionalInt.empty();
         }
 
-        return getLegacyBackpackReference(meta).map(reference -> OptionalInt.of(reference.id()))
+        return getLegacyBackpackReference(meta)
+                .map(reference -> OptionalInt.of(reference.id()))
                 .orElseGet(OptionalInt::empty);
     }
 
@@ -159,7 +160,9 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
             return true;
         }
 
-        return meta != null && Slimefun.instance() != null && getBackpackUUID(meta).isPresent();
+        return meta != null
+                && Slimefun.instance() != null
+                && getBackpackUUID(meta).isPresent();
     }
 
     public static void setItemPdc(ItemStack item, String bpUuid, String ownerUuid) {
@@ -277,13 +280,14 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
 
             String identity = line.substring(COLORED_LORE_ID.length());
             String[] splitLine = CommonPatterns.HASH.split(identity, 2);
-            if (splitLine.length != 2 || !CommonPatterns.NUMERIC.matcher(splitLine[1]).matches()) {
+            if (splitLine.length != 2
+                    || !CommonPatterns.NUMERIC.matcher(splitLine[1]).matches()) {
                 continue;
             }
 
             try {
-                return Optional.of(new LegacyBackpackReference(
-                        UUID.fromString(splitLine[0]), Integer.parseInt(splitLine[1])));
+                return Optional.of(
+                        new LegacyBackpackReference(UUID.fromString(splitLine[0]), Integer.parseInt(splitLine[1])));
             } catch (IllegalArgumentException ignored) {
                 // Malformed legacy identity - keep searching in case another valid line exists.
             }

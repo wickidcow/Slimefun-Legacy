@@ -873,8 +873,9 @@ public class BlockDataController extends ADataController {
         getData(key, true).forEach(data -> chunkKeys.add(data.get(FieldKey.CHUNK)));
 
         chunkKeys.forEach(cKey -> loadChunk(LocationUtils.toChunk(world, cKey), false, true));
-        logger.log(
-                Level.INFO, "World {0} data loaded in {1}ms", new Object[] {worldName, (System.currentTimeMillis() - start)});
+        logger.log(Level.INFO, "World {0} data loaded in {1}ms", new Object[] {
+            worldName, (System.currentTimeMillis() - start)
+        });
     }
 
     public void loadUniversalRecord() {
@@ -1113,7 +1114,11 @@ public class BlockDataController extends ADataController {
                         } catch (Exception ex) {
                             inv[slot] = null;
                             Slimefun.logger()
-                                    .log(Level.SEVERE, "Failed to load the target item; check the stored data [" + uniData.getKey() + ":" + slot + "]", ex);
+                                    .log(
+                                            Level.SEVERE,
+                                            "Failed to load the target item; check the stored data [" + uniData.getKey()
+                                                    + ":" + slot + "]",
+                                            ex);
                         }
                     }
 
@@ -1613,7 +1618,8 @@ public class BlockDataController extends ADataController {
                         Slimefun.logger()
                                 .log(
                                         Level.SEVERE,
-                                        "Failed to load the target item; check the stored data [" + universalData.getKey() + ":" + slot + "]",
+                                        "Failed to load the target item; check the stored data ["
+                                                + universalData.getKey() + ":" + slot + "]",
                                         ex);
                     }
                 }

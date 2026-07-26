@@ -39,13 +39,18 @@ public class DataUtils {
                     && Slimefun.getDatabaseManager().getBlockDataStorageType() == StorageType.MYSQL
                     && itemStr.length() > 65535) {
 
-                throw new IllegalArgumentException("Detected an oversized item. Please contact the plugin developer responsible for that item: " + StringUtil.itemStackToString(itemStack)
-                        + ", size = " + itemStr.length());
+                throw new IllegalArgumentException(
+                        "Detected an oversized item. Please contact the plugin developer responsible for that item: "
+                                + StringUtil.itemStackToString(itemStack) + ", size = " + itemStr.length());
             }
 
             return itemStr;
         } catch (Throwable e) {
-            Slimefun.logger().log(Level.SEVERE, "An error occurred during serialisation of the item; an empty value will be stored.", e);
+            Slimefun.logger()
+                    .log(
+                            Level.SEVERE,
+                            "An error occurred during serialisation of the item; an empty value will be stored.",
+                            e);
             return "";
         }
     }
@@ -71,12 +76,17 @@ public class DataUtils {
             Debug.log(TestCase.BACKPACK, "Deserialized itemstack: " + result);
 
             if (result.getType().isAir()) {
-                Slimefun.logger().log(Level.SEVERE, "Failed to deserialize item from the database! The corresponding item cannot be displayed.");
+                Slimefun.logger()
+                        .log(
+                                Level.SEVERE,
+                                "Failed to deserialize item from the database! The corresponding item cannot be displayed.");
             }
 
             return result;
         } catch (Exception ex) {
-            throw new RuntimeException("An error occurred during deserialisation of the item; the corresponding item cannot be displayed.", ex);
+            throw new RuntimeException(
+                    "An error occurred during deserialisation of the item; the corresponding item cannot be displayed.",
+                    ex);
         }
     }
 

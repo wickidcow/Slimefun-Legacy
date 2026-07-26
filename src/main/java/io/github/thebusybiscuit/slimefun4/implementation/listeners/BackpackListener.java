@@ -274,7 +274,10 @@ public class BackpackListener implements Listener {
                                     }
                                     if (ex != null) {
                                         Slimefun.logger()
-                                                .log(Level.SEVERE, "An Exception occurred while opening a backpack", ex);
+                                                .log(
+                                                        Level.SEVERE,
+                                                        "An Exception occurred while opening a backpack",
+                                                        ex);
                                         return;
                                     }
                                     if (bp == null || bp.isInvalid()) {
@@ -312,5 +315,4 @@ public class BackpackListener implements Listener {
                         + ':'
                         + PlayerBackpack.getBackpackID(meta).orElse(-1));
     }
-
 }

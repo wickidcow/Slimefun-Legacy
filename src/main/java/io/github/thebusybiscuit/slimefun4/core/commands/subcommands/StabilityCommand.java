@@ -38,12 +38,14 @@ final class StabilityCommand extends SubCommand {
 
     private void sendStatus(CommandSender sender) {
         send(sender, "&6Slimefun Legacy Stability Status");
-        send(sender, "&7Previous clean shutdown: "
-                + (Slimefun.getDatabaseManager().wasPreviousShutdownClean() ? "&aYes" : "&cNo"));
-        send(sender, "&7Pending database writes: &e"
-                + Slimefun.getDatabaseManager().getPendingWriteTaskCount());
-        send(sender, "&7Paused machine circuits: &e"
-                + Slimefun.getTickerTask().getPausedMachineCount());
+        send(
+                sender,
+                "&7Previous clean shutdown: "
+                        + (Slimefun.getDatabaseManager().wasPreviousShutdownClean() ? "&aYes" : "&cNo"));
+        send(
+                sender,
+                "&7Pending database writes: &e" + Slimefun.getDatabaseManager().getPendingWriteTaskCount());
+        send(sender, "&7Paused machine circuits: &e" + Slimefun.getTickerTask().getPausedMachineCount());
         send(sender, "&7Ticker paused: &e" + Slimefun.getTickerTask().isPaused());
     }
 

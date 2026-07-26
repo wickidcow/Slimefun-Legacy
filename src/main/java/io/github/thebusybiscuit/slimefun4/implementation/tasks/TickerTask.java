@@ -59,6 +59,7 @@ public class TickerTask implements Runnable {
      * to the main thread so inventory mutations cannot race player clicks.
      */
     private final Set<BlockPosition> viewedInventories = ConcurrentHashMap.newKeySet();
+
     private final Set<BlockPosition> queuedSynchronousTicks = ConcurrentHashMap.newKeySet();
     private final MachineCircuitBreaker<BlockPosition> circuitBreaker = new MachineCircuitBreaker<>();
 
@@ -340,9 +341,11 @@ public class TickerTask implements Runnable {
             long cooldownSeconds = getCircuitCooldownSeconds();
             circuitBreaker.open(position, System.currentTimeMillis() + cooldownSeconds * 1000L);
             bugs.remove(position);
-            Slimefun.logger().log(Level.SEVERE,
-                    "The retry for machine {0} at {1}, {2}, {3} failed; its circuit has been reopened for {4} seconds.",
-                    new Object[] {item.getId(), l.getBlockX(), l.getBlockY(), l.getBlockZ(), cooldownSeconds});
+            Slimefun.logger()
+                    .log(
+                            Level.SEVERE,
+                            "The retry for machine {0} at {1}, {2}, {3} failed; its circuit has been reopened for {4} seconds.",
+                            new Object[] {item.getId(), l.getBlockX(), l.getBlockY(), l.getBlockZ(), cooldownSeconds});
             return;
         }
 
@@ -360,11 +363,15 @@ public class TickerTask implements Runnable {
             Slimefun.logger().log(Level.SEVERE, "X: {0} Y: {1} Z: {2} ({3})", new Object[] {
                 l.getBlockX(), l.getBlockY(), l.getBlockZ(), item.getId()
             });
-            Slimefun.logger().log(Level.SEVERE,
-                    "This machine failed {0} consecutive ticks and has been paused for {1} seconds.",
-                    new Object[] {CIRCUIT_FAILURE_THRESHOLD, cooldownSeconds});
-            Slimefun.logger().log(Level.SEVERE,
-                    "It will be retried automatically. The ticker registration and stored machine data were preserved.");
+            Slimefun.logger()
+                    .log(
+                            Level.SEVERE,
+                            "This machine failed {0} consecutive ticks and has been paused for {1} seconds.",
+                            new Object[] {CIRCUIT_FAILURE_THRESHOLD, cooldownSeconds});
+            Slimefun.logger()
+                    .log(
+                            Level.SEVERE,
+                            "It will be retried automatically. The ticker registration and stored machine data were preserved.");
         }
     }
 

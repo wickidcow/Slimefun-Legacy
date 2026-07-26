@@ -220,7 +220,11 @@ public class ProfileDataController extends ADataController {
                 re[slot] = each.getItemStack(FieldKey.INVENTORY_ITEM);
             } catch (Exception e) {
                 re[slot] = null;
-                logger.log(Level.SEVERE, "Could not deserialize a player backpack item; replaced it with air [" + uuid + ":" + slot + "]", e);
+                logger.log(
+                        Level.SEVERE,
+                        "Could not deserialize a player backpack item; replaced it with air [" + uuid + ":" + slot
+                                + "]",
+                        e);
             }
         }
 

@@ -91,8 +91,7 @@ public class SlimefunBackpack extends SimpleSlimefunItem<ItemUseHandler> impleme
          * stack, even if two duplicated item representations happen to carry
          * the same identity. Only fresh, unbound backpack items may stack.
          */
-        if (PlayerBackpack.hasBackpackIdentity(itemMetaOne)
-                || PlayerBackpack.hasBackpackIdentity(itemMetaTwo)) {
+        if (PlayerBackpack.hasBackpackIdentity(itemMetaOne) || PlayerBackpack.hasBackpackIdentity(itemMetaTwo)) {
             return false;
         }
 

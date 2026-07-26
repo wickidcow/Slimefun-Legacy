@@ -70,11 +70,12 @@ class CargoNetworkTask implements Runnable {
                     Location input = entry.getKey();
                     getAttachedBlock(input).ifPresent(block -> routeItems(input, block, entry.getValue(), outputs));
                 } catch (Exception | LinkageError ex) {
-                    Slimefun.logger().log(
-                            Level.SEVERE,
-                            ex,
-                            () -> "An Exception was caught while routing Cargo input node @ "
-                                    + new BlockPosition(entry.getKey()));
+                    Slimefun.logger()
+                            .log(
+                                    Level.SEVERE,
+                                    ex,
+                                    () -> "An Exception was caught while routing Cargo input node @ "
+                                            + new BlockPosition(entry.getKey()));
                 } finally {
                     long childTime = Slimefun.getProfiler().closeEntry(entry.getKey(), inputNode, nodeTimestamp);
                     if (networkTimestamp != 0) {
@@ -90,8 +91,8 @@ class CargoNetworkTask implements Runnable {
                             () -> "An Exception was caught while ticking a Cargo network @ "
                                     + new BlockPosition(network.getRegulator()));
         } finally {
-            Slimefun.getProfiler().closeEntry(
-                    network.getRegulator(), SlimefunItems.CARGO_MANAGER.getItem(), networkTimestamp);
+            Slimefun.getProfiler()
+                    .closeEntry(network.getRegulator(), SlimefunItems.CARGO_MANAGER.getItem(), networkTimestamp);
         }
     }
 
@@ -177,8 +178,7 @@ class CargoNetworkTask implements Runnable {
             }
 
             ItemStackWrapper wrapper = ItemStackWrapper.wrap(item);
-            item = CargoUtils.insert(
-                    network, inventories, output.getBlock(), target.get(), smartFill, item, wrapper);
+            item = CargoUtils.insert(network, inventories, output.getBlock(), target.get(), smartFill, item, wrapper);
 
             if (item == null) {
                 if (roundRobin) {
@@ -194,5 +194,4 @@ class CargoNetworkTask implements Runnable {
     private Optional<Block> getAttachedBlock(Location node) {
         return attachedBlocks.computeIfAbsent(node, network::getAttachedBlock);
     }
-
 }

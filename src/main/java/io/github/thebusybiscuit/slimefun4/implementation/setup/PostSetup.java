@@ -64,8 +64,8 @@ public final class PostSetup {
         int slimefunOnly = countNonAddonItems();
 
         sender.sendMessage("");
-        sender.sendMessage(ChatColor.GREEN
-                + "######################### - Slimefun Legacy - Snapshot - #########################");
+        sender.sendMessage(
+                ChatColor.GREEN + "######################### - Slimefun Legacy - Snapshot - #########################");
         sender.sendMessage("");
         sender.sendMessage(ChatColor.GREEN
                 + "Successfully loaded "

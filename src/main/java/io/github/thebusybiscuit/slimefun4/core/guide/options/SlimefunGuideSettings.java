@@ -194,7 +194,8 @@ public final class SlimefunGuideSettings {
                         "&7this plugin truly shine. Go check them out, some",
                         "&7of them may be exactly what you were missing out on!",
                         "",
-                        "&7Installed on this Server: &b" + Slimefun.getInstalledAddons().size(),
+                        "&7Installed on this Server: &b"
+                                + Slimefun.getInstalledAddons().size(),
                         "",
                         "&7\u21E8 &eClick to see all available addons for Slimefun4"));
         // @formatter:on

@@ -700,7 +700,11 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
         if (isSurvivalMode() && history.size() > 1) {
             menu.addItem(
                     slot,
-                    new CustomItemStack(ChestMenuUtils.getBackButton(p, "", "&fLeft Click: &7Return to previous page", "&fShift + Left Click: &7Return to main menu")));
+                    new CustomItemStack(ChestMenuUtils.getBackButton(
+                            p,
+                            "",
+                            "&fLeft Click: &7Return to previous page",
+                            "&fShift + Left Click: &7Return to main menu")));
 
             menu.addMenuClickHandler(slot, (pl, s, is, action) -> {
                 if (action.isShiftClicked()) {
@@ -846,8 +850,10 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
 
     @ParametersAreNonnullByDefault
     private void printErrorMessage(Player p, Throwable x) {
-        p.sendMessage(ChatColor.DARK_RED + "An internal server error has occurred. Please inform an admin, check the console for further info.");
-        Slimefun.logger().log(Level.SEVERE, "An error has occurred while trying to open a SlimefunItem in the guide!", x);
+        p.sendMessage(ChatColor.DARK_RED
+                + "An internal server error has occurred. Please inform an admin, check the console for further info.");
+        Slimefun.logger()
+                .log(Level.SEVERE, "An error has occurred while trying to open a SlimefunItem in the guide!", x);
     }
 
     @ParametersAreNonnullByDefault

@@ -66,7 +66,10 @@ public class SlimefunDatabaseManager {
             var connectionPoolSize = getConnectionPoolSize(blockDataStorageType, blockStorageConfig);
 
             if (readExecutorThread + writeExecutorThread > connectionPoolSize) {
-                plugin.getLogger().log(Level.WARNING, "Detected that the block‑storage connection pool size is configured smaller than the total number of read/write threads, which may lead to performance issues.");
+                plugin.getLogger()
+                        .log(
+                                Level.WARNING,
+                                "Detected that the block‑storage connection pool size is configured smaller than the total number of read/write threads, which may lead to performance issues.");
             }
 
             initAdapter(blockDataStorageType, DataType.BLOCK_STORAGE, blockStorageConfig);
@@ -95,7 +98,10 @@ public class SlimefunDatabaseManager {
             var connectionPoolSize = getConnectionPoolSize(profileStorageType, profileConfig);
 
             if (readExecutorThread + writeExecutorThread > connectionPoolSize) {
-                plugin.getLogger().log(Level.WARNING, "Detected that the profile‑storage connection pool size is configured smaller than the total number of read/write threads, which may lead to performance issues.");
+                plugin.getLogger()
+                        .log(
+                                Level.WARNING,
+                                "Detected that the profile‑storage connection pool size is configured smaller than the total number of read/write threads, which may lead to performance issues.");
             }
 
             initAdapter(profileStorageType, DataType.PLAYER_PROFILE, profileConfig);
@@ -187,8 +193,10 @@ public class SlimefunDatabaseManager {
             if (getBlockDataController() != null) {
                 getBlockDataController().shutdown();
             }
-            clean = (getProfileDataController() == null || getProfileDataController().wasLastShutdownClean())
-                    && (getBlockDataController() == null || getBlockDataController().wasLastShutdownClean());
+            clean = (getProfileDataController() == null
+                            || getProfileDataController().wasLastShutdownClean())
+                    && (getBlockDataController() == null
+                            || getBlockDataController().wasLastShutdownClean());
         } catch (RuntimeException ex) {
             clean = false;
             plugin.getLogger().log(Level.SEVERE, "Failed to drain Slimefun database controllers", ex);
@@ -211,7 +219,9 @@ public class SlimefunDatabaseManager {
         if (clean) {
             writeCleanShutdownMarker();
         } else {
-            plugin.getLogger().warning("Slimefun did not complete a clean database shutdown. A storage warning will be shown on the next startup.");
+            plugin.getLogger()
+                    .warning(
+                            "Slimefun did not complete a clean database shutdown. A storage warning will be shown on the next startup.");
         }
     }
 
@@ -224,7 +234,9 @@ public class SlimefunDatabaseManager {
 
         previousShutdownClean = cleanShutdownMarker.exists() || !storageInitializedMarker.exists();
         if (!previousShutdownClean) {
-            plugin.getLogger().warning("The previous Slimefun session did not leave a clean-shutdown marker. Back up data-storage/Slimefun and run /sf stability status.");
+            plugin.getLogger()
+                    .warning(
+                            "The previous Slimefun session did not leave a clean-shutdown marker. Back up data-storage/Slimefun and run /sf stability status.");
         }
 
         try {
@@ -237,10 +249,7 @@ public class SlimefunDatabaseManager {
 
     private void writeCleanShutdownMarker() {
         try {
-            Files.writeString(
-                    cleanShutdownMarker.toPath(),
-                    "Slimefun Legacy clean shutdown\n",
-                    StandardCharsets.UTF_8);
+            Files.writeString(cleanShutdownMarker.toPath(), "Slimefun Legacy clean shutdown\n", StandardCharsets.UTF_8);
         } catch (IOException ex) {
             plugin.getLogger().log(Level.WARNING, "Could not write the Slimefun clean-shutdown marker", ex);
         }

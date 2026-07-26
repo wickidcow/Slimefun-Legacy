@@ -64,7 +64,12 @@ public class BlockStorageMigrator implements IMigrator {
                 Files.copy(chunk.toPath(), chunkBak, StandardCopyOption.REPLACE_EXISTING);
                 Files.delete(chunk.toPath());
             } catch (Exception e) {
-                Slimefun.logger().log(Level.WARNING, "An issue occurred while backing up old data " + chunk.getName() + "No chunk data detected; skipping migration.", e);
+                Slimefun.logger()
+                        .log(
+                                Level.WARNING,
+                                "An issue occurred while backing up old data " + chunk.getName()
+                                        + "No chunk data detected; skipping migration.",
+                                e);
                 status = MigrateStatus.FAILED;
             }
         } else {

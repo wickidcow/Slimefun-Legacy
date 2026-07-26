@@ -58,7 +58,8 @@ public class PageHelper {
         if (totalPages > 1) {
             if (page > 1) {
                 menu.addItem(
-                        prevSlot, new CustomItemStack(Material.ARROW, "&aPrevious Page &7(" + page + "/" + totalPages + ")"));
+                        prevSlot,
+                        new CustomItemStack(Material.ARROW, "&aPrevious Page &7(" + page + "/" + totalPages + ")"));
                 menu.addMenuClickHandler(prevSlot, prevHander);
             } else {
                 menu.addItem(prevSlot, new CustomItemStack(Material.GRAY_STAINED_GLASS_PANE, "&7Previous Page (None)"));
@@ -67,7 +68,8 @@ public class PageHelper {
 
             if (page < totalPages) {
                 menu.addItem(
-                        nextSlot, new CustomItemStack(Material.ARROW, "&aNext Page &7(" + page + "/" + totalPages + ")"));
+                        nextSlot,
+                        new CustomItemStack(Material.ARROW, "&aNext Page &7(" + page + "/" + totalPages + ")"));
                 menu.addMenuClickHandler(nextSlot, nextHander);
             } else {
                 menu.addItem(nextSlot, new CustomItemStack(Material.GRAY_STAINED_GLASS_PANE, "&7Next Page (None)"));
