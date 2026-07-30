@@ -23,6 +23,20 @@ public class TaskUtil {
     }
 
     /**
+     * Executes location-owned Bukkit work on the region that owns the supplied location.
+     *
+     * <p>On Paper this retains the normal synchronous scheduler behavior. On Folia the task is
+     * dispatched through the region scheduler when the current thread does not own the location.
+     */
+    public void runSyncMethod(Location location, Runnable runnable) {
+        if (Slimefun.getSchedulerService().isOwnedByCurrentRegion(location)) {
+            runnable.run();
+        } else {
+            Slimefun.getSchedulerService().runAt(location, runnable);
+        }
+    }
+
+    /**
      * Legacy blocking bridge for global work.
      *
      * @deprecated Prefer {@link #callSyncMethod(Callable)} or {@link #callAt(Location, Callable)}.
