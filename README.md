@@ -4,7 +4,7 @@
 
 # Slimefun Legacy
 
-### English-first Slimefun for modern Paper servers
+### Slimefun for modern Paper servers (EN)
 
 Slimefun Legacy turns a normal Minecraft server into a modpack-like experience with machines, electricity, cargo networks, automation, reactors, magic, backpacks, and hundreds of custom items—without requiring players to install a mod.
 
