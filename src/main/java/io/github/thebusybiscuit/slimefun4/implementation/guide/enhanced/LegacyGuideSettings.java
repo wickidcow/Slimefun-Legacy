@@ -44,6 +44,11 @@ public final class LegacyGuideSettings {
     private final boolean smartSearch;
     private final boolean displayItemId;
     private final boolean displayAddon;
+    private final boolean recipeFill;
+    private final boolean closeGuideAfterRecipeFill;
+    private final int recipeFillTargetRange;
+    private final int recipeFillMaximumSets;
+    private final int recipeFillSessionSeconds;
     private final String survivalTitle;
     private final String cheatTitle;
     private final String searchTitle;
@@ -59,6 +64,11 @@ public final class LegacyGuideSettings {
         smartSearch = config.getBoolean("features.smart-search", true);
         displayItemId = config.getBoolean("features.display-item-id", true);
         displayAddon = config.getBoolean("features.display-addon", true);
+        recipeFill = config.getBoolean("features.recipe-fill.enabled", true);
+        closeGuideAfterRecipeFill = config.getBoolean("features.recipe-fill.close-guide-on-success", true);
+        recipeFillTargetRange = clamp(config.getInt("features.recipe-fill.target-range", 6), 2, 12);
+        recipeFillMaximumSets = clamp(config.getInt("features.recipe-fill.maximum-sets", 64), 1, 64);
+        recipeFillSessionSeconds = clamp(config.getInt("features.recipe-fill.session-seconds", 120), 15, 600);
         survivalTitle = color(config.getString("titles.survival", "&2&lSlimefun Legacy Guide"));
         cheatTitle = color(config.getString("titles.cheat", "&c&lSlimefun Legacy Guide &4(Cheat Mode)"));
         searchTitle = color(config.getString("titles.search", "&2&lSearch &8- &f%query%"));
@@ -103,6 +113,26 @@ public final class LegacyGuideSettings {
 
     public boolean shouldDisplayAddon() {
         return displayAddon;
+    }
+
+    public boolean hasRecipeFill() {
+        return recipeFill;
+    }
+
+    public boolean shouldCloseGuideAfterRecipeFill() {
+        return closeGuideAfterRecipeFill;
+    }
+
+    public int getRecipeFillTargetRange() {
+        return recipeFillTargetRange;
+    }
+
+    public int getRecipeFillMaximumSets() {
+        return recipeFillMaximumSets;
+    }
+
+    public int getRecipeFillSessionSeconds() {
+        return recipeFillSessionSeconds;
     }
 
     public @Nonnull String getSurvivalTitle() {
@@ -161,6 +191,10 @@ public final class LegacyGuideSettings {
             }
         }
         return Collections.unmodifiableList(new ArrayList<>(configured));
+    }
+
+    private static int clamp(int value, int minimum, int maximum) {
+        return Math.max(minimum, Math.min(maximum, value));
     }
 
     private static @Nonnull String color(String value) {

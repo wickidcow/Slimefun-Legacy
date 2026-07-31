@@ -23,13 +23,16 @@ public final class LegacyGuideBootstrap {
         LegacyGuideBookmarks.initialize(plugin);
 
         if (LegacyGuideSettings.get().isEnabled()) {
+            LegacyRecipeFillManager.initialize(plugin);
             guides.put(SlimefunGuideMode.SURVIVAL_MODE, new EnhancedSurvivalSlimefunGuide());
             guides.put(SlimefunGuideMode.CHEAT_MODE, new EnhancedCheatSheetSlimefunGuide());
-            plugin.getLogger().info("Native enhanced guide enabled (JEG-style menus, smart search and bookmarks).");
+            plugin.getLogger().info(
+                    "Native enhanced guide enabled (JEG-style menus, smart search, bookmarks and safe recipe fill).");
 
             if (plugin.getServer().getPluginManager().getPlugin("JustEnoughGuide") != null) {
-                plugin.getLogger().warning(
-                        "JustEnoughGuide is also installed. Remove its JAR before using Slimefun Legacy's native enhanced guide.");
+                plugin.getLogger()
+                        .warning(
+                                "JustEnoughGuide is also installed. Remove its JAR before using Slimefun Legacy's native enhanced guide.");
             }
         } else {
             guides.put(SlimefunGuideMode.SURVIVAL_MODE, new SurvivalSlimefunGuide());

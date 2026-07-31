@@ -55,6 +55,17 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
     }
 
     @Override
+    @ParametersAreNonnullByDefault
+    public void displayItem(PlayerProfile profile, SlimefunItem item, boolean addToHistory) {
+        super.displayItem(profile, item, addToHistory);
+
+        Player player = profile.getPlayer();
+        if (player != null) {
+            LegacyRecipeFillManager.get().decorateRecipePage(player, item);
+        }
+    }
+
+    @Override
     public void openMainMenu(@Nonnull PlayerProfile profile, int page) {
         Player player = profile.getPlayer();
         if (player == null) {

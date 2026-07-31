@@ -14,6 +14,15 @@ features:
   display-item-id: true
   display-addon: true
 
+  # Adds a protected button to supported recipe pages. It moves ingredients from the
+  # player inventory into a nearby multiblock machine dispenser but never crafts the item.
+  recipe-fill:
+    enabled: true
+    target-range: 6
+    maximum-sets: 64
+    session-seconds: 120
+    close-guide-on-success: true
+
 # Layout markers:
 # B = background, b = back, T = settings, R = smart search, S = search
 # C/c = bookmarks, G = item group, i = item, P = previous page, N = next page
