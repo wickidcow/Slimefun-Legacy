@@ -34,7 +34,7 @@ require("InventoryAction.COLLECT_TO_CURSOR" in manager, "double-click button pro
 require("InventoryAction.MOVE_TO_OTHER_INVENTORY" in manager, "shift-transfer button protection is missing")
 require("InventoryDragEvent" in manager, "drag button protection is missing")
 require("PlayerQuitEvent" in manager, "disconnect cleanup is missing")
-require("directional.getFacing() == BlockFace.UP" in manager, "Armor Forge dispenser orientation check is missing")
+require("isFacing(dispenser, BlockFace.UP)" in manager or "directional.getFacing() == BlockFace.UP" in manager, "Armor Forge dispenser orientation check is missing")
 require("matchesRecipeIngredient" in manager, "machine-specific recipe matching is missing")
 require("SlimefunBackpack" in manager, "backpack recipe compatibility is missing")
 require("getBoolean(\"features.recipe-fill.enabled\", true)" in settings, "recipe fill default is missing")

@@ -14,14 +14,31 @@ features:
   display-item-id: true
   display-addon: true
 
-  # Adds a protected button to supported recipe pages. It moves ingredients from the
-  # player inventory into a nearby multiblock machine dispenser but never crafts the item.
+  # Adds a protected button to supported recipe pages. It prepares ingredients in
+  # nearby core crafting structures but never performs the final craft.
   recipe-fill:
     enabled: true
     target-range: 6
     maximum-sets: 64
     session-seconds: 120
     close-guide-on-success: true
+
+    # Supports Grind Stone, Smeltery, Ore Crusher, Compressor and Pressure Chamber.
+    unordered-machines: true
+
+    ancient-altar:
+      enabled: true
+
+      # Safely moves the center catalyst into the selected hotbar slot when possible.
+      # Disable this to only populate the eight pedestals.
+      prepare-catalyst-in-hand: true
+
+      # Prevents guide preparation while an altar activation animation may still be running.
+      activation-lock-seconds: 15
+
+    missing-report:
+      maximum-lore-lines: 4
+      show-sub-recipe-hints: true
 
 # Layout markers:
 # B = background, b = back, T = settings, R = smart search, S = search

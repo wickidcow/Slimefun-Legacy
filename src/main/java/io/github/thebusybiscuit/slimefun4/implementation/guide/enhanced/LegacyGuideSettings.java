@@ -45,10 +45,16 @@ public final class LegacyGuideSettings {
     private final boolean displayItemId;
     private final boolean displayAddon;
     private final boolean recipeFill;
+    private final boolean recipeFillUnorderedMachines;
+    private final boolean recipeFillAncientAltar;
+    private final boolean prepareAltarCatalystInHand;
+    private final boolean showSubRecipeHints;
     private final boolean closeGuideAfterRecipeFill;
     private final int recipeFillTargetRange;
     private final int recipeFillMaximumSets;
     private final int recipeFillSessionSeconds;
+    private final int recipeFillAltarLockSeconds;
+    private final int recipeFillMaximumMissingLines;
     private final String survivalTitle;
     private final String cheatTitle;
     private final String searchTitle;
@@ -65,10 +71,19 @@ public final class LegacyGuideSettings {
         displayItemId = config.getBoolean("features.display-item-id", true);
         displayAddon = config.getBoolean("features.display-addon", true);
         recipeFill = config.getBoolean("features.recipe-fill.enabled", true);
+        recipeFillUnorderedMachines = config.getBoolean("features.recipe-fill.unordered-machines", true);
+        recipeFillAncientAltar = config.getBoolean("features.recipe-fill.ancient-altar.enabled", true);
+        prepareAltarCatalystInHand =
+                config.getBoolean("features.recipe-fill.ancient-altar.prepare-catalyst-in-hand", true);
+        showSubRecipeHints = config.getBoolean("features.recipe-fill.missing-report.show-sub-recipe-hints", true);
         closeGuideAfterRecipeFill = config.getBoolean("features.recipe-fill.close-guide-on-success", true);
         recipeFillTargetRange = clamp(config.getInt("features.recipe-fill.target-range", 6), 2, 12);
         recipeFillMaximumSets = clamp(config.getInt("features.recipe-fill.maximum-sets", 64), 1, 64);
         recipeFillSessionSeconds = clamp(config.getInt("features.recipe-fill.session-seconds", 120), 15, 600);
+        recipeFillAltarLockSeconds =
+                clamp(config.getInt("features.recipe-fill.ancient-altar.activation-lock-seconds", 15), 5, 60);
+        recipeFillMaximumMissingLines =
+                clamp(config.getInt("features.recipe-fill.missing-report.maximum-lore-lines", 4), 1, 8);
         survivalTitle = color(config.getString("titles.survival", "&2&lSlimefun Legacy Guide"));
         cheatTitle = color(config.getString("titles.cheat", "&c&lSlimefun Legacy Guide &4(Cheat Mode)"));
         searchTitle = color(config.getString("titles.search", "&2&lSearch &8- &f%query%"));
@@ -119,6 +134,22 @@ public final class LegacyGuideSettings {
         return recipeFill;
     }
 
+    public boolean hasRecipeFillUnorderedMachines() {
+        return recipeFillUnorderedMachines;
+    }
+
+    public boolean hasRecipeFillAncientAltar() {
+        return recipeFillAncientAltar;
+    }
+
+    public boolean shouldPrepareAltarCatalystInHand() {
+        return prepareAltarCatalystInHand;
+    }
+
+    public boolean shouldShowSubRecipeHints() {
+        return showSubRecipeHints;
+    }
+
     public boolean shouldCloseGuideAfterRecipeFill() {
         return closeGuideAfterRecipeFill;
     }
@@ -133,6 +164,14 @@ public final class LegacyGuideSettings {
 
     public int getRecipeFillSessionSeconds() {
         return recipeFillSessionSeconds;
+    }
+
+    public int getRecipeFillAltarLockSeconds() {
+        return recipeFillAltarLockSeconds;
+    }
+
+    public int getRecipeFillMaximumMissingLines() {
+        return recipeFillMaximumMissingLines;
     }
 
     public @Nonnull String getSurvivalTitle() {
