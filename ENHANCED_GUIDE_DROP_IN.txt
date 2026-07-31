@@ -1,0 +1,26 @@
+Slimefun Legacy Native Enhanced Guide — Phase 1 drop-in instructions
+
+Required base
+- The current Slimefun Legacy repository with the prior Folia Phase 2 changes applied.
+
+Install
+1. Back up the repository.
+2. Remove JustEnoughGuide from the test server's plugins folder.
+3. Extract Slimefun-Legacy-Native-Enhanced-Guide-Phase1-changed-files.zip into the repository root.
+4. Preserve all included folder paths and replace SlimefunRegistry.java when prompted.
+5. Commit the files.
+6. Run the normal GitHub Actions workflow that executes spotlessApply and clean build.
+7. Install the resulting Slimefun Legacy JAR on a copied Paper test server.
+8. Fully restart; do not use /reload or a plugin reloader.
+
+Generated data
+- plugins/Slimefun/enhanced-guide.yml
+- plugins/Slimefun/guide-bookmarks.yml
+
+Fallback
+- Set enabled: false in plugins/Slimefun/enhanced-guide.yml.
+- Fully restart to restore the unchanged classic survival and cheat guides.
+
+Current boundary
+- Native menus, paged search, filters, bookmarks, guide metadata and classic recipe rendering are included.
+- Recipe autofill, nearby-container withdrawal and recursive crafting are deliberately not included in this first safety-focused guide layer.

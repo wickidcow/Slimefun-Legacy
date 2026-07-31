@@ -1,0 +1,51 @@
+# Slimefun Legacy Native Enhanced Guide
+# This provides a JEG-style player experience without replacing Slimefun internals through reflection.
+enabled: true
+
+titles:
+  survival: "&2&lSlimefun Legacy Guide"
+  cheat: "&c&lSlimefun Legacy Guide &4(Cheat Mode)"
+  search: "&2&lSearch &8- &f%query%"
+  bookmarks: "&6&lBookmarked Items"
+
+features:
+  bookmarks: true
+  smart-search: true
+  display-item-id: true
+  display-addon: true
+
+# Layout markers:
+# B = background, b = back, T = settings, R = smart search, S = search
+# C/c = bookmarks, G = item group, i = item, P = previous page, N = next page
+format:
+  main:
+    - "BTBBBBRSB"
+    - "GGGGGGGGG"
+    - "GGGGGGGGG"
+    - "GGGGGGGGG"
+    - "GGGGGGGGG"
+    - "BPBBCBBNB"
+
+  group:
+    - "BbBBBBRSB"
+    - "iiiiiiiii"
+    - "iiiiiiiii"
+    - "iiiiiiiii"
+    - "iiiiiiiii"
+    - "BPBBCBBNB"
+
+  search:
+    - "BbBBBBRSB"
+    - "iiiiiiiii"
+    - "iiiiiiiii"
+    - "iiiiiiiii"
+    - "iiiiiiiii"
+    - "BPBBCBBNB"
+
+  bookmarks:
+    - "BbBBBBRSB"
+    - "iiiiiiiii"
+    - "iiiiiiiii"
+    - "iiiiiiiii"
+    - "iiiiiiiii"
+    - "BPBBBBBNB"

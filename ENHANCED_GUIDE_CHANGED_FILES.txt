@@ -1,0 +1,21 @@
+Slimefun Legacy Native Enhanced Guide — Phase 1 changed files
+
+Documentation and validation
+- ENHANCED_GUIDE.md
+- ENHANCED_GUIDE_VALIDATION.md
+- ENHANCED_GUIDE_CHANGED_FILES.txt
+- ENHANCED_GUIDE_DROP_IN.txt
+- scripts/verify_enhanced_guide.py
+
+Core registration
+- src/main/java/io/github/thebusybiscuit/slimefun4/core/SlimefunRegistry.java
+
+Native enhanced guide
+- src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/LegacyGuideBootstrap.java
+- src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/LegacyGuideSettings.java
+- src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/LegacyGuideBookmarks.java
+- src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/EnhancedSurvivalSlimefunGuide.java
+- src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/EnhancedCheatSheetSlimefunGuide.java
+
+Configuration
+- src/main/resources/enhanced-guide.yml
