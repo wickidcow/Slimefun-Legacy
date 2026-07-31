@@ -1,0 +1,42 @@
+name: Build English Slimefun
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Verify Slimefun Legacy invariants
+        run: python3 scripts/verify_legacy.py .
+
+      - name: Build
+        run: |
+          chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon
+          ./gradlew clean build --no-daemon
+
+      - name: Upload JAR
+        uses: actions/upload-artifact@v7
+        with:
+          name: Slimefun-English-Albion
+          path: |
+            build/libs/Slimefun-*.jar
+            !build/libs/*-sources.jar
+          if-no-files-found: error
