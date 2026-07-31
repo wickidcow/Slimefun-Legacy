@@ -247,8 +247,10 @@ public class SlimefunProfiler {
             }
         }
 
-        if (isProfiling && queued.get() > 0) {
-            // Looks like the next profiling has already started, abort!
+        if (isProfiling) {
+            // A new profiling cycle has already started. start() cleared the live timings map, so
+            // reporting now would produce an empty or mixed-cycle summary. Leave pending requests
+            // queued for the active cycle instead.
             return;
         }
 

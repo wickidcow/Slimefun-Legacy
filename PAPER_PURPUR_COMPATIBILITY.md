@@ -1,0 +1,34 @@
+# Paper and Purpur Compatibility Maintenance
+
+Slimefun Legacy treats **Paper** and **Purpur** as its primary server platforms. Folia remains a supported secondary target, but compatibility changes must preserve normal Paper behavior first.
+
+## Current maintenance layer
+
+This maintenance layer adds three low-risk fixes inspired by active Slimefun 5 work while retaining Slimefun Legacy's existing API packages and addon behavior:
+
+- Defensive reading of the `doLimitedCrafting` gamerule so a Paper/Purpur API transition cannot crash Auto-Crafter interaction handling.
+- A plain-text fallback for `/sf versions` if rich Adventure component delivery fails.
+- A profiler cycle guard that prevents empty reports when a new profiling cycle starts before the previous report finishes.
+
+It also adds `scripts/verify_legacy.py`, which runs every English, API, storage, Folia, Enhanced Guide, Gugu sync, and Paper/Purpur compatibility invariant from one command.
+
+## Slimefun 5 review policy
+
+Slimefun 5 is monitored as a source of modern fixes, not as a replacement codebase. Changes should be ported only when they:
+
+1. Solve a reproducible Paper/Purpur, addon, storage, guide, or performance problem.
+2. Can be adapted without relocating Legacy's public API packages.
+3. Preserve existing addon binary compatibility.
+4. Pass the full Legacy verification suite and Gradle tests.
+5. Do not rewrite stable systems merely to match another fork's architecture.
+
+## Validation
+
+Run:
+
+```bash
+python3 scripts/verify_legacy.py .
+./gradlew spotlessCheck test build --no-daemon
+```
+
+The Gugu upstream synchronization workflow runs the same complete verifier before it opens or updates its draft pull request.

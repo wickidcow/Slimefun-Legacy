@@ -35,11 +35,8 @@ def main() -> int:
         "fetch-depth: 0",
         "scripts/sync_upstream.sh",
         "--draft",
-        "verify_english.py",
-        "verify_part2.py",
-        "verify_part3.py",
+        "verify_legacy.py",
         ".gugu-upstream-base",
-        "check_api_annotations.py",
         "force-with-lease",
     )
     for needle in required_workflow:

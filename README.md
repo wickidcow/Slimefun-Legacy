@@ -194,6 +194,7 @@ Detailed release information is available in [`STABILITY_RELEASE.md`](STABILITY_
 | Fabric / Forge / NeoForge | ❌ Unsupported — this is a server plugin, not a mod |
 
 Slimefun Legacy is built for Paper. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed.
+The compatibility policy and current defensive maintenance layer are documented in [`PAPER_PURPUR_COMPATIBILITY.md`](PAPER_PURPUR_COMPATIBILITY.md).
 
 Folia Phase 1 routes machine ticks and entity/location callbacks through their owning schedulers while preserving Paper behavior. Cargo and energy networks intentionally operate only on nodes owned by the regulator's current Folia region; transactional cross-region transfers are not enabled yet. Folia therefore remains experimental. **Every installed addon must also be Folia-safe.** See [`FOLIA_PHASE1.md`](FOLIA_PHASE1.md) for the exact safety boundary and staging checklist.
 

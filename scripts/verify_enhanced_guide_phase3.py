@@ -129,13 +129,7 @@ for path in (manager_path, settings_path, bootstrap_path):
     text = read(path)
     require(text.count("{") == text.count("}"), f"unbalanced braces: {path}")
 
-for doc in (
-    "ENHANCED_GUIDE_PHASE3.md",
-    "ENHANCED_GUIDE_PHASE3_VALIDATION.md",
-    "ENHANCED_GUIDE_PHASE3_CHANGED_FILES.txt",
-    "ENHANCED_GUIDE_PHASE3_DROP_IN.txt",
-):
-    require((ROOT / doc).is_file(), f"missing Phase 3 documentation: {doc}")
+require((ROOT / "ENHANCED_GUIDE.md").is_file(), "missing consolidated Enhanced Guide documentation")
 
 if FAILURES:
     for failure in FAILURES:

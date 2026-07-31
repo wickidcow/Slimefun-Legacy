@@ -131,12 +131,7 @@ if ! git diff --cached --quiet; then
   git commit -m "chore: record Gugu upstream baseline ${UPSTREAM_SHA:0:8}"
 fi
 
-python3 scripts/verify_english.py .
-python3 scripts/verify_chunk_load_threading.py .
-python3 scripts/verify_part2.py .
-python3 scripts/verify_part3.py .
-python3 scripts/check_api_annotations.py .
-python3 scripts/verify_gugu_sync.py .
+python3 scripts/verify_legacy.py .
 
 if [[ "$RUN_BUILD" == "1" ]]; then
   chmod +x gradlew

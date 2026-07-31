@@ -1,5 +1,14 @@
 # Slimefun Legacy Folia Support — Phase 1
 
+
+## Paper/Purpur Compatibility Maintenance
+
+- Added the audited `.gugu-upstream-base` marker for safe Gugu update merges.
+- Guarded the modern limited-crafting gamerule read used by Vanilla Auto-Crafters.
+- Added a plain-text fallback to `/sf versions` so environment reports are never silently lost.
+- Prevented profiler reports from mixing with or emptying after a newer profiling cycle starts.
+- Added one complete Legacy verification command and Paper/Purpur-specific source invariants.
+
 - Route every Folia machine tick to the region that owns its machine chunk while preserving the historical Paper ticker path.
 - Prevent overlapping machine cycles and serialize shared addon `BlockTicker` instances across Folia regions.
 - Make `BlockTicker` unique-cycle state safe under concurrent region dispatch.

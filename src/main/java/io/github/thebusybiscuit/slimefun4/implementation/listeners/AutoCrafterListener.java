@@ -8,9 +8,11 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.autocrafters.Enha
 import io.github.thebusybiscuit.slimefun4.implementation.items.autocrafters.VanillaAutoCrafter;
 import io.github.thebusybiscuit.slimefun4.implementation.items.electric.gadgets.Multimeter;
 import java.util.Optional;
+import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.GameRules;
 import org.bukkit.Keyed;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event.Result;
@@ -71,11 +73,9 @@ public class AutoCrafterListener implements Listener {
 
                 // Check for the "doLimitedCrafting" gamerule when using a Vanilla Auto-Crafter
                 if (block instanceof VanillaAutoCrafter) {
-                    boolean doLimitedCrafting = Boolean.TRUE.equals(
-                            e.getPlayer().getWorld().getGameRuleValue(GameRules.LIMITED_CRAFTING));
-
                     // Check if the recipe of the item is disabled.
-                    if (doLimitedCrafting && !hasUnlockedRecipe(e.getPlayer(), e.getItem())) {
+                    if (isLimitedCrafting(e.getPlayer().getWorld())
+                            && !hasUnlockedRecipe(e.getPlayer(), e.getItem())) {
                         Slimefun.getLocalization()
                                 .sendMessage(e.getPlayer(), "messages.auto-crafting.recipe-unavailable");
                         return;
@@ -89,6 +89,23 @@ public class AutoCrafterListener implements Listener {
                     crafter.error("Something went wrong while right-clicking an Auto-Crafter", x);
                 }
             }
+        }
+    }
+
+    /**
+     * Reads the modern limited-crafting gamerule defensively. Paper and Purpur normally expose
+     * {@link GameRules#LIMITED_CRAFTING}, but compatibility layers or version transitions must never
+     * be allowed to crash an Auto-Crafter interaction. A failed read is treated as disabled.
+     *
+     * @param world
+     *            The world whose gamerule should be checked
+     * @return Whether limited crafting is enabled
+     */
+    private boolean isLimitedCrafting(@Nonnull World world) {
+        try {
+            return Boolean.TRUE.equals(world.getGameRuleValue(GameRules.LIMITED_CRAFTING));
+        } catch (RuntimeException | LinkageError ignored) {
+            return false;
         }
     }
 

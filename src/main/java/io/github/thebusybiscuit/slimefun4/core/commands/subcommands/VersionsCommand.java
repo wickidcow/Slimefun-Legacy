@@ -17,6 +17,7 @@ import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
@@ -106,9 +107,22 @@ class VersionsCommand extends SubCommand {
             builder.append(Component.text("\n"));
             addPluginVersions(builder);
 
-            sender.sendMessage(builder.build());
+            sendVersionReport(sender, builder.build());
         } else {
             Slimefun.getLocalization().sendMessage(sender, "messages.no-permission", true);
+        }
+    }
+
+    /**
+     * Sends the rich Adventure report and guarantees a response if a Paper/Purpur command bridge
+     * rejects component delivery. The fallback only loses hover/click metadata; it never loses the
+     * diagnostic report itself.
+     */
+    private void sendVersionReport(@Nonnull CommandSender sender, @Nonnull Component report) {
+        try {
+            sender.sendMessage(report);
+        } catch (RuntimeException | LinkageError ignored) {
+            sender.sendMessage(PlainTextComponentSerializer.plainText().serialize(report));
         }
     }
 

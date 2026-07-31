@@ -47,16 +47,18 @@ require(bows, ".runForLater(", "Projectile cleanup is not entity-owned")
 
 crafter = "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/AutoCrafterListener.java"
 require(crafter, "GameRules.LIMITED_CRAFTING", "Modern limited-crafting gamerule is missing")
+require(crafter, "isLimitedCrafting", "Defensive limited-crafting gamerule helper is missing")
 forbid(crafter, "GameRule.DO_LIMITED_CRAFTING", "Removed limited-crafting gamerule remains")
 
 profiler = "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/profiler/SlimefunProfiler.java"
-for token in ("millisecondSamples", "nanosecondSamples", "samples == 0 ? 0"):
+for token in ("millisecondSamples", "nanosecondSamples", "samples == 0 ? 0", "if (isProfiling)"):
     require(profiler, token, f"Profiler invariant is missing: {token}")
 forbid(profiler, "ticksPassed", "Profiler still shares one reset counter between metrics")
 
 versions = "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/VersionsCommand.java"
 require(versions, "RECOMMENDED_JAVA_VERSION = 21", "Java recommendation is not current")
 require(versions, '"Folia" : "Paper"', "Scheduler platform reporting is missing")
+require(versions, "sendVersionReport", "/sf versions rich-message fallback is missing")
 forbid(versions, "PaperLib", "Versions command still relies on PaperLib detection")
 
 for path in (
@@ -78,7 +80,9 @@ require(
     "new FoodLevelChangeEvent(p, p.getFoodLevel() - 4, item)",
     "Storm Staff still uses the removed FoodLevelChangeEvent constructor",
 )
-read("src/test/java/io/github/thebusybiscuit/slimefun4/core/services/profiler/SlimefunProfilerAverageTest.java")
+profiler_test = read("src/test/java/io/github/thebusybiscuit/slimefun4/core/services/profiler/SlimefunProfilerAverageTest.java")
+if "suppressesSupersededCycleReport" not in profiler_test:
+    errors.append("Profiler superseded-cycle regression test is missing")
 
 if errors:
     print("Part 4 verification failed:", file=sys.stderr)
