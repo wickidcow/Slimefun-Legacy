@@ -61,6 +61,7 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
 
         Player player = profile.getPlayer();
         if (player != null) {
+            LegacyMachineRecipeBrowser.get().decorateMachinePage(player, profile, this, item);
             LegacyRecipeFillManager.get().decorateRecipePage(player, item);
         }
     }

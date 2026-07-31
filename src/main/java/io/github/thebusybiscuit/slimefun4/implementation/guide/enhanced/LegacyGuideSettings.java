@@ -44,6 +44,7 @@ public final class LegacyGuideSettings {
     private final boolean smartSearch;
     private final boolean displayItemId;
     private final boolean displayAddon;
+    private final boolean machineRecipeBrowser;
     private final boolean recipeFill;
     private final boolean recipeFillUnorderedMachines;
     private final boolean recipeFillAncientAltar;
@@ -70,6 +71,7 @@ public final class LegacyGuideSettings {
         smartSearch = config.getBoolean("features.smart-search", true);
         displayItemId = config.getBoolean("features.display-item-id", true);
         displayAddon = config.getBoolean("features.display-addon", true);
+        machineRecipeBrowser = config.getBoolean("features.machine-recipes.enabled", true);
         recipeFill = config.getBoolean("features.recipe-fill.enabled", true);
         recipeFillUnorderedMachines = config.getBoolean("features.recipe-fill.unordered-machines", true);
         recipeFillAncientAltar = config.getBoolean("features.recipe-fill.ancient-altar.enabled", true);
@@ -128,6 +130,10 @@ public final class LegacyGuideSettings {
 
     public boolean shouldDisplayAddon() {
         return displayAddon;
+    }
+
+    public boolean hasMachineRecipeBrowser() {
+        return machineRecipeBrowser;
     }
 
     public boolean hasRecipeFill() {

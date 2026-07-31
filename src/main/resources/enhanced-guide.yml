@@ -14,6 +14,12 @@ features:
   display-item-id: true
   display-addon: true
 
+  # Adds a JEG-style "Machine Recipes" button to supported addon machines.
+  # FastMachines support reads the addon's public recipe getters and does not
+  # access private fields or require FastMachines as a hard dependency.
+  machine-recipes:
+    enabled: true
+
   # Adds a protected button to supported recipe pages. It prepares ingredients in
   # nearby core crafting structures but never performs the final craft.
   recipe-fill:
