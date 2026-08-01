@@ -8,6 +8,7 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeDisplay;
+import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,7 +16,6 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,7 +30,7 @@ class TestPublicMachineRecipeProvider {
     @BeforeEach
     void setUp() {
         server = MockBukkit.mock();
-        JavaPlugin plugin = MockBukkit.createMockPlugin();
+        Slimefun plugin = MockBukkit.load(Slimefun.class);
         provider = new LegacyMachineRecipeProviders.PublicMethodProvider(plugin);
     }
 
