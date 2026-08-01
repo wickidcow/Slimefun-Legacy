@@ -265,12 +265,21 @@ public final class LegacyMachineRecipeProviders {
 
         @Override
         public boolean supports(@Nonnull SlimefunItem item) {
+            return supportsObject(item);
+        }
+
+        boolean supportsObject(@Nonnull Object item) {
             return !findMachineSources(item.getClass()).isEmpty();
         }
 
         @Override
         public @Nonnull List<MachineRecipeDisplay> getRecipes(
                 @Nonnull SlimefunItem item, @Nonnull World world) {
+            return getRecipesFromObject(item, world);
+        }
+
+        @Nonnull
+        List<MachineRecipeDisplay> getRecipesFromObject(@Nonnull Object item, @Nonnull World world) {
             List<RecipeSourceAccessor> sources = findMachineSources(item.getClass());
             if (sources.isEmpty()) {
                 return List.of();

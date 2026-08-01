@@ -3,19 +3,14 @@ package io.github.thebusybiscuit.slimefun4.implementation.guide.enhanced;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
-import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeDisplay;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,7 +25,7 @@ class TestPublicMachineRecipeProvider {
     @BeforeEach
     void setUp() {
         server = MockBukkit.mock();
-        Slimefun plugin = MockBukkit.load(Slimefun.class);
+        JavaPlugin plugin = MockBukkit.createMockPlugin();
         provider = new LegacyMachineRecipeProviders.PublicMethodProvider(plugin);
     }
 
@@ -42,9 +37,9 @@ class TestPublicMachineRecipeProvider {
     @Test
     void readsSupremeStylePublicRecipeField() {
         SupremeStyleMachine machine = new SupremeStyleMachine();
-        List<MachineRecipeDisplay> recipes = provider.getRecipes(machine, world());
+        List<MachineRecipeDisplay> recipes = provider.getRecipesFromObject(machine, world());
 
-        assertTrue(provider.supports(machine));
+        assertTrue(provider.supportsObject(machine));
         assertEquals(1, recipes.size());
         assertEquals(2, recipes.get(0).getInputs().size());
         assertEquals(Material.DIAMOND, recipes.get(0).getOutputs().get(0).getType());
@@ -54,7 +49,7 @@ class TestPublicMachineRecipeProvider {
     @Test
     void readsNumberedInputsAndChanceMetadata() {
         NumberedRecipeMachine machine = new NumberedRecipeMachine();
-        List<MachineRecipeDisplay> recipes = provider.getRecipes(machine, world());
+        List<MachineRecipeDisplay> recipes = provider.getRecipesFromObject(machine, world());
 
         assertEquals(1, recipes.size());
         assertEquals(2, recipes.get(0).getInputs().size());
@@ -64,7 +59,7 @@ class TestPublicMachineRecipeProvider {
     @Test
     void readsMapBasedRecipes() {
         MapRecipeMachine machine = new MapRecipeMachine();
-        List<MachineRecipeDisplay> recipes = provider.getRecipes(machine, world());
+        List<MachineRecipeDisplay> recipes = provider.getRecipesFromObject(machine, world());
 
         assertEquals(1, recipes.size());
         assertEquals(Material.IRON_INGOT, recipes.get(0).getInputs().get(0).getChoices().get(0).getType());
@@ -75,24 +70,9 @@ class TestPublicMachineRecipeProvider {
         return server.addSimpleWorld("phase4_compatibility");
     }
 
-    public abstract static class TestMachine extends SlimefunItem {
-
-        TestMachine(String id) {
-            super(
-                    new ItemGroup(new NamespacedKey("slimefun", id.toLowerCase()), new ItemStack(Material.BOOK)),
-                    new SlimefunItemStack(id, Material.FURNACE, id),
-                    RecipeType.NULL,
-                    new ItemStack[9]);
-        }
-    }
-
-    public static final class SupremeStyleMachine extends TestMachine {
+    public static final class SupremeStyleMachine {
 
         public final List<SupremeStyleRecipe> machineRecipes = List.of(new SupremeStyleRecipe());
-
-        SupremeStyleMachine() {
-            super("TEST_SUPREME_STYLE_MACHINE");
-        }
 
         public List<SupremeStyleRecipe> getMachineRecipes() {
             return List.of();
@@ -116,13 +96,9 @@ class TestPublicMachineRecipeProvider {
         }
     }
 
-    public static final class NumberedRecipeMachine extends TestMachine {
+    public static final class NumberedRecipeMachine {
 
         public final List<NumberedRecipe> recipes = List.of(new NumberedRecipe());
-
-        NumberedRecipeMachine() {
-            super("TEST_NUMBERED_RECIPE_MACHINE");
-        }
     }
 
     public static final class NumberedRecipe {
@@ -144,12 +120,11 @@ class TestPublicMachineRecipeProvider {
         }
     }
 
-    public static final class MapRecipeMachine extends TestMachine {
+    public static final class MapRecipeMachine {
 
         public final Map<ItemStack, ItemStack> recipeMap = new LinkedHashMap<>();
 
         MapRecipeMachine() {
-            super("TEST_MAP_RECIPE_MACHINE");
             recipeMap.put(new ItemStack(Material.IRON_INGOT), new ItemStack(Material.GOLD_INGOT));
         }
     }
