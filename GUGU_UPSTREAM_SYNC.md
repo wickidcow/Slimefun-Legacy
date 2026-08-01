@@ -23,6 +23,14 @@ When the source changes are uploaded without their original upstream Git parent,
 
 Do not delete or manually change `.gugu-upstream-base` unless intentionally re-establishing the upstream integration point. The workflow refuses rewritten or unrelated upstream history rather than guessing.
 
+## Upstream health gate
+
+Before any merge is attempted, `.github/workflows/sync-gugu-upstream.yml` evaluates the selected Gugu commit through GitHub's Check Runs, Actions workflow runs, and legacy commit-status APIs. The scheduled workflow is strict: failed, pending, unavailable, or missing health signals block the sync before Java setup, merging, branch pushes, or pull-request changes.
+
+A manual workflow run may enable `override_upstream_health`, but `override_reason` is required. An override only permits creation of a reviewed **draft** test branch and pull request; it does not bypass Legacy's own English, API, Paper/Purpur, storage, guide, formatting, test, or build checks. The health report is uploaded as an artifact and embedded in the draft pull request.
+
+The evaluator intentionally uses only the latest attempt for each check or workflow. A successful rerun can therefore clear an earlier failed attempt, while a currently queued or in-progress rerun remains blocked. Success, neutral, and skipped conclusions are accepted; failures, cancellation, timeout, startup failure, action-required, stale results, and unknown coverage are blocked unless manually overridden.
+
 ## Safe workflow
 
 `.github/workflows/sync-gugu-upstream.yml` performs a real Git merge into `automation/gugu-upstream-sync` and opens or updates a **draft pull request**.
@@ -51,10 +59,11 @@ A clean merge must pass:
 1. Push the completed Part 3 source to the repository's default branch.
 2. Open **Actions → Sync Gugu Upstream → Run workflow**.
 3. Leave `upstream_ref` as `master` unless testing a specific upstream branch.
-4. Review the generated draft pull request and workflow artifact.
-5. Resolve any English wording, scheduler ownership, API compatibility, or addon compatibility issues in the PR branch.
-6. Test the resulting JAR against a copy of the production Slimefun database.
-7. Merge only after the backup/restore test succeeds.
+4. Leave `override_upstream_health` disabled for normal updates. If a deliberately reviewed draft test must proceed despite upstream health, enable it and provide a concrete `override_reason`.
+5. Review the upstream health artifact, generated draft pull request, and sync report.
+6. Resolve any English wording, scheduler ownership, API compatibility, or addon compatibility issues in the PR branch.
+7. Test the resulting JAR against a copy of the production Slimefun database.
+8. Merge only after the backup/restore test succeeds.
 
 ## Production database procedure
 

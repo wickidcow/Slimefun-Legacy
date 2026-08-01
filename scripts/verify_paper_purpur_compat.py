@@ -3,8 +3,11 @@
 
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
+
+MINIMUM_GUGU_BASELINE = "ece7368e1d0b40bc95c63d2796117794fcaf190e"
 
 
 def main() -> int:
@@ -19,8 +22,31 @@ def main() -> int:
         return path.read_text(encoding="utf-8")
 
     marker = read(".gugu-upstream-base").strip()
-    if marker != "ece7368e1d0b40bc95c63d2796117794fcaf190e":
-        failures.append(".gugu-upstream-base does not contain the audited Gugu baseline")
+    if len(marker) != 40 or any(character not in "0123456789abcdefABCDEF" for character in marker):
+        failures.append(".gugu-upstream-base must contain one full 40-character commit SHA")
+    elif (root / ".git").exists():
+        # The marker advances after each accepted upstream sync. It must never
+        # move behind the storage baseline that Legacy already integrated.
+        for commit in (MINIMUM_GUGU_BASELINE, marker):
+            result = subprocess.run(
+                ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+                cwd=root,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+            if result.returncode != 0:
+                break
+        else:
+            result = subprocess.run(
+                ["git", "merge-base", "--is-ancestor", MINIMUM_GUGU_BASELINE, marker],
+                cwd=root,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+            if result.returncode != 0:
+                failures.append(".gugu-upstream-base moved behind or away from the audited storage baseline")
 
     crafter = read("src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/AutoCrafterListener.java")
     for token in (

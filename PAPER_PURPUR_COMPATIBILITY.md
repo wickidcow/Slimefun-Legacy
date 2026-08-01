@@ -10,7 +10,9 @@ This maintenance layer adds three low-risk fixes inspired by active Slimefun 5 w
 - A plain-text fallback for `/sf versions` if rich Adventure component delivery fails.
 - A profiler cycle guard that prevents empty reports when a new profiling cycle starts before the previous report finishes.
 
-It also adds `scripts/verify_legacy.py`, which runs every English, API, storage, Folia, Enhanced Guide, Gugu sync, and Paper/Purpur compatibility invariant from one command.
+It also adds `scripts/verify_legacy.py`, which runs every English, API, storage, Folia, Enhanced Guide, Gugu sync, upstream-health, and Paper/Purpur compatibility invariant from one command.
+
+The Gugu sync workflow now proves upstream health before importing code. Failed, pending, missing, or unavailable upstream checks are blocked by default, and any manual draft-only override requires a written reason.
 
 ## Slimefun 5 review policy
 

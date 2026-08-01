@@ -84,6 +84,12 @@ REPORT_PATH="${GUGU_SYNC_REPORT:-$ROOT_DIR/gugu-sync-report.txt}"
   echo "Recorded upstream baseline: ${INTEGRATED_UPSTREAM_SHA:-none}"
   echo "Upstream ref: $UPSTREAM_REF"
   echo "Upstream commit: $UPSTREAM_SHA"
+  if [[ -n "${GUGU_UPSTREAM_HEALTH_STATE:-}" ]]; then
+    echo "Upstream health state: ${GUGU_UPSTREAM_HEALTH_STATE}"
+  fi
+  if [[ -n "${GUGU_UPSTREAM_HEALTH_DECISION:-}" ]]; then
+    echo "Upstream health decision: ${GUGU_UPSTREAM_HEALTH_DECISION}"
+  fi
   echo
   echo "Pending commits after the effective baseline:"
   git log --reverse --date=short --format='- %h %ad %s' "${RANGE_BASE}..${UPSTREAM_SHA}" || true

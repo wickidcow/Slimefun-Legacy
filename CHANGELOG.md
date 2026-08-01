@@ -31,6 +31,9 @@
 
 ## Gugu upstream sync safety
 
+- Added a strict upstream health gate using Check Runs, Actions workflow runs, and commit statuses.
+- Scheduled syncs now stop before merging when upstream checks are failed, pending, unavailable, or missing.
+- Manual draft testing requires both `override_upstream_health` and a written `override_reason`.
 - Replaced destructive upstream tree replacement with a history-preserving Git merge.
 - Upstream updates now open a draft pull request and never auto-merge.
 - Merge conflicts stop without overwriting fork files.
