@@ -10,6 +10,16 @@ on:
         required: false
         default: master
         type: string
+      override_upstream_health:
+        description: Allow a draft sync when upstream checks are not healthy
+        required: false
+        default: false
+        type: boolean
+      override_reason:
+        description: Required explanation when overriding the upstream health gate
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write
@@ -24,6 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SYNC_BRANCH: automation/gugu-upstream-sync
+      UPSTREAM_REPOSITORY: SlimefunGuguProject/Slimefun4
       GH_TOKEN: ${{ github.token }}
 
     steps:
@@ -32,25 +43,60 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Resolve branches
+      - name: Resolve branches and health policy
         id: refs
         shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_UPSTREAM_REF: ${{ inputs.upstream_ref }}
+          INPUT_OVERRIDE_HEALTH: ${{ inputs.override_upstream_health }}
+          INPUT_OVERRIDE_REASON: ${{ inputs.override_reason }}
         run: |
           set -euo pipefail
-          BASE_BRANCH="${{ github.event.repository.default_branch }}"
-          UPSTREAM_REF="${{ github.event.inputs.upstream_ref }}"
+          BASE_BRANCH="$DEFAULT_BRANCH"
+          UPSTREAM_REF="$INPUT_UPSTREAM_REF"
+          OVERRIDE_HEALTH="$INPUT_OVERRIDE_HEALTH"
+          OVERRIDE_REASON="$INPUT_OVERRIDE_REASON"
+
           if [[ -z "$UPSTREAM_REF" ]]; then
             UPSTREAM_REF=master
           fi
+          if ! git check-ref-format --branch "$UPSTREAM_REF" >/dev/null 2>&1; then
+            echo "Invalid upstream_ref branch name: $UPSTREAM_REF" >&2
+            exit 1
+          fi
+
+          # Scheduled runs are always strict. A health override must be an
+          # intentional manual workflow dispatch with a written reason.
+          if [[ "$EVENT_NAME" != "workflow_dispatch" ]]; then
+            OVERRIDE_HEALTH=false
+            OVERRIDE_REASON=""
+          fi
+          if [[ -z "$OVERRIDE_HEALTH" ]]; then
+            OVERRIDE_HEALTH=false
+          fi
+          if [[ "$OVERRIDE_HEALTH" == "true" && -z "${OVERRIDE_REASON//[[:space:]]/}" ]]; then
+            echo "override_reason is required when override_upstream_health is enabled." >&2
+            exit 1
+          fi
+
           echo "base_branch=$BASE_BRANCH" >> "$GITHUB_OUTPUT"
           echo "upstream_ref=$UPSTREAM_REF" >> "$GITHUB_OUTPUT"
+          echo "health_override=$OVERRIDE_HEALTH" >> "$GITHUB_OUTPUT"
+          DELIMITER="SLIMEFUN_OVERRIDE_REASON_${RANDOM}_$(date +%s%N)"
+          {
+            echo "override_reason<<$DELIMITER"
+            echo "$OVERRIDE_REASON"
+            echo "$DELIMITER"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Check for upstream commits
         id: pending
         shell: bash
         run: |
           set -euo pipefail
-          git remote add upstream https://github.com/SlimefunGuguProject/Slimefun4.git
+          git remote add upstream "https://github.com/${UPSTREAM_REPOSITORY}.git"
           git fetch --no-tags upstream "+refs/heads/${{ steps.refs.outputs.upstream_ref }}:refs/remotes/upstream/${{ steps.refs.outputs.upstream_ref }}"
           UPSTREAM_SHA="$(git rev-parse upstream/${{ steps.refs.outputs.upstream_ref }})"
           MARKER_SHA=""
@@ -78,8 +124,45 @@ jobs:
           echo "upstream_sha=$UPSTREAM_SHA" >> "$GITHUB_OUTPUT"
           echo "integrated_sha=${MARKER_SHA:-none}" >> "$GITHUB_OUTPUT"
 
-      - name: Set up Java 25
+      - name: Evaluate upstream health
         if: steps.pending.outputs.has_updates == 'true'
+        id: health
+        shell: bash
+        env:
+          HEALTH_OVERRIDE: ${{ steps.refs.outputs.health_override }}
+          HEALTH_OVERRIDE_REASON: ${{ steps.refs.outputs.override_reason }}
+        run: |
+          set -euo pipefail
+          ARGS=(
+            --repository "$UPSTREAM_REPOSITORY"
+            --sha "${{ steps.pending.outputs.upstream_sha }}"
+            --report "$RUNNER_TEMP/gugu-upstream-health.md"
+            --github-output "$GITHUB_OUTPUT"
+          )
+          if [[ "$HEALTH_OVERRIDE" == "true" ]]; then
+            ARGS+=(--allow-unhealthy --override-reason "$HEALTH_OVERRIDE_REASON")
+          fi
+
+          python3 scripts/check_upstream_health.py "${ARGS[@]}"
+          cat "$RUNNER_TEMP/gugu-upstream-health.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload upstream health report
+        if: always() && steps.pending.outputs.has_updates == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gugu-upstream-health-report
+          path: ${{ runner.temp }}/gugu-upstream-health.md
+          if-no-files-found: warn
+
+      - name: Stop when upstream health gate blocks sync
+        if: steps.pending.outputs.has_updates == 'true' && steps.health.outputs.allowed != 'true'
+        run: |
+          echo "The selected Gugu commit did not pass the upstream health gate."
+          echo "Run the workflow manually with an explicit override reason only when creating a reviewed draft test is intentional."
+          exit 1
+
+      - name: Set up Java 25
+        if: steps.pending.outputs.has_updates == 'true' && steps.health.outputs.allowed == 'true'
         uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -87,13 +170,13 @@ jobs:
           cache: gradle
 
       - name: Configure Git identity
-        if: steps.pending.outputs.has_updates == 'true'
+        if: steps.pending.outputs.has_updates == 'true' && steps.health.outputs.allowed == 'true'
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
 
       - name: Merge and validate upstream
-        if: steps.pending.outputs.has_updates == 'true'
+        if: steps.pending.outputs.has_updates == 'true' && steps.health.outputs.allowed == 'true'
         id: merge
         shell: bash
         run: |
@@ -101,6 +184,8 @@ jobs:
           export GUGU_SYNC_ABORT_ON_CONFLICT=1
           export GUGU_SYNC_BUILD=1
           export GUGU_SYNC_REPORT="$RUNNER_TEMP/gugu-sync-report.txt"
+          export GUGU_UPSTREAM_HEALTH_STATE="${{ steps.health.outputs.state }}"
+          export GUGU_UPSTREAM_HEALTH_DECISION="${{ steps.health.outputs.decision }}"
           chmod +x scripts/sync_upstream.sh gradlew
           set +e
           scripts/sync_upstream.sh "${{ steps.refs.outputs.upstream_ref }}" "$SYNC_BRANCH" 2>&1 | tee "$RUNNER_TEMP/gugu-sync.log"
@@ -109,48 +194,63 @@ jobs:
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
 
       - name: Upload sync report
-        if: always() && steps.pending.outputs.has_updates == 'true'
+        if: always() && steps.pending.outputs.has_updates == 'true' && steps.health.outputs.allowed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: gugu-upstream-sync-report
           path: |
             ${{ runner.temp }}/gugu-sync-report.txt
             ${{ runner.temp }}/gugu-sync.log
+            ${{ runner.temp }}/gugu-upstream-health.md
           if-no-files-found: warn
 
       - name: Stop on merge conflicts
-        if: steps.pending.outputs.has_updates == 'true' && steps.merge.outputs.status == '3'
+        if: steps.pending.outputs.has_updates == 'true' && steps.health.outputs.allowed == 'true' && steps.merge.outputs.status == '3'
         run: |
           echo "The upstream merge has conflicts. No branch was pushed and no fork files were overwritten."
           exit 1
 
       - name: Push review branch
-        if: steps.pending.outputs.has_updates == 'true' && steps.merge.outputs.status != '3'
+        if: steps.pending.outputs.has_updates == 'true' && steps.health.outputs.allowed == 'true' && steps.merge.outputs.status != '3'
         run: git push --force-with-lease origin "$SYNC_BRANCH:$SYNC_BRANCH"
 
       - name: Open or update draft pull request
-        if: steps.pending.outputs.has_updates == 'true' && steps.merge.outputs.status != '3'
+        if: steps.pending.outputs.has_updates == 'true' && steps.health.outputs.allowed == 'true' && steps.merge.outputs.status != '3'
         shell: bash
+        env:
+          HEALTH_OVERRIDE_REASON: ${{ steps.refs.outputs.override_reason }}
         run: |
           set -euo pipefail
           STATUS="${{ steps.merge.outputs.status }}"
           REPORT="$RUNNER_TEMP/gugu-sync-report.txt"
+          HEALTH_REPORT="$RUNNER_TEMP/gugu-upstream-health.md"
           BODY="$RUNNER_TEMP/gugu-sync-pr-body.md"
 
           {
-            echo "Automated, history-preserving merge from \`SlimefunGuguProject/Slimefun4:${{ steps.refs.outputs.upstream_ref }}\`."
+            echo "Automated, history-preserving merge from \`${UPSTREAM_REPOSITORY}:${{ steps.refs.outputs.upstream_ref }}\`."
             echo
             echo "- Previously integrated baseline: \`${{ steps.pending.outputs.integrated_sha }}\`"
             echo "- Upstream commit: \`${{ steps.pending.outputs.upstream_sha }}\`"
+            echo "- Upstream health state: \`${{ steps.health.outputs.state }}\`"
+            echo "- Upstream health decision: \`${{ steps.health.outputs.decision }}\`"
+            if [[ "${{ steps.health.outputs.override_used }}" == "true" ]]; then
+              echo "- Manual health override reason: ${HEALTH_OVERRIDE_REASON}"
+            fi
             echo "- The merge used Git history; it did not rsync or replace the fork tree."
             echo "- This PR remains a draft for manual review."
             echo "- Back up the Slimefun database before testing storage-schema changes."
             echo
             if [[ "$STATUS" == "0" ]]; then
-              echo "**Validation:** English guard, Part 2 and Part 3 invariants, API annotations, Spotless, tests, and build passed."
+              echo "**Legacy validation:** all invariants, Paper/Purpur compatibility guards, Spotless, tests, and build passed."
             else
-              echo "**Validation:** one or more checks failed. Review the workflow artifact before changing this PR from draft."
+              echo "**Legacy validation:** one or more checks failed. Review the workflow artifact before changing this PR from draft."
             fi
+            echo
+            echo "<details><summary>Upstream health report</summary>"
+            echo
+            cat "$HEALTH_REPORT"
+            echo
+            echo "</details>"
             echo
             echo "<details><summary>Sync report</summary>"
             echo
@@ -175,7 +275,7 @@ jobs:
           fi
 
       - name: Fail when validation failed
-        if: steps.pending.outputs.has_updates == 'true' && steps.merge.outputs.status != '0' && steps.merge.outputs.status != '3'
+        if: steps.pending.outputs.has_updates == 'true' && steps.health.outputs.allowed == 'true' && steps.merge.outputs.status != '0' && steps.merge.outputs.status != '3'
         run: |
           echo "A draft PR was opened, but validation failed. Review the uploaded sync report."
           exit 1
