@@ -37,7 +37,7 @@ checks = {
     "Bootstrap initialization": 'LegacyMachineRecipeBrowser.initialize(plugin)' in bootstrap_text,
     "Settings default enabled": 'features.machine-recipes.enabled", true' in settings_text,
     "YAML option": 'machine-recipes:' in config_text and 'enabled: true' in config_text,
-    "No private field reflection": 'getDeclaredField' not in providers_text and 'setAccessible' not in providers_text,
+    "No private field reflection": '.getDeclaredField(' not in providers_text and '.setAccessible(' not in providers_text,
 }
 
 failed = [name for name, passed in checks.items() if not passed]

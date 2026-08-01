@@ -2,6 +2,8 @@ package io.github.thebusybiscuit.slimefun4.implementation.guide.enhanced;
 
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.groups.FlexItemGroup;
+import io.github.thebusybiscuit.slimefun4.api.items.groups.NestedItemGroup;
+import io.github.thebusybiscuit.slimefun4.api.items.groups.SubItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
 import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuideMode;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
@@ -25,8 +27,20 @@ public final class EnhancedCheatSheetSlimefunGuide extends EnhancedSurvivalSlime
     protected @Nonnull List<ItemGroup> getVisibleItemGroups(@Nonnull Player player, @Nonnull PlayerProfile profile) {
         List<ItemGroup> groups = new LinkedList<>();
         for (ItemGroup group : Slimefun.getRegistry().getAllItemGroups()) {
-            if (!(group instanceof FlexItemGroup flexItemGroup)
-                    || flexItemGroup.isVisible(player, profile, getMode())) {
+            if (group instanceof SubItemGroup) {
+                // Keep addon child categories inside their parent instead of flattening the cheat main menu.
+                continue;
+            }
+
+            if (group instanceof NestedItemGroup nestedItemGroup) {
+                if (nestedItemGroup.hasVisibleSubGroups(player)) {
+                    groups.add(group);
+                }
+            } else if (group instanceof FlexItemGroup flexItemGroup) {
+                if (flexItemGroup.isVisible(player, profile, getMode())) {
+                    groups.add(group);
+                }
+            } else if (group.isVisible(player)) {
                 groups.add(group);
             }
         }

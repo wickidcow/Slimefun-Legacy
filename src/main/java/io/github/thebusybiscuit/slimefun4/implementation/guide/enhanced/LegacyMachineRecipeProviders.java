@@ -9,13 +9,18 @@ import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeLayou
 import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeProvider;
 import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeProviderRegistry;
 import io.github.thebusybiscuit.slimefun4.core.attributes.RecipeDisplayItem;
+import java.lang.reflect.Array;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
@@ -182,12 +187,69 @@ public final class LegacyMachineRecipeProviders {
     }
 
     /**
-     * Compatibility adapter for addons that expose a public getMachineRecipes() method with recipe objects using
-     * getInput()/getOutput() or getInputs()/getOutputs().
+     * Compatibility adapter for addons that expose recipe data through public methods or fields.
+     *
+     * <p>This deliberately uses only the public Java surface. It supports common addon conventions such as
+     * {@code getMachineRecipes()}, {@code getRecipeProcess()}, {@code getRecipes()}, {@code machineRecipes}, and
+     * {@code recipes}. Private fields are never opened and {@code setAccessible(true)} is never used.
      */
-    private static final class PublicMethodProvider extends BaseProvider {
+    static final class PublicMethodProvider extends BaseProvider {
 
-        private final Map<Class<?>, Optional<Method>> machineMethods = new ConcurrentHashMap<>();
+        private static final String[] MACHINE_METHOD_NAMES = {
+            "getMachineRecipes",
+            "getMachineRecipeList",
+            "getRecipeProcess",
+            "getProductionRecipes",
+            "getRecipes",
+            "getAllRecipes",
+            "getAllRecipe",
+            "getRecipesForGuide",
+            "getRecipeShow",
+            "getRecipeList"
+        };
+        private static final String[] MACHINE_FIELD_NAMES = {
+            "machineRecipes",
+            "machineRecipeList",
+            "recipeProcess",
+            "productionRecipes",
+            "recipes",
+            "allRecipes",
+            "recipeShow",
+            "recipeList",
+            "recipeMap",
+            "receitasParaProduzir"
+        };
+        private static final String[] INPUT_METHOD_NAMES = {
+            "getInput",
+            "getInputs",
+            "getInputNotNull",
+            "getFirstItemInput",
+            "getInputItems",
+            "getIngredients",
+            "getKey",
+            "getLeft",
+            "getFirst"
+        };
+        private static final String[] OUTPUT_METHOD_NAMES = {
+            "getOutput",
+            "getOutputs",
+            "getOutputNotNull",
+            "getFirstItemOutput",
+            "getResult",
+            "getResults",
+            "getOutputItems",
+            "getValue",
+            "getRight",
+            "getSecond"
+        };
+        private static final String[] TICK_METHOD_NAMES = {
+            "getTicks", "getProcessingTicks", "getProcessingTime", "getTimeProcess", "getTime"
+        };
+        private static final String[] MACHINE_TICK_METHOD_NAMES = {
+            "getProcessingTicks", "getProcessingTime", "getTimeProcess"
+        };
+
+        private final Map<Class<?>, List<RecipeSourceAccessor>> machineSources = new ConcurrentHashMap<>();
         private final Map<Class<?>, Optional<SimpleRecipeMethods>> recipeMethods = new ConcurrentHashMap<>();
 
         PublicMethodProvider(JavaPlugin plugin) {
@@ -196,62 +258,128 @@ public final class LegacyMachineRecipeProviders {
 
         @Override
         public int getPriority() {
-            return 700;
+            // Run before the plain AContainer provider so addon-owned recipes can be merged with the
+            // standard container list instead of one source hiding the other.
+            return 850;
         }
 
         @Override
         public boolean supports(@Nonnull SlimefunItem item) {
-            return findMachineMethod(item.getClass()).isPresent();
+            return !findMachineSources(item.getClass()).isEmpty();
         }
 
         @Override
         public @Nonnull List<MachineRecipeDisplay> getRecipes(
                 @Nonnull SlimefunItem item, @Nonnull World world) {
-            Optional<Method> method = findMachineMethod(item.getClass());
-            if (method.isEmpty()) {
+            List<RecipeSourceAccessor> sources = findMachineSources(item.getClass());
+            if (sources.isEmpty()) {
                 return List.of();
             }
 
-            try {
-                Object value = method.get().invoke(item);
-                if (!(value instanceof Collection<?> recipes)) {
-                    return List.of();
-                }
+            int fallbackTicks = readNonNegativeNumber(item, MACHINE_TICK_METHOD_NAMES);
+            int energyPerTick = item instanceof AContainer container ? container.getEnergyConsumption() : -1;
+            List<MachineRecipeDisplay> displays = new ArrayList<>();
+            Set<Object> seenRecipes = Collections.newSetFromMap(new IdentityHashMap<>());
 
-                List<MachineRecipeDisplay> displays = new ArrayList<>(recipes.size());
-                for (Object recipe : recipes) {
-                    MachineRecipeDisplay display = readSimpleRecipe(recipe);
+            // Some addons extend AContainer but keep additional recipes in their own public list.
+            // Merge the standard list first, then inspect every addon-owned source. This prevents
+            // either source from hiding valid recipes exposed by the other.
+            if (item instanceof AContainer container) {
+                for (MachineRecipe recipe : container.getMachineRecipes()) {
+                    if (recipe == null || !seenRecipes.add(recipe)) {
+                        continue;
+                    }
+                    MachineRecipeDisplay display = fromLegacyRecipe(recipe, energyPerTick);
                     if (display != null) {
                         displays.add(display);
                     }
                 }
-                return List.copyOf(displays);
-            } catch (IllegalAccessException | InvocationTargetException | LinkageError exception) {
-                plugin().getLogger()
-                        .log(
-                                Level.FINE,
-                                "Could not read public machine recipes from " + item.getClass().getName(),
-                                exception);
-                return List.of();
             }
+
+            for (RecipeSourceAccessor source : sources) {
+                try {
+                    for (Object recipe : objects(source.read(item))) {
+                        if (recipe == null || !seenRecipes.add(recipe)) {
+                            continue;
+                        }
+                        MachineRecipeDisplay display = readSimpleRecipe(recipe, fallbackTicks, energyPerTick);
+                        if (display != null) {
+                            displays.add(display);
+                        }
+                    }
+                } catch (IllegalAccessException | InvocationTargetException | LinkageError exception) {
+                    plugin().getLogger()
+                            .log(
+                                    Level.FINE,
+                                    "Could not read a public machine recipe source from "
+                                            + item.getClass().getName(),
+                                    exception);
+                }
+            }
+            return List.copyOf(displays);
         }
 
-        private @Nonnull Optional<Method> findMachineMethod(@Nonnull Class<?> type) {
-            return machineMethods.computeIfAbsent(type, ignored -> {
-                if (AContainer.class.isAssignableFrom(type)) {
-                    return Optional.empty();
+        private @Nonnull List<RecipeSourceAccessor> findMachineSources(@Nonnull Class<?> type) {
+            return machineSources.computeIfAbsent(type, ignored -> {
+                // FastMachines has world filtering and alternative ingredients that its dedicated provider must retain.
+                if (type.getName().startsWith(FastMachinesProvider.PACKAGE_PREFIX)) {
+                    return List.of();
                 }
-                try {
-                    return Optional.of(type.getMethod("getMachineRecipes"));
-                } catch (NoSuchMethodException | SecurityException exception) {
-                    return Optional.empty();
+
+                List<RecipeSourceAccessor> sources = new ArrayList<>();
+                for (String name : MACHINE_METHOD_NAMES) {
+                    try {
+                        Method method = type.getMethod(name);
+                        if (method.getParameterCount() != 0) {
+                            continue;
+                        }
+                        // The AContainer provider already reads this inherited list. Continue looking for addon-owned
+                        // sources, which is how Supreme and several older addons store their real recipes.
+                        if ("getMachineRecipes".equals(name) && method.getDeclaringClass() == AContainer.class) {
+                            continue;
+                        }
+                        sources.add(RecipeSourceAccessor.forMethod(method));
+                    } catch (NoSuchMethodException | SecurityException ignoredException) {
+                        // Try the next supported public method.
+                    }
                 }
+
+                for (String name : MACHINE_FIELD_NAMES) {
+                    try {
+                        sources.add(RecipeSourceAccessor.forField(type.getField(name)));
+                    } catch (NoSuchFieldException | SecurityException ignoredException) {
+                        // Try the next supported public field.
+                    }
+                }
+                return List.copyOf(sources);
             });
         }
 
-        private @Nullable MachineRecipeDisplay readSimpleRecipe(@Nullable Object rawRecipe) {
+        private @Nullable MachineRecipeDisplay readSimpleRecipe(
+                @Nullable Object rawRecipe, int fallbackTicks, int energyPerTick) {
             if (rawRecipe == null) {
                 return null;
+            }
+
+            if (rawRecipe instanceof Map.Entry<?, ?> entry) {
+                List<ItemStack> inputs = itemStacks(entry.getKey());
+                List<ItemStack> outputs = itemStacks(entry.getValue());
+                if (!outputs.isEmpty()) {
+                    MachineRecipeDisplay.Builder builder = MachineRecipeDisplay.builder()
+                            .layout(MachineRecipeLayout.SHAPELESS)
+                            .label("Addon mapped machine recipe");
+                    inputs.forEach(builder::addInput);
+                    outputs.forEach(builder::addOutput);
+                    if (fallbackTicks >= 0) {
+                        builder.processingTicks(fallbackTicks);
+                    }
+                    if (energyPerTick >= 0) {
+                        builder.energyPerTick(energyPerTick);
+                    }
+                    return builder.build();
+                }
+
+                return readSimpleRecipe(entry.getValue(), fallbackTicks, energyPerTick);
             }
 
             Optional<SimpleRecipeMethods> methods = recipeMethods.computeIfAbsent(
@@ -261,24 +389,39 @@ public final class LegacyMachineRecipeProviders {
             }
 
             try {
-                SimpleRecipeMethods recipeMethods = methods.get();
-                List<ItemStack> inputs = itemStacks(recipeMethods.inputs().invoke(rawRecipe));
-                List<ItemStack> outputs = itemStacks(recipeMethods.outputs().invoke(rawRecipe));
+                SimpleRecipeMethods accessors = methods.get();
+                List<ItemStack> inputs = invokeItems(rawRecipe, accessors.inputs(), accessors.numberedInputs());
+                List<ItemStack> outputs = invokeItems(rawRecipe, accessors.outputs(), accessors.numberedOutputs());
                 if (outputs.isEmpty()) {
                     return null;
                 }
 
+                String label = "Addon machine recipe";
+                if (accessors.chance() != null) {
+                    Object chance = accessors.chance().invoke(rawRecipe);
+                    if (chance instanceof Number number) {
+                        label += " (" + formatChance(number.doubleValue()) + ")";
+                    }
+                }
+
                 MachineRecipeDisplay.Builder builder = MachineRecipeDisplay.builder()
                         .layout(MachineRecipeLayout.SHAPELESS)
-                        .label("Addon machine recipe");
+                        .label(label);
                 inputs.forEach(builder::addInput);
                 outputs.forEach(builder::addOutput);
 
-                if (recipeMethods.ticks() != null) {
-                    Object ticks = recipeMethods.ticks().invoke(rawRecipe);
-                    if (ticks instanceof Number number && number.intValue() >= 0) {
-                        builder.processingTicks(number.intValue());
+                int ticks = fallbackTicks;
+                if (accessors.ticks() != null) {
+                    Object value = accessors.ticks().invoke(rawRecipe);
+                    if (value instanceof Number number && number.intValue() >= 0) {
+                        ticks = number.intValue();
                     }
+                }
+                if (ticks >= 0) {
+                    builder.processingTicks(ticks);
+                }
+                if (energyPerTick >= 0) {
+                    builder.energyPerTick(energyPerTick);
                 }
                 return builder.build();
             } catch (IllegalAccessException | InvocationTargetException | LinkageError exception) {
@@ -286,13 +429,48 @@ public final class LegacyMachineRecipeProviders {
             }
         }
 
+        private static @Nonnull List<ItemStack> invokeItems(
+                @Nonnull Object recipe, @Nullable Method aggregate, @Nonnull List<Method> numbered)
+                throws InvocationTargetException, IllegalAccessException {
+            if (aggregate != null) {
+                List<ItemStack> aggregateItems = itemStacks(aggregate.invoke(recipe));
+                if (!aggregateItems.isEmpty()) {
+                    return aggregateItems;
+                }
+            }
+
+            List<ItemStack> items = new ArrayList<>(numbered.size());
+            for (Method method : numbered) {
+                items.addAll(itemStacks(method.invoke(recipe)));
+            }
+            return items;
+        }
+
         private static @Nonnull Optional<SimpleRecipeMethods> findSimpleRecipeMethods(@Nonnull Class<?> type) {
-            Method inputs = findMethod(type, "getInput", "getInputs");
-            Method outputs = findMethod(type, "getOutput", "getOutputs");
-            if (inputs == null || outputs == null) {
+            Method inputs = findMethod(type, INPUT_METHOD_NAMES);
+            Method outputs = findMethod(type, OUTPUT_METHOD_NAMES);
+            // Retain numbered fallbacks even when an aggregate getter exists. A few older addons
+            // expose both but return null/empty from the aggregate method for special recipes.
+            List<Method> numberedInputs = findNumberedMethods(type, "getInput", 9);
+            List<Method> numberedOutputs = findNumberedMethods(type, "getOutput", 9);
+            if (outputs == null && numberedOutputs.isEmpty()) {
                 return Optional.empty();
             }
-            return Optional.of(new SimpleRecipeMethods(inputs, outputs, findMethod(type, "getTicks")));
+            return Optional.of(new SimpleRecipeMethods(
+                    inputs,
+                    outputs,
+                    numberedInputs,
+                    numberedOutputs,
+                    findMethod(type, TICK_METHOD_NAMES),
+                    findMethod(type, "getChance")));
+        }
+
+        private static @Nonnull String formatChance(double rawChance) {
+            double percent = rawChance > 0.0D && rawChance <= 1.0D ? rawChance * 100.0D : rawChance;
+            if (percent == Math.rint(percent)) {
+                return (long) percent + "% chance";
+            }
+            return String.format(java.util.Locale.ENGLISH, "%.2f%% chance", percent);
         }
     }
 
@@ -506,28 +684,128 @@ public final class LegacyMachineRecipeProviders {
 
     private static @Nonnull List<ItemStack> itemStacks(@Nullable Object value) {
         List<ItemStack> items = new ArrayList<>();
-        if (value instanceof ItemStack[] array) {
-            for (ItemStack item : array) {
-                if (!isEmpty(item)) {
-                    items.add(item.clone());
+        collectItemStacks(value, items, 0);
+        return items;
+    }
+
+    private static void collectItemStacks(
+            @Nullable Object value, @Nonnull List<ItemStack> items, int depth) {
+        if (value == null || depth > 4) {
+            return;
+        }
+        if (value instanceof ItemStack item) {
+            if (!isEmpty(item)) {
+                items.add(item.clone());
+            }
+            return;
+        }
+        if (value instanceof Optional<?> optional) {
+            optional.ifPresent(element -> collectItemStacks(element, items, depth + 1));
+            return;
+        }
+        if (value instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                int before = items.size();
+                collectItemStacks(entry.getKey(), items, depth + 1);
+                if (items.size() > before && entry.getValue() instanceof Number amount) {
+                    ItemStack item = items.get(items.size() - 1);
+                    item.setAmount(Math.max(1, amount.intValue()));
+                } else if (items.size() == before) {
+                    collectItemStacks(entry.getValue(), items, depth + 1);
                 }
+            }
+            return;
+        }
+        if (value instanceof Iterable<?> iterable) {
+            for (Object element : iterable) {
+                collectItemStacks(element, items, depth + 1);
+            }
+            return;
+        }
+        Class<?> type = value.getClass();
+        if (type.isArray()) {
+            int length = Array.getLength(value);
+            for (int index = 0; index < length; index++) {
+                collectItemStacks(Array.get(value, index), items, depth + 1);
+            }
+            return;
+        }
+
+        Method itemGetter = findMethod(type, "getItemStack", "getBaseItem", "getItem");
+        if (itemGetter != null && itemGetter.getReturnType() != Void.TYPE) {
+            try {
+                Object nested = itemGetter.invoke(value);
+                if (nested != value) {
+                    collectItemStacks(nested, items, depth + 1);
+                }
+            } catch (IllegalAccessException | InvocationTargetException | LinkageError ignored) {
+                // Unsupported public wrapper type; leave it out of the normalized recipe.
+            }
+        }
+    }
+
+    private static @Nonnull List<Object> objects(@Nullable Object value) {
+        List<Object> values = new ArrayList<>();
+        collectObjects(value, values, 0);
+        return values;
+    }
+
+    private static void collectObjects(@Nullable Object value, @Nonnull List<Object> values, int depth) {
+        if (value == null || depth > 3) {
+            return;
+        }
+        if (value instanceof Optional<?> optional) {
+            optional.ifPresent(element -> collectObjects(element, values, depth + 1));
+        } else if (value instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                values.add(entry);
             }
         } else if (value instanceof Iterable<?> iterable) {
-            for (Object item : iterable) {
-                if (item instanceof ItemStack stack && !isEmpty(stack)) {
-                    items.add(stack.clone());
-                }
+            for (Object element : iterable) {
+                collectObjects(element, values, depth + 1);
             }
-        } else if (value instanceof ItemStack item && !isEmpty(item)) {
-            items.add(item.clone());
+        } else if (value.getClass().isArray()) {
+            int length = Array.getLength(value);
+            for (int index = 0; index < length; index++) {
+                collectObjects(Array.get(value, index), values, depth + 1);
+            }
+        } else {
+            values.add(value);
         }
-        return items;
+    }
+
+    private static int readNonNegativeNumber(@Nonnull Object target, @Nonnull String... methodNames) {
+        Method method = findMethod(target.getClass(), methodNames);
+        if (method == null) {
+            return -1;
+        }
+        try {
+            Object value = method.invoke(target);
+            return value instanceof Number number && number.intValue() >= 0 ? number.intValue() : -1;
+        } catch (IllegalAccessException | InvocationTargetException | LinkageError exception) {
+            return -1;
+        }
+    }
+
+    private static @Nonnull List<Method> findNumberedMethods(
+            @Nonnull Class<?> type, @Nonnull String prefix, int maximum) {
+        List<Method> methods = new ArrayList<>();
+        for (int index = 1; index <= maximum; index++) {
+            Method method = findMethod(type, prefix + index);
+            if (method != null) {
+                methods.add(method);
+            }
+        }
+        return List.copyOf(methods);
     }
 
     private static @Nullable Method findMethod(@Nonnull Class<?> type, @Nonnull String... names) {
         for (String name : names) {
             try {
-                return type.getMethod(name);
+                Method method = type.getMethod(name);
+                if (method.getParameterCount() == 0) {
+                    return method;
+                }
             } catch (NoSuchMethodException | SecurityException ignored) {
                 // Try the next supported getter name.
             }
@@ -548,7 +826,29 @@ public final class LegacyMachineRecipeProviders {
         return item == null || item.getType() == Material.AIR || item.getAmount() <= 0;
     }
 
-    private record SimpleRecipeMethods(Method inputs, Method outputs, Method ticks) {}
+    private record RecipeSourceAccessor(@Nullable Method method, @Nullable Field field) {
+
+        static @Nonnull RecipeSourceAccessor forMethod(@Nonnull Method method) {
+            return new RecipeSourceAccessor(method, null);
+        }
+
+        static @Nonnull RecipeSourceAccessor forField(@Nonnull Field field) {
+            return new RecipeSourceAccessor(null, field);
+        }
+
+        @Nullable Object read(@Nonnull Object target)
+                throws InvocationTargetException, IllegalAccessException {
+            return method != null ? method.invoke(target) : field.get(target);
+        }
+    }
+
+    private record SimpleRecipeMethods(
+            @Nullable Method inputs,
+            @Nullable Method outputs,
+            @Nonnull List<Method> numberedInputs,
+            @Nonnull List<Method> numberedOutputs,
+            @Nullable Method ticks,
+            @Nullable Method chance) {}
 
     private record FastRecipeMethods(Method inputs, Method outputs, Method disabledIn) {}
 }

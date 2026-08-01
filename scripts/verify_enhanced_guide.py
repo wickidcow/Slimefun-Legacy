@@ -58,6 +58,7 @@ def main() -> int:
     registry = sources[JAVA_ROOT / "core/SlimefunRegistry.java"]
     bootstrap = sources[ENHANCED / "LegacyGuideBootstrap.java"]
     guide = sources[ENHANCED / "EnhancedSurvivalSlimefunGuide.java"]
+    cheat_guide = sources[ENHANCED / "EnhancedCheatSheetSlimefunGuide.java"]
     bookmarks = sources[ENHANCED / "LegacyGuideBookmarks.java"]
 
     require("LegacyGuideBootstrap.register(plugin, guides);" in registry, "Registry does not use the native guide bootstrap")
@@ -74,6 +75,12 @@ def main() -> int:
     require("research.unlockFromGuide" in guide, "Research unlock behavior is missing")
     require('hasPermission("slimefun.cheat.items")' in guide, "Cheat-item permission guard is missing")
     require("displayItem(profile, item, true)" in guide, "Classic recipe rendering bridge is missing")
+    require("group instanceof SubItemGroup" in cheat_guide,
+            "Enhanced cheat guide does not suppress flattened child categories")
+    require("group instanceof NestedItemGroup" in cheat_guide and "hasVisibleSubGroups(player)" in cheat_guide,
+            "Enhanced cheat guide does not restore nested addon categories")
+    require("group.isVisible(player)" in cheat_guide,
+            "Enhanced cheat guide does not hide empty or disabled normal categories")
     require("guide-bookmarks.yml" in bookmarks and "itemId" in bookmarks, "Persistent item-ID bookmarks are missing")
 
     forbidden = ["getDeclaredField", "setAccessible(", "java.lang.reflect", "pinyin", "auto-update"]

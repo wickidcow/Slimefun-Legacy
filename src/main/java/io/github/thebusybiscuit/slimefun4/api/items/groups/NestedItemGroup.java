@@ -61,6 +61,26 @@ public class NestedItemGroup extends FlexItemGroup {
         subGroups.remove(group);
     }
 
+    /**
+     * Returns whether this nested category currently contains at least one subgroup that can be shown to the player.
+     * This is also used by cheat guides so nested addon categories stay grouped instead of exposing every child
+     * category on the main menu.
+     *
+     * @param p
+     *            The player viewing the guide
+     *
+     * @return Whether at least one subgroup is visible inside this nested category
+     */
+    public final boolean hasVisibleSubGroups(@Nonnull Player p) {
+        for (SubItemGroup subGroup : subGroups) {
+            if (subGroup.isVisibleInNested(p)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     @Override
     @ParametersAreNonnullByDefault
     public boolean isVisible(Player p, PlayerProfile profile, SlimefunGuideMode mode) {

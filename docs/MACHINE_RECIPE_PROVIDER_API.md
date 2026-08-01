@@ -79,11 +79,15 @@ Slimefun Legacy registers providers for:
 
 - Items implementing `MachineRecipeDisplayItem`
 - Core and addon classes extending `AContainer`
-- Addons exposing a public `getMachineRecipes()` method with `getInput()`/`getOutput()` recipe objects
+- Addons exposing public recipe methods such as `getMachineRecipes()`, `getRecipeProcess()`, `getRecipes()`, `getRecipeShow()` or `getRecipeList()`
+- Addons exposing public recipe-list fields such as `machineRecipes`, `recipeProcess`, `recipes` or `recipeShow`
+- Recipe objects using aggregate input/output getters or numbered getters such as `getInput1()` and `getInput2()`
 - Existing `RecipeDisplayItem` implementations
 - FastMachines through its public recipe, choice, output, and world-filter getters
 
-The compatibility providers only use public methods. They do not access private fields or call `setAccessible`.
+The compatibility providers only use public methods and public fields. They do not access private members, call `getDeclaredField`, or call `setAccessible`. Supreme-style machines are supported because their maintained classes expose processing lists through public fields or getters even when the inherited `AContainer` list is empty.
+
+When an `AContainer` subclass also exposes addon-owned recipes, Legacy merges the normal container list with every recognized public recipe source. Empty aggregate getters do not hide populated public fields, and numbered getters remain a fallback when an aggregate input/output getter returns no usable items.
 
 ## Recipe model
 

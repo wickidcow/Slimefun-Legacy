@@ -33,7 +33,8 @@ This package replaces the default survival and cheat guide registrations with na
 - Addon-facing `MachineRecipeProvider` registry and normalized recipe model.
 - Direct integration through `MachineRecipeDisplayItem`.
 - Automatic structured browsing for core and addon `AContainer` machines.
-- Compatibility discovery for public `getMachineRecipes()` recipe getters.
+- Compatibility discovery for common public recipe methods and fields, including `getMachineRecipes()`, `getRecipeProcess()`, `getRecipes()`, `machineRecipes` and `recipes`.
+- Supreme-style recipe objects are normalized through public input/output arrays, numbered getters, processing-time getters and chance metadata.
 - Existing `RecipeDisplayItem` recipes receive the same paged browser.
 - FastMachines support moved into the provider system while retaining alternatives and world filters.
 - Optional processing-time, energy-use, layout and source metadata in recipe details.
@@ -62,3 +63,16 @@ The guide still does not automatically craft items, withdraw from nearby storage
 6. Test on a copied Paper server before production use.
 
 To restore the classic guide, set `enabled: false` in `plugins/Slimefun/enhanced-guide.yml` and fully restart the server.
+## Phase 4 compatibility correction
+
+- Supreme and other addons that keep their real processing recipes outside `AContainer.getMachineRecipes()` now receive the Machine Recipes browser.
+- Public collection methods, iterable/array sources, map values and public recipe-list fields are supported without private reflection.
+- Standard `AContainer` recipes and addon-owned public recipe sources are merged when a machine uses both systems.
+- Every recognized public source is inspected, so an empty compatibility getter cannot hide a populated recipe field.
+- Numbered input/output getters remain available when an aggregate getter exists but returns no usable items.
+- Recipe objects may expose aggregate inputs/outputs or numbered getters such as `getInput1()` and `getInput2()`.
+- Existing FastMachines world filtering and alternative-choice handling remain isolated to its dedicated provider.
+
+## Cheat guide category grouping
+
+The enhanced and classic cheat guides preserve `NestedItemGroup` navigation. Addon `SubItemGroup` entries are no longer flattened onto the main cheat menu, so addons such as InfinityExpansion and Magic remain organized under their parent category. Empty or world-disabled normal categories are also hidden. Cheat-mode item spawning behavior is unchanged.
