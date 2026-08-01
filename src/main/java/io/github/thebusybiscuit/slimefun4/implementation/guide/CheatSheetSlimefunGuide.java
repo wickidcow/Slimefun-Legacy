@@ -42,7 +42,7 @@ public class CheatSheetSlimefunGuide extends SurvivalSlimefunGuide {
      */
     @Override
     protected List<ItemGroup> getVisibleItemGroups(@Nonnull Player p, @Nonnull PlayerProfile profile) {
-        return CheatAddonItemGroup.createAddonFolders(p, profile, getMode());
+        return getVisibleItemGroups(p, profile, SlimefunGuideMode.SURVIVAL_MODE);
     }
 
     @Override

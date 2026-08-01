@@ -3,7 +3,6 @@ package io.github.thebusybiscuit.slimefun4.implementation.guide.enhanced;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
 import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuideMode;
-import io.github.thebusybiscuit.slimefun4.implementation.guide.CheatAddonItemGroup;
 import io.github.thebusybiscuit.slimefun4.utils.itemstack.SlimefunGuideItem;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -22,7 +21,7 @@ public final class EnhancedCheatSheetSlimefunGuide extends EnhancedSurvivalSlime
     @Override
     protected @Nonnull List<ItemGroup> getVisibleItemGroups(
             @Nonnull Player player, @Nonnull PlayerProfile profile) {
-        return CheatAddonItemGroup.createAddonFolders(player, profile, getMode());
+        return getVisibleItemGroups(player, profile, SlimefunGuideMode.SURVIVAL_MODE);
     }
 
     @Override

@@ -1,9 +1,9 @@
-# Slimefun Legacy Phase 4 — Cheat Addon Folders
+# Slimefun Legacy Phase 4 — Cheat Guide Hierarchy Correction
 
-- Changed `/sf cheat` to display one top-level folder per Slimefun addon/plugin.
-- Kept each addon's own nested and child categories inside its plugin folder.
-- Applied the same organization to the enhanced cheat guide and classic fallback.
-- Preserved cheat item spawning, visibility checks, pagination, and addon category behavior.
+- Changed `/sf cheat` to mirror the normal guide's real category icons, ordering and nested hierarchy.
+- Removed the generated generic chest-folder view that hid or misgrouped some addons.
+- Evaluates addon `FlexItemGroup` visibility using normal guide rules while retaining cheat-mode item spawning.
+- Applied the correction to both the enhanced cheat guide and classic fallback.
 
 # Slimefun Legacy Phase 4 — Universal Machine Recipes
 

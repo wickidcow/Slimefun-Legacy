@@ -104,12 +104,36 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
      * @return a {@link List} of visible {@link ItemGroup} instances
      */
     protected @Nonnull List<ItemGroup> getVisibleItemGroups(@Nonnull Player p, @Nonnull PlayerProfile profile) {
+        return getVisibleItemGroups(p, profile, getMode());
+    }
+
+    /**
+     * Returns the item groups that are visible using the supplied guide mode for visibility checks.
+     *
+     * <p>This is primarily used by the cheat guide to mirror the survival guide's exact category hierarchy and
+     * icons. Some addon {@link FlexItemGroup FlexItemGroups} intentionally report themselves as visible only in
+     * survival mode, even though their menus can still be opened safely in cheat mode. Evaluating those groups with
+     * {@link SlimefunGuideMode#SURVIVAL_MODE} keeps the two main menus visually identical while item clicks continue
+     * to use the real cheat guide mode.</p>
+     *
+     * @param p
+     *            Player viewing the guide
+     * @param profile
+     *            Player profile
+     * @param visibilityMode
+     *            Mode used only while evaluating category visibility
+     *
+     * @return Visible item groups in registry order
+     */
+    @ParametersAreNonnullByDefault
+    protected final List<ItemGroup> getVisibleItemGroups(
+            Player p, PlayerProfile profile, SlimefunGuideMode visibilityMode) {
         List<ItemGroup> groups = new LinkedList<>();
 
         for (ItemGroup group : Slimefun.getRegistry().getAllItemGroups()) {
             try {
                 if (group instanceof FlexItemGroup flexItemGroup) {
-                    if (flexItemGroup.isVisible(p, profile, getMode())) {
+                    if (flexItemGroup.isVisible(p, profile, visibilityMode)) {
                         groups.add(group);
                     }
                 } else if (!group.isHidden(p)) {
