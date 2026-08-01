@@ -1,3 +1,10 @@
+# Slimefun Legacy Phase 4 — Cheat Addon Folders
+
+- Changed `/sf cheat` to display one top-level folder per Slimefun addon/plugin.
+- Kept each addon's own nested and child categories inside its plugin folder.
+- Applied the same organization to the enhanced cheat guide and classic fallback.
+- Preserved cheat item spawning, visibility checks, pagination, and addon category behavior.
+
 # Slimefun Legacy Phase 4 — Universal Machine Recipes
 
 - Added a supported addon-facing machine recipe provider API.

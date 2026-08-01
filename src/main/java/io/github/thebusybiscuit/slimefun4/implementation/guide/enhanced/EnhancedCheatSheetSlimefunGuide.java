@@ -1,14 +1,10 @@
 package io.github.thebusybiscuit.slimefun4.implementation.guide.enhanced;
 
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
-import io.github.thebusybiscuit.slimefun4.api.items.groups.FlexItemGroup;
-import io.github.thebusybiscuit.slimefun4.api.items.groups.NestedItemGroup;
-import io.github.thebusybiscuit.slimefun4.api.items.groups.SubItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
 import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuideMode;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.implementation.guide.CheatAddonItemGroup;
 import io.github.thebusybiscuit.slimefun4.utils.itemstack.SlimefunGuideItem;
-import java.util.LinkedList;
 import java.util.List;
 import javax.annotation.Nonnull;
 import org.bukkit.entity.Player;
@@ -24,27 +20,9 @@ public final class EnhancedCheatSheetSlimefunGuide extends EnhancedSurvivalSlime
     }
 
     @Override
-    protected @Nonnull List<ItemGroup> getVisibleItemGroups(@Nonnull Player player, @Nonnull PlayerProfile profile) {
-        List<ItemGroup> groups = new LinkedList<>();
-        for (ItemGroup group : Slimefun.getRegistry().getAllItemGroups()) {
-            if (group instanceof SubItemGroup) {
-                // Keep addon child categories inside their parent instead of flattening the cheat main menu.
-                continue;
-            }
-
-            if (group instanceof NestedItemGroup nestedItemGroup) {
-                if (nestedItemGroup.hasVisibleSubGroups(player)) {
-                    groups.add(group);
-                }
-            } else if (group instanceof FlexItemGroup flexItemGroup) {
-                if (flexItemGroup.isVisible(player, profile, getMode())) {
-                    groups.add(group);
-                }
-            } else if (group.isVisible(player)) {
-                groups.add(group);
-            }
-        }
-        return groups;
+    protected @Nonnull List<ItemGroup> getVisibleItemGroups(
+            @Nonnull Player player, @Nonnull PlayerProfile profile) {
+        return CheatAddonItemGroup.createAddonFolders(player, profile, getMode());
     }
 
     @Override

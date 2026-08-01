@@ -2,16 +2,11 @@ package io.github.thebusybiscuit.slimefun4.implementation.guide;
 
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
-import io.github.thebusybiscuit.slimefun4.api.items.groups.FlexItemGroup;
-import io.github.thebusybiscuit.slimefun4.api.items.groups.NestedItemGroup;
-import io.github.thebusybiscuit.slimefun4.api.items.groups.SubItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
 import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuide;
 import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuideMode;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import io.github.thebusybiscuit.slimefun4.utils.itemstack.SlimefunGuideItem;
-import java.util.LinkedList;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -47,28 +42,7 @@ public class CheatSheetSlimefunGuide extends SurvivalSlimefunGuide {
      */
     @Override
     protected List<ItemGroup> getVisibleItemGroups(@Nonnull Player p, @Nonnull PlayerProfile profile) {
-        List<ItemGroup> groups = new LinkedList<>();
-
-        for (ItemGroup group : Slimefun.getRegistry().getAllItemGroups()) {
-            if (group instanceof SubItemGroup) {
-                // Child categories belong inside their NestedItemGroup and must not flood the cheat main menu.
-                continue;
-            }
-
-            if (group instanceof NestedItemGroup nestedItemGroup) {
-                if (nestedItemGroup.hasVisibleSubGroups(p)) {
-                    groups.add(group);
-                }
-            } else if (group instanceof FlexItemGroup flexItemGroup) {
-                if (flexItemGroup.isVisible(p, profile, getMode())) {
-                    groups.add(group);
-                }
-            } else if (group.isVisible(p)) {
-                groups.add(group);
-            }
-        }
-
-        return groups;
+        return CheatAddonItemGroup.createAddonFolders(p, profile, getMode());
     }
 
     @Override

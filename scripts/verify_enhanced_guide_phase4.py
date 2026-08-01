@@ -10,6 +10,7 @@ provider_impl = root / "src/main/java/io/github/thebusybiscuit/slimefun4/impleme
 browser = root / "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/LegacyMachineRecipeBrowser.java"
 enhanced_cheat = root / "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/EnhancedCheatSheetSlimefunGuide.java"
 classic_cheat = root / "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/CheatSheetSlimefunGuide.java"
+cheat_addons = root / "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/CheatAddonItemGroup.java"
 nested_group = root / "src/main/java/io/github/thebusybiscuit/slimefun4/api/items/groups/NestedItemGroup.java"
 config = root / "src/main/resources/enhanced-guide.yml"
 provider_test = root / "src/test/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/TestPublicMachineRecipeProvider.java"
@@ -22,7 +23,7 @@ api_files = (
     "MachineRecipeProvider.java",
     "MachineRecipeProviderRegistry.java",
 )
-required = [api_root / name for name in api_files] + [provider_impl, browser, enhanced_cheat, classic_cheat, nested_group, config, provider_test]
+required = [api_root / name for name in api_files] + [provider_impl, browser, enhanced_cheat, classic_cheat, cheat_addons, nested_group, config, provider_test]
 missing = [str(path.relative_to(root)) for path in required if not path.is_file()]
 if missing:
     raise SystemExit("Missing Phase 4 files: " + ", ".join(missing))
@@ -33,6 +34,7 @@ browser_text = browser.read_text(encoding="utf-8")
 config_text = config.read_text(encoding="utf-8")
 cheat_text = enhanced_cheat.read_text(encoding="utf-8") + classic_cheat.read_text(encoding="utf-8")
 nested_text = nested_group.read_text(encoding="utf-8")
+cheat_addon_text = cheat_addons.read_text(encoding="utf-8")
 test_text = provider_test.read_text(encoding="utf-8")
 
 checks = {
@@ -63,7 +65,9 @@ checks = {
     "Universal button wording": "View everything this machine can process." in browser_text,
     "Structured metadata display": "Processing ticks:" in browser_text and "Energy use:" in browser_text,
     "No private field reflection": ".getDeclaredField(" not in provider_text and ".getDeclaredMethod(" not in provider_text and ".setAccessible(" not in provider_text,
-    "Cheat subgroups remain nested": cheat_text.count("instanceof SubItemGroup") >= 2 and cheat_text.count("hasVisibleSubGroups") >= 2,
+    "Cheat guides use addon folders": cheat_text.count("CheatAddonItemGroup.createAddonFolders") >= 2,
+    "Cheat folders preserve nested groups": "instanceof SubItemGroup" in cheat_addon_text and "hasVisibleSubGroups" in cheat_addon_text,
+    "One folder is generated per addon": "Map<SlimefunAddon, List<ItemGroup>>" in cheat_addon_text and "new CheatAddonItemGroup" in cheat_addon_text,
     "Nested groups expose safe visibility check": "boolean hasVisibleSubGroups" in nested_text and "isVisibleInNested" in nested_text,
     "Supreme regression coverage": "SupremeStyleMachine" in test_text and "machineRecipes" in test_text,
     "Numbered getter regression coverage": "NumberedRecipeMachine" in test_text and "getInput2" in test_text,

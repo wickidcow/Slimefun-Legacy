@@ -76,3 +76,7 @@ To restore the classic guide, set `enabled: false` in `plugins/Slimefun/enhanced
 ## Cheat guide category grouping
 
 The enhanced and classic cheat guides preserve `NestedItemGroup` navigation. Addon `SubItemGroup` entries are no longer flattened onto the main cheat menu, so addons such as InfinityExpansion and Magic remain organized under their parent category. Empty or world-disabled normal categories are also hidden. Cheat-mode item spawning behavior is unchanged.
+## Cheat-mode addon folders
+
+`/sf cheat` now shows one generated top-level folder per addon/plugin instead of placing every registered category directly on the main menu. Opening an addon folder shows that addon's categories, while real `NestedItemGroup` and `SubItemGroup` relationships remain intact. The enhanced and classic cheat implementations use the same organization.
+

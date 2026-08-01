@@ -20,6 +20,7 @@ REQUIRED_FILES = [
     ENHANCED / "LegacyGuideBookmarks.java",
     ENHANCED / "EnhancedSurvivalSlimefunGuide.java",
     ENHANCED / "EnhancedCheatSheetSlimefunGuide.java",
+    JAVA_ROOT / "implementation/guide/CheatAddonItemGroup.java",
     ROOT / "src/main/resources/enhanced-guide.yml",
     ROOT / "ENHANCED_GUIDE.md",
 ]
@@ -60,6 +61,7 @@ def main() -> int:
     guide = sources[ENHANCED / "EnhancedSurvivalSlimefunGuide.java"]
     cheat_guide = sources[ENHANCED / "EnhancedCheatSheetSlimefunGuide.java"]
     bookmarks = sources[ENHANCED / "LegacyGuideBookmarks.java"]
+    cheat_addons = sources[JAVA_ROOT / "implementation/guide/CheatAddonItemGroup.java"]
 
     require("LegacyGuideBootstrap.register(plugin, guides);" in registry, "Registry does not use the native guide bootstrap")
     require("new EnhancedSurvivalSlimefunGuide()" in bootstrap, "Enhanced survival guide is not registered")
@@ -75,12 +77,14 @@ def main() -> int:
     require("research.unlockFromGuide" in guide, "Research unlock behavior is missing")
     require('hasPermission("slimefun.cheat.items")' in guide, "Cheat-item permission guard is missing")
     require("displayItem(profile, item, true)" in guide, "Classic recipe rendering bridge is missing")
-    require("group instanceof SubItemGroup" in cheat_guide,
-            "Enhanced cheat guide does not suppress flattened child categories")
-    require("group instanceof NestedItemGroup" in cheat_guide and "hasVisibleSubGroups(player)" in cheat_guide,
-            "Enhanced cheat guide does not restore nested addon categories")
-    require("group.isVisible(player)" in cheat_guide,
-            "Enhanced cheat guide does not hide empty or disabled normal categories")
+    require("CheatAddonItemGroup.createAddonFolders" in cheat_guide,
+            "Enhanced cheat guide does not use plugin-based addon folders")
+    require("group instanceof SubItemGroup" in cheat_addons,
+            "Cheat addon folders do not suppress flattened child categories")
+    require("group instanceof NestedItemGroup" in cheat_addons and "hasVisibleSubGroups(player)" in cheat_addons,
+            "Cheat addon folders do not preserve nested addon categories")
+    require("group.isVisible(player)" in cheat_addons,
+            "Cheat addon folders do not hide empty or disabled normal categories")
     require("guide-bookmarks.yml" in bookmarks and "itemId" in bookmarks, "Persistent item-ID bookmarks are missing")
 
     forbidden = ["getDeclaredField", "setAccessible(", "java.lang.reflect", "pinyin", "auto-update"]
