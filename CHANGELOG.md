@@ -1,3 +1,13 @@
+# Slimefun Legacy Phase 4 — Universal Machine Recipes
+
+- Added a supported addon-facing machine recipe provider API.
+- Added normalized recipe, ingredient, alternative-choice, layout, timing and energy metadata models.
+- Added native recipe browsing for `AContainer` machines and existing `RecipeDisplayItem` implementations.
+- Added compatibility discovery for addons exposing public `getMachineRecipes()` methods.
+- Migrated FastMachines recipe browsing to the universal provider system without private reflection.
+- Added defensive recipe data copying and provider priority ordering.
+- Added Phase 4 verification and API regression tests.
+
 # Slimefun Legacy Folia Support — Phase 1
 
 

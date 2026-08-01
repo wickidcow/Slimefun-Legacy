@@ -4,16 +4,17 @@ import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.bakedlibs.dough.items.ItemUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
+import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeDisplay;
+import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeIngredient;
+import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeProvider;
+import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeProviderRegistry;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
@@ -23,7 +24,6 @@ import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
-import org.bukkit.World;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -42,10 +42,9 @@ import org.bukkit.persistence.PersistentDataType;
 /**
  * Adds a native JEG-style machine recipe browser to the enhanced guide.
  *
- * <p>FastMachines exposes its loaded recipes through public Kotlin getters, but it does not implement Slimefun's
- * simple {@code RecipeDisplayItem} contract because its recipes can contain up to 36 shapeless ingredients and
- * multiple alternatives. This compatibility layer reads only those public getters and never accesses private fields.
- * The adapter is intentionally isolated here so FastMachines remains an optional addon.
+ * <p>Phase 4 routes all recipe discovery through the addon-facing {@link MachineRecipeProviderRegistry}. Core
+ * containers, existing {@code RecipeDisplayItem} implementations, FastMachines and addon-provided adapters therefore
+ * share the same browser and safety behavior.
  */
 public final class LegacyMachineRecipeBrowser implements Listener {
 
@@ -63,18 +62,12 @@ public final class LegacyMachineRecipeBrowser implements Listener {
         36, 37, 38, 39, 40, 41, 42, 43, 44
     };
     private static final int[] DETAIL_OUTPUT_SLOTS = {47, 48, 49, 50, 51};
-    private static final String FAST_MACHINES_PACKAGE = "net.guizhanss.fastmachines.";
 
     private static LegacyMachineRecipeBrowser instance;
 
     private final Slimefun plugin;
     private final NamespacedKey buttonKey;
     private final Map<UUID, BrowserContext> contexts = new ConcurrentHashMap<>();
-    private final Map<Class<?>, Optional<FastMachinesAdapter>> adapters = new ConcurrentHashMap<>();
-    private final Map<RecipeCacheKey, List<Object>> recipeCache = new ConcurrentHashMap<>();
-    private final Map<Class<?>, Optional<RecipeMethods>> recipeMethods = new ConcurrentHashMap<>();
-    private final Map<Class<?>, Optional<ChoiceMethods>> choiceMethods = new ConcurrentHashMap<>();
-    private final Map<Class<?>, Optional<WrapperMethods>> wrapperMethods = new ConcurrentHashMap<>();
 
     private LegacyMachineRecipeBrowser(@Nonnull Slimefun plugin) {
         this.plugin = plugin;
@@ -83,6 +76,7 @@ public final class LegacyMachineRecipeBrowser implements Listener {
     }
 
     public static synchronized void initialize(@Nonnull Slimefun plugin) {
+        LegacyMachineRecipeProviders.registerDefaults(plugin);
         instance = new LegacyMachineRecipeBrowser(plugin);
     }
 
@@ -104,20 +98,8 @@ public final class LegacyMachineRecipeBrowser implements Listener {
             return;
         }
 
-        Optional<FastMachinesAdapter> optionalAdapter = adapterFor(item.getClass());
-        if (optionalAdapter.isEmpty()) {
-            return;
-        }
-
-        List<?> rawRecipes;
-        try {
-            rawRecipes = optionalAdapter.get().getRecipes(item);
-        } catch (ReflectiveOperationException | LinkageError exception) {
-            logAdapterFailure(item, exception);
-            return;
-        }
-
-        if (rawRecipes.isEmpty()) {
+        ResolvedRecipes resolved = resolveRecipes(item, player);
+        if (resolved == null || resolved.recipes().isEmpty()) {
             return;
         }
 
@@ -132,11 +114,12 @@ public final class LegacyMachineRecipeBrowser implements Listener {
                 profile,
                 guide,
                 item,
-                optionalAdapter.get(),
+                resolved.provider(),
+                resolved.recipes(),
                 buttonSlot,
                 System.currentTimeMillis() + LegacyGuideSettings.get().getRecipeFillSessionSeconds() * 1000L);
         contexts.put(player.getUniqueId(), context);
-        inventory.setItem(buttonSlot, createButton(rawRecipes.size()));
+        inventory.setItem(buttonSlot, createButton(resolved.provider(), resolved.recipes().size()));
         player.updateInventory();
     }
 
@@ -200,8 +183,40 @@ public final class LegacyMachineRecipeBrowser implements Listener {
         contexts.remove(event.getPlayer().getUniqueId());
     }
 
+    private @Nullable ResolvedRecipes resolveRecipes(@Nonnull SlimefunItem item, @Nonnull Player player) {
+        for (MachineRecipeProvider provider : MachineRecipeProviderRegistry.getProviders()) {
+            try {
+                if (!provider.supports(item)) {
+                    continue;
+                }
+
+                List<MachineRecipeDisplay> rawRecipes = provider.getRecipes(item, player.getWorld());
+                if (rawRecipes == null || rawRecipes.isEmpty()) {
+                    continue;
+                }
+
+                List<MachineRecipeDisplay> recipes = new ArrayList<>(rawRecipes.size());
+                for (MachineRecipeDisplay recipe : rawRecipes) {
+                    if (recipe != null && !recipe.getOutputs().isEmpty()) {
+                        recipes.add(recipe);
+                    }
+                }
+                if (!recipes.isEmpty()) {
+                    return new ResolvedRecipes(provider, List.copyOf(recipes));
+                }
+            } catch (RuntimeException | LinkageError exception) {
+                plugin.getLogger()
+                        .log(
+                                Level.WARNING,
+                                "Machine recipe provider " + provider.getKey() + " failed for " + item.getId(),
+                                exception);
+            }
+        }
+        return null;
+    }
+
     private void openRecipeList(@Nonnull Player player, @Nonnull BrowserContext context, int requestedPage) {
-        List<Object> recipes = getEnabledRecipes(context, player.getWorld());
+        List<MachineRecipeDisplay> recipes = context.recipes();
         if (recipes.isEmpty()) {
             player.sendMessage(ChatColor.RED + "No enabled recipes are available for this machine in this world.");
             context.guide().displayItem(context.profile(), context.machine(), false);
@@ -218,7 +233,7 @@ public final class LegacyMachineRecipeBrowser implements Listener {
             context.guide().displayItem(context.profile(), context.machine(), false);
             return false;
         });
-        menu.replaceExistingItem(4, machineHeader(context.machine(), recipes.size()));
+        menu.replaceExistingItem(4, machineHeader(context.machine(), context.provider(), recipes.size()));
         menu.addMenuClickHandler(4, ChestMenuUtils.getEmptyClickHandler());
 
         int start = (page - 1) * LIST_SLOTS.length;
@@ -231,15 +246,15 @@ public final class LegacyMachineRecipeBrowser implements Listener {
                 continue;
             }
 
-            Object rawRecipe = recipes.get(recipeIndex);
-            MachineRecipeData recipe = readRecipe(rawRecipe);
+            MachineRecipeDisplay recipe = recipes.get(recipeIndex);
             ItemStack icon = createRecipeIcon(recipe, recipeIndex, recipes.size());
             menu.replaceExistingItem(slot, icon);
             menu.addMenuClickHandler(slot, (pl, clickedSlot, clickedItem, action) -> {
-                if (action.isRightClicked() && recipe != null && !recipe.outputs().isEmpty()) {
-                    context.guide().displayItem(context.profile(), recipe.outputs().get(0), 0, true);
+                List<ItemStack> outputs = recipe.getOutputs();
+                if (action.isRightClicked() && !outputs.isEmpty()) {
+                    context.guide().displayItem(context.profile(), outputs.get(0), 0, true);
                 } else {
-                    openRecipeDetail(pl, context, recipes, recipeIndex);
+                    openRecipeDetail(pl, context, recipeIndex);
                 }
                 return false;
             });
@@ -268,18 +283,10 @@ public final class LegacyMachineRecipeBrowser implements Listener {
         menu.open(player);
     }
 
-    private void openRecipeDetail(
-            @Nonnull Player player,
-            @Nonnull BrowserContext context,
-            @Nonnull List<Object> recipes,
-            int requestedIndex) {
+    private void openRecipeDetail(@Nonnull Player player, @Nonnull BrowserContext context, int requestedIndex) {
+        List<MachineRecipeDisplay> recipes = context.recipes();
         int recipeIndex = Math.max(0, Math.min(requestedIndex, recipes.size() - 1));
-        MachineRecipeData recipe = readRecipe(recipes.get(recipeIndex));
-        if (recipe == null) {
-            player.sendMessage(ChatColor.RED + "This recipe could not be displayed.");
-            openRecipeList(player, context, recipeIndex / LIST_SLOTS.length + 1);
-            return;
-        }
+        MachineRecipeDisplay recipe = recipes.get(recipeIndex);
 
         ChestMenu menu = createMenu(title("Machine Recipe " + (recipeIndex + 1) + "/" + recipes.size()));
         fillBackground(menu);
@@ -289,28 +296,22 @@ public final class LegacyMachineRecipeBrowser implements Listener {
             openRecipeList(pl, context, recipeIndex / LIST_SLOTS.length + 1);
             return false;
         });
-        menu.replaceExistingItem(4, machineHeader(context.machine(), recipes.size()));
+        menu.replaceExistingItem(4, machineHeader(context.machine(), context.provider(), recipes.size()));
         menu.addMenuClickHandler(4, ChestMenuUtils.getEmptyClickHandler());
-        menu.replaceExistingItem(8, new CustomItemStack(
-                Material.BOOK,
-                "&6Recipe Information",
-                "&7Inputs: &f" + recipe.inputs().size(),
-                "&7Outputs: &f" + recipe.outputs().size(),
-                recipe.inputs().size() > DETAIL_INPUT_SLOTS.length
-                        ? "&cOnly the first " + DETAIL_INPUT_SLOTS.length + " inputs are shown."
-                        : "&7Ingredients may be placed in any FastMachines input slot."));
+        menu.replaceExistingItem(8, recipeInformation(recipe));
         menu.addMenuClickHandler(8, ChestMenuUtils.getEmptyClickHandler());
 
-        int displayedInputs = Math.min(recipe.inputs().size(), DETAIL_INPUT_SLOTS.length);
+        List<MachineRecipeIngredient> inputs = recipe.getInputs();
+        int displayedInputs = Math.min(inputs.size(), DETAIL_INPUT_SLOTS.length);
         int[] selectedAlternatives = new int[displayedInputs];
         for (int index = 0; index < displayedInputs; index++) {
             int slot = DETAIL_INPUT_SLOTS[index];
-            IngredientData ingredient = recipe.inputs().get(index);
+            MachineRecipeIngredient ingredient = inputs.get(index);
             menu.replaceExistingItem(slot, createIngredientIcon(ingredient, index, 0));
-            if (ingredient.choices().size() > 1) {
+            if (ingredient.getChoices().size() > 1) {
                 final int ingredientIndex = index;
                 menu.addMenuClickHandler(slot, (pl, clickedSlot, clickedItem, action) -> {
-                    int alternatives = ingredient.choices().size();
+                    int alternatives = ingredient.getChoices().size();
                     if (action.isRightClicked()) {
                         selectedAlternatives[ingredientIndex] =
                                 Math.floorMod(selectedAlternatives[ingredientIndex] - 1, alternatives);
@@ -330,9 +331,10 @@ public final class LegacyMachineRecipeBrowser implements Listener {
             }
         }
 
-        int displayedOutputs = Math.min(recipe.outputs().size(), DETAIL_OUTPUT_SLOTS.length);
+        List<ItemStack> outputs = recipe.getOutputs();
+        int displayedOutputs = Math.min(outputs.size(), DETAIL_OUTPUT_SLOTS.length);
         for (int index = 0; index < displayedOutputs; index++) {
-            ItemStack recipeOutput = recipe.outputs().get(index);
+            ItemStack recipeOutput = outputs.get(index);
             ItemStack output = addLore(
                     recipeOutput,
                     "",
@@ -351,172 +353,19 @@ public final class LegacyMachineRecipeBrowser implements Listener {
         menu.replaceExistingItem(45, ChestMenuUtils.getPreviousButton(player, recipeIndex + 1, recipes.size()));
         menu.addMenuClickHandler(45, (pl, slot, item, action) -> {
             if (recipeIndex > 0) {
-                openRecipeDetail(pl, context, recipes, recipeIndex - 1);
+                openRecipeDetail(pl, context, recipeIndex - 1);
             }
             return false;
         });
         menu.replaceExistingItem(53, ChestMenuUtils.getNextButton(player, recipeIndex + 1, recipes.size()));
         menu.addMenuClickHandler(53, (pl, slot, item, action) -> {
             if (recipeIndex + 1 < recipes.size()) {
-                openRecipeDetail(pl, context, recipes, recipeIndex + 1);
+                openRecipeDetail(pl, context, recipeIndex + 1);
             }
             return false;
         });
 
         menu.open(player);
-    }
-
-    private @Nonnull List<Object> getEnabledRecipes(@Nonnull BrowserContext context, @Nonnull World world) {
-        RecipeCacheKey key = new RecipeCacheKey(context.machine().getId(), world.getUID());
-        return recipeCache.computeIfAbsent(key, ignored -> {
-            try {
-                List<?> rawRecipes = context.adapter().getRecipes(context.machine());
-                List<Object> enabled = new ArrayList<>(rawRecipes.size());
-                for (Object recipe : rawRecipes) {
-                    if (recipe != null && !isDisabled(recipe, world)) {
-                        enabled.add(recipe);
-                    }
-                }
-                return Collections.unmodifiableList(enabled);
-            } catch (ReflectiveOperationException | LinkageError exception) {
-                logAdapterFailure(context.machine(), exception);
-                return List.of();
-            }
-        });
-    }
-
-    private boolean isDisabled(@Nonnull Object recipe, @Nonnull World world) {
-        Optional<RecipeMethods> methods = methodsForRecipe(recipe.getClass());
-        if (methods.isEmpty()) {
-            return false;
-        }
-        try {
-            Object result = methods.get().isDisabledIn().invoke(recipe, world);
-            return result instanceof Boolean disabled && disabled;
-        } catch (IllegalAccessException | InvocationTargetException exception) {
-            return false;
-        }
-    }
-
-    private @Nullable MachineRecipeData readRecipe(@Nonnull Object rawRecipe) {
-        Optional<RecipeMethods> optionalMethods = methodsForRecipe(rawRecipe.getClass());
-        if (optionalMethods.isEmpty()) {
-            return null;
-        }
-
-        try {
-            RecipeMethods methods = optionalMethods.get();
-            Object inputValue = methods.inputs().invoke(rawRecipe);
-            Object outputValue = methods.outputs().invoke(rawRecipe);
-            if (!(inputValue instanceof List<?> rawInputs) || !(outputValue instanceof List<?> rawOutputs)) {
-                return null;
-            }
-
-            List<IngredientData> inputs = new ArrayList<>(rawInputs.size());
-            for (Object rawChoice : rawInputs) {
-                IngredientData ingredient = readIngredient(rawChoice);
-                if (ingredient != null && !ingredient.choices().isEmpty()) {
-                    inputs.add(ingredient);
-                }
-            }
-
-            List<ItemStack> outputs = new ArrayList<>(rawOutputs.size());
-            for (Object rawOutput : rawOutputs) {
-                if (rawOutput instanceof ItemStack output && output.getType() != Material.AIR) {
-                    outputs.add(output.clone());
-                }
-            }
-            return outputs.isEmpty() ? null : new MachineRecipeData(List.copyOf(inputs), List.copyOf(outputs));
-        } catch (IllegalAccessException | InvocationTargetException | LinkageError exception) {
-            plugin.getLogger().log(Level.FINE, "Could not read a FastMachines recipe for the enhanced guide", exception);
-            return null;
-        }
-    }
-
-    private @Nullable IngredientData readIngredient(@Nullable Object rawChoice) {
-        if (rawChoice == null) {
-            return null;
-        }
-        Optional<ChoiceMethods> optionalMethods = choiceMethods.computeIfAbsent(rawChoice.getClass(), this::findChoiceMethods);
-        if (optionalMethods.isEmpty()) {
-            return null;
-        }
-
-        try {
-            Object value = optionalMethods.get().choices().invoke(rawChoice);
-            if (!(value instanceof Map<?, ?> rawChoices)) {
-                return null;
-            }
-
-            List<ItemStack> choices = new ArrayList<>(rawChoices.size());
-            for (Map.Entry<?, ?> entry : rawChoices.entrySet()) {
-                Object rawWrapper = entry.getKey();
-                if (rawWrapper == null || !(entry.getValue() instanceof Number amountValue)) {
-                    continue;
-                }
-                Optional<WrapperMethods> methods =
-                        wrapperMethods.computeIfAbsent(rawWrapper.getClass(), this::findWrapperMethods);
-                if (methods.isEmpty()) {
-                    continue;
-                }
-                Object baseItem = methods.get().baseItem().invoke(rawWrapper);
-                if (baseItem instanceof ItemStack stack && stack.getType() != Material.AIR) {
-                    ItemStack choice = stack.clone();
-                    int required = Math.max(1, amountValue.intValue());
-                    choice.setAmount(Math.min(required, choice.getMaxStackSize()));
-                    choices.add(addLore(choice, "", ChatColor.GRAY + "Required: " + ChatColor.WHITE + required));
-                }
-            }
-            return choices.isEmpty() ? null : new IngredientData(List.copyOf(choices));
-        } catch (IllegalAccessException | InvocationTargetException | LinkageError exception) {
-            return null;
-        }
-    }
-
-    private @Nonnull Optional<FastMachinesAdapter> adapterFor(@Nonnull Class<?> machineClass) {
-        return adapters.computeIfAbsent(machineClass, this::findFastMachinesAdapter);
-    }
-
-    private @Nonnull Optional<FastMachinesAdapter> findFastMachinesAdapter(@Nonnull Class<?> machineClass) {
-        if (!machineClass.getName().startsWith(FAST_MACHINES_PACKAGE)) {
-            return Optional.empty();
-        }
-        try {
-            return Optional.of(new FastMachinesAdapter(machineClass.getMethod("getRecipes")));
-        } catch (NoSuchMethodException | SecurityException exception) {
-            return Optional.empty();
-        }
-    }
-
-    private @Nonnull Optional<RecipeMethods> methodsForRecipe(@Nonnull Class<?> recipeClass) {
-        return recipeMethods.computeIfAbsent(recipeClass, this::findRecipeMethods);
-    }
-
-    private @Nonnull Optional<RecipeMethods> findRecipeMethods(@Nonnull Class<?> recipeClass) {
-        try {
-            return Optional.of(new RecipeMethods(
-                    recipeClass.getMethod("getInputs"),
-                    recipeClass.getMethod("getOutputs"),
-                    recipeClass.getMethod("isDisabledIn", World.class)));
-        } catch (NoSuchMethodException | SecurityException exception) {
-            return Optional.empty();
-        }
-    }
-
-    private @Nonnull Optional<ChoiceMethods> findChoiceMethods(@Nonnull Class<?> choiceClass) {
-        try {
-            return Optional.of(new ChoiceMethods(choiceClass.getMethod("getChoices")));
-        } catch (NoSuchMethodException | SecurityException exception) {
-            return Optional.empty();
-        }
-    }
-
-    private @Nonnull Optional<WrapperMethods> findWrapperMethods(@Nonnull Class<?> wrapperClass) {
-        try {
-            return Optional.of(new WrapperMethods(wrapperClass.getMethod("getBaseItem")));
-        } catch (NoSuchMethodException | SecurityException exception) {
-            return Optional.empty();
-        }
     }
 
     private int findButtonSlot(@Nonnull Inventory inventory) {
@@ -528,13 +377,14 @@ public final class LegacyMachineRecipeBrowser implements Listener {
         return -1;
     }
 
-    private @Nonnull ItemStack createButton(int rawRecipeCount) {
+    private @Nonnull ItemStack createButton(@Nonnull MachineRecipeProvider provider, int recipeCount) {
         ItemStack button = new CustomItemStack(
                 Material.KNOWLEDGE_BOOK,
                 "&6&lMachine Recipes",
                 "",
-                "&7View everything this FastMachine can process.",
-                "&7Loaded recipes: &f" + rawRecipeCount,
+                "&7View everything this machine can process.",
+                "&7Available recipes: &f" + recipeCount,
+                "&7Provider: &f" + provider.getKey(),
                 "",
                 "&eClick to browse recipes");
         ItemMeta meta = button.getItemMeta();
@@ -552,43 +402,81 @@ public final class LegacyMachineRecipeBrowser implements Listener {
     }
 
     private @Nonnull ItemStack createRecipeIcon(
-            @Nullable MachineRecipeData recipe, int recipeIndex, int totalRecipes) {
-        if (recipe == null || recipe.outputs().isEmpty()) {
+            @Nonnull MachineRecipeDisplay recipe, int recipeIndex, int totalRecipes) {
+        List<ItemStack> outputs = recipe.getOutputs();
+        if (outputs.isEmpty()) {
             return new CustomItemStack(
                     Material.BARRIER,
                     "&cRecipe " + (recipeIndex + 1),
                     "&7This recipe could not be displayed.");
         }
-        return addLore(
-                recipe.outputs().get(0),
-                "",
-                ChatColor.GOLD + "Machine recipe " + ChatColor.WHITE + (recipeIndex + 1) + ChatColor.GRAY + "/"
-                        + totalRecipes,
-                ChatColor.GRAY + "Inputs: " + ChatColor.WHITE + recipe.inputs().size(),
-                ChatColor.YELLOW + "Left-click: " + ChatColor.GRAY + "View full recipe",
-                ChatColor.YELLOW + "Right-click: " + ChatColor.GRAY + "View output's own recipe");
+
+        List<String> lore = new ArrayList<>();
+        lore.add("");
+        lore.add(ChatColor.GOLD + "Machine recipe " + ChatColor.WHITE + (recipeIndex + 1) + ChatColor.GRAY + "/"
+                + totalRecipes);
+        lore.add(ChatColor.GRAY + "Inputs: " + ChatColor.WHITE + recipe.getInputs().size());
+        lore.add(ChatColor.GRAY + "Outputs: " + ChatColor.WHITE + outputs.size());
+        if (!recipe.getLabel().isBlank()) {
+            lore.add(ChatColor.DARK_GRAY + recipe.getLabel());
+        }
+        lore.add(ChatColor.YELLOW + "Left-click: " + ChatColor.GRAY + "View full recipe");
+        lore.add(ChatColor.YELLOW + "Right-click: " + ChatColor.GRAY + "View output's own recipe");
+        return addLore(outputs.get(0), lore.toArray(new String[0]));
     }
 
     private @Nonnull ItemStack createIngredientIcon(
-            @Nonnull IngredientData ingredient, int ingredientIndex, int selectedAlternative) {
-        int safeIndex = Math.floorMod(selectedAlternative, ingredient.choices().size());
-        ItemStack choice = ingredient.choices().get(safeIndex);
+            @Nonnull MachineRecipeIngredient ingredient, int ingredientIndex, int selectedAlternative) {
+        List<ItemStack> choices = ingredient.getChoices();
+        int safeIndex = Math.floorMod(selectedAlternative, choices.size());
+        ItemStack choice = choices.get(safeIndex);
         List<String> lore = new ArrayList<>();
         lore.add("");
         lore.add(ChatColor.AQUA + "Ingredient " + ChatColor.WHITE + (ingredientIndex + 1));
-        if (ingredient.choices().size() > 1) {
+        lore.add(ChatColor.GRAY + "Required: " + ChatColor.WHITE + choice.getAmount());
+        if (choices.size() > 1) {
             lore.add(ChatColor.GRAY + "Alternative " + ChatColor.WHITE + (safeIndex + 1) + ChatColor.GRAY + "/"
-                    + ingredient.choices().size());
+                    + choices.size());
             lore.add(ChatColor.YELLOW + "Left/right-click to cycle choices");
         }
         return addLore(choice, lore.toArray(new String[0]));
     }
 
-    private @Nonnull ItemStack machineHeader(@Nonnull SlimefunItem machine, int recipeCount) {
+    private @Nonnull ItemStack recipeInformation(@Nonnull MachineRecipeDisplay recipe) {
+        List<String> lore = new ArrayList<>();
+        lore.add(ChatColor.GRAY + "Inputs: " + ChatColor.WHITE + recipe.getInputs().size());
+        lore.add(ChatColor.GRAY + "Outputs: " + ChatColor.WHITE + recipe.getOutputs().size());
+        lore.add(ChatColor.GRAY + "Layout: " + ChatColor.WHITE + readableLayout(recipe));
+        if (recipe.hasKnownProcessingTime()) {
+            lore.add(ChatColor.GRAY + "Processing ticks: " + ChatColor.WHITE + recipe.getProcessingTicks());
+        }
+        if (recipe.hasKnownEnergyUse()) {
+            lore.add(ChatColor.GRAY + "Energy use: " + ChatColor.WHITE + recipe.getEnergyPerTick() + " J/t");
+        }
+        if (!recipe.getLabel().isBlank()) {
+            lore.add(ChatColor.DARK_GRAY + recipe.getLabel());
+        }
+        if (recipe.getInputs().size() > DETAIL_INPUT_SLOTS.length) {
+            lore.add(ChatColor.RED + "Only the first " + DETAIL_INPUT_SLOTS.length + " inputs are shown.");
+        }
+        return new CustomItemStack(Material.BOOK, "&6Recipe Information", lore.toArray(new String[0]));
+    }
+
+    private @Nonnull String readableLayout(@Nonnull MachineRecipeDisplay recipe) {
+        return switch (recipe.getLayout()) {
+            case SHAPED -> "Shaped";
+            case SHAPELESS -> "Shapeless";
+            case UNSPECIFIED -> "Provider-defined";
+        };
+    }
+
+    private @Nonnull ItemStack machineHeader(
+            @Nonnull SlimefunItem machine, @Nonnull MachineRecipeProvider provider, int recipeCount) {
         return addLore(
                 machine.getItem(),
                 "",
                 ChatColor.GRAY + "Processes " + ChatColor.WHITE + recipeCount + ChatColor.GRAY + " recipes",
+                ChatColor.GRAY + "Provider: " + ChatColor.WHITE + provider.getKey(),
                 ChatColor.DARK_GRAY + machine.getId());
     }
 
@@ -629,40 +517,15 @@ public final class LegacyMachineRecipeBrowser implements Listener {
         return item == null || item.getType() == Material.AIR;
     }
 
-    private void logAdapterFailure(@Nonnull SlimefunItem item, @Nonnull Throwable exception) {
-        plugin.getLogger().log(
-                Level.WARNING,
-                "Could not load machine recipes for " + item.getId() + " from " + item.getClass().getName(),
-                exception);
-    }
-
-    private record FastMachinesAdapter(Method recipes) {
-        @Nonnull
-        List<?> getRecipes(@Nonnull SlimefunItem item)
-                throws InvocationTargetException, IllegalAccessException {
-            Object result = recipes.invoke(item);
-            return result instanceof List<?> list ? list : List.of();
-        }
-    }
-
-    private record RecipeMethods(Method inputs, Method outputs, Method isDisabledIn) {}
-
-    private record ChoiceMethods(Method choices) {}
-
-    private record WrapperMethods(Method baseItem) {}
-
-    private record IngredientData(List<ItemStack> choices) {}
-
-    private record MachineRecipeData(List<IngredientData> inputs, List<ItemStack> outputs) {}
-
-    private record RecipeCacheKey(String machineId, UUID worldId) {}
+    private record ResolvedRecipes(MachineRecipeProvider provider, List<MachineRecipeDisplay> recipes) {}
 
     private record BrowserContext(
             Inventory guideInventory,
             PlayerProfile profile,
             EnhancedSurvivalSlimefunGuide guide,
             SlimefunItem machine,
-            FastMachinesAdapter adapter,
+            MachineRecipeProvider provider,
+            List<MachineRecipeDisplay> recipes,
             int buttonSlot,
             long expiresAt) {}
 }

@@ -9,7 +9,7 @@
 Slimefun Legacy turns a normal Minecraft server into a modpack-like experience with machines, electricity, cargo networks, automation, reactors, magic, backpacks, and hundreds of custom items—without requiring players to install a mod.
 
 [![Build](https://github.com/wickidcow/Slimefun-Legacy/actions/workflows/build-ci.yml/badge.svg)](https://github.com/wickidcow/Slimefun-Legacy/actions/workflows/build-ci.yml)
-[![Stability Release](https://github.com/wickidcow/Slimefun-Legacy/actions/workflows/stability-release.yml/badge.svg)](https://github.com/wickidcow/Slimefun-Legacy/actions/workflows/stability-release.yml)
+[![Compatibility](https://github.com/wickidcow/Slimefun-Legacy/actions/workflows/compatibility-ci.yml/badge.svg)](https://github.com/wickidcow/Slimefun-Legacy/actions/workflows/compatibility-ci.yml)
 [![License](https://img.shields.io/github/license/wickidcow/Slimefun-Legacy?label=license)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-21%2B-orange)](https://adoptium.net/)
 [![Paper](https://img.shields.io/badge/Server-Paper-blue)](https://papermc.io/)
@@ -27,7 +27,7 @@ Slimefun Legacy turns a normal Minecraft server into a modpack-like experience w
 </div>
 
 > [!IMPORTANT]
-> **Slimefun Legacy is an unofficial, independently maintained downstream fork.**  
+> **Slimefun Legacy is an unofficial, independently maintained downstream fork.**
 > It is not operated by the original Slimefun team, Slimefun United, the Gugu Project, Mojang Studios, or Microsoft.
 
 ---
@@ -142,7 +142,7 @@ Items created by an older translated build can retain translated names or lore b
 | `/sf doctor scan` | Performs a batched server-wide dry run without changing items |
 | `/sf doctor repair confirm` | Starts the confirmed batched server-wide repair |
 
-Permission: `slimefun.command.doctor`  
+Permission: `slimefun.command.doctor`
 Default access: server operators
 
 For existing translated servers, use:
@@ -172,8 +172,10 @@ Slimefun Legacy currently includes:
 - Global, asynchronous, location-owned, and entity-owned scheduler paths
 - Modern `BlockTicker` and long-capacity energy API overloads
 - Preserved legacy method descriptors for addon compatibility
+- Native Enhanced Guide with smart search, bookmarks, safe recipe preparation, and universal machine recipe browsing
+- Addon-facing machine recipe provider API for structured inputs, alternatives, outputs, timing, and energy metadata
 
-Detailed release information is available in [`STABILITY_RELEASE.md`](STABILITY_RELEASE.md), [`SECOND_MAINTENANCE_RELEASE.md`](SECOND_MAINTENANCE_RELEASE.md), [`THIRD_MAINTENANCE_RELEASE.md`](THIRD_MAINTENANCE_RELEASE.md), and [`FOURTH_MAINTENANCE_RELEASE.md`](FOURTH_MAINTENANCE_RELEASE.md).
+Detailed release information is available in [`STABILITY_RELEASE.md`](STABILITY_RELEASE.md), [`SECOND_MAINTENANCE_RELEASE.md`](SECOND_MAINTENANCE_RELEASE.md), [`THIRD_MAINTENANCE_RELEASE.md`](THIRD_MAINTENANCE_RELEASE.md), and [`FOURTH_MAINTENANCE_RELEASE.md`](FOURTH_MAINTENANCE_RELEASE.md). Enhanced Guide development is documented in [`ENHANCED_GUIDE.md`](ENHANCED_GUIDE.md), with addon integration details in [`docs/MACHINE_RECIPE_PROVIDER_API.md`](docs/MACHINE_RECIPE_PROVIDER_API.md).
 
 ---
 

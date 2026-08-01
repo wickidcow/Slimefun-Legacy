@@ -14,9 +14,10 @@ features:
   display-item-id: true
   display-addon: true
 
-  # Adds a JEG-style "Machine Recipes" button to supported addon machines.
-  # FastMachines support reads the addon's public recipe getters and does not
-  # access private fields or require FastMachines as a hard dependency.
+  # Adds a JEG-style "Machine Recipes" button through the Phase 4 provider API.
+  # Core AContainer machines, RecipeDisplayItem implementations and FastMachines
+  # are supported automatically. Addons can register structured providers without
+  # reflection or a hard dependency on the enhanced guide implementation.
   machine-recipes:
     enabled: true
 

@@ -1,4 +1,4 @@
-# Slimefun Legacy Native Enhanced Guide — Phases 1–3
+# Slimefun Legacy Native Enhanced Guide — Phases 1–4
 
 This package replaces the default survival and cheat guide registrations with native enhanced implementations designed to feel familiar to JustEnoughGuide users while remaining inside Slimefun Legacy's normal guide API.
 
@@ -28,6 +28,19 @@ This package replaces the default survival and cheat guide registrations with na
 - Slimefun sub-recipe hints without recursive execution.
 - Transactional planning, rollback and conservative altar ritual locking.
 
+## Phase 4 — Universal machine recipe browsing
+
+- Addon-facing `MachineRecipeProvider` registry and normalized recipe model.
+- Direct integration through `MachineRecipeDisplayItem`.
+- Automatic structured browsing for core and addon `AContainer` machines.
+- Compatibility discovery for public `getMachineRecipes()` recipe getters.
+- Existing `RecipeDisplayItem` recipes receive the same paged browser.
+- FastMachines support moved into the provider system while retaining alternatives and world filters.
+- Optional processing-time, energy-use, layout and source metadata in recipe details.
+- Defensive `ItemStack` copying so guide rendering cannot mutate addon recipes.
+
+See [`docs/MACHINE_RECIPE_PROVIDER_API.md`](docs/MACHINE_RECIPE_PROVIDER_API.md) for addon integration examples.
+
 ## Technical design
 
 - Native guide registration; no reflection or private-field replacement.
@@ -37,7 +50,7 @@ This package replaces the default survival and cheat guide registrations with na
 
 ## Current boundary
 
-The guide still does not automatically craft items, withdraw from nearby storage or recursively craft missing sub-components. GUI-based addon machine adapters and those higher-risk automation layers remain future phases.
+The guide still does not automatically craft items, withdraw from nearby storage or recursively craft missing sub-components. GUI machine ingredient filling, nearby-storage access and those higher-risk automation layers remain future phases.
 
 ## Installation
 
