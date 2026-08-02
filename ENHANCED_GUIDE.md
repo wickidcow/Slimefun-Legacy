@@ -1,4 +1,4 @@
-# Slimefun Legacy Native Enhanced Guide — Phases 1–4.1A
+# Slimefun Legacy Native Enhanced Guide — Phases 1–4.1B-A
 
 This package replaces the default survival and cheat guide registrations with native enhanced implementations designed to feel familiar to JustEnoughGuide users while remaining inside Slimefun Legacy's normal guide API.
 
@@ -44,8 +44,7 @@ See [`docs/MACHINE_RECIPE_PROVIDER_API.md`](docs/MACHINE_RECIPE_PROVIDER_API.md)
 
 ## Phase 4.1A — Core GUI machine input filling
 
-- Adds a **Fill Machine Inputs** button to recipes supplied by the native `AContainer` provider.
-- Supports core Slimefun container machines while leaving addon machines for later provider-specific adapters.
+- Adds a **Fill Machine Inputs** button to verified `AContainer` recipes.
 - Left-click transfers one complete recipe set; shift-left-click transfers the maximum safe number of complete sets.
 - Requires the player to aim at the exact placed machine shown in the guide.
 - Writes only the machine's declared input slots and never touches outputs, controls or upgrades.
@@ -54,6 +53,18 @@ See [`docs/MACHINE_RECIPE_PROVIDER_API.md`](docs/MACHINE_RECIPE_PROVIDER_API.md)
 - Simulates the complete player/machine transfer before committing and restores both inventories after an unexpected failure.
 - Preserves protection-plugin checks and Folia region ownership.
 - Does not start operations, consume energy, generate outputs or access nearby storage.
+
+## Phase 4.1B-A — Automatic addon `AContainer` filling
+
+- Extends **Fill Machine Inputs** to addon machines that inherit the standard Slimefun `AContainer` implementation.
+- Removes the previous Slimefun-core addon ownership restriction.
+- Matches each displayed recipe back to the machine's actual registered `MachineRecipe` list before showing the fill button.
+- Keeps reflected or guide-only addon recipes view-only when they cannot be verified against the runtime container recipes.
+- Revalidates the player's selected ingredient alternatives when the transfer begins.
+- Uses the amounts from the registered runtime recipe rather than trusting reflected guide metadata.
+- Supports reordered inputs and duplicate ingredients through unique, order-independent recipe matching.
+- Rejects addon machines whose declared input slots overlap their output slots.
+- Retains all Phase 4.1A transaction, rollback, protection, ticker and Folia safety checks.
 
 
 ## Technical design
@@ -65,7 +76,7 @@ See [`docs/MACHINE_RECIPE_PROVIDER_API.md`](docs/MACHINE_RECIPE_PROVIDER_API.md)
 
 ## Current boundary
 
-The guide still does not automatically craft items, withdraw from nearby storage or recursively craft missing sub-components. Phase 4.1A fills only core `AContainer` input slots; addon-specific GUI adapters, nearby-storage access and higher-risk automation remain future phases.
+The guide still does not automatically craft items, withdraw from nearby storage or recursively craft missing sub-components. Phase 4.1B-A fills verified core and addon `AContainer` input slots. Machines with custom inventory systems, addon-specific GUI adapters, nearby-storage access and higher-risk automation remain future phases.
 
 ## Installation
 

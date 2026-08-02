@@ -27,8 +27,8 @@ config_text = config.read_text(encoding="utf-8")
 test_text = test.read_text(encoding="utf-8")
 
 checks = {
-    "Core AContainer restriction": "machine instanceof AContainer" in manager_text and "machine.getAddon() == plugin" in manager_text,
-    "Native provider restriction": "isContainerProvider(provider)" in manager_text and "CONTAINER_PROVIDER_KEY" in providers_text,
+    "AContainer restriction": "machine instanceof AContainer" in manager_text,
+    "Registered recipe verification": "hasCompatibleRegisteredRecipe" in manager_text and "resolveRegisteredRequirements" in manager_text,
     "Exact placed machine validation": "guideMachine.getId().equals(placedItem.getId())" in manager_text,
     "Protection check": "Interaction.INTERACT_BLOCK" in manager_text,
     "Folia region ownership check": "isOwnedByCurrentRegion" in manager_text,
@@ -37,7 +37,7 @@ checks = {
     "Transactional player snapshot": "originalPlayer" in manager_text and "setStorageContents" in manager_text,
     "Transactional machine snapshot": "originalMachine" in manager_text and "restore(" in manager_text,
     "Only input slots are written": "container.getInputSlots()" in manager_text and "writeSlots(menu, inputSlots" in manager_text,
-    "No output generation": "pushItem" not in manager_text and "getOutputSlots" not in manager_text,
+    "No output generation": "pushItem" not in manager_text,
     "No direct operation start": "startOperation" not in manager_text,
     "Duplicate input slot assignment": "assignOccupied" in manager_text and "usedRequirements" in manager_text,
     "Partial stack support": "findTemplate" in manager_text and "removeMatching" in manager_text,
@@ -45,7 +45,7 @@ checks = {
     "Virtual item admission": "canInsertIntoEmptySlot" in manager_text,
     "Recipe input matching": "MatchContext.RECIPE_INPUT" in manager_text,
     "Stack merge matching": "MatchContext.STACK_MERGE" in manager_text,
-    "Guide fill button": "Fill Machine Inputs" in manager_text and "inputFill.createButton(recipe)" in browser_text,
+    "Guide fill button": "Fill Machine Inputs" in manager_text and "inputFill.createButton(context.machine(), recipe)" in browser_text,
     "Shift fill control": "action.isShiftClicked()" in browser_text,
     "Selected alternatives forwarded": "selectedAlternatives.clone()" in browser_text,
     "Settings wired": "hasMachineInputFill" in settings_text and "machine-input-fill" in config_text,

@@ -351,8 +351,8 @@ public final class LegacyMachineRecipeBrowser implements Listener {
         }
 
         LegacyMachineInputFillManager inputFill = LegacyMachineInputFillManager.get();
-        if (inputFill.supports(context.machine(), context.provider())) {
-            menu.replaceExistingItem(46, inputFill.createButton(recipe));
+        if (inputFill.supports(context.machine(), recipe)) {
+            menu.replaceExistingItem(46, inputFill.createButton(context.machine(), recipe));
             menu.addMenuClickHandler(46, (pl, slot, item, action) -> {
                 if (!action.isRightClicked()) {
                     inputFill.fill(

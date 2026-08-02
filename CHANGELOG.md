@@ -1,3 +1,14 @@
+# Slimefun Legacy 4.1.13 — Addon AContainer Input Filling
+
+- Extended **Fill Machine Inputs** to addon machines that inherit Slimefun's standard `AContainer` class.
+- Removed the old core-addon ownership restriction without weakening machine or inventory safety checks.
+- Verifies every displayed recipe against the target machine's registered runtime `MachineRecipe` list before enabling filling.
+- Keeps public-method, reflected and guide-only recipes view-only when they are not registered by the actual container.
+- Revalidates selected ingredient alternatives at transfer time and uses the registered recipe's authoritative amounts.
+- Added order-independent matching for reordered inputs, duplicate ingredients and exact outputs.
+- Blocks malformed addon containers whose declared input and output slots overlap.
+- Added addon-container regression tests and a permanent Phase 4.1B-A source verifier.
+
 # Slimefun Legacy Paper/Purpur Compatibility Maintenance — Round 2
 
 - Replaced internal Paper damage-event constructors with supported `DamageSource` damage calls.

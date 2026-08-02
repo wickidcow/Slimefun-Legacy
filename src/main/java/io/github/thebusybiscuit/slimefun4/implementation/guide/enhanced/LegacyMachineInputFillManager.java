@@ -10,7 +10,6 @@ import io.github.thebusybiscuit.slimefun4.api.items.virtual.VirtualItemHandler.I
 import io.github.thebusybiscuit.slimefun4.api.items.virtual.VirtualItemHandler.MatchContext;
 import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeDisplay;
 import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeIngredient;
-import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeProvider;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
@@ -22,6 +21,7 @@ import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.AContainer;
+import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.MachineRecipe;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -31,11 +31,11 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
 /**
- * Safely prepares a selected machine recipe inside a placed core {@link AContainer}.
+ * Safely prepares a selected machine recipe inside a placed {@link AContainer}.
  *
- * <p>Phase 4.1A deliberately supports only recipes supplied by Legacy's native AContainer provider. It never creates
- * outputs, starts an operation or changes energy. The machine's own ticker remains responsible for validating and
- * processing the inserted recipe.
+ * <p>Core and addon-owned containers are supported when the displayed recipe can be matched back to the machine's
+ * registered {@link MachineRecipe} list. It never creates outputs, starts an operation or changes energy. The
+ * machine's own ticker remains responsible for validating and processing the inserted recipe.
  */
 public final class LegacyMachineInputFillManager {
 
@@ -58,14 +58,17 @@ public final class LegacyMachineInputFillManager {
         return instance;
     }
 
-    public boolean supports(@Nonnull SlimefunItem machine, @Nonnull MachineRecipeProvider provider) {
+    public boolean supports(@Nonnull SlimefunItem machine, @Nonnull MachineRecipeDisplay recipe) {
         return LegacyGuideSettings.get().hasMachineInputFill()
-                && machine instanceof AContainer
-                && machine.getAddon() == plugin
-                && LegacyMachineRecipeProviders.isContainerProvider(provider);
+                && machine instanceof AContainer container
+                && hasCompatibleRegisteredRecipe(
+                        container.getMachineRecipes(),
+                        recipe,
+                        LegacyMachineInputFillManager::matchesRecipeInput,
+                        LegacyMachineInputFillManager::canStackTogether);
     }
 
-    public @Nonnull ItemStack createButton(@Nonnull MachineRecipeDisplay recipe) {
+    public @Nonnull ItemStack createButton(@Nonnull SlimefunItem machine, @Nonnull MachineRecipeDisplay recipe) {
         int ingredients = recipe.getInputs().size();
         return new CustomItemStack(
                 Material.HOPPER,
@@ -74,6 +77,8 @@ public final class LegacyMachineInputFillManager {
                 "&7Move this recipe from your inventory",
                 "&7into the placed machine's input slots.",
                 "&7Ingredients: &f" + ingredients,
+                "&7Machine: &f" + ItemUtils.getItemName(machine.getItem()),
+                "&7Supports verified core and addon containers.",
                 "",
                 "&eLeft-click: &7Fill one recipe set",
                 "&eShift + left-click: &7Fill the maximum safe amount",
@@ -129,7 +134,20 @@ public final class LegacyMachineInputFillManager {
             return;
         }
 
-        List<ItemStack> requirements = selectedRequirements(recipe, selectedAlternatives);
+        List<ItemStack> requirements = resolveRegisteredRequirements(
+                container.getMachineRecipes(),
+                recipe,
+                selectedAlternatives,
+                LegacyMachineInputFillManager::matchesRecipeInput,
+                LegacyMachineInputFillManager::canStackTogether);
+        if (requirements == null) {
+            send(
+                    player,
+                    ChatColor.RED
+                            + "This displayed recipe could not be verified against the machine's registered recipes.");
+            return;
+        }
+
         int[] inputSlots = container.getInputSlots();
         if (requirements.isEmpty()) {
             send(player, ChatColor.RED + "This recipe does not contain transferable ingredients.");
@@ -141,6 +159,10 @@ public final class LegacyMachineInputFillManager {
         }
         if (!validInputSlots(inputSlots, menu.getSize())) {
             send(player, ChatColor.RED + "This machine exposes an invalid input-slot layout.");
+            return;
+        }
+        if (!slotsAreDisjoint(inputSlots, container.getOutputSlots())) {
+            send(player, ChatColor.RED + "This addon machine overlaps its input and output slots, so filling was blocked.");
             return;
         }
 
@@ -207,6 +229,172 @@ public final class LegacyMachineInputFillManager {
                 Slimefun.getTickerTask().setInventoryViewed(target.getLocation(), false);
             }
         }
+    }
+
+    static boolean hasCompatibleRegisteredRecipe(
+            @Nonnull List<MachineRecipe> registeredRecipes,
+            @Nonnull MachineRecipeDisplay display,
+            @Nonnull IngredientMatcher inputMatcher,
+            @Nonnull StackMatcher outputMatcher) {
+        List<List<ItemStack>> displayedInputs = displayChoices(display);
+        List<ItemStack> displayedOutputs = display.getOutputs();
+        for (MachineRecipe registered : registeredRecipes) {
+            if (registered != null
+                    && matchesRegisteredRecipe(
+                            registered, displayedInputs, displayedOutputs, inputMatcher, outputMatcher)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static @Nullable List<ItemStack> resolveRegisteredRequirements(
+            @Nonnull List<MachineRecipe> registeredRecipes,
+            @Nonnull MachineRecipeDisplay display,
+            @Nonnull int[] selectedAlternatives,
+            @Nonnull IngredientMatcher inputMatcher,
+            @Nonnull StackMatcher outputMatcher) {
+        List<ItemStack> selected = selectedRequirements(display, selectedAlternatives);
+        List<List<ItemStack>> selectedInputs = new ArrayList<>(selected.size());
+        for (ItemStack item : selected) {
+            selectedInputs.add(List.of(item));
+        }
+
+        List<ItemStack> displayedOutputs = display.getOutputs();
+        for (MachineRecipe registered : registeredRecipes) {
+            if (registered != null
+                    && matchesRegisteredRecipe(
+                            registered, selectedInputs, displayedOutputs, inputMatcher, outputMatcher)) {
+                return registeredInputs(registered);
+            }
+        }
+        return null;
+    }
+
+    private static boolean matchesRegisteredRecipe(
+            @Nonnull MachineRecipe registered,
+            @Nonnull List<List<ItemStack>> displayedInputs,
+            @Nonnull List<ItemStack> displayedOutputs,
+            @Nonnull IngredientMatcher inputMatcher,
+            @Nonnull StackMatcher outputMatcher) {
+        List<ItemStack> registeredInputs = registeredInputs(registered);
+        List<ItemStack> registeredOutputs = registeredOutputs(registered);
+        return matchesChoiceGroups(registeredInputs, displayedInputs, inputMatcher)
+                && matchesStacks(registeredOutputs, displayedOutputs, outputMatcher);
+    }
+
+    private static @Nonnull List<List<ItemStack>> displayChoices(@Nonnull MachineRecipeDisplay display) {
+        List<MachineRecipeIngredient> inputs = display.getInputs();
+        List<List<ItemStack>> choices = new ArrayList<>(inputs.size());
+        for (MachineRecipeIngredient ingredient : inputs) {
+            choices.add(ingredient.getChoices());
+        }
+        return List.copyOf(choices);
+    }
+
+    private static @Nonnull List<ItemStack> registeredInputs(@Nonnull MachineRecipe recipe) {
+        return nonEmptyStacks(recipe.getInput());
+    }
+
+    private static @Nonnull List<ItemStack> registeredOutputs(@Nonnull MachineRecipe recipe) {
+        return nonEmptyStacks(recipe.getOutput());
+    }
+
+    private static @Nonnull List<ItemStack> nonEmptyStacks(@Nonnull ItemStack[] source) {
+        List<ItemStack> items = new ArrayList<>(source.length);
+        for (ItemStack item : source) {
+            if (!isEmpty(item)) {
+                items.add(item.clone());
+            }
+        }
+        return List.copyOf(items);
+    }
+
+    private static boolean matchesChoiceGroups(
+            @Nonnull List<ItemStack> registered,
+            @Nonnull List<List<ItemStack>> displayed,
+            @Nonnull IngredientMatcher matcher) {
+        if (registered.size() != displayed.size()) {
+            return false;
+        }
+        return matchChoiceGroup(0, registered, displayed, new boolean[displayed.size()], matcher);
+    }
+
+    private static boolean matchChoiceGroup(
+            int registeredIndex,
+            @Nonnull List<ItemStack> registered,
+            @Nonnull List<List<ItemStack>> displayed,
+            @Nonnull boolean[] usedDisplayed,
+            @Nonnull IngredientMatcher matcher) {
+        if (registeredIndex >= registered.size()) {
+            return true;
+        }
+
+        ItemStack expected = registered.get(registeredIndex);
+        for (int displayedIndex = 0; displayedIndex < displayed.size(); displayedIndex++) {
+            if (usedDisplayed[displayedIndex]
+                    || !anyChoiceMatches(displayed.get(displayedIndex), expected, matcher)) {
+                continue;
+            }
+            usedDisplayed[displayedIndex] = true;
+            if (matchChoiceGroup(registeredIndex + 1, registered, displayed, usedDisplayed, matcher)) {
+                return true;
+            }
+            usedDisplayed[displayedIndex] = false;
+        }
+        return false;
+    }
+
+    private static boolean anyChoiceMatches(
+            @Nonnull List<ItemStack> choices,
+            @Nonnull ItemStack expected,
+            @Nonnull IngredientMatcher matcher) {
+        for (ItemStack choice : choices) {
+            if (!isEmpty(choice)
+                    && choice.getAmount() == expected.getAmount()
+                    && matcher.matches(choice, expected)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean matchesStacks(
+            @Nonnull List<ItemStack> registered,
+            @Nonnull List<ItemStack> displayed,
+            @Nonnull StackMatcher matcher) {
+        if (registered.size() != displayed.size()) {
+            return false;
+        }
+        return matchStack(0, registered, displayed, new boolean[displayed.size()], matcher);
+    }
+
+    private static boolean matchStack(
+            int registeredIndex,
+            @Nonnull List<ItemStack> registered,
+            @Nonnull List<ItemStack> displayed,
+            @Nonnull boolean[] usedDisplayed,
+            @Nonnull StackMatcher matcher) {
+        if (registeredIndex >= registered.size()) {
+            return true;
+        }
+
+        ItemStack expected = registered.get(registeredIndex);
+        for (int displayedIndex = 0; displayedIndex < displayed.size(); displayedIndex++) {
+            ItemStack candidate = displayed.get(displayedIndex);
+            if (usedDisplayed[displayedIndex]
+                    || isEmpty(candidate)
+                    || candidate.getAmount() != expected.getAmount()
+                    || !matcher.matches(candidate, expected)) {
+                continue;
+            }
+            usedDisplayed[displayedIndex] = true;
+            if (matchStack(registeredIndex + 1, registered, displayed, usedDisplayed, matcher)) {
+                return true;
+            }
+            usedDisplayed[displayedIndex] = false;
+        }
+        return false;
     }
 
     private static @Nonnull List<ItemStack> selectedRequirements(
@@ -567,6 +755,17 @@ public final class LegacyMachineInputFillManager {
                 return false;
             }
             seen[slot] = true;
+        }
+        return true;
+    }
+
+    private static boolean slotsAreDisjoint(@Nonnull int[] first, @Nonnull int[] second) {
+        for (int firstSlot : first) {
+            for (int secondSlot : second) {
+                if (firstSlot == secondSlot) {
+                    return false;
+                }
+            }
         }
         return true;
     }
