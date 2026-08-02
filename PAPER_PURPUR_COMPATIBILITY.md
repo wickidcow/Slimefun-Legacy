@@ -28,6 +28,12 @@ Slimefun 5 is monitored as a source of modern fixes, not as a replacement codeba
 
 The focused core audit also ports recipe-amount-correct multiblock consumption, all-match multiblock dispatch, synchronized Energy Regulator ticks, Multi Tool ID-mode migration and backpack identity diagnostics. See [`CORE_CORRECTNESS_AUDIT.md`](CORE_CORRECTNESS_AUDIT.md) for the full disposition of reviewed Slimefun 5, United and Gugu changes.
 
+## Compatibility Maintenance Round 2
+
+Legacy now uses supported Paper `DamageSource` calls for internally generated combat damage and current WorldEdit vector accessors. The deprecated CS-CoreLib `Config` type remains available only as an addon compatibility surface and is no longer marked for removal from this fork. Reflection tests lock the historical ticker, energy and BlockStorage signatures in place while the core continues using modern storage containers.
+
+Gradle storage tests now opt into Java 25 native access for SQLite JDBC, avoiding the restricted-native-access warning during CI. See [`COMPATIBILITY_MAINTENANCE_ROUND2.md`](COMPATIBILITY_MAINTENANCE_ROUND2.md).
+
 ## Validation
 
 Run:

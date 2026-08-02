@@ -6,17 +6,19 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.settings.IntRangeSetting;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BowShootHandler;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
+import io.github.thebusybiscuit.slimefun4.utils.compatibility.DamageUtils;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedParticle;
 import java.util.Collection;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.Bukkit;
 import org.bukkit.SoundCategory;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.damage.DamageType;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
@@ -64,15 +66,21 @@ public class ExplosiveBow extends SlimefunBow {
                 double damage = e.getDamage() * (1 - (distanceSquared / (2 * range.getValue() * range.getValue())));
 
                 if (!entity.getUniqueId().equals(target.getUniqueId())) {
-                    EntityDamageByEntityEvent event = new EntityDamageByEntityEvent(
-                            e.getDamager(), entity, EntityDamageEvent.DamageCause.ENTITY_EXPLOSION, damage);
-                    Bukkit.getPluginManager().callEvent(event);
+                    Entity causingEntity = e.getDamager();
+                    if (e.getDamager() instanceof Projectile projectile
+                            && projectile.getShooter() instanceof Entity shooter) {
+                        causingEntity = shooter;
+                    }
 
-                    if (!event.isCancelled()) {
+                    DamageType damageType = causingEntity instanceof Player
+                            ? DamageType.PLAYER_EXPLOSION
+                            : DamageType.EXPLOSION;
+                    boolean damaged = DamageUtils.damage(entity, damage, damageType, e.getDamager(), causingEntity);
+
+                    if (damaged) {
                         distanceVector.setY(0.75);
                         Vector knockback = distanceVector.normalize().multiply(2);
                         entity.setVelocity(entity.getVelocity().add(knockback));
-                        entity.damage(event.getDamage());
                     }
                 }
             }

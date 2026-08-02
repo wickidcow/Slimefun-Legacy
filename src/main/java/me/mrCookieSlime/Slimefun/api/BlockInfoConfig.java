@@ -23,6 +23,7 @@ import org.bukkit.configuration.file.FileConfiguration;
  * @see BlockStorage
  */
 @SlimefunAPI
+@SuppressWarnings("deprecation")
 public class BlockInfoConfig extends Config {
 
     private final Map<String, String> data;

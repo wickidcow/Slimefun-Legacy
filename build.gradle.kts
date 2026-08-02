@@ -92,6 +92,8 @@ sourceSets.main {
 }
 tasks.test {
     useJUnitPlatform()
+    // SQLite JDBC loads a native library during storage tests. Java 25 requires explicit native access.
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
     findProperty("slimefunRealDatabase")?.toString()?.let {
         systemProperty("slimefun.realDatabase", it)
     }

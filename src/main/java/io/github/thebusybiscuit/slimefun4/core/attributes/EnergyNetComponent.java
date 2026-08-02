@@ -35,6 +35,7 @@ import org.bukkit.Location;
  *
  */
 @SlimefunAPI
+@SuppressWarnings("deprecation")
 public interface EnergyNetComponent extends ItemAttribute {
 
     /**
@@ -134,7 +135,7 @@ public interface EnergyNetComponent extends ItemAttribute {
         return (int) NumberUtils.longToInt(getChargeLong(l, data));
     }
 
-    @Deprecated(forRemoval = true)
+    @Deprecated
     default long getChargeLong(@Nonnull Location l, @Nonnull SlimefunBlockData data) {
         return getChargeLong(l, (ASlimefunDataContainer) data);
     }

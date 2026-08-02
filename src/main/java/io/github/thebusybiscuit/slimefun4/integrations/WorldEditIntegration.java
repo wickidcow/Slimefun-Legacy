@@ -48,7 +48,7 @@ class WorldEditIntegration {
                         World world = Bukkit.getWorld(event.getWorld().getName());
 
                         if (world != null) {
-                            Location l = new Location(world, pos.getBlockX(), pos.getBlockY(), pos.getBlockZ());
+                            Location l = new Location(world, pos.getX(), pos.getY(), pos.getZ());
 
                             if (StorageCacheUtils.hasSlimefunBlock(l)) {
                                 Slimefun.getDatabaseManager()

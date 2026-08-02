@@ -13,9 +13,9 @@ public interface SqlConstants {
     String TABLE_NAME_UNIVERSAL_RECORD = "universal_record";
     String TABLE_NAME_UNIVERSAL_DATA = "universal_data";
     /**
-     * @deprecated
-     * 由于设计不当，该表已被弃用
+     * @deprecated This legacy table was replaced by {@link #TABLE_NAME_TABLE_METADATA}.
      */
+    @Deprecated
     String TABLE_NAME_TABLE_INFORMATION = "table_information";
 
     String TABLE_NAME_TABLE_METADATA = "table_metadata";
@@ -45,9 +45,9 @@ public interface SqlConstants {
     String FIELD_UNIVERSAL_TRAITS = "universal_traits";
 
     /**
-     * @deprecated
-     * 由于设计不当，该字段已被弃用
+     * @deprecated Table versions are now stored as metadata using {@link #METADATA_VERSION}.
      */
+    @Deprecated
     String FIELD_TABLE_VERSION = "table_version";
 
     String FIELD_TABLE_METADATA_KEY = "table_metadata_key";

@@ -8,13 +8,15 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 /**
- * An old remnant of CS-CoreLib.
- * This will be removed once we updated everything.
- * Don't look at the code, it will be gone soon, don't worry.
+ * Compatibility remnant of CS-CoreLib retained for older Slimefun addons.
  *
- * @deprecated Only used by the legacy {@link BlockStorage} system.
+ * <p>Slimefun Legacy no longer uses this type for new internal storage code, but the class and its historical
+ * method signatures remain available so addons compiled against the old BlockStorage API continue to load.
+ *
+ * @deprecated New code should use the modern Slimefun data-container APIs. This compatibility type is not
+ * scheduled for removal from Slimefun Legacy.
  */
-@Deprecated(forRemoval = true)
+@Deprecated
 public class Config {
 
     private final File file;

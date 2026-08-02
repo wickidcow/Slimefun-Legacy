@@ -23,6 +23,7 @@ import org.bukkit.inventory.ItemStack;
  */
 @Deprecated
 @SlimefunAPI
+@SuppressWarnings("deprecation")
 public class BlockStorage {
 
     private static final Config emptyData = new EmptyBlockData();

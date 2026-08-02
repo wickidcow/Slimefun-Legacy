@@ -15,6 +15,7 @@ import me.mrCookieSlime.CSCoreLibPlugin.Configuration.Config;
 import org.bukkit.block.Block;
 
 @SlimefunAPI
+@SuppressWarnings("deprecation")
 public abstract class BlockTicker implements ItemHandler {
 
     @Getter
@@ -122,6 +123,12 @@ public abstract class BlockTicker implements ItemHandler {
         // Override this method and fill it with content
     }
 
+    /**
+     * Legacy CS-CoreLib bridge retained for binary compatibility with older addons.
+     *
+     * @deprecated Override {@link #tick(Block, SlimefunItem, SlimefunBlockData)} or
+     * {@link #tick(Block, SlimefunItem, ASlimefunDataContainer)} in new code.
+     */
     @Deprecated
     public void tick(Block b, SlimefunItem item, Config data) {}
 

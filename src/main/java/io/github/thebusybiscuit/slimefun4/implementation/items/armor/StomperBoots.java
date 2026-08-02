@@ -7,9 +7,9 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.utils.compatibility.DamageUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.Bukkit;
 import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
@@ -17,9 +17,8 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
+import org.bukkit.damage.DamageType;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
@@ -58,13 +57,12 @@ public class StomperBoots extends SlimefunItem {
                         || (player.getWorld().getPVP()
                                 && Slimefun.getProtectionManager()
                                         .hasPermission(player, entity.getLocation(), Interaction.ATTACK_PLAYER))) {
-                    EntityDamageByEntityEvent event = new EntityDamageByEntityEvent(
-                            player, entity, DamageCause.ENTITY_ATTACK, fallDamageEvent.getDamage() / 2);
-                    Bukkit.getPluginManager().callEvent(event);
-
-                    if (!event.isCancelled()) {
-                        livingEntity.damage(event.getDamage());
-                    }
+                    DamageUtils.damage(
+                            livingEntity,
+                            fallDamageEvent.getDamage() / 2,
+                            DamageType.PLAYER_ATTACK,
+                            player,
+                            player);
                 }
             }
         }

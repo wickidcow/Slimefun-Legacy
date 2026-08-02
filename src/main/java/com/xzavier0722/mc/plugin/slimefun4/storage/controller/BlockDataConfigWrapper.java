@@ -14,6 +14,7 @@ import org.jetbrains.annotations.ApiStatus;
 @ApiStatus.Internal
 @SlimefunInternal
 @Deprecated
+@SuppressWarnings("deprecation")
 public class BlockDataConfigWrapper extends Config {
     private final ASlimefunDataContainer blockData;
 

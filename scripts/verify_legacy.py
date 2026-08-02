@@ -28,6 +28,7 @@ def main() -> int:
         "verify_gugu_sync.py",
         "verify_paper_purpur_compat.py",
         "verify_core_correctness.py",
+        "verify_compatibility_round2.py",
     )
 
     for script_name in scripts:

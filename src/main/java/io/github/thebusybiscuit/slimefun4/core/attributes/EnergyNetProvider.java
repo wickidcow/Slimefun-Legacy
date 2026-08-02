@@ -26,6 +26,7 @@ import org.bukkit.Location;
  * @see Reactor
  */
 @SlimefunAPI
+@SuppressWarnings("deprecation")
 public interface EnergyNetProvider extends EnergyNetComponent {
 
     @Override
@@ -41,7 +42,7 @@ public interface EnergyNetProvider extends EnergyNetComponent {
      * @param data The stored {@link SlimefunBlockData}
      * @return The generated output energy of this {@link EnergyNetProvider}
      */
-    @Deprecated(forRemoval = true)
+    @Deprecated
     default int getGeneratedOutput(@Nonnull Location l, @Nonnull SlimefunBlockData data) {
         return getGeneratedOutput(l, new BlockDataConfigWrapper(data));
     }
@@ -68,15 +69,14 @@ public interface EnergyNetProvider extends EnergyNetComponent {
     }
 
     /**
-     * @deprecated use {@link EnergyNetProvider#getGeneratedOutputLong(Location, SlimefunBlockData)} instead
-     *
-     * This method only for backward compatibility.
+     * @deprecated Use {@link EnergyNetProvider#getGeneratedOutputLong(Location, ASlimefunDataContainer)} instead.
+     * This bridge remains available for binary compatibility with older addons.
      *
      * @param l The {@link Location} of this {@link EnergyNetProvider}
      * @param data The stored {@link Config}
      * @return The generated output energy of this {@link EnergyNetProvider}
      */
-    @Deprecated(forRemoval = true)
+    @Deprecated
     default int getGeneratedOutput(@Nonnull Location l, @Nonnull Config data) {
         return 0;
     }
@@ -88,7 +88,7 @@ public interface EnergyNetProvider extends EnergyNetComponent {
      * @param data The stored block data
      * @return The generated output energy of this {@link EnergyNetProvider}.
      */
-    @Deprecated(forRemoval = true)
+    @Deprecated
     default long getGeneratedOutputLong(@Nonnull Location l, @Nonnull SlimefunBlockData data) {
         return getGeneratedOutput(l, (ASlimefunDataContainer) data);
     }
@@ -134,21 +134,20 @@ public interface EnergyNetProvider extends EnergyNetComponent {
      * @param data The stored block data
      * @return Whether or not this {@link Location} will explode.
      */
-    @Deprecated(forRemoval = true)
+    @Deprecated
     default boolean willExplode(@Nonnull Location l, @Nonnull SlimefunBlockData data) {
         return willExplode(l, new BlockDataConfigWrapper(data));
     }
 
     /**
-     * @deprecated use {@link EnergyNetProvider#willExplode(Location, SlimefunBlockData)} instead
-     *
-     * This method only for backward compatibility.
+     * @deprecated Use {@link EnergyNetProvider#willExplode(Location, ASlimefunDataContainer)} instead.
+     * This bridge remains available for binary compatibility with older addons.
      *
      * @param l    The {@link Location} of this {@link EnergyNetProvider}
      * @param data The stored block data
      * @return Whether or not this {@link Location} will explode.
      */
-    @Deprecated(forRemoval = true)
+    @Deprecated
     default boolean willExplode(@Nonnull Location l, @Nonnull Config data) {
         return false;
     }
