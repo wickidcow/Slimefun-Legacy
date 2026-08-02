@@ -21,6 +21,15 @@ features:
   machine-recipes:
     enabled: true
 
+  # Phase 4.1A: safely moves a selected core AContainer recipe from the
+  # player's inventory into the placed machine's real input slots. The machine
+  # still performs its own validation, energy use, timing and output handling.
+  machine-input-fill:
+    enabled: true
+    target-range: 6
+    maximum-sets: 64
+    close-guide-on-success: true
+
   # Adds a protected button to supported recipe pages. It prepares ingredients in
   # nearby core crafting structures but never performs the final craft.
   recipe-fill:

@@ -1,3 +1,13 @@
+# Slimefun Legacy Phase 4.1A — Core GUI Machine Input Filling
+
+- Added a native **Fill Machine Inputs** button to supported core `AContainer` recipes.
+- Added one-set and maximum-safe-set transfer modes.
+- Added exact placed-machine validation, protection checks and Folia region ownership checks.
+- Added transactional player/machine inventory planning with rollback on commit failure.
+- Added machine-viewer checks and ticker coordination to prevent races with processing or open menus.
+- Preserved output slots, upgrades, controls, energy usage, processing time and Cargo behavior.
+- Added partial-stack, duplicate-input, unrelated-item and maximum-set regression coverage.
+
 # Slimefun Legacy Phase 4 — Cheat Guide Hierarchy Correction
 
 - Changed `/sf cheat` to mirror the normal guide's real category icons, ordering and nested hierarchy.

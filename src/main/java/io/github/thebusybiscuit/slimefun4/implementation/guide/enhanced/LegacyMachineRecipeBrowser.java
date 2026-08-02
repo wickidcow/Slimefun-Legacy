@@ -350,6 +350,18 @@ public final class LegacyMachineRecipeBrowser implements Listener {
             });
         }
 
+        LegacyMachineInputFillManager inputFill = LegacyMachineInputFillManager.get();
+        if (inputFill.supports(context.machine(), context.provider())) {
+            menu.replaceExistingItem(46, inputFill.createButton(recipe));
+            menu.addMenuClickHandler(46, (pl, slot, item, action) -> {
+                if (!action.isRightClicked()) {
+                    inputFill.fill(
+                            pl, context.machine(), recipe, selectedAlternatives.clone(), action.isShiftClicked());
+                }
+                return false;
+            });
+        }
+
         menu.replaceExistingItem(45, ChestMenuUtils.getPreviousButton(player, recipeIndex + 1, recipes.size()));
         menu.addMenuClickHandler(45, (pl, slot, item, action) -> {
             if (recipeIndex > 0) {

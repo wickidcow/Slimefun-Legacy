@@ -1,4 +1,4 @@
-# Slimefun Legacy Native Enhanced Guide — Phases 1–4
+# Slimefun Legacy Native Enhanced Guide — Phases 1–4.1A
 
 This package replaces the default survival and cheat guide registrations with native enhanced implementations designed to feel familiar to JustEnoughGuide users while remaining inside Slimefun Legacy's normal guide API.
 
@@ -42,6 +42,20 @@ This package replaces the default survival and cheat guide registrations with na
 
 See [`docs/MACHINE_RECIPE_PROVIDER_API.md`](docs/MACHINE_RECIPE_PROVIDER_API.md) for addon integration examples.
 
+## Phase 4.1A — Core GUI machine input filling
+
+- Adds a **Fill Machine Inputs** button to recipes supplied by the native `AContainer` provider.
+- Supports core Slimefun container machines while leaving addon machines for later provider-specific adapters.
+- Left-click transfers one complete recipe set; shift-left-click transfers the maximum safe number of complete sets.
+- Requires the player to aim at the exact placed machine shown in the guide.
+- Writes only the machine's declared input slots and never touches outputs, controls or upgrades.
+- Coordinates with the machine ticker during the transaction and refuses machines that are open or already being viewed.
+- Uses the same recipe-input and stack-merge matching services as the machine runtime, including virtual-item handling.
+- Simulates the complete player/machine transfer before committing and restores both inventories after an unexpected failure.
+- Preserves protection-plugin checks and Folia region ownership.
+- Does not start operations, consume energy, generate outputs or access nearby storage.
+
+
 ## Technical design
 
 - Native guide registration; no reflection or private-field replacement.
@@ -51,7 +65,7 @@ See [`docs/MACHINE_RECIPE_PROVIDER_API.md`](docs/MACHINE_RECIPE_PROVIDER_API.md)
 
 ## Current boundary
 
-The guide still does not automatically craft items, withdraw from nearby storage or recursively craft missing sub-components. GUI machine ingredient filling, nearby-storage access and those higher-risk automation layers remain future phases.
+The guide still does not automatically craft items, withdraw from nearby storage or recursively craft missing sub-components. Phase 4.1A fills only core `AContainer` input slots; addon-specific GUI adapters, nearby-storage access and higher-risk automation remain future phases.
 
 ## Installation
 

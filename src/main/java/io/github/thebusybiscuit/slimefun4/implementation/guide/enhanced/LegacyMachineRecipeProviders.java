@@ -37,7 +37,13 @@ import org.bukkit.plugin.java.JavaPlugin;
 @SlimefunInternal
 public final class LegacyMachineRecipeProviders {
 
+    private static final String CONTAINER_PROVIDER_KEY = "enhanced_guide_legacy_container_recipes";
+
     private LegacyMachineRecipeProviders() {}
+
+    public static boolean isContainerProvider(@Nonnull MachineRecipeProvider provider) {
+        return CONTAINER_PROVIDER_KEY.equals(provider.getKey().getKey());
+    }
 
     public static void registerDefaults(@Nonnull JavaPlugin plugin) {
         MachineRecipeProviderRegistry.register(new DirectProvider(plugin));
@@ -108,7 +114,7 @@ public final class LegacyMachineRecipeProviders {
     private static final class ContainerProvider extends BaseProvider {
 
         ContainerProvider(JavaPlugin plugin) {
-            super(plugin, "enhanced_guide_legacy_container_recipes");
+            super(plugin, CONTAINER_PROVIDER_KEY);
         }
 
         @Override

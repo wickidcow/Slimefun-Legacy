@@ -114,3 +114,7 @@ This should be called when a compatibility plugin is disabled if the server supp
 ## Compatibility policy
 
 The provider API is marked `@SlimefunAPI` and is included in Legacy's compatibility-protected package inventory. Future maintenance should preserve source and binary compatibility whenever practical.
+
+## Phase 4.1A input filling boundary
+
+The Phase 4.1A **Fill Machine Inputs** action is intentionally limited to core Slimefun `AContainer` recipes supplied by Legacy's native container provider. Third-party providers remain display-only until a later input-target API can describe their real menu slots, validation rules, and transaction behavior safely. Addons do not need to change anything for recipe browsing.

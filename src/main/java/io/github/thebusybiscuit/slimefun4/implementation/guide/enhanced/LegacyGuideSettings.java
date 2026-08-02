@@ -45,6 +45,10 @@ public final class LegacyGuideSettings {
     private final boolean displayItemId;
     private final boolean displayAddon;
     private final boolean machineRecipeBrowser;
+    private final boolean machineInputFill;
+    private final boolean closeGuideAfterMachineInputFill;
+    private final int machineInputFillTargetRange;
+    private final int machineInputFillMaximumSets;
     private final boolean recipeFill;
     private final boolean recipeFillUnorderedMachines;
     private final boolean recipeFillAncientAltar;
@@ -72,6 +76,13 @@ public final class LegacyGuideSettings {
         displayItemId = config.getBoolean("features.display-item-id", true);
         displayAddon = config.getBoolean("features.display-addon", true);
         machineRecipeBrowser = config.getBoolean("features.machine-recipes.enabled", true);
+        machineInputFill = config.getBoolean("features.machine-input-fill.enabled", true);
+        closeGuideAfterMachineInputFill =
+                config.getBoolean("features.machine-input-fill.close-guide-on-success", true);
+        machineInputFillTargetRange =
+                clamp(config.getInt("features.machine-input-fill.target-range", 6), 2, 12);
+        machineInputFillMaximumSets =
+                clamp(config.getInt("features.machine-input-fill.maximum-sets", 64), 1, 64);
         recipeFill = config.getBoolean("features.recipe-fill.enabled", true);
         recipeFillUnorderedMachines = config.getBoolean("features.recipe-fill.unordered-machines", true);
         recipeFillAncientAltar = config.getBoolean("features.recipe-fill.ancient-altar.enabled", true);
@@ -134,6 +145,22 @@ public final class LegacyGuideSettings {
 
     public boolean hasMachineRecipeBrowser() {
         return machineRecipeBrowser;
+    }
+
+    public boolean hasMachineInputFill() {
+        return machineInputFill;
+    }
+
+    public boolean shouldCloseGuideAfterMachineInputFill() {
+        return closeGuideAfterMachineInputFill;
+    }
+
+    public int getMachineInputFillTargetRange() {
+        return machineInputFillTargetRange;
+    }
+
+    public int getMachineInputFillMaximumSets() {
+        return machineInputFillMaximumSets;
     }
 
     public boolean hasRecipeFill() {
