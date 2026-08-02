@@ -8,6 +8,8 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.virtual.VirtualItemHandler.ComparisonResult;
 import io.github.thebusybiscuit.slimefun4.api.items.virtual.VirtualItemHandler.InventoryContext;
 import io.github.thebusybiscuit.slimefun4.api.items.virtual.VirtualItemHandler.MatchContext;
+import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineInputFillAdapter;
+import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineInputFillRecipe;
 import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeDisplay;
 import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeIngredient;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
@@ -31,11 +33,11 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
 /**
- * Safely prepares a selected machine recipe inside a placed {@link AContainer}.
+ * Safely prepares a selected recipe inside a placed machine supported by a {@link MachineInputFillAdapter}.
  *
- * <p>Core and addon-owned containers are supported when the displayed recipe can be matched back to the machine's
- * registered {@link MachineRecipe} list. It never creates outputs, starts an operation or changes energy. The
- * machine's own ticker remains responsible for validating and processing the inserted recipe.
+ * <p>Standard {@link AContainer} machines and registered custom-machine adapters share the same protection checks,
+ * region ownership, simulation, commit validation and rollback path. This manager never creates outputs, starts an
+ * operation or changes energy. The machine's own ticker remains responsible for processing inserted ingredients.
  */
 public final class LegacyMachineInputFillManager {
 
@@ -48,6 +50,7 @@ public final class LegacyMachineInputFillManager {
     }
 
     public static synchronized void initialize(@Nonnull Slimefun plugin) {
+        LegacyMachineInputFillAdapters.registerDefaults(plugin);
         instance = new LegacyMachineInputFillManager(plugin);
     }
 
@@ -60,16 +63,13 @@ public final class LegacyMachineInputFillManager {
 
     public boolean supports(@Nonnull SlimefunItem machine, @Nonnull MachineRecipeDisplay recipe) {
         return LegacyGuideSettings.get().hasMachineInputFill()
-                && machine instanceof AContainer container
-                && hasCompatibleRegisteredRecipe(
-                        container.getMachineRecipes(),
-                        recipe,
-                        LegacyMachineInputFillManager::matchesRecipeInput,
-                        LegacyMachineInputFillManager::canStackTogether);
+                && LegacyMachineInputFillAdapters.findAdapter(plugin, machine, recipe) != null;
     }
 
     public @Nonnull ItemStack createButton(@Nonnull SlimefunItem machine, @Nonnull MachineRecipeDisplay recipe) {
         int ingredients = recipe.getInputs().size();
+        MachineInputFillAdapter adapter = LegacyMachineInputFillAdapters.findAdapter(plugin, machine, recipe);
+        String adapterName = adapter == null ? "Unavailable" : adapter.getDisplayName();
         return new CustomItemStack(
                 Material.HOPPER,
                 "&a&lFill Machine Inputs",
@@ -78,7 +78,8 @@ public final class LegacyMachineInputFillManager {
                 "&7into the placed machine's input slots.",
                 "&7Ingredients: &f" + ingredients,
                 "&7Machine: &f" + ItemUtils.getItemName(machine.getItem()),
-                "&7Supports verified core and addon containers.",
+                "&7Adapter: &f" + adapterName,
+                "&7Supports verified standard and custom addon machines.",
                 "",
                 "&eLeft-click: &7Fill one recipe set",
                 "&eShift + left-click: &7Fill the maximum safe amount",
@@ -95,6 +96,12 @@ public final class LegacyMachineInputFillManager {
         LegacyGuideSettings settings = LegacyGuideSettings.get();
         if (!settings.hasMachineInputFill()) {
             send(player, ChatColor.RED + "Machine input filling is disabled on this server.");
+            return;
+        }
+
+        MachineInputFillAdapter adapter = LegacyMachineInputFillAdapters.findAdapter(plugin, guideMachine, recipe);
+        if (adapter == null) {
+            send(player, ChatColor.RED + "This machine recipe does not have a compatible input-fill adapter.");
             return;
         }
 
@@ -115,7 +122,7 @@ public final class LegacyMachineInputFillManager {
         }
 
         SlimefunItem placedItem = StorageCacheUtils.getSlimefunItem(target.getLocation());
-        if (!(placedItem instanceof AContainer container) || !guideMachine.getId().equals(placedItem.getId())) {
+        if (placedItem == null || !adapter.supports(placedItem) || !adapter.isValidTarget(guideMachine, placedItem)) {
             send(
                     player,
                     ChatColor.RED + "Aim at a placed " + ItemUtils.getItemName(guideMachine.getItem())
@@ -134,35 +141,47 @@ public final class LegacyMachineInputFillManager {
             return;
         }
 
-        List<ItemStack> requirements = resolveRegisteredRequirements(
-                container.getMachineRecipes(),
-                recipe,
-                selectedAlternatives,
-                LegacyMachineInputFillManager::matchesRecipeInput,
-                LegacyMachineInputFillManager::canStackTogether);
-        if (requirements == null) {
-            send(
-                    player,
-                    ChatColor.RED
-                            + "This displayed recipe could not be verified against the machine's registered recipes.");
+        try {
+            if (!adapter.isSafeToFill(player, placedItem, target, menu)) {
+                send(player, ChatColor.RED + "This machine cannot be filled safely in its current state.");
+                return;
+            }
+        } catch (RuntimeException | LinkageError exception) {
+            plugin.getLogger().log(Level.WARNING, "A machine input-fill adapter safety check failed", exception);
+            send(player, ChatColor.RED + "The machine adapter could not verify that filling is safe.");
             return;
         }
 
-        int[] inputSlots = container.getInputSlots();
-        if (requirements.isEmpty()) {
-            send(player, ChatColor.RED + "This recipe does not contain transferable ingredients.");
+        MachineInputFillRecipe resolved;
+        try {
+            resolved = adapter.resolve(placedItem, recipe, selectedAlternatives.clone());
+        } catch (RuntimeException | LinkageError exception) {
+            plugin.getLogger().log(Level.WARNING, "A machine input-fill adapter could not resolve a recipe", exception);
+            send(player, ChatColor.RED + "The selected recipe could not be resolved safely.");
             return;
         }
+        if (resolved == null) {
+            send(player, ChatColor.RED + "The selected ingredients do not match an authoritative machine recipe.");
+            return;
+        }
+
+        List<ItemStack> requirements = resolved.getIngredients();
+        int[] inputSlots = resolved.getInputSlots();
+        int[] protectedSlots = resolved.getProtectedSlots();
         if (requirements.size() > inputSlots.length) {
             send(player, ChatColor.RED + "This recipe uses more inputs than the machine exposes.");
             return;
         }
         if (!validInputSlots(inputSlots, menu.getSize())) {
-            send(player, ChatColor.RED + "This machine exposes an invalid input-slot layout.");
+            send(player, ChatColor.RED + "This machine adapter exposes an invalid input-slot layout.");
             return;
         }
-        if (!slotsAreDisjoint(inputSlots, container.getOutputSlots())) {
-            send(player, ChatColor.RED + "This addon machine overlaps its input and output slots, so filling was blocked.");
+        if (!validProtectedSlots(protectedSlots, menu.getSize())) {
+            send(player, ChatColor.RED + "This machine adapter exposes an invalid protected-slot layout.");
+            return;
+        }
+        if (!slotsAreDisjoint(inputSlots, protectedSlots)) {
+            send(player, ChatColor.RED + "This machine adapter overlaps input and protected slots, so filling was blocked.");
             return;
         }
 
@@ -172,12 +191,13 @@ public final class LegacyMachineInputFillManager {
 
         Slimefun.getTickerTask().setInventoryViewed(target.getLocation(), true);
         try {
-            FillPlan plan = maximum
+            boolean fillMaximum = maximum && resolved.isMaximumFillAllowed();
+            FillPlan plan = fillMaximum
                     ? planMaximum(
                             originalPlayer,
                             originalMachine,
                             requirements,
-                            settings.getMachineInputFillMaximumSets(),
+                            resolved.resolveMaximumSets(settings.getMachineInputFillMaximumSets()),
                             LegacyMachineInputFillManager::matchesRecipeInput,
                             LegacyMachineInputFillManager::canStackTogether,
                             LegacyMachineInputFillManager::maximumStackSize,
@@ -699,13 +719,13 @@ public final class LegacyMachineInputFillManager {
         return List.copyOf(merged);
     }
 
-    private static boolean matchesRecipeInput(@Nullable ItemStack actual, @Nonnull ItemStack expected) {
+    static boolean matchesRecipeInput(@Nullable ItemStack actual, @Nonnull ItemStack expected) {
         return !isEmpty(actual)
                 && Slimefun.getItemStackService()
                         .isSimilar(actual, expected, MatchContext.RECIPE_INPUT, true, false);
     }
 
-    private static boolean canStackTogether(@Nonnull ItemStack first, @Nonnull ItemStack second) {
+    static boolean canStackTogether(@Nonnull ItemStack first, @Nonnull ItemStack second) {
         ComparisonResult comparison =
                 Slimefun.getItemStackService().matches(first, second, MatchContext.STACK_MERGE);
         if (comparison == ComparisonResult.MATCH) {
@@ -749,6 +769,17 @@ public final class LegacyMachineInputFillManager {
         if (slots.length == 0) {
             return false;
         }
+        boolean[] seen = new boolean[menuSize];
+        for (int slot : slots) {
+            if (slot < 0 || slot >= menuSize || seen[slot]) {
+                return false;
+            }
+            seen[slot] = true;
+        }
+        return true;
+    }
+
+    private static boolean validProtectedSlots(@Nonnull int[] slots, int menuSize) {
         boolean[] seen = new boolean[menuSize];
         for (int slot : slots) {
             if (slot < 0 || slot >= menuSize || seen[slot]) {

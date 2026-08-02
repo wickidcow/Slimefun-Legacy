@@ -1,3 +1,14 @@
+# Slimefun Legacy 4.1.14 — Custom Machine Input-Fill Adapters
+
+- Added a public `MachineInputFillAdapter` API for addon machines with custom recipe storage or GUI layouts.
+- Added a priority-ordered adapter registry with safe replacement and removal by namespaced key.
+- Added immutable resolved-transfer definitions with defensive ingredient and slot copying.
+- Kept protection checks, region ownership, viewer locking, full transfer simulation and rollback inside Slimefun Legacy.
+- Added a built-in Supreme `GenericMachine` adapter using its public `machineRecipes`, input/output getter and status-slot contracts.
+- Prevents malformed adapters from writing to invalid, duplicate or protected slots.
+- Keeps unsupported custom machines and unverified recipes browse-only.
+- Added API, Supreme compatibility and source-invariant regression tests.
+
 # Slimefun Legacy 4.1.13 — Addon AContainer Input Filling
 
 - Extended **Fill Machine Inputs** to addon machines that inherit Slimefun's standard `AContainer` class.

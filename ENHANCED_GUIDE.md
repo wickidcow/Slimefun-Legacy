@@ -1,4 +1,4 @@
-# Slimefun Legacy Native Enhanced Guide — Phases 1–4.1B-A
+# Slimefun Legacy Native Enhanced Guide — Phases 1–4.1B-B
 
 This package replaces the default survival and cheat guide registrations with native enhanced implementations designed to feel familiar to JustEnoughGuide users while remaining inside Slimefun Legacy's normal guide API.
 
@@ -66,6 +66,18 @@ See [`docs/MACHINE_RECIPE_PROVIDER_API.md`](docs/MACHINE_RECIPE_PROVIDER_API.md)
 - Rejects addon machines whose declared input slots overlap their output slots.
 - Retains all Phase 4.1A transaction, rollback, protection, ticker and Folia safety checks.
 
+## Phase 4.1B-B — Custom machine input-fill adapters
+
+- Adds a public `MachineInputFillAdapter` API for machines whose real recipe list or GUI layout is outside the standard `AContainer#getMachineRecipes()` contract.
+- Addons can register adapters by namespaced key and priority without replacing the Enhanced Guide or accessing Legacy internals.
+- Each adapter identifies supported machines, validates displayed recipes, resolves authoritative ingredients, declares writable input slots and declares protected output/control/status slots.
+- Slimefun Legacy retains protection checks, Folia region ownership, placed-machine validation, viewer locking, inventory simulation, commit validation and rollback.
+- Invalid, duplicate, out-of-range or input/protected-overlapping slot declarations are rejected before any inventory changes.
+- Adds a built-in adapter for Supreme `GenericMachine` implementations that expose the public `machineRecipes` list and public recipe getters.
+- Supreme output and status slots remain protected, and only recipes matching the guide display and selected alternatives receive filling support.
+- Unsupported custom machines remain recipe-browser-only until their addon registers a compatible adapter.
+
+
 
 ## Technical design
 
@@ -76,7 +88,7 @@ See [`docs/MACHINE_RECIPE_PROVIDER_API.md`](docs/MACHINE_RECIPE_PROVIDER_API.md)
 
 ## Current boundary
 
-The guide still does not automatically craft items, withdraw from nearby storage or recursively craft missing sub-components. Phase 4.1B-A fills verified core and addon `AContainer` input slots. Machines with custom inventory systems, addon-specific GUI adapters, nearby-storage access and higher-risk automation remain future phases.
+The guide still does not automatically craft items, withdraw from nearby storage or recursively craft missing sub-components. Phase 4.1B-B fills verified standard containers and custom machines with registered adapters. Nearby-storage access, recursive crafting and machines that cannot expose an authoritative safe adapter remain outside this phase.
 
 ## Installation
 

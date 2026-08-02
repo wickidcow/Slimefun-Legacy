@@ -25,6 +25,7 @@ def main() -> int:
         "verify_enhanced_guide_phase4.py",
         "verify_enhanced_guide_phase4_1a.py",
         "verify_enhanced_guide_phase4_1b.py",
+        "verify_enhanced_guide_phase4_1c.py",
         "verify_upstream_health_gate.py",
         "verify_gugu_sync.py",
         "verify_paper_purpur_compat.py",

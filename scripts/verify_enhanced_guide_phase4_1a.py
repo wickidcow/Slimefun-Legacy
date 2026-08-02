@@ -10,10 +10,12 @@ browser = root / "src/main/java/io/github/thebusybiscuit/slimefun4/implementatio
 providers = root / "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/LegacyMachineRecipeProviders.java"
 settings = root / "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/LegacyGuideSettings.java"
 bootstrap = root / "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/LegacyGuideBootstrap.java"
+adapters = root / "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/LegacyMachineInputFillAdapters.java"
+adapter_api = root / "src/main/java/io/github/thebusybiscuit/slimefun4/api/recipes/machine/MachineInputFillAdapter.java"
 config = root / "src/main/resources/enhanced-guide.yml"
 test = root / "src/test/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/TestMachineInputFillPlan.java"
 
-required = (manager, browser, providers, settings, bootstrap, config, test)
+required = (manager, browser, providers, settings, bootstrap, adapters, adapter_api, config, test)
 missing = [str(path.relative_to(root)) for path in required if not path.is_file()]
 if missing:
     raise SystemExit("Missing Phase 4.1A files: " + ", ".join(missing))
@@ -23,20 +25,22 @@ browser_text = browser.read_text(encoding="utf-8")
 providers_text = providers.read_text(encoding="utf-8")
 settings_text = settings.read_text(encoding="utf-8")
 bootstrap_text = bootstrap.read_text(encoding="utf-8")
+adapters_text = adapters.read_text(encoding="utf-8")
+adapter_api_text = adapter_api.read_text(encoding="utf-8")
 config_text = config.read_text(encoding="utf-8")
 test_text = test.read_text(encoding="utf-8")
 
 checks = {
-    "AContainer restriction": "machine instanceof AContainer" in manager_text,
+    "AContainer restriction": "class StandardContainerAdapter" in adapters_text and "machine instanceof AContainer" in adapters_text,
     "Registered recipe verification": "hasCompatibleRegisteredRecipe" in manager_text and "resolveRegisteredRequirements" in manager_text,
-    "Exact placed machine validation": "guideMachine.getId().equals(placedItem.getId())" in manager_text,
+    "Exact placed machine validation": "guideMachine.getId().equals(placedMachine.getId())" in adapter_api_text,
     "Protection check": "Interaction.INTERACT_BLOCK" in manager_text,
     "Folia region ownership check": "isOwnedByCurrentRegion" in manager_text,
     "Machine ticker coordination": "setInventoryViewed" in manager_text and "isInventoryViewed" in manager_text,
     "Viewer collision protection": "menu.hasViewer()" in manager_text,
     "Transactional player snapshot": "originalPlayer" in manager_text and "setStorageContents" in manager_text,
     "Transactional machine snapshot": "originalMachine" in manager_text and "restore(" in manager_text,
-    "Only input slots are written": "container.getInputSlots()" in manager_text and "writeSlots(menu, inputSlots" in manager_text,
+    "Only input slots are written": ".inputSlots(container.getInputSlots())" in adapters_text and "writeSlots(menu, inputSlots" in manager_text,
     "No output generation": "pushItem" not in manager_text,
     "No direct operation start": "startOperation" not in manager_text,
     "Duplicate input slot assignment": "assignOccupied" in manager_text and "usedRequirements" in manager_text,
