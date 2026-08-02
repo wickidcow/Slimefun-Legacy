@@ -175,7 +175,7 @@ Slimefun Legacy currently includes:
 - Native Enhanced Guide with smart search, bookmarks, safe recipe preparation, and universal machine recipe browsing
 - Addon-facing machine recipe provider API for structured inputs, alternatives, outputs, timing, and energy metadata
 
-Detailed release information is available in [`STABILITY_RELEASE.md`](STABILITY_RELEASE.md), [`SECOND_MAINTENANCE_RELEASE.md`](SECOND_MAINTENANCE_RELEASE.md), [`THIRD_MAINTENANCE_RELEASE.md`](THIRD_MAINTENANCE_RELEASE.md), and [`FOURTH_MAINTENANCE_RELEASE.md`](FOURTH_MAINTENANCE_RELEASE.md). Enhanced Guide development is documented in [`ENHANCED_GUIDE.md`](ENHANCED_GUIDE.md), with addon integration details in [`docs/MACHINE_RECIPE_PROVIDER_API.md`](docs/MACHINE_RECIPE_PROVIDER_API.md).
+Detailed release information is available in [`STABILITY_RELEASE.md`](STABILITY_RELEASE.md), [`SECOND_MAINTENANCE_RELEASE.md`](SECOND_MAINTENANCE_RELEASE.md), [`THIRD_MAINTENANCE_RELEASE.md`](THIRD_MAINTENANCE_RELEASE.md), and [`FOURTH_MAINTENANCE_RELEASE.md`](FOURTH_MAINTENANCE_RELEASE.md). The current fork review is documented in [`CORE_CORRECTNESS_AUDIT.md`](CORE_CORRECTNESS_AUDIT.md). Enhanced Guide development is documented in [`ENHANCED_GUIDE.md`](ENHANCED_GUIDE.md), with addon integration details in [`docs/MACHINE_RECIPE_PROVIDER_API.md`](docs/MACHINE_RECIPE_PROVIDER_API.md).
 
 ---
 

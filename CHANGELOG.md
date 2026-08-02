@@ -1,3 +1,12 @@
+# Slimefun Legacy Core-Correctness Audit
+
+- Corrected multiblock crafting to consume each recipe cell's declared amount.
+- Dispatches clicks to every matching multiblock so overlapping structures no longer swallow interactions.
+- Made Energy Regulator hologram/network ticks use the synchronized owner-thread path.
+- Migrates legacy integer Multi Tool modes to stable Slimefun item-ID storage.
+- Logs missing and invalid backpack identities instead of silently refusing to open them.
+- Added a permanent audit verifier and documented which Slimefun 5/United fixes were already present, not applicable or intentionally deferred.
+
 # Slimefun Legacy Phase 4.1A — Core GUI Machine Input Filling
 
 - Added a native **Fill Machine Inputs** button to supported core `AContainer` recipes.

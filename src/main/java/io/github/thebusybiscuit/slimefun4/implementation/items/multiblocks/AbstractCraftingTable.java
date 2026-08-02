@@ -12,6 +12,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.backpacks.Slimefu
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
 import io.github.thebusybiscuit.slimefun4.utils.ThreadUtils;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -38,7 +39,8 @@ abstract class AbstractCraftingTable extends MultiBlockMachine {
         super(itemGroup, item, recipe, trigger);
     }
 
-    protected @Nonnull Inventory createVirtualInventory(@Nonnull Inventory inv) {
+    protected @Nonnull Inventory createVirtualInventory(
+            @Nonnull Inventory inv, @Nonnull ItemStack[] recipe) {
         Inventory fakeInv = Bukkit.createInventory(null, 9, "Fake Inventory");
 
         for (int j = 0; j < inv.getContents().length; j++) {
@@ -48,21 +50,51 @@ abstract class AbstractCraftingTable extends MultiBlockMachine {
              * Fixes #2103 - Properly simulating the consumption
              * (which may leave behind empty buckets or glass bottles)
              */
-            if (stack != null) {
+            ItemStack recipeCell = j < recipe.length ? recipe[j] : null;
+            if (stack != null && recipeCell != null && recipeCell.getType() != Material.AIR) {
                 stack = stack.clone();
-
-                var consumed = Slimefun.getItemStackService().consume(stack, 1, true, ConsumeContext.VIRTUAL_CRAFTING);
-                if (consumed.handled()) {
-                    stack = consumed.item();
-                } else {
-                    ItemUtils.consumeItem(stack, true);
-                }
+                stack = consumeStack(stack, recipeCell.getAmount());
             }
 
             fakeInv.setItem(j, stack);
         }
 
         return fakeInv;
+    }
+
+    /**
+     * Consumes every occupied recipe slot by the amount declared by the matched recipe.
+     *
+     * <p>Some multiblock recipes require more than one item in a single grid cell. The
+     * matching code already validates that the slot contains at least that amount, so
+     * consumption must use the same amount instead of always subtracting one.</p>
+     *
+     * @param inv the real dispenser inventory
+     * @param recipe the recipe that matched this inventory
+     */
+    protected final void consumeInputs(@Nonnull Inventory inv, @Nonnull ItemStack[] recipe) {
+        for (int slot = 0; slot < 9 && slot < recipe.length; slot++) {
+            ItemStack recipeCell = recipe[slot];
+            ItemStack item = inv.getItem(slot);
+
+            if (recipeCell != null
+                    && recipeCell.getType() != Material.AIR
+                    && item != null
+                    && item.getType() != Material.AIR) {
+                inv.setItem(slot, consumeStack(item, recipeCell.getAmount()));
+            }
+        }
+    }
+
+    private @Nullable ItemStack consumeStack(@Nonnull ItemStack item, int amount) {
+        var consumed = Slimefun.getItemStackService()
+                .consume(item, amount, true, ConsumeContext.VIRTUAL_CRAFTING);
+        if (consumed.handled()) {
+            return consumed.item();
+        }
+
+        ItemUtils.consumeItem(item, amount, true);
+        return item.getAmount() > 0 && item.getType() != Material.AIR ? item : null;
     }
 
     // Return: true if upgrade from existing backpack, else false

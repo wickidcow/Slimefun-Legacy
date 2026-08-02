@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks;
 
-import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.api.events.MultiBlockCraftEvent;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
@@ -67,7 +66,7 @@ public class MagicWorkbench extends AbstractCraftingTable {
 
                     Bukkit.getPluginManager().callEvent(event);
                     if (!event.isCancelled() && SlimefunUtils.canPlayerUseItem(p, output, true)) {
-                        craft(inv, possibleDispener, p, b, event.getOutput());
+                        craft(inv, possibleDispener, p, b, event.getOutput(), input);
                     }
 
                     return;
@@ -83,8 +82,9 @@ public class MagicWorkbench extends AbstractCraftingTable {
     }
 
     @ParametersAreNonnullByDefault
-    private void craft(Inventory inv, Block dispenser, Player p, Block b, ItemStack output) {
-        Inventory fakeInv = createVirtualInventory(inv);
+    private void craft(
+            Inventory inv, Block dispenser, Player p, Block b, ItemStack output, ItemStack[] recipe) {
+        Inventory fakeInv = createVirtualInventory(inv, recipe);
         Inventory outputInv = findOutputInventory(output, dispenser, inv, fakeInv);
 
         if (outputInv != null) {
@@ -96,15 +96,7 @@ public class MagicWorkbench extends AbstractCraftingTable {
                         upgradeBackpack(p, inv, backpack, output, () -> startAnimation(p, b, inv, dispenser, output));
             }
 
-            for (int j = 0; j < 9; j++) {
-                if (inv.getContents()[j] != null && inv.getContents()[j].getType() != Material.AIR) {
-                    if (inv.getContents()[j].getAmount() > 1) {
-                        inv.setItem(j, new CustomItemStack(inv.getContents()[j], inv.getContents()[j].getAmount() - 1));
-                    } else {
-                        inv.setItem(j, null);
-                    }
-                }
-            }
+            consumeInputs(inv, recipe);
 
             if (!waitCallback) {
                 startAnimation(p, b, inv, dispenser, output);

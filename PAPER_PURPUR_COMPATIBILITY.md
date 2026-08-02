@@ -24,6 +24,10 @@ Slimefun 5 is monitored as a source of modern fixes, not as a replacement codeba
 4. Pass the full Legacy verification suite and Gradle tests.
 5. Do not rewrite stable systems merely to match another fork's architecture.
 
+## Core-correctness audit
+
+The focused core audit also ports recipe-amount-correct multiblock consumption, all-match multiblock dispatch, synchronized Energy Regulator ticks, Multi Tool ID-mode migration and backpack identity diagnostics. See [`CORE_CORRECTNESS_AUDIT.md`](CORE_CORRECTNESS_AUDIT.md) for the full disposition of reviewed Slimefun 5, United and Gugu changes.
+
 ## Validation
 
 Run:

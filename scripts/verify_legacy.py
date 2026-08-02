@@ -27,6 +27,7 @@ def main() -> int:
         "verify_upstream_health_gate.py",
         "verify_gugu_sync.py",
         "verify_paper_purpur_compat.py",
+        "verify_core_correctness.py",
     )
 
     for script_name in scripts:

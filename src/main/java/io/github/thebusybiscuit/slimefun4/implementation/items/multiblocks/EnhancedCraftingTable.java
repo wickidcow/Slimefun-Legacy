@@ -1,11 +1,9 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks;
 
-import io.github.bakedlibs.dough.items.ItemUtils;
 import io.github.thebusybiscuit.slimefun4.api.events.MultiBlockCraftEvent;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
-import io.github.thebusybiscuit.slimefun4.api.items.virtual.VirtualItemHandler.ConsumeContext;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
@@ -61,7 +59,7 @@ public class EnhancedCraftingTable extends AbstractCraftingTable {
 
                     Bukkit.getPluginManager().callEvent(event);
                     if (!event.isCancelled() && SlimefunUtils.canPlayerUseItem(p, output, true)) {
-                        craft(inv, possibleDispenser, p, b, event.getOutput());
+                        craft(inv, possibleDispenser, p, b, event.getOutput(), input);
                     }
 
                     return;
@@ -76,8 +74,9 @@ public class EnhancedCraftingTable extends AbstractCraftingTable {
         }
     }
 
-    private void craft(Inventory inv, Block dispenser, Player p, Block b, ItemStack output) {
-        Inventory fakeInv = createVirtualInventory(inv);
+    private void craft(
+            Inventory inv, Block dispenser, Player p, Block b, ItemStack output, ItemStack[] recipe) {
+        Inventory fakeInv = createVirtualInventory(inv, recipe);
         Inventory outputInv = findOutputInventory(output, dispenser, inv, fakeInv);
 
         if (outputInv != null) {
@@ -91,19 +90,7 @@ public class EnhancedCraftingTable extends AbstractCraftingTable {
                 });
             }
 
-            for (int j = 0; j < 9; j++) {
-                ItemStack item = inv.getContents()[j];
-
-                if (item != null && item.getType() != Material.AIR) {
-                    var consumed =
-                            Slimefun.getItemStackService().consume(item, 1, true, ConsumeContext.VIRTUAL_CRAFTING);
-                    if (consumed.handled()) {
-                        inv.setItem(j, consumed.item());
-                    } else {
-                        ItemUtils.consumeItem(item, true);
-                    }
-                }
-            }
+            consumeInputs(inv, recipe);
 
             if (!waitCallback) {
                 SoundEffect.ENHANCED_CRAFTING_TABLE_CRAFT_SOUND.playAt(b);

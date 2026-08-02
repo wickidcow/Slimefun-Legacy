@@ -68,7 +68,9 @@ public class EnergyRegulator extends SlimefunItem implements HologramOwner, NotR
 
             @Override
             public boolean isSynchronized() {
-                return false;
+                // Energy-network ticks update the regulator hologram and must run on the
+                // owning Paper/Purpur thread (or the owning Folia region thread).
+                return true;
             }
 
             @Override

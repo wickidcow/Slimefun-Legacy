@@ -19,6 +19,7 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
 /**
@@ -80,7 +81,17 @@ public class MultiTool extends SlimefunItem implements Rechargeable {
 
             var im = item.getItemMeta();
             var pdc = im.getPersistentDataContainer();
-            int index = pdc.getOrDefault(multiToolMode, PersistentDataType.INTEGER, 0);
+            int index = getStoredModeIndex(pdc);
+
+            /*
+             * Older Multi Tools stored a numeric list index. Store the Slimefun item ID
+             * instead so mode selection remains stable if modes are reordered or new
+             * modes are inserted. Removing the old value first also avoids a PDC type
+             * mismatch on items created by previous Legacy/United builds.
+             */
+            pdc.remove(multiToolMode);
+            pdc.set(multiToolMode, PersistentDataType.STRING, modes.get(index).getItemId());
+            item.setItemMeta(im);
 
             if (!p.isSneaking()) {
                 if (removeItemCharge(item, COST)) {
@@ -103,10 +114,28 @@ public class MultiTool extends SlimefunItem implements Rechargeable {
                                 msg -> msg.replace("%device%", "Multi Tool")
                                         .replace("%mode%", ChatColor.stripColor(itemName)));
 
-                pdc.set(multiToolMode, PersistentDataType.INTEGER, index);
+                pdc.set(multiToolMode, PersistentDataType.STRING, modes.get(index).getItemId());
                 item.setItemMeta(im);
             }
         };
+    }
+
+    private int getStoredModeIndex(PersistentDataContainer pdc) {
+        String storedItemId = pdc.get(multiToolMode, PersistentDataType.STRING);
+        if (storedItemId != null) {
+            for (int index = 0; index < modes.size(); index++) {
+                if (modes.get(index).getItemId().equals(storedItemId)) {
+                    return index;
+                }
+            }
+        }
+
+        Integer legacyIndex = pdc.get(multiToolMode, PersistentDataType.INTEGER);
+        if (legacyIndex != null && legacyIndex >= 0 && legacyIndex < modes.size()) {
+            return legacyIndex;
+        }
+
+        return 0;
     }
 
     @Nonnull

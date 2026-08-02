@@ -277,7 +277,19 @@ public class BackpackListener implements Listener {
                                                 .log(Level.SEVERE, "An Exception occurred while opening a backpack", ex);
                                         return;
                                     }
-                                    if (bp == null || bp.isInvalid()) {
+                                    if (bp == null) {
+                                        Slimefun.logger().warning(() -> "Could not resolve backpack identity "
+                                                + reservationKey
+                                                + " for player "
+                                                + p.getUniqueId()
+                                                + ". The item may reference missing or stale storage data.");
+                                        return;
+                                    }
+                                    if (bp.isInvalid()) {
+                                        Slimefun.logger().warning(() -> "Refused to open invalid backpack "
+                                                + reservationKey
+                                                + " for player "
+                                                + p.getUniqueId());
                                         return;
                                     }
 
