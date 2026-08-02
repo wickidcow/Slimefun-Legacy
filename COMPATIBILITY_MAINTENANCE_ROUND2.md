@@ -7,7 +7,7 @@ This maintenance pass modernizes Slimefun Legacy's own Paper, Bukkit and WorldEd
 - Replaced direct construction of Paper's internal `EntityDamageByEntityEvent` with supported `DamageSource` and `LivingEntity.damage(...)` calls.
 - Preserved direct and causing entities for Seismic Axe, Stomper Boots and Explosive Bow damage.
 - Preserved cancellation-aware custom knockback for Seismic Axe and Explosive Bow.
-- Updated WorldEdit block-vector coordinate access from deprecated `getBlockX/Y/Z()` methods to `getX/Y/Z()`.
+- Updated WorldEdit block-vector coordinate access from deprecated `getBlockX/Y/Z()` and `getX/Y/Z()` methods to the current record accessors `x()/y()/z()`.
 - Added missing `@Deprecated` annotations to legacy SQL schema constants and translated their documentation to English.
 - Enabled Java 25 native access for Gradle SQLite storage tests.
 

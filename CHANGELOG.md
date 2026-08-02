@@ -1,7 +1,7 @@
 # Slimefun Legacy Paper/Purpur Compatibility Maintenance — Round 2
 
 - Replaced internal Paper damage-event constructors with supported `DamageSource` damage calls.
-- Updated WorldEdit vector coordinate access to current methods.
+- Updated WorldEdit vector coordinate access to the current `x()`, `y()`, and `z()` record methods.
 - Retained legacy `Config`, ticker, energy and BlockStorage JVM signatures for existing addons.
 - Added compatibility-bridge regression tests and a permanent source verifier.
 - Annotated legacy SQL constants correctly and enabled Java 25 native access for SQLite tests.

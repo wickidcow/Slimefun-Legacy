@@ -31,7 +31,12 @@ def main() -> int:
     require("pos.getBlockX()" not in worldedit, "WorldEdit integration still uses getBlockX().", failures)
     require("pos.getBlockY()" not in worldedit, "WorldEdit integration still uses getBlockY().", failures)
     require("pos.getBlockZ()" not in worldedit, "WorldEdit integration still uses getBlockZ().", failures)
-    require("pos.getX()" in worldedit, "WorldEdit integration is missing modern coordinate accessors.", failures)
+    require("pos.getX()" not in worldedit, "WorldEdit integration still uses deprecated getX().", failures)
+    require("pos.getY()" not in worldedit, "WorldEdit integration still uses deprecated getY().", failures)
+    require("pos.getZ()" not in worldedit, "WorldEdit integration still uses deprecated getZ().", failures)
+    require("pos.x()" in worldedit, "WorldEdit integration is missing modern x() accessor.", failures)
+    require("pos.y()" in worldedit, "WorldEdit integration is missing modern y() accessor.", failures)
+    require("pos.z()" in worldedit, "WorldEdit integration is missing modern z() accessor.", failures)
 
     legacy_config = (
         sources / "me/mrCookieSlime/CSCoreLibPlugin/Configuration/Config.java"
