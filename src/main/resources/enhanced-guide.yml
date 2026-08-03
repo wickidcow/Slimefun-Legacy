@@ -21,8 +21,10 @@ features:
   machine-recipes:
     enabled: true
 
-  # Phase 4.1A: safely moves a selected core AContainer recipe from the
-  # player's inventory into the placed machine's real input slots. The machine
+  # Phase 4.1: safely moves a selected verified machine recipe from the
+  # player's inventory into the placed machine's real input slots. Standard
+  # AContainer, Supreme GenericMachine and the verified FastMachines layout are
+  # supported through fail-closed adapters. The machine
   # still performs its own validation, energy use, timing and output handling.
   machine-input-fill:
     enabled: true

@@ -1,3 +1,14 @@
+# Slimefun Legacy 4.1.15 — FastMachines Input Filling
+
+- Extended the Enhanced Guide's **Fill Machine Inputs** action to the maintained FastMachines machine inventory.
+- Resolves FastMachines recipe choices from its public `getRecipes()`, `getInputs()`, `getChoices()` and `getBaseItem()` contracts without a hard dependency.
+- Revalidates every displayed alternative and output against an authoritative FastMachines recipe before moving items.
+- Writes exclusively to the machine's declared 0–35 ingredient slots.
+- Protects slots 36–53, including recipe previews, navigation, selection, information, energy and craft controls.
+- Requires the expected 54-slot FastMachines layout and fails closed when a future addon version changes that contract.
+- Retains protection, Folia ownership, viewer locking, full transfer simulation, commit validation and rollback.
+- Added FastMachines choice, output-mismatch and unsafe-layout regression coverage plus a permanent source verifier.
+
 # Slimefun Legacy 4.1.14 — Custom Machine Input-Fill Adapters
 
 - Added a public `MachineInputFillAdapter` API for addon machines with custom recipe storage or GUI layouts.

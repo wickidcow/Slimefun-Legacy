@@ -1,6 +1,6 @@
 # Machine Input-Fill Adapter API
 
-Slimefun Legacy 4.1.14 provides an addon-facing API for safely connecting custom machine recipe systems to the Enhanced Guide's **Fill Machine Inputs** action.
+Slimefun Legacy 4.1.14 introduced an addon-facing API for safely connecting custom machine recipe systems to the Enhanced Guide's **Fill Machine Inputs** action.
 
 A recipe provider controls what the player sees. An input-fill adapter separately proves that a displayed recipe corresponds to a real machine recipe and declares where its ingredients may be inserted.
 
@@ -150,3 +150,14 @@ Unsupported or rejected recipes remain visible in the machine recipe browser but
 ## Compatibility policy
 
 The adapter API is marked `@SlimefunAPI` and resides in the compatibility-protected `api.recipes.machine` package. Legacy maintenance should retain source and binary compatibility whenever practical.
+
+## Built-in compatibility adapters
+
+Slimefun Legacy currently includes fail-closed adapters for:
+
+- Standard core and addon `AContainer` implementations whose runtime recipes are registered through `getMachineRecipes()`.
+- Supreme `GenericMachine` implementations using their public custom recipe collection and status-slot contract.
+- The maintained FastMachines 54-slot inventory using public recipe/choice getters, ingredient slots 0–35 and protected GUI slots 36–53.
+
+The FastMachines adapter intentionally stops offering input filling if its verified slot layout changes. Recipe browsing can continue while the new addon layout is reviewed.
+

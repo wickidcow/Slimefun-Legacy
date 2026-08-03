@@ -1,4 +1,4 @@
-# Slimefun Legacy Native Enhanced Guide — Phases 1–4.1B-B
+# Slimefun Legacy Native Enhanced Guide — Phases 1–4.1B-C
 
 This package replaces the default survival and cheat guide registrations with native enhanced implementations designed to feel familiar to JustEnoughGuide users while remaining inside Slimefun Legacy's normal guide API.
 
@@ -75,6 +75,9 @@ See [`docs/MACHINE_RECIPE_PROVIDER_API.md`](docs/MACHINE_RECIPE_PROVIDER_API.md)
 - Invalid, duplicate, out-of-range or input/protected-overlapping slot declarations are rejected before any inventory changes.
 - Adds a built-in adapter for Supreme `GenericMachine` implementations that expose the public `machineRecipes` list and public recipe getters.
 - Supreme output and status slots remain protected, and only recipes matching the guide display and selected alternatives receive filling support.
+- Slimefun Legacy 4.1.15 adds a built-in FastMachines adapter using its public recipe, choice, wrapper and input-slot getters.
+- FastMachines filling is limited to verified ingredient slots 0–35; preview and control slots 36–53 are always protected.
+- A changed or unrecognized FastMachines inventory layout remains recipe-browser-only rather than being guessed.
 - Unsupported custom machines remain recipe-browser-only until their addon registers a compatible adapter.
 
 
@@ -88,7 +91,7 @@ See [`docs/MACHINE_RECIPE_PROVIDER_API.md`](docs/MACHINE_RECIPE_PROVIDER_API.md)
 
 ## Current boundary
 
-The guide still does not automatically craft items, withdraw from nearby storage or recursively craft missing sub-components. Phase 4.1B-B fills verified standard containers and custom machines with registered adapters. Nearby-storage access, recursive crafting and machines that cannot expose an authoritative safe adapter remain outside this phase.
+The guide still does not automatically craft items, withdraw from nearby storage or recursively craft missing sub-components. Phase 4.1B-C fills verified standard containers, Supreme machines and the maintained FastMachines layout through registered adapters. Nearby-storage access, recursive crafting and machines that cannot expose an authoritative safe adapter remain outside this phase.
 
 ## Installation
 
