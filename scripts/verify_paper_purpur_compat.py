@@ -75,7 +75,7 @@ def main() -> int:
     workflow = read(".github/workflows/compatibility-ci.yml")
     required_addons = (
         "wickidcow/SF_FastMachines",
-        "Sefiraat/Networks",
+        "lijinhong11/Networks-Exp",
         "wickidcow/SF_SlimeTinkerIE2",
         "wickidcow/SF_BetterChests",
     )
@@ -94,6 +94,17 @@ def main() -> int:
     for token in (*required_addons, *gugu_advisory_addons):
         if token not in workflow:
             failures.append(f"Addon compatibility matrix entry is missing: {token}")
+    for token in (
+        "ref: b3",
+        "expected-commit: 1a3e3904662dfa1e58169ba90051a98efdaa1f6c",
+        "ADDON_REF: ${{ matrix.ref }}",
+        "EXPECTED_COMMIT: ${{ matrix.expected-commit }}",
+        'git clone --depth 1 --branch "$ADDON_REF"',
+        'ACTUAL_COMMIT="$(git -C "$RUNNER_TEMP/addon" rev-parse HEAD)"',
+    ):
+        if token not in workflow:
+            failures.append(f"Pinned Networks-Exp compatibility control is missing: {token}")
+
     for token in (
         "continue-on-error: ${{ matrix.advisory }}",
         "max-parallel: 4",
