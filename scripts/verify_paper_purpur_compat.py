@@ -99,6 +99,8 @@ def main() -> int:
         "max-parallel: 4",
         "GIT_TERMINAL_PROMPT: '0'",
         "addon-compatibility-${{ matrix.slug }}",
+        "- name: Make Gradle wrapper executable",
+        "run: chmod +x gradlew",
     ):
         if token not in workflow:
             failures.append(f"Addon compatibility workflow safety control is missing: {token}")
