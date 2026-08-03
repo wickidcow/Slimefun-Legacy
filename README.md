@@ -266,7 +266,17 @@ Slimefun Legacy is built on years of work by the Slimefun community, including:
 This repository retains upstream history and attribution while being maintained independently. It must not be presented as an official release from an upstream project.
 
 ---
+⚠️ Important Disclaimer
 
+This is an unofficial fork and is not affiliated with the original Slimefun developers or team.
+
+    All credits go to the original Slimefun Team.
+    This project follows the GNU GPLv3 License.
+    You are allowed to modify and share it, but you must give proper credit and keep the same license.
+
+Original Project
+Creator & Builder: TheBusyBiscuit
+---
 ## 📄 License
 
 Slimefun Legacy is distributed under the [GNU General Public License v3.0](LICENSE). Distributed modifications must continue to follow the GPL and provide corresponding source as required by the license.
