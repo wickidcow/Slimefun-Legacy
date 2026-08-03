@@ -79,18 +79,77 @@ jobs:
           ./gradlew clean compileJava -PpaperApiVersion="$PAPER_API_CANDIDATE" --no-daemon
 
   addons:
-    name: Addon – ${{ matrix.repository }}
+    name: Addon [${{ matrix.tier }}] - ${{ matrix.repository }}
     needs: build-slimefun
+    continue-on-error: ${{ matrix.advisory }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       fail-fast: false
+      max-parallel: 4
       matrix:
-        repository:
-          - wickidcow/SF_FastMachines
-          - Sefiraat/Networks
-          - wickidcow/SF_SlimeTinkerIE2
-          - wickidcow/SF_BetterChests
+        include:
+          # Required compatibility targets maintained for or used by Legacy.
+          - repository: wickidcow/SF_FastMachines
+            slug: legacy-fastmachines
+            tier: required
+            advisory: false
+          - repository: Sefiraat/Networks
+            slug: upstream-networks
+            tier: required
+            advisory: false
+          - repository: wickidcow/SF_SlimeTinkerIE2
+            slug: legacy-slimetinker-ie2
+            tier: required
+            advisory: false
+          - repository: wickidcow/SF_BetterChests
+            slug: legacy-betterchests
+            tier: required
+            advisory: false
+
+          # Public Gugu addon compatibility probes. These are advisory because
+          # archived or independently changing projects must not block a
+          # Slimefun Legacy release, but their failures remain visible.
+          - repository: SlimefunGuguProject/FluffyMachines
+            slug: gugu-fluffymachines
+            tier: gugu-advisory
+            advisory: true
+          - repository: SlimefunGuguProject/FoxyMachines
+            slug: gugu-foxymachines
+            tier: gugu-advisory
+            advisory: true
+          - repository: SlimefunGuguProject/Networks
+            slug: gugu-networks
+            tier: gugu-advisory
+            advisory: true
+          - repository: SlimefunGuguProject/SlimeTinker
+            slug: gugu-slimetinker
+            tier: gugu-advisory
+            advisory: true
+          - repository: SlimefunGuguProject/FlowerPower
+            slug: gugu-flowerpower
+            tier: gugu-advisory
+            advisory: true
+          - repository: SlimefunGuguProject/IDreamOfEasy
+            slug: gugu-idreamofeasy
+            tier: gugu-advisory
+            advisory: true
+          - repository: SlimefunGuguProject/Gastronomicon
+            slug: gugu-gastronomicon
+            tier: gugu-advisory
+            advisory: true
+          - repository: SlimefunGuguProject/Bump
+            slug: gugu-bump
+            tier: gugu-advisory
+            advisory: true
+          - repository: SlimefunGuguProject/SlimeCustomizer
+            slug: gugu-slimecustomizer
+            tier: gugu-advisory
+            advisory: true
+          - repository: SlimefunGuguProject/EMCTech
+            slug: gugu-emctech
+            tier: gugu-advisory
+            advisory: true
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
@@ -103,8 +162,31 @@ jobs:
           name: slimefun-compatibility-jar
           path: build/compat
       - name: Clone addon
-        run: git clone --depth 1 "https://github.com/${{ matrix.repository }}.git" "$RUNNER_TEMP/addon"
-      - name: Compile addon against exact JAR
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+          ADDON_REPOSITORY: ${{ matrix.repository }}
+          ADDON_LOG: ${{ runner.temp }}/${{ matrix.slug }}.log
         run: |
+          set -o pipefail
+          URL="https://github.com/$ADDON_REPOSITORY.git"
+          {
+            echo "Repository: $ADDON_REPOSITORY"
+            echo "Compatibility tier: ${{ matrix.tier }}"
+            echo "Checking public repository access: $URL"
+            git ls-remote --exit-code "$URL" HEAD >/dev/null
+            git clone --depth 1 "$URL" "$RUNNER_TEMP/addon"
+          } 2>&1 | tee "$ADDON_LOG"
+      - name: Compile addon against exact JAR
+        env:
+          ADDON_LOG: ${{ runner.temp }}/${{ matrix.slug }}.log
+        run: |
+          set -o pipefail
           JAR="$(find build/compat -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
-          python3 scripts/build_addon_against_local_slimefun.py "$RUNNER_TEMP/addon" "$JAR"
+          test -n "$JAR"
+          python3 scripts/build_addon_against_local_slimefun.py "$RUNNER_TEMP/addon" "$JAR" 2>&1 | tee -a "$ADDON_LOG"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: addon-compatibility-${{ matrix.slug }}
+          path: ${{ runner.temp }}/${{ matrix.slug }}.log
+          if-no-files-found: warn
