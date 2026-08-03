@@ -73,7 +73,7 @@ def main() -> int:
         failures.append("Profiler still permits an empty report after queued is reset")
 
     workflow = read(".github/workflows/compatibility-ci.yml")
-    for token in ("wickidcow/FastMachines", "wickidcow/Networks", "wickidcow/SlimeTinker2", "wickidcow/BetterChests"):
+    for token in ("wickidcow/SF_FastMachines", "Sefiraat/Networks", "wickidcow/SF_SlimeTinkerIE2", "wickidcow/SF_BetterChests"):
         if token not in workflow:
             failures.append(f"Addon compatibility matrix entry is missing: {token}")
 
