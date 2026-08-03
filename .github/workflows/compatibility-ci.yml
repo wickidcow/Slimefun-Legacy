@@ -96,8 +96,10 @@ jobs:
             slug: legacy-fastmachines
             tier: required
             advisory: false
-          - repository: Sefiraat/Networks
-            slug: upstream-networks
+          - repository: lijinhong11/Networks-Exp
+            ref: b3
+            expected-commit: 1a3e3904662dfa1e58169ba90051a98efdaa1f6c
+            slug: networks-exp-b3
             tier: required
             advisory: false
           - repository: wickidcow/SF_SlimeTinkerIE2
@@ -167,6 +169,8 @@ jobs:
         env:
           GIT_TERMINAL_PROMPT: '0'
           ADDON_REPOSITORY: ${{ matrix.repository }}
+          ADDON_REF: ${{ matrix.ref }}
+          EXPECTED_COMMIT: ${{ matrix.expected-commit }}
           ADDON_LOG: ${{ runner.temp }}/${{ matrix.slug }}.log
         run: |
           set -o pipefail
@@ -176,7 +180,20 @@ jobs:
             echo "Compatibility tier: ${{ matrix.tier }}"
             echo "Checking public repository access: $URL"
             git ls-remote --exit-code "$URL" HEAD >/dev/null
-            git clone --depth 1 "$URL" "$RUNNER_TEMP/addon"
+
+            if [[ -n "$ADDON_REF" ]]; then
+              echo "Pinned ref: $ADDON_REF"
+              git clone --depth 1 --branch "$ADDON_REF" "$URL" "$RUNNER_TEMP/addon"
+            else
+              git clone --depth 1 "$URL" "$RUNNER_TEMP/addon"
+            fi
+
+            ACTUAL_COMMIT="$(git -C "$RUNNER_TEMP/addon" rev-parse HEAD)"
+            echo "Resolved commit: $ACTUAL_COMMIT"
+            if [[ -n "$EXPECTED_COMMIT" && "$ACTUAL_COMMIT" != "$EXPECTED_COMMIT" ]]; then
+              echo "Expected pinned commit $EXPECTED_COMMIT but resolved $ACTUAL_COMMIT" >&2
+              exit 1
+            fi
           } 2>&1 | tee "$ADDON_LOG"
       - name: Compile addon against exact JAR
         env:
