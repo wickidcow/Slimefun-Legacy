@@ -23,6 +23,8 @@ jobs:
           java-package: jdk
           architecture: x64
           cache: gradle
+      - name: Verify Slimefun Legacy invariants
+        run: python3 scripts/verify_legacy.py .
       - name: Apply code formatting
         run: ./gradlew spotlessApply --no-daemon
       - name: Publish snapshots
