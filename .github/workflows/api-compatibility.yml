@@ -10,7 +10,7 @@ permissions:
 jobs:
   api-compatibility:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
         with:
@@ -25,16 +25,27 @@ jobs:
           chmod +x gradlew
           ./gradlew spotlessApply --no-daemon
           ./gradlew clean build --no-daemon
-      - name: Download latest released baseline
+      - name: Record candidate API surface
+        run: |
+          CANDIDATE="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
+          test -n "$CANDIDATE"
+          python3 scripts/write_api_surface.py "$CANDIDATE"
+      - name: Download released API baseline
         id: baseline
         env:
           GH_TOKEN: ${{ github.token }}
+          API_BASELINE_TAG: ${{ vars.API_BASELINE_TAG }}
         run: |
           mkdir -p build/api-baseline
-          if gh release download --repo "$GITHUB_REPOSITORY" --pattern 'Slimefun-*.jar' --dir build/api-baseline; then
+          if [ -n "$API_BASELINE_TAG" ]; then
+            DOWNLOAD=(gh release download "$API_BASELINE_TAG" --repo "$GITHUB_REPOSITORY" --pattern 'Slimefun-*.jar' --dir build/api-baseline)
+          else
+            DOWNLOAD=(gh release download --repo "$GITHUB_REPOSITORY" --pattern 'Slimefun-*.jar' --dir build/api-baseline)
+          fi
+          if "${DOWNLOAD[@]}"; then
             echo 'available=true' >> "$GITHUB_OUTPUT"
           else
-            echo 'No prior GitHub release JAR exists; API comparison is skipped.'
+            echo 'No prior GitHub release JAR exists; the candidate API surface is still published.'
             echo 'available=false' >> "$GITHUB_OUTPUT"
           fi
       - name: Check removed public signatures
@@ -42,10 +53,15 @@ jobs:
         run: |
           BASELINE="$(find build/api-baseline -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
           CANDIDATE="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
+          test -n "$BASELINE"
+          test -n "$CANDIDATE"
           python3 scripts/check_api_compatibility.py "$BASELINE" "$CANDIDATE"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: api-compatibility-report
-          path: build/reports/api-compatibility.txt
-          if-no-files-found: ignore
+          path: |
+            build/reports/api-compatibility.txt
+            build/reports/api-surface-baseline.txt
+            build/reports/api-surface-candidate.txt
+          if-no-files-found: error

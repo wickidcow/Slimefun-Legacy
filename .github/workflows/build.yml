@@ -32,6 +32,12 @@ jobs:
           ./gradlew spotlessApply --no-daemon
           ./gradlew clean build --no-daemon
 
+      - name: Verify Java 21 bytecode target
+        run: |
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
+          test -n "$JAR"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+
       - name: Upload JAR
         uses: actions/upload-artifact@v7
         with:

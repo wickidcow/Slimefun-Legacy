@@ -13,6 +13,55 @@ jobs:
   build-slimefun:
     name: Build Slimefun Legacy
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Verify Compatibility Foundation
+        run: python3 scripts/verify_legacy.py .
+      - name: Build exact compatibility JAR
+        run: |
+          ./gradlew spotlessApply --no-daemon
+          ./gradlew clean build --no-daemon
+      - name: Verify Java 21 bytecode target
+        run: |
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
+          test -n "$JAR"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+      - name: Create deprecation report
+        run: |
+          mkdir -p build/reports
+          set -o pipefail
+          ./gradlew compileJava -PslimefunDeprecationReport=true --rerun-tasks --no-daemon 2>&1 | tee build/reports/deprecation-compile.log
+          python3 scripts/summarize_deprecations.py build/reports/deprecation-compile.log
+      - uses: actions/upload-artifact@v7
+        with:
+          name: slimefun-compatibility-jar
+          path: |
+            build/libs/Slimefun-*.jar
+            !build/libs/*-sources.jar
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: compatibility-foundation-reports
+          path: |
+            build/reports/compatibility-foundation.txt
+            build/reports/dependency-boundaries.txt
+            build/reports/bytecode-target.txt
+            build/reports/deprecation-compile.log
+            build/reports/deprecations.md
+          if-no-files-found: warn
+
+  paper-candidate-api:
+    name: Candidate Paper API
+    if: ${{ vars.PAPER_API_CANDIDATE != '' }}
+    continue-on-error: true
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
@@ -21,18 +70,13 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: gradle
-      - name: Build exact compatibility JAR
+      - name: Compile against candidate Paper API
+        env:
+          PAPER_API_CANDIDATE: ${{ vars.PAPER_API_CANDIDATE }}
         run: |
           chmod +x gradlew
-          ./gradlew spotlessApply --no-daemon
-          ./gradlew clean build --no-daemon
-      - uses: actions/upload-artifact@v7
-        with:
-          name: slimefun-compatibility-jar
-          path: |
-            build/libs/Slimefun-*.jar
-            !build/libs/*-sources.jar
-          if-no-files-found: error
+          echo "Compiling against Paper API $PAPER_API_CANDIDATE"
+          ./gradlew clean compileJava -PpaperApiVersion="$PAPER_API_CANDIDATE" --no-daemon
 
   addons:
     name: Addon – ${{ matrix.repository }}
