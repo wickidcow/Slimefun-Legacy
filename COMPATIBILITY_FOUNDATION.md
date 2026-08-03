@@ -86,9 +86,10 @@ An optional `API_BASELINE_TAG` repository variable can pin the public API compar
 
 The weekly and manually triggered compatibility workflow now performs a controlled two-JAR comparison for every addon:
 
-1. build the addon in a fresh checkout copy against the known-good Slimefun Legacy 4.1.15 JAR from commit `493587431dc831d4b8bc38649af6e22df74a15b0`;
-2. only after that succeeds, build a second fresh copy against the candidate Slimefun Legacy JAR produced by the current workflow;
-3. publish the baseline log, candidate log, machine-readable JSON result and Markdown summary separately.
+1. check out the pinned 4.1.15 source, run its own `spotlessApply`, and build the known-good baseline JAR from commit `493587431dc831d4b8bc38649af6e22df74a15b0`;
+2. build the addon in a fresh checkout copy against that known-good baseline JAR;
+3. only after that succeeds, build a second fresh copy against the candidate Slimefun Legacy JAR produced by the current workflow;
+4. publish the baseline log, candidate log, machine-readable JSON result and Markdown summary separately.
 
 Only the core dependencies whose artifact name is exactly `Slimefun` or `Slimefun4` are replaced. Dependencies such as SlimefunTranslation, InfinityExpansion, InfinityLib and other Gugu addons remain untouched even when their Maven group contains the word `Slimefun`.
 

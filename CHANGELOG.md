@@ -8,6 +8,7 @@
 - Added a normalized `-Xlint:deprecation` report without treating intentional compatibility bridges as release failures.
 - Added permanent Compatibility Foundation verification and integrated it into the complete Legacy verifier.
 - Reworked addon compatibility CI into a known-good 4.1.15 baseline versus candidate comparison with classified results and separate logs.
+- Formats the pinned 4.1.15 baseline checkout before compiling so historical Spotless drift cannot prevent addon comparisons.
 - Corrected dependency injection so only the core `Slimefun`/`Slimefun4` artifact is replaced; SlimefunTranslation, InfinityExpansion, InfinityLib and addon dependencies are preserved.
 - No gameplay, item ID, saved-data or database-format changes are included.
 

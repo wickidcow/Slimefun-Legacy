@@ -73,6 +73,24 @@ def main() -> int:
         failures.append("Profiler still permits an empty report after queued is reset")
 
     workflow = read(".github/workflows/compatibility-ci.yml")
+
+    baseline_start = workflow.find("  build-baseline-slimefun:")
+    baseline_end = workflow.find("\n  paper-candidate-api:", baseline_start)
+    if baseline_start < 0 or baseline_end < 0:
+        failures.append("4.1.15 compatibility baseline job is missing or malformed")
+    else:
+        baseline_job = workflow[baseline_start:baseline_end]
+        spotless = baseline_job.find("./gradlew spotlessApply --no-daemon")
+        build = baseline_job.find("./gradlew clean build --no-daemon")
+        if spotless < 0:
+            failures.append("4.1.15 compatibility baseline must run Spotless before compiling")
+        if build < 0:
+            failures.append("4.1.15 compatibility baseline build command is missing")
+        if spotless >= 0 and build >= 0 and spotless > build:
+            failures.append("4.1.15 compatibility baseline runs Spotless after the build")
+
+    comparator = read("scripts/compare_addon_slimefun_compatibility.py")
+    legacy_builder = read("scripts/build_addon_against_local_slimefun.py")
     required_addons = (
         "wickidcow/SF_FastMachines",
         "lijinhong11/Networks-Exp",
@@ -112,9 +130,51 @@ def main() -> int:
         "addon-compatibility-${{ matrix.slug }}",
         "- name: Make Gradle wrapper executable",
         "run: chmod +x gradlew",
+        "Build 4.1.15 compatibility baseline",
+        "ref: 493587431dc831d4b8bc38649af6e22df74a15b0",
+        "name: slimefun-baseline-jar",
+        "needs: [build-baseline-slimefun, build-slimefun]",
+        "Compare known-good baseline with candidate Legacy JAR",
+        "compare_addon_slimefun_compatibility.py",
+        "Publish classified compatibility summary",
+        "Enforce classified compatibility result",
+        "BASELINE_BUILD_FAILED",
+        "LEGACY_COMPATIBILITY_FAILED",
+        "result.json",
+        "baseline.log",
+        "candidate.log",
     ):
         if token not in workflow:
             failures.append(f"Addon compatibility workflow safety control is missing: {token}")
+
+    for token in (
+        'BASELINE_BUILD_FAILED = "BASELINE_BUILD_FAILED"',
+        'LEGACY_COMPATIBILITY_FAILED = "LEGACY_COMPATIBILITY_FAILED"',
+        'INSTRUMENTATION_ERROR = "INSTRUMENTATION_ERROR"',
+        'CORE_ARTIFACT_NAMES = {"slimefun", "slimefun4"}',
+        "copy_project(source, baseline_project)",
+        "copy_project(source, candidate_project)",
+        "artifact == 'slimefun' || artifact == 'slimefun4'",
+        "--no-build-cache",
+        'report_dir / "result.json"',
+        'report_dir / "summary.md"',
+    ):
+        if token not in comparator:
+            failures.append(f"Two-stage addon comparator invariant is missing: {token}")
+
+    for unsafe in (
+        "id.contains('slimefun')",
+        '"slimefun" not in identity',
+    ):
+        if unsafe in comparator or unsafe in legacy_builder:
+            failures.append(f"Addon dependency replacement is still over-broad: {unsafe}")
+
+    for token in (
+        'normalized_artifact in {"slimefun", "slimefun4"}',
+        "coreArtifact = artifact == 'slimefun' || artifact == 'slimefun4'",
+    ):
+        if token not in legacy_builder:
+            failures.append(f"Legacy addon helper exact dependency matching is missing: {token}")
 
     if failures:
         print("Paper/Purpur compatibility verification failed:", file=sys.stderr)
