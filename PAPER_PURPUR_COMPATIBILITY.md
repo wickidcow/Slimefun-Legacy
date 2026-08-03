@@ -34,6 +34,12 @@ Legacy now uses supported Paper `DamageSource` calls for internally generated co
 
 Gradle storage tests now opt into Java 25 native access for SQLite JDBC, avoiding the restricted-native-access warning during CI. See [`COMPATIBILITY_MAINTENANCE_ROUND2.md`](COMPATIBILITY_MAINTENANCE_ROUND2.md).
 
+## Compatibility Foundation (4.1.16)
+
+The primary tested line is **Paper 26.2 / Minecraft 1.21.11 on Java 25**, with Purpur based on that Paper line supported and Folia remaining experimental. Slimefun-owned classes continue to target Java 21 bytecode.
+
+The build now publishes public API surfaces, blocks unapproved signature removals, verifies bytecode class versions, prevents sensitive direct dependency imports from spreading, records deprecation warnings, and optionally compiles against a future Paper API supplied through the `PAPER_API_CANDIDATE` repository variable. See [`COMPATIBILITY_FOUNDATION.md`](COMPATIBILITY_FOUNDATION.md).
+
 ## Validation
 
 Run:

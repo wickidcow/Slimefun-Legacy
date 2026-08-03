@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+"""Verify the machine-readable Slimefun Legacy 4.1.16 compatibility contract."""
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+
+def require(condition: bool, message: str, failures: list[str]) -> None:
+    if not condition:
+        failures.append(message)
+
+
+def main() -> int:
+    root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
+    contract = json.loads((root / "compatibility/support-contract.json").read_text(encoding="utf-8"))
+    gradle_properties = (root / "gradle.properties").read_text(encoding="utf-8")
+    versions = (root / "gradle/libs.versions.toml").read_text(encoding="utf-8")
+    build = (root / "build.gradle.kts").read_text(encoding="utf-8")
+    plugin = (root / "src/main/resources/plugin.yml").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    compatibility_ci = (root / ".github/workflows/compatibility-ci.yml").read_text(encoding="utf-8")
+    api_ci = (root / ".github/workflows/api-compatibility.yml").read_text(encoding="utf-8")
+
+    failures: list[str] = []
+    release = contract["release"]
+    paper_api = contract["primary_platform"]["paper_api"]
+    bytecode = contract["java"]["bytecode_target"]
+    toolchain = contract["java"]["build_toolchain"]
+    descriptor_api = contract["plugin_descriptor"]["api_version"]
+
+    require(f"projectVersion={release}" in gradle_properties, "gradle.properties release differs from contract", failures)
+    require(f'paperApi = "{paper_api}"' in versions, "Paper API catalog version differs from contract", failures)
+    require(f"JavaLanguageVersion.of({toolchain})" in build, "Java toolchain differs from contract", failures)
+    require(f"options.release.set({bytecode})" in build, "Java bytecode target differs from contract", failures)
+    require('gradleProperty("paperApiVersion")' in build, "Paper API override property is missing", failures)
+    require(f"name: {contract['plugin_name']}" in plugin, "plugin.yml name differs from contract", failures)
+    require(f"api-version: '{descriptor_api}'" in plugin, "plugin.yml api-version differs from contract", failures)
+    require("folia-supported: true" in plugin, "plugin.yml must retain Folia declaration", failures)
+    require(contract["plugin_descriptor"]["api_version_is_support_floor"] is False, "descriptor api-version must not be represented as support floor", failures)
+    require(contract["compatibility_policy"]["database_format_changed"] is False, "4.1.16 must not change database format", failures)
+    require(contract["compatibility_policy"]["gameplay_behavior_changed"] is False, "4.1.16 must not claim gameplay changes", failures)
+    require("Compatibility Foundation" in readme, "README does not describe Compatibility Foundation", failures)
+    require("Paper 26.2" in readme and "Minecraft 1.21.11" in readme, "README omits tested platform line", failures)
+    require("check_bytecode_target.py" in compatibility_ci, "compatibility CI does not enforce bytecode target", failures)
+    require("summarize_deprecations.py" in compatibility_ci, "compatibility CI does not publish deprecation report", failures)
+    require("PAPER_API_CANDIDATE" in compatibility_ci, "candidate Paper API compile job is missing", failures)
+    require("write_api_surface.py" in api_ci, "API CI does not publish candidate surface", failures)
+
+    report = root / "build/reports/compatibility-foundation.txt"
+    report.parent.mkdir(parents=True, exist_ok=True)
+    if failures:
+        report.write_text("Compatibility Foundation failures:\n" + "\n".join(f"- {item}" for item in failures) + "\n", encoding="utf-8")
+        print("Compatibility Foundation verification failed:")
+        for failure in failures:
+            print(f"- {failure}")
+        return 1
+
+    report.write_text(
+        "Slimefun Legacy Compatibility Foundation\n"
+        f"Release: {release}\n"
+        f"Primary: Paper {contract['primary_platform']['release_line']} / Minecraft {contract['primary_platform']['minecraft']}\n"
+        f"Paper API: {paper_api}\n"
+        f"Build Java: {toolchain}\n"
+        f"Bytecode Java: {bytecode}\n"
+        "PASS\n",
+        encoding="utf-8",
+    )
+    print("Slimefun Legacy 4.1.16 Compatibility Foundation verification passed.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -2,6 +2,7 @@
 """Verify Slimefun Legacy 4.1.15 FastMachines input-fill invariants."""
 
 from pathlib import Path
+import re
 import sys
 
 root = Path(sys.argv[1] if len(sys.argv) > 1 else ".")
@@ -21,6 +22,9 @@ test_text = test.read_text(encoding="utf-8")
 changelog_text = changelog.read_text(encoding="utf-8")
 guide_text = guide.read_text(encoding="utf-8")
 properties_text = properties.read_text(encoding="utf-8")
+
+version_match = re.search(r"^projectVersion=(\d+)\.(\d+)\.(\d+)$", properties_text, re.MULTILINE)
+release_is_compatible = bool(version_match) and tuple(map(int, version_match.groups())) >= (4, 1, 15)
 
 checks = {
     "FastMachines adapter registered": "new FastMachinesInputFillAdapter(plugin)" in implementation_text,
@@ -49,7 +53,7 @@ checks = {
     "Amount rejection test": "rejectsDisplayedAlternativeWithWrongRequiredAmount" in test_text,
     "Unsafe layout rejection test": "rejectsUnexpectedFastMachinesInputLayout" in test_text,
     "Release changelog": "# Slimefun Legacy 4.1.15 — FastMachines Input Filling" in changelog_text,
-    "Release version": "projectVersion=4.1.15" in properties_text,
+    "Release version": release_is_compatible,
     "Guide documentation": "FastMachines filling is limited to verified ingredient slots 0–35" in guide_text,
 }
 

@@ -1,0 +1,123 @@
+# Slimefun Legacy 4.1.16 — Compatibility Foundation
+
+Slimefun Legacy 4.1.16 is a maintenance-only release that formalizes the project's compatibility boundaries. It intentionally does not change gameplay, machine behavior, item IDs, saved data, or the database format.
+
+## Supported platform contract
+
+| Area | 4.1.16 contract |
+| --- | --- |
+| Primary server | Paper 26.2 / Minecraft 1.21.11 |
+| Secondary server | Purpur based on Paper 26.2 |
+| Experimental server | Folia based on Paper 26.2 |
+| Build toolchain | Java 25 |
+| Supported production runtime | Java 25 |
+| Slimefun-owned bytecode | Java 21 maximum |
+| Paper API compile baseline | `1.21.11-R0.1-SNAPSHOT` |
+| Public plugin identity | `Slimefun` |
+| Data format | Unchanged |
+| Gameplay behavior | Unchanged |
+
+The machine-readable source of truth is [`compatibility/support-contract.json`](compatibility/support-contract.json).
+
+### About `api-version: '1.16'`
+
+The Bukkit descriptor value remains `1.16` to preserve historical material handling and addon behavior. It is not a promise that Minecraft 1.16 is supported. The tested platform contract above and CI are the support boundary.
+
+## Compatibility gates
+
+### Public API surface
+
+The public API workflow now:
+
+- builds the candidate JAR;
+- records every compatibility-protected public JVM signature;
+- downloads a released baseline JAR;
+- reports added and removed signatures;
+- fails on an unapproved removal;
+- fails if `javap` cannot inspect an API class instead of silently skipping it;
+- publishes the candidate surface even when no released baseline exists.
+
+Intentional removals require an exact entry in `scripts/api-removal-allowlist.txt` and should be accompanied by migration documentation.
+
+### Java bytecode target
+
+`scripts/check_bytecode_target.py` inspects the class-file headers inside the shaded JAR. Slimefun-owned classes must remain at Java 21 bytecode or lower even though CI and the supported server runtime use Java 25.
+
+This protects addon tooling and prevents an accidental compiler configuration change from silently producing Java 25-only Slimefun classes.
+
+### Sensitive dependency boundaries
+
+`scripts/check_dependency_boundaries.py` prevents sensitive direct dependencies from spreading to new source files. The 4.1.16 baseline covers:
+
+- Dough;
+- GuizhanLib;
+- WorldEdit;
+- HikariCP;
+- bStats;
+- Unirest;
+- CraftBukkit and Minecraft server internals.
+
+Removing imports is always allowed. Adding a new importing file or increasing an existing file's sensitive import count fails verification until the architecture change is reviewed and the baseline is deliberately updated.
+
+Direct CraftBukkit and NMS imports have a zero-import budget.
+
+### Deprecation visibility
+
+Compatibility CI compiles with `-Xlint:deprecation` and publishes:
+
+- the complete compiler log;
+- a normalized Markdown report grouped by source file.
+
+The report is informational in 4.1.16. This distinction matters because deprecated public compatibility bridges may need to remain available for addons even after Legacy stops using them internally.
+
+### Candidate Paper API compile
+
+The Gradle build accepts an optional Paper API override:
+
+```bash
+./gradlew clean compileJava -PpaperApiVersion=1.21.11-R0.1-SNAPSHOT
+```
+
+Repository administrators can define the GitHub Actions variable `PAPER_API_CANDIDATE` to test a future Paper API. That job is intentionally non-blocking while the candidate API is unstable, but it gives early notice of source incompatibilities.
+
+An optional `API_BASELINE_TAG` repository variable can pin the public API comparison to a specific GitHub release tag. Without it, the latest release is used.
+
+## Verification
+
+Run the complete source checks with:
+
+```bash
+python3 scripts/verify_legacy.py .
+```
+
+Build and verify the JAR with:
+
+```bash
+./gradlew spotlessApply --no-daemon
+./gradlew clean build --no-daemon
+python3 scripts/check_bytecode_target.py build/libs/Slimefun-4.1.16.jar --expected-java 21
+```
+
+Generate the deprecation report with:
+
+```bash
+mkdir -p build/reports
+./gradlew clean compileJava -PslimefunDeprecationReport=true --no-daemon 2>&1 \
+  | tee build/reports/deprecation-compile.log
+python3 scripts/summarize_deprecations.py build/reports/deprecation-compile.log
+```
+
+## Deliberately excluded from 4.1.16
+
+This release does not add:
+
+- automatic plugin or addon downloads;
+- automatic JAR replacement;
+- database migrations;
+- guide changes;
+- machine logic changes;
+- new storage backends;
+- Cargo or energy behavior changes;
+- new Folia cross-region transactions.
+
+Those areas remain separate, reviewable projects built on top of this compatibility foundation.

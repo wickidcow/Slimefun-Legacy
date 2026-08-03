@@ -26,6 +26,9 @@ java {
 tasks.compileJava {
     options.encoding = "UTF-8"
     options.release.set(21)
+    if (providers.gradleProperty("slimefunDeprecationReport").isPresent) {
+        options.compilerArgs.add("-Xlint:deprecation")
+    }
 }
 tasks.compileTestJava {
     // Keep test compilation on the same bytecode/API level as production.
@@ -46,8 +49,11 @@ repositories {
     maven("https://repo.walshy.dev/public")
     maven("https://repo.codemc.io/repository/maven-public/")
 }
+val supportedPaperApiVersion = libs.versions.paperApi.get()
+val selectedPaperApiVersion = providers.gradleProperty("paperApiVersion").orElse(supportedPaperApiVersion)
+
 dependencies {
-    compileOnly(libs.paper.api)
+    compileOnly("io.papermc.paper:paper-api:${selectedPaperApiVersion.get()}")
     compileOnly(libs.jsr305)
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)
@@ -57,7 +63,7 @@ dependencies {
     compileOnly(libs.log4j.core)
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockbukkit)
-    testImplementation(libs.paper.api)
+    testImplementation("io.papermc.paper:paper-api:${selectedPaperApiVersion.get()}")
     testImplementation(libs.sqlite.jdbc)
     testImplementation(libs.jsr305)
     testRuntimeOnly(libs.junit.platform.launcher)

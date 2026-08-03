@@ -1,0 +1,54 @@
+{
+  "release": "4.1.16",
+  "project": "Slimefun Legacy",
+  "plugin_name": "Slimefun",
+  "primary_platform": {
+    "software": "Paper",
+    "release_line": "26.2",
+    "minecraft": "1.21.11",
+    "paper_api": "1.21.11-R0.1-SNAPSHOT",
+    "status": "supported"
+  },
+  "secondary_platforms": [
+    {
+      "software": "Purpur",
+      "basis": "Paper 26.2",
+      "status": "supported"
+    },
+    {
+      "software": "Folia",
+      "basis": "Paper 26.2",
+      "status": "experimental"
+    }
+  ],
+  "unsupported_platforms": [
+    "Spigot",
+    "CraftBukkit",
+    "Bukkit",
+    "Sponge",
+    "Arclight",
+    "Mohist",
+    "Cardboard",
+    "Fabric",
+    "Forge",
+    "NeoForge"
+  ],
+  "java": {
+    "build_toolchain": 25,
+    "supported_runtime": 25,
+    "bytecode_target": 21
+  },
+  "plugin_descriptor": {
+    "api_version": "1.16",
+    "api_version_is_support_floor": false,
+    "reason": "Retained for historical Bukkit material and addon compatibility; the tested support line is defined by this contract and CI."
+  },
+  "compatibility_policy": {
+    "public_api_removals_require_allowlist": true,
+    "candidate_paper_api_is_non_blocking": true,
+    "folia_is_experimental": true,
+    "automatic_core_or_addon_downloads": false,
+    "database_format_changed": false,
+    "gameplay_behavior_changed": false
+  }
+}

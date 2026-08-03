@@ -11,7 +11,7 @@ Slimefun Legacy turns a normal Minecraft server into a modpack-like experience w
 [![Build](https://github.com/wickidcow/Slimefun-Legacy/actions/workflows/build-ci.yml/badge.svg)](https://github.com/wickidcow/Slimefun-Legacy/actions/workflows/build-ci.yml)
 [![Compatibility](https://github.com/wickidcow/Slimefun-Legacy/actions/workflows/compatibility-ci.yml/badge.svg)](https://github.com/wickidcow/Slimefun-Legacy/actions/workflows/compatibility-ci.yml)
 [![License](https://img.shields.io/github/license/wickidcow/Slimefun-Legacy?label=license)](LICENSE)
-[![Java](https://img.shields.io/badge/Java-21%2B-orange)](https://adoptium.net/)
+[![Java](https://img.shields.io/badge/Runtime-Java%2025-orange)](https://adoptium.net/)
 [![Paper](https://img.shields.io/badge/Server-Paper-blue)](https://papermc.io/)
 [![Language](https://img.shields.io/badge/Player%20language-English-brightgreen)](#english-first-and-recovery)
 [![Servers](https://img.shields.io/bstats/servers/32960?label=servers)](https://bstats.org/plugin/bukkit/Slimefun%20Legacy/32960)
@@ -21,7 +21,7 @@ Slimefun Legacy turns a normal Minecraft server into a modpack-like experience w
 [Builds](https://github.com/wickidcow/Slimefun-Legacy/actions) ·
 [Statistics](https://bstats.org/plugin/bukkit/Slimefun%20Legacy/32960) ·
 [Report a Bug](https://github.com/wickidcow/Slimefun-Legacy/issues) ·
-[Release Notes](STABILITY_RELEASE.md) ·
+[Release Notes](COMPATIBILITY_FOUNDATION.md) ·
 [Contributing](CONTRIBUTING.md)
 
 </div>
@@ -89,12 +89,13 @@ These are historical Slimefun community showcase images. Full image credits and 
 
 | Requirement | Supported setup |
 | --- | --- |
-| **Server** | Modern Paper, Purpur, or a conventional Paper fork |
-| **Java** | Java 21 or newer |
+| **Primary server** | Paper 26.2 / Minecraft 1.21.11 |
+| **Secondary server** | Purpur based on Paper 26.2 |
+| **Java runtime** | Java 25 |
 | **Client** | Normal Minecraft Java client; no client mod required |
 | **Resource pack** | Optional and provided separately by the server |
 
-The repository builds with a Java 25 toolchain while targeting Java 21-compatible bytecode.
+The supported production line uses Java 25. The repository also builds with Java 25 while deliberately targeting Java 21 bytecode for Slimefun-owned classes.
 
 Download a tested build from [GitHub Releases](https://github.com/wickidcow/Slimefun-Legacy/releases). Development artifacts are available from [GitHub Actions](https://github.com/wickidcow/Slimefun-Legacy/actions).
 
@@ -161,6 +162,7 @@ Always review the dry-run results before confirming a repair. Unknown IDs, malfo
 
 Slimefun Legacy currently includes:
 
+- Compatibility Foundation gates for public API removals, Java bytecode drift, dependency boundaries, deprecations, and future Paper API compilation
 - Duplicate and re-entrant backpack-open protection
 - Clean-shutdown tracking and pending database-write visibility
 - Per-machine ticker circuit breakers with cooldown and retry support
@@ -176,7 +178,7 @@ Slimefun Legacy currently includes:
 - Addon-facing machine recipe provider API for structured inputs, alternatives, outputs, timing, and energy metadata
 - Safe machine input-fill adapter API for standard and custom addon inventories, including Supreme `GenericMachine` and FastMachines compatibility
 
-Detailed release information is available in [`STABILITY_RELEASE.md`](STABILITY_RELEASE.md), [`SECOND_MAINTENANCE_RELEASE.md`](SECOND_MAINTENANCE_RELEASE.md), [`THIRD_MAINTENANCE_RELEASE.md`](THIRD_MAINTENANCE_RELEASE.md), and [`FOURTH_MAINTENANCE_RELEASE.md`](FOURTH_MAINTENANCE_RELEASE.md). The current fork review is documented in [`CORE_CORRECTNESS_AUDIT.md`](CORE_CORRECTNESS_AUDIT.md). Enhanced Guide development is documented in [`ENHANCED_GUIDE.md`](ENHANCED_GUIDE.md), with addon integration details in [`docs/MACHINE_RECIPE_PROVIDER_API.md`](docs/MACHINE_RECIPE_PROVIDER_API.md) and [`docs/MACHINE_INPUT_FILL_ADAPTER_API.md`](docs/MACHINE_INPUT_FILL_ADAPTER_API.md).
+The current compatibility contract is documented in [`COMPATIBILITY_FOUNDATION.md`](COMPATIBILITY_FOUNDATION.md). Detailed release information is available in [`STABILITY_RELEASE.md`](STABILITY_RELEASE.md), [`SECOND_MAINTENANCE_RELEASE.md`](SECOND_MAINTENANCE_RELEASE.md), [`THIRD_MAINTENANCE_RELEASE.md`](THIRD_MAINTENANCE_RELEASE.md), and [`FOURTH_MAINTENANCE_RELEASE.md`](FOURTH_MAINTENANCE_RELEASE.md). The current fork review is documented in [`CORE_CORRECTNESS_AUDIT.md`](CORE_CORRECTNESS_AUDIT.md). Enhanced Guide development is documented in [`ENHANCED_GUIDE.md`](ENHANCED_GUIDE.md), with addon integration details in [`docs/MACHINE_RECIPE_PROVIDER_API.md`](docs/MACHINE_RECIPE_PROVIDER_API.md) and [`docs/MACHINE_INPUT_FILL_ADAPTER_API.md`](docs/MACHINE_INPUT_FILL_ADAPTER_API.md).
 
 ---
 
@@ -186,18 +188,19 @@ Detailed release information is available in [`STABILITY_RELEASE.md`](STABILITY_
 
 | Server software | Compatibility |
 | --- | :---: |
-| Paper | ✅ Supported |
-| Purpur | ✅ Supported |
+| Paper 26.2 / Minecraft 1.21.11 | ✅ Primary supported line |
+| Purpur based on Paper 26.2 | ✅ Supported |
 | Most conventional Paper forks | ⚠️ Usually compatible |
-| Folia | ⚠️ Experimental |
+| Folia based on Paper 26.2 | ⚠️ Experimental |
 | Spigot | ❌ Unsupported |
 | CraftBukkit / Bukkit | ❌ Unsupported |
 | Sponge | ❌ Unsupported |
 | Hybrid servers such as Arclight, Mohist, or Cardboard | ❌ Unsupported and blocked |
 | Fabric / Forge / NeoForge | ❌ Unsupported — this is a server plugin, not a mod |
 
-Slimefun Legacy is built for Paper. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed.
-The compatibility policy and current defensive maintenance layer are documented in [`PAPER_PURPUR_COMPATIBILITY.md`](PAPER_PURPUR_COMPATIBILITY.md).
+Slimefun Legacy 4.1.16 is tested primarily against **Paper 26.2 / Minecraft 1.21.11 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
+
+The machine-readable support contract and Compatibility Foundation are documented in [`COMPATIBILITY_FOUNDATION.md`](COMPATIBILITY_FOUNDATION.md). The compatibility policy and current defensive maintenance layer are documented in [`PAPER_PURPUR_COMPATIBILITY.md`](PAPER_PURPUR_COMPATIBILITY.md).
 
 Folia Phase 1 routes machine ticks and entity/location callbacks through their owning schedulers while preserving Paper behavior. Cargo and energy networks intentionally operate only on nodes owned by the regulator's current Folia region; transactional cross-region transfers are not enabled yet. Folia therefore remains experimental. **Every installed addon must also be Folia-safe.** See [`FOLIA_PHASE1.md`](FOLIA_PHASE1.md) for the exact safety boundary and staging checklist.
 
@@ -225,7 +228,7 @@ Linux or macOS:
 
 ```bash
 chmod +x gradlew
-python3 scripts/verify_english.py .
+python3 scripts/verify_legacy.py .
 ./gradlew spotlessApply --no-daemon
 ./gradlew spotlessCheck clean build --no-daemon
 ```
@@ -233,7 +236,7 @@ python3 scripts/verify_english.py .
 Windows:
 
 ```powershell
-python scripts/verify_english.py .
+python scripts/verify_legacy.py .
 .\gradlew.bat spotlessApply --no-daemon
 .\gradlew.bat spotlessCheck clean build --no-daemon
 ```
@@ -266,17 +269,7 @@ Slimefun Legacy is built on years of work by the Slimefun community, including:
 This repository retains upstream history and attribution while being maintained independently. It must not be presented as an official release from an upstream project.
 
 ---
-⚠️ Important Disclaimer
 
-This is an unofficial fork and is not affiliated with the original Slimefun developers or team.
-
-    All credits go to the original Slimefun Team.
-    This project follows the GNU GPLv3 License.
-    You are allowed to modify and share it, but you must give proper credit and keep the same license.
-
-Original Project
-Creator & Builder: TheBusyBiscuit
----
 ## 📄 License
 
 Slimefun Legacy is distributed under the [GNU General Public License v3.0](LICENSE). Distributed modifications must continue to follow the GPL and provide corresponding source as required by the license.

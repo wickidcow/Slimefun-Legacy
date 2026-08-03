@@ -5,12 +5,12 @@ player experience. Changes should preserve both goals.
 
 ## Development setup
 
-Use Java 21 and the included Gradle wrapper.
+Use Java 25 and the included Gradle wrapper. Production classes must continue to target Java 21 bytecode.
 
 ```bash
 chmod +x gradlew
 ./gradlew spotlessApply
-python3 scripts/verify_english.py .
+python3 scripts/verify_legacy.py .
 ./gradlew clean build --no-daemon
 ```
 
@@ -50,3 +50,9 @@ When the patch no longer applies:
 4. Regenerate `patches/albion-english.patch` with
    `scripts/regenerate_patch.sh /path/to/clean/Slimefun4`.
 5. Review the resulting patch before committing it.
+
+## Compatibility Foundation
+
+Pull requests must not casually remove released public JVM signatures, increase sensitive direct dependency imports, introduce CraftBukkit/NMS imports, or raise the Java bytecode target. Run the complete verifier before opening a pull request.
+
+When a compatibility boundary must change, update the relevant report or baseline deliberately and explain the migration impact in the pull request. Do not hide a breaking API change by weakening a verifier.
