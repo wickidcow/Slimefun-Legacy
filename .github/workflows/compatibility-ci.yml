@@ -87,10 +87,10 @@ jobs:
       fail-fast: false
       matrix:
         repository:
-          - wickidcow/FastMachines
-          - wickidcow/Networks
-          - wickidcow/SlimeTinker2
-          - wickidcow/BetterChests
+          - wickidcow/SF_FastMachines
+          - Sefiraat/Networks
+          - wickidcow/SF_SlimeTinkerIE2
+          - wickidcow/SF_BetterChests
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
