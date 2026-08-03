@@ -59,6 +59,32 @@ jobs:
             build/reports/deprecations.md
           if-no-files-found: warn
 
+
+  build-baseline-slimefun:
+    name: Build 4.1.15 compatibility baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 493587431dc831d4b8bc38649af6e22df74a15b0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+      - name: Build known-good 4.1.15 baseline JAR
+        run: ./gradlew clean build --no-daemon
+      - uses: actions/upload-artifact@v7
+        with:
+          name: slimefun-baseline-jar
+          path: |
+            build/libs/Slimefun-*.jar
+            !build/libs/*-sources.jar
+          if-no-files-found: error
+
   paper-candidate-api:
     name: Candidate Paper API
     if: ${{ vars.PAPER_API_CANDIDATE != '' }}
@@ -82,7 +108,7 @@ jobs:
 
   addons:
     name: Addon [${{ matrix.tier }}] - ${{ matrix.repository }}
-    needs: build-slimefun
+    needs: [build-baseline-slimefun, build-slimefun]
     continue-on-error: ${{ matrix.advisory }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -163,8 +189,12 @@ jobs:
           cache: gradle
       - uses: actions/download-artifact@v8
         with:
+          name: slimefun-baseline-jar
+          path: build/baseline
+      - uses: actions/download-artifact@v8
+        with:
           name: slimefun-compatibility-jar
-          path: build/compat
+          path: build/candidate
       - name: Clone addon
         env:
           GIT_TERMINAL_PROMPT: '0'
@@ -195,17 +225,81 @@ jobs:
               exit 1
             fi
           } 2>&1 | tee "$ADDON_LOG"
-      - name: Compile addon against exact JAR
+      - name: Compare known-good baseline with candidate Legacy JAR
+        id: compare
+        continue-on-error: true
         env:
-          ADDON_LOG: ${{ runner.temp }}/${{ matrix.slug }}.log
+          ADDON_REPORT: ${{ runner.temp }}/${{ matrix.slug }}-report
         run: |
-          set -o pipefail
-          JAR="$(find build/compat -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
-          test -n "$JAR"
-          python3 scripts/build_addon_against_local_slimefun.py "$RUNNER_TEMP/addon" "$JAR" 2>&1 | tee -a "$ADDON_LOG"
+          BASELINE_JAR="$(find build/baseline -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
+          CANDIDATE_JAR="$(find build/candidate -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
+          test -n "$BASELINE_JAR"
+          test -n "$CANDIDATE_JAR"
+          python3 scripts/compare_addon_slimefun_compatibility.py \
+            "$RUNNER_TEMP/addon" \
+            "$BASELINE_JAR" \
+            "$CANDIDATE_JAR" \
+            "$ADDON_REPORT"
+      - name: Publish classified compatibility summary
+        if: always()
+        env:
+          ADDON_REPORT: ${{ runner.temp }}/${{ matrix.slug }}-report
+        run: |
+          if [[ -f "$ADDON_REPORT/summary.md" ]]; then
+            cat "$ADDON_REPORT/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "## Addon compatibility comparison"
+              echo
+              echo "**Result:** `INSTRUMENTATION_ERROR`"
+              echo
+              echo "The comparison report was not produced. Review the checkout and workflow logs."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: addon-compatibility-${{ matrix.slug }}
-          path: ${{ runner.temp }}/${{ matrix.slug }}.log
+          path: |
+            ${{ runner.temp }}/${{ matrix.slug }}.log
+            ${{ runner.temp }}/${{ matrix.slug }}-report/result.json
+            ${{ runner.temp }}/${{ matrix.slug }}-report/status.txt
+            ${{ runner.temp }}/${{ matrix.slug }}-report/summary.md
+            ${{ runner.temp }}/${{ matrix.slug }}-report/baseline.log
+            ${{ runner.temp }}/${{ matrix.slug }}-report/candidate.log
           if-no-files-found: warn
+      - name: Enforce classified compatibility result
+        if: always()
+        env:
+          ADDON_REPORT: ${{ runner.temp }}/${{ matrix.slug }}-report
+          ADVISORY: ${{ matrix.advisory }}
+        run: |
+          if [[ ! -f "$ADDON_REPORT/status.txt" ]]; then
+            STATUS="INSTRUMENTATION_ERROR"
+          else
+            STATUS="$(tr -d '\r\n' < "$ADDON_REPORT/status.txt")"
+          fi
+
+          echo "Compatibility result for ${{ matrix.repository }}: $STATUS"
+          case "$STATUS" in
+            PASS)
+              exit 0
+              ;;
+            BASELINE_BUILD_FAILED)
+              MESSAGE="Addon does not build against the known-good 4.1.15 baseline; this is not evidence of a new Legacy regression."
+              ;;
+            LEGACY_COMPATIBILITY_FAILED)
+              MESSAGE="Addon builds against 4.1.15 but fails against the candidate JAR; this is a genuine Legacy compatibility regression."
+              ;;
+            *)
+              MESSAGE="Compatibility comparison could not be completed because of checkout or test-harness infrastructure."
+              ;;
+          esac
+
+          if [[ "$ADVISORY" == "true" ]]; then
+            echo "::warning title=Advisory addon compatibility::$MESSAGE"
+            exit 0
+          fi
+
+          echo "::error title=Required addon compatibility::$MESSAGE"
+          exit 1
