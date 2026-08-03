@@ -7,6 +7,8 @@
 - Added sensitive dependency-boundary budgets, including a zero-import rule for CraftBukkit and NMS internals.
 - Added a normalized `-Xlint:deprecation` report without treating intentional compatibility bridges as release failures.
 - Added permanent Compatibility Foundation verification and integrated it into the complete Legacy verifier.
+- Reworked addon compatibility CI into a known-good 4.1.15 baseline versus candidate comparison with classified results and separate logs.
+- Corrected dependency injection so only the core `Slimefun`/`Slimefun4` artifact is replaced; SlimefunTranslation, InfinityExpansion, InfinityLib and addon dependencies are preserved.
 - No gameplay, item ID, saved-data or database-format changes are included.
 
 # Slimefun Legacy 4.1.15 — FastMachines Input Filling

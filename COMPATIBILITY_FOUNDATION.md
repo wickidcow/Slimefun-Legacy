@@ -84,7 +84,20 @@ An optional `API_BASELINE_TAG` repository variable can pin the public API compar
 
 ### Addon compatibility matrix
 
-The weekly and manually triggered compatibility workflow builds the exact Slimefun Legacy JAR first, then compiles selected addons against that JAR.
+The weekly and manually triggered compatibility workflow now performs a controlled two-JAR comparison for every addon:
+
+1. build the addon in a fresh checkout copy against the known-good Slimefun Legacy 4.1.15 JAR from commit `493587431dc831d4b8bc38649af6e22df74a15b0`;
+2. only after that succeeds, build a second fresh copy against the candidate Slimefun Legacy JAR produced by the current workflow;
+3. publish the baseline log, candidate log, machine-readable JSON result and Markdown summary separately.
+
+Only the core dependencies whose artifact name is exactly `Slimefun` or `Slimefun4` are replaced. Dependencies such as SlimefunTranslation, InfinityExpansion, InfinityLib and other Gugu addons remain untouched even when their Maven group contains the word `Slimefun`.
+
+Results are classified as:
+
+- `PASS` — the addon builds against both the known-good baseline and candidate;
+- `BASELINE_BUILD_FAILED` — the addon also fails against 4.1.15, indicating an addon dependency, repository or build-environment problem rather than a new Legacy regression;
+- `LEGACY_COMPATIBILITY_FAILED` — the addon builds against 4.1.15 but fails against the candidate, indicating a genuine candidate API regression;
+- `INSTRUMENTATION_ERROR` — checkout or dependency-replacement infrastructure could not complete the comparison.
 
 Required targets are release-blocking:
 
