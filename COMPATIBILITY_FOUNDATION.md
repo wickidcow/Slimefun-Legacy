@@ -82,6 +82,21 @@ Repository administrators can define the GitHub Actions variable `PAPER_API_CAND
 
 An optional `API_BASELINE_TAG` repository variable can pin the public API comparison to a specific GitHub release tag. Without it, the latest release is used.
 
+### Addon compatibility matrix
+
+The weekly and manually triggered compatibility workflow builds the exact Slimefun Legacy JAR first, then compiles selected addons against that JAR.
+
+Required targets are release-blocking:
+
+- `wickidcow/SF_FastMachines`;
+- `Sefiraat/Networks`;
+- `wickidcow/SF_SlimeTinkerIE2`;
+- `wickidcow/SF_BetterChests`.
+
+A curated set of public `SlimefunGuguProject` addons is also compiled as an advisory compatibility probe. Gugu failures remain visible in the GitHub Actions matrix and publish individual build logs, but archived or independently changing Gugu projects do not block a Slimefun Legacy release.
+
+The Gugu advisory set includes FluffyMachines, FoxyMachines, Networks, SlimeTinker, FlowerPower, IDreamOfEasy, Gastronomicon, Bump, SlimeCustomizer, and EMCTech. Matrix concurrency is limited to four addon builds at a time to reduce remote-service and runner pressure.
+
 ## Verification
 
 Run the complete source checks with:

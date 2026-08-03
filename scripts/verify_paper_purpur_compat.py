@@ -73,9 +73,35 @@ def main() -> int:
         failures.append("Profiler still permits an empty report after queued is reset")
 
     workflow = read(".github/workflows/compatibility-ci.yml")
-    for token in ("wickidcow/SF_FastMachines", "Sefiraat/Networks", "wickidcow/SF_SlimeTinkerIE2", "wickidcow/SF_BetterChests"):
+    required_addons = (
+        "wickidcow/SF_FastMachines",
+        "Sefiraat/Networks",
+        "wickidcow/SF_SlimeTinkerIE2",
+        "wickidcow/SF_BetterChests",
+    )
+    gugu_advisory_addons = (
+        "SlimefunGuguProject/FluffyMachines",
+        "SlimefunGuguProject/FoxyMachines",
+        "SlimefunGuguProject/Networks",
+        "SlimefunGuguProject/SlimeTinker",
+        "SlimefunGuguProject/FlowerPower",
+        "SlimefunGuguProject/IDreamOfEasy",
+        "SlimefunGuguProject/Gastronomicon",
+        "SlimefunGuguProject/Bump",
+        "SlimefunGuguProject/SlimeCustomizer",
+        "SlimefunGuguProject/EMCTech",
+    )
+    for token in (*required_addons, *gugu_advisory_addons):
         if token not in workflow:
             failures.append(f"Addon compatibility matrix entry is missing: {token}")
+    for token in (
+        "continue-on-error: ${{ matrix.advisory }}",
+        "max-parallel: 4",
+        "GIT_TERMINAL_PROMPT: '0'",
+        "addon-compatibility-${{ matrix.slug }}",
+    ):
+        if token not in workflow:
+            failures.append(f"Addon compatibility workflow safety control is missing: {token}")
 
     if failures:
         print("Paper/Purpur compatibility verification failed:", file=sys.stderr)
