@@ -76,7 +76,9 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
       - name: Build known-good 4.1.15 baseline JAR
-        run: ./gradlew clean build --no-daemon
+        run: |
+          ./gradlew spotlessApply --no-daemon
+          ./gradlew clean build --no-daemon
       - uses: actions/upload-artifact@v7
         with:
           name: slimefun-baseline-jar
