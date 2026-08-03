@@ -27,8 +27,11 @@ def patch_maven_dependencies(project: Path) -> bool:
         children = {child.tag.split("}")[-1]: child for child in dep}
         group = (children.get("groupId").text or "") if children.get("groupId") is not None else ""
         artifact = (children.get("artifactId").text or "") if children.get("artifactId") is not None else ""
-        identity = f"{group}:{artifact}".lower()
-        if "slimefun" not in identity or "slimefuncomplib" in identity:
+        normalized_group = group.strip().lower()
+        normalized_artifact = artifact.strip().lower()
+        core_artifact = normalized_artifact in {"slimefun", "slimefun4"}
+        core_group = "slimefun" in normalized_group or "thebusybiscuit" in normalized_group
+        if not (core_artifact and core_group):
             continue
         children["groupId"].text = "com.github.slimefun"
         children["artifactId"].text = "Slimefun"
@@ -71,8 +74,11 @@ allprojects {
     afterEvaluate { p ->
         p.configurations.each { configuration ->
             def matches = configuration.dependencies.findAll { dependency ->
-                def id = ((dependency.group ?: '') + ':' + dependency.name).toLowerCase()
-                id.contains('slimefun') && !id.contains('slimefuncomplib')
+                def group = (dependency.group ?: '').toLowerCase()
+                def artifact = (dependency.name ?: '').toLowerCase()
+                def coreArtifact = artifact == 'slimefun' || artifact == 'slimefun4'
+                def coreGroup = group.contains('slimefun') || group.contains('thebusybiscuit')
+                coreArtifact && coreGroup
             }
             if (!matches.isEmpty()) {
                 matches.each { configuration.dependencies.remove(it) }
