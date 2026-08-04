@@ -105,8 +105,8 @@ def main() -> int:
         if token not in workflow:
             failures.append(f"Addon compatibility matrix entry is missing: {token}")
     for token in (
-        "target-version: 2.1.112-Legacy-Alpha1",
-        "slug: legacy-networksexp-alpha1",
+        "target-version: 2.1.112-Legacy-Alpha2",
+        "slug: legacy-networksexp-alpha2",
         "TARGET_VERSION: ${{ matrix.target-version }}",
         "Declared addon version:",
         "Expected addon version $TARGET_VERSION",
