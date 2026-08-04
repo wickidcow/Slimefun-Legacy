@@ -103,13 +103,13 @@ Results are classified as:
 Required targets are release-blocking:
 
 - `wickidcow/SF_FastMachines`;
-- `SlimefunGuguProject/Networks` pinned to archived `master` commit `317c60c42f488ba9db0de57a119abda23d0d1e10`;
+- `wickidcow/SF_NetworksExp` targeting `2.1.112-Legacy-Alpha1`;
 - `wickidcow/SF_SlimeTinkerIE2`;
 - `wickidcow/SF_BetterChests`.
 
 A curated set of public `SlimefunGuguProject` addons is also compiled as an advisory compatibility probe. Gugu failures remain visible in the GitHub Actions matrix and publish individual build logs, but archived or independently changing Gugu projects do not block a Slimefun Legacy release.
 
-The required Networks target uses the archived Gugu fork that previously compiled successfully in the compatibility matrix. It is pinned to the exact final `master` commit so the required baseline cannot drift even though the repository is read-only.
+The required Networks target is the maintained Slimefun Legacy fork `wickidcow/SF_NetworksExp`. CI tracks its active `master` branch but requires the declared Gradle version to remain `2.1.112-Legacy-Alpha1`, so fixes within Alpha 1 can advance without silently switching the compatibility contract to a different release.
 
 The Gugu advisory set includes FluffyMachines, FoxyMachines, SlimeTinker, FlowerPower, IDreamOfEasy, Gastronomicon, Bump, SlimeCustomizer, and EMCTech. Matrix concurrency is limited to four addon builds at a time to reduce remote-service and runner pressure.
 

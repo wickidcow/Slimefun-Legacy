@@ -10,7 +10,7 @@
 - Reworked addon compatibility CI into a known-good 4.1.15 baseline versus candidate comparison with classified results and separate logs.
 - Formats the pinned 4.1.15 baseline checkout before compiling so historical Spotless drift cannot prevent addon comparisons.
 - Corrected dependency injection so only the core `Slimefun`/`Slimefun4` artifact is replaced; SlimefunTranslation, InfinityExpansion, InfinityLib and addon dependencies are preserved.
-- Restored the archived `SlimefunGuguProject/Networks` fork as the required Networks compatibility target and pinned it to commit `317c60c42f488ba9db0de57a119abda23d0d1e10`; removed the duplicate advisory Networks lane.
+- Replaced the archived Gugu Networks requirement with the maintained `wickidcow/SF_NetworksExp` fork and made `2.1.112-Legacy-Alpha1` the release-blocking Networks compatibility target.
 - No gameplay, item ID, saved-data or database-format changes are included.
 
 # Slimefun Legacy 4.1.15 — FastMachines Input Filling

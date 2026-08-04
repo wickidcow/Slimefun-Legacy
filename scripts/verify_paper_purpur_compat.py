@@ -13,14 +13,12 @@ MINIMUM_GUGU_BASELINE = "ece7368e1d0b40bc95c63d2796117794fcaf190e"
 def main() -> int:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     failures: list[str] = []
-
     def read(relative: str) -> str:
         path = root / relative
         if not path.is_file():
             failures.append(f"missing required file: {relative}")
             return ""
         return path.read_text(encoding="utf-8")
-
     marker = read(".gugu-upstream-base").strip()
     if len(marker) != 40 or any(character not in "0123456789abcdefABCDEF" for character in marker):
         failures.append(".gugu-upstream-base must contain one full 40-character commit SHA")
@@ -47,7 +45,6 @@ def main() -> int:
             )
             if result.returncode != 0:
                 failures.append(".gugu-upstream-base moved behind or away from the audited storage baseline")
-
     crafter = read("src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/AutoCrafterListener.java")
     for token in (
         "isLimitedCrafting",
@@ -56,7 +53,6 @@ def main() -> int:
     ):
         if token not in crafter:
             failures.append(f"Auto-Crafter Paper/Purpur guard is missing: {token}")
-
     versions = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/VersionsCommand.java")
     for token in (
         "sendVersionReport",
@@ -65,7 +61,6 @@ def main() -> int:
     ):
         if token not in versions:
             failures.append(f"/sf versions fallback is missing: {token}")
-
     profiler = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/profiler/SlimefunProfiler.java")
     if "if (isProfiling)" not in profiler or "mixed-cycle summary" not in profiler:
         failures.append("Profiler superseded-cycle guard is missing")
@@ -73,7 +68,6 @@ def main() -> int:
         failures.append("Profiler still permits an empty report after queued is reset")
 
     workflow = read(".github/workflows/compatibility-ci.yml")
-
     baseline_start = workflow.find("  build-baseline-slimefun:")
     baseline_end = workflow.find("\n  paper-candidate-api:", baseline_start)
     if baseline_start < 0 or baseline_end < 0:
@@ -88,12 +82,11 @@ def main() -> int:
             failures.append("4.1.15 compatibility baseline build command is missing")
         if spotless >= 0 and build >= 0 and spotless > build:
             failures.append("4.1.15 compatibility baseline runs Spotless after the build")
-
     comparator = read("scripts/compare_addon_slimefun_compatibility.py")
     legacy_builder = read("scripts/build_addon_against_local_slimefun.py")
     required_addons = (
         "wickidcow/SF_FastMachines",
-        "SlimefunGuguProject/Networks",
+        "wickidcow/SF_NetworksExp",
         "wickidcow/SF_SlimeTinkerIE2",
         "wickidcow/SF_BetterChests",
     )
@@ -112,17 +105,14 @@ def main() -> int:
         if token not in workflow:
             failures.append(f"Addon compatibility matrix entry is missing: {token}")
     for token in (
-        "ref: master",
-        "expected-commit: 317c60c42f488ba9db0de57a119abda23d0d1e10",
-        "slug: gugu-networks-required",
-        "ADDON_REF: ${{ matrix.ref }}",
-        "EXPECTED_COMMIT: ${{ matrix.expected-commit }}",
-        'git clone --depth 1 --branch "$ADDON_REF"',
-        'ACTUAL_COMMIT="$(git -C "$RUNNER_TEMP/addon" rev-parse HEAD)"',
+        "target-version: 2.1.112-Legacy-Alpha1",
+        "slug: legacy-networksexp-alpha1",
+        "TARGET_VERSION: ${{ matrix.target-version }}",
+        "Declared addon version:",
+        "Expected addon version $TARGET_VERSION",
     ):
         if token not in workflow:
-            failures.append(f"Pinned Gugu Networks compatibility control is missing: {token}")
-
+            failures.append(f"Maintained Networks target control is missing: {token}")
     for token in (
         "continue-on-error: ${{ matrix.advisory }}",
         "max-parallel: 4",
@@ -146,7 +136,6 @@ def main() -> int:
     ):
         if token not in workflow:
             failures.append(f"Addon compatibility workflow safety control is missing: {token}")
-
     for token in (
         'BASELINE_BUILD_FAILED = "BASELINE_BUILD_FAILED"',
         'LEGACY_COMPATIBILITY_FAILED = "LEGACY_COMPATIBILITY_FAILED"',
@@ -161,14 +150,12 @@ def main() -> int:
     ):
         if token not in comparator:
             failures.append(f"Two-stage addon comparator invariant is missing: {token}")
-
     for unsafe in (
         "id.contains('slimefun')",
         '"slimefun" not in identity',
     ):
         if unsafe in comparator or unsafe in legacy_builder:
             failures.append(f"Addon dependency replacement is still over-broad: {unsafe}")
-
     for token in (
         'normalized_artifact in {"slimefun", "slimefun4"}',
         "coreArtifact = artifact == 'slimefun' || artifact == 'slimefun4'",
@@ -181,7 +168,6 @@ def main() -> int:
         for failure in failures:
             print(f" - {failure}", file=sys.stderr)
         return 1
-
     print("Paper/Purpur-first compatibility verification passed.")
     return 0
 
