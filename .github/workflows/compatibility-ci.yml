@@ -124,10 +124,9 @@ jobs:
             slug: legacy-fastmachines
             tier: required
             advisory: false
-          - repository: SlimefunGuguProject/Networks
-            ref: master
-            expected-commit: 317c60c42f488ba9db0de57a119abda23d0d1e10
-            slug: gugu-networks-required
+          - repository: wickidcow/SF_NetworksExp
+            target-version: 2.1.112-Legacy-Alpha1
+            slug: legacy-networksexp-alpha1
             tier: required
             advisory: false
           - repository: wickidcow/SF_SlimeTinkerIE2
@@ -199,6 +198,7 @@ jobs:
           ADDON_REPOSITORY: ${{ matrix.repository }}
           ADDON_REF: ${{ matrix.ref }}
           EXPECTED_COMMIT: ${{ matrix.expected-commit }}
+          TARGET_VERSION: ${{ matrix.target-version }}
           ADDON_LOG: ${{ runner.temp }}/${{ matrix.slug }}.log
         run: |
           set -o pipefail
@@ -218,6 +218,17 @@ jobs:
 
             ACTUAL_COMMIT="$(git -C "$RUNNER_TEMP/addon" rev-parse HEAD)"
             echo "Resolved commit: $ACTUAL_COMMIT"
+
+            if [[ -n "$TARGET_VERSION" ]]; then
+              ACTUAL_VERSION="$(sed -nE 's/^[[:space:]]*version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' "$RUNNER_TEMP/addon/build.gradle.kts" | head -n 1)"
+              echo "Target addon version: $TARGET_VERSION"
+              echo "Declared addon version: $ACTUAL_VERSION"
+              if [[ "$ACTUAL_VERSION" != "$TARGET_VERSION" ]]; then
+                echo "Expected addon version $TARGET_VERSION but found ${ACTUAL_VERSION:-<missing>}" >&2
+                exit 1
+              fi
+            fi
+
             if [[ -n "$EXPECTED_COMMIT" && "$ACTUAL_COMMIT" != "$EXPECTED_COMMIT" ]]; then
               echo "Expected pinned commit $EXPECTED_COMMIT but resolved $ACTUAL_COMMIT" >&2
               exit 1
