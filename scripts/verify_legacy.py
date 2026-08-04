@@ -33,6 +33,7 @@ def main() -> int:
         "verify_core_correctness.py",
         "verify_compatibility_round2.py",
         "verify_compatibility_foundation.py",
+        "verify_addon_doctor.py",
         "check_dependency_boundaries.py",
     )
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the machine-readable Slimefun Legacy 4.1.16 compatibility contract."""
+"""Verify the machine-readable Slimefun Legacy compatibility contract."""
 from __future__ import annotations
 
 import json
@@ -39,8 +39,8 @@ def main() -> int:
     require(f"api-version: '{descriptor_api}'" in plugin, "plugin.yml api-version differs from contract", failures)
     require("folia-supported: true" in plugin, "plugin.yml must retain Folia declaration", failures)
     require(contract["plugin_descriptor"]["api_version_is_support_floor"] is False, "descriptor api-version must not be represented as support floor", failures)
-    require(contract["compatibility_policy"]["database_format_changed"] is False, "4.1.16 must not change database format", failures)
-    require(contract["compatibility_policy"]["gameplay_behavior_changed"] is False, "4.1.16 must not claim gameplay changes", failures)
+    require(contract["compatibility_policy"]["database_format_changed"] is False, f"{release} must not change database format", failures)
+    require(contract["compatibility_policy"]["gameplay_behavior_changed"] is False, f"{release} must not claim gameplay changes", failures)
     require("Compatibility Foundation" in readme, "README does not describe Compatibility Foundation", failures)
     require("Paper 26.2" in readme and "Minecraft 1.21.11" in readme, "README omits tested platform line", failures)
     require("check_bytecode_target.py" in compatibility_ci, "compatibility CI does not enforce bytecode target", failures)
@@ -67,7 +67,7 @@ def main() -> int:
         "PASS\n",
         encoding="utf-8",
     )
-    print("Slimefun Legacy 4.1.16 Compatibility Foundation verification passed.")
+    print(f"Slimefun Legacy {release} Compatibility Foundation verification passed.")
     return 0
 
 

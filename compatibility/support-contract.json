@@ -1,5 +1,5 @@
 {
-  "release": "4.1.16",
+  "release": "4.1.17",
   "project": "Slimefun Legacy",
   "plugin_name": "Slimefun",
   "primary_platform": {
@@ -49,6 +49,7 @@
     "folia_is_experimental": true,
     "automatic_core_or_addon_downloads": false,
     "database_format_changed": false,
-    "gameplay_behavior_changed": false
+    "gameplay_behavior_changed": false,
+    "addon_doctor_api": true
   }
 }

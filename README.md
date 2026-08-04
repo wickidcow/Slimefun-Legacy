@@ -198,7 +198,7 @@ The current compatibility contract is documented in [`COMPATIBILITY_FOUNDATION.m
 | Hybrid servers such as Arclight, Mohist, or Cardboard | ❌ Unsupported and blocked |
 | Fabric / Forge / NeoForge | ❌ Unsupported — this is a server plugin, not a mod |
 
-Slimefun Legacy 4.1.16 is tested primarily against **Paper 26.2 / Minecraft 1.21.11 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
+Slimefun Legacy 4.1.17 is tested primarily against **Paper 26.2 / Minecraft 1.21.11 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
 
 The machine-readable support contract and Compatibility Foundation are documented in [`COMPATIBILITY_FOUNDATION.md`](COMPATIBILITY_FOUNDATION.md). The compatibility policy and current defensive maintenance layer are documented in [`PAPER_PURPUR_COMPATIBILITY.md`](PAPER_PURPUR_COMPATIBILITY.md).
 

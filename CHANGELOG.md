@@ -1,3 +1,14 @@
+# Slimefun Legacy 4.1.17 — Addon Doctor and Networks Compatibility
+
+- Added the optional `AddonDoctor` and immutable `AddonDoctorReport` public API for addon-owned runtime diagnostics.
+- Added `/slimefun doctor addons status`, `scan`, and confirmation-gated `repair` commands.
+- Isolates provider failures so one broken addon cannot stop other doctor reports or the core Doctor command.
+- Validates addon names, counters, detail lists, and third-party provider output before displaying it.
+- Added a reflective Networks bridge so the same Networks JAR can expose diagnostics on Legacy without linking the API on United or Gugu.
+- Networks Doctor reports loaded node/controller integrity, chunk-index drift, drawer cache state, SQLite queue state, and detected core/runtime versions without force-loading chunks.
+- Retains the Paper 26.2 / Minecraft 1.21.11 compatibility foundation, Java 25 runtime support, and Java 21 bytecode contract.
+- No Slimefun database-format, item-ID, saved-data, or gameplay-format changes are included.
+
 # Slimefun Legacy 4.1.16 — Compatibility Foundation
 
 - Added a machine-readable support contract for Paper 26.2 / Minecraft 1.21.11, Purpur, experimental Folia, Java 25 runtime and Java 21 bytecode.

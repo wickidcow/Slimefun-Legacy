@@ -1,11 +1,14 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
 import io.github.bakedlibs.dough.common.ChatColors;
+import io.github.thebusybiscuit.slimefun4.api.diagnostics.AddonDoctorReport;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
+import io.github.thebusybiscuit.slimefun4.core.services.stability.AddonDoctorService;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorReport;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorService;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import java.util.List;
 import java.util.Locale;
 import javax.annotation.Nonnull;
 import org.bukkit.Bukkit;
@@ -15,6 +18,8 @@ import org.bukkit.inventory.ItemStack;
 
 /** Administrative item presentation diagnosis and repair commands. */
 final class DoctorCommand extends SubCommand {
+
+    private static final int MAX_ADDON_DETAIL_LINES = 50;
 
     DoctorCommand(@Nonnull Slimefun plugin, @Nonnull SlimefunCommand cmd) {
         super(plugin, cmd, "doctor", true);
@@ -34,6 +39,7 @@ final class DoctorCommand extends SubCommand {
             case "hand" -> repairHand(sender, service);
             case "inventory" -> repairInventory(sender, args, service);
             case "scan" -> startServerRun(sender, service, false);
+            case "addons" -> runAddonDoctors(sender, args);
             case "repair", "fix" -> {
                 if (args.length < 3 || !args[2].equalsIgnoreCase("confirm")) {
                     send(sender, "&eThis safely changes visible names and lore across stored items.");
@@ -55,6 +61,8 @@ final class DoctorCommand extends SubCommand {
         send(sender, "&7Paused machine circuits: &e"
                 + Slimefun.getTickerTask().getPausedMachineCount());
         send(sender, "&7Automatic item repair: " + (service.isEnabled() ? "&aEnabled" : "&cDisabled"));
+        AddonDoctorService addonDoctors = new AddonDoctorService(plugin);
+        send(sender, "&7Registered addon doctors: &e" + addonDoctors.getProviders().size());
 
         ItemDoctorReport automatic = service.getAutomaticReport();
         send(sender, "&7Automatic repairs completed: &e" + automatic.getRepairedStacks());
@@ -146,6 +154,76 @@ final class DoctorCommand extends SubCommand {
         send(sender, "&7Offline player inventories and unloaded chests are repaired automatically when loaded.");
     }
 
+
+    private void runAddonDoctors(CommandSender sender, String[] args) {
+        AddonDoctorService service = new AddonDoctorService(plugin);
+        String action = args.length > 2 ? args[2].toLowerCase(Locale.ROOT) : "status";
+
+        if (action.equals("status") || action.equals("list")) {
+            var providers = service.getProviders();
+            send(sender, "&6Slimefun Addon Doctors");
+            if (providers.isEmpty()) {
+                send(sender, "&7No addons have registered a doctor service.");
+                return;
+            }
+            for (var registration : providers) {
+                send(sender, "&a- " + service.getProviderName(registration) + " &7("
+                        + registration.getPlugin().getName() + ")");
+            }
+            send(sender, "&7Run &e/sf doctor addons scan &7for a dry run.");
+            return;
+        }
+
+        boolean repair;
+        if (action.equals("scan")) {
+            repair = false;
+        } else if (action.equals("repair") || action.equals("fix")) {
+            if (args.length < 4 || !args[3].equalsIgnoreCase("confirm")) {
+                send(sender, "&eBack up the server first, then run");
+                send(sender, "&6/slimefun doctor addons repair confirm&e.");
+                return;
+            }
+            repair = true;
+        } else {
+            send(sender, "&eUsage: /slimefun doctor addons [status|scan|repair confirm]");
+            return;
+        }
+
+        List<AddonDoctorReport> reports = service.runAll(repair);
+        if (reports.isEmpty()) {
+            send(sender, "&eNo addon doctor providers are registered.");
+            return;
+        }
+
+        send(sender, "&6Addon doctor " + (repair ? "repair" : "scan") + " results");
+        long totalIssues = 0L;
+        long totalRepaired = 0L;
+        long totalFailures = 0L;
+        for (AddonDoctorReport report : reports) {
+            totalIssues += report.getIssuesFound();
+            totalRepaired += report.getRepairedEntries();
+            totalFailures += report.getFailures();
+            send(sender, "&e" + report.getAddonName() + "&7: scanned &f" + report.getScannedEntries()
+                    + " &8| &7issues &e" + report.getIssuesFound()
+                    + " &8| &7repaired &a" + report.getRepairedEntries()
+                    + " &8| &7failures &c" + report.getFailures());
+            int shown = 0;
+            for (String detail : report.getDetails()) {
+                if (shown >= MAX_ADDON_DETAIL_LINES) {
+                    break;
+                }
+                send(sender, "&8  - &7" + detail);
+                shown++;
+            }
+            int omitted = report.getDetails().size() - shown;
+            if (omitted > 0) {
+                send(sender, "&8  - &7" + omitted + " additional detail line(s) omitted");
+            }
+        }
+        send(sender, "&7Totals: issues &e" + totalIssues + " &8| &7repaired &a" + totalRepaired
+                + " &8| &7failures &c" + totalFailures);
+    }
+
     private void sendProgress(CommandSender sender, ItemDoctorReport report) {
         send(sender, "&7Inventories: &e" + report.getInventories() + " &8| &7Backpacks: &e" + report.getBackpacks());
         send(sender, "&7Stacks scanned: &e" + report.getScannedStacks() + " &8| &7Slimefun: &e"
@@ -167,7 +245,7 @@ final class DoctorCommand extends SubCommand {
     }
 
     private void sendUsage(CommandSender sender) {
-        send(sender, "&eUsage: /slimefun doctor [status|hand|inventory [player]|scan|repair confirm]");
+        send(sender, "&eUsage: /slimefun doctor [status|hand|inventory [player]|scan|repair confirm|addons]");
     }
 
     private void send(CommandSender sender, String message) {

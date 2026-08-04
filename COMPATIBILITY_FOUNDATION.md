@@ -1,5 +1,7 @@
 # Slimefun Legacy 4.1.16 — Compatibility Foundation
 
+> **4.1.17 inheritance:** Slimefun Legacy 4.1.17 retains this complete platform, bytecode, data-format, and gameplay compatibility contract. It adds only the optional addon-facing Doctor service API and does not change Slimefun storage formats.
+
 Slimefun Legacy 4.1.16 is a maintenance-only release that formalizes the project's compatibility boundaries. It intentionally does not change gameplay, machine behavior, item IDs, saved data, or the database format.
 
 ## Supported platform contract
