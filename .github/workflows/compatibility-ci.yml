@@ -125,8 +125,8 @@ jobs:
             tier: required
             advisory: false
           - repository: wickidcow/SF_NetworksExp
-            target-version: 2.1.112-Legacy-Alpha1
-            slug: legacy-networksexp-alpha1
+            target-version: 2.1.112-Legacy-Alpha2
+            slug: legacy-networksexp-alpha2
             tier: required
             advisory: false
           - repository: wickidcow/SF_SlimeTinkerIE2
@@ -260,7 +260,7 @@ jobs:
             {
               echo "## Addon compatibility comparison"
               echo
-              echo "**Result:** `INSTRUMENTATION_ERROR`"
+              echo '**Result:** `INSTRUMENTATION_ERROR`'
               echo
               echo "The comparison report was not produced. Review the checkout and workflow logs."
             } >> "$GITHUB_STEP_SUMMARY"
