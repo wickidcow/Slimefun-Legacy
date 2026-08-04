@@ -124,10 +124,10 @@ jobs:
             slug: legacy-fastmachines
             tier: required
             advisory: false
-          - repository: lijinhong11/Networks-Exp
-            ref: b3
-            expected-commit: 1a3e3904662dfa1e58169ba90051a98efdaa1f6c
-            slug: networks-exp-b3
+          - repository: SlimefunGuguProject/Networks
+            ref: master
+            expected-commit: 317c60c42f488ba9db0de57a119abda23d0d1e10
+            slug: gugu-networks-required
             tier: required
             advisory: false
           - repository: wickidcow/SF_SlimeTinkerIE2
@@ -148,10 +148,6 @@ jobs:
             advisory: true
           - repository: SlimefunGuguProject/FoxyMachines
             slug: gugu-foxymachines
-            tier: gugu-advisory
-            advisory: true
-          - repository: SlimefunGuguProject/Networks
-            slug: gugu-networks
             tier: gugu-advisory
             advisory: true
           - repository: SlimefunGuguProject/SlimeTinker
