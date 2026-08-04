@@ -34,7 +34,6 @@ import org.bukkit.persistence.PersistentDataType;
 
 /** Repairs only the visible name and lore of registered Slimefun items. */
 public final class ItemPresentationDoctor {
-
     private static final int MAX_CONTAINER_DEPTH = 4;
     private static final String SOULBOUND_LORE = ChatColor.GRAY + "Soulbound";
     private static final String BACKPACK_OWNER_PREFIX = ChatColor.GRAY + "Owner: ";
@@ -51,7 +50,6 @@ public final class ItemPresentationDoctor {
             @Nonnull Inventory inventory, boolean repair, @Nonnull ItemDoctorReport report, int depth) {
         boolean changed = false;
         report.inventoryScanned();
-
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             ItemStack item = inventory.getItem(slot);
             if (inspectItem(item, repair, report, depth)) {
@@ -72,7 +70,6 @@ public final class ItemPresentationDoctor {
         if (item == null || item.getType() == Material.AIR) {
             return false;
         }
-
         report.stackScanned();
         boolean changed = inspectSlimefunPresentation(item, repair, report);
         if (depth < MAX_CONTAINER_DEPTH) {
@@ -92,7 +89,6 @@ public final class ItemPresentationDoctor {
         if (storedId.isEmpty()) {
             return false;
         }
-
         report.slimefunStackFound();
         ItemMeta currentMeta = item.getItemMeta();
         boolean hasCjkName = currentMeta.hasDisplayName() && ItemDoctorText.containsCjk(currentMeta.getDisplayName());
@@ -100,7 +96,6 @@ public final class ItemPresentationDoctor {
         if (!hasCjkName && !hasCjkLore) {
             return false;
         }
-
         report.cjkStackFound();
         String itemId = storedId.get();
         SlimefunItem sfItem = SlimefunItem.getById(itemId);
@@ -108,7 +103,6 @@ public final class ItemPresentationDoctor {
             report.unknownIdFound(itemId);
             return false;
         }
-
         ItemMeta canonicalMeta = sfItem.getItem().getItemMeta();
         boolean missingEnglishName = hasCjkName
                 && canonicalMeta.hasDisplayName()
@@ -119,7 +113,6 @@ public final class ItemPresentationDoctor {
             report.unresolvedTemplateFound(itemId);
             return false;
         }
-
         DynamicState state = DynamicState.empty();
         if (hasCjkLore) {
             try {
@@ -133,7 +126,6 @@ public final class ItemPresentationDoctor {
                         ex);
                 return false;
             }
-
             if (!state.safelyRestorable
                     || (sfItem instanceof AbstractMonsterSpawner && state.entityType == null)
                     || !ItemDoctorText.canSafelyMergeDynamicTokens(
@@ -144,11 +136,9 @@ public final class ItemPresentationDoctor {
                 return false;
             }
         }
-
         if (!repair) {
             return false;
         }
-
         ItemMeta originalMeta = currentMeta.clone();
         try {
             if (hasCjkName) {
@@ -189,11 +179,9 @@ public final class ItemPresentationDoctor {
         if (sfItem instanceof LimitedUseItem limitedUseItem && state.usesLeft != null) {
             limitedUseItem.restoreUsesLore(item, state.usesLeft);
         }
-
         if (sfItem instanceof AbstractMonsterSpawner spawner && state.entityType != null) {
             spawner.refreshEntityTypePresentation(item, state.entityType);
         }
-
         if (state.soulbound) {
             if (!SlimefunUtils.isSoulbound(item)) {
                 SlimefunUtils.setSoulbound(item, true);
@@ -206,7 +194,6 @@ public final class ItemPresentationDoctor {
                 item.setItemMeta(meta);
             }
         }
-
         if (sfItem instanceof KnowledgeTome && state.tomeOwner != null) {
             refreshKnowledgeTomeOwner(item, state.tomeOwner);
         }
@@ -225,7 +212,6 @@ public final class ItemPresentationDoctor {
         if (ownerId.isEmpty()) {
             return;
         }
-
         String ownerName;
         try {
             OfflinePlayer owner = Bukkit.getOfflinePlayer(UUID.fromString(ownerId.get()));
@@ -233,7 +219,6 @@ public final class ItemPresentationDoctor {
         } catch (IllegalArgumentException ex) {
             ownerName = ownerId.get();
         }
-
         List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
         boolean replaced = false;
         for (int i = 0; i < lore.size(); i++) {
@@ -260,7 +245,6 @@ public final class ItemPresentationDoctor {
         UUID ownerId = UUID.fromString(identityMatcher.group(1));
         OfflinePlayer owner = Bukkit.getOfflinePlayer(ownerId);
         String ownerName = owner.getName() == null ? ownerId.toString() : owner.getName();
-
         ItemMeta meta = item.getItemMeta();
         List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
         boolean idLineFound = false;
@@ -292,7 +276,6 @@ public final class ItemPresentationDoctor {
     private void refreshKnowledgeTomeOwner(ItemStack item, UUID ownerId) {
         OfflinePlayer owner = Bukkit.getOfflinePlayer(ownerId);
         String ownerName = owner.getName() == null ? ownerId.toString() : owner.getName();
-
         ItemMeta meta = item.getItemMeta();
         List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
         while (lore.size() < 2) {
@@ -307,7 +290,6 @@ public final class ItemPresentationDoctor {
     private boolean inspectNestedItems(ItemStack item, boolean repair, ItemDoctorReport report, int depth) {
         ItemMeta meta = item.getItemMeta();
         boolean changed = false;
-
         if (meta instanceof BundleMeta bundleMeta && bundleMeta.hasItems()) {
             List<ItemStack> contents = new ArrayList<>(bundleMeta.getItems());
             for (ItemStack nested : contents) {
@@ -318,7 +300,6 @@ public final class ItemPresentationDoctor {
                 item.setItemMeta(bundleMeta);
             }
         }
-
         meta = item.getItemMeta();
         if (meta instanceof BlockStateMeta blockStateMeta && blockStateMeta.hasBlockState()) {
             BlockState blockState = blockStateMeta.getBlockState();
@@ -368,7 +349,6 @@ public final class ItemPresentationDoctor {
             List<String> lore = meta.hasLore() ? meta.getLore() : null;
 
             boolean safelyRestorable = true;
-
             Float charge = null;
             if (sfItem instanceof Rechargeable rechargeable) {
                 charge = meta.getPersistentDataContainer()
@@ -376,7 +356,6 @@ public final class ItemPresentationDoctor {
                 if (charge == null) {
                     charge = ItemDoctorText.findLegacyCharge(lore);
                 }
-
                 float maximum = rechargeable.getMaxItemCharge(item);
                 if (charge == null
                         || !Float.isFinite(charge)
@@ -387,23 +366,25 @@ public final class ItemPresentationDoctor {
                     safelyRestorable = false;
                 }
             }
-
             Integer usesLeft = null;
             if (sfItem instanceof LimitedUseItem limitedUseItem) {
                 var storedUses = limitedUseItem.getStoredUses(item);
-                usesLeft = storedUses.isPresent()
-                        ? storedUses.getAsInt()
-                        : ItemDoctorText.findLegacyUsesLeft(lore);
-                if (usesLeft == null || usesLeft < 1 || usesLeft > limitedUseItem.getMaxUseCount()) {
+                if (storedUses.isPresent()) {
+                    usesLeft = storedUses.getAsInt();
+                } else {
+                    usesLeft = ItemDoctorText.findLegacyUsesLeft(lore);
+                    if (usesLeft == null) {
+                        usesLeft = limitedUseItem.getMaxUseCount();
+                    }
+                }
+                if (usesLeft < 1 || usesLeft > limitedUseItem.getMaxUseCount()) {
                     safelyRestorable = false;
                 }
             }
-
             EntityType type = null;
             if (sfItem instanceof AbstractMonsterSpawner spawner) {
                 type = spawner.getEntityType(item).orElse(null);
             }
-
             UUID tomeOwner = null;
             if (sfItem instanceof KnowledgeTome) {
                 String hiddenOwner = lore != null && lore.size() > 1 ? ChatColor.stripColor(lore.get(1)) : null;
@@ -425,7 +406,6 @@ public final class ItemPresentationDoctor {
                     safelyRestorable = false;
                 }
             }
-
             String legacyBackpackIdentity = null;
             if (sfItem instanceof SlimefunBackpack
                     && PlayerBackpack.getBackpackUUID(meta).isEmpty()
@@ -442,14 +422,12 @@ public final class ItemPresentationDoctor {
                     }
                 }
             }
-
             if (sfItem instanceof SlimefunBackpack
                     && PlayerBackpack.getBackpackUUID(meta).isEmpty()
                     && PlayerBackpack.getOwnerUUID(meta).isPresent()
                     && legacyBackpackIdentity == null) {
                 safelyRestorable = false;
             }
-
             boolean soulbound = SlimefunUtils.isSoulbound(item) || hasLegacyChineseSoulboundLine(lore);
             return new DynamicState(
                     charge,
