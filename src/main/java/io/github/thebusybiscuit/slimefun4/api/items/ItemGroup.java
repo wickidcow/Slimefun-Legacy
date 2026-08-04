@@ -158,7 +158,25 @@ public class ItemGroup implements Keyed {
      */
     private void sortCategoriesByTier() {
         List<ItemGroup> categories = Slimefun.getRegistry().getAllItemGroups();
-        Collections.sort(categories, Comparator.comparingInt(ItemGroup::getTier));
+
+        // Keep Slimefun's built-in categories in their established registration order,
+        // then sort addon categories alphabetically inside the same tier.
+        // Collections.sort is stable, so built-in categories with equal keys retain
+        // their original order while expansions become predictable for players.
+        Collections.sort(
+                categories,
+                Comparator.comparingInt(ItemGroup::getTier)
+                        .thenComparing(ItemGroup::isAddonItemGroup)
+                        .thenComparing(
+                                group -> group.isAddonItemGroup() ? group.getUnlocalizedName() : "",
+                                String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(
+                                group -> group.isAddonItemGroup() ? group.getKey().toString() : "",
+                                String.CASE_INSENSITIVE_ORDER));
+    }
+
+    private boolean isAddonItemGroup() {
+        return addon != null && addon != Slimefun.instance();
     }
 
     /**
