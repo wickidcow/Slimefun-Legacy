@@ -103,15 +103,15 @@ Results are classified as:
 Required targets are release-blocking:
 
 - `wickidcow/SF_FastMachines`;
-- `lijinhong11/Networks-Exp` pinned to release tag `b3` (`1a3e3904662dfa1e58169ba90051a98efdaa1f6c`);
+- `SlimefunGuguProject/Networks` pinned to archived `master` commit `317c60c42f488ba9db0de57a119abda23d0d1e10`;
 - `wickidcow/SF_SlimeTinkerIE2`;
 - `wickidcow/SF_BetterChests`.
 
 A curated set of public `SlimefunGuguProject` addons is also compiled as an advisory compatibility probe. Gugu failures remain visible in the GitHub Actions matrix and publish individual build logs, but archived or independently changing Gugu projects do not block a Slimefun Legacy release.
 
-The required Networks target is pinned to the final Build 3 release that is known to work in production, rather than following the repository's moving `master` branch. The workflow verifies the resolved commit before compiling it.
+The required Networks target uses the archived Gugu fork that previously compiled successfully in the compatibility matrix. It is pinned to the exact final `master` commit so the required baseline cannot drift even though the repository is read-only.
 
-The Gugu advisory set includes FluffyMachines, FoxyMachines, Networks, SlimeTinker, FlowerPower, IDreamOfEasy, Gastronomicon, Bump, SlimeCustomizer, and EMCTech. Matrix concurrency is limited to four addon builds at a time to reduce remote-service and runner pressure.
+The Gugu advisory set includes FluffyMachines, FoxyMachines, SlimeTinker, FlowerPower, IDreamOfEasy, Gastronomicon, Bump, SlimeCustomizer, and EMCTech. Matrix concurrency is limited to four addon builds at a time to reduce remote-service and runner pressure.
 
 ## Verification
 

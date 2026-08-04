@@ -93,14 +93,13 @@ def main() -> int:
     legacy_builder = read("scripts/build_addon_against_local_slimefun.py")
     required_addons = (
         "wickidcow/SF_FastMachines",
-        "lijinhong11/Networks-Exp",
+        "SlimefunGuguProject/Networks",
         "wickidcow/SF_SlimeTinkerIE2",
         "wickidcow/SF_BetterChests",
     )
     gugu_advisory_addons = (
         "SlimefunGuguProject/FluffyMachines",
         "SlimefunGuguProject/FoxyMachines",
-        "SlimefunGuguProject/Networks",
         "SlimefunGuguProject/SlimeTinker",
         "SlimefunGuguProject/FlowerPower",
         "SlimefunGuguProject/IDreamOfEasy",
@@ -113,15 +112,16 @@ def main() -> int:
         if token not in workflow:
             failures.append(f"Addon compatibility matrix entry is missing: {token}")
     for token in (
-        "ref: b3",
-        "expected-commit: 1a3e3904662dfa1e58169ba90051a98efdaa1f6c",
+        "ref: master",
+        "expected-commit: 317c60c42f488ba9db0de57a119abda23d0d1e10",
+        "slug: gugu-networks-required",
         "ADDON_REF: ${{ matrix.ref }}",
         "EXPECTED_COMMIT: ${{ matrix.expected-commit }}",
         'git clone --depth 1 --branch "$ADDON_REF"',
         'ACTUAL_COMMIT="$(git -C "$RUNNER_TEMP/addon" rev-parse HEAD)"',
     ):
         if token not in workflow:
-            failures.append(f"Pinned Networks-Exp compatibility control is missing: {token}")
+            failures.append(f"Pinned Gugu Networks compatibility control is missing: {token}")
 
     for token in (
         "continue-on-error: ${{ matrix.advisory }}",
