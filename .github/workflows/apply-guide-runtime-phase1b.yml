@@ -1,0 +1,62 @@
+name: Apply Guide Runtime Phase 1B
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+
+      - name: Apply Phase 1B internal guide guards
+        run: python3 scripts/apply_guide_runtime_phase1b.py .
+
+      - name: Verify Phase 1B source invariants
+        run: python3 scripts/verify_guide_runtime_phase1b.py .
+
+      - name: Run complete Legacy verification
+        run: python3 scripts/verify_legacy.py .
+
+      - name: Apply Spotless formatting
+        run: |
+          chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon
+
+      - name: Re-verify formatted source
+        run: python3 scripts/verify_guide_runtime_phase1b.py .
+
+      - name: Build and test
+        run: ./gradlew spotlessCheck clean build --no-daemon
+
+      - name: Commit generated guide replacements
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "Phase 1B was already applied; nothing to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/main/java/io/github/thebusybiscuit/slimefun4/core/guide/SlimefunGuide.java \
+            src/main/java/io/github/thebusybiscuit/slimefun4/core/guide/GuideHistory.java \
+            src/main/java/io/github/thebusybiscuit/slimefun4/api/items/groups/NestedItemGroup.java \
+            src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/GuideRuntimeGuard.java \
+            src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/SurvivalSlimefunGuide.java \
+            src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/EnhancedSurvivalSlimefunGuide.java
+          git commit -m "Add 4.1.18 Phase 1B internal guide guards"
+          git push
