@@ -4,7 +4,6 @@ import io.github.thebusybiscuit.slimefun4.api.annotations.SlimefunAPI;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.attributes.EnergyNetProvider;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import io.papermc.lib.PaperLib;
 import java.io.File;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
@@ -201,10 +200,12 @@ public class ErrorReport<T extends Throwable> {
             stream.println("  Java Version: " + System.getProperty("java.version"));
             stream.println();
 
-            String serverSoftware = PaperLib.isSpigot() && !PaperLib.isPaper() ? "Spigot" : Bukkit.getName();
-            stream.println("Server Software: " + serverSoftware);
-            stream.println("  Build: " + Bukkit.getVersion());
-            stream.println("  Minecraft v" + Bukkit.getBukkitVersion());
+            var platform = Slimefun.getPlatformCompatibilityService().getProfile();
+            stream.println("Server Software: " + platform.getSoftwareName());
+            stream.println("  Family: " + platform.getFamily().getDisplayName());
+            stream.println("  Support: " + platform.getSupportLevel().getDisplayName());
+            stream.println("  Build: " + platform.getServerVersion());
+            stream.println("  Minecraft v" + platform.getRawMinecraftVersion());
             stream.println();
 
             stream.println("Slimefun Environment:");

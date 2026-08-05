@@ -117,7 +117,6 @@ import io.github.thebusybiscuit.slimefun4.implementation.tasks.armor.SolarHelmet
 import io.github.thebusybiscuit.slimefun4.integrations.IntegrationsManager;
 import io.github.thebusybiscuit.slimefun4.utils.NumberUtils;
 import io.github.thebusybiscuit.slimefun4.utils.tags.SlimefunTag;
-import io.papermc.lib.PaperLib;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -203,9 +202,9 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     private final HologramsService hologramsService = new HologramsService(this);
     private final SoundService soundService = new SoundService(this);
     private final ThreadService threadService = new ThreadService(this);
-    private final SlimefunScheduler schedulerService = new PaperScheduler(this);
     private final DefaultPlatformCompatibilityService platformCompatibilityService =
             new DefaultPlatformCompatibilityService();
+    private final SlimefunScheduler schedulerService = new PaperScheduler(this, platformCompatibilityService);
     private final AnalyticsService analyticsService = new AnalyticsService(this);
     private final ItemStackService itemStackService = new ItemStackService();
     private final ItemDoctorService itemDoctorService = new ItemDoctorService(this);
@@ -270,7 +269,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
             return;
         }
 
-        platformCompatibilityService.initialize(getServer(), schedulerService.isFolia());
+        platformCompatibilityService.initialize(getServer());
 
         if (isVersionUnsupported()) {
             // We want to ensure that the server uses a compatible version of Minecraft.
@@ -278,7 +277,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
         } else if (!SlimefunExtended.checkEnvironment(this)) {
             // We want to ensure that the server uses compatible software and no incompatible plugins.
             getServer().getPluginManager().disablePlugin(this);
-        } else if (!PaperLib.isPaper()) {
+        } else if (!platformCompatibilityService.isPaperCompatible()) {
             getLogger().log(Level.WARNING, "#######################################################");
             getLogger().log(Level.WARNING, "");
             getLogger().log(Level.WARNING, "As of 24/12/22, this Slimefun version");
@@ -621,7 +620,9 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     private boolean isVersionUnsupported() {
         try {
             // First check if they still use the unsupported CraftBukkit software.
-            if (!PaperLib.isSpigot() && Bukkit.getName().equals("CraftBukkit")) {
+            if (!platformCompatibilityService.isPaperCompatible()
+                    && "CraftBukkit".equalsIgnoreCase(
+                            platformCompatibilityService.getProfile().getSoftwareName())) {
                 StartupWarnings.invalidServerSoftware(getLogger());
                 return true;
             }

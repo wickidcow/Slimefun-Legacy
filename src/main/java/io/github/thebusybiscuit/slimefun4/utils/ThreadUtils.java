@@ -1,6 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.utils;
 
-import io.github.thebusybiscuit.slimefun4.core.services.scheduling.FoliaSupport;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.RuntimePlatformDetector;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.lang.reflect.Field;
 import java.util.concurrent.Callable;
@@ -78,7 +78,7 @@ public class ThreadUtils {
      * @param runnable the task to execute
      */
     public static void executeSync(Runnable runnable) {
-        if (!FoliaSupport.isFolia() && Bukkit.isPrimaryThread()) {
+        if (!isRegionOwnedExecution() && Bukkit.isPrimaryThread()) {
             runnable.run();
         } else {
             runSyncNMS(runnable);
@@ -113,14 +113,25 @@ public class ThreadUtils {
         MAIN_THREAD_EXECUTOR.execute(runnable);
     }
 
+    private static boolean isRegionOwnedExecution() {
+        try {
+            return Slimefun.getPlatformCompatibilityService().isRegionOwnedExecution();
+        } catch (IllegalStateException ignored) {
+            return RuntimePlatformDetector.isRegionOwnedExecution();
+        }
+    }
+
     static {
         Executor executor;
-        if (FoliaSupport.isFolia()) {
+        if (RuntimePlatformDetector.isRegionOwnedExecution()) {
             // Folia has no universal main thread. Generic legacy callbacks are placed on the global region.
             executor = task -> Slimefun.getSchedulerService().run(task);
         } else {
             try {
-                Class<?> mcUtils = Class.forName("io.papermc.paper.util.MCUtil");
+                Class<?> mcUtils = RuntimePlatformDetector.findClass("io.papermc.paper.util.MCUtil");
+                if (mcUtils == null) {
+                    throw new ClassNotFoundException("Paper MCUtil is unavailable");
+                }
                 Field field = mcUtils.getDeclaredField("MAIN_EXECUTOR");
                 field.setAccessible(true);
                 executor = (Executor) field.get(null);

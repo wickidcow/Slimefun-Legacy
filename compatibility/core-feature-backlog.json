@@ -11,16 +11,26 @@
     {
       "id": "capability-platform-api",
       "title": "Capability-based platform compatibility API",
-      "sources": ["slimefun-united", "slimefun5", "slimefun4core"],
-      "status": "implemented-phase-1a",
+      "sources": [
+        "slimefun-united",
+        "slimefun5",
+        "slimefun4core"
+      ],
+      "status": "implemented-phase-1b",
       "priority": "critical",
       "compatibility_risk": "low",
-      "notes": "Centralizes Minecraft parsing, platform detection, feature probes, and addon-facing capability checks."
+      "notes": "Centralizes Minecraft parsing, platform detection, feature probes, declarative addon requirements, and additive compatibility helpers."
     },
     {
       "id": "upstream-candidate-radar",
       "title": "Multi-fork upstream candidate radar",
-      "sources": ["slimefun-original", "slimefun-gugu", "slimefun5", "slimefun-united", "slimefun4core"],
+      "sources": [
+        "slimefun-original",
+        "slimefun-gugu",
+        "slimefun5",
+        "slimefun-united",
+        "slimefun4core"
+      ],
       "status": "implemented-phase-1a",
       "priority": "critical",
       "compatibility_risk": "low",
@@ -29,25 +39,43 @@
     {
       "id": "api-deprecation-lifecycle",
       "title": "Documented addon API deprecation lifecycle",
-      "sources": ["slimefun-united"],
-      "status": "planned-phase-1b",
+      "sources": [
+        "slimefun-united"
+      ],
+      "status": "implemented-phase-1b",
       "priority": "high",
       "compatibility_risk": "low",
-      "notes": "Deprecate before replacement, publish migration guidance, and retain binary bridges."
+      "notes": "Adds a documented deprecation annotation, replacement guidance, no default removal schedule, and retained binary bridges."
     },
     {
       "id": "scheduler-capability-routing",
       "title": "Capability-routed scheduler and event boundary",
-      "sources": ["slimefun-united", "slimefun5"],
-      "status": "planned-phase-1b",
+      "sources": [
+        "slimefun-united",
+        "slimefun5"
+      ],
+      "status": "implemented-phase-1b",
       "priority": "high",
       "compatibility_risk": "medium",
-      "notes": "Build on the existing Paper/Folia scheduler abstraction and remove scattered platform checks."
+      "notes": "Routes scheduler and event ownership decisions through the centralized detector and platform service while retaining legacy entry points."
+    },
+    {
+      "id": "api-signature-baseline",
+      "title": "Compatibility-protected API signature baseline",
+      "sources": [
+        "slimefun-legacy"
+      ],
+      "status": "implemented-phase-1b",
+      "priority": "critical",
+      "compatibility_risk": "low",
+      "notes": "Guards all 991 public and protected 4.1.19 source signatures in compatibility-protected packages while allowing additive APIs."
     },
     {
       "id": "module-dependency-graph",
       "title": "Optional core module dependency graph",
-      "sources": ["slimefun-united"],
+      "sources": [
+        "slimefun-united"
+      ],
       "status": "candidate-phase-2",
       "priority": "medium",
       "compatibility_risk": "medium",
@@ -56,7 +84,9 @@
     {
       "id": "unified-localization-keys",
       "title": "Unified localization key registry with English fallback",
-      "sources": ["slimefun-united"],
+      "sources": [
+        "slimefun-united"
+      ],
       "status": "candidate-phase-2",
       "priority": "medium",
       "compatibility_risk": "medium",
@@ -65,7 +95,10 @@
     {
       "id": "storage-integrity-audit",
       "title": "Storage consistency and migration audit tools",
-      "sources": ["slimefun-gugu", "slimefun-united"],
+      "sources": [
+        "slimefun-gugu",
+        "slimefun-united"
+      ],
       "status": "candidate-phase-3",
       "priority": "high",
       "compatibility_risk": "high",
@@ -74,7 +107,9 @@
     {
       "id": "staff-multitool-modes",
       "title": "Optional staff multitool modes",
-      "sources": ["slimefun-united"],
+      "sources": [
+        "slimefun-united"
+      ],
       "status": "gameplay-candidate",
       "priority": "low",
       "compatibility_risk": "medium",

@@ -91,4 +91,20 @@ public final class PlatformProfile {
     public boolean supports(@Nonnull PlatformCapability capability) {
         return capabilities.contains(Objects.requireNonNull(capability, "capability"));
     }
+
+    public boolean isFamily(@Nonnull PlatformFamily expectedFamily) {
+        return family == Objects.requireNonNull(expectedFamily, "expectedFamily");
+    }
+
+    public boolean isPaperCompatible() {
+        return supports(PlatformCapability.PAPER_API);
+    }
+
+    public boolean isRegionOwnedExecution() {
+        return supports(PlatformCapability.REGION_OWNED_EXECUTION);
+    }
+
+    public @Nonnull String getDisplayName() {
+        return softwareName + " " + serverVersion;
+    }
 }

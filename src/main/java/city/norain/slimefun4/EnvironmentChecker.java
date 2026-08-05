@@ -68,9 +68,12 @@ class EnvironmentChecker {
             return true;
         }
 
-        var serverVer = Bukkit.getVersion().toLowerCase();
+        String serverIdentity = Slimefun.getPlatformCompatibilityService()
+                .getProfile()
+                .getDisplayName()
+                .toLowerCase(java.util.Locale.ROOT);
 
-        return serverVer.contains("arclight") || serverVer.contains("mohist");
+        return serverIdentity.contains("arclight") || serverIdentity.contains("mohist");
     }
 
     static void scheduleSlimeGlueCheck(@Nonnull Slimefun sf) {

@@ -1,3 +1,33 @@
+# Slimefun Legacy 4.1.20 — Core Platform Phase 1B
+
+## Addon compatibility API
+
+- Added declarative `PlatformRequirements` and immutable `PlatformCompatibilityReport` APIs so addons can request capabilities, platform families, Java versions, and Minecraft versions without hard-coded fork checks.
+- Added default compatibility helpers to `PlatformCompatibilityService` while preserving binary compatibility for implementations compiled against 4.1.19.
+- Added convenience methods to `PlatformProfile` for Paper compatibility, region-owned execution, family checks, and display diagnostics.
+- Added detection for Paper's player pick-block event as an explicit runtime capability.
+
+## Centralized platform routing
+
+- Added a single internal `RuntimePlatformDetector` for Paper, Purpur, Folia, scheduler, Adventure, data-component, async-chunk, and optional Paper class probes.
+- Routed the core scheduler through the initialized platform service instead of a frozen static Folia flag.
+- Replaced remaining PaperLib, direct Bukkit server-version, and scattered Folia probes in startup, diagnostics, guide version display, event threading, and error reporting.
+- Retained the original `PaperScheduler(Plugin)`, `FoliaSupport.isFolia()`, legacy `MinecraftVersion`, and existing public scheduler signatures as compatibility bridges.
+
+## API lifecycle and safeguards
+
+- Added `@SlimefunDeprecated` to document the deprecation version, replacement, and optional future removal version without scheduling removals by default.
+- Marked `FoliaSupport` as a retained compatibility bridge rather than removing or renaming it.
+- Added Phase 1B verification that blocks new direct PaperLib checks, direct Paper/Folia class probes, and region-scheduler calls outside the compatibility and scheduler boundaries.
+- Added a machine-readable 4.1.19 API signature baseline and verifier covering 991 compatibility-protected public and protected declarations; additions remain allowed, removals and signature changes fail CI.
+- Added unit coverage for declarative addon requirements and complete incompatibility reporting.
+
+## Compatibility
+
+- No existing addon API signatures were removed.
+- No item IDs, research IDs, recipes, storage keys, database schemas, saved-world formats, or gameplay behavior changed.
+- Paper remains primary, Purpur supported, conventional Paper derivatives best effort, and Folia experimental.
+
 # Slimefun Legacy 4.1.19 — Core Platform Foundation
 
 ## Core compatibility

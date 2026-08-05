@@ -57,7 +57,7 @@ forbid(profiler, "ticksPassed", "Profiler still shares one reset counter between
 
 versions = "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/VersionsCommand.java"
 require(versions, "RECOMMENDED_JAVA_VERSION = 21", "Java recommendation is not current")
-require(versions, '"Folia" : "Paper"', "Scheduler platform reporting is missing")
+require(versions, 'platformProfile.isRegionOwnedExecution() ? "Region-owned" : "Main-thread"', "Scheduler platform reporting is missing")
 require(versions, "sendVersionReport", "/sf versions rich-message fallback is missing")
 forbid(versions, "PaperLib", "Versions command still relies on PaperLib detection")
 

@@ -41,6 +41,7 @@ def main() -> int:
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/platform/PlatformProfile.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/platform/PlatformSupportLevel.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/compatibility/DefaultPlatformCompatibilityService.java",
+        "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/compatibility/RuntimePlatformDetector.java",
         "src/test/java/io/github/thebusybiscuit/slimefun4/api/platform/TestMinecraftVersionNumber.java",
         "src/test/java/io/github/thebusybiscuit/slimefun4/api/platform/TestPlatformProfile.java",
     )
@@ -77,8 +78,12 @@ def main() -> int:
             root,
             "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/compatibility/DefaultPlatformCompatibilityService.java",
         )
+        detector = read(
+            root,
+            "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/compatibility/RuntimePlatformDetector.java",
+        )
+        require("@SlimefunInternal" in implementation, "Platform service must remain internal", failures)
         for token in (
-            "@SlimefunInternal",
             "PlatformFamily.PURPUR",
             "PlatformFamily.FOLIA",
             "PlatformFamily.PAPER_DERIVATIVE",
@@ -87,12 +92,12 @@ def main() -> int:
             "DATA_COMPONENT_API",
             "getChunkAtAsync",
         ):
-            require(token in implementation, f"Platform detector invariant is missing: {token}", failures)
+            require(token in detector, f"Platform detector invariant is missing: {token}", failures)
 
         slimefun = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/Slimefun.java")
         for token in (
             "new DefaultPlatformCompatibilityService()",
-            "platformCompatibilityService.initialize(getServer(), schedulerService.isFolia())",
+            "platformCompatibilityService.initialize(getServer())",
             "getPlatformCompatibilityService()",
             "MinecraftVersionNumber serverVersion",
             "private static final int RECOMMENDED_JAVA_VERSION = 21;",
@@ -196,16 +201,16 @@ def main() -> int:
         failures.append(f"Unable to validate Phase 1A manifests: {error}")
 
     support_contract = json.loads(read(root, "compatibility/support-contract.json"))
-    require(support_contract.get("release") == "4.1.19", "Support contract release must be 4.1.19", failures)
+    require(support_contract.get("release") in {"4.1.19", "4.1.20"}, "Support contract release must retain the Phase 1A foundation", failures)
     require(
         support_contract.get("compatibility_policy", {}).get("capability_based_platform_api") is True,
         "Support contract does not declare the platform API",
         failures,
     )
-    require("projectVersion=4.1.19" in read(root, "gradle.properties"), "Gradle release must be 4.1.19", failures)
+    require(any(version in read(root, "gradle.properties") for version in ("projectVersion=4.1.19", "projectVersion=4.1.20")), "Gradle release must retain the Phase 1A foundation", failures)
     require(
-        read(root, "CHANGELOG.md").startswith("# Slimefun Legacy 4.1.19"),
-        "Changelog must start with the 4.1.19 release",
+        read(root, "CHANGELOG.md").startswith(("# Slimefun Legacy 4.1.19", "# Slimefun Legacy 4.1.20")),
+        "Changelog must start with a release containing the Phase 1A foundation",
         failures,
     )
 
@@ -219,7 +224,7 @@ def main() -> int:
         return 1
 
     report.write_text(
-        "Slimefun Legacy 4.1.19 Core Platform Phase 1A\n"
+        "Slimefun Legacy Core Platform Phase 1A foundation\n"
         "Capability API: PASS\n"
         "Central version parser: PASS\n"
         "Upstream registry: PASS\n"
@@ -227,7 +232,7 @@ def main() -> int:
         "Advisory radar: PASS\n",
         encoding="utf-8",
     )
-    print("Slimefun Legacy 4.1.19 Core Platform Phase 1A verification passed.")
+    print("Slimefun Legacy Core Platform Phase 1A foundation verification passed.")
     return 0
 
 

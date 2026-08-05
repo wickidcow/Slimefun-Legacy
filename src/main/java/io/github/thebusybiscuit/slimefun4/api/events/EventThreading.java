@@ -1,6 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.api.events;
 
-import io.github.thebusybiscuit.slimefun4.core.services.scheduling.FoliaSupport;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.RuntimePlatformDetector;
+import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
@@ -26,7 +27,7 @@ final class EventThreading {
             return true;
         }
 
-        return FoliaSupport.isFolia()
+        return isRegionOwnedExecution()
                 ? !Bukkit.isOwnedByCurrentRegion(location)
                 : !Bukkit.isPrimaryThread();
     }
@@ -36,7 +37,7 @@ final class EventThreading {
             return true;
         }
 
-        return FoliaSupport.isFolia()
+        return isRegionOwnedExecution()
                 ? !Bukkit.isOwnedByCurrentRegion(entity)
                 : !Bukkit.isPrimaryThread();
     }
@@ -44,5 +45,13 @@ final class EventThreading {
     static boolean isCurrentThreadAsynchronous() {
         // Preserve legacy behavior when events are instantiated before a server is available, such as API tests.
         return Bukkit.getServer() == null || !Bukkit.isPrimaryThread();
+    }
+
+    private static boolean isRegionOwnedExecution() {
+        try {
+            return Slimefun.getPlatformCompatibilityService().isRegionOwnedExecution();
+        } catch (IllegalStateException ignored) {
+            return RuntimePlatformDetector.isRegionOwnedExecution();
+        }
     }
 }

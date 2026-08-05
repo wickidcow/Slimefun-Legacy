@@ -2,6 +2,8 @@ package io.github.thebusybiscuit.slimefun4.implementation.listeners;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
+import io.github.thebusybiscuit.slimefun4.api.platform.PlatformCapability;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.RuntimePlatformDetector;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.papermc.paper.event.player.PlayerPickItemEvent;
 import java.lang.reflect.Method;
@@ -21,8 +23,11 @@ public class VersionedMiddleClickListener implements Listener {
 
     public VersionedMiddleClickListener(@Nonnull Slimefun plugin) {
         try {
-            pickBlockEventClass = (Class<? extends PlayerPickItemEvent>)
-                    Class.forName("io.papermc.paper.event.player.PlayerPickBlockEvent");
+            Validate.isTrue(Slimefun.getPlatformCompatibilityService()
+                    .supports(PlatformCapability.PLAYER_PICK_BLOCK_EVENT));
+            pickBlockEventClass = (Class<? extends PlayerPickItemEvent>) RuntimePlatformDetector.findClass(
+                    "io.papermc.paper.event.player.PlayerPickBlockEvent");
+            Validate.notNull(pickBlockEventClass, "PlayerPickBlockEvent is unavailable");
             Validate.isTrue(PlayerPickItemEvent.class.isAssignableFrom(pickBlockEventClass));
             getBlockMethod = pickBlockEventClass.getMethod("getBlock");
             getBlockMethod.setAccessible(true);

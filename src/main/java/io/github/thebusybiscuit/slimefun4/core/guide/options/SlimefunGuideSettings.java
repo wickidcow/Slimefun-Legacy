@@ -19,7 +19,6 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -132,7 +131,7 @@ public final class SlimefunGuideSettings {
                         "",
                         "&cTHIS BUILD IS UNOFFICIAL BUILD, DO NOT REPORT TO SLIMEFUN DEV",
                         "",
-                        "&fMinecraft: &a" + Bukkit.getBukkitVersion(),
+                        "&fMinecraft: &a" + Slimefun.getPlatformCompatibilityService().getProfile().getRawMinecraftVersion(),
                         "&fSlimefun: &a" + Slimefun.getVersion()),
                 ChestMenuUtils.getEmptyClickHandler());
         // @formatter:on

@@ -56,9 +56,9 @@ class VersionsCommand extends SubCommand {
     @Override
     public void onExecute(@Nonnull CommandSender sender, @Nonnull String[] args) {
         if (sender.hasPermission("slimefun.command.versions") || sender instanceof ConsoleCommandSender) {
-            String serverSoftware = Bukkit.getName();
-            String schedulerPlatform = Slimefun.getSchedulerService().isFolia() ? "Folia" : "Paper";
             PlatformProfile platformProfile = Slimefun.getPlatformCompatibilityService().getProfile();
+            String serverSoftware = platformProfile.getSoftwareName();
+            String schedulerPlatform = platformProfile.isRegionOwnedExecution() ? "Region-owned" : "Main-thread";
             String capabilitySummary = platformProfile.getCapabilities().stream()
                     .map(PlatformCapability::getDisplayName)
                     .collect(Collectors.joining(", "));
@@ -68,7 +68,8 @@ class VersionsCommand extends SubCommand {
             builder.append(Component.text("Slimefun server environment:\n", Style.style(NamedTextColor.GRAY)))
                     .append(Component.text(serverSoftware, Style.style(NamedTextColor.GREEN))
                             .append(Component.text(
-                                    " " + Bukkit.getVersion() + '\n', Style.style(NamedTextColor.DARK_GREEN))))
+                                    " " + platformProfile.getServerVersion() + '\n',
+                                    Style.style(NamedTextColor.DARK_GREEN))))
                     .append(Component.text("Scheduler platform ", Style.style(NamedTextColor.GREEN)))
                     .append(Component.text(schedulerPlatform + '\n', Style.style(NamedTextColor.DARK_GREEN)))
                     .append(Component.text("Compatibility profile ", Style.style(NamedTextColor.GREEN)))

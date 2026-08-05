@@ -1,5 +1,5 @@
 {
-  "release": "4.1.19",
+  "release": "4.1.20",
   "project": "Slimefun Legacy",
   "plugin_name": "Slimefun",
   "primary_platform": {
@@ -58,7 +58,11 @@
     "addon_doctor_api": true,
     "capability_based_platform_api": true,
     "reviewed_multi_fork_intake": true,
-    "automatic_upstream_merges": false
+    "automatic_upstream_merges": false,
+    "declarative_addon_platform_requirements": true,
+    "documented_api_deprecation_lifecycle": true,
+    "central_runtime_platform_detector": true,
+    "api_signature_baseline": true
   },
-  "phase": "Core Platform Phase 1A"
+  "phase": "Core Platform Phase 1B"
 }

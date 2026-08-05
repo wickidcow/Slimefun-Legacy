@@ -2,14 +2,12 @@ package io.github.thebusybiscuit.slimefun4.core.services;
 
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.utils.tags.SlimefunTag;
-import io.papermc.lib.PaperLib;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang.Validate;
-import org.bukkit.Bukkit;
 import org.bukkit.Keyed;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -105,11 +103,15 @@ public class BlockDataService implements Keyed {
             } catch (Exception x) {
                 Slimefun.logger().log(Level.SEVERE, "Please check if your Server Software is up to date!");
 
-                String serverSoftware = PaperLib.isSpigot() && !PaperLib.isPaper() ? "Spigot" : Bukkit.getName();
+                var platform = Slimefun.getPlatformCompatibilityService().getProfile();
                 Slimefun.logger()
                         .log(
                                 Level.SEVERE,
-                                () -> serverSoftware + " | " + Bukkit.getVersion() + " | " + Bukkit.getBukkitVersion());
+                                () -> platform.getSoftwareName()
+                                        + " | "
+                                        + platform.getServerVersion()
+                                        + " | Minecraft "
+                                        + platform.getRawMinecraftVersion());
 
                 Slimefun.logger()
                         .log(

@@ -1,7 +1,8 @@
 package io.github.thebusybiscuit.slimefun4.implementation.scheduling;
 
 import io.github.thebusybiscuit.slimefun4.api.annotations.SlimefunInternal;
-import io.github.thebusybiscuit.slimefun4.core.services.scheduling.FoliaSupport;
+import io.github.thebusybiscuit.slimefun4.api.platform.PlatformCompatibilityService;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.RuntimePlatformDetector;
 import io.github.thebusybiscuit.slimefun4.core.services.scheduling.SchedulerTime;
 import io.github.thebusybiscuit.slimefun4.core.services.scheduling.SlimefunScheduler;
 import io.github.thebusybiscuit.slimefun4.core.services.scheduling.TaskHandle;
@@ -28,15 +29,20 @@ import org.bukkit.scheduler.BukkitTask;
 @SlimefunInternal
 public final class PaperScheduler implements SlimefunScheduler {
 
-    private static final boolean FOLIA = FoliaSupport.isFolia();
-
     private final Plugin plugin;
+    private final PlatformCompatibilityService platformCompatibilityService;
     private final Set<TrackedTask> tasks = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean stopped = new AtomicBoolean();
 
     public PaperScheduler(@Nonnull Plugin plugin) {
+        this(plugin, null);
+    }
+
+    public PaperScheduler(
+            @Nonnull Plugin plugin, PlatformCompatibilityService platformCompatibilityService) {
         Validate.notNull(plugin, "Plugin cannot be null");
         this.plugin = plugin;
+        this.platformCompatibilityService = platformCompatibilityService;
     }
 
     @Override
@@ -48,7 +54,7 @@ public final class PaperScheduler implements SlimefunScheduler {
             return handle;
         }
 
-        if (FOLIA) {
+        if (usesRegionOwnedExecution()) {
             handle.attach(Bukkit.getGlobalRegionScheduler().run(plugin, ignored -> handle.execute(task)));
         } else {
             handle.attach(Bukkit.getScheduler().runTask(plugin, () -> handle.execute(task)));
@@ -70,7 +76,7 @@ public final class PaperScheduler implements SlimefunScheduler {
             return handle;
         }
 
-        if (FOLIA) {
+        if (usesRegionOwnedExecution()) {
             handle.attach(Bukkit.getGlobalRegionScheduler()
                     .runDelayed(plugin, ignored -> handle.execute(task), delayTicks));
         } else {
@@ -84,7 +90,7 @@ public final class PaperScheduler implements SlimefunScheduler {
         Validate.notNull(location, "Location cannot be null");
         Validate.notNull(task, "Task cannot be null");
 
-        if (!FOLIA) {
+        if (!usesRegionOwnedExecution()) {
             return run(task);
         }
 
@@ -103,7 +109,7 @@ public final class PaperScheduler implements SlimefunScheduler {
         Validate.notNull(task, "Task cannot be null");
         Validate.isTrue(delayTicks >= 0, "Delay cannot be negative");
 
-        if (!FOLIA) {
+        if (!usesRegionOwnedExecution()) {
             return runLater(task, delayTicks);
         }
 
@@ -132,7 +138,7 @@ public final class PaperScheduler implements SlimefunScheduler {
             return handle;
         }
 
-        if (FOLIA) {
+        if (usesRegionOwnedExecution()) {
             handle.attach(Bukkit.getGlobalRegionScheduler()
                     .runAtFixedRate(
                             plugin,
@@ -156,7 +162,7 @@ public final class PaperScheduler implements SlimefunScheduler {
         Validate.notNull(task, "Task cannot be null");
         validateRepeating(initialDelayTicks, periodTicks);
 
-        if (!FOLIA) {
+        if (!usesRegionOwnedExecution()) {
             return runAtFixedRate(task, initialDelayTicks, periodTicks);
         }
 
@@ -187,7 +193,7 @@ public final class PaperScheduler implements SlimefunScheduler {
         Validate.notNull(task, "Task cannot be null");
         Validate.notNull(retired, "Retired callback cannot be null");
 
-        if (!FOLIA) {
+        if (!usesRegionOwnedExecution()) {
             return run(task);
         }
 
@@ -217,7 +223,7 @@ public final class PaperScheduler implements SlimefunScheduler {
         Validate.notNull(retired, "Retired callback cannot be null");
         Validate.isTrue(delayTicks >= 0, "Delay cannot be negative");
 
-        if (!FOLIA) {
+        if (!usesRegionOwnedExecution()) {
             return runLater(task, delayTicks);
         }
 
@@ -249,7 +255,7 @@ public final class PaperScheduler implements SlimefunScheduler {
         Validate.notNull(task, "Task cannot be null");
         validateRepeating(initialDelayTicks, periodTicks);
 
-        if (!FOLIA) {
+        if (!usesRegionOwnedExecution()) {
             return runAtFixedRate(task, initialDelayTicks, periodTicks);
         }
 
@@ -277,7 +283,7 @@ public final class PaperScheduler implements SlimefunScheduler {
             return handle;
         }
 
-        if (FOLIA) {
+        if (usesRegionOwnedExecution()) {
             handle.attach(Bukkit.getAsyncScheduler().runNow(plugin, ignored -> handle.execute(task)));
         } else {
             handle.attach(Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> handle.execute(task)));
@@ -299,7 +305,7 @@ public final class PaperScheduler implements SlimefunScheduler {
             return handle;
         }
 
-        if (FOLIA) {
+        if (usesRegionOwnedExecution()) {
             handle.attach(Bukkit.getAsyncScheduler()
                     .runDelayed(
                             plugin,
@@ -324,7 +330,7 @@ public final class PaperScheduler implements SlimefunScheduler {
             return handle;
         }
 
-        if (FOLIA) {
+        if (usesRegionOwnedExecution()) {
             handle.attach(Bukkit.getAsyncScheduler()
                     .runAtFixedRate(
                             plugin,
@@ -343,18 +349,24 @@ public final class PaperScheduler implements SlimefunScheduler {
     @Override
     public boolean isOwnedByCurrentRegion(@Nonnull Location location) {
         Validate.notNull(location, "Location cannot be null");
-        return FOLIA ? Bukkit.isOwnedByCurrentRegion(location) : Bukkit.isPrimaryThread();
+        return usesRegionOwnedExecution() ? Bukkit.isOwnedByCurrentRegion(location) : Bukkit.isPrimaryThread();
     }
 
     @Override
     public boolean isOwnedByCurrentRegion(@Nonnull Entity entity) {
         Validate.notNull(entity, "Entity cannot be null");
-        return FOLIA ? Bukkit.isOwnedByCurrentRegion(entity) : Bukkit.isPrimaryThread();
+        return usesRegionOwnedExecution() ? Bukkit.isOwnedByCurrentRegion(entity) : Bukkit.isPrimaryThread();
     }
 
     @Override
     public boolean isFolia() {
-        return FOLIA;
+        return usesRegionOwnedExecution();
+    }
+
+    private boolean usesRegionOwnedExecution() {
+        return platformCompatibilityService != null
+                ? platformCompatibilityService.isRegionOwnedExecution()
+                : RuntimePlatformDetector.isRegionOwnedExecution();
     }
 
     @Override

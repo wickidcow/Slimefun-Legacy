@@ -17,7 +17,8 @@ public enum PlatformCapability {
     REGION_OWNED_EXECUTION("Region-owned execution"),
     ASYNC_CHUNK_LOADING("Async chunk loading"),
     ADVENTURE_COMPONENT_MESSAGES("Adventure component messages"),
-    DATA_COMPONENT_API("Data component API");
+    DATA_COMPONENT_API("Data component API"),
+    PLAYER_PICK_BLOCK_EVENT("Player pick-block event");
 
     private final String displayName;
 
