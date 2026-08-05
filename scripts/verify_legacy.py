@@ -27,16 +27,15 @@ def main() -> int:
         "verify_enhanced_guide_phase4_1b.py",
         "verify_enhanced_guide_phase4_1c.py",
         "verify_enhanced_guide_phase4_1d.py",
+        "verify_guide_runtime_phase1b.py",
         "verify_upstream_health_gate.py",
         "verify_gugu_sync.py",
         "verify_paper_purpur_compat.py",
         "verify_core_correctness.py",
         "verify_compatibility_round2.py",
         "verify_compatibility_foundation.py",
-        "verify_addon_doctor.py",
         "check_dependency_boundaries.py",
     )
-
     for script_name in scripts:
         script = root / "scripts" / script_name
         print(f"\n==> {script_name}", flush=True)

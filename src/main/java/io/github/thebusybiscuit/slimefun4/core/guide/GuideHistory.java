@@ -3,6 +3,7 @@ package io.github.thebusybiscuit.slimefun4.core.guide;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
+import io.github.thebusybiscuit.slimefun4.implementation.guide.GuideRuntimeGuard;
 import java.util.Deque;
 import java.util.LinkedList;
 import javax.annotation.Nonnull;
@@ -19,7 +20,6 @@ import org.bukkit.inventory.ItemStack;
  *
  * @see SlimefunGuide
  * @see PlayerProfile
- *
  */
 public class GuideHistory {
 
@@ -38,9 +38,7 @@ public class GuideHistory {
         this.profile = profile;
     }
 
-    /**
-     * This method will clear this {@link GuideHistory} and remove all entries.
-     */
+    /** This method will clear this {@link GuideHistory} and remove all entries. */
     public void clear() {
         queue.clear();
     }
@@ -53,64 +51,27 @@ public class GuideHistory {
      */
     public void setMainMenuPage(int page) {
         Validate.isTrue(page >= 1, "page must be greater than 0!");
-
         mainMenuPage = page;
     }
 
-    /**
-     * This returns the current main menu page of this {@link GuideHistory}
-     *
-     * @return The main menu page of this {@link GuideHistory}
-     */
+    /** @return The current main menu page of this {@link GuideHistory} */
     public int getMainMenuPage() {
         return mainMenuPage;
     }
 
-    /**
-     * This method adds a {@link ItemGroup} to this {@link GuideHistory}.
-     * Should the {@link ItemGroup} already be the last element in this {@link GuideHistory},
-     * then the entry will be overridden with the new page.
-     *
-     * @param itemGroup
-     *            The {@link ItemGroup} that should be added to this {@link GuideHistory}
-     * @param page
-     *            The current page of the {@link ItemGroup} that should be stored
-     */
     public void add(@Nonnull ItemGroup itemGroup, int page) {
         refresh(itemGroup, page);
     }
 
-    /**
-     * This method adds a {@link ItemStack} to this {@link GuideHistory}.
-     * Should the {@link ItemStack} already be the last element in this {@link GuideHistory},
-     * then the entry will be overridden with the new page.
-     *
-     * @param item
-     *            The {@link ItemStack} that should be added to this {@link GuideHistory}
-     * @param page
-     *            The current page of the recipes of this {@link ItemStack}
-     */
     public void add(@Nonnull ItemStack item, int page) {
         refresh(item, page);
     }
 
-    /**
-     * This method stores the given {@link SlimefunItem} in this {@link GuideHistory}.
-     *
-     * @param item
-     *            The {@link SlimefunItem} that should be added to this {@link GuideHistory}
-     */
     public void add(@Nonnull SlimefunItem item) {
         Validate.notNull(item, "Cannot add a non-existing SlimefunItem to the GuideHistory!");
         queue.add(new GuideEntry<>(item, 0));
     }
 
-    /**
-     * This method stores the given search term in this {@link GuideHistory}.
-     *
-     * @param searchTerm
-     *            The term that the {@link Player} searched for
-     */
     public void add(@Nonnull String searchTerm) {
         Validate.notNull(searchTerm, "Cannot add an empty Search Term to the GuideHistory!");
         queue.add(new GuideEntry<>(searchTerm, 0));
@@ -121,7 +82,6 @@ public class GuideHistory {
         Validate.isTrue(page >= 0, "page must not be negative!");
 
         GuideEntry<?> lastEntry = getLastEntry(false);
-
         if (lastEntry != null && lastEntry.getIndexedObject().equals(object)) {
             lastEntry.setPage(page);
         } else {
@@ -129,69 +89,68 @@ public class GuideHistory {
         }
     }
 
-    /**
-     * This returns the amount of elements in this {@link GuideHistory}.
-     *
-     * @return The size of this {@link GuideHistory}
-     */
     public int size() {
         return queue.size();
     }
 
-    /**
-     * Retrieves the last page in the {@link SlimefunGuide} that was visited by a {@link Player}.
-     * Optionally also rewinds the history back to that entry.
-     *
-     * @param remove
-     *            Whether to remove the current entry so it moves back to the entry returned.
-     * @return The last Guide Entry that was saved to the given Players guide history.
-     */
-    @Nullable private GuideEntry<?> getLastEntry(boolean remove) {
+    @Nullable
+    private GuideEntry<?> getLastEntry(boolean remove) {
         if (remove && !queue.isEmpty()) {
             queue.removeLast();
         }
-
         return queue.isEmpty() ? null : queue.getLast();
     }
 
-    /**
-     * This method opens the last opened entry to the associated {@link PlayerProfile}
-     * of this {@link GuideHistory}.
-     *
-     * @param guide
-     *            The {@link SlimefunGuideImplementation} to use
-     */
+    /** Opens the last stored guide entry through the runtime guard. */
     public void openLastEntry(@Nonnull SlimefunGuideImplementation guide) {
         GuideEntry<?> entry = getLastEntry(false);
         open(guide, entry);
     }
 
-    /**
-     * This method opens the previous entry to the associated {@link PlayerProfile}.
-     * More precisely, it will remove the last entry and open the second-last entry
-     * to the {@link Player}.
-     *
-     * It can be thought of as a "back" button. Since that is what this is used for.
-     *
-     * @param guide
-     *            The {@link SlimefunGuideImplementation} to use
-     */
+    /** Rewinds one guide entry and opens it through the runtime guard. */
     public void goBack(@Nonnull SlimefunGuideImplementation guide) {
         GuideEntry<?> entry = getLastEntry(true);
         open(guide, entry);
     }
 
     private <T> void open(@Nonnull SlimefunGuideImplementation guide, @Nullable GuideEntry<T> entry) {
+        SlimefunGuideMode mode = guide.getMode();
+
         if (entry == null) {
-            guide.openMainMenu(profile, mainMenuPage);
+            GuideRuntimeGuard.run(
+                    profile,
+                    mode,
+                    "restore history main menu page " + mainMenuPage,
+                    null,
+                    () -> guide.openMainMenu(profile, mainMenuPage));
         } else if (entry.getIndexedObject() instanceof ItemGroup group) {
-            guide.openItemGroup(profile, group, entry.getPage());
+            GuideRuntimeGuard.run(
+                    profile,
+                    mode,
+                    "restore history item group page " + entry.getPage(),
+                    group,
+                    () -> guide.openItemGroup(profile, group, entry.getPage()));
         } else if (entry.getIndexedObject() instanceof SlimefunItem item) {
-            guide.displayItem(profile, item, false);
+            GuideRuntimeGuard.run(
+                    profile,
+                    mode,
+                    "restore history Slimefun item " + item.getId(),
+                    item.getItemGroup(),
+                    () -> guide.displayItem(profile, item, false));
         } else if (entry.getIndexedObject() instanceof ItemStack stack) {
-            guide.displayItem(profile, stack, entry.getPage(), false);
+            GuideRuntimeGuard.run(
+                    profile,
+                    mode,
+                    "restore history recipe page " + entry.getPage(),
+                    null,
+                    () -> guide.displayItem(profile, stack, entry.getPage(), false));
         } else if (entry.getIndexedObject() instanceof String query) {
-            guide.openSearch(profile, query, false);
+            GuideRuntimeGuard.run(
+                    profile,
+                    mode,
+                    "restore history search",
+                    null,
+                    () -> guide.openSearch(profile, query, false));
         } else {
             throw new IllegalStateException("Unknown GuideHistory entry: " + entry.getIndexedObject());
         }
