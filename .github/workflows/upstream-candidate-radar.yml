@@ -1,0 +1,37 @@
+name: Upstream Candidate Radar
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 9 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Slimefun Legacy
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Query registered upstream candidates
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/check_upstream_candidates.py
+
+      - name: Publish job summary
+        run: cat build/reports/upstream-candidates.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload candidate report
+        uses: actions/upload-artifact@v4
+        with:
+          name: slimefun-upstream-candidate-report
+          path: |
+            build/reports/upstream-candidates.md
+            build/reports/upstream-candidates.json
