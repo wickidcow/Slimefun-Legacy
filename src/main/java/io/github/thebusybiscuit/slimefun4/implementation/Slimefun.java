@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.implementation;
 
-import city.norain.slimefun4.ServerVersion;
 import city.norain.slimefun4.SlimefunExtended;
 import city.norain.slimefun4.timings.SQLProfiler;
 import com.xzavier0722.mc.plugin.slimefun4.chat.PlayerChatCatcher;
@@ -16,6 +15,8 @@ import io.github.thebusybiscuit.slimefun4.api.geo.GEOResource;
 import io.github.thebusybiscuit.slimefun4.api.gps.GPSNetwork;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
+import io.github.thebusybiscuit.slimefun4.api.platform.MinecraftVersionNumber;
+import io.github.thebusybiscuit.slimefun4.api.platform.PlatformCompatibilityService;
 import io.github.thebusybiscuit.slimefun4.core.SlimefunRegistry;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.config.SlimefunConfigManager;
@@ -35,6 +36,7 @@ import io.github.thebusybiscuit.slimefun4.core.services.PerWorldSettingsService;
 import io.github.thebusybiscuit.slimefun4.core.services.PermissionsService;
 import io.github.thebusybiscuit.slimefun4.core.services.ThreadService;
 import io.github.thebusybiscuit.slimefun4.core.services.UpdaterService;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultPlatformCompatibilityService;
 import io.github.thebusybiscuit.slimefun4.core.services.github.GitHubService;
 import io.github.thebusybiscuit.slimefun4.core.services.holograms.HologramsService;
 import io.github.thebusybiscuit.slimefun4.core.services.profiler.SlimefunProfiler;
@@ -159,7 +161,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
      * This does not necessarily mean that it's the minimum version
      * required to run Slimefun.
      */
-    private static final int RECOMMENDED_JAVA_VERSION = 17;
+    private static final int RECOMMENDED_JAVA_VERSION = 21;
 
     /**
      * Our static instance of {@link Slimefun}.
@@ -202,6 +204,8 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     private final SoundService soundService = new SoundService(this);
     private final ThreadService threadService = new ThreadService(this);
     private final SlimefunScheduler schedulerService = new PaperScheduler(this);
+    private final DefaultPlatformCompatibilityService platformCompatibilityService =
+            new DefaultPlatformCompatibilityService();
     private final AnalyticsService analyticsService = new AnalyticsService(this);
     private final ItemStackService itemStackService = new ItemStackService();
     private final ItemDoctorService itemDoctorService = new ItemDoctorService(this);
@@ -261,14 +265,18 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
         setInstance(this);
 
         if (isUnitTest()) {
-            // We handle Unit Tests seperately.
+            // We handle Unit Tests separately.
             onUnitTestStart();
-        } else if (isVersionUnsupported()) {
-            // We wanna ensure that the Server uses a compatible version of Minecraft.
+            return;
+        }
+
+        platformCompatibilityService.initialize(getServer(), schedulerService.isFolia());
+
+        if (isVersionUnsupported()) {
+            // We want to ensure that the server uses a compatible version of Minecraft.
             getServer().getPluginManager().disablePlugin(this);
         } else if (!SlimefunExtended.checkEnvironment(this)) {
-            // We want to ensure that the Server uses a compatible server software and have no
-            // incompatible plugins
+            // We want to ensure that the server uses compatible software and no incompatible plugins.
             getServer().getPluginManager().disablePlugin(this);
         } else if (!PaperLib.isPaper()) {
             getLogger().log(Level.WARNING, "#######################################################");
@@ -281,7 +289,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
             getLogger().log(Level.WARNING, "#######################################################");
             getServer().getPluginManager().disablePlugin(this);
         } else {
-            // The Environment has been validated.
+            // The environment has been validated.
             onPluginStart();
         }
     }
@@ -618,11 +626,14 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
                 return true;
             }
 
-            // Now check the actual Version of Minecraft
-            // the Minecraft version id (e.g. "1.20.4", "1.20.2-pre2", "23w31a")
-            ServerVersion serverVerDetail = SlimefunExtended.getServerVerDetail(getServer());
+            // Read the numeric version from the centralized platform profile. Snapshot identifiers remain
+            // non-blocking because Slimefun cannot safely infer their release compatibility.
+            MinecraftVersionNumber serverVersion = platformCompatibilityService
+                    .getProfile()
+                    .getMinecraftVersion()
+                    .orElse(null);
 
-            if (serverVerDetail == null) {
+            if (serverVersion == null) {
                 getLogger()
                         .log(
                                 Level.WARNING,
@@ -631,9 +642,9 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
                 return false;
             }
 
-            int major = serverVerDetail.getMajor();
-            int minor = serverVerDetail.getMinor();
-            int patch = serverVerDetail.getPatch();
+            int major = serverVersion.getMajor();
+            int minor = serverVersion.getMinor();
+            int patch = serverVersion.getPatch();
 
             // Check all supported versions of Minecraft
             for (MinecraftVersion supportedVersion : MinecraftVersion.values()) {
@@ -904,6 +915,19 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     public static @Nonnull SlimefunScheduler getSchedulerService() {
         validateInstance();
         return instance.schedulerService;
+    }
+
+    /**
+     * Returns the capability-based platform compatibility service.
+     *
+     * <p>Addons should prefer this service over checking server names, implementation classes, or hard-coded
+     * Minecraft versions.
+     *
+     * @return Slimefun's detected platform compatibility service
+     */
+    public static @Nonnull PlatformCompatibilityService getPlatformCompatibilityService() {
+        validateInstance();
+        return instance.platformCompatibilityService;
     }
 
     public static @Nonnull ItemDoctorService getItemDoctorService() {

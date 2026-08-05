@@ -1,3 +1,68 @@
+# Slimefun Legacy 4.1.19 — Core Platform Foundation
+
+## Core compatibility
+
+- Added an addon-facing capability-based platform compatibility service.
+- Added immutable Paper, Purpur, Folia, Paper-derivative, support-level, Java, Minecraft-version, and runtime-capability diagnostics.
+- Added semantic Minecraft version parsing that is independent of historical enum ordering.
+- Centralized startup version parsing while retaining the existing `MinecraftVersion` enum and public compatibility signatures.
+- Aligned the startup Java recommendation with the Java 21 bytecode contract.
+- Expanded `/sf versions` with the detected platform profile and capability inventory.
+
+## Future update workflow
+
+- Added a machine-readable registry for Original Slimefun, Gugu, Slimefun5, Slimefun United, and Slimefun4Core.
+- Added a reviewed feature backlog so useful ideas can be scheduled without silently enabling them.
+- Added an advisory upstream candidate checker and weekly GitHub Actions report.
+- Kept the existing guarded Gugu merge workflow as the only code-merge upstream path.
+- No workflow automatically merges, replaces, or downloads source into the Legacy branch.
+
+## Compatibility
+
+- No item IDs, research IDs, recipes, storage keys, database schemas, or gameplay behavior changed.
+- Existing addon API signatures remain available.
+- The new platform API is additive and covered by source and unit-test invariants.
+- Paper remains primary, Purpur supported, conventional Paper derivatives best effort, and Folia experimental.
+
+# Slimefun Legacy 4.1.18 — Guide & Runtime Stability
+
+## Guide stability
+
+- Guards classic and enhanced guide entry points, nested item groups, history restoration, search, bookmarks, pagination, item clicks, and addon `FlexItemGroup` menus.
+- Blocks recursive calls and isolates addon runtime/linkage failures.
+- Uses safe fallback icons and names for broken addon categories.
+- Reports slow guide calls with player, mode, category key, category class, addon owner, nesting depth, and active call chain.
+- Counts failures, recursion blocks, slow calls, fallbacks, and suppressed duplicate warnings, with periodic runtime summaries.
+
+## Item Doctor stability
+
+- A malformed stack can no longer terminate the complete scan or repair run.
+- Runtime and addon linkage failures are counted, logged with safe item context, skipped, and scanning continues.
+- Nested container failures are isolated the same way.
+- Limited-use items without stored-use data or readable old lore fall back to their registered maximum instead of failing dynamic-state capture.
+- Unknown IDs remain report-only and are never guessed or replaced.
+
+## Machine reliability
+
+- Auto Enchanter and Auto Disenchanter keep inputs untouched when another plugin cancels an event or a compatibility operation fails.
+- Input stacks are validated before one item is consumed from each slot.
+- Output capacity is checked before committing inputs.
+- Processing time is never allowed to become zero ticks.
+- The Auto Enchanter validates the final enchantment count, not only the incoming book.
+- The Auto Disenchanter verifies every vanilla enchantment was removed and stored before accepting the operation.
+- Visible status icons explain missing inputs, incompatible enchantments, full outputs, event cancellation, or blocked integration failures.
+- The existing optional AdvancedEnchantments bridge remains supported without a hard dependency.
+
+## Compatibility
+
+- Primary: Paper 26.2 / Minecraft 1.21.11
+- Secondary: Purpur based on Paper 26.2
+- Runtime: Java 25
+- Slimefun-owned bytecode target: Java 21
+- Folia: experimental under the existing Phase 1 limitations
+
+No item IDs, storage schemas, block data, backpack formats, or database formats are changed by this release.
+
 # Slimefun Legacy 4.1.17 — Addon Doctor and Networks Compatibility
 
 - Added the optional `AddonDoctor` and immutable `AddonDoctorReport` public API for addon-owned runtime diagnostics.

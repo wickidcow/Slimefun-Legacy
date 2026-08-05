@@ -21,7 +21,7 @@ Slimefun Legacy turns a normal Minecraft server into a modpack-like experience w
 [Builds](https://github.com/wickidcow/Slimefun-Legacy/actions) ·
 [Statistics](https://bstats.org/plugin/bukkit/Slimefun%20Legacy/32960) ·
 [Report a Bug](https://github.com/wickidcow/Slimefun-Legacy/issues) ·
-[Release Notes](COMPATIBILITY_FOUNDATION.md) ·
+[Release Notes](SLIMEFUN_LEGACY_4.1.19.md) ·
 [Contributing](CONTRIBUTING.md)
 
 </div>
@@ -163,6 +163,8 @@ Always review the dry-run results before confirming a repair. Unknown IDs, malfo
 Slimefun Legacy currently includes:
 
 - Compatibility Foundation gates for public API removals, Java bytecode drift, dependency boundaries, deprecations, and future Paper API compilation
+- Capability-based Paper, Purpur, Folia, Minecraft-version, scheduler, Adventure, chunk-loading, and data-component diagnostics
+- A reviewed multi-fork candidate radar for Original Slimefun, Gugu, Slimefun5, Slimefun United, and Slimefun4Core
 - Duplicate and re-entrant backpack-open protection
 - Clean-shutdown tracking and pending database-write visibility
 - Per-machine ticker circuit breakers with cooldown and retry support
@@ -175,10 +177,11 @@ Slimefun Legacy currently includes:
 - Modern `BlockTicker` and long-capacity energy API overloads
 - Preserved legacy method descriptors for addon compatibility
 - Native Enhanced Guide with smart search, bookmarks, safe recipe preparation, and universal machine recipe browsing
+- Guide runtime isolation with slow-menu and addon ownership diagnostics
 - Addon-facing machine recipe provider API for structured inputs, alternatives, outputs, timing, and energy metadata
 - Safe machine input-fill adapter API for standard and custom addon inventories, including Supreme `GenericMachine` and FastMachines compatibility
 
-The current compatibility contract is documented in [`COMPATIBILITY_FOUNDATION.md`](COMPATIBILITY_FOUNDATION.md). Detailed release information is available in [`STABILITY_RELEASE.md`](STABILITY_RELEASE.md), [`SECOND_MAINTENANCE_RELEASE.md`](SECOND_MAINTENANCE_RELEASE.md), [`THIRD_MAINTENANCE_RELEASE.md`](THIRD_MAINTENANCE_RELEASE.md), and [`FOURTH_MAINTENANCE_RELEASE.md`](FOURTH_MAINTENANCE_RELEASE.md). The current fork review is documented in [`CORE_CORRECTNESS_AUDIT.md`](CORE_CORRECTNESS_AUDIT.md). Enhanced Guide development is documented in [`ENHANCED_GUIDE.md`](ENHANCED_GUIDE.md), with addon integration details in [`docs/MACHINE_RECIPE_PROVIDER_API.md`](docs/MACHINE_RECIPE_PROVIDER_API.md) and [`docs/MACHINE_INPUT_FILL_ADAPTER_API.md`](docs/MACHINE_INPUT_FILL_ADAPTER_API.md).
+The current compatibility contract is documented in [`COMPATIBILITY_FOUNDATION.md`](COMPATIBILITY_FOUNDATION.md), and the new core platform boundary is documented in [`CORE_PLATFORM_PHASE1A.md`](CORE_PLATFORM_PHASE1A.md) and [`docs/PLATFORM_COMPATIBILITY_API.md`](docs/PLATFORM_COMPATIBILITY_API.md). Detailed release information is available in [`STABILITY_RELEASE.md`](STABILITY_RELEASE.md), [`SECOND_MAINTENANCE_RELEASE.md`](SECOND_MAINTENANCE_RELEASE.md), [`THIRD_MAINTENANCE_RELEASE.md`](THIRD_MAINTENANCE_RELEASE.md), and [`FOURTH_MAINTENANCE_RELEASE.md`](FOURTH_MAINTENANCE_RELEASE.md). The current fork review is documented in [`CORE_CORRECTNESS_AUDIT.md`](CORE_CORRECTNESS_AUDIT.md). Enhanced Guide development is documented in [`ENHANCED_GUIDE.md`](ENHANCED_GUIDE.md), with addon integration details in [`docs/MACHINE_RECIPE_PROVIDER_API.md`](docs/MACHINE_RECIPE_PROVIDER_API.md) and [`docs/MACHINE_INPUT_FILL_ADAPTER_API.md`](docs/MACHINE_INPUT_FILL_ADAPTER_API.md).
 
 ---
 
@@ -198,7 +201,7 @@ The current compatibility contract is documented in [`COMPATIBILITY_FOUNDATION.m
 | Hybrid servers such as Arclight, Mohist, or Cardboard | ❌ Unsupported and blocked |
 | Fabric / Forge / NeoForge | ❌ Unsupported — this is a server plugin, not a mod |
 
-Slimefun Legacy 4.1.17 is tested primarily against **Paper 26.2 / Minecraft 1.21.11 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
+Slimefun Legacy 4.1.19 is tested primarily against **Paper 26.2 / Minecraft 1.21.11 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
 
 The machine-readable support contract and Compatibility Foundation are documented in [`COMPATIBILITY_FOUNDATION.md`](COMPATIBILITY_FOUNDATION.md). The compatibility policy and current defensive maintenance layer are documented in [`PAPER_PURPUR_COMPATIBILITY.md`](PAPER_PURPUR_COMPATIBILITY.md).
 

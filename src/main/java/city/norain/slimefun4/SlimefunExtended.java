@@ -8,6 +8,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import com.zaxxer.hikari.pool.HikariPool;
 import io.github.bakedlibs.dough.versions.MinecraftVersion;
 import io.github.bakedlibs.dough.versions.UnknownServerVersionException;
+import io.github.thebusybiscuit.slimefun4.api.platform.MinecraftVersionNumber;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
@@ -31,45 +32,19 @@ public final class SlimefunExtended {
     }
 
     /**
-     * 返回当前服务器的 Minecraft 版本详情，包含主版本号、次版本号和补丁版本号。
-     * 例如：26.1.2 将返回 (26, 1, 2)，而 26.1 将返回 (26, 1, 0)。
+     * Returns the numeric Minecraft version reported by the server.
      *
-     * 当无法识别服务器版本时，返回 null。
+     * <p>Examples: {@code 26.1.2} becomes {@code (26, 1, 2)} and {@code 26.1} becomes
+     * {@code (26, 1, 0)}. Snapshot identifiers are not guessed and return {@code null}.
      *
+     * @param server the current server
+     * @return the parsed server version, or {@code null} when it is not a numeric release
      * @since 2026.1
-     * @param server
-     * @return
      */
     public static ServerVersion getServerVerDetail(Server server) {
-        String mcVersion = server.getMinecraftVersion();
-
-        if (mcVersion.isBlank()) {
-            return null;
-        }
-
-        // 提取版本号中的数字部分
-        String[] versionPart = mcVersion.split("\\.");
-
-        // 可能是快照版本或者是预发布版?
-        if (versionPart.length < 2) {
-            return null;
-        }
-
-        try {
-            int majorVersion = Integer.parseInt(versionPart[0]);
-
-            // 自 26.1 开始，Minecraft 版本号格式变为以年份作为主版本号
-            if (majorVersion != 1 && majorVersion < 26) {
-                return null;
-            }
-
-            int minorVersion = Integer.parseInt(versionPart[1]);
-            int patchVersion = versionPart.length > 2 ? Integer.parseInt(versionPart[2]) : 0;
-            return new ServerVersion(majorVersion, minorVersion, patchVersion);
-        } catch (NumberFormatException e) {
-            server.getLogger().log(Level.WARNING, "Unable to parse the current server version: " + mcVersion, e);
-            return null;
-        }
+        return MinecraftVersionNumber.parse(server.getMinecraftVersion())
+                .map(version -> new ServerVersion(version.getMajor(), version.getMinor(), version.getPatch()))
+                .orElse(null);
     }
 
     /**

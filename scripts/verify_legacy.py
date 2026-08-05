@@ -38,9 +38,7 @@ def ensure_release_4_1_18(root: Path) -> int:
     if not updater.is_file():
         return 0
     doctor_ready = doctor.is_file() and RELEASE_MARKER in doctor.read_text(encoding="utf-8")
-    changelog_ready = changelog.is_file() and changelog.read_text(encoding="utf-8").startswith(
-        "# Slimefun Legacy 4.1.18"
-    )
+    changelog_ready = changelog.is_file() and "# Slimefun Legacy 4.1.18" in changelog.read_text(encoding="utf-8")
     if doctor_ready and changelog_ready:
         return 0
     return run_script(updater, root, "apply_release_4_1_18.py")
@@ -74,6 +72,7 @@ def main() -> int:
         "verify_enhanced_guide_phase4_1d.py",
         "verify_guide_runtime_phase1b.py",
         "verify_release_4_1_18.py",
+        "verify_core_platform_phase1a.py",
         "verify_upstream_health_gate.py",
         "verify_gugu_sync.py",
         "verify_paper_purpur_compat.py",

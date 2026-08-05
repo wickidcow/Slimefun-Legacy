@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "project": "Slimefun Legacy",
+  "policy": {
+    "automatic_merges": false,
+    "automatic_source_replacement": false,
+    "require_manual_review": true,
+    "preserve_public_api": true,
+    "preserve_item_ids": true,
+    "preserve_saved_data": true,
+    "preserve_database_compatibility": true,
+    "english_player_experience": true
+  },
+  "sources": [
+    {
+      "id": "slimefun-original",
+      "name": "Original Slimefun 4",
+      "repository": "Slimefun/Slimefun4",
+      "branch": "master",
+      "role": "historical-api-baseline",
+      "review_policy": "compatibility-reference",
+      "reviewed_commit": null,
+      "notes": "Use as the historical API, item-ID, and saved-data baseline. Do not overwrite Legacy maintenance work."
+    },
+    {
+      "id": "slimefun-gugu",
+      "name": "Slimefun Gugu",
+      "repository": "SlimefunGuguProject/Slimefun4",
+      "branch": "master",
+      "role": "maintained-code-upstream",
+      "review_policy": "merge-after-health-and-compatibility-gates",
+      "reviewed_commit": "ece7368e1d0b40bc95c63d2796117794fcaf190e",
+      "notes": "Existing guarded sync source. Storage, modern Paper fixes, and maintenance changes require English, API, data, and addon review."
+    },
+    {
+      "id": "slimefun5",
+      "name": "Slimefun5",
+      "repository": "Slimefun5/Slimefun5",
+      "branch": "stable",
+      "role": "modern-compatibility-reference",
+      "review_policy": "selective-port-only",
+      "reviewed_commit": null,
+      "notes": "Review modern Paper and Java compatibility changes without adopting incompatible API or data redesigns."
+    },
+    {
+      "id": "slimefun-united",
+      "name": "Slimefun United",
+      "repository": "Slimefun-United/Slimefun-United",
+      "branch": "dev",
+      "role": "feature-and-architecture-reference",
+      "review_policy": "selective-port-only",
+      "reviewed_commit": null,
+      "notes": "Review storage integrity, localization, module, scheduler, API-lifecycle, and gameplay candidates individually."
+    },
+    {
+      "id": "slimefun4core",
+      "name": "Slimefun4Core",
+      "repository": "rutwok-labs/Slimefun4Core",
+      "branch": "master",
+      "role": "experimental-design-reference",
+      "review_policy": "design-review-only-until-proven",
+      "reviewed_commit": null,
+      "notes": "Treat as an experimental source of ideas. Require independent tests and compatibility proof before importing code."
+    }
+  ]
+}

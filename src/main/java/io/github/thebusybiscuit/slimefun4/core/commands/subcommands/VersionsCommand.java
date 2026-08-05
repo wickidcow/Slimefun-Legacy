@@ -2,6 +2,8 @@ package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
 import city.norain.slimefun4.utils.EnvUtil;
 import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
+import io.github.thebusybiscuit.slimefun4.api.platform.PlatformCapability;
+import io.github.thebusybiscuit.slimefun4.api.platform.PlatformProfile;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
@@ -9,6 +11,7 @@ import io.github.thebusybiscuit.slimefun4.utils.NumberUtils;
 import java.net.URI;
 import java.util.Collection;
 import java.util.Locale;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import net.kyori.adventure.text.Component;
@@ -55,6 +58,10 @@ class VersionsCommand extends SubCommand {
         if (sender.hasPermission("slimefun.command.versions") || sender instanceof ConsoleCommandSender) {
             String serverSoftware = Bukkit.getName();
             String schedulerPlatform = Slimefun.getSchedulerService().isFolia() ? "Folia" : "Paper";
+            PlatformProfile platformProfile = Slimefun.getPlatformCompatibilityService().getProfile();
+            String capabilitySummary = platformProfile.getCapabilities().stream()
+                    .map(PlatformCapability::getDisplayName)
+                    .collect(Collectors.joining(", "));
 
             net.kyori.adventure.text.TextComponent.Builder builder = Component.text();
 
@@ -64,6 +71,20 @@ class VersionsCommand extends SubCommand {
                                     " " + Bukkit.getVersion() + '\n', Style.style(NamedTextColor.DARK_GREEN))))
                     .append(Component.text("Scheduler platform ", Style.style(NamedTextColor.GREEN)))
                     .append(Component.text(schedulerPlatform + '\n', Style.style(NamedTextColor.DARK_GREEN)))
+                    .append(Component.text("Compatibility profile ", Style.style(NamedTextColor.GREEN)))
+                    .append(Component.text(
+                            platformProfile.getFamily().getDisplayName()
+                                    + " / "
+                                    + platformProfile.getSupportLevel().getDisplayName()
+                                    + '\n',
+                            Style.style(NamedTextColor.DARK_GREEN)))
+                    .append(Component.text("Minecraft version ", Style.style(NamedTextColor.GREEN)))
+                    .append(Component.text(
+                            platformProfile.getRawMinecraftVersion() + '\n', Style.style(NamedTextColor.DARK_GREEN)))
+                    .append(Component.text("Detected capabilities ", Style.style(NamedTextColor.GREEN)))
+                    .append(Component.text(
+                            (capabilitySummary.isEmpty() ? "None" : capabilitySummary) + '\n',
+                            Style.style(NamedTextColor.DARK_GREEN)))
                     .append(Component.text("Slimefun ", Style.style(NamedTextColor.GREEN)))
                     .append(Component.text(
                             Slimefun.getVersion()

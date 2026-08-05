@@ -1,5 +1,5 @@
 {
-  "release": "4.1.17",
+  "release": "4.1.19",
   "project": "Slimefun Legacy",
   "plugin_name": "Slimefun",
   "primary_platform": {
@@ -14,6 +14,11 @@
       "software": "Purpur",
       "basis": "Paper 26.2",
       "status": "supported"
+    },
+    {
+      "software": "Conventional Paper derivatives",
+      "basis": "Paper 26.2",
+      "status": "best-effort"
     },
     {
       "software": "Folia",
@@ -50,6 +55,10 @@
     "automatic_core_or_addon_downloads": false,
     "database_format_changed": false,
     "gameplay_behavior_changed": false,
-    "addon_doctor_api": true
-  }
+    "addon_doctor_api": true,
+    "capability_based_platform_api": true,
+    "reviewed_multi_fork_intake": true,
+    "automatic_upstream_merges": false
+  },
+  "phase": "Core Platform Phase 1A"
 }

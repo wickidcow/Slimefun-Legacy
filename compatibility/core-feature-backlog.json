@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "project": "Slimefun Legacy",
+  "rules": {
+    "no_feature_is_enabled_by_manifest_alone": true,
+    "all_ports_require_tests": true,
+    "all_data_changes_require_migration_and_rollback": true,
+    "addon_api_changes_must_be_additive": true
+  },
+  "features": [
+    {
+      "id": "capability-platform-api",
+      "title": "Capability-based platform compatibility API",
+      "sources": ["slimefun-united", "slimefun5", "slimefun4core"],
+      "status": "implemented-phase-1a",
+      "priority": "critical",
+      "compatibility_risk": "low",
+      "notes": "Centralizes Minecraft parsing, platform detection, feature probes, and addon-facing capability checks."
+    },
+    {
+      "id": "upstream-candidate-radar",
+      "title": "Multi-fork upstream candidate radar",
+      "sources": ["slimefun-original", "slimefun-gugu", "slimefun5", "slimefun-united", "slimefun4core"],
+      "status": "implemented-phase-1a",
+      "priority": "critical",
+      "compatibility_risk": "low",
+      "notes": "Reports new source revisions without automatically merging or replacing Legacy files."
+    },
+    {
+      "id": "api-deprecation-lifecycle",
+      "title": "Documented addon API deprecation lifecycle",
+      "sources": ["slimefun-united"],
+      "status": "planned-phase-1b",
+      "priority": "high",
+      "compatibility_risk": "low",
+      "notes": "Deprecate before replacement, publish migration guidance, and retain binary bridges."
+    },
+    {
+      "id": "scheduler-capability-routing",
+      "title": "Capability-routed scheduler and event boundary",
+      "sources": ["slimefun-united", "slimefun5"],
+      "status": "planned-phase-1b",
+      "priority": "high",
+      "compatibility_risk": "medium",
+      "notes": "Build on the existing Paper/Folia scheduler abstraction and remove scattered platform checks."
+    },
+    {
+      "id": "module-dependency-graph",
+      "title": "Optional core module dependency graph",
+      "sources": ["slimefun-united"],
+      "status": "candidate-phase-2",
+      "priority": "medium",
+      "compatibility_risk": "medium",
+      "notes": "Allow controlled feature toggles without changing item IDs or silently disabling data-bearing systems."
+    },
+    {
+      "id": "unified-localization-keys",
+      "title": "Unified localization key registry with English fallback",
+      "sources": ["slimefun-united"],
+      "status": "candidate-phase-2",
+      "priority": "medium",
+      "compatibility_risk": "medium",
+      "notes": "Preserve the English-first experience while giving addons stable message and item keys."
+    },
+    {
+      "id": "storage-integrity-audit",
+      "title": "Storage consistency and migration audit tools",
+      "sources": ["slimefun-gugu", "slimefun-united"],
+      "status": "candidate-phase-3",
+      "priority": "high",
+      "compatibility_risk": "high",
+      "notes": "Extend existing schema-v3 and Doctor work with dry-run integrity checks and explicit rollback plans."
+    },
+    {
+      "id": "staff-multitool-modes",
+      "title": "Optional staff multitool modes",
+      "sources": ["slimefun-united"],
+      "status": "gameplay-candidate",
+      "priority": "low",
+      "compatibility_risk": "medium",
+      "notes": "Evaluate only after core compatibility phases; preserve existing staff IDs and behavior by default."
+    }
+  ]
+}

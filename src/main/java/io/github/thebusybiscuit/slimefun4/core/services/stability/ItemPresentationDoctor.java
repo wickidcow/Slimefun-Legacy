@@ -70,19 +70,42 @@ public final class ItemPresentationDoctor {
         if (item == null || item.getType() == Material.AIR) {
             return false;
         }
+        // Slimefun Legacy 4.1.18 Item Doctor failure isolation.
         report.stackScanned();
-        boolean changed = inspectSlimefunPresentation(item, repair, report);
+        boolean changed = false;
+        try {
+            changed = inspectSlimefunPresentation(item, repair, report);
+        } catch (RuntimeException | LinkageError ex) {
+            report.failure();
+            Slimefun.logger().log(
+                    Level.WARNING,
+                    "Item doctor skipped a failing stack [" + describeStack(item) + "]. The scan will continue.",
+                    ex);
+        }
         if (depth < MAX_CONTAINER_DEPTH) {
             try {
                 changed |= inspectNestedItems(item, repair, report, depth + 1);
-            } catch (RuntimeException ex) {
+            } catch (RuntimeException | LinkageError ex) {
                 report.failure();
-                Slimefun.logger().log(Level.WARNING, "Item doctor could not inspect a nested container.", ex);
+                Slimefun.logger().log(
+                        Level.WARNING,
+                        "Item doctor could not inspect a nested container [" + describeStack(item)
+                                + "]. The scan will continue.",
+                        ex);
             }
         }
         return changed;
     }
 
+    private static String describeStack(ItemStack item) {
+        String itemId = "<none>";
+        try {
+            itemId = Slimefun.getItemDataService().getItemData(item).orElse("<none>");
+        } catch (RuntimeException | LinkageError ignored) {
+            itemId = "<unreadable>";
+        }
+        return "type=" + item.getType() + ", slimefunId=" + itemId;
+    }
     private boolean inspectSlimefunPresentation(
             ItemStack item, boolean repair, ItemDoctorReport report) {
         Optional<String> storedId = Slimefun.getItemDataService().getItemData(item);
@@ -117,7 +140,7 @@ public final class ItemPresentationDoctor {
         if (hasCjkLore) {
             try {
                 state = DynamicState.capture(item, sfItem);
-            } catch (RuntimeException ex) {
+            } catch (RuntimeException | LinkageError ex) {
                 report.failure();
                 report.unresolvedTemplateFound(itemId);
                 Slimefun.logger().log(
@@ -156,11 +179,11 @@ public final class ItemPresentationDoctor {
             }
             report.stackRepaired();
             return true;
-        } catch (RuntimeException ex) {
+        } catch (RuntimeException | LinkageError ex) {
             report.failure();
             try {
                 item.setItemMeta(originalMeta);
-            } catch (RuntimeException rollbackError) {
+            } catch (RuntimeException | LinkageError rollbackError) {
                 ex.addSuppressed(rollbackError);
             }
             Slimefun.logger().log(

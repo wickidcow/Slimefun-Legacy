@@ -67,8 +67,8 @@ require("transferWasComplete" in disenchanter, "Auto Disenchanter duplication ve
 require("EnchantmentMachineRuntime.consumeOneEach" in disenchanter, "Auto Disenchanter transactional consumption is missing")
 require("menu.replaceExistingItem(itemSlot, null)" not in disenchanter, "Auto Disenchanter still moves cancelled inputs")
 
-require(changelog.startswith("# Slimefun Legacy 4.1.18"), "4.1.18 changelog section is not first")
-require("Slimefun Legacy 4.1.18 is tested primarily" in readme, "README version was not updated")
+require("# Slimefun Legacy 4.1.18" in changelog, "4.1.18 changelog section is missing")
+require("Slimefun Legacy 4.1.19 is tested primarily" in readme, "README current version was not updated")
 
 for name, text in (
     ("guide", guide),
