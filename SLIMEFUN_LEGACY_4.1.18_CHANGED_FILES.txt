@@ -1,0 +1,27 @@
+Slimefun Legacy 4.1.18 final drop-in files
+
+.github/workflows/finalize-slimefun-4.1.18.yml
+scripts/apply_guide_runtime_phase1b.py
+scripts/apply_release_4_1_18.py
+scripts/package_release_4_1_18.py
+scripts/verify_guide_runtime_phase1b.py
+scripts/verify_legacy.py
+scripts/verify_release_4_1_18.py
+src/main/java/io/github/thebusybiscuit/slimefun4/api/items/groups/NestedItemGroup.java
+src/main/java/io/github/thebusybiscuit/slimefun4/core/guide/GuideHistory.java
+src/main/java/io/github/thebusybiscuit/slimefun4/core/guide/SlimefunGuide.java
+src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/GuideRuntimeGuard.java
+src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/enchanting/AutoDisenchanter.java
+src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/enchanting/AutoEnchanter.java
+src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/enchanting/EnchantmentMachineRuntime.java
+SLIMEFUN_LEGACY_4.1.18.md
+SLIMEFUN_LEGACY_4.1.18_CHANGED_FILES.txt
+SLIMEFUN_LEGACY_4.1.18_VALIDATION.md
+DROP-IN.txt
+
+Generated and committed by the finalization workflow:
+CHANGELOG.md
+README.md
+src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemPresentationDoctor.java
+src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/SurvivalSlimefunGuide.java
+src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/EnhancedSurvivalSlimefunGuide.java

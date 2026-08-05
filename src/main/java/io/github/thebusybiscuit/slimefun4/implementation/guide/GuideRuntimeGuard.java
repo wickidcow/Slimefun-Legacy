@@ -10,6 +10,8 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
@@ -21,7 +23,10 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 
 /**
- * Guards Slimefun Guide rendering and navigation against recursive or broken addon calls.
+ * Guards Slimefun Guide rendering and navigation against recursive, broken, or excessively slow addon calls.
+ *
+ * <p>Slimefun Legacy 4.1.18 adds cumulative runtime diagnostics and suppressed-warning accounting while preserving the
+ * Phase 1A/1B public entry points used by the classic, enhanced, nested, search, bookmark, and history guide paths.
  *
  * <p>This class deliberately catches only failures that can reasonably originate from guide implementations:
  * {@link RuntimeException}, {@link LinkageError}, and {@link StackOverflowError}. Fatal JVM errors are not swallowed.
@@ -31,9 +36,18 @@ public final class GuideRuntimeGuard {
     private static final int MAX_NESTED_GUIDE_CALLS = 12;
     private static final long SLOW_GUIDE_CALL_NANOS = Duration.ofSeconds(1).toNanos();
     private static final long WARNING_COOLDOWN_MILLIS = Duration.ofMinutes(1).toMillis();
+    private static final long SUMMARY_INTERVAL_MILLIS = Duration.ofMinutes(5).toMillis();
 
     private static final ThreadLocal<Deque<GuideCall>> ACTIVE_CALLS = ThreadLocal.withInitial(ArrayDeque::new);
-    private static final Map<String, Long> LAST_WARNING = new ConcurrentHashMap<>();
+    private static final Map<String, WarningState> WARNINGS = new ConcurrentHashMap<>();
+    private static final AtomicLong LAST_SUMMARY = new AtomicLong();
+
+    private static final LongAdder TOTAL_CALLS = new LongAdder();
+    private static final LongAdder FAILED_CALLS = new LongAdder();
+    private static final LongAdder RECURSIVE_CALLS = new LongAdder();
+    private static final LongAdder SLOW_CALLS = new LongAdder();
+    private static final LongAdder FALLBACKS_USED = new LongAdder();
+    private static final LongAdder SUPPRESSED_WARNINGS = new LongAdder();
 
     private GuideRuntimeGuard() {}
 
@@ -83,12 +97,16 @@ public final class GuideRuntimeGuard {
             return fallback;
         }
 
+        TOTAL_CALLS.increment();
         GuideCall call = new GuideCall(operation, mode, safeGroupKey(itemGroup));
         Deque<GuideCall> stack = ACTIVE_CALLS.get();
         int depth = stack.size() + 1;
 
         if (stack.size() >= MAX_NESTED_GUIDE_CALLS || stack.contains(call)) {
+            RECURSIVE_CALLS.increment();
+            FALLBACKS_USED.increment();
             reportRecursiveCall(player, call, itemGroup, stack, playerFacing);
+            maybeReportSummary();
             return fallback;
         }
 
@@ -98,11 +116,14 @@ public final class GuideRuntimeGuard {
         try {
             return supplier.get();
         } catch (RuntimeException | LinkageError | StackOverflowError failure) {
+            FAILED_CALLS.increment();
+            FALLBACKS_USED.increment();
             reportFailure(player, call, itemGroup, stack, failure, playerFacing);
             return fallback;
         } finally {
             long elapsed = System.nanoTime() - started;
             if (elapsed >= SLOW_GUIDE_CALL_NANOS) {
+                SLOW_CALLS.increment();
                 reportSlowCall(player, call, itemGroup, stack, depth, elapsed);
             }
 
@@ -115,6 +136,8 @@ public final class GuideRuntimeGuard {
             if (stack.isEmpty()) {
                 ACTIVE_CALLS.remove();
             }
+
+            maybeReportSummary();
         }
     }
 
@@ -171,7 +194,12 @@ public final class GuideRuntimeGuard {
         warnOnce(
                 warningKey,
                 "Slow Slimefun Guide action took " + elapsedMillis + " ms"
-                        + describeContext(player, call, itemGroup, stack, "elapsed=" + elapsedMillis + "ms, depth=" + depth),
+                        + describeContext(
+                                player,
+                                call,
+                                itemGroup,
+                                stack,
+                                "elapsed=" + elapsedMillis + "ms, depth=" + depth),
                 null);
     }
 
@@ -207,16 +235,51 @@ public final class GuideRuntimeGuard {
 
     private static void warnOnce(@Nonnull String key, @Nonnull String message, @Nullable Throwable failure) {
         long now = System.currentTimeMillis();
-        Long previous = LAST_WARNING.put(key, now);
-        if (previous != null && now - previous < WARNING_COOLDOWN_MILLIS) {
+        WarningState state = WARNINGS.computeIfAbsent(key, ignored -> new WarningState());
+        long suppressed;
+
+        synchronized (state) {
+            if (state.lastEmitted != 0L && now - state.lastEmitted < WARNING_COOLDOWN_MILLIS) {
+                state.suppressed++;
+                SUPPRESSED_WARNINGS.increment();
+                return;
+            }
+
+            suppressed = state.suppressed;
+            state.suppressed = 0L;
+            state.lastEmitted = now;
+        }
+
+        String completeMessage = suppressed == 0L ? message : message + " [suppressedSinceLast=" + suppressed + ']';
+        if (failure == null) {
+            Slimefun.logger().warning(completeMessage);
+        } else {
+            Slimefun.logger().log(Level.SEVERE, completeMessage, failure);
+        }
+    }
+
+    private static void maybeReportSummary() {
+        long incidents = FAILED_CALLS.sum() + RECURSIVE_CALLS.sum() + SLOW_CALLS.sum();
+        if (incidents == 0L) {
             return;
         }
 
-        if (failure == null) {
-            Slimefun.logger().warning(message);
-        } else {
-            Slimefun.logger().log(Level.SEVERE, message, failure);
+        long now = System.currentTimeMillis();
+        long previous = LAST_SUMMARY.get();
+        if (previous != 0L && now - previous < SUMMARY_INTERVAL_MILLIS) {
+            return;
         }
+        if (!LAST_SUMMARY.compareAndSet(previous, now)) {
+            return;
+        }
+
+        Slimefun.logger()
+                .warning("Slimefun Guide runtime summary [calls=" + TOTAL_CALLS.sum()
+                        + ", failures=" + FAILED_CALLS.sum()
+                        + ", recursive=" + RECURSIVE_CALLS.sum()
+                        + ", slow=" + SLOW_CALLS.sum()
+                        + ", fallbacks=" + FALLBACKS_USED.sum()
+                        + ", suppressedWarnings=" + SUPPRESSED_WARNINGS.sum() + ']');
     }
 
     private static @Nonnull String safeGroupKey(@Nullable ItemGroup itemGroup) {
@@ -250,6 +313,11 @@ public final class GuideRuntimeGuard {
         return " [group=" + safeGroupKey(itemGroup)
                 + ", class=" + itemGroup.getClass().getName()
                 + ", addon=" + addonName + ']';
+    }
+
+    private static final class WarningState {
+        private long lastEmitted;
+        private long suppressed;
     }
 
     private record GuideCall(String operation, SlimefunGuideMode mode, String groupKey) {
