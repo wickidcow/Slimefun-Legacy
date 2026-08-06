@@ -21,7 +21,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TextIO
 
-from check_addon_binary_linkage import LinkageResult, analyze_linkage, write_report as write_linkage_report
+from check_addon_binary_linkage import (
+    LinkageResult,
+    analyze_linkage,
+    write_report as write_linkage_report,
+)
 
 PASS = "PASS"
 BASELINE_BUILD_FAILED = "BASELINE_BUILD_FAILED"
@@ -101,6 +105,7 @@ def stream_command(
     for line in process.stdout:
         print(line, end="")
         log.write(line)
+
     return_code = process.wait()
     footer = f"\nProcess exit code: {return_code}\n"
     print(footer, end="")
@@ -129,6 +134,7 @@ def patch_maven_dependency(project: Path, version: str) -> bool:
     for dependency in root.iter():
         if dependency.tag.split("}")[-1] != "dependency":
             continue
+
         children = {child.tag.split("}")[-1]: child for child in dependency}
         group_node = children.get("groupId")
         artifact_node = children.get("artifactId")
@@ -140,6 +146,7 @@ def patch_maven_dependency(project: Path, version: str) -> bool:
         assert group_node is not None and artifact_node is not None
         group_node.text = "com.github.slimefun"
         artifact_node.text = "Slimefun"
+
         version_node = children.get("version")
         if version_node is None:
             version_node = ET.SubElement(
@@ -151,6 +158,7 @@ def patch_maven_dependency(project: Path, version: str) -> bool:
         scope_node = children.get("scope")
         if scope_node is not None and (scope_node.text or "").strip() == "system":
             scope_node.text = "provided"
+
         system_path = children.get("systemPath")
         if system_path is not None:
             dependency.remove(system_path)
@@ -172,7 +180,6 @@ def isCoreSlimefunDependency(dependency) {
     def coreGroup = group.contains('slimefun') || group.contains('thebusybiscuit')
     return coreArtifact && coreGroup
 }
-
 allprojects {
     afterEvaluate { p ->
         p.configurations.each { configuration ->
@@ -234,6 +241,7 @@ def find_built_addon_jar(project: Path) -> Path | None:
             if any(token in lowered for token in ("-sources", "-javadoc", "original-")):
                 continue
             candidates.append(jar)
+
     if not candidates:
         return None
     return max(candidates, key=lambda path: (path.stat().st_size, path.stat().st_mtime_ns))
@@ -260,6 +268,7 @@ def build_project(
             replaced = patch_maven_dependency(project, version)
             if not replaced:
                 raise RuntimeError("No core Slimefun Maven dependency was found to replace")
+
             install_code = install_maven_jar(
                 project=project,
                 jar=jar,
@@ -268,7 +277,14 @@ def build_project(
                 log=log,
             )
             if install_code != 0:
-                return BuildResult(label, install_code, ["mvn", "install:install-file"], log_path.name, True, None)
+                return BuildResult(
+                    label,
+                    install_code,
+                    ["mvn", "install:install-file"],
+                    log_path.name,
+                    True,
+                    None,
+                )
 
             wrapper = project / "mvnw"
             if wrapper.exists():
@@ -276,6 +292,7 @@ def build_project(
                 command = [str(wrapper), "-B", "-DskipTests", "package"]
             else:
                 command = ["mvn", "-B", "-DskipTests", "package"]
+
             exit_code = stream_command(command, cwd=project, env=env, log=log)
             output_jar = find_built_addon_jar(project) if exit_code == 0 else None
             return BuildResult(
@@ -311,6 +328,7 @@ def build_project(
                 "-I",
                 str(init_script),
             ]
+
         exit_code = stream_command(command, cwd=project, env=env, log=log)
         output_jar = find_built_addon_jar(project) if exit_code == 0 else None
         return BuildResult(
@@ -335,6 +353,41 @@ def source_commit(source: Path) -> str | None:
     if result.returncode != 0:
         return None
     return result.stdout.strip() or None
+
+
+def compatibility_explanation(
+    status: str,
+    candidate_result: BuildResult | None,
+    binary_linkage: LinkageResult | None,
+) -> str:
+    if status == PASS:
+        return (
+            "The addon compiled against both the known-good baseline and the candidate "
+            "Slimefun Legacy JAR, and the precompiled baseline addon passed binary linkage."
+        )
+    if status == BASELINE_BUILD_FAILED:
+        return (
+            "The addon did not compile against the known-good baseline. This is an addon "
+            "dependency, repository, or build-environment failure and is not evidence of "
+            "a new Slimefun Legacy regression."
+        )
+    if status == LEGACY_COMPATIBILITY_FAILED:
+        if candidate_result is not None and candidate_result.exit_code != 0:
+            return (
+                "The addon compiled against the known-good baseline but its source build "
+                "failed against the candidate Slimefun Legacy JAR."
+            )
+        if binary_linkage is not None and not binary_linkage.passed:
+            return (
+                "The addon compiled against both JARs, but the addon binary built against "
+                "the known-good baseline references baseline Slimefun symbols that are "
+                "missing from the candidate. Review `binary-linkage/summary.md`."
+            )
+        return "The candidate compatibility stage failed; review the attached reports."
+    return (
+        "The comparison could not be completed because the test harness could not identify "
+        "or replace the core Slimefun dependency, or another infrastructure error occurred."
+    )
 
 
 def write_report(
@@ -366,45 +419,46 @@ def write_report(
     )
     (report_dir / "status.txt").write_text(status + "\n", encoding="utf-8")
 
-    explanations = {
-        PASS: "The addon compiled against both the known-good baseline and the candidate Slimefun Legacy JAR.",
-        BASELINE_BUILD_FAILED: (
-            "The addon did not compile against the known-good baseline. This is an addon dependency, "
-            "repository, or build-environment failure and is not evidence of a new Slimefun Legacy regression."
-        ),
-        LEGACY_COMPATIBILITY_FAILED: (
-            "The addon compiled against the known-good baseline but failed against the candidate JAR. "
-            "This is a candidate Slimefun Legacy compatibility regression that requires investigation."
-        ),
-        INSTRUMENTATION_ERROR: (
-            "The comparison could not be completed because the test harness could not identify or replace "
-            "the core Slimefun dependency, or another infrastructure error occurred."
-        ),
-    }
-
     baseline_code = baseline_result.exit_code if baseline_result else "not run"
     candidate_code = candidate_result.exit_code if candidate_result else "not run"
+    linkage_status = (
+        "pass"
+        if binary_linkage and binary_linkage.passed
+        else ("fail" if binary_linkage else "not run")
+    )
+
     lines = [
         "## Addon compatibility comparison",
         "",
         f"**Result:** `{status}`",
         "",
-        explanations[status],
+        compatibility_explanation(status, candidate_result, binary_linkage),
         "",
-        "| Stage | Exit code | Log |",
+        "| Stage | Exit code/result | Log |",
         "| --- | ---: | --- |",
-        f"| Known-good baseline | {baseline_code} | `baseline.log` |",
-        f"| Candidate Legacy | {candidate_code} | `candidate.log` |",
-        f"| Precompiled-addon binary linkage | "
-        f"{'pass' if binary_linkage and binary_linkage.passed else ('fail' if binary_linkage else 'not run')} | "
-        f"`binary-linkage/summary.md` |",
+        f"| Known-good baseline source build | {baseline_code} | `baseline.log` |",
+        f"| Candidate Legacy source build | {candidate_code} | `candidate.log` |",
+        f"| Precompiled-addon binary linkage | {linkage_status} | `binary-linkage/summary.md` |",
         "",
         f"Baseline JAR: `{baseline_jar.name}`",
         "",
         f"Candidate JAR: `{candidate_jar.name}`",
     ]
+
+    if binary_linkage is not None and not binary_linkage.passed:
+        lines.extend(
+            [
+                "",
+                "### Baseline-proven missing symbols",
+                "",
+                f"- Classes: **{len(binary_linkage.missing_classes)}**",
+                f"- Methods: **{len(binary_linkage.missing_methods)}**",
+                f"- Fields: **{len(binary_linkage.missing_fields)}**",
+            ]
+        )
     if error:
         lines.extend(["", "### Harness error", "", "```text", error, "```"])
+
     (report_dir / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -448,6 +502,8 @@ def main() -> int:
 
     baseline_result: BuildResult | None = None
     candidate_result: BuildResult | None = None
+    binary_linkage: LinkageResult | None = None
+
     try:
         baseline_project = report_dir / "work" / "baseline"
         copy_project(source, baseline_project)
@@ -480,12 +536,16 @@ def main() -> int:
             jar=candidate_jar,
             report_dir=report_dir,
         )
-        binary_linkage: LinkageResult | None = None
+
         status = PASS if candidate_result.exit_code == 0 else LEGACY_COMPATIBILITY_FAILED
         if status == PASS:
             if not baseline_result.output_jar:
                 raise RuntimeError("Baseline addon build succeeded but no addon JAR was found")
-            binary_linkage = analyze_linkage(Path(baseline_result.output_jar), candidate_jar, baseline_jar)
+            binary_linkage = analyze_linkage(
+                Path(baseline_result.output_jar),
+                candidate_jar,
+                baseline_jar,
+            )
             write_linkage_report(binary_linkage, report_dir / "binary-linkage")
             if not binary_linkage.passed:
                 status = LEGACY_COMPATIBILITY_FAILED
@@ -502,6 +562,7 @@ def main() -> int:
             error=None,
         )
         return EXIT_CODES[status]
+
     except Exception as exc:  # noqa: BLE001 - must classify harness failures
         error = f"{type(exc).__name__}: {exc}\n\n{traceback.format_exc()}"
         write_report(
@@ -512,7 +573,7 @@ def main() -> int:
             candidate_jar=candidate_jar,
             baseline_result=baseline_result,
             candidate_result=candidate_result,
-            binary_linkage=None,
+            binary_linkage=binary_linkage,
             error=error,
         )
         print(error, file=sys.stderr)

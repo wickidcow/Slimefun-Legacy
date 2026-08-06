@@ -3,6 +3,11 @@
 
 This is a focused JVM class-file linkage check. It does not execute addon code and it
 only inspects references into compatibility-protected Slimefun package families.
+
+When a known-good baseline core JAR is supplied, only references that resolved in the
+baseline are classified as candidate regressions. References supplied by an addon's
+own shaded classes or by optional dependencies are therefore not reported as missing
+Slimefun API.
 """
 from __future__ import annotations
 
@@ -13,7 +18,6 @@ import sys
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import BinaryIO, Iterable
 
 CORE_PREFIXES = (
     "io/github/thebusybiscuit/slimefun4/",
@@ -119,7 +123,10 @@ def cp_utf8(pool: list[object | None], index: int) -> str:
 
 
 def cp_class_name(pool: list[object | None], index: int) -> str:
-    entry = pool[index]
+    try:
+        entry = pool[index]
+    except IndexError as error:
+        raise ClassFormatError(f"Invalid constant-pool index {index}") from error
     if not isinstance(entry, tuple) or entry[0] != "Class":
         raise ClassFormatError(f"Constant-pool entry {index} is not a class")
     return cp_utf8(pool, entry[1])
@@ -135,10 +142,12 @@ def parse_class(data: bytes) -> ClassInfo:
     reader = Reader(data)
     if reader.u4() != 0xCAFEBABE:
         raise ClassFormatError("Invalid class-file magic")
-    reader.u2()
-    reader.u2()
+
+    reader.u2()  # minor version
+    reader.u2()  # major version
     cp_count = reader.u2()
     pool: list[object | None] = [None] * cp_count
+
     index = 1
     while index < cp_count:
         tag = reader.u1()
@@ -173,7 +182,7 @@ def parse_class(data: bytes) -> ClassInfo:
             raise ClassFormatError(f"Unsupported constant-pool tag {tag}")
         index += 1
 
-    reader.u2()
+    reader.u2()  # access flags
     this_class = reader.u2()
     super_class = reader.u2()
     name = cp_class_name(pool, this_class)
@@ -231,13 +240,28 @@ def load_classes(jar: Path) -> dict[str, ClassInfo]:
     return classes
 
 
-def is_core_name(name: str) -> bool:
+def normalize_class_name(name: str) -> str | None:
+    """Return a JVM internal class name for a CONSTANT_Class value.
+
+    CONSTANT_Class entries can contain either an ordinary internal name such as
+    ``pkg/Type`` or an array descriptor such as ``[[Lpkg/Type;``. Primitive array
+    descriptors do not name a class and return ``None``.
+    """
+
     base = name
     while base.startswith("["):
         base = base[1:]
+
+    if len(base) == 1 and base in "BCDFIJSZV":
+        return None
     if base.startswith("L") and base.endswith(";"):
         base = base[1:-1]
-    return base.startswith(CORE_PREFIXES)
+    return base or None
+
+
+def is_core_name(name: str) -> bool:
+    normalized = normalize_class_name(name)
+    return normalized is not None and normalized.startswith(CORE_PREFIXES)
 
 
 def resolves_member(
@@ -264,12 +288,29 @@ def resolves_member(
     return visit(owner)
 
 
+def class_is_candidate_regression(
+    class_name: str,
+    candidate_classes: dict[str, ClassInfo],
+    baseline_classes: dict[str, ClassInfo] | None,
+) -> bool:
+    """Return whether a missing candidate class is a baseline-proven regression."""
+
+    if class_name in candidate_classes:
+        return False
+    if baseline_classes is not None and class_name not in baseline_classes:
+        # The reference was not supplied by the known-good Slimefun JAR either.
+        # It can be an addon's shaded compatibility class or an optional plugin API.
+        return False
+    return True
+
+
 def analyze_linkage(
     addon_jar: Path, core_jar: Path, baseline_core_jar: Path | None = None
 ) -> LinkageResult:
     addon_classes = load_classes(addon_jar)
     core_classes = load_classes(core_jar)
     baseline_classes = load_classes(baseline_core_jar) if baseline_core_jar else None
+
     missing_classes: set[str] = set()
     missing_methods: set[MemberRef] = set()
     missing_fields: set[MemberRef] = set()
@@ -277,25 +318,35 @@ def analyze_linkage(
     checked_members: set[MemberRef] = set()
 
     for addon_class in addon_classes.values():
+        # Shaded compatibility implementations may intentionally live in a Slimefun
+        # package. They are addon-owned classes, not references into the core JAR.
         if is_core_name(addon_class.name):
             continue
-        for referenced_class in addon_class.class_references:
-            if not is_core_name(referenced_class):
+
+        for raw_referenced_class in addon_class.class_references:
+            referenced_class = normalize_class_name(raw_referenced_class)
+            if referenced_class is None or not referenced_class.startswith(CORE_PREFIXES):
                 continue
             checked_classes.add(referenced_class)
-            if referenced_class not in core_classes:
+            if class_is_candidate_regression(referenced_class, core_classes, baseline_classes):
                 missing_classes.add(referenced_class)
 
-        for reference in addon_class.references:
-            if not is_core_name(reference.owner):
+        for raw_reference in addon_class.references:
+            owner = normalize_class_name(raw_reference.owner)
+            if owner is None or not owner.startswith(CORE_PREFIXES):
                 continue
+
+            reference = MemberRef(owner, raw_reference.name, raw_reference.descriptor, raw_reference.kind)
             checked_members.add(reference)
-            if reference.owner not in core_classes:
-                missing_classes.add(reference.owner)
+
+            if owner not in core_classes:
+                if class_is_candidate_regression(owner, core_classes, baseline_classes):
+                    missing_classes.add(owner)
                 continue
+
             if resolves_member(
                 core_classes,
-                reference.owner,
+                owner,
                 reference.name,
                 reference.descriptor,
                 reference.kind,
@@ -308,7 +359,7 @@ def analyze_linkage(
             # a regression if that baseline resolved it inside the Slimefun JAR.
             if baseline_classes is not None and not resolves_member(
                 baseline_classes,
-                reference.owner,
+                owner,
                 reference.name,
                 reference.descriptor,
                 reference.kind,
@@ -350,10 +401,17 @@ def write_report(result: LinkageResult, report_dir: Path) -> None:
         "",
         f"Addon classes inspected: **{result.addon_classes}**",
         "",
-        f"Slimefun class references checked: **{result.checked_class_references}**",
+        f"Baseline-proven Slimefun class references checked: **{result.checked_class_references}**",
         "",
-        f"Slimefun member references checked: **{result.checked_member_references}**",
+        f"Baseline-proven Slimefun member references checked: **{result.checked_member_references}**",
     ]
+    if result.baseline_core_jar:
+        lines.extend(
+            [
+                "",
+                "Only symbols that existed in the known-good baseline are treated as candidate regressions.",
+            ]
+        )
     if result.missing_classes:
         lines.extend(["", "### Missing classes", ""])
         lines.extend(f"- `{name}`" for name in result.missing_classes)
@@ -367,6 +425,7 @@ def write_report(result: LinkageResult, report_dir: Path) -> None:
         lines.extend(
             f"- `{ref.owner}.{ref.name}:{ref.descriptor}`" for ref in result.missing_fields
         )
+
     (report_dir / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -378,7 +437,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--baseline-core",
         type=Path,
-        help="Known-good core used to distinguish removed Slimefun members from external inherited members",
+        help=(
+            "Known-good core used to distinguish removed Slimefun symbols from "
+            "addon-shaded, optional, or externally inherited symbols"
+        ),
     )
     return parser.parse_args()
 
@@ -388,10 +450,12 @@ def main() -> int:
     paths = [args.addon_jar, args.core_jar]
     if args.baseline_core:
         paths.append(args.baseline_core)
+
     for path in paths:
         if not path.is_file():
             print(f"Missing JAR: {path}", file=sys.stderr)
             return 2
+
     try:
         result = analyze_linkage(
             args.addon_jar.resolve(),
@@ -402,6 +466,7 @@ def main() -> int:
     except (OSError, zipfile.BadZipFile, ClassFormatError) as error:
         print(f"Binary linkage instrumentation error: {error}", file=sys.stderr)
         return 2
+
     return 0 if result.passed else 1
 
 
