@@ -57,6 +57,7 @@ jobs:
             build/reports/bytecode-target.txt
             build/reports/deprecation-compile.log
             build/reports/deprecations.md
+            build/reports/core-platform-phase1c.txt
           if-no-files-found: warn
 
 
@@ -108,75 +109,40 @@ jobs:
           echo "Compiling against Paper API $PAPER_API_CANDIDATE"
           ./gradlew clean compileJava -PpaperApiVersion="$PAPER_API_CANDIDATE" --no-daemon
 
+  prepare-addon-matrix:
+    name: Prepare addon compatibility matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      enabled_count: ${{ steps.matrix.outputs.enabled_count }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate and generate matrix
+        id: matrix
+        run: |
+          python3 scripts/generate_addon_compatibility_matrix.py \
+            compatibility/addon-compatibility-matrix.json \
+            --github-output "$GITHUB_OUTPUT"
+      - name: Publish matrix summary
+        run: |
+          {
+            echo "## Addon compatibility matrix"
+            echo
+            echo "Enabled targets: **${{ steps.matrix.outputs.enabled_count }}**"
+            echo
+            echo 'Source: `compatibility/addon-compatibility-matrix.json`'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   addons:
     name: Addon [${{ matrix.tier }}] - ${{ matrix.repository }}
-    needs: [build-baseline-slimefun, build-slimefun]
+    needs: [prepare-addon-matrix, build-baseline-slimefun, build-slimefun]
     continue-on-error: ${{ matrix.advisory }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
       fail-fast: false
       max-parallel: 4
-      matrix:
-        include:
-          # Required compatibility targets maintained for or used by Legacy.
-          - repository: wickidcow/SF_FastMachines
-            slug: legacy-fastmachines
-            tier: required
-            advisory: false
-          - repository: wickidcow/SF_NetworksExp
-            target-version: 2.1.112-Legacy-Alpha2
-            slug: legacy-networksexp-alpha2
-            tier: required
-            advisory: false
-          - repository: wickidcow/SF_SlimeTinkerIE2
-            slug: legacy-slimetinker-ie2
-            tier: required
-            advisory: false
-          - repository: wickidcow/SF_BetterChests
-            slug: legacy-betterchests
-            tier: required
-            advisory: false
-
-          # Public Gugu addon compatibility probes. These are advisory because
-          # archived or independently changing projects must not block a
-          # Slimefun Legacy release, but their failures remain visible.
-          - repository: SlimefunGuguProject/FluffyMachines
-            slug: gugu-fluffymachines
-            tier: gugu-advisory
-            advisory: true
-          - repository: SlimefunGuguProject/FoxyMachines
-            slug: gugu-foxymachines
-            tier: gugu-advisory
-            advisory: true
-          - repository: SlimefunGuguProject/SlimeTinker
-            slug: gugu-slimetinker
-            tier: gugu-advisory
-            advisory: true
-          - repository: SlimefunGuguProject/FlowerPower
-            slug: gugu-flowerpower
-            tier: gugu-advisory
-            advisory: true
-          - repository: SlimefunGuguProject/IDreamOfEasy
-            slug: gugu-idreamofeasy
-            tier: gugu-advisory
-            advisory: true
-          - repository: SlimefunGuguProject/Gastronomicon
-            slug: gugu-gastronomicon
-            tier: gugu-advisory
-            advisory: true
-          - repository: SlimefunGuguProject/Bump
-            slug: gugu-bump
-            tier: gugu-advisory
-            advisory: true
-          - repository: SlimefunGuguProject/SlimeCustomizer
-            slug: gugu-slimecustomizer
-            tier: gugu-advisory
-            advisory: true
-          - repository: SlimefunGuguProject/EMCTech
-            slug: gugu-emctech
-            tier: gugu-advisory
-            advisory: true
+      matrix: ${{ fromJSON(needs.prepare-addon-matrix.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
@@ -197,8 +163,8 @@ jobs:
           GIT_TERMINAL_PROMPT: '0'
           ADDON_REPOSITORY: ${{ matrix.repository }}
           ADDON_REF: ${{ matrix.ref }}
-          EXPECTED_COMMIT: ${{ matrix.expected-commit }}
-          TARGET_VERSION: ${{ matrix.target-version }}
+          EXPECTED_COMMIT: ${{ matrix.expected_commit }}
+          TARGET_VERSION: ${{ matrix.target_version }}
           ADDON_LOG: ${{ runner.temp }}/${{ matrix.slug }}.log
         run: |
           set -o pipefail
@@ -276,6 +242,9 @@ jobs:
             ${{ runner.temp }}/${{ matrix.slug }}-report/summary.md
             ${{ runner.temp }}/${{ matrix.slug }}-report/baseline.log
             ${{ runner.temp }}/${{ matrix.slug }}-report/candidate.log
+            ${{ runner.temp }}/${{ matrix.slug }}-report/binary-linkage/result.json
+            ${{ runner.temp }}/${{ matrix.slug }}-report/binary-linkage/status.txt
+            ${{ runner.temp }}/${{ matrix.slug }}-report/binary-linkage/summary.md
           if-no-files-found: warn
       - name: Enforce classified compatibility result
         if: always()
