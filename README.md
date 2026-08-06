@@ -21,7 +21,7 @@ Slimefun Legacy turns a normal Minecraft server into a modpack-like experience w
 [Builds](https://github.com/wickidcow/Slimefun-Legacy/actions) ·
 [Statistics](https://bstats.org/plugin/bukkit/Slimefun%20Legacy/32960) ·
 [Report a Bug](https://github.com/wickidcow/Slimefun-Legacy/issues) ·
-[Release Notes](SLIMEFUN_LEGACY_4.1.20.md) ·
+[Release Notes](SLIMEFUN_LEGACY_4.1.21.md) ·
 [Contributing](CONTRIBUTING.md)
 
 </div>
@@ -42,6 +42,7 @@ Slimefun Legacy preserves the familiar Slimefun 4 gameplay, saved-world format, 
 | **Legacy compatible** | Established Slimefun addon entry points and saved data are preserved wherever practical. |
 | **Stability focused** | Storage recovery, machine circuit breakers, lifecycle safeguards, and regression tests protect production servers. |
 | **Modernized carefully** | Paper APIs, scheduling, energy handling, and internal annotations are updated without casually breaking older addons. |
+| **Addon compatibility gates** | Runtime declarations, source-build probes, and binary-linkage checks expose regressions before release. |
 
 Players can build automated factories, move items through Cargo networks, generate and store power, operate reactors, explore magic, craft equipment, and expand the experience with compatible addons.
 
@@ -114,6 +115,7 @@ Download a tested build from [GitHub Releases](https://github.com/wickidcow/Slim
 
 ```text
 /sf doctor status
+/sf doctor compatibility
 ```
 
 Test representative machines, backpacks, Cargo networks, recipes, protections, and addon items before reopening a production server.

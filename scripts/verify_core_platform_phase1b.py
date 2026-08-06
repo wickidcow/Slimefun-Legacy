@@ -190,8 +190,16 @@ def main() -> int:
 
     try:
         support_contract = json.loads(read(root, "compatibility/support-contract.json"))
-        require(support_contract.get("release") == "4.1.20", "Support contract release must be 4.1.20", failures)
-        require(support_contract.get("phase") == "Core Platform Phase 1B", "Support contract phase is stale", failures)
+        require(
+            support_contract.get("release") in {"4.1.20", "4.1.21"},
+            "Support contract release must retain the Phase 1B-or-later line",
+            failures,
+        )
+        require(
+            support_contract.get("phase") in {"Core Platform Phase 1B", "Core Platform Phase 1C"},
+            "Support contract no longer includes the Phase 1B foundation",
+            failures,
+        )
         policy = support_contract.get("compatibility_policy", {})
         for key in (
             "capability_based_platform_api",
@@ -218,15 +226,20 @@ def main() -> int:
     except (FileNotFoundError, KeyError, TypeError, json.JSONDecodeError) as error:
         failures.append(f"Unable to validate Phase 1B manifests: {error}")
 
-    require("projectVersion=4.1.20" in read(root, "gradle.properties"), "Gradle release must be 4.1.20", failures)
     require(
-        read(root, "CHANGELOG.md").startswith("# Slimefun Legacy 4.1.20"),
-        "Changelog must start with the 4.1.20 release",
+        any(version in read(root, "gradle.properties") for version in ("projectVersion=4.1.20", "projectVersion=4.1.21")),
+        "Gradle release must be Phase 1B or later",
         failures,
     )
     require(
-        "[Release Notes](SLIMEFUN_LEGACY_4.1.20.md)" in read(root, "README.md"),
-        "README release link is stale",
+        "# Slimefun Legacy 4.1.20" in read(root, "CHANGELOG.md"),
+        "Changelog no longer contains the 4.1.20 Phase 1B release",
+        failures,
+    )
+    require(
+        "SLIMEFUN_LEGACY_4.1.20.md" in read(root, "README.md")
+        or "SLIMEFUN_LEGACY_4.1.21.md" in read(root, "README.md"),
+        "README release link predates Phase 1B",
         failures,
     )
 
@@ -243,7 +256,7 @@ def main() -> int:
         return 1
 
     output.write_text(
-        "Slimefun Legacy 4.1.20 Core Platform Phase 1B\n"
+        "Slimefun Legacy Core Platform Phase 1B foundation\n"
         "Existing API bridges: PASS\n"
         "Declarative addon requirements: PASS\n"
         "Central platform detector: PASS\n"

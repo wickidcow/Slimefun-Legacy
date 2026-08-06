@@ -1,6 +1,9 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
 import io.github.bakedlibs.dough.common.ChatColors;
+import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityResult;
+import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityStatus;
+import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilitySummary;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.AddonDoctorReport;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
@@ -40,6 +43,7 @@ final class DoctorCommand extends SubCommand {
             case "inventory" -> repairInventory(sender, args, service);
             case "scan" -> startServerRun(sender, service, false);
             case "addons" -> runAddonDoctors(sender, args);
+            case "compatibility", "compat" -> sendAddonCompatibility(sender, args);
             case "repair", "fix" -> {
                 if (args.length < 3 || !args[2].equalsIgnoreCase("confirm")) {
                     send(sender, "&eThis safely changes visible names and lore across stored items.");
@@ -224,6 +228,66 @@ final class DoctorCommand extends SubCommand {
                 + " &8| &7failures &c" + totalFailures);
     }
 
+    private void sendAddonCompatibility(CommandSender sender, String[] args) {
+        Slimefun.getAddonCompatibilityService().refresh();
+
+        if (args.length > 2) {
+            var result = Slimefun.getAddonCompatibilityService().getResult(args[2]);
+            if (result.isEmpty()) {
+                send(sender, "&cNo installed Slimefun addon matched: &e" + args[2]);
+                return;
+            }
+            sendCompatibilityResult(sender, result.orElseThrow());
+            return;
+        }
+
+        AddonCompatibilitySummary summary = Slimefun.getAddonCompatibilityService().getSummary();
+        send(sender, "&6Slimefun Addon Compatibility");
+        send(sender, "&7Running core: &e"
+                + Slimefun.getAddonCompatibilityService().getRunningCoreVariant().getDisplayName());
+        send(sender, "&7Compatible: &a" + summary.getCount(AddonCompatibilityStatus.COMPATIBLE)
+                + " &8| &7Warnings: &e" + summary.getCount(AddonCompatibilityStatus.WARNING)
+                + " &8| &7Undeclared: &b" + summary.getCount(AddonCompatibilityStatus.UNDECLARED));
+        send(sender, "&7Incompatible: &c" + summary.getCount(AddonCompatibilityStatus.INCOMPATIBLE)
+                + " &8| &7Disabled: &c" + summary.getCount(AddonCompatibilityStatus.DISABLED));
+
+        if (summary.getTotal() == 0) {
+            send(sender, "&7No Slimefun addon plugins are installed.");
+            return;
+        }
+
+        for (AddonCompatibilityResult result : Slimefun.getAddonCompatibilityService().getResults()) {
+            send(sender, statusColor(result.getStatus()) + "- " + result.getPluginName() + " v"
+                    + result.getPluginVersion() + " &7[" + result.getStatus().getDisplayName() + "]");
+            for (String message : result.getMessages()) {
+                send(sender, "&8  - &7" + message);
+            }
+        }
+        send(sender, "&7Inspect one addon: &e/sf doctor compatibility <plugin>");
+    }
+
+    private void sendCompatibilityResult(CommandSender sender, AddonCompatibilityResult result) {
+        send(sender, "&6Addon Compatibility: &e" + result.getPluginName() + " v" + result.getPluginVersion());
+        send(sender, "&7Status: " + statusColor(result.getStatus()) + result.getStatus().getDisplayName());
+        send(sender, "&7Declaration source: &e" + result.getSource().getDisplayName());
+        if (result.getMessages().isEmpty()) {
+            send(sender, "&aNo compatibility problems were detected.");
+            return;
+        }
+        for (String message : result.getMessages()) {
+            send(sender, "&8- &7" + message);
+        }
+    }
+
+    private String statusColor(AddonCompatibilityStatus status) {
+        return switch (status) {
+            case COMPATIBLE -> "&a";
+            case WARNING -> "&e";
+            case UNDECLARED -> "&b";
+            case DISABLED, INCOMPATIBLE -> "&c";
+        };
+    }
+
     private void sendProgress(CommandSender sender, ItemDoctorReport report) {
         send(sender, "&7Inventories: &e" + report.getInventories() + " &8| &7Backpacks: &e" + report.getBackpacks());
         send(sender, "&7Stacks scanned: &e" + report.getScannedStacks() + " &8| &7Slimefun: &e"
@@ -245,7 +309,7 @@ final class DoctorCommand extends SubCommand {
     }
 
     private void sendUsage(CommandSender sender) {
-        send(sender, "&eUsage: /slimefun doctor [status|hand|inventory [player]|scan|repair confirm|addons]");
+        send(sender, "&eUsage: /slimefun doctor [status|hand|inventory [player]|scan|repair confirm|addons|compatibility]");
     }
 
     private void send(CommandSender sender, String message) {

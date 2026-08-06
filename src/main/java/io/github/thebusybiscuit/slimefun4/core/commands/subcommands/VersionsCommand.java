@@ -2,6 +2,9 @@ package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
 import city.norain.slimefun4.utils.EnvUtil;
 import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
+import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityResult;
+import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityStatus;
+import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilitySummary;
 import io.github.thebusybiscuit.slimefun4.api.platform.PlatformCapability;
 import io.github.thebusybiscuit.slimefun4.api.platform.PlatformProfile;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
@@ -127,6 +130,8 @@ class VersionsCommand extends SubCommand {
             }
 
             builder.append(Component.text("\n"));
+            Slimefun.getAddonCompatibilityService().refresh();
+            addAddonCompatibilitySummary(builder);
             addPluginVersions(builder);
 
             sendVersionReport(sender, builder.build());
@@ -164,6 +169,41 @@ class VersionsCommand extends SubCommand {
             builder.append(Component.text("Java ", NamedTextColor.GREEN))
                     .append(Component.text(version + "\n", NamedTextColor.DARK_GREEN));
         }
+    }
+
+    private void addAddonCompatibilitySummary(
+            @Nonnull net.kyori.adventure.text.TextComponent.Builder builder) {
+        AddonCompatibilitySummary summary = Slimefun.getAddonCompatibilityService().getSummary();
+        builder.append(Component.text("Addon compatibility ", NamedTextColor.GREEN))
+                .append(Component.text(
+                        summary.getCount(AddonCompatibilityStatus.COMPATIBLE) + " compatible, ",
+                        NamedTextColor.DARK_GREEN))
+                .append(Component.text(
+                        summary.getCount(AddonCompatibilityStatus.WARNING) + " warning, ",
+                        NamedTextColor.YELLOW))
+                .append(Component.text(
+                        summary.getCount(AddonCompatibilityStatus.UNDECLARED) + " undeclared, ",
+                        NamedTextColor.AQUA))
+                .append(Component.text(
+                        summary.getCount(AddonCompatibilityStatus.INCOMPATIBLE) + " incompatible, ",
+                        NamedTextColor.RED))
+                .append(Component.text(
+                        summary.getCount(AddonCompatibilityStatus.DISABLED) + " disabled\n",
+                        NamedTextColor.DARK_RED));
+    }
+
+    private Component compatibilityComponent(AddonCompatibilityResult result) {
+        NamedTextColor color = switch (result.getStatus()) {
+            case COMPATIBLE -> NamedTextColor.DARK_GREEN;
+            case WARNING -> NamedTextColor.YELLOW;
+            case UNDECLARED -> NamedTextColor.AQUA;
+            case DISABLED, INCOMPATIBLE -> NamedTextColor.RED;
+        };
+        String hoverText = result.getMessages().isEmpty()
+                ? result.getStatus().getDisplayName()
+                : result.getStatus().getDisplayName() + "\n" + String.join("\n", result.getMessages());
+        return Component.text(" [" + result.getStatus().getDisplayName() + "]", color)
+                .hoverEvent(HoverEvent.showText(Component.text(hoverText)));
     }
 
     @SuppressWarnings("deprecation")
@@ -261,8 +301,12 @@ class VersionsCommand extends SubCommand {
             if (clickEvent != null) nameComp = nameComp.clickEvent(clickEvent);
 
             Component versionComp = Component.text(" v" + version, secondaryColor);
+            Component compatibilityComp = Slimefun.getAddonCompatibilityService()
+                    .getResult(plugin.getName())
+                    .map(this::compatibilityComponent)
+                    .orElse(Component.empty());
 
-            builder.append(nameComp).append(versionComp);
+            builder.append(nameComp).append(versionComp).append(compatibilityComp);
         }
     }
 }

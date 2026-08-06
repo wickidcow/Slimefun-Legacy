@@ -71,6 +71,42 @@
       "notes": "Guards all 991 public and protected 4.1.19 source signatures in compatibility-protected packages while allowing additive APIs."
     },
     {
+      "id": "runtime-addon-compatibility-registry",
+      "title": "Runtime addon compatibility declarations and diagnostics",
+      "sources": [
+        "slimefun-legacy",
+        "slimefun-united",
+        "slimefun5"
+      ],
+      "status": "implemented-phase-1c",
+      "priority": "critical",
+      "compatibility_risk": "low",
+      "notes": "Adds explicit registration, provider, and embedded-manifest declarations without requiring changes to legacy addons."
+    },
+    {
+      "id": "addon-source-binary-matrix",
+      "title": "Representative addon source and binary compatibility matrix",
+      "sources": [
+        "slimefun-legacy"
+      ],
+      "status": "implemented-phase-1c",
+      "priority": "critical",
+      "compatibility_risk": "low",
+      "notes": "Compares addon source builds against baseline and candidate cores, then validates the baseline-compiled addon against candidate JVM symbols."
+    },
+    {
+      "id": "optional-dependency-boundary",
+      "title": "Central optional-dependency and guarded-reflection boundary",
+      "sources": [
+        "slimefun-legacy",
+        "slimefun-united"
+      ],
+      "status": "implemented-phase-1c",
+      "priority": "high",
+      "compatibility_risk": "low",
+      "notes": "Provides additive plugin, class, method, and guarded invocation helpers for optional addon integrations."
+    },
+    {
       "id": "module-dependency-graph",
       "title": "Optional core module dependency graph",
       "sources": [

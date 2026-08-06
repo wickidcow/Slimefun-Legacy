@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "release": "4.1.21",
+  "running_core": "legacy",
+  "protected_namespaces": [
+    "io/github/thebusybiscuit/slimefun4/",
+    "me/mrCookieSlime/",
+    "com/xzavier0722/mc/plugin/slimefun4/",
+    "city/norain/slimefun4/"
+  ],
+  "core_variants": [
+    {
+      "id": "original",
+      "display_name": "Original Slimefun",
+      "repository": "Slimefun/Slimefun4",
+      "compatibility_role": "historical-api-baseline",
+      "automatic_merge": false
+    },
+    {
+      "id": "gugu",
+      "display_name": "Slimefun Gugu",
+      "repository": "SlimefunGuguProject/Slimefun4",
+      "compatibility_role": "source-and-addon-probe",
+      "automatic_merge": false
+    },
+    {
+      "id": "united",
+      "display_name": "Slimefun United",
+      "repository": "Slimefun-United/Slimefun-United",
+      "compatibility_role": "cross-fork-api-probe",
+      "automatic_merge": false
+    },
+    {
+      "id": "slimefun5",
+      "display_name": "Slimefun5",
+      "repository": "Slimefun5/Slimefun5",
+      "compatibility_role": "reviewed-architecture-intake",
+      "automatic_merge": false
+    },
+    {
+      "id": "slimefun-core",
+      "display_name": "Slimefun Core",
+      "repository": "rutwok-labs/Slimefun4Core",
+      "compatibility_role": "experimental-architecture-intake",
+      "automatic_merge": false
+    },
+    {
+      "id": "legacy",
+      "display_name": "Slimefun Legacy",
+      "repository": "wickidcow/Slimefun-Legacy",
+      "compatibility_role": "runtime-and-release-target",
+      "automatic_merge": false
+    }
+  ],
+  "compatibility_capabilities": [
+    "source-build-comparison",
+    "precompiled-addon-binary-linkage",
+    "embedded-addon-manifest",
+    "runtime-provider-interface",
+    "explicit-runtime-registration",
+    "optional-dependency-boundary",
+    "platform-requirement-evaluation",
+    "doctor-command-diagnostics"
+  ]
+}

@@ -10,6 +10,8 @@ import io.github.bakedlibs.dough.config.Config;
 import io.github.bakedlibs.dough.protection.ProtectionManager;
 import io.github.thebusybiscuit.slimefun4.api.MinecraftVersion;
 import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
+import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityService;
+import io.github.thebusybiscuit.slimefun4.api.addons.OptionalDependencyService;
 import io.github.thebusybiscuit.slimefun4.api.exceptions.TagMisconfigurationException;
 import io.github.thebusybiscuit.slimefun4.api.geo.GEOResource;
 import io.github.thebusybiscuit.slimefun4.api.gps.GPSNetwork;
@@ -36,6 +38,8 @@ import io.github.thebusybiscuit.slimefun4.core.services.PerWorldSettingsService;
 import io.github.thebusybiscuit.slimefun4.core.services.PermissionsService;
 import io.github.thebusybiscuit.slimefun4.core.services.ThreadService;
 import io.github.thebusybiscuit.slimefun4.core.services.UpdaterService;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultAddonCompatibilityService;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultOptionalDependencyService;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultPlatformCompatibilityService;
 import io.github.thebusybiscuit.slimefun4.core.services.github.GitHubService;
 import io.github.thebusybiscuit.slimefun4.core.services.holograms.HologramsService;
@@ -204,6 +208,10 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     private final ThreadService threadService = new ThreadService(this);
     private final DefaultPlatformCompatibilityService platformCompatibilityService =
             new DefaultPlatformCompatibilityService();
+    private final DefaultOptionalDependencyService optionalDependencyService =
+            new DefaultOptionalDependencyService(this);
+    private final DefaultAddonCompatibilityService addonCompatibilityService =
+            new DefaultAddonCompatibilityService(this, platformCompatibilityService, optionalDependencyService);
     private final SlimefunScheduler schedulerService = new PaperScheduler(this, platformCompatibilityService);
     private final AnalyticsService analyticsService = new AnalyticsService(this);
     private final ItemStackService itemStackService = new ItemStackService();
@@ -929,6 +937,26 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     public static @Nonnull PlatformCompatibilityService getPlatformCompatibilityService() {
         validateInstance();
         return instance.platformCompatibilityService;
+    }
+
+    /**
+     * Returns the addon compatibility registry and runtime diagnostic service.
+     *
+     * @return the addon compatibility service
+     */
+    public static @Nonnull AddonCompatibilityService getAddonCompatibilityService() {
+        validateInstance();
+        return instance.addonCompatibilityService;
+    }
+
+    /**
+     * Returns the centralized optional-dependency lookup and guarded reflection service.
+     *
+     * @return the optional-dependency service
+     */
+    public static @Nonnull OptionalDependencyService getOptionalDependencyService() {
+        validateInstance();
+        return instance.optionalDependencyService;
     }
 
     public static @Nonnull ItemDoctorService getItemDoctorService() {

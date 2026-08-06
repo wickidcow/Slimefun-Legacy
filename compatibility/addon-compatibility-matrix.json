@@ -1,0 +1,125 @@
+{
+  "schema": 1,
+  "release": "4.1.21",
+  "baseline": {
+    "version": "4.1.15",
+    "commit": "493587431dc831d4b8bc38649af6e22df74a15b0"
+  },
+  "policy": {
+    "required_failures_block_release": true,
+    "advisory_failures_are_reported": true,
+    "source_build_comparison": true,
+    "precompiled_binary_linkage": true,
+    "automatic_repository_writes": false
+  },
+  "addons": [
+    {
+      "name": "FastMachines Legacy",
+      "repository": "wickidcow/SF_FastMachines",
+      "slug": "legacy-fastmachines",
+      "tier": "required",
+      "advisory": false,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "Networks Expansion Legacy",
+      "repository": "wickidcow/SF_NetworksExp",
+      "slug": "legacy-networksexp",
+      "tier": "required",
+      "advisory": false,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "SlimeTinker IE2 Legacy",
+      "repository": "wickidcow/SF_SlimeTinkerIE2",
+      "slug": "legacy-slimetinker-ie2",
+      "tier": "required",
+      "advisory": false,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "BetterChests Legacy",
+      "repository": "wickidcow/SF_BetterChests",
+      "slug": "legacy-betterchests",
+      "tier": "required",
+      "advisory": false,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "Networks upstream",
+      "repository": "Sefiraat/Networks",
+      "slug": "upstream-networks",
+      "tier": "representative-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["original", "gugu", "legacy"]
+    },
+    {
+      "name": "Infinity Expansion 2",
+      "repository": "GuizhanCraft/InfinityExpansion2",
+      "slug": "infinity-expansion-2",
+      "tier": "representative-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["gugu", "legacy"]
+    },
+    {
+      "name": "DynaTech",
+      "repository": "ProfElements/DynaTech",
+      "slug": "dynatech",
+      "tier": "representative-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["original", "legacy"]
+    },
+    {
+      "name": "Supreme",
+      "repository": "Slimefun-Addon-Community/Supreme",
+      "slug": "supreme",
+      "tier": "representative-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["original", "gugu", "united", "legacy"]
+    },
+    {
+      "name": "Magic Expansion",
+      "repository": "Yomicer/MagicExpansion",
+      "slug": "magic-expansion",
+      "tier": "representative-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["gugu", "legacy"]
+    },
+    {
+      "name": "FluffyMachines",
+      "repository": "SlimefunGuguProject/FluffyMachines",
+      "slug": "fluffymachines",
+      "tier": "representative-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["gugu", "legacy"]
+    },
+    {
+      "name": "FastMachines upstream",
+      "repository": "GuizhanCraft/FastMachines",
+      "slug": "upstream-fastmachines",
+      "tier": "representative-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["gugu", "legacy"]
+    },
+    {
+      "name": "SlimeTinker upstream",
+      "repository": "Sefiraat/SlimeTinker",
+      "slug": "upstream-slimetinker",
+      "tier": "representative-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["original", "legacy"]
+    }
+  ]
+}

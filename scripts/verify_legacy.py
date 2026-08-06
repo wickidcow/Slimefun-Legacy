@@ -75,6 +75,7 @@ def main() -> int:
         "verify_release_4_1_18.py",
         "verify_core_platform_phase1a.py",
         "verify_core_platform_phase1b.py",
+        "verify_core_platform_phase1c.py",
         "verify_upstream_health_gate.py",
         "verify_gugu_sync.py",
         "verify_paper_purpur_compat.py",

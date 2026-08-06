@@ -1,5 +1,5 @@
 {
-  "release": "4.1.20",
+  "release": "4.1.21",
   "project": "Slimefun Legacy",
   "plugin_name": "Slimefun",
   "primary_platform": {
@@ -62,7 +62,14 @@
     "declarative_addon_platform_requirements": true,
     "documented_api_deprecation_lifecycle": true,
     "central_runtime_platform_detector": true,
-    "api_signature_baseline": true
+    "api_signature_baseline": true,
+    "runtime_addon_compatibility_registry": true,
+    "embedded_addon_compatibility_manifest": true,
+    "central_optional_dependency_service": true,
+    "source_and_binary_addon_matrix": true,
+    "dynamic_addon_ci_matrix": true,
+    "undeclared_addons_remain_loadable": true,
+    "optional_integrations_are_informational": true
   },
-  "phase": "Core Platform Phase 1B"
+  "phase": "Core Platform Phase 1C"
 }

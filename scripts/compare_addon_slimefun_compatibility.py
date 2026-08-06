@@ -21,6 +21,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TextIO
 
+from check_addon_binary_linkage import LinkageResult, analyze_linkage, write_report as write_linkage_report
+
 PASS = "PASS"
 BASELINE_BUILD_FAILED = "BASELINE_BUILD_FAILED"
 LEGACY_COMPATIBILITY_FAILED = "LEGACY_COMPATIBILITY_FAILED"
@@ -51,6 +53,7 @@ class BuildResult:
     command: list[str]
     log_file: str
     dependency_replaced: bool
+    output_jar: str | None
 
 
 def is_core_slimefun_dependency(group: str, artifact: str) -> bool:
@@ -221,6 +224,21 @@ def install_maven_jar(
     )
 
 
+def find_built_addon_jar(project: Path) -> Path | None:
+    candidates: list[Path] = []
+    for directory in (project / "build/libs", project / "target"):
+        if not directory.is_dir():
+            continue
+        for jar in directory.glob("*.jar"):
+            lowered = jar.name.lower()
+            if any(token in lowered for token in ("-sources", "-javadoc", "original-")):
+                continue
+            candidates.append(jar)
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: (path.stat().st_size, path.stat().st_mtime_ns))
+
+
 def build_project(
     *,
     label: str,
@@ -250,7 +268,7 @@ def build_project(
                 log=log,
             )
             if install_code != 0:
-                return BuildResult(label, install_code, ["mvn", "install:install-file"], log_path.name, True)
+                return BuildResult(label, install_code, ["mvn", "install:install-file"], log_path.name, True, None)
 
             wrapper = project / "mvnw"
             if wrapper.exists():
@@ -259,7 +277,15 @@ def build_project(
             else:
                 command = ["mvn", "-B", "-DskipTests", "package"]
             exit_code = stream_command(command, cwd=project, env=env, log=log)
-            return BuildResult(label, exit_code, command, log_path.name, True)
+            output_jar = find_built_addon_jar(project) if exit_code == 0 else None
+            return BuildResult(
+                label,
+                exit_code,
+                command,
+                log_path.name,
+                True,
+                str(output_jar) if output_jar else None,
+            )
 
         init_script = write_gradle_init_script(project)
         env["SLIMEFUN_COMPATIBILITY_JAR"] = str(jar)
@@ -286,7 +312,15 @@ def build_project(
                 str(init_script),
             ]
         exit_code = stream_command(command, cwd=project, env=env, log=log)
-        return BuildResult(label, exit_code, command, log_path.name, True)
+        output_jar = find_built_addon_jar(project) if exit_code == 0 else None
+        return BuildResult(
+            label,
+            exit_code,
+            command,
+            log_path.name,
+            True,
+            str(output_jar) if output_jar else None,
+        )
 
 
 def source_commit(source: Path) -> str | None:
@@ -312,6 +346,7 @@ def write_report(
     candidate_jar: Path,
     baseline_result: BuildResult | None,
     candidate_result: BuildResult | None,
+    binary_linkage: LinkageResult | None,
     error: str | None,
 ) -> None:
     payload = {
@@ -322,6 +357,7 @@ def write_report(
         "candidate_jar": str(candidate_jar),
         "baseline": baseline_result.__dict__ if baseline_result else None,
         "candidate": candidate_result.__dict__ if candidate_result else None,
+        "binary_linkage": binary_linkage.to_json() if binary_linkage else None,
         "error": error,
     }
     (report_dir / "result.json").write_text(
@@ -359,6 +395,9 @@ def write_report(
         "| --- | ---: | --- |",
         f"| Known-good baseline | {baseline_code} | `baseline.log` |",
         f"| Candidate Legacy | {candidate_code} | `candidate.log` |",
+        f"| Precompiled-addon binary linkage | "
+        f"{'pass' if binary_linkage and binary_linkage.passed else ('fail' if binary_linkage else 'not run')} | "
+        f"`binary-linkage/summary.md` |",
         "",
         f"Baseline JAR: `{baseline_jar.name}`",
         "",
@@ -401,6 +440,7 @@ def main() -> int:
                 candidate_jar=candidate_jar,
                 baseline_result=None,
                 candidate_result=None,
+                binary_linkage=None,
                 error=error,
             )
             print(error, file=sys.stderr)
@@ -427,6 +467,7 @@ def main() -> int:
                 candidate_jar=candidate_jar,
                 baseline_result=baseline_result,
                 candidate_result=None,
+                binary_linkage=None,
                 error=None,
             )
             return EXIT_CODES[status]
@@ -439,7 +480,16 @@ def main() -> int:
             jar=candidate_jar,
             report_dir=report_dir,
         )
+        binary_linkage: LinkageResult | None = None
         status = PASS if candidate_result.exit_code == 0 else LEGACY_COMPATIBILITY_FAILED
+        if status == PASS:
+            if not baseline_result.output_jar:
+                raise RuntimeError("Baseline addon build succeeded but no addon JAR was found")
+            binary_linkage = analyze_linkage(Path(baseline_result.output_jar), candidate_jar, baseline_jar)
+            write_linkage_report(binary_linkage, report_dir / "binary-linkage")
+            if not binary_linkage.passed:
+                status = LEGACY_COMPATIBILITY_FAILED
+
         write_report(
             report_dir=report_dir,
             status=status,
@@ -448,6 +498,7 @@ def main() -> int:
             candidate_jar=candidate_jar,
             baseline_result=baseline_result,
             candidate_result=candidate_result,
+            binary_linkage=binary_linkage,
             error=None,
         )
         return EXIT_CODES[status]
@@ -461,6 +512,7 @@ def main() -> int:
             candidate_jar=candidate_jar,
             baseline_result=baseline_result,
             candidate_result=candidate_result,
+            binary_linkage=None,
             error=error,
         )
         print(error, file=sys.stderr)

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/wickidcow/Slimefun-Legacy/blob/master/docs/addon-compatibility-manifest.schema.json",
+  "title": "Slimefun Legacy addon compatibility manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": 1},
+    "tested_core_variants": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": ["original", "gugu", "united", "slimefun5", "slimefun-core", "legacy"]
+      }
+    },
+    "minimum_minecraft": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$"
+    },
+    "minimum_java": {"type": "integer", "minimum": 1},
+    "required_capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "PAPER_API",
+          "REGION_SCHEDULER_API",
+          "GLOBAL_REGION_SCHEDULER_API",
+          "ASYNC_SCHEDULER_API",
+          "REGION_OWNED_EXECUTION",
+          "ASYNC_CHUNK_LOADING",
+          "ADVENTURE_COMPONENT_MESSAGES",
+          "DATA_COMPONENT_API",
+          "PLAYER_PICK_BLOCK_EVENT"
+        ]
+      }
+    },
+    "accepted_platform_families": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["PAPER", "PURPUR", "FOLIA", "PAPER_DERIVATIVE", "UNKNOWN"]}
+    },
+    "required_plugins": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "optional_plugins": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "notes": {"type": "string"}
+  },
+  "required": ["schema"]
+}

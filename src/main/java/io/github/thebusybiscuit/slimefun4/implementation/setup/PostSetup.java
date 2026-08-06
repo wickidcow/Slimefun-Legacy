@@ -1,5 +1,8 @@
 package io.github.thebusybiscuit.slimefun4.implementation.setup;
 
+import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityResult;
+import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityStatus;
+import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilitySummary;
 import io.github.thebusybiscuit.slimefun4.api.events.SlimefunItemRegistryFinalizedEvent;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
@@ -83,6 +86,8 @@ public final class PostSetup {
                 + " addons )");
         sender.sendMessage("");
 
+        reportAddonCompatibility(sender);
+
         sender.sendMessage("");
         sender.sendMessage(ChatColor.GREEN + " - Source:       https://github.com/wickidcow/Slimefun-Legacy");
         sender.sendMessage(ChatColor.GREEN + " - Bug Reports:  https://github.com/wickidcow/Slimefun-Legacy/issues");
@@ -92,6 +97,23 @@ public final class PostSetup {
         Slimefun.getItemCfg().save();
         Slimefun.getResearchCfg().save();
         Slimefun.getConfigManager().setAutoLoadingMode(true);
+    }
+
+    private static void reportAddonCompatibility(CommandSender sender) {
+        Slimefun.getAddonCompatibilityService().refresh();
+        AddonCompatibilitySummary summary = Slimefun.getAddonCompatibilityService().getSummary();
+        sender.sendMessage(ChatColor.GREEN + "Addon compatibility: " + summary.getCount(AddonCompatibilityStatus.COMPATIBLE)
+                + " compatible, " + summary.getCount(AddonCompatibilityStatus.WARNING) + " warning, "
+                + summary.getCount(AddonCompatibilityStatus.UNDECLARED) + " undeclared, "
+                + summary.getCount(AddonCompatibilityStatus.INCOMPATIBLE) + " incompatible, "
+                + summary.getCount(AddonCompatibilityStatus.DISABLED) + " disabled");
+
+        for (AddonCompatibilityResult result : Slimefun.getAddonCompatibilityService().getResults()) {
+            if (result.getStatus() == AddonCompatibilityStatus.INCOMPATIBLE) {
+                Slimefun.logger().warning("Addon compatibility failure for " + result.getPluginName()
+                        + ": " + result.describe());
+            }
+        }
     }
 
     /**

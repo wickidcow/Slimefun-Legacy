@@ -201,15 +201,15 @@ def main() -> int:
         failures.append(f"Unable to validate Phase 1A manifests: {error}")
 
     support_contract = json.loads(read(root, "compatibility/support-contract.json"))
-    require(support_contract.get("release") in {"4.1.19", "4.1.20"}, "Support contract release must retain the Phase 1A foundation", failures)
+    require(support_contract.get("release") in {"4.1.19", "4.1.20", "4.1.21"}, "Support contract release must retain the Phase 1A foundation", failures)
     require(
         support_contract.get("compatibility_policy", {}).get("capability_based_platform_api") is True,
         "Support contract does not declare the platform API",
         failures,
     )
-    require(any(version in read(root, "gradle.properties") for version in ("projectVersion=4.1.19", "projectVersion=4.1.20")), "Gradle release must retain the Phase 1A foundation", failures)
+    require(any(version in read(root, "gradle.properties") for version in ("projectVersion=4.1.19", "projectVersion=4.1.20", "projectVersion=4.1.21")), "Gradle release must retain the Phase 1A foundation", failures)
     require(
-        read(root, "CHANGELOG.md").startswith(("# Slimefun Legacy 4.1.19", "# Slimefun Legacy 4.1.20")),
+        read(root, "CHANGELOG.md").startswith(("# Slimefun Legacy 4.1.19", "# Slimefun Legacy 4.1.20", "# Slimefun Legacy 4.1.21")),
         "Changelog must start with a release containing the Phase 1A foundation",
         failures,
     )
