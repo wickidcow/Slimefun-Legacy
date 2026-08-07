@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 
 VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+FULL_GIT_SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 
 def require(condition: bool, message: str) -> None:
@@ -46,7 +47,12 @@ def validate(data: dict) -> dict[str, str]:
         ref = value.get("ref")
         require(mode == "git-ref", f"{label}.source.mode must be git-ref")
         require(isinstance(ref, str) and bool(ref.strip()), f"{label}.source.ref is missing")
-        return mode, ref.strip()
+        normalized_ref = ref.strip()
+        require(
+            FULL_GIT_SHA_RE.fullmatch(normalized_ref) is not None,
+            f"{label}.source.ref must be a full 40-character Git commit SHA",
+        )
+        return mode, normalized_ref
 
     previous_mode, previous_ref = source(previous, "previous_stable")
     floor_mode, floor_ref = source(floor, "legacy_floor")

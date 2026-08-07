@@ -4,10 +4,14 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+
+FULL_GIT_SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 
 def read(root: Path, relative: str) -> str:
@@ -75,7 +79,13 @@ def main() -> int:
         for label, entry in (("previous stable", previous), ("legacy floor", floor)):
             source = entry.get("source", {})
             require(source.get("mode") == "git-ref", f"{label} source must use a pinned git ref", failures)
-            require(bool(source.get("ref")), f"{label} source ref is missing", failures)
+            ref = source.get("ref")
+            require(bool(ref), f"{label} source ref is missing", failures)
+            require(
+                isinstance(ref, str) and FULL_GIT_SHA_RE.fullmatch(ref) is not None,
+                f"{label} source must use a full 40-character Git commit SHA",
+                failures,
+            )
         for key in (
             "single_source_for_ci_baselines",
             "previous_stable_advances_each_release",
