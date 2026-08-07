@@ -12,6 +12,7 @@ import io.github.thebusybiscuit.slimefun4.api.MinecraftVersion;
 import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityService;
 import io.github.thebusybiscuit.slimefun4.api.addons.OptionalDependencyService;
+import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationService;
 import io.github.thebusybiscuit.slimefun4.api.exceptions.TagMisconfigurationException;
 import io.github.thebusybiscuit.slimefun4.api.geo.GEOResource;
 import io.github.thebusybiscuit.slimefun4.api.gps.GPSNetwork;
@@ -39,6 +40,7 @@ import io.github.thebusybiscuit.slimefun4.core.services.PermissionsService;
 import io.github.thebusybiscuit.slimefun4.core.services.ThreadService;
 import io.github.thebusybiscuit.slimefun4.core.services.UpdaterService;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultAddonCompatibilityService;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultExternalIntegrationService;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultOptionalDependencyService;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultPlatformCompatibilityService;
 import io.github.thebusybiscuit.slimefun4.core.services.github.GitHubService;
@@ -212,6 +214,8 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
             new DefaultOptionalDependencyService(this);
     private final DefaultAddonCompatibilityService addonCompatibilityService =
             new DefaultAddonCompatibilityService(this, platformCompatibilityService, optionalDependencyService);
+    private final DefaultExternalIntegrationService externalIntegrationService =
+            new DefaultExternalIntegrationService(this);
     private final SlimefunScheduler schedulerService = new PaperScheduler(this, platformCompatibilityService);
     private final AnalyticsService analyticsService = new AnalyticsService(this);
     private final ItemStackService itemStackService = new ItemStackService();
@@ -470,6 +474,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
 
         logger.log(Level.INFO, "Loading Third-Party plugin integrations...");
         integrations.start();
+        externalIntegrationService.refresh();
 
         gitHubService.start(this);
 
@@ -957,6 +962,16 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     public static @Nonnull OptionalDependencyService getOptionalDependencyService() {
         validateInstance();
         return instance.optionalDependencyService;
+    }
+
+    /**
+     * Returns the optional external machine/storage integration registry.
+     *
+     * @return the external integration service
+     */
+    public static @Nonnull ExternalIntegrationService getExternalIntegrationService() {
+        validateInstance();
+        return instance.externalIntegrationService;
     }
 
     public static @Nonnull ItemDoctorService getItemDoctorService() {

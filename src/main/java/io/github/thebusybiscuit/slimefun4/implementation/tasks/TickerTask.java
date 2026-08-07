@@ -10,10 +10,13 @@ import io.github.thebusybiscuit.slimefun4.api.annotations.SlimefunInternal;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.services.scheduling.TaskHandle;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.MachineCircuitBreaker;
+import io.github.thebusybiscuit.slimefun4.core.services.stability.MachineFailureSnapshot;
+import io.github.thebusybiscuit.slimefun4.core.services.stability.MachineFailureTracker;
 import io.github.thebusybiscuit.slimefun4.core.ticker.TickLocation;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -63,8 +66,10 @@ public class TickerTask implements Runnable {
     private final Set<BlockPosition> queuedSynchronousTicks = ConcurrentHashMap.newKeySet();
     private final Map<BlockTicker, Object> foliaTickerLocks = new ConcurrentHashMap<>();
     private final MachineCircuitBreaker<BlockPosition> circuitBreaker = new MachineCircuitBreaker<>();
+    private final MachineFailureTracker<BlockPosition> failureTracker = new MachineFailureTracker<>();
+    private final Map<BlockTicker, Long> tickerLifecycleLogTimes = new ConcurrentHashMap<>();
 
-    private static final int CIRCUIT_FAILURE_THRESHOLD = 4;
+    private static final int DEFAULT_CIRCUIT_FAILURE_THRESHOLD = 4;
 
     private final AtomicBoolean running = new AtomicBoolean();
     private int tickRate;
@@ -290,6 +295,11 @@ public class TickerTask implements Runnable {
                         if (tickBlock(location, item, data, timestamp)) {
                             markTickSuccess(position);
                         }
+                    } catch (Exception | LinkageError throwable) {
+                        if (profilerScheduled) {
+                            Slimefun.getProfiler().cancelScheduledEntry();
+                        }
+                        reportErrors(location, item, throwable);
                     } finally {
                         queuedSynchronousTicks.remove(position);
                     }
@@ -318,6 +328,7 @@ public class TickerTask implements Runnable {
     private void clearFailureState(BlockPosition position) {
         circuitBreaker.clear(position);
         bugs.remove(position);
+        failureTracker.clear(position);
     }
 
     @ParametersAreNonnullByDefault
@@ -346,8 +357,18 @@ public class TickerTask implements Runnable {
         for (BlockTicker ticker : tickers) {
             try {
                 ticker.startNewTick();
+                tickerLifecycleLogTimes.remove(ticker);
             } catch (RuntimeException | LinkageError throwable) {
-                Slimefun.logger().log(Level.SEVERE, "A BlockTicker failed while starting a new tick cycle.", throwable);
+                long now = System.currentTimeMillis();
+                long cooldown = getTickerLifecycleLogCooldownSeconds() * 1000L;
+                Long previous = tickerLifecycleLogTimes.putIfAbsent(ticker, now);
+                if (previous == null || now - previous >= cooldown) {
+                    tickerLifecycleLogTimes.put(ticker, now);
+                    Slimefun.logger().log(
+                            Level.SEVERE,
+                            "A BlockTicker failed while starting a new tick cycle. Repeated reports are rate-limited.",
+                            throwable);
+                }
             }
         }
 
@@ -383,41 +404,63 @@ public class TickerTask implements Runnable {
     @ParametersAreNonnullByDefault
     private void reportErrors(Location l, SlimefunItem item, Throwable x) {
         BlockPosition position = new BlockPosition(l);
+        long now = System.currentTimeMillis();
         if (circuitBreaker.isOpen(position)) {
             long cooldownSeconds = getCircuitCooldownSeconds();
-            circuitBreaker.open(position, System.currentTimeMillis() + cooldownSeconds * 1000L);
+            long retryAfter = now + cooldownSeconds * 1000L;
+            circuitBreaker.open(position, retryAfter);
             bugs.remove(position);
-            Slimefun.logger().log(Level.SEVERE,
+            failureTracker.recordFailure(position, l, item, x, 1, now, retryAfter, true);
+            Slimefun.logger().log(
+                    Level.SEVERE,
                     "The retry for machine {0} at {1}, {2}, {3} failed; its circuit has been reopened for {4} seconds.",
                     new Object[] {item.getId(), l.getBlockX(), l.getBlockY(), l.getBlockZ(), cooldownSeconds});
             return;
         }
 
         int errors = bugs.merge(position, 1, Integer::sum);
+        int threshold = getCircuitFailureThreshold();
+        boolean suppressFullReport = errors > 1;
+        long pausedUntil = 0L;
 
         if (errors == 1) {
             new ErrorReport<>(x, l, item);
         }
 
-        if (errors >= CIRCUIT_FAILURE_THRESHOLD) {
+        if (errors >= threshold) {
             long cooldownSeconds = getCircuitCooldownSeconds();
-            circuitBreaker.open(position, System.currentTimeMillis() + cooldownSeconds * 1000L);
+            pausedUntil = now + cooldownSeconds * 1000L;
+            circuitBreaker.open(position, pausedUntil);
             bugs.remove(position);
 
             Slimefun.logger().log(Level.SEVERE, "X: {0} Y: {1} Z: {2} ({3})", new Object[] {
                 l.getBlockX(), l.getBlockY(), l.getBlockZ(), item.getId()
             });
-            Slimefun.logger().log(Level.SEVERE,
+            Slimefun.logger().log(
+                    Level.SEVERE,
                     "This machine failed {0} consecutive ticks and has been paused for {1} seconds.",
-                    new Object[] {CIRCUIT_FAILURE_THRESHOLD, cooldownSeconds});
-            Slimefun.logger().log(Level.SEVERE,
+                    new Object[] {threshold, cooldownSeconds});
+            Slimefun.logger().log(
+                    Level.SEVERE,
                     "It will be retried automatically. The ticker registration and stored machine data were preserved.");
         }
+
+        failureTracker.recordFailure(position, l, item, x, errors, now, pausedUntil, suppressFullReport);
     }
 
     private long getCircuitCooldownSeconds() {
         int configured = Slimefun.getCfg().getInt("stability.machine-circuit-breaker-cooldown-seconds");
         return configured > 0 ? Math.max(30L, configured) : 300L;
+    }
+
+    private int getCircuitFailureThreshold() {
+        int configured = Slimefun.getCfg().getInt("stability.machine-circuit-breaker-failure-threshold");
+        return configured >= 2 ? Math.min(50, configured) : DEFAULT_CIRCUIT_FAILURE_THRESHOLD;
+    }
+
+    private long getTickerLifecycleLogCooldownSeconds() {
+        int configured = Slimefun.getCfg().getInt("stability.ticker-lifecycle-log-cooldown-seconds");
+        return configured > 0 ? Math.max(10L, configured) : 60L;
     }
 
     private boolean canAttemptTick(BlockPosition position) {
@@ -427,23 +470,42 @@ public class TickerTask implements Runnable {
     private void markTickSuccess(BlockPosition position) {
         bugs.remove(position);
         circuitBreaker.clear(position);
+        failureTracker.clear(position);
     }
 
     public boolean retryMachine(@Nonnull Location location) {
         BlockPosition position = new BlockPosition(location);
         bugs.remove(position);
         queuedSynchronousTicks.remove(position);
+        failureTracker.clear(position);
         return circuitBreaker.clear(position);
     }
 
     public int retryAllMachines() {
         int count = circuitBreaker.clearAll();
         bugs.clear();
+        failureTracker.clearAll();
         return count;
     }
 
     public int getPausedMachineCount() {
         return circuitBreaker.size();
+    }
+
+    public int getFailingMachineCount() {
+        return failureTracker.getActiveFailureCount();
+    }
+
+    public long getObservedMachineFailureCount() {
+        return failureTracker.getTotalFailureCount();
+    }
+
+    public long getSuppressedMachineFailureReportCount() {
+        return failureTracker.getSuppressedReportCount();
+    }
+
+    public @Nonnull List<MachineFailureSnapshot> getMachineFailureSnapshots(int limit) {
+        return failureTracker.snapshot(limit);
     }
 
     public boolean isPaused() {

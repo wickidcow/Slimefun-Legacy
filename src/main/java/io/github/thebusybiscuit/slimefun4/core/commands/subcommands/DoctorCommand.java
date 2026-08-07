@@ -5,14 +5,19 @@ import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityResult;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityStatus;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilitySummary;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.AddonDoctorReport;
+import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationCapability;
+import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationStatus;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.AddonDoctorService;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorReport;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorService;
+import io.github.thebusybiscuit.slimefun4.core.services.stability.MachineFailureSnapshot;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -44,6 +49,8 @@ final class DoctorCommand extends SubCommand {
             case "scan" -> startServerRun(sender, service, false);
             case "addons" -> runAddonDoctors(sender, args);
             case "compatibility", "compat" -> sendAddonCompatibility(sender, args);
+            case "runtime", "failures" -> sendRuntimeFailures(sender);
+            case "integrations", "integration" -> sendExternalIntegrations(sender);
             case "repair", "fix" -> {
                 if (args.length < 3 || !args[2].equalsIgnoreCase("confirm")) {
                     send(sender, "&eThis safely changes visible names and lore across stored items.");
@@ -64,6 +71,12 @@ final class DoctorCommand extends SubCommand {
                 + Slimefun.getDatabaseManager().getPendingWriteTaskCount());
         send(sender, "&7Paused machine circuits: &e"
                 + Slimefun.getTickerTask().getPausedMachineCount());
+        send(sender, "&7Currently failing machines: &e"
+                + Slimefun.getTickerTask().getFailingMachineCount());
+        send(sender, "&7Observed machine failures since startup: &e"
+                + Slimefun.getTickerTask().getObservedMachineFailureCount());
+        send(sender, "&7Suppressed duplicate machine reports: &e"
+                + Slimefun.getTickerTask().getSuppressedMachineFailureReportCount());
         send(sender, "&7Automatic item repair: " + (service.isEnabled() ? "&aEnabled" : "&cDisabled"));
         AddonDoctorService addonDoctors = new AddonDoctorService(plugin);
         send(sender, "&7Registered addon doctors: &e" + addonDoctors.getProviders().size());
@@ -158,6 +171,58 @@ final class DoctorCommand extends SubCommand {
         send(sender, "&7Offline player inventories and unloaded chests are repaired automatically when loaded.");
     }
 
+    private void sendRuntimeFailures(CommandSender sender) {
+        long now = System.currentTimeMillis();
+        List<MachineFailureSnapshot> failures = Slimefun.getTickerTask().getMachineFailureSnapshots(25);
+        send(sender, "&6Slimefun Runtime Failure Isolation");
+        send(sender, "&7Active failing locations: &e" + Slimefun.getTickerTask().getFailingMachineCount()
+                + " &8| &7Paused: &e" + Slimefun.getTickerTask().getPausedMachineCount());
+        send(sender, "&7Failures observed: &e" + Slimefun.getTickerTask().getObservedMachineFailureCount()
+                + " &8| &7Duplicate reports suppressed: &e"
+                + Slimefun.getTickerTask().getSuppressedMachineFailureReportCount());
+        if (failures.isEmpty()) {
+            send(sender, "&aNo currently failing machine locations are tracked.");
+            return;
+        }
+        for (MachineFailureSnapshot failure : failures) {
+            String state = failure.isPaused(now)
+                    ? "&cPAUSED " + failure.getRetrySeconds(now) + "s"
+                    : "&eRETRYING";
+            send(sender, "&8- " + state + " &f" + failure.getItemId() + " &7[" + failure.getAddonName() + "]");
+            send(sender, "&8  " + failure.getWorldName() + " " + failure.getX() + ", " + failure.getY() + ", "
+                    + failure.getZ() + " &8| &7" + simpleFailureName(failure.getFailureType()));
+            send(sender, "&8  &7" + failure.getFailureMessage());
+        }
+        if (Slimefun.getTickerTask().getFailingMachineCount() > failures.size()) {
+            send(sender, "&7Only the 25 most recent failing locations are shown.");
+        }
+    }
+
+    private void sendExternalIntegrations(CommandSender sender) {
+        Slimefun.getExternalIntegrationService().refresh();
+        List<ExternalIntegrationStatus> statuses = Slimefun.getExternalIntegrationService().getStatuses();
+        send(sender, "&6Slimefun External Integration Foundation");
+        for (ExternalIntegrationStatus status : statuses) {
+            String detected = status.isDetected() ? (status.isEnabled() ? "&aDetected" : "&cDisabled") : "&7Not installed";
+            String bridge = status.isProviderRegistered() ? "&aBridge active" : "&eDetection only";
+            String version = status.getPluginVersion() == null ? "" : " v" + status.getPluginVersion();
+            send(sender, "&8- &f" + status.getDisplayName() + version + "&7: " + detected + " &8| " + bridge);
+            if (!status.getCapabilities().isEmpty()) {
+                String capabilities = status.getCapabilities().stream()
+                        .sorted(Comparator.comparing(ExternalIntegrationCapability::getDisplayName))
+                        .map(ExternalIntegrationCapability::getDisplayName)
+                        .collect(Collectors.joining(", "));
+                send(sender, "&8  &7Capabilities: &f" + capabilities);
+            }
+            send(sender, "&8  &7" + status.getDetail());
+        }
+        send(sender, "&7Rebar/Pylon are intentionally not hard-linked; adapters must explicitly register capabilities.");
+    }
+
+    private String simpleFailureName(String className) {
+        int separator = className.lastIndexOf('.');
+        return separator >= 0 ? className.substring(separator + 1) : className;
+    }
 
     private void runAddonDoctors(CommandSender sender, String[] args) {
         AddonDoctorService service = new AddonDoctorService(plugin);
@@ -309,7 +374,8 @@ final class DoctorCommand extends SubCommand {
     }
 
     private void sendUsage(CommandSender sender) {
-        send(sender, "&eUsage: /slimefun doctor [status|hand|inventory [player]|scan|repair confirm|addons|compatibility]");
+        send(sender, "&eUsage: /slimefun doctor [status|hand|inventory [player]|scan|repair confirm|addons]");
+        send(sender, "&e       /slimefun doctor [compatibility|runtime|integrations]");
     }
 
     private void send(CommandSender sender, String message) {

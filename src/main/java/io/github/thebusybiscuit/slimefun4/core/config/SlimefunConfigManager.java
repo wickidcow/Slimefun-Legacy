@@ -130,6 +130,8 @@ public class SlimefunConfigManager {
             researchAutoConvert = pluginConfig.getBoolean("researches.auto-convert");
 
             pluginConfig.setDefaultValue("stability.machine-circuit-breaker-cooldown-seconds", 300);
+            pluginConfig.setDefaultValue("stability.machine-circuit-breaker-failure-threshold", 4);
+            pluginConfig.setDefaultValue("stability.ticker-lifecycle-log-cooldown-seconds", 60);
             pluginConfig.setDefaultValue("stability.item-doctor.enabled", true);
             pluginConfig.setDefaultValue("stability.item-doctor.repair-player-on-join", true);
             pluginConfig.setDefaultValue("stability.item-doctor.repair-opened-inventories", true);

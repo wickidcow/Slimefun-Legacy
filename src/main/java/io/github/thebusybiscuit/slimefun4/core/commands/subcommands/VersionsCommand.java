@@ -131,7 +131,9 @@ class VersionsCommand extends SubCommand {
 
             builder.append(Component.text("\n"));
             Slimefun.getAddonCompatibilityService().refresh();
+            Slimefun.getExternalIntegrationService().refresh();
             addAddonCompatibilitySummary(builder);
+            addExternalIntegrationSummary(builder);
             addPluginVersions(builder);
 
             sendVersionReport(sender, builder.build());
@@ -190,6 +192,20 @@ class VersionsCommand extends SubCommand {
                 .append(Component.text(
                         summary.getCount(AddonCompatibilityStatus.DISABLED) + " disabled\n",
                         NamedTextColor.DARK_RED));
+    }
+
+    private void addExternalIntegrationSummary(
+            @Nonnull net.kyori.adventure.text.TextComponent.Builder builder) {
+        long detected = Slimefun.getExternalIntegrationService().getStatuses().stream()
+                .filter(status -> status.isDetected() && status.isEnabled())
+                .count();
+        long bridged = Slimefun.getExternalIntegrationService().getStatuses().stream()
+                .filter(status -> status.isProviderRegistered() && status.isEnabled())
+                .count();
+        if (detected > 0 || bridged > 0) {
+            builder.append(Component.text("External systems ", NamedTextColor.GREEN))
+                    .append(Component.text(detected + " detected, " + bridged + " bridged\n", NamedTextColor.DARK_GREEN));
+        }
     }
 
     private Component compatibilityComponent(AddonCompatibilityResult result) {

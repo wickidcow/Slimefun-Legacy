@@ -1,3 +1,22 @@
+# Slimefun Legacy 4.1.23 — Core Platform Phase 1E
+
+## Runtime stability
+
+- Tracks live machine failures and circuit-breaker retry state for administrator diagnostics.
+- Protects deferred synchronized machine callbacks and rate-limits repeated ticker lifecycle failures.
+- Adds configurable machine failure threshold and ticker lifecycle log cooldown.
+- Adds `/sf doctor runtime` and richer stability status output.
+
+## External integration foundation
+
+- Adds a capability-based provider API for external inventory, storage, cargo, machine, energy and fluid bridges.
+- Detects Rebar and Pylon without hard-linking their experimental APIs.
+- Adds `/sf doctor integrations` and external-system status to `/sf versions`.
+
+## Compatibility
+
+- Additive only: no existing addon API signatures, item IDs, recipes, storage keys, database schemas or saved-world formats are removed or migrated.
+
 # Slimefun Legacy 4.1.22 — Core Platform Phase 1D
 
 ## Compatibility lifecycle

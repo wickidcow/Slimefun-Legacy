@@ -71,7 +71,7 @@ def main() -> int:
         policy = baselines.get("policy", {})
         require(baselines.get("schema") == 1, "Release baseline registry schema must be 1", failures)
         require(candidate.get("version") == current, "Baseline candidate must match projectVersion", failures)
-        require(previous.get("version") == "4.1.21", "Phase 1D previous stable baseline must be 4.1.21", failures)
+        require(version_tuple(previous.get("version")) is not None and version_tuple(previous.get("version")) >= (4, 1, 21), "Previous stable baseline must be 4.1.21 or newer", failures)
         require(previous.get("release_blocking") is True, "Previous stable baseline must block candidate regressions", failures)
         require(floor.get("version") == "4.1.15", "Legacy compatibility floor must remain 4.1.15", failures)
         require(floor.get("release_blocking") is False, "Legacy compatibility floor must remain advisory", failures)
@@ -112,7 +112,7 @@ def main() -> int:
 
         support = json.loads(read(root, "compatibility/support-contract.json"))
         require(support.get("release") == current, "Support contract release must match projectVersion", failures)
-        require(support.get("phase") == "Core Platform Phase 1D", "Support contract must identify Core Platform Phase 1D", failures)
+        require(isinstance(support.get("phase"), str) and support.get("phase", "").startswith("Core Platform Phase 1"), "Support contract must retain the Core Platform phase marker", failures)
         support_policy = support.get("compatibility_policy", {})
         for key in (
             "rolling_previous_stable_baseline",
@@ -172,16 +172,16 @@ def main() -> int:
             if output.is_file():
                 values = dict(line.split("=", 1) for line in output.read_text(encoding="utf-8").splitlines() if "=" in line)
                 require(values.get("candidate_version") == current, "Baseline reader candidate output is incorrect", failures)
-                require(values.get("previous_version") == "4.1.21", "Baseline reader previous stable output is incorrect", failures)
+                require(version_tuple(values.get("previous_version")) is not None and version_tuple(values.get("previous_version")) >= (4, 1, 21), "Baseline reader previous stable output is incorrect", failures)
                 require(values.get("floor_version") == "4.1.15", "Baseline reader legacy floor output is incorrect", failures)
             else:
                 failures.append("Release baseline reader did not create GitHub output")
 
         readme = read(root, "README.md")
         changelog = read(root, "CHANGELOG.md")
-        require("[Release Notes](SLIMEFUN_LEGACY_4.1.22.md)" in readme, "README release notes link is not current", failures)
-        require("Slimefun Legacy 4.1.22 is tested primarily against" in readme, "README compatibility release text is stale", failures)
-        require(changelog.startswith("# Slimefun Legacy 4.1.22 — Core Platform Phase 1D"), "Changelog must start with Phase 1D", failures)
+        require("[Release Notes](SLIMEFUN_LEGACY_4.1." in readme, "README release notes link is missing", failures)
+        require("is tested primarily against" in readme, "README compatibility release text is missing", failures)
+        require("# Slimefun Legacy 4.1.22 — Core Platform Phase 1D" in changelog, "Changelog must retain the Phase 1D release entry", failures)
     except (FileNotFoundError, json.JSONDecodeError, TypeError, ValueError) as error:
         failures.append(f"Phase 1D verifier could not inspect repository state: {error}")
 

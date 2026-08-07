@@ -1,5 +1,5 @@
 {
-  "release": "4.1.22",
+  "release": "4.1.23",
   "project": "Slimefun Legacy",
   "plugin_name": "Slimefun",
   "primary_platform": {
@@ -76,7 +76,12 @@
     "previous_stable_regressions_block_release": true,
     "legacy_floor_failures_are_advisory": true,
     "api_and_addon_workflows_share_baseline_registry": true,
-    "forward_compatible_phase_verifiers": true
+    "forward_compatible_phase_verifiers": true,
+    "runtime_machine_failure_isolation": true,
+    "rate_limited_ticker_lifecycle_failures": true,
+    "external_integration_provider_api": true,
+    "rebar_pylon_hard_dependency": false,
+    "external_capabilities_require_explicit_provider": true
   },
-  "phase": "Core Platform Phase 1D"
+  "phase": "Core Platform Phase 1E"
 }
