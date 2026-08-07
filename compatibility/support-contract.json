@@ -85,7 +85,11 @@
     "rebar_pylon_reflective_block_adapter": true,
     "external_block_capability_probe": true,
     "rebar_pylon_cargo_transfer": false,
-    "rebar_pylon_energy_exchange": false
+    "rebar_pylon_energy_exchange": false,
+    "external_integration_failure_isolation": true,
+    "external_integration_admin_recovery": true,
+    "normal_slimefun_core_hash_guard": true,
+    "operator_readable_versions_compatibility": true
   },
   "phase": "Core Platform Phase 1E"
 }

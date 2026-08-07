@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Verify Slimefun Legacy Core Platform Phase 1E runtime/integration invariants."""
 from __future__ import annotations
-import json, re, sys
+import hashlib, json, re, sys
 from pathlib import Path
 
 
@@ -30,11 +30,14 @@ def main():
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/integrations/ExternalIntegrationProvider.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/integrations/ExternalIntegrationService.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/integrations/ExternalIntegrationStatus.java",
+        "src/main/java/io/github/thebusybiscuit/slimefun4/api/integrations/ExternalIntegrationFailureSnapshot.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/compatibility/DefaultExternalIntegrationService.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/compatibility/ReflectiveRebarAccess.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/compatibility/ReflectiveRebarIntegrationProvider.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/MachineFailureTracker.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/MachineFailureSnapshot.java",
+        "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ExternalIntegrationFailureTracker.java",
+        "compatibility/phase1e-normal-core-sha256.json",
         "src/test/java/io/github/thebusybiscuit/slimefun4/api/integrations/TestExternalBlockIntegration.java",
     )
     for f in files:
@@ -53,11 +56,33 @@ def main():
         ):
             req(token in ticker, f"Ticker Phase 1E invariant missing: {token}", failures)
 
+        versions = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/VersionsCommand.java")
+        for token in (
+            '"✔ Compatible"',
+            '"⚠ Compatible with warnings"',
+            '"? Compatibility not verified"',
+            '"✕ Incompatible"',
+            '"✕ Disabled"',
+            '"Overall: ⚠ No known incompatible addons; review warnings/not-verified entries"',
+            '"? Not verified means the addon is loaded, but it did not declare Slimefun Legacy compatibility.',
+            'result.getSource().getDisplayName()',
+            '.orElseGet(this::uncheckedCompatibilityComponent)',
+        ):
+            req(token in versions, f"Versions compatibility clarity invariant missing: {token}", failures)
+        req(
+            'Component.text(" [" + result.getStatus().getDisplayName() + "]"' not in versions,
+            "Versions must not expose raw bracketed compatibility enum labels",
+            failures,
+        )
+
         doctor = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java")
         req('case "runtime", "failures"' in doctor, "Doctor runtime mode missing", failures)
         req('case "integrations", "integration"' in doctor, "Doctor integrations mode missing", failures)
         req('args[2].equalsIgnoreCase("probe")' in doctor, "Doctor integration block probe missing", failures)
         req("inspectBlock(block)" in doctor, "Doctor integration block inspection hook missing", failures)
+        req("retryRuntimeFailures(sender, args)" in doctor, "Doctor runtime recovery controls missing", failures)
+        req("retryExternalIntegrations(sender, args)" in doctor, "Doctor integration recovery controls missing", failures)
+        req('args[2].equalsIgnoreCase("reload")' in doctor, "Doctor integration reload control missing", failures)
 
         sf = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/Slimefun.java")
         req("getExternalIntegrationService()" in sf, "External integration service accessor missing", failures)
@@ -66,6 +91,9 @@ def main():
         service_api = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/api/integrations/ExternalIntegrationService.java")
         req("Optional<ExternalBlockIntegration> inspectBlock" in provider_api, "Provider block inspection API missing", failures)
         req("List<ExternalBlockIntegration> inspectBlock" in service_api, "Service block inspection API missing", failures)
+        req("List<ExternalIntegrationFailureSnapshot> getFailureSnapshots" in service_api, "External integration failure snapshots API missing", failures)
+        req("default boolean retry(" in service_api, "Additive external integration retry API missing", failures)
+        req("default int retryAll()" in service_api, "Additive external integration retry-all API missing", failures)
 
         ext = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/compatibility/DefaultExternalIntegrationService.java")
         for token in (
@@ -75,6 +103,12 @@ def main():
             "ReflectiveRebarIntegrationProvider",
             "effectiveProviders.putAll(providers)",
             "provider.inspectBlock(block)",
+            "ExternalIntegrationFailureTracker",
+            "MachineCircuitBreaker<String>",
+            "external-integration-failure-threshold",
+            "external-integration-cooldown-seconds",
+            "getFailureSnapshots",
+            "retryAll",
         ):
             req(token in ext, f"External integration registry invariant missing: {token}", failures)
 
@@ -114,11 +148,23 @@ def main():
             "external_capabilities_require_explicit_provider",
             "rebar_pylon_reflective_block_adapter",
             "external_block_capability_probe",
+            "external_integration_failure_isolation",
+            "external_integration_admin_recovery",
+            "normal_slimefun_core_hash_guard",
+            "operator_readable_versions_compatibility",
         ):
             req(pol.get(key) is True, f"Phase 1E support policy missing: {key}", failures)
         req(pol.get("rebar_pylon_hard_dependency") is False, "Rebar/Pylon must remain optional", failures)
         req(pol.get("rebar_pylon_cargo_transfer") is False, "Part 2 must not enable cross-network cargo transfer", failures)
         req(pol.get("rebar_pylon_energy_exchange") is False, "Part 2 must not enable Rebar energy exchange", failures)
+
+        core_guard = json.loads(read(root, "compatibility/phase1e-normal-core-sha256.json"))
+        for rel, expected in core_guard.get("files", {}).items():
+            path = root / rel
+            req(path.is_file(), f"Normal Slimefun compatibility guard file missing: {rel}", failures)
+            if path.is_file():
+                actual = hashlib.sha256(path.read_bytes()).hexdigest()
+                req(actual == expected, f"Normal Slimefun core changed during Phase 1E Part 3: {rel}", failures)
     except Exception as e:
         failures.append(f"Phase 1E verifier failed to inspect repository: {e}")
 
@@ -139,6 +185,9 @@ def main():
         "- external capability/provider boundary validated\n"
         "- reflection-only Rebar/Pylon block adapters validated\n"
         "- targeted external block capability probe validated\n"
+        "- external provider failure isolation and admin recovery validated\n"
+        "- /sf versions addon compatibility labels are operator-readable and explain unverified addons\n"
+        "- normal Slimefun cargo, energy, guide, ticker and addon-facing core hashes remain unchanged\n"
         "- cross-network cargo transfer and Rebar energy exchange remain disabled\n",
         encoding="utf-8",
     )

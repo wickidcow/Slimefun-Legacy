@@ -176,22 +176,41 @@ class VersionsCommand extends SubCommand {
     private void addAddonCompatibilitySummary(
             @Nonnull net.kyori.adventure.text.TextComponent.Builder builder) {
         AddonCompatibilitySummary summary = Slimefun.getAddonCompatibilityService().getSummary();
-        builder.append(Component.text("Addon compatibility ", NamedTextColor.GREEN))
-                .append(Component.text(
-                        summary.getCount(AddonCompatibilityStatus.COMPATIBLE) + " compatible, ",
-                        NamedTextColor.DARK_GREEN))
-                .append(Component.text(
-                        summary.getCount(AddonCompatibilityStatus.WARNING) + " warning, ",
-                        NamedTextColor.YELLOW))
-                .append(Component.text(
-                        summary.getCount(AddonCompatibilityStatus.UNDECLARED) + " undeclared, ",
-                        NamedTextColor.AQUA))
-                .append(Component.text(
-                        summary.getCount(AddonCompatibilityStatus.INCOMPATIBLE) + " incompatible, ",
-                        NamedTextColor.RED))
-                .append(Component.text(
-                        summary.getCount(AddonCompatibilityStatus.DISABLED) + " disabled\n",
-                        NamedTextColor.DARK_RED));
+        int compatible = summary.getCount(AddonCompatibilityStatus.COMPATIBLE);
+        int warning = summary.getCount(AddonCompatibilityStatus.WARNING);
+        int notVerified = summary.getCount(AddonCompatibilityStatus.UNDECLARED);
+        int incompatible = summary.getCount(AddonCompatibilityStatus.INCOMPATIBLE);
+        int disabled = summary.getCount(AddonCompatibilityStatus.DISABLED);
+
+        builder.append(Component.text("Addon compatibility: ", NamedTextColor.GREEN))
+                .append(Component.text("✔ " + compatible + " compatible", NamedTextColor.DARK_GREEN))
+                .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
+                .append(Component.text("⚠ " + warning + " warning", NamedTextColor.YELLOW))
+                .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
+                .append(Component.text("? " + notVerified + " not verified", NamedTextColor.GRAY))
+                .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
+                .append(Component.text("✕ " + incompatible + " incompatible", NamedTextColor.RED))
+                .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
+                .append(Component.text("⏸ " + disabled + " disabled\n", NamedTextColor.DARK_RED));
+
+        if (incompatible == 0 && disabled == 0) {
+            NamedTextColor overallColor = warning == 0 && notVerified == 0
+                    ? NamedTextColor.GREEN
+                    : NamedTextColor.YELLOW;
+            String overall = warning == 0 && notVerified == 0
+                    ? "Overall: ✔ All detected addons report compatible"
+                    : "Overall: ⚠ No known incompatible addons; review warnings/not-verified entries";
+            builder.append(Component.text(overall + '\n', overallColor));
+        } else {
+            builder.append(Component.text(
+                    "Overall: ✕ One or more addons are disabled or incompatible\n", NamedTextColor.RED));
+        }
+
+        if (notVerified > 0) {
+            builder.append(Component.text(
+                    "? Not verified means the addon is loaded, but it did not declare Slimefun Legacy compatibility.\n",
+                    NamedTextColor.GRAY));
+        }
     }
 
     private void addExternalIntegrationSummary(
@@ -209,17 +228,57 @@ class VersionsCommand extends SubCommand {
     }
 
     private Component compatibilityComponent(AddonCompatibilityResult result) {
-        NamedTextColor color = switch (result.getStatus()) {
-            case COMPATIBLE -> NamedTextColor.DARK_GREEN;
-            case WARNING -> NamedTextColor.YELLOW;
-            case UNDECLARED -> NamedTextColor.AQUA;
-            case DISABLED, INCOMPATIBLE -> NamedTextColor.RED;
-        };
-        String hoverText = result.getMessages().isEmpty()
-                ? result.getStatus().getDisplayName()
-                : result.getStatus().getDisplayName() + "\n" + String.join("\n", result.getMessages());
-        return Component.text(" [" + result.getStatus().getDisplayName() + "]", color)
-                .hoverEvent(HoverEvent.showText(Component.text(hoverText)));
+        NamedTextColor color;
+        String label;
+        String explanation;
+
+        switch (result.getStatus()) {
+            case COMPATIBLE -> {
+                color = NamedTextColor.DARK_GREEN;
+                label = "✔ Compatible";
+                explanation = "This addon declared compatibility and passed the current Slimefun Legacy runtime checks.";
+            }
+            case WARNING -> {
+                color = NamedTextColor.YELLOW;
+                label = "⚠ Compatible with warnings";
+                explanation = "No hard incompatibility was detected, but one or more compatibility warnings need review.";
+            }
+            case UNDECLARED -> {
+                color = NamedTextColor.GRAY;
+                label = "? Compatibility not verified";
+                explanation = "The addon is loaded, but it does not provide a Slimefun Legacy compatibility declaration. This is not an incompatibility result.";
+            }
+            case DISABLED -> {
+                color = NamedTextColor.RED;
+                label = "✕ Disabled";
+                explanation = "The addon is disabled, so Slimefun cannot verify runtime compatibility.";
+            }
+            case INCOMPATIBLE -> {
+                color = NamedTextColor.RED;
+                label = "✕ Incompatible";
+                explanation = "The addon's declared requirements do not match the current Slimefun/server environment.";
+            }
+            default -> throw new IllegalStateException("Unhandled addon compatibility status: " + result.getStatus());
+        }
+
+        StringBuilder hoverText = new StringBuilder(label)
+                .append("\n")
+                .append(explanation)
+                .append("\nCompatibility source: ")
+                .append(result.getSource().getDisplayName());
+        if (!result.getMessages().isEmpty()) {
+            hoverText.append("\n\nDetails:\n- ").append(String.join("\n- ", result.getMessages()));
+        }
+
+        return Component.text(label, color)
+                .hoverEvent(HoverEvent.showText(Component.text(hoverText.toString())));
+    }
+
+    private Component uncheckedCompatibilityComponent() {
+        return Component.text("? Compatibility not checked", NamedTextColor.GRAY)
+                .hoverEvent(HoverEvent.showText(Component.text(
+                        "Slimefun did not receive a compatibility result for this addon. "
+                                + "The addon may still be loaded, but its compatibility status is unknown.")));
     }
 
     @SuppressWarnings("deprecation")
@@ -320,9 +379,12 @@ class VersionsCommand extends SubCommand {
             Component compatibilityComp = Slimefun.getAddonCompatibilityService()
                     .getResult(plugin.getName())
                     .map(this::compatibilityComponent)
-                    .orElse(Component.empty());
+                    .orElseGet(this::uncheckedCompatibilityComponent);
 
-            builder.append(nameComp).append(versionComp).append(compatibilityComp);
+            builder.append(nameComp)
+                    .append(versionComp)
+                    .append(Component.text(" — ", NamedTextColor.DARK_GRAY))
+                    .append(compatibilityComp);
         }
     }
 }

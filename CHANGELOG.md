@@ -2,22 +2,29 @@
 
 ## Runtime stability
 
-- Tracks live machine failures and circuit-breaker retry state for administrator diagnostics.
+- Tracks live machine failures and automatic retry/isolation state for administrator diagnostics.
 - Protects deferred synchronized machine callbacks and rate-limits repeated ticker lifecycle failures.
-- Adds configurable machine failure threshold and ticker lifecycle log cooldown.
-- Adds `/sf doctor runtime` and richer stability status output.
+- Adds `/sf doctor runtime retry` recovery controls without removing ticker registrations or machine data.
 
-## Rebar/Pylon compatibility adapters
+## External integration hardening
 
-- Adds a capability-based external integration API plus per-block inspection.
-- Adds reflection-only Rebar/Pylon adapters with no hard dependency.
-- Maps Rebar inventory/storage, cargo/logistics, processor/machine and fluid endpoint marker interfaces.
-- Adds `/sf doctor integrations probe` for targeted block capability diagnostics.
-- Keeps cross-network item transfer and Rebar/Pylon electricity conversion disabled until their semantics can be bridged safely.
+- Adds capability-based Rebar/Pylon discovery without hard-linking experimental APIs.
+- Isolates repeatedly failing external provider status/probe callbacks independently from Slimefun core.
+- Adds `/sf doctor integrations probe`, `retry <id|all>`, and `reload`.
+- Keeps Rebar/Pylon cargo transfer and energy exchange disabled until semantics are explicitly proven compatible.
+
+## Administrator diagnostics
+
+- Reworked `/sf versions` so every addon has a plain-language compatibility result instead of raw labels such as `[Undeclared]`.
+- Shows `✔ Compatible`, `⚠ Compatible with warnings`, `? Compatibility not verified`, `✕ Incompatible`, or `✕ Disabled` beside each addon version.
+- Explains that "not verified" means an enabled addon did not provide a Legacy compatibility declaration; it is not automatically considered incompatible.
+- Adds an overall compatibility summary while keeping detailed declaration sources and reasons in hover text.
 
 ## Compatibility
 
-- Additive only: no existing addon API signatures, item IDs, recipes, storage keys, database schemas or saved-world formats are removed or migrated.
+- Keeps the 991 protected API signature baseline intact.
+- Adds a hash guard proving normal Slimefun Cargo, Energy, NetworkManager, Guide, SlimefunItem, BlockTicker, AContainer and the green TickerTask are unchanged by Part 3.
+- No item IDs, recipes, storage keys, database schemas, saved-world formats, normal cargo behavior, or normal energy behavior changed.
 
 # Slimefun Legacy 4.1.22 — Core Platform Phase 1D
 

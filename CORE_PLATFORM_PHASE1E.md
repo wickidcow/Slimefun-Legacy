@@ -1,45 +1,51 @@
 # Core Platform Phase 1E — Runtime Stability & External Integration Foundation
 
-Phase 1E is the Slimefun Legacy 4.1.23 runtime hardening and external-compatibility line.
+Phase 1E is the Slimefun Legacy 4.1.23 runtime-hardening line. Its rule is simple: successful normal Slimefun behavior stays on the existing path; only failing optional callbacks are isolated.
 
-## Part 1 — runtime failure isolation
+## Part 1 — machine failure isolation
 
 - Keeps the existing per-location machine circuit breaker and makes its failure threshold configurable.
 - Tracks live failure owner, Slimefun item ID, location, cause, retry state and duplicate-report suppression.
-- Catches failures that occur inside deferred synchronized machine callbacks, not only failures thrown by the coordinator.
+- Catches failures inside deferred synchronized machine callbacks, not only failures thrown by the coordinator.
 - Rate-limits repeated `BlockTicker.startNewTick()` lifecycle exceptions.
-- Adds `/sf doctor runtime` and expands `/sf doctor status` and `/sf stability status`.
-- Preserves ticker registrations and stored machine data while a location is paused.
+- Preserves ticker registrations and stored machine data while a failing location is paused.
+- Adds `/sf doctor runtime` diagnostics.
 
-## Part 1 — external integration provider API
+## Part 2 — Rebar/Pylon adapter foundation
 
 - Adds a capability-based provider API for inventory, storage, cargo, machine, energy and fluid bridges.
-- Adds guarded runtime detection for Rebar and Pylon without linking either project into Slimefun core.
-- Adds `/sf doctor integrations` and a small `/sf versions` summary.
-- Detection never implies compatibility: a provider must explicitly expose the capabilities it supports.
+- Adds reflection-only Rebar/Pylon block discovery with no compile-time dependency.
+- Classifies loaded external blocks conservatively as inventory/storage, cargo/logistics, machine/processor and fluid endpoints.
+- Adds `/sf doctor integrations probe` for targeted block capability inspection.
+- Does not enable cross-network cargo transfer or Rebar/Pylon energy exchange.
 
-## Part 2 — Rebar/Pylon block capability adapters
+## Part 3 — guarded recovery and compatibility protection
 
-- Adds built-in reflection-only Rebar and Pylon providers when compatible Rebar runtime classes are present.
-- Resolves loaded Rebar blocks through Rebar's runtime block-storage surface without a compile-time Rebar dependency.
-- Classifies blocks through documented Rebar marker interfaces for virtual/vanilla inventory, logistics/cargo, processors and fluids.
-- Adds an additive block-inspection API so other integrations can expose per-block capability snapshots.
-- Adds `/sf doctor integrations probe`; a player can look at a block and see the mapped provider, implementation type, optional content key and capabilities.
-- Explicit addon-provided integrations still override Legacy's conservative built-in provider for the same integration ID.
-- Reflection failures, missing marker interfaces or a changed Rebar resolver degrade to diagnostics instead of preventing Slimefun startup.
+- Adds circuit-breaker isolation for failing external provider status and block-inspection callbacks.
+- Tracks provider, operation, cause, retry state and duplicate-report suppression without affecting normal Slimefun processing.
+- Adds `/sf doctor runtime retry`, `/sf doctor runtime retry all`, `/sf doctor integrations retry <id|all>` and `/sf doctor integrations reload`.
+- Adds explicit external-adapter failure thresholds/cooldowns in `config.yml`.
+- Adds a hash guard for the green Part 2 versions of normal Slimefun Cargo, Energy, NetworkManager, Guide, `SlimefunItem`, `BlockTicker`, `AContainer` and `TickerTask` code. Part 3 fails verification if those normal core paths change.
+- Keeps the 991-signature compatibility baseline as a release gate.
 
-### Part 2 safety boundary
+## Part 3.1 — `/sf versions` operator clarity
 
-Part 2 is discovery and endpoint mapping, not cross-network item transfer. It does **not** inject Slimefun Cargo into Rebar cargo graphs, mutate Rebar virtual inventories, or claim that Rebar/Pylon machines are Slimefun machines.
+- Replaces raw runtime enum-style labels with plain-language compatibility results.
+- Shows `✔ Compatible`, `⚠ Compatible with warnings`, `? Compatibility not verified`, `✕ Incompatible`, or `✕ Disabled` for every detected addon.
+- Explains that an undeclared addon is loaded but not runtime-verified instead of presenting the internal `Undeclared` state without context.
+- Keeps declaration source and detailed reasons available in hover text.
+- Does not change addon loading, compatibility decisions, Cargo, Energy, machine processing, saved data, or any protected API signature.
 
-Energy exchange remains disabled. Rebar's electricity system is flow/network based and does not have the same semantics as Slimefun's joule buffers, so a conversion bridge requires a separate contract rather than an unsafe unit-only adapter.
+## Normal Slimefun compatibility guarantee for Part 3
 
-This conservative boundary is intentional because Rebar and Pylon are still documented as experimental and their APIs can change between releases.
+Part 3 does **not** modify Slimefun CargoNet, EnergyNet, NetworkManager, SlimefunGuide, SlimefunItem, BlockTicker, AContainer or the already-green Part 1 TickerTask. Healthy core machines, cargo networks, energy networks and addons continue using their existing execution paths.
 
-## Baseline lifecycle
+The new failure/retry methods on the Phase 1E external integration service are Java default methods, so existing implementations do not need to recompile just to satisfy the new API surface.
 
-The release-blocking previous-stable baseline remains 4.1.21 during this development segment until a published 4.1.22 GitHub release commit is pinned. Before 4.1.23 is finalized, `previous_stable` should advance to the full 40-character 4.1.22 release commit.
+## Rebar/Pylon safety boundary
+
+Rebar/Pylon remain optional. Detection never implies interoperability. Slimefun does not automatically inject items into Rebar cargo networks and does not exchange energy with Rebar/Pylon unless a future adapter implements proven-compatible semantics.
 
 ## Compatibility
 
-Phase 1E remains additive. It does not change item IDs, recipes, storage keys, databases, saved-world formats, or remove existing addon API signatures. Rebar and Pylon remain optional runtime integrations.
+Phase 1E is additive. It does not change item IDs, recipes, storage keys, databases, saved-world formats, normal Cargo/Energy behavior, or compatibility-protected addon API signatures.

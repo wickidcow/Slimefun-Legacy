@@ -1,38 +1,33 @@
 # Slimefun Legacy 4.1.23 — Core Platform Phase 1E (Development)
 
-## Part 1 — runtime stability
+## Runtime stability
 
-- Expanded machine circuit-breaker diagnostics with live owner, location, item, cause and retry information.
-- Added configurable consecutive-failure threshold and ticker lifecycle log cooldown.
-- Added protection around deferred synchronized machine callbacks.
-- Rate-limited repeated BlockTicker lifecycle exceptions.
-- Added `/sf doctor runtime`.
+- Added live machine failure diagnostics with owner, location, item, cause and retry information.
+- Added configurable machine failure thresholds and automatic temporary isolation for repeatedly failing machine locations.
+- Protected deferred synchronized machine callbacks and rate-limited repeated ticker lifecycle failures.
+- Added `/sf doctor runtime`, `/sf doctor runtime retry`, and `/sf doctor runtime retry all`.
+- Retains ticker registrations and stored machine data during isolation/retry.
 
-## Part 1 — external integration foundation
+## Rebar/Pylon integration foundation
 
 - Added an additive capability/provider API for external inventories, storage, cargo, machines, energy and fluids.
-- Added safe Rebar and Pylon detection with no hard dependency.
-- Added `/sf doctor integrations`.
+- Added reflection-only Rebar/Pylon block discovery with no hard dependency.
+- Added `/sf doctor integrations` and `/sf doctor integrations probe`.
+- Added independent failure isolation for external provider status/probe callbacks.
+- Added `/sf doctor integrations retry <id|all>` and `/sf doctor integrations reload`.
+- External systems remain discovery-only until a compatible provider explicitly implements transfer semantics.
 
-## Part 2 — Rebar/Pylon adapters
+## Clearer `/sf versions` compatibility report
 
-- Added reflection-only built-in Rebar and Pylon block capability adapters.
-- Added safe loaded-block resolution through Rebar's block-storage API surface.
-- Added per-block inventory/storage, cargo/logistics, machine/processor and fluid capability mapping using Rebar marker interfaces.
-- Added an additive `ExternalBlockIntegration` API and provider/service block inspection hooks.
-- Added `/sf doctor integrations probe` for targeted block diagnostics.
-- Explicit third-party providers can override the built-in adapter for the same integration ID.
-- Incompatible or changed Rebar APIs fail closed: the adapter disables its probe instead of breaking Slimefun.
+- Replaced the ambiguous blue `[Undeclared]` label with `? Compatibility not verified`.
+- Every addon now shows a readable compatibility result beside its name and version.
+- Added an overall compatibility summary and a short explanation for addons that do not declare Legacy compatibility.
+- Hover details still show the declaration source and exact warning/incompatibility reasons.
 
-## Deliberate limits
+## Compatibility safeguards
 
-- No automatic Slimefun Cargo ↔ Rebar Cargo item transfer is enabled yet.
-- No direct mutation of Rebar virtual inventories is performed.
-- No Rebar/Pylon electricity conversion is enabled; the two energy models require a separate safe interoperability contract.
-- Rebar and Pylon remain optional and are never hard-linked into Slimefun core.
-
-## Compatibility
-
-- The development compatibility baseline remains 4.1.21 until a published 4.1.22 release commit is pinned, then it will advance before finalizing 4.1.23.
-- Existing public/protected APIs remain available; Part 2 only adds APIs.
-- No item IDs, recipes, storage keys, database schemas, or saved-world formats changed.
+- Existing 991 compatibility-protected public/protected API signatures remain a release gate.
+- Part 3 includes a hash guard proving that normal Slimefun Cargo, Energy, NetworkManager, Guide, SlimefunItem, BlockTicker, AContainer and the green Part 1 TickerTask are unchanged.
+- New external integration recovery API methods are additive Java default methods.
+- No item IDs, recipes, storage keys, database schemas, saved-world formats, normal cargo behavior, or normal energy behavior changed.
+- Rebar/Pylon cargo transfer and energy exchange remain disabled in 4.1.23.
