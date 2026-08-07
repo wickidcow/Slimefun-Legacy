@@ -7,6 +7,7 @@ import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilitySummary;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.AddonDoctorReport;
 import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalBlockIntegration;
 import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationCapability;
+import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationFailureSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationStatus;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
@@ -51,7 +52,7 @@ final class DoctorCommand extends SubCommand {
             case "scan" -> startServerRun(sender, service, false);
             case "addons" -> runAddonDoctors(sender, args);
             case "compatibility", "compat" -> sendAddonCompatibility(sender, args);
-            case "runtime", "failures" -> sendRuntimeFailures(sender);
+            case "runtime", "failures" -> sendRuntimeFailures(sender, args);
             case "integrations", "integration" -> sendExternalIntegrations(sender, args);
             case "repair", "fix" -> {
                 if (args.length < 3 || !args[2].equalsIgnoreCase("confirm")) {
@@ -79,6 +80,9 @@ final class DoctorCommand extends SubCommand {
                 + Slimefun.getTickerTask().getObservedMachineFailureCount());
         send(sender, "&7Suppressed duplicate machine reports: &e"
                 + Slimefun.getTickerTask().getSuppressedMachineFailureReportCount());
+        send(sender, "&7External adapter failures: &e"
+                + Slimefun.getExternalIntegrationService().getActiveFailureCount()
+                + " &8| &7Observed: &e" + Slimefun.getExternalIntegrationService().getObservedFailureCount());
         send(sender, "&7Automatic item repair: " + (service.isEnabled() ? "&aEnabled" : "&cDisabled"));
         AddonDoctorService addonDoctors = new AddonDoctorService(plugin);
         send(sender, "&7Registered addon doctors: &e" + addonDoctors.getProviders().size());
@@ -173,7 +177,12 @@ final class DoctorCommand extends SubCommand {
         send(sender, "&7Offline player inventories and unloaded chests are repaired automatically when loaded.");
     }
 
-    private void sendRuntimeFailures(CommandSender sender) {
+    private void sendRuntimeFailures(CommandSender sender, String[] args) {
+        if (args.length > 2 && (args[2].equalsIgnoreCase("retry") || args[2].equalsIgnoreCase("reset"))) {
+            retryRuntimeFailures(sender, args);
+            return;
+        }
+
         long now = System.currentTimeMillis();
         List<MachineFailureSnapshot> failures = Slimefun.getTickerTask().getMachineFailureSnapshots(25);
         send(sender, "&6Slimefun Runtime Failure Isolation");
@@ -184,6 +193,7 @@ final class DoctorCommand extends SubCommand {
                 + Slimefun.getTickerTask().getSuppressedMachineFailureReportCount());
         if (failures.isEmpty()) {
             send(sender, "&aNo currently failing machine locations are tracked.");
+            send(sender, "&7Recovery: &e/sf doctor runtime retry &7while looking at a machine, or &e... retry all&7.");
             return;
         }
         for (MachineFailureSnapshot failure : failures) {
@@ -198,10 +208,47 @@ final class DoctorCommand extends SubCommand {
         if (Slimefun.getTickerTask().getFailingMachineCount() > failures.size()) {
             send(sender, "&7Only the 25 most recent failing locations are shown.");
         }
+        send(sender, "&7Recovery: &e/sf doctor runtime retry &7while looking at a machine, or &e... retry all&7.");
+    }
+
+    private void retryRuntimeFailures(CommandSender sender, String[] args) {
+        if (args.length > 3 && args[3].equalsIgnoreCase("all")) {
+            int cleared = Slimefun.getTickerTask().retryAllMachines();
+            send(sender, "&aCleared runtime isolation state for all machines. &7Paused circuits cleared: &e" + cleared);
+            send(sender, "&7Machines will resume through their normal Slimefun ticker path on the next eligible tick.");
+            return;
+        }
+
+        if (!(sender instanceof Player player)) {
+            send(sender, "&cConsole usage: /sf doctor runtime retry all");
+            return;
+        }
+
+        Block block = player.getTargetBlockExact(8);
+        if (block == null) {
+            send(sender, "&eLook at the failing machine within 8 blocks, then run /sf doctor runtime retry.");
+            return;
+        }
+
+        Slimefun.getTickerTask().retryMachine(block.getLocation());
+        send(sender, "&aCleared runtime isolation state for the targeted location.");
+        send(sender, "&7Target: &f" + block.getWorld().getName() + " " + block.getX() + ", " + block.getY() + ", "
+                + block.getZ());
+        send(sender, "&7The normal Slimefun ticker registration and stored machine data were not changed.");
     }
 
     private void sendExternalIntegrations(CommandSender sender, String[] args) {
-        Slimefun.getExternalIntegrationService().refresh();
+        if (args.length > 2 && args[2].equalsIgnoreCase("retry")) {
+            retryExternalIntegrations(sender, args);
+            return;
+        }
+        if (args.length > 2 && args[2].equalsIgnoreCase("reload")) {
+            Slimefun.getExternalIntegrationService().retryAll();
+            Slimefun.getExternalIntegrationService().refresh();
+            send(sender, "&aReloaded external integration adapters and cleared their temporary isolation state.");
+        } else {
+            Slimefun.getExternalIntegrationService().refresh();
+        }
         if (args.length > 2 && args[2].equalsIgnoreCase("probe")) {
             probeExternalIntegrationBlock(sender);
             return;
@@ -223,8 +270,47 @@ final class DoctorCommand extends SubCommand {
             }
             send(sender, "&8  &7" + status.getDetail());
         }
+        List<ExternalIntegrationFailureSnapshot> failures =
+                Slimefun.getExternalIntegrationService().getFailureSnapshots(10);
+        send(sender, "&7Adapter failures observed: &e" + Slimefun.getExternalIntegrationService().getObservedFailureCount()
+                + " &8| &7Active/isolated operations: &e"
+                + Slimefun.getExternalIntegrationService().getActiveFailureCount()
+                + " &8| &7Suppressed duplicates: &e"
+                + Slimefun.getExternalIntegrationService().getSuppressedFailureReportCount());
+        long now = System.currentTimeMillis();
+        for (ExternalIntegrationFailureSnapshot failure : failures) {
+            String state = failure.isPaused(now)
+                    ? "&cISOLATED " + failure.getRetrySeconds(now) + "s"
+                    : "&eDEGRADED";
+            send(sender, "&8  - " + state + " &f" + failure.getDisplayName() + " &7/ " + failure.getOperation());
+            send(sender, "&8    &7" + simpleFailureName(failure.getFailureType()) + ": " + failure.getFailureMessage());
+        }
         send(sender, "&7Look at a Rebar/Pylon block and run &e/sf doctor integrations probe&7.");
+        send(sender, "&7Recovery: &e/sf doctor integrations retry <id|all> &7or &e... reload&7.");
         send(sender, "&7Energy exchange remains disabled unless a provider explicitly implements compatible semantics.");
+    }
+
+    private void retryExternalIntegrations(CommandSender sender, String[] args) {
+        if (args.length < 4) {
+            send(sender, "&eUsage: /sf doctor integrations retry <id|all>");
+            return;
+        }
+
+        String target = args[3];
+        if (target.equalsIgnoreCase("all")) {
+            int cleared = Slimefun.getExternalIntegrationService().retryAll();
+            Slimefun.getExternalIntegrationService().refresh();
+            send(sender, "&aCleared temporary isolation for all external integration adapters. &7States cleared: &e" + cleared);
+            return;
+        }
+
+        boolean cleared = Slimefun.getExternalIntegrationService().retry(target);
+        Slimefun.getExternalIntegrationService().refresh();
+        if (cleared) {
+            send(sender, "&aCleared temporary isolation for external integration: &e" + target);
+        } else {
+            send(sender, "&eNo failing/isolated external integration operation matched: &f" + target);
+        }
     }
 
     private void probeExternalIntegrationBlock(CommandSender sender) {
@@ -424,7 +510,7 @@ final class DoctorCommand extends SubCommand {
 
     private void sendUsage(CommandSender sender) {
         send(sender, "&eUsage: /slimefun doctor [status|hand|inventory [player]|scan|repair confirm|addons]");
-        send(sender, "&e       /slimefun doctor [compatibility|runtime|integrations [probe]]");
+        send(sender, "&e       /slimefun doctor [compatibility|runtime [retry [all]]|integrations [probe|reload|retry <id|all>]]");
     }
 
     private void send(CommandSender sender, String message) {

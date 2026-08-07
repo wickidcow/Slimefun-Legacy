@@ -1,0 +1,14 @@
+{
+  "baseline": "Slimefun Legacy 4.1.23 Phase 1E Part 2 green source",
+  "purpose": "Guard normal Slimefun behavior while Part 3 adds only optional failure containment and recovery controls.",
+  "files": {
+    "src/main/java/io/github/thebusybiscuit/slimefun4/core/networks/cargo/CargoNet.java": "68a3bed221861280dbc947ce5a11d7f543be79992c5d9ae49159a0d2714d136a",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/core/networks/energy/EnergyNet.java": "377ec751a984e7c150e7f78fef6307e1fbc91fe19657188437106cbe50ece6e5",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/core/networks/NetworkManager.java": "33c91b327e878abd00cabd63b685fbb5cd65372520e01a410a6724ec2ba3b101",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/core/guide/SlimefunGuide.java": "e859084a420e0ea30ab498a4480935c05321896c2768b797c35bfb33b5405802",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/api/items/SlimefunItem.java": "97b4ff8351ab640108a649994341af9a531e5037ec3e04e13599cbb2a3d4aba2",
+    "src/main/java/me/mrCookieSlime/Slimefun/Objects/handlers/BlockTicker.java": "0c5fe28228a0ae9054aac0e753198174566a776b6feae5b4e466c0d9d3ef3c56",
+    "src/main/java/me/mrCookieSlime/Slimefun/Objects/SlimefunItem/abstractItems/AContainer.java": "3a10eeb400062894796bae97186e20388848a8ae1e2f7c257fe9566ccc3301c6",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/tasks/TickerTask.java": "5a97b29a5474377625aed70f1b729622eafc0e361ddece2b3b228904a9bbe1de"
+  }
+}

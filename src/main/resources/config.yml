@@ -109,7 +109,14 @@ research-ranks:
 
 # Albion stability safeguards
 stability:
+  # Runtime protection is intentionally scoped to failing callbacks. Healthy Slimefun machines,
+  # cargo networks, energy networks and addon APIs keep their normal execution paths.
   machine-circuit-breaker-cooldown-seconds: 300
+  machine-circuit-breaker-failure-threshold: 4
+  ticker-lifecycle-log-cooldown-seconds: 60
+  # Optional external adapters (for example Rebar/Pylon) are isolated independently from Slimefun core.
+  external-integration-failure-threshold: 3
+  external-integration-cooldown-seconds: 120
   item-doctor:
     # Repairs only visible names and lore. Slimefun IDs, PDC/NBT, enchantments,
     # attributes, custom model data, inventory contents, and functional state are preserved.

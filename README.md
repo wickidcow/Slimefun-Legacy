@@ -136,6 +136,8 @@ When Rebar is installed and its runtime API matches a supported reflective shape
 
 The probe reports mapped inventory/storage, cargo/logistics, processor/machine, and fluid capabilities. This is discovery only: Slimefun does not automatically inject items into Rebar cargo networks or convert Rebar/Pylon electricity.
 
+Phase 1E also isolates repeatedly failing external adapter callbacks without changing normal Slimefun Cargo, Energy, machine, guide, or addon execution. Admins can use `/sf doctor integrations retry <id|all>` or `/sf doctor integrations reload`; machine isolation can be cleared with `/sf doctor runtime retry` or `/sf doctor runtime retry all`.
+
 ## 🌐 English-first and recovery
 
 The normal English experience does **not** require Slimefun Translate. Recommended settings in `plugins/Slimefun/config.yml` are:
