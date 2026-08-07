@@ -10,8 +10,37 @@ permissions:
   contents: read
 
 jobs:
+  prepare-release-baselines:
+    name: Prepare release baselines
+    runs-on: ubuntu-latest
+    outputs:
+      candidate_version: ${{ steps.baselines.outputs.candidate_version }}
+      previous_version: ${{ steps.baselines.outputs.previous_version }}
+      previous_ref: ${{ steps.baselines.outputs.previous_ref }}
+      floor_version: ${{ steps.baselines.outputs.floor_version }}
+      floor_ref: ${{ steps.baselines.outputs.floor_ref }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate release baseline registry
+        id: baselines
+        run: |
+          python3 scripts/read_release_baselines.py \
+            compatibility/release-baselines.json \
+            --github-output "$GITHUB_OUTPUT"
+      - name: Publish baseline summary
+        run: |
+          {
+            echo "## Release compatibility lifecycle"
+            echo
+            echo "Candidate: **${{ steps.baselines.outputs.candidate_version }}**"
+            echo "Previous stable baseline: **${{ steps.baselines.outputs.previous_version }}** (release blocking)"
+            echo "Legacy floor: **${{ steps.baselines.outputs.floor_version }}** (advisory)"
+            echo
+            echo 'Source: `compatibility/release-baselines.json`'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   build-slimefun:
-    name: Build Slimefun Legacy
+    name: Build Slimefun Legacy candidate
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -58,17 +87,18 @@ jobs:
             build/reports/deprecation-compile.log
             build/reports/deprecations.md
             build/reports/core-platform-phase1c.txt
+            build/reports/core-platform-phase1d.txt
           if-no-files-found: warn
 
-
   build-baseline-slimefun:
-    name: Build 4.1.15 compatibility baseline
+    name: Build previous stable ${{ needs.prepare-release-baselines.outputs.previous_version }}
+    needs: prepare-release-baselines
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: 493587431dc831d4b8bc38649af6e22df74a15b0
+          ref: ${{ needs.prepare-release-baselines.outputs.previous_ref }}
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -76,13 +106,45 @@ jobs:
           cache: gradle
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
-      - name: Build known-good 4.1.15 baseline JAR
+      - name: Build previous stable baseline JAR
         run: |
+          echo "Building Slimefun Legacy ${{ needs.prepare-release-baselines.outputs.previous_version }} as the release-blocking baseline"
           ./gradlew spotlessApply --no-daemon
           ./gradlew clean build --no-daemon
       - uses: actions/upload-artifact@v7
         with:
           name: slimefun-baseline-jar
+          path: |
+            build/libs/Slimefun-*.jar
+            !build/libs/*-sources.jar
+          if-no-files-found: error
+
+  build-legacy-floor-slimefun:
+    name: Build legacy floor ${{ needs.prepare-release-baselines.outputs.floor_version }}
+    if: ${{ github.event_name != 'pull_request' }}
+    needs: prepare-release-baselines
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare-release-baselines.outputs.floor_ref }}
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+      - name: Build historical compatibility floor JAR
+        run: |
+          echo "Building historical Slimefun Legacy ${{ needs.prepare-release-baselines.outputs.floor_version }} compatibility floor"
+          ./gradlew spotlessApply --no-daemon
+          ./gradlew clean build --no-daemon
+      - uses: actions/upload-artifact@v7
+        with:
+          name: slimefun-legacy-floor-jar
           path: |
             build/libs/Slimefun-*.jar
             !build/libs/*-sources.jar
@@ -135,7 +197,7 @@ jobs:
 
   addons:
     name: Addon [${{ matrix.tier }}] - ${{ matrix.repository }}
-    needs: [prepare-addon-matrix, build-baseline-slimefun, build-slimefun]
+    needs: [prepare-release-baselines, prepare-addon-matrix, build-baseline-slimefun, build-slimefun]
     continue-on-error: ${{ matrix.advisory }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -200,7 +262,7 @@ jobs:
               exit 1
             fi
           } 2>&1 | tee "$ADDON_LOG"
-      - name: Compare known-good baseline with candidate Legacy JAR
+      - name: Compare previous stable baseline with candidate Legacy JAR
         id: compare
         continue-on-error: true
         env:
@@ -251,6 +313,7 @@ jobs:
         env:
           ADDON_REPORT: ${{ runner.temp }}/${{ matrix.slug }}-report
           ADVISORY: ${{ matrix.advisory }}
+          PREVIOUS_VERSION: ${{ needs.prepare-release-baselines.outputs.previous_version }}
         run: |
           if [[ ! -f "$ADDON_REPORT/status.txt" ]]; then
             STATUS="INSTRUMENTATION_ERROR"
@@ -264,10 +327,10 @@ jobs:
               exit 0
               ;;
             BASELINE_BUILD_FAILED)
-              MESSAGE="Addon does not build against the known-good 4.1.15 baseline; this is not evidence of a new Legacy regression."
+              MESSAGE="Addon does not build against the previous stable $PREVIOUS_VERSION baseline; this is not evidence of a new candidate regression."
               ;;
             LEGACY_COMPATIBILITY_FAILED)
-              MESSAGE="Addon builds against 4.1.15 but fails against the candidate JAR; this is a genuine Legacy compatibility regression."
+              MESSAGE="Addon builds against previous stable $PREVIOUS_VERSION but fails against the candidate JAR; this is a Legacy compatibility regression."
               ;;
             *)
               MESSAGE="Compatibility comparison could not be completed because of checkout or test-harness infrastructure."
@@ -281,3 +344,87 @@ jobs:
 
           echo "::error title=Required addon compatibility::$MESSAGE"
           exit 1
+
+  legacy-floor-addons:
+    name: Legacy floor drift - ${{ matrix.repository }}
+    if: ${{ github.event_name != 'pull_request' }}
+    needs: [prepare-release-baselines, prepare-addon-matrix, build-legacy-floor-slimefun, build-slimefun]
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.prepare-addon-matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - uses: actions/download-artifact@v8
+        with:
+          name: slimefun-legacy-floor-jar
+          path: build/baseline
+      - uses: actions/download-artifact@v8
+        with:
+          name: slimefun-compatibility-jar
+          path: build/candidate
+      - name: Clone addon for historical drift probe
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+          ADDON_REPOSITORY: ${{ matrix.repository }}
+          ADDON_REF: ${{ matrix.ref }}
+        run: |
+          URL="https://github.com/$ADDON_REPOSITORY.git"
+          if [[ -n "$ADDON_REF" ]]; then
+            git clone --depth 1 --branch "$ADDON_REF" "$URL" "$RUNNER_TEMP/addon"
+          else
+            git clone --depth 1 "$URL" "$RUNNER_TEMP/addon"
+          fi
+      - name: Compare historical floor with candidate
+        id: compare
+        continue-on-error: true
+        env:
+          ADDON_REPORT: ${{ runner.temp }}/${{ matrix.slug }}-legacy-floor-report
+        run: |
+          BASELINE_JAR="$(find build/baseline -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
+          CANDIDATE_JAR="$(find build/candidate -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
+          test -n "$BASELINE_JAR"
+          test -n "$CANDIDATE_JAR"
+          python3 scripts/compare_addon_slimefun_compatibility.py \
+            "$RUNNER_TEMP/addon" \
+            "$BASELINE_JAR" \
+            "$CANDIDATE_JAR" \
+            "$ADDON_REPORT"
+      - name: Publish advisory legacy-floor result
+        if: always()
+        env:
+          ADDON_REPORT: ${{ runner.temp }}/${{ matrix.slug }}-legacy-floor-report
+          FLOOR_VERSION: ${{ needs.prepare-release-baselines.outputs.floor_version }}
+        run: |
+          if [[ -f "$ADDON_REPORT/summary.md" ]]; then
+            cat "$ADDON_REPORT/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          STATUS="INSTRUMENTATION_ERROR"
+          if [[ -f "$ADDON_REPORT/status.txt" ]]; then
+            STATUS="$(tr -d '\r\n' < "$ADDON_REPORT/status.txt")"
+          fi
+          if [[ "$STATUS" != "PASS" ]]; then
+            echo "::warning title=Historical compatibility floor::Legacy floor $FLOOR_VERSION drift probe for ${{ matrix.repository }} returned $STATUS. This probe is advisory and never blocks release."
+          fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: legacy-floor-${{ matrix.slug }}
+          path: |
+            ${{ runner.temp }}/${{ matrix.slug }}-legacy-floor-report/result.json
+            ${{ runner.temp }}/${{ matrix.slug }}-legacy-floor-report/status.txt
+            ${{ runner.temp }}/${{ matrix.slug }}-legacy-floor-report/summary.md
+            ${{ runner.temp }}/${{ matrix.slug }}-legacy-floor-report/baseline.log
+            ${{ runner.temp }}/${{ matrix.slug }}-legacy-floor-report/candidate.log
+            ${{ runner.temp }}/${{ matrix.slug }}-legacy-floor-report/binary-linkage/result.json
+            ${{ runner.temp }}/${{ matrix.slug }}-legacy-floor-report/binary-linkage/status.txt
+            ${{ runner.temp }}/${{ matrix.slug }}-legacy-floor-report/binary-linkage/summary.md
+          if-no-files-found: warn
