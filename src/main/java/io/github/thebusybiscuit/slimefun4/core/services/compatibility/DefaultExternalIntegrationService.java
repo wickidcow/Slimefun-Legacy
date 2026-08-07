@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.services.compatibility;
 
+import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalBlockIntegration;
 import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationCapability;
 import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationProvider;
 import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationService;
@@ -14,6 +15,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
+import org.bukkit.block.Block;
 import org.bukkit.plugin.Plugin;
 
 /** Default guarded registry for external machine/storage/cargo integration providers. */
@@ -23,16 +25,17 @@ public final class DefaultExternalIntegrationService implements ExternalIntegrat
             "rebar",
             "Rebar",
             "Rebar",
-            "Detected only. Rebar is experimental, so active bridges must explicitly register supported capabilities.");
+            "Optional Rebar integration. Phase 1E Part 2 loads its block capability adapter only when the runtime API can be probed safely.");
     private static final KnownSystem PYLON = new KnownSystem(
             "pylon",
             "Pylon",
             "Pylon",
-            "Detected only. Pylon is built on Rebar; Slimefun does not assume cargo, energy, or storage semantics are compatible.");
+            "Optional Pylon integration. Pylon blocks are inspected through Rebar without assuming Slimefun cargo or energy semantics.");
 
     private final Plugin owner;
     private final Map<String, ExternalIntegrationProvider> providers = new ConcurrentHashMap<>();
     private volatile List<ExternalIntegrationStatus> statuses = List.of();
+    private volatile List<ExternalIntegrationProvider> activeProviders = List.of();
 
     public DefaultExternalIntegrationService(@Nonnull Plugin owner) {
         this.owner = Objects.requireNonNull(owner, "owner");
@@ -65,7 +68,41 @@ public final class DefaultExternalIntegrationService implements ExternalIntegrat
         addKnown(result, REBAR);
         addKnown(result, PYLON);
 
-        for (Map.Entry<String, ExternalIntegrationProvider> entry : providers.entrySet()) {
+        Map<String, ExternalIntegrationProvider> effectiveProviders = new LinkedHashMap<>();
+        Plugin rebarPlugin = findPlugin(REBAR.pluginName);
+        Plugin pylonPlugin = findPlugin(PYLON.pluginName);
+        if (rebarPlugin != null && rebarPlugin.isEnabled()) {
+            try {
+                ReflectiveRebarAccess access = ReflectiveRebarAccess.create(rebarPlugin);
+                effectiveProviders.put(
+                        REBAR.id,
+                        new ReflectiveRebarIntegrationProvider(REBAR.id, REBAR.displayName, rebarPlugin, access, false));
+                if (pylonPlugin != null && pylonPlugin.isEnabled()) {
+                    effectiveProviders.put(
+                            PYLON.id,
+                            new ReflectiveRebarIntegrationProvider(PYLON.id, PYLON.displayName, pylonPlugin, access, true));
+                }
+            } catch (ClassNotFoundException | RuntimeException | LinkageError failure) {
+                replaceKnownDetail(
+                        result,
+                        REBAR,
+                        rebarPlugin,
+                        "Rebar detected, but the reflection-only adapter could not load: "
+                                + failure.getClass().getSimpleName());
+                if (pylonPlugin != null && pylonPlugin.isEnabled()) {
+                    replaceKnownDetail(
+                            result,
+                            PYLON,
+                            pylonPlugin,
+                            "Pylon detected, but its Rebar-backed adapter is unavailable because the Rebar API probe failed.");
+                }
+            }
+        }
+
+        // Explicit addon registrations take precedence over Legacy's conservative built-in reflective adapters.
+        effectiveProviders.putAll(providers);
+
+        for (Map.Entry<String, ExternalIntegrationProvider> entry : effectiveProviders.entrySet()) {
             ExternalIntegrationProvider provider = entry.getValue();
             Plugin plugin = provider.getPlugin();
             Set<ExternalIntegrationCapability> capabilities;
@@ -95,11 +132,30 @@ public final class DefaultExternalIntegrationService implements ExternalIntegrat
         List<ExternalIntegrationStatus> ordered = new ArrayList<>(result.values());
         ordered.sort(Comparator.comparing(ExternalIntegrationStatus::getDisplayName, String.CASE_INSENSITIVE_ORDER));
         statuses = List.copyOf(ordered);
+        activeProviders = List.copyOf(effectiveProviders.values());
     }
 
     @Override
     public @Nonnull List<ExternalIntegrationStatus> getStatuses() {
         return statuses;
+    }
+
+    @Override
+    public @Nonnull List<ExternalBlockIntegration> inspectBlock(@Nonnull Block block) {
+        Objects.requireNonNull(block, "block");
+        List<ExternalBlockIntegration> result = new ArrayList<>();
+        for (ExternalIntegrationProvider provider : activeProviders) {
+            if (!provider.getPlugin().isEnabled()) {
+                continue;
+            }
+            try {
+                provider.inspectBlock(block).ifPresent(result::add);
+            } catch (RuntimeException | LinkageError ignored) {
+                // An experimental external API must never make a Slimefun diagnostic command fail.
+            }
+        }
+        result.sort(Comparator.comparing(ExternalBlockIntegration::getDisplayName, String.CASE_INSENSITIVE_ORDER));
+        return List.copyOf(result);
     }
 
     private void addKnown(Map<String, ExternalIntegrationStatus> result, KnownSystem known) {
@@ -116,6 +172,20 @@ public final class DefaultExternalIntegrationService implements ExternalIntegrat
                 false,
                 Set.of(),
                 known.detail));
+    }
+
+    private void replaceKnownDetail(
+            Map<String, ExternalIntegrationStatus> result, KnownSystem known, Plugin plugin, String detail) {
+        result.put(known.id, new ExternalIntegrationStatus(
+                known.id,
+                known.displayName,
+                plugin.getName(),
+                plugin.getDescription().getVersion(),
+                true,
+                plugin.isEnabled(),
+                false,
+                Set.of(),
+                detail));
     }
 
     private Plugin findPlugin(String name) {

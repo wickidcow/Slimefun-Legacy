@@ -1,8 +1,10 @@
 package io.github.thebusybiscuit.slimefun4.api.integrations;
 
 import io.github.thebusybiscuit.slimefun4.api.annotations.SlimefunAPI;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import org.bukkit.block.Block;
 import org.bukkit.plugin.Plugin;
 
 /**
@@ -19,6 +21,10 @@ public interface ExternalIntegrationProvider {
     @Nonnull Plugin getPlugin();
 
     @Nonnull Set<ExternalIntegrationCapability> getCapabilities();
+
+    default @Nonnull Optional<ExternalBlockIntegration> inspectBlock(@Nonnull Block block) {
+        return Optional.empty();
+    }
 
     default @Nonnull String getDisplayName() {
         return getPlugin().getName();

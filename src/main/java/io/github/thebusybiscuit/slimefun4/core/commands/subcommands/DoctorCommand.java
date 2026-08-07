@@ -5,6 +5,7 @@ import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityResult;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityStatus;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilitySummary;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.AddonDoctorReport;
+import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalBlockIntegration;
 import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationCapability;
 import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationStatus;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
@@ -20,6 +21,7 @@ import java.util.Locale;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.bukkit.Bukkit;
+import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -50,7 +52,7 @@ final class DoctorCommand extends SubCommand {
             case "addons" -> runAddonDoctors(sender, args);
             case "compatibility", "compat" -> sendAddonCompatibility(sender, args);
             case "runtime", "failures" -> sendRuntimeFailures(sender);
-            case "integrations", "integration" -> sendExternalIntegrations(sender);
+            case "integrations", "integration" -> sendExternalIntegrations(sender, args);
             case "repair", "fix" -> {
                 if (args.length < 3 || !args[2].equalsIgnoreCase("confirm")) {
                     send(sender, "&eThis safely changes visible names and lore across stored items.");
@@ -198,13 +200,18 @@ final class DoctorCommand extends SubCommand {
         }
     }
 
-    private void sendExternalIntegrations(CommandSender sender) {
+    private void sendExternalIntegrations(CommandSender sender, String[] args) {
         Slimefun.getExternalIntegrationService().refresh();
+        if (args.length > 2 && args[2].equalsIgnoreCase("probe")) {
+            probeExternalIntegrationBlock(sender);
+            return;
+        }
+
         List<ExternalIntegrationStatus> statuses = Slimefun.getExternalIntegrationService().getStatuses();
-        send(sender, "&6Slimefun External Integration Foundation");
+        send(sender, "&6Slimefun External Integration Adapters");
         for (ExternalIntegrationStatus status : statuses) {
             String detected = status.isDetected() ? (status.isEnabled() ? "&aDetected" : "&cDisabled") : "&7Not installed";
-            String bridge = status.isProviderRegistered() ? "&aBridge active" : "&eDetection only";
+            String bridge = status.isProviderRegistered() ? "&aAdapter active" : "&eDetection only";
             String version = status.getPluginVersion() == null ? "" : " v" + status.getPluginVersion();
             send(sender, "&8- &f" + status.getDisplayName() + version + "&7: " + detected + " &8| " + bridge);
             if (!status.getCapabilities().isEmpty()) {
@@ -216,7 +223,49 @@ final class DoctorCommand extends SubCommand {
             }
             send(sender, "&8  &7" + status.getDetail());
         }
-        send(sender, "&7Rebar/Pylon are intentionally not hard-linked; adapters must explicitly register capabilities.");
+        send(sender, "&7Look at a Rebar/Pylon block and run &e/sf doctor integrations probe&7.");
+        send(sender, "&7Energy exchange remains disabled unless a provider explicitly implements compatible semantics.");
+    }
+
+    private void probeExternalIntegrationBlock(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            send(sender, "&cOnly a player can probe the block they are looking at.");
+            return;
+        }
+
+        Block block = player.getTargetBlockExact(8);
+        if (block == null) {
+            send(sender, "&eNo block is targeted within 8 blocks.");
+            return;
+        }
+
+        List<ExternalBlockIntegration> integrations = Slimefun.getExternalIntegrationService().inspectBlock(block);
+        send(sender, "&6External block probe");
+        send(sender, "&7Target: &f" + block.getType() + " &8@ &f" + block.getWorld().getName() + " "
+                + block.getX() + ", " + block.getY() + ", " + block.getZ());
+        if (integrations.isEmpty()) {
+            send(sender, "&eNo active external adapter recognized this block.");
+            send(sender, "&7The block may be vanilla, unloaded from Rebar storage, or from an unsupported Rebar API version.");
+            return;
+        }
+
+        for (ExternalBlockIntegration integration : integrations) {
+            send(sender, "&a- " + integration.getDisplayName() + " &7[" + integration.getPluginName() + "]");
+            send(sender, "&8  &7Type: &f" + simpleFailureName(integration.getBlockType()));
+            if (integration.getContentKey() != null) {
+                send(sender, "&8  &7Key: &f" + integration.getContentKey());
+            }
+            if (integration.getCapabilities().isEmpty()) {
+                send(sender, "&8  &7Mapped capabilities: &eNone");
+            } else {
+                String capabilities = integration.getCapabilities().stream()
+                        .sorted(Comparator.comparing(ExternalIntegrationCapability::getDisplayName))
+                        .map(ExternalIntegrationCapability::getDisplayName)
+                        .collect(Collectors.joining(", "));
+                send(sender, "&8  &7Mapped capabilities: &f" + capabilities);
+            }
+            send(sender, "&8  &7" + integration.getDetail());
+        }
     }
 
     private String simpleFailureName(String className) {
@@ -375,7 +424,7 @@ final class DoctorCommand extends SubCommand {
 
     private void sendUsage(CommandSender sender) {
         send(sender, "&eUsage: /slimefun doctor [status|hand|inventory [player]|scan|repair confirm|addons]");
-        send(sender, "&e       /slimefun doctor [compatibility|runtime|integrations]");
+        send(sender, "&e       /slimefun doctor [compatibility|runtime|integrations [probe]]");
     }
 
     private void send(CommandSender sender, String message) {

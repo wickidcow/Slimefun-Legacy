@@ -4,6 +4,7 @@ import io.github.thebusybiscuit.slimefun4.api.annotations.SlimefunAPI;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import org.bukkit.block.Block;
 import org.bukkit.plugin.Plugin;
 
 /** Addon-facing registry and runtime status service for optional external-system bridges. */
@@ -17,6 +18,10 @@ public interface ExternalIntegrationService {
     void refresh();
 
     @Nonnull List<ExternalIntegrationStatus> getStatuses();
+
+    default @Nonnull List<ExternalBlockIntegration> inspectBlock(@Nonnull Block block) {
+        return List.of();
+    }
 
     default @Nonnull Optional<ExternalIntegrationStatus> getStatus(@Nonnull String integrationId) {
         return getStatuses().stream()

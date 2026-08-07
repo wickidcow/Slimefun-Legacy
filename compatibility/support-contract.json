@@ -81,7 +81,11 @@
     "rate_limited_ticker_lifecycle_failures": true,
     "external_integration_provider_api": true,
     "rebar_pylon_hard_dependency": false,
-    "external_capabilities_require_explicit_provider": true
+    "external_capabilities_require_explicit_provider": true,
+    "rebar_pylon_reflective_block_adapter": true,
+    "external_block_capability_probe": true,
+    "rebar_pylon_cargo_transfer": false,
+    "rebar_pylon_energy_exchange": false
   },
   "phase": "Core Platform Phase 1E"
 }

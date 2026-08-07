@@ -7,11 +7,13 @@
 - Adds configurable machine failure threshold and ticker lifecycle log cooldown.
 - Adds `/sf doctor runtime` and richer stability status output.
 
-## External integration foundation
+## Rebar/Pylon compatibility adapters
 
-- Adds a capability-based provider API for external inventory, storage, cargo, machine, energy and fluid bridges.
-- Detects Rebar and Pylon without hard-linking their experimental APIs.
-- Adds `/sf doctor integrations` and external-system status to `/sf versions`.
+- Adds a capability-based external integration API plus per-block inspection.
+- Adds reflection-only Rebar/Pylon adapters with no hard dependency.
+- Maps Rebar inventory/storage, cargo/logistics, processor/machine and fluid endpoint marker interfaces.
+- Adds `/sf doctor integrations probe` for targeted block capability diagnostics.
+- Keeps cross-network item transfer and Rebar/Pylon electricity conversion disabled until their semantics can be bridged safely.
 
 ## Compatibility
 

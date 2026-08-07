@@ -43,6 +43,7 @@ Slimefun Legacy preserves the familiar Slimefun 4 gameplay, saved-world format, 
 | **Stability focused** | Storage recovery, machine circuit breakers, lifecycle safeguards, and regression tests protect production servers. |
 | **Modernized carefully** | Paper APIs, scheduling, energy handling, and internal annotations are updated without casually breaking older addons. |
 | **Addon compatibility gates** | Runtime declarations, source-build probes, and binary-linkage checks expose regressions before release. |
+| **External adapter diagnostics** | Optional Rebar/Pylon blocks can be capability-mapped without hard-linking their experimental APIs. |
 
 Players can build automated factories, move items through Cargo networks, generate and store power, operate reactors, explore magic, craft equipment, and expand the experience with compatible addons.
 
@@ -116,11 +117,24 @@ Download a tested build from [GitHub Releases](https://github.com/wickidcow/Slim
 ```text
 /sf doctor status
 /sf doctor compatibility
+/sf doctor runtime
+/sf doctor integrations
 ```
 
 Test representative machines, backpacks, Cargo networks, recipes, protections, and addon items before reopening a production server.
 
 ---
+
+
+### Rebar/Pylon diagnostics
+
+When Rebar is installed and its runtime API matches a supported reflective shape, Slimefun Legacy can classify loaded Rebar/Pylon blocks without a compile-time dependency. Look at a block within 8 blocks and run:
+
+```text
+/sf doctor integrations probe
+```
+
+The probe reports mapped inventory/storage, cargo/logistics, processor/machine, and fluid capabilities. This is discovery only: Slimefun does not automatically inject items into Rebar cargo networks or convert Rebar/Pylon electricity.
 
 ## 🌐 English-first and recovery
 
