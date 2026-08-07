@@ -1,3 +1,19 @@
+# Slimefun Legacy 4.1.24 — Core Platform Phase 1F
+
+## Compatibility intelligence
+
+- Makes `/sf versions` distinguish declared compatibility from Legacy CI monitoring and truly unknown compatibility.
+- Recognizes addon families already covered by the compatibility matrix without falsely marking an undeclared exact JAR as guaranteed compatible.
+- Replaces ambiguous undeclared/unrecognized presentation with operator-readable `✔`, `◉`, `?`, `⚠`, and `✕` states.
+- Sorts installed addon output alphabetically.
+- Adds a runtime addon recognition registry and a verifier that keeps it synchronized with the enabled CI matrix.
+
+## Compatibility
+
+- Does not change addon loading or the public compatibility status API.
+- Keeps the 991 protected API signatures and Phase 1E normal-core hash guard intact.
+- No normal Slimefun Cargo, Energy, machine, guide, item, recipe, storage, database, or saved-world behavior changes.
+
 # Slimefun Legacy 4.1.23 — Core Platform Phase 1E
 
 ## Runtime stability

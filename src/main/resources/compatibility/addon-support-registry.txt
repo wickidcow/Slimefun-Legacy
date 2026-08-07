@@ -1,0 +1,23 @@
+# Slimefun Legacy runtime addon recognition registry.
+# Format: slug|tier|display name|comma-separated runtime plugin aliases
+# tier=required means the addon is a release-blocking compatibility target.
+# tier=advisory means the addon family is monitored but does not independently block release.
+legacy-fastmachines|required|FastMachines Legacy|FastMachines,FastMachinesLegacy,SF_FastMachines
+legacy-networksexp|required|Networks Expansion Legacy|NetworksExpansion,NetworksExpansionLegacy,SF_NetworksExp
+legacy-slimetinker-ie2|required|SlimeTinker IE2 Legacy|SlimeTinker,SlimeTinkerIE2,SF_SlimeTinkerIE2
+legacy-betterchests|required|BetterChests Legacy|BetterChests,BetterChestsLegacy,SF_BetterChests
+upstream-networks|advisory|Networks|Networks
+infinity-expansion-2|advisory|Infinity Expansion 2|InfinityExpansion2,InfinityExpansion
+dynatech|advisory|DynaTech|DynaTech
+supreme|advisory|Supreme|Supreme
+magic-expansion|advisory|Magic Expansion|MagicExpansion,MagicExpansionLegacy
+fluffymachines|advisory|FluffyMachines|FluffyMachines
+upstream-fastmachines|advisory|FastMachines upstream|FastMachines
+upstream-slimetinker|advisory|SlimeTinker upstream|SlimeTinker
+gugu-foxymachines|advisory|FoxyMachines|FoxyMachines
+gugu-flowerpower|advisory|FlowerPower|FlowerPower
+gugu-idreamofeasy|advisory|IDreamOfEasy|IDreamOfEasy
+gugu-gastronomicon|advisory|Gastronomicon|Gastronomicon
+gugu-bump|advisory|Bump|Bump
+gugu-slimecustomizer|advisory|SlimeCustomizer|SlimeCustomizer
+gugu-emctech|advisory|EMCTech|EMCTech

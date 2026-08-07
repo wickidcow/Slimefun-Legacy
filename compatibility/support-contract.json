@@ -1,5 +1,5 @@
 {
-  "release": "4.1.23",
+  "release": "4.1.24",
   "project": "Slimefun Legacy",
   "plugin_name": "Slimefun",
   "primary_platform": {
@@ -89,7 +89,10 @@
     "external_integration_failure_isolation": true,
     "external_integration_admin_recovery": true,
     "normal_slimefun_core_hash_guard": true,
-    "operator_readable_versions_compatibility": true
+    "operator_readable_versions_compatibility": true,
+    "known_addon_runtime_recognition_registry": true,
+    "ci_coverage_is_not_runtime_compatibility_guarantee": true,
+    "versions_distinguishes_declared_ci_monitored_and_unknown": true
   },
-  "phase": "Core Platform Phase 1E"
+  "phase": "Core Platform Phase 1F"
 }

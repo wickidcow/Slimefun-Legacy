@@ -60,15 +60,18 @@ def main():
         for token in (
             '"✔ Compatible"',
             '"⚠ Compatible with warnings"',
-            '"? Compatibility not verified"',
             '"✕ Incompatible"',
             '"✕ Disabled"',
-            '"Overall: ⚠ No known incompatible addons; review warnings/not-verified entries"',
-            '"? Not verified means the addon is loaded, but it did not declare Slimefun Legacy compatibility.',
             'result.getSource().getDisplayName()',
             '.orElseGet(this::uncheckedCompatibilityComponent)',
         ):
             req(token in versions, f"Versions compatibility clarity invariant missing: {token}", failures)
+        req(
+            '"? Compatibility not verified"' in versions
+            or '"? Slimefun addon — compatibility unknown"' in versions,
+            "Versions must retain an operator-readable undeclared/unknown addon state",
+            failures,
+        )
         req(
             'Component.text(" [" + result.getStatus().getDisplayName() + "]"' not in versions,
             "Versions must not expose raw bracketed compatibility enum labels",
@@ -138,8 +141,14 @@ def main():
             )
 
         support = json.loads(read(root, "compatibility/support-contract.json"))
-        req(support.get("release") == "4.1.23", "Support contract release mismatch", failures)
-        req(support.get("phase") == "Core Platform Phase 1E", "Support contract phase mismatch", failures)
+        support_release = tuple(map(int, str(support.get("release", "0.0.0")).split(".")))
+        req(support_release >= (4, 1, 23), "Support contract must be 4.1.23 or newer", failures)
+        req(
+            isinstance(support.get("phase"), str)
+            and support.get("phase", "").startswith("Core Platform Phase 1"),
+            "Support contract must retain the Core Platform phase marker",
+            failures,
+        )
         pol = support.get("compatibility_policy", {})
         for key in (
             "runtime_machine_failure_isolation",

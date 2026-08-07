@@ -21,7 +21,7 @@ Slimefun Legacy turns a normal Minecraft server into a modpack-like experience w
 [Builds](https://github.com/wickidcow/Slimefun-Legacy/actions) ·
 [Statistics](https://bstats.org/plugin/bukkit/Slimefun%20Legacy/32960) ·
 [Report a Bug](https://github.com/wickidcow/Slimefun-Legacy/issues) ·
-[Release Notes](SLIMEFUN_LEGACY_4.1.23.md) ·
+[Release Notes](SLIMEFUN_LEGACY_4.1.24.md) ·
 [Contributing](CONTRIBUTING.md)
 
 </div>
@@ -138,6 +138,8 @@ The probe reports mapped inventory/storage, cargo/logistics, processor/machine, 
 
 Phase 1E also isolates repeatedly failing external adapter callbacks without changing normal Slimefun Cargo, Energy, machine, guide, or addon execution. Admins can use `/sf doctor integrations retry <id|all>` or `/sf doctor integrations reload`; machine isolation can be cleared with `/sf doctor runtime retry` or `/sf doctor runtime retry all`.
 
+Phase 1F improves `/sf versions` with a runtime recognition registry for addon families monitored by Legacy CI. It clearly separates declared compatibility from CI coverage and unknown compatibility; CI coverage is never treated as a guarantee for the exact installed addon JAR.
+
 ## 🌐 English-first and recovery
 
 The normal English experience does **not** require Slimefun Translate. Recommended settings in `plugins/Slimefun/config.yml` are:
@@ -219,7 +221,7 @@ The current compatibility contract is documented in [`COMPATIBILITY_FOUNDATION.m
 | Hybrid servers such as Arclight, Mohist, or Cardboard | ❌ Unsupported and blocked |
 | Fabric / Forge / NeoForge | ❌ Unsupported — this is a server plugin, not a mod |
 
-Slimefun Legacy 4.1.23 is tested primarily against **Paper 26.2 / Minecraft 1.21.11 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
+Slimefun Legacy 4.1.24 is tested primarily against **Paper 26.2 / Minecraft 1.21.11 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
 
 The machine-readable support contract and Compatibility Foundation are documented in [`COMPATIBILITY_FOUNDATION.md`](COMPATIBILITY_FOUNDATION.md). The compatibility policy and current defensive maintenance layer are documented in [`PAPER_PURPUR_COMPATIBILITY.md`](PAPER_PURPUR_COMPATIBILITY.md).
 

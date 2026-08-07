@@ -9,11 +9,15 @@ import io.github.thebusybiscuit.slimefun4.api.platform.PlatformCapability;
 import io.github.thebusybiscuit.slimefun4.api.platform.PlatformProfile;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.KnownAddonCompatibilityRegistry;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.KnownAddonCompatibilityRegistry.KnownAddonSupport;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.utils.NumberUtils;
 import java.net.URI;
 import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -38,6 +42,8 @@ import org.bukkit.plugin.Plugin;
  */
 class VersionsCommand extends SubCommand {
 
+    private final KnownAddonCompatibilityRegistry knownAddonRegistry;
+
     /**
      * This is the Java version we recommend to use.
      * Bump as necessary and adjust the warning.
@@ -54,6 +60,7 @@ class VersionsCommand extends SubCommand {
     @ParametersAreNonnullByDefault
     VersionsCommand(Slimefun plugin, SlimefunCommand cmd) {
         super(plugin, cmd, "versions", false);
+        knownAddonRegistry = KnownAddonCompatibilityRegistry.load(VersionsCommand.class.getClassLoader());
     }
 
     @Override
@@ -175,40 +182,57 @@ class VersionsCommand extends SubCommand {
 
     private void addAddonCompatibilitySummary(
             @Nonnull net.kyori.adventure.text.TextComponent.Builder builder) {
-        AddonCompatibilitySummary summary = Slimefun.getAddonCompatibilityService().getSummary();
+        List<AddonCompatibilityResult> results = Slimefun.getAddonCompatibilityService().getResults();
+        AddonCompatibilitySummary summary = AddonCompatibilitySummary.from(results);
         int compatible = summary.getCount(AddonCompatibilityStatus.COMPATIBLE);
         int warning = summary.getCount(AddonCompatibilityStatus.WARNING);
-        int notVerified = summary.getCount(AddonCompatibilityStatus.UNDECLARED);
         int incompatible = summary.getCount(AddonCompatibilityStatus.INCOMPATIBLE);
         int disabled = summary.getCount(AddonCompatibilityStatus.DISABLED);
+        long ciMonitored = results.stream()
+                .filter(result -> result.getStatus() == AddonCompatibilityStatus.UNDECLARED)
+                .filter(result -> knownAddonRegistry.find(result.getPluginName()).isPresent())
+                .count();
+        long unknown = results.stream()
+                .filter(result -> result.getStatus() == AddonCompatibilityStatus.UNDECLARED)
+                .filter(result -> knownAddonRegistry.find(result.getPluginName()).isEmpty())
+                .count();
 
         builder.append(Component.text("Addon compatibility: ", NamedTextColor.GREEN))
-                .append(Component.text("✔ " + compatible + " compatible", NamedTextColor.DARK_GREEN))
+                .append(Component.text("✔ " + compatible + " declared compatible", NamedTextColor.DARK_GREEN))
+                .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
+                .append(Component.text("◉ " + ciMonitored + " CI monitored", NamedTextColor.AQUA))
                 .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
                 .append(Component.text("⚠ " + warning + " warning", NamedTextColor.YELLOW))
                 .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
-                .append(Component.text("? " + notVerified + " not verified", NamedTextColor.GRAY))
+                .append(Component.text("? " + unknown + " unknown", NamedTextColor.GRAY))
                 .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
                 .append(Component.text("✕ " + incompatible + " incompatible", NamedTextColor.RED))
                 .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
                 .append(Component.text("⏸ " + disabled + " disabled\n", NamedTextColor.DARK_RED));
 
         if (incompatible == 0 && disabled == 0) {
-            NamedTextColor overallColor = warning == 0 && notVerified == 0
+            NamedTextColor overallColor = warning == 0 && unknown == 0
                     ? NamedTextColor.GREEN
                     : NamedTextColor.YELLOW;
-            String overall = warning == 0 && notVerified == 0
-                    ? "Overall: ✔ All detected addons report compatible"
-                    : "Overall: ⚠ No known incompatible addons; review warnings/not-verified entries";
+            String overall = warning == 0 && unknown == 0
+                    ? "Overall: ✔ No known compatibility problems"
+                    : "Overall: ⚠ No declared incompatibilities; review warnings/unknown addons";
             builder.append(Component.text(overall + '\n', overallColor));
         } else {
             builder.append(Component.text(
                     "Overall: ✕ One or more addons are disabled or incompatible\n", NamedTextColor.RED));
         }
 
-        if (notVerified > 0) {
+        if (ciMonitored > 0) {
             builder.append(Component.text(
-                    "? Not verified means the addon is loaded, but it did not declare Slimefun Legacy compatibility.\n",
+                    "◉ CI monitored means the addon family is in the Slimefun Legacy compatibility matrix; "
+                            + "the exact installed JAR may differ from the build tested by CI.\n",
+                    NamedTextColor.AQUA));
+        }
+        if (unknown > 0) {
+            builder.append(Component.text(
+                    "? Unknown means Slimefun detected the addon, but it has no compatibility declaration and is not "
+                            + "yet in the Legacy runtime recognition registry.\n",
                     NamedTextColor.GRAY));
         }
     }
@@ -231,6 +255,7 @@ class VersionsCommand extends SubCommand {
         NamedTextColor color;
         String label;
         String explanation;
+        Optional<KnownAddonSupport> knownSupport = knownAddonRegistry.find(result.getPluginName());
 
         switch (result.getStatus()) {
             case COMPATIBLE -> {
@@ -244,9 +269,20 @@ class VersionsCommand extends SubCommand {
                 explanation = "No hard incompatibility was detected, but one or more compatibility warnings need review.";
             }
             case UNDECLARED -> {
-                color = NamedTextColor.GRAY;
-                label = "? Compatibility not verified";
-                explanation = "The addon is loaded, but it does not provide a Slimefun Legacy compatibility declaration. This is not an incompatibility result.";
+                if (knownSupport.isPresent()) {
+                    KnownAddonSupport support = knownSupport.orElseThrow();
+                    color = NamedTextColor.AQUA;
+                    label = "◉ Known addon — Legacy CI monitored";
+                    explanation = "This addon family is recognized by Slimefun Legacy and is included as a "
+                            + support.getTierDisplayName()
+                            + ". The exact installed JAR did not declare compatibility, so CI coverage is useful evidence "
+                            + "but not a guarantee for this exact build.";
+                } else {
+                    color = NamedTextColor.GRAY;
+                    label = "? Slimefun addon — compatibility unknown";
+                    explanation = "Slimefun detected this as an addon, but it has no Legacy compatibility declaration and "
+                            + "is not currently mapped to a known Legacy CI target. This does not mean it is incompatible.";
+                }
             }
             case DISABLED -> {
                 color = NamedTextColor.RED;
@@ -266,6 +302,13 @@ class VersionsCommand extends SubCommand {
                 .append(explanation)
                 .append("\nCompatibility source: ")
                 .append(result.getSource().getDisplayName());
+        knownSupport.ifPresent(support -> hoverText.append("\nLegacy registry: ")
+                .append(support.displayName())
+                .append(" (")
+                .append(support.getTierDisplayName())
+                .append(", ")
+                .append(support.slug())
+                .append(')'));
         if (!result.getMessages().isEmpty()) {
             hoverText.append("\n\nDetails:\n- ").append(String.join("\n- ", result.getMessages()));
         }
@@ -293,7 +336,9 @@ class VersionsCommand extends SubCommand {
         builder.append(Component.text("Installed addon plugins: ", NamedTextColor.GRAY))
                 .append(Component.text("(" + addons.size() + ")", NamedTextColor.DARK_GRAY));
 
-        for (Plugin plugin : addons) {
+        for (Plugin plugin : addons.stream()
+                .sorted((left, right) -> left.getName().compareToIgnoreCase(right.getName()))
+                .toList()) {
             String version = plugin.getDescription().getVersion();
 
             HoverEvent<Component> hoverEvent;
