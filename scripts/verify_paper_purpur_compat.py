@@ -70,19 +70,19 @@ def main() -> int:
 
     workflow = read(".github/workflows/compatibility-ci.yml")
     baseline_start = workflow.find("  build-baseline-slimefun:")
-    baseline_end = workflow.find("\n  paper-candidate-api:", baseline_start)
+    baseline_end = workflow.find("\n  build-legacy-floor-slimefun:", baseline_start)
     if baseline_start < 0 or baseline_end < 0:
-        failures.append("4.1.15 compatibility baseline job is missing or malformed")
+        failures.append("rolling previous-stable compatibility baseline job is missing or malformed")
     else:
         baseline_job = workflow[baseline_start:baseline_end]
         spotless = baseline_job.find("./gradlew spotlessApply --no-daemon")
         build = baseline_job.find("./gradlew clean build --no-daemon")
         if spotless < 0:
-            failures.append("4.1.15 compatibility baseline must run Spotless before compiling")
+            failures.append("previous-stable compatibility baseline must run Spotless before compiling")
         if build < 0:
-            failures.append("4.1.15 compatibility baseline build command is missing")
+            failures.append("previous-stable compatibility baseline build command is missing")
         if spotless >= 0 and build >= 0 and spotless > build:
-            failures.append("4.1.15 compatibility baseline runs Spotless after the build")
+            failures.append("previous-stable compatibility baseline runs Spotless after the build")
     comparator = read("scripts/compare_addon_slimefun_compatibility.py")
     legacy_builder = read("scripts/build_addon_against_local_slimefun.py")
     required_addons = {
@@ -129,11 +129,14 @@ def main() -> int:
         "addon-compatibility-${{ matrix.slug }}",
         "- name: Make Gradle wrapper executable",
         "run: chmod +x gradlew",
-        "Build 4.1.15 compatibility baseline",
-        "ref: 493587431dc831d4b8bc38649af6e22df74a15b0",
+        "prepare-release-baselines:",
+        "read_release_baselines.py",
+        "needs.prepare-release-baselines.outputs.previous_ref",
+        "build-legacy-floor-slimefun:",
+        "needs.prepare-release-baselines.outputs.floor_ref",
         "name: slimefun-baseline-jar",
-        "needs: [prepare-addon-matrix, build-baseline-slimefun, build-slimefun]",
-        "Compare known-good baseline with candidate Legacy JAR",
+        "needs: [prepare-release-baselines, prepare-addon-matrix, build-baseline-slimefun, build-slimefun]",
+        "Compare previous stable baseline with candidate Legacy JAR",
         "compare_addon_slimefun_compatibility.py",
         "Publish classified compatibility summary",
         "Enforce classified compatibility result",

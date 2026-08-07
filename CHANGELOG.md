@@ -1,3 +1,24 @@
+# Slimefun Legacy 4.1.22 — Core Platform Phase 1D
+
+## Compatibility lifecycle
+
+- Moved the release-blocking addon baseline from 4.1.15 to the previous stable 4.1.21 release.
+- Added one machine-readable baseline registry shared by addon and public API compatibility workflows.
+- Retained 4.1.15 as a separate non-blocking historical compatibility floor.
+- Pinned baseline source refs for reproducible regression testing.
+
+## CI hardening
+
+- Required addon failures block release only when a candidate regresses relative to the previous stable baseline.
+- Historical-floor comparisons run as advisory drift probes on scheduled/manual compatibility runs.
+- Expanded the advisory addon matrix with FoxyMachines, FlowerPower, IDreamOfEasy, Gastronomicon, Bump, SlimeCustomizer, and EMCTech.
+- Made Phase 1A-1C verifiers forward-compatible with future Legacy versions.
+- Added a permanent Phase 1D lifecycle verifier.
+
+## Compatibility
+
+- No addon API signatures, item IDs, recipes, storage keys, database schemas, saved-world formats, or gameplay behavior changed.
+
 # Slimefun Legacy 4.1.21 — Core Platform Phase 1C
 
 ## Addon compatibility infrastructure

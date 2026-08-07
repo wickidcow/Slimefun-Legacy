@@ -1,5 +1,5 @@
 {
-  "release": "4.1.21",
+  "release": "4.1.22",
   "project": "Slimefun Legacy",
   "plugin_name": "Slimefun",
   "primary_platform": {
@@ -69,7 +69,14 @@
     "source_and_binary_addon_matrix": true,
     "dynamic_addon_ci_matrix": true,
     "undeclared_addons_remain_loadable": true,
-    "optional_integrations_are_informational": true
+    "optional_integrations_are_informational": true,
+    "rolling_previous_stable_baseline": true,
+    "historical_legacy_floor_baseline": true,
+    "baseline_registry_single_source": true,
+    "previous_stable_regressions_block_release": true,
+    "legacy_floor_failures_are_advisory": true,
+    "api_and_addon_workflows_share_baseline_registry": true,
+    "forward_compatible_phase_verifiers": true
   },
-  "phase": "Core Platform Phase 1C"
+  "phase": "Core Platform Phase 1D"
 }

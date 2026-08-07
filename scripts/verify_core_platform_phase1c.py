@@ -22,6 +22,27 @@ def require(condition: bool, message: str, failures: list[str]) -> None:
         failures.append(message)
 
 
+def release_tuple(value: object) -> tuple[int, int, int] | None:
+    if not isinstance(value, str):
+        return None
+    parts = value.strip().split(".")
+    if len(parts) != 3 or any(not part.isdigit() for part in parts):
+        return None
+    return tuple(int(part) for part in parts)
+
+
+def release_at_least(value: object, minimum: tuple[int, int, int]) -> bool:
+    parsed = release_tuple(value)
+    return parsed is not None and parsed >= minimum
+
+
+def project_version(root: Path) -> str:
+    for line in read(root, "gradle.properties").splitlines():
+        if line.startswith("projectVersion="):
+            return line.split("=", 1)[1].strip()
+    raise ValueError("projectVersion is missing from gradle.properties")
+
+
 def run_verifier(root: Path, script_name: str, failures: list[str], *arguments: str) -> None:
     result = subprocess.run(
         [sys.executable, str(root / "scripts" / script_name), *arguments],
@@ -159,7 +180,11 @@ def main() -> int:
     try:
         matrix = json.loads(read(root, "compatibility/addon-compatibility-matrix.json"))
         require(matrix.get("schema") == 1, "Addon matrix schema must be 1", failures)
-        require(matrix.get("release") == "4.1.21", "Addon matrix release must be 4.1.21", failures)
+        require(
+            matrix.get("release") == project_version(root),
+            "Addon matrix release must match the current Legacy release",
+            failures,
+        )
         addons = matrix.get("addons", [])
         required_names = {
             "FastMachines Legacy",
@@ -198,8 +223,16 @@ def main() -> int:
         require(schema.get("properties", {}).get("schema", {}).get("const") == 1, "Manifest JSON schema is stale", failures)
 
         support = json.loads(read(root, "compatibility/support-contract.json"))
-        require(support.get("release") == "4.1.21", "Support contract release must be 4.1.21", failures)
-        require(support.get("phase") == "Core Platform Phase 1C", "Support contract phase is stale", failures)
+        require(
+            support.get("release") == project_version(root),
+            "Support contract release must match the current Legacy release",
+            failures,
+        )
+        require(
+            isinstance(support.get("phase"), str) and bool(support.get("phase")),
+            "Support contract phase marker is missing",
+            failures,
+        )
         policy = support.get("compatibility_policy", {})
         for key in (
             "runtime_addon_compatibility_registry",
@@ -226,14 +259,18 @@ def main() -> int:
             require("matrix={\"include\":" in output.read_text(encoding="utf-8"), "Matrix generator output is missing", failures)
     run_verifier(root, "verify_binary_linkage_checker.py", failures)
 
-    require("projectVersion=4.1.21" in read(root, "gradle.properties"), "Gradle release must be 4.1.21", failures)
     require(
-        read(root, "CHANGELOG.md").startswith("# Slimefun Legacy 4.1.21"),
-        "Changelog must start with the 4.1.21 release",
+        release_at_least(project_version(root), (4, 1, 21)),
+        "Gradle release must retain the Phase 1C-or-later line",
         failures,
     )
     require(
-        "[Release Notes](SLIMEFUN_LEGACY_4.1.21.md)" in read(root, "README.md"),
+        "# Slimefun Legacy 4.1.21" in read(root, "CHANGELOG.md"),
+        "Changelog no longer contains the Phase 1C release",
+        failures,
+    )
+    require(
+        f"[Release Notes](SLIMEFUN_LEGACY_{project_version(root)}.md)" in read(root, "README.md"),
         "README release link is stale",
         failures,
     )
@@ -251,7 +288,7 @@ def main() -> int:
         return 1
 
     report.write_text(
-        "Slimefun Legacy 4.1.21 Core Platform Phase 1C\n"
+        "Slimefun Legacy Core Platform Phase 1C foundation\n"
         "Runtime addon compatibility registry: PASS\n"
         "Embedded compatibility manifest: PASS\n"
         "Optional dependency boundary: PASS\n"
@@ -260,7 +297,7 @@ def main() -> int:
         "Existing API baseline enforcement: PASS\n",
         encoding="utf-8",
     )
-    print("Slimefun Legacy 4.1.21 Core Platform Phase 1C verification passed.")
+    print("Slimefun Legacy Core Platform Phase 1C foundation verification passed.")
     return 0
 
 

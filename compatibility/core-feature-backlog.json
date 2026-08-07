@@ -150,6 +150,50 @@
       "priority": "low",
       "compatibility_risk": "medium",
       "notes": "Evaluate only after core compatibility phases; preserve existing staff IDs and behavior by default."
+    },
+    {
+      "id": "release-baseline-lifecycle",
+      "title": "Rolling previous-stable compatibility baseline",
+      "sources": [
+        "slimefun-legacy"
+      ],
+      "status": "implemented-phase-1d",
+      "priority": "critical",
+      "compatibility_risk": "low",
+      "notes": "Moves the release-blocking addon and API baseline to one machine-readable registry. Phase 1D compares 4.1.22 against 4.1.21 instead of leaving 4.1.15 hard-coded in workflow YAML."
+    },
+    {
+      "id": "historical-compatibility-floor",
+      "title": "Advisory historical compatibility floor",
+      "sources": [
+        "slimefun-legacy"
+      ],
+      "status": "implemented-phase-1d",
+      "priority": "high",
+      "compatibility_risk": "low",
+      "notes": "Retains 4.1.15 as a non-blocking long-term drift probe while separating it from the active previous-stable regression gate."
+    },
+    {
+      "id": "external-machine-capability-adapters",
+      "title": "External machine, storage, cargo, and energy capability adapters",
+      "sources": [
+        "slimefun-legacy"
+      ],
+      "status": "candidate-phase-1e",
+      "priority": "high",
+      "compatibility_risk": "medium",
+      "notes": "Planned adapter boundary for Pylon, Rebar, and similar machine/storage ecosystems. Keep integrations optional and capability-driven rather than hard-coding plugin internals."
+    },
+    {
+      "id": "runtime-failure-registry",
+      "title": "Unified runtime failure quarantine and diagnostics registry",
+      "sources": [
+        "slimefun-legacy"
+      ],
+      "status": "candidate-phase-1e",
+      "priority": "high",
+      "compatibility_risk": "medium",
+      "notes": "Extend existing machine circuit breakers and guide/addon isolation into a shared failure registry with rate-limited diagnostics and Doctor visibility."
     }
   ]
 }

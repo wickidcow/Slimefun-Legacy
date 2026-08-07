@@ -20,6 +20,27 @@ def require(condition: bool, message: str, failures: list[str]) -> None:
         failures.append(message)
 
 
+def release_tuple(value: object) -> tuple[int, int, int] | None:
+    if not isinstance(value, str):
+        return None
+    parts = value.strip().split(".")
+    if len(parts) != 3 or any(not part.isdigit() for part in parts):
+        return None
+    return tuple(int(part) for part in parts)
+
+
+def release_at_least(value: object, minimum: tuple[int, int, int]) -> bool:
+    parsed = release_tuple(value)
+    return parsed is not None and parsed >= minimum
+
+
+def project_version(root: Path) -> str:
+    for line in read(root, "gradle.properties").splitlines():
+        if line.startswith("projectVersion="):
+            return line.split("=", 1)[1].strip()
+    raise ValueError("projectVersion is missing from gradle.properties")
+
+
 def main() -> int:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     failures: list[str] = []
@@ -201,16 +222,24 @@ def main() -> int:
         failures.append(f"Unable to validate Phase 1A manifests: {error}")
 
     support_contract = json.loads(read(root, "compatibility/support-contract.json"))
-    require(support_contract.get("release") in {"4.1.19", "4.1.20", "4.1.21"}, "Support contract release must retain the Phase 1A foundation", failures)
+    require(
+        release_at_least(support_contract.get("release"), (4, 1, 19)),
+        "Support contract release must retain the Phase 1A-or-later line",
+        failures,
+    )
     require(
         support_contract.get("compatibility_policy", {}).get("capability_based_platform_api") is True,
         "Support contract does not declare the platform API",
         failures,
     )
-    require(any(version in read(root, "gradle.properties") for version in ("projectVersion=4.1.19", "projectVersion=4.1.20", "projectVersion=4.1.21")), "Gradle release must retain the Phase 1A foundation", failures)
     require(
-        read(root, "CHANGELOG.md").startswith(("# Slimefun Legacy 4.1.19", "# Slimefun Legacy 4.1.20", "# Slimefun Legacy 4.1.21")),
-        "Changelog must start with a release containing the Phase 1A foundation",
+        release_at_least(project_version(root), (4, 1, 19)),
+        "Gradle release must retain the Phase 1A-or-later line",
+        failures,
+    )
+    require(
+        "# Slimefun Legacy 4.1.19" in read(root, "CHANGELOG.md"),
+        "Changelog no longer contains the Phase 1A release",
         failures,
     )
 

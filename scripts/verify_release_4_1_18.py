@@ -26,6 +26,13 @@ enchanter = read("src/main/java/io/github/thebusybiscuit/slimefun4/implementatio
 disenchanter = read("src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/enchanting/AutoDisenchanter.java")
 changelog = read("CHANGELOG.md")
 readme = read("README.md")
+gradle = read("gradle.properties")
+
+current_version = ""
+for line in gradle.splitlines():
+    if line.startswith("projectVersion="):
+        current_version = line.split("=", 1)[1].strip()
+        break
 
 for marker in (
     "TOTAL_CALLS",
@@ -68,7 +75,7 @@ require("EnchantmentMachineRuntime.consumeOneEach" in disenchanter, "Auto Disenc
 require("menu.replaceExistingItem(itemSlot, null)" not in disenchanter, "Auto Disenchanter still moves cancelled inputs")
 
 require("# Slimefun Legacy 4.1.18" in changelog, "4.1.18 changelog section is missing")
-require(any(marker in readme for marker in ("Slimefun Legacy 4.1.19 is tested primarily", "Slimefun Legacy 4.1.20 is tested primarily")), "README current version was not updated")
+require(bool(current_version) and f"Slimefun Legacy {current_version} is tested primarily" in readme, "README current version was not updated")
 
 for name, text in (
     ("guide", guide),

@@ -1,16 +1,14 @@
 {
   "schema": 1,
-  "release": "4.1.21",
-  "baseline": {
-    "version": "4.1.15",
-    "commit": "493587431dc831d4b8bc38649af6e22df74a15b0"
-  },
+  "release": "4.1.22",
   "policy": {
     "required_failures_block_release": true,
     "advisory_failures_are_reported": true,
     "source_build_comparison": true,
     "precompiled_binary_linkage": true,
-    "automatic_repository_writes": false
+    "automatic_repository_writes": false,
+    "previous_stable_regressions_block_release": true,
+    "legacy_floor_comparison_is_advisory": true
   },
   "addons": [
     {
@@ -20,7 +18,9 @@
       "tier": "required",
       "advisory": false,
       "enabled": true,
-      "tested_core_variants": ["legacy"]
+      "tested_core_variants": [
+        "legacy"
+      ]
     },
     {
       "name": "Networks Expansion Legacy",
@@ -29,7 +29,9 @@
       "tier": "required",
       "advisory": false,
       "enabled": true,
-      "tested_core_variants": ["legacy"]
+      "tested_core_variants": [
+        "legacy"
+      ]
     },
     {
       "name": "SlimeTinker IE2 Legacy",
@@ -38,7 +40,9 @@
       "tier": "required",
       "advisory": false,
       "enabled": true,
-      "tested_core_variants": ["legacy"]
+      "tested_core_variants": [
+        "legacy"
+      ]
     },
     {
       "name": "BetterChests Legacy",
@@ -47,7 +51,9 @@
       "tier": "required",
       "advisory": false,
       "enabled": true,
-      "tested_core_variants": ["legacy"]
+      "tested_core_variants": [
+        "legacy"
+      ]
     },
     {
       "name": "Networks upstream",
@@ -56,7 +62,11 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["original", "gugu", "legacy"]
+      "tested_core_variants": [
+        "original",
+        "gugu",
+        "legacy"
+      ]
     },
     {
       "name": "Infinity Expansion 2",
@@ -65,7 +75,10 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["gugu", "legacy"]
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
     },
     {
       "name": "DynaTech",
@@ -74,7 +87,10 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["original", "legacy"]
+      "tested_core_variants": [
+        "original",
+        "legacy"
+      ]
     },
     {
       "name": "Supreme",
@@ -83,7 +99,12 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["original", "gugu", "united", "legacy"]
+      "tested_core_variants": [
+        "original",
+        "gugu",
+        "united",
+        "legacy"
+      ]
     },
     {
       "name": "Magic Expansion",
@@ -92,7 +113,10 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["gugu", "legacy"]
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
     },
     {
       "name": "FluffyMachines",
@@ -101,7 +125,10 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["gugu", "legacy"]
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
     },
     {
       "name": "FastMachines upstream",
@@ -110,7 +137,10 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["gugu", "legacy"]
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
     },
     {
       "name": "SlimeTinker upstream",
@@ -119,7 +149,95 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["original", "legacy"]
+      "tested_core_variants": [
+        "original",
+        "legacy"
+      ]
+    },
+    {
+      "name": "FoxyMachines",
+      "repository": "SlimefunGuguProject/FoxyMachines",
+      "slug": "gugu-foxymachines",
+      "tier": "gugu-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
+    },
+    {
+      "name": "FlowerPower",
+      "repository": "SlimefunGuguProject/FlowerPower",
+      "slug": "gugu-flowerpower",
+      "tier": "gugu-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
+    },
+    {
+      "name": "IDreamOfEasy",
+      "repository": "SlimefunGuguProject/IDreamOfEasy",
+      "slug": "gugu-idreamofeasy",
+      "tier": "gugu-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
+    },
+    {
+      "name": "Gastronomicon",
+      "repository": "SlimefunGuguProject/Gastronomicon",
+      "slug": "gugu-gastronomicon",
+      "tier": "gugu-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
+    },
+    {
+      "name": "Bump",
+      "repository": "SlimefunGuguProject/Bump",
+      "slug": "gugu-bump",
+      "tier": "gugu-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
+    },
+    {
+      "name": "SlimeCustomizer",
+      "repository": "SlimefunGuguProject/SlimeCustomizer",
+      "slug": "gugu-slimecustomizer",
+      "tier": "gugu-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
+    },
+    {
+      "name": "EMCTech",
+      "repository": "SlimefunGuguProject/EMCTech",
+      "slug": "gugu-emctech",
+      "tier": "gugu-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
     }
-  ]
+  ],
+  "baseline_registry": "compatibility/release-baselines.json"
 }
