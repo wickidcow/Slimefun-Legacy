@@ -149,11 +149,49 @@ public class BlockDataController extends ADataController {
     private void loadLoadedChunks() {
         Slimefun.getSchedulerService().runLater(() -> {
             for (var world : Bukkit.getWorlds()) {
-                for (var chunk : world.getLoadedChunks()) {
-                    loadChunk(chunk, false, true);
+                if (Slimefun.getSchedulerService().isFolia()) {
+                    scheduleExistingLoadedChunks(world);
+                } else {
+                    for (var chunk : world.getLoadedChunks()) {
+                        loadChunk(chunk, false, true);
+                    }
                 }
             }
         }, 1L);
+    }
+
+    private void scheduleExistingLoadedChunks(World world) {
+        var chunkKeys = new HashSet<String>();
+        var key = new RecordKey(DataScope.CHUNK_DATA);
+        key.addField(FieldKey.CHUNK);
+        key.addCondition(FieldKey.CHUNK, world.getName() + ";%");
+        getData(key, true).forEach(data -> chunkKeys.add(data.get(FieldKey.CHUNK)));
+
+        key = new RecordKey(DataScope.BLOCK_RECORD);
+        key.addField(FieldKey.CHUNK);
+        key.addCondition(FieldKey.CHUNK, world.getName() + ";%");
+        getData(key, true).forEach(data -> chunkKeys.add(data.get(FieldKey.CHUNK)));
+
+        chunkKeys.forEach(cKey -> scheduleExistingLoadedChunk(world, cKey));
+    }
+
+    private void scheduleExistingLoadedChunk(World world, String cKey) {
+        try {
+            var coordinates = cKey.split(";")[1].split(":");
+            int chunkX = Integer.parseInt(coordinates[0]);
+            int chunkZ = Integer.parseInt(coordinates[1]);
+            var anchor = new Location(world, chunkX << 4, 0, chunkZ << 4);
+            var task = Slimefun.getSchedulerService().runAt(anchor, () -> {
+                if (world.isChunkLoaded(chunkX, chunkZ)) {
+                    loadChunk(world.getChunkAt(chunkX, chunkZ, false), false, true);
+                }
+            });
+            if (task.isCancelled()) {
+                logger.log(Level.WARNING, "Skipped loaded-chunk Slimefun data bootstrap because scheduling was rejected: {0}", cKey);
+            }
+        } catch (RuntimeException failure) {
+            logger.log(Level.WARNING, "Unable to resolve loaded Slimefun chunk key during Folia startup: " + cKey, failure);
+        }
     }
 
     /**
@@ -869,9 +907,45 @@ public class BlockDataController extends ADataController {
         key.addCondition(FieldKey.CHUNK, world.getName() + ";%");
         getData(key, true).forEach(data -> chunkKeys.add(data.get(FieldKey.CHUNK)));
 
-        chunkKeys.forEach(cKey -> loadChunk(LocationUtils.toChunk(world, cKey), false, true));
-        logger.log(
-                Level.INFO, "World {0} data loaded in {1}ms", new Object[] {worldName, (System.currentTimeMillis() - start)});
+        if (Slimefun.getSchedulerService().isFolia()) {
+            // Folia's global region must not directly touch chunk state. Resolve each stored chunk on the
+            // scheduler for the region that owns its coordinates, while Paper keeps the legacy synchronous path.
+            chunkKeys.forEach(cKey -> scheduleWorldChunkLoad(world, cKey));
+            logger.log(
+                    Level.INFO,
+                    "World {0} Slimefun data scheduled across owning regions in {1}ms",
+                    new Object[] {worldName, (System.currentTimeMillis() - start)});
+        } else {
+            chunkKeys.forEach(cKey -> loadChunk(LocationUtils.toChunk(world, cKey), false, true));
+            logger.log(
+                    Level.INFO,
+                    "World {0} data loaded in {1}ms",
+                    new Object[] {worldName, (System.currentTimeMillis() - start)});
+        }
+    }
+
+    private void scheduleWorldChunkLoad(World world, String cKey) {
+        try {
+            var coordinates = cKey.split(";")[1].split(":");
+            int chunkX = Integer.parseInt(coordinates[0]);
+            int chunkZ = Integer.parseInt(coordinates[1]);
+            var anchor = new Location(world, chunkX << 4, 0, chunkZ << 4);
+            var task = Slimefun.getSchedulerService().runAt(anchor, () -> {
+                try {
+                    loadChunk(world.getChunkAt(chunkX, chunkZ, false), false, true);
+                } catch (RuntimeException | LinkageError failure) {
+                    logger.log(
+                            Level.SEVERE,
+                            "Failed to load Slimefun startup block data for " + cKey + " on its owning region.",
+                            failure);
+                }
+            });
+            if (task.isCancelled()) {
+                logger.log(Level.WARNING, "Skipped Slimefun startup block-data load because scheduling was rejected: {0}", cKey);
+            }
+        } catch (RuntimeException failure) {
+            logger.log(Level.WARNING, "Unable to resolve stored Slimefun chunk key during world startup: " + cKey, failure);
+        }
     }
 
     public void loadUniversalRecord() {

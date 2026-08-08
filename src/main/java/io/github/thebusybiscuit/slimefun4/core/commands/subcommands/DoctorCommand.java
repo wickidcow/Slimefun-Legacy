@@ -14,8 +14,12 @@ import io.github.thebusybiscuit.slimefun4.api.lifecycle.CoreLifecycleSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.registry.AddonRegistrySnapshot;
 import io.github.thebusybiscuit.slimefun4.api.registry.RegistryRuntimeSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.runtime.CoreReadinessSnapshot;
+import io.github.thebusybiscuit.slimefun4.api.runtime.MachineChunkCoordinationSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.runtime.MachineRuntimeSnapshot;
+import io.github.thebusybiscuit.slimefun4.api.storage.BlockDataRuntimeSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.storage.StorageRuntimeSnapshot;
+import io.github.thebusybiscuit.slimefun4.api.world.ChunkRuntimeState;
+import io.github.thebusybiscuit.slimefun4.api.world.WorldChunkRuntimeSnapshot;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.KnownAddonCompatibilityRegistry;
@@ -62,6 +66,7 @@ final class DoctorCommand extends SubCommand {
             case "status" -> sendStatus(sender, service);
             case "core", "lifecycle" -> sendCoreHealth(sender);
             case "registry" -> sendRegistryHealth(sender);
+            case "chunks", "worlds", "blocks" -> sendChunkHealth(sender);
             case "hand" -> repairHand(sender, service);
             case "inventory" -> repairInventory(sender, args, service);
             case "scan" -> startServerRun(sender, service, false);
@@ -149,6 +154,12 @@ final class DoctorCommand extends SubCommand {
                 + storage.getBlockStorageType() + " &8| &7profiles &e" + storage.getProfileStorageType());
         send(sender, "&7Storage cache: chunks &e" + storage.getLoadedChunks() + " &8| &7universal &e"
                 + storage.getLoadedUniversalData() + " &8| &7pending writes &e" + storage.getPendingWrites());
+        WorldChunkRuntimeSnapshot chunks = Slimefun.getWorldChunkRuntimeService().getSnapshot();
+        MachineChunkCoordinationSnapshot coordination = Slimefun.getMachineChunkCoordinationService().getSnapshot();
+        send(sender, "&7Chunk lifecycle: ready &a" + chunks.getReadyChunks() + " &8| &7unsafe &e"
+                + chunks.getUnsafeChunks() + " &8| &7tracked &e" + chunks.getTrackedChunks());
+        send(sender, "&7Machine/chunk correlation: unsafe &e" + coordination.getUnsafeLocations()
+                + " &8| &7untracked &e" + coordination.getUntrackedLocations());
         send(sender, "&7Addon callback failures observed: &e" + addonFailures + " &8| &7active addon records: &e"
                 + Slimefun.getAddonRuntimeHealthService().getFailures().size());
         if (lifecycle.getLastFailureComponent() != null) {
@@ -175,6 +186,41 @@ final class DoctorCommand extends SubCommand {
                     + addon.getItemGroups() + " &8| &7tickers &e" + addon.getTickingItems());
         }
         send(sender, "&8Read-only registry diagnostics; no registered content is changed by this command.");
+    }
+
+    private void sendChunkHealth(CommandSender sender) {
+        WorldChunkRuntimeSnapshot chunks = Slimefun.getWorldChunkRuntimeService().getSnapshot();
+        BlockDataRuntimeSnapshot blocks = Slimefun.getBlockDataRuntimeService().getSnapshot();
+        MachineChunkCoordinationSnapshot machines = Slimefun.getMachineChunkCoordinationService().getSnapshot();
+
+        send(sender, "&6Slimefun World, Chunk and Block Runtime");
+        send(sender, "&7Worlds tracked: &e" + chunks.getTrackedWorlds() + " &8| &7chunks tracked: &e"
+                + chunks.getTrackedChunks());
+        send(sender, "&7Chunk states: ready &a" + chunks.getReadyChunks() + " &8| &7loading &e"
+                + chunks.getLoadingChunks() + " &8| &7unloading &e" + chunks.getUnloadingChunks()
+                + " &8| &7failed &c" + chunks.getFailedChunks());
+        send(sender, "&7Lifecycle events: loads &e" + chunks.getChunkLoadEvents() + " &8| &7unloads &e"
+                + chunks.getChunkUnloadEvents() + " &8| &7world loads &e" + chunks.getWorldLoadEvents()
+                + " &8| &7world unloads &e" + chunks.getWorldUnloadEvents());
+        send(sender, "&7Storage chunk loads: attempts &e" + blocks.getChunkLoadAttempts() + " &8| &7deferred &e"
+                + blocks.getDeferredChunkLoads() + " &8| &7failures &c" + blocks.getChunkLoadFailures());
+        send(sender, "&7Loaded block data: chunks &e" + blocks.getLoadedChunkRecords() + " &8| &7blocks &e"
+                + blocks.getLoadedBlockRecords() + " &8| &7unknown IDs &e" + blocks.getUnknownSlimefunIds());
+        send(sender, "&7Loaded storage lifecycle: &e" + blocks.getLifecycleSummary());
+        send(sender, "&7Ticker correlation: chunks &e" + machines.getTickerChunks() + " &8| &7locations &e"
+                + machines.getTickerLocations() + " &8| &7unsafe &e" + machines.getUnsafeLocations()
+                + " &8| &7untracked &e" + machines.getUntrackedLocations());
+
+        if (blocks.getLastFailureMessage() != null) {
+            send(sender, "&7Last block-data failure: &c" + blocks.getLastFailureMessage());
+        }
+
+        if (sender instanceof Player player) {
+            ChunkRuntimeState state = Slimefun.getWorldChunkRuntimeService().getChunkState(player.getLocation());
+            send(sender, "&7Your current chunk: &e" + state);
+        }
+
+        send(sender, "&8Diagnostics only: this command does not load/unload chunks or alter machine, Cargo, Energy, or storage data.");
     }
 
     private void repairHand(CommandSender sender, ItemDoctorService service) {
@@ -673,7 +719,7 @@ final class DoctorCommand extends SubCommand {
     }
 
     private void sendUsage(CommandSender sender) {
-        send(sender, "&eUsage: /slimefun doctor [status|core|registry|hand|inventory [player]|scan|repair confirm|addons]");
+        send(sender, "&eUsage: /slimefun doctor [status|core|registry|chunks|hand|inventory [player]|scan|repair confirm|addons]");
         send(sender, "&e       /slimefun doctor [compatibility|runtime [retry [all]]|integrations [probe|reload|retry <id|all>]]");
     }
 

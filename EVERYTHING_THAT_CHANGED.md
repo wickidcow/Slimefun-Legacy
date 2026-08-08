@@ -1,3 +1,35 @@
+# Slimefun Legacy 4.1.27 — Core Platform Phase 1I
+
+Phase 1I modernizes Slimefun's world, chunk, and block-data runtime foundations while preserving normal gameplay semantics.
+
+## Part 1 — World & Chunk Lifecycle Foundation
+
+- Added a read-only world/chunk runtime service backed by chunk/world lifecycle events.
+- Tracks ready, loading, unloading, failed, and untracked chunk states without loading, pinning, generating, or unloading chunks.
+- Added `/sf doctor chunks` for world/chunk lifecycle diagnostics.
+- Added Paper/Folia ownership-aware chunk-load fallback through the centralized Slimefun scheduler.
+
+## Part 2 — Block Data Runtime Foundation
+
+- Added a read-only block-data runtime service and immutable diagnostics snapshot.
+- Reports loaded chunk/block records, unknown Slimefun IDs, lifecycle correlation, deferred loads, and load failures.
+- Preserves the existing database/storage schema and saved-world format.
+- On Folia, world-startup storage resolution now resolves each stored chunk on its owning region instead of touching chunk state from the global region.
+
+## Part 3 — Machine/Chunk Runtime Coordination
+
+- Added a read-only machine/chunk coordination service that correlates existing ticker registrations with observed chunk lifecycle state.
+- `/sf doctor core` now includes chunk lifecycle and machine/chunk correlation evidence.
+- Coordination remains observational: it does not pause, remove, re-register, accelerate, or otherwise alter normal machine tickers.
+
+## Compatibility guarantees
+
+- Existing protected addon APIs remain intact.
+- Normal Slimefun Cargo, Energy, Guide, Ticker, AContainer, BlockTicker, SlimefunItem, and NetworkManager protected behavior remains unchanged.
+- No item IDs, recipes, research IDs, storage keys, database schemas, or saved-world formats are changed.
+
+---
+
 # Slimefun Legacy 4.1.26 — Core Platform Phase 1H
 
 Phase 1H continues the internal modernization work without changing normal Slimefun gameplay semantics.

@@ -25,8 +25,11 @@ import io.github.thebusybiscuit.slimefun4.api.platform.MinecraftVersionNumber;
 import io.github.thebusybiscuit.slimefun4.api.platform.PlatformCompatibilityService;
 import io.github.thebusybiscuit.slimefun4.api.registry.RegistryRuntimeService;
 import io.github.thebusybiscuit.slimefun4.api.runtime.CoreReadinessService;
+import io.github.thebusybiscuit.slimefun4.api.runtime.MachineChunkCoordinationService;
 import io.github.thebusybiscuit.slimefun4.api.runtime.MachineRuntimeService;
+import io.github.thebusybiscuit.slimefun4.api.storage.BlockDataRuntimeService;
 import io.github.thebusybiscuit.slimefun4.api.storage.StorageRuntimeService;
+import io.github.thebusybiscuit.slimefun4.api.world.WorldChunkRuntimeService;
 import io.github.thebusybiscuit.slimefun4.core.SlimefunRegistry;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.config.SlimefunConfigManager;
@@ -57,8 +60,11 @@ import io.github.thebusybiscuit.slimefun4.core.services.holograms.HologramsServi
 import io.github.thebusybiscuit.slimefun4.core.services.profiler.SlimefunProfiler;
 import io.github.thebusybiscuit.slimefun4.core.services.registry.DefaultRegistryRuntimeService;
 import io.github.thebusybiscuit.slimefun4.core.services.runtime.DefaultCoreReadinessService;
+import io.github.thebusybiscuit.slimefun4.core.services.runtime.DefaultMachineChunkCoordinationService;
 import io.github.thebusybiscuit.slimefun4.core.services.runtime.DefaultMachineRuntimeService;
 import io.github.thebusybiscuit.slimefun4.core.services.runtime.DefaultStorageRuntimeService;
+import io.github.thebusybiscuit.slimefun4.core.services.storage.DefaultBlockDataRuntimeService;
+import io.github.thebusybiscuit.slimefun4.core.services.world.DefaultWorldChunkRuntimeService;
 import io.github.thebusybiscuit.slimefun4.core.services.scheduling.SlimefunScheduler;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundService;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorService;
@@ -233,7 +239,12 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     private final DefaultExternalIntegrationService externalIntegrationService =
             new DefaultExternalIntegrationService(this);
     private final SlimefunScheduler schedulerService = new PaperScheduler(this, platformCompatibilityService);
+    private final DefaultWorldChunkRuntimeService worldChunkRuntimeService = new DefaultWorldChunkRuntimeService();
+    private final DefaultBlockDataRuntimeService blockDataRuntimeService = new DefaultBlockDataRuntimeService(
+            databaseManager, schedulerService, worldChunkRuntimeService, getLogger());
     private final DefaultMachineRuntimeService machineRuntimeService = new DefaultMachineRuntimeService(ticker);
+    private final DefaultMachineChunkCoordinationService machineChunkCoordinationService =
+            new DefaultMachineChunkCoordinationService(ticker, worldChunkRuntimeService);
     private final DefaultStorageRuntimeService storageRuntimeService = new DefaultStorageRuntimeService(databaseManager);
     private final DefaultCoreReadinessService coreReadinessService = new DefaultCoreReadinessService(
             lifecycleService,
@@ -1011,6 +1022,36 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     public static @Nonnull StorageRuntimeService getStorageRuntimeService() {
         validateInstance();
         return instance.storageRuntimeService;
+    }
+
+    /**
+     * Returns Slimefun's observed world/chunk lifecycle service.
+     *
+     * @return the read-only world/chunk runtime service
+     */
+    public static @Nonnull WorldChunkRuntimeService getWorldChunkRuntimeService() {
+        validateInstance();
+        return instance.worldChunkRuntimeService;
+    }
+
+    /**
+     * Returns read-only diagnostics for Slimefun's block-data runtime.
+     *
+     * @return the block-data runtime service
+     */
+    public static @Nonnull BlockDataRuntimeService getBlockDataRuntimeService() {
+        validateInstance();
+        return instance.blockDataRuntimeService;
+    }
+
+    /**
+     * Returns read-only machine/chunk lifecycle correlation diagnostics.
+     *
+     * @return machine/chunk coordination diagnostics
+     */
+    public static @Nonnull MachineChunkCoordinationService getMachineChunkCoordinationService() {
+        validateInstance();
+        return instance.machineChunkCoordinationService;
     }
 
     /**

@@ -1,5 +1,5 @@
 {
-  "release": "4.1.26",
+  "release": "4.1.27",
   "project": "Slimefun Legacy",
   "plugin_name": "Slimefun",
   "primary_platform": {
@@ -116,7 +116,16 @@
     "core_readiness_is_observational": true,
     "guarded_addon_callback_api": true,
     "guarded_addon_callbacks_do_not_auto_disable": true,
-    "phase1h_changes_normal_cargo_energy_machine_semantics": false
+    "phase1h_changes_normal_cargo_energy_machine_semantics": false,
+    "world_chunk_runtime_service": true,
+    "world_chunk_lifecycle_is_observational": true,
+    "world_chunk_observer_does_not_pin_chunks": true,
+    "ownership_safe_chunk_storage_load_fallback": true,
+    "folia_world_startup_chunk_resolution": true,
+    "block_data_runtime_read_only_facade": true,
+    "machine_chunk_coordination_observational": true,
+    "chunk_diagnostics_do_not_mutate_world_state": true,
+    "phase1i_changes_normal_cargo_energy_machine_semantics": false
   },
-  "phase": "Core Platform Phase 1H"
+  "phase": "Core Platform Phase 1I"
 }

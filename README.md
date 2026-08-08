@@ -23,7 +23,7 @@ Slimefun Legacy turns a normal Minecraft server into a modpack-like experience w
 [Report a Bug](https://github.com/wickidcow/Slimefun-Legacy/issues) ·
 [Release History](EVERYTHING_THAT_CHANGED.md)
 
-Current development release: **4.1.26 — Core Platform Phase 1H (Registry, Readiness & Runtime Isolation)**. ·
+Current development release: **4.1.27 — Core Platform Phase 1I (World, Chunk & Block Runtime Modernization)**. ·
 [Contributing](CONTRIBUTING.md)
 
 </div>
@@ -224,7 +224,7 @@ Historical compatibility, core-platform, release, validation, and Enhanced Guide
 | Hybrid servers such as Arclight, Mohist, or Cardboard | ❌ Unsupported and blocked |
 | Fabric / Forge / NeoForge | ❌ Unsupported — this is a server plugin, not a mod |
 
-Slimefun Legacy 4.1.26 is tested primarily against **Paper 26.2 / Minecraft 1.21.11 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
+Slimefun Legacy 4.1.27 is tested primarily against **Paper 26.2 / Minecraft 1.21.11 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
 
 The machine-readable support contract remains under `compatibility/`. Historical Compatibility Foundation and Paper/Purpur maintenance notes are consolidated in [`EVERYTHING_THAT_CHANGED.md`](EVERYTHING_THAT_CHANGED.md).
 

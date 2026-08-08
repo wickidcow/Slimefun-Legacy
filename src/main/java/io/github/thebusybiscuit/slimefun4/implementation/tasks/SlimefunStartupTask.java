@@ -1,14 +1,12 @@
 package io.github.thebusybiscuit.slimefun4.implementation.tasks;
 
-import com.xzavier0722.mc.plugin.slimefun4.storage.controller.ChunkDataLoadMode;
-import com.xzavier0722.mc.plugin.slimefun4.storage.listener.ChunkListener;
-import com.xzavier0722.mc.plugin.slimefun4.storage.listener.WorldListener;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.TeleporterListener;
 import io.github.thebusybiscuit.slimefun4.implementation.setup.PostSetup;
 import javax.annotation.Nonnull;
 import org.bukkit.Bukkit;
+import org.bukkit.event.Listener;
 
 /**
  * This Task initializes all items, some listeners and various other stuff.
@@ -46,11 +44,14 @@ public class SlimefunStartupTask implements Runnable {
         // Load all worlds
         Slimefun.getWorldSettingsService().load(Bukkit.getWorlds());
 
-        // Load/Unload Worlds, only after all plugins have started up. Fixes #2862
-        plugin.getServer().getPluginManager().registerEvents(new ChunkListener(), plugin);
-        if (Slimefun.getDatabaseManager().getChunkDataLoadMode() == ChunkDataLoadMode.LOAD_ON_STARTUP) {
-            plugin.getServer().getPluginManager().registerEvents(new WorldListener(), plugin);
-        }
+        // Observe world/chunk lifecycle and route block-data loads through the ownership-aware runtime foundation.
+        // These services are read-only to addons; their Listener implementations are internal to Slimefun core.
+        plugin.getServer()
+                .getPluginManager()
+                .registerEvents((Listener) Slimefun.getWorldChunkRuntimeService(), plugin);
+        plugin.getServer()
+                .getPluginManager()
+                .registerEvents((Listener) Slimefun.getBlockDataRuntimeService(), plugin);
 
         // Only load this Listener if the corresponding items are enabled
         if (isEnabled("ELEVATOR_PLATE", "GPS_ACTIVATION_DEVICE_SHARED", "GPS_ACTIVATION_DEVICE_PERSONAL")) {
