@@ -1,3 +1,7 @@
+## 4.1.24
+
+- Phase 1F Part 2.1: compact `/sf versions` addon lines to a single status word with detailed hover evidence and long-version hover preservation.
+
 # Slimefun Legacy 4.1.24 — Core Platform Phase 1F
 
 ## Phase 1F Part 2 — Compatibility Diagnostics & Evidence

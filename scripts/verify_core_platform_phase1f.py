@@ -125,20 +125,31 @@ def main() -> int:
 
         versions = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/VersionsCommand.java")
         for token in (
-            '"◉ Known addon — Legacy CI monitored"',
-            '"? Slimefun addon — compatibility unknown"',
-            '"◉ " + ciMonitored + " CI monitored"',
-            '"● " + recognized + " recognized"',
-            '"? " + unknown + " unknown"',
-            '"● Recognized addon — compatibility not verified"',
-            '"Overall: ✔ No known compatibility problems"',
+            'label = "Compatible"',
+            'label = "Known"',
+            'label = "Recognized"',
+            'label = "Warning"',
+            'label = "Unknown"',
+            'label = "Incompatible"',
+            'label = "Disabled"',
+            'Component.text("Compatibility: ", NamedTextColor.GREEN)',
+            'Component.text("Hover an addon\'s status for compatibility details.\\n", NamedTextColor.DARK_GRAY)',
+            'compactVersion(@Nonnull String version)',
+            'Component.text("Full version: " + version)',
             "knownAddonRegistry.find(result.getPluginName())",
-            "the exact installed JAR may differ from the build tested by CI",
+            "The exact installed JAR did not declare compatibility",
             "compareToIgnoreCase",
         ):
             req(token in versions, f"Versions Phase 1F invariant missing: {token}", failures)
+        for forbidden in (
+            'label = "◉ Known addon — Legacy CI monitored"',
+            'label = "● Recognized addon — compatibility not verified"',
+            'label = "? Slimefun addon — compatibility unknown"',
+            'label = "⚠ Compatible with warnings"',
+        ):
+            req(forbidden not in versions, f"Verbose versions status label returned: {forbidden}", failures)
         req(
-            'label = "✔ Compatible"' in versions,
+            'label = "Compatible"' in versions,
             "Declared compatible status must remain distinct from CI monitoring",
             failures,
         )
@@ -176,6 +187,9 @@ def main() -> int:
             "doctor_compatibility_evidence_report",
             "runtime_machine_health_in_compatibility_report",
             "safe_linkage_signal_is_not_binary_proof",
+            "versions_compact_single_word_status",
+            "versions_full_evidence_in_hover",
+            "versions_long_build_labels_compacted",
         ):
             req(policy.get(key) is True, f"Phase 1F support policy missing: {key}", failures)
 
@@ -201,7 +215,7 @@ def main() -> int:
     report.write_text(
         "Core Platform Phase 1F verification: PASS\n"
         "- runtime addon recognition registry covers every enabled compatibility-matrix target\n"
-        "- /sf versions separates declared compatibility, CI monitoring and unknown compatibility\n"
+        "- /sf versions uses compact single-word statuses with detailed hover evidence\n"
         "- CI coverage is explicitly not promoted to exact-build compatibility\n"
         "- addon loading and public compatibility status semantics remain unchanged\n"
         "- recognition-only addon families remain distinct from CI-monitored targets\n"

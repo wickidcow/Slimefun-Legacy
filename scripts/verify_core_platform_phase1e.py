@@ -57,18 +57,27 @@ def main():
             req(token in ticker, f"Ticker Phase 1E invariant missing: {token}", failures)
 
         versions = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/VersionsCommand.java")
+        for old_label, compact_label, meaning in (
+            ('"✔ Compatible"', 'label = "Compatible"', "compatible"),
+            ('"⚠ Compatible with warnings"', 'label = "Warning"', "warning"),
+            ('"✕ Incompatible"', 'label = "Incompatible"', "incompatible"),
+            ('"✕ Disabled"', 'label = "Disabled"', "disabled"),
+        ):
+            req(
+                old_label in versions or compact_label in versions,
+                f"Versions compatibility clarity invariant missing for {meaning} status",
+                failures,
+            )
         for token in (
-            '"✔ Compatible"',
-            '"⚠ Compatible with warnings"',
-            '"✕ Incompatible"',
-            '"✕ Disabled"',
             'result.getSource().getDisplayName()',
             '.orElseGet(this::uncheckedCompatibilityComponent)',
         ):
             req(token in versions, f"Versions compatibility clarity invariant missing: {token}", failures)
         req(
             '"? Compatibility not verified"' in versions
-            or '"? Slimefun addon — compatibility unknown"' in versions,
+            or '"? Slimefun addon — compatibility unknown"' in versions
+            or 'label = "Unknown"' in versions
+            or 'Component.text("Unknown", NamedTextColor.GRAY)' in versions,
             "Versions must retain an operator-readable undeclared/unknown addon state",
             failures,
         )

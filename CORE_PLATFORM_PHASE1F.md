@@ -32,3 +32,9 @@ Normal Slimefun Cargo, Energy, machines, guide, storage, recipes, item IDs, data
   GeneticChickengineering, HotbarPets, Magic 8 Ball, MobCapturer, SFMobDrops, SlimefunAdvancements, SlimeGlue,
   SimpleMaterialGenerators, and SoulJars.
 
+## Part 2.1 — compact `/sf versions` presentation
+
+- Every addon uses one short compatibility word in the normal chat line: `Compatible`, `Known`, `Recognized`, `Warning`, `Unknown`, `Incompatible`, or `Disabled`.
+- Detailed compatibility evidence, declaration source, CI/registry information, and diagnostic messages remain available by hovering the status word.
+- Very long custom addon build strings are compacted only for chat display and retain their full exact version in hover text.
+- `/sf doctor compatibility` remains the detailed multi-line report; `/sf versions` is intentionally the quick overview.

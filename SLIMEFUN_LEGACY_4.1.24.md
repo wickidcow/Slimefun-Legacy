@@ -24,3 +24,9 @@
   SimpleMaterialGenerators, and SoulJars.
 - Recognition does not mark an addon compatible. Undeclared addons remain undeclared at the public API layer.
 
+## Phase 1F Part 2.1 — compact version report
+
+- `/sf versions` now keeps each addon to a compact `Name version — Status` line.
+- Status output uses short words only: `Compatible`, `Known`, `Recognized`, `Warning`, `Unknown`, `Incompatible`, or `Disabled`.
+- Hovering the status shows the full compatibility evidence and reason.
+- Long custom build/version labels are shortened only on-screen; hovering the version shows the full exact build string.
