@@ -92,7 +92,11 @@
     "operator_readable_versions_compatibility": true,
     "known_addon_runtime_recognition_registry": true,
     "ci_coverage_is_not_runtime_compatibility_guarantee": true,
-    "versions_distinguishes_declared_ci_monitored_and_unknown": true
+    "versions_distinguishes_declared_ci_monitored_and_unknown": true,
+    "recognized_addon_family_tier": true,
+    "doctor_compatibility_evidence_report": true,
+    "runtime_machine_health_in_compatibility_report": true,
+    "safe_linkage_signal_is_not_binary_proof": true
   },
   "phase": "Core Platform Phase 1F"
 }

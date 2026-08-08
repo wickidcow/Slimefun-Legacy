@@ -2,6 +2,7 @@
 # Format: slug|tier|display name|comma-separated runtime plugin aliases
 # tier=required means the addon is a release-blocking compatibility target.
 # tier=advisory means the addon family is monitored but does not independently block release.
+# tier=recognized means Legacy knows the addon family/name, but it is not currently CI monitored.
 legacy-fastmachines|required|FastMachines Legacy|FastMachines,FastMachinesLegacy,SF_FastMachines
 legacy-networksexp|required|Networks Expansion Legacy|NetworksExpansion,NetworksExpansionLegacy,SF_NetworksExp
 legacy-slimetinker-ie2|required|SlimeTinker IE2 Legacy|SlimeTinker,SlimeTinkerIE2,SF_SlimeTinkerIE2
@@ -21,3 +22,18 @@ gugu-gastronomicon|advisory|Gastronomicon|Gastronomicon
 gugu-bump|advisory|Bump|Bump
 gugu-slimecustomizer|advisory|SlimeCustomizer|SlimeCustomizer
 gugu-emctech|advisory|EMCTech|EMCTech
+# Recognized addon families. These entries improve runtime identification only; they are not CI coverage claims.
+better-farming|recognized|Better Farming|BetterFarming,Better Farming
+danktech2|recognized|DankTech2|DankTech2,DankTech,Dank Tech 2
+cultivation|recognized|Cultivation|Cultivation
+electric-spawners|recognized|Electric Spawners|ElectricSpawners,Electric Spawners
+extra-tools|recognized|ExtraTools|ExtraTools,Extra Tools
+genetic-chickengineering|recognized|GeneticChickengineering|GeneticChickengineering,GeneticChickengineeringReborn,GeneticChickengineering-Reborn,Genetic Chickengineering
+hotbar-pets|recognized|HotbarPets|HotbarPets,Hotbar Pets
+magic-8-ball|recognized|Magic 8 Ball|Magic8Ball,Magic 8 Ball,MagicBall8,MagicBall 8
+mobcapturer|recognized|MobCapturer|MobCapturer,Mob Capturer
+sf-mobdrops|recognized|SFMobDrops|SFMobDrops,SF MobDrops,SF-MobDrops
+slimefun-advancements|recognized|SlimefunAdvancements|SlimefunAdvancements,Slimefun Advancements
+slimeglue|recognized|SlimeGlue|SlimeGlue,Slime Glue
+simple-material-generators|recognized|SimpleMaterialGenerators|SimpleMaterialGenerators,Simple Material Generators
+souljars|recognized|SoulJars|SoulJars,Soul Jars

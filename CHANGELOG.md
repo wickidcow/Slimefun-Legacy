@@ -1,5 +1,12 @@
 # Slimefun Legacy 4.1.24 — Core Platform Phase 1F
 
+## Phase 1F Part 2 — Compatibility Diagnostics & Evidence
+
+- Added a recognition-only addon tier distinct from Legacy CI monitoring.
+- Expanded runtime addon lookup with Better Farming, DankTech2, Cultivation, Electric Spawners, ExtraTools, GeneticChickengineering, HotbarPets, Magic 8 Ball, MobCapturer, SFMobDrops, SlimefunAdvancements, SlimeGlue, SimpleMaterialGenerators, and SoulJars.
+- Expanded `/sf doctor compatibility` with declaration, registry, runtime machine-health, and safe linkage evidence.
+- Kept undeclared and recognition-only addons loadable and did not promote them to API status `Compatible`.
+
 ## Compatibility intelligence
 
 - Makes `/sf versions` distinguish declared compatibility from Legacy CI monitoring and truly unknown compatibility.

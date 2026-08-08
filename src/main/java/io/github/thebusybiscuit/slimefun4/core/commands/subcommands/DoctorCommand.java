@@ -11,6 +11,8 @@ import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationFa
 import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationStatus;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.KnownAddonCompatibilityRegistry;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.KnownAddonCompatibilityRegistry.KnownAddonSupport;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.AddonDoctorService;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorReport;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorService;
@@ -32,8 +34,11 @@ final class DoctorCommand extends SubCommand {
 
     private static final int MAX_ADDON_DETAIL_LINES = 50;
 
+    private final KnownAddonCompatibilityRegistry knownAddonRegistry;
+
     DoctorCommand(@Nonnull Slimefun plugin, @Nonnull SlimefunCommand cmd) {
         super(plugin, cmd, "doctor", true);
+        knownAddonRegistry = KnownAddonCompatibilityRegistry.load(DoctorCommand.class.getClassLoader());
     }
 
     @Override
@@ -441,14 +446,36 @@ final class DoctorCommand extends SubCommand {
             return;
         }
 
-        AddonCompatibilitySummary summary = Slimefun.getAddonCompatibilityService().getSummary();
-        send(sender, "&6Slimefun Addon Compatibility");
+        List<AddonCompatibilityResult> results = Slimefun.getAddonCompatibilityService().getResults();
+        AddonCompatibilitySummary summary = AddonCompatibilitySummary.from(results);
+        long ciMonitored = results.stream()
+                .filter(result -> result.getStatus() == AddonCompatibilityStatus.UNDECLARED)
+                .map(result -> knownAddonRegistry.find(result.getPluginName()))
+                .filter(java.util.Optional::isPresent)
+                .map(java.util.Optional::orElseThrow)
+                .filter(KnownAddonSupport::isCiMonitored)
+                .count();
+        long recognized = results.stream()
+                .filter(result -> result.getStatus() == AddonCompatibilityStatus.UNDECLARED)
+                .map(result -> knownAddonRegistry.find(result.getPluginName()))
+                .filter(java.util.Optional::isPresent)
+                .map(java.util.Optional::orElseThrow)
+                .filter(KnownAddonSupport::isRecognizedOnly)
+                .count();
+        long unknown = results.stream()
+                .filter(result -> result.getStatus() == AddonCompatibilityStatus.UNDECLARED)
+                .filter(result -> knownAddonRegistry.find(result.getPluginName()).isEmpty())
+                .count();
+
+        send(sender, "&6Slimefun Addon Compatibility Evidence");
         send(sender, "&7Running core: &e"
                 + Slimefun.getAddonCompatibilityService().getRunningCoreVariant().getDisplayName());
-        send(sender, "&7Compatible: &a" + summary.getCount(AddonCompatibilityStatus.COMPATIBLE)
-                + " &8| &7Warnings: &e" + summary.getCount(AddonCompatibilityStatus.WARNING)
-                + " &8| &7Undeclared: &b" + summary.getCount(AddonCompatibilityStatus.UNDECLARED));
-        send(sender, "&7Incompatible: &c" + summary.getCount(AddonCompatibilityStatus.INCOMPATIBLE)
+        send(sender, "&7Declared compatible: &a" + summary.getCount(AddonCompatibilityStatus.COMPATIBLE)
+                + " &8| &7CI monitored: &b" + ciMonitored
+                + " &8| &7Recognized: &9" + recognized
+                + " &8| &7Unknown: &7" + unknown);
+        send(sender, "&7Warnings: &e" + summary.getCount(AddonCompatibilityStatus.WARNING)
+                + " &8| &7Incompatible: &c" + summary.getCount(AddonCompatibilityStatus.INCOMPATIBLE)
                 + " &8| &7Disabled: &c" + summary.getCount(AddonCompatibilityStatus.DISABLED));
 
         if (summary.getTotal() == 0) {
@@ -456,27 +483,89 @@ final class DoctorCommand extends SubCommand {
             return;
         }
 
-        for (AddonCompatibilityResult result : Slimefun.getAddonCompatibilityService().getResults()) {
-            send(sender, statusColor(result.getStatus()) + "- " + result.getPluginName() + " v"
-                    + result.getPluginVersion() + " &7[" + result.getStatus().getDisplayName() + "]");
+        for (AddonCompatibilityResult result : results) {
+            sendCompatibilityEvidenceLine(sender, result);
+        }
+        send(sender, "&7Inspect one addon: &e/sf doctor compatibility <plugin>");
+        send(sender, "&8CI monitoring and recognition are evidence levels; neither silently promotes an undeclared JAR "
+                + "to API status Compatible.");
+    }
+
+    private void sendCompatibilityEvidenceLine(CommandSender sender, AddonCompatibilityResult result) {
+        String evidence = compatibilityEvidence(result);
+        send(sender, statusColor(result.getStatus()) + "- " + result.getPluginName() + " v"
+                + result.getPluginVersion() + " &7— " + evidence);
+        if (result.getStatus() == AddonCompatibilityStatus.WARNING
+                || result.getStatus() == AddonCompatibilityStatus.INCOMPATIBLE
+                || result.getStatus() == AddonCompatibilityStatus.DISABLED) {
             for (String message : result.getMessages()) {
                 send(sender, "&8  - &7" + message);
             }
         }
-        send(sender, "&7Inspect one addon: &e/sf doctor compatibility <plugin>");
     }
 
     private void sendCompatibilityResult(CommandSender sender, AddonCompatibilityResult result) {
-        send(sender, "&6Addon Compatibility: &e" + result.getPluginName() + " v" + result.getPluginVersion());
-        send(sender, "&7Status: " + statusColor(result.getStatus()) + result.getStatus().getDisplayName());
+        send(sender, "&6Addon Compatibility Evidence: &e" + result.getPluginName() + " v" + result.getPluginVersion());
+        send(sender, "&7Runtime load: "
+                + (result.getStatus() == AddonCompatibilityStatus.DISABLED ? "&cDisabled" : "&aPlugin enabled"));
+        send(sender, "&7Compatibility result: " + statusColor(result.getStatus()) + result.getStatus().getDisplayName());
         send(sender, "&7Declaration source: &e" + result.getSource().getDisplayName());
+
+        var knownSupport = knownAddonRegistry.find(result.getPluginName());
+        if (knownSupport.isPresent()) {
+            KnownAddonSupport support = knownSupport.orElseThrow();
+            if (support.isCiMonitored()) {
+                send(sender, "&7Legacy registry: &bCI monitored &8(" + support.getTierDisplayName() + ", "
+                        + support.slug() + ")");
+                send(sender, "&8  CI coverage is evidence for the addon family, not a guarantee for this exact JAR.");
+            } else {
+                send(sender, "&7Legacy registry: &9Recognized only &8(" + support.displayName() + ", "
+                        + support.slug() + ")");
+                send(sender, "&8  Recognition confirms identity only; this addon is not currently CI monitored.");
+            }
+        } else {
+            send(sender, "&7Legacy registry: &7No known addon-family mapping");
+        }
+
+        long activeMachineFailures = Slimefun.getTickerTask().getMachineFailureSnapshots(100).stream()
+                .filter(failure -> failure.getAddonName().equalsIgnoreCase(result.getPluginName()))
+                .count();
+        if (activeMachineFailures == 0) {
+            send(sender, "&7Runtime machine health: &aNo active isolated machine failures");
+        } else {
+            send(sender, "&7Runtime machine health: &e" + activeMachineFailures + " active failure location(s)");
+        }
+
+        boolean linkageWarning = result.getMessages().stream()
+                .map(message -> message.toLowerCase(Locale.ROOT))
+                .anyMatch(message -> message.contains("linkage") || message.contains("provider failed"));
+        send(sender, linkageWarning
+                ? "&7Compatibility-layer linkage signal: &eA provider/linkage warning was observed"
+                : "&7Compatibility-layer linkage signal: &aNo provider/linkage failure observed during inspection");
+        send(sender, "&8  This is a safe runtime signal, not a full bytecode proof; GitHub compatibility CI remains "
+                + "the stronger binary/source check for monitored addon builds.");
+
         if (result.getMessages().isEmpty()) {
-            send(sender, "&aNo compatibility problems were detected.");
+            send(sender, "&aNo compatibility-layer problems were detected.");
             return;
         }
         for (String message : result.getMessages()) {
             send(sender, "&8- &7" + message);
         }
+    }
+
+    private String compatibilityEvidence(AddonCompatibilityResult result) {
+        return switch (result.getStatus()) {
+            case COMPATIBLE -> "&a✔ Compatible &8(declared + runtime checks passed)";
+            case WARNING -> "&e⚠ Compatible with warnings";
+            case INCOMPATIBLE -> "&c✕ Incompatible";
+            case DISABLED -> "&c✕ Disabled";
+            case UNDECLARED -> knownAddonRegistry.find(result.getPluginName())
+                    .map(support -> support.isCiMonitored()
+                            ? "&b◉ Known addon — Legacy CI monitored"
+                            : "&9● Recognized addon — compatibility not verified")
+                    .orElse("&7? Slimefun addon — compatibility unknown");
+        };
     }
 
     private String statusColor(AddonCompatibilityStatus status) {

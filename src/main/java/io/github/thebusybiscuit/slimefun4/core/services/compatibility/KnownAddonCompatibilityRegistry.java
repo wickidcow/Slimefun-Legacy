@@ -16,11 +16,11 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 
 /**
- * Runtime recognition data for addon families covered by Slimefun Legacy's compatibility matrix.
+ * Runtime recognition data for Slimefun addon families known to Slimefun Legacy.
  *
- * <p>This registry deliberately does not declare an installed addon compatible. It only records that the addon family
- * is known to Legacy's CI. Exact runtime compatibility still comes from an addon declaration and the normal
- * compatibility checks.
+ * <p>Entries may be release-blocking CI targets, advisory CI targets, or recognition-only aliases. This registry
+ * deliberately does not declare an installed addon compatible. Exact runtime compatibility still comes from an addon
+ * declaration and the normal compatibility checks.
  */
 @SlimefunInternal
 public final class KnownAddonCompatibilityRegistry {
@@ -86,9 +86,10 @@ public final class KnownAddonCompatibilityRegistry {
             Map<String, KnownAddonSupport> aliases, String alias, KnownAddonSupport support) {
         String normalized = normalize(alias);
         if (!normalized.isEmpty()) {
-            // The required Legacy fork intentionally wins when an alias overlaps an advisory upstream target.
+            // Stronger evidence wins when multiple families share a runtime alias: required CI, advisory CI, then
+            // recognition-only. This keeps Legacy forks preferred over upstream aliases without promoting recognition.
             KnownAddonSupport existing = aliases.get(normalized);
-            if (existing == null || (!existing.isRequired() && support.isRequired())) {
+            if (existing == null || support.getTierPriority() > existing.getTierPriority()) {
                 aliases.put(normalized, support);
             }
         }
@@ -116,7 +117,7 @@ public final class KnownAddonCompatibilityRegistry {
         return new KnownAddonCompatibilityRegistry(Map.of(), List.of());
     }
 
-    /** Compatibility-matrix metadata for one recognized addon family. */
+    /** Runtime recognition metadata for one known addon family. */
     public record KnownAddonSupport(@Nonnull String slug, @Nonnull String tier, @Nonnull String displayName) {
         public KnownAddonSupport {
             Objects.requireNonNull(slug, "slug");
@@ -128,8 +129,32 @@ public final class KnownAddonCompatibilityRegistry {
             return tier.equalsIgnoreCase("required");
         }
 
+        public boolean isCiMonitored() {
+            return isRequired() || tier.equalsIgnoreCase("advisory");
+        }
+
+        public boolean isRecognizedOnly() {
+            return tier.equalsIgnoreCase("recognized");
+        }
+
+        int getTierPriority() {
+            if (isRequired()) {
+                return 3;
+            }
+            if (tier.equalsIgnoreCase("advisory")) {
+                return 2;
+            }
+            return isRecognizedOnly() ? 1 : 0;
+        }
+
         public @Nonnull String getTierDisplayName() {
-            return isRequired() ? "required compatibility target" : "advisory compatibility target";
+            if (isRequired()) {
+                return "required compatibility target";
+            }
+            if (tier.equalsIgnoreCase("advisory")) {
+                return "advisory compatibility target";
+            }
+            return "recognized addon family (not CI monitored)";
         }
     }
 }

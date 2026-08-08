@@ -19,7 +19,33 @@ class TestKnownAddonCompatibilityRegistry {
         assertTrue(registry.find("FoxyMachines").isPresent());
         assertTrue(registry.find("NetworksExpansion").isPresent());
         assertTrue(registry.find("BetterChests").isPresent());
+        assertTrue(registry.find("DankTech2").isPresent());
+        assertTrue(registry.find("Cultivation").isPresent());
+        assertTrue(registry.find("ElectricSpawners").isPresent());
+        assertTrue(registry.find("ExtraTools").isPresent());
+        assertTrue(registry.find("GeneticChickengineering-Reborn").isPresent());
+        assertTrue(registry.find("HotbarPets").isPresent());
+        assertTrue(registry.find("MagicBall 8").isPresent());
+        assertTrue(registry.find("MobCapturer").isPresent());
+        assertTrue(registry.find("SFMobDrops").isPresent());
+        assertTrue(registry.find("SlimefunAdvancements").isPresent());
+        assertTrue(registry.find("SlimeGlue").isPresent());
+        assertTrue(registry.find("SimpleMaterialGenerators").isPresent());
+        assertTrue(registry.find("SoulJars").isPresent());
+        assertTrue(registry.find("BetterFarming").isPresent());
         assertFalse(registry.find("CompletelyUnknownAddon").isPresent());
+    }
+
+    @Test
+    void testRecognitionOnlyDoesNotClaimCiCoverage() {
+        KnownAddonCompatibilityRegistry registry =
+                KnownAddonCompatibilityRegistry.load(getClass().getClassLoader());
+        KnownAddonCompatibilityRegistry.KnownAddonSupport dankTech =
+                registry.find("DankTech2").orElseThrow();
+
+        assertTrue(dankTech.isRecognizedOnly());
+        assertFalse(dankTech.isCiMonitored());
+        assertEquals("danktech2", dankTech.slug());
     }
 
     @Test

@@ -64,12 +64,48 @@ def main() -> int:
         }
         runtime_registry = load_runtime_registry(root)
         req(enabled_slugs <= set(runtime_registry), "Runtime addon recognition registry is missing enabled CI addon targets", failures)
-        req(len(runtime_registry) >= 19, "Runtime addon recognition registry must retain at least 19 addon families", failures)
+        req(len(runtime_registry) >= 33, "Runtime addon recognition registry must retain at least 33 addon families", failures)
         req(
             sum(1 for tier, _display in runtime_registry.values() if tier == "required") >= 4,
             "Runtime addon recognition registry must retain the four required Legacy targets",
             failures,
         )
+        recognized_slugs = {
+            "better-farming",
+            "danktech2",
+            "cultivation",
+            "electric-spawners",
+            "extra-tools",
+            "genetic-chickengineering",
+            "hotbar-pets",
+            "magic-8-ball",
+            "mobcapturer",
+            "sf-mobdrops",
+            "slimefun-advancements",
+            "slimeglue",
+            "simple-material-generators",
+            "souljars",
+        }
+        req(
+            recognized_slugs <= set(runtime_registry),
+            "Runtime addon recognition registry is missing Phase 1F Part 2 recognized addon families",
+            failures,
+        )
+        req(
+            all(runtime_registry[slug][0] == "recognized" for slug in recognized_slugs if slug in runtime_registry),
+            "Recognition-only addon families must not be mislabeled as CI monitored",
+            failures,
+        )
+        registry_resource = read(root, "src/main/resources/compatibility/addon-support-registry.txt")
+        for token in (
+            "danktech2|recognized|DankTech2|",
+            "GeneticChickengineering-Reborn",
+            "MagicBall 8",
+            "SFMobDrops",
+            "SimpleMaterialGenerators",
+            "SoulJars",
+        ):
+            req(token in registry_resource, f"Phase 1F Part 2 addon alias missing: {token}", failures)
 
         registry = read(
             root,
@@ -78,9 +114,12 @@ def main() -> int:
         for token in (
             'RESOURCE_PATH = "compatibility/addon-support-registry.txt"',
             "KnownAddonSupport",
-            "putIfAbsent" if False else "support.isRequired()",
+            "isRequired()",
             'replace("legacy", "")',
             'replace("upstream", "")',
+            "isCiMonitored()",
+            "isRecognizedOnly()",
+            "getTierPriority()",
         ):
             req(token in registry, f"Runtime addon registry invariant missing: {token}", failures)
 
@@ -89,7 +128,9 @@ def main() -> int:
             '"◉ Known addon — Legacy CI monitored"',
             '"? Slimefun addon — compatibility unknown"',
             '"◉ " + ciMonitored + " CI monitored"',
+            '"● " + recognized + " recognized"',
             '"? " + unknown + " unknown"',
+            '"● Recognized addon — compatibility not verified"',
             '"Overall: ✔ No known compatibility problems"',
             "knownAddonRegistry.find(result.getPluginName())",
             "the exact installed JAR may differ from the build tested by CI",
@@ -112,6 +153,17 @@ def main() -> int:
             failures,
         )
 
+        doctor = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java")
+        for token in (
+            '"&6Slimefun Addon Compatibility Evidence"',
+            '"&7Legacy registry: &9Recognized only',
+            '"&7Runtime machine health:',
+            '"&7Compatibility-layer linkage signal:',
+            '"&8  This is a safe runtime signal, not a full bytecode proof; GitHub compatibility CI remains "',
+            '"&9● Recognized addon — compatibility not verified"',
+        ):
+            req(token in doctor, f"Doctor compatibility evidence invariant missing: {token}", failures)
+
         support = json.loads(read(root, "compatibility/support-contract.json"))
         req(support.get("release") == current, "Support contract release must match projectVersion", failures)
         req(support.get("phase") == "Core Platform Phase 1F", "Support contract phase must be Phase 1F", failures)
@@ -120,6 +172,10 @@ def main() -> int:
             "known_addon_runtime_recognition_registry",
             "ci_coverage_is_not_runtime_compatibility_guarantee",
             "versions_distinguishes_declared_ci_monitored_and_unknown",
+            "recognized_addon_family_tier",
+            "doctor_compatibility_evidence_report",
+            "runtime_machine_health_in_compatibility_report",
+            "safe_linkage_signal_is_not_binary_proof",
         ):
             req(policy.get(key) is True, f"Phase 1F support policy missing: {key}", failures)
 
@@ -147,7 +203,9 @@ def main() -> int:
         "- runtime addon recognition registry covers every enabled compatibility-matrix target\n"
         "- /sf versions separates declared compatibility, CI monitoring and unknown compatibility\n"
         "- CI coverage is explicitly not promoted to exact-build compatibility\n"
-        "- addon loading and public compatibility status semantics remain unchanged\n",
+        "- addon loading and public compatibility status semantics remain unchanged\n"
+        "- recognition-only addon families remain distinct from CI-monitored targets\n"
+        "- /sf doctor compatibility exposes declaration, registry, runtime-health and safe linkage evidence\n",
         encoding="utf-8",
     )
     print(report.read_text(encoding="utf-8"), end="")

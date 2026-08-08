@@ -190,7 +190,17 @@ class VersionsCommand extends SubCommand {
         int disabled = summary.getCount(AddonCompatibilityStatus.DISABLED);
         long ciMonitored = results.stream()
                 .filter(result -> result.getStatus() == AddonCompatibilityStatus.UNDECLARED)
-                .filter(result -> knownAddonRegistry.find(result.getPluginName()).isPresent())
+                .map(result -> knownAddonRegistry.find(result.getPluginName()))
+                .filter(Optional::isPresent)
+                .map(Optional::orElseThrow)
+                .filter(KnownAddonSupport::isCiMonitored)
+                .count();
+        long recognized = results.stream()
+                .filter(result -> result.getStatus() == AddonCompatibilityStatus.UNDECLARED)
+                .map(result -> knownAddonRegistry.find(result.getPluginName()))
+                .filter(Optional::isPresent)
+                .map(Optional::orElseThrow)
+                .filter(KnownAddonSupport::isRecognizedOnly)
                 .count();
         long unknown = results.stream()
                 .filter(result -> result.getStatus() == AddonCompatibilityStatus.UNDECLARED)
@@ -202,6 +212,8 @@ class VersionsCommand extends SubCommand {
                 .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
                 .append(Component.text("◉ " + ciMonitored + " CI monitored", NamedTextColor.AQUA))
                 .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
+                .append(Component.text("● " + recognized + " recognized", NamedTextColor.BLUE))
+                .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
                 .append(Component.text("⚠ " + warning + " warning", NamedTextColor.YELLOW))
                 .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
                 .append(Component.text("? " + unknown + " unknown", NamedTextColor.GRAY))
@@ -211,12 +223,12 @@ class VersionsCommand extends SubCommand {
                 .append(Component.text("⏸ " + disabled + " disabled\n", NamedTextColor.DARK_RED));
 
         if (incompatible == 0 && disabled == 0) {
-            NamedTextColor overallColor = warning == 0 && unknown == 0
+            NamedTextColor overallColor = warning == 0 && recognized == 0 && unknown == 0
                     ? NamedTextColor.GREEN
                     : NamedTextColor.YELLOW;
-            String overall = warning == 0 && unknown == 0
+            String overall = warning == 0 && recognized == 0 && unknown == 0
                     ? "Overall: ✔ No known compatibility problems"
-                    : "Overall: ⚠ No declared incompatibilities; review warnings/unknown addons";
+                    : "Overall: ⚠ No declared incompatibilities; some addons still need compatibility evidence";
             builder.append(Component.text(overall + '\n', overallColor));
         } else {
             builder.append(Component.text(
@@ -228,6 +240,12 @@ class VersionsCommand extends SubCommand {
                     "◉ CI monitored means the addon family is in the Slimefun Legacy compatibility matrix; "
                             + "the exact installed JAR may differ from the build tested by CI.\n",
                     NamedTextColor.AQUA));
+        }
+        if (recognized > 0) {
+            builder.append(Component.text(
+                    "● Recognized means Legacy knows the addon family/name, but it is not currently in the Legacy "
+                            + "compatibility CI matrix and the exact JAR did not declare compatibility.\n",
+                    NamedTextColor.BLUE));
         }
         if (unknown > 0) {
             builder.append(Component.text(
@@ -271,17 +289,26 @@ class VersionsCommand extends SubCommand {
             case UNDECLARED -> {
                 if (knownSupport.isPresent()) {
                     KnownAddonSupport support = knownSupport.orElseThrow();
-                    color = NamedTextColor.AQUA;
-                    label = "◉ Known addon — Legacy CI monitored";
-                    explanation = "This addon family is recognized by Slimefun Legacy and is included as a "
-                            + support.getTierDisplayName()
-                            + ". The exact installed JAR did not declare compatibility, so CI coverage is useful evidence "
-                            + "but not a guarantee for this exact build.";
+                    if (support.isCiMonitored()) {
+                        color = NamedTextColor.AQUA;
+                        label = "◉ Known addon — Legacy CI monitored";
+                        explanation = "This addon family is recognized by Slimefun Legacy and is included as a "
+                                + support.getTierDisplayName()
+                                + ". The exact installed JAR did not declare compatibility, so CI coverage is useful "
+                                + "evidence but not a guarantee for this exact build.";
+                    } else {
+                        color = NamedTextColor.BLUE;
+                        label = "● Recognized addon — compatibility not verified";
+                        explanation = "Slimefun Legacy recognizes this addon family/name, but it is not currently in "
+                                + "the Legacy compatibility CI matrix and this installed JAR did not declare compatibility. "
+                                + "Recognition is identification only, not a compatibility guarantee.";
+                    }
                 } else {
                     color = NamedTextColor.GRAY;
                     label = "? Slimefun addon — compatibility unknown";
                     explanation = "Slimefun detected this as an addon, but it has no Legacy compatibility declaration and "
-                            + "is not currently mapped to a known Legacy CI target. This does not mean it is incompatible.";
+                            + "is not currently mapped to the Legacy addon recognition registry. This does not mean it is "
+                            + "incompatible.";
                 }
             }
             case DISABLED -> {

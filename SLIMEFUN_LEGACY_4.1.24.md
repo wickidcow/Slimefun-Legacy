@@ -13,3 +13,14 @@
 - Existing 991 compatibility-protected API signatures remain unchanged.
 - Existing Phase 1E runtime protection and Rebar/Pylon discovery remain intact.
 - No item IDs, recipes, research IDs, storage keys, database schemas, saved-world formats, Cargo behavior, Energy behavior, machine behavior, or guide behavior are changed by this update.
+
+## Phase 1F Part 2 — compatibility evidence
+
+- Adds `/sf doctor compatibility` evidence reporting with registry tier, declaration source, runtime load state, active
+  machine-failure state, and safe compatibility-layer linkage signals.
+- Adds a `Recognized` tier for addon families Legacy can identify but does not currently CI monitor.
+- Adds recognition aliases for Better Farming, DankTech2, Cultivation, Electric Spawners, ExtraTools,
+  GeneticChickengineering, HotbarPets, Magic 8 Ball, MobCapturer, SFMobDrops, SlimefunAdvancements, SlimeGlue,
+  SimpleMaterialGenerators, and SoulJars.
+- Recognition does not mark an addon compatible. Undeclared addons remain undeclared at the public API layer.
+
