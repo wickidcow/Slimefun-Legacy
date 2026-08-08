@@ -115,7 +115,7 @@ def update_item_doctor(root: Path) -> None:
 
 
 def update_changelog(root: Path) -> None:
-    path = root / "CHANGELOG.md"
+    path = root / "EVERYTHING_THAT_CHANGED.md"
     text = path.read_text(encoding="utf-8")
     if RELEASE_HEADING in text:
         return

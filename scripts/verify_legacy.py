@@ -34,7 +34,7 @@ def ensure_guide_runtime_phase1b(root: Path) -> int:
 def ensure_release_4_1_18(root: Path) -> int:
     updater = root / "scripts" / "apply_release_4_1_18.py"
     doctor = root / "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemPresentationDoctor.java"
-    changelog = root / "CHANGELOG.md"
+    changelog = root / "EVERYTHING_THAT_CHANGED.md"
     if not updater.is_file():
         return 0
     doctor_ready = doctor.is_file() and RELEASE_MARKER in doctor.read_text(encoding="utf-8")
@@ -80,6 +80,7 @@ def main() -> int:
         "verify_core_platform_phase1e.py",
         "verify_core_platform_phase1f.py",
         "verify_core_platform_phase1g.py",
+        "verify_documentation_consolidation.py",
         "verify_upstream_health_gate.py",
         "verify_gugu_sync.py",
         "verify_paper_purpur_compat.py",

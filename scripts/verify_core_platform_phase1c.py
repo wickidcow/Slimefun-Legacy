@@ -62,8 +62,7 @@ def main() -> int:
     failures: list[str] = []
 
     required_files = (
-        "docs/history/CORE_PLATFORM_PHASE1C.md",
-        "docs/history/SLIMEFUN_LEGACY_4.1.21.md",
+        "EVERYTHING_THAT_CHANGED.md",
         "compatibility/addon-compatibility-matrix.json",
         "compatibility/core-api-registry.json",
         "docs/ADDON_COMPATIBILITY.md",
@@ -265,12 +264,12 @@ def main() -> int:
         failures,
     )
     require(
-        "# Slimefun Legacy 4.1.21" in read(root, "CHANGELOG.md"),
-        "Changelog no longer contains the Phase 1C release",
+        "# Slimefun Legacy 4.1.21" in read(root, "EVERYTHING_THAT_CHANGED.md"),
+        "Consolidated history no longer contains the Phase 1C release",
         failures,
     )
     require(
-        f"[Release Notes](docs/history/SLIMEFUN_LEGACY_{project_version(root)}.md)" in read(root, "README.md"),
+        "[Release History](EVERYTHING_THAT_CHANGED.md)" in read(root, "README.md"),
         "README release link is stale",
         failures,
     )

@@ -34,8 +34,7 @@ def main() -> int:
     failures: list[str] = []
 
     required_files = (
-        "docs/history/CORE_PLATFORM_PHASE1G.md",
-        "docs/history/SLIMEFUN_LEGACY_4.1.25.md",
+        "EVERYTHING_THAT_CHANGED.md",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/lifecycle/CoreLifecycleState.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/lifecycle/CoreLifecyclePhase.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/lifecycle/CoreLifecycleSnapshot.java",
@@ -239,10 +238,10 @@ def main() -> int:
             if path.is_file():
                 req(sha256(path) == expected, f"Phase 1G changed guarded normal Slimefun core file: {rel}", failures)
 
-        changelog = read(root, "CHANGELOG.md")
+        history = read(root, "EVERYTHING_THAT_CHANGED.md")
         readme = read(root, "README.md")
-        req("# Slimefun Legacy 4.1.25 — Core Platform Phase 1G" in changelog, "4.1.25 changelog entry missing", failures)
-        req("[Release Notes](docs/history/SLIMEFUN_LEGACY_4.1.25.md)" in readme, "README release notes link missing", failures)
+        req("# Slimefun Legacy 4.1.25 — Core Platform Phase 1G" in history, "4.1.25 consolidated history entry missing", failures)
+        req("[Release History](EVERYTHING_THAT_CHANGED.md)" in readme, "README release history link missing", failures)
         req("Slimefun Legacy 4.1.25 is tested primarily" in readme, "README current version missing", failures)
     except Exception as error:
         failures.append(f"Phase 1G verifier failed to inspect repository: {error}")

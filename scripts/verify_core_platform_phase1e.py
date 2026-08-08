@@ -23,8 +23,7 @@ def main():
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     failures = []
     files = (
-        "docs/history/CORE_PLATFORM_PHASE1E.md",
-        "docs/history/SLIMEFUN_LEGACY_4.1.23.md",
+        "EVERYTHING_THAT_CHANGED.md",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/integrations/ExternalBlockIntegration.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/integrations/ExternalIntegrationCapability.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/integrations/ExternalIntegrationProvider.java",

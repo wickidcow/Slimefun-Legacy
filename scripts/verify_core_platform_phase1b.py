@@ -46,8 +46,7 @@ def main() -> int:
     failures: list[str] = []
 
     required_files = (
-        "docs/history/CORE_PLATFORM_PHASE1B.md",
-        "docs/history/SLIMEFUN_LEGACY_4.1.20.md",
+        "EVERYTHING_THAT_CHANGED.md",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/annotations/SlimefunDeprecated.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/platform/PlatformCompatibilityReport.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/platform/PlatformRequirements.java",
@@ -253,13 +252,13 @@ def main() -> int:
         failures,
     )
     require(
-        "# Slimefun Legacy 4.1.20" in read(root, "CHANGELOG.md"),
-        "Changelog no longer contains the 4.1.20 Phase 1B release",
+        "# Slimefun Legacy 4.1.20" in read(root, "EVERYTHING_THAT_CHANGED.md"),
+        "Consolidated history no longer contains the 4.1.20 Phase 1B release",
         failures,
     )
     require(
-        f"SLIMEFUN_LEGACY_{project_version(root)}.md" in read(root, "README.md"),
-        "README release link does not match the current Legacy release",
+        "[Release History](EVERYTHING_THAT_CHANGED.md)" in read(root, "README.md"),
+        "README release history link is missing",
         failures,
     )
 

@@ -42,8 +42,7 @@ def main() -> int:
     failures: list[str] = []
 
     required_files = (
-        "docs/history/CORE_PLATFORM_PHASE1F.md",
-        "docs/history/SLIMEFUN_LEGACY_4.1.24.md",
+        "EVERYTHING_THAT_CHANGED.md",
         "src/main/resources/compatibility/addon-support-registry.txt",
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/compatibility/KnownAddonCompatibilityRegistry.java",
         "src/test/java/io/github/thebusybiscuit/slimefun4/core/services/compatibility/TestKnownAddonCompatibilityRegistry.java",

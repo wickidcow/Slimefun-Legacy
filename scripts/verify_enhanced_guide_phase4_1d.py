@@ -8,8 +8,8 @@ import sys
 root = Path(sys.argv[1] if len(sys.argv) > 1 else ".")
 implementation = root / "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/LegacyMachineInputFillAdapters.java"
 test = root / "src/test/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/TestFastMachinesInputFillAdapter.java"
-changelog = root / "CHANGELOG.md"
-guide = root / "docs/history/ENHANCED_GUIDE.md"
+changelog = root / "EVERYTHING_THAT_CHANGED.md"
+guide = root / "EVERYTHING_THAT_CHANGED.md"
 properties = root / "gradle.properties"
 
 required = (implementation, test, changelog, guide, properties)

@@ -47,8 +47,7 @@ def main() -> int:
     failures: list[str] = []
 
     required_files = (
-        "docs/history/CORE_PLATFORM_PHASE1D.md",
-        "docs/history/SLIMEFUN_LEGACY_4.1.22.md",
+        "EVERYTHING_THAT_CHANGED.md",
         "compatibility/release-baselines.json",
         "compatibility/addon-compatibility-matrix.json",
         "compatibility/support-contract.json",
@@ -178,10 +177,10 @@ def main() -> int:
                 failures.append("Release baseline reader did not create GitHub output")
 
         readme = read(root, "README.md")
-        changelog = read(root, "CHANGELOG.md")
-        require("[Release Notes](docs/history/SLIMEFUN_LEGACY_4.1." in readme, "README release notes link is missing", failures)
+        history = read(root, "EVERYTHING_THAT_CHANGED.md")
+        require("[Release History](EVERYTHING_THAT_CHANGED.md)" in readme, "README release history link is missing", failures)
         require("is tested primarily against" in readme, "README compatibility release text is missing", failures)
-        require("# Slimefun Legacy 4.1.22 — Core Platform Phase 1D" in changelog, "Changelog must retain the Phase 1D release entry", failures)
+        require("# Slimefun Legacy 4.1.22 — Core Platform Phase 1D" in history, "Consolidated history must retain the Phase 1D release entry", failures)
     except (FileNotFoundError, json.JSONDecodeError, TypeError, ValueError) as error:
         failures.append(f"Phase 1D verifier could not inspect repository state: {error}")
 

@@ -21,7 +21,7 @@ REQUIRED_FILES = [
     ENHANCED / "EnhancedSurvivalSlimefunGuide.java",
     ENHANCED / "EnhancedCheatSheetSlimefunGuide.java",
     ROOT / "src/main/resources/enhanced-guide.yml",
-    ROOT / "docs/history/ENHANCED_GUIDE.md",
+    ROOT / "EVERYTHING_THAT_CHANGED.md",
 ]
 
 

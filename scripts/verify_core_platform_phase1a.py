@@ -46,8 +46,7 @@ def main() -> int:
     failures: list[str] = []
 
     required_files = (
-        "docs/history/CORE_PLATFORM_PHASE1A.md",
-        "docs/history/SLIMEFUN_LEGACY_4.1.19.md",
+        "EVERYTHING_THAT_CHANGED.md",
         "docs/PLATFORM_COMPATIBILITY_API.md",
         "docs/adr/0001-capability-based-platform-compatibility.md",
         "docs/adr/0002-reviewed-multi-fork-upstream-intake.md",
@@ -238,8 +237,8 @@ def main() -> int:
         failures,
     )
     require(
-        "# Slimefun Legacy 4.1.19" in read(root, "CHANGELOG.md"),
-        "Changelog no longer contains the Phase 1A release",
+        "# Slimefun Legacy 4.1.19" in read(root, "EVERYTHING_THAT_CHANGED.md"),
+        "Consolidated history no longer contains the Phase 1A release",
         failures,
     )
 

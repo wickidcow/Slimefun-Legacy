@@ -24,7 +24,7 @@ doctor = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/st
 runtime = read("src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/enchanting/EnchantmentMachineRuntime.java")
 enchanter = read("src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/enchanting/AutoEnchanter.java")
 disenchanter = read("src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/enchanting/AutoDisenchanter.java")
-changelog = read("CHANGELOG.md")
+changelog = read("EVERYTHING_THAT_CHANGED.md")
 readme = read("README.md")
 gradle = read("gradle.properties")
 
