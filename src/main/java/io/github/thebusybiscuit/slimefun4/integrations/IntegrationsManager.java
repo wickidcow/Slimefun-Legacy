@@ -210,14 +210,12 @@ public class IntegrationsManager {
             String version = integration.getDescription().getVersion();
             Slimefun.logger().log(Level.INFO, "Hooked into Plugin: {0} v{1}", new Object[] {pluginName, version});
 
-            try {
-                // Run our callback
-                consumer.accept(integration);
-            } catch (Exception | LinkageError x) {
-                Slimefun.getAddonRuntimeHealthService().recordFailure(integration, "integration-hook:" + pluginName, x);
-                Slimefun.logger().log(Level.WARNING, "Maybe consider updating {0} or Slimefun?", pluginName);
-                Slimefun.logger().log(Level.WARNING, x, () -> "Failed to hook into " + pluginName + " v" + version);
-            }
+            Slimefun.getAddonRuntimeHealthService()
+                    .runGuarded(integration, "integration-hook:" + pluginName, () -> consumer.accept(integration), x -> {
+                        Slimefun.logger().log(Level.WARNING, "Maybe consider updating {0} or Slimefun?", pluginName);
+                        Slimefun.logger()
+                                .log(Level.WARNING, x, () -> "Failed to hook into " + pluginName + " v" + version);
+                    });
         }
     }
 

@@ -11,6 +11,9 @@ import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationCa
 import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationFailureSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationStatus;
 import io.github.thebusybiscuit.slimefun4.api.lifecycle.CoreLifecycleSnapshot;
+import io.github.thebusybiscuit.slimefun4.api.registry.AddonRegistrySnapshot;
+import io.github.thebusybiscuit.slimefun4.api.registry.RegistryRuntimeSnapshot;
+import io.github.thebusybiscuit.slimefun4.api.runtime.CoreReadinessSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.runtime.MachineRuntimeSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.storage.StorageRuntimeSnapshot;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
@@ -58,6 +61,7 @@ final class DoctorCommand extends SubCommand {
         switch (action) {
             case "status" -> sendStatus(sender, service);
             case "core", "lifecycle" -> sendCoreHealth(sender);
+            case "registry" -> sendRegistryHealth(sender);
             case "hand" -> repairHand(sender, service);
             case "inventory" -> repairInventory(sender, args, service);
             case "scan" -> startServerRun(sender, service, false);
@@ -116,15 +120,22 @@ final class DoctorCommand extends SubCommand {
 
     private void sendCoreHealth(CommandSender sender) {
         CoreLifecycleSnapshot lifecycle = Slimefun.getCoreLifecycleService().getSnapshot();
+        CoreReadinessSnapshot readiness = Slimefun.getCoreReadinessService().getSnapshot();
+        RegistryRuntimeSnapshot registry = Slimefun.getRegistryRuntimeService().getSnapshot();
         SchedulerSnapshot scheduler = Slimefun.getSchedulerService().getSnapshot();
         MachineRuntimeSnapshot machines = Slimefun.getMachineRuntimeService().getSnapshot();
         StorageRuntimeSnapshot storage = Slimefun.getStorageRuntimeService().getSnapshot();
         long addonFailures = Slimefun.getAddonRuntimeHealthService().getObservedFailureCount();
 
         send(sender, "&6Slimefun Core Runtime Health");
+        send(sender, "&7Readiness: &e" + readiness.getState()
+                + (readiness.getReasons().isEmpty() ? "" : " &8| &7" + String.join("; ", readiness.getReasons())));
         send(sender, "&7Lifecycle: &e" + lifecycle.getState() + " &8/ &e" + lifecycle.getPhase());
         send(sender, "&7Lifecycle failures: startup &e" + lifecycle.getStartupFailures() + " &8| &7shutdown &e"
                 + lifecycle.getShutdownFailures());
+        send(sender, "&7Registry: " + (registry.isInitialRegistrationFinalized() ? "&aFinalized" : "&eBuilding")
+                + " &8| &7items &e" + registry.getEnabledItems() + "&7/&e" + registry.getTotalItems()
+                + " &8| &7runtime additions &e" + registry.getRuntimeRegisteredItems());
         send(sender, "&7Scheduler: "
                 + (scheduler.isRegionOwnedExecution() ? "&dRegion-owned" : "&aPaper global/main-thread")
                 + " &8| &7accepting tasks: " + (scheduler.isAcceptingTasks() ? "&aYes" : "&cNo")
@@ -145,6 +156,25 @@ final class DoctorCommand extends SubCommand {
                     + simpleFailureName(lifecycle.getLastFailureType()) + ": " + lifecycle.getLastFailureMessage());
         }
         send(sender, "&8This view is observational. It does not rewrite Cargo, Energy, machines, recipes, or stored data.");
+    }
+
+    private void sendRegistryHealth(CommandSender sender) {
+        RegistryRuntimeSnapshot registry = Slimefun.getRegistryRuntimeService().getSnapshot();
+        send(sender, "&6Slimefun Registry Runtime");
+        send(sender, "&7Initial registration: "
+                + (registry.isInitialRegistrationFinalized() ? "&aFinalized" : "&eBuilding"));
+        send(sender, "&7Items: total &e" + registry.getTotalItems() + " &8| &7enabled &a" + registry.getEnabledItems()
+                + " &8| &7disabled &e" + registry.getDisabledItems() + " &8| &7runtime-added &b"
+                + registry.getRuntimeRegisteredItems());
+        send(sender, "&7Content: groups &e" + registry.getItemGroups() + " &8| &7researches &e"
+                + registry.getResearches() + " &8| &7ticker IDs &e" + registry.getTickerBlocks());
+        send(sender, "&7Represented plugins: &e" + registry.getRepresentedPlugins());
+        for (AddonRegistrySnapshot addon : Slimefun.getRegistryRuntimeService().getAddonSnapshots()) {
+            send(sender, "&8- &f" + addon.getPluginName() + " &7v" + addon.getPluginVersion() + " &8| &7items &e"
+                    + addon.getEnabledItems() + "&7/&e" + addon.getTotalItems() + " &8| &7groups &e"
+                    + addon.getItemGroups() + " &8| &7tickers &e" + addon.getTickingItems());
+        }
+        send(sender, "&8Read-only registry diagnostics; no registered content is changed by this command.");
     }
 
     private void repairHand(CommandSender sender, ItemDoctorService service) {
@@ -643,7 +673,7 @@ final class DoctorCommand extends SubCommand {
     }
 
     private void sendUsage(CommandSender sender) {
-        send(sender, "&eUsage: /slimefun doctor [status|core|hand|inventory [player]|scan|repair confirm|addons]");
+        send(sender, "&eUsage: /slimefun doctor [status|core|registry|hand|inventory [player]|scan|repair confirm|addons]");
         send(sender, "&e       /slimefun doctor [compatibility|runtime [retry [all]]|integrations [probe|reload|retry <id|all>]]");
     }
 

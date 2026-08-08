@@ -23,6 +23,8 @@ import io.github.thebusybiscuit.slimefun4.api.lifecycle.CoreLifecycleService;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
 import io.github.thebusybiscuit.slimefun4.api.platform.MinecraftVersionNumber;
 import io.github.thebusybiscuit.slimefun4.api.platform.PlatformCompatibilityService;
+import io.github.thebusybiscuit.slimefun4.api.registry.RegistryRuntimeService;
+import io.github.thebusybiscuit.slimefun4.api.runtime.CoreReadinessService;
 import io.github.thebusybiscuit.slimefun4.api.runtime.MachineRuntimeService;
 import io.github.thebusybiscuit.slimefun4.api.storage.StorageRuntimeService;
 import io.github.thebusybiscuit.slimefun4.core.SlimefunRegistry;
@@ -53,6 +55,8 @@ import io.github.thebusybiscuit.slimefun4.core.services.github.GitHubService;
 import io.github.thebusybiscuit.slimefun4.core.services.lifecycle.DefaultCoreLifecycleService;
 import io.github.thebusybiscuit.slimefun4.core.services.holograms.HologramsService;
 import io.github.thebusybiscuit.slimefun4.core.services.profiler.SlimefunProfiler;
+import io.github.thebusybiscuit.slimefun4.core.services.registry.DefaultRegistryRuntimeService;
+import io.github.thebusybiscuit.slimefun4.core.services.runtime.DefaultCoreReadinessService;
 import io.github.thebusybiscuit.slimefun4.core.services.runtime.DefaultMachineRuntimeService;
 import io.github.thebusybiscuit.slimefun4.core.services.runtime.DefaultStorageRuntimeService;
 import io.github.thebusybiscuit.slimefun4.core.services.scheduling.SlimefunScheduler;
@@ -218,6 +222,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     private final SoundService soundService = new SoundService(this);
     private final ThreadService threadService = new ThreadService(this);
     private final DefaultCoreLifecycleService lifecycleService = new DefaultCoreLifecycleService(getLogger());
+    private final DefaultRegistryRuntimeService registryRuntimeService = new DefaultRegistryRuntimeService(registry);
     private final DefaultPlatformCompatibilityService platformCompatibilityService =
             new DefaultPlatformCompatibilityService();
     private final DefaultOptionalDependencyService optionalDependencyService =
@@ -230,6 +235,13 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     private final SlimefunScheduler schedulerService = new PaperScheduler(this, platformCompatibilityService);
     private final DefaultMachineRuntimeService machineRuntimeService = new DefaultMachineRuntimeService(ticker);
     private final DefaultStorageRuntimeService storageRuntimeService = new DefaultStorageRuntimeService(databaseManager);
+    private final DefaultCoreReadinessService coreReadinessService = new DefaultCoreReadinessService(
+            lifecycleService,
+            registryRuntimeService,
+            schedulerService,
+            storageRuntimeService,
+            machineRuntimeService,
+            addonRuntimeHealthService);
     private final AnalyticsService analyticsService = new AnalyticsService(this);
     private final ItemStackService itemStackService = new ItemStackService();
     private final ItemDoctorService itemDoctorService = new ItemDoctorService(this);
@@ -959,6 +971,26 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     public static @Nonnull CoreLifecycleService getCoreLifecycleService() {
         validateInstance();
         return instance.lifecycleService;
+    }
+
+    /**
+     * Returns the read-only live registry health and ownership service.
+     *
+     * @return the registry runtime service
+     */
+    public static @Nonnull RegistryRuntimeService getRegistryRuntimeService() {
+        validateInstance();
+        return instance.registryRuntimeService;
+    }
+
+    /**
+     * Returns Slimefun's combined operational readiness service.
+     *
+     * @return the core readiness service
+     */
+    public static @Nonnull CoreReadinessService getCoreReadinessService() {
+        validateInstance();
+        return instance.coreReadinessService;
     }
 
     /**

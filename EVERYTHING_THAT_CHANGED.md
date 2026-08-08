@@ -1,3 +1,37 @@
+# Slimefun Legacy 4.1.26 — Core Platform Phase 1H
+
+Phase 1H continues the internal modernization work without changing normal Slimefun gameplay semantics.
+
+## Part 1 — Registry Runtime Foundation
+
+- Added a read-only Registry Runtime API and immutable registry snapshots.
+- Initial item-registration finalization is now observable without freezing or changing the existing registry.
+- Runtime-added item counts are derived from the finalized baseline, preserving existing runtime registration support.
+- Added per-plugin registry ownership summaries for items, item groups, and ticker-backed items.
+- Added `/sf doctor registry` for read-only registry diagnostics.
+
+## Part 2 — Core Readiness
+
+- Added a combined Core Readiness service with STARTING, READY, DEGRADED, STOPPING, STOPPED, and FAILED states.
+- Readiness combines lifecycle, registry-finalization, scheduler, storage, and machine-runtime health.
+- `/sf doctor core` now reports the combined readiness state and reasons when degraded.
+- Readiness is observational and never pauses machines, changes storage, or mutates registered content.
+
+## Part 3 — Guarded Addon Callback Foundation
+
+- Added additive default guarded-callback helpers to `AddonRuntimeHealthService`.
+- Guarded callbacks record RuntimeException/LinkageError failures without disabling the owning plugin.
+- Third-party integration hook registration now uses the shared guarded callback path.
+- Existing compatibility-provider and runtime telemetry semantics remain available.
+
+## Compatibility guarantees
+
+- Existing protected addon APIs remain intact.
+- No item IDs, recipes, research IDs, storage keys, database schemas, or saved-world formats are changed.
+- Normal Slimefun Cargo, Energy, machine ticking, Guide behavior, and protected machine core remain unchanged.
+
+---
+
 # Slimefun Legacy — Everything That Changed
 
 This document is the single consolidated history for Slimefun Legacy. It replaces the former root `CHANGELOG.md` and the individual historical phase/release documents that were stored under `docs/history/`.

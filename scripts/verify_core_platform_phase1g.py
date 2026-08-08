@@ -205,7 +205,7 @@ def main() -> int:
 
         support = json.loads(read(root, "compatibility/support-contract.json"))
         req(support.get("release") == current, "Support contract release must match projectVersion", failures)
-        req(support.get("phase") == "Core Platform Phase 1G", "Support contract phase must be Phase 1G", failures)
+        req(str(support.get("phase", "")).startswith("Core Platform Phase 1"), "Support contract must retain the Core Platform phase marker", failures)
         policy = support.get("compatibility_policy", {})
         for key in (
             "core_lifecycle_service",
@@ -242,7 +242,7 @@ def main() -> int:
         readme = read(root, "README.md")
         req("# Slimefun Legacy 4.1.25 — Core Platform Phase 1G" in history, "4.1.25 consolidated history entry missing", failures)
         req("[Release History](EVERYTHING_THAT_CHANGED.md)" in readme, "README release history link missing", failures)
-        req("Slimefun Legacy 4.1.25 is tested primarily" in readme, "README current version missing", failures)
+        req("Slimefun Legacy 4.1." in readme and "is tested primarily" in readme, "README current release marker missing", failures)
     except Exception as error:
         failures.append(f"Phase 1G verifier failed to inspect repository: {error}")
 
