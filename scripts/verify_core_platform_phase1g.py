@@ -34,8 +34,8 @@ def main() -> int:
     failures: list[str] = []
 
     required_files = (
-        "CORE_PLATFORM_PHASE1G.md",
-        "SLIMEFUN_LEGACY_4.1.25.md",
+        "docs/history/CORE_PLATFORM_PHASE1G.md",
+        "docs/history/SLIMEFUN_LEGACY_4.1.25.md",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/lifecycle/CoreLifecycleState.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/lifecycle/CoreLifecyclePhase.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/lifecycle/CoreLifecycleSnapshot.java",
@@ -242,7 +242,7 @@ def main() -> int:
         changelog = read(root, "CHANGELOG.md")
         readme = read(root, "README.md")
         req("# Slimefun Legacy 4.1.25 — Core Platform Phase 1G" in changelog, "4.1.25 changelog entry missing", failures)
-        req("[Release Notes](SLIMEFUN_LEGACY_4.1.25.md)" in readme, "README release notes link missing", failures)
+        req("[Release Notes](docs/history/SLIMEFUN_LEGACY_4.1.25.md)" in readme, "README release notes link missing", failures)
         req("Slimefun Legacy 4.1.25 is tested primarily" in readme, "README current version missing", failures)
     except Exception as error:
         failures.append(f"Phase 1G verifier failed to inspect repository: {error}")

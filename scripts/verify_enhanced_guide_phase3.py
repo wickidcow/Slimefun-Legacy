@@ -129,7 +129,7 @@ for path in (manager_path, settings_path, bootstrap_path):
     text = read(path)
     require(text.count("{") == text.count("}"), f"unbalanced braces: {path}")
 
-require((ROOT / "ENHANCED_GUIDE.md").is_file(), "missing consolidated Enhanced Guide documentation")
+require((ROOT / "docs/history/ENHANCED_GUIDE.md").is_file(), "missing consolidated Enhanced Guide documentation")
 
 if FAILURES:
     for failure in FAILURES:

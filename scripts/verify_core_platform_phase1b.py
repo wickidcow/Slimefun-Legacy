@@ -46,8 +46,8 @@ def main() -> int:
     failures: list[str] = []
 
     required_files = (
-        "CORE_PLATFORM_PHASE1B.md",
-        "SLIMEFUN_LEGACY_4.1.20.md",
+        "docs/history/CORE_PLATFORM_PHASE1B.md",
+        "docs/history/SLIMEFUN_LEGACY_4.1.20.md",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/annotations/SlimefunDeprecated.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/platform/PlatformCompatibilityReport.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/platform/PlatformRequirements.java",

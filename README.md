@@ -21,7 +21,7 @@ Slimefun Legacy turns a normal Minecraft server into a modpack-like experience w
 [Builds](https://github.com/wickidcow/Slimefun-Legacy/actions) ·
 [Statistics](https://bstats.org/plugin/bukkit/Slimefun%20Legacy/32960) ·
 [Report a Bug](https://github.com/wickidcow/Slimefun-Legacy/issues) ·
-[Release Notes](SLIMEFUN_LEGACY_4.1.25.md) ·
+[Release Notes](docs/history/SLIMEFUN_LEGACY_4.1.25.md) ·
 [Contributing](CONTRIBUTING.md)
 
 </div>
@@ -202,7 +202,7 @@ Slimefun Legacy currently includes:
 - Addon-facing machine recipe provider API for structured inputs, alternatives, outputs, timing, and energy metadata
 - Safe machine input-fill adapter API for standard and custom addon inventories, including Supreme `GenericMachine` and FastMachines compatibility
 
-The current compatibility contract is documented in [`COMPATIBILITY_FOUNDATION.md`](COMPATIBILITY_FOUNDATION.md), and the new core platform boundary is documented in [`CORE_PLATFORM_PHASE1A.md`](CORE_PLATFORM_PHASE1A.md) and [`docs/PLATFORM_COMPATIBILITY_API.md`](docs/PLATFORM_COMPATIBILITY_API.md). Detailed release information is available in [`STABILITY_RELEASE.md`](STABILITY_RELEASE.md), [`SECOND_MAINTENANCE_RELEASE.md`](SECOND_MAINTENANCE_RELEASE.md), [`THIRD_MAINTENANCE_RELEASE.md`](THIRD_MAINTENANCE_RELEASE.md), and [`FOURTH_MAINTENANCE_RELEASE.md`](FOURTH_MAINTENANCE_RELEASE.md). The current fork review is documented in [`CORE_CORRECTNESS_AUDIT.md`](CORE_CORRECTNESS_AUDIT.md). Enhanced Guide development is documented in [`ENHANCED_GUIDE.md`](ENHANCED_GUIDE.md), with addon integration details in [`docs/MACHINE_RECIPE_PROVIDER_API.md`](docs/MACHINE_RECIPE_PROVIDER_API.md) and [`docs/MACHINE_INPUT_FILL_ADAPTER_API.md`](docs/MACHINE_INPUT_FILL_ADAPTER_API.md).
+The current compatibility contract is documented in [`docs/history/COMPATIBILITY_FOUNDATION.md`](docs/history/COMPATIBILITY_FOUNDATION.md), and the new core platform boundary is documented in [`docs/history/CORE_PLATFORM_PHASE1A.md`](docs/history/CORE_PLATFORM_PHASE1A.md) and [`docs/PLATFORM_COMPATIBILITY_API.md`](docs/PLATFORM_COMPATIBILITY_API.md). Detailed release information is available in [`docs/history/STABILITY_RELEASE.md`](docs/history/STABILITY_RELEASE.md), [`docs/history/SECOND_MAINTENANCE_RELEASE.md`](docs/history/SECOND_MAINTENANCE_RELEASE.md), [`docs/history/THIRD_MAINTENANCE_RELEASE.md`](docs/history/THIRD_MAINTENANCE_RELEASE.md), and [`docs/history/FOURTH_MAINTENANCE_RELEASE.md`](docs/history/FOURTH_MAINTENANCE_RELEASE.md). The current fork review is documented in [`docs/history/CORE_CORRECTNESS_AUDIT.md`](docs/history/CORE_CORRECTNESS_AUDIT.md). Enhanced Guide development is documented in [`docs/history/ENHANCED_GUIDE.md`](docs/history/ENHANCED_GUIDE.md), with addon integration details in [`docs/MACHINE_RECIPE_PROVIDER_API.md`](docs/MACHINE_RECIPE_PROVIDER_API.md) and [`docs/MACHINE_INPUT_FILL_ADAPTER_API.md`](docs/MACHINE_INPUT_FILL_ADAPTER_API.md).
 
 ---
 
@@ -224,9 +224,9 @@ The current compatibility contract is documented in [`COMPATIBILITY_FOUNDATION.m
 
 Slimefun Legacy 4.1.25 is tested primarily against **Paper 26.2 / Minecraft 1.21.11 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
 
-The machine-readable support contract and Compatibility Foundation are documented in [`COMPATIBILITY_FOUNDATION.md`](COMPATIBILITY_FOUNDATION.md). The compatibility policy and current defensive maintenance layer are documented in [`PAPER_PURPUR_COMPATIBILITY.md`](PAPER_PURPUR_COMPATIBILITY.md).
+The machine-readable support contract and Compatibility Foundation are documented in [`docs/history/COMPATIBILITY_FOUNDATION.md`](docs/history/COMPATIBILITY_FOUNDATION.md). The compatibility policy and current defensive maintenance layer are documented in [`docs/history/PAPER_PURPUR_COMPATIBILITY.md`](docs/history/PAPER_PURPUR_COMPATIBILITY.md).
 
-Folia Phase 1 routes machine ticks and entity/location callbacks through their owning schedulers while preserving Paper behavior. Cargo and energy networks intentionally operate only on nodes owned by the regulator's current Folia region; transactional cross-region transfers are not enabled yet. Folia therefore remains experimental. **Every installed addon must also be Folia-safe.** See [`FOLIA_PHASE1.md`](FOLIA_PHASE1.md) for the exact safety boundary and staging checklist.
+Folia Phase 1 routes machine ticks and entity/location callbacks through their owning schedulers while preserving Paper behavior. Cargo and energy networks intentionally operate only on nodes owned by the regulator's current Folia region; transactional cross-region transfers are not enabled yet. Folia therefore remains experimental. **Every installed addon must also be Folia-safe.** See [`docs/history/FOLIA_PHASE1.md`](docs/history/FOLIA_PHASE1.md) for the exact safety boundary and staging checklist.
 
 ### Addons and existing worlds
 

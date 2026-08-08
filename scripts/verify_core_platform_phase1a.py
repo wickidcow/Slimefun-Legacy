@@ -46,8 +46,8 @@ def main() -> int:
     failures: list[str] = []
 
     required_files = (
-        "CORE_PLATFORM_PHASE1A.md",
-        "SLIMEFUN_LEGACY_4.1.19.md",
+        "docs/history/CORE_PLATFORM_PHASE1A.md",
+        "docs/history/SLIMEFUN_LEGACY_4.1.19.md",
         "docs/PLATFORM_COMPATIBILITY_API.md",
         "docs/adr/0001-capability-based-platform-compatibility.md",
         "docs/adr/0002-reviewed-multi-fork-upstream-intake.md",

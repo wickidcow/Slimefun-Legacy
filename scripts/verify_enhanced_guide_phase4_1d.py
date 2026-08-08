@@ -9,7 +9,7 @@ root = Path(sys.argv[1] if len(sys.argv) > 1 else ".")
 implementation = root / "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/LegacyMachineInputFillAdapters.java"
 test = root / "src/test/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/TestFastMachinesInputFillAdapter.java"
 changelog = root / "CHANGELOG.md"
-guide = root / "ENHANCED_GUIDE.md"
+guide = root / "docs/history/ENHANCED_GUIDE.md"
 properties = root / "gradle.properties"
 
 required = (implementation, test, changelog, guide, properties)

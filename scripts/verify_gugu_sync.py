@@ -12,7 +12,7 @@ def main() -> int:
     script = root / "scripts/sync_upstream.sh"
     health_script = root / "scripts/check_upstream_health.py"
     health_verifier = root / "scripts/verify_upstream_health_gate.py"
-    docs = root / "GUGU_UPSTREAM_SYNC.md"
+    docs = root / "docs/history/GUGU_UPSTREAM_SYNC.md"
     marker = root / ".gugu-upstream-base"
 
     problems: list[str] = []

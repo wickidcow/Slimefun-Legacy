@@ -47,8 +47,8 @@ def main() -> int:
     failures: list[str] = []
 
     required_files = (
-        "CORE_PLATFORM_PHASE1D.md",
-        "SLIMEFUN_LEGACY_4.1.22.md",
+        "docs/history/CORE_PLATFORM_PHASE1D.md",
+        "docs/history/SLIMEFUN_LEGACY_4.1.22.md",
         "compatibility/release-baselines.json",
         "compatibility/addon-compatibility-matrix.json",
         "compatibility/support-contract.json",
@@ -179,7 +179,7 @@ def main() -> int:
 
         readme = read(root, "README.md")
         changelog = read(root, "CHANGELOG.md")
-        require("[Release Notes](SLIMEFUN_LEGACY_4.1." in readme, "README release notes link is missing", failures)
+        require("[Release Notes](docs/history/SLIMEFUN_LEGACY_4.1." in readme, "README release notes link is missing", failures)
         require("is tested primarily against" in readme, "README compatibility release text is missing", failures)
         require("# Slimefun Legacy 4.1.22 — Core Platform Phase 1D" in changelog, "Changelog must retain the Phase 1D release entry", failures)
     except (FileNotFoundError, json.JSONDecodeError, TypeError, ValueError) as error:

@@ -62,8 +62,8 @@ def main() -> int:
     failures: list[str] = []
 
     required_files = (
-        "CORE_PLATFORM_PHASE1C.md",
-        "SLIMEFUN_LEGACY_4.1.21.md",
+        "docs/history/CORE_PLATFORM_PHASE1C.md",
+        "docs/history/SLIMEFUN_LEGACY_4.1.21.md",
         "compatibility/addon-compatibility-matrix.json",
         "compatibility/core-api-registry.json",
         "docs/ADDON_COMPATIBILITY.md",
@@ -270,7 +270,7 @@ def main() -> int:
         failures,
     )
     require(
-        f"[Release Notes](SLIMEFUN_LEGACY_{project_version(root)}.md)" in read(root, "README.md"),
+        f"[Release Notes](docs/history/SLIMEFUN_LEGACY_{project_version(root)}.md)" in read(root, "README.md"),
         "README release link is stale",
         failures,
     )
