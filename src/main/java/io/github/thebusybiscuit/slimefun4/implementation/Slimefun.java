@@ -11,15 +11,20 @@ import io.github.bakedlibs.dough.protection.ProtectionManager;
 import io.github.thebusybiscuit.slimefun4.api.MinecraftVersion;
 import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityService;
+import io.github.thebusybiscuit.slimefun4.api.addons.AddonRuntimeHealthService;
 import io.github.thebusybiscuit.slimefun4.api.addons.OptionalDependencyService;
 import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationService;
 import io.github.thebusybiscuit.slimefun4.api.exceptions.TagMisconfigurationException;
 import io.github.thebusybiscuit.slimefun4.api.geo.GEOResource;
 import io.github.thebusybiscuit.slimefun4.api.gps.GPSNetwork;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
+import io.github.thebusybiscuit.slimefun4.api.lifecycle.CoreLifecyclePhase;
+import io.github.thebusybiscuit.slimefun4.api.lifecycle.CoreLifecycleService;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
 import io.github.thebusybiscuit.slimefun4.api.platform.MinecraftVersionNumber;
 import io.github.thebusybiscuit.slimefun4.api.platform.PlatformCompatibilityService;
+import io.github.thebusybiscuit.slimefun4.api.runtime.MachineRuntimeService;
+import io.github.thebusybiscuit.slimefun4.api.storage.StorageRuntimeService;
 import io.github.thebusybiscuit.slimefun4.core.SlimefunRegistry;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.config.SlimefunConfigManager;
@@ -40,12 +45,16 @@ import io.github.thebusybiscuit.slimefun4.core.services.PermissionsService;
 import io.github.thebusybiscuit.slimefun4.core.services.ThreadService;
 import io.github.thebusybiscuit.slimefun4.core.services.UpdaterService;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultAddonCompatibilityService;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultAddonRuntimeHealthService;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultExternalIntegrationService;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultOptionalDependencyService;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultPlatformCompatibilityService;
 import io.github.thebusybiscuit.slimefun4.core.services.github.GitHubService;
+import io.github.thebusybiscuit.slimefun4.core.services.lifecycle.DefaultCoreLifecycleService;
 import io.github.thebusybiscuit.slimefun4.core.services.holograms.HologramsService;
 import io.github.thebusybiscuit.slimefun4.core.services.profiler.SlimefunProfiler;
+import io.github.thebusybiscuit.slimefun4.core.services.runtime.DefaultMachineRuntimeService;
+import io.github.thebusybiscuit.slimefun4.core.services.runtime.DefaultStorageRuntimeService;
 import io.github.thebusybiscuit.slimefun4.core.services.scheduling.SlimefunScheduler;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundService;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorService;
@@ -208,15 +217,19 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     private final HologramsService hologramsService = new HologramsService(this);
     private final SoundService soundService = new SoundService(this);
     private final ThreadService threadService = new ThreadService(this);
+    private final DefaultCoreLifecycleService lifecycleService = new DefaultCoreLifecycleService(getLogger());
     private final DefaultPlatformCompatibilityService platformCompatibilityService =
             new DefaultPlatformCompatibilityService();
     private final DefaultOptionalDependencyService optionalDependencyService =
             new DefaultOptionalDependencyService(this);
-    private final DefaultAddonCompatibilityService addonCompatibilityService =
-            new DefaultAddonCompatibilityService(this, platformCompatibilityService, optionalDependencyService);
+    private final DefaultAddonRuntimeHealthService addonRuntimeHealthService = new DefaultAddonRuntimeHealthService();
+    private final DefaultAddonCompatibilityService addonCompatibilityService = new DefaultAddonCompatibilityService(
+            this, platformCompatibilityService, optionalDependencyService, addonRuntimeHealthService);
     private final DefaultExternalIntegrationService externalIntegrationService =
             new DefaultExternalIntegrationService(this);
     private final SlimefunScheduler schedulerService = new PaperScheduler(this, platformCompatibilityService);
+    private final DefaultMachineRuntimeService machineRuntimeService = new DefaultMachineRuntimeService(ticker);
+    private final DefaultStorageRuntimeService storageRuntimeService = new DefaultStorageRuntimeService(databaseManager);
     private final AnalyticsService analyticsService = new AnalyticsService(this);
     private final ItemStackService itemStackService = new ItemStackService();
     private final ItemDoctorService itemDoctorService = new ItemDoctorService(this);
@@ -274,35 +287,43 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     @Override
     public void onEnable() {
         setInstance(this);
+        lifecycleService.beginStart();
 
         if (isUnitTest()) {
             // We handle Unit Tests separately.
             onUnitTestStart();
+            lifecycleService.markRunning();
             return;
         }
 
-        platformCompatibilityService.initialize(getServer());
+        try {
+            platformCompatibilityService.initialize(getServer());
 
-        if (isVersionUnsupported()) {
-            // We want to ensure that the server uses a compatible version of Minecraft.
-            getServer().getPluginManager().disablePlugin(this);
-        } else if (!SlimefunExtended.checkEnvironment(this)) {
-            // We want to ensure that the server uses compatible software and no incompatible plugins.
-            getServer().getPluginManager().disablePlugin(this);
-        } else if (!platformCompatibilityService.isPaperCompatible()) {
-            getLogger().log(Level.WARNING, "#######################################################");
-            getLogger().log(Level.WARNING, "");
-            getLogger().log(Level.WARNING, "As of 24/12/22, this Slimefun version");
-            getLogger().log(Level.WARNING, "requires Paper server. You must use Paper");
-            getLogger().log(Level.WARNING, "or its forks to use Slimefun.");
-            getLogger().log(Level.WARNING, "Download Paper: https://papermc.io/downloads/paper");
-            getLogger().log(Level.WARNING, "");
-            getLogger().log(Level.WARNING, "#######################################################");
-            getServer().getPluginManager().disablePlugin(this);
-        } else {
-            // The environment has been validated.
-            onPluginStart();
+            if (isVersionUnsupported()) {
+                // We want to ensure that the server uses a compatible version of Minecraft.
+                getServer().getPluginManager().disablePlugin(this);
+            } else if (!SlimefunExtended.checkEnvironment(this)) {
+                // We want to ensure that the server uses compatible software and no incompatible plugins.
+                getServer().getPluginManager().disablePlugin(this);
+            } else if (!platformCompatibilityService.isPaperCompatible()) {
+                getLogger().log(Level.WARNING, "#######################################################");
+                getLogger().log(Level.WARNING, "");
+                getLogger().log(Level.WARNING, "As of 24/12/22, this Slimefun version");
+                getLogger().log(Level.WARNING, "requires Paper server. You must use Paper");
+                getLogger().log(Level.WARNING, "or its forks to use Slimefun.");
+                getLogger().log(Level.WARNING, "Download Paper: https://papermc.io/downloads/paper");
+                getLogger().log(Level.WARNING, "");
+                getLogger().log(Level.WARNING, "#######################################################");
+                getServer().getPluginManager().disablePlugin(this);
+            } else {
+                // The environment has been validated.
+                onPluginStart();
+            }
+        } catch (RuntimeException | LinkageError failure) {
+            lifecycleService.markStartupFailed("plugin-enable", failure);
+            throw failure;
         }
+
     }
 
     /**
@@ -345,6 +366,8 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
             logger.warning("====================================================");
         }
 
+        lifecycleService.enterPhase(CoreLifecyclePhase.CONFIGURATION);
+
         // If the server has no "data-storage" folder, it's _probably_ a new install. So mark it for
         // metrics.
         isNewlyInstalled = !new File("data-storage/Slimefun").exists();
@@ -357,6 +380,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
         cfgManager.load();
         registry.load(this);
 
+        lifecycleService.enterPhase(CoreLifecyclePhase.STORAGE);
         logger.log(Level.INFO, "Loading database...");
         if (PlayerProfileMigrator.getInstance().hasOldData()
                 || BlockStorageMigrator.getInstance().hasOldData()) {
@@ -372,6 +396,8 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
             Slimefun.logger().warning("====================================================");
         }
         databaseManager.init();
+
+        lifecycleService.enterPhase(CoreLifecyclePhase.CONTENT);
 
         // Set up localization
         logger.log(Level.INFO, "Loading language files...");
@@ -412,6 +438,8 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
         loadResearches();
 
         PostSetup.setupWiki();
+
+        lifecycleService.enterPhase(CoreLifecyclePhase.RUNTIME);
 
         // All Slimefun Listeners
         logger.log(Level.INFO, "Registering listeners...");
@@ -472,6 +500,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
         hologramsService.start();
         ticker.start(this);
 
+        lifecycleService.enterPhase(CoreLifecyclePhase.INTEGRATIONS);
         logger.log(Level.INFO, "Loading Third-Party plugin integrations...");
         integrations.start();
         externalIntegrationService.refresh();
@@ -482,6 +511,8 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
             // Community fork auto-update
             schedulerService.run(new AutoUpdateTask(this, getFile()));
         }
+
+        lifecycleService.markRunning();
 
         // Hooray!
         logger.log(Level.INFO, "Slimefun has finished loading in {0}", getStartupTime(timestamp));
@@ -513,67 +544,66 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
             return;
         }
 
-        itemDoctorService.shutdown();
-        SlimefunExtended.shutdown();
-        getSQLProfiler().shutdown();
+        lifecycleService.beginShutdown();
+        lifecycleService.runShutdownStep("item-doctor", itemDoctorService::shutdown);
+        lifecycleService.runShutdownStep("extended-runtime", SlimefunExtended::shutdown);
+        lifecycleService.runShutdownStep("sql-profiler", () -> getSQLProfiler().shutdown());
 
         // Stop new machine cycles before cancelling the scheduler tasks that own active work.
-        ticker.setPaused(true);
-        ticker.halt();
+        lifecycleService.runShutdownStep("machine-runtime", () -> {
+            machineRuntimeService.setPaused(true);
+            ticker.halt();
+        });
 
-        // Cancel tasks created through the modern scheduler abstraction.
-        schedulerService.cancelAll();
+        // Stop accepting new scheduler work before cancelling already tracked tasks.
+        lifecycleService.runShutdownStep("scheduler-quiesce", schedulerService::quiesce);
+        lifecycleService.runShutdownStep("scheduler-cancel", schedulerService::cancelAll);
 
         // Folia does not provide a universal Bukkit main-thread scheduler. Legacy Bukkit tasks only exist on Paper.
-        if (!schedulerService.isFolia()) {
-            Bukkit.getScheduler().cancelTasks(this);
-        }
-
-        // Finishes all started movements/removals of block data
-        /**try {
-         * ticker.halt();
-         * ticker.run();
-         * } catch (Exception x) {
-         * getLogger()
-         * .log(
-         * Level.SEVERE,
-         * x,
-         * () -> "Something went wrong while disabling the ticker task for Slimefun v"
-         * + getDescription().getVersion());
-         * }*/
+        lifecycleService.runShutdownStep("legacy-bukkit-tasks", () -> {
+            if (!schedulerService.isFolia()) {
+                Bukkit.getScheduler().cancelTasks(this);
+            }
+        });
 
         // Kill our Profiler Threads
-        profiler.kill();
+        lifecycleService.runShutdownStep("profiler", profiler::kill);
 
         // Paper disables plugins on its primary thread, so inventory close handlers can still run safely here.
         // Folia disables plugins from the global region after new entity tasks can no longer be accepted; touching
         // player inventories from that context would violate entity ownership, so Folia lets the server close them.
-        if (!schedulerService.isFolia()) {
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                p.closeInventory();
-            }
-        }
-
-        // Save all Player Profiles that are still in memory
-        PlayerProfile.iterator().forEachRemaining(profile -> {
-            if (profile.isDirty()) {
-                profile.save();
+        lifecycleService.runShutdownStep("player-inventories", () -> {
+            if (!schedulerService.isFolia()) {
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    player.closeInventory();
+                }
             }
         });
 
-        databaseManager.shutdown();
+        // Save all Player Profiles that are still in memory. One bad profile must not block the others.
+        lifecycleService.runShutdownStep("player-profiles", () -> PlayerProfile.iterator().forEachRemaining(profile -> {
+            if (profile.isDirty()) {
+                lifecycleService.runShutdownStep("player-profile", profile::save);
+            }
+        }));
 
-        // Create a new backup zip
-        if (cfgManager.getPluginConfig().getBoolean("options.backup-data")) {
-            backupService.run();
-        }
+        lifecycleService.runShutdownStep("database", databaseManager::shutdown);
 
-        // Close and unload any resources from our Metrics Service
-        metricsService.cleanUp();
+        // Create a new backup zip after the database has completed its normal shutdown attempt.
+        lifecycleService.runShutdownStep("backup", () -> {
+            if (cfgManager.getPluginConfig().getBoolean("options.backup-data")) {
+                backupService.run();
+            }
+        });
+
+        // Close and unload any resources from our Metrics Service and thread pools.
+        lifecycleService.runShutdownStep("metrics", metricsService::cleanUp);
+        lifecycleService.runShutdownStep("thread-service", threadService::shutdown);
+
+        lifecycleService.markStopped();
 
         // Terminate our Plugin instance
         setInstance(null);
-
     }
 
     /**
@@ -919,6 +949,46 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     public static @Nonnull TickerTask getTickerTask() {
         validateInstance();
         return instance.ticker;
+    }
+
+    /**
+     * Returns a read-only view of Slimefun's core lifecycle.
+     *
+     * @return the core lifecycle service
+     */
+    public static @Nonnull CoreLifecycleService getCoreLifecycleService() {
+        validateInstance();
+        return instance.lifecycleService;
+    }
+
+    /**
+     * Returns the stable runtime facade for Slimefun machine ticker health and recovery.
+     *
+     * @return the machine runtime service
+     */
+    public static @Nonnull MachineRuntimeService getMachineRuntimeService() {
+        validateInstance();
+        return instance.machineRuntimeService;
+    }
+
+    /**
+     * Returns Slimefun's read-only storage health facade.
+     *
+     * @return the storage runtime service
+     */
+    public static @Nonnull StorageRuntimeService getStorageRuntimeService() {
+        validateInstance();
+        return instance.storageRuntimeService;
+    }
+
+    /**
+     * Returns the in-memory addon callback health service.
+     *
+     * @return the addon runtime health service
+     */
+    public static @Nonnull AddonRuntimeHealthService getAddonRuntimeHealthService() {
+        validateInstance();
+        return instance.addonRuntimeHealthService;
     }
 
     /**

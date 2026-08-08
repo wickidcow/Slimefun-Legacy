@@ -1,3 +1,24 @@
+## 4.1.25
+
+# Slimefun Legacy 4.1.25 — Core Platform Phase 1G
+
+## Core lifecycle and scheduler
+
+- Added observable core lifecycle phases and ordered shutdown failure isolation.
+- Added scheduler quiesce/health snapshots with compatibility-preserving default API methods.
+- Added explicit ThreadService shutdown and corrected fixed-delay period handling.
+
+## Machine, storage, and addon runtime foundations
+
+- Added stable machine-runtime and read-only storage-runtime facades.
+- Added addon callback health telemetry at existing guarded failure boundaries.
+- Added `/sf doctor core` and addon callback-health evidence to focused compatibility diagnostics.
+
+## Compatibility
+
+- Preserves all 991 protected 4.1.19 API signatures and the Phase 1E normal-core hash guard.
+- Does not intentionally change Cargo, Energy, machine processing, recipes, item IDs, research IDs, storage schemas, databases, or saved-world formats.
+
 ## 4.1.24
 
 - Phase 1F Part 2.1: compact `/sf versions` addon lines to a single status word with detailed hover evidence and long-version hover preservation.

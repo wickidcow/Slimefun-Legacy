@@ -177,7 +177,11 @@ def main() -> int:
 
         support = json.loads(read(root, "compatibility/support-contract.json"))
         req(support.get("release") == current, "Support contract release must match projectVersion", failures)
-        req(support.get("phase") == "Core Platform Phase 1F", "Support contract phase must be Phase 1F", failures)
+        req(
+            str(support.get("phase", "")).startswith("Core Platform Phase 1"),
+            "Support contract phase must remain in the Core Platform Phase 1 line",
+            failures,
+        )
         policy = support.get("compatibility_policy", {})
         for key in (
             "known_addon_runtime_recognition_registry",

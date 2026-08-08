@@ -1,5 +1,5 @@
 {
-  "release": "4.1.24",
+  "release": "4.1.25",
   "project": "Slimefun Legacy",
   "plugin_name": "Slimefun",
   "primary_platform": {
@@ -99,7 +99,16 @@
     "safe_linkage_signal_is_not_binary_proof": true,
     "versions_compact_single_word_status": true,
     "versions_full_evidence_in_hover": true,
-    "versions_long_build_labels_compacted": true
+    "versions_long_build_labels_compacted": true,
+    "core_lifecycle_service": true,
+    "ordered_shutdown_failure_isolation": true,
+    "scheduler_quiesce_and_health_snapshot": true,
+    "machine_runtime_facade": true,
+    "storage_runtime_read_only_facade": true,
+    "storage_schema_changed": false,
+    "addon_runtime_callback_health": true,
+    "addon_callback_failures_do_not_auto_disable": true,
+    "phase1g_changes_normal_cargo_energy_machine_semantics": false
   },
-  "phase": "Core Platform Phase 1F"
+  "phase": "Core Platform Phase 1G"
 }

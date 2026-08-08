@@ -79,6 +79,7 @@ def main() -> int:
         "verify_core_platform_phase1d.py",
         "verify_core_platform_phase1e.py",
         "verify_core_platform_phase1f.py",
+        "verify_core_platform_phase1g.py",
         "verify_upstream_health_gate.py",
         "verify_gugu_sync.py",
         "verify_paper_purpur_compat.py",

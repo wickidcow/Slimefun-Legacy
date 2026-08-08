@@ -51,6 +51,10 @@ public final class PostSetup {
                 try {
                     item.load();
                 } catch (Exception | LinkageError x) {
+                    if (item.getAddon() != null && item.getAddon().getJavaPlugin() != null) {
+                        Slimefun.getAddonRuntimeHealthService()
+                                .recordFailure(item.getAddon().getJavaPlugin(), "item-load:" + item.getId(), x);
+                    }
                     item.error("Failed to properly load this Item", x);
                 }
             }

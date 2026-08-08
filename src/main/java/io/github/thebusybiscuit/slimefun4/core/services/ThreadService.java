@@ -2,9 +2,11 @@ package io.github.thebusybiscuit.slimefun4.core.services;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitScheduler;
@@ -14,6 +16,7 @@ public final class ThreadService {
     private final ThreadGroup group;
     private final ExecutorService cachedPool;
     private final ScheduledExecutorService scheduledPool;
+    private final AtomicBoolean shutdown = new AtomicBoolean();
 
     public ThreadService(JavaPlugin plugin) {
         this.group = new ThreadGroup(plugin.getName());
@@ -46,11 +49,19 @@ public final class ThreadService {
      */
     @ParametersAreNonnullByDefault
     public void newThread(JavaPlugin plugin, String name, Runnable runnable) {
-        cachedPool.submit(() -> {
-            // This is a bit of a hack, but it's the only way to have the thread name be as desired
-            Thread.currentThread().setName(plugin.getName() + " - " + name);
-            runnable.run();
-        });
+        if (shutdown.get()) {
+            return;
+        }
+
+        try {
+            cachedPool.submit(() -> {
+                // This is a bit of a hack, but it's the only way to have the thread name be as desired
+                Thread.currentThread().setName(plugin.getName() + " - " + name);
+                runnable.run();
+            });
+        } catch (RejectedExecutionException ignored) {
+            // Shutdown won the race after the acceptance check. No new work should start.
+        }
     }
 
     /**
@@ -68,15 +79,44 @@ public final class ThreadService {
     @ParametersAreNonnullByDefault
     public void newScheduledThread(
             JavaPlugin plugin, String name, Runnable runnable, long delay, long period, TimeUnit unit) {
-        this.scheduledPool.scheduleWithFixedDelay(
-                () -> {
-                    // This is a bit of a hack, but it's the only way to have the thread name be as desired
-                    Thread.currentThread().setName(plugin.getName() + " - " + name);
-                    runnable.run();
-                },
-                delay,
-                delay,
-                unit);
+        if (shutdown.get()) {
+            return;
+        }
+
+        try {
+            this.scheduledPool.scheduleWithFixedDelay(
+                    () -> {
+                        // This is a bit of a hack, but it's the only way to have the thread name be as desired
+                        Thread.currentThread().setName(plugin.getName() + " - " + name);
+                        runnable.run();
+                    },
+                    delay,
+                    period,
+                    unit);
+        } catch (RejectedExecutionException ignored) {
+            // Shutdown won the race after the acceptance check. No new work should start.
+        }
+    }
+
+    /**
+     * Stops all Slimefun-owned executor threads. Repeated calls are safe.
+     */
+    public void shutdown() {
+        if (!shutdown.compareAndSet(false, true)) {
+            return;
+        }
+
+        scheduledPool.shutdownNow();
+        cachedPool.shutdownNow();
+    }
+
+    /**
+     * Returns whether this service has stopped accepting work.
+     *
+     * @return whether the service is shut down
+     */
+    public boolean isShutdown() {
+        return shutdown.get();
     }
 
     /**

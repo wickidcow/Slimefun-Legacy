@@ -114,5 +114,41 @@ public interface SlimefunScheduler {
         return false;
     }
 
+    /**
+     * Stops accepting newly scheduled work while allowing already scheduled work to remain under implementation
+     * control. This is primarily used during orderly plugin shutdown.
+     *
+     * <p>The default is a no-op for compatibility with third-party scheduler implementations compiled against older
+     * Slimefun Legacy builds.
+     */
+    default void quiesce() {}
+
+    /**
+     * Returns whether this scheduler currently accepts new tasks.
+     *
+     * @return whether new tasks are accepted
+     */
+    default boolean isAcceptingTasks() {
+        return true;
+    }
+
+    /**
+     * Returns the number of implementation-tracked active tasks, or {@code -1} when unavailable.
+     *
+     * @return active task count, or {@code -1}
+     */
+    default int getActiveTaskCount() {
+        return -1;
+    }
+
+    /**
+     * Returns an immutable scheduler health snapshot.
+     *
+     * @return scheduler health
+     */
+    default @Nonnull SchedulerSnapshot getSnapshot() {
+        return new SchedulerSnapshot(isAcceptingTasks(), getActiveTaskCount(), isFolia());
+    }
+
     void cancelAll();
 }

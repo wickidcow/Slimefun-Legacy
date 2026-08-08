@@ -4,15 +4,20 @@ import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityResult;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityStatus;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilitySummary;
+import io.github.thebusybiscuit.slimefun4.api.addons.AddonRuntimeFailureSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.AddonDoctorReport;
 import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalBlockIntegration;
 import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationCapability;
 import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationFailureSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationStatus;
+import io.github.thebusybiscuit.slimefun4.api.lifecycle.CoreLifecycleSnapshot;
+import io.github.thebusybiscuit.slimefun4.api.runtime.MachineRuntimeSnapshot;
+import io.github.thebusybiscuit.slimefun4.api.storage.StorageRuntimeSnapshot;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.KnownAddonCompatibilityRegistry;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.KnownAddonCompatibilityRegistry.KnownAddonSupport;
+import io.github.thebusybiscuit.slimefun4.core.services.scheduling.SchedulerSnapshot;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.AddonDoctorService;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorReport;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorService;
@@ -52,6 +57,7 @@ final class DoctorCommand extends SubCommand {
         String action = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "status";
         switch (action) {
             case "status" -> sendStatus(sender, service);
+            case "core", "lifecycle" -> sendCoreHealth(sender);
             case "hand" -> repairHand(sender, service);
             case "inventory" -> repairInventory(sender, args, service);
             case "scan" -> startServerRun(sender, service, false);
@@ -72,19 +78,15 @@ final class DoctorCommand extends SubCommand {
     }
 
     private void sendStatus(CommandSender sender, ItemDoctorService service) {
+        StorageRuntimeSnapshot storage = Slimefun.getStorageRuntimeService().getSnapshot();
+        MachineRuntimeSnapshot machines = Slimefun.getMachineRuntimeService().getSnapshot();
         send(sender, "&6Slimefun Storage and Item Doctor");
-        send(sender, "&7Previous clean shutdown: "
-                + (Slimefun.getDatabaseManager().wasPreviousShutdownClean() ? "&aYes" : "&cNo"));
-        send(sender, "&7Pending database writes: &e"
-                + Slimefun.getDatabaseManager().getPendingWriteTaskCount());
-        send(sender, "&7Paused machine circuits: &e"
-                + Slimefun.getTickerTask().getPausedMachineCount());
-        send(sender, "&7Currently failing machines: &e"
-                + Slimefun.getTickerTask().getFailingMachineCount());
-        send(sender, "&7Observed machine failures since startup: &e"
-                + Slimefun.getTickerTask().getObservedMachineFailureCount());
-        send(sender, "&7Suppressed duplicate machine reports: &e"
-                + Slimefun.getTickerTask().getSuppressedMachineFailureReportCount());
+        send(sender, "&7Previous clean shutdown: " + (storage.wasPreviousShutdownClean() ? "&aYes" : "&cNo"));
+        send(sender, "&7Pending database writes: &e" + storage.getPendingWrites());
+        send(sender, "&7Paused machine circuits: &e" + machines.getPausedMachineCircuits());
+        send(sender, "&7Currently failing machines: &e" + machines.getActiveMachineFailures());
+        send(sender, "&7Observed machine failures since startup: &e" + machines.getObservedMachineFailures());
+        send(sender, "&7Suppressed duplicate machine reports: &e" + machines.getSuppressedMachineReports());
         send(sender, "&7External adapter failures: &e"
                 + Slimefun.getExternalIntegrationService().getActiveFailureCount()
                 + " &8| &7Observed: &e" + Slimefun.getExternalIntegrationService().getObservedFailureCount());
@@ -110,6 +112,39 @@ final class DoctorCommand extends SubCommand {
             send(sender, "&7Server-wide scan: &fNot run yet");
         }
         sendUsage(sender);
+    }
+
+    private void sendCoreHealth(CommandSender sender) {
+        CoreLifecycleSnapshot lifecycle = Slimefun.getCoreLifecycleService().getSnapshot();
+        SchedulerSnapshot scheduler = Slimefun.getSchedulerService().getSnapshot();
+        MachineRuntimeSnapshot machines = Slimefun.getMachineRuntimeService().getSnapshot();
+        StorageRuntimeSnapshot storage = Slimefun.getStorageRuntimeService().getSnapshot();
+        long addonFailures = Slimefun.getAddonRuntimeHealthService().getObservedFailureCount();
+
+        send(sender, "&6Slimefun Core Runtime Health");
+        send(sender, "&7Lifecycle: &e" + lifecycle.getState() + " &8/ &e" + lifecycle.getPhase());
+        send(sender, "&7Lifecycle failures: startup &e" + lifecycle.getStartupFailures() + " &8| &7shutdown &e"
+                + lifecycle.getShutdownFailures());
+        send(sender, "&7Scheduler: "
+                + (scheduler.isRegionOwnedExecution() ? "&dRegion-owned" : "&aPaper global/main-thread")
+                + " &8| &7accepting tasks: " + (scheduler.isAcceptingTasks() ? "&aYes" : "&cNo")
+                + " &8| &7tracked: &e" + scheduler.getActiveTaskCount());
+        send(sender, "&7Machines: " + (machines.isHalted() ? "&cHalted" : (machines.isPaused() ? "&ePaused" : "&aRunning"))
+                + " &8| &7rate: &e" + machines.getTickRate() + " &8| &7chunks: &e" + machines.getTickingChunks()
+                + " &8| &7locations: &e" + machines.getTickingLocations());
+        send(sender, "&7Machine failures: active &e" + machines.getActiveMachineFailures() + " &8| &7paused &e"
+                + machines.getPausedMachineCircuits() + " &8| &7observed &e" + machines.getObservedMachineFailures());
+        send(sender, "&7Storage: " + (storage.isReady() ? "&aReady" : "&eNot ready") + " &8| &7block &e"
+                + storage.getBlockStorageType() + " &8| &7profiles &e" + storage.getProfileStorageType());
+        send(sender, "&7Storage cache: chunks &e" + storage.getLoadedChunks() + " &8| &7universal &e"
+                + storage.getLoadedUniversalData() + " &8| &7pending writes &e" + storage.getPendingWrites());
+        send(sender, "&7Addon callback failures observed: &e" + addonFailures + " &8| &7active addon records: &e"
+                + Slimefun.getAddonRuntimeHealthService().getFailures().size());
+        if (lifecycle.getLastFailureComponent() != null) {
+            send(sender, "&7Last lifecycle failure: &e" + lifecycle.getLastFailureComponent() + " &8| &7"
+                    + simpleFailureName(lifecycle.getLastFailureType()) + ": " + lifecycle.getLastFailureMessage());
+        }
+        send(sender, "&8This view is observational. It does not rewrite Cargo, Energy, machines, recipes, or stored data.");
     }
 
     private void repairHand(CommandSender sender, ItemDoctorService service) {
@@ -191,11 +226,11 @@ final class DoctorCommand extends SubCommand {
         long now = System.currentTimeMillis();
         List<MachineFailureSnapshot> failures = Slimefun.getTickerTask().getMachineFailureSnapshots(25);
         send(sender, "&6Slimefun Runtime Failure Isolation");
-        send(sender, "&7Active failing locations: &e" + Slimefun.getTickerTask().getFailingMachineCount()
-                + " &8| &7Paused: &e" + Slimefun.getTickerTask().getPausedMachineCount());
-        send(sender, "&7Failures observed: &e" + Slimefun.getTickerTask().getObservedMachineFailureCount()
-                + " &8| &7Duplicate reports suppressed: &e"
-                + Slimefun.getTickerTask().getSuppressedMachineFailureReportCount());
+        MachineRuntimeSnapshot machines = Slimefun.getMachineRuntimeService().getSnapshot();
+        send(sender, "&7Active failing locations: &e" + machines.getActiveMachineFailures()
+                + " &8| &7Paused: &e" + machines.getPausedMachineCircuits());
+        send(sender, "&7Failures observed: &e" + machines.getObservedMachineFailures()
+                + " &8| &7Duplicate reports suppressed: &e" + machines.getSuppressedMachineReports());
         if (failures.isEmpty()) {
             send(sender, "&aNo currently failing machine locations are tracked.");
             send(sender, "&7Recovery: &e/sf doctor runtime retry &7while looking at a machine, or &e... retry all&7.");
@@ -210,7 +245,7 @@ final class DoctorCommand extends SubCommand {
                     + failure.getZ() + " &8| &7" + simpleFailureName(failure.getFailureType()));
             send(sender, "&8  &7" + failure.getFailureMessage());
         }
-        if (Slimefun.getTickerTask().getFailingMachineCount() > failures.size()) {
+        if (machines.getActiveMachineFailures() > failures.size()) {
             send(sender, "&7Only the 25 most recent failing locations are shown.");
         }
         send(sender, "&7Recovery: &e/sf doctor runtime retry &7while looking at a machine, or &e... retry all&7.");
@@ -218,7 +253,7 @@ final class DoctorCommand extends SubCommand {
 
     private void retryRuntimeFailures(CommandSender sender, String[] args) {
         if (args.length > 3 && args[3].equalsIgnoreCase("all")) {
-            int cleared = Slimefun.getTickerTask().retryAllMachines();
+            int cleared = Slimefun.getMachineRuntimeService().retryAllMachines();
             send(sender, "&aCleared runtime isolation state for all machines. &7Paused circuits cleared: &e" + cleared);
             send(sender, "&7Machines will resume through their normal Slimefun ticker path on the next eligible tick.");
             return;
@@ -235,7 +270,7 @@ final class DoctorCommand extends SubCommand {
             return;
         }
 
-        Slimefun.getTickerTask().retryMachine(block.getLocation());
+        Slimefun.getMachineRuntimeService().retryMachine(block.getLocation());
         send(sender, "&aCleared runtime isolation state for the targeted location.");
         send(sender, "&7Target: &f" + block.getWorld().getName() + " " + block.getX() + ", " + block.getY() + ", "
                 + block.getZ());
@@ -536,6 +571,16 @@ final class DoctorCommand extends SubCommand {
             send(sender, "&7Runtime machine health: &e" + activeMachineFailures + " active failure location(s)");
         }
 
+        var callbackFailure = Slimefun.getAddonRuntimeHealthService().getFailure(result.getPluginName());
+        if (callbackFailure.isPresent()) {
+            AddonRuntimeFailureSnapshot failure = callbackFailure.orElseThrow();
+            send(sender, "&7Addon callback health: &e" + failure.getObservedFailures() + " failure(s) observed");
+            send(sender, "&8  Last: &7" + failure.getOperation() + " &8| &7"
+                    + simpleFailureName(failure.getExceptionClass()) + ": " + failure.getMessage());
+        } else {
+            send(sender, "&7Addon callback health: &aNo guarded callback failures observed");
+        }
+
         boolean linkageWarning = result.getMessages().stream()
                 .map(message -> message.toLowerCase(Locale.ROOT))
                 .anyMatch(message -> message.contains("linkage") || message.contains("provider failed"));
@@ -598,7 +643,7 @@ final class DoctorCommand extends SubCommand {
     }
 
     private void sendUsage(CommandSender sender) {
-        send(sender, "&eUsage: /slimefun doctor [status|hand|inventory [player]|scan|repair confirm|addons]");
+        send(sender, "&eUsage: /slimefun doctor [status|core|hand|inventory [player]|scan|repair confirm|addons]");
         send(sender, "&e       /slimefun doctor [compatibility|runtime [retry [all]]|integrations [probe|reload|retry <id|all>]]");
     }
 

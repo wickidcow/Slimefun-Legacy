@@ -32,7 +32,7 @@ public final class PaperScheduler implements SlimefunScheduler {
     private final Plugin plugin;
     private final PlatformCompatibilityService platformCompatibilityService;
     private final Set<TrackedTask> tasks = ConcurrentHashMap.newKeySet();
-    private final AtomicBoolean stopped = new AtomicBoolean();
+    private final AtomicBoolean acceptingTasks = new AtomicBoolean(true);
 
     public PaperScheduler(@Nonnull Plugin plugin) {
         this(plugin, null);
@@ -370,8 +370,23 @@ public final class PaperScheduler implements SlimefunScheduler {
     }
 
     @Override
+    public void quiesce() {
+        acceptingTasks.set(false);
+    }
+
+    @Override
+    public boolean isAcceptingTasks() {
+        return acceptingTasks.get();
+    }
+
+    @Override
+    public int getActiveTaskCount() {
+        return tasks.size();
+    }
+
+    @Override
     public void cancelAll() {
-        stopped.set(true);
+        quiesce();
 
         for (TrackedTask task : Set.copyOf(tasks)) {
             task.cancel();
@@ -386,13 +401,13 @@ public final class PaperScheduler implements SlimefunScheduler {
     private TrackedTask track(boolean repeating) {
         TrackedTask task = new TrackedTask(repeating);
 
-        if (stopped.get()) {
+        if (!acceptingTasks.get()) {
             task.cancel();
             return task;
         }
 
         tasks.add(task);
-        if (stopped.get()) {
+        if (!acceptingTasks.get()) {
             task.cancel();
         }
 

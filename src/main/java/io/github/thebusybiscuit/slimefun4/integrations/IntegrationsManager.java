@@ -173,6 +173,7 @@ public class IntegrationsManager {
         Plugin externalPlugin = Bukkit.getPluginManager().getPlugin(name);
 
         if (externalPlugin != null) {
+            Slimefun.getAddonRuntimeHealthService().recordFailure(externalPlugin, "integration-runtime:" + name, throwable);
             String version = externalPlugin.getDescription().getVersion();
             Slimefun.logger().log(Level.WARNING, "Is {0} v{1} up to date?", new Object[] {name, version});
             Slimefun.logger()
@@ -213,6 +214,7 @@ public class IntegrationsManager {
                 // Run our callback
                 consumer.accept(integration);
             } catch (Exception | LinkageError x) {
+                Slimefun.getAddonRuntimeHealthService().recordFailure(integration, "integration-hook:" + pluginName, x);
                 Slimefun.logger().log(Level.WARNING, "Maybe consider updating {0} or Slimefun?", pluginName);
                 Slimefun.logger().log(Level.WARNING, x, () -> "Failed to hook into " + pluginName + " v" + version);
             }

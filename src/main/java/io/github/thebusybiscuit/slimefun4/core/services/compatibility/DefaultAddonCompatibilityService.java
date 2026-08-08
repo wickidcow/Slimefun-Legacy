@@ -6,6 +6,7 @@ import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityResult;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityService;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilitySource;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityStatus;
+import io.github.thebusybiscuit.slimefun4.api.addons.AddonRuntimeHealthService;
 import io.github.thebusybiscuit.slimefun4.api.addons.OptionalDependencyService;
 import io.github.thebusybiscuit.slimefun4.api.addons.SlimefunCoreVariant;
 import io.github.thebusybiscuit.slimefun4.api.annotations.SlimefunInternal;
@@ -32,6 +33,7 @@ public final class DefaultAddonCompatibilityService implements AddonCompatibilit
     private final Plugin owner;
     private final PlatformCompatibilityService platformCompatibilityService;
     private final OptionalDependencyService optionalDependencyService;
+    private final AddonRuntimeHealthService runtimeHealthService;
     private final AddonCompatibilityManifestReader manifestReader = new AddonCompatibilityManifestReader();
     private final Map<String, AddonCompatibilityDeclaration> explicitDeclarations = new ConcurrentHashMap<>();
     private volatile List<AddonCompatibilityResult> results = List.of();
@@ -40,11 +42,20 @@ public final class DefaultAddonCompatibilityService implements AddonCompatibilit
             @Nonnull Plugin owner,
             @Nonnull PlatformCompatibilityService platformCompatibilityService,
             @Nonnull OptionalDependencyService optionalDependencyService) {
+        this(owner, platformCompatibilityService, optionalDependencyService, null);
+    }
+
+    public DefaultAddonCompatibilityService(
+            @Nonnull Plugin owner,
+            @Nonnull PlatformCompatibilityService platformCompatibilityService,
+            @Nonnull OptionalDependencyService optionalDependencyService,
+            AddonRuntimeHealthService runtimeHealthService) {
         this.owner = Objects.requireNonNull(owner, "owner");
         this.platformCompatibilityService =
                 Objects.requireNonNull(platformCompatibilityService, "platformCompatibilityService");
         this.optionalDependencyService =
                 Objects.requireNonNull(optionalDependencyService, "optionalDependencyService");
+        this.runtimeHealthService = runtimeHealthService;
     }
 
     @Override
@@ -176,6 +187,9 @@ public final class DefaultAddonCompatibilityService implements AddonCompatibilit
                 return new ResolvedDeclaration(
                         declaration, AddonCompatibilitySource.PROVIDER_INTERFACE, null);
             } catch (RuntimeException | LinkageError error) {
+                if (runtimeHealthService != null) {
+                    runtimeHealthService.recordFailure(plugin, "compatibility-provider", error);
+                }
                 return new ResolvedDeclaration(
                         null,
                         AddonCompatibilitySource.PROVIDER_INTERFACE,
