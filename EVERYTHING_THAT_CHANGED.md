@@ -1,3 +1,37 @@
+# Slimefun Legacy 4.1.28 — Core Platform Phase 1J
+
+Phase 1J unifies addon-facing compatibility services and adds advisory source-drift verification for Original Slimefun, Slimefun Gugu, and Slimefun United while preserving Legacy's existing addon API and gameplay contracts.
+
+## Part 1 — Addon API Compatibility Facade
+
+- Added a stable `AddonApiCompatibilityFacade` exposing the running core family, intended cross-fork API targets, registry state, guarded callback health, compatibility declarations, and registration compatibility service.
+- Added explicit capability identifiers so addons and diagnostics can query supported compatibility facilities without guessing from implementation classes.
+- Original Slimefun, Gugu, United, and Legacy are compatibility targets; this is an API-contract commitment, not a guarantee for every exact addon JAR.
+
+## Part 2 — Addon Registration Compatibility
+
+- Added `AddonRegistrationService` for callbacks that need to run after initial Slimefun item registration has finalized.
+- Callbacks submitted early are queued until `SlimefunItemRegistryFinalizedEvent`; callbacks submitted later run immediately.
+- Queued callbacks execute behind the existing guarded addon failure boundary and never auto-disable the owning plugin.
+- Late/runtime Slimefun item registration remains supported and is not frozen by the new service.
+- Added read-only registration snapshots for pending, completed, failed, and skipped callbacks plus registry ownership evidence.
+
+## Part 3 — Cross-Fork Verification & Doctor
+
+- Added a machine-readable cross-fork API matrix for Original Slimefun, Slimefun Gugu, and Slimefun United.
+- Added advisory GitHub Actions source-drift probes for representative shared APIs such as `SlimefunAddon`, `SlimefunItem.register(...)`, and registry-finalization hooks.
+- External fork drift is informational/advisory; Legacy's protected API baseline and addon source/binary matrix remain the release-blocking regression gates.
+- Added `/sf doctor compatibility api [plugin]` for the active facade, registration timing, registry ownership, declaration source, and guarded callback evidence.
+
+## Compatibility guarantees
+
+- Existing 4.1.19 protected addon signatures remain release-blocking compatibility gates.
+- Normal Cargo, Energy, Guide, Ticker, AContainer, BlockTicker, SlimefunItem, and NetworkManager protected behavior remains unchanged.
+- No item IDs, recipes, research IDs, storage keys, database schemas, or saved-world formats are changed.
+- No automatic upstream merge or addon/core download behavior is introduced.
+
+---
+
 # Slimefun Legacy 4.1.27 — Core Platform Phase 1I
 
 Phase 1I modernizes Slimefun's world, chunk, and block-data runtime foundations while preserving normal gameplay semantics.

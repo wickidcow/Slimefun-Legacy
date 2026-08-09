@@ -1,7 +1,10 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
 import io.github.bakedlibs.dough.common.ChatColors;
+import io.github.thebusybiscuit.slimefun4.api.addons.AddonApiCompatibilitySnapshot;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityResult;
+import io.github.thebusybiscuit.slimefun4.api.addons.AddonRegistrationRuntimeSnapshot;
+import io.github.thebusybiscuit.slimefun4.api.addons.AddonRegistrationSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityStatus;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilitySummary;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonRuntimeFailureSnapshot;
@@ -547,6 +550,11 @@ final class DoctorCommand extends SubCommand {
     private void sendAddonCompatibility(CommandSender sender, String[] args) {
         Slimefun.getAddonCompatibilityService().refresh();
 
+        if (args.length > 2 && args[2].equalsIgnoreCase("api")) {
+            sendAddonApiCompatibility(sender, args.length > 3 ? args[3] : null);
+            return;
+        }
+
         if (args.length > 2) {
             var result = Slimefun.getAddonCompatibilityService().getResult(args[2]);
             if (result.isEmpty()) {
@@ -600,6 +608,59 @@ final class DoctorCommand extends SubCommand {
         send(sender, "&7Inspect one addon: &e/sf doctor compatibility <plugin>");
         send(sender, "&8CI monitoring and recognition are evidence levels; neither silently promotes an undeclared JAR "
                 + "to API status Compatible.");
+    }
+
+    private void sendAddonApiCompatibility(CommandSender sender, String pluginName) {
+        AddonApiCompatibilitySnapshot api = Slimefun.getAddonApiCompatibilityFacade().getSnapshot();
+        AddonRegistrationRuntimeSnapshot registration = Slimefun.getAddonRegistrationService().getSnapshot();
+
+        send(sender, "&6Slimefun Cross-Fork Addon API");
+        send(sender, "&7Running core: &e" + api.getRunningCoreVariant().getDisplayName());
+        send(sender, "&7Compatibility targets: &e" + api.getCompatibilityTargets().stream()
+                .map(variant -> variant.getDisplayName())
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .collect(Collectors.joining(", ")));
+        send(sender, "&7Facade capabilities: &e" + api.getCapabilities().size());
+        send(sender, "&7Initial registration: "
+                + (api.isInitialRegistrationFinalized() ? "&aFinalized" : "&eBuilding")
+                + " &8| &7pending callbacks &e" + registration.getPendingCallbacks()
+                + " &8| &7runtime-added items &e" + api.getRuntimeRegisteredItems());
+        send(sender, "&8Targets mean Legacy preserves representative API contracts for those core families; "
+                + "they are not a guarantee for every exact addon JAR.");
+
+        if (pluginName == null || pluginName.isBlank()) {
+            send(sender, "&7Inspect one addon: &e/sf doctor compatibility api <plugin>");
+            return;
+        }
+
+        var result = Slimefun.getAddonCompatibilityService().getResult(pluginName);
+        if (result.isEmpty()) {
+            send(sender, "&cNo installed Slimefun addon matched: &e" + pluginName);
+            return;
+        }
+
+        AddonCompatibilityResult compatibility = result.orElseThrow();
+        send(sender, "&6Addon API Path: &e" + compatibility.getPluginName() + " v" + compatibility.getPluginVersion());
+        send(sender, "&7Compatibility evidence: " + compatibilityEvidence(compatibility));
+        send(sender, "&7Declaration source: &e" + compatibility.getSource().getDisplayName());
+
+        var addonRegistration = Slimefun.getAddonRegistrationService().getAddonSnapshot(compatibility.getPluginName());
+        if (addonRegistration.isPresent()) {
+            AddonRegistrationSnapshot snapshot = addonRegistration.orElseThrow();
+            send(sender, "&7Registry ownership: items &e" + snapshot.getRegisteredItems() + " &8| &7groups &e"
+                    + snapshot.getItemGroups() + " &8| &7tickers &e" + snapshot.getTickingItems());
+            send(sender, "&7Post-registration callbacks: pending &e" + snapshot.getPendingCallbacks()
+                    + " &8| &7completed &a" + snapshot.getExecutedCallbacks() + " &8| &7failed &c"
+                    + snapshot.getFailedCallbacks() + " &8| &7skipped-disabled &e"
+                    + snapshot.getSkippedDisabledCallbacks());
+        } else {
+            send(sender, "&7Registry ownership: &7No registered items/groups or compatibility callbacks observed");
+        }
+
+        var runtimeFailure = Slimefun.getAddonRuntimeHealthService().getFailure(compatibility.getPluginName());
+        send(sender, runtimeFailure.isPresent()
+                ? "&7Guarded callback boundary: &eFailures have been observed; use /sf doctor compatibility <plugin> for details"
+                : "&7Guarded callback boundary: &aNo failures observed");
     }
 
     private void sendCompatibilityEvidenceLine(CommandSender sender, AddonCompatibilityResult result) {
@@ -720,7 +781,7 @@ final class DoctorCommand extends SubCommand {
 
     private void sendUsage(CommandSender sender) {
         send(sender, "&eUsage: /slimefun doctor [status|core|registry|chunks|hand|inventory [player]|scan|repair confirm|addons]");
-        send(sender, "&e       /slimefun doctor [compatibility|runtime [retry [all]]|integrations [probe|reload|retry <id|all>]]");
+        send(sender, "&e       /slimefun doctor [compatibility [api <plugin>]|runtime [retry [all]]|integrations [probe|reload|retry <id|all>]]");
     }
 
     private void send(CommandSender sender, String message) {

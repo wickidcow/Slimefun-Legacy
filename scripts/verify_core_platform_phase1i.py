@@ -140,7 +140,13 @@ def main() -> int:
 
         support = json.loads(read(root, "compatibility/support-contract.json"))
         req(support.get("release") == current, "Support contract release must match projectVersion", failures)
-        req(support.get("phase") == "Core Platform Phase 1I", "Support contract phase must be Phase 1I", failures)
+        support_phase = str(support.get("phase", ""))
+        phase_match = re.fullmatch(r"Core Platform Phase 1([A-Z])", support_phase)
+        req(
+            phase_match is not None and phase_match.group(1) >= "I",
+            "Support contract phase must be Phase 1I or a later Core Platform Phase 1 release",
+            failures,
+        )
         policy = support.get("compatibility_policy", {})
         for key in (
             "world_chunk_runtime_service",

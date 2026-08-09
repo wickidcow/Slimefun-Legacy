@@ -1,5 +1,5 @@
 {
-  "release": "4.1.27",
+  "release": "4.1.28",
   "project": "Slimefun Legacy",
   "plugin_name": "Slimefun",
   "primary_platform": {
@@ -125,7 +125,17 @@
     "block_data_runtime_read_only_facade": true,
     "machine_chunk_coordination_observational": true,
     "chunk_diagnostics_do_not_mutate_world_state": true,
-    "phase1i_changes_normal_cargo_energy_machine_semantics": false
+    "phase1i_changes_normal_cargo_energy_machine_semantics": false,
+    "addon_api_compatibility_facade": true,
+    "cross_fork_original_gugu_united_targets": true,
+    "addon_registration_compatibility_service": true,
+    "post_registration_callbacks_guarded": true,
+    "late_runtime_registration_remains_supported": true,
+    "cross_fork_source_drift_probes": true,
+    "cross_fork_external_drift_is_advisory": true,
+    "cross_fork_automatic_merges": false,
+    "doctor_cross_fork_api_diagnostics": true,
+    "phase1j_changes_normal_cargo_energy_machine_semantics": false
   },
-  "phase": "Core Platform Phase 1I"
+  "phase": "Core Platform Phase 1J"
 }

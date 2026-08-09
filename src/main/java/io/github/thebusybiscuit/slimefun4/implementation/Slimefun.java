@@ -10,7 +10,9 @@ import io.github.bakedlibs.dough.config.Config;
 import io.github.bakedlibs.dough.protection.ProtectionManager;
 import io.github.thebusybiscuit.slimefun4.api.MinecraftVersion;
 import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
+import io.github.thebusybiscuit.slimefun4.api.addons.AddonApiCompatibilityFacade;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityService;
+import io.github.thebusybiscuit.slimefun4.api.addons.AddonRegistrationService;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonRuntimeHealthService;
 import io.github.thebusybiscuit.slimefun4.api.addons.OptionalDependencyService;
 import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationService;
@@ -49,7 +51,9 @@ import io.github.thebusybiscuit.slimefun4.core.services.PerWorldSettingsService;
 import io.github.thebusybiscuit.slimefun4.core.services.PermissionsService;
 import io.github.thebusybiscuit.slimefun4.core.services.ThreadService;
 import io.github.thebusybiscuit.slimefun4.core.services.UpdaterService;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultAddonApiCompatibilityFacade;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultAddonCompatibilityService;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultAddonRegistrationService;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultAddonRuntimeHealthService;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultExternalIntegrationService;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultOptionalDependencyService;
@@ -234,8 +238,12 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     private final DefaultOptionalDependencyService optionalDependencyService =
             new DefaultOptionalDependencyService(this);
     private final DefaultAddonRuntimeHealthService addonRuntimeHealthService = new DefaultAddonRuntimeHealthService();
+    private final DefaultAddonRegistrationService addonRegistrationService =
+            new DefaultAddonRegistrationService(registryRuntimeService, addonRuntimeHealthService);
     private final DefaultAddonCompatibilityService addonCompatibilityService = new DefaultAddonCompatibilityService(
             this, platformCompatibilityService, optionalDependencyService, addonRuntimeHealthService);
+    private final DefaultAddonApiCompatibilityFacade addonApiCompatibilityFacade = new DefaultAddonApiCompatibilityFacade(
+            registryRuntimeService, addonRegistrationService, addonCompatibilityService, addonRuntimeHealthService);
     private final DefaultExternalIntegrationService externalIntegrationService =
             new DefaultExternalIntegrationService(this);
     private final SlimefunScheduler schedulerService = new PaperScheduler(this, platformCompatibilityService);
@@ -472,6 +480,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
 
         registerListeners();
         itemDoctorService.register();
+        getServer().getPluginManager().registerEvents(addonRegistrationService, this);
 
         // Initiating various Stuff and all items with a slight delay (0ms after the Server finished
         // loading)
@@ -1059,6 +1068,26 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
      *
      * @return the addon runtime health service
      */
+    /**
+     * Returns the addon-registration compatibility service.
+     *
+     * @return the addon registration service
+     */
+    public static @Nonnull AddonRegistrationService getAddonRegistrationService() {
+        validateInstance();
+        return instance.addonRegistrationService;
+    }
+
+    /**
+     * Returns the stable cross-fork addon API compatibility facade.
+     *
+     * @return the addon API compatibility facade
+     */
+    public static @Nonnull AddonApiCompatibilityFacade getAddonApiCompatibilityFacade() {
+        validateInstance();
+        return instance.addonApiCompatibilityFacade;
+    }
+
     public static @Nonnull AddonRuntimeHealthService getAddonRuntimeHealthService() {
         validateInstance();
         return instance.addonRuntimeHealthService;
