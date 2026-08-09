@@ -12,11 +12,6 @@ main: io.github.thebusybiscuit.slimefun4.implementation.Slimefun
 api-version: '1.16'
 folia-supported: true
 
-# Compatibility alias: when the external GuizhanLibPlugin is absent, Paper can
-# satisfy addons which declare it as a dependency through Slimefun Legacy.
-provides:
-  - GuizhanLibPlugin
-
 # (Soft) dependencies of Slimefun, we hook into these plugins.
 softdepend:
   - PlaceholderAPI

@@ -1,18 +1,3 @@
-# Slimefun Legacy 4.1.29 — GuizhanLib Compatibility Bridge
-
-- Added an experimental GuizhanLibPlugin compatibility bridge for addons that expect the shared GuizhanLib library.
-- Slimefun Legacy now declares `GuizhanLibPlugin` through Paper's `provides` metadata so compatible hard/soft dependency resolution can fall back to Slimefun when the external provider is absent.
-- Preserved Slimefun's existing relocated/private GuizhanLib copy while adding a separate version-pinned public GuizhanLib 2.5.0 compatibility surface to the final plugin JAR.
-- Added common legacy Gugu helper compatibility classes without bundling or emulating the concrete GuizhanLibPlugin main `JavaPlugin` implementation.
-- Added `/sf doctor guizhanlib` to report external-provider state, alias routing, bridge readiness, missing API classes, and installed hard/soft dependents.
-- Added source-level and post-build assembled-JAR verification so CI rejects missing bridge classes, accidental loss of private relocation, or accidental inclusion of the external plugin's concrete main/config/updater implementation.
-- Added upstream GPL-3.0 attribution/license resources and Libby MIT licensing resources to the produced Slimefun JAR.
-- No Slimefun item IDs, recipes, research IDs, storage keys, database schemas, saved-world formats, Cargo behavior, Energy behavior, or machine-processing semantics are changed by this compatibility layer.
-
-See `docs/GUIZHANLIB_COMPATIBILITY_BRIDGE.md` for the staging transition procedure and compatibility boundary.
-
----
-
 ## 4.1.28 Item Doctor translation-recovery hotfix
 
 - Item Doctor now repairs a Chinese display name independently from lore safety. A stateful addon item can therefore receive its English canonical name on pickup even when Doctor deliberately preserves an unknown lore-backed state line.
