@@ -1,3 +1,20 @@
+## 4.1.28 Item Doctor translation-recovery hotfix
+
+- Item Doctor now repairs a Chinese display name independently from lore safety. A stateful addon item can therefore receive its English canonical name on pickup even when Doctor deliberately preserves an unknown lore-backed state line.
+- Core Slimefun items use their authoritative English lore template even when translated descriptive lines contain static numbers such as percentages, healing values, armor statistics, machine speeds, or talisman levels. Functional metadata is not replaced.
+- Third-party addon lore now uses a conservative partial recovery path: text-only translated lines and unambiguous numeric/UUID lines are repaired, while ambiguous state lines remain untouched.
+- Fixed false unsafe-state detection for durability-only addon items that implement `Rechargeable` but correctly report zero charge capacity, including the Reinforced Fluffy Wrench.
+- Added PlayerBackpack PDC recognition for non-core items such as FluffyMachines Dolly so its English owner presentation can be rebuilt without changing its backing storage UUID or contents.
+- Added authoritative static recovery for the known FluffyMachines `ELECTRIC_DUST_FABRICATOR` and `REINFORCED_FLUFFY_WRENCH` IDs.
+- Unknown/orphaned Slimefun IDs continue to receive only a safe English display-name fallback; their lore remains untouched until an authoritative addon template is available.
+- Item Doctor completion warnings now distinguish protected/unresolved CJK lore from unknown IDs instead of implying that every registered template is itself untranslated.
+
+## 4.1.28 Item Doctor orphaned-item presentation hotfix
+
+- Item Doctor can now safely repair Chinese display names on orphaned Slimefun items whose addon is no longer installed by deriving an English name from the stored Slimefun ID.
+- Orphaned item lore is deliberately preserved when no authoritative English addon template is available. Potion effects, PDC/NBT, enchantments, attributes, custom model data and all other functional metadata remain untouched.
+- Registered items continue to use their canonical English Slimefun template, so old talismans and other surviving addon/core items still receive their exact current English presentation.
+- Added `stability.item-doctor.repair-orphaned-item-names` (default `true`) as a safety switch for this fallback.
 # Slimefun Legacy 4.1.28 — Core Platform Phase 1J
 
 Phase 1J unifies addon-facing compatibility services and adds advisory source-drift verification for Original Slimefun, Slimefun Gugu, and Slimefun United while preserving Legacy's existing addon API and gameplay contracts.

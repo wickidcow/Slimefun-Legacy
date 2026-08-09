@@ -124,7 +124,12 @@ stability:
     repair-player-on-join: true
     repair-opened-inventories: true
     repair-chunks-on-load: true
+    # Pickup recovery repairs every safely recoverable presentation field immediately.
+    # If addon lore contains unknown state, the English name is still repaired independently.
     repair-picked-up-items: true
+    # If an addon has been removed, Doctor can still replace a Chinese display name with
+    # an English name derived from the stored Slimefun ID. Lore is never guessed or removed.
+    repair-orphaned-item-names: true
     # Number of top-level inventories or dropped items processed per server tick
     # during /slimefun doctor scan or repair confirm.
     inventories-per-tick: 12

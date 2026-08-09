@@ -236,11 +236,11 @@ final class DoctorCommand extends SubCommand {
         ItemDoctorReport report = service.inspectItem(item, true);
         if (report.getRepairedStacks() > 0) {
             player.getInventory().setItemInMainHand(item);
-            send(sender, "&aRepaired the visible English name and lore while preserving item data.");
+            send(sender, "&aRepaired the safely recoverable English presentation while preserving item data.");
         } else if (report.getCjkStacks() == 0) {
-            send(sender, "&eNo registered Slimefun item with Chinese presentation was found in your hand.");
+            send(sender, "&eNo Slimefun-tagged item with Chinese presentation was found in your hand.");
         } else {
-            send(sender, "&cThe item could not be mapped to an English registered template.");
+            send(sender, "&cThe remaining Chinese text could not be mapped to a safe English template.");
             sendProgress(sender, report);
         }
     }
@@ -275,7 +275,7 @@ final class DoctorCommand extends SubCommand {
             send(sender, "&aSlimefun item doctor " + report.getModeName() + " completed.");
             sendProgress(sender, report);
             if (report.getUnknownIds() > 0 || report.getUnresolvedTemplates() > 0) {
-                send(sender, "&eSome items were skipped because no safe English registered template was available.");
+                send(sender, "&eSome lore remains protected because Doctor cannot prove a full English rewrite is safe.");
             }
             if (report.isRepairMode()) {
                 send(sender, "&eBackpack database changes are queued. Keep the server running until");

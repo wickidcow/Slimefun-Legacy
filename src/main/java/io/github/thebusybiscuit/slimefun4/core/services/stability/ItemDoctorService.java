@@ -743,13 +743,16 @@ public final class ItemDoctorService implements Listener {
                 + report.getFailures() + " failures.");
 
         if (!report.getUnknownIdSamples().isEmpty()) {
-            plugin.getLogger().warning("Item doctor skipped unknown Slimefun IDs: "
-                    + String.join(", ", report.getUnknownIdSamples()));
+            plugin.getLogger()
+                    .warning(
+                            "Item doctor found unknown Slimefun IDs; display names can be recovered "
+                                    + "but lore remains protected: "
+                                    + String.join(", ", report.getUnknownIdSamples()));
         }
         if (!report.getUnresolvedTemplateSamples().isEmpty()) {
             plugin.getLogger()
                     .warning(
-                            "Item doctor found registered templates that still contain CJK text or unsafe state: "
+                            "Item doctor left protected or unresolved CJK lore on these Slimefun IDs: "
                                     + String.join(", ", report.getUnresolvedTemplateSamples()));
         }
     }

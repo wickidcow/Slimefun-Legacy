@@ -137,6 +137,7 @@ public class SlimefunConfigManager {
             pluginConfig.setDefaultValue("stability.item-doctor.repair-opened-inventories", true);
             pluginConfig.setDefaultValue("stability.item-doctor.repair-chunks-on-load", true);
             pluginConfig.setDefaultValue("stability.item-doctor.repair-picked-up-items", true);
+            pluginConfig.setDefaultValue("stability.item-doctor.repair-orphaned-item-names", true);
             pluginConfig.setDefaultValue("stability.item-doctor.inventories-per-tick", 12);
         } catch (Exception x) {
             plugin.getLogger()

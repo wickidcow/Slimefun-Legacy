@@ -98,6 +98,103 @@ public final class ItemDoctorText {
         return result;
     }
 
+
+    /**
+     * Replaces translated presentation lines with the canonical template without carrying
+     * numeric tokens from the translated text. This is intended only when the caller has
+     * authoritative knowledge that any dynamic presentation state can be restored afterwards.
+     * Non-CJK lines are retained so hidden or addon-owned state outside translated lines is not
+     * discarded.
+     */
+    static @Nonnull List<String> mergeStaticEnglishLore(
+            @Nullable List<String> currentLore, @Nullable List<String> canonicalLore) {
+        List<String> canonical = canonicalLore == null ? List.of() : canonicalLore;
+        if (currentLore == null || currentLore.isEmpty()) {
+            return new ArrayList<>(canonical);
+        }
+
+        List<String> result = new ArrayList<>(currentLore.size() + canonical.size());
+        List<Boolean> removablePlaceholders = new ArrayList<>(currentLore.size() + canonical.size());
+        for (int i = 0; i < currentLore.size(); i++) {
+            String currentLine = currentLore.get(i);
+            if (!containsCjk(currentLine)) {
+                result.add(currentLine);
+                removablePlaceholders.add(false);
+            } else if (i < canonical.size()) {
+                result.add(canonical.get(i));
+                removablePlaceholders.add(false);
+            } else {
+                result.add("");
+                removablePlaceholders.add(true);
+            }
+        }
+
+        for (String canonicalLine : canonical) {
+            if (!normalize(canonicalLine).isEmpty() && !containsEquivalent(result, canonicalLine)) {
+                result.add(canonicalLine);
+                removablePlaceholders.add(false);
+            }
+        }
+
+        while (!result.isEmpty() && removablePlaceholders.get(removablePlaceholders.size() - 1)) {
+            int lastIndex = result.size() - 1;
+            result.remove(lastIndex);
+            removablePlaceholders.remove(lastIndex);
+        }
+        return result;
+    }
+
+    /**
+     * Performs a best-effort lore repair for third-party items whose complete presentation state
+     * is not known to Slimefun. Text-only translated lines are safe to replace, and numeric/UUID
+     * lines are replaced only when their token shape matches the canonical line or the caller can
+     * explicitly restore that line. Ambiguous state lines are left byte-for-byte unchanged.
+     */
+    static @Nonnull List<String> mergeConservativeEnglishLore(
+            @Nullable List<String> currentLore,
+            @Nullable List<String> canonicalLore,
+            @Nonnull Predicate<String> safelyRestoredLine) {
+        List<String> canonical = canonicalLore == null ? List.of() : canonicalLore;
+        if (currentLore == null || currentLore.isEmpty()) {
+            return new ArrayList<>(canonical);
+        }
+
+        List<String> result = new ArrayList<>(currentLore);
+        for (int i = 0; i < currentLore.size(); i++) {
+            String currentLine = currentLore.get(i);
+            if (!containsCjk(currentLine) || i >= canonical.size()) {
+                continue;
+            }
+
+            String canonicalLine = canonical.get(i);
+            List<Token> currentTokens = extractTokens(currentLine);
+            if (currentTokens.isEmpty()) {
+                result.set(i, canonicalLine);
+                continue;
+            }
+
+            if (safelyRestoredLine.test(currentLine) || hasCompatibleTokenShape(currentLine, canonicalLine)) {
+                result.set(i, carryDynamicTokens(currentLine, canonicalLine));
+            }
+        }
+        return result;
+    }
+
+    private static boolean hasCompatibleTokenShape(String currentLine, String canonicalLine) {
+        List<Token> currentTokens = extractTokens(currentLine);
+        List<Token> canonicalTokens = extractTokens(canonicalLine);
+        if (currentTokens.size() != canonicalTokens.size() || currentTokens.isEmpty()) {
+            return false;
+        }
+
+        for (int i = 0; i < currentTokens.size(); i++) {
+            if (currentTokens.get(i).uuid() != canonicalTokens.get(i).uuid()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /**
      * Returns whether every dynamic number or UUID in translated lore can be mapped one-to-one
      * onto the registered English template. Refusing ambiguous mappings prevents display repair
@@ -151,6 +248,81 @@ public final class ItemDoctorText {
             }
         }
         return true;
+    }
+
+    /**
+     * Builds a conservative English display name for an orphaned Slimefun item when the
+     * addon which registered its canonical template is no longer installed. Only the
+     * stored Slimefun ID is used, so no functional item data is interpreted or changed.
+     */
+    static @Nonnull String humanizeItemId(@Nonnull String itemId) {
+        String localId = itemId.trim();
+        int namespace = localId.lastIndexOf(':');
+        if (namespace >= 0 && namespace + 1 < localId.length()) {
+            localId = localId.substring(namespace + 1);
+        }
+
+        String[] words = localId.split("[^A-Za-z0-9]+");
+        StringBuilder result = new StringBuilder(localId.length());
+        int emitted = 0;
+        for (String word : words) {
+            if (word.isEmpty()) {
+                continue;
+            }
+            if (emitted++ > 0) {
+                result.append(' ');
+            }
+
+            if (word.chars().allMatch(Character::isDigit) || isShortIdentifier(word)) {
+                result.append(word.toUpperCase(java.util.Locale.ROOT));
+                continue;
+            }
+
+            String lower = word.toLowerCase(java.util.Locale.ROOT);
+            if (emitted > 1 && isConnectorWord(lower)) {
+                result.append(lower);
+            } else {
+                result.append(Character.toUpperCase(lower.charAt(0)));
+                result.append(lower, 1, lower.length());
+            }
+        }
+        return result.length() == 0 ? "Legacy Slimefun Item" : result.toString();
+    }
+
+    /** Preserves only leading legacy formatting codes while replacing the visible text. */
+    static @Nonnull String preserveLeadingFormatting(@Nullable String currentName, @Nonnull String englishName) {
+        if (currentName == null || currentName.isEmpty()) {
+            return englishName;
+        }
+
+        StringBuilder prefix = new StringBuilder();
+        int index = 0;
+        while (index + 1 < currentName.length() && currentName.charAt(index) == '\u00A7') {
+            prefix.append(currentName, index, index + 2);
+            index += 2;
+        }
+        return prefix.append(englishName).toString();
+    }
+
+    private static boolean isConnectorWord(String word) {
+        return word.equals("of")
+                || word.equals("the")
+                || word.equals("and")
+                || word.equals("to")
+                || word.equals("for");
+    }
+
+    private static boolean isShortIdentifier(String word) {
+        if (word.length() < 2 || word.length() > 4) {
+            return false;
+        }
+        if (!word.equals(word.toUpperCase(java.util.Locale.ROOT))) {
+            return false;
+        }
+        return switch (word) {
+            case "XP", "GPS", "DNA", "RGB", "GUI", "PDC", "NBT", "RF", "EU", "I", "II", "III", "IV" -> true;
+            default -> false;
+        };
     }
 
     static @Nullable String carryDynamicTokens(
