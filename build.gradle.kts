@@ -2,6 +2,7 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import com.gorylenko.GitPropertiesPluginExtension
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
+import org.gradle.jvm.tasks.Jar
 import org.gradle.language.jvm.tasks.ProcessResources
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -52,6 +53,15 @@ repositories {
 val supportedPaperApiVersion = libs.versions.paperApi.get()
 val selectedPaperApiVersion = providers.gradleProperty("paperApiVersion").orElse(supportedPaperApiVersion)
 
+// Slimefun Legacy 4.1.29: optional GuizhanLibPlugin compatibility bridge.
+// The dependency is consumed only while assembling the final plugin JAR. Slimefun's own
+// GuizhanLib usage remains relocated and isolated exactly as before.
+val guizhanLibPluginBridge by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+    isTransitive = false
+}
+
 dependencies {
     compileOnly("io.papermc.paper:paper-api:${selectedPaperApiVersion.get()}")
     compileOnly(libs.jsr305)
@@ -87,6 +97,7 @@ dependencies {
     implementation(libs.slimefun.comp.lib)
     implementation(libs.guizhanlib.updater)
     implementation(libs.guizhanlib.minecraft)
+    add(guizhanLibPluginBridge.name, libs.guizhanlib.plugin.get())
 }
 
 tasks.jar {
@@ -144,10 +155,11 @@ tasks.named<ProcessResources>("processResources") {
 tasks.named("sourcesJar") {
     dependsOn(tasks.named("generateGitProperties"))
 }
-tasks.named<ShadowJar>("shadowJar") {
+val internalShadowJar = tasks.named<ShadowJar>("shadowJar") {
     archiveBaseName.set("Slimefun")
     archiveVersion.set(project.version.toString())
-    archiveClassifier.set("")
+    archiveClassifier.set("internal")
+    destinationDirectory.set(layout.buildDirectory.dir("intermediates/guizhanlib-bridge"))
     relocate("io.github.bakedlibs.dough", "io.github.thebusybiscuit.slimefun4.libraries.dough")
     relocate("io.papermc.lib", "io.github.thebusybiscuit.slimefun4.libraries.paperlib")
     relocate("kong.unirest", "io.github.thebusybiscuit.slimefun4.libraries.unirest")
@@ -158,13 +170,37 @@ tasks.named<ShadowJar>("shadowJar") {
         it.path == "META-INF" || it.path.startsWith("META-INF/")
     }*/
 }
+
+// Assemble the public bridge only after Slimefun's normal Shadow relocation has completed.
+// This deliberately exposes the GuizhanLib 2.5.0 API packages expected by older addons while
+// keeping Slimefun's own GuizhanLib classes under the existing private relocated namespace.
+val guizhanLibBridgeJar = tasks.register<Jar>("guizhanLibBridgeJar") {
+    dependsOn(internalShadowJar)
+    archiveBaseName.set("Slimefun")
+    archiveVersion.set(project.version.toString())
+    archiveClassifier.set("")
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    from({ zipTree(internalShadowJar.get().archiveFile.get().asFile) })
+    from({ guizhanLibPluginBridge.map { zipTree(it) } }) {
+        include("net/guizhanss/guizhanlib/**")
+        include("net/guizhanss/minecraft/guizhanlib/gugu/**")
+        // This legacy loader calls the concrete GuizhanLibPlugin JavaPlugin singleton and cannot
+        // be safely provided by the bridge without pretending Slimefun is that plugin.
+        exclude("net/guizhanss/minecraft/guizhanlib/gugu/localization/LocalizationLoader*.class")
+        include("net/guizhanss/minecraft/guizhanlib/utils/**")
+        include("net/byteflux/libby/**")
+        include("javax/annotation/**")
+    }
+}
+
 tasks.build {
-    dependsOn(tasks.named("shadowJar"))
+    dependsOn(guizhanLibBridgeJar)
 }
 publishing {
     publications {
         create<MavenPublication>("mavenJava") {
-            artifact(tasks.named("shadowJar"))
+            artifact(guizhanLibBridgeJar)
             artifact(tasks.named("sourcesJar"))
             groupId = project.group.toString()
             artifactId = "Slimefun"

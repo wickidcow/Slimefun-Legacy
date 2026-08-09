@@ -25,6 +25,7 @@ import io.github.thebusybiscuit.slimefun4.api.world.ChunkRuntimeState;
 import io.github.thebusybiscuit.slimefun4.api.world.WorldChunkRuntimeSnapshot;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.GuizhanLibCompatibilityBridge;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.KnownAddonCompatibilityRegistry;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.KnownAddonCompatibilityRegistry.KnownAddonSupport;
 import io.github.thebusybiscuit.slimefun4.core.services.scheduling.SchedulerSnapshot;
@@ -77,6 +78,7 @@ final class DoctorCommand extends SubCommand {
             case "compatibility", "compat" -> sendAddonCompatibility(sender, args);
             case "runtime", "failures" -> sendRuntimeFailures(sender, args);
             case "integrations", "integration" -> sendExternalIntegrations(sender, args);
+            case "guizhanlib", "guizhan" -> sendGuizhanLibBridge(sender);
             case "repair", "fix" -> {
                 if (args.length < 3 || !args[2].equalsIgnoreCase("confirm")) {
                     send(sender, "&eThis safely changes visible names and lore across stored items.");
@@ -103,6 +105,8 @@ final class DoctorCommand extends SubCommand {
                 + Slimefun.getExternalIntegrationService().getActiveFailureCount()
                 + " &8| &7Observed: &e" + Slimefun.getExternalIntegrationService().getObservedFailureCount());
         send(sender, "&7Automatic item repair: " + (service.isEnabled() ? "&aEnabled" : "&cDisabled"));
+        GuizhanLibCompatibilityBridge.Snapshot guizhanLib = GuizhanLibCompatibilityBridge.inspect(plugin);
+        send(sender, "&7GuizhanLib compatibility: " + guizhanLibStatus(guizhanLib));
         AddonDoctorService addonDoctors = new AddonDoctorService(plugin);
         send(sender, "&7Registered addon doctors: &e" + addonDoctors.getProviders().size());
 
@@ -759,6 +763,66 @@ final class DoctorCommand extends SubCommand {
         };
     }
 
+    private void sendGuizhanLibBridge(CommandSender sender) {
+        GuizhanLibCompatibilityBridge.Snapshot snapshot = GuizhanLibCompatibilityBridge.inspect(plugin);
+        send(sender, "&6GuizhanLib Compatibility Bridge");
+        send(sender, "&7Compatibility target: &eGuizhanLibPlugin / GuizhanLib "
+                + GuizhanLibCompatibilityBridge.COMPATIBILITY_VERSION);
+
+        if (snapshot.externalPluginInstalled()) {
+            send(sender, "&7External GuizhanLibPlugin: &aPresent &8(v" + snapshot.externalPluginVersion() + ")");
+        } else {
+            send(sender, "&7External GuizhanLibPlugin: &7Not installed");
+        }
+
+        String provider = snapshot.resolvedProviderName().isBlank() ? "&cUnresolved" : "&e" + snapshot.resolvedProviderName();
+        send(sender, "&7Paper dependency provider: " + provider);
+        send(sender, "&7Slimefun fallback alias: "
+                + (snapshot.aliasRoutesToLegacy() ? "&aResolved" : "&7Not selected"));
+        send(sender, "&7Public GuizhanLib API: "
+                + (snapshot.publicApiReady() ? "&aReady" : "&cIncomplete")
+                + " &8| &7Legacy safe shims: "
+                + (snapshot.legacyCompatibilityReady() ? "&aReady" : "&cIncomplete"));
+        send(sender, "&7Fallback mode: "
+                + (snapshot.fallbackReady() ? "&aActive and ready" : snapshot.externalPluginInstalled()
+                        ? "&bStandby (external plugin detected)"
+                        : "&cNot ready"));
+
+        if (!snapshot.missingApiClasses().isEmpty()) {
+            send(sender, "&cMissing API classes: &e" + String.join(", ", snapshot.missingApiClasses()));
+        }
+        if (!snapshot.missingLegacyClasses().isEmpty()) {
+            send(sender, "&cMissing legacy helper classes: &e" + String.join(", ", snapshot.missingLegacyClasses()));
+        }
+
+        send(sender, "&7Hard-depending addons: &e"
+                + (snapshot.hardDependents().isEmpty() ? "None detected" : String.join(", ", snapshot.hardDependents())));
+        send(sender, "&7Soft-depending addons: &e"
+                + (snapshot.softDependents().isEmpty() ? "None detected" : String.join(", ", snapshot.softDependents())));
+
+        if (snapshot.externalPluginInstalled()) {
+            send(sender, "&eTransition warning: both Slimefun Legacy and GuizhanLibPlugin expose GuizhanLib classes.");
+            send(sender, "&8Remove the external plugin only on a staging restart after this command reports the fallback ready.");
+        } else if (snapshot.fallbackReady()) {
+            send(sender, "&aThe GuizhanLib library fallback is active for addons that depend on GuizhanLibPlugin.");
+            send(sender, "&eCompatibility boundary: the GuizhanLibPlugin main JavaPlugin class is not emulated.");
+            send(sender, "&8Plugin-singleton-only legacy helpers such as Gugu LocalizationLoader remain external-only.");
+            send(sender, "&8Addons that cast PluginManager#getPlugin(\"GuizhanLibPlugin\") to its concrete main class may still require the external plugin.");
+        } else {
+            send(sender, "&cThe fallback is incomplete. Keep GuizhanLibPlugin installed until the missing bridge pieces are fixed.");
+        }
+    }
+
+    private String guizhanLibStatus(GuizhanLibCompatibilityBridge.Snapshot snapshot) {
+        if (snapshot.externalPluginInstalled()) {
+            return "&bExternal plugin present";
+        }
+        if (snapshot.fallbackReady()) {
+            return "&aLegacy fallback active";
+        }
+        return "&cFallback incomplete";
+    }
+
     private void sendProgress(CommandSender sender, ItemDoctorReport report) {
         send(sender, "&7Inventories: &e" + report.getInventories() + " &8| &7Backpacks: &e" + report.getBackpacks());
         send(sender, "&7Stacks scanned: &e" + report.getScannedStacks() + " &8| &7Slimefun: &e"
@@ -782,6 +846,7 @@ final class DoctorCommand extends SubCommand {
     private void sendUsage(CommandSender sender) {
         send(sender, "&eUsage: /slimefun doctor [status|core|registry|chunks|hand|inventory [player]|scan|repair confirm|addons]");
         send(sender, "&e       /slimefun doctor [compatibility [api <plugin>]|runtime [retry [all]]|integrations [probe|reload|retry <id|all>]]");
+        send(sender, "&e       /slimefun doctor guizhanlib");
     }
 
     private void send(CommandSender sender, String message) {
