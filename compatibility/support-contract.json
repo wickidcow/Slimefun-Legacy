@@ -1,5 +1,5 @@
 {
-  "release": "4.1.28",
+  "release": "4.1.29",
   "project": "Slimefun Legacy",
   "plugin_name": "Slimefun",
   "primary_platform": {
@@ -135,7 +135,14 @@
     "cross_fork_external_drift_is_advisory": true,
     "cross_fork_automatic_merges": false,
     "doctor_cross_fork_api_diagnostics": true,
-    "phase1j_changes_normal_cargo_energy_machine_semantics": false
+    "phase1j_changes_normal_cargo_energy_machine_semantics": false,
+    "plugin_dependency_diagnostics": true,
+    "dependency_diagnostics_are_read_only": true,
+    "third_party_plugin_dependency_emulation": false,
+    "provider_alias_is_not_class_compatibility_proof": true,
+    "gugu_runtime_core_target": false,
+    "gugu_api_probe_remains_advisory": true,
+    "phase1k_changes_normal_cargo_energy_machine_semantics": false
   },
-  "phase": "Core Platform Phase 1J"
+  "phase": "Core Platform Phase 1K"
 }

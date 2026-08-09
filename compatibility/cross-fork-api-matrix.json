@@ -1,12 +1,14 @@
 {
   "schema": 1,
-  "release": "4.1.28",
+  "release": "4.1.29",
   "policy": {
     "legacy_contract_is_release_blocking": true,
     "external_fork_drift_is_advisory": true,
     "automatic_upstream_merges": false,
     "representative_source_probes": true,
-    "addon_matrix_remains_binary_regression_gate": true
+    "addon_matrix_remains_binary_regression_gate": true,
+    "gugu_runtime_core_target": false,
+    "third_party_plugin_emulation": false
   },
   "cores": [
     {

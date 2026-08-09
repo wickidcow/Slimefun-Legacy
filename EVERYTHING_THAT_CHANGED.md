@@ -1,3 +1,18 @@
+# Slimefun Legacy 4.1.29 — Core Platform Phase 1K
+
+## Part 1 — Dependency & Addon Boundary Hardening
+
+- Added read-only Paper plugin dependency diagnostics through `/sf doctor dependencies [plugin-or-dependency]`.
+- Reports declared hard dependencies, soft dependencies, missing/disabled required dependencies, provider aliases, and reverse dependency consumers.
+- `/sf doctor compatibility <plugin>` now includes declared hard-dependency health beside Slimefun compatibility evidence.
+- Provider aliases are explicitly treated as descriptor-level load resolution only, never proof that expected Java classes or runtime APIs are present.
+- Slimefun Legacy does not install, enable, disable, replace, download, or emulate third-party plugin dependencies. Addons remain responsible for their own required libraries.
+- Gugu/Original/United source probes remain advisory cross-fork API evidence; Legacy/Paper remains the runtime and release target.
+- Phase 1J verification was made forward-compatible so later Phase 1 releases preserve all Phase 1J invariants instead of being blocked by a literal phase label.
+- No Slimefun item IDs, recipes, research IDs, Cargo/Energy behavior, machine processing semantics, storage keys, database schemas, or saved-world formats were changed.
+
+---
+
 ## 4.1.28 Item Doctor translation-recovery hotfix
 
 - Item Doctor now repairs a Chinese display name independently from lore safety. A stateful addon item can therefore receive its English canonical name on pickup even when Doctor deliberately preserves an unknown lore-backed state line.

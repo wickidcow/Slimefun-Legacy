@@ -20,7 +20,7 @@ Slimefun Legacy turns a normal Minecraft server into a modpack-like experience w
 [Report a Bug](https://github.com/wickidcow/Slimefun-Legacy/issues) ·
 [Release History](EVERYTHING_THAT_CHANGED.md)
 
-Current development release: **4.1.28 — Core Platform Phase 1J (Addon API Unification & Cross-Fork Compatibility)**. ·
+Current development release: **4.1.29 — Core Platform Phase 1K (Dependency & Addon Boundary Hardening)**. ·
 [Contributing](CONTRIBUTING.md)
 
 </div>
@@ -104,6 +104,7 @@ Download a tested build from [GitHub Releases](https://github.com/wickidcow/Slim
 /sf doctor status
 /sf doctor core
 /sf doctor compatibility
+/sf doctor dependencies
 /sf doctor runtime
 /sf doctor integrations
 ```
@@ -120,6 +121,21 @@ When Rebar is installed and its runtime API matches a supported reflective shape
 The probe reports mapped inventory/storage, cargo/logistics, processor/machine, and fluid capabilities. This is discovery only: Slimefun does not automatically inject items into Rebar cargo networks or convert Rebar/Pylon electricity.
 Phase 1E also isolates repeatedly failing external adapter callbacks without changing normal Slimefun Cargo, Energy, machine, guide, or addon execution. Admins can use `/sf doctor integrations retry <id|all>` or `/sf doctor integrations reload`; machine isolation can be cleared with `/sf doctor runtime retry` or `/sf doctor runtime retry all`.
 Phase 1F improves `/sf versions` with a runtime recognition registry for addon families monitored by Legacy CI. It clearly separates declared compatibility from CI coverage and unknown compatibility; CI coverage is never treated as a guarantee for the exact installed addon JAR.
+
+### Plugin dependency diagnostics
+
+Phase 1K adds read-only plugin dependency diagnostics so operators can distinguish a Slimefun/API problem from an addon's own external library requirement. Useful commands include:
+
+```text
+/sf doctor dependencies
+/sf doctor dependencies GuizhanLibPlugin
+/sf doctor dependencies SlimefunLuckyBlocks
+/sf doctor compatibility SlimefunLuckyBlocks
+```
+
+The report shows declared hard and soft dependencies, missing or disabled required plugins, reverse consumers, and Paper provider aliases. Provider aliases are reported only as descriptor-level resolution: they do **not** prove that the provider contains every Java class or runtime API expected by a dependent addon.
+
+Slimefun Legacy does not install, enable, replace, or emulate third-party plugin dependencies. If an addon requires an external library plugin such as GuizhanLibPlugin, use the real dependency required by that addon. Cross-fork Gugu API probes remain advisory compatibility evidence; Gugu is not a Slimefun Legacy runtime-core target.
 ## 🌐 English-first and recovery
 
 The normal English experience does **not** require Slimefun Translate. Recommended settings in `plugins/Slimefun/config.yml` are:
@@ -191,7 +207,7 @@ Historical compatibility, core-platform, release, validation, and Enhanced Guide
 | Sponge | ❌ Unsupported |
 | Hybrid servers such as Arclight, Mohist, or Cardboard | ❌ Unsupported and blocked |
 | Fabric / Forge / NeoForge | ❌ Unsupported — this is a server plugin, not a mod |
-Slimefun Legacy 4.1.28 is tested primarily against **Paper 26.2 / Minecraft 1.21.11 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
+Slimefun Legacy 4.1.29 is tested primarily against **Paper 26.2 / Minecraft 1.21.11 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
 The machine-readable support contract remains under `compatibility/`. Historical Compatibility Foundation and Paper/Purpur maintenance notes are consolidated in [`EVERYTHING_THAT_CHANGED.md`](EVERYTHING_THAT_CHANGED.md).
 Folia Phase 1 routes machine ticks and entity/location callbacks through their owning schedulers while preserving Paper behavior. Cargo and energy networks intentionally operate only on nodes owned by the regulator's current Folia region; transactional cross-region transfers are not enabled yet. Folia therefore remains experimental.
 **Every installed addon must also be Folia-safe.** The historical Folia Phase 1 safety boundary and staging checklist are preserved in [`EVERYTHING_THAT_CHANGED.md`](EVERYTHING_THAT_CHANGED.md).

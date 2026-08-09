@@ -27,6 +27,9 @@ import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.KnownAddonCompatibilityRegistry;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.KnownAddonCompatibilityRegistry.KnownAddonSupport;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.PluginDependencyDiagnosticsService;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.PluginDependencyResolution;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.PluginDependencySnapshot;
 import io.github.thebusybiscuit.slimefun4.core.services.scheduling.SchedulerSnapshot;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.AddonDoctorService;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorReport;
@@ -48,6 +51,7 @@ import org.bukkit.inventory.ItemStack;
 final class DoctorCommand extends SubCommand {
 
     private static final int MAX_ADDON_DETAIL_LINES = 50;
+    private static final int MAX_DEPENDENCY_PROBLEM_LINES = 30;
 
     private final KnownAddonCompatibilityRegistry knownAddonRegistry;
 
@@ -77,6 +81,7 @@ final class DoctorCommand extends SubCommand {
             case "compatibility", "compat" -> sendAddonCompatibility(sender, args);
             case "runtime", "failures" -> sendRuntimeFailures(sender, args);
             case "integrations", "integration" -> sendExternalIntegrations(sender, args);
+            case "dependencies", "dependency", "deps" -> sendPluginDependencies(sender, args);
             case "repair", "fix" -> {
                 if (args.length < 3 || !args[2].equalsIgnoreCase("confirm")) {
                     send(sender, "&eThis safely changes visible names and lore across stored items.");
@@ -473,6 +478,160 @@ final class DoctorCommand extends SubCommand {
         }
     }
 
+    private void sendPluginDependencies(CommandSender sender, String[] args) {
+        PluginDependencyDiagnosticsService dependencies = new PluginDependencyDiagnosticsService(plugin);
+        if (args.length > 2) {
+            sendPluginDependencyTarget(sender, dependencies, args[2]);
+            return;
+        }
+
+        List<PluginDependencySnapshot> snapshots = dependencies.getSnapshots();
+        long disabledPlugins = snapshots.stream().filter(snapshot -> !snapshot.isEnabled()).count();
+        long missingRequired = snapshots.stream()
+                .flatMap(snapshot -> snapshot.getRequiredDependencies().stream())
+                .filter(dependency -> dependency.getState() == PluginDependencyResolution.State.MISSING)
+                .count();
+        long disabledRequired = snapshots.stream()
+                .flatMap(snapshot -> snapshot.getRequiredDependencies().stream())
+                .filter(dependency -> dependency.getState() == PluginDependencyResolution.State.DISABLED)
+                .count();
+        long providerAliases = snapshots.stream()
+                .flatMap(snapshot -> snapshot.getRequiredDependencies().stream())
+                .filter(PluginDependencyResolution::isProviderAlias)
+                .count();
+
+        send(sender, "&6Slimefun Plugin Dependency Boundaries");
+        send(sender, "&7Loaded plugin records: &e" + snapshots.size() + " &8| &7Disabled: &e" + disabledPlugins);
+        send(sender, "&7Required dependency problems: missing &c" + missingRequired + " &8| &7disabled &e"
+                + disabledRequired);
+        send(sender, "&7Required dependencies resolved through provider aliases: &e" + providerAliases);
+
+        int shown = 0;
+        for (PluginDependencySnapshot snapshot : snapshots) {
+            for (PluginDependencyResolution dependency : snapshot.getRequiredDependencies()) {
+                if (!dependency.isProblem()) {
+                    continue;
+                }
+                if (shown >= MAX_DEPENDENCY_PROBLEM_LINES) {
+                    break;
+                }
+                send(sender, "&c- " + snapshot.getPluginName() + " &7requires &f" + dependency.getDeclaredName()
+                        + " &8— " + dependencyState(dependency));
+                shown++;
+            }
+            if (shown >= MAX_DEPENDENCY_PROBLEM_LINES) {
+                break;
+            }
+        }
+
+        long totalProblems = missingRequired + disabledRequired;
+        if (totalProblems == 0) {
+            send(sender, "&aNo missing or disabled required plugin dependencies were detected.");
+        } else if (totalProblems > shown) {
+            send(sender, "&7" + (totalProblems - shown) + " additional required dependency problem(s) omitted.");
+        }
+
+        send(sender, "&8This is descriptor-level diagnostics only. A provider alias does not prove that expected classes "
+                + "or runtime behavior are compatible.");
+        send(sender, "&8Slimefun Legacy does not install, enable, replace, or emulate third-party plugin dependencies.");
+        send(sender, "&7Inspect one plugin/dependency: &e/sf doctor dependencies <name>");
+    }
+
+    private void sendPluginDependencyTarget(
+            CommandSender sender, PluginDependencyDiagnosticsService dependencies, String target) {
+        PluginDependencyResolution token = dependencies.resolveDependency(target);
+        var pluginSnapshot = dependencies.findPlugin(target);
+        List<PluginDependencySnapshot> requiredBy = dependencies.getRequiredConsumers(target);
+        List<PluginDependencySnapshot> softBy = dependencies.getSoftConsumers(target);
+
+        if (pluginSnapshot.isEmpty()
+                && requiredBy.isEmpty()
+                && softBy.isEmpty()
+                && token.getState() == PluginDependencyResolution.State.MISSING) {
+            send(sender, "&cNo loaded plugin or declared dependency matched: &e" + target);
+            return;
+        }
+
+        send(sender, "&6Plugin Dependency Detail: &e" + target);
+        if (token.getState() == PluginDependencyResolution.State.MISSING) {
+            send(sender, "&7Dependency token resolution: &cNot loaded");
+        } else {
+            send(sender, "&7Dependency token resolution: " + dependencyState(token));
+        }
+
+        if (pluginSnapshot.isPresent()) {
+            PluginDependencySnapshot snapshot = pluginSnapshot.orElseThrow();
+            send(sender, "&7Plugin: &f" + snapshot.getPluginName() + " &7v" + snapshot.getPluginVersion()
+                    + " &8| " + (snapshot.isEnabled() ? "&aEnabled" : "&cDisabled"));
+            if (!snapshot.getProvidedPlugins().isEmpty()) {
+                send(sender, "&7Provides aliases: &e" + String.join(", ", snapshot.getProvidedPlugins()));
+            }
+            if (snapshot.getRequiredDependencies().isEmpty()) {
+                send(sender, "&7Required dependencies: &8None declared");
+            } else {
+                send(sender, "&7Required dependencies:");
+                for (PluginDependencyResolution dependency : snapshot.getRequiredDependencies()) {
+                    sendDependencyResolution(sender, dependency);
+                }
+            }
+            if (snapshot.getSoftDependencies().isEmpty()) {
+                send(sender, "&7Soft dependencies: &8None declared");
+            } else {
+                send(sender, "&7Soft dependencies:");
+                for (PluginDependencyResolution dependency : snapshot.getSoftDependencies()) {
+                    sendDependencyResolution(sender, dependency);
+                }
+            }
+        }
+
+        if (!requiredBy.isEmpty()) {
+            send(sender, "&7Required by: &f" + requiredBy.stream()
+                    .map(PluginDependencySnapshot::getPluginName)
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .collect(Collectors.joining(", ")));
+        }
+        if (!softBy.isEmpty()) {
+            send(sender, "&7Soft-used by: &f" + softBy.stream()
+                    .map(PluginDependencySnapshot::getPluginName)
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .collect(Collectors.joining(", ")));
+        }
+
+        if (token.isProviderAlias()) {
+            send(sender, "&eProvider alias warning: descriptor resolution is satisfied by another plugin identity.");
+            send(sender, "&8This does not prove that the provider contains every class/API expected by dependent plugins.");
+        }
+        send(sender, "&8Read-only diagnostics; no plugin load state or dependency metadata was changed.");
+    }
+
+    private void sendDependencyResolution(CommandSender sender, PluginDependencyResolution dependency) {
+        send(sender, "&8- &f" + dependency.getDeclaredName() + " &8— " + dependencyState(dependency));
+    }
+
+    private String dependencyState(PluginDependencyResolution dependency) {
+        return switch (dependency.getState()) {
+            case ENABLED -> {
+                String resolved = dependency.getResolvedPluginName() == null
+                        ? dependency.getDeclaredName()
+                        : dependency.getResolvedPluginName();
+                String version = dependency.getResolvedPluginVersion() == null
+                        ? ""
+                        : " v" + dependency.getResolvedPluginVersion();
+                String alias = dependency.isProviderAlias()
+                        ? " &8(provider alias for &f" + dependency.getDeclaredName() + "&8)"
+                        : "";
+                yield "&aEnabled &f" + resolved + version + alias;
+            }
+            case DISABLED -> {
+                String resolved = dependency.getResolvedPluginName() == null
+                        ? dependency.getDeclaredName()
+                        : dependency.getResolvedPluginName();
+                yield "&eLoaded but disabled &f" + resolved;
+            }
+            case MISSING -> "&cMissing";
+        };
+    }
+
     private String simpleFailureName(String className) {
         int separator = className.lastIndexOf('.');
         return separator >= 0 ? className.substring(separator + 1) : className;
@@ -718,6 +877,17 @@ final class DoctorCommand extends SubCommand {
             send(sender, "&7Addon callback health: &aNo guarded callback failures observed");
         }
 
+        new PluginDependencyDiagnosticsService(plugin).findPlugin(result.getPluginName()).ifPresent(snapshot -> {
+            long problems = snapshot.getRequiredDependencyProblemCount();
+            send(sender, "&7Declared hard dependencies: &e" + snapshot.getRequiredDependencies().size()
+                    + " &8| &7problems: " + (problems == 0 ? "&a0" : "&c" + problems));
+            for (PluginDependencyResolution dependency : snapshot.getRequiredDependencies()) {
+                if (dependency.isProblem()) {
+                    send(sender, "&8  - &7" + dependency.getDeclaredName() + ": " + dependencyState(dependency));
+                }
+            }
+        });
+
         boolean linkageWarning = result.getMessages().stream()
                 .map(message -> message.toLowerCase(Locale.ROOT))
                 .anyMatch(message -> message.contains("linkage") || message.contains("provider failed"));
@@ -781,7 +951,8 @@ final class DoctorCommand extends SubCommand {
 
     private void sendUsage(CommandSender sender) {
         send(sender, "&eUsage: /slimefun doctor [status|core|registry|chunks|hand|inventory [player]|scan|repair confirm|addons]");
-        send(sender, "&e       /slimefun doctor [compatibility [api <plugin>]|runtime [retry [all]]|integrations [probe|reload|retry <id|all>]]");
+        send(sender, "&e       /slimefun doctor [compatibility [api <plugin>]|dependencies [plugin]|runtime [retry [all]]]");
+        send(sender, "&e       /slimefun doctor [integrations [probe|reload|retry <id|all>]]");
     }
 
     private void send(CommandSender sender, String message) {
