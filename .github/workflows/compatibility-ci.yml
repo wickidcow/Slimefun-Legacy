@@ -195,6 +195,80 @@ jobs:
             echo 'Source: `compatibility/addon-compatibility-matrix.json`'
           } >> "$GITHUB_STEP_SUMMARY"
 
+  prepare-cross-fork-api-matrix:
+    name: Prepare cross-fork API probes
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      enabled_count: ${{ steps.matrix.outputs.enabled_count }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate cross-fork API matrix
+        id: matrix
+        run: |
+          python3 scripts/generate_cross_fork_api_matrix.py \
+            compatibility/cross-fork-api-matrix.json \
+            --github-output "$GITHUB_OUTPUT"
+      - name: Publish cross-fork probe summary
+        run: |
+          {
+            echo "## Cross-fork API source probes"
+            echo
+            echo "External core targets: **${{ steps.matrix.outputs.enabled_count }}**"
+            echo
+            echo 'These probes are advisory drift signals. Protected Legacy API and addon binary/source regression gates remain release blocking.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  cross-fork-api-probes:
+    name: Cross-fork API - ${{ matrix.display_name }}
+    needs: prepare-cross-fork-api-matrix
+    continue-on-error: ${{ matrix.advisory }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare-cross-fork-api-matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Clone external core
+        env:
+          CORE_REPOSITORY: ${{ matrix.repository }}
+          CORE_REF: ${{ matrix.ref }}
+        run: |
+          URL="https://github.com/$CORE_REPOSITORY.git"
+          if [[ -n "$CORE_REF" ]]; then
+            git clone --depth 1 --branch "$CORE_REF" "$URL" "$RUNNER_TEMP/cross-fork-core"
+          else
+            git clone --depth 1 "$URL" "$RUNNER_TEMP/cross-fork-core"
+          fi
+      - name: Probe representative shared API source
+        id: probe
+        continue-on-error: true
+        run: |
+          python3 scripts/probe_cross_fork_api.py \
+            compatibility/cross-fork-api-matrix.json \
+            "${{ matrix.id }}" \
+            . \
+            "$RUNNER_TEMP/cross-fork-core" \
+            --report "build/reports/cross-fork-${{ matrix.id }}.md"
+      - name: Publish cross-fork drift report
+        if: always()
+        run: |
+          if [[ -f "build/reports/cross-fork-${{ matrix.id }}.md" ]]; then
+            cat "build/reports/cross-fork-${{ matrix.id }}.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: cross-fork-api-${{ matrix.id }}
+          path: build/reports/cross-fork-${{ matrix.id }}.md
+          if-no-files-found: warn
+      - name: Mark external API drift
+        if: steps.probe.outcome == 'failure'
+        run: |
+          echo "::warning title=Cross-fork API drift::Representative shared API markers changed for ${{ matrix.display_name }}. Review before intake; no automatic merge is performed."
+          exit 1
+
   addons:
     name: Addon [${{ matrix.tier }}] - ${{ matrix.repository }}
     needs: [prepare-release-baselines, prepare-addon-matrix, build-baseline-slimefun, build-slimefun]
