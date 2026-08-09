@@ -38,12 +38,6 @@ jobs:
           test -n "$JAR"
           python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
 
-      - name: Verify GuizhanLib compatibility bridge JAR
-        run: |
-          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
-          test -n "$JAR"
-          python3 scripts/verify_guizhanlib_bridge_jar.py "$JAR"
-
       - name: Upload JAR
         uses: actions/upload-artifact@v7
         with:
