@@ -17,6 +17,8 @@ REQUIRED_PUBLIC_CLASSES = (
     "net/guizhanss/guizhanlib/updater/GuizhanBuildsUpdater.class",
     "net/guizhanss/minecraft/guizhanlib/gugu/minecraft/ChatColors.class",
     "net/guizhanss/minecraft/guizhanlib/utils/NamespacedKeyUtils.class",
+    "net/guizhanss/minecraft/guizhanlib/updater/GuizhanUpdater.class",
+    "net/guizhanss/guizhanlibplugin/updater/GuizhanUpdater.class",
 )
 
 REQUIRED_ISOLATED_CLASSES = (
@@ -39,8 +41,6 @@ FORBIDDEN_CLASSES = (
     # The bridge is intentionally not a fake GuizhanLibPlugin JavaPlugin implementation.
     "net/guizhanss/minecraft/guizhanlib/GuizhanLib.class",
     "net/guizhanss/minecraft/guizhanlib/config/ConfigManager.class",
-    "net/guizhanss/minecraft/guizhanlib/updater/GuizhanUpdater.class",
-    "net/guizhanss/guizhanlibplugin/updater/GuizhanUpdater.class",
     "net/guizhanss/minecraft/guizhanlib/gugu/localization/LocalizationLoader.class",
 )
 
@@ -87,6 +87,8 @@ def main() -> int:
                     name.startswith("net/guizhanss/guizhanlib/")
                     or name.startswith("net/guizhanss/minecraft/guizhanlib/gugu/")
                     or name.startswith("net/guizhanss/minecraft/guizhanlib/utils/")
+                    or name == "net/guizhanss/minecraft/guizhanlib/updater/GuizhanUpdater.class"
+                    or name == "net/guizhanss/guizhanlibplugin/updater/GuizhanUpdater.class"
                 )
             )
             for entry in bridge_classes:
@@ -107,6 +109,8 @@ def main() -> int:
                 (
                     name.startswith("net/guizhanss/minecraft/guizhanlib/gugu/")
                     or name.startswith("net/guizhanss/minecraft/guizhanlib/utils/")
+                    or name == "net/guizhanss/minecraft/guizhanlib/updater/GuizhanUpdater.class"
+                    or name == "net/guizhanss/guizhanlibplugin/updater/GuizhanUpdater.class"
                 )
                 and name.endswith(".class")
                 for name in names

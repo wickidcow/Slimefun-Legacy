@@ -8,6 +8,7 @@ This release adds an experimental compatibility bridge for addons which expect `
 - Preserves Slimefun Legacy's existing **private, relocated** GuizhanLib usage.
 - Adds a second, public GuizhanLib 2.5.0 compatibility surface to the final Slimefun JAR for older addons.
 - Includes the common legacy `net.guizhanss.minecraft.guizhanlib.gugu.*` and compatibility utility classes used by older Gugu-era addons.
+- Provides binary-compatible updater shims for both historical `GuizhanUpdater` package names used by older addons. The shims delegate to the standalone public `GuizhanBuildsUpdater` API and do not require the GuizhanLibPlugin singleton.
 - Adds `/sf doctor guizhanlib` to show the external-plugin state, provider resolution, API readiness, and installed hard/soft dependents.
 - Adds source-level and assembled-JAR verification so the bridge cannot silently disappear during Shadow packaging.
 - Includes the upstream GuizhanLibPlugin GPL-3.0 license/attribution and the MIT license for Libby, which is bundled because GuizhanLib's public library-manager API references it.
@@ -19,6 +20,15 @@ Slimefun Legacy does **not** emulate or bundle the concrete GuizhanLibPlugin mai
 An addon that performs a concrete cast such as `PluginManager#getPlugin("GuizhanLibPlugin")` to the GuizhanLibPlugin main class can still require the real external plugin. The Doctor command calls this out explicitly.
 
 The old `net.guizhanss.minecraft.guizhanlib.gugu.localization.LocalizationLoader` shim is also deliberately excluded because its implementation calls the external GuizhanLibPlugin singleton directly. Other common legacy Gugu helpers that do not require that singleton remain available.
+
+### Historical updater compatibility
+
+Two older addon generations link against different updater class names:
+
+- `net.guizhanss.minecraft.guizhanlib.updater.GuizhanUpdater`
+- `net.guizhanss.guizhanlibplugin.updater.GuizhanUpdater`
+
+Slimefun Legacy provides both binary names with the original public method descriptors. They do **not** bundle the upstream plugin-owned universal updater, because that implementation reaches the concrete GuizhanLibPlugin singleton. Instead they delegate to `net.guizhanss.guizhanlib.updater.GuizhanBuildsUpdater`, which accepts the calling addon `Plugin` instance directly. This keeps old addon startup/update checks functional without pretending Slimefun is the GuizhanLibPlugin JavaPlugin.
 
 ## First staging test
 
@@ -41,7 +51,7 @@ A final `guizhanLibBridgeJar` task then creates the production JAR by combining:
 - the already-relocated Slimefun Shadow JAR, and
 - the version-pinned public GuizhanLib compatibility classes needed by dependent addons.
 
-The final artifact deliberately excludes the GuizhanLibPlugin main class, config manager, plugin-specific updater implementation, and the legacy `LocalizationLoader` shim that directly calls the external plugin singleton. GitHub Actions verifies these boundaries after the JAR is assembled.
+The final artifact deliberately excludes the GuizhanLibPlugin main class, config manager, the plugin-owned universal updater implementation, and the legacy `LocalizationLoader` shim that directly calls the external plugin singleton. The two small updater compatibility shims are compiled by Slimefun Legacy and injected after Shadow relocation so their public GuizhanLib method descriptors remain exact. GitHub Actions verifies these boundaries after the JAR is assembled.
 
 ## Upstream attribution
 

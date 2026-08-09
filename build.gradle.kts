@@ -165,6 +165,11 @@ val internalShadowJar = tasks.named<ShadowJar>("shadowJar") {
     relocate("kong.unirest", "io.github.thebusybiscuit.slimefun4.libraries.unirest")
     relocate("org.apache.commons.lang", "io.github.thebusybiscuit.slimefun4.libraries.commons.lang")
     relocate("net.guizhanss.guizhanlib", "io.github.thebusybiscuit.slimefun4.libraries.guizhanlib")
+    // These two source-level updater shims must keep their original binary names and must also
+    // keep references to the public GuizhanLib API unrelocated. They are injected unchanged into
+    // the final bridge JAR below.
+    exclude("net/guizhanss/minecraft/guizhanlib/updater/GuizhanUpdater.class")
+    exclude("net/guizhanss/guizhanlibplugin/updater/GuizhanUpdater.class")
     relocate("org.bstats", "io.github.thebusybiscuit.slimefun4.libraries.bstats")
     /**exclude {
         it.path == "META-INF" || it.path.startsWith("META-INF/")
@@ -182,6 +187,14 @@ val guizhanLibBridgeJar = tasks.register<Jar>("guizhanLibBridgeJar") {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
     from({ zipTree(internalShadowJar.get().archiveFile.get().asFile) })
+
+    // Inject the two compatibility shims from the normal compiler output after Shadow relocation.
+    // Their bytecode intentionally links to the public net.guizhanss.guizhanlib updater API.
+    from(sourceSets.main.get().output) {
+        include("net/guizhanss/minecraft/guizhanlib/updater/GuizhanUpdater.class")
+        include("net/guizhanss/guizhanlibplugin/updater/GuizhanUpdater.class")
+    }
+
     from({ guizhanLibPluginBridge.map { zipTree(it) } }) {
         include("net/guizhanss/guizhanlib/**")
         include("net/guizhanss/minecraft/guizhanlib/gugu/**")

@@ -30,7 +30,9 @@ public final class GuizhanLibCompatibilityBridge {
 
     private static final List<String> LEGACY_COMPATIBILITY_PROBES = List.of(
             "net.guizhanss.minecraft.guizhanlib.gugu.minecraft.ChatColors",
-            "net.guizhanss.minecraft.guizhanlib.utils.NamespacedKeyUtils");
+            "net.guizhanss.minecraft.guizhanlib.utils.NamespacedKeyUtils",
+            "net.guizhanss.minecraft.guizhanlib.updater.GuizhanUpdater",
+            "net.guizhanss.guizhanlibplugin.updater.GuizhanUpdater");
 
     private GuizhanLibCompatibilityBridge() {}
 

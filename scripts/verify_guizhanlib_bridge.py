@@ -57,6 +57,22 @@ def main() -> int:
         "bridge must not package the GuizhanLibPlugin JavaPlugin main class",
     )
     require(
+        'exclude("net/guizhanss/minecraft/guizhanlib/updater/GuizhanUpdater.class")' in build,
+        "historical minecraft GuizhanUpdater shim must be excluded from Shadow relocation",
+    )
+    require(
+        'exclude("net/guizhanss/guizhanlibplugin/updater/GuizhanUpdater.class")' in build,
+        "historical plugin-package GuizhanUpdater shim must be excluded from Shadow relocation",
+    )
+    require(
+        'include("net/guizhanss/minecraft/guizhanlib/updater/GuizhanUpdater.class")' in build,
+        "historical minecraft GuizhanUpdater shim must be injected into the final JAR",
+    )
+    require(
+        'include("net/guizhanss/guizhanlibplugin/updater/GuizhanUpdater.class")' in build,
+        "historical plugin-package GuizhanUpdater shim must be injected into the final JAR",
+    )
+    require(
         'exclude("net/guizhanss/minecraft/guizhanlib/gugu/localization/LocalizationLoader*.class")' in build,
         "legacy LocalizationLoader must be excluded because it calls the external plugin singleton",
     )
@@ -77,6 +93,26 @@ def main() -> int:
     require("getPluginDependencies()" in bridge, "hard GuizhanLibPlugin dependents are not reported")
     require("getPluginSoftDependencies()" in bridge, "soft GuizhanLibPlugin dependents are not reported")
     require("fallbackReady" in bridge, "bridge readiness state is missing")
+    require(
+        '"net.guizhanss.minecraft.guizhanlib.updater.GuizhanUpdater"' in bridge,
+        "runtime diagnostics must probe the historical minecraft updater shim",
+    )
+    require(
+        '"net.guizhanss.guizhanlibplugin.updater.GuizhanUpdater"' in bridge,
+        "runtime diagnostics must probe the historical plugin updater shim",
+    )
+
+    minecraft_updater = (
+        root / "src/main/java/net/guizhanss/minecraft/guizhanlib/updater/GuizhanUpdater.java"
+    ).read_text(encoding="utf-8")
+    plugin_updater = (
+        root / "src/main/java/net/guizhanss/guizhanlibplugin/updater/GuizhanUpdater.java"
+    ).read_text(encoding="utf-8")
+    require("GuizhanBuildsUpdater.start" in minecraft_updater, "minecraft updater shim must use standalone updater API")
+    require("GuizhanBuildsUpdater.start" in plugin_updater, "plugin updater shim must use standalone updater API")
+    require("UpdaterConfig.builder().checkOnly(checkOnly).build()" in plugin_updater, "boolean updater overload is missing")
+    require("minecraft.guizhanlib.GuizhanLib" not in minecraft_updater, "minecraft updater shim must not use plugin singleton")
+    require("minecraft.guizhanlib.GuizhanLib" not in plugin_updater, "plugin updater shim must not use plugin singleton")
 
     require('case "guizhanlib", "guizhan" -> sendGuizhanLibBridge(sender);' in doctor, "Doctor action is missing")
     require("GuizhanLib Compatibility Bridge" in doctor, "Doctor diagnostics header is missing")
