@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  LEGACY_ARTIFACT_VERSION: "1.0.0"
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -39,22 +42,32 @@ jobs:
 
       - name: Verify Java 21 bytecode target
         run: |
-          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
           test -n "$JAR"
           python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
 
       - name: Verify release artifact metadata and packaging
         run: |
-          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
           test -n "$JAR"
           python3 scripts/verify_release_artifact.py "$JAR" --root .
           cat build/reports/release-artifact.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload JAR
+      - name: Stage versioned Slimefun Legacy JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -n "$JAR"
+          mkdir -p dist
+          OUTPUT="dist/SF_Slimefun_Legacy_v${LEGACY_ARTIFACT_VERSION}.jar"
+          cp "$JAR" "$OUTPUT"
+          test -s "$OUTPUT"
+          sha256sum "$OUTPUT"
+
+      - name: Upload direct versioned Slimefun Legacy JAR
         uses: actions/upload-artifact@v7
         with:
-          name: Slimefun-English-Albion
-          path: |
-            build/libs/Slimefun-*.jar
-            !build/libs/*-sources.jar
+          path: dist/SF_Slimefun_Legacy_v${{ env.LEGACY_ARTIFACT_VERSION }}.jar
+          archive: false
           if-no-files-found: error
