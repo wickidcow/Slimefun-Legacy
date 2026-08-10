@@ -117,6 +117,8 @@ def main() -> int:
             "SOURCE_DATE_EPOCH=",
             "First clean release build",
             "Second clean release build",
+            "--no-build-cache",
+            "--no-configuration-cache",
             "Require byte-for-byte reproducibility",
             "sha256sum",
             "cmp \"$RUNNER_TEMP/Slimefun-first.jar\" \"$RUNNER_TEMP/Slimefun-second.jar\"",
@@ -158,7 +160,8 @@ def main() -> int:
         "- archive entry ordering and timestamps are reproducible\n"
         "- build metadata uses SOURCE_DATE_EPOCH rather than wall-clock time\n"
         "- the normal build inspects embedded version, source identity, bytecode and packaging boundaries\n"
-        "- a manual release workflow performs two clean builds of the exact source commit\n"
+        "- a manual release workflow performs two independent clean builds of the exact source commit\n"
+        "- build and configuration caches are disabled for the reproducibility comparison\n"
         "- release workflow requires byte-for-byte and SHA-256 equality\n"
         "- 4.1.29 remains the pinned release-blocking previous-stable baseline\n"
         "- no gameplay, Cargo/Energy, database, storage-schema or saved-world semantics are changed\n",
