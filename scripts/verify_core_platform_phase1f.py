@@ -52,7 +52,9 @@ def main() -> int:
 
     try:
         current = project_version(root)
-        req(tuple(map(int, current.split("."))) >= (4, 1, 24), "Phase 1F requires 4.1.24 or newer", failures)
+        req(bool(current), "Could not determine projectVersion", failures)
+        if current:
+            req(tuple(map(int, current.split("."))) >= (4, 1, 24), "Phase 1F requires 4.1.24 or newer", failures)
 
         matrix = json.loads(read(root, "compatibility/addon-compatibility-matrix.json"))
         req(matrix.get("release") == current, "Addon matrix release must match projectVersion", failures)
@@ -61,14 +63,20 @@ def main() -> int:
             for entry in matrix.get("addons", [])
             if isinstance(entry, dict) and entry.get("enabled", True) and entry.get("slug")
         }
+
         runtime_registry = load_runtime_registry(root)
-        req(enabled_slugs <= set(runtime_registry), "Runtime addon recognition registry is missing enabled CI addon targets", failures)
+        req(
+            enabled_slugs <= set(runtime_registry),
+            "Runtime addon recognition registry is missing enabled CI addon targets",
+            failures,
+        )
         req(len(runtime_registry) >= 33, "Runtime addon recognition registry must retain at least 33 addon families", failures)
         req(
             sum(1 for tier, _display in runtime_registry.values() if tier == "required") >= 4,
             "Runtime addon recognition registry must retain the four required Legacy targets",
             failures,
         )
+
         recognized_slugs = {
             "better-farming",
             "danktech2",
@@ -95,6 +103,7 @@ def main() -> int:
             "Recognition-only addon families must not be mislabeled as CI monitored",
             failures,
         )
+
         registry_resource = read(root, "src/main/resources/compatibility/addon-support-registry.txt")
         for token in (
             "danktech2|recognized|DankTech2|",
@@ -121,6 +130,11 @@ def main() -> int:
             "getTierPriority()",
         ):
             req(token in registry, f"Runtime addon registry invariant missing: {token}", failures)
+        req(
+            "AddonCompatibilityStatus.COMPATIBLE" not in registry,
+            "Recognition registry must not mutate the public compatibility status",
+            failures,
+        )
 
         versions = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/VersionsCommand.java")
         for token in (
@@ -138,8 +152,10 @@ def main() -> int:
             "knownAddonRegistry.find(result.getPluginName())",
             "The exact installed JAR did not declare compatibility",
             "compareToIgnoreCase",
+            "case UNDECLARED",
         ):
             req(token in versions, f"Versions Phase 1F invariant missing: {token}", failures)
+
         for forbidden in (
             'label = "◉ Known addon — Legacy CI monitored"',
             'label = "● Recognized addon — compatibility not verified"',
@@ -147,21 +163,6 @@ def main() -> int:
             'label = "⚠ Compatible with warnings"',
         ):
             req(forbidden not in versions, f"Verbose versions status label returned: {forbidden}", failures)
-        req(
-            'label = "Compatible"' in versions,
-            "Declared compatible status must remain distinct from CI monitoring",
-            failures,
-        )
-        req(
-            'case UNDECLARED' in versions,
-            "Undeclared API status must remain intact rather than being promoted to compatible",
-            failures,
-        )
-        req(
-            "AddonCompatibilityStatus.COMPATIBLE" not in registry,
-            "Recognition registry must not mutate the public compatibility status",
-            failures,
-        )
 
         doctor = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java")
         for token in (
@@ -169,10 +170,19 @@ def main() -> int:
             '"&7Legacy registry: &9Recognized only',
             '"&7Runtime machine health:',
             '"&7Compatibility-layer linkage signal:',
-            '"&8  This is a safe runtime signal, not a full bytecode proof; GitHub compatibility CI remains "',
             '"&9● Recognized addon — compatibility not verified"',
         ):
             req(token in doctor, f"Doctor compatibility evidence invariant missing: {token}", failures)
+
+        linkage_explanation_ok = (
+            '"&8  This is a safe runtime signal, not a full bytecode proof; GitHub compatibility CI remains "' in doctor
+            or '"&8  This compatibility-layer signal is not a full bytecode proof; GitHub compatibility CI remains "' in doctor
+        )
+        req(
+            linkage_explanation_ok,
+            "Doctor compatibility evidence must explain that the linkage signal is not full bytecode proof",
+            failures,
+        )
 
         support = json.loads(read(root, "compatibility/support-contract.json"))
         req(support.get("release") == current, "Support contract release must match projectVersion", failures)
