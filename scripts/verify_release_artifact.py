@@ -44,6 +44,7 @@ FORBIDDEN_UNRELOCATED_PREFIXES = {
     "bStats": "org/bstats/",
 }
 RELOCATED_LIBRARY_PREFIX = "io/github/thebusybiscuit/slimefun4/libraries/"
+FULL_SHA = re.compile(r"[0-9a-fA-F]{40}")
 
 
 def read(root: Path, relative: str) -> str:
@@ -67,11 +68,12 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def source_commit(root: Path) -> str:
+def source_identity(root: Path) -> tuple[str, bool]:
+    """Return the source commit and whether CI explicitly requires an exact match."""
     for variable in ("SOURCE_COMMIT", "GITHUB_SHA"):
         value = os.environ.get(variable, "").strip()
-        if re.fullmatch(r"[0-9a-fA-F]{40}", value):
-            return value.lower()
+        if FULL_SHA.fullmatch(value):
+            return value.lower(), True
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -81,11 +83,11 @@ def source_commit(root: Path) -> str:
             text=True,
         )
         value = result.stdout.strip()
-        if result.returncode == 0 and re.fullmatch(r"[0-9a-fA-F]{40}", value):
-            return value.lower()
+        if result.returncode == 0 and FULL_SHA.fullmatch(value):
+            return value.lower(), False
     except OSError:
         pass
-    return "unknown"
+    return "unknown", False
 
 
 def parse_properties(text: str) -> dict[str, str]:
@@ -121,7 +123,7 @@ def main() -> int:
     baselines = load_json(root, "compatibility/release-baselines.json")
     expected_java = int(support.get("java", {}).get("bytecode_target", 0))
     expected_major = expected_java + 44
-    commit = source_commit(root)
+    commit, strict_commit = source_identity(root)
 
     if not jar.is_file():
         failures.append(f"Release JAR does not exist: {jar}")
@@ -129,7 +131,8 @@ def main() -> int:
     class_count = 0
     max_class_major = 0
     plugin_version = ""
-    embedded_commit = ""
+    embedded_source_commit = ""
+    plugin_full_commit = ""
     embedded_build_time = ""
     external_hits: dict[str, list[str]] = {}
     unrelocated_hits: dict[str, list[str]] = {}
@@ -161,13 +164,25 @@ def main() -> int:
                 else:
                     git_properties = parse_properties(archive.read("git.properties").decode("utf-8"))
                     embedded_version = git_properties.get("git.build.version", "")
-                    embedded_commit = git_properties.get("git.commit.id.full", "").lower()
+                    embedded_source_commit = git_properties.get("git.source.commit", "").lower()
+                    plugin_full_commit = git_properties.get("git.commit.id.full", "").lower()
                     embedded_build_time = git_properties.get("git.build.time", "")
                     if embedded_version != version:
                         failures.append(f"git.build.version is {embedded_version or '<missing>'}, expected {version}")
-                    if commit != "unknown" and embedded_commit != commit:
+                    if "git.source.commit" not in git_properties:
+                        failures.append("git.source.commit is missing from embedded release metadata")
+                    if strict_commit and embedded_source_commit != commit:
                         failures.append(
-                            f"git.commit.id.full is {embedded_commit or '<missing>'}, expected source commit {commit}"
+                            f"git.source.commit is {embedded_source_commit or '<missing>'}, expected source commit {commit}"
+                        )
+                    elif (
+                        not strict_commit
+                        and commit != "unknown"
+                        and FULL_SHA.fullmatch(embedded_source_commit)
+                        and embedded_source_commit != commit
+                    ):
+                        failures.append(
+                            f"Embedded source commit {embedded_source_commit} does not match local checkout {commit}"
                         )
                     if not embedded_build_time:
                         failures.append("git.build.time is missing")
@@ -240,7 +255,9 @@ def main() -> int:
         "jar_size": jar.stat().st_size if jar.is_file() else 0,
         "jar_sha256": sha256(jar) if jar.is_file() else "",
         "source_commit": commit,
-        "embedded_commit": embedded_commit,
+        "source_commit_strict": strict_commit,
+        "embedded_source_commit": embedded_source_commit,
+        "plugin_git_full_commit": plugin_full_commit,
         "embedded_build_time": embedded_build_time,
         "plugin_version": plugin_version,
         "java_bytecode_target": expected_java,
@@ -263,7 +280,7 @@ def main() -> int:
         f"- Version: `{version}`",
         f"- Phase: `{support.get('phase', '')}`",
         f"- Source commit: `{commit}`",
-        f"- Embedded commit: `{embedded_commit or '<missing>'}`",
+        f"- Embedded source commit: `{embedded_source_commit or '<missing>'}`",
         f"- JAR: `{jar.name}`",
         f"- SHA-256: `{report['jar_sha256']}`",
         f"- Size: `{report['jar_size']}` bytes",
