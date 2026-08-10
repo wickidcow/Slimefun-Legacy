@@ -37,7 +37,25 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew spotlessApply --no-daemon --no-build-cache --no-configuration-cache
-          git diff --exit-code
+          if ! git diff --quiet; then
+            mkdir -p build/release-verification
+            git diff --name-only > build/release-verification/spotless-changed-files.txt
+            git diff --binary > build/release-verification/spotless-formatting.patch
+            {
+              echo "# Spotless formatting cleanup required"
+              echo
+              echo "Source commit: \\`$GITHUB_SHA\\`"
+              echo
+              echo "Spotless changed these tracked files:"
+              while IFS= read -r FILE; do
+                echo "- \\`$FILE\\`"
+              done < build/release-verification/spotless-changed-files.txt
+              echo
+              echo "The exact formatter output is attached as \\`spotless-formatting.patch\\`."
+            } > build/release-verification/spotless-formatting.md
+            cat build/release-verification/spotless-formatting.md >> "$GITHUB_STEP_SUMMARY"
+            git diff --exit-code
+          fi
 
       - name: First clean release build
         run: |
@@ -101,6 +119,11 @@ jobs:
         if: always()
         run: |
           mkdir -p build/release-verification
+          {
+            echo "Slimefun Legacy reproducible release evidence"
+            echo "Source commit: $GITHUB_SHA"
+            echo "Workflow status before evidence upload: ${{ job.status }}"
+          } > build/release-verification/workflow-status.txt
           for FILE in \
             first.sha256 \
             second.sha256 \
