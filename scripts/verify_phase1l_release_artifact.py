@@ -82,9 +82,11 @@ def main() -> int:
             "Instant.ofEpochSecond(sourceDateEpoch)",
             'customProperty("git.build.time", gitBuildTime)',
             'customProperty("git.source.commit", sourceCommit)',
+            '"git.commit.id"',
         ):
             require(token in build, f"Reproducible Gradle archive invariant missing: {token}", failures)
         require("LocalDateTime.now()" not in build, "Release metadata must not use the current wall clock", failures)
+        require('"git.commit.id.full"' not in build, "Unsupported git.commit.id.full metadata key must not return", failures)
 
         artifact_verifier = read(root, "scripts/verify_release_artifact.py")
         for token in (
@@ -92,7 +94,7 @@ def main() -> int:
             "FORBIDDEN_UNRELOCATED_PREFIXES",
             "RELOCATED_LIBRARY_PREFIX",
             "git.source.commit",
-            "git.commit.id.full",
+            "git.commit.id",
             "git.build.version",
             "plugin.yml",
             "jar_sha256",
@@ -100,6 +102,7 @@ def main() -> int:
             "previous_stable_ref",
         ):
             require(token in artifact_verifier, f"Release artifact verifier invariant missing: {token}", failures)
+        require("git.commit.id.full" not in artifact_verifier, "Artifact verifier must use standard git.commit.id metadata", failures)
 
         legacy_verifier = read(root, "scripts/verify_legacy.py")
         phase1l_position = legacy_verifier.find('"verify_core_platform_phase1l.py"')
@@ -171,6 +174,7 @@ def main() -> int:
         "- archive entry ordering and timestamps are reproducible\n"
         "- build metadata uses SOURCE_DATE_EPOCH rather than wall-clock time\n"
         "- CI embeds an explicit full source commit in git.properties\n"
+        "- standard git.commit.id metadata is retained for Git plugin provenance\n"
         "- the normal build inspects embedded version, source identity, bytecode and packaging boundaries\n"
         "- the full Legacy verifier retains the Phase 1L Part 2 gate\n"
         "- a manual release workflow performs two independent clean builds of the exact source commit\n"
