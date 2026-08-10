@@ -156,8 +156,15 @@
     "release_lifecycle_baseline_rollover": true,
     "previous_stable_is_last_released_candidate": true,
     "release_metadata_is_single_version_line": true,
+    "reproducible_release_archives": true,
+    "release_artifact_metadata_verification": true,
+    "release_artifact_optional_api_exclusion": true,
+    "release_candidate_double_build_hash_match": true,
+    "release_source_commit_recorded": true,
     "phase1l_changes_normal_cargo_energy_machine_semantics": false,
-    "phase1l_changes_storage_or_gameplay_semantics": false
+    "phase1l_changes_storage_or_gameplay_semantics": false,
+    "phase1l_part2_changes_normal_cargo_energy_machine_semantics": false,
+    "phase1l_part2_changes_storage_or_gameplay_semantics": false
   },
   "phase": "Core Platform Phase 1L"
 }
