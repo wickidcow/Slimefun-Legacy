@@ -5,9 +5,9 @@ import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityStatus;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilitySummary;
 import io.github.thebusybiscuit.slimefun4.api.events.SlimefunItemRegistryFinalizedEvent;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
+import io.github.thebusybiscuit.slimefun4.core.services.registry.DefaultRegistryRuntimeService;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
-import io.github.thebusybiscuit.slimefun4.core.services.registry.DefaultRegistryRuntimeService;
 import io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.GrindStone;
 import io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.MakeshiftSmeltery;
 import io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.OreCrusher;
@@ -76,8 +76,8 @@ public final class PostSetup {
         int slimefunOnly = countNonAddonItems();
 
         sender.sendMessage("");
-        sender.sendMessage(ChatColor.GREEN
-                + "######################### - Slimefun Legacy - Snapshot - #########################");
+        sender.sendMessage(
+                ChatColor.GREEN + "######################### - Slimefun Legacy - Snapshot - #########################");
         sender.sendMessage("");
         sender.sendMessage(ChatColor.GREEN
                 + "Successfully loaded "
@@ -110,17 +110,21 @@ public final class PostSetup {
 
     private static void reportAddonCompatibility(CommandSender sender) {
         Slimefun.getAddonCompatibilityService().refresh();
-        AddonCompatibilitySummary summary = Slimefun.getAddonCompatibilityService().getSummary();
-        sender.sendMessage(ChatColor.GREEN + "Addon compatibility: " + summary.getCount(AddonCompatibilityStatus.COMPATIBLE)
-                + " compatible, " + summary.getCount(AddonCompatibilityStatus.WARNING) + " warning, "
-                + summary.getCount(AddonCompatibilityStatus.UNDECLARED) + " undeclared, "
-                + summary.getCount(AddonCompatibilityStatus.INCOMPATIBLE) + " incompatible, "
-                + summary.getCount(AddonCompatibilityStatus.DISABLED) + " disabled");
+        AddonCompatibilitySummary summary =
+                Slimefun.getAddonCompatibilityService().getSummary();
+        sender.sendMessage(
+                ChatColor.GREEN + "Addon compatibility: " + summary.getCount(AddonCompatibilityStatus.COMPATIBLE)
+                        + " compatible, " + summary.getCount(AddonCompatibilityStatus.WARNING) + " warning, "
+                        + summary.getCount(AddonCompatibilityStatus.UNDECLARED) + " undeclared, "
+                        + summary.getCount(AddonCompatibilityStatus.INCOMPATIBLE) + " incompatible, "
+                        + summary.getCount(AddonCompatibilityStatus.DISABLED) + " disabled");
 
-        for (AddonCompatibilityResult result : Slimefun.getAddonCompatibilityService().getResults()) {
+        for (AddonCompatibilityResult result :
+                Slimefun.getAddonCompatibilityService().getResults()) {
             if (result.getStatus() == AddonCompatibilityStatus.INCOMPATIBLE) {
-                Slimefun.logger().warning("Addon compatibility failure for " + result.getPluginName()
-                        + ": " + result.describe());
+                Slimefun.logger()
+                        .warning(
+                                "Addon compatibility failure for " + result.getPluginName() + ": " + result.describe());
             }
         }
     }

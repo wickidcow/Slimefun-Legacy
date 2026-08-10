@@ -37,8 +37,8 @@ import java.util.Optional;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu.MenuClickHandler;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
+import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu.MenuClickHandler;
 import org.apache.commons.lang.Validate;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -48,8 +48,8 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.Recipe;
-import org.bukkit.inventory.RecipeChoice.MaterialChoice;
 import org.bukkit.inventory.RecipeChoice;
+import org.bukkit.inventory.RecipeChoice.MaterialChoice;
 
 /**
  * The {@link SurvivalSlimefunGuide} is the standard version of our {@link SlimefunGuide}.
@@ -689,7 +689,6 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
         menu.addItem(16, output, ChestMenuUtils.getEmptyClickHandler());
     }
 
-
     @ParametersAreNonnullByDefault
     protected final ItemStack safeItemGroupIcon(PlayerProfile profile, ItemGroup group, Player player) {
         return GuideRuntimeGuard.getOrDefault(
@@ -756,11 +755,16 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
         if (isSurvivalMode() && history.size() > 1) {
             menu.addItem(
                     slot,
-                    new CustomItemStack(ChestMenuUtils.getBackButton(p, "", "&fLeft Click: &7Return to previous page", "&fShift + Left Click: &7Return to main menu")));
+                    new CustomItemStack(ChestMenuUtils.getBackButton(
+                            p,
+                            "",
+                            "&fLeft Click: &7Return to previous page",
+                            "&fShift + Left Click: &7Return to main menu")));
 
             menu.addMenuClickHandler(slot, (pl, s, is, action) -> {
                 if (action.isShiftClicked()) {
-                    SlimefunGuide.openMainMenu(profile, getMode(), profile.getGuideHistory().getMainMenuPage());
+                    SlimefunGuide.openMainMenu(
+                            profile, getMode(), profile.getGuideHistory().getMainMenuPage());
                 } else {
                     history.goBack(this);
                 }
@@ -773,7 +777,8 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
                     new CustomItemStack(ChestMenuUtils.getBackButton(
                             p, "", ChatColor.GRAY + Slimefun.getLocalization().getMessage(p, "guide.back.guide"))));
             menu.addMenuClickHandler(slot, (pl, s, is, action) -> {
-                SlimefunGuide.openMainMenu(profile, getMode(), profile.getGuideHistory().getMainMenuPage());
+                SlimefunGuide.openMainMenu(
+                        profile, getMode(), profile.getGuideHistory().getMainMenuPage());
                 return false;
             });
         }
@@ -902,8 +907,10 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
 
     @ParametersAreNonnullByDefault
     private void printErrorMessage(Player p, Throwable x) {
-        p.sendMessage(ChatColor.DARK_RED + "An internal server error has occurred. Please inform an admin, check the console for further info.");
-        Slimefun.logger().log(Level.SEVERE, "An error has occurred while trying to open a SlimefunItem in the guide!", x);
+        p.sendMessage(ChatColor.DARK_RED
+                + "An internal server error has occurred. Please inform an admin, check the console for further info.");
+        Slimefun.logger()
+                .log(Level.SEVERE, "An error has occurred while trying to open a SlimefunItem in the guide!", x);
     }
 
     @ParametersAreNonnullByDefault

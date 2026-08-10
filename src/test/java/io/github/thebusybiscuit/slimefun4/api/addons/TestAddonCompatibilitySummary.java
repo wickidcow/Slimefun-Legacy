@@ -38,7 +38,6 @@ class TestAddonCompatibilitySummary {
     }
 
     private static AddonCompatibilityResult result(String name, AddonCompatibilityStatus status) {
-        return new AddonCompatibilityResult(
-                name, "1.0", status, AddonCompatibilitySource.NONE, null, List.of());
+        return new AddonCompatibilityResult(name, "1.0", status, AddonCompatibilitySource.NONE, null, List.of());
     }
 }

@@ -33,8 +33,7 @@ class SqlCommonAdapterTransactionTest {
 
             assertThrows(
                     SQLException.class,
-                    () -> SqlCommonAdapter.executePatchTransaction(
-                            connection, patch, new SqliteConfig(":memory:", 1)));
+                    () -> SqlCommonAdapter.executePatchTransaction(connection, patch, new SqliteConfig(":memory:", 1)));
             assertTrue(connection.getAutoCommit());
 
             try (var result = setup.executeQuery("SELECT COUNT(*) FROM transaction_probe")) {

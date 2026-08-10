@@ -23,7 +23,6 @@ import java.util.logging.Logger;
 import javax.annotation.Nonnull;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
-import org.bukkit.World;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -117,8 +116,8 @@ public final class DefaultBlockDataRuntimeService implements BlockDataRuntimeSer
                     continue;
                 }
 
-                ChunkRuntimeState state = worldChunks.getChunkState(
-                        coordinates.worldName, coordinates.chunkX, coordinates.chunkZ);
+                ChunkRuntimeState state =
+                        worldChunks.getChunkState(coordinates.worldName, coordinates.chunkX, coordinates.chunkZ);
                 switch (state) {
                     case READY -> ready++;
                     case LOADING, UNLOADING, FAILED -> unsafe++;
@@ -160,8 +159,8 @@ public final class DefaultBlockDataRuntimeService implements BlockDataRuntimeSer
             recordFailure(chunk, failure);
             logger.log(
                     Level.SEVERE,
-                    "Failed to load Slimefun block data for chunk " + chunk.getWorld().getName() + " "
-                            + chunk.getX() + "," + chunk.getZ(),
+                    "Failed to load Slimefun block data for chunk "
+                            + chunk.getWorld().getName() + " " + chunk.getX() + "," + chunk.getZ(),
                     failure);
         }
     }

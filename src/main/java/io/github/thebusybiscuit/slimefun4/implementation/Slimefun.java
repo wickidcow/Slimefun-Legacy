@@ -15,16 +15,16 @@ import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityService;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonRegistrationService;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonRuntimeHealthService;
 import io.github.thebusybiscuit.slimefun4.api.addons.OptionalDependencyService;
-import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationService;
 import io.github.thebusybiscuit.slimefun4.api.exceptions.TagMisconfigurationException;
 import io.github.thebusybiscuit.slimefun4.api.geo.GEOResource;
 import io.github.thebusybiscuit.slimefun4.api.gps.GPSNetwork;
+import io.github.thebusybiscuit.slimefun4.api.integrations.ExternalIntegrationService;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.lifecycle.CoreLifecyclePhase;
 import io.github.thebusybiscuit.slimefun4.api.lifecycle.CoreLifecycleService;
-import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
 import io.github.thebusybiscuit.slimefun4.api.platform.MinecraftVersionNumber;
 import io.github.thebusybiscuit.slimefun4.api.platform.PlatformCompatibilityService;
+import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
 import io.github.thebusybiscuit.slimefun4.api.registry.RegistryRuntimeService;
 import io.github.thebusybiscuit.slimefun4.api.runtime.CoreReadinessService;
 import io.github.thebusybiscuit.slimefun4.api.runtime.MachineChunkCoordinationService;
@@ -59,19 +59,19 @@ import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultExt
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultOptionalDependencyService;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.DefaultPlatformCompatibilityService;
 import io.github.thebusybiscuit.slimefun4.core.services.github.GitHubService;
-import io.github.thebusybiscuit.slimefun4.core.services.lifecycle.DefaultCoreLifecycleService;
 import io.github.thebusybiscuit.slimefun4.core.services.holograms.HologramsService;
+import io.github.thebusybiscuit.slimefun4.core.services.lifecycle.DefaultCoreLifecycleService;
 import io.github.thebusybiscuit.slimefun4.core.services.profiler.SlimefunProfiler;
 import io.github.thebusybiscuit.slimefun4.core.services.registry.DefaultRegistryRuntimeService;
 import io.github.thebusybiscuit.slimefun4.core.services.runtime.DefaultCoreReadinessService;
 import io.github.thebusybiscuit.slimefun4.core.services.runtime.DefaultMachineChunkCoordinationService;
 import io.github.thebusybiscuit.slimefun4.core.services.runtime.DefaultMachineRuntimeService;
 import io.github.thebusybiscuit.slimefun4.core.services.runtime.DefaultStorageRuntimeService;
-import io.github.thebusybiscuit.slimefun4.core.services.storage.DefaultBlockDataRuntimeService;
-import io.github.thebusybiscuit.slimefun4.core.services.world.DefaultWorldChunkRuntimeService;
 import io.github.thebusybiscuit.slimefun4.core.services.scheduling.SlimefunScheduler;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundService;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorService;
+import io.github.thebusybiscuit.slimefun4.core.services.storage.DefaultBlockDataRuntimeService;
+import io.github.thebusybiscuit.slimefun4.core.services.world.DefaultWorldChunkRuntimeService;
 import io.github.thebusybiscuit.slimefun4.implementation.items.altar.AncientAltar;
 import io.github.thebusybiscuit.slimefun4.implementation.items.altar.AncientPedestal;
 import io.github.thebusybiscuit.slimefun4.implementation.items.backpacks.Cooler;
@@ -242,8 +242,12 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
             new DefaultAddonRegistrationService(registryRuntimeService, addonRuntimeHealthService);
     private final DefaultAddonCompatibilityService addonCompatibilityService = new DefaultAddonCompatibilityService(
             this, platformCompatibilityService, optionalDependencyService, addonRuntimeHealthService);
-    private final DefaultAddonApiCompatibilityFacade addonApiCompatibilityFacade = new DefaultAddonApiCompatibilityFacade(
-            registryRuntimeService, addonRegistrationService, addonCompatibilityService, addonRuntimeHealthService);
+    private final DefaultAddonApiCompatibilityFacade addonApiCompatibilityFacade =
+            new DefaultAddonApiCompatibilityFacade(
+                    registryRuntimeService,
+                    addonRegistrationService,
+                    addonCompatibilityService,
+                    addonRuntimeHealthService);
     private final DefaultExternalIntegrationService externalIntegrationService =
             new DefaultExternalIntegrationService(this);
     private final SlimefunScheduler schedulerService = new PaperScheduler(this, platformCompatibilityService);
@@ -253,7 +257,8 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     private final DefaultMachineRuntimeService machineRuntimeService = new DefaultMachineRuntimeService(ticker);
     private final DefaultMachineChunkCoordinationService machineChunkCoordinationService =
             new DefaultMachineChunkCoordinationService(ticker, worldChunkRuntimeService);
-    private final DefaultStorageRuntimeService storageRuntimeService = new DefaultStorageRuntimeService(databaseManager);
+    private final DefaultStorageRuntimeService storageRuntimeService =
+            new DefaultStorageRuntimeService(databaseManager);
     private final DefaultCoreReadinessService coreReadinessService = new DefaultCoreReadinessService(
             lifecycleService,
             registryRuntimeService,
@@ -354,7 +359,6 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
             lifecycleService.markStartupFailed("plugin-enable", failure);
             throw failure;
         }
-
     }
 
     /**
@@ -442,7 +446,10 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
 
         // Make sure that the network size is a valid input
         if (networkSize < 1) {
-            logger.log(Level.WARNING, "'networks.max-size' is configured incorrectly! It must be greater than 1, but you set it to: {0}", networkSize);
+            logger.log(
+                    Level.WARNING,
+                    "'networks.max-size' is configured incorrectly! It must be greater than 1, but you set it to: {0}",
+                    networkSize);
             networkSize = 1;
         }
 
@@ -613,11 +620,13 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
         });
 
         // Save all Player Profiles that are still in memory. One bad profile must not block the others.
-        lifecycleService.runShutdownStep("player-profiles", () -> PlayerProfile.iterator().forEachRemaining(profile -> {
-            if (profile.isDirty()) {
-                lifecycleService.runShutdownStep("player-profile", profile::save);
-            }
-        }));
+        lifecycleService.runShutdownStep(
+                "player-profiles",
+                () -> PlayerProfile.iterator().forEachRemaining(profile -> {
+                    if (profile.isDirty()) {
+                        lifecycleService.runShutdownStep("player-profile", profile::save);
+                    }
+                }));
 
         lifecycleService.runShutdownStep("database", databaseManager::shutdown);
 
@@ -696,8 +705,9 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
         try {
             // First check if they still use the unsupported CraftBukkit software.
             if (!platformCompatibilityService.isPaperCompatible()
-                    && "CraftBukkit".equalsIgnoreCase(
-                            platformCompatibilityService.getProfile().getSoftwareName())) {
+                    && "CraftBukkit"
+                            .equalsIgnoreCase(
+                                    platformCompatibilityService.getProfile().getSoftwareName())) {
                 StartupWarnings.invalidServerSoftware(getLogger());
                 return true;
             }
@@ -1449,8 +1459,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
      * @param delay the delay in ticks
      * @return the adapted task handle, or {@code null} when Slimefun is disabled
      */
-    public static @Nullable BukkitTask runSyncAt(
-            @Nonnull Location location, @Nonnull Runnable runnable, long delay) {
+    public static @Nullable BukkitTask runSyncAt(@Nonnull Location location, @Nonnull Runnable runnable, long delay) {
         Validate.notNull(location, "Location cannot be null");
         Validate.notNull(runnable, "Cannot run null");
         Validate.isTrue(delay >= 0, "The delay cannot be negative");
@@ -1486,8 +1495,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
      * @param delay the delay in ticks
      * @return the adapted task handle, or {@code null} when Slimefun is disabled
      */
-    public static @Nullable BukkitTask runSyncFor(
-            @Nonnull Entity entity, @Nonnull Runnable runnable, long delay) {
+    public static @Nullable BukkitTask runSyncFor(@Nonnull Entity entity, @Nonnull Runnable runnable, long delay) {
         return runSyncFor(entity, runnable, () -> {}, delay);
     }
 
@@ -1501,10 +1509,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
      * @return the adapted task handle, or {@code null} when Slimefun is disabled
      */
     public static @Nullable BukkitTask runSyncFor(
-            @Nonnull Entity entity,
-            @Nonnull Runnable runnable,
-            @Nonnull Runnable retired,
-            long delay) {
+            @Nonnull Entity entity, @Nonnull Runnable runnable, @Nonnull Runnable retired, long delay) {
         Validate.notNull(entity, "Entity cannot be null");
         Validate.notNull(runnable, "Cannot run null");
         Validate.notNull(retired, "Retired callback cannot be null");
@@ -1521,9 +1526,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
         }
 
         return new LegacyBukkitTask(
-                instance,
-                instance.schedulerService.runForLater(entity, runnable, retired, delay),
-                true);
+                instance, instance.schedulerService.runForLater(entity, runnable, retired, delay), true);
     }
 
     /**

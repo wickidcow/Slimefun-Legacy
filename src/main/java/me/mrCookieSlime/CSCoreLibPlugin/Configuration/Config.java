@@ -3,7 +3,6 @@ package me.mrCookieSlime.CSCoreLibPlugin.Configuration;
 import java.io.File;
 import java.io.IOException;
 import java.util.Set;
-import me.mrCookieSlime.Slimefun.api.BlockStorage;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 

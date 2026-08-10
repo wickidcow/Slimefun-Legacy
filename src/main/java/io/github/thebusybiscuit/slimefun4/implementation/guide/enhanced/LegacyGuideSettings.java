@@ -14,28 +14,13 @@ import org.bukkit.configuration.file.YamlConfiguration;
  */
 public final class LegacyGuideSettings {
 
-    private static final List<String> DEFAULT_MAIN = List.of(
-            "BTBBBBRSB",
-            "GGGGGGGGG",
-            "GGGGGGGGG",
-            "GGGGGGGGG",
-            "GGGGGGGGG",
-            "BPBBCBBNB");
-    private static final List<String> DEFAULT_GROUP = List.of(
-            "BbBBBBRSB",
-            "iiiiiiiii",
-            "iiiiiiiii",
-            "iiiiiiiii",
-            "iiiiiiiii",
-            "BPBBCBBNB");
+    private static final List<String> DEFAULT_MAIN =
+            List.of("BTBBBBRSB", "GGGGGGGGG", "GGGGGGGGG", "GGGGGGGGG", "GGGGGGGGG", "BPBBCBBNB");
+    private static final List<String> DEFAULT_GROUP =
+            List.of("BbBBBBRSB", "iiiiiiiii", "iiiiiiiii", "iiiiiiiii", "iiiiiiiii", "BPBBCBBNB");
     private static final List<String> DEFAULT_SEARCH = DEFAULT_GROUP;
-    private static final List<String> DEFAULT_BOOKMARKS = List.of(
-            "BbBBBBRSB",
-            "iiiiiiiii",
-            "iiiiiiiii",
-            "iiiiiiiii",
-            "iiiiiiiii",
-            "BPBBBBBNB");
+    private static final List<String> DEFAULT_BOOKMARKS =
+            List.of("BbBBBBRSB", "iiiiiiiii", "iiiiiiiii", "iiiiiiiii", "iiiiiiiii", "BPBBBBBNB");
 
     private static LegacyGuideSettings instance;
 
@@ -77,12 +62,9 @@ public final class LegacyGuideSettings {
         displayAddon = config.getBoolean("features.display-addon", true);
         machineRecipeBrowser = config.getBoolean("features.machine-recipes.enabled", true);
         machineInputFill = config.getBoolean("features.machine-input-fill.enabled", true);
-        closeGuideAfterMachineInputFill =
-                config.getBoolean("features.machine-input-fill.close-guide-on-success", true);
-        machineInputFillTargetRange =
-                clamp(config.getInt("features.machine-input-fill.target-range", 6), 2, 12);
-        machineInputFillMaximumSets =
-                clamp(config.getInt("features.machine-input-fill.maximum-sets", 64), 1, 64);
+        closeGuideAfterMachineInputFill = config.getBoolean("features.machine-input-fill.close-guide-on-success", true);
+        machineInputFillTargetRange = clamp(config.getInt("features.machine-input-fill.target-range", 6), 2, 12);
+        machineInputFillMaximumSets = clamp(config.getInt("features.machine-input-fill.maximum-sets", 64), 1, 64);
         recipeFill = config.getBoolean("features.recipe-fill.enabled", true);
         recipeFillUnorderedMachines = config.getBoolean("features.recipe-fill.unordered-machines", true);
         recipeFillAncientAltar = config.getBoolean("features.recipe-fill.ancient-altar.enabled", true);

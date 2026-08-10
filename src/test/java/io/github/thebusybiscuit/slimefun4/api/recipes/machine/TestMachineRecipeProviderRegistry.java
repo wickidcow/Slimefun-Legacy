@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.api.recipes.machine;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -58,8 +57,7 @@ class TestMachineRecipeProviderRegistry {
         }
 
         @Override
-        public @Nonnull List<MachineRecipeDisplay> getRecipes(
-                @Nonnull SlimefunItem item, @Nonnull World world) {
+        public @Nonnull List<MachineRecipeDisplay> getRecipes(@Nonnull SlimefunItem item, @Nonnull World world) {
             return List.of();
         }
     }

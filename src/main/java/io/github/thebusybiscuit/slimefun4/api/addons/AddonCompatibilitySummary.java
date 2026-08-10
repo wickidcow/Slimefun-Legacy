@@ -38,8 +38,7 @@ public final class AddonCompatibilitySummary {
     }
 
     public boolean hasProblems() {
-        return getCount(AddonCompatibilityStatus.INCOMPATIBLE) > 0
-                || getCount(AddonCompatibilityStatus.DISABLED) > 0;
+        return getCount(AddonCompatibilityStatus.INCOMPATIBLE) > 0 || getCount(AddonCompatibilityStatus.DISABLED) > 0;
     }
 
     public @Nonnull Map<AddonCompatibilityStatus, Integer> getCounts() {

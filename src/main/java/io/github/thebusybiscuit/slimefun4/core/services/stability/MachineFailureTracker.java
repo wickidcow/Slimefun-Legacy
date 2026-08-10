@@ -44,15 +44,27 @@ public final class MachineFailureTracker<K> {
         }
         final String safeAddonName = addonName;
         final String safeMessage = message;
-        active.compute(position, (ignored, previous) -> new MutableFailure(
-                location.getWorld() == null ? "<unknown>" : location.getWorld().getName(),
-                location.getBlockX(), location.getBlockY(), location.getBlockZ(), item.getId(), safeAddonName,
-                failure.getClass().getName(), safeMessage, consecutiveFailures,
-                previous == null ? 1L : previous.failuresObserved + 1L,
-                previous == null ? (reportSuppressed ? 1L : 0L) : previous.suppressedReports + (reportSuppressed ? 1L : 0L),
-                previous == null ? nowMillis : previous.firstFailureMillis,
-                nowMillis,
-                pausedUntilMillis));
+        active.compute(
+                position,
+                (ignored, previous) -> new MutableFailure(
+                        location.getWorld() == null
+                                ? "<unknown>"
+                                : location.getWorld().getName(),
+                        location.getBlockX(),
+                        location.getBlockY(),
+                        location.getBlockZ(),
+                        item.getId(),
+                        safeAddonName,
+                        failure.getClass().getName(),
+                        safeMessage,
+                        consecutiveFailures,
+                        previous == null ? 1L : previous.failuresObserved + 1L,
+                        previous == null
+                                ? (reportSuppressed ? 1L : 0L)
+                                : previous.suppressedReports + (reportSuppressed ? 1L : 0L),
+                        previous == null ? nowMillis : previous.firstFailureMillis,
+                        nowMillis,
+                        pausedUntilMillis));
     }
 
     public void markPaused(@Nonnull K position, long pausedUntilMillis) {
@@ -85,24 +97,61 @@ public final class MachineFailureTracker<K> {
         for (MutableFailure value : active.values()) {
             snapshots.add(value.snapshot());
         }
-        snapshots.sort(Comparator.comparingLong(MachineFailureSnapshot::getLastFailureMillis).reversed());
+        snapshots.sort(Comparator.comparingLong(MachineFailureSnapshot::getLastFailureMillis)
+                .reversed());
         return safeLimit == 0 || snapshots.size() <= safeLimit
                 ? List.copyOf(snapshots)
                 : List.copyOf(snapshots.subList(0, safeLimit));
     }
 
     private record MutableFailure(
-            String worldName, int x, int y, int z, String itemId, String addonName,
-            String failureType, String failureMessage, int consecutiveFailures,
-            long failuresObserved, long suppressedReports, long firstFailureMillis,
-            long lastFailureMillis, long pausedUntilMillis) {
+            String worldName,
+            int x,
+            int y,
+            int z,
+            String itemId,
+            String addonName,
+            String failureType,
+            String failureMessage,
+            int consecutiveFailures,
+            long failuresObserved,
+            long suppressedReports,
+            long firstFailureMillis,
+            long lastFailureMillis,
+            long pausedUntilMillis) {
         private MutableFailure withPausedUntil(long value) {
-            return new MutableFailure(worldName, x, y, z, itemId, addonName, failureType, failureMessage,
-                    consecutiveFailures, failuresObserved, suppressedReports, firstFailureMillis, lastFailureMillis, value);
+            return new MutableFailure(
+                    worldName,
+                    x,
+                    y,
+                    z,
+                    itemId,
+                    addonName,
+                    failureType,
+                    failureMessage,
+                    consecutiveFailures,
+                    failuresObserved,
+                    suppressedReports,
+                    firstFailureMillis,
+                    lastFailureMillis,
+                    value);
         }
+
         private MachineFailureSnapshot snapshot() {
-            return new MachineFailureSnapshot(worldName, x, y, z, itemId, addonName, failureType, failureMessage,
-                    consecutiveFailures, failuresObserved, suppressedReports, firstFailureMillis, lastFailureMillis,
+            return new MachineFailureSnapshot(
+                    worldName,
+                    x,
+                    y,
+                    z,
+                    itemId,
+                    addonName,
+                    failureType,
+                    failureMessage,
+                    consecutiveFailures,
+                    failuresObserved,
+                    suppressedReports,
+                    firstFailureMillis,
+                    lastFailureMillis,
                     pausedUntilMillis);
         }
     }

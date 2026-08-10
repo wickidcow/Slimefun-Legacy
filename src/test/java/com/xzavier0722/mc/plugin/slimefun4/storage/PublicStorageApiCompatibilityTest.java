@@ -59,7 +59,6 @@ class PublicStorageApiCompatibilityTest {
         assertEquals("'O''Brien'", SqlUtils.toSqlValStr(FieldKey.PLAYER_NAME, (Object) "O'Brien"));
         assertEquals("X'0102ff'", SqlUtils.toSqlValStr(FieldKey.INVENTORY_ITEM, new byte[] {1, 2, -1}));
         assertEquals(
-                "decode('0102ff', 'hex')",
-                SqlUtils.toPostgreSqlValStr(FieldKey.INVENTORY_ITEM, new byte[] {1, 2, -1}));
+                "decode('0102ff', 'hex')", SqlUtils.toPostgreSqlValStr(FieldKey.INVENTORY_ITEM, new byte[] {1, 2, -1}));
     }
 }

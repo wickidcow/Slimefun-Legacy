@@ -106,9 +106,7 @@ class TestSupremeGenericMachineInputFillAdapter {
     public static final class SupremeStyleRecipe {
 
         public ItemStack[] getInputNotNull() {
-            return new ItemStack[] {
-                new ItemStack(Material.IRON_INGOT, 2), new ItemStack(Material.REDSTONE, 4)
-            };
+            return new ItemStack[] {new ItemStack(Material.IRON_INGOT, 2), new ItemStack(Material.REDSTONE, 4)};
         }
 
         public ItemStack[] getOutputNotNull() {

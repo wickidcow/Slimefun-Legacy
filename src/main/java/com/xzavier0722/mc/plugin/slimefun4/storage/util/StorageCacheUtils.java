@@ -55,7 +55,8 @@ public class StorageCacheUtils {
         }
 
         return TaskUtil.runSyncMethod(
-                l, () -> Slimefun.getBlockDataService().getUniversalDataUUID(block).isPresent());
+                l,
+                () -> Slimefun.getBlockDataService().getUniversalDataUUID(block).isPresent());
     }
 
     @ParametersAreNonnullByDefault

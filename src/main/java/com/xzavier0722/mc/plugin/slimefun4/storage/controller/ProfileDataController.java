@@ -172,14 +172,16 @@ public class ProfileDataController extends ADataController {
     /** Returns every stored backpack UUID without loading backpack inventories. */
     public CompletableFuture<Set<String>> getAllBackpackIdsAsync() {
         checkDestroy();
-        return CompletableFuture.supplyAsync(() -> {
-            var key = new RecordKey(DataScope.BACKPACK_PROFILE);
-            key.addField(FieldKey.BACKPACK_ID);
-            return getData(key).stream()
-                    .map(record -> record.get(FieldKey.BACKPACK_ID))
-                    .filter(id -> id != null && !id.isBlank())
-                    .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
-        }, readExecutor);
+        return CompletableFuture.supplyAsync(
+                () -> {
+                    var key = new RecordKey(DataScope.BACKPACK_PROFILE);
+                    key.addField(FieldKey.BACKPACK_ID);
+                    return getData(key).stream()
+                            .map(record -> record.get(FieldKey.BACKPACK_ID))
+                            .filter(id -> id != null && !id.isBlank())
+                            .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+                },
+                readExecutor);
     }
 
     /**
@@ -188,20 +190,22 @@ public class ProfileDataController extends ADataController {
      */
     public CompletableFuture<MaintenanceBackpack> getBackpackForMaintenanceAsync(String uuid) {
         checkDestroy();
-        return CompletableFuture.supplyAsync(() -> {
-            PlayerBackpack cached = backpackCache.peek(uuid);
-            if (cached != null) {
-                return new MaintenanceBackpack(cached, false);
-            }
+        return CompletableFuture.supplyAsync(
+                () -> {
+                    PlayerBackpack cached = backpackCache.peek(uuid);
+                    if (cached != null) {
+                        return new MaintenanceBackpack(cached, false);
+                    }
 
-            PlayerBackpack loaded = loadBackpackByUuid(uuid);
-            if (loaded == null) {
-                return null;
-            }
+                    PlayerBackpack loaded = loadBackpackByUuid(uuid);
+                    if (loaded == null) {
+                        return null;
+                    }
 
-            BackpackCache.MaintenanceResult result = backpackCache.putForMaintenance(loaded);
-            return new MaintenanceBackpack(result.backpack(), result.maintenanceOwned());
-        }, readExecutor);
+                    BackpackCache.MaintenanceResult result = backpackCache.putForMaintenance(loaded);
+                    return new MaintenanceBackpack(result.backpack(), result.maintenanceOwned());
+                },
+                readExecutor);
     }
 
     /** Releases a backpack only when it remained exclusive to the maintenance operation. */
@@ -263,7 +267,11 @@ public class ProfileDataController extends ADataController {
                 re[slot] = each.getItemStack(FieldKey.INVENTORY_ITEM);
             } catch (Exception e) {
                 re[slot] = null;
-                logger.log(Level.SEVERE, "Could not deserialize a player backpack item; replaced it with air [" + uuid + ":" + slot + "]", e);
+                logger.log(
+                        Level.SEVERE,
+                        "Could not deserialize a player backpack item; replaced it with air [" + uuid + ":" + slot
+                                + "]",
+                        e);
             }
         }
 

@@ -151,7 +151,8 @@ public final class MachineInputFillRecipe {
 
         @Nonnull
         public Builder protectedSlots(@Nonnull int... protectedSlots) {
-            this.protectedSlots = Objects.requireNonNull(protectedSlots, "protectedSlots").clone();
+            this.protectedSlots =
+                    Objects.requireNonNull(protectedSlots, "protectedSlots").clone();
             return this;
         }
 

@@ -171,7 +171,9 @@ public class ItemGroup implements Keyed {
                                 group -> group.isAddonItemGroup() ? group.getUnlocalizedName() : "",
                                 String.CASE_INSENSITIVE_ORDER)
                         .thenComparing(
-                                group -> group.isAddonItemGroup() ? group.getKey().toString() : "",
+                                group -> group.isAddonItemGroup()
+                                        ? group.getKey().toString()
+                                        : "",
                                 String.CASE_INSENSITIVE_ORDER));
     }
 

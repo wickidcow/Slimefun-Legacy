@@ -74,7 +74,8 @@ abstract class AbstractEnchantmentMachine extends AContainer {
 
     protected void showEnchantmentLimitWarning(@Nonnull BlockMenu menu) {
         if (!useEnchantLimit.getValue()) {
-            throw new IllegalStateException("Enchantment limit for the auto enchanter/disenchanter is not enabled, cannot display warning info.");
+            throw new IllegalStateException(
+                    "Enchantment limit for the auto enchanter/disenchanter is not enabled, cannot display warning info.");
         }
 
         String notice = ChatColors.color(Slimefun.getLocalization().getMessage("messages.above-enchant-limit"));

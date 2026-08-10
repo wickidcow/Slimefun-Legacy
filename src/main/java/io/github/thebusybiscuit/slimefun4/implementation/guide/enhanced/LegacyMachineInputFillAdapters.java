@@ -45,9 +45,7 @@ final class LegacyMachineInputFillAdapters {
     }
 
     static @Nullable MachineInputFillAdapter findAdapter(
-            @Nonnull JavaPlugin plugin,
-            @Nonnull SlimefunItem machine,
-            @Nonnull MachineRecipeDisplay recipe) {
+            @Nonnull JavaPlugin plugin, @Nonnull SlimefunItem machine, @Nonnull MachineRecipeDisplay recipe) {
         for (MachineInputFillAdapter adapter : MachineInputFillAdapterRegistry.getAdapters()) {
             try {
                 if (adapter.supports(machine) && adapter.supportsRecipe(machine, recipe)) {
@@ -195,17 +193,12 @@ final class LegacyMachineInputFillAdapters {
 
         @Override
         public boolean isSafeToFill(
-                @Nonnull Player player,
-                @Nonnull SlimefunItem machine,
-                @Nonnull Block target,
-                @Nonnull BlockMenu menu) {
+                @Nonnull Player player, @Nonnull SlimefunItem machine, @Nonnull Block target, @Nonnull BlockMenu menu) {
             return menu.getSize() == INVENTORY_SIZE && isExpectedInputLayout(readInputSlots(machine));
         }
 
         @Nullable MachineInputFillRecipe resolveFromObject(
-                @Nonnull Object machine,
-                @Nonnull MachineRecipeDisplay recipe,
-                @Nonnull int[] selectedAlternatives) {
+                @Nonnull Object machine, @Nonnull MachineRecipeDisplay recipe, @Nonnull int[] selectedAlternatives) {
             return resolveFromObject(
                     machine,
                     recipe,
@@ -225,14 +218,14 @@ final class LegacyMachineInputFillAdapters {
                 return null;
             }
 
-            FastRecipeDefinition authoritative = findMatchingRecipe(
-                    readAuthoritativeRecipes(machine), recipe, inputMatcher, outputMatcher);
+            FastRecipeDefinition authoritative =
+                    findMatchingRecipe(readAuthoritativeRecipes(machine), recipe, inputMatcher, outputMatcher);
             if (authoritative == null) {
                 return null;
             }
 
-            List<ItemStack> requirements = resolveRequirements(
-                    authoritative, recipe, selectedAlternatives, inputMatcher);
+            List<ItemStack> requirements =
+                    resolveRequirements(authoritative, recipe, selectedAlternatives, inputMatcher);
             if (requirements == null) {
                 return null;
             }
@@ -245,7 +238,8 @@ final class LegacyMachineInputFillAdapters {
                     .build();
         }
 
-        @Nonnull List<FastRecipeDefinition> readAuthoritativeRecipes(@Nonnull Object machine) {
+        @Nonnull
+        List<FastRecipeDefinition> readAuthoritativeRecipes(@Nonnull Object machine) {
             Optional<FastMachineAccessors> accessors = machineAccessors.computeIfAbsent(
                     machine.getClass(), FastMachinesInputFillAdapter::findMachineAccessors);
             if (accessors.isEmpty()) {
@@ -358,9 +352,7 @@ final class LegacyMachineInputFillAdapters {
                     }
 
                     Object item = baseItem.get().invoke(wrapper);
-                    if (item instanceof ItemStack stack
-                            && stack.getType() != Material.AIR
-                            && stack.getAmount() > 0) {
+                    if (item instanceof ItemStack stack && stack.getType() != Material.AIR && stack.getAmount() > 0) {
                         ItemStack choice = stack.clone();
                         choice.setAmount((int) requiredAmount);
                         choices.add(choice);
@@ -444,12 +436,7 @@ final class LegacyMachineInputFillAdapters {
             int[] displayToAuthoritative = new int[displayed.size()];
             Arrays.fill(displayToAuthoritative, -1);
             return mapChoiceGroup(
-                            0,
-                            authoritative,
-                            displayed,
-                            new boolean[displayed.size()],
-                            displayToAuthoritative,
-                            matcher)
+                            0, authoritative, displayed, new boolean[displayed.size()], displayToAuthoritative, matcher)
                     ? displayToAuthoritative
                     : null;
         }
@@ -639,7 +626,8 @@ final class LegacyMachineInputFillAdapters {
         }
 
         record FastRecipeDefinition(
-                @Nonnull List<List<ItemStack>> inputs, @Nonnull List<ItemStack> outputs) {
+                @Nonnull List<List<ItemStack>> inputs,
+                @Nonnull List<ItemStack> outputs) {
 
             FastRecipeDefinition {
                 List<List<ItemStack>> inputCopies = new ArrayList<>(inputs.size());
@@ -660,9 +648,11 @@ final class LegacyMachineInputFillAdapters {
             }
         }
 
-        private record FastMachineAccessors(@Nonnull Method recipes, @Nonnull Method inputSlots) {}
+        private record FastMachineAccessors(
+                @Nonnull Method recipes, @Nonnull Method inputSlots) {}
 
-        private record FastRecipeAccessors(@Nonnull Method inputs, @Nonnull Method outputs) {}
+        private record FastRecipeAccessors(
+                @Nonnull Method inputs, @Nonnull Method outputs) {}
     }
 
     /** Public-surface compatibility adapter for Supreme's custom GenericMachine recipe list. */
@@ -748,11 +738,7 @@ final class LegacyMachineInputFillAdapters {
                 @Nonnull LegacyMachineInputFillManager.IngredientMatcher inputMatcher,
                 @Nonnull LegacyMachineInputFillManager.StackMatcher outputMatcher) {
             List<ItemStack> requirements = LegacyMachineInputFillManager.resolveRegisteredRequirements(
-                    readAuthoritativeRecipes(machine),
-                    recipe,
-                    selectedAlternatives,
-                    inputMatcher,
-                    outputMatcher);
+                    readAuthoritativeRecipes(machine), recipe, selectedAlternatives, inputMatcher, outputMatcher);
             if (requirements == null) {
                 return null;
             }
@@ -765,7 +751,8 @@ final class LegacyMachineInputFillAdapters {
                     .build();
         }
 
-        @Nonnull List<MachineRecipe> readAuthoritativeRecipes(@Nonnull Object machine) {
+        @Nonnull
+        List<MachineRecipe> readAuthoritativeRecipes(@Nonnull Object machine) {
             Optional<MachineAccessors> accessors = machineAccessors.computeIfAbsent(
                     machine.getClass(), SupremeGenericMachineAdapter::findMachineAccessors);
             if (accessors.isEmpty()) {
@@ -880,8 +867,7 @@ final class LegacyMachineInputFillAdapters {
             return List.copyOf(items);
         }
 
-        private static void collectItemStacks(
-                @Nullable Object value, @Nonnull List<ItemStack> items, int depth) {
+        private static void collectItemStacks(@Nullable Object value, @Nonnull List<ItemStack> items, int depth) {
             if (value == null || depth > 3) {
                 return;
             }
@@ -923,8 +909,10 @@ final class LegacyMachineInputFillAdapters {
             return objects;
         }
 
-        private record MachineAccessors(@Nonnull Field recipeField, @Nullable Method statusSlot) {}
+        private record MachineAccessors(
+                @Nonnull Field recipeField, @Nullable Method statusSlot) {}
 
-        private record RecipeAccessors(@Nonnull Method inputs, @Nonnull Method outputs) {}
+        private record RecipeAccessors(
+                @Nonnull Method inputs, @Nonnull Method outputs) {}
     }
 }

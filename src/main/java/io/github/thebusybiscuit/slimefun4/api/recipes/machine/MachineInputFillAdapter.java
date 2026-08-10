@@ -46,11 +46,8 @@ public interface MachineInputFillAdapter {
      *
      * @return a transfer definition, or {@code null} when the selected alternatives do not match a real recipe
      */
-    @Nullable
-    MachineInputFillRecipe resolve(
-            @Nonnull SlimefunItem machine,
-            @Nonnull MachineRecipeDisplay recipe,
-            @Nonnull int[] selectedAlternatives);
+    @Nullable MachineInputFillRecipe resolve(
+            @Nonnull SlimefunItem machine, @Nonnull MachineRecipeDisplay recipe, @Nonnull int[] selectedAlternatives);
 
     /**
      * Verifies that the placed machine is the correct target. The default requires the exact Slimefun item ID.
@@ -63,10 +60,7 @@ public interface MachineInputFillAdapter {
      * Final adapter-specific safety check, called after protection and region ownership checks.
      */
     default boolean isSafeToFill(
-            @Nonnull Player player,
-            @Nonnull SlimefunItem machine,
-            @Nonnull Block target,
-            @Nonnull BlockMenu menu) {
+            @Nonnull Player player, @Nonnull SlimefunItem machine, @Nonnull Block target, @Nonnull BlockMenu menu) {
         return true;
     }
 }

@@ -56,6 +56,7 @@ public abstract class ADataController {
      * 标记当前控制器是否已被关闭
      */
     private volatile boolean destroyed = false;
+
     private volatile boolean shuttingDown = false;
     private volatile boolean lastShutdownClean = true;
 
@@ -168,7 +169,8 @@ public abstract class ADataController {
             if (lastShutdownClean) {
                 logger.info("Data save completed.");
             } else {
-                logger.log(Level.SEVERE, "Timed out with {0} pending database write task(s).", scheduledWriteTasks.size());
+                logger.log(
+                        Level.SEVERE, "Timed out with {0} pending database write task(s).", scheduledWriteTasks.size());
             }
         } catch (InterruptedException e) {
             lastShutdownClean = false;
@@ -317,7 +319,6 @@ public abstract class ADataController {
             task.abort();
         }
     }
-
 
     public int getPendingWriteTaskCount() {
         return scheduledWriteTasks.size();

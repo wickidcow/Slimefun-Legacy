@@ -82,8 +82,7 @@ public final class KnownAddonCompatibilityRegistry {
         return new KnownAddonCompatibilityRegistry(aliases, entries);
     }
 
-    private static void registerAlias(
-            Map<String, KnownAddonSupport> aliases, String alias, KnownAddonSupport support) {
+    private static void registerAlias(Map<String, KnownAddonSupport> aliases, String alias, KnownAddonSupport support) {
         String normalized = normalize(alias);
         if (!normalized.isEmpty()) {
             // Stronger evidence wins when multiple families share a runtime alias: required CI, advisory CI, then
@@ -118,7 +117,10 @@ public final class KnownAddonCompatibilityRegistry {
     }
 
     /** Runtime recognition metadata for one known addon family. */
-    public record KnownAddonSupport(@Nonnull String slug, @Nonnull String tier, @Nonnull String displayName) {
+    public record KnownAddonSupport(
+            @Nonnull String slug,
+            @Nonnull String tier,
+            @Nonnull String displayName) {
         public KnownAddonSupport {
             Objects.requireNonNull(slug, "slug");
             Objects.requireNonNull(tier, "tier");

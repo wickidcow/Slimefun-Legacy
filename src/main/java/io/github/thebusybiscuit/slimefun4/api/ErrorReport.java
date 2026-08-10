@@ -88,7 +88,8 @@ public class ErrorReport<T extends Throwable> {
             stream.println("  Y: " + l.getBlockY());
             stream.println("  Z: " + l.getBlockZ());
             stream.println("  blocktype: " + l.getBlock().getType());
-            stream.println("  blockdata: " + l.getBlock().getBlockData().getClass().getName());
+            stream.println(
+                    "  blockdata: " + l.getBlock().getBlockData().getClass().getName());
             stream.println("  state: " + l.getBlock().getState().getClass().getName());
             stream.println();
 
@@ -110,25 +111,27 @@ public class ErrorReport<T extends Throwable> {
                     Slimefun.getDatabaseManager().getBlockDataController().getBlockData(l);
 
             if (blockData == null) {
-                Slimefun.runSyncAt(l, () -> Slimefun.getBlockDataService()
-                        .getUniversalDataUUID(l.getBlock())
-                        .ifPresentOrElse(
-                                uuid -> {
-                                    var universalData = Slimefun.getDatabaseManager()
-                                            .getBlockDataController()
-                                            .getUniversalBlockDataFromCache(uuid);
-                                    if (universalData != null) {
-                                        stream.println("  Data load status: " + universalData.isDataLoaded());
-                                        stream.println("  Inventory: " + (universalData.getMenu() != null));
-                                        stream.println("  Data: ");
-                                        universalData
-                                                .getAllData()
-                                                .forEach((k, v) -> stream.println("    " + k + ": " + v));
-                                    } else {
-                                        stream.println("This block has no data.");
-                                    }
-                                },
-                                () -> stream.println("This block has no data.")));
+                Slimefun.runSyncAt(
+                        l,
+                        () -> Slimefun.getBlockDataService()
+                                .getUniversalDataUUID(l.getBlock())
+                                .ifPresentOrElse(
+                                        uuid -> {
+                                            var universalData = Slimefun.getDatabaseManager()
+                                                    .getBlockDataController()
+                                                    .getUniversalBlockDataFromCache(uuid);
+                                            if (universalData != null) {
+                                                stream.println("  Data load status: " + universalData.isDataLoaded());
+                                                stream.println("  Inventory: " + (universalData.getMenu() != null));
+                                                stream.println("  Data: ");
+                                                universalData
+                                                        .getAllData()
+                                                        .forEach((k, v) -> stream.println("    " + k + ": " + v));
+                                            } else {
+                                                stream.println("This block has no data.");
+                                            }
+                                        },
+                                        () -> stream.println("This block has no data.")));
             } else {
                 stream.println("  Data load status: " + blockData.isDataLoaded());
                 stream.println("  Inventory: " + (blockData.getBlockMenu() != null));

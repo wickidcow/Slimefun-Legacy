@@ -53,7 +53,6 @@ class TestMachineRecipeDisplay {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new MachineRecipeDisplay(
-                        List.of(MachineRecipeIngredient.of(new ItemStack(Material.IRON_INGOT))),
-                        List.of()));
+                        List.of(MachineRecipeIngredient.of(new ItemStack(Material.IRON_INGOT))), List.of()));
     }
 }

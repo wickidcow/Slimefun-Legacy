@@ -64,6 +64,8 @@ public final class PluginDependencySnapshot {
     }
 
     public long getRequiredDependencyProblemCount() {
-        return requiredDependencies.stream().filter(PluginDependencyResolution::isProblem).count();
+        return requiredDependencies.stream()
+                .filter(PluginDependencyResolution::isProblem)
+                .count();
     }
 }

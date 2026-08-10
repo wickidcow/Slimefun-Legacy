@@ -73,8 +73,7 @@ public final class SlimefunGuide {
     @ParametersAreNonnullByDefault
     private static void openMainMenuAsync(Player player, SlimefunGuideMode mode, int selectedPage) {
         if (!PlayerProfile.get(
-                player,
-                profile -> Slimefun.runSyncFor(player, () -> openMainMenu(profile, mode, selectedPage)))) {
+                player, profile -> Slimefun.runSyncFor(player, () -> openMainMenu(profile, mode, selectedPage)))) {
             Slimefun.getLocalization().sendMessage(player, "messages.opening-guide");
         }
     }
@@ -97,9 +96,7 @@ public final class SlimefunGuide {
                 mode,
                 "open item group page " + selectedPage,
                 itemGroup,
-                () -> Slimefun.getRegistry()
-                        .getSlimefunGuide(mode)
-                        .openItemGroup(profile, itemGroup, selectedPage));
+                () -> Slimefun.getRegistry().getSlimefunGuide(mode).openItemGroup(profile, itemGroup, selectedPage));
     }
 
     @ParametersAreNonnullByDefault

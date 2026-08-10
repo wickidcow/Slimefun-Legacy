@@ -90,8 +90,7 @@ public final class LegacyMachineRecipeProviders {
         }
 
         @Override
-        public @Nonnull List<MachineRecipeDisplay> getRecipes(
-                @Nonnull SlimefunItem item, @Nonnull World world) {
+        public @Nonnull List<MachineRecipeDisplay> getRecipes(@Nonnull SlimefunItem item, @Nonnull World world) {
             if (!(item instanceof MachineRecipeDisplayItem displayItem)) {
                 return List.of();
             }
@@ -128,8 +127,7 @@ public final class LegacyMachineRecipeProviders {
         }
 
         @Override
-        public @Nonnull List<MachineRecipeDisplay> getRecipes(
-                @Nonnull SlimefunItem item, @Nonnull World world) {
+        public @Nonnull List<MachineRecipeDisplay> getRecipes(@Nonnull SlimefunItem item, @Nonnull World world) {
             if (!(item instanceof AContainer container)) {
                 return List.of();
             }
@@ -162,8 +160,7 @@ public final class LegacyMachineRecipeProviders {
         }
 
         @Override
-        public @Nonnull List<MachineRecipeDisplay> getRecipes(
-                @Nonnull SlimefunItem item, @Nonnull World world) {
+        public @Nonnull List<MachineRecipeDisplay> getRecipes(@Nonnull SlimefunItem item, @Nonnull World world) {
             if (!(item instanceof RecipeDisplayItem displayItem)) {
                 return List.of();
             }
@@ -279,8 +276,7 @@ public final class LegacyMachineRecipeProviders {
         }
 
         @Override
-        public @Nonnull List<MachineRecipeDisplay> getRecipes(
-                @Nonnull SlimefunItem item, @Nonnull World world) {
+        public @Nonnull List<MachineRecipeDisplay> getRecipes(@Nonnull SlimefunItem item, @Nonnull World world) {
             return getRecipesFromObject(item, world);
         }
 
@@ -397,8 +393,8 @@ public final class LegacyMachineRecipeProviders {
                 return readSimpleRecipe(entry.getValue(), fallbackTicks, energyPerTick);
             }
 
-            Optional<SimpleRecipeMethods> methods = recipeMethods.computeIfAbsent(
-                    rawRecipe.getClass(), PublicMethodProvider::findSimpleRecipeMethods);
+            Optional<SimpleRecipeMethods> methods =
+                    recipeMethods.computeIfAbsent(rawRecipe.getClass(), PublicMethodProvider::findSimpleRecipeMethods);
             if (methods.isEmpty()) {
                 return null;
             }
@@ -514,8 +510,7 @@ public final class LegacyMachineRecipeProviders {
         }
 
         @Override
-        public @Nonnull List<MachineRecipeDisplay> getRecipes(
-                @Nonnull SlimefunItem item, @Nonnull World world) {
+        public @Nonnull List<MachineRecipeDisplay> getRecipes(@Nonnull SlimefunItem item, @Nonnull World world) {
             Optional<Method> method = findMachineMethod(item.getClass());
             if (method.isEmpty()) {
                 return List.of();
@@ -557,8 +552,8 @@ public final class LegacyMachineRecipeProviders {
                 return null;
             }
 
-            Optional<FastRecipeMethods> methods = recipeMethods.computeIfAbsent(
-                    rawRecipe.getClass(), FastMachinesProvider::findRecipeMethods);
+            Optional<FastRecipeMethods> methods =
+                    recipeMethods.computeIfAbsent(rawRecipe.getClass(), FastMachinesProvider::findRecipeMethods);
             if (methods.isEmpty()) {
                 return null;
             }
@@ -662,8 +657,7 @@ public final class LegacyMachineRecipeProviders {
         }
     }
 
-    private static @Nullable MachineRecipeDisplay fromLegacyRecipe(
-            @Nullable MachineRecipe recipe, int energyPerTick) {
+    private static @Nullable MachineRecipeDisplay fromLegacyRecipe(@Nullable MachineRecipe recipe, int energyPerTick) {
         if (recipe == null) {
             return null;
         }
@@ -703,8 +697,7 @@ public final class LegacyMachineRecipeProviders {
         return items;
     }
 
-    private static void collectItemStacks(
-            @Nullable Object value, @Nonnull List<ItemStack> items, int depth) {
+    private static void collectItemStacks(@Nullable Object value, @Nonnull List<ItemStack> items, int depth) {
         if (value == null || depth > 4) {
             return;
         }
@@ -841,7 +834,8 @@ public final class LegacyMachineRecipeProviders {
         return item == null || item.getType() == Material.AIR || item.getAmount() <= 0;
     }
 
-    private record RecipeSourceAccessor(@Nullable Method method, @Nullable Field field) {
+    private record RecipeSourceAccessor(
+            @Nullable Method method, @Nullable Field field) {
 
         static @Nonnull RecipeSourceAccessor forMethod(@Nonnull Method method) {
             return new RecipeSourceAccessor(method, null);
@@ -851,8 +845,7 @@ public final class LegacyMachineRecipeProviders {
             return new RecipeSourceAccessor(null, field);
         }
 
-        @Nullable Object read(@Nonnull Object target)
-                throws InvocationTargetException, IllegalAccessException {
+        @Nullable Object read(@Nonnull Object target) throws InvocationTargetException, IllegalAccessException {
             return method != null ? method.invoke(target) : field.get(target);
         }
     }

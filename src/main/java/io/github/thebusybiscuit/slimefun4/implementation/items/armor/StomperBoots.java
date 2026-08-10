@@ -14,11 +14,11 @@ import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.damage.DamageType;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.damage.DamageType;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
@@ -58,11 +58,7 @@ public class StomperBoots extends SlimefunItem {
                                 && Slimefun.getProtectionManager()
                                         .hasPermission(player, entity.getLocation(), Interaction.ATTACK_PLAYER))) {
                     DamageUtils.damage(
-                            livingEntity,
-                            fallDamageEvent.getDamage() / 2,
-                            DamageType.PLAYER_ATTACK,
-                            player,
-                            player);
+                            livingEntity, fallDamageEvent.getDamage() / 2, DamageType.PLAYER_ATTACK, player, player);
                 }
             }
         }

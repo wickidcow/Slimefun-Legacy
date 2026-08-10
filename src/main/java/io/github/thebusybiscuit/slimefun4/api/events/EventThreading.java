@@ -27,9 +27,7 @@ final class EventThreading {
             return true;
         }
 
-        return isRegionOwnedExecution()
-                ? !Bukkit.isOwnedByCurrentRegion(location)
-                : !Bukkit.isPrimaryThread();
+        return isRegionOwnedExecution() ? !Bukkit.isOwnedByCurrentRegion(location) : !Bukkit.isPrimaryThread();
     }
 
     static boolean isCurrentThreadAsynchronous(Entity entity) {
@@ -37,9 +35,7 @@ final class EventThreading {
             return true;
         }
 
-        return isRegionOwnedExecution()
-                ? !Bukkit.isOwnedByCurrentRegion(entity)
-                : !Bukkit.isPrimaryThread();
+        return isRegionOwnedExecution() ? !Bukkit.isOwnedByCurrentRegion(entity) : !Bukkit.isPrimaryThread();
     }
 
     static boolean isCurrentThreadAsynchronous() {

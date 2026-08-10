@@ -40,19 +40,23 @@ public final class ExternalIntegrationFailureTracker {
         }
 
         final String safeMessage = message;
-        active.compute(key, (ignored, previous) -> new MutableFailure(
-                integrationId,
-                displayName,
-                pluginName,
-                operation,
-                failure.getClass().getName(),
-                safeMessage,
-                consecutiveFailures,
-                previous == null ? 1L : previous.failuresObserved + 1L,
-                previous == null ? (reportSuppressed ? 1L : 0L) : previous.suppressedReports + (reportSuppressed ? 1L : 0L),
-                previous == null ? nowMillis : previous.firstFailureMillis,
-                nowMillis,
-                pausedUntilMillis));
+        active.compute(
+                key,
+                (ignored, previous) -> new MutableFailure(
+                        integrationId,
+                        displayName,
+                        pluginName,
+                        operation,
+                        failure.getClass().getName(),
+                        safeMessage,
+                        consecutiveFailures,
+                        previous == null ? 1L : previous.failuresObserved + 1L,
+                        previous == null
+                                ? (reportSuppressed ? 1L : 0L)
+                                : previous.suppressedReports + (reportSuppressed ? 1L : 0L),
+                        previous == null ? nowMillis : previous.firstFailureMillis,
+                        nowMillis,
+                        pausedUntilMillis));
     }
 
     public void clear(@Nonnull String key) {
@@ -87,7 +91,8 @@ public final class ExternalIntegrationFailureTracker {
         for (MutableFailure value : active.values()) {
             snapshots.add(value.snapshot());
         }
-        snapshots.sort(Comparator.comparingLong(ExternalIntegrationFailureSnapshot::getLastFailureMillis).reversed());
+        snapshots.sort(Comparator.comparingLong(ExternalIntegrationFailureSnapshot::getLastFailureMillis)
+                .reversed());
         return safeLimit == 0 || snapshots.size() <= safeLimit
                 ? List.copyOf(snapshots)
                 : List.copyOf(snapshots.subList(0, safeLimit));

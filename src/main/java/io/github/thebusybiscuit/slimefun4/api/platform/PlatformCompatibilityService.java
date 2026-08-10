@@ -99,15 +99,15 @@ public interface PlatformCompatibilityService {
             if (current.isEmpty()) {
                 incompatibilities.add("Minecraft version could not be parsed");
             } else if (current.orElseThrow().isBefore(minimum)) {
-                incompatibilities.add("Requires Minecraft " + minimum + " or newer (found "
-                        + current.orElseThrow() + ")");
+                incompatibilities.add(
+                        "Requires Minecraft " + minimum + " or newer (found " + current.orElseThrow() + ")");
             }
         });
 
         int minimumJava = requirements.getMinimumJavaFeatureVersion();
         if (minimumJava > 0 && profile.getJavaFeatureVersion() < minimumJava) {
-            incompatibilities.add("Requires Java " + minimumJava + " or newer (found Java "
-                    + profile.getJavaFeatureVersion() + ")");
+            incompatibilities.add(
+                    "Requires Java " + minimumJava + " or newer (found Java " + profile.getJavaFeatureVersion() + ")");
         }
 
         for (PlatformCapability capability : requirements.getRequiredCapabilities()) {
@@ -118,7 +118,8 @@ public interface PlatformCompatibilityService {
 
         if (!requirements.getAcceptedFamilies().isEmpty()
                 && !requirements.getAcceptedFamilies().contains(profile.getFamily())) {
-            incompatibilities.add("Unsupported platform family: " + profile.getFamily().getDisplayName());
+            incompatibilities.add(
+                    "Unsupported platform family: " + profile.getFamily().getDisplayName());
         }
 
         return PlatformCompatibilityReport.incompatible(incompatibilities);

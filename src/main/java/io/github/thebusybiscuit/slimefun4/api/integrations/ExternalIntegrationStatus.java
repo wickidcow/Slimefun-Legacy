@@ -46,13 +46,39 @@ public final class ExternalIntegrationStatus {
         this.detail = Objects.requireNonNull(detail, "detail");
     }
 
-    public @Nonnull String getIntegrationId() { return integrationId; }
-    public @Nonnull String getDisplayName() { return displayName; }
-    public @Nonnull String getPluginName() { return pluginName; }
-    public @Nullable String getPluginVersion() { return pluginVersion; }
-    public boolean isDetected() { return detected; }
-    public boolean isEnabled() { return enabled; }
-    public boolean isProviderRegistered() { return providerRegistered; }
-    public @Nonnull Set<ExternalIntegrationCapability> getCapabilities() { return capabilities; }
-    public @Nonnull String getDetail() { return detail; }
+    public @Nonnull String getIntegrationId() {
+        return integrationId;
+    }
+
+    public @Nonnull String getDisplayName() {
+        return displayName;
+    }
+
+    public @Nonnull String getPluginName() {
+        return pluginName;
+    }
+
+    public @Nullable String getPluginVersion() {
+        return pluginVersion;
+    }
+
+    public boolean isDetected() {
+        return detected;
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public boolean isProviderRegistered() {
+        return providerRegistered;
+    }
+
+    public @Nonnull Set<ExternalIntegrationCapability> getCapabilities() {
+        return capabilities;
+    }
+
+    public @Nonnull String getDetail() {
+        return detail;
+    }
 }

@@ -48,8 +48,7 @@ public interface SlimefunScheduler {
      * @return the scheduled task handle
      */
     @Nonnull
-    default TaskHandle runFor(
-            @Nonnull Entity entity, @Nonnull Runnable task, @Nonnull Runnable retired) {
+    default TaskHandle runFor(@Nonnull Entity entity, @Nonnull Runnable task, @Nonnull Runnable retired) {
         return runFor(entity, task);
     }
 
@@ -70,10 +69,7 @@ public interface SlimefunScheduler {
      */
     @Nonnull
     default TaskHandle runForLater(
-            @Nonnull Entity entity,
-            @Nonnull Runnable task,
-            @Nonnull Runnable retired,
-            long delayTicks) {
+            @Nonnull Entity entity, @Nonnull Runnable task, @Nonnull Runnable retired, long delayTicks) {
         return runForLater(entity, task, delayTicks);
     }
 

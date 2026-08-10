@@ -13,8 +13,8 @@ class TestAddonApiCompatibilitySnapshot {
     void testDefensiveEnumSets() {
         var targets = EnumSet.of(SlimefunCoreVariant.ORIGINAL, SlimefunCoreVariant.LEGACY);
         var capabilities = EnumSet.of(CrossForkApiCapability.ITEM_REGISTRATION);
-        AddonApiCompatibilitySnapshot snapshot = new AddonApiCompatibilitySnapshot(
-                SlimefunCoreVariant.LEGACY, targets, capabilities, true, 2, 3, 4L);
+        AddonApiCompatibilitySnapshot snapshot =
+                new AddonApiCompatibilitySnapshot(SlimefunCoreVariant.LEGACY, targets, capabilities, true, 2, 3, 4L);
 
         targets.clear();
         capabilities.clear();

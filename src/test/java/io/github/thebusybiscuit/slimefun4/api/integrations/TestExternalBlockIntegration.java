@@ -11,9 +11,7 @@ class TestExternalBlockIntegration {
 
     @Test
     void copiesMappedCapabilities() {
-        var capabilities = EnumSet.of(
-                ExternalIntegrationCapability.INVENTORY,
-                ExternalIntegrationCapability.CARGO);
+        var capabilities = EnumSet.of(ExternalIntegrationCapability.INVENTORY, ExternalIntegrationCapability.CARGO);
         var integration = new ExternalBlockIntegration(
                 "pylon",
                 "Pylon",

@@ -43,24 +43,14 @@ public final class DatabasePatchV3 extends DatabasePatch {
         var prefix = config instanceof SqlCommonConfig commonConfig ? commonConfig.tablePrefix() : "";
 
         migrateInventoryTable(
-                connection,
-                config,
-                SqlUtils.mapTable(DataScope.BACKPACK_INVENTORY, prefix),
-                FIELD_BACKPACK_ID);
+                connection, config, SqlUtils.mapTable(DataScope.BACKPACK_INVENTORY, prefix), FIELD_BACKPACK_ID);
+        migrateInventoryTable(connection, config, SqlUtils.mapTable(DataScope.BLOCK_INVENTORY, prefix), FIELD_LOCATION);
         migrateInventoryTable(
-                connection,
-                config,
-                SqlUtils.mapTable(DataScope.BLOCK_INVENTORY, prefix),
-                FIELD_LOCATION);
-        migrateInventoryTable(
-                connection,
-                config,
-                SqlUtils.mapTable(DataScope.UNIVERSAL_INVENTORY, prefix),
-                FIELD_UNIVERSAL_UUID);
+                connection, config, SqlUtils.mapTable(DataScope.UNIVERSAL_INVENTORY, prefix), FIELD_UNIVERSAL_UUID);
     }
 
-    private void migrateInventoryTable(
-            Connection connection, ISqlCommonConfig config, String table, String ownerField) throws SQLException {
+    private void migrateInventoryTable(Connection connection, ISqlCommonConfig config, String table, String ownerField)
+            throws SQLException {
         if (!tableExists(connection, table)) {
             return;
         }
@@ -69,14 +59,8 @@ public final class DatabasePatchV3 extends DatabasePatch {
             convertColumnType(connection, config, table);
         }
 
-        var selectSql = "SELECT "
-                + ownerField
-                + ", "
-                + FIELD_INVENTORY_SLOT
-                + ", "
-                + FIELD_INVENTORY_ITEM
-                + " FROM "
-                + table;
+        var selectSql =
+                "SELECT " + ownerField + ", " + FIELD_INVENTORY_SLOT + ", " + FIELD_INVENTORY_ITEM + " FROM " + table;
         var updateSql = "UPDATE "
                 + table
                 + " SET "
@@ -144,10 +128,9 @@ public final class DatabasePatchV3 extends DatabasePatch {
         }
 
         logger.get()
-                .log(
-                        Level.INFO,
-                        "Item data migration completed: table={0}, migrated={1}, failed={2}",
-                        new Object[] {table, migratedCount, failedCount});
+                .log(Level.INFO, "Item data migration completed: table={0}, migrated={1}, failed={2}", new Object[] {
+                    table, migratedCount, failedCount
+                });
         if (failedCount > 0) {
             throw new SQLException(
                     failedCount + " item record(s) could not be migrated; the database version was not updated");
@@ -164,7 +147,8 @@ public final class DatabasePatchV3 extends DatabasePatch {
         if (value == null) {
             return new byte[0];
         }
-        throw new SQLException("Unsupported inventory column value type: " + value.getClass().getName());
+        throw new SQLException(
+                "Unsupported inventory column value type: " + value.getClass().getName());
     }
 
     private static void verifyBatch(int[] results, String table) throws SQLException {
@@ -199,11 +183,10 @@ public final class DatabasePatchV3 extends DatabasePatch {
     }
 
     private static boolean isBinaryColumn(Connection connection, String table) throws SQLException {
-        for (var candidate : new String[] {
-            table, table.toUpperCase(Locale.ROOT), table.toLowerCase(Locale.ROOT)
-        }) {
-            try (var columns = connection.getMetaData().getColumns(
-                    connection.getCatalog(), null, candidate, FIELD_INVENTORY_ITEM)) {
+        for (var candidate : new String[] {table, table.toUpperCase(Locale.ROOT), table.toLowerCase(Locale.ROOT)}) {
+            try (var columns = connection
+                    .getMetaData()
+                    .getColumns(connection.getCatalog(), null, candidate, FIELD_INVENTORY_ITEM)) {
                 if (!columns.next()) {
                     continue;
                 }

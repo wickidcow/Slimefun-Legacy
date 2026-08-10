@@ -17,12 +17,12 @@ public interface ExternalIntegrationService {
 
     void refresh();
 
-    @Nonnull List<ExternalIntegrationStatus> getStatuses();
+    @Nonnull
+    List<ExternalIntegrationStatus> getStatuses();
 
     default @Nonnull List<ExternalBlockIntegration> inspectBlock(@Nonnull Block block) {
         return List.of();
     }
-
 
     /** Returns currently tracked external-provider failures, newest first. */
     default @Nonnull List<ExternalIntegrationFailureSnapshot> getFailureSnapshots(int limit) {

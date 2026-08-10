@@ -39,8 +39,7 @@ abstract class AbstractCraftingTable extends MultiBlockMachine {
         super(itemGroup, item, recipe, trigger);
     }
 
-    protected @Nonnull Inventory createVirtualInventory(
-            @Nonnull Inventory inv, @Nonnull ItemStack[] recipe) {
+    protected @Nonnull Inventory createVirtualInventory(@Nonnull Inventory inv, @Nonnull ItemStack[] recipe) {
         Inventory fakeInv = Bukkit.createInventory(null, 9, "Fake Inventory");
 
         for (int j = 0; j < inv.getContents().length; j++) {
@@ -87,8 +86,7 @@ abstract class AbstractCraftingTable extends MultiBlockMachine {
     }
 
     private @Nullable ItemStack consumeStack(@Nonnull ItemStack item, int amount) {
-        var consumed = Slimefun.getItemStackService()
-                .consume(item, amount, true, ConsumeContext.VIRTUAL_CRAFTING);
+        var consumed = Slimefun.getItemStackService().consume(item, amount, true, ConsumeContext.VIRTUAL_CRAFTING);
         if (consumed.handled()) {
             return consumed.item();
         }

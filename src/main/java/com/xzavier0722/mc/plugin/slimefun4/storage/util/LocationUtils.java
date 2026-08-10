@@ -46,10 +46,7 @@ public class LocationUtils {
                 return null;
             }
             return new Location(
-                    world,
-                    Double.parseDouble(loc[0]),
-                    Double.parseDouble(loc[1]),
-                    Double.parseDouble(loc[2]));
+                    world, Double.parseDouble(loc[0]), Double.parseDouble(loc[1]), Double.parseDouble(loc[2]));
         } catch (Exception e) {
             throw new RuntimeException("Unable to parse location [" + lKey + "]", e);
         }

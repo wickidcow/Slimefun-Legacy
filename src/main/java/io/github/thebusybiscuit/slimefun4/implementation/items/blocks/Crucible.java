@@ -191,8 +191,12 @@ public class Crucible extends SimpleSlimefunItem<BlockUseHandler> implements Rec
         }
 
         if (level == 0) {
-            Slimefun.runSyncAt(block.getLocation(), () -> runPostTask(
-                    block, water ? SoundEffect.CRUCIBLE_ADD_WATER_SOUND : SoundEffect.CRUCIBLE_ADD_LAVA_SOUND, 1));
+            Slimefun.runSyncAt(
+                    block.getLocation(),
+                    () -> runPostTask(
+                            block,
+                            water ? SoundEffect.CRUCIBLE_ADD_WATER_SOUND : SoundEffect.CRUCIBLE_ADD_LAVA_SOUND,
+                            1));
         } else {
             int finalLevel = 7 - level;
             Slimefun.runSyncAt(

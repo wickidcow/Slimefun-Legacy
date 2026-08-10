@@ -45,10 +45,17 @@ class TestAddonRuntimeHealthGuard {
                 Plugin.class.getClassLoader(), new Class<?>[] {Plugin.class}, (proxy, method, args) -> null);
 
         assertTrue(service.runGuarded(plugin, "success", () -> {}));
-        assertFalse(service.runGuarded(plugin, "failure", () -> { throw new LinkageError("boom"); }));
+        assertFalse(service.runGuarded(plugin, "failure", () -> {
+            throw new LinkageError("boom");
+        }));
         assertEquals(1, failures.get());
-        assertEquals("value", service.callGuarded(plugin, "call-success", () -> "value").orElseThrow());
-        assertTrue(service.callGuarded(plugin, "call-failure", () -> { throw new IllegalStateException("boom"); }).isEmpty());
+        assertEquals(
+                "value",
+                service.callGuarded(plugin, "call-success", () -> "value").orElseThrow());
+        assertTrue(service.callGuarded(plugin, "call-failure", () -> {
+                    throw new IllegalStateException("boom");
+                })
+                .isEmpty());
         assertEquals(2, failures.get());
     }
 }

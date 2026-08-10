@@ -11,19 +11,9 @@ class TestExternalIntegrationStatus {
 
     @Test
     void copiesCapabilitiesAndExposesDetectionState() {
-        var capabilities = EnumSet.of(
-                ExternalIntegrationCapability.INVENTORY,
-                ExternalIntegrationCapability.CARGO);
+        var capabilities = EnumSet.of(ExternalIntegrationCapability.INVENTORY, ExternalIntegrationCapability.CARGO);
         var status = new ExternalIntegrationStatus(
-                "rebar",
-                "Rebar",
-                "Rebar",
-                "0.40.0",
-                true,
-                true,
-                true,
-                capabilities,
-                "Bridge active");
+                "rebar", "Rebar", "Rebar", "0.40.0", true, true, true, capabilities, "Bridge active");
 
         capabilities.clear();
 

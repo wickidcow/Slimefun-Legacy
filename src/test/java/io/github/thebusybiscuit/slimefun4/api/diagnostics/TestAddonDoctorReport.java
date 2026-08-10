@@ -23,30 +23,23 @@ class TestAddonDoctorReport {
         assertEquals(2, report.getIssuesFound());
         assertEquals(2, report.getRepairedEntries());
         assertEquals(List.of("stale node"), report.getDetails());
-        assertThrows(UnsupportedOperationException.class, () -> report.getDetails().add("x"));
+        assertThrows(
+                UnsupportedOperationException.class, () -> report.getDetails().add("x"));
     }
 
     @Test
     void testRejectsNegativeCounters() {
         assertThrows(
-                IllegalArgumentException.class,
-                () -> new AddonDoctorReport("Networks", false, -1, 0, 0, 0, List.of()));
+                IllegalArgumentException.class, () -> new AddonDoctorReport("Networks", false, -1, 0, 0, 0, List.of()));
     }
 
     @Test
     void testRejectsInvalidNamesAndDetails() {
+        assertThrows(NullPointerException.class, () -> new AddonDoctorReport(null, false, 0, 0, 0, 0, List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new AddonDoctorReport("   ", false, 0, 0, 0, 0, List.of()));
+        assertThrows(NullPointerException.class, () -> new AddonDoctorReport("Networks", false, 0, 0, 0, 0, null));
         assertThrows(
                 NullPointerException.class,
-                () -> new AddonDoctorReport(null, false, 0, 0, 0, 0, List.of()));
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> new AddonDoctorReport("   ", false, 0, 0, 0, 0, List.of()));
-        assertThrows(
-                NullPointerException.class,
-                () -> new AddonDoctorReport("Networks", false, 0, 0, 0, 0, null));
-        assertThrows(
-                NullPointerException.class,
-                () -> new AddonDoctorReport(
-                        "Networks", false, 0, 0, 0, 0, Arrays.asList("valid", null)));
+                () -> new AddonDoctorReport("Networks", false, 0, 0, 0, 0, Arrays.asList("valid", null)));
     }
 }

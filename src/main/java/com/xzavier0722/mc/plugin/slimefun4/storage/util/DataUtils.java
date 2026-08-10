@@ -14,7 +14,6 @@ import org.bukkit.inventory.ItemStack;
 public class DataUtils {
     private static final int MYSQL_MEDIUMBLOB_MAX_BYTES = 16_777_215;
 
-
     /**
      * Serializes an item using the legacy String-facing API.
      *
@@ -94,8 +93,7 @@ public class DataUtils {
             return result;
         } catch (Exception ex) {
             throw new RuntimeException(
-                    "An error occurred while deserializing an item; the corresponding item cannot be displayed.",
-                    ex);
+                    "An error occurred while deserializing an item; the corresponding item cannot be displayed.", ex);
         }
     }
 

@@ -49,10 +49,7 @@ final class EnchantmentMachineRuntime {
     }
 
     static void status(
-            @Nonnull BlockMenu menu,
-            @Nonnull Material material,
-            @Nonnull String title,
-            @Nonnull String... lore) {
+            @Nonnull BlockMenu menu, @Nonnull Material material, @Nonnull String title, @Nonnull String... lore) {
         try {
             if (menu.toInventory().getViewers().isEmpty()) {
                 return;
@@ -84,7 +81,8 @@ final class EnchantmentMachineRuntime {
             @Nonnull String operation,
             @Nonnull Throwable failure) {
         String location = safeLocation(menu.getLocation());
-        String key = machine.getId() + '|' + operation + '|' + failure.getClass().getName() + '|' + location;
+        String key =
+                machine.getId() + '|' + operation + '|' + failure.getClass().getName() + '|' + location;
         long now = System.currentTimeMillis();
         Long previous = LAST_FAILURE.put(key, now);
         if (previous != null && now - previous < FAILURE_COOLDOWN_MILLIS) {
@@ -107,10 +105,15 @@ final class EnchantmentMachineRuntime {
         }
 
         try {
-            return (location.getWorld() == null ? "<unloaded-world>" : location.getWorld().getName())
-                    + ':' + location.getBlockX()
-                    + ':' + location.getBlockY()
-                    + ':' + location.getBlockZ();
+            return (location.getWorld() == null
+                            ? "<unloaded-world>"
+                            : location.getWorld().getName())
+                    + ':'
+                    + location.getBlockX()
+                    + ':'
+                    + location.getBlockY()
+                    + ':'
+                    + location.getBlockZ();
         } catch (RuntimeException | LinkageError ignored) {
             return "<unreadable>";
         }

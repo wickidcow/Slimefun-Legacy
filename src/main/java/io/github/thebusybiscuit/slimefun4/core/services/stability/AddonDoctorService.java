@@ -24,7 +24,8 @@ public final class AddonDoctorService {
     public List<RegisteredServiceProvider<AddonDoctor>> getProviders() {
         List<RegisteredServiceProvider<AddonDoctor>> providers =
                 new ArrayList<>(Bukkit.getServicesManager().getRegistrations(AddonDoctor.class));
-        providers.removeIf(provider -> provider.getPlugin() == null || !provider.getPlugin().isEnabled());
+        providers.removeIf(provider ->
+                provider.getPlugin() == null || !provider.getPlugin().isEnabled());
         providers.sort(Comparator.comparing(this::getProviderName, String.CASE_INSENSITIVE_ORDER));
         return providers;
     }
@@ -32,7 +33,9 @@ public final class AddonDoctorService {
     /** Returns a provider name without trusting third-party code to behave during status output. */
     @Nonnull
     public String getProviderName(@Nonnull RegisteredServiceProvider<AddonDoctor> registration) {
-        String fallback = registration.getPlugin() == null ? "Unknown addon" : registration.getPlugin().getName();
+        String fallback = registration.getPlugin() == null
+                ? "Unknown addon"
+                : registration.getPlugin().getName();
         try {
             String name = registration.getProvider().getAddonName();
             if (name != null && !name.isBlank()) {
@@ -60,10 +63,11 @@ public final class AddonDoctorService {
                 }
                 reports.add(report);
             } catch (Throwable throwable) {
-                plugin.getLogger().log(
-                        Level.WARNING,
-                        "Addon doctor failed for " + addonName + " (provider " + pluginName + ")",
-                        throwable);
+                plugin.getLogger()
+                        .log(
+                                Level.WARNING,
+                                "Addon doctor failed for " + addonName + " (provider " + pluginName + ")",
+                                throwable);
                 reports.add(new AddonDoctorReport(
                         addonName,
                         repair,

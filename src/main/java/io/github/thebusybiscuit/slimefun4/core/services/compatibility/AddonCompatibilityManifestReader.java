@@ -94,8 +94,8 @@ final class AddonCompatibilityManifestReader {
             String minimumMinecraft = string(object, "minimum_minecraft").orElse(null);
             if (minimumMinecraft != null) {
                 MinecraftVersionNumber version = MinecraftVersionNumber.parse(minimumMinecraft)
-                        .orElseThrow(() -> new IllegalArgumentException(
-                                "Invalid minimum_minecraft version: " + minimumMinecraft));
+                        .orElseThrow(() ->
+                                new IllegalArgumentException("Invalid minimum_minecraft version: " + minimumMinecraft));
                 platform.minimumMinecraftVersion(version);
             }
 

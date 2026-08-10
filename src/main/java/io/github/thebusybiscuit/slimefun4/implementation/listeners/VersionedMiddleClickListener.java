@@ -23,17 +23,21 @@ public class VersionedMiddleClickListener implements Listener {
 
     public VersionedMiddleClickListener(@Nonnull Slimefun plugin) {
         try {
-            Validate.isTrue(Slimefun.getPlatformCompatibilityService()
-                    .supports(PlatformCapability.PLAYER_PICK_BLOCK_EVENT));
-            pickBlockEventClass = (Class<? extends PlayerPickItemEvent>) RuntimePlatformDetector.findClass(
-                    "io.papermc.paper.event.player.PlayerPickBlockEvent");
+            Validate.isTrue(
+                    Slimefun.getPlatformCompatibilityService().supports(PlatformCapability.PLAYER_PICK_BLOCK_EVENT));
+            pickBlockEventClass = (Class<? extends PlayerPickItemEvent>)
+                    RuntimePlatformDetector.findClass("io.papermc.paper.event.player.PlayerPickBlockEvent");
             Validate.notNull(pickBlockEventClass, "PlayerPickBlockEvent is unavailable");
             Validate.isTrue(PlayerPickItemEvent.class.isAssignableFrom(pickBlockEventClass));
             getBlockMethod = pickBlockEventClass.getMethod("getBlock");
             getBlockMethod.setAccessible(true);
             plugin.getServer().getPluginManager().registerEvents(this, plugin);
         } catch (Throwable e) {
-            Slimefun.logger().log(Level.WARNING, "Failed to initialize version compatibility module for middle-click listener. Some functionality may not work correctly.", e);
+            Slimefun.logger()
+                    .log(
+                            Level.WARNING,
+                            "Failed to initialize version compatibility module for middle-click listener. Some functionality may not work correctly.",
+                            e);
         }
     }
 

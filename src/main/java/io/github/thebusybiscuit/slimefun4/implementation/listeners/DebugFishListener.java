@@ -117,15 +117,20 @@ public class DebugFishListener implements Listener {
 
             try {
                 if (data == null) {
-                    TaskUtil.runSyncMethod(b.getLocation(), () -> Slimefun.getBlockDataService()
-                            .getUniversalDataUUID(b)
-                            .ifPresentOrElse(
-                                    (uuid) -> {
-                                        p.sendMessage(ChatColors.color(
-                                                "&cDetected a corrupted universal data item. UUID: " + uuid + ". Please check whether the corresponding record exists in the database!"));
-                                        sendVanillaInfo(p, b);
-                                    },
-                                    () -> sendVanillaInfo(p, b)));
+                    TaskUtil.runSyncMethod(
+                            b.getLocation(),
+                            () -> Slimefun.getBlockDataService()
+                                    .getUniversalDataUUID(b)
+                                    .ifPresentOrElse(
+                                            (uuid) -> {
+                                                p.sendMessage(
+                                                        ChatColors.color(
+                                                                "&cDetected a corrupted universal data item. UUID: "
+                                                                        + uuid
+                                                                        + ". Please check whether the corresponding record exists in the database!"));
+                                                sendVanillaInfo(p, b);
+                                            },
+                                            () -> sendVanillaInfo(p, b)));
 
                     return;
                 }

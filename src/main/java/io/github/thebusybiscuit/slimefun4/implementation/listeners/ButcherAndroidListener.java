@@ -52,7 +52,8 @@ public class ButcherAndroidListener implements Listener {
                         List<ItemStack> items = new ArrayList<>();
 
                         // Collect any nearby dropped items from the region that owns the death location.
-                        for (Entity nearby : deathLocation.getWorld().getNearbyEntities(deathLocation, 0.5D, 0.5D, 0.5D)) {
+                        for (Entity nearby :
+                                deathLocation.getWorld().getNearbyEntities(deathLocation, 0.5D, 0.5D, 0.5D)) {
                             if (nearby instanceof Item item
                                     && nearby.isValid()
                                     && !SlimefunUtils.hasNoPickupFlag(item)) {
@@ -64,9 +65,8 @@ public class ButcherAndroidListener implements Listener {
                         addExtraDrops(items, entityType);
 
                         obj.getAndroid().addItems(obj.getBlock(), items.toArray(new ItemStack[0]));
-                        ExperienceOrb exp = (ExperienceOrb) deathLocation
-                                .getWorld()
-                                .spawnEntity(deathLocation, EntityType.EXPERIENCE_ORB);
+                        ExperienceOrb exp = (ExperienceOrb)
+                                deathLocation.getWorld().spawnEntity(deathLocation, EntityType.EXPERIENCE_ORB);
                         exp.setExperience(1 + ThreadLocalRandom.current().nextInt(6));
                     },
                     1L);

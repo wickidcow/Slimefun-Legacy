@@ -63,18 +63,16 @@ public final class AddonCompatibilityDeclaration {
     }
 
     private static Set<String> immutablePluginNames(Set<String> source) {
-        return source.isEmpty()
-                ? Collections.emptySet()
-                : Collections.unmodifiableSet(new LinkedHashSet<>(source));
+        return source.isEmpty() ? Collections.emptySet() : Collections.unmodifiableSet(new LinkedHashSet<>(source));
     }
 
     /** Builder for {@link AddonCompatibilityDeclaration}. */
     @SlimefunAPI
     public static final class Builder {
 
-        private final EnumSet<SlimefunCoreVariant> testedCoreVariants =
-                EnumSet.noneOf(SlimefunCoreVariant.class);
-        private PlatformRequirements platformRequirements = PlatformRequirements.builder().build();
+        private final EnumSet<SlimefunCoreVariant> testedCoreVariants = EnumSet.noneOf(SlimefunCoreVariant.class);
+        private PlatformRequirements platformRequirements =
+                PlatformRequirements.builder().build();
         private final LinkedHashSet<String> requiredPlugins = new LinkedHashSet<>();
         private final LinkedHashSet<String> optionalPlugins = new LinkedHashSet<>();
         private String notes = "";

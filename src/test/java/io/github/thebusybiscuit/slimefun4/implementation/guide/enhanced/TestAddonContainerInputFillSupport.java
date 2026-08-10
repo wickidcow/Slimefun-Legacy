@@ -50,9 +50,8 @@ class TestAddonContainerInputFillSupport {
 
     @Test
     void rejectsPublicProviderRecipeThatIsNotRegisteredByContainer() {
-        MachineRecipe registered = recipe(
-                new ItemStack[] {stack(Material.IRON_INGOT, 1)},
-                new ItemStack[] {stack(Material.DIAMOND, 1)});
+        MachineRecipe registered =
+                recipe(new ItemStack[] {stack(Material.IRON_INGOT, 1)}, new ItemStack[] {stack(Material.DIAMOND, 1)});
         MachineRecipeDisplay reflectedOnly = MachineRecipeDisplay.builder()
                 .addInput(stack(Material.COAL, 1))
                 .addOutput(stack(Material.EMERALD, 1))
@@ -64,9 +63,8 @@ class TestAddonContainerInputFillSupport {
 
     @Test
     void selectedAlternativeMustMatchRegisteredContainerRecipe() {
-        MachineRecipe registered = recipe(
-                new ItemStack[] {stack(Material.IRON_INGOT, 1)},
-                new ItemStack[] {stack(Material.DIAMOND, 1)});
+        MachineRecipe registered =
+                recipe(new ItemStack[] {stack(Material.IRON_INGOT, 1)}, new ItemStack[] {stack(Material.DIAMOND, 1)});
         MachineRecipeDisplay display = MachineRecipeDisplay.builder()
                 .addIngredient(new MachineRecipeIngredient(
                         List.of(stack(Material.IRON_INGOT, 1), stack(Material.GOLD_INGOT, 1))))
@@ -100,10 +98,7 @@ class TestAddonContainerInputFillSupport {
 
     private static boolean supports(List<MachineRecipe> recipes, MachineRecipeDisplay display) {
         return LegacyMachineInputFillManager.hasCompatibleRegisteredRecipe(
-                recipes,
-                display,
-                TestAddonContainerInputFillSupport::sameType,
-                ItemStack::isSimilar);
+                recipes, display, TestAddonContainerInputFillSupport::sameType, ItemStack::isSimilar);
     }
 
     private static List<ItemStack> resolve(

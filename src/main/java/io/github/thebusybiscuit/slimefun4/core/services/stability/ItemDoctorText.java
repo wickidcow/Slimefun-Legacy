@@ -14,10 +14,10 @@ public final class ItemDoctorText {
     private static final Pattern DYNAMIC_TOKEN = Pattern.compile(
             "(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|(?<!§)[+-]?\\d+(?:[.,]\\d+)?");
     private static final Pattern LEGACY_COLOR_CODE = Pattern.compile("(?i)§[0-9A-FK-ORX]");
-    private static final Pattern LEGACY_CHARGE = Pattern.compile(
-            "(?i)(?<!§)([+-]?\\d+(?:[.,]\\d+)?)\\s*/\\s*([+-]?\\d+(?:[.,]\\d+)?)\\s*J");
-    private static final Pattern LEGACY_USES_LEFT = Pattern.compile(
-            "(?i)(?:uses?\\s+left|remaining\\s+uses?|\u5269\u4F59(?:\u4F7F\u7528)?\u6B21\u6570"
+    private static final Pattern LEGACY_CHARGE =
+            Pattern.compile("(?i)(?<!§)([+-]?\\d+(?:[.,]\\d+)?)\\s*/\\s*([+-]?\\d+(?:[.,]\\d+)?)\\s*J");
+    private static final Pattern LEGACY_USES_LEFT =
+            Pattern.compile("(?i)(?:uses?\\s+left|remaining\\s+uses?|\u5269\u4F59(?:\u4F7F\u7528)?\u6B21\u6570"
                     + "|\u5269\u9918(?:\u4F7F\u7528)?\u6B21\u6578)"
                     + "\\s*[:：]?\\s*(?<!§)([+-]?\\d+)");
 
@@ -97,7 +97,6 @@ public final class ItemDoctorText {
         }
         return result;
     }
-
 
     /**
      * Replaces translated presentation lines with the canonical template without carrying
@@ -239,7 +238,8 @@ public final class ItemDoctorText {
                 return false;
             }
             for (int tokenIndex = 0; tokenIndex < currentTokens.size(); tokenIndex++) {
-                if (currentTokens.get(tokenIndex).uuid() != canonicalTokens.get(tokenIndex).uuid()) {
+                if (currentTokens.get(tokenIndex).uuid()
+                        != canonicalTokens.get(tokenIndex).uuid()) {
                     if (safelyRestoredLine.test(currentLine)) {
                         break;
                     }
@@ -305,11 +305,7 @@ public final class ItemDoctorText {
     }
 
     private static boolean isConnectorWord(String word) {
-        return word.equals("of")
-                || word.equals("the")
-                || word.equals("and")
-                || word.equals("to")
-                || word.equals("for");
+        return word.equals("of") || word.equals("the") || word.equals("and") || word.equals("to") || word.equals("for");
     }
 
     private static boolean isShortIdentifier(String word) {
@@ -325,8 +321,7 @@ public final class ItemDoctorText {
         };
     }
 
-    static @Nullable String carryDynamicTokens(
-            @Nullable String currentLine, @Nullable String canonicalLine) {
+    static @Nullable String carryDynamicTokens(@Nullable String currentLine, @Nullable String canonicalLine) {
         if (currentLine == null || canonicalLine == null) {
             return canonicalLine;
         }

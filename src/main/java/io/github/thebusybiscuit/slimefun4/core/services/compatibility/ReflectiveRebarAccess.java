@@ -45,27 +45,17 @@ final class ReflectiveRebarAccess {
                 "io.github.pylonmc.rebar.block.interfaces.VanillaInventoryRebarBlockHandler",
                 ExternalIntegrationCapability.INVENTORY,
                 ExternalIntegrationCapability.STORAGE),
+        new Marker("io.github.pylonmc.rebar.block.interfaces.LogisticRebarBlock", ExternalIntegrationCapability.CARGO),
+        new Marker("io.github.pylonmc.rebar.block.interfaces.CargoRebarBlock", ExternalIntegrationCapability.CARGO),
         new Marker(
-                "io.github.pylonmc.rebar.block.interfaces.LogisticRebarBlock",
-                ExternalIntegrationCapability.CARGO),
-        new Marker(
-                "io.github.pylonmc.rebar.block.interfaces.CargoRebarBlock",
-                ExternalIntegrationCapability.CARGO),
-        new Marker(
-                "io.github.pylonmc.rebar.block.interfaces.ProcessorRebarBlock",
-                ExternalIntegrationCapability.MACHINE),
+                "io.github.pylonmc.rebar.block.interfaces.ProcessorRebarBlock", ExternalIntegrationCapability.MACHINE),
         new Marker(
                 "io.github.pylonmc.rebar.block.interfaces.RecipeProcessorRebarBlock",
                 ExternalIntegrationCapability.MACHINE),
+        new Marker("io.github.pylonmc.rebar.block.interfaces.FluidRebarBlock", ExternalIntegrationCapability.FLUID),
         new Marker(
-                "io.github.pylonmc.rebar.block.interfaces.FluidRebarBlock",
-                ExternalIntegrationCapability.FLUID),
-        new Marker(
-                "io.github.pylonmc.rebar.block.interfaces.FluidBufferRebarBlock",
-                ExternalIntegrationCapability.FLUID),
-        new Marker(
-                "io.github.pylonmc.rebar.block.interfaces.FluidTankRebarBlock",
-                ExternalIntegrationCapability.FLUID)
+                "io.github.pylonmc.rebar.block.interfaces.FluidBufferRebarBlock", ExternalIntegrationCapability.FLUID),
+        new Marker("io.github.pylonmc.rebar.block.interfaces.FluidTankRebarBlock", ExternalIntegrationCapability.FLUID)
     };
 
     private final Class<?> rebarBlockType;
@@ -93,16 +83,19 @@ final class ReflectiveRebarAccess {
         List<LoadedMarker> loadedMarkers = new ArrayList<>();
         for (Marker marker : MARKERS) {
             try {
-                loadedMarkers.add(new LoadedMarker(Class.forName(marker.className(), false, loader), marker.capabilities()));
+                loadedMarkers.add(
+                        new LoadedMarker(Class.forName(marker.className(), false, loader), marker.capabilities()));
             } catch (ClassNotFoundException ignored) {
-                // Rebar's experimental API changes between versions. Missing marker types simply remove that capability.
+                // Rebar's experimental API changes between versions. Missing marker types simply remove that
+                // capability.
             }
         }
 
         ResolverMatch match = findResolver(loader, rebarBlockType);
         String detail;
         if (match == null) {
-            detail = "Rebar API markers detected, but no compatible BlockStorage resolver was found; block probing is disabled.";
+            detail =
+                    "Rebar API markers detected, but no compatible BlockStorage resolver was found; block probing is disabled.";
         } else {
             detail = "Reflective Rebar adapter ready via "
                     + match.method().getDeclaringClass().getSimpleName()
@@ -122,7 +115,8 @@ final class ReflectiveRebarAccess {
         return resolver != null;
     }
 
-    @Nonnull Set<ExternalIntegrationCapability> getSupportedCapabilities() {
+    @Nonnull
+    Set<ExternalIntegrationCapability> getSupportedCapabilities() {
         EnumSet<ExternalIntegrationCapability> result = EnumSet.noneOf(ExternalIntegrationCapability.class);
         for (LoadedMarker marker : markers) {
             for (ExternalIntegrationCapability capability : marker.capabilities()) {
@@ -132,11 +126,13 @@ final class ReflectiveRebarAccess {
         return Set.copyOf(result);
     }
 
-    @Nonnull String getStatusDescription() {
+    @Nonnull
+    String getStatusDescription() {
         return statusDescription;
     }
 
-    @Nonnull Optional<RebarBlockInfo> inspect(@Nonnull Block block) {
+    @Nonnull
+    Optional<RebarBlockInfo> inspect(@Nonnull Block block) {
         Object value = resolve(block);
         if (value == null || !rebarBlockType.isInstance(value)) {
             return Optional.empty();
@@ -183,7 +179,10 @@ final class ReflectiveRebarAccess {
                 continue;
             }
             String name = method.getName().toLowerCase(Locale.ROOT);
-            if (!name.equals("getkey") && !name.equals("key") && !name.contains("schemakey") && !name.contains("blockkey")) {
+            if (!name.equals("getkey")
+                    && !name.equals("key")
+                    && !name.contains("schemakey")
+                    && !name.contains("blockkey")) {
                 continue;
             }
             try {
@@ -197,7 +196,8 @@ final class ReflectiveRebarAccess {
         }
 
         for (Method method : block.getClass().getMethods()) {
-            if (method.getParameterCount() != 0 || !method.getName().toLowerCase(Locale.ROOT).contains("schema")) {
+            if (method.getParameterCount() != 0
+                    || !method.getName().toLowerCase(Locale.ROOT).contains("schema")) {
                 continue;
             }
             try {
@@ -208,7 +208,8 @@ final class ReflectiveRebarAccess {
                 for (Method keyMethod : schema.getClass().getMethods()) {
                     if (keyMethod.getParameterCount() == 0
                             && NamespacedKey.class.isAssignableFrom(keyMethod.getReturnType())
-                            && (keyMethod.getName().equals("getKey") || keyMethod.getName().equals("key"))) {
+                            && (keyMethod.getName().equals("getKey")
+                                    || keyMethod.getName().equals("key"))) {
                         Object result = keyMethod.invoke(schema);
                         if (result instanceof NamespacedKey key) {
                             return key;

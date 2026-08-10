@@ -44,11 +44,8 @@ class TestMachineInputFillPlan {
         ItemStack[] player = {stack(Material.IRON_INGOT, 1)};
         ItemStack[] machine = {stack(Material.IRON_INGOT, 1), null};
 
-        LegacyMachineInputFillManager.FillPlan plan = plan(
-                player,
-                machine,
-                List.of(stack(Material.IRON_INGOT, 1), stack(Material.IRON_INGOT, 1)),
-                1);
+        LegacyMachineInputFillManager.FillPlan plan =
+                plan(player, machine, List.of(stack(Material.IRON_INGOT, 1), stack(Material.IRON_INGOT, 1)), 1);
 
         assertTrue(plan.success());
         assertEquals(1, plan.machineContents()[0].getAmount());

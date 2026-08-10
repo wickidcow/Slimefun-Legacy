@@ -20,11 +20,7 @@ final class ReflectiveRebarIntegrationProvider implements ExternalIntegrationPro
     private final boolean pylonOnly;
 
     ReflectiveRebarIntegrationProvider(
-            String integrationId,
-            String displayName,
-            Plugin plugin,
-            ReflectiveRebarAccess access,
-            boolean pylonOnly) {
+            String integrationId, String displayName, Plugin plugin, ReflectiveRebarAccess access, boolean pylonOnly) {
         this.integrationId = Objects.requireNonNull(integrationId, "integrationId");
         this.displayName = Objects.requireNonNull(displayName, "displayName");
         this.plugin = Objects.requireNonNull(plugin, "plugin");

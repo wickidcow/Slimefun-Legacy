@@ -16,10 +16,8 @@ class TestItemDoctorText {
 
     @Test
     void rebuildsBaseLoreAndPreservesEnglishStateLines() {
-        List<String> current = List.of(
-                "\u00A77\u4E2D\u6587\u63CF\u8FF0",
-                "\u00A77Charge: 64 J",
-                "\u00A7bCustom marker");
+        List<String> current =
+                List.of("\u00A77\u4E2D\u6587\u63CF\u8FF0", "\u00A77Charge: 64 J", "\u00A7bCustom marker");
         List<String> canonical = List.of("\u00A77English description", "\u00A77Charge: 0 J");
 
         List<String> repaired = ItemDoctorText.mergeEnglishLore(current, canonical);
@@ -52,15 +50,13 @@ class TestItemDoctorText {
     void doesNotTreatLegacyColorCodesAsDynamicNumbers() {
         Assertions.assertEquals(
                 "§7Uses left: 4",
-                ItemDoctorText.carryDynamicTokens(
-                        "§e\u5269\u4F59\u4F7F\u7528\u6B21\u6570: 4", "§7Uses left: 20"));
+                ItemDoctorText.carryDynamicTokens("§e\u5269\u4F59\u4F7F\u7528\u6B21\u6570: 4", "§7Uses left: 20"));
     }
 
     @Test
     void doesNotDuplicateEquivalentCanonicalLines() {
         List<String> repaired = ItemDoctorText.mergeEnglishLore(
-                List.of("\u00A7aEnglish description", "\u00A77Extra state"),
-                List.of("\u00A77English description"));
+                List.of("\u00A7aEnglish description", "\u00A77Extra state"), List.of("\u00A77English description"));
 
         Assertions.assertEquals(List.of("\u00A7aEnglish description", "\u00A77Extra state"), repaired);
     }
@@ -90,8 +86,7 @@ class TestItemDoctorText {
         Assertions.assertEquals(
                 "§7Owner UUID: " + owner,
                 ItemDoctorText.carryDynamicTokens(
-                        "§7\u6240\u6709\u8005: " + owner,
-                        "§7Owner UUID: 00000000-0000-0000-0000-000000000000"));
+                        "§7\u6240\u6709\u8005: " + owner, "§7Owner UUID: 00000000-0000-0000-0000-000000000000"));
         Assertions.assertEquals(
                 "§7Temperature: -12.5 C",
                 ItemDoctorText.carryDynamicTokens("§7\u6E29\u5EA6: -12.5 C", "§7Temperature: 0.0 C"));
@@ -100,43 +95,29 @@ class TestItemDoctorText {
     @Test
     void recoversLegacyChargeAndSingleUseValues() {
         Assertions.assertEquals(
-                64.5F,
-                ItemDoctorText.findLegacyCharge(List.of("§7\u5F53\u524D\u7535\u91CF: 64.5 / 128 J")));
+                64.5F, ItemDoctorText.findLegacyCharge(List.of("§7\u5F53\u524D\u7535\u91CF: 64.5 / 128 J")));
+        Assertions.assertEquals(
+                7, ItemDoctorText.findLegacyUsesLeft(List.of("§7\u5269\u4F59\u4F7F\u7528\u6B21\u6570: 7")));
+        Assertions.assertEquals(7, ItemDoctorText.findLegacyUsesLeft(List.of("§7Uses left: §e7")));
+        Assertions.assertEquals(64.5F, ItemDoctorText.findLegacyCharge(List.of("§8⇨ §e⚡ §764.5 / 128 J")));
         Assertions.assertEquals(
                 7,
-                ItemDoctorText.findLegacyUsesLeft(List.of("§7\u5269\u4F59\u4F7F\u7528\u6B21\u6570: 7")));
-        Assertions.assertEquals(
-                7,
-                ItemDoctorText.findLegacyUsesLeft(List.of("§7Uses left: §e7")));
-        Assertions.assertEquals(
-                64.5F,
-                ItemDoctorText.findLegacyCharge(List.of("§8⇨ §e⚡ §764.5 / 128 J")));
-        Assertions.assertEquals(
-                7,
-                ItemDoctorText.findLegacyUsesLeft(List.of(
-                        "§7\u7B49\u7EA7: 2", "§7\u5269\u4F59\u4F7F\u7528\u6B21\u6570: 7")));
+                ItemDoctorText.findLegacyUsesLeft(
+                        List.of("§7\u7B49\u7EA7: 2", "§7\u5269\u4F59\u4F7F\u7528\u6B21\u6570: 7")));
         Assertions.assertNull(ItemDoctorText.findLegacyUsesLeft(List.of("§7\u7B49\u7EA7: 2")));
         Assertions.assertNull(ItemDoctorText.findLegacyUsesLeft(List.of("§7Uses left: 7", "§7Remaining uses: 6")));
     }
-
 
     @Test
     void canonicalizesStaticNumericLoreInsteadOfTreatingNumbersAsSavedState() {
         List<String> repaired = ItemDoctorText.mergeStaticEnglishLore(
                 List.of(
                         "§7\u653B\u51FB\u65F6\u6709 45% \u7684\u51E0\u7387",
-                        "§7\u6062\u590D 2 \u70B9\u751F\u547D\u503C",
-                        "§0hidden-state"),
-                List.of(
-                        "§7Has a 45% chance when attacking",
-                        "§7to restore 2 Hearts"));
+                        "§7\u6062\u590D 2 \u70B9\u751F\u547D\u503C", "§0hidden-state"),
+                List.of("§7Has a 45% chance when attacking", "§7to restore 2 Hearts"));
 
         Assertions.assertEquals(
-                List.of(
-                        "§7Has a 45% chance when attacking",
-                        "§7to restore 2 Hearts",
-                        "§0hidden-state"),
-                repaired);
+                List.of("§7Has a 45% chance when attacking", "§7to restore 2 Hearts", "§0hidden-state"), repaired);
         Assertions.assertFalse(ItemDoctorText.containsCjk(repaired));
     }
 
@@ -148,10 +129,7 @@ class TestItemDoctorText {
                         "§7\u7B49\u7EA7: 2 / 4",
                         "§7\u5F53\u524D\u7535\u91CF: 64 / 128 J",
                         "§0addon-state"),
-                List.of(
-                        "§7Machine description",
-                        "§7Level: 0",
-                        "§7Charge: 0 / 128 J"),
+                List.of("§7Machine description", "§7Level: 0", "§7Charge: 0 / 128 J"),
                 ignored -> false);
 
         Assertions.assertEquals("§7Machine description", repaired.get(0));
@@ -173,27 +151,22 @@ class TestItemDoctorText {
 
     @Test
     void rejectsAmbiguousDynamicStateMappings() {
-        Assertions.assertFalse(ItemDoctorText.canSafelyMergeDynamicTokens(
-                List.of("§7\u7B49\u7EA7: 2 / 4"), List.of("§7Level: 0")));
-        Assertions.assertFalse(ItemDoctorText.canSafelyMergeDynamicTokens(
-                List.of("§7剩余次数: 7"), null));
-        Assertions.assertTrue(ItemDoctorText.canSafelyMergeDynamicTokens(
-                List.of("§7剩余次数: 7"), List.of("§7Uses left: 20")));
-        Assertions.assertTrue(ItemDoctorText.canSafelyMergeDynamicTokens(
-                List.of("§7纯文本说明"), List.of("§7Plain description")));
+        Assertions.assertFalse(
+                ItemDoctorText.canSafelyMergeDynamicTokens(List.of("§7\u7B49\u7EA7: 2 / 4"), List.of("§7Level: 0")));
+        Assertions.assertFalse(ItemDoctorText.canSafelyMergeDynamicTokens(List.of("§7剩余次数: 7"), null));
+        Assertions.assertTrue(
+                ItemDoctorText.canSafelyMergeDynamicTokens(List.of("§7剩余次数: 7"), List.of("§7Uses left: 20")));
+        Assertions.assertTrue(
+                ItemDoctorText.canSafelyMergeDynamicTokens(List.of("§7纯文本说明"), List.of("§7Plain description")));
     }
 
     @Test
     void permitsExplicitlyRestoredLegacyStateLines() {
         String identity = "cc5e8e27-7e4e-45cd-9396-62b41ecfd717#4";
         Assertions.assertTrue(ItemDoctorText.canSafelyMergeDynamicTokens(
-                List.of("§7背包编号: " + identity),
-                List.of("§7Owner: None"),
-                line -> line.contains(identity)));
+                List.of("§7背包编号: " + identity), List.of("§7Owner: None"), line -> line.contains(identity)));
         Assertions.assertFalse(ItemDoctorText.canSafelyMergeDynamicTokens(
-                List.of("§7背包编号: " + identity),
-                List.of("§7Owner: None"),
-                line -> false));
+                List.of("§7背包编号: " + identity), List.of("§7Owner: None"), line -> false));
     }
 
     @Test

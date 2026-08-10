@@ -54,13 +54,15 @@ public class ClearDataCommand extends SubCommand {
                         if (cleartype.equals("block")) {
                             controller.removeAllDataInWorldAsync(
                                     world,
-                                    () -> runForSender(sender, () -> Slimefun.getLocalization()
-                                            .sendMessage(
-                                                    sender,
-                                                    "commands.cleardata.success",
-                                                    true,
-                                                    msg -> msg.replace("{0}", world.getName())
-                                                            .replace("{1}", block))));
+                                    () -> runForSender(
+                                            sender,
+                                            () -> Slimefun.getLocalization()
+                                                    .sendMessage(
+                                                            sender,
+                                                            "commands.cleardata.success",
+                                                            true,
+                                                            msg -> msg.replace("{0}", world.getName())
+                                                                    .replace("{1}", block))));
                         } else if (cleartype.equals("oil")) {
                             GEOResource oilresource = null;
                             for (GEOResource resource :
@@ -74,13 +76,15 @@ public class ClearDataCommand extends SubCommand {
                             controller.removeFromAllChunkInWorldAsync(
                                     world,
                                     oilresource.getKey().toString().replace(":", "-"),
-                                    () -> runForSender(sender, () -> Slimefun.getLocalization()
-                                            .sendMessage(
-                                                    sender,
-                                                    "commands.cleardata.success",
-                                                    true,
-                                                    msg -> msg.replace("{0}", world.getName())
-                                                            .replace("{1}", oil))));
+                                    () -> runForSender(
+                                            sender,
+                                            () -> Slimefun.getLocalization()
+                                                    .sendMessage(
+                                                            sender,
+                                                            "commands.cleardata.success",
+                                                            true,
+                                                            msg -> msg.replace("{0}", world.getName())
+                                                                    .replace("{1}", oil))));
                         }
                     }
                 }
@@ -113,5 +117,4 @@ public class ClearDataCommand extends SubCommand {
             Slimefun.getSchedulerService().run(task);
         }
     }
-
 }

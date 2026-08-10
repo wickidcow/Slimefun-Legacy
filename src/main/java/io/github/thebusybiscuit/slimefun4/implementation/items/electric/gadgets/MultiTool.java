@@ -114,7 +114,10 @@ public class MultiTool extends SlimefunItem implements Rechargeable {
                                 msg -> msg.replace("%device%", "Multi Tool")
                                         .replace("%mode%", ChatColor.stripColor(itemName)));
 
-                pdc.set(multiToolMode, PersistentDataType.STRING, modes.get(index).getItemId());
+                pdc.set(
+                        multiToolMode,
+                        PersistentDataType.STRING,
+                        modes.get(index).getItemId());
                 item.setItemMeta(im);
             }
         };

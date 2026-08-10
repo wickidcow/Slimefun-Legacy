@@ -148,9 +148,10 @@ public abstract class SqlCommonAdapter<T extends ISqlCommonConfig> implements ID
         }
 
         try (var conn = ds.getConnection()) {
-            Slimefun.logger().log(
-                    Level.INFO,
-                    "Updating database version to " + patch.getVersion() + ". This may take a moment...");
+            Slimefun.logger()
+                    .log(
+                            Level.INFO,
+                            "Updating database version to " + patch.getVersion() + ". This may take a moment...");
             executePatchTransaction(conn, patch, config);
             Slimefun.logger().log(Level.INFO, "Database update completed.");
 
@@ -158,10 +159,11 @@ public abstract class SqlCommonAdapter<T extends ISqlCommonConfig> implements ID
                 patch();
             }
         } catch (SQLException | RuntimeException e) {
-            Slimefun.logger().log(
-                    Level.SEVERE,
-                    "The database update failed and was rolled back. Restore the pre-upgrade backup before downgrading Slimefun.",
-                    e);
+            Slimefun.logger()
+                    .log(
+                            Level.SEVERE,
+                            "The database update failed and was rolled back. Restore the pre-upgrade backup before downgrading Slimefun.",
+                            e);
         }
     }
 

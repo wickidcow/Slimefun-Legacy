@@ -34,7 +34,8 @@ class TestItemDoctorReport {
         Assertions.assertEquals(1, report.getFailures());
         Assertions.assertEquals(1, report.getUnknownIdSamples().size());
         Assertions.assertEquals("UNKNOWN_ITEM", report.getUnknownIdSamples().get(0));
-        Assertions.assertEquals("CHINESE_TEMPLATE", report.getUnresolvedTemplateSamples().get(0));
+        Assertions.assertEquals(
+                "CHINESE_TEMPLATE", report.getUnresolvedTemplateSamples().get(0));
         Assertions.assertTrue(report.getDurationMillis() >= 0);
     }
 }

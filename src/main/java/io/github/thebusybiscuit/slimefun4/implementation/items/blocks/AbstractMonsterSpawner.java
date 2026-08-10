@@ -77,7 +77,8 @@ public abstract class AbstractMonsterSpawner extends SlimefunItem implements Dis
                 continue;
             }
 
-            String serializedType = normalized.substring(normalized.indexOf(':') + 1)
+            String serializedType = normalized
+                    .substring(normalized.indexOf(':') + 1)
                     .trim()
                     .replace(' ', '_')
                     .toUpperCase(Locale.ROOT);

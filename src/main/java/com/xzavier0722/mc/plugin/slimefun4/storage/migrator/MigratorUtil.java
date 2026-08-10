@@ -33,14 +33,19 @@ class MigratorUtil {
                             Files.copy(path, zs);
                             zs.closeEntry();
                         } catch (IOException e) {
-                            Slimefun.logger().log(Level.WARNING, "An issue occurred while backing up old data " + dir.getName() + "", e);
+                            Slimefun.logger()
+                                    .log(
+                                            Level.WARNING,
+                                            "An issue occurred while backing up old data " + dir.getName() + "",
+                                            e);
                         }
                     });
                 }
             }
             return true;
         } catch (Exception e) {
-            Slimefun.logger().log(Level.WARNING, "An issue occurred while backing up old data " + dir.getName() + "", e);
+            Slimefun.logger()
+                    .log(Level.WARNING, "An issue occurred while backing up old data " + dir.getName() + "", e);
             return false;
         }
     }
@@ -55,7 +60,8 @@ class MigratorUtil {
 
             Files.delete(dir.toPath());
         } catch (Exception e) {
-            Slimefun.logger().log(Level.WARNING, "An issue occurred while deleting directory " + dir.getAbsolutePath() + "", e);
+            Slimefun.logger()
+                    .log(Level.WARNING, "An issue occurred while deleting directory " + dir.getAbsolutePath() + "", e);
         }
     }
 

@@ -88,11 +88,13 @@ public final class DefaultExternalIntegrationService implements ExternalIntegrat
                 ReflectiveRebarAccess access = ReflectiveRebarAccess.create(rebarPlugin);
                 effectiveProviders.put(
                         REBAR.id,
-                        new ReflectiveRebarIntegrationProvider(REBAR.id, REBAR.displayName, rebarPlugin, access, false));
+                        new ReflectiveRebarIntegrationProvider(
+                                REBAR.id, REBAR.displayName, rebarPlugin, access, false));
                 if (pylonPlugin != null && pylonPlugin.isEnabled()) {
                     effectiveProviders.put(
                             PYLON.id,
-                            new ReflectiveRebarIntegrationProvider(PYLON.id, PYLON.displayName, pylonPlugin, access, true));
+                            new ReflectiveRebarIntegrationProvider(
+                                    PYLON.id, PYLON.displayName, pylonPlugin, access, true));
                 }
             } catch (ClassNotFoundException | RuntimeException | LinkageError failure) {
                 replaceKnownDetail(
@@ -136,20 +138,23 @@ public final class DefaultExternalIntegrationService implements ExternalIntegrat
                     markProviderSuccess(key);
                 } catch (RuntimeException | LinkageError failure) {
                     recordProviderFailure(id, fallbackDisplayName, plugin, "status", failure);
-                    detail = "Bridge provider failed its status probe: " + failure.getClass().getSimpleName();
+                    detail = "Bridge provider failed its status probe: "
+                            + failure.getClass().getSimpleName();
                 }
             }
 
-            result.put(id, new ExternalIntegrationStatus(
+            result.put(
                     id,
-                    displayName,
-                    plugin.getName(),
-                    plugin.getDescription().getVersion(),
-                    true,
-                    plugin.isEnabled(),
-                    true,
-                    capabilities,
-                    detail));
+                    new ExternalIntegrationStatus(
+                            id,
+                            displayName,
+                            plugin.getName(),
+                            plugin.getDescription().getVersion(),
+                            true,
+                            plugin.isEnabled(),
+                            true,
+                            capabilities,
+                            detail));
             active.add(new ProviderRegistration(id, displayName, provider));
         }
 
@@ -185,11 +190,7 @@ public final class DefaultExternalIntegrationService implements ExternalIntegrat
                 markProviderSuccess(key);
             } catch (RuntimeException | LinkageError failure) {
                 recordProviderFailure(
-                        registration.integrationId,
-                        registration.displayName,
-                        plugin,
-                        "block-inspection",
-                        failure);
+                        registration.integrationId, registration.displayName, plugin, "block-inspection", failure);
             }
         }
         result.sort(Comparator.comparing(ExternalBlockIntegration::getDisplayName, String.CASE_INSENSITIVE_ORDER));
@@ -273,19 +274,21 @@ public final class DefaultExternalIntegrationService implements ExternalIntegrat
                     now,
                     pausedUntil,
                     true);
-            owner.getLogger().log(
-                    Level.WARNING,
-                    "External integration " + integrationId + " failed its retry for " + operation
-                            + "; the operation remains isolated for " + cooldownSeconds + " seconds.");
+            owner.getLogger()
+                    .log(
+                            Level.WARNING,
+                            "External integration " + integrationId + " failed its retry for " + operation
+                                    + "; the operation remains isolated for " + cooldownSeconds + " seconds.");
             return;
         }
 
         if (errors == 1) {
-            owner.getLogger().log(
-                    Level.WARNING,
-                    "External integration " + integrationId + " failed during " + operation
-                            + ". Slimefun isolated the exception from normal core processing.",
-                    failure);
+            owner.getLogger()
+                    .log(
+                            Level.WARNING,
+                            "External integration " + integrationId + " failed during " + operation
+                                    + ". Slimefun isolated the exception from normal core processing.",
+                            failure);
         }
 
         if (errors >= threshold) {
@@ -293,10 +296,11 @@ public final class DefaultExternalIntegrationService implements ExternalIntegrat
             pausedUntil = now + cooldownSeconds * 1000L;
             providerCircuitBreaker.open(key, pausedUntil);
             providerFailures.put(key, threshold);
-            owner.getLogger().log(
-                    Level.WARNING,
-                    "External integration " + integrationId + " failed " + threshold + " consecutive " + operation
-                            + " calls and is isolated for " + cooldownSeconds + " seconds.");
+            owner.getLogger()
+                    .log(
+                            Level.WARNING,
+                            "External integration " + integrationId + " failed " + threshold + " consecutive "
+                                    + operation + " calls and is isolated for " + cooldownSeconds + " seconds.");
         }
 
         failureTracker.recordFailure(
@@ -350,30 +354,34 @@ public final class DefaultExternalIntegrationService implements ExternalIntegrat
         Plugin plugin = findPlugin(known.pluginName);
         boolean detected = plugin != null;
         boolean enabled = detected && plugin.isEnabled();
-        result.put(known.id, new ExternalIntegrationStatus(
+        result.put(
                 known.id,
-                known.displayName,
-                known.pluginName,
-                detected ? plugin.getDescription().getVersion() : null,
-                detected,
-                enabled,
-                false,
-                Set.of(),
-                known.detail));
+                new ExternalIntegrationStatus(
+                        known.id,
+                        known.displayName,
+                        known.pluginName,
+                        detected ? plugin.getDescription().getVersion() : null,
+                        detected,
+                        enabled,
+                        false,
+                        Set.of(),
+                        known.detail));
     }
 
     private void replaceKnownDetail(
             Map<String, ExternalIntegrationStatus> result, KnownSystem known, Plugin plugin, String detail) {
-        result.put(known.id, new ExternalIntegrationStatus(
+        result.put(
                 known.id,
-                known.displayName,
-                plugin.getName(),
-                plugin.getDescription().getVersion(),
-                true,
-                plugin.isEnabled(),
-                false,
-                Set.of(),
-                detail));
+                new ExternalIntegrationStatus(
+                        known.id,
+                        known.displayName,
+                        plugin.getName(),
+                        plugin.getDescription().getVersion(),
+                        true,
+                        plugin.isEnabled(),
+                        false,
+                        Set.of(),
+                        detail));
     }
 
     private Plugin findPlugin(String name) {

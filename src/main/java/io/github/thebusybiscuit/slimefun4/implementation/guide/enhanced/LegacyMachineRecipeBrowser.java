@@ -119,7 +119,8 @@ public final class LegacyMachineRecipeBrowser implements Listener {
                 buttonSlot,
                 System.currentTimeMillis() + LegacyGuideSettings.get().getRecipeFillSessionSeconds() * 1000L);
         contexts.put(player.getUniqueId(), context);
-        inventory.setItem(buttonSlot, createButton(resolved.provider(), resolved.recipes().size()));
+        inventory.setItem(
+                buttonSlot, createButton(resolved.provider(), resolved.recipes().size()));
         player.updateInventory();
     }
 
@@ -225,7 +226,8 @@ public final class LegacyMachineRecipeBrowser implements Listener {
 
         int pages = Math.max(1, (recipes.size() - 1) / LIST_SLOTS.length + 1);
         int page = Math.max(1, Math.min(requestedPage, pages));
-        ChestMenu menu = createMenu(title("Recipes: " + ItemUtils.getItemName(context.machine().getItem())));
+        ChestMenu menu = createMenu(
+                title("Recipes: " + ItemUtils.getItemName(context.machine().getItem())));
         fillBackground(menu);
 
         menu.replaceExistingItem(0, ChestMenuUtils.getBackButton(player, "", "&7Return to the machine"));
@@ -267,10 +269,12 @@ public final class LegacyMachineRecipeBrowser implements Listener {
             }
             return false;
         });
-        menu.replaceExistingItem(49, new CustomItemStack(
-                Material.PAPER,
-                "&fPage &e" + page + " &7/ &e" + pages,
-                "&7" + recipes.size() + " machine recipes"));
+        menu.replaceExistingItem(
+                49,
+                new CustomItemStack(
+                        Material.PAPER,
+                        "&fPage &e" + page + " &7/ &e" + pages,
+                        "&7" + recipes.size() + " machine recipes"));
         menu.addMenuClickHandler(49, ChestMenuUtils.getEmptyClickHandler());
         menu.replaceExistingItem(52, ChestMenuUtils.getNextButton(player, page, pages));
         menu.addMenuClickHandler(52, (pl, slot, item, action) -> {
@@ -321,8 +325,7 @@ public final class LegacyMachineRecipeBrowser implements Listener {
                     }
                     menu.replaceExistingItem(
                             clickedSlot,
-                            createIngredientIcon(
-                                    ingredient, ingredientIndex, selectedAlternatives[ingredientIndex]));
+                            createIngredientIcon(ingredient, ingredientIndex, selectedAlternatives[ingredientIndex]));
                     SoundEffect.GUIDE_BUTTON_CLICK_SOUND.playFor(pl);
                     return false;
                 });
@@ -418,16 +421,15 @@ public final class LegacyMachineRecipeBrowser implements Listener {
         List<ItemStack> outputs = recipe.getOutputs();
         if (outputs.isEmpty()) {
             return new CustomItemStack(
-                    Material.BARRIER,
-                    "&cRecipe " + (recipeIndex + 1),
-                    "&7This recipe could not be displayed.");
+                    Material.BARRIER, "&cRecipe " + (recipeIndex + 1), "&7This recipe could not be displayed.");
         }
 
         List<String> lore = new ArrayList<>();
         lore.add("");
         lore.add(ChatColor.GOLD + "Machine recipe " + ChatColor.WHITE + (recipeIndex + 1) + ChatColor.GRAY + "/"
                 + totalRecipes);
-        lore.add(ChatColor.GRAY + "Inputs: " + ChatColor.WHITE + recipe.getInputs().size());
+        lore.add(ChatColor.GRAY + "Inputs: " + ChatColor.WHITE
+                + recipe.getInputs().size());
         lore.add(ChatColor.GRAY + "Outputs: " + ChatColor.WHITE + outputs.size());
         if (!recipe.getLabel().isBlank()) {
             lore.add(ChatColor.DARK_GRAY + recipe.getLabel());
@@ -456,8 +458,10 @@ public final class LegacyMachineRecipeBrowser implements Listener {
 
     private @Nonnull ItemStack recipeInformation(@Nonnull MachineRecipeDisplay recipe) {
         List<String> lore = new ArrayList<>();
-        lore.add(ChatColor.GRAY + "Inputs: " + ChatColor.WHITE + recipe.getInputs().size());
-        lore.add(ChatColor.GRAY + "Outputs: " + ChatColor.WHITE + recipe.getOutputs().size());
+        lore.add(ChatColor.GRAY + "Inputs: " + ChatColor.WHITE
+                + recipe.getInputs().size());
+        lore.add(ChatColor.GRAY + "Outputs: " + ChatColor.WHITE
+                + recipe.getOutputs().size());
         lore.add(ChatColor.GRAY + "Layout: " + ChatColor.WHITE + readableLayout(recipe));
         if (recipe.hasKnownProcessingTime()) {
             lore.add(ChatColor.GRAY + "Processing ticks: " + ChatColor.WHITE + recipe.getProcessingTicks());
@@ -495,9 +499,8 @@ public final class LegacyMachineRecipeBrowser implements Listener {
     private @Nonnull ItemStack addLore(@Nonnull ItemStack source, @Nonnull String... lines) {
         ItemStack clone = source.clone();
         ItemMeta meta = clone.getItemMeta();
-        List<String> lore = meta.hasLore() && meta.getLore() != null
-                ? new ArrayList<>(meta.getLore())
-                : new ArrayList<>();
+        List<String> lore =
+                meta.hasLore() && meta.getLore() != null ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
         Collections.addAll(lore, lines);
         meta.setLore(lore);
         clone.setItemMeta(meta);

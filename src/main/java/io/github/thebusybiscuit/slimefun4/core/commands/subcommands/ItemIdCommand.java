@@ -34,7 +34,8 @@ class ItemIdCommand extends SubCommand {
                                 .decorate(TextDecoration.ITALIC)
                                 .hoverEvent(HoverEvent.showText(Component.text("Click to copy to clipboard")))
                                 .clickEvent(ClickEvent.copyToClipboard(sfId));
-                        sender.sendMessage(Component.text("The ID of this item is: ").append(idComponent));
+                        sender.sendMessage(
+                                Component.text("The ID of this item is: ").append(idComponent));
                     } else {
                         Slimefun.getLocalization().sendMessage(sender, "messages.invalid-item-in-hand", true);
                     }

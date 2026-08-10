@@ -38,8 +38,7 @@ public final class PaperScheduler implements SlimefunScheduler {
         this(plugin, null);
     }
 
-    public PaperScheduler(
-            @Nonnull Plugin plugin, PlatformCompatibilityService platformCompatibilityService) {
+    public PaperScheduler(@Nonnull Plugin plugin, PlatformCompatibilityService platformCompatibilityService) {
         Validate.notNull(plugin, "Plugin cannot be null");
         this.plugin = plugin;
         this.platformCompatibilityService = platformCompatibilityService;
@@ -77,8 +76,8 @@ public final class PaperScheduler implements SlimefunScheduler {
         }
 
         if (usesRegionOwnedExecution()) {
-            handle.attach(Bukkit.getGlobalRegionScheduler()
-                    .runDelayed(plugin, ignored -> handle.execute(task), delayTicks));
+            handle.attach(
+                    Bukkit.getGlobalRegionScheduler().runDelayed(plugin, ignored -> handle.execute(task), delayTicks));
         } else {
             handle.attach(Bukkit.getScheduler().runTaskLater(plugin, () -> handle.execute(task), delayTicks));
         }
@@ -122,14 +121,13 @@ public final class PaperScheduler implements SlimefunScheduler {
             return handle;
         }
 
-        handle.attach(Bukkit.getRegionScheduler()
-                .runDelayed(plugin, location, ignored -> handle.execute(task), delayTicks));
+        handle.attach(
+                Bukkit.getRegionScheduler().runDelayed(plugin, location, ignored -> handle.execute(task), delayTicks));
         return handle;
     }
 
     @Override
-    public @Nonnull TaskHandle runAtFixedRate(
-            @Nonnull Runnable task, long initialDelayTicks, long periodTicks) {
+    public @Nonnull TaskHandle runAtFixedRate(@Nonnull Runnable task, long initialDelayTicks, long periodTicks) {
         Validate.notNull(task, "Task cannot be null");
         validateRepeating(initialDelayTicks, periodTicks);
 
@@ -141,10 +139,7 @@ public final class PaperScheduler implements SlimefunScheduler {
         if (usesRegionOwnedExecution()) {
             handle.attach(Bukkit.getGlobalRegionScheduler()
                     .runAtFixedRate(
-                            plugin,
-                            ignored -> handle.execute(task),
-                            Math.max(1L, initialDelayTicks),
-                            periodTicks));
+                            plugin, ignored -> handle.execute(task), Math.max(1L, initialDelayTicks), periodTicks));
         } else {
             handle.attach(Bukkit.getScheduler()
                     .runTaskTimer(plugin, () -> handle.execute(task), initialDelayTicks, periodTicks));
@@ -154,10 +149,7 @@ public final class PaperScheduler implements SlimefunScheduler {
 
     @Override
     public @Nonnull TaskHandle runAtFixedRate(
-            @Nonnull Location location,
-            @Nonnull Runnable task,
-            long initialDelayTicks,
-            long periodTicks) {
+            @Nonnull Location location, @Nonnull Runnable task, long initialDelayTicks, long periodTicks) {
         Validate.notNull(location, "Location cannot be null");
         Validate.notNull(task, "Task cannot be null");
         validateRepeating(initialDelayTicks, periodTicks);
@@ -187,8 +179,7 @@ public final class PaperScheduler implements SlimefunScheduler {
     }
 
     @Override
-    public @Nonnull TaskHandle runFor(
-            @Nonnull Entity entity, @Nonnull Runnable task, @Nonnull Runnable retired) {
+    public @Nonnull TaskHandle runFor(@Nonnull Entity entity, @Nonnull Runnable task, @Nonnull Runnable retired) {
         Validate.notNull(entity, "Entity cannot be null");
         Validate.notNull(task, "Task cannot be null");
         Validate.notNull(retired, "Retired callback cannot be null");
@@ -202,8 +193,7 @@ public final class PaperScheduler implements SlimefunScheduler {
             return handle;
         }
 
-        handle.attach(entity.getScheduler()
-                .run(plugin, ignored -> handle.execute(task), () -> handle.retire(retired)));
+        handle.attach(entity.getScheduler().run(plugin, ignored -> handle.execute(task), () -> handle.retire(retired)));
         return handle;
     }
 
@@ -214,10 +204,7 @@ public final class PaperScheduler implements SlimefunScheduler {
 
     @Override
     public @Nonnull TaskHandle runForLater(
-            @Nonnull Entity entity,
-            @Nonnull Runnable task,
-            @Nonnull Runnable retired,
-            long delayTicks) {
+            @Nonnull Entity entity, @Nonnull Runnable task, @Nonnull Runnable retired, long delayTicks) {
         Validate.notNull(entity, "Entity cannot be null");
         Validate.notNull(task, "Task cannot be null");
         Validate.notNull(retired, "Retired callback cannot be null");
@@ -237,20 +224,13 @@ public final class PaperScheduler implements SlimefunScheduler {
         }
 
         handle.attach(entity.getScheduler()
-                .runDelayed(
-                        plugin,
-                        ignored -> handle.execute(task),
-                        () -> handle.retire(retired),
-                        delayTicks));
+                .runDelayed(plugin, ignored -> handle.execute(task), () -> handle.retire(retired), delayTicks));
         return handle;
     }
 
     @Override
     public @Nonnull TaskHandle runForAtFixedRate(
-            @Nonnull Entity entity,
-            @Nonnull Runnable task,
-            long initialDelayTicks,
-            long periodTicks) {
+            @Nonnull Entity entity, @Nonnull Runnable task, long initialDelayTicks, long periodTicks) {
         Validate.notNull(entity, "Entity cannot be null");
         Validate.notNull(task, "Task cannot be null");
         validateRepeating(initialDelayTicks, periodTicks);
@@ -313,15 +293,14 @@ public final class PaperScheduler implements SlimefunScheduler {
                             SchedulerTime.ticksToMillis(delayTicks),
                             TimeUnit.MILLISECONDS));
         } else {
-            handle.attach(Bukkit.getScheduler()
-                    .runTaskLaterAsynchronously(plugin, () -> handle.execute(task), delayTicks));
+            handle.attach(
+                    Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, () -> handle.execute(task), delayTicks));
         }
         return handle;
     }
 
     @Override
-    public @Nonnull TaskHandle runAsyncAtFixedRate(
-            @Nonnull Runnable task, long initialDelayTicks, long periodTicks) {
+    public @Nonnull TaskHandle runAsyncAtFixedRate(@Nonnull Runnable task, long initialDelayTicks, long periodTicks) {
         Validate.notNull(task, "Task cannot be null");
         validateRepeating(initialDelayTicks, periodTicks);
 
@@ -340,8 +319,7 @@ public final class PaperScheduler implements SlimefunScheduler {
                             TimeUnit.MILLISECONDS));
         } else {
             handle.attach(Bukkit.getScheduler()
-                    .runTaskTimerAsynchronously(
-                            plugin, () -> handle.execute(task), initialDelayTicks, periodTicks));
+                    .runTaskTimerAsynchronously(plugin, () -> handle.execute(task), initialDelayTicks, periodTicks));
         }
         return handle;
     }

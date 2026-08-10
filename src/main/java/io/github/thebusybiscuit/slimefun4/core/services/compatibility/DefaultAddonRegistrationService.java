@@ -93,14 +93,13 @@ public final class DefaultAddonRegistrationService implements AddonRegistrationS
             AddonRegistrySnapshot registry = registryByName.get(name);
             CallbackStats stats = callbackStats.get(name);
             Plugin plugin = stats != null ? stats.plugin : pluginByName.get(name);
-            String resolvedName = registry != null ? registry.getPluginName() : plugin != null ? plugin.getName() : name;
+            String resolvedName =
+                    registry != null ? registry.getPluginName() : plugin != null ? plugin.getName() : name;
             if (plugin == null) {
                 plugin = Bukkit.getPluginManager().getPlugin(resolvedName);
             }
 
-            String pluginName = registry != null
-                    ? registry.getPluginName()
-                    : plugin != null ? plugin.getName() : name;
+            String pluginName = registry != null ? registry.getPluginName() : plugin != null ? plugin.getName() : name;
             String pluginVersion = registry != null
                     ? registry.getPluginVersion()
                     : plugin != null ? plugin.getDescription().getVersion() : "unknown";
@@ -173,7 +172,8 @@ public final class DefaultAddonRegistrationService implements AddonRegistrationS
     }
 
     private AddonRegistrationDisposition execute(Plugin plugin, String operation, Runnable callback) {
-        CallbackStats stats = callbackStats.computeIfAbsent(key(plugin.getName()), ignored -> new CallbackStats(plugin));
+        CallbackStats stats =
+                callbackStats.computeIfAbsent(key(plugin.getName()), ignored -> new CallbackStats(plugin));
         boolean success = runtimeHealth.runGuarded(plugin, "post-registration:" + operation, callback);
         if (success) {
             stats.executed.incrementAndGet();

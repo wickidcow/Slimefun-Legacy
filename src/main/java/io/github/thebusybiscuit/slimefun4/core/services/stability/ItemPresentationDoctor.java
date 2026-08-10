@@ -40,14 +40,12 @@ public final class ItemPresentationDoctor {
     private static final String SOULBOUND_LORE = ChatColor.GRAY + "Soulbound";
     private static final String BACKPACK_OWNER_PREFIX = ChatColor.GRAY + "Owner: ";
     private static final String BACKPACK_ID_PREFIX = ChatColor.GRAY + "ID: ";
-    private static final Pattern LEGACY_BACKPACK_IDENTITY = Pattern.compile(
-            "(?i)([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})#([0-9]+)");
-    private static final Set<String> SAFE_STATIC_ADDON_LORE_IDS = Set.of(
-            "ELECTRIC_DUST_FABRICATOR",
-            "REINFORCED_FLUFFY_WRENCH");
+    private static final Pattern LEGACY_BACKPACK_IDENTITY =
+            Pattern.compile("(?i)([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})#([0-9]+)");
+    private static final Set<String> SAFE_STATIC_ADDON_LORE_IDS =
+            Set.of("ELECTRIC_DUST_FABRICATOR", "REINFORCED_FLUFFY_WRENCH");
 
-    public boolean repairInventory(
-            @Nonnull Inventory inventory, boolean repair, @Nonnull ItemDoctorReport report) {
+    public boolean repairInventory(@Nonnull Inventory inventory, boolean repair, @Nonnull ItemDoctorReport report) {
         return repairInventory(inventory, repair, report, 0);
     }
 
@@ -65,13 +63,11 @@ public final class ItemPresentationDoctor {
         return changed;
     }
 
-    public boolean inspectItem(
-            @Nullable ItemStack item, boolean repair, @Nonnull ItemDoctorReport report) {
+    public boolean inspectItem(@Nullable ItemStack item, boolean repair, @Nonnull ItemDoctorReport report) {
         return inspectItem(item, repair, report, 0);
     }
 
-    private boolean inspectItem(
-            @Nullable ItemStack item, boolean repair, @Nonnull ItemDoctorReport report, int depth) {
+    private boolean inspectItem(@Nullable ItemStack item, boolean repair, @Nonnull ItemDoctorReport report, int depth) {
         if (item == null || item.getType() == Material.AIR) {
             return false;
         }
@@ -82,21 +78,24 @@ public final class ItemPresentationDoctor {
             changed = inspectSlimefunPresentation(item, repair, report);
         } catch (RuntimeException | LinkageError ex) {
             report.failure();
-            Slimefun.logger().log(
-                    Level.WARNING,
-                    "Item doctor skipped a failing stack [" + describeStack(item) + "]. The scan will continue.",
-                    ex);
+            Slimefun.logger()
+                    .log(
+                            Level.WARNING,
+                            "Item doctor skipped a failing stack [" + describeStack(item)
+                                    + "]. The scan will continue.",
+                            ex);
         }
         if (depth < MAX_CONTAINER_DEPTH) {
             try {
                 changed |= inspectNestedItems(item, repair, report, depth + 1);
             } catch (RuntimeException | LinkageError ex) {
                 report.failure();
-                Slimefun.logger().log(
-                        Level.WARNING,
-                        "Item doctor could not inspect a nested container [" + describeStack(item)
-                                + "]. The scan will continue.",
-                        ex);
+                Slimefun.logger()
+                        .log(
+                                Level.WARNING,
+                                "Item doctor could not inspect a nested container [" + describeStack(item)
+                                        + "]. The scan will continue.",
+                                ex);
             }
         }
         return changed;
@@ -112,8 +111,7 @@ public final class ItemPresentationDoctor {
         return "type=" + item.getType() + ", slimefunId=" + itemId;
     }
 
-    private boolean inspectSlimefunPresentation(
-            ItemStack item, boolean repair, ItemDoctorReport report) {
+    private boolean inspectSlimefunPresentation(ItemStack item, boolean repair, ItemDoctorReport report) {
         Optional<String> storedId = Slimefun.getItemDataService().getItemData(item);
         if (storedId.isEmpty()) {
             return false;
@@ -121,10 +119,8 @@ public final class ItemPresentationDoctor {
 
         report.slimefunStackFound();
         ItemMeta currentMeta = item.getItemMeta();
-        boolean hasCjkName = currentMeta.hasDisplayName()
-                && ItemDoctorText.containsCjk(currentMeta.getDisplayName());
-        boolean hasCjkLore = currentMeta.hasLore()
-                && ItemDoctorText.containsCjk(currentMeta.getLore());
+        boolean hasCjkName = currentMeta.hasDisplayName() && ItemDoctorText.containsCjk(currentMeta.getDisplayName());
+        boolean hasCjkLore = currentMeta.hasLore() && ItemDoctorText.containsCjk(currentMeta.getLore());
         if (!hasCjkName && !hasCjkLore) {
             return false;
         }
@@ -134,15 +130,13 @@ public final class ItemPresentationDoctor {
         SlimefunItem sfItem = SlimefunItem.getById(itemId);
         if (sfItem == null) {
             report.unknownIdFound(itemId);
-            return repairOrphanedPresentation(
-                    item, currentMeta, itemId, hasCjkName, hasCjkLore, repair, report);
+            return repairOrphanedPresentation(item, currentMeta, itemId, hasCjkName, hasCjkLore, repair, report);
         }
 
         ItemMeta canonicalMeta = sfItem.getItem().getItemMeta();
         String repairedName = null;
         if (hasCjkName) {
-            if (canonicalMeta.hasDisplayName()
-                    && !ItemDoctorText.containsCjk(canonicalMeta.getDisplayName())) {
+            if (canonicalMeta.hasDisplayName() && !ItemDoctorText.containsCjk(canonicalMeta.getDisplayName())) {
                 repairedName = canonicalMeta.getDisplayName();
             } else {
                 repairedName = ItemDoctorText.preserveLeadingFormatting(
@@ -167,14 +161,14 @@ public final class ItemPresentationDoctor {
                     stateCaptured = true;
                 } catch (RuntimeException | LinkageError ex) {
                     report.failure();
-                    Slimefun.logger().log(
-                            Level.WARNING,
-                            "Item doctor could not safely read dynamic state for Slimefun item " + itemId + '.',
-                            ex);
+                    Slimefun.logger()
+                            .log(
+                                    Level.WARNING,
+                                    "Item doctor could not safely read dynamic state for Slimefun item " + itemId + '.',
+                                    ex);
                 }
 
-                boolean entityStateAvailable = !(sfItem instanceof AbstractMonsterSpawner)
-                        || state.entityType != null;
+                boolean entityStateAvailable = !(sfItem instanceof AbstractMonsterSpawner) || state.entityType != null;
                 boolean authoritativeLoreRepair = stateCaptured
                         && state.safelyRestorable
                         && entityStateAvailable
@@ -188,8 +182,8 @@ public final class ItemPresentationDoctor {
                     repairedLore = ItemDoctorText.mergeConservativeEnglishLore(
                             currentLore, canonicalLore, state::canRestoreDynamicLine);
                 } else {
-                    repairedLore = ItemDoctorText.mergeConservativeEnglishLore(
-                            currentLore, canonicalLore, ignored -> false);
+                    repairedLore =
+                            ItemDoctorText.mergeConservativeEnglishLore(currentLore, canonicalLore, ignored -> false);
                 }
                 loreStillUnresolved = ItemDoctorText.containsCjk(repairedLore);
             }
@@ -239,10 +233,12 @@ public final class ItemPresentationDoctor {
             } catch (RuntimeException | LinkageError rollbackError) {
                 ex.addSuppressed(rollbackError);
             }
-            Slimefun.logger().log(
-                    Level.WARNING,
-                    "Item doctor could not repair Slimefun item " + itemId + "; its original metadata was restored.",
-                    ex);
+            Slimefun.logger()
+                    .log(
+                            Level.WARNING,
+                            "Item doctor could not repair Slimefun item " + itemId
+                                    + "; its original metadata was restored.",
+                            ex);
             return false;
         }
     }
@@ -282,10 +278,12 @@ public final class ItemPresentationDoctor {
             } catch (RuntimeException | LinkageError rollbackError) {
                 ex.addSuppressed(rollbackError);
             }
-            Slimefun.logger().log(
-                    Level.WARNING,
-                    "Item doctor could not safely repair the display name of orphaned Slimefun item " + itemId + '.',
-                    ex);
+            Slimefun.logger()
+                    .log(
+                            Level.WARNING,
+                            "Item doctor could not safely repair the display name of orphaned Slimefun item " + itemId
+                                    + '.',
+                            ex);
             return false;
         }
     }
@@ -611,13 +609,11 @@ public final class ItemPresentationDoctor {
                     continue;
                 }
                 String normalized = plain.trim();
-                if (normalized.equals("\u7075\u9B42\u7ED1\u5B9A")
-                        || normalized.equals("\u9748\u9B42\u7D81\u5B9A")) {
+                if (normalized.equals("\u7075\u9B42\u7ED1\u5B9A") || normalized.equals("\u9748\u9B42\u7D81\u5B9A")) {
                     return true;
                 }
             }
             return false;
         }
     }
-
 }

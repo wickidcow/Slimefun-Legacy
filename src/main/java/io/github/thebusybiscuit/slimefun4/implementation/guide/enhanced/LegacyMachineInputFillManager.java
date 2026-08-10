@@ -181,7 +181,9 @@ public final class LegacyMachineInputFillManager {
             return;
         }
         if (!slotsAreDisjoint(inputSlots, protectedSlots)) {
-            send(player, ChatColor.RED + "This machine adapter overlaps input and protected slots, so filling was blocked.");
+            send(
+                    player,
+                    ChatColor.RED + "This machine adapter overlaps input and protected slots, so filling was blocked.");
             return;
         }
 
@@ -225,7 +227,8 @@ public final class LegacyMachineInputFillManager {
             } catch (RuntimeException exception) {
                 restore(playerInventory, originalPlayer, menu, inputSlots, originalMachine);
                 player.updateInventory();
-                plugin.getLogger().log(Level.SEVERE, "Could not commit an enhanced-guide machine input fill", exception);
+                plugin.getLogger()
+                        .log(Level.SEVERE, "Could not commit an enhanced-guide machine input fill", exception);
                 send(player, ChatColor.RED + "The transfer was cancelled and both inventories were restored.");
                 return;
             }
@@ -352,8 +355,7 @@ public final class LegacyMachineInputFillManager {
 
         ItemStack expected = registered.get(registeredIndex);
         for (int displayedIndex = 0; displayedIndex < displayed.size(); displayedIndex++) {
-            if (usedDisplayed[displayedIndex]
-                    || !anyChoiceMatches(displayed.get(displayedIndex), expected, matcher)) {
+            if (usedDisplayed[displayedIndex] || !anyChoiceMatches(displayed.get(displayedIndex), expected, matcher)) {
                 continue;
             }
             usedDisplayed[displayedIndex] = true;
@@ -366,13 +368,9 @@ public final class LegacyMachineInputFillManager {
     }
 
     private static boolean anyChoiceMatches(
-            @Nonnull List<ItemStack> choices,
-            @Nonnull ItemStack expected,
-            @Nonnull IngredientMatcher matcher) {
+            @Nonnull List<ItemStack> choices, @Nonnull ItemStack expected, @Nonnull IngredientMatcher matcher) {
         for (ItemStack choice : choices) {
-            if (!isEmpty(choice)
-                    && choice.getAmount() == expected.getAmount()
-                    && matcher.matches(choice, expected)) {
+            if (!isEmpty(choice) && choice.getAmount() == expected.getAmount() && matcher.matches(choice, expected)) {
                 return true;
             }
         }
@@ -380,9 +378,7 @@ public final class LegacyMachineInputFillManager {
     }
 
     private static boolean matchesStacks(
-            @Nonnull List<ItemStack> registered,
-            @Nonnull List<ItemStack> displayed,
-            @Nonnull StackMatcher matcher) {
+            @Nonnull List<ItemStack> registered, @Nonnull List<ItemStack> displayed, @Nonnull StackMatcher matcher) {
         if (registered.size() != displayed.size()) {
             return false;
         }
@@ -424,7 +420,8 @@ public final class LegacyMachineInputFillManager {
         for (int index = 0; index < inputs.size(); index++) {
             List<ItemStack> choices = inputs.get(index).getChoices();
             int selectedIndex = index < selectedAlternatives.length ? selectedAlternatives[index] : 0;
-            selected.add(choices.get(Math.floorMod(selectedIndex, choices.size())).clone());
+            selected.add(
+                    choices.get(Math.floorMod(selectedIndex, choices.size())).clone());
         }
         return List.copyOf(selected);
     }
@@ -523,9 +520,8 @@ public final class LegacyMachineInputFillManager {
             }
 
             int deficit = required - currentAmount;
-            ItemStack template = current == null
-                    ? findTemplate(player, expected, deficit, matcher, stackMatcher)
-                    : current.clone();
+            ItemStack template =
+                    current == null ? findTemplate(player, expected, deficit, matcher, stackMatcher) : current.clone();
             if (template == null) {
                 missing.add(new MissingIngredient(expected.clone(), deficit, countMatching(player, expected, matcher)));
                 continue;
@@ -536,7 +532,8 @@ public final class LegacyMachineInputFillManager {
 
             int maximumStack = maxStackResolver.resolve(template);
             if (required > maximumStack) {
-                return FillPlan.failure("The machine input slots cannot hold " + sets + " full recipe sets.", List.of());
+                return FillPlan.failure(
+                        "The machine input slots cannot hold " + sets + " full recipe sets.", List.of());
             }
 
             int extracted = removeMatching(player, expected, template, deficit, matcher, stackMatcher);
@@ -562,17 +559,15 @@ public final class LegacyMachineInputFillManager {
     }
 
     private static @Nullable int[] assignMachineSlots(
-            @Nonnull ItemStack[] machine,
-            @Nonnull List<ItemStack> requirements,
-            @Nonnull IngredientMatcher matcher) {
+            @Nonnull ItemStack[] machine, @Nonnull List<ItemStack> requirements, @Nonnull IngredientMatcher matcher) {
         List<Integer> occupied = new ArrayList<>();
         for (int slot = 0; slot < machine.length; slot++) {
             if (!isEmpty(machine[slot])) {
                 occupied.add(slot);
             }
         }
-        occupied.sort(Comparator.comparingInt(
-                (Integer slot) -> matchingRequirements(machine[slot], requirements, matcher)));
+        occupied.sort(
+                Comparator.comparingInt((Integer slot) -> matchingRequirements(machine[slot], requirements, matcher)));
 
         int[] assignment = new int[machine.length];
         Arrays.fill(assignment, -1);
@@ -612,9 +607,7 @@ public final class LegacyMachineInputFillManager {
     }
 
     private static int matchingRequirements(
-            @Nonnull ItemStack current,
-            @Nonnull List<ItemStack> requirements,
-            @Nonnull IngredientMatcher matcher) {
+            @Nonnull ItemStack current, @Nonnull List<ItemStack> requirements, @Nonnull IngredientMatcher matcher) {
         int matches = 0;
         for (ItemStack requirement : requirements) {
             if (matcher.matches(current, requirement)) {
@@ -721,13 +714,11 @@ public final class LegacyMachineInputFillManager {
 
     static boolean matchesRecipeInput(@Nullable ItemStack actual, @Nonnull ItemStack expected) {
         return !isEmpty(actual)
-                && Slimefun.getItemStackService()
-                        .isSimilar(actual, expected, MatchContext.RECIPE_INPUT, true, false);
+                && Slimefun.getItemStackService().isSimilar(actual, expected, MatchContext.RECIPE_INPUT, true, false);
     }
 
     static boolean canStackTogether(@Nonnull ItemStack first, @Nonnull ItemStack second) {
-        ComparisonResult comparison =
-                Slimefun.getItemStackService().matches(first, second, MatchContext.STACK_MERGE);
+        ComparisonResult comparison = Slimefun.getItemStackService().matches(first, second, MatchContext.STACK_MERGE);
         if (comparison == ComparisonResult.MATCH) {
             return true;
         }
@@ -920,10 +911,7 @@ public final class LegacyMachineInputFillManager {
             List<MissingIngredient> missing) {
 
         static @Nonnull FillPlan success(
-                @Nonnull ItemStack[] playerContents,
-                @Nonnull ItemStack[] machineContents,
-                int sets,
-                int movedItems) {
+                @Nonnull ItemStack[] playerContents, @Nonnull ItemStack[] machineContents, int sets, int movedItems) {
             return new FillPlan(
                     true,
                     "",

@@ -74,14 +74,12 @@ public class RecordSet {
      * @deprecated use {@link #getValue(FieldKey)}
      */
     @Deprecated
-    @Nullable
-    @ParametersAreNonnullByDefault
+    @Nullable @ParametersAreNonnullByDefault
     public String get(FieldKey key) {
         return valueAsString(data.get(key));
     }
 
-    @Nullable
-    @ParametersAreNonnullByDefault
+    @Nullable @ParametersAreNonnullByDefault
     public Object getValue(FieldKey key) {
         return data.get(key);
     }
@@ -139,7 +137,6 @@ public class RecordSet {
         }
         return String.valueOf(value);
     }
-
 
     private void checkReadonly() {
         if (readonly) {

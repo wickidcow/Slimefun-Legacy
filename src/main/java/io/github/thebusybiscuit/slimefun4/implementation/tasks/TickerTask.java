@@ -63,6 +63,7 @@ public class TickerTask implements Runnable {
      * Locations whose {@link me.mrCookieSlime.Slimefun.api.inventory.BlockMenu} is currently being viewed.
      */
     private final Set<BlockPosition> viewedInventories = ConcurrentHashMap.newKeySet();
+
     private final Set<BlockPosition> queuedSynchronousTicks = ConcurrentHashMap.newKeySet();
     private final Map<BlockTicker, Object> foliaTickerLocks = new ConcurrentHashMap<>();
     private final MachineCircuitBreaker<BlockPosition> circuitBreaker = new MachineCircuitBreaker<>();
@@ -180,10 +181,11 @@ public class TickerTask implements Runnable {
 
             Location anchor = locations.iterator().next().getLocation();
             if (regionOwned && !Slimefun.getSchedulerService().isOwnedByCurrentRegion(anchor)) {
-                Slimefun.logger().log(
-                        Level.SEVERE,
-                        "Skipped a machine chunk tick because Folia ownership was not held for {0}.",
-                        new BlockPosition(anchor));
+                Slimefun.logger()
+                        .log(
+                                Level.SEVERE,
+                                "Skipped a machine chunk tick because Folia ownership was not held for {0}.",
+                                new BlockPosition(anchor));
                 return;
             }
 
@@ -199,10 +201,11 @@ public class TickerTask implements Runnable {
                 }
             }
         } catch (ArrayIndexOutOfBoundsException | NumberFormatException exception) {
-            Slimefun.logger().log(
-                    Level.SEVERE,
-                    exception,
-                    () -> "An Exception has occurred while trying to resolve Chunk: " + chunk);
+            Slimefun.logger()
+                    .log(
+                            Level.SEVERE,
+                            exception,
+                            () -> "An Exception has occurred while trying to resolve Chunk: " + chunk);
         }
     }
 
@@ -218,8 +221,7 @@ public class TickerTask implements Runnable {
     }
 
     @ParametersAreNonnullByDefault
-    private void tickUniversalLocation(
-            UUID uuid, Location location, Set<BlockTicker> tickers, boolean regionOwned) {
+    private void tickUniversalLocation(UUID uuid, Location location, Set<BlockTicker> tickers, boolean regionOwned) {
         BlockPosition position = new BlockPosition(location);
         var data = StorageCacheUtils.getUniversalBlock(uuid);
         if (data == null || !data.isDataLoaded() || data.isPendingRemove()) {
@@ -345,11 +347,12 @@ public class TickerTask implements Runnable {
     }
 
     private void failCycle(Throwable throwable) {
-        Slimefun.logger().log(
-                Level.SEVERE,
-                throwable,
-                () -> "An Exception was caught while ticking the Block Tickers Task for Slimefun v"
-                        + Slimefun.getVersion());
+        Slimefun.logger()
+                .log(
+                        Level.SEVERE,
+                        throwable,
+                        () -> "An Exception was caught while ticking the Block Tickers Task for Slimefun v"
+                                + Slimefun.getVersion());
         finishCycle(Collections.emptySet());
     }
 
@@ -364,10 +367,11 @@ public class TickerTask implements Runnable {
                 Long previous = tickerLifecycleLogTimes.putIfAbsent(ticker, now);
                 if (previous == null || now - previous >= cooldown) {
                     tickerLifecycleLogTimes.put(ticker, now);
-                    Slimefun.logger().log(
-                            Level.SEVERE,
-                            "A BlockTicker failed while starting a new tick cycle. Repeated reports are rate-limited.",
-                            throwable);
+                    Slimefun.logger()
+                            .log(
+                                    Level.SEVERE,
+                                    "A BlockTicker failed while starting a new tick cycle. Repeated reports are rate-limited.",
+                                    throwable);
                 }
             }
         }
@@ -411,10 +415,11 @@ public class TickerTask implements Runnable {
             circuitBreaker.open(position, retryAfter);
             bugs.remove(position);
             failureTracker.recordFailure(position, l, item, x, 1, now, retryAfter, true);
-            Slimefun.logger().log(
-                    Level.SEVERE,
-                    "The retry for machine {0} at {1}, {2}, {3} failed; its circuit has been reopened for {4} seconds.",
-                    new Object[] {item.getId(), l.getBlockX(), l.getBlockY(), l.getBlockZ(), cooldownSeconds});
+            Slimefun.logger()
+                    .log(
+                            Level.SEVERE,
+                            "The retry for machine {0} at {1}, {2}, {3} failed; its circuit has been reopened for {4} seconds.",
+                            new Object[] {item.getId(), l.getBlockX(), l.getBlockY(), l.getBlockZ(), cooldownSeconds});
             return;
         }
 
@@ -436,13 +441,15 @@ public class TickerTask implements Runnable {
             Slimefun.logger().log(Level.SEVERE, "X: {0} Y: {1} Z: {2} ({3})", new Object[] {
                 l.getBlockX(), l.getBlockY(), l.getBlockZ(), item.getId()
             });
-            Slimefun.logger().log(
-                    Level.SEVERE,
-                    "This machine failed {0} consecutive ticks and has been paused for {1} seconds.",
-                    new Object[] {threshold, cooldownSeconds});
-            Slimefun.logger().log(
-                    Level.SEVERE,
-                    "It will be retried automatically. The ticker registration and stored machine data were preserved.");
+            Slimefun.logger()
+                    .log(
+                            Level.SEVERE,
+                            "This machine failed {0} consecutive ticks and has been paused for {1} seconds.",
+                            new Object[] {threshold, cooldownSeconds});
+            Slimefun.logger()
+                    .log(
+                            Level.SEVERE,
+                            "It will be retried automatically. The ticker registration and stored machine data were preserved.");
         }
 
         failureTracker.recordFailure(position, l, item, x, errors, now, pausedUntil, suppressFullReport);

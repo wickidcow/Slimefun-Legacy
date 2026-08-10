@@ -127,16 +127,12 @@ public class AutoDisenchanter extends AbstractEnchantmentMachine {
     private @Nullable MachineRecipe disenchantSafely(BlockMenu menu, ItemStack item, ItemStack book) {
         AdvancedEnchantmentsIntegration advancedEnchantments =
                 Slimefun.getIntegrations().getAdvancedEnchantments();
-        Map<String, Integer> customEnchantments = advancedEnchantments == null
-                ? Collections.emptyMap()
-                : advancedEnchantments.getEnchantments(item);
+        Map<String, Integer> customEnchantments =
+                advancedEnchantments == null ? Collections.emptyMap() : advancedEnchantments.getEnchantments(item);
         int totalEnchantments = item.getEnchantments().size() + customEnchantments.size();
         if (totalEnchantments == 0) {
             EnchantmentMachineRuntime.status(
-                    menu,
-                    Material.BARRIER,
-                    "&eNothing to extract",
-                    "&7The item has no supported enchantments.");
+                    menu, Material.BARRIER, "&eNothing to extract", "&7The item has no supported enchantments.");
             return null;
         }
         if (!isEnchantmentCountAllowed(totalEnchantments)) {
@@ -185,10 +181,7 @@ public class AutoDisenchanter extends AbstractEnchantmentMachine {
         }
         if (enchantments.isEmpty()) {
             EnchantmentMachineRuntime.status(
-                    menu,
-                    Material.BARRIER,
-                    "&eNothing to extract",
-                    "&7No compatible Bukkit enchantments were found.");
+                    menu, Material.BARRIER, "&eNothing to extract", "&7No compatible Bukkit enchantments were found.");
             return null;
         }
 
@@ -220,25 +213,15 @@ public class AutoDisenchanter extends AbstractEnchantmentMachine {
                 new ItemStack[] {EnchantmentMachineRuntime.one(book), EnchantmentMachineRuntime.one(item)},
                 new ItemStack[] {disenchantedItem, enchantedBook});
         if (!Slimefun.getItemStackService()
-                .fitAll(
-                        menu.toInventory(),
-                        recipe.getOutput(),
-                        InventoryContext.MACHINE_OUTPUT,
-                        getOutputSlots())) {
+                .fitAll(menu.toInventory(), recipe.getOutput(), InventoryContext.MACHINE_OUTPUT, getOutputSlots())) {
             EnchantmentMachineRuntime.status(
-                    menu,
-                    Material.BARRIER,
-                    "&cOutput full",
-                    "&7Clear both output slots before disenchanting.");
+                    menu, Material.BARRIER, "&cOutput full", "&7Clear both output slots before disenchanting.");
             return null;
         }
 
         if (!EnchantmentMachineRuntime.consumeOneEach(menu, getInputSlots())) {
             EnchantmentMachineRuntime.status(
-                    menu,
-                    Material.BARRIER,
-                    "&cInputs changed",
-                    "&7The operation was cancelled before consumption.");
+                    menu, Material.BARRIER, "&cInputs changed", "&7The operation was cancelled before consumption.");
             return null;
         }
         return recipe;
@@ -274,8 +257,7 @@ public class AutoDisenchanter extends AbstractEnchantmentMachine {
     }
 
     @ParametersAreNonnullByDefault
-    private boolean transferWasComplete(
-            ItemStack item, ItemStack book, Map<Enchantment, Integer> enchantments) {
+    private boolean transferWasComplete(ItemStack item, ItemStack book, Map<Enchantment, Integer> enchantments) {
         if (!(book.getItemMeta() instanceof EnchantmentStorageMeta bookMeta)) {
             return false;
         }

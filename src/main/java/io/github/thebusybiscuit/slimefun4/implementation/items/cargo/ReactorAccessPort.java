@@ -72,7 +72,13 @@ public class ReactorAccessPort extends SlimefunItem {
                 if (reactor != null) {
                     menu.replaceExistingItem(
                             INFO_SLOT,
-                            new CustomItemStack(Material.GREEN_WOOL, "&7Reactor", "", "&6Detected", "", "&7> Click to view Reactor"));
+                            new CustomItemStack(
+                                    Material.GREEN_WOOL,
+                                    "&7Reactor",
+                                    "",
+                                    "&6Detected",
+                                    "",
+                                    "&7> Click to view Reactor"));
                     menu.addMenuClickHandler(INFO_SLOT, (p, slot, item, action) -> {
                         if (reactor != null) {
                             reactor.open(p);
@@ -151,16 +157,31 @@ public class ReactorAccessPort extends SlimefunItem {
 
         preset.addItem(
                 1,
-                new CustomItemStack(SlimefunItems.URANIUM, "&7Fuel Slot", "", "&rThis Slot accepts radioactive Fuel such as:", "&2Uranium &ror &aNeptunium"),
+                new CustomItemStack(
+                        SlimefunItems.URANIUM,
+                        "&7Fuel Slot",
+                        "",
+                        "&rThis Slot accepts radioactive Fuel such as:",
+                        "&2Uranium &ror &aNeptunium"),
                 ChestMenuUtils.getEmptyClickHandler());
         preset.addItem(
                 22,
-                new CustomItemStack(SlimefunItems.PLUTONIUM, "&7Byproduct Slot", "", "&rThis Slot contains the Reactor's Byproduct", "&rsuch as &aNeptunium &ror &7Plutonium"),
+                new CustomItemStack(
+                        SlimefunItems.PLUTONIUM,
+                        "&7Byproduct Slot",
+                        "",
+                        "&rThis Slot contains the Reactor's Byproduct",
+                        "&rsuch as &aNeptunium &ror &7Plutonium"),
                 ChestMenuUtils.getEmptyClickHandler());
         preset.addItem(
                 7,
                 new CustomItemStack(
-                        SlimefunItems.REACTOR_COOLANT_CELL, "&bCoolant Slot", "", "&rThis Slot accepts Coolant Cells", "&4Without any Coolant Cells, your Reactor", "&4will explode"),
+                        SlimefunItems.REACTOR_COOLANT_CELL,
+                        "&bCoolant Slot",
+                        "",
+                        "&rThis Slot accepts Coolant Cells",
+                        "&4Without any Coolant Cells, your Reactor",
+                        "&4will explode"),
                 ChestMenuUtils.getEmptyClickHandler());
     }
 

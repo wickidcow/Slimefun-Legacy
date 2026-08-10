@@ -71,7 +71,8 @@ class VersionsCommand extends SubCommand {
     @Override
     public void onExecute(@Nonnull CommandSender sender, @Nonnull String[] args) {
         if (sender.hasPermission("slimefun.command.versions") || sender instanceof ConsoleCommandSender) {
-            PlatformProfile platformProfile = Slimefun.getPlatformCompatibilityService().getProfile();
+            PlatformProfile platformProfile =
+                    Slimefun.getPlatformCompatibilityService().getProfile();
             String serverSoftware = platformProfile.getSoftwareName();
             String schedulerPlatform = platformProfile.isRegionOwnedExecution() ? "Region-owned" : "Main-thread";
             String capabilitySummary = platformProfile.getCapabilities().stream()
@@ -103,7 +104,9 @@ class VersionsCommand extends SubCommand {
                     .append(Component.text("Slimefun ", Style.style(NamedTextColor.GREEN)))
                     .append(Component.text(
                             Slimefun.getVersion()
-                                    + (Slimefun.getVersion().toLowerCase(Locale.ROOT).contains("release")
+                                    + (Slimefun.getVersion()
+                                                    .toLowerCase(Locale.ROOT)
+                                                    .contains("release")
                                             ? ""
                                             : " @" + EnvUtil.getBranch())
                                     + '\n',
@@ -181,9 +184,9 @@ class VersionsCommand extends SubCommand {
         }
     }
 
-    private void addAddonCompatibilitySummary(
-            @Nonnull net.kyori.adventure.text.TextComponent.Builder builder) {
-        List<AddonCompatibilityResult> results = Slimefun.getAddonCompatibilityService().getResults();
+    private void addAddonCompatibilitySummary(@Nonnull net.kyori.adventure.text.TextComponent.Builder builder) {
+        List<AddonCompatibilityResult> results =
+                Slimefun.getAddonCompatibilityService().getResults();
         AddonCompatibilitySummary summary = AddonCompatibilitySummary.from(results);
         int compatible = summary.getCount(AddonCompatibilityStatus.COMPATIBLE);
         int warning = summary.getCount(AddonCompatibilityStatus.WARNING);
@@ -205,7 +208,8 @@ class VersionsCommand extends SubCommand {
                 .count();
         long unknown = results.stream()
                 .filter(result -> result.getStatus() == AddonCompatibilityStatus.UNDECLARED)
-                .filter(result -> knownAddonRegistry.find(result.getPluginName()).isEmpty())
+                .filter(result ->
+                        knownAddonRegistry.find(result.getPluginName()).isEmpty())
                 .count();
 
         builder.append(Component.text("Compatibility: ", NamedTextColor.GREEN))
@@ -222,11 +226,11 @@ class VersionsCommand extends SubCommand {
                 .append(Component.text(incompatible + " Incompatible", NamedTextColor.RED))
                 .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
                 .append(Component.text(disabled + " Disabled\n", NamedTextColor.DARK_RED))
-                .append(Component.text("Hover an addon's status for compatibility details.\n", NamedTextColor.DARK_GRAY));
+                .append(Component.text(
+                        "Hover an addon's status for compatibility details.\n", NamedTextColor.DARK_GRAY));
     }
 
-    private void addExternalIntegrationSummary(
-            @Nonnull net.kyori.adventure.text.TextComponent.Builder builder) {
+    private void addExternalIntegrationSummary(@Nonnull net.kyori.adventure.text.TextComponent.Builder builder) {
         long detected = Slimefun.getExternalIntegrationService().getStatuses().stream()
                 .filter(status -> status.isDetected() && status.isEnabled())
                 .count();
@@ -235,7 +239,8 @@ class VersionsCommand extends SubCommand {
                 .count();
         if (detected > 0 || bridged > 0) {
             builder.append(Component.text("External systems ", NamedTextColor.GREEN))
-                    .append(Component.text(detected + " detected, " + bridged + " bridged\n", NamedTextColor.DARK_GREEN));
+                    .append(Component.text(
+                            detected + " detected, " + bridged + " bridged\n", NamedTextColor.DARK_GREEN));
         }
     }
 
@@ -272,9 +277,11 @@ class VersionsCommand extends SubCommand {
             }
         }
 
-        List<AddonRuntimeFailureSnapshot> guardedFailures = Slimefun.getAddonRuntimeHealthService().getFailures().stream()
-                .filter(failure -> addonNames.contains(failure.getPluginName().toLowerCase(Locale.ROOT)))
-                .toList();
+        List<AddonRuntimeFailureSnapshot> guardedFailures =
+                Slimefun.getAddonRuntimeHealthService().getFailures().stream()
+                        .filter(failure ->
+                                addonNames.contains(failure.getPluginName().toLowerCase(Locale.ROOT)))
+                        .toList();
         long observedGuardedFailures = guardedFailures.stream()
                 .mapToLong(AddonRuntimeFailureSnapshot::getObservedFailures)
                 .sum();
@@ -282,24 +289,24 @@ class VersionsCommand extends SubCommand {
         builder.append(Component.text("Addon dependency health: ", NamedTextColor.GREEN))
                 .append(Component.text(ready + " ready", NamedTextColor.DARK_GREEN))
                 .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
-                .append(Component.text(attention + " attention", attention == 0 ? NamedTextColor.DARK_GREEN : NamedTextColor.RED))
+                .append(Component.text(
+                        attention + " attention", attention == 0 ? NamedTextColor.DARK_GREEN : NamedTextColor.RED))
                 .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
-                .append(Component.text(unknown + " unknown", unknown == 0 ? NamedTextColor.DARK_GREEN : NamedTextColor.YELLOW))
+                .append(Component.text(
+                        unknown + " unknown", unknown == 0 ? NamedTextColor.DARK_GREEN : NamedTextColor.YELLOW))
                 .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
-                .append(Component.text(providerAliasAddons + " provider-alias", providerAliasAddons == 0
-                        ? NamedTextColor.DARK_GREEN
-                        : NamedTextColor.YELLOW))
+                .append(Component.text(
+                        providerAliasAddons + " provider-alias",
+                        providerAliasAddons == 0 ? NamedTextColor.DARK_GREEN : NamedTextColor.YELLOW))
                 .append(Component.text("\n"));
         builder.append(Component.text("Guarded addon callbacks: ", NamedTextColor.GREEN))
                 .append(Component.text(
-                        guardedFailures.size() + " addon(s) with failures", guardedFailures.isEmpty()
-                                ? NamedTextColor.DARK_GREEN
-                                : NamedTextColor.YELLOW))
+                        guardedFailures.size() + " addon(s) with failures",
+                        guardedFailures.isEmpty() ? NamedTextColor.DARK_GREEN : NamedTextColor.YELLOW))
                 .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
                 .append(Component.text(
-                        observedGuardedFailures + " observed", observedGuardedFailures == 0
-                                ? NamedTextColor.DARK_GREEN
-                                : NamedTextColor.YELLOW))
+                        observedGuardedFailures + " observed",
+                        observedGuardedFailures == 0 ? NamedTextColor.DARK_GREEN : NamedTextColor.YELLOW))
                 .append(Component.text("\n", NamedTextColor.DARK_GRAY));
         builder.append(Component.text(
                 "Boundary evidence is observational: Slimefun does not intercept arbitrary third-party plugin startup failures.\n",
@@ -319,12 +326,14 @@ class VersionsCommand extends SubCommand {
             case COMPATIBLE -> {
                 color = NamedTextColor.DARK_GREEN;
                 label = "Compatible";
-                explanation = "This addon declared compatibility and passed the current Slimefun Legacy runtime checks.";
+                explanation =
+                        "This addon declared compatibility and passed the current Slimefun Legacy runtime checks.";
             }
             case WARNING -> {
                 color = NamedTextColor.YELLOW;
                 label = "Warning";
-                explanation = "No hard incompatibility was detected, but one or more compatibility warnings need review.";
+                explanation =
+                        "No hard incompatibility was detected, but one or more compatibility warnings need review.";
             }
             case UNDECLARED -> {
                 if (knownSupport.isPresent()) {
@@ -332,9 +341,10 @@ class VersionsCommand extends SubCommand {
                     if (support.isCiMonitored()) {
                         color = NamedTextColor.AQUA;
                         label = "Known";
-                        explanation = "Slimefun Legacy recognizes this addon family and monitors it in compatibility CI. "
-                                + "The exact installed JAR did not declare compatibility, so this is useful evidence but "
-                                + "not a guarantee for this exact build.";
+                        explanation =
+                                "Slimefun Legacy recognizes this addon family and monitors it in compatibility CI. "
+                                        + "The exact installed JAR did not declare compatibility, so this is useful evidence but "
+                                        + "not a guarantee for this exact build.";
                     } else {
                         color = NamedTextColor.BLUE;
                         label = "Recognized";
@@ -344,9 +354,10 @@ class VersionsCommand extends SubCommand {
                 } else {
                     color = NamedTextColor.GRAY;
                     label = "Unknown";
-                    explanation = "Slimefun detected this as an addon, but it has no Legacy compatibility declaration and "
-                            + "is not currently mapped to the Legacy addon recognition registry. This does not mean it is "
-                            + "incompatible.";
+                    explanation =
+                            "Slimefun detected this as an addon, but it has no Legacy compatibility declaration and "
+                                    + "is not currently mapped to the Legacy addon recognition registry. This does not mean it is "
+                                    + "incompatible.";
                 }
             }
             case DISABLED -> {
@@ -371,20 +382,21 @@ class VersionsCommand extends SubCommand {
                 .append(explanation)
                 .append("\nCompatibility source: ")
                 .append(result.getSource().getDisplayName());
-        knownSupport.ifPresent(support -> hoverText.append("\nLegacy registry: ")
+        knownSupport.ifPresent(support -> hoverText
+                .append("\nLegacy registry: ")
                 .append(support.displayName())
                 .append(" (")
                 .append(support.getTierDisplayName())
                 .append(", ")
                 .append(support.slug())
                 .append(')'));
-        appendBoundaryEvidence(hoverText, dependencySnapshot, runtimeFailure, result.getStatus() == AddonCompatibilityStatus.DISABLED);
+        appendBoundaryEvidence(
+                hoverText, dependencySnapshot, runtimeFailure, result.getStatus() == AddonCompatibilityStatus.DISABLED);
         if (!result.getMessages().isEmpty()) {
             hoverText.append("\n\nDetails:\n- ").append(String.join("\n- ", result.getMessages()));
         }
 
-        return Component.text(label, color)
-                .hoverEvent(HoverEvent.showText(Component.text(hoverText.toString())));
+        return Component.text(label, color).hoverEvent(HoverEvent.showText(Component.text(hoverText.toString())));
     }
 
     private Component uncheckedCompatibilityComponent(
@@ -412,38 +424,44 @@ class VersionsCommand extends SubCommand {
             long aliases = snapshot.getRequiredDependencies().stream()
                     .filter(PluginDependencyResolution::isProviderAlias)
                     .count();
-            hoverText.append("\nHard dependencies: ")
-                    .append(problems == 0 ? "Ready" : problems + " problem(s)");
+            hoverText.append("\nHard dependencies: ").append(problems == 0 ? "Ready" : problems + " problem(s)");
             for (PluginDependencyResolution dependency : snapshot.getRequiredDependencies()) {
                 if (dependency.isProblem()) {
-                    hoverText.append("\n- ")
+                    hoverText
+                            .append("\n- ")
                             .append(dependency.getDeclaredName())
                             .append(": ")
                             .append(dependency.getState().name().toLowerCase(Locale.ROOT));
                 }
             }
             if (aliases > 0) {
-                hoverText.append("\nProvider aliases: ").append(aliases)
+                hoverText
+                        .append("\nProvider aliases: ")
+                        .append(aliases)
                         .append(" (descriptor resolution only; not Java/API proof)");
             }
             if (disabled) {
                 if (problems > 0) {
-                    hoverText.append("\nStartup evidence: a missing/disabled declared hard dependency can prevent enable.");
+                    hoverText.append(
+                            "\nStartup evidence: a missing/disabled declared hard dependency can prevent enable.");
                 } else {
-                    hoverText.append("\nStartup evidence: declared hard dependencies are satisfied. ")
+                    hoverText
+                            .append("\nStartup evidence: declared hard dependencies are satisfied. ")
                             .append("Slimefun cannot infer the plugin-side startup cause; inspect the console/config.");
                 }
             }
         } else {
             hoverText.append("\nHard dependencies: metadata unavailable");
             if (disabled) {
-                hoverText.append("\nStartup evidence: Slimefun cannot infer the plugin-side startup cause; inspect the console/config.");
+                hoverText.append(
+                        "\nStartup evidence: Slimefun cannot infer the plugin-side startup cause; inspect the console/config.");
             }
         }
 
         if (runtimeFailure.isPresent()) {
             AddonRuntimeFailureSnapshot failure = runtimeFailure.orElseThrow();
-            hoverText.append("\nGuarded callbacks: ")
+            hoverText
+                    .append("\nGuarded callbacks: ")
                     .append(failure.getObservedFailures())
                     .append(" failure(s)")
                     .append("\nLast guarded failure: ")
@@ -459,7 +477,8 @@ class VersionsCommand extends SubCommand {
             hoverText.append("\nGuarded callbacks: no failures observed");
         }
 
-        hoverText.append("\nScope: guarded callbacks only; arbitrary Paper plugin onEnable failures are not intercepted.");
+        hoverText.append(
+                "\nScope: guarded callbacks only; arbitrary Paper plugin onEnable failures are not intercepted.");
     }
 
     private Component boundaryMarkers(
@@ -492,11 +511,16 @@ class VersionsCommand extends SubCommand {
         }
 
         if (!addon.isEnabled()
-                && dependencySnapshot.map(snapshot -> !snapshot.hasRequiredDependencyProblems()).orElse(true)) {
-            markers.append(Component.text(" · Startup?", NamedTextColor.GRAY)
-                    .hoverEvent(HoverEvent.showText(Component.text(
-                            "The addon is disabled, but Slimefun did not find a declared hard-dependency problem.\n"
-                                    + "Slimefun does not intercept arbitrary third-party plugin startup failures; inspect the console/config."))));
+                && dependencySnapshot
+                        .map(snapshot -> !snapshot.hasRequiredDependencyProblems())
+                        .orElse(true)) {
+            markers.append(
+                    Component.text(" · Startup?", NamedTextColor.GRAY)
+                            .hoverEvent(
+                                    HoverEvent.showText(
+                                            Component.text(
+                                                    "The addon is disabled, but Slimefun did not find a declared hard-dependency problem.\n"
+                                                            + "Slimefun does not intercept arbitrary third-party plugin startup failures; inspect the console/config."))));
             added = true;
         }
 
@@ -513,7 +537,9 @@ class VersionsCommand extends SubCommand {
                         .append(dependency.getState().name().toLowerCase(Locale.ROOT));
             }
         }
-        text.append("\nUse /sf doctor dependencies ").append(snapshot.getPluginName()).append(" for details.");
+        text.append("\nUse /sf doctor dependencies ")
+                .append(snapshot.getPluginName())
+                .append(" for details.");
         return text.toString();
     }
 
@@ -571,7 +597,8 @@ class VersionsCommand extends SubCommand {
             @Nonnull Collection<Plugin> addons,
             @Nonnull PluginDependencyDiagnosticsService dependencies) {
         if (addons.isEmpty()) {
-            builder.append(Component.text("No addon plugins installed", NamedTextColor.GRAY).decorate(TextDecoration.ITALIC));
+            builder.append(Component.text("No addon plugins installed", NamedTextColor.GRAY)
+                    .decorate(TextDecoration.ITALIC));
             return;
         }
 
@@ -645,7 +672,8 @@ class VersionsCommand extends SubCommand {
                                 .append(Component.text(
                                         "This plugin is disabled.\nCheck the console for errors.", NamedTextColor.RED))
                                 .append(Component.text(
-                                        "\n> The plugin provided an invalid issue tracker URL", NamedTextColor.DARK_RED))
+                                        "\n> The plugin provided an invalid issue tracker URL",
+                                        NamedTextColor.DARK_RED))
                                 .build();
                         hoverEvent = HoverEvent.showText(hoverComp);
                     }
@@ -655,7 +683,8 @@ class VersionsCommand extends SubCommand {
                 }
             }
 
-            Component nameComp = Component.text("\n  " + addonPlugin.getName(), primaryColor).hoverEvent(hoverEvent);
+            Component nameComp =
+                    Component.text("\n  " + addonPlugin.getName(), primaryColor).hoverEvent(hoverEvent);
             if (clickEvent != null) {
                 nameComp = nameComp.clickEvent(clickEvent);
             }

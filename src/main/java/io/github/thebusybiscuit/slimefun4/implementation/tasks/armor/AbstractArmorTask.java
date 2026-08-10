@@ -35,9 +35,8 @@ public abstract class AbstractArmorTask implements Runnable {
             return;
         }
 
-        PlayerProfile.find(player).ifPresentOrElse(
-                profile -> onPlayerTick(player, profile),
-                () -> PlayerProfile.request(player));
+        PlayerProfile.find(player)
+                .ifPresentOrElse(profile -> onPlayerTick(player, profile), () -> PlayerProfile.request(player));
     }
 
     /**

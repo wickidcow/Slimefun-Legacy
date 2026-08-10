@@ -31,14 +31,11 @@ public final class DefaultPlatformCompatibilityService implements PlatformCompat
      * @deprecated use {@link #initialize(Server)} so all probes share one detector
      */
     @Deprecated(since = "4.1.20", forRemoval = false)
-    @SlimefunDeprecated(
-            since = "4.1.20",
-            replacement = "initialize(org.bukkit.Server)")
+    @SlimefunDeprecated(since = "4.1.20", replacement = "initialize(org.bukkit.Server)")
     public void initialize(@Nonnull Server server, boolean regionOwnedExecution) {
         Set<PlatformCapability> detected = RuntimePlatformDetector.detectCapabilities(server);
-        EnumSet<PlatformCapability> capabilities = detected.isEmpty()
-                ? EnumSet.noneOf(PlatformCapability.class)
-                : EnumSet.copyOf(detected);
+        EnumSet<PlatformCapability> capabilities =
+                detected.isEmpty() ? EnumSet.noneOf(PlatformCapability.class) : EnumSet.copyOf(detected);
 
         if (regionOwnedExecution) {
             capabilities.add(PlatformCapability.REGION_OWNED_EXECUTION);
@@ -46,8 +43,7 @@ public final class DefaultPlatformCompatibilityService implements PlatformCompat
             capabilities.remove(PlatformCapability.REGION_OWNED_EXECUTION);
         }
 
-        PlatformFamily family = RuntimePlatformDetector.detectFamily(
-                server, capabilities, regionOwnedExecution);
+        PlatformFamily family = RuntimePlatformDetector.detectFamily(server, capabilities, regionOwnedExecution);
         PlatformSupportLevel supportLevel = RuntimePlatformDetector.supportLevel(family);
         String rawMinecraftVersion = server.getMinecraftVersion();
         MinecraftVersionNumber minecraftVersion =
@@ -77,6 +73,8 @@ public final class DefaultPlatformCompatibilityService implements PlatformCompat
     @Override
     public boolean isMinecraftVersionAtLeast(int major, int minor, int patch) {
         MinecraftVersionNumber minimum = new MinecraftVersionNumber(major, minor, patch);
-        return profile.getMinecraftVersion().map(version -> version.isAtLeast(minimum)).orElse(false);
+        return profile.getMinecraftVersion()
+                .map(version -> version.isAtLeast(minimum))
+                .orElse(false);
     }
 }

@@ -43,7 +43,11 @@ public class MagicEyeOfEnder extends SimpleSlimefunItem<ItemUseHandler> {
             } else {
                 // add message to warn player
                 Slimefun.getLocalization()
-                        .sendMessage(p, "messages.usage", true, msg -> msg.replace("%usage%", "Wear the full Ender Armor set to launch pearls"));
+                        .sendMessage(
+                                p,
+                                "messages.usage",
+                                true,
+                                msg -> msg.replace("%usage%", "Wear the full Ender Armor set to launch pearls"));
             }
         };
     }

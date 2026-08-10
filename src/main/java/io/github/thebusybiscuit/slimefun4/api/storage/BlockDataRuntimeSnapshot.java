@@ -97,7 +97,7 @@ public final class BlockDataRuntimeSnapshot {
     }
 
     public @Nonnull String getLifecycleSummary() {
-        return readyLifecycleChunks + " ready / " + unsafeLifecycleChunks + " unsafe / "
-                + untrackedLifecycleChunks + " untracked";
+        return readyLifecycleChunks + " ready / " + unsafeLifecycleChunks + " unsafe / " + untrackedLifecycleChunks
+                + " untracked";
     }
 }

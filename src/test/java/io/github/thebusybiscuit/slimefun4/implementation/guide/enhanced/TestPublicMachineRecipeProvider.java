@@ -62,7 +62,9 @@ class TestPublicMachineRecipeProvider {
         List<MachineRecipeDisplay> recipes = provider.getRecipesFromObject(machine, world());
 
         assertEquals(1, recipes.size());
-        assertEquals(Material.IRON_INGOT, recipes.get(0).getInputs().get(0).getChoices().get(0).getType());
+        assertEquals(
+                Material.IRON_INGOT,
+                recipes.get(0).getInputs().get(0).getChoices().get(0).getType());
         assertEquals(Material.GOLD_INGOT, recipes.get(0).getOutputs().get(0).getType());
     }
 
@@ -86,9 +88,7 @@ class TestPublicMachineRecipeProvider {
     public static final class SupremeStyleRecipe {
 
         public ItemStack[] getInput() {
-            return new ItemStack[] {
-                new ItemStack(Material.IRON_INGOT, 2), new ItemStack(Material.REDSTONE, 4)
-            };
+            return new ItemStack[] {new ItemStack(Material.IRON_INGOT, 2), new ItemStack(Material.REDSTONE, 4)};
         }
 
         public ItemStack[] getOutput() {

@@ -15,15 +15,7 @@ class TestCoreReadinessSnapshot {
         var reasons = new java.util.ArrayList<String>();
         reasons.add("Storage runtime is not ready");
         var snapshot = new CoreReadinessSnapshot(
-                CoreReadinessState.DEGRADED,
-                CoreLifecycleState.RUNNING,
-                true,
-                true,
-                false,
-                true,
-                0,
-                2,
-                reasons);
+                CoreReadinessState.DEGRADED, CoreLifecycleState.RUNNING, true, true, false, true, 0, 2, reasons);
         reasons.clear();
 
         assertEquals(CoreReadinessState.DEGRADED, snapshot.getState());

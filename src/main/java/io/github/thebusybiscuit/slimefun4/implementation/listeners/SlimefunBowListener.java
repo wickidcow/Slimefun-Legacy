@@ -68,10 +68,7 @@ public class SlimefunBowListener implements Listener {
 
         Slimefun.getSchedulerService()
                 .runForLater(
-                        projectile,
-                        () -> projectiles.remove(projectileId),
-                        () -> projectiles.remove(projectileId),
-                        4L);
+                        projectile, () -> projectiles.remove(projectileId), () -> projectiles.remove(projectileId), 4L);
     }
 
     @EventHandler(priority = EventPriority.HIGH)

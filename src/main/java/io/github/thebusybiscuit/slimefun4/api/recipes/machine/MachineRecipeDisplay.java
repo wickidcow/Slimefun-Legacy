@@ -71,15 +71,8 @@ public final class MachineRecipeDisplay {
         this.energyPerTick = energyPerTick;
     }
 
-    public MachineRecipeDisplay(
-            @Nonnull List<MachineRecipeIngredient> inputs, @Nonnull List<ItemStack> outputs) {
-        this(
-                inputs,
-                outputs,
-                MachineRecipeLayout.UNSPECIFIED,
-                UNKNOWN_PROCESSING_TICKS,
-                UNKNOWN_ENERGY_PER_TICK,
-                "");
+    public MachineRecipeDisplay(@Nonnull List<MachineRecipeIngredient> inputs, @Nonnull List<ItemStack> outputs) {
+        this(inputs, outputs, MachineRecipeLayout.UNSPECIFIED, UNKNOWN_PROCESSING_TICKS, UNKNOWN_ENERGY_PER_TICK, "");
     }
 
     @Nonnull

@@ -62,8 +62,7 @@ public final class PlatformRequirements {
 
         private MinecraftVersionNumber minimumMinecraftVersion;
         private int minimumJavaFeatureVersion;
-        private final EnumSet<PlatformCapability> requiredCapabilities =
-                EnumSet.noneOf(PlatformCapability.class);
+        private final EnumSet<PlatformCapability> requiredCapabilities = EnumSet.noneOf(PlatformCapability.class);
         private final EnumSet<PlatformFamily> acceptedFamilies = EnumSet.noneOf(PlatformFamily.class);
 
         private Builder() {}

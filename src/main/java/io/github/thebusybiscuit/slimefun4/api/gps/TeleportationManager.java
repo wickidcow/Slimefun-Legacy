@@ -267,8 +267,7 @@ public final class TeleportationManager {
                 source.getWorld().spawnParticle(Particle.PORTAL, source, progress * 2, 0.2F, 0.8F, 0.2F);
                 SoundEffect.TELEPORT_UPDATE_SOUND.playFor(p);
                 Slimefun.runSyncFor(
-                        p,
-                        () -> updateProgress(uuid, speed, progress + speed, source, destination, resistance), 10L);
+                        p, () -> updateProgress(uuid, speed, progress + speed, source, destination, resistance), 10L);
             }
         } else {
             cancel(uuid, p);

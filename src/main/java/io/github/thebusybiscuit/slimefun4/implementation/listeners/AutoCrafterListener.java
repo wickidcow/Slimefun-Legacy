@@ -74,8 +74,7 @@ public class AutoCrafterListener implements Listener {
                 // Check for the "doLimitedCrafting" gamerule when using a Vanilla Auto-Crafter
                 if (block instanceof VanillaAutoCrafter) {
                     // Check if the recipe of the item is disabled.
-                    if (isLimitedCrafting(e.getPlayer().getWorld())
-                            && !hasUnlockedRecipe(e.getPlayer(), e.getItem())) {
+                    if (isLimitedCrafting(e.getPlayer().getWorld()) && !hasUnlockedRecipe(e.getPlayer(), e.getItem())) {
                         Slimefun.getLocalization()
                                 .sendMessage(e.getPlayer(), "messages.auto-crafting.recipe-unavailable");
                         return;

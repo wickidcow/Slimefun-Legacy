@@ -417,15 +417,14 @@ public class PostgreSqlAdapter extends SqlCommonAdapter<PostgreSqlConfig> {
                 """, tableMetadataTable, FIELD_TABLE_METADATA_KEY, FIELD_TABLE_METADATA_VALUE));
 
         if (Slimefun.isNewlyInstalled()) {
-            executeSql(
-                    "INSERT INTO %s (%s, %s) VALUES ('%s', '%s') ON CONFLICT (%s) DO NOTHING;"
-                            .formatted(
-                                    tableMetadataTable,
-                                    FIELD_TABLE_METADATA_KEY,
-                                    FIELD_TABLE_METADATA_VALUE,
-                                    METADATA_VERSION,
-                                    IDataSourceAdapter.DATABASE_VERSION,
-                                    FIELD_TABLE_METADATA_KEY));
+            executeSql("INSERT INTO %s (%s, %s) VALUES ('%s', '%s') ON CONFLICT (%s) DO NOTHING;"
+                    .formatted(
+                            tableMetadataTable,
+                            FIELD_TABLE_METADATA_KEY,
+                            FIELD_TABLE_METADATA_VALUE,
+                            METADATA_VERSION,
+                            IDataSourceAdapter.DATABASE_VERSION,
+                            FIELD_TABLE_METADATA_KEY));
         }
     }
 }

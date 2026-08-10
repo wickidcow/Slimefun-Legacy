@@ -17,7 +17,8 @@ class MultiToolMode {
         multiTool.addItemSetting(item, enabled);
     }
 
-    @Nonnull String getItemId() {
+    @Nonnull
+    String getItemId() {
         return item.getValue();
     }
 

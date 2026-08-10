@@ -13,7 +13,6 @@ import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
 import io.github.thebusybiscuit.slimefun4.api.researches.Research;
 import io.github.thebusybiscuit.slimefun4.core.guide.GuideHistory;
 import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuide;
-import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuideMode;
 import io.github.thebusybiscuit.slimefun4.core.guide.options.SlimefunGuideSettings;
 import io.github.thebusybiscuit.slimefun4.core.multiblocks.MultiBlockMachine;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
@@ -152,7 +151,13 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
 
         int start = (safePage - 1) * contentSlots.size();
         for (int index = 0; index < contentSlots.size() && start + index < visibleItems.size(); index++) {
-            addSlimefunItem(menu, itemGroup, player, profile, visibleItems.get(start + index), safePage,
+            addSlimefunItem(
+                    menu,
+                    itemGroup,
+                    player,
+                    profile,
+                    visibleItems.get(start + index),
+                    safePage,
                     contentSlots.get(index));
         }
         menu.open(player);
@@ -192,9 +197,13 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
                 safePage,
                 pages,
                 () -> runEnhancedPage(
-                        profile, "open enhanced bookmarks page " + (safePage - 1), () -> openBookmarks(profile, safePage - 1)),
+                        profile,
+                        "open enhanced bookmarks page " + (safePage - 1),
+                        () -> openBookmarks(profile, safePage - 1)),
                 () -> runEnhancedPage(
-                        profile, "open enhanced bookmarks page " + (safePage + 1), () -> openBookmarks(profile, safePage + 1)));
+                        profile,
+                        "open enhanced bookmarks page " + (safePage + 1),
+                        () -> openBookmarks(profile, safePage + 1)));
         addBackButton(menu, format, player, profile);
 
         int start = (safePage - 1) * contentSlots.size();
@@ -205,7 +214,10 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
             menu.addMenuClickHandler(slot, (pl, clickedSlot, clickedItem, action) -> {
                 if (action.isRightClicked()) {
                     toggleBookmark(pl, item);
-                    runEnhancedPage(profile, "refresh enhanced bookmarks page " + safePage, () -> openBookmarks(profile, safePage));
+                    runEnhancedPage(
+                            profile,
+                            "refresh enhanced bookmarks page " + safePage,
+                            () -> openBookmarks(profile, safePage));
                 } else {
                     openItem(profile, pl, item, action.isShiftClicked());
                 }
@@ -262,11 +274,17 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
         for (int index = 0; index < contentSlots.size() && start + index < matches.size(); index++) {
             SlimefunItem item = matches.get(start + index);
             int slot = contentSlots.get(index);
-            menu.addItem(slot, decorateItem(player, item, LegacyGuideBookmarks.get().contains(player.getUniqueId(), item.getId())));
+            menu.addItem(
+                    slot,
+                    decorateItem(
+                            player, item, LegacyGuideBookmarks.get().contains(player.getUniqueId(), item.getId())));
             menu.addMenuClickHandler(slot, (pl, clickedSlot, clickedItem, action) -> {
                 if (action.isRightClicked() && LegacyGuideSettings.get().hasBookmarks()) {
                     toggleBookmark(pl, item);
-                    runEnhancedPage(profile, "refresh enhanced search page " + safePage, () -> openSearchPage(profile, input, safePage, false));
+                    runEnhancedPage(
+                            profile,
+                            "refresh enhanced search page " + safePage,
+                            () -> openSearchPage(profile, input, safePage, false));
                 } else {
                     openItem(profile, pl, item, action.isShiftClicked());
                 }
@@ -276,8 +294,7 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
         menu.open(player);
     }
 
-    private void showItemGroup(
-            ChestMenu menu, Player player, PlayerProfile profile, ItemGroup group, int slot) {
+    private void showItemGroup(ChestMenu menu, Player player, PlayerProfile profile, ItemGroup group, int slot) {
         if (!(group instanceof LockedItemGroup lockedGroup)
                 || !isSurvivalMode()
                 || lockedGroup.hasUnlocked(player, profile)) {
@@ -298,11 +315,13 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
         for (ItemGroup parent : lockedGroup.getParents()) {
             lore.add(safeItemGroupName(profile, parent, player));
         }
-        menu.addItem(slot, new CustomItemStack(
-                Material.BARRIER,
-                "&4" + Slimefun.getLocalization().getMessage(player, "guide.locked") + " &7- &f"
-                        + safeItemGroupName(profile, group, player),
-                lore.toArray(new String[0])));
+        menu.addItem(
+                slot,
+                new CustomItemStack(
+                        Material.BARRIER,
+                        "&4" + Slimefun.getLocalization().getMessage(player, "guide.locked") + " &7- &f"
+                                + safeItemGroupName(profile, group, player),
+                        lore.toArray(new String[0])));
         menu.addMenuClickHandler(slot, ChestMenuUtils.getEmptyClickHandler());
     }
 
@@ -317,8 +336,10 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
         Research research = item.getResearch();
         if (isSurvivalMode() && !hasPermission(player, item)) {
             List<String> message = Slimefun.getPermissionsService().getLore(item);
-            menu.addItem(slot, new CustomItemStack(
-                    ChestMenuUtils.getNoPermissionItem(), item.getItemName(), message.toArray(new String[0])));
+            menu.addItem(
+                    slot,
+                    new CustomItemStack(
+                            ChestMenuUtils.getNoPermissionItem(), item.getItemName(), message.toArray(new String[0])));
             menu.addMenuClickHandler(slot, ChestMenuUtils.getEmptyClickHandler());
             return;
         }
@@ -327,15 +348,17 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
             String cost = VaultIntegration.isEnabled()
                     ? String.format("%.2f", research.getCurrencyCost()) + " coins"
                     : research.getLevelCost() + " experience levels";
-            menu.addItem(slot, new CustomItemStack(
-                    ChestMenuUtils.getNoPermissionItem(),
-                    "&f" + ItemUtils.getItemName(item.getItem()),
-                    "&7" + item.getId(),
-                    "&4&l" + Slimefun.getLocalization().getMessage(player, "guide.locked"),
-                    "",
-                    "&a> Click to unlock",
-                    "",
-                    "&7Requires &b" + cost));
+            menu.addItem(
+                    slot,
+                    new CustomItemStack(
+                            ChestMenuUtils.getNoPermissionItem(),
+                            "&f" + ItemUtils.getItemName(item.getItem()),
+                            "&7" + item.getId(),
+                            "&4&l" + Slimefun.getLocalization().getMessage(player, "guide.locked"),
+                            "",
+                            "&a> Click to unlock",
+                            "",
+                            "&7Requires &b" + cost));
             menu.addMenuClickHandler(slot, (pl, clickedSlot, clickedItem, action) -> {
                 research.unlockFromGuide(this, player, profile, item, itemGroup, page);
                 return false;
@@ -384,7 +407,8 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
         return new CustomItemStack(item.getItem(), meta -> {
             List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
             lore.add("");
-            lore.add(ChatColor.DARK_GRAY + "Category: " + ChatColor.WHITE + item.getItemGroup().getDisplayName(player));
+            lore.add(ChatColor.DARK_GRAY + "Category: " + ChatColor.WHITE
+                    + item.getItemGroup().getDisplayName(player));
             if (LegacyGuideSettings.get().shouldDisplayAddon()) {
                 lore.add(ChatColor.DARK_GRAY + "Addon: " + ChatColor.WHITE + getAddonName(item));
             }
@@ -399,7 +423,8 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
                 }
             }
             meta.setLore(lore);
-            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ENCHANTS, VersionedItemFlag.HIDE_ADDITIONAL_TOOLTIP);
+            meta.addItemFlags(
+                    ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ENCHANTS, VersionedItemFlag.HIDE_ADDITIONAL_TOOLTIP);
         });
     }
 
@@ -438,14 +463,16 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
 
         for (int slot : LegacyGuideSettings.get().findSlots(format, 'R')) {
             if (LegacyGuideSettings.get().hasSmartSearch()) {
-                menu.addItem(slot, new CustomItemStack(
-                        Material.COMPASS,
-                        "&b&lSmart Search",
-                        "",
-                        "&7Search names, IDs, addons, categories,",
-                        "&7recipe types and item lore.",
-                        "",
-                        "&fFilters: &7id:, addon:, group:, recipe:"));
+                menu.addItem(
+                        slot,
+                        new CustomItemStack(
+                                Material.COMPASS,
+                                "&b&lSmart Search",
+                                "",
+                                "&7Search names, IDs, addons, categories,",
+                                "&7recipe types and item lore.",
+                                "",
+                                "&fFilters: &7id:, addon:, group:, recipe:"));
                 menu.addMenuClickHandler(slot, (pl, s, item, action) -> {
                     requestSearch(pl, profile);
                     return false;
@@ -459,13 +486,15 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
             for (int slot : LegacyGuideSettings.get().findSlots(format, marker)) {
                 if (LegacyGuideSettings.get().hasBookmarks()) {
                     int count = LegacyGuideBookmarks.get().size(player.getUniqueId());
-                    menu.addItem(slot, new CustomItemStack(
-                            Material.NETHER_STAR,
-                            "&6&lBookmarks",
-                            "",
-                            "&7Saved items: &f" + count,
-                            "",
-                            "&eClick to open"));
+                    menu.addItem(
+                            slot,
+                            new CustomItemStack(
+                                    Material.NETHER_STAR,
+                                    "&6&lBookmarks",
+                                    "",
+                                    "&7Saved items: &f" + count,
+                                    "",
+                                    "&eClick to open"));
                     menu.addMenuClickHandler(slot, (pl, s, item, action) -> {
                         runEnhancedPage(profile, "open enhanced bookmarks page 1", () -> openBookmarks(profile, 1));
                         return false;
@@ -497,7 +526,6 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
         }
     }
 
-
     private void runEnhancedPage(PlayerProfile profile, String operation, Runnable action) {
         GuideRuntimeGuard.run(profile, getMode(), operation, null, action);
     }
@@ -507,11 +535,12 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
         player.sendMessage(ChatColor.GREEN + "Enter a search term. " + ChatColor.GRAY
                 + "Optional filters: id:, addon:, group:, recipe:");
         ChatInput.waitForPlayer(
-                Slimefun.instance(), player, message -> SlimefunGuide.openSearch(profile, message, getMode(), isSurvivalMode()));
+                Slimefun.instance(),
+                player,
+                message -> SlimefunGuide.openSearch(profile, message, getMode(), isSurvivalMode()));
     }
 
-    private void addBackButton(
-            ChestMenu menu, List<String> format, Player player, PlayerProfile profile) {
+    private void addBackButton(ChestMenu menu, List<String> format, Player player, PlayerProfile profile) {
         List<Integer> slots = LegacyGuideSettings.get().findSlots(format, 'b');
         if (slots.isEmpty()) {
             return;
@@ -519,8 +548,9 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
         int slot = slots.get(0);
         GuideHistory history = profile.getGuideHistory();
         if (isSurvivalMode() && history.size() > 1) {
-            menu.addItem(slot, new CustomItemStack(
-                    ChestMenuUtils.getBackButton(
+            menu.addItem(
+                    slot,
+                    new CustomItemStack(ChestMenuUtils.getBackButton(
                             player,
                             "",
                             "&fLeft Click: &7Return to previous page",
@@ -560,11 +590,14 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
     }
 
     private String getTitle() {
-        return isSurvivalMode() ? LegacyGuideSettings.get().getSurvivalTitle() : LegacyGuideSettings.get().getCheatTitle();
+        return isSurvivalMode()
+                ? LegacyGuideSettings.get().getSurvivalTitle()
+                : LegacyGuideSettings.get().getCheatTitle();
     }
 
     private boolean isItemGroupAccessible(Player player, SlimefunItem item) {
-        return Slimefun.getConfigManager().isShowHiddenItemGroupsInSearch() || item.getItemGroup().isAccessible(player);
+        return Slimefun.getConfigManager().isShowHiddenItemGroupsInSearch()
+                || item.getItemGroup().isAccessible(player);
     }
 
     private boolean matches(Player player, SlimefunItem item, String query) {
@@ -620,11 +653,12 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
 
     private void toggleBookmark(Player player, SlimefunItem item) {
         boolean added = LegacyGuideBookmarks.get().toggle(player.getUniqueId(), item.getId());
-        player.sendMessage(added
-                ? ChatColor.GOLD + "★ Added " + ChatColor.WHITE + ChatColor.stripColor(item.getItemName())
-                        + ChatColor.GOLD + " to your bookmarks."
-                : ChatColor.YELLOW + "Removed " + ChatColor.WHITE + ChatColor.stripColor(item.getItemName())
-                        + ChatColor.YELLOW + " from your bookmarks.");
+        player.sendMessage(
+                added
+                        ? ChatColor.GOLD + "★ Added " + ChatColor.WHITE + ChatColor.stripColor(item.getItemName())
+                                + ChatColor.GOLD + " to your bookmarks."
+                        : ChatColor.YELLOW + "Removed " + ChatColor.WHITE + ChatColor.stripColor(item.getItemName())
+                                + ChatColor.YELLOW + " from your bookmarks.");
     }
 
     private static int pageCount(int entries, int pageSize) {

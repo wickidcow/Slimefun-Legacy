@@ -19,8 +19,7 @@ public final class EnhancedCheatSheetSlimefunGuide extends EnhancedSurvivalSlime
     }
 
     @Override
-    protected @Nonnull List<ItemGroup> getVisibleItemGroups(
-            @Nonnull Player player, @Nonnull PlayerProfile profile) {
+    protected @Nonnull List<ItemGroup> getVisibleItemGroups(@Nonnull Player player, @Nonnull PlayerProfile profile) {
         return getVisibleItemGroups(player, profile, SlimefunGuideMode.SURVIVAL_MODE);
     }
 

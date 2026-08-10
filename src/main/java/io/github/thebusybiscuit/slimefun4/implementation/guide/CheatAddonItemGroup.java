@@ -41,10 +41,7 @@ public final class CheatAddonItemGroup extends FlexItemGroup {
     private final List<ItemGroup> groups;
 
     private CheatAddonItemGroup(@Nonnull SlimefunAddon addon, @Nonnull List<ItemGroup> groups) {
-        super(
-                new NamespacedKey(addon.getJavaPlugin(), "cheat_guide_addon"),
-                new ItemStack(Material.CHEST),
-                0);
+        super(new NamespacedKey(addon.getJavaPlugin(), "cheat_guide_addon"), new ItemStack(Material.CHEST), 0);
 
         this.addon = addon;
         this.addonName = addon.getName();
@@ -148,11 +145,10 @@ public final class CheatAddonItemGroup extends FlexItemGroup {
 
         menu.addItem(
                 1,
-                new CustomItemStack(
-                        ChestMenuUtils.getBackButton(
-                                player,
-                                "",
-                                ChatColor.GRAY + Slimefun.getLocalization().getMessage(player, "guide.back.guide"))));
+                new CustomItemStack(ChestMenuUtils.getBackButton(
+                        player,
+                        "",
+                        ChatColor.GRAY + Slimefun.getLocalization().getMessage(player, "guide.back.guide"))));
         menu.addMenuClickHandler(1, (p, slot, item, action) -> {
             SlimefunGuide.openMainMenu(profile, mode, profile.getGuideHistory().getMainMenuPage());
             return false;

@@ -160,11 +160,15 @@ public final class ItemDoctorService implements Listener {
             return;
         }
         Player player = event.getPlayer();
-        Slimefun.getSchedulerService().runForLater(player, () -> {
-            if (player.isOnline()) {
-                repairAutomatic(automaticReport, player.getInventory(), player.getEnderChest());
-            }
-        }, 20L);
+        Slimefun.getSchedulerService()
+                .runForLater(
+                        player,
+                        () -> {
+                            if (player.isOnline()) {
+                                repairAutomatic(automaticReport, player.getInventory(), player.getEnderChest());
+                            }
+                        },
+                        20L);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -175,7 +179,8 @@ public final class ItemDoctorService implements Listener {
             return;
         }
         Slimefun.getSchedulerService().runFor(event.getPlayer(), () -> {
-            repairAutomatic(automaticReport, event.getInventory(), event.getPlayer().getInventory());
+            repairAutomatic(
+                    automaticReport, event.getInventory(), event.getPlayer().getInventory());
             try {
                 ItemStack cursor = event.getPlayer().getItemOnCursor();
                 if (doctor.inspectItem(cursor, true, automaticReport)) {
@@ -216,22 +221,24 @@ public final class ItemDoctorService implements Listener {
     }
 
     private void scheduleSlimefunMenuRepair(SlimefunChunkData chunkData, int attemptsRemaining) {
-        Slimefun.getSchedulerService().runAtLater(
-                chunkData.getChunk().getBlock(0, 0, 0).getLocation(),
-                () -> {
-                    if (shuttingDown || !chunkData.getChunk().isLoaded()) {
-                        return;
-                    }
+        Slimefun.getSchedulerService()
+                .runAtLater(
+                        chunkData.getChunk().getBlock(0, 0, 0).getLocation(),
+                        () -> {
+                            if (shuttingDown || !chunkData.getChunk().isLoaded()) {
+                                return;
+                            }
 
-                    if (!areBlockInventoriesLoaded(chunkData) && attemptsRemaining > 0) {
-                        scheduleSlimefunMenuRepair(chunkData, attemptsRemaining - 1);
-                        return;
-                    }
+                            if (!areBlockInventoriesLoaded(chunkData) && attemptsRemaining > 0) {
+                                scheduleSlimefunMenuRepair(chunkData, attemptsRemaining - 1);
+                                return;
+                            }
 
-                    BlockDataController controller = Slimefun.getDatabaseManager().getBlockDataController();
-                    repairSlimefunChunkMenus(controller, chunkData, automaticReport);
-                },
-                CHUNK_MENU_RETRY_DELAY_TICKS);
+                            BlockDataController controller =
+                                    Slimefun.getDatabaseManager().getBlockDataController();
+                            repairSlimefunChunkMenus(controller, chunkData, automaticReport);
+                        },
+                        CHUNK_MENU_RETRY_DELAY_TICKS);
     }
 
     private boolean areBlockInventoriesLoaded(SlimefunChunkData chunkData) {
@@ -418,8 +425,7 @@ public final class ItemDoctorService implements Listener {
 
         private void startInventoryTask() {
             int perTick = Math.max(1, Slimefun.getCfg().getInt("stability.item-doctor.inventories-per-tick"));
-            inventoryTask = Slimefun.getSchedulerService()
-                    .runAtFixedRate(() -> processInventoryBatch(perTick), 1L, 1L);
+            inventoryTask = Slimefun.getSchedulerService().runAtFixedRate(() -> processInventoryBatch(perTick), 1L, 1L);
         }
 
         private void processInventoryBatch(int perTick) {
@@ -505,23 +511,21 @@ public final class ItemDoctorService implements Listener {
         }
 
         private void dispatchGlobal(Runnable work) {
-            dispatchOwnedWork(work, (task, retired) -> Slimefun.getSchedulerService().run(task));
+            dispatchOwnedWork(
+                    work, (task, retired) -> Slimefun.getSchedulerService().run(task));
         }
 
         private void dispatchAt(Location location, Runnable work) {
             dispatchOwnedWork(
-                    work,
-                    (task, retired) -> Slimefun.getSchedulerService().runAt(location, task));
+                    work, (task, retired) -> Slimefun.getSchedulerService().runAt(location, task));
         }
 
         private void dispatchFor(Entity entity, Runnable work) {
             dispatchOwnedWork(
-                    work,
-                    (task, retired) -> Slimefun.getSchedulerService().runFor(entity, task, retired));
+                    work, (task, retired) -> Slimefun.getSchedulerService().runFor(entity, task, retired));
         }
 
-        private void dispatchOwnedWork(
-                Runnable work, BiFunction<Runnable, Runnable, TaskHandle> scheduler) {
+        private void dispatchOwnedWork(Runnable work, BiFunction<Runnable, Runnable, TaskHandle> scheduler) {
             pendingOwnedWork.incrementAndGet();
             AtomicBoolean completed = new AtomicBoolean();
             Runnable completion = () -> {
@@ -610,10 +614,7 @@ public final class ItemDoctorService implements Listener {
                     if (error != null) {
                         report.failure();
                         plugin.getLogger()
-                                .log(
-                                        Level.WARNING,
-                                        "Item doctor could not enumerate stored backpacks.",
-                                        error);
+                                .log(Level.WARNING, "Item doctor could not enumerate stored backpacks.", error);
                         backpacksDone = true;
                         finishIfReady();
                         return;
@@ -649,16 +650,9 @@ public final class ItemDoctorService implements Listener {
                     }
                     if (error != null) {
                         report.failure();
-                        plugin.getLogger()
-                                .log(
-                                        Level.WARNING,
-                                        "Item doctor could not load backpack " + id + '.',
-                                        error);
+                        plugin.getLogger().log(Level.WARNING, "Item doctor could not load backpack " + id + '.', error);
                     } else if (loadedBackpack != null) {
-                        repairBackpack(
-                                controller,
-                                loadedBackpack.backpack(),
-                                loadedBackpack.maintenanceOwned());
+                        repairBackpack(controller, loadedBackpack.backpack(), loadedBackpack.maintenanceOwned());
                     }
                     processNextBackpack();
                 });
@@ -669,8 +663,7 @@ public final class ItemDoctorService implements Listener {
         }
 
         private void releaseMaintenanceBackpack(
-                ProfileDataController controller,
-                @Nullable ProfileDataController.MaintenanceBackpack loadedBackpack) {
+                ProfileDataController controller, @Nullable ProfileDataController.MaintenanceBackpack loadedBackpack) {
             if (loadedBackpack != null && loadedBackpack.maintenanceOwned()) {
                 controller.releaseMaintenanceBackpack(loadedBackpack.backpack());
             }
@@ -689,10 +682,11 @@ public final class ItemDoctorService implements Listener {
                 }
             } catch (RuntimeException ex) {
                 report.failure();
-                plugin.getLogger().log(
-                        Level.WARNING,
-                        "Item doctor failed to inspect backpack " + backpack.getUniqueId() + '.',
-                        ex);
+                plugin.getLogger()
+                        .log(
+                                Level.WARNING,
+                                "Item doctor failed to inspect backpack " + backpack.getUniqueId() + '.',
+                                ex);
             } finally {
                 if (maintenanceLoaded) {
                     controller.releaseMaintenanceBackpack(backpack);
@@ -736,24 +730,23 @@ public final class ItemDoctorService implements Listener {
     }
 
     private void logCompletion(ItemDoctorReport report) {
-        plugin.getLogger().info("Slimefun item doctor " + report.getModeName() + " completed: "
-                + report.getScannedStacks() + " stacks scanned, "
-                + report.getCjkStacks() + " with Chinese presentation, "
-                + report.getRepairedStacks() + " repaired, "
-                + report.getFailures() + " failures.");
+        plugin.getLogger()
+                .info("Slimefun item doctor " + report.getModeName() + " completed: "
+                        + report.getScannedStacks() + " stacks scanned, "
+                        + report.getCjkStacks() + " with Chinese presentation, "
+                        + report.getRepairedStacks() + " repaired, "
+                        + report.getFailures() + " failures.");
 
         if (!report.getUnknownIdSamples().isEmpty()) {
             plugin.getLogger()
-                    .warning(
-                            "Item doctor found unknown Slimefun IDs; display names can be recovered "
-                                    + "but lore remains protected: "
-                                    + String.join(", ", report.getUnknownIdSamples()));
+                    .warning("Item doctor found unknown Slimefun IDs; display names can be recovered "
+                            + "but lore remains protected: "
+                            + String.join(", ", report.getUnknownIdSamples()));
         }
         if (!report.getUnresolvedTemplateSamples().isEmpty()) {
             plugin.getLogger()
-                    .warning(
-                            "Item doctor left protected or unresolved CJK lore on these Slimefun IDs: "
-                                    + String.join(", ", report.getUnresolvedTemplateSamples()));
+                    .warning("Item doctor left protected or unresolved CJK lore on these Slimefun IDs: "
+                            + String.join(", ", report.getUnresolvedTemplateSamples()));
         }
     }
 

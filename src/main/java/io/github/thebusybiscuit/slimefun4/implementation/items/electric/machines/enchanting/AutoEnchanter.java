@@ -108,8 +108,7 @@ public class AutoEnchanter extends AbstractEnchantmentMachine {
         return null;
     }
 
-    @Nullable
-    @ParametersAreNonnullByDefault
+    @Nullable @ParametersAreNonnullByDefault
     protected MachineRecipe enchant(BlockMenu menu, ItemStack target, ItemStack enchantedBook) {
         try {
             return enchantSafely(menu, target, enchantedBook);
@@ -125,8 +124,7 @@ public class AutoEnchanter extends AbstractEnchantmentMachine {
         }
     }
 
-    @Nullable
-    @ParametersAreNonnullByDefault
+    @Nullable @ParametersAreNonnullByDefault
     private MachineRecipe enchantSafely(BlockMenu menu, ItemStack target, ItemStack enchantedBook) {
         AsyncAutoEnchanterProcessEvent event = new AsyncAutoEnchanterProcessEvent(target, enchantedBook, menu);
         Bukkit.getPluginManager().callEvent(event);
@@ -142,10 +140,7 @@ public class AutoEnchanter extends AbstractEnchantmentMachine {
 
         if (!(enchantedBook.getItemMeta() instanceof EnchantmentStorageMeta meta)) {
             EnchantmentMachineRuntime.status(
-                    menu,
-                    Material.BARRIER,
-                    "&cInvalid enchanted book",
-                    "&7The book metadata could not be read.");
+                    menu, Material.BARRIER, "&cInvalid enchanted book", "&7The book metadata could not be read.");
             return null;
         }
 
@@ -181,14 +176,13 @@ public class AutoEnchanter extends AbstractEnchantmentMachine {
             }
         }
 
-        Map<String, Integer> existingCustomEnchantments = advancedEnchantments == null
-                ? Map.of()
-                : advancedEnchantments.getEnchantments(target);
+        Map<String, Integer> existingCustomEnchantments =
+                advancedEnchantments == null ? Map.of() : advancedEnchantments.getEnchantments(target);
         if (!overrideExistingEnchantsLvl.getValue()) {
-            enchantments.entrySet().removeIf(
-                    entry -> target.getEnchantmentLevel(entry.getKey()) >= entry.getValue());
-            customEnchantments.entrySet().removeIf(
-                    entry -> existingCustomEnchantments.getOrDefault(entry.getKey(), 0) >= entry.getValue());
+            enchantments.entrySet().removeIf(entry -> target.getEnchantmentLevel(entry.getKey()) >= entry.getValue());
+            customEnchantments
+                    .entrySet()
+                    .removeIf(entry -> existingCustomEnchantments.getOrDefault(entry.getKey(), 0) >= entry.getValue());
         }
 
         int enchantmentCount = enchantments.size() + customEnchantments.size();
@@ -244,30 +238,18 @@ public class AutoEnchanter extends AbstractEnchantmentMachine {
 
         MachineRecipe recipe = new MachineRecipe(
                 EnchantmentMachineRuntime.processingTicks(75, enchantmentCount, getSpeed()),
-                new ItemStack[] {
-                    EnchantmentMachineRuntime.one(target), EnchantmentMachineRuntime.one(enchantedBook)
-                },
+                new ItemStack[] {EnchantmentMachineRuntime.one(target), EnchantmentMachineRuntime.one(enchantedBook)},
                 new ItemStack[] {enchantedItem, new ItemStack(Material.BOOK)});
         if (!Slimefun.getItemStackService()
-                .fitAll(
-                        menu.toInventory(),
-                        recipe.getOutput(),
-                        InventoryContext.MACHINE_OUTPUT,
-                        getOutputSlots())) {
+                .fitAll(menu.toInventory(), recipe.getOutput(), InventoryContext.MACHINE_OUTPUT, getOutputSlots())) {
             EnchantmentMachineRuntime.status(
-                    menu,
-                    Material.BARRIER,
-                    "&cOutput full",
-                    "&7Clear both output slots before enchanting.");
+                    menu, Material.BARRIER, "&cOutput full", "&7Clear both output slots before enchanting.");
             return null;
         }
 
         if (!EnchantmentMachineRuntime.consumeOneEach(menu, getInputSlots())) {
             EnchantmentMachineRuntime.status(
-                    menu,
-                    Material.BARRIER,
-                    "&cInputs changed",
-                    "&7The operation was cancelled before consumption.");
+                    menu, Material.BARRIER, "&cInputs changed", "&7The operation was cancelled before consumption.");
             return null;
         }
         return recipe;

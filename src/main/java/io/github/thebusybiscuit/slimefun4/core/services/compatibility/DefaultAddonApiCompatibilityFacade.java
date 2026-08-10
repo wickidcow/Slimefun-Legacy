@@ -21,9 +21,13 @@ import javax.annotation.Nonnull;
 @SlimefunInternal
 public final class DefaultAddonApiCompatibilityFacade implements AddonApiCompatibilityFacade {
 
-    private static final Set<SlimefunCoreVariant> TARGETS = Collections.unmodifiableSet(
-            EnumSet.of(SlimefunCoreVariant.ORIGINAL, SlimefunCoreVariant.GUGU, SlimefunCoreVariant.UNITED, SlimefunCoreVariant.LEGACY));
-    private static final Set<CrossForkApiCapability> CAPABILITIES = Collections.unmodifiableSet(EnumSet.allOf(CrossForkApiCapability.class));
+    private static final Set<SlimefunCoreVariant> TARGETS = Collections.unmodifiableSet(EnumSet.of(
+            SlimefunCoreVariant.ORIGINAL,
+            SlimefunCoreVariant.GUGU,
+            SlimefunCoreVariant.UNITED,
+            SlimefunCoreVariant.LEGACY));
+    private static final Set<CrossForkApiCapability> CAPABILITIES =
+            Collections.unmodifiableSet(EnumSet.allOf(CrossForkApiCapability.class));
 
     private final RegistryRuntimeService registryRuntime;
     private final AddonRegistrationService registrationService;

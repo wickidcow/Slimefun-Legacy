@@ -9,7 +9,8 @@ class TestSlimefunCoreVariant {
 
     @Test
     void testStableIdentifiers() {
-        assertEquals(SlimefunCoreVariant.LEGACY, SlimefunCoreVariant.fromId("legacy").orElseThrow());
+        assertEquals(
+                SlimefunCoreVariant.LEGACY, SlimefunCoreVariant.fromId("legacy").orElseThrow());
         assertEquals(
                 SlimefunCoreVariant.SLIMEFUN_CORE,
                 SlimefunCoreVariant.fromId("SLIMEFUN_CORE").orElseThrow());

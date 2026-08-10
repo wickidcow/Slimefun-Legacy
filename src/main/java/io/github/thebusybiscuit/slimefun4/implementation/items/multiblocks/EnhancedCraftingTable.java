@@ -74,8 +74,7 @@ public class EnhancedCraftingTable extends AbstractCraftingTable {
         }
     }
 
-    private void craft(
-            Inventory inv, Block dispenser, Player p, Block b, ItemStack output, ItemStack[] recipe) {
+    private void craft(Inventory inv, Block dispenser, Player p, Block b, ItemStack output, ItemStack[] recipe) {
         Inventory fakeInv = createVirtualInventory(inv, recipe);
         Inventory outputInv = findOutputInventory(output, dispenser, inv, fakeInv);
 

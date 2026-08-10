@@ -38,9 +38,8 @@ public final class PlatformProfile {
         this.family = Objects.requireNonNull(family, "family");
         this.supportLevel = Objects.requireNonNull(supportLevel, "supportLevel");
 
-        EnumSet<PlatformCapability> copy = capabilities.isEmpty()
-                ? EnumSet.noneOf(PlatformCapability.class)
-                : EnumSet.copyOf(capabilities);
+        EnumSet<PlatformCapability> copy =
+                capabilities.isEmpty() ? EnumSet.noneOf(PlatformCapability.class) : EnumSet.copyOf(capabilities);
         this.capabilities = Collections.unmodifiableSet(copy);
     }
 

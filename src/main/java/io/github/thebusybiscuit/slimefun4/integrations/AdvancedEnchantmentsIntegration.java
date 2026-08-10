@@ -117,10 +117,7 @@ public final class AdvancedEnchantmentsIntegration {
      * @return the book data, or {@code null} when the item is not an AE book
      */
     public @Nullable EnchantmentBook getEnchantmentBook(@Nullable ItemStack item) {
-        if (!isAvailable()
-                || item == null
-                || item.getType() != Material.ENCHANTED_BOOK
-                || !item.hasItemMeta()) {
+        if (!isAvailable() || item == null || item.getType() != Material.ENCHANTED_BOOK || !item.hasItemMeta()) {
             return null;
         }
 
@@ -337,7 +334,8 @@ public final class AdvancedEnchantmentsIntegration {
         PersistentDataContainer data = meta.getPersistentDataContainer();
         data.getKeys().stream()
                 .filter(AdvancedEnchantmentsIntegration::isEnchantmentKey)
-                .filter(key -> key.getKey().substring(ENCHANTMENT_KEY_PREFIX.length()).equals(enchantment))
+                .filter(key ->
+                        key.getKey().substring(ENCHANTMENT_KEY_PREFIX.length()).equals(enchantment))
                 .toList()
                 .forEach(data::remove);
         item.setItemMeta(meta);
@@ -357,8 +355,7 @@ public final class AdvancedEnchantmentsIntegration {
         }
     }
 
-    private static @Nullable Method findStaticMethod(
-            @Nullable Class<?> type, String name, Class<?>... parameterTypes) {
+    private static @Nullable Method findStaticMethod(@Nullable Class<?> type, String name, Class<?>... parameterTypes) {
         if (type == null) {
             return null;
         }

@@ -6,7 +6,6 @@ import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.bstats.bukkit.Metrics;
-import org.bukkit.plugin.Plugin;
 
 /**
  * This service sends anonymous Slimefun Legacy usage statistics to bStats.
@@ -59,8 +58,7 @@ public class MetricsService {
                                     BSTATS_PLUGIN_ID);
                 } catch (Exception | LinkageError ex) {
                     startRequested.set(false);
-                    plugin.getLogger()
-                            .log(Level.WARNING, "Failed to start Slimefun Legacy bStats metrics.", ex);
+                    plugin.getLogger().log(Level.WARNING, "Failed to start Slimefun Legacy bStats metrics.", ex);
                 }
             });
         } catch (RuntimeException | LinkageError ex) {
@@ -98,8 +96,7 @@ public class MetricsService {
      *
      * @return the bundled bStats version
      */
-    @Nullable
-    public String getVersion() {
+    @Nullable public String getVersion() {
         return BSTATS_VERSION;
     }
 

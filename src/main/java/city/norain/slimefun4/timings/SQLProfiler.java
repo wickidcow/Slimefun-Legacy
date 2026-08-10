@@ -41,8 +41,7 @@ public class SQLProfiler {
     private long startTime = -1L;
 
     public void initSlowSqlCheck(@Nonnull Slimefun plugin) {
-        Slimefun.getSchedulerService()
-                .runAsyncAtFixedRate(new SlowSqlCheckTask(() -> samplingEntries), 20L, 20L);
+        Slimefun.getSchedulerService().runAsyncAtFixedRate(new SlowSqlCheckTask(() -> samplingEntries), 20L, 20L);
     }
 
     public void start() {

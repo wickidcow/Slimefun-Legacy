@@ -16,11 +16,14 @@ import org.bukkit.plugin.Plugin;
 @SlimefunAPI
 public interface ExternalIntegrationProvider {
 
-    @Nonnull String getIntegrationId();
+    @Nonnull
+    String getIntegrationId();
 
-    @Nonnull Plugin getPlugin();
+    @Nonnull
+    Plugin getPlugin();
 
-    @Nonnull Set<ExternalIntegrationCapability> getCapabilities();
+    @Nonnull
+    Set<ExternalIntegrationCapability> getCapabilities();
 
     default @Nonnull Optional<ExternalBlockIntegration> inspectBlock(@Nonnull Block block) {
         return Optional.empty();

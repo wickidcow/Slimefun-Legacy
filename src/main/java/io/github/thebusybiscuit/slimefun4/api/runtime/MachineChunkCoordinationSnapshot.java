@@ -13,11 +13,7 @@ public final class MachineChunkCoordinationSnapshot {
     private final int untrackedLocations;
 
     public MachineChunkCoordinationSnapshot(
-            int tickerChunks,
-            int tickerLocations,
-            int readyLocations,
-            int unsafeLocations,
-            int untrackedLocations) {
+            int tickerChunks, int tickerLocations, int readyLocations, int unsafeLocations, int untrackedLocations) {
         this.tickerChunks = tickerChunks;
         this.tickerLocations = tickerLocations;
         this.readyLocations = readyLocations;

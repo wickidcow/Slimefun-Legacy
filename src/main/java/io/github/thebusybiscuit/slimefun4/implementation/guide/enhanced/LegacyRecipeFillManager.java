@@ -212,7 +212,9 @@ public final class LegacyRecipeFillManager implements Listener {
         Optional<Block> clickedBlock = event.getClickedBlock();
         if (slimefunBlock.isEmpty()
                 || clickedBlock.isEmpty()
-                || !SlimefunItems.ANCIENT_ALTAR.getItemId().equals(slimefunBlock.get().getId())) {
+                || !SlimefunItems.ANCIENT_ALTAR
+                        .getItemId()
+                        .equals(slimefunBlock.get().getId())) {
             return;
         }
 
@@ -236,8 +238,7 @@ public final class LegacyRecipeFillManager implements Listener {
         }
     }
 
-    private void fillDispenserRecipe(
-            @Nonnull Player player, @Nonnull RecipeFillContext context, boolean maximum) {
+    private void fillDispenserRecipe(@Nonnull Player player, @Nonnull RecipeFillContext context, boolean maximum) {
         LegacyGuideSettings settings = LegacyGuideSettings.get();
         Block lookedAt = player.getTargetBlockExact(settings.getRecipeFillTargetRange());
         ResolvedDispenser resolved = resolveDispenser(context, lookedAt);
@@ -279,13 +280,7 @@ public final class LegacyRecipeFillManager implements Listener {
                         context.recipe(),
                         context.kind(),
                         settings.getRecipeFillMaximumSets())
-                : plan(
-                        playerContents,
-                        targetContents,
-                        context.recipeType(),
-                        context.recipe(),
-                        context.kind(),
-                        1);
+                : plan(playerContents, targetContents, context.recipeType(), context.recipe(), context.kind(), 1);
 
         if (!plan.success()) {
             send(player, ChatColor.RED + plan.message());
@@ -306,10 +301,7 @@ public final class LegacyRecipeFillManager implements Listener {
         SoundEffect.GUIDE_BUTTON_CLICK_SOUND.playFor(player);
 
         if (plan.movedItems() == 0) {
-            send(
-                    player,
-                    ChatColor.YELLOW + "The " + context.machineName()
-                            + " already contains a complete recipe.");
+            send(player, ChatColor.YELLOW + "The " + context.machineName() + " already contains a complete recipe.");
         } else {
             send(
                     player,
@@ -393,7 +385,8 @@ public final class LegacyRecipeFillManager implements Listener {
         try {
             for (int index = 0; index < pedestals.size(); index++) {
                 Block pedestal = pedestals.get(index);
-                Item entity = placePedestalItem(player, pedestalItem, pedestal, plan.pedestalItems().get(index));
+                Item entity = placePedestalItem(
+                        player, pedestalItem, pedestal, plan.pedestalItems().get(index));
                 if (entity == null) {
                     throw new IllegalStateException("Could not spawn an Ancient Altar pedestal item");
                 }
@@ -424,8 +417,8 @@ public final class LegacyRecipeFillManager implements Listener {
         } else {
             send(
                     player,
-                    ChatColor.GREEN + "Prepared all eight Ancient Pedestals. Hold " + ChatColor.WHITE
-                            + catalystName + ChatColor.GREEN + " and right-click the altar.");
+                    ChatColor.GREEN + "Prepared all eight Ancient Pedestals. Hold " + ChatColor.WHITE + catalystName
+                            + ChatColor.GREEN + " and right-click the altar.");
         }
         closeAfterSuccess(player);
     }
@@ -472,7 +465,10 @@ public final class LegacyRecipeFillManager implements Listener {
                 }
                 shown++;
             }
-            long remaining = report.statuses().stream().filter(status -> status.missing() > 0).count() - shown;
+            long remaining = report.statuses().stream()
+                            .filter(status -> status.missing() > 0)
+                            .count()
+                    - shown;
             if (remaining > 0) {
                 lore.add("&8... and " + remaining + " more");
             }
@@ -514,7 +510,10 @@ public final class LegacyRecipeFillManager implements Listener {
                 1,
                 LegacyGuideSettings.get().shouldPrepareAltarCatalystInHand());
 
-        send(player, ChatColor.GOLD + "Ingredient report for " + ChatColor.WHITE + context.item().getItemName());
+        send(
+                player,
+                ChatColor.GOLD + "Ingredient report for " + ChatColor.WHITE
+                        + context.item().getItemName());
         for (IngredientStatus status : report.statuses()) {
             ChatColor color = status.missing() == 0 ? ChatColor.GREEN : ChatColor.RED;
             player.sendMessage(ChatColor.DARK_GRAY + " • " + color + status.available() + "/" + status.required()
@@ -546,11 +545,12 @@ public final class LegacyRecipeFillManager implements Listener {
         int limit = Math.min(3, missingFromPlan.size());
         for (int index = 0; index < limit; index++) {
             IngredientStatus status = missingFromPlan.get(index);
-            player.sendMessage(ChatColor.DARK_GRAY + " • " + ChatColor.RED + status.missing() + "x "
-                    + ChatColor.GRAY + ItemUtils.getItemName(status.expected()));
+            player.sendMessage(ChatColor.DARK_GRAY + " • " + ChatColor.RED + status.missing() + "x " + ChatColor.GRAY
+                    + ItemUtils.getItemName(status.expected()));
         }
         if (missingFromPlan.size() > limit) {
-            player.sendMessage(ChatColor.DARK_GRAY + " • " + ChatColor.GRAY + "Right-click the guide button for the full report.");
+            player.sendMessage(
+                    ChatColor.DARK_GRAY + " • " + ChatColor.GRAY + "Right-click the guide button for the full report.");
         } else if (LegacyGuideSettings.get().shouldShowSubRecipeHints()) {
             boolean hasSubRecipe = missingFromPlan.stream().anyMatch(IngredientStatus::craftable);
             if (hasSubRecipe) {
@@ -575,9 +575,7 @@ public final class LegacyRecipeFillManager implements Listener {
             }
             best = candidate;
         }
-        return best == null
-                ? TransferPlan.failure("This recipe has no transferable ingredients.", List.of())
-                : best;
+        return best == null ? TransferPlan.failure("This recipe has no transferable ingredients.", List.of()) : best;
     }
 
     private static @Nonnull TransferPlan plan(
@@ -616,8 +614,7 @@ public final class LegacyRecipeFillManager implements Listener {
 
             if (!isEmpty(current) && !matchesRecipeIngredient(recipeType, current, expected)) {
                 return TransferPlan.failure(
-                        "The dispenser contains an incompatible item in recipe slot " + (slot + 1) + '.',
-                        List.of());
+                        "The dispenser contains an incompatible item in recipe slot " + (slot + 1) + '.', List.of());
             }
 
             int required;
@@ -699,10 +696,7 @@ public final class LegacyRecipeFillManager implements Listener {
             }
 
             Extraction extraction = extractAnyMatching(
-                    player,
-                    requirement.expected(),
-                    deficit,
-                    LegacyRecipeFillManager::matchesUnorderedIngredient);
+                    player, requirement.expected(), deficit, LegacyRecipeFillManager::matchesUnorderedIngredient);
             if (extraction.amount() < deficit) {
                 missing.add(status(requirement.expected(), deficit, extraction.amount()));
                 continue;
@@ -711,8 +705,7 @@ public final class LegacyRecipeFillManager implements Listener {
             for (ItemStack stack : extraction.stacks()) {
                 if (!addStack(target, stack, -1)) {
                     return TransferPlan.failure(
-                            "The machine dispenser does not have enough room for " + sets + " recipe sets.",
-                            List.of());
+                            "The machine dispenser does not have enough room for " + sets + " recipe sets.", List.of());
                 }
                 moved += stack.getAmount();
             }
@@ -739,8 +732,8 @@ public final class LegacyRecipeFillManager implements Listener {
                 return AltarTransferPlan.failure(
                         "This Ancient Altar recipe does not define all eight pedestal ingredients.", List.of());
             }
-            Extraction extraction = extractAnyMatching(
-                    player, expected, 1, LegacyRecipeFillManager::matchesAltarIngredient);
+            Extraction extraction =
+                    extractAnyMatching(player, expected, 1, LegacyRecipeFillManager::matchesAltarIngredient);
             if (extraction.amount() < 1) {
                 missing.add(status(expected, 1, extraction.amount()));
             } else {
@@ -758,8 +751,8 @@ public final class LegacyRecipeFillManager implements Listener {
         if (prepareCatalystInHand) {
             ItemStack currentHand = heldSlot >= 0 && heldSlot < player.length ? player[heldSlot] : null;
             if (!matchesAltarIngredient(currentHand, catalyst)) {
-                Extraction extraction = extractAnyMatching(
-                        player, catalyst, 1, LegacyRecipeFillManager::matchesAltarIngredient);
+                Extraction extraction =
+                        extractAnyMatching(player, catalyst, 1, LegacyRecipeFillManager::matchesAltarIngredient);
                 if (extraction.amount() < 1) {
                     missing.add(status(catalyst, 1, extraction.amount()));
                 } else if (heldSlot < 0 || heldSlot >= player.length) {
@@ -784,7 +777,8 @@ public final class LegacyRecipeFillManager implements Listener {
         }
 
         if (!missing.isEmpty()) {
-            return AltarTransferPlan.failure("Not all Ancient Altar ingredients are available.", mergeStatuses(missing));
+            return AltarTransferPlan.failure(
+                    "Not all Ancient Altar ingredients are available.", mergeStatuses(missing));
         }
         if (pedestalItems.size() != ALTAR_RECIPE_SLOTS.length) {
             return AltarTransferPlan.failure("Could not allocate all Ancient Altar ingredients.", List.of());
@@ -809,8 +803,7 @@ public final class LegacyRecipeFillManager implements Listener {
                 if (isEmpty(expected)) {
                     continue;
                 }
-                int available = removeUpToAny(
-                        player, expected, 1, LegacyRecipeFillManager::matchesAltarIngredient);
+                int available = removeUpToAny(player, expected, 1, LegacyRecipeFillManager::matchesAltarIngredient);
                 statuses.add(status(expected, 1, available));
             }
             ItemStack catalyst = recipe[4];
@@ -820,8 +813,7 @@ public final class LegacyRecipeFillManager implements Listener {
                 if (prepareCatalystInHand && matchesAltarIngredient(currentHand, catalyst)) {
                     available = 1;
                 } else {
-                    available = removeUpToAny(
-                            player, catalyst, 1, LegacyRecipeFillManager::matchesAltarIngredient);
+                    available = removeUpToAny(player, catalyst, 1, LegacyRecipeFillManager::matchesAltarIngredient);
                 }
                 statuses.add(status(catalyst, 1, available));
             }
@@ -896,10 +888,7 @@ public final class LegacyRecipeFillManager implements Listener {
                 merged.put(
                         key,
                         new MutableIngredientStatus(
-                                status.expected().clone(),
-                                status.required(),
-                                status.available(),
-                                status.craftable()));
+                                status.expected().clone(), status.required(), status.available(), status.craftable()));
             } else {
                 existing.required += status.required();
                 existing.available += status.available();
@@ -917,8 +906,7 @@ public final class LegacyRecipeFillManager implements Listener {
                 .toList();
     }
 
-    private static @Nonnull IngredientStatus status(
-            @Nonnull ItemStack expected, int required, int available) {
+    private static @Nonnull IngredientStatus status(@Nonnull ItemStack expected, int required, int available) {
         int safeAvailable = Math.max(0, Math.min(required, available));
         SlimefunItem ingredient = SlimefunItem.getByItem(expected);
         boolean craftable = ingredient != null
@@ -968,10 +956,7 @@ public final class LegacyRecipeFillManager implements Listener {
     }
 
     private static int removeUpToBestStackable(
-            @Nonnull ItemStack[] contents,
-            @Nonnull RecipeType recipeType,
-            @Nonnull ItemStack expected,
-            int amount) {
+            @Nonnull ItemStack[] contents, @Nonnull RecipeType recipeType, @Nonnull ItemStack expected, int amount) {
         ItemStack template = findBestStackableTemplate(contents, recipeType, expected);
         if (template == null) {
             return 0;
@@ -992,9 +977,7 @@ public final class LegacyRecipeFillManager implements Listener {
     }
 
     private static int countBestStackableMatch(
-            @Nonnull ItemStack[] contents,
-            @Nonnull RecipeType recipeType,
-            @Nonnull ItemStack expected) {
+            @Nonnull ItemStack[] contents, @Nonnull RecipeType recipeType, @Nonnull ItemStack expected) {
         ItemStack template = findBestStackableTemplate(contents, recipeType, expected);
         if (template == null) {
             return 0;
@@ -1011,10 +994,7 @@ public final class LegacyRecipeFillManager implements Listener {
     }
 
     private static @Nullable ItemStack findStackableTemplate(
-            @Nonnull ItemStack[] contents,
-            @Nonnull RecipeType recipeType,
-            @Nonnull ItemStack expected,
-            int amount) {
+            @Nonnull ItemStack[] contents, @Nonnull RecipeType recipeType, @Nonnull ItemStack expected, int amount) {
         for (ItemStack candidate : contents) {
             if (isEmpty(candidate) || !matchesRecipeIngredient(recipeType, candidate, expected)) {
                 continue;
@@ -1036,9 +1016,7 @@ public final class LegacyRecipeFillManager implements Listener {
     }
 
     private static @Nullable ItemStack findBestStackableTemplate(
-            @Nonnull ItemStack[] contents,
-            @Nonnull RecipeType recipeType,
-            @Nonnull ItemStack expected) {
+            @Nonnull ItemStack[] contents, @Nonnull RecipeType recipeType, @Nonnull ItemStack expected) {
         ItemStack best = null;
         int bestAmount = 0;
         for (ItemStack candidate : contents) {
@@ -1102,9 +1080,7 @@ public final class LegacyRecipeFillManager implements Listener {
     }
 
     private static int countAnyMatching(
-            @Nonnull ItemStack[] contents,
-            @Nonnull ItemStack expected,
-            @Nonnull IngredientMatcher matcher) {
+            @Nonnull ItemStack[] contents, @Nonnull ItemStack expected, @Nonnull IngredientMatcher matcher) {
         int available = 0;
         for (ItemStack source : contents) {
             if (!isEmpty(source) && matcher.matches(source, expected)) {
@@ -1161,16 +1137,14 @@ public final class LegacyRecipeFillManager implements Listener {
             if (SlimefunUtils.isItemSimilar(actual, expected, true, false, false, false)) {
                 return true;
             }
-            return isBackpack(expected)
-                    && SlimefunUtils.isItemSimilar(actual, expected, false, false, false, false);
+            return isBackpack(expected) && SlimefunUtils.isItemSimilar(actual, expected, false, false, false, false);
         }
 
         if (RecipeType.MAGIC_WORKBENCH.equals(recipeType)) {
             if (SlimefunUtils.isItemSimilar(actual, expected, true, false, false, true)) {
                 return true;
             }
-            return isBackpack(expected)
-                    && SlimefunUtils.isItemSimilar(actual, expected, false, false, false, false);
+            return isBackpack(expected) && SlimefunUtils.isItemSimilar(actual, expected, false, false, false, false);
         }
 
         return SlimefunUtils.isItemSimilar(actual, expected, true, false, true, true);
@@ -1184,8 +1158,7 @@ public final class LegacyRecipeFillManager implements Listener {
         if (isEmpty(actual) || isEmpty(expected)) {
             return false;
         }
-        if (SlimefunUtils.isItemSimilar(
-                expected, SlimefunItems.BROKEN_SPAWNER, false, false, false, false)) {
+        if (SlimefunUtils.isItemSimilar(expected, SlimefunItems.BROKEN_SPAWNER, false, false, false, false)) {
             return SlimefunUtils.isItemSimilar(actual, expected, false, false, false, false);
         }
         return SlimefunUtils.isItemSimilar(actual, expected, true);
@@ -1200,9 +1173,7 @@ public final class LegacyRecipeFillManager implements Listener {
     }
 
     private static @Nonnull RecipeKind classify(
-            @Nonnull RecipeType recipeType,
-            @Nullable ItemStack[] recipe,
-            @Nonnull LegacyGuideSettings settings) {
+            @Nonnull RecipeType recipeType, @Nullable ItemStack[] recipe, @Nonnull LegacyGuideSettings settings) {
         if (recipe == null) {
             return RecipeKind.UNSUPPORTED;
         }
@@ -1309,9 +1280,8 @@ public final class LegacyRecipeFillManager implements Listener {
                     if (match == null || !match.structureBlocks().contains(target)) {
                         continue;
                     }
-                    BlockFace requiredFacing = RecipeType.PRESSURE_CHAMBER.equals(recipeType)
-                            ? BlockFace.DOWN
-                            : BlockFace.UP;
+                    BlockFace requiredFacing =
+                            RecipeType.PRESSURE_CHAMBER.equals(recipeType) ? BlockFace.DOWN : BlockFace.UP;
                     if (!isFacing(match.dispenser(), requiredFacing)) {
                         continue;
                     }
@@ -1322,13 +1292,11 @@ public final class LegacyRecipeFillManager implements Listener {
         return null;
     }
 
-    private static @Nullable MachineMatch matchMachine(
-            @Nonnull MultiBlockMachine machine, @Nonnull Block trigger) {
+    private static @Nullable MachineMatch matchMachine(@Nonnull MultiBlockMachine machine, @Nonnull Block trigger) {
         MultiBlock multiBlock = machine.getMultiBlock();
         Block center = trigger.getRelative(multiBlock.getTriggerBlock());
-        BlockFace[] directions = multiBlock.isSymmetric()
-                ? new BlockFace[] {BlockFace.NORTH, BlockFace.EAST}
-                : HORIZONTAL_FACES;
+        BlockFace[] directions =
+                multiBlock.isSymmetric() ? new BlockFace[] {BlockFace.NORTH, BlockFace.EAST} : HORIZONTAL_FACES;
 
         for (BlockFace direction : directions) {
             Block[] blocks = mapStructure(center, direction);
@@ -1384,10 +1352,12 @@ public final class LegacyRecipeFillManager implements Listener {
     }
 
     private static @Nullable Block findVerticalDispenser(@Nonnull Block target, @Nonnull Material topMaterial) {
-        if (target.getType() == topMaterial && target.getRelative(BlockFace.DOWN).getType() == Material.DISPENSER) {
+        if (target.getType() == topMaterial
+                && target.getRelative(BlockFace.DOWN).getType() == Material.DISPENSER) {
             return target.getRelative(BlockFace.DOWN);
         }
-        if (target.getType() == Material.DISPENSER && target.getRelative(BlockFace.UP).getType() == topMaterial) {
+        if (target.getType() == Material.DISPENSER
+                && target.getRelative(BlockFace.UP).getType() == topMaterial) {
             return target;
         }
         return null;
@@ -1418,8 +1388,7 @@ public final class LegacyRecipeFillManager implements Listener {
             for (BlockFace face : HORIZONTAL_FACES) {
                 Block center = target.getRelative(face);
                 Block dispenser = center.getRelative(face);
-                if (center.getType() == Material.CRAFTING_TABLE
-                        && dispenser.getType() == Material.DISPENSER) {
+                if (center.getType() == Material.CRAFTING_TABLE && dispenser.getType() == Material.DISPENSER) {
                     return dispenser;
                 }
             }
@@ -1663,8 +1632,7 @@ public final class LegacyRecipeFillManager implements Listener {
         private int available;
         private boolean craftable;
 
-        private MutableIngredientStatus(
-                @Nonnull ItemStack expected, int required, int available, boolean craftable) {
+        private MutableIngredientStatus(@Nonnull ItemStack expected, int required, int available, boolean craftable) {
             this.expected = expected;
             this.required = required;
             this.available = available;
@@ -1672,8 +1640,7 @@ public final class LegacyRecipeFillManager implements Listener {
         }
     }
 
-    private record IngredientStatus(
-            ItemStack expected, int required, int available, int missing, boolean craftable) {}
+    private record IngredientStatus(ItemStack expected, int required, int available, int missing, boolean craftable) {}
 
     private record IngredientReport(boolean ready, List<IngredientStatus> statuses, int totalMissing) {}
 
@@ -1687,15 +1654,11 @@ public final class LegacyRecipeFillManager implements Listener {
             List<IngredientStatus> missing) {
 
         private static @Nonnull TransferPlan success(
-                @Nonnull ItemStack[] playerContents,
-                @Nonnull ItemStack[] targetContents,
-                int sets,
-                int movedItems) {
+                @Nonnull ItemStack[] playerContents, @Nonnull ItemStack[] targetContents, int sets, int movedItems) {
             return new TransferPlan(true, playerContents, targetContents, sets, movedItems, "", List.of());
         }
 
-        private static @Nonnull TransferPlan failure(
-                @Nonnull String message, @Nonnull List<IngredientStatus> missing) {
+        private static @Nonnull TransferPlan failure(@Nonnull String message, @Nonnull List<IngredientStatus> missing) {
             return new TransferPlan(false, new ItemStack[0], new ItemStack[0], 0, 0, message, missing);
         }
     }

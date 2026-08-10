@@ -12,13 +12,12 @@ import java.util.Collection;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.SoundCategory;
+import org.bukkit.damage.DamageType;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.damage.DamageType;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
@@ -72,9 +71,8 @@ public class ExplosiveBow extends SlimefunBow {
                         causingEntity = shooter;
                     }
 
-                    DamageType damageType = causingEntity instanceof Player
-                            ? DamageType.PLAYER_EXPLOSION
-                            : DamageType.EXPLOSION;
+                    DamageType damageType =
+                            causingEntity instanceof Player ? DamageType.PLAYER_EXPLOSION : DamageType.EXPLOSION;
                     boolean damaged = DamageUtils.damage(entity, damage, damageType, e.getDamager(), causingEntity);
 
                     if (damaged) {

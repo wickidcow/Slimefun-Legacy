@@ -153,8 +153,9 @@ public class IntegrationsManager {
 
         // Runtime-only integration avoids making either plugin a required dependency or creating a soft-dependency
         // cycle when AdvancedEnchantments also detects Slimefun.
-        load("AdvancedEnchantments", integration ->
-                advancedEnchantments = new AdvancedEnchantmentsIntegration(integration));
+        load(
+                "AdvancedEnchantments",
+                integration -> advancedEnchantments = new AdvancedEnchantmentsIntegration(integration));
     }
 
     /**
@@ -173,7 +174,8 @@ public class IntegrationsManager {
         Plugin externalPlugin = Bukkit.getPluginManager().getPlugin(name);
 
         if (externalPlugin != null) {
-            Slimefun.getAddonRuntimeHealthService().recordFailure(externalPlugin, "integration-runtime:" + name, throwable);
+            Slimefun.getAddonRuntimeHealthService()
+                    .recordFailure(externalPlugin, "integration-runtime:" + name, throwable);
             String version = externalPlugin.getDescription().getVersion();
             Slimefun.logger().log(Level.WARNING, "Is {0} v{1} up to date?", new Object[] {name, version});
             Slimefun.logger()
@@ -211,11 +213,16 @@ public class IntegrationsManager {
             Slimefun.logger().log(Level.INFO, "Hooked into Plugin: {0} v{1}", new Object[] {pluginName, version});
 
             Slimefun.getAddonRuntimeHealthService()
-                    .runGuarded(integration, "integration-hook:" + pluginName, () -> consumer.accept(integration), x -> {
-                        Slimefun.logger().log(Level.WARNING, "Maybe consider updating {0} or Slimefun?", pluginName);
-                        Slimefun.logger()
-                                .log(Level.WARNING, x, () -> "Failed to hook into " + pluginName + " v" + version);
-                    });
+                    .runGuarded(
+                            integration, "integration-hook:" + pluginName, () -> consumer.accept(integration), x -> {
+                                Slimefun.logger()
+                                        .log(Level.WARNING, "Maybe consider updating {0} or Slimefun?", pluginName);
+                                Slimefun.logger()
+                                        .log(
+                                                Level.WARNING,
+                                                x,
+                                                () -> "Failed to hook into " + pluginName + " v" + version);
+                            });
         }
     }
 

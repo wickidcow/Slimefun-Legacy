@@ -30,7 +30,9 @@ class TestPlatformProfile {
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> profile.getCapabilities().add(PlatformCapability.DATA_COMPONENT_API));
-        assertEquals(new MinecraftVersionNumber(1, 21, 11), profile.getMinecraftVersion().orElseThrow());
+        assertEquals(
+                new MinecraftVersionNumber(1, 21, 11),
+                profile.getMinecraftVersion().orElseThrow());
     }
 
     @Test

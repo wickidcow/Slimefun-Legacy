@@ -9,7 +9,6 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.networks.energy.EnergyNet;
 import io.github.thebusybiscuit.slimefun4.core.networks.energy.EnergyNetComponentType;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import io.github.thebusybiscuit.slimefun4.implementation.items.electric.Capacitor;
 import io.github.thebusybiscuit.slimefun4.utils.NumberUtils;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
 import java.util.logging.Level;
@@ -104,7 +103,10 @@ public interface EnergyNetComponent extends ItemAttribute {
 
     @Deprecated
     default int getCharge(@Nonnull Location l, @Nonnull Config config) {
-        Slimefun.logger().log(Level.FINE, "Legacy BlockStorage method invoked; please switch to the addon's updated block storage adapter.");
+        Slimefun.logger()
+                .log(
+                        Level.FINE,
+                        "Legacy BlockStorage method invoked; please switch to the addon's updated block storage adapter.");
 
         Validate.notNull(l, "Location was null!");
 
@@ -205,8 +207,7 @@ public interface EnergyNetComponent extends ItemAttribute {
      * @param data
      *            The already resolved storage container
      */
-    default void setCharge(
-            @Nonnull Location l, long charge, @Nonnull ASlimefunDataContainer data) {
+    default void setCharge(@Nonnull Location l, long charge, @Nonnull ASlimefunDataContainer data) {
         Validate.notNull(l, "Location was null!");
         Validate.notNull(data, "data was null!");
         Validate.isTrue(charge >= 0, "You can only set a charge of zero or more!");
@@ -260,8 +261,7 @@ public interface EnergyNetComponent extends ItemAttribute {
      * @param data
      *            The already resolved storage container
      */
-    default void addCharge(
-            @Nonnull Location l, long charge, @Nonnull ASlimefunDataContainer data) {
+    default void addCharge(@Nonnull Location l, long charge, @Nonnull ASlimefunDataContainer data) {
         Validate.notNull(l, "Location was null!");
         Validate.notNull(data, "data was null!");
         Validate.isTrue(charge > 0, "You can only add a positive charge!");
@@ -316,8 +316,7 @@ public interface EnergyNetComponent extends ItemAttribute {
      * @param data
      *            The already resolved storage container
      */
-    default void removeCharge(
-            @Nonnull Location l, long charge, @Nonnull ASlimefunDataContainer data) {
+    default void removeCharge(@Nonnull Location l, long charge, @Nonnull ASlimefunDataContainer data) {
         Validate.notNull(l, "Location was null!");
         Validate.notNull(data, "data was null!");
         Validate.isTrue(charge > 0, "The charge to remove must be greater than zero!");

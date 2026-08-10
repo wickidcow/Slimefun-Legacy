@@ -156,8 +156,7 @@ public final class GuideRuntimeGuard {
         String warningKey = "recursive|" + call;
         warnOnce(
                 warningKey,
-                "Blocked recursive Slimefun Guide call"
-                        + describeContext(player, call, itemGroup, stack, null),
+                "Blocked recursive Slimefun Guide call" + describeContext(player, call, itemGroup, stack, null),
                 null);
     }
 
@@ -178,7 +177,12 @@ public final class GuideRuntimeGuard {
         warnOnce(
                 warningKey,
                 "Slimefun Guide action failed"
-                        + describeContext(player, call, itemGroup, stack, failure.getClass().getName()),
+                        + describeContext(
+                                player,
+                                call,
+                                itemGroup,
+                                stack,
+                                failure.getClass().getName()),
                 failure);
     }
 
@@ -195,11 +199,7 @@ public final class GuideRuntimeGuard {
                 warningKey,
                 "Slow Slimefun Guide action took " + elapsedMillis + " ms"
                         + describeContext(
-                                player,
-                                call,
-                                itemGroup,
-                                stack,
-                                "elapsed=" + elapsedMillis + "ms, depth=" + depth),
+                                player, call, itemGroup, stack, "elapsed=" + elapsedMillis + "ms, depth=" + depth),
                 null);
     }
 

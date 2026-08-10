@@ -47,8 +47,10 @@ public class MenuListener implements Listener {
                  * no viewer remains. This prevents an async machine tick from racing
                  * the last inventory click during close.
                  */
-                Slimefun.runSyncAt(blockMenu.getLocation(), () -> Slimefun.getTickerTask()
-                        .setInventoryViewed(blockMenu.getLocation(), blockMenu.hasViewer()));
+                Slimefun.runSyncAt(
+                        blockMenu.getLocation(),
+                        () -> Slimefun.getTickerTask()
+                                .setInventoryViewed(blockMenu.getLocation(), blockMenu.hasViewer()));
             }
         }
     }

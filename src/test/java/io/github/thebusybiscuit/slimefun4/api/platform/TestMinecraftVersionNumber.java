@@ -11,9 +11,15 @@ class TestMinecraftVersionNumber {
 
     @Test
     void testReleaseVersionParsing() {
-        assertEquals(new MinecraftVersionNumber(1, 21, 11), MinecraftVersionNumber.parse("1.21.11").orElseThrow());
-        assertEquals(new MinecraftVersionNumber(26, 1, 0), MinecraftVersionNumber.parse("26.1").orElseThrow());
-        assertEquals(new MinecraftVersionNumber(1, 21, 2), MinecraftVersionNumber.parse("1.21.2-pre2").orElseThrow());
+        assertEquals(
+                new MinecraftVersionNumber(1, 21, 11),
+                MinecraftVersionNumber.parse("1.21.11").orElseThrow());
+        assertEquals(
+                new MinecraftVersionNumber(26, 1, 0),
+                MinecraftVersionNumber.parse("26.1").orElseThrow());
+        assertEquals(
+                new MinecraftVersionNumber(1, 21, 2),
+                MinecraftVersionNumber.parse("1.21.2-pre2").orElseThrow());
     }
 
     @Test

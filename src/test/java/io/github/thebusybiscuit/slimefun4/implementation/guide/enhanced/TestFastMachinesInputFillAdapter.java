@@ -40,17 +40,13 @@ class TestFastMachinesInputFillAdapter {
         FastStyleMachine machine = new FastStyleMachine(validInputSlots());
         MachineRecipeDisplay display = MachineRecipeDisplay.builder()
                 .addInput(new ItemStack(Material.REDSTONE, 4))
-                .addIngredient(new MachineRecipeIngredient(List.of(
-                        new ItemStack(Material.GOLD_INGOT, 3), new ItemStack(Material.IRON_INGOT, 2))))
+                .addIngredient(new MachineRecipeIngredient(
+                        List.of(new ItemStack(Material.GOLD_INGOT, 3), new ItemStack(Material.IRON_INGOT, 2))))
                 .addOutput(new ItemStack(Material.DIAMOND))
                 .build();
 
         MachineInputFillRecipe resolved = adapter.resolveFromObject(
-                machine,
-                display,
-                new int[] {0, 0},
-                TestFastMachinesInputFillAdapter::sameType,
-                ItemStack::isSimilar);
+                machine, display, new int[] {0, 0}, TestFastMachinesInputFillAdapter::sameType, ItemStack::isSimilar);
 
         assertNotNull(resolved);
         assertEquals(2, resolved.getIngredients().size());
@@ -67,36 +63,28 @@ class TestFastMachinesInputFillAdapter {
     void rejectsRecipeWhenFastMachinesOutputDoesNotMatch() {
         FastStyleMachine machine = new FastStyleMachine(validInputSlots());
         MachineRecipeDisplay display = MachineRecipeDisplay.builder()
-                .addIngredient(new MachineRecipeIngredient(List.of(
-                        new ItemStack(Material.IRON_INGOT, 2), new ItemStack(Material.GOLD_INGOT, 3))))
+                .addIngredient(new MachineRecipeIngredient(
+                        List.of(new ItemStack(Material.IRON_INGOT, 2), new ItemStack(Material.GOLD_INGOT, 3))))
                 .addInput(new ItemStack(Material.REDSTONE, 4))
                 .addOutput(new ItemStack(Material.EMERALD))
                 .build();
 
         assertNull(adapter.resolveFromObject(
-                machine,
-                display,
-                new int[] {0, 0},
-                TestFastMachinesInputFillAdapter::sameType,
-                ItemStack::isSimilar));
+                machine, display, new int[] {0, 0}, TestFastMachinesInputFillAdapter::sameType, ItemStack::isSimilar));
     }
 
     @Test
     void rejectsDisplayedAlternativeWithWrongRequiredAmount() {
         FastStyleMachine machine = new FastStyleMachine(validInputSlots());
         MachineRecipeDisplay display = MachineRecipeDisplay.builder()
-                .addIngredient(new MachineRecipeIngredient(List.of(
-                        new ItemStack(Material.IRON_INGOT, 1), new ItemStack(Material.GOLD_INGOT, 3))))
+                .addIngredient(new MachineRecipeIngredient(
+                        List.of(new ItemStack(Material.IRON_INGOT, 1), new ItemStack(Material.GOLD_INGOT, 3))))
                 .addInput(new ItemStack(Material.REDSTONE, 4))
                 .addOutput(new ItemStack(Material.DIAMOND))
                 .build();
 
         assertNull(adapter.resolveFromObject(
-                machine,
-                display,
-                new int[] {0, 0},
-                TestFastMachinesInputFillAdapter::sameType,
-                ItemStack::isSimilar));
+                machine, display, new int[] {0, 0}, TestFastMachinesInputFillAdapter::sameType, ItemStack::isSimilar));
     }
 
     @Test
@@ -105,18 +93,14 @@ class TestFastMachinesInputFillAdapter {
         unsafeSlots[unsafeSlots.length - 1] = 36;
         FastStyleMachine machine = new FastStyleMachine(unsafeSlots);
         MachineRecipeDisplay display = MachineRecipeDisplay.builder()
-                .addIngredient(new MachineRecipeIngredient(List.of(
-                        new ItemStack(Material.IRON_INGOT, 2), new ItemStack(Material.GOLD_INGOT, 3))))
+                .addIngredient(new MachineRecipeIngredient(
+                        List.of(new ItemStack(Material.IRON_INGOT, 2), new ItemStack(Material.GOLD_INGOT, 3))))
                 .addInput(new ItemStack(Material.REDSTONE, 4))
                 .addOutput(new ItemStack(Material.DIAMOND))
                 .build();
 
         assertNull(adapter.resolveFromObject(
-                machine,
-                display,
-                new int[] {0, 0},
-                TestFastMachinesInputFillAdapter::sameType,
-                ItemStack::isSimilar));
+                machine, display, new int[] {0, 0}, TestFastMachinesInputFillAdapter::sameType, ItemStack::isSimilar));
     }
 
     private static boolean sameType(ItemStack actual, ItemStack expected) {

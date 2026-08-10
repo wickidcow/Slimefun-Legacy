@@ -28,8 +28,10 @@ public final class DefaultStorageRuntimeService implements StorageRuntimeService
             String profileType = databaseManager.getProfileStorageType() == null
                     ? "UNINITIALIZED"
                     : databaseManager.getProfileStorageType().name();
-            int loadedChunks = blocks == null ? 0 : blocks.getAllLoadedChunkData().size();
-            int loadedUniversal = blocks == null ? 0 : blocks.getAllLoadedUniversalData().size();
+            int loadedChunks =
+                    blocks == null ? 0 : blocks.getAllLoadedChunkData().size();
+            int loadedUniversal =
+                    blocks == null ? 0 : blocks.getAllLoadedUniversalData().size();
             boolean ready = blocks != null || databaseManager.getProfileDataController() != null;
             return new StorageRuntimeSnapshot(
                     ready,
@@ -41,13 +43,7 @@ public final class DefaultStorageRuntimeService implements StorageRuntimeService
                     loadedUniversal);
         } catch (RuntimeException | LinkageError failure) {
             return new StorageRuntimeSnapshot(
-                    false,
-                    databaseManager.wasPreviousShutdownClean(),
-                    0,
-                    "UNAVAILABLE",
-                    "UNAVAILABLE",
-                    0,
-                    0);
+                    false, databaseManager.wasPreviousShutdownClean(), 0, "UNAVAILABLE", "UNAVAILABLE", 0, 0);
         }
     }
 }

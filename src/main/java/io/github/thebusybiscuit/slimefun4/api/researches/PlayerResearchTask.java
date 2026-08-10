@@ -95,20 +95,14 @@ public class PlayerResearchTask implements Consumer<PlayerProfile> {
 
         if (isInstant) {
             unlockResearch(p, profile);
-        } else if (Slimefun.getRegistry()
-                .getCurrentlyResearchingPlayers()
-                .add(p.getUniqueId())) {
+        } else if (Slimefun.getRegistry().getCurrentlyResearchingPlayers().add(p.getUniqueId())) {
             Slimefun.getLocalization()
                     .sendMessage(
-                            p,
-                            "messages.research.start",
-                            true,
-                            msg -> msg.replace(PLACEHOLDER, research.getName(p)));
+                            p, "messages.research.start", true, msg -> msg.replace(PLACEHOLDER, research.getName(p)));
             sendUpdateMessage(p);
 
-            Runnable clearResearchState = () -> Slimefun.getRegistry()
-                    .getCurrentlyResearchingPlayers()
-                    .remove(p.getUniqueId());
+            Runnable clearResearchState = () ->
+                    Slimefun.getRegistry().getCurrentlyResearchingPlayers().remove(p.getUniqueId());
             Slimefun.runSyncFor(
                     p,
                     () -> {

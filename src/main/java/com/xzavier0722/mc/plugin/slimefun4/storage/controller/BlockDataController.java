@@ -136,28 +136,34 @@ public class BlockDataController extends ADataController {
      * 加载所有服务器已加载的世界中的数据
      */
     private void loadLoadedWorlds() {
-        Slimefun.getSchedulerService().runLater(() -> {
-            for (var world : Bukkit.getWorlds()) {
-                loadWorld(world);
-            }
-        }, 1L);
+        Slimefun.getSchedulerService()
+                .runLater(
+                        () -> {
+                            for (var world : Bukkit.getWorlds()) {
+                                loadWorld(world);
+                            }
+                        },
+                        1L);
     }
 
     /**
      * 加载所有服务器已加载的世界区块中的数据
      */
     private void loadLoadedChunks() {
-        Slimefun.getSchedulerService().runLater(() -> {
-            for (var world : Bukkit.getWorlds()) {
-                if (Slimefun.getSchedulerService().isFolia()) {
-                    scheduleExistingLoadedChunks(world);
-                } else {
-                    for (var chunk : world.getLoadedChunks()) {
-                        loadChunk(chunk, false, true);
-                    }
-                }
-            }
-        }, 1L);
+        Slimefun.getSchedulerService()
+                .runLater(
+                        () -> {
+                            for (var world : Bukkit.getWorlds()) {
+                                if (Slimefun.getSchedulerService().isFolia()) {
+                                    scheduleExistingLoadedChunks(world);
+                                } else {
+                                    for (var chunk : world.getLoadedChunks()) {
+                                        loadChunk(chunk, false, true);
+                                    }
+                                }
+                            }
+                        },
+                        1L);
     }
 
     private void scheduleExistingLoadedChunks(World world) {
@@ -187,10 +193,16 @@ public class BlockDataController extends ADataController {
                 }
             });
             if (task.isCancelled()) {
-                logger.log(Level.WARNING, "Skipped loaded-chunk Slimefun data bootstrap because scheduling was rejected: {0}", cKey);
+                logger.log(
+                        Level.WARNING,
+                        "Skipped loaded-chunk Slimefun data bootstrap because scheduling was rejected: {0}",
+                        cKey);
             }
         } catch (RuntimeException failure) {
-            logger.log(Level.WARNING, "Unable to resolve loaded Slimefun chunk key during Folia startup: " + cKey, failure);
+            logger.log(
+                    Level.WARNING,
+                    "Unable to resolve loaded Slimefun chunk key during Folia startup: " + cKey,
+                    failure);
         }
     }
 
@@ -911,16 +923,14 @@ public class BlockDataController extends ADataController {
             // Folia's global region must not directly touch chunk state. Resolve each stored chunk on the
             // scheduler for the region that owns its coordinates, while Paper keeps the legacy synchronous path.
             chunkKeys.forEach(cKey -> scheduleWorldChunkLoad(world, cKey));
-            logger.log(
-                    Level.INFO,
-                    "World {0} Slimefun data scheduled across owning regions in {1}ms",
-                    new Object[] {worldName, (System.currentTimeMillis() - start)});
+            logger.log(Level.INFO, "World {0} Slimefun data scheduled across owning regions in {1}ms", new Object[] {
+                worldName, (System.currentTimeMillis() - start)
+            });
         } else {
             chunkKeys.forEach(cKey -> loadChunk(LocationUtils.toChunk(world, cKey), false, true));
-            logger.log(
-                    Level.INFO,
-                    "World {0} data loaded in {1}ms",
-                    new Object[] {worldName, (System.currentTimeMillis() - start)});
+            logger.log(Level.INFO, "World {0} data loaded in {1}ms", new Object[] {
+                worldName, (System.currentTimeMillis() - start)
+            });
         }
     }
 
@@ -941,10 +951,16 @@ public class BlockDataController extends ADataController {
                 }
             });
             if (task.isCancelled()) {
-                logger.log(Level.WARNING, "Skipped Slimefun startup block-data load because scheduling was rejected: {0}", cKey);
+                logger.log(
+                        Level.WARNING,
+                        "Skipped Slimefun startup block-data load because scheduling was rejected: {0}",
+                        cKey);
             }
         } catch (RuntimeException failure) {
-            logger.log(Level.WARNING, "Unable to resolve stored Slimefun chunk key during world startup: " + cKey, failure);
+            logger.log(
+                    Level.WARNING,
+                    "Unable to resolve stored Slimefun chunk key during world startup: " + cKey,
+                    failure);
         }
     }
 
@@ -1178,7 +1194,11 @@ public class BlockDataController extends ADataController {
                         } catch (Exception ex) {
                             inv[slot] = null;
                             Slimefun.logger()
-                                    .log(Level.SEVERE, "Failed to load the target item; check the stored data [" + uniData.getKey() + ":" + slot + "]", ex);
+                                    .log(
+                                            Level.SEVERE,
+                                            "Failed to load the target item; check the stored data [" + uniData.getKey()
+                                                    + ":" + slot + "]",
+                                            ex);
                         }
                     }
 
@@ -1706,7 +1726,8 @@ public class BlockDataController extends ADataController {
                         Slimefun.logger()
                                 .log(
                                         Level.SEVERE,
-                                        "Failed to load the target item; check the stored data [" + universalData.getKey() + ":" + slot + "]",
+                                        "Failed to load the target item; check the stored data ["
+                                                + universalData.getKey() + ":" + slot + "]",
                                         ex);
                     }
                 }

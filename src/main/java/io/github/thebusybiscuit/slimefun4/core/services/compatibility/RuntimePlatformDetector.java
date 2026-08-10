@@ -27,8 +27,7 @@ public final class RuntimePlatformDetector {
     private static final String PAPER_CONFIGURATION_CLASS = "io.papermc.paper.configuration.Configuration";
     private static final String ADVENTURE_COMPONENT_CLASS = "net.kyori.adventure.text.Component";
     private static final String DATA_COMPONENT_TYPE_CLASS = "io.papermc.paper.datacomponent.DataComponentType";
-    private static final String PLAYER_PICK_BLOCK_EVENT_CLASS =
-            "io.papermc.paper.event.player.PlayerPickBlockEvent";
+    private static final String PLAYER_PICK_BLOCK_EVENT_CLASS = "io.papermc.paper.event.player.PlayerPickBlockEvent";
 
     private RuntimePlatformDetector() {}
 
@@ -90,9 +89,7 @@ public final class RuntimePlatformDetector {
     }
 
     public static @Nonnull PlatformFamily detectFamily(
-            @Nonnull Server server,
-            @Nonnull Set<PlatformCapability> capabilities,
-            boolean regionOwnedExecution) {
+            @Nonnull Server server, @Nonnull Set<PlatformCapability> capabilities, boolean regionOwnedExecution) {
         String identity = identity(server);
 
         if (regionOwnedExecution || identity.contains("folia")) {

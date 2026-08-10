@@ -72,7 +72,12 @@ public class IronGolemAssembler extends AbstractEntityAssembler<IronGolem> {
                 ChestMenuUtils.getEmptyClickHandler());
         preset.addItem(
                 13,
-                new CustomItemStack(Material.CLOCK, "&7Cooldown: &b30 Seconds", "", "&fThis Machine takes up to half a Minute to operate", "&fso give it some Time!"),
+                new CustomItemStack(
+                        Material.CLOCK,
+                        "&7Cooldown: &b30 Seconds",
+                        "",
+                        "&fThis Machine takes up to half a Minute to operate",
+                        "&fso give it some Time!"),
                 ChestMenuUtils.getEmptyClickHandler());
     }
 

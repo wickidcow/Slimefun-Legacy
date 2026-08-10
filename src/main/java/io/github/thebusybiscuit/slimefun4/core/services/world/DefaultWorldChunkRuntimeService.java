@@ -66,7 +66,8 @@ public final class DefaultWorldChunkRuntimeService implements WorldChunkRuntimeS
     public void afterChunkLoad(@Nonnull ChunkLoadEvent event) {
         Chunk chunk = event.getChunk();
         ChunkKey key = key(chunk);
-        chunks.computeIfPresent(key, (ignored, state) -> state == ChunkRuntimeState.FAILED ? state : ChunkRuntimeState.READY);
+        chunks.computeIfPresent(
+                key, (ignored, state) -> state == ChunkRuntimeState.FAILED ? state : ChunkRuntimeState.READY);
     }
 
     @EventHandler(priority = EventPriority.LOWEST)

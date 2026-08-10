@@ -53,8 +53,7 @@ public final class DefaultAddonCompatibilityService implements AddonCompatibilit
         this.owner = Objects.requireNonNull(owner, "owner");
         this.platformCompatibilityService =
                 Objects.requireNonNull(platformCompatibilityService, "platformCompatibilityService");
-        this.optionalDependencyService =
-                Objects.requireNonNull(optionalDependencyService, "optionalDependencyService");
+        this.optionalDependencyService = Objects.requireNonNull(optionalDependencyService, "optionalDependencyService");
         this.runtimeHealthService = runtimeHealthService;
     }
 
@@ -78,8 +77,8 @@ public final class DefaultAddonCompatibilityService implements AddonCompatibilit
     public void refresh() {
         List<AddonCompatibilityResult> refreshed = installedAddons().stream()
                 .map(this::inspect)
-                .sorted(Comparator.comparingInt(
-                                (AddonCompatibilityResult result) -> result.getStatus().getSeverity())
+                .sorted(Comparator.comparingInt((AddonCompatibilityResult result) ->
+                                result.getStatus().getSeverity())
                         .reversed()
                         .thenComparing(AddonCompatibilityResult::getPluginName, String.CASE_INSENSITIVE_ORDER))
                 .toList();
@@ -116,8 +115,8 @@ public final class DefaultAddonCompatibilityService implements AddonCompatibilit
         if (testedCores.isEmpty()) {
             warnings.add("No tested Slimefun core variants were declared");
         } else if (!testedCores.contains(getRunningCoreVariant())) {
-            warnings.add("Not explicitly tested on " + getRunningCoreVariant().getDisplayName()
-                    + " (declared: " + joinCoreNames(testedCores) + ")");
+            warnings.add("Not explicitly tested on " + getRunningCoreVariant().getDisplayName() + " (declared: "
+                    + joinCoreNames(testedCores) + ")");
         }
 
         PlatformCompatibilityReport platformReport =
@@ -180,12 +179,9 @@ public final class DefaultAddonCompatibilityService implements AddonCompatibilit
                 AddonCompatibilityDeclaration declaration = provider.getAddonCompatibilityDeclaration();
                 if (declaration == null) {
                     return new ResolvedDeclaration(
-                            null,
-                            AddonCompatibilitySource.PROVIDER_INTERFACE,
-                            "Compatibility provider returned null");
+                            null, AddonCompatibilitySource.PROVIDER_INTERFACE, "Compatibility provider returned null");
                 }
-                return new ResolvedDeclaration(
-                        declaration, AddonCompatibilitySource.PROVIDER_INTERFACE, null);
+                return new ResolvedDeclaration(declaration, AddonCompatibilitySource.PROVIDER_INTERFACE, null);
             } catch (RuntimeException | LinkageError error) {
                 if (runtimeHealthService != null) {
                     runtimeHealthService.recordFailure(plugin, "compatibility-provider", error);
@@ -206,10 +202,7 @@ public final class DefaultAddonCompatibilityService implements AddonCompatibilit
     }
 
     private static AddonCompatibilityResult result(
-            Plugin plugin,
-            AddonCompatibilityStatus status,
-            ResolvedDeclaration resolved,
-            List<String> messages) {
+            Plugin plugin, AddonCompatibilityStatus status, ResolvedDeclaration resolved, List<String> messages) {
         return new AddonCompatibilityResult(
                 plugin.getName(),
                 plugin.getDescription().getVersion(),

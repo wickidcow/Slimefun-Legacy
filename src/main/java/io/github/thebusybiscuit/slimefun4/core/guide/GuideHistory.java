@@ -93,8 +93,7 @@ public class GuideHistory {
         return queue.size();
     }
 
-    @Nullable
-    private GuideEntry<?> getLastEntry(boolean remove) {
+    @Nullable private GuideEntry<?> getLastEntry(boolean remove) {
         if (remove && !queue.isEmpty()) {
             queue.removeLast();
         }
@@ -146,11 +145,7 @@ public class GuideHistory {
                     () -> guide.displayItem(profile, stack, entry.getPage(), false));
         } else if (entry.getIndexedObject() instanceof String query) {
             GuideRuntimeGuard.run(
-                    profile,
-                    mode,
-                    "restore history search",
-                    null,
-                    () -> guide.openSearch(profile, query, false));
+                    profile, mode, "restore history search", null, () -> guide.openSearch(profile, query, false));
         } else {
             throw new IllegalStateException("Unknown GuideHistory entry: " + entry.getIndexedObject());
         }

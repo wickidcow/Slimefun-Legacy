@@ -58,9 +58,10 @@ public class NestedItemGroup extends FlexItemGroup {
                     return true;
                 }
             } catch (RuntimeException | LinkageError | StackOverflowError failure) {
-                Slimefun.logger().warning("Could not evaluate nested guide subgroup visibility: " + safeKey(subGroup)
-                        + " [class=" + subGroup.getClass().getName() + ", failure="
-                        + failure.getClass().getName() + ']');
+                Slimefun.logger()
+                        .warning("Could not evaluate nested guide subgroup visibility: " + safeKey(subGroup)
+                                + " [class=" + subGroup.getClass().getName() + ", failure="
+                                + failure.getClass().getName() + ']');
             }
         }
         return false;
@@ -76,11 +77,7 @@ public class NestedItemGroup extends FlexItemGroup {
     @ParametersAreNonnullByDefault
     public void open(Player player, PlayerProfile profile, SlimefunGuideMode mode) {
         GuideRuntimeGuard.run(
-                profile,
-                mode,
-                "open nested item group page 1",
-                this,
-                () -> openGuide(player, profile, mode, 1));
+                profile, mode, "open nested item group page 1", this, () -> openGuide(player, profile, mode, 1));
     }
 
     @ParametersAreNonnullByDefault
