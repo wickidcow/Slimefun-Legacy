@@ -97,7 +97,11 @@ def main() -> int:
 
         integrations = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/integrations/IntegrationsManager.java")
         req(
-            '.runGuarded(integration, "integration-hook:" + pluginName' in integrations,
+            re.search(
+                r'\.runGuarded\s*\(\s*integration\s*,\s*"integration-hook:"\s*\+\s*pluginName',
+                integrations,
+            )
+            is not None,
             "Third-party integration hook does not use the shared guarded callback path",
             failures,
         )
