@@ -20,7 +20,7 @@ Slimefun Legacy turns a normal Minecraft server into a modpack-like experience w
 [Report a Bug](https://github.com/wickidcow/Slimefun-Legacy/issues) ·
 [Release History](EVERYTHING_THAT_CHANGED.md)
 
-Current development release: **4.1.29 — Core Platform Phase 1K (Dependency & Addon Boundary Hardening)**. ·
+Current development release: **4.1.30 — Core Platform Phase 1L (Release Lifecycle & Upgrade Safety)**. ·
 [Contributing](CONTRIBUTING.md)
 
 </div>
@@ -140,6 +140,11 @@ Slimefun Legacy does not install, enable, replace, or emulate third-party plugin
 Phase 1K Part 2 carries the same boundary evidence into `/sf versions`. The addon list remains compact, but addons that need attention can show `Deps!`, `Alias`, `Runtime!`/`Linkage!`, or `Startup?` markers with detailed hover text. The summary also reports how many installed Slimefun addons have healthy declared hard dependencies, dependency problems, provider-alias resolution, or failures observed inside Slimefun-guarded callbacks.
 
 These diagnostics are intentionally conservative. Slimefun can report dependency metadata and failures that occurred inside its own guarded addon callback boundary, but it does **not** intercept arbitrary Paper plugin startup/onEnable exceptions or parse the server log. If a plugin is disabled while its declared hard dependencies are satisfied, `/sf versions` and `/sf doctor compatibility <plugin>` tell the operator to inspect the console and that addon's configuration instead of guessing a core cause.
+
+### Release lifecycle
+
+Phase 1L begins with a release-lifecycle rollover: 4.1.30 becomes the active development candidate, while the validated 4.1.29 release commit becomes the release-blocking previous-stable compatibility baseline. The historical 4.1.15 floor remains advisory. This Part 1 work is metadata and CI lifecycle hardening only; it does not change normal Cargo, Energy, machine, storage, database, saved-world, or gameplay semantics.
+
 ## 🌐 English-first and recovery
 
 The normal English experience does **not** require Slimefun Translate. Recommended settings in `plugins/Slimefun/config.yml` are:
@@ -211,7 +216,7 @@ Historical compatibility, core-platform, release, validation, and Enhanced Guide
 | Sponge | ❌ Unsupported |
 | Hybrid servers such as Arclight, Mohist, or Cardboard | ❌ Unsupported and blocked |
 | Fabric / Forge / NeoForge | ❌ Unsupported — this is a server plugin, not a mod |
-Slimefun Legacy 4.1.29 is tested primarily against **Paper 26.2 / Minecraft 1.21.11 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
+Slimefun Legacy 4.1.30 is tested primarily against **Paper 26.2 / Minecraft 1.21.11 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
 The machine-readable support contract remains under `compatibility/`. Historical Compatibility Foundation and Paper/Purpur maintenance notes are consolidated in [`EVERYTHING_THAT_CHANGED.md`](EVERYTHING_THAT_CHANGED.md).
 Folia Phase 1 routes machine ticks and entity/location callbacks through their owning schedulers while preserving Paper behavior. Cargo and energy networks intentionally operate only on nodes owned by the regulator's current Folia region; transactional cross-region transfers are not enabled yet. Folia therefore remains experimental.
 **Every installed addon must also be Folia-safe.** The historical Folia Phase 1 safety boundary and staging checklist are preserved in [`EVERYTHING_THAT_CHANGED.md`](EVERYTHING_THAT_CHANGED.md).
