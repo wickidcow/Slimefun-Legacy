@@ -17,8 +17,10 @@ OPTIONAL_PLUGIN_APIS = {
     "Vault": ("libs.vault.api",),
 }
 
-EXPECTED_SOFT_DEPEND = tuple(OPTIONAL_PLUGIN_APIS)
-EXPECTED_LOAD_BEFORE = ("ChestTerminal", "SlimeGlue")
+# Bukkit/Paper do not assign dependency semantics to the YAML list order. Protect
+# exact membership instead, while separately rejecting duplicate entries.
+EXPECTED_SOFT_DEPEND = frozenset(OPTIONAL_PLUGIN_APIS)
+EXPECTED_LOAD_BEFORE = frozenset(("ChestTerminal", "SlimeGlue"))
 
 PRIVATE_RELOCATIONS = (
     ('relocate("io.github.bakedlibs.dough", "io.github.thebusybiscuit.slimefun4.libraries.dough")', "Dough"),
@@ -75,10 +77,31 @@ def main() -> int:
     require(not re.search(r"(?m)^provides\s*:", plugin_yml), "plugin.yml must not provide/impersonate third-party plugins", failures)
     require("GuizhanLibPlugin" not in plugin_yml, "plugin.yml must not declare or provide GuizhanLibPlugin", failures)
 
-    softdepend = tuple(top_level_list(plugin_yml, "softdepend"))
-    load_before = tuple(top_level_list(plugin_yml, "loadBefore"))
-    require(softdepend == EXPECTED_SOFT_DEPEND, f"softdepend changed: expected {EXPECTED_SOFT_DEPEND}, got {softdepend}", failures)
-    require(load_before == EXPECTED_LOAD_BEFORE, f"loadBefore changed: expected {EXPECTED_LOAD_BEFORE}, got {load_before}", failures)
+    softdepend_entries = top_level_list(plugin_yml, "softdepend")
+    load_before_entries = top_level_list(plugin_yml, "loadBefore")
+    softdepend = frozenset(softdepend_entries)
+    load_before = frozenset(load_before_entries)
+
+    require(
+        len(softdepend_entries) == len(softdepend),
+        f"softdepend contains duplicate entries: {softdepend_entries}",
+        failures,
+    )
+    require(
+        len(load_before_entries) == len(load_before),
+        f"loadBefore contains duplicate entries: {load_before_entries}",
+        failures,
+    )
+    require(
+        softdepend == EXPECTED_SOFT_DEPEND,
+        f"softdepend membership changed: expected {sorted(EXPECTED_SOFT_DEPEND)}, got {sorted(softdepend)}",
+        failures,
+    )
+    require(
+        load_before == EXPECTED_LOAD_BEFORE,
+        f"loadBefore membership changed: expected {sorted(EXPECTED_LOAD_BEFORE)}, got {sorted(load_before)}",
+        failures,
+    )
 
     for plugin_name, aliases in OPTIONAL_PLUGIN_APIS.items():
         for alias in aliases:
@@ -125,6 +148,7 @@ def main() -> int:
         "Phase 1K Part 3 dependency contract: PASS\n"
         "- Slimefun declares no hard external plugin dependency\n"
         "- Slimefun does not provide or impersonate third-party plugin identities\n"
+        "- optional descriptor membership is protected without treating YAML list order as semantic\n"
         "- optional plugin APIs remain compileOnly with transitive dependencies excluded\n"
         "- optional plugin APIs are not bundled or published as implementation dependencies\n"
         "- private bundled libraries remain relocated into Slimefun's namespace\n"
