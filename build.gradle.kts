@@ -131,17 +131,20 @@ val buildVersion = version.toString()
 // builds use the Unix epoch rather than the current wall clock so git.properties
 // cannot make otherwise identical JARs differ.
 val sourceDateEpoch = providers.environmentVariable("SOURCE_DATE_EPOCH").orElse("0").get().toLongOrNull() ?: 0L
+val sourceCommit = providers.environmentVariable("SOURCE_COMMIT").orElse("unknown").get()
 val gitBuildTime: String = DateTimeFormatter.ISO_INSTANT.format(Instant.ofEpochSecond(sourceDateEpoch))
 configure<GitPropertiesPluginExtension> {
     keys = listOf(
         "git.build.time",
         "git.build.version",
+        "git.source.commit",
         "git.commit.id.abbrev",
         "git.commit.id.full",
         "git.branch",
     )
     customProperty("git.build.version", buildVersion)
     customProperty("git.build.time", gitBuildTime)
+    customProperty("git.source.commit", sourceCommit)
     gitPropertiesName = "git.properties"
     gitPropertiesResourceDir = layout.buildDirectory.dir("generated/git-properties").get().asFile
 }
