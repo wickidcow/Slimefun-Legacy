@@ -139,7 +139,7 @@ configure<GitPropertiesPluginExtension> {
         "git.build.version",
         "git.source.commit",
         "git.commit.id.abbrev",
-        "git.commit.id.full",
+        "git.commit.id",
         "git.branch",
     )
     customProperty("git.build.version", buildVersion)
