@@ -1,5 +1,16 @@
 # Slimefun Legacy 4.1.29 — Core Platform Phase 1K
 
+## Part 2 — Addon Boundary Evidence in `/sf versions`
+
+- `/sf versions` now summarizes declared addon hard-dependency health beside the existing compatibility status summary.
+- Addon lines expose compact `Deps!`, `Alias`, `Runtime!`/`Linkage!`, and `Startup?` markers only when operator attention is useful.
+- Compatibility-status hover text now includes hard-dependency health, provider-alias warnings, guarded callback failure evidence, and conservative disabled-addon startup guidance.
+- Provider aliases remain descriptor-level dependency evidence only; they are never treated as proof that the provider exposes the Java classes or APIs an addon expects.
+- Guarded callback failures are explicitly scoped to callbacks Slimefun executed through its existing addon runtime boundary. Slimefun does not intercept arbitrary Paper plugin startup/onEnable failures or parse the server log.
+- `/sf doctor compatibility <plugin>` now distinguishes guarded runtime linkage evidence from compatibility-provider warnings and explains when a disabled addon's hard dependencies are healthy but its plugin-side startup cause is unknown.
+- No addon is automatically enabled, disabled, replaced, downloaded, or modified by these diagnostics.
+- No Slimefun item IDs, recipes, research IDs, Cargo/Energy behavior, machine processing semantics, storage keys, database schemas, or saved-world formats were changed.
+
 ## Part 1 — Dependency & Addon Boundary Hardening
 
 - Added read-only Paper plugin dependency diagnostics through `/sf doctor dependencies [plugin-or-dependency]`.

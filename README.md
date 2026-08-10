@@ -136,6 +136,10 @@ Phase 1K adds read-only plugin dependency diagnostics so operators can distingui
 The report shows declared hard and soft dependencies, missing or disabled required plugins, reverse consumers, and Paper provider aliases. Provider aliases are reported only as descriptor-level resolution: they do **not** prove that the provider contains every Java class or runtime API expected by a dependent addon.
 
 Slimefun Legacy does not install, enable, replace, or emulate third-party plugin dependencies. If an addon requires an external library plugin such as GuizhanLibPlugin, use the real dependency required by that addon. Cross-fork Gugu API probes remain advisory compatibility evidence; Gugu is not a Slimefun Legacy runtime-core target.
+
+Phase 1K Part 2 carries the same boundary evidence into `/sf versions`. The addon list remains compact, but addons that need attention can show `Deps!`, `Alias`, `Runtime!`/`Linkage!`, or `Startup?` markers with detailed hover text. The summary also reports how many installed Slimefun addons have healthy declared hard dependencies, dependency problems, provider-alias resolution, or failures observed inside Slimefun-guarded callbacks.
+
+These diagnostics are intentionally conservative. Slimefun can report dependency metadata and failures that occurred inside its own guarded addon callback boundary, but it does **not** intercept arbitrary Paper plugin startup/onEnable exceptions or parse the server log. If a plugin is disabled while its declared hard dependencies are satisfied, `/sf versions` and `/sf doctor compatibility <plugin>` tell the operator to inspect the console and that addon's configuration instead of guessing a core cause.
 ## 🌐 English-first and recovery
 
 The normal English experience does **not** require Slimefun Translate. Recommended settings in `plugins/Slimefun/config.yml` are:

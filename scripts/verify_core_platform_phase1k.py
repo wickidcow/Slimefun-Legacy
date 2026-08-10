@@ -39,11 +39,13 @@ def main() -> int:
         "PluginDependencyDiagnosticsService.java"
     )
     doctor_rel = "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java"
+    versions_rel = "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/VersionsCommand.java"
     required_files = (
         resolution_rel,
         snapshot_rel,
         diagnostics_rel,
         doctor_rel,
+        versions_rel,
         "scripts/verify_core_platform_phase1j.py",
         "compatibility/support-contract.json",
         "compatibility/cross-fork-api-matrix.json",
@@ -122,10 +124,32 @@ def main() -> int:
             "Declared hard dependencies:",
             "Provider alias warning:",
             "does not install, enable, replace, or emulate third-party plugin dependencies",
+            "Guarded runtime linkage evidence:",
+            "it does not intercept arbitrary third-party plugin onEnable failures.",
+            "Startup evidence:",
+            "Slimefun cannot infer the plugin-side startup cause",
         ):
             req(token in doctor, f"Doctor dependency diagnostic invariant missing: {token}", failures)
         for forbidden in ("enablePlugin(", "disablePlugin(", "loadPlugin(", "Class.forName("):
             req(forbidden not in doctor, f"Doctor dependency diagnostics must not mutate/probe plugin loading: {forbidden}", failures)
+
+        versions = read(root, versions_rel)
+        for token in (
+            "Addon dependency health:",
+            "Guarded addon callbacks:",
+            "Boundary evidence is observational",
+            'Component.text(" · Deps!"',
+            'Component.text(" · Alias"',
+            '" · Linkage!"',
+            '" · Runtime!"',
+            'Component.text(" · Startup?"',
+            "appendBoundaryEvidence",
+            "Provider aliases satisfy descriptor lookup only",
+            "arbitrary Paper plugin onEnable failures are not intercepted",
+        ):
+            req(token in versions, f"Versions addon-boundary evidence invariant missing: {token}", failures)
+        for forbidden in ("enablePlugin(", "disablePlugin(", "loadPlugin(", "Class.forName("):
+            req(forbidden not in versions, f"Versions boundary diagnostics must remain observational: {forbidden}", failures)
 
         plugin_yml = read(root, "src/main/resources/plugin.yml")
         req("GuizhanLibPlugin" not in plugin_yml, "Slimefun core must not declare or provide GuizhanLibPlugin", failures)
@@ -140,6 +164,9 @@ def main() -> int:
             "dependency_diagnostics_are_read_only",
             "provider_alias_is_not_class_compatibility_proof",
             "gugu_api_probe_remains_advisory",
+            "versions_addon_dependency_health",
+            "versions_guarded_runtime_failure_evidence",
+            "disabled_addon_startup_cause_is_not_inferred",
         ):
             req(support_policy.get(key) is True, f"Phase 1K support policy missing: {key}", failures)
         for key in (
@@ -148,6 +175,7 @@ def main() -> int:
             "phase1k_changes_normal_cargo_energy_machine_semantics",
             "database_format_changed",
             "storage_schema_changed",
+            "plugin_startup_log_interception",
         ):
             req(support_policy.get(key) is False, f"Phase 1K support policy must remain false: {key}", failures)
 
@@ -170,6 +198,8 @@ def main() -> int:
             "plugin-dependency-diagnostics",
             "third-party-dependency-boundary",
             "provider-alias-diagnostic-warning",
+            "addon-dependency-health-evidence",
+            "guarded-addon-runtime-failure-evidence",
         ):
             req(capability in capabilities, f"Phase 1K capability missing: {capability}", failures)
 
@@ -179,12 +209,12 @@ def main() -> int:
         req(baselines.get("candidate", {}).get("version") == current, "Candidate baseline must match projectVersion", failures)
         req(
             baselines.get("previous_stable", {}).get("version") == "4.1.21",
-            "Phase 1K Part 1 must not move the previous-stable baseline",
+            "Phase 1K must not move the previous-stable baseline",
             failures,
         )
         req(
             baselines.get("legacy_floor", {}).get("version") == "4.1.15",
-            "Phase 1K Part 1 must not move the historical legacy floor",
+            "Phase 1K must not move the historical legacy floor",
             failures,
         )
 
@@ -205,9 +235,12 @@ def main() -> int:
             "Provider aliases are reported only as descriptor-level resolution",
             "does not install, enable, replace, or emulate third-party plugin dependencies",
             "Gugu is not a Slimefun Legacy runtime-core target",
+            "Phase 1K Part 2 carries the same boundary evidence into `/sf versions`",
+            "does **not** intercept arbitrary Paper plugin startup/onEnable exceptions or parse the server log",
         ):
             req(token in readme, f"README Phase 1K documentation missing: {token}", failures)
         req("# Slimefun Legacy 4.1.29 — Core Platform Phase 1K" in history, "4.1.29 Phase 1K history entry missing", failures)
+        req("## Part 2 — Addon Boundary Evidence in `/sf versions`" in history, "Phase 1K Part 2 history entry missing", failures)
         req("# Slimefun Legacy 4.1.28 — Core Platform Phase 1J" in history, "4.1.28 Phase 1J history must remain preserved", failures)
     except Exception as error:
         failures.append(f"Phase 1K verifier failed to inspect repository: {error}")
@@ -229,6 +262,9 @@ def main() -> int:
         "- Paper provider aliases are identified without claiming class/API compatibility\n"
         "- Slimefun does not install, enable, disable, replace, or emulate third-party dependencies\n"
         "- Gugu/Original/United probes remain advisory while Legacy remains the runtime/release target\n"
+        "- /sf versions surfaces addon hard-dependency, provider-alias, and guarded callback evidence\n"
+        "- disabled-addon startup causes are not guessed when declared hard dependencies are healthy\n"
+        "- arbitrary third-party plugin startup/onEnable failures are not intercepted or log-parsed\n"
         "- no Cargo, Energy, machine, database, storage-schema, or saved-world semantics are changed\n",
         encoding="utf-8",
     )

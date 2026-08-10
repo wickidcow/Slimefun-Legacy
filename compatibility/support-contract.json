@@ -142,7 +142,11 @@
     "provider_alias_is_not_class_compatibility_proof": true,
     "gugu_runtime_core_target": false,
     "gugu_api_probe_remains_advisory": true,
-    "phase1k_changes_normal_cargo_energy_machine_semantics": false
+    "phase1k_changes_normal_cargo_energy_machine_semantics": false,
+    "versions_addon_dependency_health": true,
+    "versions_guarded_runtime_failure_evidence": true,
+    "disabled_addon_startup_cause_is_not_inferred": true,
+    "plugin_startup_log_interception": false
   },
   "phase": "Core Platform Phase 1K"
 }

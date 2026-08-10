@@ -67,6 +67,8 @@
     "cross-fork-doctor-diagnostics",
     "plugin-dependency-diagnostics",
     "third-party-dependency-boundary",
-    "provider-alias-diagnostic-warning"
+    "provider-alias-diagnostic-warning",
+    "addon-dependency-health-evidence",
+    "guarded-addon-runtime-failure-evidence"
   ]
 }

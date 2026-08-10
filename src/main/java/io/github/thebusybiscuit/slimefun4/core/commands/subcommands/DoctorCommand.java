@@ -837,8 +837,8 @@ final class DoctorCommand extends SubCommand {
 
     private void sendCompatibilityResult(CommandSender sender, AddonCompatibilityResult result) {
         send(sender, "&6Addon Compatibility Evidence: &e" + result.getPluginName() + " v" + result.getPluginVersion());
-        send(sender, "&7Runtime load: "
-                + (result.getStatus() == AddonCompatibilityStatus.DISABLED ? "&cDisabled" : "&aPlugin enabled"));
+        boolean disabled = result.getStatus() == AddonCompatibilityStatus.DISABLED;
+        send(sender, "&7Runtime load: " + (disabled ? "&cDisabled" : "&aPlugin enabled"));
         send(sender, "&7Compatibility result: " + statusColor(result.getStatus()) + result.getStatus().getDisplayName());
         send(sender, "&7Declaration source: &e" + result.getSource().getDisplayName());
 
@@ -871,30 +871,58 @@ final class DoctorCommand extends SubCommand {
         if (callbackFailure.isPresent()) {
             AddonRuntimeFailureSnapshot failure = callbackFailure.orElseThrow();
             send(sender, "&7Addon callback health: &e" + failure.getObservedFailures() + " failure(s) observed");
-            send(sender, "&8  Last: &7" + failure.getOperation() + " &8| &7"
+            send(sender, "&8  Last guarded callback: &7" + failure.getOperation() + " &8| &7"
                     + simpleFailureName(failure.getExceptionClass()) + ": " + failure.getMessage());
+            if (isLinkageFailureClass(failure.getExceptionClass())) {
+                send(sender, "&7Guarded runtime linkage evidence: &eObserved");
+            }
         } else {
             send(sender, "&7Addon callback health: &aNo guarded callback failures observed");
+            send(sender, "&7Guarded runtime linkage evidence: &aNone observed");
         }
+        send(sender, "&8  Guarded callback evidence covers callbacks executed through Slimefun's boundary only; "
+                + "it does not intercept arbitrary third-party plugin onEnable failures.");
 
-        new PluginDependencyDiagnosticsService(plugin).findPlugin(result.getPluginName()).ifPresent(snapshot -> {
+        var dependencySnapshot = new PluginDependencyDiagnosticsService(plugin).findPlugin(result.getPluginName());
+        if (dependencySnapshot.isPresent()) {
+            PluginDependencySnapshot snapshot = dependencySnapshot.orElseThrow();
             long problems = snapshot.getRequiredDependencyProblemCount();
+            long providerAliases = snapshot.getRequiredDependencies().stream()
+                    .filter(PluginDependencyResolution::isProviderAlias)
+                    .count();
             send(sender, "&7Declared hard dependencies: &e" + snapshot.getRequiredDependencies().size()
-                    + " &8| &7problems: " + (problems == 0 ? "&a0" : "&c" + problems));
+                    + " &8| &7problems: " + (problems == 0 ? "&a0" : "&c" + problems)
+                    + " &8| &7provider aliases: " + (providerAliases == 0 ? "&a0" : "&e" + providerAliases));
             for (PluginDependencyResolution dependency : snapshot.getRequiredDependencies()) {
                 if (dependency.isProblem()) {
                     send(sender, "&8  - &7" + dependency.getDeclaredName() + ": " + dependencyState(dependency));
+                } else if (dependency.isProviderAlias()) {
+                    send(sender, "&8  - &eProvider alias warning: &7" + dependency.getDeclaredName()
+                            + " -> " + dependency.getResolvedPluginName()
+                            + " &8(descriptor resolution only; not Java/API proof)");
                 }
             }
-        });
 
-        boolean linkageWarning = result.getMessages().stream()
+            if (disabled) {
+                if (problems > 0) {
+                    send(sender, "&7Startup evidence: &eA missing/disabled declared hard dependency can prevent this addon from enabling.");
+                } else {
+                    send(sender, "&7Startup evidence: &eDeclared hard dependencies are satisfied, but the addon is disabled.");
+                    send(sender, "&8  Slimefun cannot infer the plugin-side startup cause; inspect the server console and addon configuration.");
+                }
+            }
+        } else if (disabled) {
+            send(sender, "&7Startup evidence: &eDependency metadata was unavailable for this disabled addon.");
+            send(sender, "&8  Slimefun cannot infer the plugin-side startup cause; inspect the server console and addon configuration.");
+        }
+
+        boolean compatibilityLinkageWarning = result.getMessages().stream()
                 .map(message -> message.toLowerCase(Locale.ROOT))
                 .anyMatch(message -> message.contains("linkage") || message.contains("provider failed"));
-        send(sender, linkageWarning
+        send(sender, compatibilityLinkageWarning
                 ? "&7Compatibility-layer linkage signal: &eA provider/linkage warning was observed"
                 : "&7Compatibility-layer linkage signal: &aNo provider/linkage failure observed during inspection");
-        send(sender, "&8  This is a safe runtime signal, not a full bytecode proof; GitHub compatibility CI remains "
+        send(sender, "&8  This compatibility-layer signal is not a full bytecode proof; GitHub compatibility CI remains "
                 + "the stronger binary/source check for monitored addon builds.");
 
         if (result.getMessages().isEmpty()) {
@@ -904,6 +932,18 @@ final class DoctorCommand extends SubCommand {
         for (String message : result.getMessages()) {
             send(sender, "&8- &7" + message);
         }
+    }
+
+    private boolean isLinkageFailureClass(String exceptionClass) {
+        String name = simpleFailureName(exceptionClass).toLowerCase(Locale.ROOT);
+        return name.equals("linkageerror")
+                || name.equals("noclassdeffounderror")
+                || name.equals("classnotfoundexception")
+                || name.equals("nosuchmethoderror")
+                || name.equals("nosuchfielderror")
+                || name.equals("incompatibleclasschangeerror")
+                || name.equals("abstractmethoderror")
+                || name.equals("unsatisfiedlinkerror");
     }
 
     private String compatibilityEvidence(AddonCompatibilityResult result) {
