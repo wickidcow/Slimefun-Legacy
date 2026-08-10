@@ -23,6 +23,11 @@ jobs:
           java-version: '25'
           cache: gradle
 
+      - name: Pin reproducible source identity
+        run: |
+          echo "SOURCE_COMMIT=$GITHUB_SHA" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
+
       - name: Verify Slimefun Legacy invariants
         run: python3 scripts/verify_legacy.py .
 
@@ -37,6 +42,13 @@ jobs:
           JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
           test -n "$JAR"
           python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+
+      - name: Verify release artifact metadata and packaging
+        run: |
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
+          test -n "$JAR"
+          python3 scripts/verify_release_artifact.py "$JAR" --root .
+          cat build/reports/release-artifact.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload JAR
         uses: actions/upload-artifact@v7
