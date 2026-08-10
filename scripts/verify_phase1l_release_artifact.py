@@ -98,6 +98,14 @@ def main() -> int:
         ):
             require(token in artifact_verifier, f"Release artifact verifier invariant missing: {token}", failures)
 
+        legacy_verifier = read(root, "scripts/verify_legacy.py")
+        phase1l_position = legacy_verifier.find('"verify_core_platform_phase1l.py"')
+        part2_position = legacy_verifier.find('"verify_phase1l_release_artifact.py"')
+        require(phase1l_position >= 0, "Full Legacy verifier must run the Phase 1L core verifier", failures)
+        require(part2_position >= 0, "Full Legacy verifier must run the Phase 1L Part 2 verifier", failures)
+        if phase1l_position >= 0 and part2_position >= 0:
+            require(phase1l_position < part2_position, "Phase 1L Part 2 verifier must run after the Phase 1L core verifier", failures)
+
         primary_workflow = read(root, ".github/workflows/build-ci.yml")
         for token in (
             "SOURCE_COMMIT=$GITHUB_SHA",
@@ -160,6 +168,7 @@ def main() -> int:
         "- archive entry ordering and timestamps are reproducible\n"
         "- build metadata uses SOURCE_DATE_EPOCH rather than wall-clock time\n"
         "- the normal build inspects embedded version, source identity, bytecode and packaging boundaries\n"
+        "- the full Legacy verifier retains the Phase 1L Part 2 gate\n"
         "- a manual release workflow performs two independent clean builds of the exact source commit\n"
         "- build and configuration caches are disabled for the reproducibility comparison\n"
         "- release workflow requires byte-for-byte and SHA-256 equality\n"
