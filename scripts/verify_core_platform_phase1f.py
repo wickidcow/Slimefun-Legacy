@@ -146,7 +146,7 @@ def main() -> int:
             'label = "Incompatible"',
             'label = "Disabled"',
             'Component.text("Compatibility: ", NamedTextColor.GREEN)',
-            'Component.text("Hover an addon\'s status for compatibility details.\\n", NamedTextColor.DARK_GRAY)',
+            '"Hover an addon\'s status for compatibility details.\\n"',
             'compactVersion(@Nonnull String version)',
             'Component.text("Full version: " + version)',
             "knownAddonRegistry.find(result.getPluginName())",
