@@ -70,6 +70,7 @@
     "provider-alias-diagnostic-warning",
     "addon-dependency-health-evidence",
     "guarded-addon-runtime-failure-evidence",
-    "release-lifecycle-baseline-rollover"
+    "release-lifecycle-baseline-rollover",
+    "reproducible-release-artifact-verification"
   ]
 }
