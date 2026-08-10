@@ -22,6 +22,22 @@ def project_version(root: Path) -> str:
     return match.group(1) if match else ""
 
 
+def version_tuple(value: object) -> tuple[int, int, int] | None:
+    if not isinstance(value, str):
+        return None
+    parts = value.strip().split(".")
+    if len(parts) != 3 or any(not part.isdigit() for part in parts):
+        return None
+    return tuple(int(part) for part in parts)
+
+
+def phase_at_least_1k(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    match = re.fullmatch(r"Core Platform Phase 1([A-Z])", value.strip())
+    return match is not None and match.group(1) >= "K"
+
+
 def main() -> int:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     failures: list[str] = []
@@ -61,9 +77,8 @@ def main() -> int:
 
     try:
         current = project_version(root)
-        req(bool(current), "Could not determine projectVersion", failures)
-        if current:
-            req(tuple(map(int, current.split("."))) >= (4, 1, 29), "Phase 1K requires 4.1.29 or newer", failures)
+        current_version = version_tuple(current)
+        req(current_version is not None and current_version >= (4, 1, 29), "Phase 1K requires 4.1.29 or newer", failures)
 
         diagnostics = read(root, diagnostics_rel)
         for token in (
@@ -157,7 +172,7 @@ def main() -> int:
 
         support = json.loads(read(root, "compatibility/support-contract.json"))
         req(support.get("release") == current, "Support contract release must match projectVersion", failures)
-        req(support.get("phase") == "Core Platform Phase 1K", "Support contract phase must be Phase 1K", failures)
+        req(phase_at_least_1k(support.get("phase")), "Support contract must remain Phase 1K or later", failures)
         support_policy = support.get("compatibility_policy", {})
         for key in (
             "plugin_dependency_diagnostics",
@@ -207,14 +222,18 @@ def main() -> int:
         baselines = json.loads(read(root, "compatibility/release-baselines.json"))
         req(addon_matrix.get("release") == current, "Addon compatibility matrix release must match projectVersion", failures)
         req(baselines.get("candidate", {}).get("version") == current, "Candidate baseline must match projectVersion", failures)
+        previous_version = version_tuple(baselines.get("previous_stable", {}).get("version"))
         req(
-            baselines.get("previous_stable", {}).get("version") == "4.1.21",
-            "Phase 1K must not move the previous-stable baseline",
+            previous_version is not None
+            and previous_version >= (4, 1, 21)
+            and current_version is not None
+            and previous_version < current_version,
+            "Previous-stable baseline must remain at least 4.1.21 and older than the current candidate",
             failures,
         )
         req(
             baselines.get("legacy_floor", {}).get("version") == "4.1.15",
-            "Phase 1K must not move the historical legacy floor",
+            "Phase 1K historical legacy floor must remain 4.1.15",
             failures,
         )
 
@@ -230,7 +249,6 @@ def main() -> int:
         history = read(root, "EVERYTHING_THAT_CHANGED.md")
         req(f"Slimefun Legacy {current} is tested primarily" in readme, "README current-version support line missing", failures)
         for token in (
-            "Core Platform Phase 1K (Dependency & Addon Boundary Hardening)",
             "/sf doctor dependencies",
             "Provider aliases are reported only as descriptor-level resolution",
             "does not install, enable, replace, or emulate third-party plugin dependencies",
@@ -265,6 +283,7 @@ def main() -> int:
         "- /sf versions surfaces addon hard-dependency, provider-alias, and guarded callback evidence\n"
         "- disabled-addon startup causes are not guessed when declared hard dependencies are healthy\n"
         "- arbitrary third-party plugin startup/onEnable failures are not intercepted or log-parsed\n"
+        "- inherited Phase 1K invariants remain enforced for later Core Platform Phase 1 releases\n"
         "- no Cargo, Energy, machine, database, storage-schema, or saved-world semantics are changed\n",
         encoding="utf-8",
     )
