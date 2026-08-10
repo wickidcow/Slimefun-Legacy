@@ -6,6 +6,9 @@ on:
 permissions:
   contents: read
 
+env:
+  LEGACY_ARTIFACT_VERSION: "1.0.0"
+
 jobs:
   release-artifact:
     runs-on: ubuntu-latest
@@ -44,14 +47,14 @@ jobs:
             {
               echo "# Spotless formatting cleanup required"
               echo
-              echo "Source commit: \\`$GITHUB_SHA\\`"
+              echo "Source commit: \`$GITHUB_SHA\`"
               echo
               echo "Spotless changed these tracked files:"
               while IFS= read -r FILE; do
-                echo "- \\`$FILE\\`"
+                echo "- \`$FILE\`"
               done < build/release-verification/spotless-changed-files.txt
               echo
-              echo "The exact formatter output is attached as \\`spotless-formatting.patch\\`."
+              echo "The exact formatter output is attached as \`spotless-formatting.patch\`."
             } > build/release-verification/spotless-formatting.md
             cat build/release-verification/spotless-formatting.md >> "$GITHUB_STEP_SUMMARY"
             git diff --exit-code
@@ -60,7 +63,7 @@ jobs:
       - name: First clean release build
         run: |
           ./gradlew clean build --no-daemon --no-build-cache --no-configuration-cache
-          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
           test -n "$JAR"
           cp "$JAR" "$RUNNER_TEMP/Slimefun-first.jar"
           sha256sum "$RUNNER_TEMP/Slimefun-first.jar" | tee "$RUNNER_TEMP/first.sha256"
@@ -78,7 +81,7 @@ jobs:
       - name: Second clean release build
         run: |
           ./gradlew clean shadowJar --no-daemon --no-build-cache --no-configuration-cache
-          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
           test -n "$JAR"
           cp "$JAR" "$RUNNER_TEMP/Slimefun-second.jar"
           sha256sum "$RUNNER_TEMP/Slimefun-second.jar" | tee "$RUNNER_TEMP/second.sha256"
@@ -114,6 +117,16 @@ jobs:
           echo "- Result: **PASS — byte-for-byte identical**" >> "$RUNNER_TEMP/reproducible-release.md"
           cat "$RUNNER_TEMP/reproducible-release.md" >> "$GITHUB_STEP_SUMMARY"
           cat "$RUNNER_TEMP/release-artifact-first.md" >> "$GITHUB_STEP_SUMMARY"
+          mkdir -p dist
+          cp "$RUNNER_TEMP/Slimefun-first.jar" "dist/SF_Slimefun_Legacy_v${LEGACY_ARTIFACT_VERSION}.jar"
+          test -s "dist/SF_Slimefun_Legacy_v${LEGACY_ARTIFACT_VERSION}.jar"
+
+      - name: Upload direct reproducible Slimefun Legacy JAR
+        uses: actions/upload-artifact@v7
+        with:
+          path: dist/SF_Slimefun_Legacy_v${{ env.LEGACY_ARTIFACT_VERSION }}.jar
+          archive: false
+          if-no-files-found: error
 
       - name: Collect release verification evidence
         if: always()
@@ -138,9 +151,6 @@ jobs:
               cp "$RUNNER_TEMP/$FILE" "build/release-verification/$FILE"
             fi
           done
-          if [[ -f "$RUNNER_TEMP/Slimefun-first.jar" ]]; then
-            cp "$RUNNER_TEMP/Slimefun-first.jar" build/release-verification/Slimefun-release-candidate.jar
-          fi
 
       - name: Upload reproducible release evidence
         if: always()
