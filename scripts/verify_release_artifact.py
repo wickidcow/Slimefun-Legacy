@@ -165,7 +165,7 @@ def main() -> int:
                     git_properties = parse_properties(archive.read("git.properties").decode("utf-8"))
                     embedded_version = git_properties.get("git.build.version", "")
                     embedded_source_commit = git_properties.get("git.source.commit", "").lower()
-                    plugin_full_commit = git_properties.get("git.commit.id.full", "").lower()
+                    plugin_full_commit = git_properties.get("git.commit.id", "").lower()
                     embedded_build_time = git_properties.get("git.build.time", "")
                     if embedded_version != version:
                         failures.append(f"git.build.version is {embedded_version or '<missing>'}, expected {version}")
@@ -183,6 +183,12 @@ def main() -> int:
                     ):
                         failures.append(
                             f"Embedded source commit {embedded_source_commit} does not match local checkout {commit}"
+                        )
+                    if plugin_full_commit and not FULL_SHA.fullmatch(plugin_full_commit):
+                        failures.append("git.commit.id is present but is not a full 40-character Git SHA")
+                    if strict_commit and plugin_full_commit and plugin_full_commit != commit:
+                        failures.append(
+                            f"git.commit.id is {plugin_full_commit}, expected source commit {commit}"
                         )
                     if not embedded_build_time:
                         failures.append("git.build.time is missing")
@@ -281,6 +287,7 @@ def main() -> int:
         f"- Phase: `{support.get('phase', '')}`",
         f"- Source commit: `{commit}`",
         f"- Embedded source commit: `{embedded_source_commit or '<missing>'}`",
+        f"- Plugin Git commit: `{plugin_full_commit or '<missing>'}`",
         f"- JAR: `{jar.name}`",
         f"- SHA-256: `{report['jar_sha256']}`",
         f"- Size: `{report['jar_size']}` bytes",
