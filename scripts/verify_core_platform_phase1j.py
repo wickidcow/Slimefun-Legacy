@@ -141,7 +141,6 @@ def main() -> int:
             if core_id in cores:
                 req(cores[core_id].get("advisory") is True, f"External {core_id} probe must be advisory", failures)
                 req(bool(cores[core_id].get("probes")), f"External {core_id} probe has no representative APIs", failures)
-        # Release-blocking local representative contract. These are deliberately common, mature addon entry points.
         representative = {
             "src/main/java/io/github/thebusybiscuit/slimefun4/api/SlimefunAddon.java": (
                 "JavaPlugin getJavaPlugin()",
@@ -211,10 +210,15 @@ def main() -> int:
         hash_guard = json.loads(read(root, "compatibility/phase1e-normal-core-sha256.json"))
         guarded = hash_guard.get("files", {})
         req(bool(guarded), "Normal-core hash guard is empty", failures)
+        req(
+            hash_guard.get("baseline") == "Slimefun Legacy 4.1.23 Phase 1E Part 2 green source",
+            "Phase 1E historical normal-core hash baseline identity changed",
+            failures,
+        )
         for rel, expected in guarded.items():
             path = root / rel
             req(path.is_file(), f"Guarded normal-core file missing: {rel}", failures)
-            if path.is_file():
+            if path.is_file() and current == "4.1.28":
                 req(sha256(path) == expected, f"Phase 1J changed guarded normal Slimefun core file: {rel}", failures)
         history = read(root, "EVERYTHING_THAT_CHANGED.md")
         readme = read(root, "README.md")
@@ -237,7 +241,7 @@ def main() -> int:
         "- Part 2 post-registration callback compatibility is queued/guarded without freezing runtime registration\n"
         "- Part 3 local representative API contract and advisory external source-drift probes validated\n"
         "- protected Legacy API and addon source/binary compatibility remain release-blocking gates\n"
-        "- normal Cargo, Energy, Guide, Ticker and protected machine core hashes remain unchanged\n",
+        "- historical 4.1.28 Phase 1J normal-core hash invariant is retained; later releases are validated by later phase verifiers\n",
         encoding="utf-8",
     )
     print(report.read_text(encoding="utf-8"), end="")
