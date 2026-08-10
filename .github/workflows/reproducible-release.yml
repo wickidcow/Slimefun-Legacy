@@ -1,0 +1,128 @@
+name: Reproducible Release Candidate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-artifact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Pin reproducible source identity
+        run: |
+          echo "SOURCE_COMMIT=$GITHUB_SHA" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
+          echo "Source commit: $GITHUB_SHA"
+          echo "Source timestamp: $(git show -s --format=%cI "$GITHUB_SHA")"
+
+      - name: Verify Slimefun Legacy invariants
+        run: python3 scripts/verify_legacy.py .
+
+      - name: Verify committed formatting
+        run: |
+          chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon
+          git diff --exit-code
+
+      - name: First clean release build
+        run: |
+          ./gradlew clean build --no-daemon
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
+          test -n "$JAR"
+          cp "$JAR" "$RUNNER_TEMP/Slimefun-first.jar"
+          sha256sum "$RUNNER_TEMP/Slimefun-first.jar" | tee "$RUNNER_TEMP/first.sha256"
+
+      - name: Verify first release artifact
+        run: |
+          python3 scripts/check_bytecode_target.py "$RUNNER_TEMP/Slimefun-first.jar" \
+            --expected-java 21 \
+            --report "$RUNNER_TEMP/bytecode-first.txt"
+          python3 scripts/verify_release_artifact.py "$RUNNER_TEMP/Slimefun-first.jar" \
+            --root . \
+            --json-report "$RUNNER_TEMP/release-artifact-first.json" \
+            --summary "$RUNNER_TEMP/release-artifact-first.md"
+
+      - name: Second clean release build
+        run: |
+          ./gradlew clean shadowJar --no-daemon
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
+          test -n "$JAR"
+          cp "$JAR" "$RUNNER_TEMP/Slimefun-second.jar"
+          sha256sum "$RUNNER_TEMP/Slimefun-second.jar" | tee "$RUNNER_TEMP/second.sha256"
+
+      - name: Verify second release artifact
+        run: |
+          python3 scripts/check_bytecode_target.py "$RUNNER_TEMP/Slimefun-second.jar" \
+            --expected-java 21 \
+            --report "$RUNNER_TEMP/bytecode-second.txt"
+          python3 scripts/verify_release_artifact.py "$RUNNER_TEMP/Slimefun-second.jar" \
+            --root . \
+            --json-report "$RUNNER_TEMP/release-artifact-second.json" \
+            --summary "$RUNNER_TEMP/release-artifact-second.md"
+
+      - name: Require byte-for-byte reproducibility
+        run: |
+          FIRST_SHA="$(sha256sum "$RUNNER_TEMP/Slimefun-first.jar" | awk '{print $1}')"
+          SECOND_SHA="$(sha256sum "$RUNNER_TEMP/Slimefun-second.jar" | awk '{print $1}')"
+          {
+            echo "# Slimefun Legacy reproducible release verification"
+            echo
+            echo "- Source commit: \`$GITHUB_SHA\`"
+            echo "- SOURCE_DATE_EPOCH: \`$SOURCE_DATE_EPOCH\`"
+            echo "- First SHA-256: \`$FIRST_SHA\`"
+            echo "- Second SHA-256: \`$SECOND_SHA\`"
+          } > "$RUNNER_TEMP/reproducible-release.md"
+          if [[ "$FIRST_SHA" != "$SECOND_SHA" ]]; then
+            echo "- Result: **FAIL — clean builds differ**" >> "$RUNNER_TEMP/reproducible-release.md"
+            cat "$RUNNER_TEMP/reproducible-release.md" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          cmp "$RUNNER_TEMP/Slimefun-first.jar" "$RUNNER_TEMP/Slimefun-second.jar"
+          echo "- Result: **PASS — byte-for-byte identical**" >> "$RUNNER_TEMP/reproducible-release.md"
+          cat "$RUNNER_TEMP/reproducible-release.md" >> "$GITHUB_STEP_SUMMARY"
+          cat "$RUNNER_TEMP/release-artifact-first.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Collect release verification evidence
+        if: always()
+        run: |
+          mkdir -p build/release-verification
+          for FILE in \
+            first.sha256 \
+            second.sha256 \
+            bytecode-first.txt \
+            bytecode-second.txt \
+            release-artifact-first.json \
+            release-artifact-first.md \
+            release-artifact-second.json \
+            release-artifact-second.md \
+            reproducible-release.md; do
+            if [[ -f "$RUNNER_TEMP/$FILE" ]]; then
+              cp "$RUNNER_TEMP/$FILE" "build/release-verification/$FILE"
+            fi
+          done
+          if [[ -f "$RUNNER_TEMP/Slimefun-first.jar" ]]; then
+            cp "$RUNNER_TEMP/Slimefun-first.jar" build/release-verification/Slimefun-release-candidate.jar
+          fi
+
+      - name: Upload reproducible release evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Slimefun-Reproducible-Release-Candidate
+          path: build/release-verification/
+          if-no-files-found: error
