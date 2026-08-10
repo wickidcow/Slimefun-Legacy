@@ -1,9 +1,10 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import com.gorylenko.GitPropertiesPluginExtension
+import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.gradle.language.jvm.tasks.ProcessResources
-import java.time.LocalDateTime
+import java.time.Instant
 import java.time.format.DateTimeFormatter
 
 plugins {
@@ -37,6 +38,14 @@ tasks.compileTestJava {
     options.encoding = "UTF-8"
     options.release.set(21)
 }
+
+tasks.withType<AbstractArchiveTask>().configureEach {
+    // Phase 1L: release artifacts must not depend on filesystem traversal order
+    // or the wall-clock timestamps of files on the build runner.
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+}
+
 repositories {
     mavenCentral()
     maven("https://hub.spigotmc.org/nexus/content/repositories/snapshots")
@@ -118,7 +127,11 @@ spotless {
     }
 }
 val buildVersion = version.toString()
-val gitBuildTime: String? = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+// SOURCE_DATE_EPOCH is set to the source commit timestamp by release CI. Local
+// builds use the Unix epoch rather than the current wall clock so git.properties
+// cannot make otherwise identical JARs differ.
+val sourceDateEpoch = providers.environmentVariable("SOURCE_DATE_EPOCH").orElse("0").get().toLongOrNull() ?: 0L
+val gitBuildTime: String = DateTimeFormatter.ISO_INSTANT.format(Instant.ofEpochSecond(sourceDateEpoch))
 configure<GitPropertiesPluginExtension> {
     keys = listOf(
         "git.build.time",
