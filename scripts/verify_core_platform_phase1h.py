@@ -96,12 +96,9 @@ def main() -> int:
         req("disablePlugin" not in health, "Guarded callback API must not disable plugins", failures)
 
         integrations = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/integrations/IntegrationsManager.java")
+        compact_integrations = re.sub(r"\s+", "", integrations)
         req(
-            re.search(
-                r'\.runGuarded\s*\(\s*integration\s*,\s*"integration-hook:"\s*\+\s*pluginName',
-                integrations,
-            )
-            is not None,
+            '.runGuarded(integration,"integration-hook:"+pluginName' in compact_integrations,
             "Third-party integration hook does not use the shared guarded callback path",
             failures,
         )
