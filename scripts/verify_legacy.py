@@ -95,6 +95,7 @@ def main() -> int:
         "verify_compatibility_foundation.py",
         "check_dependency_boundaries.py",
         "verify_phase1k_release_readiness.py",
+        "verify_core_platform_phase1l.py",
     )
     for script_name in scripts:
         script = root / "scripts" / script_name
