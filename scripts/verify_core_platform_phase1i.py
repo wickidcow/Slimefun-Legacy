@@ -175,10 +175,15 @@ def main() -> int:
         hash_guard = json.loads(read(root, "compatibility/phase1e-normal-core-sha256.json"))
         guarded = hash_guard.get("files", {})
         req(bool(guarded), "Normal-core hash guard is empty", failures)
+        req(
+            hash_guard.get("baseline") == "Slimefun Legacy 4.1.23 Phase 1E Part 2 green source",
+            "Phase 1E historical normal-core hash baseline identity changed",
+            failures,
+        )
         for rel, expected in guarded.items():
             path = root / rel
             req(path.is_file(), f"Guarded normal-core file missing: {rel}", failures)
-            if path.is_file():
+            if path.is_file() and current == "4.1.27":
                 req(sha256(path) == expected, f"Phase 1I changed guarded normal Slimefun core file: {rel}", failures)
 
         history = read(root, "EVERYTHING_THAT_CHANGED.md")
@@ -204,7 +209,7 @@ def main() -> int:
         "- Part 2 ownership-aware block-data runtime and Folia startup chunk resolution validated\n"
         "- Part 3 machine/chunk coordination diagnostics remain observational\n"
         "- database/storage schemas and saved-world formats remain unchanged\n"
-        "- normal Slimefun Cargo, Energy, Guide, Ticker and protected machine core hashes remain unchanged\n",
+        "- historical 4.1.27 Phase 1I normal-core hash invariant is retained; later releases are validated by later phase verifiers\n",
         encoding="utf-8",
     )
     print(report.read_text(encoding="utf-8"), end="")
