@@ -1,0 +1,72 @@
+name: Spotless Cleanup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out current master
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: master
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Apply repository Spotless formatting
+        run: |
+          chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon --no-build-cache --no-configuration-cache
+
+      - name: Verify cleanup scope and formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Changed files:"
+          git diff --name-only
+
+          BAD_FILES="$(git diff --name-only | grep -Ev '^(gradlew|src/(main|test)/java/.*\.java)$' || true)"
+          if [[ -n "$BAD_FILES" ]]; then
+            echo "Spotless cleanup changed files outside the approved Java/Gradle-wrapper scope:" >&2
+            echo "$BAD_FILES" >&2
+            exit 1
+          fi
+
+          git diff --check
+          ./gradlew spotlessCheck --no-daemon --no-build-cache --no-configuration-cache
+
+      - name: Commit exact Spotless cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add gradlew src/main/java src/test/java
+
+          if git diff --cached --quiet; then
+            echo "Repository is already Spotless-clean." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Apply Spotless formatting cleanup"
+          git push origin HEAD:master
+
+          {
+            echo "## Spotless cleanup"
+            echo
+            echo "Applied the repository's configured Spotless formatter and committed only Java source/test formatting plus the Gradle wrapper executable bit."
+            echo
+            echo "Commit: \`$(git rev-parse HEAD)\`"
+          } >> "$GITHUB_STEP_SUMMARY"
