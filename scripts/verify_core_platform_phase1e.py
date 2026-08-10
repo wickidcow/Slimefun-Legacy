@@ -67,11 +67,17 @@ def main():
                 f"Versions compatibility clarity invariant missing for {meaning} status",
                 failures,
             )
-        for token in (
-            'result.getSource().getDisplayName()',
-            '.orElseGet(this::uncheckedCompatibilityComponent)',
-        ):
-            req(token in versions, f"Versions compatibility clarity invariant missing: {token}", failures)
+        req(
+            'result.getSource().getDisplayName()' in versions,
+            "Versions compatibility clarity invariant missing: result.getSource().getDisplayName()",
+            failures,
+        )
+        req(
+            '.orElseGet(this::uncheckedCompatibilityComponent)' in versions
+            or '.orElseGet(() -> uncheckedCompatibilityComponent(' in versions,
+            "Versions compatibility clarity invariant missing: unchecked compatibility fallback",
+            failures,
+        )
         req(
             '"? Compatibility not verified"' in versions
             or '"? Slimefun addon — compatibility unknown"' in versions
