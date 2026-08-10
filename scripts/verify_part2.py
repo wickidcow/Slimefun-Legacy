@@ -20,6 +20,12 @@ def require(path: Path, needle: str, message: str) -> None:
         failures.append(message)
 
 
+def require_pattern(path: Path, pattern: str, message: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    if re.search(pattern, text, flags=re.MULTILINE | re.DOTALL) is None:
+        failures.append(message)
+
+
 messages = MAIN / "resources/languages/en/messages.yml"
 require(messages, "connected: '&7Connected: &2✔'", "Connected Cargo message is missing")
 require(messages, "not-connected: '&7Connected: &4✕'", "Disconnected Cargo message is missing")
@@ -85,12 +91,12 @@ require(
 )
 
 energy = JAVA / "io/github/thebusybiscuit/slimefun4/core/attributes/EnergyNetComponent.java"
-for signature in (
-    "setCharge(\n            @Nonnull Location l, long charge, @Nonnull ASlimefunDataContainer data)",
-    "addCharge(\n            @Nonnull Location l, long charge, @Nonnull ASlimefunDataContainer data)",
-    "removeCharge(\n            @Nonnull Location l, long charge, @Nonnull ASlimefunDataContainer data)",
-):
-    require(energy, signature, f"Modern energy overload is missing: {signature.split('(')[0]}")
+for method in ("setCharge", "addCharge", "removeCharge"):
+    require_pattern(
+        energy,
+        rf"default\s+void\s+{method}\s*\(\s*@Nonnull\s+Location\s+l\s*,\s*long\s+charge\s*,\s*@Nonnull\s+ASlimefunDataContainer\s+data\s*\)",
+        f"Modern energy overload is missing: {method}",
+    )
 require(energy, "long capacity = getCapacityLong();", "Long-capacity energy mutations do not use getCapacityLong()")
 
 for integration in (
