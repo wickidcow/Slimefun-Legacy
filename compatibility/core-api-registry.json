@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "release": "4.1.29",
+  "release": "4.1.30",
   "running_core": "legacy",
   "protected_namespaces": [
     "io/github/thebusybiscuit/slimefun4/",
@@ -69,6 +69,7 @@
     "third-party-dependency-boundary",
     "provider-alias-diagnostic-warning",
     "addon-dependency-health-evidence",
-    "guarded-addon-runtime-failure-evidence"
+    "guarded-addon-runtime-failure-evidence",
+    "release-lifecycle-baseline-rollover"
   ]
 }
