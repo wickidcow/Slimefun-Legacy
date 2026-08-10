@@ -36,12 +36,12 @@ jobs:
       - name: Verify committed formatting
         run: |
           chmod +x gradlew
-          ./gradlew spotlessApply --no-daemon
+          ./gradlew spotlessApply --no-daemon --no-build-cache --no-configuration-cache
           git diff --exit-code
 
       - name: First clean release build
         run: |
-          ./gradlew clean build --no-daemon
+          ./gradlew clean build --no-daemon --no-build-cache --no-configuration-cache
           JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
           test -n "$JAR"
           cp "$JAR" "$RUNNER_TEMP/Slimefun-first.jar"
@@ -59,7 +59,7 @@ jobs:
 
       - name: Second clean release build
         run: |
-          ./gradlew clean shadowJar --no-daemon
+          ./gradlew clean shadowJar --no-daemon --no-build-cache --no-configuration-cache
           JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
           test -n "$JAR"
           cp "$JAR" "$RUNNER_TEMP/Slimefun-second.jar"
