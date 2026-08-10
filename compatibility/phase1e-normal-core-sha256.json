@@ -10,5 +10,9 @@
     "src/main/java/me/mrCookieSlime/Slimefun/Objects/handlers/BlockTicker.java": "0c5fe28228a0ae9054aac0e753198174566a776b6feae5b4e466c0d9d3ef3c56",
     "src/main/java/me/mrCookieSlime/Slimefun/Objects/SlimefunItem/abstractItems/AContainer.java": "3a10eeb400062894796bae97186e20388848a8ae1e2f7c257fe9566ccc3301c6",
     "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/tasks/TickerTask.java": "5a97b29a5474377625aed70f1b729622eafc0e361ddece2b3b228904a9bbe1de"
+  },
+  "spotless_formatted_git_blobs": {
+    "src/main/java/io/github/thebusybiscuit/slimefun4/core/guide/SlimefunGuide.java": "9f473762d3236ddebf7b80a2a5f2640f61e02404",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/tasks/TickerTask.java": "c1b87db1b2cdaa62bdc1da29387b2190df694a60"
   }
 }
