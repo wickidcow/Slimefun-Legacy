@@ -78,8 +78,10 @@ def main() -> int:
             "isPreserveFileTimestamps = false",
             "isReproducibleFileOrder = true",
             'environmentVariable("SOURCE_DATE_EPOCH")',
+            'environmentVariable("SOURCE_COMMIT")',
             "Instant.ofEpochSecond(sourceDateEpoch)",
             'customProperty("git.build.time", gitBuildTime)',
+            'customProperty("git.source.commit", sourceCommit)',
         ):
             require(token in build, f"Reproducible Gradle archive invariant missing: {token}", failures)
         require("LocalDateTime.now()" not in build, "Release metadata must not use the current wall clock", failures)
@@ -89,6 +91,7 @@ def main() -> int:
             "FORBIDDEN_EXTERNAL_PREFIXES",
             "FORBIDDEN_UNRELOCATED_PREFIXES",
             "RELOCATED_LIBRARY_PREFIX",
+            "git.source.commit",
             "git.commit.id.full",
             "git.build.version",
             "plugin.yml",
@@ -167,6 +170,7 @@ def main() -> int:
         "Core Platform Phase 1L Part 2 reproducible release verification: PASS\n"
         "- archive entry ordering and timestamps are reproducible\n"
         "- build metadata uses SOURCE_DATE_EPOCH rather than wall-clock time\n"
+        "- CI embeds an explicit full source commit in git.properties\n"
         "- the normal build inspects embedded version, source identity, bytecode and packaging boundaries\n"
         "- the full Legacy verifier retains the Phase 1L Part 2 gate\n"
         "- a manual release workflow performs two independent clean builds of the exact source commit\n"
