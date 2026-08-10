@@ -1,5 +1,5 @@
 {
-  "release": "4.1.29",
+  "release": "4.1.30",
   "project": "Slimefun Legacy",
   "plugin_name": "Slimefun",
   "primary_platform": {
@@ -152,7 +152,12 @@
     "release_candidate_requires_full_legacy_verifier": true,
     "release_workflow_badges_reference_existing_workflows": true,
     "phase1k_part4_changes_normal_cargo_energy_machine_semantics": false,
-    "phase1k_part4_changes_storage_or_gameplay_semantics": false
+    "phase1k_part4_changes_storage_or_gameplay_semantics": false,
+    "release_lifecycle_baseline_rollover": true,
+    "previous_stable_is_last_released_candidate": true,
+    "release_metadata_is_single_version_line": true,
+    "phase1l_changes_normal_cargo_energy_machine_semantics": false,
+    "phase1l_changes_storage_or_gameplay_semantics": false
   },
-  "phase": "Core Platform Phase 1K"
+  "phase": "Core Platform Phase 1L"
 }
