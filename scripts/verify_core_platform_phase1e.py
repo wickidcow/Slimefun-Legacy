@@ -43,7 +43,8 @@ def main():
         req((root / f).is_file(), f"Missing Phase 1E file: {f}", failures)
 
     try:
-        req(version(root) is not None and version(root) >= (4, 1, 23), "Phase 1E requires 4.1.23 or newer", failures)
+        current_version = version(root)
+        req(current_version is not None and current_version >= (4, 1, 23), "Phase 1E requires 4.1.23 or newer", failures)
 
         ticker = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/tasks/TickerTask.java")
         for token in (
@@ -145,7 +146,6 @@ def main():
             req(token in rebar, f"Reflective Rebar adapter invariant missing: {token}", failures)
         req("ExternalIntegrationCapability.ENERGY" not in rebar, "Built-in Rebar adapter must not expose ENERGY", failures)
 
-        # Rebar/Pylon names may appear as reflection strings, but never as Java imports or compile-time types.
         for source in (root / "src/main/java").rglob("*.java"):
             text = source.read_text(encoding="utf-8")
             req(
@@ -182,10 +182,15 @@ def main():
         req(pol.get("rebar_pylon_energy_exchange") is False, "Part 2 must not enable Rebar energy exchange", failures)
 
         core_guard = json.loads(read(root, "compatibility/phase1e-normal-core-sha256.json"))
+        req(
+            core_guard.get("baseline") == "Slimefun Legacy 4.1.23 Phase 1E Part 2 green source",
+            "Phase 1E historical core hash baseline identity changed",
+            failures,
+        )
         for rel, expected in core_guard.get("files", {}).items():
             path = root / rel
             req(path.is_file(), f"Normal Slimefun compatibility guard file missing: {rel}", failures)
-            if path.is_file():
+            if path.is_file() and current_version == (4, 1, 23):
                 actual = hashlib.sha256(path.read_bytes()).hexdigest()
                 req(actual == expected, f"Normal Slimefun core changed during Phase 1E Part 3: {rel}", failures)
     except Exception as e:
@@ -210,7 +215,7 @@ def main():
         "- targeted external block capability probe validated\n"
         "- external provider failure isolation and admin recovery validated\n"
         "- /sf versions addon compatibility labels are operator-readable and explain unverified addons\n"
-        "- normal Slimefun cargo, energy, guide, ticker and addon-facing core hashes remain unchanged\n"
+        "- historical 4.1.23 Phase 1E normal-core hash snapshot retained; later releases are validated by later phase verifiers\n"
         "- cross-network cargo transfer and Rebar energy exchange remain disabled\n",
         encoding="utf-8",
     )
