@@ -2,6 +2,7 @@
 """Verify Slimefun Legacy 4.1.30 Core Platform Phase 1L Part 4 Paper runtime smoke coverage."""
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -32,6 +33,30 @@ def main() -> int:
 
     try:
         require(project_version(root) == CURRENT_VERSION, "Part 4 requires projectVersion 4.1.30", failures)
+
+        support = json.loads(read(root, "compatibility/support-contract.json"))
+        primary = support.get("primary_platform", {})
+        require(primary.get("release_line") == "26.2", "Primary Paper release line must be 26.2", failures)
+        require(primary.get("minecraft") == "26.2", "Primary Minecraft version must be 26.2", failures)
+        require(primary.get("paper_api") == "26.2.build.+", "Primary Paper API must be 26.2.build.+", failures)
+
+        policy = support.get("compatibility_policy", {})
+        for key in (
+            "paper_26_2_runtime_smoke",
+            "paper_runtime_smoke_uses_latest_stable_build",
+            "paper_runtime_smoke_two_boot_lifecycle",
+            "paper_runtime_smoke_runs_upgrade_diagnostics",
+            "paper_runtime_smoke_requires_clean_restart_evidence",
+        ):
+            require(policy.get(key) is True, f"Phase 1L Part 4 policy must remain true: {key}", failures)
+        for key in (
+            "phase1l_part4_changes_normal_cargo_energy_machine_semantics",
+            "phase1l_part4_changes_storage_or_gameplay_semantics",
+        ):
+            require(policy.get(key) is False, f"Phase 1L Part 4 policy must remain false: {key}", failures)
+
+        versions = read(root, "gradle/libs.versions.toml")
+        require('paperApi = "26.2.build.+"' in versions, "Production Paper API catalog target must be 26.2.build.+", failures)
 
         workflow = read(root, ".github/workflows/runtime-smoke.yml")
         for token in (
@@ -103,6 +128,8 @@ def main() -> int:
 
     report.write_text(
         "Core Platform Phase 1L Part 4 Paper runtime smoke verification: PASS\n"
+        "- production source compiles against Paper API 26.2.build.+\n"
+        "- the support contract identifies Minecraft/Paper 26.2 consistently\n"
         "- stable Paper 26.2 is selected through PaperMC's downloads service\n"
         "- the candidate JAR is boot-tested with Java 25\n"
         "- /sf doctor upgrade is executed during the runtime smoke\n"
