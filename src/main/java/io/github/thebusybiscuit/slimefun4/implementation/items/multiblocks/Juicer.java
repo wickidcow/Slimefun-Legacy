@@ -72,24 +72,26 @@ public class Juicer extends MultiBlockMachine {
             for (ItemStack current : inv.getContents()) {
                 for (ItemStack convert : RecipeType.getRecipeInputs(this)) {
                     if (convert != null && SlimefunUtils.isItemSimilar(current, convert, true)) {
-                        ItemStack adding = RecipeType.getRecipeOutput(this, convert);
-                        Inventory outputInv = findOutputInventory(adding, possibleDispenser, inv);
-                        MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, current, adding);
+                        ItemStack defaultOutput = RecipeType.getRecipeOutput(this, convert);
+                        MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, current, defaultOutput);
 
                         Bukkit.getPluginManager().callEvent(event);
                         if (event.isCancelled()) {
                             return;
                         }
 
+                        ItemStack output = event.getOutput();
+                        Inventory outputInv = findOutputInventory(output, possibleDispenser, inv);
+
                         if (outputInv != null) {
                             ItemStack removing = current.clone();
-                            removing.setAmount(1);
+                            removing.setAmount(convert.getAmount());
                             inv.removeItem(removing);
-                            outputInv.addItem(event.getOutput());
+                            handleCraftedItem(output, possibleDispenser, inv);
 
                             SoundEffect.JUICER_USE_SOUND.playAt(b);
                             // Not changed since this is supposed to be a natural sound.
-                            p.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, Material.HAY_BLOCK);
+                            b.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, Material.HAY_BLOCK);
                         } else {
                             Slimefun.getLocalization().sendMessage(p, "machines.full-inventory", true);
                         }
