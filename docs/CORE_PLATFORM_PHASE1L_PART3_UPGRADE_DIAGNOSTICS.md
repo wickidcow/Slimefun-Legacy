@@ -16,7 +16,7 @@ It does not claim that every possible addon feature has been tested. A `READY` r
 
 The upgrade report combines existing read-only runtime services rather than creating a second source of truth. It reports:
 
-- the running Slimefun version, packaged candidate baseline, and previous-stable baseline;
+- the running Slimefun version, embedded build/source identity, packaged candidate baseline, and previous-stable baseline;
 - detected server software, Minecraft version, Java feature version, and platform support level;
 - core readiness, registry finalization, scheduler acceptance, storage readiness, previous shutdown state, and pending database writes;
 - missing or disabled required plugin dependencies and provider-alias resolutions;
