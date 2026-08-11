@@ -62,7 +62,7 @@ repositories {
 }
 val supportedPaperApiVersion = libs.versions.paperApi.get()
 val selectedPaperApiVersion = providers.gradleProperty("paperApiVersion").orElse(supportedPaperApiVersion)
-val mockBukkitPaperApiVersion = "26.1.2.build.72-stable"
+val mockBukkitPaperApiVersion = "26.1.2.build.57-stable"
 
 fun ExternalModuleDependency.requireBuildJvm25() {
     // Paper 26.2 publishes Java 25 API classes. Slimefun is compiled by a Java 25
@@ -73,18 +73,20 @@ fun ExternalModuleDependency.requireBuildJvm25() {
     }
 }
 
-// MockBukkit currently ships registry fixtures for its own Paper API line. Keep the
-// test classpaths on the Java 25 build JVM, but do not force Slimefun's newer Paper
-// 26.2 API onto MockBukkit at runtime. Its Paper dependency must stay in lockstep
-// with the MockBukkit fixture data.
-configurations.named("testCompileClasspath") {
-    attributes {
-        attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
-    }
-}
-configurations.named("testRuntimeClasspath") {
-    attributes {
-        attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
+// MockBukkit 4.110.0 was released from the 26.1.2 build-57 fixture line. Keep
+// test compile/runtime resolution on that exact Paper API so its generated registry
+// fixtures and Bukkit classes cannot be mixed with Slimefun's production 26.2 API.
+listOf("testCompileClasspath", "testRuntimeClasspath").forEach { configurationName ->
+    configurations.named(configurationName) {
+        attributes {
+            attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
+        }
+        resolutionStrategy.eachDependency {
+            if (requested.group == "io.papermc.paper" && requested.name == "paper-api") {
+                useVersion(mockBukkitPaperApiVersion)
+                because("MockBukkit 4.110.0 registry fixtures target Paper 26.1.2 build 57")
+            }
+        }
     }
 }
 
