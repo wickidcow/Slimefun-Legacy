@@ -114,12 +114,22 @@ public class OilPump extends AContainer implements RecipeDisplayItem, NotDiagona
                         return recipe;
                     } else {
                         /*
-                         * Move the empty bucket to the output slot to prevent this
-                         * from immediately starting all over again (to prevent lag)
+                         * Move empty buckets to the output to prevent this from immediately
+                         * starting all over again. Only commit the amount that actually fits;
+                         * otherwise a full/incompatible output could silently delete buckets.
                          */
-                        ItemStack item = inv.getItemInSlot(slot).clone();
-                        inv.replaceExistingItem(slot, null);
-                        inv.pushItem(item, getOutputSlots());
+                        ItemStack input = inv.getItemInSlot(slot);
+                        int before = input.getAmount();
+                        ItemStack remaining = inv.pushItem(input.clone(), getOutputSlots());
+                        int after = remaining != null ? remaining.getAmount() : 0;
+
+                        if (after == 0) {
+                            inv.replaceExistingItem(slot, null);
+                        } else if (after < before) {
+                            input.setAmount(after);
+                            inv.replaceExistingItem(slot, input);
+                        }
+
                         return null;
                     }
                 }
