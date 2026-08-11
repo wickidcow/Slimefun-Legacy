@@ -42,6 +42,7 @@ public class ExpCollector extends SlimefunItem implements InventoryBlock, Energy
     private final int[] border = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26};
 
     private static final int ENERGY_CONSUMPTION = 10;
+    private static final int EXPERIENCE_PER_FLASK = 10;
     private static final String DATA_KEY = "stored-exp";
 
     @ParametersAreNonnullByDefault
@@ -159,15 +160,13 @@ public class ExpCollector extends SlimefunItem implements InventoryBlock, Energy
     private void produceFlasks(@Nonnull Location location, int experiencePoints) {
         int withdrawn = 0;
         BlockMenu menu = StorageCacheUtils.getMenu(location);
-        for (int level = 0; level < getStoredExperience(location); level = level + 10) {
-            if (menu.fits(SlimefunItems.FILLED_FLASK_OF_KNOWLEDGE, getOutputSlots())) {
-                withdrawn = withdrawn + 10;
-                menu.pushItem(SlimefunItems.FILLED_FLASK_OF_KNOWLEDGE.clone(), getOutputSlots());
-            } else {
-                // There is no room for more bottles, so lets stop checking if more will fit.
-                break;
-            }
+
+        while (experiencePoints - withdrawn >= EXPERIENCE_PER_FLASK
+                && menu.fits(SlimefunItems.FILLED_FLASK_OF_KNOWLEDGE, getOutputSlots())) {
+            withdrawn += EXPERIENCE_PER_FLASK;
+            menu.pushItem(SlimefunItems.FILLED_FLASK_OF_KNOWLEDGE.clone(), getOutputSlots());
         }
+
         StorageCacheUtils.setData(location, DATA_KEY, String.valueOf(experiencePoints - withdrawn));
     }
 
@@ -176,7 +175,13 @@ public class ExpCollector extends SlimefunItem implements InventoryBlock, Energy
         String value = blockData.getData(DATA_KEY);
 
         if (value != null) {
-            return Integer.parseInt(value);
+            int storedExperience = Math.max(0, Integer.parseInt(value));
+
+            if (!value.equals(String.valueOf(storedExperience))) {
+                blockData.setData(DATA_KEY, String.valueOf(storedExperience));
+            }
+
+            return storedExperience;
         } else {
             blockData.setData(DATA_KEY, "0");
             return 0;
