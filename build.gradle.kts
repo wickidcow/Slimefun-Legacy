@@ -1,5 +1,6 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import com.gorylenko.GitPropertiesPluginExtension
+import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.attributes.java.TargetJvmVersion
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
