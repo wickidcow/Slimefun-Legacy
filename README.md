@@ -80,7 +80,7 @@ These are historical Slimefun community showcase images. Full image credits and 
 
 | Requirement | Supported setup |
 | --- | --- |
-| **Primary server** | Paper 26.2 / Minecraft 1.21.11 |
+| **Primary server** | Paper 26.2 / Minecraft 26.2 |
 | **Secondary server** | Purpur based on Paper 26.2 |
 | **Java runtime** | Java 25 |
 | **Client** | Normal Minecraft Java client; no client mod required |
@@ -207,7 +207,7 @@ Historical compatibility, core-platform, release, validation, and Enhanced Guide
 ### Compatible server software
 | Server software | Compatibility |
 | --- | :---: |
-| Paper 26.2 / Minecraft 1.21.11 | ✅ Primary supported line |
+| Paper 26.2 / Minecraft 26.2 | ✅ Primary supported line |
 | Purpur based on Paper 26.2 | ✅ Supported |
 | Most conventional Paper forks | ⚠️ Usually compatible |
 | Folia based on Paper 26.2 | ⚠️ Experimental |
@@ -216,7 +216,7 @@ Historical compatibility, core-platform, release, validation, and Enhanced Guide
 | Sponge | ❌ Unsupported |
 | Hybrid servers such as Arclight, Mohist, or Cardboard | ❌ Unsupported and blocked |
 | Fabric / Forge / NeoForge | ❌ Unsupported — this is a server plugin, not a mod |
-Slimefun Legacy 4.1.30 is tested primarily against **Paper 26.2 / Minecraft 1.21.11 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
+Slimefun Legacy 4.1.30 is tested primarily against **Paper 26.2 / Minecraft 26.2 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
 The machine-readable support contract remains under `compatibility/`. Historical Compatibility Foundation and Paper/Purpur maintenance notes are consolidated in [`EVERYTHING_THAT_CHANGED.md`](EVERYTHING_THAT_CHANGED.md).
 Folia Phase 1 routes machine ticks and entity/location callbacks through their owning schedulers while preserving Paper behavior. Cargo and energy networks intentionally operate only on nodes owned by the regulator's current Folia region; transactional cross-region transfers are not enabled yet. Folia therefore remains experimental.
 **Every installed addon must also be Folia-safe.** The historical Folia Phase 1 safety boundary and staging checklist are preserved in [`EVERYTHING_THAT_CHANGED.md`](EVERYTHING_THAT_CHANGED.md).
@@ -237,7 +237,6 @@ Clone the repository:
 git clone https://github.com/wickidcow/Slimefun-Legacy.git
 cd Slimefun-Legacy
 ```
-
 Linux or macOS:
 
 ```bash

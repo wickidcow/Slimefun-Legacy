@@ -20,12 +20,16 @@ def main() -> int:
     build = (root / "build.gradle.kts").read_text(encoding="utf-8")
     plugin = (root / "src/main/resources/plugin.yml").read_text(encoding="utf-8")
     readme = (root / "README.md").read_text(encoding="utf-8")
+    build_ci = (root / ".github/workflows/build-ci.yml").read_text(encoding="utf-8")
     compatibility_ci = (root / ".github/workflows/compatibility-ci.yml").read_text(encoding="utf-8")
     api_ci = (root / ".github/workflows/api-compatibility.yml").read_text(encoding="utf-8")
 
     failures: list[str] = []
     release = contract["release"]
-    paper_api = contract["primary_platform"]["paper_api"]
+    primary_platform = contract["primary_platform"]
+    paper_release = primary_platform["release_line"]
+    minecraft_release = primary_platform["minecraft"]
+    paper_api = primary_platform["paper_api"]
     bytecode = contract["java"]["bytecode_target"]
     toolchain = contract["java"]["build_toolchain"]
     descriptor_api = contract["plugin_descriptor"]["api_version"]
@@ -42,7 +46,26 @@ def main() -> int:
     require(contract["compatibility_policy"]["database_format_changed"] is False, f"{release} must not change database format", failures)
     require(contract["compatibility_policy"]["gameplay_behavior_changed"] is False, f"{release} must not claim gameplay changes", failures)
     require("Compatibility Foundation" in readme, "README does not describe Compatibility Foundation", failures)
-    require("Paper 26.2" in readme and "Minecraft 1.21.11" in readme, "README omits tested platform line", failures)
+    require(
+        f"Paper {paper_release}" in readme and f"Minecraft {minecraft_release}" in readme,
+        "README omits tested platform line from support contract",
+        failures,
+    )
+    require(
+        "gradle.properties" in build_ci and "LEGACY_ARTIFACT_VERSION=$VERSION" in build_ci,
+        "Build CI must derive artifact version from gradle.properties",
+        failures,
+    )
+    require(
+        "SF_Slimefun_Legacy_v${LEGACY_ARTIFACT_VERSION}.jar" in build_ci,
+        "Build CI does not stage the versioned Slimefun Legacy JAR",
+        failures,
+    )
+    require(
+        'LEGACY_ARTIFACT_VERSION: "' not in build_ci,
+        "Build CI must not hardcode a separate artifact version",
+        failures,
+    )
     require("check_bytecode_target.py" in compatibility_ci, "compatibility CI does not enforce bytecode target", failures)
     require("summarize_deprecations.py" in compatibility_ci, "compatibility CI does not publish deprecation report", failures)
     require("PAPER_API_CANDIDATE" in compatibility_ci, "candidate Paper API compile job is missing", failures)
@@ -60,10 +83,11 @@ def main() -> int:
     report.write_text(
         "Slimefun Legacy Compatibility Foundation\n"
         f"Release: {release}\n"
-        f"Primary: Paper {contract['primary_platform']['release_line']} / Minecraft {contract['primary_platform']['minecraft']}\n"
+        f"Primary: Paper {paper_release} / Minecraft {minecraft_release}\n"
         f"Paper API: {paper_api}\n"
         f"Build Java: {toolchain}\n"
         f"Bytecode Java: {bytecode}\n"
+        "Artifact version source: gradle.properties projectVersion\n"
         "PASS\n",
         encoding="utf-8",
     )

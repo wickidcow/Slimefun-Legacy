@@ -7,7 +7,7 @@ junitPlatform = "1.12.2"
 lombok = "1.18.44"
 mockbukkit = "4.110.0"
 sqliteJdbc = "3.53.2.0"
-paperApi = "1.21.11-R0.1-SNAPSHOT"
+paperApi = "26.2.build.+"
 
 [libraries]
 paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paperApi" }

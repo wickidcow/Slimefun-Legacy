@@ -4,7 +4,6 @@ import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Base64;
-import org.bukkit.Bukkit;
 import org.bukkit.configuration.serialization.ConfigurationSerialization;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.io.BukkitObjectInputStream;
@@ -38,16 +37,10 @@ public final class ItemStackDataCodec {
     }
 
     private static ItemStack deserializeCurrent(byte[] serializedItem) {
-        try {
-            return ItemStack.deserializeBytes(serializedItem);
-        } catch (RuntimeException primaryFailure) {
-            try {
-                return Bukkit.getUnsafe().deserializeItem(serializedItem);
-            } catch (RuntimeException fallbackFailure) {
-                primaryFailure.addSuppressed(fallbackFailure);
-                throw primaryFailure;
-            }
-        }
+        // Paper 26.2 removed UnsafeValues#deserializeItem. ItemStack#deserializeBytes is the
+        // supported migration-aware counterpart to serializeAsBytes and preserves DataVersion
+        // conversion for records written by older server versions.
+        return ItemStack.deserializeBytes(serializedItem);
     }
 
     public static boolean isLegacy(byte[] itemData) {

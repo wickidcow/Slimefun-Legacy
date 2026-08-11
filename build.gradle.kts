@@ -1,5 +1,7 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import com.gorylenko.GitPropertiesPluginExtension
+import org.gradle.api.artifacts.ExternalModuleDependency
+import org.gradle.api.attributes.java.TargetJvmVersion
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
@@ -18,8 +20,8 @@ group = "com.github.slimefun"
 version = resolveVersion()
 
 java {
-    // Build on Java 25 for Paper/MockBukkit 26.x compatibility while still
-    // emitting Java 21 bytecode for existing addon/server deployments.
+    // Build on Java 25 for Paper 26.x compatibility while still emitting Java 21
+    // bytecode for existing addon/server deployments.
     toolchain.languageVersion.set(JavaLanguageVersion.of(25))
     withSourcesJar()
 }
@@ -32,9 +34,6 @@ tasks.compileJava {
     }
 }
 tasks.compileTestJava {
-    // Keep test compilation on the same bytecode/API level as production.
-    // This also avoids the Java 25 compiler edge case seen while completing
-    // Paper classes whose signatures contain external nullability annotations.
     options.encoding = "UTF-8"
     options.release.set(21)
 }
@@ -60,9 +59,26 @@ repositories {
 }
 val supportedPaperApiVersion = libs.versions.paperApi.get()
 val selectedPaperApiVersion = providers.gradleProperty("paperApiVersion").orElse(supportedPaperApiVersion)
+// MockBukkit 4.110.0's published tag explicitly targets Paper 1.21.11.
+// Keep its unit-test runtime on that exact API generation so MockBukkit's
+// generated registries match the Bukkit/Paper classes loaded by the tests.
+val mockBukkitPaperApiVersion = "1.21.11-R0.1-SNAPSHOT"
+
+fun ExternalModuleDependency.requireBuildJvm25() {
+    // Paper 26.2 publishes Java 25 API classes. Slimefun is compiled by a Java 25
+    // toolchain but intentionally emits Java 21 bytecode, so only the production
+    // Paper dependency needs to advertise the build JVM rather than Slimefun's
+    // bytecode floor.
+    attributes {
+        attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
+    }
+}
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:${selectedPaperApiVersion.get()}")
+    // Production compatibility target: real Paper 26.2 API.
+    compileOnly("io.papermc.paper:paper-api:${selectedPaperApiVersion.get()}") {
+        requireBuildJvm25()
+    }
     compileOnly(libs.jsr305)
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)
@@ -72,7 +88,10 @@ dependencies {
     compileOnly(libs.log4j.core)
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockbukkit)
-    testImplementation("io.papermc.paper:paper-api:${selectedPaperApiVersion.get()}")
+    // Test-harness target: exact Paper API declared by MockBukkit 4.110.0.
+    // This is intentionally independent from selectedPaperApiVersion; Paper 26.2
+    // runtime compatibility is covered by the real-server runtime-smoke workflow.
+    testImplementation("io.papermc.paper:paper-api:$mockBukkitPaperApiVersion")
     testImplementation(libs.sqlite.jdbc)
     testImplementation(libs.jsr305)
     testRuntimeOnly(libs.junit.platform.launcher)
