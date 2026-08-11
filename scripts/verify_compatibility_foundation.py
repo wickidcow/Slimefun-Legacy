@@ -20,6 +20,7 @@ def main() -> int:
     build = (root / "build.gradle.kts").read_text(encoding="utf-8")
     plugin = (root / "src/main/resources/plugin.yml").read_text(encoding="utf-8")
     readme = (root / "README.md").read_text(encoding="utf-8")
+    build_ci = (root / ".github/workflows/build-ci.yml").read_text(encoding="utf-8")
     compatibility_ci = (root / ".github/workflows/compatibility-ci.yml").read_text(encoding="utf-8")
     api_ci = (root / ".github/workflows/api-compatibility.yml").read_text(encoding="utf-8")
 
@@ -50,6 +51,21 @@ def main() -> int:
         "README omits tested platform line from support contract",
         failures,
     )
+    require(
+        "gradle.properties" in build_ci and "LEGACY_ARTIFACT_VERSION=$VERSION" in build_ci,
+        "Build CI must derive artifact version from gradle.properties",
+        failures,
+    )
+    require(
+        "SF_Slimefun_Legacy_v${LEGACY_ARTIFACT_VERSION}.jar" in build_ci,
+        "Build CI does not stage the versioned Slimefun Legacy JAR",
+        failures,
+    )
+    require(
+        'LEGACY_ARTIFACT_VERSION: "' not in build_ci,
+        "Build CI must not hardcode a separate artifact version",
+        failures,
+    )
     require("check_bytecode_target.py" in compatibility_ci, "compatibility CI does not enforce bytecode target", failures)
     require("summarize_deprecations.py" in compatibility_ci, "compatibility CI does not publish deprecation report", failures)
     require("PAPER_API_CANDIDATE" in compatibility_ci, "candidate Paper API compile job is missing", failures)
@@ -71,6 +87,7 @@ def main() -> int:
         f"Paper API: {paper_api}\n"
         f"Build Java: {toolchain}\n"
         f"Bytecode Java: {bytecode}\n"
+        "Artifact version source: gradle.properties projectVersion\n"
         "PASS\n",
         encoding="utf-8",
     )
