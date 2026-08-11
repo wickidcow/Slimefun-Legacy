@@ -98,6 +98,7 @@ def main() -> int:
         "verify_core_platform_phase1l.py",
         "verify_phase1l_release_artifact.py",
         "verify_core_platform_phase1l_part3.py",
+        "verify_core_platform_phase1l_part4.py",
     )
     for script_name in scripts:
         script = root / "scripts" / script_name
