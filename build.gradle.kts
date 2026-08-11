@@ -62,6 +62,7 @@ repositories {
 }
 val supportedPaperApiVersion = libs.versions.paperApi.get()
 val selectedPaperApiVersion = providers.gradleProperty("paperApiVersion").orElse(supportedPaperApiVersion)
+val mockBukkitPaperApiVersion = "26.1.2.build.72-stable"
 
 fun ExternalModuleDependency.requireBuildJvm25() {
     // Paper 26.2 publishes Java 25 API classes. Slimefun is compiled by a Java 25
@@ -74,8 +75,8 @@ fun ExternalModuleDependency.requireBuildJvm25() {
 
 // MockBukkit currently ships registry fixtures for its own Paper API line. Keep the
 // test classpaths on the Java 25 build JVM, but do not force Slimefun's newer Paper
-// 26.2 API onto MockBukkit at runtime. Its transitive Paper dependency must stay in
-// lockstep with the MockBukkit fixture data.
+// 26.2 API onto MockBukkit at runtime. Its Paper dependency must stay in lockstep
+// with the MockBukkit fixture data.
 configurations.named("testCompileClasspath") {
     attributes {
         attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
@@ -100,6 +101,10 @@ dependencies {
     compileOnly(libs.log4j.core)
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockbukkit)
+    // MockBukkit 4.110.0 is built and fixture-generated against this exact Paper API.
+    testImplementation("io.papermc.paper:paper-api:$mockBukkitPaperApiVersion") {
+        requireBuildJvm25()
+    }
     testImplementation(libs.sqlite.jdbc)
     testImplementation(libs.jsr305)
     testRuntimeOnly(libs.junit.platform.launcher)
