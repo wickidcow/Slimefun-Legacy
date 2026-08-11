@@ -116,11 +116,14 @@ public class AutomatedPanningMachine extends MultiBlockMachine {
                         .playEffect(b.getRelative(BlockFace.DOWN).getLocation(), Effect.STEP_SOUND, material));
         queue.thenRun(20, () -> {
             if (finalOutput.getType() != Material.AIR) {
-                Optional<Inventory> outputChest = OutputChest.findOutputChestFor(b.getRelative(BlockFace.DOWN), output);
+                Optional<Inventory> outputChest = OutputChest.findOutputChestFor(b.getRelative(BlockFace.DOWN), finalOutput);
 
                 if (outputChest.isPresent()) {
-                    Slimefun.getItemStackService()
+                    ItemStack remainder = Slimefun.getItemStackService()
                             .addItem(outputChest.get(), finalOutput.clone(), InventoryContext.OUTPUT_CHEST);
+                    if (remainder != null && remainder.getAmount() > 0) {
+                        b.getWorld().dropItemNaturally(b.getLocation(), remainder);
+                    }
                 } else {
                     b.getWorld().dropItemNaturally(b.getLocation(), finalOutput.clone());
                 }
