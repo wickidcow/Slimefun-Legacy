@@ -16,6 +16,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunIte
 import java.util.List;
 import java.util.UUID;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
 import org.bukkit.Location;
@@ -64,10 +65,26 @@ public abstract class GPSTransmitter extends SimpleSlimefunItem<BlockTicker>
             @Override
             public void onPlayerBreak(BlockBreakEvent e, ItemStack item, List<ItemStack> drops) {
                 Location l = e.getBlock().getLocation();
-                UUID owner = UUID.fromString(StorageCacheUtils.getData(l, "owner"));
-                Slimefun.getGPSNetwork().updateTransmitter(l, owner, false);
+                UUID owner = parseOwner(StorageCacheUtils.getData(l, "owner"));
+
+                if (owner != null) {
+                    Slimefun.getGPSNetwork().updateTransmitter(l, owner, false);
+                }
             }
         };
+    }
+
+    @Nullable
+    private UUID parseOwner(@Nullable String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     public abstract int getMultiplier(int y);
@@ -80,8 +97,12 @@ public abstract class GPSTransmitter extends SimpleSlimefunItem<BlockTicker>
 
             @Override
             public void tick(Block b, SlimefunItem item, SlimefunBlockData data) {
+                UUID owner = parseOwner(data.getData("owner"));
+                if (owner == null) {
+                    return;
+                }
+
                 int charge = getCharge(b.getLocation(), data);
-                UUID owner = UUID.fromString(data.getData("owner"));
 
                 if (charge >= getEnergyConsumption()) {
                     Slimefun.getGPSNetwork().updateTransmitter(b.getLocation(), owner, true);
@@ -93,7 +114,12 @@ public abstract class GPSTransmitter extends SimpleSlimefunItem<BlockTicker>
 
             @Override
             public boolean isSynchronized() {
-                return false;
+                /*
+                 * GPSNetwork stores each player's transmitter locations in a mutable Set.
+                 * Keeping transmitter updates on the synchronized ticker prevents those
+                 * sets from being mutated while control-panel/network code iterates them.
+                 */
+                return true;
             }
         };
     }
