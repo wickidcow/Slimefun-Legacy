@@ -8,6 +8,7 @@ on:
       - 'scripts/verify_core_correctness.py'
       - 'scripts/verify_guide_runtime_correctness.py'
       - 'scripts/verify_runtime_gameplay_correctness.py'
+      - 'scripts/verify_special_item_correctness.py'
       - '.github/workflows/runtime-gameplay-correctness.yml'
   push:
     branches:
@@ -20,6 +21,7 @@ on:
       - 'scripts/verify_core_correctness.py'
       - 'scripts/verify_guide_runtime_correctness.py'
       - 'scripts/verify_runtime_gameplay_correctness.py'
+      - 'scripts/verify_special_item_correctness.py'
       - '.github/workflows/runtime-gameplay-correctness.yml'
   workflow_dispatch:
 
@@ -52,6 +54,9 @@ jobs:
       - name: Verify runtime gameplay transaction invariants
         run: python3 scripts/verify_runtime_gameplay_correctness.py .
 
+      - name: Verify special-item runtime invariants
+        run: python3 scripts/verify_special_item_correctness.py .
+
       - name: Run enchantment-machine runtime tests
         run: |
           chmod +x gradlew
@@ -66,5 +71,6 @@ jobs:
             echo '- Guide runtime diagnostics and GuideHistory ownership checked'
             echo '- Machine cancellation and transaction ordering checked'
             echo '- AContainer energy/progress/output lifecycle checked'
+            echo '- GPS, Android overflow, Elevator and research-cost invariants checked'
             echo '- Auto Enchanter / Auto Disenchanter timing tests executed'
           } >> "$GITHUB_STEP_SUMMARY"
