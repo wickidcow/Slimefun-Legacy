@@ -1,7 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
 import city.norain.slimefun4.utils.EnvUtil;
-import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityResult;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityStatus;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilitySummary;
@@ -30,6 +29,7 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
+import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 
 /** Read-only runtime evidence intended to help operators evaluate a Slimefun upgrade. */
@@ -336,7 +336,7 @@ final class UpgradeDiagnostics {
     }
 
     private static void send(CommandSender sender, String message) {
-        sender.sendMessage(ChatColors.color(message));
+        sender.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
     }
 
     private record BaselineInfo(String candidate, String previousStable, boolean available) {
