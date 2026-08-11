@@ -44,6 +44,7 @@
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/attributes/HologramOwner.java": 1,
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/SlimefunCommand.java": 1,
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java": 1,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/UpgradeDiagnostics.java": 1,
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/GiveCommand.java": 3,
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/ItemIdCommand.java": 1,
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/ResearchCommand.java": 1,
@@ -200,7 +201,7 @@
         "src/main/java/me/mrCookieSlime/Slimefun/api/inventory/DirtyChestMenu.java": 2,
         "src/main/java/net/guizhanss/slimefun4/utils/ChatUtils.java": 1
       },
-      "max_imports": 283,
+      "max_imports": 284,
       "prefixes": [
         "io.github.bakedlibs.dough."
       ]
