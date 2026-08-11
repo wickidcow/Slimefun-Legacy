@@ -83,10 +83,11 @@ public class TreeGrowthAccelerator extends AbstractGrowthAccelerator {
     private boolean applyBoneMeal(Block machine, Block sapling, BlockMenu inv) {
         for (int slot : getInputSlots()) {
             if (isFertilizer(inv.getItemInSlot(slot))) {
+                if (!sapling.applyBoneMeal(BlockFace.UP)) {
+                    return false;
+                }
+
                 removeCharge(machine.getLocation(), ENERGY_CONSUMPTION);
-
-                sapling.applyBoneMeal(BlockFace.UP);
-
                 inv.consumeItem(slot);
                 sapling.getWorld()
                         .spawnParticle(
