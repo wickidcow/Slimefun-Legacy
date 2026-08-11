@@ -68,17 +68,37 @@ abstract class AbstractSmeltery extends MultiBlockMachine {
         }
     }
 
-    private boolean canCraft(Inventory inv, List<ItemStack[]> inputs, int i) {
-        for (ItemStack expectedInput : inputs.get(i)) {
-            if (expectedInput != null) {
-                for (int j = 0; j < inv.getContents().length; j++) {
-                    if (j == (inv.getContents().length - 1)
-                            && !SlimefunUtils.isItemSimilar(inv.getContents()[j], expectedInput, true)) {
-                        return false;
-                    } else if (SlimefunUtils.isItemSimilar(inv.getContents()[j], expectedInput, true)) {
-                        break;
-                    }
+    private boolean canCraft(Inventory inv, List<ItemStack[]> inputs, int recipeIndex) {
+        ItemStack[] contents = inv.getContents();
+        int[] remainingAmounts = new int[contents.length];
+
+        for (int slot = 0; slot < contents.length; slot++) {
+            ItemStack stack = contents[slot];
+            remainingAmounts[slot] = stack == null ? 0 : stack.getAmount();
+        }
+
+        for (ItemStack expectedInput : inputs.get(recipeIndex)) {
+            if (expectedInput == null) {
+                continue;
+            }
+
+            int required = expectedInput.getAmount();
+
+            for (int slot = 0; slot < contents.length && required > 0; slot++) {
+                ItemStack stack = contents[slot];
+
+                if (remainingAmounts[slot] <= 0
+                        || !SlimefunUtils.isItemSimilar(stack, expectedInput, true, false)) {
+                    continue;
                 }
+
+                int reserved = Math.min(remainingAmounts[slot], required);
+                remainingAmounts[slot] -= reserved;
+                required -= reserved;
+            }
+
+            if (required > 0) {
+                return false;
             }
         }
 
