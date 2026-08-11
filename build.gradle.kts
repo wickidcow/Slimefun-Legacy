@@ -72,6 +72,21 @@ fun ExternalModuleDependency.requireBuildJvm25() {
     }
 }
 
+// MockBukkit currently ships registry fixtures for its own Paper API line. Keep the
+// test classpaths on the Java 25 build JVM, but do not force Slimefun's newer Paper
+// 26.2 API onto MockBukkit at runtime. Its transitive Paper dependency must stay in
+// lockstep with the MockBukkit fixture data.
+configurations.named("testCompileClasspath") {
+    attributes {
+        attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
+    }
+}
+configurations.named("testRuntimeClasspath") {
+    attributes {
+        attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
+    }
+}
+
 dependencies {
     compileOnly("io.papermc.paper:paper-api:${selectedPaperApiVersion.get()}") {
         requireBuildJvm25()
@@ -85,9 +100,6 @@ dependencies {
     compileOnly(libs.log4j.core)
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockbukkit)
-    testImplementation("io.papermc.paper:paper-api:${selectedPaperApiVersion.get()}") {
-        requireBuildJvm25()
-    }
     testImplementation(libs.sqlite.jdbc)
     testImplementation(libs.jsr305)
     testRuntimeOnly(libs.junit.platform.launcher)
