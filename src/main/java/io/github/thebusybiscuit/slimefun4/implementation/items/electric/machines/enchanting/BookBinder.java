@@ -145,18 +145,20 @@ public class BookBinder extends AContainer {
     private Map<Enchantment, Integer> combineEnchantments(
             Map<Enchantment, Integer> ech1, Map<Enchantment, Integer> ech2) {
         Map<Enchantment, Integer> enchantments = new HashMap<>(ech1);
-        boolean hasConflicts = false;
 
         for (Map.Entry<Enchantment, Integer> entry : ech2.entrySet()) {
+            boolean hasConflicts = false;
+
             for (Map.Entry<Enchantment, Integer> conflictsWith : enchantments.entrySet()) {
 
                 /*
                  * Check if entry enchantment and conflictsWith enchantment conflict
-                 * and confirm that the enchantsments aren't the exact same.
+                 * and confirm that the enchantments aren't the exact same.
                  */
                 if (entry.getKey().conflictsWith(conflictsWith.getKey())
                         && !entry.getKey().equals(conflictsWith.getKey())) {
                     hasConflicts = true;
+                    break;
                 }
             }
 
