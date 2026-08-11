@@ -44,6 +44,27 @@ def main() -> int:
         require(source, "consumeInputs(inv, recipe);", f"{name} recipe-aware consumption")
         require(source, "createVirtualInventory(inv, recipe)", f"{name} recipe-aware virtual inventory")
 
+    smeltery = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/multiblocks/AbstractSmeltery.java",
+    )
+    require(smeltery, "int[] remainingAmounts = new int[contents.length];", "smeltery slot reservation accounting")
+    require(
+        smeltery,
+        "SlimefunUtils.isItemSimilar(stack, expectedInput, true, false)",
+        "smeltery amount-independent ingredient matching",
+    )
+    require(
+        smeltery,
+        "int reserved = Math.min(remainingAmounts[slot], required);",
+        "smeltery quantity reservation",
+    )
+    reject(
+        smeltery,
+        "j == (inv.getContents().length - 1)",
+        "smeltery same-stack repeated ingredient matching",
+    )
+
     listener = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/MultiBlockListener.java",
