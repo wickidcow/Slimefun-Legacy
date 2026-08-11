@@ -255,7 +255,7 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
 
             @Override
             public boolean isSynchronized() {
-                return false;
+                return true;
             }
         };
     }
