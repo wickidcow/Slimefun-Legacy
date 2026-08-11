@@ -194,6 +194,32 @@ def main() -> int:
         "Woodcutter Android push-before-overflow-drop",
     )
 
+    reactor = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/reactors/Reactor.java",
+    )
+    require(
+        reactor,
+        "for (MachineFuel fuel : fuelTypes) {\n            for (int slot : getFuelSlots()) {",
+        "reactor fuel lookup restricted to fuel slots",
+    )
+    require(reactor, "for (int slot : getCoolantSlots())", "reactor coolant slot separation")
+
+    research = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/api/researches/Research.java",
+    )
+    require(
+        research,
+        "public void setCost(int cost) {\n        if (cost < 0)",
+        "deprecated research cost validates incoming value",
+    )
+    require(
+        research,
+        "public void setLevelCost(int levelCost) {\n        if (levelCost < 0)",
+        "research level cost validates incoming value",
+    )
+
     regulator = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/EnergyRegulator.java",
