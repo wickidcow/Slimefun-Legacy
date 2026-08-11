@@ -130,6 +130,22 @@ def main() -> int:
         "synchronized entity assembler ticker",
     )
 
+    smeltery = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/ElectricSmeltery.java",
+    )
+    require(smeltery, "List<Integer> emptySlots = new LinkedList<>();", "Electric Smeltery empty-slot tracking")
+    require(
+        smeltery,
+        "if (!matchingSlots.isEmpty()) {\n                    Collections.sort(matchingSlots, compareSlots(menu));\n                    return toSlotArray(matchingSlots);\n                }\n\n                return toSlotArray(emptySlots);",
+        "Electric Smeltery matching-stack then empty-slot cargo fallback",
+    )
+    forbid(
+        smeltery,
+        "else if (fullSlots == slots.size())",
+        "Electric Smeltery false-full cargo short circuit",
+    )
+
     research = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/researches/Research.java",
