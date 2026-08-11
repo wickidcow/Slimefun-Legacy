@@ -144,6 +144,24 @@ def main() -> int:
         "tree growth success before fertilizer consumption",
     )
 
+    exp_collector = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/entities/ExpCollector.java",
+    )
+    require(exp_collector, "private static final int EXPERIENCE_PER_FLASK = 10;", "EXP flask conversion unit")
+    require(
+        exp_collector,
+        "while (experiencePoints - withdrawn >= EXPERIENCE_PER_FLASK",
+        "EXP Collector new-total conversion loop",
+    )
+    require(exp_collector, "int storedExperience = Math.max(0, Integer.parseInt(value));", "negative EXP repair")
+    require_before(
+        exp_collector,
+        "withdrawn += EXPERIENCE_PER_FLASK;",
+        "StorageCacheUtils.setData(location, DATA_KEY, String.valueOf(experiencePoints - withdrawn));",
+        "EXP withdrawal before persisted remainder",
+    )
+
     farmer = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/androids/FarmerAndroid.java",
