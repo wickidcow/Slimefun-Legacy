@@ -198,7 +198,7 @@ public final class TeleportationManager {
      */
     public int getTeleportationTime(int complexity, @Nonnull Location source, @Nonnull Location destination) {
         Validate.notNull(source, "Source cannot be null");
-        Validate.notNull(source, "Destination cannot be null");
+        Validate.notNull(destination, "Destination cannot be null");
 
         if (complexity < 100) {
             return 100;
