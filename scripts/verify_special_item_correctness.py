@@ -110,6 +110,16 @@ def main() -> int:
         "duplicated Teleporter source validation",
     )
 
+    fluid_pump = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/FluidPump.java",
+    )
+    require(
+        fluid_pump,
+        "SlimefunUtils.isItemSimilar(itemInSlot, emptyBottle, true, false)\n                        && (fluid.getType() == Material.WATER || fluid.getType() == Material.BUBBLE_COLUMN)",
+        "Fluid Pump water-only bottle input",
+    )
+
     research = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/researches/Research.java",
