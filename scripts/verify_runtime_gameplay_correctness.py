@@ -126,6 +126,24 @@ def main() -> int:
         "generic container output fit before input consumption",
     )
 
+    tree_accelerator = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/accelerators/TreeGrowthAccelerator.java",
+    )
+    require(tree_accelerator, "if (!sapling.applyBoneMeal(BlockFace.UP))", "tree bonemeal success check")
+    require_before(
+        tree_accelerator,
+        "if (!sapling.applyBoneMeal(BlockFace.UP))",
+        "removeCharge(machine.getLocation(), ENERGY_CONSUMPTION);",
+        "tree growth success before energy consumption",
+    )
+    require_before(
+        tree_accelerator,
+        "if (!sapling.applyBoneMeal(BlockFace.UP))",
+        "inv.consumeItem(slot);",
+        "tree growth success before fertilizer consumption",
+    )
+
     farmer = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/androids/FarmerAndroid.java",
