@@ -146,6 +146,21 @@ def main() -> int:
         "Electric Smeltery false-full cargo short circuit",
     )
 
+    oil_pump = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/geo/OilPump.java",
+    )
+    require(
+        oil_pump,
+        "ItemStack remaining = inv.pushItem(input.clone(), getOutputSlots());",
+        "Oil Pump depletion remainder capture",
+    )
+    require(
+        oil_pump,
+        "if (after == 0) {\n                            inv.replaceExistingItem(slot, null);\n                        } else if (after < before) {\n                            input.setAmount(after);\n                            inv.replaceExistingItem(slot, input);",
+        "Oil Pump depletion input preservation",
+    )
+
     research = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/researches/Research.java",
