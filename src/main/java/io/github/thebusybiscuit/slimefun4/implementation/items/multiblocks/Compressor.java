@@ -76,21 +76,23 @@ public class Compressor extends MultiBlockMachine {
             for (ItemStack item : inv.getContents()) {
                 for (ItemStack recipeInput : RecipeType.getRecipeInputs(this)) {
                     if (recipeInput != null && SlimefunUtils.isItemSimilar(item, recipeInput, true)) {
-                        ItemStack output = RecipeType.getRecipeOutput(this, recipeInput);
-                        Inventory outputInv = findOutputInventory(output, dispBlock, inv);
-                        MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, item, output);
+                        ItemStack defaultOutput = RecipeType.getRecipeOutput(this, recipeInput);
+                        MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, item, defaultOutput);
 
                         Bukkit.getPluginManager().callEvent(event);
                         if (event.isCancelled()) {
                             return;
                         }
 
+                        ItemStack output = event.getOutput();
+                        Inventory outputInv = findOutputInventory(output, dispBlock, inv);
+
                         if (outputInv != null) {
                             ItemStack removing = item.clone();
                             removing.setAmount(recipeInput.getAmount());
                             inv.removeItem(removing);
 
-                            craft(p, event.getOutput(), dispBlock, inv);
+                            craft(p, output, dispBlock);
                         } else {
                             Slimefun.getLocalization().sendMessage(p, "machines.full-inventory", true);
                         }
@@ -105,7 +107,7 @@ public class Compressor extends MultiBlockMachine {
     }
 
     @ParametersAreNonnullByDefault
-    private void craft(Player p, ItemStack output, Block dispenser, Inventory dispInv) {
+    private void craft(Player p, ItemStack output, Block dispenser) {
         for (int i = 0; i < 4; i++) {
             int j = i;
 
@@ -119,7 +121,7 @@ public class Compressor extends MultiBlockMachine {
                                 SoundEffect.COMPRESSOR_CRAFT_EXTEND_SOUND.playFor(p);
                             }
                         } else {
-                            handleCraftedItem(output, dispenser, dispInv);
+                            finishCraftedItemSafely(output, dispenser);
                         }
                     },
                     i * 20L);
