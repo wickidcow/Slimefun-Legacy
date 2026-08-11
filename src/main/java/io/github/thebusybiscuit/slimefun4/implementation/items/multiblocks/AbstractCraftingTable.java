@@ -2,6 +2,7 @@ package io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks;
 
 import io.github.bakedlibs.dough.items.ItemUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
+import io.github.thebusybiscuit.slimefun4.api.items.ItemSpawnReason;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.virtual.VirtualItemHandler.ConsumeContext;
@@ -16,7 +17,10 @@ import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.BlockState;
+import org.bukkit.block.Dispenser;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -93,6 +97,23 @@ abstract class AbstractCraftingTable extends MultiBlockMachine {
 
         ItemUtils.consumeItem(item, amount, true);
         return item.getAmount() > 0 && item.getType() != Material.AIR ? item : null;
+    }
+
+    /**
+     * Finishes a craft against the live dispenser rather than a captured inventory.
+     * Delayed animations and asynchronous backpack upgrades may outlive the dispenser
+     * that originally supplied the ingredients. In that case the already-earned output
+     * is dropped at the machine location instead of being written into a detached inventory.
+     */
+    protected final void finishCraftedItem(@Nonnull ItemStack output, @Nonnull Block dispenser) {
+        BlockState state = dispenser.getState(false);
+
+        if (state instanceof Dispenser liveDispenser) {
+            handleCraftedItem(output, dispenser, liveDispenser.getInventory());
+        } else {
+            SlimefunUtils.spawnItem(
+                    dispenser.getLocation(), output, ItemSpawnReason.MULTIBLOCK_MACHINE_OVERFLOW, true);
+        }
     }
 
     // Return: true if upgrade from existing backpack, else false
