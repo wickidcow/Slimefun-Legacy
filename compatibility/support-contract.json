@@ -174,7 +174,14 @@
     "upgrade_diagnostics_changes_plugin_enable_state": false,
     "upgrade_diagnostics_parses_arbitrary_server_logs": false,
     "phase1l_part3_changes_normal_cargo_energy_machine_semantics": false,
-    "phase1l_part3_changes_storage_or_gameplay_semantics": false
+    "phase1l_part3_changes_storage_or_gameplay_semantics": false,
+    "paper_26_2_runtime_smoke": true,
+    "paper_runtime_smoke_uses_latest_stable_build": true,
+    "paper_runtime_smoke_two_boot_lifecycle": true,
+    "paper_runtime_smoke_runs_upgrade_diagnostics": true,
+    "paper_runtime_smoke_requires_clean_restart_evidence": true,
+    "phase1l_part4_changes_normal_cargo_energy_machine_semantics": false,
+    "phase1l_part4_changes_storage_or_gameplay_semantics": false
   },
   "phase": "Core Platform Phase 1L"
 }
