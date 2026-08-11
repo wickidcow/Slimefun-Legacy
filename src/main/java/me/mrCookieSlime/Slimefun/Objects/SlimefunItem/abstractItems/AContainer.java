@@ -441,6 +441,10 @@ public abstract class AContainer extends SlimefunItem
         for (MachineRecipe recipe : recipes) {
             for (ItemStack input : recipe.getInput()) {
                 for (int slot : getInputSlots()) {
+                    if (found.containsKey(slot)) {
+                        continue;
+                    }
+
                     if (Slimefun.getItemStackService()
                             .isSimilar(inventory.get(slot), input, MatchContext.RECIPE_INPUT, true, true)) {
                         found.put(slot, input.getAmount());
