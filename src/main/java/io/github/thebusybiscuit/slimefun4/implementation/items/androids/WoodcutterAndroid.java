@@ -72,8 +72,12 @@ public class WoodcutterAndroid extends ProgrammableAndroid {
     private void breakLog(Block log, Block android, UniversalMenu menu, BlockFace face) {
         ItemStack drop = new ItemStack(log.getType());
 
-        // We try to push the log into the android's inventory, but nothing happens if it does not fit
-        menu.pushItem(drop, getOutputSlots());
+        // Keep overflow lossless: if the Android's output is full, drop the remainder
+        // at the chopped log instead of silently deleting it.
+        ItemStack remainder = menu.pushItem(drop, getOutputSlots());
+        if (remainder != null && !remainder.getType().isAir() && remainder.getAmount() > 0) {
+            log.getWorld().dropItemNaturally(log.getLocation(), remainder);
+        }
 
         log.getWorld().playEffect(log.getLocation(), Effect.STEP_SOUND, log.getType());
 

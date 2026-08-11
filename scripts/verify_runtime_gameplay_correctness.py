@@ -99,6 +99,38 @@ def main() -> int:
         "generic container output fit before input consumption",
     )
 
+    farmer = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/androids/FarmerAndroid.java",
+    )
+    require(farmer, "menu.fits(drop, getOutputSlots())", "Farmer Android full-output preflight")
+    require(farmer, "ItemStack remainder = menu.pushItem(drop, getOutputSlots());", "Farmer Android transactional output push")
+    require_before(
+        farmer,
+        "menu.fits(drop, getOutputSlots())",
+        "menu.pushItem(drop, getOutputSlots())",
+        "Farmer Android fit-before-push transaction",
+    )
+    require_before(
+        farmer,
+        "if (remainder == null)",
+        "ageable.setAge(0);",
+        "Farmer Android harvest completion before crop reset",
+    )
+
+    woodcutter = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/androids/WoodcutterAndroid.java",
+    )
+    require(woodcutter, "ItemStack remainder = menu.pushItem(drop, getOutputSlots());", "Woodcutter Android overflow capture")
+    require(woodcutter, "dropItemNaturally(log.getLocation(), remainder)", "Woodcutter Android overflow preservation")
+    require_before(
+        woodcutter,
+        "ItemStack remainder = menu.pushItem(drop, getOutputSlots());",
+        "dropItemNaturally(log.getLocation(), remainder)",
+        "Woodcutter Android push-before-overflow-drop",
+    )
+
     regulator = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/EnergyRegulator.java",

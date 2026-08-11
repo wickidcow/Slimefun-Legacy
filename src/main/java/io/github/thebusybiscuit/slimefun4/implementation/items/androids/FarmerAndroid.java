@@ -62,12 +62,17 @@ public class FarmerAndroid extends ProgrammableAndroid {
         if (!event.isCancelled()) {
             drop = event.getDrop();
 
-            if (drop != null && menu.pushItem(drop, getOutputSlots()) == null) {
-                block.getWorld().playEffect(block.getLocation(), Effect.STEP_SOUND, blockType);
+            // Harvesting must be atomic. A partial push followed by leaving the crop mature
+            // would allow the same crop to be harvested again on a later tick.
+            if (drop != null && menu.fits(drop, getOutputSlots())) {
+                ItemStack remainder = menu.pushItem(drop, getOutputSlots());
+                if (remainder == null) {
+                    block.getWorld().playEffect(block.getLocation(), Effect.STEP_SOUND, blockType);
 
-                if (data instanceof Ageable ageable) {
-                    ageable.setAge(0);
-                    block.setBlockData(data);
+                    if (data instanceof Ageable ageable) {
+                        ageable.setAge(0);
+                        block.setBlockData(data);
+                    }
                 }
             }
         }
