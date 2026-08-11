@@ -120,6 +120,16 @@ def main() -> int:
         "Fluid Pump water-only bottle input",
     )
 
+    assembler = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/entities/AbstractEntityAssembler.java",
+    )
+    require(
+        assembler,
+        "public boolean isSynchronized() {\n                return true;\n            }",
+        "synchronized entity assembler ticker",
+    )
+
     research = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/researches/Research.java",
