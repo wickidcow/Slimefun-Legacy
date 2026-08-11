@@ -61,21 +61,23 @@ public class PressureChamber extends MultiBlockMachine {
             for (ItemStack current : inv.getContents()) {
                 for (ItemStack convert : RecipeType.getRecipeInputs(this)) {
                     if (convert != null && SlimefunUtils.isItemSimilar(current, convert, true)) {
-                        ItemStack output = RecipeType.getRecipeOutput(this, convert);
-                        Inventory outputInv = findOutputInventory(output, possibleDispenser, inv);
-                        MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, current, output);
+                        ItemStack defaultOutput = RecipeType.getRecipeOutput(this, convert);
+                        MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, current, defaultOutput);
 
                         Bukkit.getPluginManager().callEvent(event);
                         if (event.isCancelled()) {
                             return;
                         }
 
+                        ItemStack output = event.getOutput();
+                        Inventory outputInv = findOutputInventory(output, possibleDispenser, inv);
+
                         if (outputInv != null) {
                             ItemStack removing = current.clone();
                             removing.setAmount(convert.getAmount());
                             inv.removeItem(removing);
 
-                            craft(p, b, event.getOutput(), inv, possibleDispenser);
+                            craft(b, output, possibleDispenser);
                         } else {
                             Slimefun.getLocalization().sendMessage(p, "machines.full-inventory", true);
                         }
@@ -89,7 +91,7 @@ public class PressureChamber extends MultiBlockMachine {
     }
 
     @ParametersAreNonnullByDefault
-    private void craft(Player p, Block b, ItemStack output, Inventory dispInv, Block dispenser) {
+    private void craft(Block b, ItemStack output, Block dispenser) {
         for (int i = 0; i < 4; i++) {
             int j = i;
 
@@ -97,15 +99,15 @@ public class PressureChamber extends MultiBlockMachine {
                     b.getLocation(),
                     () -> {
                         SoundEffect.PRESSURE_CHAMBER_WORKING_SOUND.playAt(b);
-                        p.getWorld().playEffect(b.getRelative(BlockFace.UP).getLocation(), Effect.SMOKE, 4);
-                        p.getWorld().playEffect(b.getRelative(BlockFace.UP).getLocation(), Effect.SMOKE, 4);
-                        p.getWorld().playEffect(b.getRelative(BlockFace.UP).getLocation(), Effect.SMOKE, 4);
+                        b.getWorld().playEffect(b.getRelative(BlockFace.UP).getLocation(), Effect.SMOKE, 4);
+                        b.getWorld().playEffect(b.getRelative(BlockFace.UP).getLocation(), Effect.SMOKE, 4);
+                        b.getWorld().playEffect(b.getRelative(BlockFace.UP).getLocation(), Effect.SMOKE, 4);
 
                         if (j < 3) {
                             SoundEffect.PRESSURE_CHAMBER_WORKING_SOUND.playAt(b);
                         } else {
                             SoundEffect.PRESSURE_CHAMBER_FINISH_SOUND.playAt(b);
-                            handleCraftedItem(output, dispenser, dispInv);
+                            finishCraftedItemSafely(output, dispenser);
                         }
                     },
                     i * 20L);
