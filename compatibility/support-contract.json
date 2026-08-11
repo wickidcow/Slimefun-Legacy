@@ -164,7 +164,17 @@
     "phase1l_changes_normal_cargo_energy_machine_semantics": false,
     "phase1l_changes_storage_or_gameplay_semantics": false,
     "phase1l_part2_changes_normal_cargo_energy_machine_semantics": false,
-    "phase1l_part2_changes_storage_or_gameplay_semantics": false
+    "phase1l_part2_changes_storage_or_gameplay_semantics": false,
+    "runtime_upgrade_diagnostics": true,
+    "upgrade_diagnostics_are_read_only": true,
+    "upgrade_diagnostics_conservative_status": true,
+    "release_baseline_registry_packaged_for_runtime_diagnostics": true,
+    "upgrade_diagnostics_reports_dependency_and_runtime_evidence": true,
+    "upgrade_diagnostics_automatic_repairs_or_migrations": false,
+    "upgrade_diagnostics_changes_plugin_enable_state": false,
+    "upgrade_diagnostics_parses_arbitrary_server_logs": false,
+    "phase1l_part3_changes_normal_cargo_energy_machine_semantics": false,
+    "phase1l_part3_changes_storage_or_gameplay_semantics": false
   },
   "phase": "Core Platform Phase 1L"
 }
