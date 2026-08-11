@@ -1,5 +1,6 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import com.gorylenko.GitPropertiesPluginExtension
+import org.gradle.api.attributes.java.TargetJvmVersion
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
@@ -61,8 +62,19 @@ repositories {
 val supportedPaperApiVersion = libs.versions.paperApi.get()
 val selectedPaperApiVersion = providers.gradleProperty("paperApiVersion").orElse(supportedPaperApiVersion)
 
+fun ExternalModuleDependency.requireBuildJvm25() {
+    // Paper 26.2 publishes Java 25 API classes. Slimefun is compiled by a Java 25
+    // toolchain but intentionally emits Java 21 bytecode, so only Paper's dependency
+    // variant needs to advertise the build JVM rather than Slimefun's bytecode floor.
+    attributes {
+        attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
+    }
+}
+
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:${selectedPaperApiVersion.get()}")
+    compileOnly("io.papermc.paper:paper-api:${selectedPaperApiVersion.get()}") {
+        requireBuildJvm25()
+    }
     compileOnly(libs.jsr305)
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)
@@ -72,7 +84,9 @@ dependencies {
     compileOnly(libs.log4j.core)
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockbukkit)
-    testImplementation("io.papermc.paper:paper-api:${selectedPaperApiVersion.get()}")
+    testImplementation("io.papermc.paper:paper-api:${selectedPaperApiVersion.get()}") {
+        requireBuildJvm25()
+    }
     testImplementation(libs.sqlite.jdbc)
     testImplementation(libs.jsr305)
     testRuntimeOnly(libs.junit.platform.launcher)
