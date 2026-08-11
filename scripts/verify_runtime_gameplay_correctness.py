@@ -94,6 +94,12 @@ def main() -> int:
     require(container, "processor.endOperation(b);", "machine operation completion cleanup")
     require_before(
         container,
+        "if (found.containsKey(slot)) {",
+        ".isSimilar(inventory.get(slot), input, MatchContext.RECIPE_INPUT, true, true)",
+        "distinct input-slot reservation before recipe matching",
+    )
+    require_before(
+        container,
         ".fitAll(\n                                inv.toInventory(),",
         "inv.consumeItem(entry.getKey(), entry.getValue());",
         "generic container output fit before input consumption",
