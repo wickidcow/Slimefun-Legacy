@@ -396,7 +396,7 @@ public class Research implements Keyed {
         if (Slimefun.getConfigManager().isResearchAutoConvert()) {
             setCurrencyCost(getLevelCost() * Slimefun.getConfigManager().getResearchCurrencyCostConvertRate());
         } else {
-            setCurrencyCost(Slimefun.getResearchCfg().getInt(path + ".currency-cost"));
+            setCurrencyCost(Slimefun.getResearchCfg().getDouble(path + ".currency-cost"));
         }
         enabled = true;
 
