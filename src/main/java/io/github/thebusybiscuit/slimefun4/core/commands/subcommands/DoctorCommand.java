@@ -71,6 +71,7 @@ final class DoctorCommand extends SubCommand {
         String action = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "status";
         switch (action) {
             case "status" -> sendStatus(sender, service);
+            case "upgrade" -> UpgradeDiagnostics.send(plugin, sender);
             case "core", "lifecycle" -> sendCoreHealth(sender);
             case "registry" -> sendRegistryHealth(sender);
             case "chunks", "worlds", "blocks" -> sendChunkHealth(sender);
@@ -1165,7 +1166,7 @@ final class DoctorCommand extends SubCommand {
     private void sendUsage(CommandSender sender) {
         send(
                 sender,
-                "&eUsage: /slimefun doctor [status|core|registry|chunks|hand|inventory [player]|scan|repair confirm|addons]");
+                "&eUsage: /slimefun doctor [status|upgrade|core|registry|chunks|hand|inventory [player]|scan|repair confirm|addons]");
         send(
                 sender,
                 "&e       /slimefun doctor [compatibility [api <plugin>]|dependencies [plugin]|runtime [retry [all]]]");
