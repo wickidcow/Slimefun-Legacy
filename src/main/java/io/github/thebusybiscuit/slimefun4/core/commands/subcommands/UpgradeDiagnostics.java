@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
+import city.norain.slimefun4.utils.EnvUtil;
 import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityResult;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityStatus;
@@ -169,6 +170,10 @@ final class UpgradeDiagnostics {
                 sender,
                 "&7Core: &f" + Slimefun.getVersion() + " &8| &7candidate &e" + baselines.candidate()
                         + " &8| &7previous stable &e" + baselines.previousStable());
+        send(
+                sender,
+                "&7Source: &f" + EnvUtil.getBuildCommitID() + " &8| &7branch &f" + EnvUtil.getBranch()
+                        + " &8| &7build time &f" + EnvUtil.getBuildTime());
         send(
                 sender,
                 "&7Platform: &f" + platform.getSoftwareName() + " " + platform.getServerVersion() + " &8| &7Minecraft &f"
