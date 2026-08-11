@@ -95,6 +95,21 @@ def main() -> int:
         "Elevator teleport marker cleanup on failure",
     )
 
+    teleporter = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/api/gps/TeleportationManager.java",
+    )
+    require(
+        teleporter,
+        "Validate.notNull(destination, \"Destination cannot be null\");",
+        "Teleporter destination validation",
+    )
+    forbid(
+        teleporter,
+        "Validate.notNull(source, \"Destination cannot be null\");",
+        "duplicated Teleporter source validation",
+    )
+
     research = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/researches/Research.java",
