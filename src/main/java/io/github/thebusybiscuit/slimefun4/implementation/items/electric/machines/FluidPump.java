@@ -157,7 +157,8 @@ public class FluidPump extends SimpleSlimefunItem<BlockTicker> implements Invent
                     }
 
                     return;
-                } else if (SlimefunUtils.isItemSimilar(itemInSlot, emptyBottle, true, false)) {
+                } else if (SlimefunUtils.isItemSimilar(itemInSlot, emptyBottle, true, false)
+                        && (fluid.getType() == Material.WATER || fluid.getType() == Material.BUBBLE_COLUMN)) {
                     ItemStack bottle = getFilledBottle(fluid);
 
                     if (!menu.fits(bottle, getOutputSlots())) {
