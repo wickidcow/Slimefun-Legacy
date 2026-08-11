@@ -152,6 +152,9 @@ tasks.named<ProcessResources>("processResources") {
     dependsOn(tasks.named("generateGitProperties"))
     val pluginVersion = buildVersion
     inputs.property("version", pluginVersion)
+    from("compatibility/release-baselines.json") {
+        into("compatibility")
+    }
     filesMatching("plugin.yml") {
         expand(mapOf("version" to pluginVersion))
     }
