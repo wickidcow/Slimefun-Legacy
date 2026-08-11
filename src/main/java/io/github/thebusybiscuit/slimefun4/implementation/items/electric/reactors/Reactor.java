@@ -574,7 +574,7 @@ public abstract class Reactor extends AbstractEnergyProvider
     @Nullable @ParametersAreNonnullByDefault
     private MachineFuel findFuel(BlockMenu menu, Map<Integer, Integer> found) {
         for (MachineFuel fuel : fuelTypes) {
-            for (int slot : getInputSlots()) {
+            for (int slot : getFuelSlots()) {
                 if (fuel.test(menu.getItemInSlot(slot))) {
                     found.put(slot, fuel.getInput().getAmount());
                     return fuel;
