@@ -83,6 +83,27 @@ def main() -> int:
     require(disenchanter, "EnchantmentMachineRuntime.one(book)", "single book recipe input")
     require(disenchanter, "EnchantmentMachineRuntime.one(item)", "single enchanted-item recipe input")
 
+    book_binder = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/enchanting/BookBinder.java",
+    )
+    require(
+        book_binder,
+        "for (Map.Entry<Enchantment, Integer> entry : ech2.entrySet()) {\n            boolean hasConflicts = false;",
+        "per-enchantment Book Binder conflict state",
+    )
+    require(
+        book_binder,
+        "hasConflicts = true;\n                    break;",
+        "Book Binder conflict short-circuit",
+    )
+    require_before(
+        book_binder,
+        ".fitAll(\n                                    menu.toInventory(),",
+        "menu.consumeItem(inputSlot);",
+        "Book Binder output fit before input consumption",
+    )
+
     container = read(
         root,
         "src/main/java/me/mrCookieSlime/Slimefun/Objects/SlimefunItem/abstractItems/AContainer.java",
