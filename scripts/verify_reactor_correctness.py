@@ -80,6 +80,28 @@ def main() -> int:
     # Storage races must pause a reactor rather than tick a missing menu.
     require(generated, "if (inv == null) { return 0; }", "missing-menu guard")
 
+    # Subclass side effects (notably Nether Star Reactor Wither) belong only to an active
+    # fuel operation. A finished operation may remain resident under output backpressure and
+    # must not keep applying effects while no fuel progress is occurring.
+    require_before(
+        generated,
+        "if (!operation.isFinished())",
+        "extraTick(l)",
+        "finished check before subclass side effects",
+    )
+    require_before(
+        generated,
+        "extraTick(l)",
+        "return generateEnergy(l, data, inv, accessPort, operation)",
+        "subclass side effects during active generation",
+    )
+    require_before(
+        generated,
+        "return generateEnergy(l, data, inv, accessPort, operation)",
+        "createByproduct(l, inv, accessPort, operation)",
+        "active generation before finished-operation completion path",
+    )
+
     # Reactor charge checks must use the long-backed energy API. Persisted values outside the
     # legacy int range are valid data and must be clamped to capacity, not misread as zero.
     require(energy, "long capacity = Math.max(0L, getCapacityLong())", "long reactor capacity")
