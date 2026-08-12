@@ -1,6 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.implementation.listeners;
 
 import io.github.thebusybiscuit.slimefun4.api.events.CoolerFeedPlayerEvent;
+import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerBackpack;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
@@ -10,7 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -103,11 +103,42 @@ public class CoolerListener implements Listener {
                 return;
             }
 
-            PlayerBackpack.migrateLegacyItem(coolerItem, backpack);
-            if (!consumeJuice(p, coolerItem, backpack)) {
+            ItemStack currentCooler = findCurrentCooler(p, coolerItem);
+            if (currentCooler == null || !cooler.canUse(p, false)) {
+                tryConsumeFromCoolers(p, coolers, index + 1);
+                return;
+            }
+
+            PlayerBackpack.migrateLegacyItem(currentCooler, backpack);
+            if (!consumeJuice(p, currentCooler, backpack)) {
                 tryConsumeFromCoolers(p, coolers, index + 1);
             }
         }));
+    }
+
+    private ItemStack findCurrentCooler(@Nonnull Player p, @Nonnull ItemStack expected) {
+        var expectedUuid = expected.hasItemMeta()
+                ? PlayerBackpack.getBackpackUUID(expected.getItemMeta())
+                : java.util.Optional.<String>empty();
+
+        for (ItemStack current : p.getInventory().getContents()) {
+            if (!cooler.isItem(current)) {
+                continue;
+            }
+
+            if (expectedUuid.isPresent()) {
+                if (current.hasItemMeta()
+                        && PlayerBackpack.getBackpackUUID(current.getItemMeta()).equals(expectedUuid)) {
+                    return current;
+                }
+            } else if (current.equals(expected)) {
+                // Legacy backpacks do not have a PDC UUID yet. Equality keeps the
+                // async callback tied to the exact item representation that triggered it.
+                return current;
+            }
+        }
+
+        return null;
     }
 
     private boolean consumeJuice(@Nonnull Player p, @Nonnull ItemStack coolerItem, @Nonnull PlayerBackpack backpack) {
@@ -118,9 +149,8 @@ public class CoolerListener implements Listener {
             ItemStack stack = inv.getItem(i);
 
             if (stack != null
-                    && stack.getType() == Material.POTION
-                    && stack.hasItemMeta()
-                    && stack.getItemMeta().hasDisplayName()) {
+                    && SlimefunItem.getByItem(stack) instanceof Juice
+                    && stack.getItemMeta() instanceof PotionMeta) {
                 slot = i;
                 break;
             }
@@ -140,7 +170,13 @@ public class CoolerListener implements Listener {
 
                 p.setSaturation(6F);
                 SoundEffect.COOLER_CONSUME_SOUND.playFor(p);
-                inv.setItem(slot, null);
+
+                if (item.getAmount() <= 1) {
+                    inv.setItem(slot, null);
+                } else {
+                    item.setAmount(item.getAmount() - 1);
+                }
+
                 Slimefun.getDatabaseManager().getProfileDataController().saveBackpackInventory(backpack);
 
                 return true;
