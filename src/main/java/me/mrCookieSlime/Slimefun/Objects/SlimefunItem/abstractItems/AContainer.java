@@ -1,5 +1,6 @@
 package me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems;
 
+import com.xzavier0722.mc.plugin.slimefun4.storage.controller.ASlimefunDataContainer;
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.SlimefunBlockData;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.bakedlibs.dough.items.CustomItemStack;
@@ -453,7 +454,7 @@ public abstract class AContainer extends SlimefunItem
             return takeCharge(l, context.data());
         }
 
-        SlimefunBlockData data = StorageCacheUtils.getDataContainer(l);
+        ASlimefunDataContainer data = StorageCacheUtils.getDataContainer(l);
         if (data == null || data.isPendingRemove()) {
             return false;
         }
@@ -466,7 +467,7 @@ public abstract class AContainer extends SlimefunItem
         return takeCharge(l, data);
     }
 
-    private boolean takeCharge(@Nonnull Location l, @Nonnull SlimefunBlockData data) {
+    private boolean takeCharge(@Nonnull Location l, @Nonnull ASlimefunDataContainer data) {
         if (data.isPendingRemove()) {
             return false;
         }
