@@ -1,6 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.misc;
 
 import io.github.bakedlibs.dough.items.ItemUtils;
+import io.github.bakedlibs.dough.protection.Interaction;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemSetting;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
@@ -73,10 +74,7 @@ public class StrangeNetherGoo extends SimpleSlimefunItem<ItemUseHandler> impleme
             }
 
             if (!Slimefun.getProtectionManager()
-                    .hasPermission(
-                            e.getPlayer(),
-                            sheep.getLocation(),
-                            io.github.bakedlibs.dough.protection.Interaction.INTERACT_ENTITY)) {
+                    .hasPermission(e.getPlayer(), sheep.getLocation(), Interaction.INTERACT_ENTITY)) {
                 return;
             }
 
