@@ -11,6 +11,7 @@ on:
       - 'scripts/verify_cargo_correctness.py'
       - 'scripts/verify_energy_network_correctness.py'
       - 'scripts/verify_generator_correctness.py'
+      - 'scripts/verify_reactor_correctness.py'
       - 'scripts/verify_special_item_correctness.py'
       - 'scripts/verify_tool_correctness.py'
       - 'scripts/verify_magical_item_correctness.py'
@@ -37,6 +38,7 @@ on:
       - 'scripts/verify_cargo_correctness.py'
       - 'scripts/verify_energy_network_correctness.py'
       - 'scripts/verify_generator_correctness.py'
+      - 'scripts/verify_reactor_correctness.py'
       - 'scripts/verify_special_item_correctness.py'
       - 'scripts/verify_tool_correctness.py'
       - 'scripts/verify_magical_item_correctness.py'
@@ -89,6 +91,9 @@ jobs:
       - name: Verify generator fuel and byproduct transaction invariants
         run: python3 scripts/verify_generator_correctness.py .
 
+      - name: Verify reactor fuel, byproduct and access-port transaction invariants
+        run: python3 scripts/verify_reactor_correctness.py .
+
       - name: Verify special-item runtime invariants
         run: python3 scripts/verify_special_item_correctness.py .
 
@@ -139,6 +144,7 @@ jobs:
             echo '- Cargo rollback, exact partial-stack remainder and unloaded-chunk guards checked'
             echo '- Energy network live-component identity, charge bounds and unloaded-chunk guards checked'
             echo '- Generator fuel quantity, byproduct preflight and lossless output commit checked'
+            echo '- Reactor fuel quantity, access-port transfer, byproduct preflight and lossless completion checked'
             echo '- GPS, Android overflow, Elevator and research-cost invariants checked'
             echo '- Explosive tools, Lumber Axe, spawner containment and Grappling Hook invariants checked'
             echo '- Knowledge Tome, Knowledge Flask, Infernal Bonemeal and Zombie Pills invariants checked'
