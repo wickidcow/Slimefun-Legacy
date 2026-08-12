@@ -53,7 +53,7 @@ public class WoodcutterAndroid extends ProgrammableAndroid {
 
             if (!list.isEmpty()) {
                 Block log = list.get(list.size() - 1);
-                log.getWorld().playEffect(log.getLocation(), Effect.STEP_SOUND, log.getType());
+                log.getWorld().playEffect(log.getLocation(), Effect.DESTROY_BLOCK, log.getBlockData());
 
                 OfflinePlayer owner = Bukkit.getOfflinePlayer(UUID.fromString(
                         StorageCacheUtils.getUniversalBlockData(menu.getUuid(), b.getLocation(), "owner")));
@@ -75,7 +75,7 @@ public class WoodcutterAndroid extends ProgrammableAndroid {
         // We try to push the log into the android's inventory, but nothing happens if it does not fit
         menu.pushItem(drop, getOutputSlots());
 
-        log.getWorld().playEffect(log.getLocation(), Effect.STEP_SOUND, log.getType());
+        log.getWorld().playEffect(log.getLocation(), Effect.DESTROY_BLOCK, log.getBlockData());
 
         // If the android just chopped the bottom log, we replant the appropriate sapling
         if (log.getY() == android.getRelative(face).getY()) {

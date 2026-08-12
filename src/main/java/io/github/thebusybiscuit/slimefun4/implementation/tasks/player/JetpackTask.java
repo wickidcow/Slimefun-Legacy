@@ -6,6 +6,7 @@ import javax.annotation.Nonnull;
 import org.bukkit.Effect;
 import org.bukkit.Material;
 import org.bukkit.SoundCategory;
+import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
@@ -29,7 +30,7 @@ public class JetpackTask extends AbstractPlayerTask {
 
         if (jetpack.removeItemCharge(p.getInventory().getChestplate(), COST)) {
             SoundEffect.JETPACK_THRUST_SOUND.playAt(p.getLocation(), SoundCategory.PLAYERS);
-            p.getWorld().playEffect(p.getLocation(), Effect.SMOKE, 1, 1);
+            p.getWorld().playEffect(p.getLocation(), Effect.SMOKE_SHOOT, BlockFace.UP, 1);
             p.setFallDistance(0F);
             Vector vector = new Vector(0, 1, 0);
             vector.multiply(jetpack.getThrust());

@@ -178,7 +178,7 @@ public class OreWasher extends MultiBlockMachine {
             inputInv.removeItem(removing);
             outputInv.addItem(output.clone());
 
-            b.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, Material.WATER);
+            b.getWorld().playEffect(b.getLocation(), Effect.DESTROY_BLOCK, Material.WATER.createBlockData());
             SoundEffect.ORE_WASHER_WASH_SOUND.playAt(b);
         } else {
             Slimefun.getLocalization().sendMessage(p, "machines.full-inventory", true);

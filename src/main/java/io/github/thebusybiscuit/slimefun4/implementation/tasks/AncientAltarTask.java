@@ -183,7 +183,7 @@ public class AncientAltarTask implements Runnable {
 
             if (!event.isCancelled()) {
                 SoundEffect.ANCIENT_ALTAR_FINISH_SOUND.playAt(dropLocation, SoundCategory.BLOCKS);
-                dropLocation.getWorld().playEffect(dropLocation, Effect.STEP_SOUND, Material.EMERALD_BLOCK);
+                dropLocation.getWorld().playEffect(dropLocation, Effect.DESTROY_BLOCK, Material.EMERALD_BLOCK.createBlockData());
                 dropLocation.getWorld().dropItemNaturally(dropLocation.add(0, -0.5, 0), event.getItem());
             }
 

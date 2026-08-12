@@ -170,7 +170,7 @@ public class ExplosiveTool extends SimpleSlimefunItem<ToolUseHandler> implements
         Slimefun.getProtectionManager().logAction(player, block, Interaction.BREAK_BLOCK);
         Material material = block.getType();
 
-        block.getWorld().playEffect(block.getLocation(), Effect.STEP_SOUND, material);
+        block.getWorld().playEffect(block.getLocation(), Effect.DESTROY_BLOCK, material.createBlockData());
         Location blockLocation = block.getLocation();
 
         Optional<SlimefunItem> blockItem = Optional.ofNullable(StorageCacheUtils.getSlimefunItem(blockLocation));

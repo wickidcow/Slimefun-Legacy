@@ -63,7 +63,7 @@ public class FarmerAndroid extends ProgrammableAndroid {
             drop = event.getDrop();
 
             if (drop != null && menu.pushItem(drop, getOutputSlots()) == null) {
-                block.getWorld().playEffect(block.getLocation(), Effect.STEP_SOUND, blockType);
+                block.getWorld().playEffect(block.getLocation(), Effect.DESTROY_BLOCK, data);
 
                 if (data instanceof Ageable ageable) {
                     ageable.setAge(0);

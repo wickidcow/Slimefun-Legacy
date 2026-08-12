@@ -100,7 +100,7 @@ public class LumberAxe extends SlimefunItem implements NotPlaceable {
     }
 
     private void breakLog(@Nonnull Block b) {
-        b.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, b.getType());
+        b.getWorld().playEffect(b.getLocation(), Effect.DESTROY_BLOCK, b.getBlockData());
 
         for (ItemStack drop : b.getDrops(getItem())) {
             b.getWorld().dropItemNaturally(b.getLocation(), drop);

@@ -247,7 +247,7 @@ public class BlockPlacer extends SlimefunItem {
                         removedItem.setAmount(1);
 
                         // Play particles
-                        b.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, item.getType());
+                        b.getWorld().playEffect(b.getLocation(), Effect.DESTROY_BLOCK, item.getType().createBlockData());
 
                         // Make sure the item was actually removed (fixes #2817)
 

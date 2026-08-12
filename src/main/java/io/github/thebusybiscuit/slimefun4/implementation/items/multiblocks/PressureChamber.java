@@ -97,9 +97,9 @@ public class PressureChamber extends MultiBlockMachine {
                     b.getLocation(),
                     () -> {
                         SoundEffect.PRESSURE_CHAMBER_WORKING_SOUND.playAt(b);
-                        p.getWorld().playEffect(b.getRelative(BlockFace.UP).getLocation(), Effect.SMOKE, 4);
-                        p.getWorld().playEffect(b.getRelative(BlockFace.UP).getLocation(), Effect.SMOKE, 4);
-                        p.getWorld().playEffect(b.getRelative(BlockFace.UP).getLocation(), Effect.SMOKE, 4);
+                        p.getWorld().playEffect(b.getRelative(BlockFace.UP).getLocation(), Effect.SMOKE_SHOOT, BlockFace.WEST);
+                        p.getWorld().playEffect(b.getRelative(BlockFace.UP).getLocation(), Effect.SMOKE_SHOOT, BlockFace.WEST);
+                        p.getWorld().playEffect(b.getRelative(BlockFace.UP).getLocation(), Effect.SMOKE_SHOOT, BlockFace.WEST);
 
                         if (j < 3) {
                             SoundEffect.PRESSURE_CHAMBER_WORKING_SOUND.playAt(b);

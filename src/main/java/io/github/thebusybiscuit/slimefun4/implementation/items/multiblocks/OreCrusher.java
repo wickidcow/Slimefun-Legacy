@@ -209,7 +209,7 @@ public class OreCrusher extends MultiBlockMachine {
                                 removing.setAmount(convert.getAmount());
                                 inv.removeItem(removing);
                                 outputInv.addItem(event.getOutput());
-                                p.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, 1);
+                                p.getWorld().playEffect(b.getLocation(), Effect.DESTROY_BLOCK, Material.STONE.createBlockData());
                             } else {
                                 Slimefun.getLocalization().sendMessage(p, "machines.full-inventory", true);
                             }

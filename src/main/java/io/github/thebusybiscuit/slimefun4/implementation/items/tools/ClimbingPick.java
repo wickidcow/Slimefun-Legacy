@@ -250,7 +250,7 @@ public class ClimbingPick extends SimpleSlimefunItem<ItemUseHandler> implements 
         MinecraftVersion version = Slimefun.getMinecraftVersion();
 
         if (version != MinecraftVersion.UNIT_TEST) {
-            p.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, b.getType());
+            p.getWorld().playEffect(b.getLocation(), Effect.DESTROY_BLOCK, b.getBlockData());
 
             if (hand == EquipmentSlot.HAND) {
                 p.swingMainHand();

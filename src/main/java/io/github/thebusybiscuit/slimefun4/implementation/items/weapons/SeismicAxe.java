@@ -64,7 +64,7 @@ public class SeismicAxe extends SimpleSlimefunItem<ItemUseHandler> implements No
                 Block ground = findGround(blocks.get(i));
                 Location groundLocation = ground.getLocation();
 
-                ground.getWorld().playEffect(groundLocation, Effect.STEP_SOUND, ground.getType());
+                ground.getWorld().playEffect(groundLocation, Effect.DESTROY_BLOCK, ground.getBlockData());
 
                 // Check if they have room above.
                 Block blockAbove = ground.getRelative(BlockFace.UP);

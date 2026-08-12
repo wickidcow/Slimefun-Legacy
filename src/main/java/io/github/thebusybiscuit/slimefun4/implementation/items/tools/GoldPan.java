@@ -150,7 +150,7 @@ public class GoldPan extends SimpleSlimefunItem<ItemUseHandler> implements Recip
                                 .hasPermission(e.getPlayer(), b.getLocation(), Interaction.BREAK_BLOCK)) {
                     ItemStack output = getRandomOutput();
 
-                    b.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, b.getType());
+                    b.getWorld().playEffect(b.getLocation(), Effect.DESTROY_BLOCK, b.getBlockData());
                     b.setType(Material.AIR);
 
                     // Make sure that the randomly selected item is not air

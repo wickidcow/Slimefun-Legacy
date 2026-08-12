@@ -129,7 +129,7 @@ public class MinerAndroid extends ProgrammableAndroid {
             return;
         }
 
-        block.getWorld().playEffect(block.getLocation(), Effect.STEP_SOUND, block.getType());
+        block.getWorld().playEffect(block.getLocation(), Effect.DESTROY_BLOCK, block.getBlockData());
         List<ItemStack> drops = new ArrayList<>();
         // filter inventory first
         BlockState state = block.getState(false);

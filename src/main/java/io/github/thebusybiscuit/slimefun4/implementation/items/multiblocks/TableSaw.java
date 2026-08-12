@@ -147,7 +147,7 @@ public class TableSaw extends MultiBlockMachine {
         }
 
         outputItems(b, event.getOutput());
-        b.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, item.getType());
+        b.getWorld().playEffect(b.getLocation(), Effect.DESTROY_BLOCK, item.getType().createBlockData());
     }
 
     private @Nullable ItemStack getOutputFromMaterial(@Nonnull Material item) {

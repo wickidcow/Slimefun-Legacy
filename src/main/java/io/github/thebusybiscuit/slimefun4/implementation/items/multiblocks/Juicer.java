@@ -89,7 +89,7 @@ public class Juicer extends MultiBlockMachine {
 
                             SoundEffect.JUICER_USE_SOUND.playAt(b);
                             // Not changed since this is supposed to be a natural sound.
-                            p.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, Material.HAY_BLOCK);
+                            p.getWorld().playEffect(b.getLocation(), Effect.DESTROY_BLOCK, Material.HAY_BLOCK.createBlockData());
                         } else {
                             Slimefun.getLocalization().sendMessage(p, "machines.full-inventory", true);
                         }

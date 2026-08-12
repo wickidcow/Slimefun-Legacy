@@ -50,7 +50,7 @@ public class InfernalBonemeal extends SimpleSlimefunItem<ItemUseHandler> {
                     if (ageable.getAge() < ageable.getMaximumAge()) {
                         ageable.setAge(ageable.getMaximumAge());
                         b.setBlockData(ageable);
-                        b.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, Material.REDSTONE_BLOCK);
+                        b.getWorld().playEffect(b.getLocation(), Effect.DESTROY_BLOCK, Material.REDSTONE_BLOCK.createBlockData());
 
                         if (e.getPlayer().getGameMode() != GameMode.CREATIVE) {
                             ItemUtils.consumeItem(e.getItem(), false);

@@ -55,7 +55,7 @@ public class Bandage extends SimpleSlimefunItem<ItemUseHandler> {
                 ItemUtils.consumeItem(e.getItem(), false);
             }
 
-            p.getWorld().playEffect(p.getLocation(), Effect.STEP_SOUND, Material.WHITE_WOOL);
+            p.getWorld().playEffect(p.getLocation(), Effect.DESTROY_BLOCK, Material.WHITE_WOOL.createBlockData());
             p.addPotionEffect(new PotionEffect(VersionedPotionEffectType.INSTANT_HEALTH, 1, healingLevel));
             p.setFireTicks(0);
 

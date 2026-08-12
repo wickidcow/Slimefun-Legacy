@@ -182,7 +182,7 @@ class MiningTask implements Runnable {
         queue.thenRun(() -> {
             try {
                 Block furnace = chest.getRelative(BlockFace.DOWN);
-                furnace.getWorld().playEffect(furnace.getLocation(), Effect.STEP_SOUND, Material.STONE);
+                furnace.getWorld().playEffect(furnace.getLocation(), Effect.DESTROY_BLOCK, Material.STONE.createBlockData());
 
                 World world = start.getWorld();
                 for (int y = height; y > world.getMinHeight(); y--) {
@@ -196,7 +196,7 @@ class MiningTask implements Runnable {
 
                     if (miner.canMine(b) && push(miner.getOutcome(b.getType()))) {
                         // Not changed since this is supposed to be a natural sound.
-                        furnace.getWorld().playEffect(furnace.getLocation(), Effect.STEP_SOUND, b.getType());
+                        furnace.getWorld().playEffect(furnace.getLocation(), Effect.DESTROY_BLOCK, b.getBlockData());
 
                         SoundEffect.MINING_TASK_SOUND.playAt(furnace);
 

@@ -241,8 +241,8 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
                             b.getWorld()
                                     .playEffect(
                                             b.getLocation(),
-                                            Effect.STEP_SOUND,
-                                            getHead().getType());
+                                            Effect.DESTROY_BLOCK,
+                                            getHead().getType().createBlockData());
                         });
                     }
                 }

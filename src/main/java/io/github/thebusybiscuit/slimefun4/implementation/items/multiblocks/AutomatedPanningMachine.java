@@ -113,7 +113,7 @@ public class AutomatedPanningMachine extends MultiBlockMachine {
                 20,
                 5,
                 () -> b.getWorld()
-                        .playEffect(b.getRelative(BlockFace.DOWN).getLocation(), Effect.STEP_SOUND, material));
+                        .playEffect(b.getRelative(BlockFace.DOWN).getLocation(), Effect.DESTROY_BLOCK, material.createBlockData()));
         queue.thenRun(20, () -> {
             if (finalOutput.getType() != Material.AIR) {
                 Optional<Inventory> outputChest = OutputChest.findOutputChestFor(b.getRelative(BlockFace.DOWN), output);

@@ -66,7 +66,7 @@ public class StomperBoots extends SlimefunItem {
         for (BlockFace face : BlockFace.values()) {
             Block block =
                     player.getLocation().getBlock().getRelative(BlockFace.DOWN).getRelative(face);
-            player.getWorld().playEffect(block.getLocation(), Effect.STEP_SOUND, block.getType());
+            player.getWorld().playEffect(block.getLocation(), Effect.DESTROY_BLOCK, block.getBlockData());
         }
     }
 

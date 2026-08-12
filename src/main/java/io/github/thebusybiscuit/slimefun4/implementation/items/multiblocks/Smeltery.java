@@ -104,7 +104,7 @@ public class Smeltery extends AbstractSmeltery {
 
         if (!isFireRenewed) {
             Block fire = b.getRelative(BlockFace.DOWN).getRelative(BlockFace.DOWN);
-            fire.getWorld().playEffect(fire.getLocation(), Effect.STEP_SOUND, fire.getType());
+            fire.getWorld().playEffect(fire.getLocation(), Effect.DESTROY_BLOCK, fire.getBlockData());
             fire.setType(Material.AIR);
         }
     }
