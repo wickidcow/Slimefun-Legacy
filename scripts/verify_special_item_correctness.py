@@ -128,7 +128,11 @@ def main() -> int:
     reactor = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/reactors/Reactor.java")
     require(reactor, "transferOutputToAccessPort(inv, accessPort);", "reactor output draining before byproduct")
     require(reactor, "else if (accessPort != null && accessPort.fits(result, ReactorAccessPort.getOutputSlots()))", "reactor direct access-port byproduct fallback")
-    require(reactor, "// Keep the finished operation around and retry when output space becomes available.", "reactor byproduct backpressure")
+    require(
+        reactor,
+        "// Keep the finished operation and its progress display intact until a full\n                // byproduct can be committed to either the reactor or its live access port.",
+        "reactor byproduct and progress-display backpressure",
+    )
     require(reactor, "catch (NumberFormatException ignored)", "reactor malformed stored-energy recovery")
     forbid(reactor, "inv.pushItem(result.clone(), getOutputSlots());\n        }\n\n        if (accessPort != null)", "reactor unchecked byproduct insertion")
 
