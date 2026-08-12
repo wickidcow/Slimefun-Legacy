@@ -90,8 +90,9 @@ public class Smeltery extends AbstractSmeltery {
     }
 
     @Override
-    protected void craft(Player p, Block b, Inventory inv, ItemStack[] recipe, ItemStack output, Inventory outputInv) {
-        super.craft(p, b, inv, recipe, output, outputInv);
+    protected void craft(
+            Player p, Block b, Inventory inv, ItemStack[] recipe, ItemStack output, Block dispenser) {
+        super.craft(p, b, inv, recipe, output, dispenser);
 
         if (ThreadLocalRandom.current().nextInt(100) < fireBreakingChance.getValue()) {
             consumeFire(p, b.getRelative(BlockFace.DOWN), b);
