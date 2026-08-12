@@ -33,9 +33,8 @@ public class Splint extends SimpleSlimefunItem<ItemUseHandler> {
         return e -> {
             Player p = e.getPlayer();
 
-            // Player is neither burning nor injured
-            if (p.getFireTicks() <= 0
-                    && p.getHealth() >= p.getAttribute(AttributeX.MAX_HEALTH).getValue()) {
+            // A Splint is a healing-only supply. Do not consume it when the player is already at full health.
+            if (p.getHealth() >= p.getAttribute(AttributeX.MAX_HEALTH).getValue()) {
                 return;
             }
 
