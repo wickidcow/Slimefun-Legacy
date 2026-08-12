@@ -57,8 +57,9 @@ public class MakeshiftSmeltery extends AbstractSmeltery {
     }
 
     @Override
-    protected void craft(Player p, Block b, Inventory inv, ItemStack[] recipe, ItemStack output, Inventory outputInv) {
-        super.craft(p, b, inv, recipe, output, outputInv);
+    protected void craft(
+            Player p, Block b, Inventory inv, ItemStack[] recipe, ItemStack output, Block dispenser) {
+        super.craft(p, b, inv, recipe, output, dispenser);
 
         Block fire = b.getRelative(BlockFace.DOWN).getRelative(BlockFace.DOWN);
         fire.getWorld().playEffect(fire.getLocation(), Effect.STEP_SOUND, fire.getType());
