@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify auto-crafter reservation, output, and energy transaction invariants."""
+"""Verify auto-crafter reservation, output, persistence, and energy transaction invariants."""
 
 from __future__ import annotations
 
@@ -44,14 +44,10 @@ def main() -> int:
     require(crafter, "return true;", "synchronized auto-crafter ticker")
     require(
         crafter,
-        "if (recipe == null || getCharge(b.getLocation(), data) < getEnergyConsumption())",
-        "recipe and energy preflight",
+        "if (recipe == null || !recipe.isEnabled() || getCharge(b.getLocation(), data) < getEnergyConsumption())",
+        "recipe, enabled-state and energy preflight",
     )
-    require(
-        crafter,
-        "if (craft(interactor, recipe))",
-        "craft success gate before energy charge",
-    )
+    require(crafter, "if (craft(interactor, recipe))", "craft success gate before energy charge")
     require_before(
         crafter,
         "if (craft(interactor, recipe))",
@@ -68,11 +64,7 @@ def main() -> int:
         "if (amount > 0 && matches(item, predicate))",
         "positive remaining quantity reservation guard",
     )
-    require(
-        crafter,
-        "itemQuantities.put(slot, amount - 1);",
-        "one-unit ingredient reservation",
-    )
+    require(crafter, "itemQuantities.put(slot, amount - 1);", "one-unit ingredient reservation")
     require_before(
         crafter,
         "if (inv.canOutput(recipe.getResult()))",
@@ -128,6 +120,32 @@ def main() -> int:
         contract,
         "Implementations must not partially insert an item and\n     * then return {@code false}.",
         "addon interactor no-partial-failure contract",
+    )
+
+    vanilla = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/autocrafters/VanillaAutoCrafter.java",
+    )
+    require(vanilla, "String[] values = CommonPatterns.COLON.split(value, 2);", "bounded vanilla recipe-key split")
+    require(
+        vanilla,
+        "if (values.length != 2 || values[0].isBlank() || values[1].isBlank())",
+        "malformed vanilla recipe-key guard",
+    )
+    require(vanilla, "catch (IllegalArgumentException ignored)", "invalid vanilla namespace/key recovery")
+    require(vanilla, "if (recipe != null)", "unsupported vanilla recipe wrapper guard")
+    forbid(vanilla, "String[] values = CommonPatterns.COLON.split(value);", "unbounded vanilla recipe-key split")
+
+    slimefun = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/autocrafters/SlimefunAutoCrafter.java",
+    )
+    require(slimefun, "if (value == null || value.isBlank())", "missing Slimefun recipe-id guard")
+    require(slimefun, "if (recipe != null)", "stale Slimefun recipe-type guard")
+    forbid(
+        slimefun,
+        "AbstractRecipe recipe = AbstractRecipe.of(item, targetRecipeType);\n                recipe.setEnabled(enabled);",
+        "unchecked Slimefun recipe wrapper",
     )
 
     print("Auto-crafter correctness verification passed.")
