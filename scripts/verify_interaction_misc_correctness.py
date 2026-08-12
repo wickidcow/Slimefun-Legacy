@@ -28,6 +28,11 @@ def require_before(text: str, first: str, second: str, label: str) -> None:
         )
 
 
+def compact_java(text: str) -> str:
+    """Remove formatting whitespace so source-layout changes do not invalidate semantic checks."""
+    return "".join(text.split())
+
+
 def main() -> int:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
 
@@ -46,16 +51,16 @@ def main() -> int:
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/misc/StrangeNetherGoo.java",
     )
-    require(goo, "Interaction.INTERACT_ENTITY", "Strange Nether Goo protection type")
-    require(
-        goo,
-        ".hasPermission(e.getPlayer(), sheep.getLocation(), Interaction.INTERACT_ENTITY)",
-        "Strange Nether Goo entity-protection check",
+    goo_compact = compact_java(goo)
+    goo_permission = (
+        ".hasPermission(e.getPlayer(),sheep.getLocation(),"
+        "io.github.bakedlibs.dough.protection.Interaction.INTERACT_ENTITY)"
     )
+    require(goo_compact, goo_permission, "Strange Nether Goo entity-protection check")
     require_before(
-        goo,
-        ".hasPermission(e.getPlayer(), sheep.getLocation(), Interaction.INTERACT_ENTITY)",
-        "ItemUtils.consumeItem(item, false);",
+        goo_compact,
+        goo_permission,
+        "ItemUtils.consumeItem(item,false);",
         "Strange Nether Goo protection-before-consumption ordering",
     )
 
