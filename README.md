@@ -24,9 +24,12 @@ Current development release: **4.1.30 — Core Platform Phase 1L (Release Lifecy
 [Contributing](CONTRIBUTING.md)
 
 </div>
+
 > [!IMPORTANT]
-> **Slimefun Legacy is an unofficial, independently maintained downstream fork.**
-> It is not operated by the original Slimefun team, Slimefun United, the Gugu Project, Mojang Studios, or Microsoft.
+> **Slimefun Legacy is an unofficial, independently maintained downstream fork of Slimefun 4.**
+> It exists to preserve and maintain the classic Slimefun experience for modern Paper servers and is maintained for the [AlbionMC.com](https://albionmc.com) server and the wider Slimefun community. It is not an official release of the original Slimefun project, Slimefun United, or the SlimefunGuguProject.
+>
+> **NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.**
 
 ---
 ## ✨ What is Slimefun Legacy?
@@ -266,26 +269,51 @@ Use the [GitHub Issue Tracker](https://github.com/wickidcow/Slimefun-Legacy/issu
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the complete development workflow.
 
 ---
-## 🌳 Project lineage
+## 🌳 Project lineage & thanks
 
-Slimefun Legacy is built on years of work by the Slimefun community, including:
+Slimefun Legacy would not exist without the original Slimefun project and the community that built it.
 
-- [Slimefun 4](https://github.com/Slimefun/Slimefun4)
-- [SlimefunGuguProject/Slimefun4](https://github.com/SlimefunGuguProject/Slimefun4)
-- [Slimefun United](https://github.com/Slimefun-United/Slimefun-United)
-- The many contributors, addon developers, server owners, testers, and translators who kept the ecosystem alive
-This repository retains upstream history and attribution while being maintained independently. It must not be presented as an official release from an upstream project.
+**Slimefun was created by [TheBusyBiscuit](https://github.com/TheBusyBiscuit) in 2013.** What began as a single-developer project grew into a long-running open-source ecosystem maintained and expanded by hundreds of contributors, addon developers, translators, testers, server owners, and community members.
+
+Slimefun Legacy gratefully acknowledges and preserves the work of:
+
+- **[TheBusyBiscuit](https://github.com/TheBusyBiscuit)** — original creator of Slimefun
+- **[Slimefun/Slimefun4](https://github.com/Slimefun/Slimefun4)** — the original Slimefun 4 project and its contributors
+- **[SlimefunGuguProject/Slimefun4](https://github.com/SlimefunGuguProject/Slimefun4)** — downstream maintenance and compatibility work used as an upstream reference
+- **[Slimefun United](https://github.com/Slimefun-United/Slimefun-United)** — community continuation and compatibility work used as an upstream reference
+- The many Slimefun addon authors and maintainers whose projects made the ecosystem what it is
+
+This fork is intended to **preserve, maintain, and extend** that work for modern servers—not to replace the original developers or claim their work as its own. Upstream authorship, commit history, copyright notices, and license obligations remain respected. Where code or ideas originate from another project, that project and its contributors should continue to receive appropriate credit.
+
+Thank you to everyone who created, maintained, documented, tested, translated, supported, or built addons for Slimefun over the years. Slimefun Legacy stands on that work.
+
+---
+## ⚖️ Independence, trademarks & non-affiliation
+
+**Slimefun Legacy is an independent community-maintained fork.** It is maintained for **AlbionMC.com** and for people who want the classic Slimefun experience on modern Paper-based servers.
+
+**NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.**
+
+Slimefun Legacy is not affiliated with, endorsed by, sponsored by, approved by, or operated by Mojang Studios, Microsoft Corporation, Minecraft, the original Slimefun project, Slimefun United, or the SlimefunGuguProject. References to those projects, companies, products, or communities are for identification, compatibility, historical attribution, and interoperability only.
+
+Minecraft, Mojang Studios, Microsoft, and all other third-party names, logos, brands, and trademarks referenced by this project remain the property of their respective owners. No ownership, sponsorship, partnership, or endorsement is claimed or implied.
+
+This repository does not grant rights to Minecraft, Mojang, Microsoft, or other third-party assets beyond rights provided by their respective licenses, terms, policies, or applicable law. Users and distributors remain responsible for complying with the Minecraft EULA, Minecraft Usage Guidelines, third-party licenses, and any other terms that apply to their use or distribution.
 
 ---
 ## 📄 License
 
-Slimefun Legacy is distributed under the [GNU General Public License v3.0](LICENSE). Distributed modifications must continue to follow the GPL and provide corresponding source as required by the license.
+Slimefun Legacy is distributed under the [GNU General Public License v3.0](LICENSE), consistent with the upstream Slimefun 4 licensing. Modifications distributed from this repository remain subject to the GPLv3 and its source-availability requirements.
+
+Copyright and authorship of upstream work remain with the original Slimefun authors and contributors. Copyright in later modifications remains with the contributors who authored those changes. Nothing in the Slimefun Legacy name, branding, README, or distribution is intended to transfer, erase, or claim ownership of upstream authorship.
+
+For the complete license terms, see [`LICENSE`](LICENSE).
 
 <div align="center">
 
 ### Keep Slimefun alive. Keep it compatible. Keep it understandable.
 
-Made for modern Paper servers and the community that still loves Slimefun.
+Made for modern Paper servers, maintained for **AlbionMC.com**, and dedicated to the community that kept Slimefun alive.
 
 [Back to top](#slimefun-legacy)
 
