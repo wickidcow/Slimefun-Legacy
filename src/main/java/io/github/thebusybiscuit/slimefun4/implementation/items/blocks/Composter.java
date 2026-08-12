@@ -4,6 +4,7 @@ import io.github.bakedlibs.dough.protection.Interaction;
 import io.github.bakedlibs.dough.scheduling.TaskQueue;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
+import io.github.thebusybiscuit.slimefun4.api.items.virtual.VirtualItemHandler.InventoryContext;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.attributes.RecipeDisplayItem;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockUseHandler;
@@ -110,7 +111,12 @@ public class Composter extends SimpleSlimefunItem<BlockUseHandler> implements Re
         Optional<Inventory> outputChest = findOutputChest(b, output);
 
         if (outputChest.isPresent()) {
-            outputChest.get().addItem(output);
+            ItemStack remainder = Slimefun.getItemStackService()
+                    .addItem(outputChest.get(), output, InventoryContext.OUTPUT_CHEST);
+
+            if (remainder != null && remainder.getAmount() > 0) {
+                b.getWorld().dropItemNaturally(b.getRelative(BlockFace.UP).getLocation(), remainder);
+            }
         } else {
             Location loc = b.getRelative(BlockFace.UP).getLocation();
             b.getWorld().dropItemNaturally(loc, output);
