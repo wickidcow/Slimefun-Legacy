@@ -9,6 +9,7 @@ on:
       - 'scripts/verify_guide_runtime_correctness.py'
       - 'scripts/verify_runtime_gameplay_correctness.py'
       - 'scripts/verify_cargo_correctness.py'
+      - 'scripts/verify_energy_network_correctness.py'
       - 'scripts/verify_special_item_correctness.py'
       - 'scripts/verify_tool_correctness.py'
       - 'scripts/verify_magical_item_correctness.py'
@@ -33,6 +34,7 @@ on:
       - 'scripts/verify_guide_runtime_correctness.py'
       - 'scripts/verify_runtime_gameplay_correctness.py'
       - 'scripts/verify_cargo_correctness.py'
+      - 'scripts/verify_energy_network_correctness.py'
       - 'scripts/verify_special_item_correctness.py'
       - 'scripts/verify_tool_correctness.py'
       - 'scripts/verify_magical_item_correctness.py'
@@ -78,6 +80,9 @@ jobs:
 
       - name: Verify Cargo transaction and chunk-safety invariants
         run: python3 scripts/verify_cargo_correctness.py .
+
+      - name: Verify energy network charge and live-component invariants
+        run: python3 scripts/verify_energy_network_correctness.py .
 
       - name: Verify special-item runtime invariants
         run: python3 scripts/verify_special_item_correctness.py .
@@ -127,6 +132,7 @@ jobs:
             echo '- Machine cancellation and transaction ordering checked'
             echo '- AContainer energy/progress/output lifecycle checked'
             echo '- Cargo rollback, exact partial-stack remainder and unloaded-chunk guards checked'
+            echo '- Energy network live-component identity, charge bounds and unloaded-chunk guards checked'
             echo '- GPS, Android overflow, Elevator and research-cost invariants checked'
             echo '- Explosive tools, Lumber Axe, spawner containment and Grappling Hook invariants checked'
             echo '- Knowledge Tome, Knowledge Flask, Infernal Bonemeal and Zombie Pills invariants checked'
