@@ -42,7 +42,6 @@ class CargoNetworkTask implements Runnable {
     private final NetworkManager manager;
     private final CargoNet network;
     private final Map<Location, Inventory> inventories = new HashMap<>();
-    private final Map<Location, Optional<Block>> attachedBlocks = new HashMap<>();
 
     private final Map<Location, Integer> inputs;
     private final Map<Integer, List<Location>> outputs;
@@ -107,20 +106,56 @@ class CargoNetworkTask implements Runnable {
 
         ItemStack stack = slot.getItem();
         int previousSlot = slot.getInt();
-        List<Location> destinations = outputNodes.get(frequency);
 
-        if (destinations != null) {
-            stack = distributeItem(stack, inputNode, destinations);
+        try {
+            List<Location> destinations = outputNodes.get(frequency);
+            if (destinations != null) {
+                stack = distributeItem(stack, inputNode, destinations);
+            }
+
+            if (stack != null) {
+                insertItem(inputTarget, previousSlot, stack);
+            }
+        } catch (Exception | LinkageError ex) {
+            if (stack != null) {
+                restoreAfterRoutingFailure(inputTarget, previousSlot, stack, ex);
+            }
+
+            Slimefun.logger()
+                    .log(
+                            Level.SEVERE,
+                            ex,
+                            () -> "Cargo routing failed after withdrawing an item stack @ "
+                                    + new BlockPosition(inputNode)
+                                    + ". The remaining stack was returned to the source or preserved as overflow.");
         }
+    }
 
-        if (stack != null) {
-            insertItem(inputTarget, previousSlot, stack);
+    @ParametersAreNonnullByDefault
+    private void restoreAfterRoutingFailure(Block inputTarget, int previousSlot, ItemStack item, Throwable failure) {
+        try {
+            ItemStack rest = returnItemToSource(inputTarget, previousSlot, item);
+            if (rest != null) {
+                SlimefunUtils.spawnItem(
+                        inputTarget.getLocation().add(0, 1, 0), rest, ItemSpawnReason.CARGO_OVERFLOW);
+            }
+        } catch (Exception | LinkageError recoveryFailure) {
+            failure.addSuppressed(recoveryFailure);
         }
     }
 
     @ParametersAreNonnullByDefault
     private void insertItem(Block inputTarget, int previousSlot, ItemStack item) {
-        Inventory inv = inventories.get(inputTarget.getLocation());
+        ItemStack rest = returnItemToSource(inputTarget, previousSlot, item);
+
+        if (rest != null && !manager.isItemDeletionEnabled()) {
+            SlimefunUtils.spawnItem(inputTarget.getLocation().add(0, 1, 0), rest, ItemSpawnReason.CARGO_OVERFLOW);
+        }
+    }
+
+    @Nullable @ParametersAreNonnullByDefault
+    private ItemStack returnItemToSource(Block inputTarget, int previousSlot, ItemStack item) {
+        Inventory inv = CargoUtils.hasInventory(inputTarget) ? inventories.get(inputTarget.getLocation()) : null;
 
         if (inv != null) {
             ItemStack rest;
@@ -136,22 +171,16 @@ class CargoNetworkTask implements Runnable {
                 rest = Slimefun.getItemStackService().addItem(inv, item, InventoryContext.CARGO_INSERT);
             }
 
-            if (rest != null && !manager.isItemDeletionEnabled()) {
-                // If the item still couldn't be inserted, simply drop it on the ground
-                SlimefunUtils.spawnItem(inputTarget.getLocation().add(0, 1, 0), rest, ItemSpawnReason.CARGO_OVERFLOW);
-            }
-        } else {
-            DirtyChestMenu menu = CargoUtils.getChestMenu(inputTarget);
-
-            if (menu != null) {
-                if (menu.getItemInSlot(previousSlot) == null) {
-                    menu.replaceExistingItem(previousSlot, item);
-                } else if (!manager.isItemDeletionEnabled()) {
-                    SlimefunUtils.spawnItem(
-                            inputTarget.getLocation().add(0, 1, 0), item, ItemSpawnReason.CARGO_OVERFLOW);
-                }
-            }
+            return rest;
         }
+
+        DirtyChestMenu menu = CargoUtils.getChestMenu(inputTarget);
+        if (menu != null && menu.getItemInSlot(previousSlot) == null) {
+            menu.replaceExistingItem(previousSlot, item);
+            return null;
+        }
+
+        return item;
     }
 
     @Nullable @ParametersAreNonnullByDefault
@@ -192,6 +221,6 @@ class CargoNetworkTask implements Runnable {
     }
 
     private Optional<Block> getAttachedBlock(Location node) {
-        return attachedBlocks.computeIfAbsent(node, network::getAttachedBlock);
+        return network.getAttachedBlock(node);
     }
 }
