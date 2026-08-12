@@ -112,7 +112,7 @@ public abstract class LimitedUseItem extends SimpleSlimefunItem<ItemUseHandler> 
             ItemMeta meta = item.getItemMeta();
             NamespacedKey key = getStorageKey();
             PersistentDataContainer pdc = meta.getPersistentDataContainer();
-            int usesLeft = pdc.getOrDefault(key, PersistentDataType.INTEGER, getMaxUseCount());
+            int usesLeft = normalizeUses(pdc.getOrDefault(key, PersistentDataType.INTEGER, getMaxUseCount()));
 
             if (usesLeft == 1) {
                 SoundEffect.LIMITED_USE_ITEM_BREAK_SOUND.playFor(p);
@@ -145,7 +145,7 @@ public abstract class LimitedUseItem extends SimpleSlimefunItem<ItemUseHandler> 
     /** Rebuilds the visible remaining-use line without changing the stored use count. */
     public final void refreshUsesLore(@Nonnull ItemStack item) {
         Validate.notNull(item, "The item cannot be null");
-        int usesLeft = getStoredUses(item).orElse(getMaxUseCount());
+        int usesLeft = normalizeUses(getStoredUses(item).orElse(getMaxUseCount()));
         updateItemLore(item, item.getItemMeta(), usesLeft);
     }
 
@@ -158,6 +158,10 @@ public abstract class LimitedUseItem extends SimpleSlimefunItem<ItemUseHandler> 
         ItemMeta meta = item.getItemMeta();
         meta.getPersistentDataContainer().set(getStorageKey(), PersistentDataType.INTEGER, usesLeft);
         updateItemLore(item, meta, usesLeft);
+    }
+
+    private int normalizeUses(int usesLeft) {
+        return Math.max(1, Math.min(usesLeft, getMaxUseCount()));
     }
 
     @ParametersAreNonnullByDefault
