@@ -81,6 +81,22 @@ def main() -> int:
     require(assembler, "catch (NumberFormatException ignored)", "entity assembler malformed offset handling")
     forbid(assembler, "double offset = Double.parseDouble(data.getData(KEY_OFFSET));", "raw entity assembler tick offset parsing")
 
+    geo_miner = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/geo/GEOMiner.java")
+    require(geo_miner, "public boolean isSynchronized() {\n                return true;\n            }", "synchronized GEO Miner ticker")
+    require(geo_miner, "if (!inv.fits(result, OUTPUT_SLOTS)) {\n                    return;", "GEO Miner finished-output backpressure")
+    require(geo_miner, "if (inv == null) {\n            return;", "GEO Miner missing-menu guard")
+
+    trash = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/cargo/TrashCan.java")
+    require(trash, "public boolean isSynchronized() {\n                return true;\n            }", "synchronized Trash Can ticker")
+    require(trash, "if (menu == null) {\n                    return;", "Trash Can missing-menu guard")
+
+    reactor = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/reactors/Reactor.java")
+    require(reactor, "transferOutputToAccessPort(inv, accessPort);", "reactor output draining before byproduct")
+    require(reactor, "else if (accessPort != null && accessPort.fits(result, ReactorAccessPort.getOutputSlots()))", "reactor direct access-port byproduct fallback")
+    require(reactor, "// Keep the finished operation around and retry when output space becomes available.", "reactor byproduct backpressure")
+    require(reactor, "catch (NumberFormatException ignored)", "reactor malformed stored-energy recovery")
+    forbid(reactor, "inv.pushItem(result.clone(), getOutputSlots());\n        }\n\n        if (accessPort != null)", "reactor unchecked byproduct insertion")
+
     smeltery = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/ElectricSmeltery.java")
     require(smeltery, "List<Integer> emptySlots = new LinkedList<>();", "Electric Smeltery empty-slot tracking")
     require(
