@@ -309,8 +309,10 @@ public abstract class Reactor extends AbstractEnergyProvider
         FuelOperation operation = processor.getOperation(l);
 
         if (operation != null) {
-            extraTick(l);
             if (!operation.isFinished()) {
+                // Subclass effects belong to an actively burning fuel operation. Do not keep
+                // applying them while a finished reactor is waiting for byproduct output space.
+                extraTick(l);
                 return generateEnergy(l, data, inv, accessPort, operation);
             }
 
