@@ -78,30 +78,54 @@ public class SoulboundRune extends SimpleSlimefunItem<ItemDropHandler> {
                 // This lightning is just an effect, it deals no damage.
                 l.getWorld().strikeLightningEffect(l);
 
-                Slimefun.runSyncAt(
-                        l,
-                        () -> {
-                            // Being sure entities are still valid and not picked up or whatsoever.
-                            if (rune.isValid() && item.isValid() && itemStack.getAmount() == 1) {
-
-                                l.getWorld().createExplosion(l, 0);
-                                SoundEffect.SOULBOUND_RUNE_RITUAL_SOUND.playAt(l, SoundCategory.PLAYERS);
-
-                                item.remove();
-                                rune.remove();
-
-                                SlimefunUtils.setSoulbound(itemStack, true);
-                                l.getWorld().dropItemNaturally(l, itemStack);
-
-                                Slimefun.getLocalization().sendMessage(p, "messages.soulbound-rune.success", true);
-                            } else {
-                                Slimefun.getLocalization().sendMessage(p, "messages.soulbound-rune.fail", true);
-                            }
-                        },
-                        10L);
+                Slimefun.runSyncAt(l, () -> commitSoulbound(p, rune, item, l), 10L);
             } else {
                 Slimefun.getLocalization().sendMessage(p, "messages.soulbound-rune.fail", true);
             }
+        }
+    }
+
+    @ParametersAreNonnullByDefault
+    private void commitSoulbound(Player p, Item rune, Item item, Location location) {
+        // Re-read the live target after the ritual delay. It may have merged or changed in the meantime.
+        if (!rune.isValid() || !item.isValid()) {
+            Slimefun.getLocalization().sendMessage(p, "messages.soulbound-rune.fail", true);
+            return;
+        }
+
+        ItemStack liveTarget = item.getItemStack();
+        if (liveTarget.getAmount() != 1 || SlimefunUtils.isSoulbound(liveTarget) || isItem(liveTarget)) {
+            Slimefun.getLocalization().sendMessage(p, "messages.soulbound-rune.fail", true);
+            return;
+        }
+
+        ItemStack soulbound = liveTarget.clone();
+        try {
+            SlimefunUtils.setSoulbound(soulbound, true);
+        } catch (RuntimeException x) {
+            error("An Exception occurred while committing a Soulbound Rune", x);
+            Slimefun.getLocalization().sendMessage(p, "messages.soulbound-rune.fail", true);
+            return;
+        }
+
+        // Only remove/consume entities once the soulbound output has been prepared successfully.
+        item.remove();
+        consumeOneRune(rune);
+
+        location.getWorld().createExplosion(location, 0);
+        SoundEffect.SOULBOUND_RUNE_RITUAL_SOUND.playAt(location, SoundCategory.PLAYERS);
+        location.getWorld().dropItemNaturally(location, soulbound);
+        Slimefun.getLocalization().sendMessage(p, "messages.soulbound-rune.success", true);
+    }
+
+    private void consumeOneRune(@Nonnull Item rune) {
+        ItemStack liveRune = rune.getItemStack();
+        if (liveRune.getAmount() > 1) {
+            ItemStack remaining = liveRune.clone();
+            remaining.setAmount(liveRune.getAmount() - 1);
+            rune.setItemStack(remaining);
+        } else {
+            rune.remove();
         }
     }
 
