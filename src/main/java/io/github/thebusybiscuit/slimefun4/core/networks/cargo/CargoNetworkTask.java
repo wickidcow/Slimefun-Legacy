@@ -21,7 +21,9 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.Slimefun.api.inventory.DirtyChestMenu;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 /**
@@ -134,14 +136,48 @@ class CargoNetworkTask implements Runnable {
     @ParametersAreNonnullByDefault
     private void restoreAfterRoutingFailure(Block inputTarget, int previousSlot, ItemStack item, Throwable failure) {
         try {
-            ItemStack rest = returnItemToSource(inputTarget, previousSlot, item);
-            if (rest != null) {
-                SlimefunUtils.spawnItem(
-                        inputTarget.getLocation().add(0, 1, 0), rest, ItemSpawnReason.CARGO_OVERFLOW);
+            if (restoreOriginalSlot(inputTarget, previousSlot, item)) {
+                return;
             }
         } catch (Exception | LinkageError recoveryFailure) {
             failure.addSuppressed(recoveryFailure);
         }
+
+        // Exceptional rollback must never honor Cargo's normal overflow-deletion option.
+        // If the exact source slot cannot be restored, preserve the remainder in-world.
+        try {
+            SlimefunUtils.spawnItem(
+                    inputTarget.getLocation().add(0, 1, 0), item, ItemSpawnReason.CARGO_OVERFLOW);
+        } catch (Exception | LinkageError overflowFailure) {
+            failure.addSuppressed(overflowFailure);
+            Slimefun.logger()
+                    .log(
+                            Level.SEVERE,
+                            overflowFailure,
+                            () -> "Cargo could not preserve a routing remainder as overflow @ "
+                                    + new BlockPosition(inputTarget.getLocation()));
+        }
+    }
+
+    @ParametersAreNonnullByDefault
+    private boolean restoreOriginalSlot(Block inputTarget, int previousSlot, ItemStack item) {
+        DirtyChestMenu menu = CargoUtils.getChestMenu(inputTarget);
+        if (menu != null) {
+            if (menu.getItemInSlot(previousSlot) == null) {
+                menu.replaceExistingItem(previousSlot, item);
+                return true;
+            }
+
+            return false;
+        }
+
+        Inventory inv = getLiveSourceInventory(inputTarget);
+        if (inv != null && inv.getItem(previousSlot) == null) {
+            inv.setItem(previousSlot, item);
+            return true;
+        }
+
+        return false;
     }
 
     @ParametersAreNonnullByDefault
@@ -155,8 +191,17 @@ class CargoNetworkTask implements Runnable {
 
     @Nullable @ParametersAreNonnullByDefault
     private ItemStack returnItemToSource(Block inputTarget, int previousSlot, ItemStack item) {
-        Inventory inv = CargoUtils.hasInventory(inputTarget) ? inventories.get(inputTarget.getLocation()) : null;
+        DirtyChestMenu menu = CargoUtils.getChestMenu(inputTarget);
+        if (menu != null) {
+            if (menu.getItemInSlot(previousSlot) == null) {
+                menu.replaceExistingItem(previousSlot, item);
+                return null;
+            }
 
+            return item;
+        }
+
+        Inventory inv = getLiveSourceInventory(inputTarget);
         if (inv != null) {
             ItemStack rest;
 
@@ -174,13 +219,27 @@ class CargoNetworkTask implements Runnable {
             return rest;
         }
 
-        DirtyChestMenu menu = CargoUtils.getChestMenu(inputTarget);
-        if (menu != null && menu.getItemInSlot(previousSlot) == null) {
-            menu.replaceExistingItem(previousSlot, item);
+        return item;
+    }
+
+    @Nullable @ParametersAreNonnullByDefault
+    private Inventory getLiveSourceInventory(Block inputTarget) {
+        Location location = inputTarget.getLocation();
+        if (!location.getWorld().isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)
+                || !CargoUtils.hasInventory(inputTarget)) {
+            inventories.remove(location);
             return null;
         }
 
-        return item;
+        BlockState state = inputTarget.getState(false);
+        if (!(state instanceof InventoryHolder holder)) {
+            inventories.remove(location);
+            return null;
+        }
+
+        Inventory inventory = holder.getInventory();
+        inventories.put(location, inventory);
+        return inventory;
     }
 
     @Nullable @ParametersAreNonnullByDefault
