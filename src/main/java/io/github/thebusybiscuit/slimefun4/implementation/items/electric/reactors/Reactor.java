@@ -329,18 +329,18 @@ public abstract class Reactor extends AbstractEnergyProvider
             @Nullable BlockMenu accessPort,
             @Nonnull FuelOperation operation) {
         int produced = getEnergyProduction();
-        String energyData = data.getData("energy-charge");
-        int charge = 0;
+        long capacity = Math.max(0L, getCapacityLong());
+        long charge = 0L;
 
-        if (energyData != null) {
-            try {
-                charge = Integer.parseInt(energyData);
-            } catch (NumberFormatException ignored) {
-                charge = 0;
-            }
+        try {
+            charge = Math.max(0L, Math.min(getChargeLong(l, data), capacity));
+        } catch (NumberFormatException ignored) {
+            // Preserve the existing malformed-state recovery behavior without truncating
+            // otherwise valid long-backed charge values to the legacy integer range.
+            charge = 0L;
         }
 
-        int space = getCapacity() - charge;
+        long space = capacity - charge;
         if (space >= produced || getReactorMode(l) != ReactorMode.GENERATOR) {
             operation.addProgress(1);
             checkForWaterBlocks(l);
@@ -352,7 +352,7 @@ public abstract class Reactor extends AbstractEnergyProvider
             }
         }
 
-        return space >= produced ? getEnergyProduction() : 0;
+        return space >= produced ? produced : 0;
     }
 
     @Override
