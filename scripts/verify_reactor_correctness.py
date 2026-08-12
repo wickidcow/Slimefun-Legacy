@@ -67,6 +67,7 @@ def main() -> int:
     source_compact = compact(source)
 
     generated = compact(method_body(source, "getGeneratedOutput"))
+    energy = compact(method_body(source, "generateEnergy"))
     byproduct = compact(method_body(source, "createByproduct"))
     transfer = compact(method_body(source, "transferOutputToAccessPort"))
     burn = compact(method_body(source, "burnNextFuel"))
@@ -78,6 +79,18 @@ def main() -> int:
 
     # Storage races must pause a reactor rather than tick a missing menu.
     require(generated, "if (inv == null) { return 0; }", "missing-menu guard")
+
+    # Reactor charge checks must use the long-backed energy API. Persisted values outside the
+    # legacy int range are valid data and must be clamped to capacity, not misread as zero.
+    require(energy, "long capacity = Math.max(0L, getCapacityLong())", "long reactor capacity")
+    require(
+        energy,
+        "Math.max(0L, Math.min(getChargeLong(l, data), capacity))",
+        "long stored-charge clamp",
+    )
+    require(energy, "long space = capacity - charge", "long available-space calculation")
+    require(energy, "return space >= produced ? produced : 0", "long-safe generation decision")
+    require_absent(energy, "Integer.parseInt", "legacy int energy parsing")
 
     # Fuel brought in through the access port is part of the same tick's eligibility check.
     require_before(
