@@ -220,6 +220,29 @@ def main() -> int:
         "research level cost validates incoming value",
     )
 
+    cooler_listener = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/CoolerListener.java",
+    )
+    require(cooler_listener, "ItemStack currentCooler = findCurrentCooler(p, coolerItem);", "Cooler live-item revalidation")
+    require(cooler_listener, "currentCooler == null || !cooler.canUse(p, false)", "Cooler post-load permission revalidation")
+    require_before(
+        cooler_listener,
+        "ItemStack currentCooler = findCurrentCooler(p, coolerItem);",
+        "PlayerBackpack.migrateLegacyItem(currentCooler, backpack);",
+        "Cooler live identity before legacy migration",
+    )
+    require(
+        cooler_listener,
+        "SlimefunItem.getByItem(stack) instanceof Juice",
+        "Cooler only consumes registered Juice items",
+    )
+    require(
+        cooler_listener,
+        "item.setAmount(item.getAmount() - 1);",
+        "Cooler consumes one item from malformed stacked Juice",
+    )
+
     regulator = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/EnergyRegulator.java",
