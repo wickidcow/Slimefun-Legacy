@@ -67,10 +67,13 @@ public abstract class AContainer extends SlimefunItem
     protected final List<MachineRecipe> recipes = new ArrayList<>();
 
     private final MachineProcessor<CraftingOperation> processor = new MachineProcessor<>(this);
+    private final ThreadLocal<TickContext> tickContext = new ThreadLocal<>();
 
     private int energyConsumedPerTick = -1;
     private int energyCapacity = -1;
     private int processingSpeed = -1;
+
+    private record TickContext(Location location, SlimefunBlockData data) {}
 
     @ParametersAreNonnullByDefault
     protected AContainer(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
@@ -358,7 +361,18 @@ public abstract class AContainer extends SlimefunItem
 
             @Override
             public void tick(Block b, SlimefunItem sf, SlimefunBlockData data) {
-                AContainer.this.tick(b);
+                TickContext previous = tickContext.get();
+                tickContext.set(new TickContext(b.getLocation(), data));
+
+                try {
+                    AContainer.this.tick(b);
+                } finally {
+                    if (previous == null) {
+                        tickContext.remove();
+                    } else {
+                        tickContext.set(previous);
+                    }
+                }
             }
 
             @Override
@@ -430,18 +444,45 @@ public abstract class AContainer extends SlimefunItem
     protected boolean takeCharge(@Nonnull Location l) {
         Validate.notNull(l, "Can't attempt to take charge from a null location!");
 
-        if (isChargeable()) {
-            long charge = getChargeLong(l);
-
-            if (charge < getEnergyConsumption()) {
-                return false;
-            }
-
-            setCharge(l, (long) charge - getEnergyConsumption());
-            return true;
-        } else {
+        if (!isChargeable()) {
             return true;
         }
+
+        TickContext context = tickContext.get();
+        if (context != null && context.location().equals(l)) {
+            return takeCharge(l, context.data());
+        }
+
+        SlimefunBlockData data = StorageCacheUtils.getDataContainer(l);
+        if (data == null || data.isPendingRemove()) {
+            return false;
+        }
+
+        if (!data.isDataLoaded()) {
+            StorageCacheUtils.requestLoad(data);
+            return false;
+        }
+
+        return takeCharge(l, data);
+    }
+
+    private boolean takeCharge(@Nonnull Location l, @Nonnull SlimefunBlockData data) {
+        if (data.isPendingRemove()) {
+            return false;
+        }
+
+        if (!data.isDataLoaded()) {
+            StorageCacheUtils.requestLoad(data);
+            return false;
+        }
+
+        long charge = getChargeLong(l, data);
+        if (charge < getEnergyConsumption()) {
+            return false;
+        }
+
+        setCharge(l, charge - getEnergyConsumption(), data);
+        return true;
     }
 
     protected MachineRecipe findNextRecipe(BlockMenu inv) {
