@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+"""Verify auto-crafter reservation, output, and energy transaction invariants."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+
+def read(root: Path, relative: str) -> str:
+    path = root / relative
+    if not path.is_file():
+        raise SystemExit(f"Auto-crafter correctness failed: missing file {relative}")
+    return path.read_text(encoding="utf-8")
+
+
+def require(text: str, needle: str, label: str) -> None:
+    if needle not in text:
+        raise SystemExit(f"Auto-crafter correctness failed: missing {label}: {needle}")
+
+
+def forbid(text: str, needle: str, label: str) -> None:
+    if needle in text:
+        raise SystemExit(f"Auto-crafter correctness failed: forbidden {label}: {needle}")
+
+
+def require_before(text: str, first: str, second: str, label: str) -> None:
+    first_at = text.find(first)
+    second_at = text.find(second)
+    if first_at < 0 or second_at < 0 or first_at >= second_at:
+        raise SystemExit(
+            f"Auto-crafter correctness failed: ordering violation for {label}: expected {first!r} before {second!r}"
+        )
+
+
+def main() -> int:
+    root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
+
+    crafter = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/autocrafters/AbstractAutoCrafter.java",
+    )
+    require(crafter, "public boolean isSynchronized()", "synchronized auto-crafter ticker declaration")
+    require(crafter, "return true;", "synchronized auto-crafter ticker")
+    require(
+        crafter,
+        "if (recipe == null || getCharge(b.getLocation(), data) < getEnergyConsumption())",
+        "recipe and energy preflight",
+    )
+    require(
+        crafter,
+        "if (craft(interactor, recipe))",
+        "craft success gate before energy charge",
+    )
+    require_before(
+        crafter,
+        "if (craft(interactor, recipe))",
+        "removeCharge(b.getLocation(), getEnergyConsumption());",
+        "auto-crafter craft-before-energy ordering",
+    )
+    require(
+        crafter,
+        "int amount = itemQuantities.getOrDefault(slot, item.getAmount());",
+        "per-slot remaining quantity tracking",
+    )
+    require(
+        crafter,
+        "if (amount > 0 && matches(item, predicate))",
+        "positive remaining quantity reservation guard",
+    )
+    require(
+        crafter,
+        "itemQuantities.put(slot, amount - 1);",
+        "one-unit ingredient reservation",
+    )
+    require_before(
+        crafter,
+        "if (inv.canOutput(recipe.getResult()))",
+        "if (!inv.matchRecipe(this, recipe.getIngredients(), itemQuantities))",
+        "result preflight before recipe reservation",
+    )
+    require(crafter, "boolean success = inv.addItem(recipe.getResult().clone());", "result commit status")
+    require(
+        crafter,
+        "if (success) {\n                // Fixes #2926 - Push leftover items to the inventory.",
+        "leftovers only after result commit",
+    )
+
+    chest = read(
+        root,
+        "src/main/java/com/xzavier0722/mc/plugin/slimefun4/autocrafter/ChestInventoryParser.java",
+    )
+    require(
+        chest,
+        "ItemStack remainder = Slimefun.getItemStackService().addItem(inv, item, InventoryContext.MACHINE_OUTPUT);",
+        "chest exact insertion remainder capture",
+    )
+    require(chest, "if (remainder == null || remainder.getAmount() <= 0)", "chest complete insertion success")
+    require(chest, "location.getWorld().dropItemNaturally(location, remainder);", "chest rejected remainder preservation")
+    require_before(
+        chest,
+        "ItemStack remainder = Slimefun.getItemStackService().addItem",
+        "dropItemNaturally(location, remainder)",
+        "chest insertion-before-overflow preservation",
+    )
+
+    smart_port = read(
+        root,
+        "src/main/java/com/xzavier0722/mc/plugin/slimefun4/autocrafter/CrafterSmartPortParser.java",
+    )
+    require(
+        smart_port,
+        "ItemStack remainder = inv.pushItem(item, CrafterSmartPort.OUTPUT_SLOTS);",
+        "smart-port exact insertion remainder capture",
+    )
+    require(
+        smart_port,
+        "inv.getBlock().getWorld().dropItemNaturally(inv.getLocation(), remainder);",
+        "smart-port rejected remainder preservation",
+    )
+
+    contract = read(
+        root,
+        "src/main/java/com/xzavier0722/mc/plugin/slimefun4/autocrafter/CrafterInteractable.java",
+    )
+    require(contract, "Implementations must therefore be lossless", "addon interactor lossless commit contract")
+    require(
+        contract,
+        "Implementations must not partially insert an item and\n     * then return {@code false}.",
+        "addon interactor no-partial-failure contract",
+    )
+
+    print("Auto-crafter correctness verification passed.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
