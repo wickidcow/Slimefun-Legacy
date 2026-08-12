@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify medical consumables and delayed rune transactions."""
+"""Verify medical consumables, limited-use items, and delayed rune transactions."""
 
 from __future__ import annotations
 
@@ -48,6 +48,31 @@ def main() -> int:
         "if (p.getHealth() >= p.getAttribute(AttributeX.MAX_HEALTH).getValue())",
         "ItemUtils.consumeItem(e.getItem(), false);",
         "Splint need-before-consume ordering",
+    )
+
+    limited_use = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/LimitedUseItem.java",
+    )
+    require(
+        limited_use,
+        "int usesLeft = normalizeUses(pdc.getOrDefault(key, PersistentDataType.INTEGER, getMaxUseCount()));",
+        "LimitedUseItem stored-counter normalization before damage",
+    )
+    require(
+        limited_use,
+        "int usesLeft = normalizeUses(getStoredUses(item).orElse(getMaxUseCount()));",
+        "LimitedUseItem lore normalization",
+    )
+    require(
+        limited_use,
+        "return Math.max(1, Math.min(usesLeft, getMaxUseCount()));",
+        "LimitedUseItem valid one-to-max range",
+    )
+    forbid(
+        limited_use,
+        "int usesLeft = pdc.getOrDefault(key, PersistentDataType.INTEGER, getMaxUseCount());",
+        "raw LimitedUseItem stored counter",
     )
 
     enchantment = read(
