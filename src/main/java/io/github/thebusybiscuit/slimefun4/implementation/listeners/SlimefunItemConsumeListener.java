@@ -23,7 +23,7 @@ public class SlimefunItemConsumeListener implements Listener {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onConsume(PlayerItemConsumeEvent e) {
         Player p = e.getPlayer();
         ItemStack item = e.getItem();
