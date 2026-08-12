@@ -45,30 +45,31 @@ abstract class AbstractItemNetwork extends Network {
     }
 
     protected Optional<Block> getAttachedBlock(@Nonnull Location l) {
-        if (!isLocationAccessible(l)) {
+        if (!isLocationAccessible(l) || !isChunkLoaded(l)) {
             return Optional.empty();
         }
 
-        if (l.getWorld().isChunkLoaded(l.getBlockX() >> 4, l.getBlockZ() >> 4)) {
-            Block block = l.getBlock();
-
-            if (block.getType() == Material.PLAYER_WALL_HEAD) {
-                BlockFace cached = connectorCache.get(l);
-
-                if (cached != null) {
-                    Block target = block.getRelative(cached);
-                    return isLocationAccessible(target.getLocation()) ? Optional.of(target) : Optional.empty();
-                }
-
-                BlockFace face =
-                        ((Directional) block.getBlockData()).getFacing().getOppositeFace();
-                connectorCache.put(l, face);
-                Block target = block.getRelative(face);
-                return isLocationAccessible(target.getLocation()) ? Optional.of(target) : Optional.empty();
-            }
+        Block block = l.getBlock();
+        if (block.getType() != Material.PLAYER_WALL_HEAD) {
+            return Optional.empty();
         }
 
-        return Optional.empty();
+        BlockFace face = connectorCache.get(l);
+        if (face == null) {
+            face = ((Directional) block.getBlockData()).getFacing().getOppositeFace();
+            connectorCache.put(l, face);
+        }
+
+        Location targetLocation = l.clone().add(face.getModX(), face.getModY(), face.getModZ());
+        if (!isLocationAccessible(targetLocation) || !isChunkLoaded(targetLocation)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(targetLocation.getBlock());
+    }
+
+    private static boolean isChunkLoaded(@Nonnull Location location) {
+        return location.getWorld().isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4);
     }
 
     @Override
