@@ -36,6 +36,16 @@ public interface CrafterInteractable {
 
     ItemStack getItem(int slot);
 
+    /**
+     * Commits an output item after the auto-crafter has already reserved and consumed its ingredients.
+     * Implementations must therefore be lossless: once {@link #canOutput(ItemStack)} has accepted the
+     * operation, this method should either insert the complete item or safely preserve any rejected
+     * remainder before returning {@code true}. Implementations must not partially insert an item and
+     * then return {@code false}.
+     *
+     * @param item the crafted output or crafting remainder to commit
+     * @return {@code true} when the complete item has been inserted or otherwise safely preserved
+     */
     boolean addItem(ItemStack item);
 
     /**
