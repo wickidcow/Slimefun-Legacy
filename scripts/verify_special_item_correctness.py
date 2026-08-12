@@ -75,6 +75,11 @@ def main() -> int:
 
     assembler = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/entities/AbstractEntityAssembler.java")
     require(assembler, "public boolean isSynchronized() {\n                return true;\n            }", "synchronized entity assembler ticker")
+    require(assembler, "if (!\"true\".equals(data.getData(KEY_ENABLED)))", "entity assembler fail-closed enabled state")
+    require(assembler, "private double readOffset(@Nullable String value)", "entity assembler safe offset parser")
+    require(assembler, "Double.isFinite(offset) ? offset : DEFAULT_OFFSET", "entity assembler non-finite offset rejection")
+    require(assembler, "catch (NumberFormatException ignored)", "entity assembler malformed offset handling")
+    forbid(assembler, "double offset = Double.parseDouble(data.getData(KEY_OFFSET));", "raw entity assembler tick offset parsing")
 
     smeltery = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/ElectricSmeltery.java")
     require(smeltery, "List<Integer> emptySlots = new LinkedList<>();", "Electric Smeltery empty-slot tracking")
