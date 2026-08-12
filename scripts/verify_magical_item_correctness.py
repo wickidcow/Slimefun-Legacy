@@ -70,6 +70,20 @@ def main() -> int:
     require(pills, "if (entity instanceof ZombieVillager zombieVillager)", "Magical Zombie Pills villager conversion")
     require(pills, "else if (entity instanceof PigZombie pigZombie)", "Magical Zombie Pills piglin conversion")
 
+    talisman = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/magical/talismans/Talisman.java")
+    require(
+        talisman,
+        "ThreadLocalRandom.current().nextInt(100) >= talisman.getChance()",
+        "exact Talisman percentage comparison",
+    )
+    forbid(
+        talisman,
+        "ThreadLocalRandom.current().nextInt(100) > talisman.getChance()",
+        "off-by-one Talisman probability",
+    )
+    require(talisman, "if (!talismanEvent.isCancelled())", "Talisman activation cancellation guard")
+    require_before(talisman, "if (!talismanEvent.isCancelled())", "consumeItem(inv, talisman, talismanItem);", "Talisman cancellation-before-consumption ordering")
+
     print("Magical-item correctness verification passed.")
     return 0
 
