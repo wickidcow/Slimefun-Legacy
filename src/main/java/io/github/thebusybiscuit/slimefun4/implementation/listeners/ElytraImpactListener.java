@@ -6,9 +6,9 @@ import io.github.thebusybiscuit.slimefun4.core.attributes.DamageableItem;
 import io.github.thebusybiscuit.slimefun4.core.attributes.ProtectionType;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.implementation.items.armor.ArmorProtectionUtils;
 import io.github.thebusybiscuit.slimefun4.implementation.items.armor.ElytraCap;
 import io.github.thebusybiscuit.slimefun4.implementation.items.armor.SlimefunArmorPiece;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,6 +22,7 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.entity.EntityToggleGlideEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.ItemStack;
 
 /**
  * The {@link Listener} for the {@link ElytraCap}.
@@ -70,26 +71,22 @@ public class ElytraImpactListener implements Listener {
 
         if ((e.getCause() == DamageCause.FALL || e.getCause() == DamageCause.FLY_INTO_WALL)
                 && (p.isGliding() || gliding.contains(p.getUniqueId()))) {
-            Optional<PlayerProfile> optional = PlayerProfile.find(p);
-
-            if (optional.isEmpty()) {
+            if (PlayerProfile.find(p).isEmpty()) {
                 PlayerProfile.request(p);
                 return;
             }
 
-            PlayerProfile profile = optional.get();
-            Optional<SlimefunArmorPiece> helmet = profile.getArmor()[3].getItem();
+            ItemStack helmetStack = p.getInventory().getHelmet();
+            SlimefunItem helmetItem = SlimefunItem.getByItem(helmetStack);
 
-            if (helmet.isPresent()) {
-                SlimefunItem item = helmet.get();
+            if (helmetItem instanceof SlimefunArmorPiece helmet
+                    && helmet.canUse(p, true)
+                    && ArmorProtectionUtils.hasFullProtectionAgainst(p, ProtectionType.FLYING_INTO_WALL)) {
+                SoundEffect.ELYTRA_CAP_IMPACT_SOUND.playFor(p);
+                e.setCancelled(true);
 
-                if (item.canUse(p, true) && profile.hasFullProtectionAgainst(ProtectionType.FLYING_INTO_WALL)) {
-                    SoundEffect.ELYTRA_CAP_IMPACT_SOUND.playFor(p);
-                    e.setCancelled(true);
-
-                    if (item instanceof DamageableItem damageableItem) {
-                        damageableItem.damageItem(p, p.getInventory().getHelmet());
-                    }
+                if (helmet instanceof DamageableItem damageableItem) {
+                    damageableItem.damageItem(p, helmetStack);
                 }
             }
         }
