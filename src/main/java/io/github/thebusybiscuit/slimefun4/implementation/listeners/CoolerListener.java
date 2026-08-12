@@ -6,6 +6,8 @@ import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.backpacks.Cooler;
 import io.github.thebusybiscuit.slimefun4.implementation.items.food.Juice;
+import java.util.ArrayList;
+import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Material;
@@ -46,14 +48,14 @@ public class CoolerListener implements Listener {
         this.cooler = cooler;
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onHungerLoss(FoodLevelChangeEvent e) {
         if (e.getEntity() instanceof Player player && e.getFoodLevel() < player.getFoodLevel()) {
             checkAndConsume(player);
         }
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onHungerDamage(EntityDamageEvent e) {
         if (e.getEntity() instanceof Player player && e.getCause() == DamageCause.STARVATION) {
             checkAndConsume(player);
@@ -66,30 +68,46 @@ public class CoolerListener implements Listener {
             return;
         }
 
+        List<ItemStack> coolers = new ArrayList<>();
         for (ItemStack item : p.getInventory().getContents()) {
             if (cooler.isItem(item)) {
-                if (cooler.canUse(p, true)) {
-                    takeJuiceFromCooler(p, item);
-                } else {
-                    return;
-                }
+                coolers.add(item);
             }
         }
+
+        if (coolers.isEmpty() || !cooler.canUse(p, true)) {
+            return;
+        }
+
+        tryConsumeFromCoolers(p, coolers, 0);
     }
 
-    /**
-     * This takes a {@link Juice} from the given {@link Cooler} and consumes it in order
-     * to restore hunger for the given {@link Player}.
-     *
-     * @param p
-     *            The {@link Player}
-     * @param cooler
-     *            The {@link Cooler} {@link ItemStack} to take the {@link Juice} from
-     */
-    private void takeJuiceFromCooler(@Nonnull Player p, @Nonnull ItemStack cooler) {
-        if (PlayerBackpack.isOwnerOnline(cooler.getItemMeta())) {
-            PlayerBackpack.getAsync(cooler, backpack -> consumeJuice(p, cooler, backpack), p);
+    private void tryConsumeFromCoolers(@Nonnull Player p, @Nonnull List<ItemStack> coolers, int index) {
+        if (!p.isOnline() || index >= coolers.size()) {
+            return;
         }
+
+        ItemStack coolerItem = coolers.get(index);
+        if (!PlayerBackpack.isOwnerOnline(coolerItem.getItemMeta())) {
+            tryConsumeFromCoolers(p, coolers, index + 1);
+            return;
+        }
+
+        PlayerBackpack.getAsync(coolerItem).whenComplete((backpack, error) -> Slimefun.runSyncFor(p, () -> {
+            if (!p.isOnline()) {
+                return;
+            }
+
+            if (error != null || backpack == null) {
+                tryConsumeFromCoolers(p, coolers, index + 1);
+                return;
+            }
+
+            PlayerBackpack.migrateLegacyItem(coolerItem, backpack);
+            if (!consumeJuice(p, coolerItem, backpack)) {
+                tryConsumeFromCoolers(p, coolers, index + 1);
+            }
+        }));
     }
 
     private boolean consumeJuice(@Nonnull Player p, @Nonnull ItemStack coolerItem, @Nonnull PlayerBackpack backpack) {
@@ -126,8 +144,6 @@ public class CoolerListener implements Listener {
                 Slimefun.getDatabaseManager().getProfileDataController().saveBackpackInventory(backpack);
 
                 return true;
-            } else {
-                return false;
             }
         }
 
