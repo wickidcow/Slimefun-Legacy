@@ -14,6 +14,7 @@ on:
       - 'scripts/verify_movement_gear_correctness.py'
       - 'scripts/verify_armor_correctness.py'
       - 'scripts/verify_consumable_rune_correctness.py'
+      - 'scripts/verify_weapon_correctness.py'
       - '.github/workflows/runtime-gameplay-correctness.yml'
   push:
     branches:
@@ -32,6 +33,7 @@ on:
       - 'scripts/verify_movement_gear_correctness.py'
       - 'scripts/verify_armor_correctness.py'
       - 'scripts/verify_consumable_rune_correctness.py'
+      - 'scripts/verify_weapon_correctness.py'
       - '.github/workflows/runtime-gameplay-correctness.yml'
   workflow_dispatch:
 
@@ -82,6 +84,9 @@ jobs:
       - name: Verify medical consumable and rune invariants
         run: python3 scripts/verify_consumable_rune_correctness.py .
 
+      - name: Verify weapon runtime invariants
+        run: python3 scripts/verify_weapon_correctness.py .
+
       - name: Run enchantment-machine runtime tests
         run: |
           chmod +x gradlew
@@ -101,6 +106,7 @@ jobs:
             echo '- Knowledge Tome, Knowledge Flask, Infernal Bonemeal and Zombie Pills invariants checked'
             echo '- Jetpack, Jet Boots, Bee Wings, Parachute and Slimefun boots lifecycle invariants checked'
             echo '- Hazmat, bee and Elytra Cap protection resolve current equipment instead of stale armor cache'
-            echo '- Splint eligibility and delayed Enchantment/Soulbound Rune transactions checked'
+            echo '- Splint eligibility, limited-use counters and delayed Enchantment/Soulbound Rune transactions checked'
+            echo '- Melee weapon cancellation and ranged projectile/damage invariants checked'
             echo '- Auto Enchanter / Auto Disenchanter timing tests executed'
           } >> "$GITHUB_STEP_SUMMARY"
