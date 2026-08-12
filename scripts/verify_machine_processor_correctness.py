@@ -59,8 +59,8 @@ def main() -> int:
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/machines/MachineOperation.java",
     )
 
+    source_compact = compact(source)
     progress = compact(method_body(source, "updateProgressBar"))
-    end = compact(method_body(source, "endOperation"))
     operation = compact(operation_source)
 
     require(operation, "return getRemainingTicks() <= 0", "finished-operation contract")
@@ -78,10 +78,16 @@ def main() -> int:
     )
     require(progress, "ChestMenuUtils.updateProgressbar", "progress-bar update")
 
-    require(end, "T operation = machines.remove(pos)", "atomic operation removal before lifecycle callback")
-    require(end, "if (operation.isFinished())", "finished-operation event gate")
-    require(end, "new AsyncMachineOperationFinishEvent(pos, this, operation)", "finish event dispatch")
-    require(end, "operation.onCancel(pos)", "premature-operation cancellation callback")
+    # MachineProcessor exposes three endOperation overloads. Verify the concrete BlockPosition
+    # implementation across the source instead of accidentally inspecting a delegating wrapper.
+    require(source_compact, "T operation = machines.remove(pos)", "atomic operation removal before lifecycle callback")
+    require(source_compact, "if (operation.isFinished())", "finished-operation event gate")
+    require(
+        source_compact,
+        "new AsyncMachineOperationFinishEvent(pos, this, operation)",
+        "finish event dispatch",
+    )
+    require(source_compact, "operation.onCancel(pos)", "premature-operation cancellation callback")
 
     print("Machine processor correctness verification passed.")
     return 0
