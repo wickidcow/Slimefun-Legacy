@@ -117,7 +117,7 @@ def main() -> int:
     require(recipe, "candidate != null && candidate.getAmount() >= requiredAmount && fuel.test(candidate)", "full-stack fuel eligibility")
     require(recipe, "found.put(slot, requiredAmount)", "exact fuel reservation")
     require(generated, "inv.consumeItem(entry.getKey(), entry.getValue())", "reserved fuel consumption")
-    require(generated, "new FuelOperation( fuel.getInput(), result == null ? null : result.clone(), fuel.getTicks())", "preflight result persisted into operation")
+    require(generated, "new FuelOperation(fuel.getInput(), result == null ? null : result.clone(), fuel.getTicks())", "preflight result persisted into operation")
 
     print("Generator correctness verification passed.")
     return 0
