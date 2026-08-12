@@ -340,7 +340,7 @@ public abstract class AContainer extends SlimefunItem
     }
 
     public void registerRecipe(MachineRecipe recipe) {
-        recipe.setTicks(recipe.getTicks() / getSpeed());
+        recipe.setTicks(Math.max(1, recipe.getTicks() / getSpeed()));
         recipes.add(recipe);
     }
 
@@ -370,34 +370,53 @@ public abstract class AContainer extends SlimefunItem
 
     protected void tick(Block b) {
         BlockMenu inv = StorageCacheUtils.getMenu(b.getLocation());
+        if (inv == null) {
+            return;
+        }
+
         CraftingOperation currentOperation = processor.getOperation(b);
 
         if (currentOperation != null) {
-            if (takeCharge(b.getLocation())) {
-
-                if (!currentOperation.isFinished()) {
+            if (!currentOperation.isFinished()) {
+                if (takeCharge(b.getLocation())) {
                     processor.updateProgressBar(inv, 22, currentOperation);
                     currentOperation.addProgress(1);
-                } else {
-                    inv.replaceExistingItem(22, new CustomItemStack(Material.BLACK_STAINED_GLASS_PANE, " "));
+                }
+                return;
+            }
 
-                    for (ItemStack output : currentOperation.getResults()) {
-                        inv.pushItem(output.clone(), getOutputSlots());
-                    }
+            ItemStack[] results = currentOperation.getResults();
+            if (!Slimefun.getItemStackService()
+                    .fitAll(inv.toInventory(), results, InventoryContext.MACHINE_OUTPUT, getOutputSlots())) {
+                // Preserve the completed operation without charging another tick until every
+                // result can be committed. This prevents output loss when cargo fills the slots.
+                return;
+            }
 
-                    processor.endOperation(b);
+            for (ItemStack output : results) {
+                ItemStack remainder = inv.pushItem(output.clone(), getOutputSlots());
+                if (remainder != null) {
+                    ItemStack overflow = remainder.clone();
+                    Location overflowLocation = b.getLocation();
+                    Slimefun.runSyncAt(
+                            overflowLocation,
+                            () -> overflowLocation.getWorld().dropItemNaturally(overflowLocation, overflow));
                 }
             }
-        } else {
-            MachineRecipe next = findNextRecipe(inv);
 
-            if (next != null) {
-                currentOperation = new CraftingOperation(next);
-                processor.startOperation(b, currentOperation);
+            inv.replaceExistingItem(22, new CustomItemStack(Material.BLACK_STAINED_GLASS_PANE, " "));
+            processor.endOperation(b);
+            return;
+        }
 
-                // Fixes #3534 - Update indicator immediately
-                processor.updateProgressBar(inv, 22, currentOperation);
-            }
+        MachineRecipe next = findNextRecipe(inv);
+
+        if (next != null) {
+            currentOperation = new CraftingOperation(next);
+            processor.startOperation(b, currentOperation);
+
+            // Fixes #3534 - Update indicator immediately
+            processor.updateProgressBar(inv, 22, currentOperation);
         }
     }
 
