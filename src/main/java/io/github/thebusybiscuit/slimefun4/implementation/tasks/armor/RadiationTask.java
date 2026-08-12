@@ -9,6 +9,7 @@ import io.github.thebusybiscuit.slimefun4.core.attributes.ProtectionType;
 import io.github.thebusybiscuit.slimefun4.core.attributes.RadiationSymptom;
 import io.github.thebusybiscuit.slimefun4.core.attributes.Radioactive;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.implementation.items.armor.ArmorProtectionUtils;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.RadioactivityListener;
 import io.github.thebusybiscuit.slimefun4.utils.RadiationUtils;
 import java.util.Map;
@@ -44,7 +45,7 @@ public class RadiationTask extends AbstractArmorTask {
         }
 
         int exposureTotal = 0;
-        if (!profile.hasFullProtectionAgainst(ProtectionType.RADIATION)
+        if (!ArmorProtectionUtils.hasFullProtectionAgainst(p, ProtectionType.RADIATION)
                 && p.getGameMode() != GameMode.CREATIVE
                 && p.getGameMode() != GameMode.SPECTATOR) {
             for (ItemStack item : p.getInventory()) {
