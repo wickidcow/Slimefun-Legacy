@@ -18,6 +18,7 @@ import io.github.thebusybiscuit.slimefun4.utils.ArmorStandUtils;
 import io.github.thebusybiscuit.slimefun4.utils.ChatUtils;
 import io.github.thebusybiscuit.slimefun4.utils.NumberUtils;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import org.bukkit.Location;
@@ -44,6 +45,7 @@ import org.bukkit.inventory.ItemStack;
 public class HologramProjector extends SlimefunItem implements HologramOwner {
 
     private static final String OFFSET_PARAMETER = "offset";
+    private static final double DEFAULT_OFFSET = 0.5D;
 
     @ParametersAreNonnullByDefault
     public HologramProjector(
@@ -65,7 +67,7 @@ public class HologramProjector extends SlimefunItem implements HologramOwner {
                 Block b = e.getBlockPlaced();
                 var blockData = StorageCacheUtils.getBlock(b.getLocation());
                 blockData.setData("text", "Use the projector to edit this text");
-                blockData.setData(OFFSET_PARAMETER, "0.5");
+                blockData.setData(OFFSET_PARAMETER, String.valueOf(DEFAULT_OFFSET));
                 blockData.setData("owner", e.getPlayer().getUniqueId().toString());
 
                 getArmorStand(b, true);
@@ -126,6 +128,10 @@ public class HologramProjector extends SlimefunItem implements HologramOwner {
                 }
 
                 ArmorStand hologram = getArmorStand(projector, true);
+                if (hologram == null) {
+                    return;
+                }
+
                 hologram.setCustomName(ChatColors.color(message));
                 StorageCacheUtils.setData(projector.getLocation(), "text", hologram.getCustomName());
                 openEditor(pl, projector);
@@ -138,18 +144,22 @@ public class HologramProjector extends SlimefunItem implements HologramOwner {
                 1,
                 new CustomItemStack(
                         Material.CLOCK,
-                        "&7Height: &e"
-                                + NumberUtils.reparseDouble(Double.parseDouble(
-                                                StorageCacheUtils.getData(projector.getLocation(), OFFSET_PARAMETER))
-                                        + 1.0D),
+                        "&7Height: &e" + NumberUtils.reparseDouble(readOffset(projector) + 1.0D),
                         "",
                         "&fLeft Click: &7+0.1",
                         "&fRight Click: &7-0.1"));
         menu.addMenuClickHandler(1, (pl, slot, item, action) -> {
             var blockData = StorageCacheUtils.getBlock(projector.getLocation());
-            double offset = NumberUtils.reparseDouble(
-                    Double.parseDouble(blockData.getData(OFFSET_PARAMETER)) + (action.isRightClicked() ? -0.1F : 0.1F));
+            if (blockData == null) {
+                return false;
+            }
+
+            double offset = NumberUtils.reparseDouble(readOffset(projector) + (action.isRightClicked() ? -0.1F : 0.1F));
             ArmorStand hologram = getArmorStand(projector, true);
+            if (hologram == null) {
+                return false;
+            }
+
             Location l = new Location(
                     projector.getWorld(), projector.getX() + 0.5, projector.getY() + offset, projector.getZ() + 0.5);
             hologram.teleport(l);
@@ -162,10 +172,31 @@ public class HologramProjector extends SlimefunItem implements HologramOwner {
         menu.open(p);
     }
 
-    private static ArmorStand getArmorStand(@Nonnull Block projector, boolean createIfNoneExists) {
+    private static double readOffset(@Nonnull Block projector) {
+        String value = StorageCacheUtils.getData(projector.getLocation(), OFFSET_PARAMETER);
+        if (value != null) {
+            try {
+                double offset = Double.parseDouble(value);
+                if (Double.isFinite(offset)) {
+                    return offset;
+                }
+            } catch (NumberFormatException ignored) {
+                // Repair malformed legacy data below.
+            }
+        }
+
+        StorageCacheUtils.setData(projector.getLocation(), OFFSET_PARAMETER, String.valueOf(DEFAULT_OFFSET));
+        return DEFAULT_OFFSET;
+    }
+
+    private static @Nullable ArmorStand getArmorStand(@Nonnull Block projector, boolean createIfNoneExists) {
         var blockData = StorageCacheUtils.getBlock(projector.getLocation());
+        if (blockData == null) {
+            return null;
+        }
+
         String nametag = blockData.getData("text");
-        double offset = Double.parseDouble(blockData.getData(OFFSET_PARAMETER));
+        double offset = readOffset(projector);
         Location l = new Location(
                 projector.getWorld(), projector.getX() + 0.5, projector.getY() + offset, projector.getZ() + 0.5);
 
