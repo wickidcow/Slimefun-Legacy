@@ -81,8 +81,8 @@ public class Crucible extends SimpleSlimefunItem<BlockUseHandler> implements Rec
             items.add(new ItemStack(Material.WATER_BUCKET));
         }
 
-        for (Material sapling : SlimefunTag.TERRACOTTA.getValues()) {
-            items.add(new ItemStack(sapling, 12));
+        for (Material terracotta : SlimefunTag.TERRACOTTA.getValues()) {
+            items.add(new ItemStack(terracotta, 12));
             items.add(new ItemStack(Material.LAVA_BUCKET));
         }
 
@@ -123,11 +123,18 @@ public class Crucible extends SimpleSlimefunItem<BlockUseHandler> implements Rec
                     ItemStack input = e.getItem();
                     Block block = b.getRelative(BlockFace.UP);
 
-                    // Just ignore slimefun block above.
-                    if (StorageCacheUtils.hasSlimefunBlock(block.getLocation())) return;
+                    // Just ignore Slimefun blocks above.
+                    if (StorageCacheUtils.hasSlimefunBlock(block.getLocation())) {
+                        return;
+                    }
+
+                    boolean water = Tag.LEAVES.isTagged(input.getType());
+                    if (!canAcceptLiquid(block, water)) {
+                        Slimefun.getLocalization().sendMessage(p, "messages.cannot-place", true);
+                        return;
+                    }
 
                     if (craft(p, input)) {
-                        boolean water = Tag.LEAVES.isTagged(input.getType());
                         generateLiquid(block, water);
                     } else {
                         Slimefun.getLocalization().sendMessage(p, "machines.wrong-item", true);
@@ -135,6 +142,24 @@ public class Crucible extends SimpleSlimefunItem<BlockUseHandler> implements Rec
                 }
             }
         };
+    }
+
+    private boolean canAcceptLiquid(@Nonnull Block block, boolean water) {
+        // Preserve the historic Nether behavior: disabled water generation still consumes
+        // the recipe and produces the smoke/sound feedback from generateLiquid().
+        if (water && block.getWorld().getEnvironment() == Environment.NETHER && !allowWaterInNether.getValue()) {
+            return true;
+        }
+
+        Material desired = water ? Material.WATER : Material.LAVA;
+        Material opposite = water ? Material.LAVA : Material.WATER;
+        Material current = block.getType();
+
+        if (current.isAir() || current == desired || current == opposite) {
+            return true;
+        }
+
+        return water && block.getBlockData() instanceof Waterlogged;
     }
 
     @ParametersAreNonnullByDefault
@@ -213,14 +238,13 @@ public class Crucible extends SimpleSlimefunItem<BlockUseHandler> implements Rec
         if (block.getType().isAir()) {
             // Fixes #2903 - Cancel physics update to resolve weird overlapping
             block.setType(water ? Material.WATER : Material.LAVA, false);
-        } else {
-            if (water && block.getBlockData() instanceof Waterlogged waterlogged) {
-                waterlogged.setWaterlogged(true);
-                block.setBlockData(waterlogged, false);
-                SoundEffect.CRUCIBLE_PLACE_WATER_SOUND.playAt(block);
-                return;
-            }
+        } else if (water && block.getBlockData() instanceof Waterlogged waterlogged) {
+            waterlogged.setWaterlogged(true);
+            block.setBlockData(waterlogged, false);
+            SoundEffect.CRUCIBLE_PLACE_WATER_SOUND.playAt(block);
+            return;
         }
+
         runPostTask(block, water ? SoundEffect.CRUCIBLE_PLACE_WATER_SOUND : SoundEffect.CRUCIBLE_PLACE_LAVA_SOUND, 1);
     }
 
