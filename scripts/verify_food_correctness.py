@@ -59,11 +59,23 @@ def main() -> int:
         "PlayerBackpack.getAsync(coolerItem).whenComplete((backpack, error) -> Slimefun.runSyncFor(p, () -> {",
         "Cooler async load returned to player-owned thread",
     )
-    require(cooler, "PlayerBackpack.migrateLegacyItem(coolerItem, backpack);", "Cooler legacy identity migration")
+    require(cooler, "ItemStack currentCooler = findCurrentCooler(p, coolerItem);", "Cooler live-item revalidation")
     require(
         cooler,
-        "if (!consumeJuice(p, coolerItem, backpack)) {\n                tryConsumeFromCoolers(p, coolers, index + 1);",
+        "if (currentCooler == null || !cooler.canUse(p, false))",
+        "Cooler live-item and permission guard",
+    )
+    require(cooler, "PlayerBackpack.migrateLegacyItem(currentCooler, backpack);", "Cooler legacy identity migration")
+    require(
+        cooler,
+        "if (!consumeJuice(p, currentCooler, backpack)) {\n                tryConsumeFromCoolers(p, coolers, index + 1);",
         "Cooler fallthrough only after failed consumption",
+    )
+    require_before(
+        cooler,
+        "ItemStack currentCooler = findCurrentCooler(p, coolerItem);",
+        "PlayerBackpack.migrateLegacyItem(currentCooler, backpack);",
+        "Cooler live-item validation before identity migration",
     )
     require_before(
         cooler,
