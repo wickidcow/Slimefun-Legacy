@@ -66,6 +66,41 @@ def main() -> int:
     require(teleporter, "Validate.notNull(destination, \"Destination cannot be null\");", "Teleporter destination validation")
     forbid(teleporter, "Validate.notNull(source, \"Destination cannot be null\");", "duplicated Teleporter source validation")
 
+    teleporter_listener = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/TeleporterListener.java",
+    )
+    require(
+        teleporter_listener,
+        "private @Nullable UUID parseOwner(@Nullable String value)",
+        "safe teleporter owner parser",
+    )
+    require(
+        teleporter_listener,
+        "if (value == null || value.isBlank())",
+        "missing teleporter owner handling",
+    )
+    require(
+        teleporter_listener,
+        "catch (IllegalArgumentException ignored)",
+        "malformed teleporter owner handling",
+    )
+    require(
+        teleporter_listener,
+        "UUID owner = parseOwner(ownerUid);",
+        "teleporter owner validation before GUI open",
+    )
+    require(
+        teleporter_listener,
+        "teleport(result.getData(\"owner\"), p, block);",
+        "teleporter loaded-result owner read",
+    )
+    forbid(
+        teleporter_listener,
+        "openTeleporterGUI(p, UUID.fromString(ownerUid), b)",
+        "raw teleporter owner parsing",
+    )
+
     fluid_pump = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/FluidPump.java")
     require(
         fluid_pump,
