@@ -200,8 +200,8 @@ def main() -> int:
     )
     require(
         reactor,
-        "for (MachineFuel fuel : fuelTypes) {\n            for (int slot : getFuelSlots()) {",
-        "reactor fuel lookup restricted to fuel slots",
+        "for (MachineFuel fuel : fuelTypes) {\n            int requiredAmount = fuel.getInput().getAmount();\n\n            for (int slot : getFuelSlots()) {",
+        "reactor full-quantity fuel lookup restricted to fuel slots",
     )
     require(reactor, "for (int slot : getCoolantSlots())", "reactor coolant slot separation")
 
