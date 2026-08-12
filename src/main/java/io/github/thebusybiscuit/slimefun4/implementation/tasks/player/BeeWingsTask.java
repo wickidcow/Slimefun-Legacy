@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.tasks.player;
 
+import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.magical.BeeWings;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.BeeWingsListener;
@@ -8,6 +9,7 @@ import org.bukkit.HeightMap;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
@@ -25,10 +27,13 @@ public class BeeWingsTask extends AbstractPlayerTask {
 
     private static final int MIN_ALTITUDE = 4;
 
+    private final BeeWings wings;
     private Location lastLocation;
 
     public BeeWingsTask(@Nonnull Player p) {
         super(p);
+        SlimefunItem equipped = SlimefunItem.getByItem(p.getInventory().getChestplate());
+        wings = equipped instanceof BeeWings beeWings ? beeWings : null;
         lastLocation = p.getLocation();
     }
 
@@ -89,12 +94,17 @@ public class BeeWingsTask extends AbstractPlayerTask {
 
     @Override
     protected boolean isValid() {
-        // The task is only valid as long as the Player is alive and gliding
+        ItemStack chestplate = p.getInventory().getChestplate();
+
+        // The task is only valid as long as the Player is alive, gliding and still wearing these Bee Wings.
         if (!p.isOnline()
                 || !p.isValid()
                 || p.isDead()
                 || !p.isGliding()
-                || p.hasPotionEffect(PotionEffectType.SLOW_FALLING)) {
+                || p.hasPotionEffect(PotionEffectType.SLOW_FALLING)
+                || wings == null
+                || chestplate == null
+                || SlimefunItem.getByItem(chestplate) != wings) {
             cancel();
             return false;
         }
