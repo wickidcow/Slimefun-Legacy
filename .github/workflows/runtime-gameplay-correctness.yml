@@ -8,6 +8,7 @@ on:
       - 'scripts/verify_core_correctness.py'
       - 'scripts/verify_guide_runtime_correctness.py'
       - 'scripts/verify_runtime_gameplay_correctness.py'
+      - 'scripts/verify_container_storage_correctness.py'
       - 'scripts/verify_cargo_correctness.py'
       - 'scripts/verify_energy_network_correctness.py'
       - 'scripts/verify_generator_correctness.py'
@@ -36,6 +37,7 @@ on:
       - 'scripts/verify_core_correctness.py'
       - 'scripts/verify_guide_runtime_correctness.py'
       - 'scripts/verify_runtime_gameplay_correctness.py'
+      - 'scripts/verify_container_storage_correctness.py'
       - 'scripts/verify_cargo_correctness.py'
       - 'scripts/verify_energy_network_correctness.py'
       - 'scripts/verify_generator_correctness.py'
@@ -62,7 +64,7 @@ jobs:
   correctness:
     name: Verify gameplay invariants and focused runtime tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
 
     steps:
       - name: Check out source
@@ -83,6 +85,9 @@ jobs:
 
       - name: Verify runtime gameplay transaction invariants
         run: python3 scripts/verify_runtime_gameplay_correctness.py .
+
+      - name: Verify AContainer loaded-storage and addon-hook invariants
+        run: python3 scripts/verify_container_storage_correctness.py .
 
       - name: Verify Cargo transaction and chunk-safety invariants
         run: python3 scripts/verify_cargo_correctness.py .
@@ -146,6 +151,7 @@ jobs:
             echo '- Guide runtime diagnostics and GuideHistory ownership checked'
             echo '- Machine cancellation and transaction ordering checked'
             echo '- AContainer energy/progress/output lifecycle checked'
+            echo '- AContainer loaded storage reuse and legacy addon hooks checked'
             echo '- Shared MachineProcessor finished-progress lifecycle checked'
             echo '- Cargo rollback, exact partial-stack remainder and unloaded-chunk guards checked'
             echo '- Energy network live-component identity, charge bounds and unloaded-chunk guards checked'
