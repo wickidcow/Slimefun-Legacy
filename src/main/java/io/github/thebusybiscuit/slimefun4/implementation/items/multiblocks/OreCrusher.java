@@ -198,20 +198,25 @@ public class OreCrusher extends MultiBlockMachine {
             for (ItemStack current : inv.getContents()) {
                 for (ItemStack convert : RecipeType.getRecipeInputs(this)) {
                     if (convert != null && SlimefunUtils.isItemSimilar(current, convert, true)) {
-                        ItemStack adding = RecipeType.getRecipeOutput(this, convert);
-                        Inventory outputInv = findOutputInventory(adding, possibleDispenser, inv);
-                        MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, current, adding);
+                        ItemStack defaultOutput = RecipeType.getRecipeOutput(this, convert);
+                        MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, current, defaultOutput);
 
                         Bukkit.getPluginManager().callEvent(event);
-                        if (!event.isCancelled() && SlimefunUtils.canPlayerUseItem(p, adding, true)) {
-                            if (outputInv != null) {
-                                ItemStack removing = current.clone();
-                                removing.setAmount(convert.getAmount());
-                                inv.removeItem(removing);
-                                outputInv.addItem(event.getOutput());
-                                p.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, 1);
-                            } else {
-                                Slimefun.getLocalization().sendMessage(p, "machines.full-inventory", true);
+                        if (!event.isCancelled()) {
+                            ItemStack output = event.getOutput();
+
+                            if (SlimefunUtils.canPlayerUseItem(p, output, true)) {
+                                Inventory outputInv = findOutputInventory(output, possibleDispenser, inv);
+
+                                if (outputInv != null) {
+                                    ItemStack removing = current.clone();
+                                    removing.setAmount(convert.getAmount());
+                                    inv.removeItem(removing);
+                                    handleCraftedItem(output, possibleDispenser, inv);
+                                    b.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, 1);
+                                } else {
+                                    Slimefun.getLocalization().sendMessage(p, "machines.full-inventory", true);
+                                }
                             }
                         }
 
