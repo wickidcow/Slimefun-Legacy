@@ -108,11 +108,50 @@ def main() -> int:
         root,
         "src/main/java/me/mrCookieSlime/Slimefun/Objects/SlimefunItem/abstractItems/AContainer.java",
     )
+    require(container, "if (inv == null) {\n            return;\n        }", "generic container missing-menu guard")
     require(container, "CraftingOperation currentOperation = processor.getOperation(b);", "machine operation retrieval")
+    require(
+        container,
+        "recipe.setTicks(Math.max(1, recipe.getTicks() / getSpeed()));",
+        "non-zero generic container recipe duration",
+    )
+    require_before(
+        container,
+        "if (!currentOperation.isFinished()) {",
+        "if (takeCharge(b.getLocation()))",
+        "finished check before machine energy charge",
+    )
     require(container, "if (takeCharge(b.getLocation()))", "energy-gated machine progress")
     require(container, "currentOperation.addProgress(1);", "machine operation progress")
-    require(container, "for (ItemStack output : currentOperation.getResults())", "machine output completion")
+    require(container, "ItemStack[] results = currentOperation.getResults();", "completed machine result snapshot")
+    require(
+        container,
+        ".fitAll(inv.toInventory(), results, InventoryContext.MACHINE_OUTPUT, getOutputSlots())",
+        "completed machine output backpressure",
+    )
+    require(container, "for (ItemStack output : results)", "machine output completion")
+    require(container, "ItemStack remainder = inv.pushItem(output.clone(), getOutputSlots());", "machine output remainder capture")
+    require(container, "Slimefun.runSyncAt(", "region-safe machine overflow preservation")
+    require(container, "dropItemNaturally(overflowLocation, overflow)", "machine overflow drop preservation")
     require(container, "processor.endOperation(b);", "machine operation completion cleanup")
+    require_before(
+        container,
+        ".fitAll(inv.toInventory(), results, InventoryContext.MACHINE_OUTPUT, getOutputSlots())",
+        "for (ItemStack output : results)",
+        "completion fit before machine output commit",
+    )
+    require_before(
+        container,
+        "for (ItemStack output : results)",
+        "inv.replaceExistingItem(22, new CustomItemStack(Material.BLACK_STAINED_GLASS_PANE, \" \"));",
+        "machine outputs before progress reset",
+    )
+    require_before(
+        container,
+        "inv.replaceExistingItem(22, new CustomItemStack(Material.BLACK_STAINED_GLASS_PANE, \" \"));",
+        "processor.endOperation(b);",
+        "machine progress reset before completion cleanup",
+    )
     require_before(
         container,
         "if (found.containsKey(slot)) {",
