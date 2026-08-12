@@ -390,23 +390,36 @@ public abstract class Reactor extends AbstractEnergyProvider
             @Nonnull BlockMenu inv,
             @Nullable BlockMenu accessPort,
             @Nonnull FuelOperation operation) {
-        inv.replaceExistingItem(22, new CustomItemStack(Material.BLACK_STAINED_GLASS_PANE, " "));
-
         if (accessPort != null) {
             transferOutputToAccessPort(inv, accessPort);
         }
 
         ItemStack result = operation.getResult();
         if (result != null) {
+            BlockMenu targetMenu;
+            int[] targetSlots;
+
             if (inv.fits(result, getOutputSlots())) {
-                inv.pushItem(result.clone(), getOutputSlots());
+                targetMenu = inv;
+                targetSlots = getOutputSlots();
             } else if (accessPort != null && accessPort.fits(result, ReactorAccessPort.getOutputSlots())) {
-                accessPort.pushItem(result.clone(), ReactorAccessPort.getOutputSlots());
+                targetMenu = accessPort;
+                targetSlots = ReactorAccessPort.getOutputSlots();
             } else {
-                // Keep the finished operation around and retry when output space becomes available.
+                // Keep the finished operation and its progress display intact until a full
+                // byproduct can be committed to either the reactor or its live access port.
                 return;
             }
+
+            ItemStack remainder = targetMenu.pushItem(result.clone(), targetSlots);
+            if (remainder != null) {
+                // The fit check should make this impossible for the stock menu. Never silently
+                // delete an exceptional remainder or retry the full result and duplicate items.
+                l.getWorld().dropItemNaturally(l, remainder);
+            }
         }
+
+        inv.replaceExistingItem(22, new CustomItemStack(Material.BLACK_STAINED_GLASS_PANE, " "));
 
         if (accessPort != null) {
             transferOutputToAccessPort(inv, accessPort);
@@ -420,25 +433,34 @@ public abstract class Reactor extends AbstractEnergyProvider
             ItemStack stack = inv.getItemInSlot(slot);
             if (stack != null) {
                 inv.replaceExistingItem(
-                        slot, accessPort.pushItem(stack, ReactorAccessPort.getOutputSlots()));
+                        slot, accessPort.pushItem(stack.clone(), ReactorAccessPort.getOutputSlots()));
             }
         }
     }
 
     private void burnNextFuel(Location l, BlockMenu inv, BlockMenu accessPort) {
-        Map<Integer, Integer> found = new HashMap<>();
-        MachineFuel fuel = findFuel(inv, found);
-
         if (accessPort != null) {
             restockFuel(inv, accessPort);
         }
 
-        if (fuel != null) {
-            for (Map.Entry<Integer, Integer> entry : found.entrySet()) {
-                inv.consumeItem(entry.getKey(), entry.getValue());
-            }
-            processor.startOperation(l, new FuelOperation(fuel));
+        Map<Integer, Integer> found = new HashMap<>();
+        MachineFuel fuel = findFuel(inv, found);
+        if (fuel == null || !canStoreByproduct(fuel.getOutput(), inv, accessPort)) {
+            return;
         }
+
+        for (Map.Entry<Integer, Integer> entry : found.entrySet()) {
+            inv.consumeItem(entry.getKey(), entry.getValue());
+        }
+
+        processor.startOperation(l, new FuelOperation(fuel));
+    }
+
+    private boolean canStoreByproduct(
+            @Nullable ItemStack result, @Nonnull BlockMenu inv, @Nullable BlockMenu accessPort) {
+        return result == null
+                || inv.fits(result, getOutputSlots())
+                || (accessPort != null && accessPort.fits(result, ReactorAccessPort.getOutputSlots()));
     }
 
     private boolean hasEnoughCoolant(
@@ -453,8 +475,9 @@ public abstract class Reactor extends AbstractEnergyProvider
 
             if (accessPort != null) {
                 for (int slot : getCoolantSlots()) {
-                    if (SlimefunUtils.isItemSimilar(accessPort.getItemInSlot(slot), coolant, true, false)) {
-                        ItemStack remainingItem = menu.pushItem(accessPort.getItemInSlot(slot), getCoolantSlots());
+                    ItemStack accessPortItem = accessPort.getItemInSlot(slot);
+                    if (SlimefunUtils.isItemSimilar(accessPortItem, coolant, true, false)) {
+                        ItemStack remainingItem = menu.pushItem(accessPortItem.clone(), getCoolantSlots());
                         accessPort.replaceExistingItem(slot, remainingItem);
                     }
                 }
@@ -486,9 +509,10 @@ public abstract class Reactor extends AbstractEnergyProvider
     private void restockFuel(BlockMenu menu, BlockMenu port) {
         for (int slot : getFuelSlots()) {
             for (MachineFuel fuelType : fuelTypes) {
-                if (fuelType.test(port.getItemInSlot(slot))
-                        && menu.fits(new CustomItemStack(port.getItemInSlot(slot), 1), getFuelSlots())) {
-                    port.replaceExistingItem(slot, menu.pushItem(port.getItemInSlot(slot), getFuelSlots()));
+                ItemStack portItem = port.getItemInSlot(slot);
+                if (fuelType.test(portItem)
+                        && menu.fits(new CustomItemStack(portItem, 1), getFuelSlots())) {
+                    port.replaceExistingItem(slot, menu.pushItem(portItem.clone(), getFuelSlots()));
                     return;
                 }
             }
@@ -499,9 +523,12 @@ public abstract class Reactor extends AbstractEnergyProvider
     @ParametersAreNonnullByDefault
     private MachineFuel findFuel(BlockMenu menu, Map<Integer, Integer> found) {
         for (MachineFuel fuel : fuelTypes) {
+            int requiredAmount = fuel.getInput().getAmount();
+
             for (int slot : getFuelSlots()) {
-                if (fuel.test(menu.getItemInSlot(slot))) {
-                    found.put(slot, fuel.getInput().getAmount());
+                ItemStack candidate = menu.getItemInSlot(slot);
+                if (candidate != null && candidate.getAmount() >= requiredAmount && fuel.test(candidate)) {
+                    found.put(slot, requiredAmount);
                     return fuel;
                 }
             }
@@ -524,7 +551,7 @@ public abstract class Reactor extends AbstractEnergyProvider
             return null;
         }
 
-        if (port.getSfId().equals(SlimefunItems.REACTOR_ACCESS_PORT.getItemId())) {
+        if (SlimefunItems.REACTOR_ACCESS_PORT.getItemId().equals(port.getSfId())) {
             return port.getBlockMenu();
         }
 
