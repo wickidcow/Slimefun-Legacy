@@ -149,6 +149,23 @@ def main() -> int:
         "insert cancellation before custom-menu mutation",
     )
 
+    item_filter = compact(
+        read(
+            root,
+            "src/main/java/io/github/thebusybiscuit/slimefun4/core/networks/cargo/ItemFilter.java",
+        )
+    )
+    require(
+        item_filter,
+        "inventorySize <= slots[slots.length - 1]",
+        "zero-based Cargo filter slot bounds guard",
+    )
+    require_absent(
+        item_filter,
+        "inventorySize < slots[slots.length - 1]",
+        "off-by-one Cargo filter slot guard",
+    )
+
     print("Cargo correctness verification passed.")
     return 0
 
