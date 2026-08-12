@@ -310,9 +310,6 @@ public abstract class Reactor extends AbstractEnergyProvider
 
         if (operation != null) {
             if (!operation.isFinished()) {
-                // Subclass effects belong to an actively burning fuel operation. Do not keep
-                // applying them while a finished reactor is waiting for byproduct output space.
-                extraTick(l);
                 return generateEnergy(l, data, inv, accessPort, operation);
             }
 
@@ -345,6 +342,9 @@ public abstract class Reactor extends AbstractEnergyProvider
         long space = capacity - charge;
         if (space >= produced || getReactorMode(l) != ReactorMode.GENERATOR) {
             operation.addProgress(1);
+            // Subclass effects belong to a fuel tick that actually advanced. This prevents
+            // free effects while Generator mode is paused by a full energy buffer.
+            extraTick(l);
             checkForWaterBlocks(l);
             processor.updateProgressBar(inv, 22, operation);
 
