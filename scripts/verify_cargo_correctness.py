@@ -68,7 +68,9 @@ def main() -> int:
     task_compact = compact(task)
     route = compact(method_body(task, "routeItems"))
     recovery = compact(method_body(task, "restoreAfterRoutingFailure"))
+    restore_original = compact(method_body(task, "restoreOriginalSlot"))
     return_to_source = compact(method_body(task, "returnItemToSource"))
+    live_source = compact(method_body(task, "getLiveSourceInventory"))
 
     require(route, "CargoUtils.withdraw(network, inventories, inputNode.getBlock(), inputTarget)", "source withdrawal")
     require(route, "catch (Exception | LinkageError ex)", "post-withdraw routing failure guard")
@@ -80,17 +82,42 @@ def main() -> int:
         "withdrawal before rollback guard",
     )
 
-    require(recovery, "ItemStack rest = returnItemToSource(inputTarget, previousSlot, item)", "source restoration attempt")
+    require(recovery, "restoreOriginalSlot(inputTarget, previousSlot, item)", "exact source-slot restoration")
     require(recovery, "ItemSpawnReason.CARGO_OVERFLOW", "lossless recovery overflow")
+    require(recovery, "catch (Exception | LinkageError recoveryFailure)", "rollback restoration failure guard")
+    require(recovery, "catch (Exception | LinkageError overflowFailure)", "rollback overflow failure guard")
     require_absent(recovery, "isItemDeletionEnabled", "item-deletion opt-in during exceptional rollback")
+    require_absent(recovery, "returnItemToSource", "normal multi-slot insertion during exceptional rollback")
 
-    require(
+    require(restore_original, "DirtyChestMenu menu = CargoUtils.getChestMenu(inputTarget)", "custom-menu rollback priority")
+    require(restore_original, "menu.getItemInSlot(previousSlot) == null", "custom-menu original-slot check")
+    require(restore_original, "menu.replaceExistingItem(previousSlot, item)", "custom-menu exact-slot restore")
+    require(restore_original, "Inventory inv = getLiveSourceInventory(inputTarget)", "live vanilla source restore")
+    require(restore_original, "inv.getItem(previousSlot) == null", "vanilla original-slot check")
+    require(restore_original, "inv.setItem(previousSlot, item)", "vanilla exact-slot restore")
+    require_before(
+        restore_original,
+        "DirtyChestMenu menu = CargoUtils.getChestMenu(inputTarget)",
+        "Inventory inv = getLiveSourceInventory(inputTarget)",
+        "Slimefun menu before underlying vanilla inventory",
+    )
+
+    require(return_to_source, "DirtyChestMenu menu = CargoUtils.getChestMenu(inputTarget)", "custom-menu remainder handling")
+    require(return_to_source, "Inventory inv = getLiveSourceInventory(inputTarget)", "live source inventory revalidation")
+    require_before(
         return_to_source,
-        "CargoUtils.hasInventory(inputTarget) ? inventories.get(inputTarget.getLocation()) : null",
-        "live source inventory revalidation",
+        "DirtyChestMenu menu = CargoUtils.getChestMenu(inputTarget)",
+        "Inventory inv = getLiveSourceInventory(inputTarget)",
+        "custom menu before vanilla remainder path",
     )
     require(return_to_source, "return item", "unrecoverable source remainder return")
+
+    require(live_source, ".isChunkLoaded(", "source chunk guard before inventory refresh")
+    require(live_source, "inputTarget.getState(false)", "live block-state refresh")
+    require(live_source, "state instanceof InventoryHolder holder", "live inventory-holder validation")
+    require(live_source, "inventories.put(location, inventory)", "validated inventory cache refresh")
     require_absent(task_compact, "attachedBlocks.computeIfAbsent", "stale attached-block task cache")
+    require_absent(task_compact, "inventories.get(inputTarget.getLocation())", "stale source inventory lookup")
 
     network = read(
         root,
@@ -111,6 +138,16 @@ def main() -> int:
     require(utils, "stack.setAmount(amount - maxStackSize)", "merge partial-stack remainder")
     require(utils, "getSlotsAccessedByItemTransport(menu, ItemTransportFlow.WITHDRAW, null)", "withdraw slot contract")
     require(utils, "getSlotsAccessedByItemTransport(menu, ItemTransportFlow.INSERT, wrapper)", "insert slot contract")
+    require(utils, "new CargoWithdrawEvent(node, target", "withdraw event")
+    require(utils, "new CargoInsertEvent(node, target", "insert event")
+    require(utils, "if (event.isCancelled()) { return null; }", "cancelled custom-menu withdrawal guard")
+    require(utils, "if (event.isCancelled()) { return stack; }", "cancelled custom-menu insertion guard")
+    require_before(
+        utils,
+        "Bukkit.getPluginManager().callEvent(event); if (event.isCancelled()) { return stack; }",
+        "getSlotsAccessedByItemTransport(menu, ItemTransportFlow.INSERT, wrapper)",
+        "insert cancellation before custom-menu mutation",
+    )
 
     print("Cargo correctness verification passed.")
     return 0
