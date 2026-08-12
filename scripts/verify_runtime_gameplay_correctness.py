@@ -149,7 +149,7 @@ def main() -> int:
     require_before(
         container,
         "inv.replaceExistingItem(22, new CustomItemStack(Material.BLACK_STAINED_GLASS_PANE, \" \"));",
-        "processor.endOperation(b);",
+        "processor.endOperation(b);\n            return;",
         "machine progress reset before completion cleanup",
     )
     require_before(
