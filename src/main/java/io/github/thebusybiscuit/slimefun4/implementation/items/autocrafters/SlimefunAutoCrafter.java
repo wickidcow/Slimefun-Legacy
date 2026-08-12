@@ -64,13 +64,18 @@ public class SlimefunAutoCrafter extends AbstractAutoCrafter {
             // Read the stored value from persistent data storage
             PersistentDataContainer container = skull.getPersistentDataContainer();
             String value = container.get(recipeStorageKey, PersistentDataType.STRING);
-            SlimefunItem item = SlimefunItem.getById(value);
+            if (value == null || value.isBlank()) {
+                return null;
+            }
 
+            SlimefunItem item = SlimefunItem.getById(value);
             if (item != null) {
-                boolean enabled = !container.has(recipeEnabledKey, PersistentDataType.BYTE);
                 AbstractRecipe recipe = AbstractRecipe.of(item, targetRecipeType);
-                recipe.setEnabled(enabled);
-                return recipe;
+                if (recipe != null) {
+                    boolean enabled = !container.has(recipeEnabledKey, PersistentDataType.BYTE);
+                    recipe.setEnabled(enabled);
+                    return recipe;
+                }
             }
         }
 
