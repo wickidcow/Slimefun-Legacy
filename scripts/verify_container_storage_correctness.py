@@ -62,10 +62,11 @@ def main() -> int:
     require(source, "protected boolean takeCharge(@Nonnull Location l)", "legacy protected takeCharge hook")
 
     # The current block may use the ticker's loaded SlimefunBlockData, but arbitrary locations
-    # must fall back to a fresh storage resolution rather than reusing data from the wrong block.
+    # must fall back to a fresh shared storage resolution rather than reusing data from the wrong block.
     require(source, "context != null && context.location().equals(l)", "tick-location identity guard")
     require(source, "return takeCharge(l, context.data())", "loaded ticker-data charge path")
-    require(source, "SlimefunBlockData data = StorageCacheUtils.getDataContainer(l)", "non-ticker storage fallback")
+    require(source, "ASlimefunDataContainer data = StorageCacheUtils.getDataContainer(l)", "non-ticker storage fallback")
+    require(source, "private boolean takeCharge(@Nonnull Location l, @Nonnull ASlimefunDataContainer data)", "shared storage helper")
     require(source, "data == null || data.isPendingRemove()", "missing/pending storage guard")
     require(source, "if (!data.isDataLoaded())", "unloaded storage guard")
     require(source, "StorageCacheUtils.requestLoad(data)", "storage load request")
