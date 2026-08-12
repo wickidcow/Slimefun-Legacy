@@ -137,9 +137,18 @@ public class BlockPlacer extends SlimefunItem {
             return true;
         }
 
-        // Get the corresponding OfflinePlayer
-        OfflinePlayer player = Bukkit.getOfflinePlayer(UUID.fromString(owner));
-        return Slimefun.getProtectionManager().hasPermission(player, target, Interaction.PLACE_BLOCK);
+        if (owner.isBlank()) {
+            return false;
+        }
+
+        try {
+            // Get the corresponding OfflinePlayer
+            OfflinePlayer player = Bukkit.getOfflinePlayer(UUID.fromString(owner));
+            return Slimefun.getProtectionManager().hasPermission(player, target, Interaction.PLACE_BLOCK);
+        } catch (IllegalArgumentException ignored) {
+            // Corrupted owner data must fail closed instead of crashing or bypassing protection.
+            return false;
+        }
     }
 
     /**
