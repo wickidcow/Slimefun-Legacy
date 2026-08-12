@@ -116,7 +116,22 @@ def main() -> int:
     require(washer, "findSafeOutputInventory", "Ore Washer final-output transaction preflight")
     require(washer, "canFitAll", "Ore Washer multi-output fit simulation")
     require(washer, "SlimefunItems.STONE_CHUNK", "Ore Washer secondary Stone Chunk output accounting")
-    require(washer, "input,\n                            2,\n                            output", "Ore Washer two-sand consumption")
+    require(
+        washer,
+        "SlimefunUtils.isItemSimilar(input, new ItemStack(Material.SAND, 2), false)",
+        "Ore Washer two-sand recipe match",
+    )
+    require(
+        washer,
+        "findSafeOutputInventory(output, dispBlock, inv, input, 2, output)",
+        "Ore Washer two-sand output preflight",
+    )
+    require(
+        washer,
+        "completeCraft(p, b, inv, outputInv, input, 2, output);",
+        "Ore Washer two-sand consumption",
+    )
+    require(washer, "removing.setAmount(amount);", "Ore Washer declared input amount consumption")
 
     altar_listener = read(
         root,
