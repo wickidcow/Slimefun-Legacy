@@ -64,23 +64,31 @@ public class VanillaAutoCrafter extends AbstractAutoCrafter implements NotDiagon
             String value = container.get(recipeStorageKey, PersistentDataType.STRING);
 
             if (value != null) {
-                String[] values = CommonPatterns.COLON.split(value);
+                String[] values = CommonPatterns.COLON.split(value, 2);
+                if (values.length != 2 || values[0].isBlank() || values[1].isBlank()) {
+                    return null;
+                }
 
-                /*
-                 * Normally this constructor should not be used.
-                 * But it is completely fine for this purpose since we only use
-                 * it for lookups.
-                 */
-                @SuppressWarnings("deprecation")
-                NamespacedKey key = new NamespacedKey(values[0], values[1]);
-                Recipe keyedRecipe = Slimefun.getMinecraftRecipeService().getRecipe(key);
+                try {
+                    /*
+                     * Normally this constructor should not be used.
+                     * But it is completely fine for this purpose since we only use
+                     * it for lookups.
+                     */
+                    @SuppressWarnings("deprecation")
+                    NamespacedKey key = new NamespacedKey(values[0], values[1]);
+                    Recipe keyedRecipe = Slimefun.getMinecraftRecipeService().getRecipe(key);
 
-                if (keyedRecipe != null) {
-                    boolean enabled = !container.has(recipeEnabledKey, PersistentDataType.BYTE);
-                    AbstractRecipe recipe = AbstractRecipe.of(keyedRecipe);
-                    recipe.setEnabled(enabled);
-
-                    return recipe;
+                    if (keyedRecipe != null) {
+                        AbstractRecipe recipe = AbstractRecipe.of(keyedRecipe);
+                        if (recipe != null) {
+                            boolean enabled = !container.has(recipeEnabledKey, PersistentDataType.BYTE);
+                            recipe.setEnabled(enabled);
+                            return recipe;
+                        }
+                    }
+                } catch (IllegalArgumentException ignored) {
+                    // Malformed legacy recipe keys fail closed instead of breaking the machine tick.
                 }
             }
         }
