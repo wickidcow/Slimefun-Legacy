@@ -3,6 +3,7 @@ package io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks;
 import io.github.thebusybiscuit.slimefun4.api.events.MultiBlockCraftEvent;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
+import io.github.thebusybiscuit.slimefun4.api.items.virtual.VirtualItemHandler.InventoryContext;
 import io.github.thebusybiscuit.slimefun4.core.multiblocks.MultiBlockMachine;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
@@ -98,91 +99,158 @@ public class OreWasher extends MultiBlockMachine {
             Inventory inv = disp.getInventory();
 
             for (ItemStack input : inv.getContents()) {
-                if (input != null) {
-                    if (SlimefunUtils.isItemSimilar(input, SlimefunItems.SIFTED_ORE, true)) {
-                        ItemStack output = getRandomDust();
-                        Inventory outputInv;
+                if (input == null) {
+                    continue;
+                }
 
-                        if (!legacyMode) {
-                            /*
-                             * This is a fancy way of checking if there is empty space in the inv
-                             * by checking if an unobtainable item could fit in it.
-                             * However, due to the way the method findValidOutputInv() functions,
-                             * the dummyAdding will never actually be added to the real inventory,
-                             * so it really doesn't matter what item the ItemStack is made by.
-                             * SlimefunItems.DEBUG_FISH however, signals that it's not supposed
-                             * to be given to the player.
-                             */
-                            ItemStack dummyAdding = SlimefunItems.DEBUG_FISH;
-                            outputInv = findOutputInventory(dummyAdding, dispBlock, inv);
-                        } else {
-                            outputInv = findOutputInventory(output, dispBlock, inv);
-                        }
+                if (SlimefunUtils.isItemSimilar(input, SlimefunItems.SIFTED_ORE, true)) {
+                    ItemStack defaultOutput = getRandomDust();
+                    MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, input, defaultOutput);
+                    Bukkit.getPluginManager().callEvent(event);
 
-                        MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, input, output);
-                        if (event.isCancelled()) {
-                            return;
-                        }
-
-                        removeItem(p, b, inv, outputInv, input, event.getOutput(), 1);
-
-                        if (outputInv != null) {
-                            outputInv.addItem(SlimefunItems.STONE_CHUNK);
-                        }
-
-                        return;
-                    } else if (SlimefunUtils.isItemSimilar(input, new ItemStack(Material.SAND, 2), false)) {
-                        ItemStack output = SlimefunItems.SALT;
-                        Inventory outputInv = findOutputInventory(output, dispBlock, inv);
-
-                        MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, input, output);
-                        if (event.isCancelled()) {
-                            return;
-                        }
-
-                        removeItem(p, b, inv, outputInv, input, event.getOutput(), 2);
-
-                        return;
-                    } else if (SlimefunUtils.isItemSimilar(input, SlimefunItems.PULVERIZED_ORE, true)) {
-                        ItemStack output = SlimefunItems.PURE_ORE_CLUSTER;
-                        Inventory outputInv = findOutputInventory(output, dispBlock, inv);
-                        MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, input, output);
-
-                        Bukkit.getPluginManager().callEvent(event);
-                        if (event.isCancelled()) {
-                            return;
-                        }
-
-                        removeItem(p, b, inv, outputInv, input, event.getOutput(), 1);
-
+                    if (event.isCancelled()) {
                         return;
                     }
+
+                    ItemStack output = event.getOutput();
+                    ItemStack selector = legacyMode ? output : SlimefunItems.DEBUG_FISH;
+                    Inventory outputInv = findSafeOutputInventory(
+                            selector,
+                            dispBlock,
+                            inv,
+                            input,
+                            1,
+                            output,
+                            SlimefunItems.STONE_CHUNK);
+
+                    completeCraft(
+                            p,
+                            b,
+                            inv,
+                            outputInv,
+                            input,
+                            1,
+                            output,
+                            SlimefunItems.STONE_CHUNK);
+                    return;
+                } else if (SlimefunUtils.isItemSimilar(input, new ItemStack(Material.SAND, 2), false)) {
+                    ItemStack defaultOutput = SlimefunItems.SALT;
+                    MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, input, defaultOutput);
+                    Bukkit.getPluginManager().callEvent(event);
+
+                    if (event.isCancelled()) {
+                        return;
+                    }
+
+                    ItemStack output = event.getOutput();
+                    Inventory outputInv =
+                            findSafeOutputInventory(output, dispBlock, inv, input, 2, output);
+                    completeCraft(p, b, inv, outputInv, input, 2, output);
+                    return;
+                } else if (SlimefunUtils.isItemSimilar(input, SlimefunItems.PULVERIZED_ORE, true)) {
+                    ItemStack defaultOutput = SlimefunItems.PURE_ORE_CLUSTER;
+                    MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, input, defaultOutput);
+                    Bukkit.getPluginManager().callEvent(event);
+
+                    if (event.isCancelled()) {
+                        return;
+                    }
+
+                    ItemStack output = event.getOutput();
+                    Inventory outputInv =
+                            findSafeOutputInventory(output, dispBlock, inv, input, 1, output);
+                    completeCraft(p, b, inv, outputInv, input, 1, output);
+                    return;
                 }
             }
+
             Slimefun.getLocalization().sendMessage(p, "machines.unknown-material", true);
         }
     }
 
     @ParametersAreNonnullByDefault
-    private void removeItem(
+    private @Nullable Inventory findSafeOutputInventory(
+            ItemStack selector,
+            Block dispBlock,
+            Inventory inputInv,
+            ItemStack input,
+            int amount,
+            ItemStack... outputs) {
+        Inventory preferred = findOutputInventory(selector, dispBlock, inputInv);
+
+        if (preferred != null && canFitAll(preferred, inputInv, input, amount, outputs)) {
+            return preferred;
+        }
+
+        if (preferred != inputInv && canFitAll(inputInv, inputInv, input, amount, outputs)) {
+            return inputInv;
+        }
+
+        return null;
+    }
+
+    @ParametersAreNonnullByDefault
+    private boolean canFitAll(
+            Inventory target,
+            Inventory inputInv,
+            ItemStack input,
+            int amount,
+            ItemStack... outputs) {
+        Inventory simulation = Bukkit.createInventory(null, target.getSize());
+        ItemStack[] contents = target.getContents();
+        ItemStack[] cloned = new ItemStack[contents.length];
+
+        for (int i = 0; i < contents.length; i++) {
+            cloned[i] = contents[i] == null ? null : contents[i].clone();
+        }
+
+        simulation.setContents(cloned);
+
+        if (target == inputInv) {
+            ItemStack removing = input.clone();
+            removing.setAmount(amount);
+            simulation.removeItem(removing);
+        }
+
+        InventoryContext context = target == inputInv ? InventoryContext.MACHINE_OUTPUT : InventoryContext.OUTPUT_CHEST;
+        for (ItemStack output : outputs) {
+            ItemStack remainder = Slimefun.getItemStackService().addItem(simulation, output.clone(), context);
+            if (remainder != null && remainder.getAmount() > 0) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    @ParametersAreNonnullByDefault
+    private void completeCraft(
             Player p,
             Block b,
             Inventory inputInv,
             @Nullable Inventory outputInv,
             ItemStack input,
-            ItemStack output,
-            int amount) {
-        if (outputInv != null) {
-            ItemStack removing = input.clone();
-            removing.setAmount(amount);
-            inputInv.removeItem(removing);
-            outputInv.addItem(output.clone());
-
-            b.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, Material.WATER);
-            SoundEffect.ORE_WASHER_WASH_SOUND.playAt(b);
-        } else {
+            int amount,
+            ItemStack... outputs) {
+        if (outputInv == null) {
             Slimefun.getLocalization().sendMessage(p, "machines.full-inventory", true);
+            return;
         }
+
+        ItemStack removing = input.clone();
+        removing.setAmount(amount);
+        inputInv.removeItem(removing);
+
+        InventoryContext context = outputInv == inputInv ? InventoryContext.MACHINE_OUTPUT : InventoryContext.OUTPUT_CHEST;
+        for (ItemStack output : outputs) {
+            ItemStack remainder = Slimefun.getItemStackService().addItem(outputInv, output.clone(), context);
+            if (remainder != null && remainder.getAmount() > 0) {
+                b.getWorld().dropItemNaturally(b.getLocation(), remainder);
+            }
+        }
+
+        b.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, Material.WATER);
+        SoundEffect.ORE_WASHER_WASH_SOUND.playAt(b);
     }
 
     /**
