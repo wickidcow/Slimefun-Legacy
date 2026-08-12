@@ -16,6 +16,7 @@ on:
       - 'scripts/verify_consumable_rune_correctness.py'
       - 'scripts/verify_weapon_correctness.py'
       - 'scripts/verify_food_correctness.py'
+      - 'scripts/verify_autocrafter_correctness.py'
       - '.github/workflows/runtime-gameplay-correctness.yml'
   push:
     branches:
@@ -36,6 +37,7 @@ on:
       - 'scripts/verify_consumable_rune_correctness.py'
       - 'scripts/verify_weapon_correctness.py'
       - 'scripts/verify_food_correctness.py'
+      - 'scripts/verify_autocrafter_correctness.py'
       - '.github/workflows/runtime-gameplay-correctness.yml'
   workflow_dispatch:
 
@@ -92,6 +94,9 @@ jobs:
       - name: Verify food and Cooler runtime invariants
         run: python3 scripts/verify_food_correctness.py .
 
+      - name: Verify auto-crafter runtime invariants
+        run: python3 scripts/verify_autocrafter_correctness.py .
+
       - name: Run enchantment-machine runtime tests
         run: |
           chmod +x gradlew
@@ -114,5 +119,6 @@ jobs:
             echo '- Splint eligibility, limited-use counters and delayed Enchantment/Soulbound Rune transactions checked'
             echo '- Melee weapon cancellation and ranged projectile/damage invariants checked'
             echo '- Cancelled consumption and sequential one-juice Cooler transactions checked'
+            echo '- Auto-crafter quantity reservation, lossless output commit and energy ordering checked'
             echo '- Auto Enchanter / Auto Disenchanter timing tests executed'
           } >> "$GITHUB_STEP_SUMMARY"
