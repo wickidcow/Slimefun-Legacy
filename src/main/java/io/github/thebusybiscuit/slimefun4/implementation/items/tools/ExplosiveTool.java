@@ -87,10 +87,6 @@ public class ExplosiveTool extends SimpleSlimefunItem<ToolUseHandler> implements
             if (!blockExplodeEvent.isCancelled()) {
                 for (Block block : blockExplodeEvent.blockList()) {
                     if (canBreak(p, block)) {
-                        if (Slimefun.getIntegrations().isCustomBlock(block)) {
-                            drops.addAll(CustomBlock.byAlreadyPlaced(block).getLoot());
-                            CustomBlock.remove(block.getLocation());
-                        }
                         blocksToDestroy.add(block);
                     }
                 }
@@ -98,10 +94,6 @@ public class ExplosiveTool extends SimpleSlimefunItem<ToolUseHandler> implements
         } else {
             for (Block block : blocks) {
                 if (canBreak(p, block)) {
-                    if (Slimefun.getIntegrations().isCustomBlock(block)) {
-                        drops.addAll(CustomBlock.byAlreadyPlaced(block).getLoot());
-                        CustomBlock.remove(block.getLocation());
-                    }
                     blocksToDestroy.add(block);
                 }
             }
@@ -123,6 +115,11 @@ public class ExplosiveTool extends SimpleSlimefunItem<ToolUseHandler> implements
 
         if (!event.isCancelled()) {
             for (Block block : blocksToDestroy) {
+                if (Slimefun.getIntegrations().isCustomBlock(block)) {
+                    drops.addAll(CustomBlock.byAlreadyPlaced(block).getLoot());
+                    CustomBlock.remove(block.getLocation());
+                }
+
                 breakBlock(e, p, item, block, drops);
             }
         }
