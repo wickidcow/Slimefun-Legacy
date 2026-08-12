@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify shared MachineProcessor lifecycle invariants."""
+"""Verify shared MachineProcessor lifecycle and progress-bar invariants."""
 
 from __future__ import annotations
 
@@ -58,10 +58,17 @@ def main() -> int:
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/machines/MachineOperation.java",
     )
+    menu_utils = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/utils/ChestMenuUtils.java",
+    )
 
     source_compact = compact(source)
     progress = compact(method_body(source, "updateProgressBar"))
     operation = compact(operation_source)
+    menu_progress = compact(method_body(menu_utils, "updateProgressbar"))
+    progress_text = compact(method_body(menu_utils, "getProgressBar"))
+    durability = compact(method_body(menu_utils, "getDurability"))
 
     require(operation, "return getRemainingTicks() <= 0", "finished-operation contract")
     require(progress, "int remainingTicks = operation.getRemainingTicks()", "remaining-tick lookup")
@@ -88,6 +95,23 @@ def main() -> int:
         "finish event dispatch",
     )
     require(source_compact, "operation.onCancel(pos)", "premature-operation cancellation callback")
+
+    # Progress helpers must remain safe when called outside MachineProcessor too. Clamp timing
+    # inputs and use ratio math instead of integer division so long operations still animate.
+    require(menu_progress, "inv.getViewers().isEmpty() || time <= 0", "invalid-duration/viewer guard")
+    require(menu_progress, "int safeTimeLeft = Math.max(0, Math.min(timeLeft, time))", "remaining-time clamp")
+    require(menu_progress, "getDurability(item, safeTimeLeft, time)", "bounded durability input")
+    require(menu_progress, "getProgressBar(safeTimeLeft, time)", "bounded text progress input")
+    require(progress_text, "int safeTotal = Math.max(1, total)", "positive text-progress total")
+    require(progress_text, "int safeTime = Math.max(0, Math.min(time, safeTotal))", "text-progress remaining clamp")
+    require(durability, "if (maxDurability <= 0 || max <= 0)", "non-damageable/invalid-duration durability guard")
+    require(durability, "int safeTimeLeft = Math.max(0, Math.min(timeLeft, max))", "durability remaining clamp")
+    require(
+        durability,
+        "Math.round((maxDurability * (double) safeTimeLeft) / max)",
+        "precise durability ratio",
+    )
+    require_absent(durability, "getMaxDurability() / max", "integer-truncated durability ratio")
 
     print("Machine processor correctness verification passed.")
     return 0
