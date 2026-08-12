@@ -6,6 +6,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.autocrafters.Abst
 import java.util.Collection;
 import java.util.Map;
 import java.util.function.Predicate;
+import org.bukkit.Location;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
@@ -49,7 +50,18 @@ public class ChestInventoryParser implements CrafterInteractable {
 
     @Override
     public boolean addItem(ItemStack item) {
-        return Slimefun.getItemStackService().addItem(inv, item, InventoryContext.MACHINE_OUTPUT) == null;
+        ItemStack remainder = Slimefun.getItemStackService().addItem(inv, item, InventoryContext.MACHINE_OUTPUT);
+        if (remainder == null || remainder.getAmount() <= 0) {
+            return true;
+        }
+
+        Location location = inv.getLocation();
+        if (location != null && location.getWorld() != null) {
+            location.getWorld().dropItemNaturally(location, remainder);
+            return true;
+        }
+
+        return false;
     }
 
     private boolean isFit(ItemStack item) {
