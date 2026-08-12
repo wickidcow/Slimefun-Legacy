@@ -2,11 +2,9 @@ package io.github.thebusybiscuit.slimefun4.api.player;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.xzavier0722.mc.plugin.slimefun4.storage.callback.IAsyncReadCallback;
 import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.bakedlibs.dough.config.Config;
 import io.github.thebusybiscuit.slimefun4.api.annotations.SlimefunAPI;
-import io.github.thebusybiscuit.slimefun4.api.events.AsyncProfileLoadEvent;
 import io.github.thebusybiscuit.slimefun4.api.gps.Waypoint;
 import io.github.thebusybiscuit.slimefun4.api.items.HashedArmorpiece;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemState;
@@ -54,6 +52,9 @@ import org.bukkit.entity.Player;
 @SlimefunAPI
 public class PlayerProfile {
     private static final Map<UUID, Boolean> processProfiles = new ConcurrentHashMap<>();
+    private static final Set<UUID> loadingProfiles = ConcurrentHashMap.newKeySet();
+    private static final Map<UUID, CopyOnWriteArrayList<Consumer<PlayerProfile>>> pendingProfileCallbacks =
+            new ConcurrentHashMap<>();
 
     private final UUID owner;
     private int backpackNum;
@@ -234,7 +235,7 @@ public class PlayerProfile {
     /**
      * This Method will return all Researches that this {@link Player} has unlocked
      *
-     * @return A {@code Hashset<Research>} of all Researches this {@link Player} has unlocked
+     * @return A {@code Hashset<Research>} of Researches
      */
     public @Nonnull Set<Research> getResearches() {
         return ImmutableSet.copyOf(researches);
@@ -412,10 +413,10 @@ public class PlayerProfile {
     }
 
     /**
-     * Get the {@link PlayerProfile} for a {@link OfflinePlayer} asynchronously.
+     * Get the {@link PlayerProfile} for an {@link OfflinePlayer} asynchronously.
      *
      * @param p
-     *            The {@link OfflinePlayer} who's {@link PlayerProfile} to retrieve
+     *            The {@link OfflinePlayer} whose {@link PlayerProfile} to retrieve
      * @param callback
      *            The callback with the {@link PlayerProfile}
      *
@@ -423,6 +424,7 @@ public class PlayerProfile {
      */
     public static boolean get(@Nonnull OfflinePlayer p, @Nonnull Consumer<PlayerProfile> callback) {
         Validate.notNull(p, "Cannot get a PlayerProfile for: null!");
+        Validate.notNull(callback, "Cannot use a null PlayerProfile callback!");
 
         UUID uuid = p.getUniqueId();
         PlayerProfile profile = Slimefun.getRegistry().getPlayerProfiles().get(uuid);
@@ -432,14 +434,11 @@ public class PlayerProfile {
             return true;
         }
 
-        if (processProfiles.containsKey(uuid)) {
-            // The current player profile is loading
-            return false;
+        pendingProfileCallbacks.computeIfAbsent(uuid, ignored -> new CopyOnWriteArrayList<>()).add(callback);
+
+        if (loadingProfiles.add(uuid)) {
+            getOrCreate(p);
         }
-
-        processProfiles.put(uuid, true);
-
-        getOrCreate(p, callback);
 
         return false;
     }
@@ -456,14 +455,12 @@ public class PlayerProfile {
     public static boolean request(@Nonnull OfflinePlayer p) {
         Validate.notNull(p, "Cannot request a Profile for null");
 
-        var profile = Slimefun.getRegistry().getPlayerProfiles().get(p.getUniqueId());
+        UUID uuid = p.getUniqueId();
+        var profile = Slimefun.getRegistry().getPlayerProfiles().get(uuid);
         if (profile == null || profile.markedForDeletion) {
-            // The current player profile is being loaded
-            if (processProfiles.containsKey(p.getUniqueId())) {
-                return false;
+            if (loadingProfiles.add(uuid)) {
+                getOrCreate(p);
             }
-
-            getOrCreate(p, null);
             return false;
         }
 
@@ -544,33 +541,31 @@ public class PlayerProfile {
                 .count();
     }
 
-    private static void getOrCreate(OfflinePlayer p, Consumer<PlayerProfile> cb) {
+    private static void getOrCreate(@Nonnull OfflinePlayer p) {
+        UUID uuid = p.getUniqueId();
         var controller = Slimefun.getDatabaseManager().getProfileDataController();
-        controller.getProfileAsync(p, new IAsyncReadCallback<>() {
-            @Override
-            public void onResult(PlayerProfile result) {
-                invokeCb(result, false);
-                processProfiles.remove(result.getUUID());
+        controller.getOrCreateProfileAsync(p).whenComplete((profile, error) -> {
+            // Remove the in-flight marker before draining callbacks. If a caller raced with profile registration
+            // after observing an uncached profile, it can safely start a cheap cached follow-up instead of being
+            // stranded behind a marker that is about to disappear.
+            loadingProfiles.remove(uuid);
+
+            if (error != null || profile == null) {
+                pendingProfileCallbacks.remove(uuid);
+                Slimefun.logger().log(Level.WARNING, "Could not load PlayerProfile for " + uuid, error);
+                return;
             }
 
-            @Override
-            public void onResultNotFound() {
+            CopyOnWriteArrayList<Consumer<PlayerProfile>> callbacks = pendingProfileCallbacks.remove(uuid);
+            if (callbacks == null) {
+                return;
+            }
+
+            for (Consumer<PlayerProfile> callback : callbacks) {
                 try {
-                    var pf = controller.createProfile(p);
-                    invokeCb(pf, true);
-                } finally {
-                    processProfiles.remove(p.getUniqueId());
-                }
-            }
-
-            private void invokeCb(PlayerProfile pf, boolean newlyCreated) {
-                if (newlyCreated) {
-                    AsyncProfileLoadEvent event = new AsyncProfileLoadEvent(pf);
-                    Bukkit.getPluginManager().callEvent(event);
-                }
-
-                if (cb != null) {
-                    cb.accept(pf);
+                    callback.accept(profile);
+                } catch (RuntimeException x) {
+                    Slimefun.logger().log(Level.WARNING, "Could not invoke PlayerProfile callback for " + uuid, x);
                 }
             }
         });
