@@ -17,6 +17,7 @@ on:
       - 'scripts/verify_weapon_correctness.py'
       - 'scripts/verify_food_correctness.py'
       - 'scripts/verify_autocrafter_correctness.py'
+      - 'scripts/verify_block_utility_correctness.py'
       - '.github/workflows/runtime-gameplay-correctness.yml'
   push:
     branches:
@@ -38,6 +39,7 @@ on:
       - 'scripts/verify_weapon_correctness.py'
       - 'scripts/verify_food_correctness.py'
       - 'scripts/verify_autocrafter_correctness.py'
+      - 'scripts/verify_block_utility_correctness.py'
       - '.github/workflows/runtime-gameplay-correctness.yml'
   workflow_dispatch:
 
@@ -97,6 +99,9 @@ jobs:
       - name: Verify auto-crafter runtime invariants
         run: python3 scripts/verify_autocrafter_correctness.py .
 
+      - name: Verify block utility runtime invariants
+        run: python3 scripts/verify_block_utility_correctness.py .
+
       - name: Run enchantment-machine runtime tests
         run: |
           chmod +x gradlew
@@ -120,5 +125,6 @@ jobs:
             echo '- Melee weapon cancellation and ranged projectile/damage invariants checked'
             echo '- Cancelled consumption and sequential one-juice Cooler transactions checked'
             echo '- Auto-crafter quantity reservation, lossless output commit and energy ordering checked'
+            echo '- Block Placer ownership, Hologram state recovery and output utility invariants checked'
             echo '- Auto Enchanter / Auto Disenchanter timing tests executed'
           } >> "$GITHUB_STEP_SUMMARY"
