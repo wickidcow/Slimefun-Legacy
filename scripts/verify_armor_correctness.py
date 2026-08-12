@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify passive armor protection against stale cached equipment."""
+"""Verify passive armor protection and armor tasks against stale cached equipment."""
 
 from __future__ import annotations
 
@@ -61,6 +61,20 @@ def main() -> int:
     )
     require(elytra, "damageableItem.damageItem(p, helmetStack);", "damage current protected helmet")
     forbid(elytra, "profile.getArmor()[3].getItem()", "cached Elytra Cap helmet lookup")
+
+    rainbow = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/tasks/armor/RainbowArmorTask.java")
+    require(rainbow, "SlimefunItem currentItem = SlimefunItem.getByItem(item);", "current Rainbow Armor resolution")
+    require(
+        rainbow,
+        "currentItem instanceof RainbowArmorPiece rainbowArmorPiece && rainbowArmorPiece.canUse(p, true)",
+        "Rainbow Armor current-item permission gate",
+    )
+    forbid(rainbow, "profile.getArmor()[i]", "cached Rainbow Armor lookup")
+
+    solar = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/tasks/armor/SolarHelmetTask.java")
+    require(solar, "ItemStack helmet = p.getInventory().getHelmet();", "current Solar Helmet lookup")
+    require(solar, "SlimefunItem item = SlimefunItem.getByItem(helmet);", "current Solar Helmet item resolution")
+    require(solar, "item instanceof SolarHelmet solarHelmet && item.canUse(p, true)", "Solar Helmet permission gate")
 
     config = read(root, "src/main/resources/config.yml")
     require(config, "armor-update-interval: 10", "documented periodic armor cache interval")
