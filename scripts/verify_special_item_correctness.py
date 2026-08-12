@@ -37,36 +37,18 @@ def require_before(text: str, first: str, second: str, label: str) -> None:
 def main() -> int:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
 
-    gps = read(
-        root,
-        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/gps/GPSTransmitter.java",
-    )
+    gps = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/gps/GPSTransmitter.java")
     require(gps, "private UUID parseOwner(@Nullable String value)", "safe GPS owner parser")
     require(gps, "if (value == null || value.isBlank())", "missing GPS owner handling")
     require(gps, "catch (IllegalArgumentException ignored)", "malformed GPS owner handling")
     require(gps, "if (owner == null) {\n                    return;", "invalid GPS owner tick guard")
     require(gps, "public boolean isSynchronized()", "GPS ticker synchronization declaration")
     require(gps, "return true;", "synchronized GPS transmitter ticker")
-    forbid(
-        gps,
-        "UUID owner = UUID.fromString(data.getData(\"owner\"));",
-        "raw GPS ticker owner parsing",
-    )
+    forbid(gps, "UUID owner = UUID.fromString(data.getData(\"owner\"));", "raw GPS ticker owner parsing")
 
-    fisherman = read(
-        root,
-        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/androids/FishermanAndroid.java",
-    )
-    require(
-        fisherman,
-        "ItemStack remainder = menu.pushItem(drop, getOutputSlots());",
-        "Fisherman Android overflow capture",
-    )
-    require(
-        fisherman,
-        "water.getWorld().dropItemNaturally(water.getLocation(), remainder);",
-        "Fisherman Android overflow preservation",
-    )
+    fisherman = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/androids/FishermanAndroid.java")
+    require(fisherman, "ItemStack remainder = menu.pushItem(drop, getOutputSlots());", "Fisherman Android overflow capture")
+    require(fisherman, "water.getWorld().dropItemNaturally(water.getLocation(), remainder);", "Fisherman Android overflow preservation")
     require_before(
         fisherman,
         "ItemStack remainder = menu.pushItem(drop, getOutputSlots());",
@@ -74,107 +56,61 @@ def main() -> int:
         "Fisherman Android push-before-overflow-drop",
     )
 
-    elevator = read(
-        root,
-        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/elevator/ElevatorPlate.java",
-    )
-    require(
-        elevator,
-        "int pages = Math.max(1, (floors.size() + GUI_SIZE - 1) / GUI_SIZE);",
-        "Elevator exact page-count calculation",
-    )
+    elevator = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/elevator/ElevatorPlate.java")
+    require(elevator, "int pages = Math.max(1, (floors.size() + GUI_SIZE - 1) / GUI_SIZE);", "Elevator exact page-count calculation")
     forbid(elevator, "int pages = 1 + (floors.size() / GUI_SIZE);", "blank Elevator page calculation")
-    require(
-        elevator,
-        "player.teleportAsync(destination).whenComplete((teleported, error) -> {",
-        "Elevator failed-teleport completion handling",
-    )
-    require(
-        elevator,
-        "if (error != null || !Boolean.TRUE.equals(teleported)) {\n                    users.remove(uuid);",
-        "Elevator teleport marker cleanup on failure",
-    )
+    require(elevator, "player.teleportAsync(destination).whenComplete((teleported, error) -> {", "Elevator failed-teleport completion handling")
+    require(elevator, "if (error != null || !Boolean.TRUE.equals(teleported)) {\n                    users.remove(uuid);", "Elevator teleport marker cleanup on failure")
 
-    teleporter = read(
-        root,
-        "src/main/java/io/github/thebusybiscuit/slimefun4/api/gps/TeleportationManager.java",
-    )
-    require(
-        teleporter,
-        "Validate.notNull(destination, \"Destination cannot be null\");",
-        "Teleporter destination validation",
-    )
-    forbid(
-        teleporter,
-        "Validate.notNull(source, \"Destination cannot be null\");",
-        "duplicated Teleporter source validation",
-    )
+    teleporter = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/api/gps/TeleportationManager.java")
+    require(teleporter, "Validate.notNull(destination, \"Destination cannot be null\");", "Teleporter destination validation")
+    forbid(teleporter, "Validate.notNull(source, \"Destination cannot be null\");", "duplicated Teleporter source validation")
 
-    fluid_pump = read(
-        root,
-        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/FluidPump.java",
-    )
+    fluid_pump = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/FluidPump.java")
     require(
         fluid_pump,
         "SlimefunUtils.isItemSimilar(itemInSlot, emptyBottle, true, false)\n                        && (fluid.getType() == Material.WATER || fluid.getType() == Material.BUBBLE_COLUMN)",
         "Fluid Pump water-only bottle input",
     )
 
-    assembler = read(
-        root,
-        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/entities/AbstractEntityAssembler.java",
-    )
-    require(
-        assembler,
-        "public boolean isSynchronized() {\n                return true;\n            }",
-        "synchronized entity assembler ticker",
-    )
+    assembler = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/entities/AbstractEntityAssembler.java")
+    require(assembler, "public boolean isSynchronized() {\n                return true;\n            }", "synchronized entity assembler ticker")
 
-    smeltery = read(
-        root,
-        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/ElectricSmeltery.java",
-    )
+    smeltery = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/ElectricSmeltery.java")
     require(smeltery, "List<Integer> emptySlots = new LinkedList<>();", "Electric Smeltery empty-slot tracking")
     require(
         smeltery,
         "if (!matchingSlots.isEmpty()) {\n                    Collections.sort(matchingSlots, compareSlots(menu));\n                    return toSlotArray(matchingSlots);\n                }\n\n                return toSlotArray(emptySlots);",
         "Electric Smeltery matching-stack then empty-slot cargo fallback",
     )
-    forbid(
-        smeltery,
-        "else if (fullSlots == slots.size())",
-        "Electric Smeltery false-full cargo short circuit",
-    )
+    forbid(smeltery, "else if (fullSlots == slots.size())", "Electric Smeltery false-full cargo short circuit")
 
-    oil_pump = read(
-        root,
-        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/geo/OilPump.java",
-    )
-    require(
-        oil_pump,
-        "ItemStack remaining = inv.pushItem(input.clone(), getOutputSlots());",
-        "Oil Pump depletion remainder capture",
-    )
+    oil_pump = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/geo/OilPump.java")
+    require(oil_pump, "ItemStack remaining = inv.pushItem(input.clone(), getOutputSlots());", "Oil Pump depletion remainder capture")
     require(
         oil_pump,
         "if (after == 0) {\n                            inv.replaceExistingItem(slot, null);\n                        } else if (after < before) {\n                            input.setAmount(after);\n                            inv.replaceExistingItem(slot, input);",
         "Oil Pump depletion input preservation",
     )
 
-    research = read(
-        root,
-        "src/main/java/io/github/thebusybiscuit/slimefun4/api/researches/Research.java",
-    )
+    composter = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/blocks/Composter.java")
+    require(composter, "ItemStack remainder = Slimefun.getItemStackService()", "Composter delayed output remainder capture")
+    require(composter, "InventoryContext.OUTPUT_CHEST", "Composter output-chest insertion context")
+    require(composter, "dropItemNaturally(b.getRelative(BlockFace.UP).getLocation(), remainder)", "Composter overflow preservation")
+
+    crucible = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/blocks/Crucible.java")
+    require(crucible, "if (!canAcceptLiquid(block, water))", "Crucible obstruction preflight")
+    require(crucible, "return water && block.getBlockData() instanceof Waterlogged;", "Crucible waterlogging support")
     require(
-        research,
-        "setCurrencyCost(Slimefun.getResearchCfg().getDouble(path + \".currency-cost\"));",
-        "decimal Vault research cost loading",
+        crucible,
+        "if (water && block.getWorld().getEnvironment() == Environment.NETHER && !allowWaterInNether.getValue()) {\n            return true;",
+        "Crucible preserved Nether consumption semantics",
     )
-    forbid(
-        research,
-        "setCurrencyCost(Slimefun.getResearchCfg().getInt(path + \".currency-cost\"));",
-        "integer-truncated Vault research cost loading",
-    )
+    require_before(crucible, "if (!canAcceptLiquid(block, water))", "if (craft(p, input))", "Crucible preflight-before-consumption")
+
+    research = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/api/researches/Research.java")
+    require(research, "setCurrencyCost(Slimefun.getResearchCfg().getDouble(path + \".currency-cost\"));", "decimal Vault research cost loading")
+    forbid(research, "setCurrencyCost(Slimefun.getResearchCfg().getInt(path + \".currency-cost\"));", "integer-truncated Vault research cost loading")
 
     print("Special-item runtime correctness verification passed.")
     return 0
