@@ -10,6 +10,7 @@ on:
       - 'scripts/verify_runtime_gameplay_correctness.py'
       - 'scripts/verify_special_item_correctness.py'
       - 'scripts/verify_tool_correctness.py'
+      - 'scripts/verify_magical_item_correctness.py'
       - '.github/workflows/runtime-gameplay-correctness.yml'
   push:
     branches:
@@ -24,6 +25,7 @@ on:
       - 'scripts/verify_runtime_gameplay_correctness.py'
       - 'scripts/verify_special_item_correctness.py'
       - 'scripts/verify_tool_correctness.py'
+      - 'scripts/verify_magical_item_correctness.py'
       - '.github/workflows/runtime-gameplay-correctness.yml'
   workflow_dispatch:
 
@@ -62,6 +64,9 @@ jobs:
       - name: Verify player-tool runtime invariants
         run: python3 scripts/verify_tool_correctness.py .
 
+      - name: Verify magical-item runtime invariants
+        run: python3 scripts/verify_magical_item_correctness.py .
+
       - name: Run enchantment-machine runtime tests
         run: |
           chmod +x gradlew
@@ -78,5 +83,6 @@ jobs:
             echo '- AContainer energy/progress/output lifecycle checked'
             echo '- GPS, Android overflow, Elevator and research-cost invariants checked'
             echo '- Explosive tools, Lumber Axe, spawner containment and Grappling Hook invariants checked'
+            echo '- Knowledge Tome, Knowledge Flask, Infernal Bonemeal and Zombie Pills invariants checked'
             echo '- Auto Enchanter / Auto Disenchanter timing tests executed'
           } >> "$GITHUB_STEP_SUMMARY"
