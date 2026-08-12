@@ -57,7 +57,7 @@ abstract class AbstractSmeltery extends MultiBlockMachine {
                             Inventory outputInv = findOutputInventory(output, possibleDispenser, inv);
 
                             if (outputInv != null) {
-                                craft(b, inv, inputs.get(i), output, possibleDispenser);
+                                craft(p, b, inv, inputs.get(i), output, possibleDispenser);
                             } else {
                                 Slimefun.getLocalization().sendMessage(p, "machines.full-inventory", true);
                             }
@@ -109,7 +109,8 @@ abstract class AbstractSmeltery extends MultiBlockMachine {
         return true;
     }
 
-    protected void craft(Block b, Inventory inv, ItemStack[] recipe, ItemStack output, Block dispenser) {
+    protected void craft(
+            Player p, Block b, Inventory inv, ItemStack[] recipe, ItemStack output, Block dispenser) {
         for (ItemStack removing : recipe) {
             if (removing != null) {
                 InvUtils.removeItem(
