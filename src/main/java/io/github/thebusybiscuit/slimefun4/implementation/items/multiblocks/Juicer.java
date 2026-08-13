@@ -10,12 +10,12 @@ import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.food.Juice;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Bukkit;
-import org.bukkit.Effect;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -90,8 +90,8 @@ public class Juicer extends MultiBlockMachine {
                             handleCraftedItem(output, possibleDispenser, inv);
 
                             SoundEffect.JUICER_USE_SOUND.playAt(b);
-                            // Not changed since this is supposed to be a natural sound.
-                            b.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, Material.HAY_BLOCK);
+                            // This remains a natural block-breaking visual/sound effect.
+                            VisualEffectUtils.playBlockBreakEffect(b.getLocation(), Material.HAY_BLOCK);
                         } else {
                             Slimefun.getLocalization().sendMessage(p, "machines.full-inventory", true);
                         }
