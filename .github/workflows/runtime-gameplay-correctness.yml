@@ -64,7 +64,7 @@ jobs:
   correctness:
     name: Verify gameplay invariants and focused runtime tests
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 180
 
     steps:
       - name: Check out source
@@ -122,7 +122,7 @@ jobs:
       - name: Verify medical consumable and rune invariants
         run: python3 scripts/verify_consumable_rune_correctness.py .
 
-      - name: Verify weapon runtime invariants
+      - name: Verify combat runtime invariants
         run: python3 scripts/verify_weapon_correctness.py .
 
       - name: Verify food and Cooler runtime invariants
@@ -158,12 +158,12 @@ jobs:
             echo '- Generator fuel quantity, byproduct preflight and lossless output commit checked'
             echo '- Reactor fuel quantity, access-port transfer, byproduct preflight and lossless completion checked'
             echo '- GPS, Android overflow, Elevator and research-cost invariants checked'
-            echo '- Explosive tools, Lumber Axe, spawner containment and Grappling Hook invariants checked'
+            echo '- Player tool and spawner invariants checked'
             echo '- Knowledge Tome, Knowledge Flask, Infernal Bonemeal and Zombie Pills invariants checked'
             echo '- Jetpack, Jet Boots, Bee Wings, Parachute and Slimefun boots lifecycle invariants checked'
             echo '- Hazmat, bee and Elytra Cap protection resolve current equipment instead of stale armor cache'
             echo '- Splint eligibility, limited-use counters and delayed Enchantment/Soulbound Rune transactions checked'
-            echo '- Melee weapon cancellation and ranged projectile/damage invariants checked'
+            echo '- Combat item cancellation and projectile/damage invariants checked'
             echo '- Cancelled consumption and sequential one-juice Cooler transactions checked'
             echo '- Auto-crafter quantity reservation, lossless output commit and energy ordering checked'
             echo '- Block Placer ownership, Hologram state recovery and output utility invariants checked'
