@@ -144,6 +144,15 @@ def main() -> int:
     )
     require_absent(durability, "getMaxDurability() / max", "integer-truncated durability ratio")
 
+    # Paper has marked these legacy Effect constants for removal. Keep production source on
+    # Particle/Sound APIs so a future Paper update cannot turn today's warnings into failures.
+    production_source = root / "src/main/java"
+    for java_file in sorted(production_source.rglob("*.java")):
+        java_source = java_file.read_text(encoding="utf-8")
+        relative = java_file.relative_to(root)
+        require_absent(java_source, "Effect.STEP_SOUND", f"deprecated STEP_SOUND effect in {relative}")
+        require_absent(java_source, "Effect.SMOKE", f"deprecated SMOKE effect in {relative}")
+
     print("Machine processor correctness verification passed.")
     return 0
 
