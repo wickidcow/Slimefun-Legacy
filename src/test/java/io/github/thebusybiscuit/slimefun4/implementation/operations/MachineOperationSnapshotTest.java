@@ -28,6 +28,7 @@ class MachineOperationSnapshotTest {
         ItemStack ingredient = new ItemStack(Material.IRON_INGOT, 3);
         ItemStack result = new ItemStack(Material.DIAMOND, 2);
         MachineRecipe recipe = new MachineRecipe(40, new ItemStack[] {ingredient}, new ItemStack[] {result});
+        int expectedTicks = recipe.getTicks();
 
         CraftingOperation operation = new CraftingOperation(recipe);
 
@@ -41,7 +42,7 @@ class MachineOperationSnapshotTest {
         assertEquals(3, operation.getIngredients()[0].getAmount());
         assertEquals(Material.DIAMOND, operation.getResults()[0].getType());
         assertEquals(2, operation.getResults()[0].getAmount());
-        assertEquals(40, operation.getTotalTicks());
+        assertEquals(expectedTicks, operation.getTotalTicks());
     }
 
     @Test
@@ -49,6 +50,7 @@ class MachineOperationSnapshotTest {
         ItemStack ingredient = new ItemStack(Material.COAL, 4);
         ItemStack result = new ItemStack(Material.BUCKET, 1);
         MachineFuel recipe = new MachineFuel(80, ingredient, result);
+        int expectedTicks = recipe.getTicks();
 
         FuelOperation operation = new FuelOperation(recipe);
 
@@ -59,6 +61,6 @@ class MachineOperationSnapshotTest {
         assertEquals(4, operation.getIngredient().getAmount());
         assertEquals(Material.BUCKET, operation.getResult().getType());
         assertEquals(1, operation.getResult().getAmount());
-        assertEquals(80, operation.getTotalTicks());
+        assertEquals(expectedTicks, operation.getTotalTicks());
     }
 }
