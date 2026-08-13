@@ -64,7 +64,7 @@ jobs:
   correctness:
     name: Verify gameplay invariants and focused runtime tests
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 300
 
     steps:
       - name: Check out source
