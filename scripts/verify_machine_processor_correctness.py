@@ -58,6 +58,14 @@ def main() -> int:
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/machines/MachineOperation.java",
     )
+    crafting_operation_source = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/operations/CraftingOperation.java",
+    )
+    fuel_operation_source = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/operations/FuelOperation.java",
+    )
     menu_utils = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/utils/ChestMenuUtils.java",
@@ -66,6 +74,8 @@ def main() -> int:
     source_compact = compact(source)
     progress = compact(method_body(source, "updateProgressBar"))
     operation = compact(operation_source)
+    crafting_operation = compact(crafting_operation_source)
+    fuel_operation = compact(fuel_operation_source)
     menu_progress = compact(method_body(menu_utils, "updateProgressbar"))
     progress_text = compact(method_body(menu_utils, "getProgressBar"))
     durability = compact(method_body(menu_utils, "getDurability"))
@@ -84,6 +94,27 @@ def main() -> int:
         "finished-operation progress update",
     )
     require(progress, "ChestMenuUtils.updateProgressbar", "progress-bar update")
+
+    # Running operations must own their ItemStack state. Recipes are public addon-facing
+    # objects and may be reused or mutated after an operation starts; sharing those exact
+    # ItemStack references would let an in-flight machine change underneath itself.
+    require(crafting_operation, "this.ingredients = snapshot(ingredients)", "crafting ingredient snapshot")
+    require(crafting_operation, "this.results = snapshot(results)", "crafting result snapshot")
+    require(
+        crafting_operation,
+        "snapshot[i] = stacks[i] == null ? null : stacks[i].clone()",
+        "deep crafting ItemStack snapshot",
+    )
+    require_absent(crafting_operation, "this.ingredients = ingredients", "shared crafting ingredient array")
+    require_absent(crafting_operation, "this.results = results", "shared crafting result array")
+    require(fuel_operation, "this.ingredient = ingredient.clone()", "fuel ingredient snapshot")
+    require(
+        fuel_operation,
+        "this.result = result == null ? null : result.clone()",
+        "fuel byproduct snapshot",
+    )
+    require_absent(fuel_operation, "this.ingredient = ingredient;", "shared fuel ingredient stack")
+    require_absent(fuel_operation, "this.result = result;", "shared fuel result stack")
 
     # MachineProcessor exposes three endOperation overloads. Verify the concrete BlockPosition
     # implementation across the source instead of accidentally inspecting a delegating wrapper.
