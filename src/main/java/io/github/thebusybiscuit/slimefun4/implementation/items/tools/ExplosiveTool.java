@@ -17,6 +17,7 @@ import io.github.thebusybiscuit.slimefun4.core.handlers.ToolUseHandler;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import io.github.thebusybiscuit.slimefun4.utils.tags.SlimefunTag;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,7 +28,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Bukkit;
-import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Tag;
@@ -165,9 +165,8 @@ public class ExplosiveTool extends SimpleSlimefunItem<ToolUseHandler> implements
     @ParametersAreNonnullByDefault
     private void breakBlock(BlockBreakEvent event, Player player, ItemStack item, Block block, List<ItemStack> drops) {
         Slimefun.getProtectionManager().logAction(player, block, Interaction.BREAK_BLOCK);
-        Material material = block.getType();
 
-        block.getWorld().playEffect(block.getLocation(), Effect.STEP_SOUND, material);
+        VisualEffectUtils.playBlockBreakEffect(block);
         Location blockLocation = block.getLocation();
 
         Optional<SlimefunItem> blockItem = Optional.ofNullable(StorageCacheUtils.getSlimefunItem(blockLocation));
