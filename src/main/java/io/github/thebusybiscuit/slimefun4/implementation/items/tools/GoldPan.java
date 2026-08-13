@@ -17,6 +17,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.electric.machines
 import io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.AutomatedPanningMachine;
 import io.github.thebusybiscuit.slimefun4.implementation.settings.GoldPanDrop;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -26,7 +27,6 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.Effect;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.ItemFrame;
@@ -150,7 +150,7 @@ public class GoldPan extends SimpleSlimefunItem<ItemUseHandler> implements Recip
                                 .hasPermission(e.getPlayer(), b.getLocation(), Interaction.BREAK_BLOCK)) {
                     ItemStack output = getRandomOutput();
 
-                    b.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, b.getType());
+                    VisualEffectUtils.playBlockBreakEffect(b);
                     b.setType(Material.AIR);
 
                     // Make sure that the randomly selected item is not air
@@ -221,7 +221,7 @@ public class GoldPan extends SimpleSlimefunItem<ItemUseHandler> implements Recip
      * This returns whether the {@link GoldPan} accepts the {@link Material} as an input
      *
      * @param material
-     *            The {@link Material} to check
+     *            The {@link Material}
      *
      * @return If the {@link Material} is valid
      */
