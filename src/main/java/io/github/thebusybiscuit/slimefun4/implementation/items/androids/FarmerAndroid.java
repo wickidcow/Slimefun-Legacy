@@ -8,12 +8,12 @@ import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Bukkit;
-import org.bukkit.Effect;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.block.Block;
@@ -67,7 +67,7 @@ public class FarmerAndroid extends ProgrammableAndroid {
             if (drop != null && menu.fits(drop, getOutputSlots())) {
                 ItemStack remainder = menu.pushItem(drop, getOutputSlots());
                 if (remainder == null) {
-                    block.getWorld().playEffect(block.getLocation(), Effect.STEP_SOUND, blockType);
+                    VisualEffectUtils.playBlockBreakEffect(block);
 
                     if (data instanceof Ageable ageable) {
                         ageable.setAge(0);
