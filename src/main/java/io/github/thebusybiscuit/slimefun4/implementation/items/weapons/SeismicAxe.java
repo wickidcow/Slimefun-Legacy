@@ -8,6 +8,7 @@ import io.github.thebusybiscuit.slimefun4.core.attributes.NotPlaceable;
 import io.github.thebusybiscuit.slimefun4.core.handlers.ItemUseHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.DamageUtils;
 import java.util.HashSet;
 import java.util.List;
@@ -15,7 +16,6 @@ import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -64,7 +64,7 @@ public class SeismicAxe extends SimpleSlimefunItem<ItemUseHandler> implements No
                 Block ground = findGround(blocks.get(i));
                 Location groundLocation = ground.getLocation();
 
-                ground.getWorld().playEffect(groundLocation, Effect.STEP_SOUND, ground.getType());
+                VisualEffectUtils.playBlockBreakEffect(ground);
 
                 // Check if they have room above.
                 Block blockAbove = ground.getRelative(BlockFace.UP);
