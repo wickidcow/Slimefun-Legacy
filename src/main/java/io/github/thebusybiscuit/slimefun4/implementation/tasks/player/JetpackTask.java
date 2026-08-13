@@ -3,8 +3,8 @@ package io.github.thebusybiscuit.slimefun4.implementation.tasks.player;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.items.electric.gadgets.Jetpack;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import javax.annotation.Nonnull;
-import org.bukkit.Effect;
 import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -31,7 +31,7 @@ public class JetpackTask extends AbstractPlayerTask {
 
         if (jetpack.removeItemCharge(chestplate, COST)) {
             SoundEffect.JETPACK_THRUST_SOUND.playAt(p.getLocation(), SoundCategory.PLAYERS);
-            p.getWorld().playEffect(p.getLocation(), Effect.SMOKE, 1, 1);
+            VisualEffectUtils.spawnSmoke(p.getLocation());
             p.setFallDistance(0F);
             Vector vector = new Vector(0, 1, 0);
             vector.multiply(jetpack.getThrust());
