@@ -7,6 +7,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.altar.AncientAltar;
 import io.github.thebusybiscuit.slimefun4.implementation.items.altar.AncientPedestal;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.AncientAltarListener;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedParticle;
 import java.util.Collection;
 import java.util.HashMap;
@@ -17,7 +18,6 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Bukkit;
-import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.SoundCategory;
@@ -208,7 +208,7 @@ public class AncientAltarTask implements Runnable {
 
             if (!event.isCancelled()) {
                 SoundEffect.ANCIENT_ALTAR_FINISH_SOUND.playAt(dropLocation, SoundCategory.BLOCKS);
-                dropLocation.getWorld().playEffect(dropLocation, Effect.STEP_SOUND, Material.EMERALD_BLOCK);
+                VisualEffectUtils.playBlockBreakEffect(dropLocation, Material.EMERALD_BLOCK);
                 dropLocation.getWorld().dropItemNaturally(dropLocation.clone().add(0, -0.5, 0), event.getItem());
                 items.clear();
             } else {
