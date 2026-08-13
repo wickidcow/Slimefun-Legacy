@@ -8,6 +8,7 @@ import io.github.thebusybiscuit.slimefun4.api.items.settings.IntRangeSetting;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.blocks.IgnitionChamber;
 import io.github.thebusybiscuit.slimefun4.implementation.items.misc.AlloyIngot;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -15,7 +16,6 @@ import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.Effect;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -105,7 +105,7 @@ public class Smeltery extends AbstractSmeltery {
 
         if (!isFireRenewed) {
             Block fire = b.getRelative(BlockFace.DOWN).getRelative(BlockFace.DOWN);
-            fire.getWorld().playEffect(fire.getLocation(), Effect.STEP_SOUND, fire.getType());
+            VisualEffectUtils.playBlockBreakEffect(fire);
             fire.setType(Material.AIR);
         }
     }
