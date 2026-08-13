@@ -137,10 +137,13 @@ jobs:
       - name: Verify entity and seasonal interaction invariants
         run: python3 scripts/verify_interaction_misc_correctness.py .
 
-      - name: Run enchantment-machine runtime tests
+      - name: Run focused machine runtime tests
         run: |
           chmod +x gradlew
-          ./gradlew test --tests io.github.thebusybiscuit.slimefun4.implementation.items.electric.machines.enchanting.EnchantmentMachineRuntimeTest --no-daemon
+          ./gradlew test \
+            --tests io.github.thebusybiscuit.slimefun4.implementation.items.electric.machines.enchanting.EnchantmentMachineRuntimeTest \
+            --tests io.github.thebusybiscuit.slimefun4.implementation.operations.MachineOperationSnapshotTest \
+            --no-daemon
 
       - name: Publish correctness summary
         if: always()
@@ -153,6 +156,7 @@ jobs:
             echo '- AContainer energy/progress/output lifecycle checked'
             echo '- AContainer loaded storage reuse and legacy addon hooks checked'
             echo '- Shared MachineProcessor finished-progress lifecycle checked'
+            echo '- Running crafting/fuel operations snapshot mutable recipe ItemStacks at start'
             echo '- Cargo rollback, exact partial-stack remainder and unloaded-chunk guards checked'
             echo '- Energy network live-component identity, charge bounds and unloaded-chunk guards checked'
             echo '- Generator fuel quantity, byproduct preflight and lossless output commit checked'
@@ -168,5 +172,5 @@ jobs:
             echo '- Auto-crafter quantity reservation, lossless output commit and energy ordering checked'
             echo '- Block Placer ownership, Hologram state recovery and output utility invariants checked'
             echo '- Cancelled entity interactions, protected misc item effects and seasonal gift validation checked'
-            echo '- Auto Enchanter / Auto Disenchanter timing tests executed'
+            echo '- Auto Enchanter / Auto Disenchanter timing and operation snapshot tests executed'
           } >> "$GITHUB_STEP_SUMMARY"
