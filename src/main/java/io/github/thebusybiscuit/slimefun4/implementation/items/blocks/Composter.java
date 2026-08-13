@@ -12,12 +12,12 @@ import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Tag;
@@ -90,7 +90,7 @@ public class Composter extends SimpleSlimefunItem<BlockUseHandler> implements Re
 
                         tasks.thenRepeatEvery(30, 10, () -> {
                             Material material = input.getType().isBlock() ? input.getType() : Material.HAY_BLOCK;
-                            b.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, material);
+                            VisualEffectUtils.playBlockBreakEffect(b.getLocation(), material);
                         });
 
                         tasks.thenRun(20, () -> {
