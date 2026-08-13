@@ -3,10 +3,10 @@ package io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks;
 import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.Effect;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -62,7 +62,7 @@ public class MakeshiftSmeltery extends AbstractSmeltery {
         super.craft(p, b, inv, recipe, output, dispenser);
 
         Block fire = b.getRelative(BlockFace.DOWN).getRelative(BlockFace.DOWN);
-        fire.getWorld().playEffect(fire.getLocation(), Effect.STEP_SOUND, fire.getType());
+        VisualEffectUtils.playBlockBreakEffect(fire);
         fire.setType(Material.AIR);
     }
 }
