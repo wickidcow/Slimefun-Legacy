@@ -33,15 +33,21 @@ def main() -> int:
         "storm": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/StormGlass.java",
         "journal": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/ExpeditionJournal.java",
         "beacon": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlus.java",
-        "beacon_manager": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusManager.java",
-        "beacon_chunk_mode": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusChunkMode.java",
-        "beacon_support_mode": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusSupportMode.java",
-        "beacon_lifecycle": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusLifecycleListener.java",
         "docs": "docs/ADVENTURERS_CURIOS.md",
     }
 
+    removed_duplicate_runtime = (
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusManager.java",
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusChunkMode.java",
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusSupportMode.java",
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusLifecycleListener.java",
+        "src/test/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusChunkModeTest.java",
+    )
+
     for relative in files.values():
         require((root / relative).is_file(), f"Missing Adventurer's Curios file: {relative}", failures)
+    for relative in removed_duplicate_runtime:
+        require(not (root / relative).exists(), f"Duplicate Beacon Plus runtime must remain removed: {relative}", failures)
 
     try:
         setup = read(root, files["setup"])
@@ -66,6 +72,16 @@ def main() -> int:
         ):
             require(token in setup, f"Curios setup invariant is missing: {token}", failures)
         require(setup.count("RecipeType.ENHANCED_CRAFTING_TABLE") >= 8, "All eight Curios need real recipes", failures)
+        for token in (
+            "new ItemStack(Material.GLASS)",
+            "new ItemStack(Material.LEVER)",
+            "new ItemStack(Material.CLOCK)",
+            "new ItemStack(Material.END_CRYSTAL)",
+            "new ItemStack(Material.REDSTONE_BLOCK)",
+            "new ItemStack(Material.OBSIDIAN)",
+            "new ItemStack(Material.ANVIL)",
+        ):
+            require(token in setup, f"Beacon Plus commissioning recipe invariant is missing: {token}", failures)
 
         post_setup = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/setup/PostSetup.java")
         registration = post_setup.find("AdventurersCuriosSetup.setup(Slimefun.instance());")
@@ -107,51 +123,46 @@ def main() -> int:
         for token in ("MAX_RECORDED_BIOMES = 128", '"expedition_journal_biomes"', "PersistentDataType.STRING", "getBiome().getKey().getKey()"):
             require(token in journal, f"Expedition Journal invariant is missing: {token}", failures)
 
-        chunk_mode = read(root, files["beacon_chunk_mode"])
-        for token in ('OFF("Off", 0)', 'SINGLE("This Chunk", 0)', 'AREA_3X3("3x3 Area", 1)', '"KEEP_CHUNK_LOADED"', '"CHUNK_ACTIVATOR"'):
-            require(token in chunk_mode, f"Beacon Plus chunk-mode invariant is missing: {token}", failures)
-
-        support_mode = read(root, files["beacon_support_mode"])
-        for token in ("SPEED", "HASTE", "RESISTANCE", "REGENERATION", "NIGHT_VISION"):
-            require(token in support_mode, f"Beacon Plus support-mode invariant is missing: {token}", failures)
-
         beacon = read(root, files["beacon"])
         for token in (
-            "BlockPlaceHandler(false)",
-            "BlockUseHandler",
-            "SimpleBlockBreakHandler",
-            "createTicker()",
-            "manager.updateModes(",
-            "BeaconPlusManager.start",
-            "BeaconPlusLifecycleListener.register",
-            "SUPPORT_REFRESH_MILLIS = 2_000L",
+            'PLUGIN_NAME = "BeaconPlus3"',
+            'API_CLASS = "thito.beaconplus.BeaconAPI"',
+            'SECTION_CLASS = "thito.beaconplus.config.Section"',
+            'CREATE_EMPTY_ITEM = "createBeaconEmptyItem"',
+            'CRAFT_PERMISSION_PATH = "Permissions.Craft"',
+            "Class.forName(API_CLASS, true, classLoader)",
+            "apiClass.getMethod(CREATE_EMPTY_ITEM, Player.class)",
+            'apiClass.getMethod("getBeaconConfig")',
+            'sectionClass.getMethod("getString", String.class)',
+            'apiClass.getMethod("hasNoPermission", Player.class, String.class, boolean.class)',
+            "Boolean.TRUE.equals(denied)",
+            "implements NotPlaceable",
+            "event.cancel()",
+            "The Curio was not consumed",
         ):
-            require(token in beacon, f"Beacon Plus invariant is missing: {token}", failures)
-        for forbidden in ("NetworkManager", "CargoNet", "tickBlock(", "enableTicker("):
-            require(forbidden not in beacon, f"Beacon Plus must not directly operate machine/network runtimes: {forbidden}", failures)
-
-        manager = read(root, files["beacon_manager"])
-        for token in (
-            'ITEM_ID = "BEACON_PLUS"',
-            "MAX_ACTIVE_BEACONS = 64",
-            "MAX_UNIQUE_CHUNKS = 256",
+            require(token in beacon, f"Beacon Plus bridge invariant is missing: {token}", failures)
+        require("import thito.beaconplus" not in beacon, "Beacon Plus bridge must remain reflection-only", failures)
+        for forbidden in (
             "addPluginChunkTicket",
-            "removePluginChunkTicket",
-            "ticketReferences",
-            'resolve("adventurers-curios-beacons.properties")',
-            "scheduleValidation()",
+            "setChunkForceLoaded",
+            "setForceLoaded",
+            "BlockTicker",
+            "StorageCacheUtils",
+            "BeaconPlusManager",
+            "PotionEffectType",
         ):
-            require(token in manager, f"Beacon Plus manager invariant is missing: {token}", failures)
-        for forbidden in ("setChunkForceLoaded", "setForceLoaded", "NetworkManager", "CargoNet", "TickerTask"):
-            require(forbidden not in manager, f"Beacon Plus manager crossed a runtime boundary: {forbidden}", failures)
-
-        lifecycle = read(root, files["beacon_lifecycle"])
-        require("PluginDisableEvent" in lifecycle, "Beacon Plus must release tickets on plugin disable", failures)
-        require("BeaconPlusManager.shutdownCurrent()" in lifecycle, "Beacon Plus shutdown cleanup is missing", failures)
+            require(forbidden not in beacon, f"Beacon Plus bridge must not duplicate BeaconPlus3 runtime: {forbidden}", failures)
 
         docs = read(root, files["docs"])
-        for token in ("BEACON_PLUS", "KEEP_CHUNK_LOADED", "CHUNK_ACTIVATOR", "256 unique chunks", "64 active"):
-            require(token in docs, f"Curios documentation is missing: {token}", failures)
+        for token in (
+            "BeaconAPI#createBeaconEmptyItem(Player)",
+            "genuine BeaconPlus3 beacon item",
+            "no hard BeaconPlus3 dependency",
+            "`Permissions.Craft`",
+            "not consumed",
+            "no direct `thito.beaconplus` imports",
+        ):
+            require(token in docs, f"Curios documentation is missing BeaconPlus3 bridge detail: {token}", failures)
     except FileNotFoundError as error:
         failures.append(f"Unable to inspect missing Adventurer's Curios file: {error}")
 
@@ -173,9 +184,11 @@ def main() -> int:
         "- eight built-in Curios are registered before registry finalization\n"
         "- original navigation and detection Curios retain their bounded behavior\n"
         "- Miner's Canary, Dungeon Chalk, Storm Glass and Expedition Journal remain player-triggered and bounded\n"
-        "- Beacon Plus uses bounded, reference-counted plugin chunk tickets with persistent restart recovery\n"
-        "- Beacon Plus keeps machine/network execution in their normal runtimes rather than emulating ticks\n"
-        "- BEACON_PLUS is the native item ID and historical chunk-mode names remain migration aliases\n"
+        "- Beacon Plus is a reflection-only commissioning bridge to the standalone BeaconPlus3 API\n"
+        "- BeaconPlus3 creates and owns the genuine beacon item and all runtime behavior after commissioning\n"
+        "- BeaconPlus3's configured craft permission is enforced through its own permission helper\n"
+        "- the Curio remains intact if BeaconPlus3 is absent, disabled or cannot create the native item\n"
+        "- no duplicate Beacon Plus chunk loader, support ticker or persistence runtime remains in Slimefun\n"
         "- no existing database schema, Cargo, Energy or machine transaction semantics are changed\n",
         encoding="utf-8",
     )
