@@ -171,7 +171,7 @@ final class BeaconPlusRuntime {
 
         double range = getRange(block);
         if (range <= 0.0D) {
-            refreshNearbyPlayerStates(block, 64.0D);
+            refreshNearbyPlayerStates(block, 96.0D);
             return;
         }
 
@@ -309,8 +309,8 @@ final class BeaconPlusRuntime {
             repairInventory(player.getInventory(), 1 + power);
         }
 
-        updateFlight(player, effects.contains(BeaconPlusEffect.FLYING));
-        updateScale(player, effects.contains(BeaconPlusEffect.SCALE));
+        // Resolve stateful player effects across every active nearby Beacon Plus so overlapping fields compose.
+        refreshPlayerState(player);
     }
 
     private static void applyMonsterEffects(
