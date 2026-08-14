@@ -8,6 +8,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
@@ -23,7 +24,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 
 /**
- * Event-driven Beacon Plus effects that do not belong in the periodic block pulse.
+ * Event-driven Beacon Plus powers that do not belong in the periodic block pulse.
  */
 final class BeaconPlusEffectListener implements Listener {
 
@@ -66,25 +67,26 @@ final class BeaconPlusEffectListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onTarget(EntityTargetLivingEntityEvent event) {
-        if (!(event.getTarget() instanceof Player player)) {
+        if (!(event.getTarget() instanceof LivingEntity target)) {
             return;
         }
-        if (!BeaconPlusRuntime.hasEffect(player.getLocation(), BeaconPlusEffect.PEACEFUL)) {
+        if (!BeaconPlusRuntime.hasEffect(target.getLocation(), BeaconPlusEffect.PEACEFUL)) {
+            return;
+        }
+        if (!(event.getEntity() instanceof Monster monster)) {
             return;
         }
 
         event.setCancelled(true);
-        if (event.getEntity() instanceof Monster monster) {
-            monster.setTarget(null);
-        }
+        monster.setTarget(null);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onHostileDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getEntity() instanceof Player player)) {
+        if (!(event.getEntity() instanceof LivingEntity victim)) {
             return;
         }
-        if (!BeaconPlusRuntime.hasEffect(player.getLocation(), BeaconPlusEffect.PEACEFUL)) {
+        if (!BeaconPlusRuntime.hasEffect(victim.getLocation(), BeaconPlusEffect.PEACEFUL)) {
             return;
         }
 
