@@ -2,11 +2,6 @@ name: Reproducible Release Candidate
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - master
-    paths:
-      - '.github/workflows/reproducible-release.yml'
 
 permissions:
   contents: write
