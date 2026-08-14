@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.implementation.setup;
 
-import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
@@ -8,9 +7,12 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.EchoLantern;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.ExplorersSpyglass;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.WayfindersCompass;
+import java.util.List;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 /**
  * Registers the built-in Adventurer's Curios category and its field gadgets.
@@ -28,14 +30,7 @@ final class AdventurersCuriosSetup {
         registered = true;
 
         ItemGroup curios = new ItemGroup(
-                new NamespacedKey(plugin, "adventurers_curios"),
-                new CustomItemStack(
-                        Material.RECOVERY_COMPASS,
-                        "&6Adventurer's Curios",
-                        "",
-                        "&7Exploration tools, navigation",
-                        "&7and strange field gadgets"),
-                2);
+                new NamespacedKey(plugin, "adventurers_curios"), createCategoryIcon(), 2);
 
         SlimefunItemStack wayfindersCompass = new SlimefunItemStack(
                 "ADVENTURERS_WAYFINDERS_COMPASS",
@@ -115,5 +110,16 @@ final class AdventurersCuriosSetup {
                             null
                         })
                 .register(plugin);
+    }
+
+    private static ItemStack createCategoryIcon() {
+        ItemStack icon = new ItemStack(Material.RECOVERY_COMPASS);
+        ItemMeta meta = icon.getItemMeta();
+        meta.setDisplayName(ChatColor.GOLD + "Adventurer's Curios");
+        meta.setLore(List.of(
+                ChatColor.GRAY + "Exploration tools, navigation",
+                ChatColor.GRAY + "and strange field gadgets"));
+        icon.setItemMeta(meta);
+        return icon;
     }
 }
