@@ -11,11 +11,11 @@ import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.handlers.ToolUseHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import io.github.thebusybiscuit.slimefun4.utils.tags.SlimefunTag;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.Effect;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.enchantments.Enchantment;
@@ -57,7 +57,7 @@ public class PickaxeOfVeinMining extends SimpleSlimefunItem<ToolUseHandler> {
     private void breakBlocks(Player p, List<Block> blocks, int fortune, ItemStack tool) {
         for (Block b : blocks) {
             if (Slimefun.getProtectionManager().hasPermission(p, b.getLocation(), Interaction.BREAK_BLOCK)) {
-                b.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, b.getType());
+                VisualEffectUtils.playBlockBreakEffect(b);
 
                 if (tool.containsEnchantment(Enchantment.SILK_TOUCH)) {
                     b.getWorld().dropItemNaturally(b.getLocation(), new ItemStack(b.getType()));
