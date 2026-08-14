@@ -2,12 +2,19 @@ name: Reproducible Release Candidate
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/reproducible-release.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 env:
-  LEGACY_ARTIFACT_VERSION: "1.0.0"
+  LEGACY_ARTIFACT_VERSION: "4.1.30"
+  RELEASE_TAG: "SlimefunLegacy4.1.30RC2"
+  RELEASE_NAME: "Slimefun Legacy 4.1.30 — RC2"
 
 jobs:
   release-artifact:
@@ -62,7 +69,7 @@ jobs:
 
       - name: First clean release build
         run: |
-          ./gradlew clean build --no-daemon --no-build-cache --no-configuration-cache
+          ./gradlew clean build -PprojectVersion="${LEGACY_ARTIFACT_VERSION}" --no-daemon --no-build-cache --no-configuration-cache
           JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
           test -n "$JAR"
           cp "$JAR" "$RUNNER_TEMP/Slimefun-first.jar"
@@ -80,7 +87,7 @@ jobs:
 
       - name: Second clean release build
         run: |
-          ./gradlew clean shadowJar --no-daemon --no-build-cache --no-configuration-cache
+          ./gradlew clean shadowJar -PprojectVersion="${LEGACY_ARTIFACT_VERSION}" --no-daemon --no-build-cache --no-configuration-cache
           JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
           test -n "$JAR"
           cp "$JAR" "$RUNNER_TEMP/Slimefun-second.jar"
@@ -121,12 +128,80 @@ jobs:
           cp "$RUNNER_TEMP/Slimefun-first.jar" "dist/SF_Slimefun_Legacy_v${LEGACY_ARTIFACT_VERSION}.jar"
           test -s "dist/SF_Slimefun_Legacy_v${LEGACY_ARTIFACT_VERSION}.jar"
 
+      - name: Write server-owner release notes
+        run: |
+          cat > "$RUNNER_TEMP/release-notes.md" <<'EOF'
+          ## Slimefun Legacy 4.1.30 — RC2
+
+          This release candidate is focused on **safer machines, more reliable item/energy handling, and stronger Paper 26.2 compatibility** while keeping the classic Slimefun experience intact.
+
+          ### What changed for server owners
+
+          - **Machines are safer when outputs are full.** Finished machines now wait for room instead of consuming extra power or risking lost output.
+          - **Generators and reactors handle fuel more safely.** Fuel amounts, buckets, and recipe byproducts are checked before anything is consumed.
+          - **Cargo transfers are more reliable.** Failed transfers now preserve the exact remainder and avoid silently losing items.
+          - **Energy networks are more defensive.** Slimefun re-checks live components and avoids unsafe reads/writes across unloaded chunks.
+          - **Machine progress and operation state were hardened.** This reduces odd progress-bar behavior and protects running recipes from being changed underneath them.
+          - **Androids, tools, magic items, armor, food, combat items, auto-crafters, block utilities, and other gameplay systems received additional correctness checks.**
+          - **Old Paper visual-effect APIs were replaced.** This removes removal-pending `STEP_SOUND` / `SMOKE` usage for better Paper 26.2 compatibility.
+          - **Guide/runtime handling was hardened** while preserving existing addon-facing behavior.
+
+          ### Compatibility testing
+
+          RC2 passed the full release gate before publication:
+
+          - Build English Slimefun
+          - Paper 26.2 Runtime Smoke, including two real server boots
+          - Runtime Gameplay Correctness
+          - Public API Compatibility against the previous stable release
+          - Slimefun addon compatibility testing
+
+          Required Legacy addon checks passed for **BetterChests, FastMachines, SlimeTinkerIE2, and Networks Expansion**. Broader advisory checks also passed for addons including Networks, InfinityExpansion2, MagicExpansion, DynaTech, Supreme, FluffyMachines, FoxyMachines, Gastronomicon, IDreamOfEasy, and others.
+
+          ### Platform
+
+          - **Primary:** Paper 26.2 / Minecraft 1.21.11+
+          - **Purpur:** Supported
+          - **Folia:** Experimental / secondary target
+          - **Recommended runtime:** Java 25
+          - **JAR bytecode target:** Java 21
+
+          ### Upgrade notes
+
+          No intentional changes were made to Slimefun item IDs, saved-world formats, database formats, or storage schemas.
+
+          **Before upgrading:** make a backup, replace the old Slimefun Legacy JAR with the attached JAR, and perform a **full server restart**. Do not use `/reload` for this update.
+
+          This is an **RC2 release candidate**, so production server owners should still keep a rollback copy of their previous working JAR while testing.
+          EOF
+
       - name: Upload direct reproducible Slimefun Legacy JAR
         uses: actions/upload-artifact@v7
         with:
+          name: SF_Slimefun_Legacy_v${{ env.LEGACY_ARTIFACT_VERSION }}.jar
           path: dist/SF_Slimefun_Legacy_v${{ env.LEGACY_ARTIFACT_VERSION }}.jar
           archive: false
           if-no-files-found: error
+
+      - name: Publish GitHub RC2 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          JAR="dist/SF_Slimefun_Legacy_v${LEGACY_ARTIFACT_VERSION}.jar"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" \
+              --title "$RELEASE_NAME" \
+              --notes-file "$RUNNER_TEMP/release-notes.md" \
+              --prerelease
+            gh release upload "$RELEASE_TAG" "$JAR" --clobber
+          else
+            gh release create "$RELEASE_TAG" "$JAR" \
+              --target "$GITHUB_SHA" \
+              --title "$RELEASE_NAME" \
+              --notes-file "$RUNNER_TEMP/release-notes.md" \
+              --prerelease
+          fi
 
       - name: Collect release verification evidence
         if: always()
@@ -135,6 +210,8 @@ jobs:
           {
             echo "Slimefun Legacy reproducible release evidence"
             echo "Source commit: $GITHUB_SHA"
+            echo "Release tag: $RELEASE_TAG"
+            echo "Release name: $RELEASE_NAME"
             echo "Workflow status before evidence upload: ${{ job.status }}"
           } > build/release-verification/workflow-status.txt
           for FILE in \
@@ -146,7 +223,8 @@ jobs:
             release-artifact-first.md \
             release-artifact-second.json \
             release-artifact-second.md \
-            reproducible-release.md; do
+            reproducible-release.md \
+            release-notes.md; do
             if [[ -f "$RUNNER_TEMP/$FILE" ]]; then
               cp "$RUNNER_TEMP/$FILE" "build/release-verification/$FILE"
             fi
