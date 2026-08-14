@@ -58,7 +58,6 @@ public final class BeaconPlus extends SimpleSlimefunItem<ItemUseHandler> impleme
 
             CommissionResult result = commissionBeacon(beaconPlusPlugin, player);
             if (result.permissionDenied()) {
-                player.sendMessage(ChatColor.RED + "You do not have permission to craft Beacon Plus.");
                 return;
             }
 
@@ -95,8 +94,13 @@ public final class BeaconPlus extends SimpleSlimefunItem<ItemUseHandler> impleme
             Object api = apiClass.getMethod(API_GETTER).invoke(null);
 
             String craftPermission = readCraftPermission(classLoader, apiClass, api);
-            if (craftPermission != null && !craftPermission.isBlank() && !player.hasPermission(craftPermission)) {
-                return new CommissionResult(null, true);
+            if (craftPermission != null && !craftPermission.isBlank()) {
+                Method permissionCheck =
+                        apiClass.getMethod("hasNoPermission", Player.class, String.class, boolean.class);
+                Object denied = permissionCheck.invoke(api, player, craftPermission, true);
+                if (Boolean.TRUE.equals(denied)) {
+                    return new CommissionResult(null, true);
+                }
             }
 
             Method createBeacon = apiClass.getMethod(CREATE_EMPTY_ITEM, Player.class);
@@ -119,6 +123,10 @@ public final class BeaconPlus extends SimpleSlimefunItem<ItemUseHandler> impleme
     private static String readCraftPermission(ClassLoader classLoader, Class<?> apiClass, Object api)
             throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException {
         Object beaconConfig = apiClass.getMethod("getBeaconConfig").invoke(api);
+        if (beaconConfig == null) {
+            return null;
+        }
+
         Class<?> sectionClass = Class.forName(SECTION_CLASS, true, classLoader);
         Object configured = sectionClass.getMethod("getString", String.class).invoke(beaconConfig, CRAFT_PERMISSION_PATH);
 
