@@ -121,7 +121,7 @@ def main() -> int:
             "BlockUseHandler",
             "SimpleBlockBreakHandler",
             "createTicker()",
-            "BeaconPlusManager.updateModes",
+            "manager.updateModes(",
             "BeaconPlusManager.start",
             "BeaconPlusLifecycleListener.register",
             "SUPPORT_REFRESH_MILLIS = 2_000L",
