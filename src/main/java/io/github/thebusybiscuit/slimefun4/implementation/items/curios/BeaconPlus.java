@@ -50,6 +50,10 @@ public final class BeaconPlus extends SlimefunItem {
 
     @Override
     public void postRegister() {
+        if (isDisabled()) {
+            return;
+        }
+
         BeaconPlusLifecycleListener.register(Slimefun.instance());
         Slimefun.getSchedulerService().runLater(() -> {
             if (BeaconPlusManager.getInstance() == null) {
@@ -156,7 +160,8 @@ public final class BeaconPlus extends SlimefunItem {
 
             @Override
             public void tick(Block block, SlimefunItem item, ASlimefunDataContainer data) {
-                BeaconPlusSupportMode mode = BeaconPlusSupportMode.fromStored(data.getData(BeaconPlusManager.SUPPORT_MODE_KEY));
+                BeaconPlusSupportMode mode =
+                        BeaconPlusSupportMode.fromStored(data.getData(BeaconPlusManager.SUPPORT_MODE_KEY));
                 PotionEffectType effectType = mode.getEffectType();
                 if (effectType == null) {
                     return;
