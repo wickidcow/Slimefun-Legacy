@@ -10,6 +10,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunIte
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Map;
+import java.util.Optional;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -33,8 +34,10 @@ public final class BeaconPlus extends SimpleSlimefunItem<ItemUseHandler> impleme
 
     private static final String PLUGIN_NAME = "BeaconPlus3";
     private static final String API_CLASS = "thito.beaconplus.BeaconAPI";
+    private static final String SECTION_CLASS = "thito.beaconplus.config.Section";
     private static final String API_GETTER = "getAPI";
     private static final String CREATE_EMPTY_ITEM = "createBeaconEmptyItem";
+    private static final String CRAFT_PERMISSION_PATH = "Permissions.Craft";
 
     @ParametersAreNonnullByDefault
     public BeaconPlus(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
@@ -53,7 +56,13 @@ public final class BeaconPlus extends SimpleSlimefunItem<ItemUseHandler> impleme
                 return;
             }
 
-            ItemStack genuineBeacon = createBeaconPlusItem(beaconPlusPlugin, player);
+            CommissionResult result = commissionBeacon(beaconPlusPlugin, player);
+            if (result.permissionDenied()) {
+                player.sendMessage(ChatColor.RED + "You do not have permission to craft Beacon Plus.");
+                return;
+            }
+
+            ItemStack genuineBeacon = result.item();
             if (genuineBeacon == null || genuineBeacon.getType().isAir()) {
                 player.sendMessage(ChatColor.RED
                         + "BeaconPlus3 could not create a beacon item. The Curio was not consumed.");
@@ -79,26 +88,47 @@ public final class BeaconPlus extends SimpleSlimefunItem<ItemUseHandler> impleme
         };
     }
 
-    private static ItemStack createBeaconPlusItem(Plugin plugin, Player player) {
+    private static CommissionResult commissionBeacon(Plugin plugin, Player player) {
         try {
             ClassLoader classLoader = plugin.getClass().getClassLoader();
             Class<?> apiClass = Class.forName(API_CLASS, true, classLoader);
-            Method getApi = apiClass.getMethod(API_GETTER);
-            Object api = getApi.invoke(null);
+            Object api = apiClass.getMethod(API_GETTER).invoke(null);
+
+            String craftPermission = readCraftPermission(classLoader, apiClass, api);
+            if (craftPermission != null && !craftPermission.isBlank() && !player.hasPermission(craftPermission)) {
+                return new CommissionResult(null, true);
+            }
+
             Method createBeacon = apiClass.getMethod(CREATE_EMPTY_ITEM, Player.class);
-            Object result = createBeacon.invoke(api, player);
-            return result instanceof ItemStack item ? item.clone() : null;
+            Object created = createBeacon.invoke(api, player);
+            ItemStack item = created instanceof ItemStack stack ? stack.clone() : null;
+            return new CommissionResult(item, false);
         } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException e) {
             Slimefun.logger().log(Level.WARNING, "BeaconPlus3 API bridge is unavailable; no Curio was consumed.", e);
-            return null;
+            return CommissionResult.failed();
         } catch (InvocationTargetException e) {
             Throwable cause = e.getCause() == null ? e : e.getCause();
             Slimefun.logger().log(Level.WARNING, "BeaconPlus3 failed to create its beacon item; no Curio was consumed.", cause);
-            return null;
+            return CommissionResult.failed();
         } catch (LinkageError e) {
             Slimefun.logger().log(Level.WARNING, "BeaconPlus3 API linkage failed; no Curio was consumed.", e);
-            return null;
+            return CommissionResult.failed();
         }
+    }
+
+    private static String readCraftPermission(ClassLoader classLoader, Class<?> apiClass, Object api)
+            throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        Object beaconConfig = apiClass.getMethod("getBeaconConfig").invoke(api);
+        Class<?> sectionClass = Class.forName(SECTION_CLASS, true, classLoader);
+        Object configured = sectionClass.getMethod("getString", String.class).invoke(beaconConfig, CRAFT_PERMISSION_PATH);
+
+        if (configured instanceof Optional<?> optional) {
+            Object value = optional.orElse(null);
+            if (value instanceof String permission) {
+                return permission;
+            }
+        }
+        return null;
     }
 
     private static void replaceUsedHand(Player player, EquipmentSlot hand, ItemStack replacement) {
@@ -106,6 +136,12 @@ public final class BeaconPlus extends SimpleSlimefunItem<ItemUseHandler> impleme
             player.getInventory().setItemInOffHand(replacement);
         } else {
             player.getInventory().setItemInMainHand(replacement);
+        }
+    }
+
+    private record CommissionResult(ItemStack item, boolean permissionDenied) {
+        private static CommissionResult failed() {
+            return new CommissionResult(null, false);
         }
     }
 }
