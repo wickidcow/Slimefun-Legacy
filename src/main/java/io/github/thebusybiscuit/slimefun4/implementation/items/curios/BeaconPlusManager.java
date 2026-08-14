@@ -148,9 +148,17 @@ public final class BeaconPlusManager {
             return false;
         }
 
-        releaseCoverage(previous);
+        boolean chunkModeChanged = previous.chunkMode() != replacement.chunkMode();
+        if (chunkModeChanged) {
+            releaseCoverage(previous);
+        }
+
         records.put(key, replacement);
-        acquireCoverage(replacement);
+
+        if (chunkModeChanged) {
+            acquireCoverage(replacement);
+        }
+
         persistBlockData(location, replacement);
         saveRegistry();
         return true;
@@ -195,15 +203,22 @@ public final class BeaconPlusManager {
 
     private void restoreTickets() {
         boolean changed = false;
+        int restoredActiveBeacons = 0;
+
         for (Map.Entry<LocationKey, BeaconRecord> entry : new HashMap<>(records).entrySet()) {
             BeaconRecord record = entry.getValue();
             if (record.chunkMode() == BeaconPlusChunkMode.OFF) {
                 continue;
             }
 
-            BeaconRecord inactive = new BeaconRecord(
-                    record.location(), record.owner(), BeaconPlusChunkMode.OFF, record.supportMode());
-            if (!canActivate(inactive, record)) {
+            Set<ChunkKey> recordCoverage = coverage(record);
+            long newChunks = recordCoverage.stream().filter(key -> !ticketReferences.containsKey(key)).count();
+            boolean exceedsBeaconCap = restoredActiveBeacons >= MAX_ACTIVE_BEACONS;
+            boolean exceedsChunkCap = ticketReferences.size() + newChunks > MAX_UNIQUE_CHUNKS;
+
+            if (exceedsBeaconCap || exceedsChunkCap) {
+                BeaconRecord inactive = new BeaconRecord(
+                        record.location(), record.owner(), BeaconPlusChunkMode.OFF, record.supportMode());
                 plugin.getLogger()
                         .warning("Beacon Plus at " + record.location().describe()
                                 + " was restored with chunk loading disabled because the global safety cap was reached.");
@@ -213,6 +228,7 @@ public final class BeaconPlusManager {
             }
 
             acquireCoverage(record);
+            restoredActiveBeacons++;
         }
 
         if (changed) {
@@ -314,7 +330,8 @@ public final class BeaconPlusManager {
                     try {
                         world.removePluginChunkTicket(key.x(), key.z(), plugin);
                     } catch (RuntimeException exception) {
-                        plugin.getLogger().log(Level.WARNING, "Could not release Beacon Plus chunk " + key.describe(), exception);
+                        plugin.getLogger()
+                                .log(Level.WARNING, "Could not release Beacon Plus chunk " + key.describe(), exception);
                     }
                 }
             } else {
@@ -407,7 +424,8 @@ public final class BeaconPlusManager {
                 try {
                     world.removePluginChunkTicket(key.x(), key.z(), plugin);
                 } catch (RuntimeException exception) {
-                    plugin.getLogger().log(Level.FINE, "Could not release Beacon Plus chunk during shutdown.", exception);
+                    plugin.getLogger()
+                            .log(Level.FINE, "Could not release Beacon Plus chunk during shutdown.", exception);
                 }
             }
         }
@@ -420,7 +438,11 @@ public final class BeaconPlusManager {
 
     private record LocationKey(UUID worldId, int x, int y, int z) {
         private static LocationKey from(Location location) {
-            return new LocationKey(location.getWorld().getUID(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
+            return new LocationKey(
+                    location.getWorld().getUID(),
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ());
         }
 
         private static LocationKey parse(String value) {
