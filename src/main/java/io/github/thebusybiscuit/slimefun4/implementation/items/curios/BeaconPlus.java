@@ -1,226 +1,155 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
 
-import com.xzavier0722.mc.plugin.slimefun4.storage.controller.ASlimefunDataContainer;
-import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
-import io.github.thebusybiscuit.slimefun4.core.handlers.BlockPlaceHandler;
-import io.github.thebusybiscuit.slimefun4.core.handlers.BlockUseHandler;
+import io.github.thebusybiscuit.slimefun4.core.attributes.NotPlaceable;
+import io.github.thebusybiscuit.slimefun4.core.handlers.ItemUseHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import io.github.thebusybiscuit.slimefun4.implementation.handlers.SimpleBlockBreakHandler;
+import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Optional;
+import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Location;
 import org.bukkit.Sound;
-import org.bukkit.block.Block;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
-import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
+import org.bukkit.plugin.Plugin;
 
 /**
- * A configurable expedition beacon with bounded chunk loading and selectable player support.
+ * A Slimefun-side commissioning item for the standalone BeaconPlus3 plugin.
  *
- * <p>Beacon Plus intentionally does not tick Networks or machines itself. Chunk tickets keep the selected chunks
- * resident and the normal Slimefun/addon runtimes remain responsible for all machine and network behavior.
+ * <p>Slimefun owns only the recipe and guide entry. On deliberate use this item asks the installed BeaconPlus3
+ * plugin to create its own authentic empty beacon item through {@code BeaconAPI#createBeaconEmptyItem(Player)}.
+ * BeaconPlus3 remains the sole owner of beacon placement, effects, upgrades, storage, access lists and runtime
+ * behavior.
  */
-public final class BeaconPlus extends SlimefunItem {
+public final class BeaconPlus extends SimpleSlimefunItem<ItemUseHandler> implements NotPlaceable {
 
-    private static final int SUPPORT_RADIUS = 24;
-    private static final long SUPPORT_REFRESH_MILLIS = 2_000L;
-    private static final int SUPPORT_DURATION_TICKS = 70;
-    private static final int NIGHT_VISION_DURATION_TICKS = 240;
-
-    private final Map<String, Long> lastSupportPulse = new ConcurrentHashMap<>();
+    private static final String PLUGIN_NAME = "BeaconPlus3";
+    private static final String API_CLASS = "thito.beaconplus.BeaconAPI";
+    private static final String SECTION_CLASS = "thito.beaconplus.config.Section";
+    private static final String API_GETTER = "getAPI";
+    private static final String CREATE_EMPTY_ITEM = "createBeaconEmptyItem";
+    private static final String CRAFT_PERMISSION_PATH = "Permissions.Craft";
 
     @ParametersAreNonnullByDefault
     public BeaconPlus(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
         super(itemGroup, item, recipeType, recipe);
-        addItemHandler(onPlace(), onUse(), onBreak(), createTicker());
     }
 
     @Override
-    public void postRegister() {
-        if (isDisabled()) {
-            return;
-        }
-
-        BeaconPlusLifecycleListener.register(Slimefun.instance());
-        Slimefun.getSchedulerService().runLater(() -> {
-            if (BeaconPlusManager.getInstance() == null) {
-                BeaconPlusManager.start(Slimefun.instance());
-            }
-        }, 1L);
-    }
-
-    private @Nonnull BlockPlaceHandler onPlace() {
-        return new BlockPlaceHandler(false) {
-            @Override
-            public void onPlayerPlace(@Nonnull BlockPlaceEvent event) {
-                Location location = event.getBlockPlaced().getLocation();
-                UUID owner = event.getPlayer().getUniqueId();
-
-                StorageCacheUtils.setData(location, BeaconPlusManager.OWNER_KEY, owner.toString());
-                StorageCacheUtils.setData(location, BeaconPlusManager.CHUNK_MODE_KEY, BeaconPlusChunkMode.OFF.name());
-                StorageCacheUtils.setData(location, BeaconPlusManager.SUPPORT_MODE_KEY, BeaconPlusSupportMode.OFF.name());
-
-                BeaconPlusManager manager = BeaconPlusManager.getInstance();
-                if (manager != null) {
-                    manager.register(location, owner);
-                }
-
-                event.getPlayer().sendMessage(ChatColor.GOLD + "Beacon Plus placed. " + ChatColor.GRAY
-                        + "Right click to choose support; sneak-right click to choose chunk loading.");
-            }
-        };
-    }
-
-    private @Nonnull BlockUseHandler onUse() {
+    public @Nonnull ItemUseHandler getItemHandler() {
         return event -> {
             event.cancel();
+
             Player player = event.getPlayer();
-            Block block = event.getClickedBlock().orElse(null);
-            if (block == null) {
+            Plugin beaconPlusPlugin = Bukkit.getPluginManager().getPlugin(PLUGIN_NAME);
+            if (beaconPlusPlugin == null || !beaconPlusPlugin.isEnabled()) {
+                player.sendMessage(ChatColor.RED + "BeaconPlus3 is not installed or enabled. The Curio was not consumed.");
                 return;
             }
 
-            BeaconPlusManager manager = BeaconPlusManager.getInstance();
-            if (manager == null) {
-                player.sendMessage(ChatColor.RED + "Beacon Plus is not ready yet.");
+            CommissionResult result = commissionBeacon(beaconPlusPlugin, player);
+            if (result.permissionDenied()) {
                 return;
             }
 
-            UUID owner = manager.getOwner(block.getLocation());
-            if (owner != null && !owner.equals(player.getUniqueId()) && !player.isOp()) {
-                player.sendMessage(ChatColor.RED + "Only this Beacon Plus owner can change its modes.");
-                return;
-            }
-
-            BeaconPlusChunkMode chunkMode = manager.getChunkMode(block.getLocation());
-            BeaconPlusSupportMode supportMode = manager.getSupportMode(block.getLocation());
-
-            boolean updated;
-            if (player.isSneaking()) {
-                BeaconPlusChunkMode next = chunkMode.next();
-                updated = manager.updateModes(block.getLocation(), ownerOrPlayer(owner, player), next, supportMode);
-                if (updated) {
-                    chunkMode = next;
-                    player.sendMessage(ChatColor.AQUA + "Beacon Plus chunk loading: " + ChatColor.WHITE
-                            + chunkMode.getDisplayName());
-                }
-            } else {
-                BeaconPlusSupportMode next = supportMode.next();
-                updated = manager.updateModes(block.getLocation(), ownerOrPlayer(owner, player), chunkMode, next);
-                if (updated) {
-                    supportMode = next;
-                    player.sendMessage(ChatColor.GREEN + "Beacon Plus support: " + ChatColor.WHITE
-                            + supportMode.getDisplayName());
-                }
-            }
-
-            if (!updated) {
+            ItemStack genuineBeacon = result.item();
+            if (genuineBeacon == null || genuineBeacon.getType().isAir()) {
                 player.sendMessage(ChatColor.RED
-                        + "Beacon Plus could not enable that chunk profile because the server safety cap was reached.");
+                        + "BeaconPlus3 could not create a beacon item. The Curio was not consumed.");
                 return;
             }
 
-            player.playSound(block.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 0.7F, 1.25F);
-            sendStatus(player, manager, chunkMode, supportMode);
-        };
-    }
-
-    private @Nonnull SimpleBlockBreakHandler onBreak() {
-        return new SimpleBlockBreakHandler() {
-            @Override
-            public void onBlockBreak(@Nonnull Block block) {
-                lastSupportPulse.remove(locationKey(block.getLocation()));
-                BeaconPlusManager manager = BeaconPlusManager.getInstance();
-                if (manager != null) {
-                    manager.unregister(block.getLocation());
-                }
-            }
-        };
-    }
-
-    private @Nonnull BlockTicker createTicker() {
-        return new BlockTicker() {
-            @Override
-            public boolean isSynchronized() {
-                return true;
-            }
-
-            @Override
-            public void tick(Block block, SlimefunItem item, ASlimefunDataContainer data) {
-                BeaconPlusSupportMode mode =
-                        BeaconPlusSupportMode.fromStored(data.getData(BeaconPlusManager.SUPPORT_MODE_KEY));
-                PotionEffectType effectType = mode.getEffectType();
-                if (effectType == null) {
+            ItemStack token = event.getItem();
+            if (token.getAmount() <= 1) {
+                replaceUsedHand(player, event.getHand(), genuineBeacon);
+            } else {
+                Map<Integer, ItemStack> leftovers = player.getInventory().addItem(genuineBeacon);
+                if (!leftovers.isEmpty()) {
+                    player.sendMessage(ChatColor.RED
+                            + "Make one free inventory slot before commissioning Beacon Plus. The Curio was not consumed.");
                     return;
                 }
-
-                long now = System.currentTimeMillis();
-                String key = locationKey(block.getLocation());
-                Long previous = lastSupportPulse.putIfAbsent(key, now);
-                if (previous != null && now - previous < SUPPORT_REFRESH_MILLIS) {
-                    return;
-                }
-                lastSupportPulse.put(key, now);
-
-                applySupport(block, mode, effectType);
+                token.setAmount(token.getAmount() - 1);
             }
+
+            player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.8F, 1.2F);
+            player.sendMessage(ChatColor.GOLD + "Beacon Plus commissioned. " + ChatColor.GRAY
+                    + "BeaconPlus3 now owns this beacon and all of its configured behavior.");
         };
     }
 
-    private void applySupport(Block block, BeaconPlusSupportMode mode, PotionEffectType effectType) {
-        Location center = block.getLocation().add(0.5, 0.5, 0.5);
-        int duration = mode == BeaconPlusSupportMode.NIGHT_VISION
-                ? NIGHT_VISION_DURATION_TICKS
-                : SUPPORT_DURATION_TICKS;
-        PotionEffect effect = new PotionEffect(effectType, duration, 0, true, false, true);
+    private static CommissionResult commissionBeacon(Plugin plugin, Player player) {
+        try {
+            ClassLoader classLoader = plugin.getClass().getClassLoader();
+            Class<?> apiClass = Class.forName(API_CLASS, true, classLoader);
+            Object api = apiClass.getMethod(API_GETTER).invoke(null);
 
-        if (Slimefun.getSchedulerService().isFolia()) {
-            // Keep Folia entity access inside the beacon's owning chunk/region.
-            for (Entity entity : block.getChunk().getEntities()) {
-                if (entity instanceof Player player
-                        && player.getLocation().distanceSquared(center) <= SUPPORT_RADIUS * SUPPORT_RADIUS) {
-                    player.addPotionEffect(effect);
+            String craftPermission = readCraftPermission(classLoader, apiClass, api);
+            if (craftPermission != null && !craftPermission.isBlank()) {
+                Method permissionCheck =
+                        apiClass.getMethod("hasNoPermission", Player.class, String.class, boolean.class);
+                Object denied = permissionCheck.invoke(api, player, craftPermission, true);
+                if (Boolean.TRUE.equals(denied)) {
+                    return new CommissionResult(null, true);
                 }
             }
-            return;
-        }
 
-        for (Entity entity : block.getWorld().getNearbyEntities(center, SUPPORT_RADIUS, SUPPORT_RADIUS, SUPPORT_RADIUS)) {
-            if (entity instanceof Player player) {
-                player.addPotionEffect(effect);
-            }
+            Method createBeacon = apiClass.getMethod(CREATE_EMPTY_ITEM, Player.class);
+            Object created = createBeacon.invoke(api, player);
+            ItemStack item = created instanceof ItemStack stack ? stack.clone() : null;
+            return new CommissionResult(item, false);
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException e) {
+            Slimefun.logger().log(Level.WARNING, "BeaconPlus3 API bridge is unavailable; no Curio was consumed.", e);
+            return CommissionResult.failed();
+        } catch (InvocationTargetException e) {
+            Throwable cause = e.getCause() == null ? e : e.getCause();
+            Slimefun.logger().log(Level.WARNING, "BeaconPlus3 failed to create its beacon item; no Curio was consumed.", cause);
+            return CommissionResult.failed();
+        } catch (LinkageError e) {
+            Slimefun.logger().log(Level.WARNING, "BeaconPlus3 API linkage failed; no Curio was consumed.", e);
+            return CommissionResult.failed();
         }
     }
 
-    private static UUID ownerOrPlayer(UUID owner, Player player) {
-        return owner == null ? player.getUniqueId() : owner;
+    private static String readCraftPermission(ClassLoader classLoader, Class<?> apiClass, Object api)
+            throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        Object beaconConfig = apiClass.getMethod("getBeaconConfig").invoke(api);
+        if (beaconConfig == null) {
+            return null;
+        }
+
+        Class<?> sectionClass = Class.forName(SECTION_CLASS, true, classLoader);
+        Object configured = sectionClass.getMethod("getString", String.class).invoke(beaconConfig, CRAFT_PERMISSION_PATH);
+
+        if (configured instanceof Optional<?> optional) {
+            Object value = optional.orElse(null);
+            if (value instanceof String permission) {
+                return permission;
+            }
+        }
+        return null;
     }
 
-    private static void sendStatus(
-            Player player,
-            BeaconPlusManager manager,
-            BeaconPlusChunkMode chunkMode,
-            BeaconPlusSupportMode supportMode) {
-        player.sendMessage(ChatColor.GRAY + "Status: " + ChatColor.AQUA + chunkMode.getDisplayName() + ChatColor.DARK_GRAY
-                + " | " + ChatColor.GREEN + supportMode.getDisplayName() + ChatColor.DARK_GRAY + " | " + ChatColor.GRAY
-                + manager.getLoadedChunkCount() + " Curios-loaded chunks server-wide");
+    private static void replaceUsedHand(Player player, EquipmentSlot hand, ItemStack replacement) {
+        if (hand == EquipmentSlot.OFF_HAND) {
+            player.getInventory().setItemInOffHand(replacement);
+        } else {
+            player.getInventory().setItemInMainHand(replacement);
+        }
     }
 
-    private static String locationKey(Location location) {
-        return location.getWorld().getUID() + ":" + location.getBlockX() + ":" + location.getBlockY() + ":"
-                + location.getBlockZ();
+    private record CommissionResult(ItemStack item, boolean permissionDenied) {
+        private static CommissionResult failed() {
+            return new CommissionResult(null, false);
+        }
     }
 }
