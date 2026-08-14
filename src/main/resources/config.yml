@@ -14,9 +14,9 @@ options:
   legacy-ore-washer: false
   legacy-dust-washer: false
   legacy-ore-grinder: true
-  # Keep Slimefun Legacy's non-original content disabled unless the server owner opts in.
-  # Enables Adventurer's Curios and is the master switch for future Legacy-only additions.
-  enable-non-original-slimefun-additions: false
+  # Enable Slimefun Legacy's non-original content by default.
+  # Set this to false to disable Adventurer's Curios and future Legacy-only additions.
+  enable-non-original-slimefun-additions: true
   # Force all players to use the server's English language.
   language: en
   enable-translations: false
