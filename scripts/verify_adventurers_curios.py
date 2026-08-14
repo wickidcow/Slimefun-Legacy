@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the built-in Adventurer's Curios category and first field gadgets."""
+"""Verify the built-in Adventurer's Curios category and field gadgets."""
 
 from __future__ import annotations
 
@@ -23,30 +23,49 @@ def main() -> int:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     failures: list[str] = []
 
-    required_files = (
-        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/setup/AdventurersCuriosSetup.java",
-        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/WayfindersCompass.java",
-        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/EchoLantern.java",
-        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/ExplorersSpyglass.java",
-        "docs/ADVENTURERS_CURIOS.md",
-    )
+    files = {
+        "setup": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/setup/AdventurersCuriosSetup.java",
+        "wayfinder": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/WayfindersCompass.java",
+        "lantern": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/EchoLantern.java",
+        "spyglass": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/ExplorersSpyglass.java",
+        "canary": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/MinersCanary.java",
+        "chalk": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/DungeonChalk.java",
+        "storm": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/StormGlass.java",
+        "journal": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/ExpeditionJournal.java",
+        "beacon": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlus.java",
+        "beacon_manager": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusManager.java",
+        "beacon_chunk_mode": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusChunkMode.java",
+        "beacon_support_mode": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusSupportMode.java",
+        "beacon_lifecycle": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusLifecycleListener.java",
+        "docs": "docs/ADVENTURERS_CURIOS.md",
+    }
 
-    for relative in required_files:
+    for relative in files.values():
         require((root / relative).is_file(), f"Missing Adventurer's Curios file: {relative}", failures)
 
     try:
-        setup = read(root, required_files[0])
+        setup = read(root, files["setup"])
         for token in (
             '"adventurers_curios"',
             '"ADVENTURERS_WAYFINDERS_COMPASS"',
             '"ADVENTURERS_ECHO_LANTERN"',
             '"ADVENTURERS_EXPLORERS_SPYGLASS"',
-            "RecipeType.ENHANCED_CRAFTING_TABLE",
+            '"ADVENTURERS_MINERS_CANARY"',
+            '"ADVENTURERS_DUNGEON_CHALK"',
+            '"ADVENTURERS_STORM_GLASS"',
+            '"ADVENTURERS_EXPEDITION_JOURNAL"',
+            '"BEACON_PLUS"',
             "new WayfindersCompass(",
             "new EchoLantern(",
             "new ExplorersSpyglass(",
+            "new MinersCanary(",
+            "new DungeonChalk(",
+            "new StormGlass(",
+            "new ExpeditionJournal(",
+            "new BeaconPlus(",
         ):
             require(token in setup, f"Curios setup invariant is missing: {token}", failures)
+        require(setup.count("RecipeType.ENHANCED_CRAFTING_TABLE") >= 8, "All eight Curios need real recipes", failures)
 
         post_setup = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/setup/PostSetup.java")
         registration = post_setup.find("AdventurersCuriosSetup.setup(Slimefun.instance());")
@@ -56,33 +75,83 @@ def main() -> int:
         if registration >= 0 and finalization >= 0:
             require(registration < finalization, "Curios must register before the item registry is finalized", failures)
 
-        wayfinder = read(root, required_files[1])
-        for token in (
-            "getLastDeathLocation()",
-            "setLodestone(target)",
-            "setLodestoneTracked(false)",
-            "getSpawnLocation()",
-        ):
+        wayfinder = read(root, files["wayfinder"])
+        for token in ("getLastDeathLocation()", "setLodestone(target)", "setLodestoneTracked(false)", "getSpawnLocation()"):
             require(token in wayfinder, f"Wayfinder invariant is missing: {token}", failures)
 
-        lantern = read(root, required_files[2])
-        for token in (
-            "getNearbyEntities",
-            "instanceof Monster",
-            "PotionEffectType.GLOWING",
-            "COOLDOWN_TICKS = 30 * 20",
-        ):
+        lantern = read(root, files["lantern"])
+        for token in ("getNearbyEntities", "instanceof Monster", "PotionEffectType.GLOWING", "COOLDOWN_TICKS = 30 * 20"):
             require(token in lantern, f"Echo Lantern invariant is missing: {token}", failures)
 
-        spyglass = read(root, required_files[3])
-        for token in (
-            "getBiome().getKey().getKey()",
-            "getDirection(location.getYaw())",
-            "location.getBlockX()",
-            "location.getBlockY()",
-            "location.getBlockZ()",
-        ):
+        spyglass = read(root, files["spyglass"])
+        for token in ("getBiome().getKey().getKey()", "getDirection(location.getYaw())", "location.getBlockX()"):
             require(token in spyglass, f"Explorer's Spyglass invariant is missing: {token}", failures)
+
+        canary = read(root, files["canary"])
+        for token in ("RANGE = 7", "COOLDOWN_TICKS = 5 * 20", "world.isChunkLoaded", "Material.LAVA"):
+            require(token in canary, f"Miner's Canary invariant is missing: {token}", failures)
+        require("loadChunk" not in canary and "getChunkAt(" not in canary, "Miner's Canary must not load chunks to scan", failures)
+
+        chalk = read(root, files["chalk"])
+        for token in ("PersistentDataType.STRING", '"dungeon_chalk_marker"', "getClickedBlock()", "player.isSneaking()"):
+            require(token in chalk, f"Dungeon Chalk invariant is missing: {token}", failures)
+        for forbidden in ("setType(", "breakNaturally(", "runLater("):
+            require(forbidden not in chalk, f"Dungeon Chalk must remain non-destructive: {forbidden}", failures)
+
+        storm = read(root, files["storm"])
+        for token in ("isThundering()", "hasStorm()", "getFullTime()", "getWeatherDuration()"):
+            require(token in storm, f"Storm Glass invariant is missing: {token}", failures)
+        require("setStorm(" not in storm and "setTime(" not in storm, "Storm Glass must remain read-only", failures)
+
+        journal = read(root, files["journal"])
+        for token in ("MAX_RECORDED_BIOMES = 128", '"expedition_journal_biomes"', "PersistentDataType.STRING", "getBiome().getKey().getKey()"):
+            require(token in journal, f"Expedition Journal invariant is missing: {token}", failures)
+
+        chunk_mode = read(root, files["beacon_chunk_mode"])
+        for token in ('OFF("Off", 0)', 'SINGLE("This Chunk", 0)', 'AREA_3X3("3x3 Area", 1)', '"KEEP_CHUNK_LOADED"', '"CHUNK_ACTIVATOR"'):
+            require(token in chunk_mode, f"Beacon Plus chunk-mode invariant is missing: {token}", failures)
+
+        support_mode = read(root, files["beacon_support_mode"])
+        for token in ("SPEED", "HASTE", "RESISTANCE", "REGENERATION", "NIGHT_VISION"):
+            require(token in support_mode, f"Beacon Plus support-mode invariant is missing: {token}", failures)
+
+        beacon = read(root, files["beacon"])
+        for token in (
+            "BlockPlaceHandler(false)",
+            "BlockUseHandler",
+            "SimpleBlockBreakHandler",
+            "createTicker()",
+            "BeaconPlusManager.updateModes",
+            "BeaconPlusManager.start",
+            "BeaconPlusLifecycleListener.register",
+            "SUPPORT_REFRESH_MILLIS = 2_000L",
+        ):
+            require(token in beacon, f"Beacon Plus invariant is missing: {token}", failures)
+        for forbidden in ("NetworkManager", "CargoNet", "tickBlock(", "enableTicker("):
+            require(forbidden not in beacon, f"Beacon Plus must not directly operate machine/network runtimes: {forbidden}", failures)
+
+        manager = read(root, files["beacon_manager"])
+        for token in (
+            'ITEM_ID = "BEACON_PLUS"',
+            "MAX_ACTIVE_BEACONS = 64",
+            "MAX_UNIQUE_CHUNKS = 256",
+            "addPluginChunkTicket",
+            "removePluginChunkTicket",
+            "ticketReferences",
+            'resolve("adventurers-curios-beacons.properties")',
+            "scheduleValidation()",
+        ):
+            require(token in manager, f"Beacon Plus manager invariant is missing: {token}", failures)
+        for forbidden in ("setChunkForceLoaded", "setForceLoaded", "NetworkManager", "CargoNet", "TickerTask"):
+            require(forbidden not in manager, f"Beacon Plus manager crossed a runtime boundary: {forbidden}", failures)
+
+        lifecycle = read(root, files["beacon_lifecycle"])
+        require("PluginDisableEvent" in lifecycle, "Beacon Plus must release tickets on plugin disable", failures)
+        require("BeaconPlusManager.shutdownCurrent()" in lifecycle, "Beacon Plus shutdown cleanup is missing", failures)
+
+        docs = read(root, files["docs"])
+        for token in ("BEACON_PLUS", "KEEP_CHUNK_LOADED", "CHUNK_ACTIVATOR", "256 unique chunks", "64 active"):
+            require(token in docs, f"Curios documentation is missing: {token}", failures)
     except FileNotFoundError as error:
         failures.append(f"Unable to inspect missing Adventurer's Curios file: {error}")
 
@@ -101,12 +170,13 @@ def main() -> int:
 
     report.write_text(
         "Adventurer's Curios verification: PASS\n"
-        "- built-in guide category is present\n"
-        "- three initial curios are registered before registry finalization\n"
-        "- Wayfinder's Compass retains its death/spawn navigation behavior\n"
-        "- Echo Lantern retains its bounded hostile reveal pulse and cooldown\n"
-        "- Explorer's Spyglass retains its coordinate, biome and heading survey\n"
-        "- no database, storage schema, machine, Cargo or Energy behavior is changed\n",
+        "- eight built-in Curios are registered before registry finalization\n"
+        "- original navigation and detection Curios retain their bounded behavior\n"
+        "- Miner's Canary, Dungeon Chalk, Storm Glass and Expedition Journal remain player-triggered and bounded\n"
+        "- Beacon Plus uses bounded, reference-counted plugin chunk tickets with persistent restart recovery\n"
+        "- Beacon Plus keeps machine/network execution in their normal runtimes rather than emulating ticks\n"
+        "- BEACON_PLUS is the native item ID and historical chunk-mode names remain migration aliases\n"
+        "- no existing database schema, Cargo, Energy or machine transaction semantics are changed\n",
         encoding="utf-8",
     )
     print(report.read_text(encoding="utf-8"), end="")
