@@ -4,8 +4,13 @@ import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlus;
+import io.github.thebusybiscuit.slimefun4.implementation.items.curios.DungeonChalk;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.EchoLantern;
+import io.github.thebusybiscuit.slimefun4.implementation.items.curios.ExpeditionJournal;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.ExplorersSpyglass;
+import io.github.thebusybiscuit.slimefun4.implementation.items.curios.MinersCanary;
+import io.github.thebusybiscuit.slimefun4.implementation.items.curios.StormGlass;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.WayfindersCompass;
 import java.util.List;
 import org.bukkit.ChatColor;
@@ -60,6 +65,56 @@ final class AdventurersCuriosSetup {
                 "",
                 "&eRight Click &7to survey");
 
+        SlimefunItemStack minersCanary = new SlimefunItemStack(
+                "ADVENTURERS_MINERS_CANARY",
+                Material.YELLOW_DYE,
+                "&eMiner's Canary",
+                "&7A reusable warning charm for miners.",
+                "&7It squawks when exposed lava is nearby.",
+                "",
+                "&eRight Click &7to listen");
+
+        SlimefunItemStack dungeonChalk = new SlimefunItemStack(
+                "ADVENTURERS_DUNGEON_CHALK",
+                Material.WHITE_DYE,
+                "&fDungeon Chalk",
+                "&7Keep one personal breadcrumb without",
+                "&7placing or changing blocks in the world.",
+                "",
+                "&eRight Click a block &7to mark it",
+                "&eRight Click air &7to recall it",
+                "&eSneak & Right Click &7to clear it");
+
+        SlimefunItemStack stormGlass = new SlimefunItemStack(
+                "ADVENTURERS_STORM_GLASS",
+                Material.GLASS_BOTTLE,
+                "&bStorm Glass",
+                "&7Reads the sky without changing it.",
+                "&7Shows weather, day phase and moon phase.",
+                "",
+                "&eRight Click &7to read");
+
+        SlimefunItemStack expeditionJournal = new SlimefunItemStack(
+                "ADVENTURERS_EXPEDITION_JOURNAL",
+                Material.WRITABLE_BOOK,
+                "&6Expedition Journal",
+                "&7Records biomes as you deliberately",
+                "&7make field entries during your travels.",
+                "",
+                "&eRight Click &7to record the current biome",
+                "&eSneak & Right Click &7for recent discoveries");
+
+        SlimefunItemStack beaconPlus = new SlimefunItemStack(
+                "BEACON_PLUS",
+                Material.BEACON,
+                "&6&lBeacon Plus",
+                "&7An expedition support beacon with",
+                "&7bounded, owner-controlled chunk loading.",
+                "",
+                "&eRight Click &7to choose player support",
+                "&eSneak & Right Click &7to choose chunk loading",
+                "&8Modes: Off / This Chunk / 3x3 Area");
+
         new WayfindersCompass(
                         curios,
                         wayfindersCompass,
@@ -110,6 +165,91 @@ final class AdventurersCuriosSetup {
                             null
                         })
                 .register(plugin);
+
+        new MinersCanary(
+                        curios,
+                        minersCanary,
+                        RecipeType.ENHANCED_CRAFTING_TABLE,
+                        new ItemStack[] {
+                            new ItemStack(Material.FEATHER),
+                            new ItemStack(Material.GOLD_NUGGET),
+                            new ItemStack(Material.FEATHER),
+                            new ItemStack(Material.STRING),
+                            new ItemStack(Material.YELLOW_DYE),
+                            new ItemStack(Material.STRING),
+                            null,
+                            new ItemStack(Material.REDSTONE),
+                            null
+                        })
+                .register(plugin);
+
+        new DungeonChalk(
+                        curios,
+                        dungeonChalk,
+                        RecipeType.ENHANCED_CRAFTING_TABLE,
+                        new ItemStack[] {
+                            new ItemStack(Material.CALCITE),
+                            new ItemStack(Material.GLOW_INK_SAC),
+                            new ItemStack(Material.CALCITE),
+                            null,
+                            new ItemStack(Material.WHITE_DYE),
+                            null,
+                            null,
+                            new ItemStack(Material.PAPER),
+                            null
+                        })
+                .register(plugin);
+
+        new StormGlass(
+                        curios,
+                        stormGlass,
+                        RecipeType.ENHANCED_CRAFTING_TABLE,
+                        new ItemStack[] {
+                            new ItemStack(Material.COPPER_INGOT),
+                            new ItemStack(Material.AMETHYST_SHARD),
+                            new ItemStack(Material.COPPER_INGOT),
+                            null,
+                            new ItemStack(Material.GLASS_BOTTLE),
+                            null,
+                            null,
+                            new ItemStack(Material.REDSTONE),
+                            null
+                        })
+                .register(plugin);
+
+        new ExpeditionJournal(
+                        curios,
+                        expeditionJournal,
+                        RecipeType.ENHANCED_CRAFTING_TABLE,
+                        new ItemStack[] {
+                            new ItemStack(Material.PAPER),
+                            new ItemStack(Material.COMPASS),
+                            new ItemStack(Material.PAPER),
+                            new ItemStack(Material.MAP),
+                            new ItemStack(Material.WRITABLE_BOOK),
+                            new ItemStack(Material.SPYGLASS),
+                            null,
+                            new ItemStack(Material.AMETHYST_SHARD),
+                            null
+                        })
+                .register(plugin);
+
+        new BeaconPlus(
+                        curios,
+                        beaconPlus,
+                        RecipeType.ENHANCED_CRAFTING_TABLE,
+                        new ItemStack[] {
+                            new ItemStack(Material.ECHO_SHARD),
+                            new ItemStack(Material.NETHERITE_INGOT),
+                            new ItemStack(Material.ECHO_SHARD),
+                            new ItemStack(Material.REDSTONE_BLOCK),
+                            new ItemStack(Material.BEACON),
+                            new ItemStack(Material.REDSTONE_BLOCK),
+                            new ItemStack(Material.AMETHYST_SHARD),
+                            new ItemStack(Material.ENDER_EYE),
+                            new ItemStack(Material.AMETHYST_SHARD)
+                        })
+                .register(plugin);
     }
 
     private static ItemStack createCategoryIcon() {
@@ -117,8 +257,8 @@ final class AdventurersCuriosSetup {
         ItemMeta meta = icon.getItemMeta();
         meta.setDisplayName(ChatColor.GOLD + "Adventurer's Curios");
         meta.setLore(List.of(
-                ChatColor.GRAY + "Exploration tools, navigation",
-                ChatColor.GRAY + "and strange field gadgets"));
+                ChatColor.GRAY + "Exploration tools, navigation,",
+                ChatColor.GRAY + "field safety and expedition support"));
         icon.setItemMeta(meta);
         return icon;
     }
