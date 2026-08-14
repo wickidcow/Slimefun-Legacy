@@ -4,6 +4,8 @@ Adventurer's Curios is a built-in Slimefun Legacy guide category for exploration
 
 The category is intentionally lightweight and Paper-first. Curios should not change existing Cargo, Energy, database, storage-schema, or machine transaction semantics.
 
+The category is controlled by `options.enable-non-original-slimefun-additions`. Slimefun Legacy ships this option as `true`; setting it to `false` disables Adventurer's Curios and future Legacy-only gameplay additions on the next restart.
+
 ## Curios
 
 ### Wayfinder's Compass
@@ -49,6 +51,29 @@ A read-only field instrument reporting weather, day phase, moon phase, and remai
 ### Expedition Journal
 
 A player-carried biome log with a bounded number of persistent discoveries.
+
+### Traveler's Bedroll
+
+`ADVENTURERS_TRAVELERS_BEDROLL` is a portable personal rest tool intended for long expeditions without replacing Minecraft's real bed/spawn mechanics.
+
+- Right-click at night in the Overworld to rest.
+- Rest is refused when hostile monsters are within eight blocks.
+- Resets the player's phantom-rest timer.
+- Restores two hearts, four food points, and a small amount of saturation.
+- Has a five-minute cooldown.
+- Does **not** place a temporary bed, change world time, skip the night, teleport the player, or change the player's respawn point.
+- Runs only when deliberately used; there is no repeating bedroll task.
+
+### Emergency Parachute
+
+`ADVENTURERS_EMERGENCY_PARACHUTE` is a reusable carried safety curio.
+
+- Automatically activates when a fall would deal at least three hearts of damage, or when a smaller fall would otherwise be lethal.
+- Prevents that fall's damage and resets fall distance.
+- Can activate while carried in the player's normal inventory or off-hand; it does not need to be equipped as armor.
+- Ignores small non-lethal falls so the safety cooldown is not wasted.
+- Has a 60-second cooldown after a successful deployment.
+- Uses an event listener only; it has no repeating scheduler and performs no chunk scans.
 
 ## Beacon Plus
 
@@ -138,10 +163,7 @@ New Curios should prefer bounded local work, existing Bukkit/Paper APIs, and del
 
 Possible later additions include:
 
-- Traveler's Bedroll
 - Pocket Campfire
-- Emergency Parachute
-- Recall Stone
 - Relic Detector
 
-These are ideas rather than compatibility promises and should be added individually with runtime and performance checks.
+A Recall Stone is intentionally not planned because existing RTP/teleport tooling already fills that role. These ideas are not compatibility promises and should be added individually with runtime and performance checks.
