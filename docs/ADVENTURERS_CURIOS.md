@@ -52,13 +52,13 @@ A player-carried biome log with a bounded number of persistent discoveries.
 
 ## Beacon Plus
 
-`BEACON_PLUS` is a native Slimefun Legacy block. It does not require the discontinued BeaconPlus3 plugin and does not import, bundle, or execute BeaconPlus3 classes.
+`BEACON_PLUS` is a native Slimefun Legacy block in Adventurer's Curios. It does not require the discontinued BeaconPlus3 plugin and does not import, bundle, or execute BeaconPlus3 classes.
 
-Right-clicking a placed Beacon Plus opens a 54-slot owner-controlled menu. Server operators may also configure it. Every effect defaults to **OFF**.
+Right-clicking a placed Beacon Plus opens a 54-slot owner-controlled menu. Server operators may also configure it. The menu exposes exactly **28 independently toggleable powers**, matching the Albion keep list. Every power defaults to **OFF**.
 
-Normal field effects require the Beacon Plus block to sit on a valid vanilla beacon pyramid. Its base field range is the range reported by the vanilla/Paper beacon. **Extra Range** adds 20 blocks. **Extra Power** increases supported effect strength by one tier.
+Normal field powers require the Beacon Plus block to sit on a valid vanilla beacon pyramid. Its base field range is the range reported by the vanilla/Paper beacon. **Extra Range** adds 20 blocks. **Extra Power** increases supported effect strength by one tier.
 
-### Toggleable effects
+### Toggleable powers
 
 1. **Furnace Booster** — advances nearby active furnace cooking progress in bounded pulses.
 2. **Strength Effect** — gives Strength to players inside the field.
@@ -79,16 +79,17 @@ Normal field effects require the Beacon Plus block to sit on a valid vanilla bea
 17. **Water Breathing** — gives Water Breathing to players inside the field.
 18. **Fire Extinguisher** — extinguishes players inside the field.
 19. **Poison** — poisons hostile monsters inside the field.
-20. **Gravity Well** — gently pulls hostile mobs and loose item entities toward the beacon.
+20. **Gravity Well** — pulls supported nearby non-player entities toward the beacon.
 21. **Jump** — gives Jump Boost to players inside the field.
 22. **Exp Gain** — grants a small passive XP pulse while players remain inside the field.
 23. **Cooldown Reduction** — shortens newly applied item cooldowns while the player is in range.
 24. **Immortality Field** — gives a chance to cancel otherwise fatal damage. Normal power is 25%; Extra Power is 40%; successful saves have a 60-second per-player cooldown.
-25. **Scale** — makes players 25% larger using Slimefun's own namespaced Scale attribute modifier, removed when they leave the field.
-26. **Extra Power** — raises supported potion/booster strength by one tier and strengthens several utility effects.
-27. **Extra Range** — adds 20 blocks to the active beacon field range.
-28. **Activator** — keeps selected chunks loaded using bounded Paper plugin chunk tickets.
-29. **Auto Repair** — slowly repairs damaged tools, weapons, and armor carried by players in the field.
+25. **Extra Power** — raises supported potion/booster strength by one tier and strengthens several utility powers.
+26. **Extra Range** — adds 20 blocks to the active beacon field range.
+27. **Activator** — keeps selected chunks loaded using bounded Paper plugin chunk tickets.
+28. **Auto Repair** — slowly repairs damaged tools, weapons, and armor carried by players in the field.
+
+The brief development-only **Scale** experiment is not an available power. Its enum value remains only as a migration tombstone so an old stored `scale` value is ignored and removed rather than becoming active.
 
 ### Activator modes and safety
 
@@ -113,21 +114,21 @@ Historical public mode names `KEEP_CHUNK_LOADED` and `CHUNK_ACTIVATOR` are accep
 
 ### Performance model
 
-Beacon Plus intentionally avoids one scheduler per effect or one scheduler per beacon.
+Beacon Plus intentionally avoids one scheduler per power or one scheduler per beacon.
 
 - One normal Slimefun `BlockTicker` handles periodic Beacon Plus work.
 - One listener handles XP changes, cooldowns, peaceful targeting/damage, immortality, and movement cleanup.
 - Periodic pulses are staggered by beacon location rather than all firing on the same server tick.
 - Tile-entity work is capped at 96 inspected states per pulse.
 - Crop growth uses bounded random samples rather than scanning every block in the field.
-- No effect loads chunks just to find targets; Activator is the only feature allowed to hold chunks loaded.
+- No field power loads chunks just to find targets; Activator is the only power allowed to hold chunks loaded.
 - On Folia, work that would cross region boundaries is reduced to same-region/same-chunk behavior rather than performing unsafe cross-region access.
 
-### Ownership and clean-room implementation
+### Ownership and implementation boundary
 
 The placed block stores an owner UUID. Only its owner or a server operator can change settings.
 
-This is an independent Slimefun Legacy implementation. The discontinued BeaconPlus3 plugin was used only as a behavioral/configuration reference for the feature list the server owner wanted to preserve. No proprietary BeaconPlus runtime classes or source code are copied into Slimefun Legacy.
+This is a native Slimefun Legacy implementation built around the requested behavior list and configuration semantics. BeaconPlus3 is not loaded as a dependency and its runtime classes are not bundled into Slimefun Legacy.
 
 ## Runtime design boundaries
 
