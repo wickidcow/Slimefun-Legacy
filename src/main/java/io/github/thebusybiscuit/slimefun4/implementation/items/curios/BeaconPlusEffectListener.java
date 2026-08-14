@@ -45,7 +45,8 @@ final class BeaconPlusEffectListener implements Listener {
             return;
         }
 
-        int power = BeaconPlusRuntime.getPowerForEffect(event.getPlayer().getLocation(), BeaconPlusEffect.EXPERIENCE_BOOSTER);
+        int power = BeaconPlusRuntime.getPowerForEffect(
+                event.getPlayer().getLocation(), BeaconPlusEffect.EXPERIENCE_BOOSTER);
         if (power >= 0) {
             event.setAmount(event.getAmount() * (power > 0 ? 3 : 2));
         }
@@ -53,7 +54,8 @@ final class BeaconPlusEffectListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onCooldown(PlayerItemCooldownEvent event) {
-        int power = BeaconPlusRuntime.getPowerForEffect(event.getPlayer().getLocation(), BeaconPlusEffect.COOLDOWN_REDUCTION);
+        int power = BeaconPlusRuntime.getPowerForEffect(
+                event.getPlayer().getLocation(), BeaconPlusEffect.COOLDOWN_REDUCTION);
         if (power < 0 || event.getCooldown() <= 1) {
             return;
         }
@@ -105,7 +107,8 @@ final class BeaconPlusEffectListener implements Listener {
             return;
         }
 
-        int power = BeaconPlusRuntime.getPowerForEffect(player.getLocation(), BeaconPlusEffect.IMMORTALITY_FIELD);
+        int power = BeaconPlusRuntime.getPowerForEffect(
+                player.getLocation(), BeaconPlusEffect.IMMORTALITY_FIELD);
         if (power < 0) {
             return;
         }
@@ -130,14 +133,15 @@ final class BeaconPlusEffectListener implements Listener {
     public void onMove(PlayerMoveEvent event) {
         Location from = event.getFrom();
         Location to = event.getTo();
-        if (to == null || (from.getWorld() == to.getWorld()
-                && from.getBlockX() == to.getBlockX()
-                && from.getBlockY() == to.getBlockY()
-                && from.getBlockZ() == to.getBlockZ())) {
+        if (to == null
+                || (from.getWorld() == to.getWorld()
+                        && from.getBlockX() == to.getBlockX()
+                        && from.getBlockY() == to.getBlockY()
+                        && from.getBlockZ() == to.getBlockZ())) {
             return;
         }
 
-        BeaconPlusRuntime.refreshPlayerState(event.getPlayer(), to);
+        BeaconPlusRuntime.refreshPlayerState(event.getPlayer());
     }
 
     @EventHandler
