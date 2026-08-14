@@ -32,6 +32,12 @@ final class AdventurersCuriosSetup {
         if (registered) {
             return;
         }
+
+        if (!Slimefun.getCfg().getBoolean("options.enable-non-original-slimefun-additions")) {
+            Slimefun.logger().info("Non-original Slimefun additions are disabled; skipping Adventurer's Curios.");
+            return;
+        }
+
         registered = true;
 
         ItemGroup curios = new ItemGroup(
