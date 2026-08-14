@@ -12,13 +12,13 @@ import io.github.thebusybiscuit.slimefun4.core.multiblocks.MultiBlockMachine;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Bukkit;
-import org.bukkit.Effect;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -213,7 +213,7 @@ public class OreCrusher extends MultiBlockMachine {
                                     removing.setAmount(convert.getAmount());
                                     inv.removeItem(removing);
                                     handleCraftedItem(output, possibleDispenser, inv);
-                                    b.getWorld().playEffect(b.getLocation(), Effect.STEP_SOUND, 1);
+                                    VisualEffectUtils.playBlockBreakEffect(b.getLocation(), Material.STONE);
                                 } else {
                                     Slimefun.getLocalization().sendMessage(p, "machines.full-inventory", true);
                                 }
