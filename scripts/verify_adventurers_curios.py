@@ -32,6 +32,8 @@ def main() -> int:
         "chalk": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/DungeonChalk.java",
         "storm": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/StormGlass.java",
         "journal": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/ExpeditionJournal.java",
+        "bedroll": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/TravelersBedroll.java",
+        "parachute": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/EmergencyParachute.java",
         "beacon": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlus.java",
         "effect": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusEffect.java",
         "runtime": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusRuntime.java",
@@ -40,6 +42,7 @@ def main() -> int:
         "chunk_mode": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusChunkMode.java",
         "support_mode": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusSupportMode.java",
         "lifecycle": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusLifecycleListener.java",
+        "config": "src/main/resources/config.yml",
         "docs": "docs/ADVENTURERS_CURIOS.md",
     }
 
@@ -57,14 +60,25 @@ def main() -> int:
             '"ADVENTURERS_DUNGEON_CHALK"',
             '"ADVENTURERS_STORM_GLASS"',
             '"ADVENTURERS_EXPEDITION_JOURNAL"',
+            '"ADVENTURERS_TRAVELERS_BEDROLL"',
+            '"ADVENTURERS_EMERGENCY_PARACHUTE"',
             '"BEACON_PLUS"',
+            "new TravelersBedroll(",
+            "new EmergencyParachute(",
+            "parachute.registerListener(plugin)",
             "new BeaconPlus(",
             "28 independently toggleable powers",
+            'getBoolean("options.enable-non-original-slimefun-additions")',
         ):
             require(token in setup, f"Curios setup invariant is missing: {token}", failures)
-        require(setup.count("RecipeType.ENHANCED_CRAFTING_TABLE") >= 8, "All eight Curios need real recipes", failures)
+        require(setup.count("RecipeType.ENHANCED_CRAFTING_TABLE") >= 10,
+                "All ten Curios need real Enhanced Crafting Table recipes", failures)
         require("BeaconPlus3" not in setup and "thito.beaconplus" not in setup,
                 "Curios setup must not depend on BeaconPlus3", failures)
+
+        config = read(root, files["config"])
+        require("enable-non-original-slimefun-additions: true" in config,
+                "Non-original Slimefun additions must ship enabled by default", failures)
 
         post_setup = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/setup/PostSetup.java")
         registration = post_setup.find("AdventurersCuriosSetup.setup(Slimefun.instance());")
@@ -95,6 +109,25 @@ def main() -> int:
         journal = read(root, files["journal"])
         require("MAX_RECORDED_BIOMES = 128" in journal,
                 "Expedition Journal must retain bounded storage", failures)
+
+        bedroll = read(root, files["bedroll"])
+        for token in (
+            "Statistic.TIME_SINCE_REST", "REST_COOLDOWN_TICKS = 20 * 60 * 5",
+            "getNearbyEntities", "instanceof Monster", "setHealth(", "setFoodLevel(",
+        ):
+            require(token in bedroll, f"Traveler's Bedroll invariant is missing: {token}", failures)
+        for forbidden in ("setTime(", "setFullTime(", "setRespawnLocation(", "setBedSpawnLocation(", "setType("):
+            require(forbidden not in bedroll, f"Traveler's Bedroll crossed a protected boundary: {forbidden}", failures)
+
+        parachute = read(root, files["parachute"])
+        for token in (
+            "EntityDamageEvent.DamageCause.FALL", "DANGEROUS_FALL_DAMAGE = 6.0D",
+            "DEPLOY_COOLDOWN_TICKS = 20 * 60", "event.setCancelled(true)",
+            "setFallDistance(0.0F)", "getStorageContents()", "getItemInOffHand()",
+        ):
+            require(token in parachute, f"Emergency Parachute invariant is missing: {token}", failures)
+        for forbidden in ("runTaskTimer", "scheduleSyncRepeatingTask", "loadChunk", "setChunkForceLoaded"):
+            require(forbidden not in parachute, f"Emergency Parachute must remain event-driven: {forbidden}", failures)
 
         effect_catalog = read(root, files["effect"])
         approved = (
@@ -173,13 +206,12 @@ def main() -> int:
 
         docs = read(root, files["docs"])
         for token in (
-            "28 independently toggleable",
-            "maximum **64 active Beacon Plus loaders**",
-            "maximum **256 unique chunks**",
-            "96 inspected states per pulse",
-            "25%", "40%",
+            "Traveler's Bedroll", "Emergency Parachute", "five-minute cooldown", "60-second cooldown",
+            "28 independently toggleable", "maximum **64 active Beacon Plus loaders**",
+            "maximum **256 unique chunks**", "96 inspected states per pulse", "25%", "40%",
+            "Recall Stone is intentionally not planned",
         ):
-            require(token in docs, f"Curios documentation is missing Beacon Plus detail: {token}", failures)
+            require(token in docs, f"Curios documentation is missing detail: {token}", failures)
     except FileNotFoundError as error:
         failures.append(f"Unable to inspect missing Adventurer's Curios file: {error}")
 
@@ -198,7 +230,10 @@ def main() -> int:
 
     report.write_text(
         "Adventurer's Curios verification: PASS\n"
-        "- eight built-in Curios are registered before registry finalization\n"
+        "- ten built-in Curios are registered before registry finalization\n"
+        "- Traveler's Bedroll is a bounded personal rest action with no world-time or spawn mutation\n"
+        "- Emergency Parachute is an event-driven dangerous-fall saver with a 60-second cooldown\n"
+        "- non-original Slimefun additions ship enabled by default but remain disable-able in config\n"
         "- Beacon Plus exposes exactly the 28 approved player-facing powers through its native menu\n"
         "- the legacy Scale development value cannot be configured, parsed or persisted\n"
         "- periodic work is bounded and event-driven powers share one listener\n"
