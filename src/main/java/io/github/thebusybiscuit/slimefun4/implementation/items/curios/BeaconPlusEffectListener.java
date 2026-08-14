@@ -67,10 +67,8 @@ final class BeaconPlusEffectListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onTarget(EntityTargetLivingEntityEvent event) {
-        if (!(event.getTarget() instanceof LivingEntity target)) {
-            return;
-        }
-        if (!BeaconPlusRuntime.hasEffect(target.getLocation(), BeaconPlusEffect.PEACEFUL)) {
+        LivingEntity target = event.getTarget();
+        if (target == null || !BeaconPlusRuntime.hasEffect(target.getLocation(), BeaconPlusEffect.PEACEFUL)) {
             return;
         }
         if (!(event.getEntity() instanceof Monster monster)) {
