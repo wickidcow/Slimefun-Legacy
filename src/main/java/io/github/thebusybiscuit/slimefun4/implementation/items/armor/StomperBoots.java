@@ -7,10 +7,10 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.DamageUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -66,7 +66,7 @@ public class StomperBoots extends SlimefunItem {
         for (BlockFace face : BlockFace.values()) {
             Block block =
                     player.getLocation().getBlock().getRelative(BlockFace.DOWN).getRelative(face);
-            player.getWorld().playEffect(block.getLocation(), Effect.DESTROY_BLOCK, block.getBlockData());
+            VisualEffectUtils.playBlockBreakEffect(block);
         }
     }
 

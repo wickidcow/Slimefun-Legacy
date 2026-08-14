@@ -210,7 +210,7 @@ public class ElevatorPlate extends SimpleSlimefunItem<BlockUseHandler> {
             // @formatter:on
         }
 
-        int pages = 1 + (floors.size() / GUI_SIZE);
+        int pages = Math.max(1, (floors.size() + GUI_SIZE - 1) / GUI_SIZE);
 
         // 0 index so size is the first slot of the last row.
         for (int i = GUI_SIZE; i < GUI_SIZE + 9; i++) {
@@ -236,7 +236,8 @@ public class ElevatorPlate extends SimpleSlimefunItem<BlockUseHandler> {
     @ParametersAreNonnullByDefault
     private void teleport(Player player, ElevatorFloor floor) {
         Slimefun.runSyncFor(player, () -> {
-            users.add(player.getUniqueId());
+            UUID uuid = player.getUniqueId();
+            users.add(uuid);
 
             float yaw = player.getEyeLocation().getYaw() + 180;
 
@@ -253,13 +254,16 @@ public class ElevatorPlate extends SimpleSlimefunItem<BlockUseHandler> {
                     yaw,
                     player.getEyeLocation().getPitch());
 
-            player.teleportAsync(destination).thenAccept(teleported -> {
-                if (teleported.booleanValue()) {
-                    Slimefun.runSyncFor(
-                            player,
-                            () -> player.sendTitle(
-                                    ChatColor.WHITE + ChatColors.color(floor.getName()), null, 20, 60, 20));
+            player.teleportAsync(destination).whenComplete((teleported, error) -> {
+                if (error != null || !Boolean.TRUE.equals(teleported)) {
+                    users.remove(uuid);
+                    return;
                 }
+
+                Slimefun.runSyncFor(
+                        player,
+                        () -> player.sendTitle(
+                                ChatColor.WHITE + ChatColors.color(floor.getName()), null, 20, 60, 20));
             });
         });
     }

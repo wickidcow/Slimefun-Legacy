@@ -101,7 +101,7 @@ public class ArmorForge extends AbstractCraftingTable {
                                 SoundEffect.ARMOR_FORGE_WORKING_SOUND.playAt(dispenser);
                             } else {
                                 SoundEffect.ARMOR_FORGE_FINISH_SOUND.playAt(dispenser);
-                                handleCraftedItem(output, dispenser, inv);
+                                finishCraftedItem(output, dispenser);
                             }
                         },
                         j * 20L);

@@ -5,10 +5,10 @@ import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BowShootHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedPotionEffectType;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.Effect;
 import org.bukkit.Material;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -44,8 +44,8 @@ public class IcyBow extends SlimefunBow {
                     player.setFreezeTicks(60);
                 }
             }
-            n.getWorld().playEffect(n.getLocation(), Effect.DESTROY_BLOCK, Material.ICE.createBlockData());
-            n.getWorld().playEffect(n.getEyeLocation(), Effect.DESTROY_BLOCK, Material.ICE.createBlockData());
+            VisualEffectUtils.playBlockBreakEffect(n.getLocation(), Material.ICE);
+            VisualEffectUtils.playBlockBreakEffect(n.getEyeLocation(), Material.ICE);
             n.addPotionEffect(new PotionEffect(VersionedPotionEffectType.SLOWNESS, 20 * 2, 10));
             n.addPotionEffect(new PotionEffect(VersionedPotionEffectType.JUMP_BOOST, 20 * 2, -10));
         };

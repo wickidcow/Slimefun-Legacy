@@ -10,6 +10,7 @@ import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import io.github.thebusybiscuit.slimefun4.utils.tags.SlimefunTag;
 import java.util.List;
 import java.util.UUID;
@@ -17,7 +18,6 @@ import java.util.function.Predicate;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Bukkit;
-import org.bukkit.Effect;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.Tag;
@@ -53,7 +53,7 @@ public class WoodcutterAndroid extends ProgrammableAndroid {
 
             if (!list.isEmpty()) {
                 Block log = list.get(list.size() - 1);
-                log.getWorld().playEffect(log.getLocation(), Effect.DESTROY_BLOCK, log.getBlockData());
+                VisualEffectUtils.playBlockBreakEffect(log);
 
                 OfflinePlayer owner = Bukkit.getOfflinePlayer(UUID.fromString(
                         StorageCacheUtils.getUniversalBlockData(menu.getUuid(), b.getLocation(), "owner")));
@@ -72,10 +72,14 @@ public class WoodcutterAndroid extends ProgrammableAndroid {
     private void breakLog(Block log, Block android, UniversalMenu menu, BlockFace face) {
         ItemStack drop = new ItemStack(log.getType());
 
-        // We try to push the log into the android's inventory, but nothing happens if it does not fit
-        menu.pushItem(drop, getOutputSlots());
+        // Keep overflow lossless: if the Android's output is full, drop the remainder
+        // at the chopped log instead of silently deleting it.
+        ItemStack remainder = menu.pushItem(drop, getOutputSlots());
+        if (remainder != null && !remainder.getType().isAir() && remainder.getAmount() > 0) {
+            log.getWorld().dropItemNaturally(log.getLocation(), remainder);
+        }
 
-        log.getWorld().playEffect(log.getLocation(), Effect.DESTROY_BLOCK, log.getBlockData());
+        VisualEffectUtils.playBlockBreakEffect(log);
 
         // If the android just chopped the bottom log, we replant the appropriate sapling
         if (log.getY() == android.getRelative(face).getY()) {

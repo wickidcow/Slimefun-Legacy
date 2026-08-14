@@ -18,15 +18,16 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunIte
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import io.github.thebusybiscuit.slimefun4.utils.NumberUtils;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import java.util.List;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 import me.mrCookieSlime.Slimefun.api.inventory.DirtyChestMenu;
 import me.mrCookieSlime.Slimefun.api.item_transport.ItemTransportFlow;
-import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -50,6 +51,7 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
 
     private static final String KEY_ENABLED = "enabled";
     private static final String KEY_OFFSET = "offset";
+    private static final double DEFAULT_OFFSET = 3.0D;
 
     private final int[] border = {0, 2, 3, 4, 5, 6, 8, 12, 14, 21, 23, 30, 32, 39, 40, 41};
     private final int[] inputSlots = {19, 28, 25, 34};
@@ -62,14 +64,6 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
 
     private int lifetime = 0;
 
-    /**
-     * Constructs a new AbstractEntityAssembler.
-     *
-     * @param itemGroup   The item group this item belongs to
-     * @param item        The item stack for this entity assembler
-     * @param recipeType  The recipe type used to craft this item
-     * @param recipe      The recipe to craft this item
-     */
     @ParametersAreNonnullByDefault
     protected AbstractEntityAssembler(
             ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
@@ -82,7 +76,6 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
                 drawBackground(border);
                 drawBackground(new CustomItemStack(getHeadBorder(), " "), headBorder);
                 drawBackground(new CustomItemStack(getBodyBorder(), " "), bodyBorder);
-
                 constructMenu(this);
             }
 
@@ -100,11 +93,7 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
 
             @Override
             public int[] getSlotsAccessedByItemTransport(ItemTransportFlow flow) {
-                if (flow == ItemTransportFlow.INSERT) {
-                    return inputSlots;
-                } else {
-                    return new int[0];
-                }
+                return flow == ItemTransportFlow.INSERT ? inputSlots : new int[0];
             }
 
             @Override
@@ -142,7 +131,7 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
 
             private void onPlace(BlockEvent e) {
                 var blockData = StorageCacheUtils.getBlock(e.getBlock().getLocation());
-                blockData.setData(KEY_OFFSET, "3.0");
+                blockData.setData(KEY_OFFSET, String.valueOf(DEFAULT_OFFSET));
                 blockData.setData(KEY_ENABLED, String.valueOf(false));
             }
         };
@@ -167,8 +156,9 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
 
     private void updateBlockInventory(BlockMenu menu, Block b) {
         var blockData = StorageCacheUtils.getBlock(b.getLocation());
-        String val;
-        if (blockData == null || (val = blockData.getData(KEY_ENABLED)) == null || val.equals(String.valueOf(false))) {
+        String enabled = blockData == null ? null : blockData.getData(KEY_ENABLED);
+
+        if (!"true".equals(enabled)) {
             menu.replaceExistingItem(
                     22,
                     new CustomItemStack(Material.GUNPOWDER, "&7Status: &4\u2718", "", "&e> Click to enable machine"));
@@ -189,9 +179,7 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
             });
         }
 
-        val = null;
-        double offset =
-                (blockData == null || (val = blockData.getData(KEY_OFFSET)) == null) ? 3.0F : Double.parseDouble(val);
+        double offset = readOffset(blockData == null ? null : blockData.getData(KEY_OFFSET));
 
         menu.replaceExistingItem(
                 31,
@@ -202,13 +190,25 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
                         "&fLeft Click: &7+0.1",
                         "&fRight Click: &7-0.1"));
         menu.addMenuClickHandler(31, (p, slot, item, action) -> {
-            double offsetv =
-                    NumberUtils.reparseDouble(Double.parseDouble(StorageCacheUtils.getData(b.getLocation(), KEY_OFFSET))
-                            + (action.isRightClicked() ? -0.1F : 0.1F));
-            StorageCacheUtils.setData(b.getLocation(), KEY_OFFSET, String.valueOf(offsetv));
+            double currentOffset = readOffset(StorageCacheUtils.getData(b.getLocation(), KEY_OFFSET));
+            double offsetValue = NumberUtils.reparseDouble(currentOffset + (action.isRightClicked() ? -0.1F : 0.1F));
+            StorageCacheUtils.setData(b.getLocation(), KEY_OFFSET, String.valueOf(offsetValue));
             updateBlockInventory(menu, b);
             return false;
         });
+    }
+
+    private double readOffset(@Nullable String value) {
+        if (value == null || value.isBlank()) {
+            return DEFAULT_OFFSET;
+        }
+
+        try {
+            double offset = Double.parseDouble(value);
+            return Double.isFinite(offset) ? offset : DEFAULT_OFFSET;
+        } catch (NumberFormatException ignored) {
+            return DEFAULT_OFFSET;
+        }
     }
 
     @Override
@@ -217,32 +217,30 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
 
             @Override
             public void tick(Block b, SlimefunItem sf, SlimefunBlockData data) {
-                if ("false".equals(data.getData(KEY_ENABLED))) {
+                if (!"true".equals(data.getData(KEY_ENABLED))) {
                     return;
                 }
 
                 if (lifetime % 60 == 0 && getCharge(b.getLocation(), data) >= getEnergyConsumption()) {
                     BlockMenu menu = data.getBlockMenu();
+                    if (menu == null) {
+                        return;
+                    }
 
                     boolean hasBody = findResource(menu, getBody(), bodySlots);
                     boolean hasHead = findResource(menu, getHead(), headSlots);
 
                     if (hasBody && hasHead) {
-                        consumeResources(menu);
+                        double offset = readOffset(data.getData(KEY_OFFSET));
 
+                        consumeResources(menu);
                         removeCharge(b.getLocation(), getEnergyConsumption());
-                        double offset = Double.parseDouble(data.getData(KEY_OFFSET));
 
                         Slimefun.runSyncAt(b.getLocation(), () -> {
                             Location loc =
                                     new Location(b.getWorld(), b.getX() + 0.5D, b.getY() + offset, b.getZ() + 0.5D);
                             spawnEntity(loc);
-
-                            b.getWorld()
-                                    .playEffect(
-                                            b.getLocation(),
-                                            Effect.DESTROY_BLOCK,
-                                            getHead().getType().createBlockData());
+                            VisualEffectUtils.playBlockBreakEffect(b.getLocation(), getHead().getType());
                         });
                     }
                 }
@@ -255,7 +253,7 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
 
             @Override
             public boolean isSynchronized() {
-                return false;
+                return true;
             }
         };
     }
@@ -309,11 +307,6 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
         }
     }
 
-    /**
-     * Constructs the menu preset for this entity assembler.
-     *
-     * @param preset The {@link BlockMenuPreset} to construct
-     */
     protected void constructMenu(BlockMenuPreset preset) {
         preset.addItem(
                 1,
@@ -339,46 +332,15 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
         return EnergyNetComponentType.CONSUMER;
     }
 
-    /**
-     * Returns the amount of energy consumed per assembly operation.
-     *
-     * @return The energy consumption
-     */
     public abstract int getEnergyConsumption();
 
-    /**
-     * Returns the item used as the head/ingredient for entity assembly.
-     *
-     * @return The head item
-     */
     public abstract ItemStack getHead();
 
-    /**
-     * Returns the item used as the body/ingredient for entity assembly.
-     *
-     * @return The body item
-     */
     public abstract ItemStack getBody();
 
-    /**
-     * Returns the material used for the head border in the GUI.
-     *
-     * @return The head border material
-     */
     public abstract Material getHeadBorder();
 
-    /**
-     * Returns the material used for the body border in the GUI.
-     *
-     * @return The body border material
-     */
     public abstract Material getBodyBorder();
 
-    /**
-     * Spawns the entity at the given location.
-     *
-     * @param l The location to spawn the entity
-     * @return The spawned entity
-     */
     public abstract T spawnEntity(Location l);
 }

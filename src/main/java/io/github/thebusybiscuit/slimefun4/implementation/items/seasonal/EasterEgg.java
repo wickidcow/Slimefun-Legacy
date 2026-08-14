@@ -47,6 +47,10 @@ public class EasterEgg extends SimpleSlimefunItem<ItemUseHandler> {
         return e -> {
             e.cancel();
 
+            if (gifts.length == 0) {
+                return;
+            }
+
             Player p = e.getPlayer();
 
             if (p.getGameMode() != GameMode.CREATIVE) {

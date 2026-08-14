@@ -136,20 +136,22 @@ public class GrindStone extends MultiBlockMachine {
             for (ItemStack current : inv.getContents()) {
                 for (ItemStack convert : RecipeType.getRecipeInputs(this)) {
                     if (convert != null && SlimefunUtils.isItemSimilar(current, convert, true)) {
-                        ItemStack output = RecipeType.getRecipeOutput(this, convert);
-                        Inventory outputInv = findOutputInventory(output, possibleDispenser, inv);
-                        MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, current, output);
+                        ItemStack defaultOutput = RecipeType.getRecipeOutput(this, convert);
+                        MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, current, defaultOutput);
 
                         Bukkit.getPluginManager().callEvent(event);
                         if (event.isCancelled()) {
                             return;
                         }
 
+                        ItemStack output = event.getOutput();
+                        Inventory outputInv = findOutputInventory(output, possibleDispenser, inv);
+
                         if (outputInv != null) {
                             ItemStack removing = current.clone();
-                            removing.setAmount(1);
+                            removing.setAmount(convert.getAmount());
                             inv.removeItem(removing);
-                            outputInv.addItem(event.getOutput());
+                            handleCraftedItem(output, possibleDispenser, inv);
                             SoundEffect.GRIND_STONE_INTERACT_SOUND.playAt(b);
                         } else {
                             Slimefun.getLocalization().sendMessage(p, "machines.full-inventory", true);

@@ -4,6 +4,7 @@ import io.github.bakedlibs.dough.protection.Interaction;
 import io.github.bakedlibs.dough.scheduling.TaskQueue;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
+import io.github.thebusybiscuit.slimefun4.api.items.virtual.VirtualItemHandler.InventoryContext;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.attributes.RecipeDisplayItem;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockUseHandler;
@@ -11,12 +12,12 @@ import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Tag;
@@ -89,7 +90,7 @@ public class Composter extends SimpleSlimefunItem<BlockUseHandler> implements Re
 
                         tasks.thenRepeatEvery(30, 10, () -> {
                             Material material = input.getType().isBlock() ? input.getType() : Material.HAY_BLOCK;
-                            b.getWorld().playEffect(b.getLocation(), Effect.DESTROY_BLOCK, material.createBlockData());
+                            VisualEffectUtils.playBlockBreakEffect(b.getLocation(), material);
                         });
 
                         tasks.thenRun(20, () -> {
@@ -110,7 +111,12 @@ public class Composter extends SimpleSlimefunItem<BlockUseHandler> implements Re
         Optional<Inventory> outputChest = findOutputChest(b, output);
 
         if (outputChest.isPresent()) {
-            outputChest.get().addItem(output);
+            ItemStack remainder = Slimefun.getItemStackService()
+                    .addItem(outputChest.get(), output, InventoryContext.OUTPUT_CHEST);
+
+            if (remainder != null && remainder.getAmount() > 0) {
+                b.getWorld().dropItemNaturally(b.getRelative(BlockFace.UP).getLocation(), remainder);
+            }
         } else {
             Location loc = b.getRelative(BlockFace.UP).getLocation();
             b.getWorld().dropItemNaturally(loc, output);

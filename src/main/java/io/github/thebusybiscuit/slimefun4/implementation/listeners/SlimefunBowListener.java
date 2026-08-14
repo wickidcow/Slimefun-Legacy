@@ -47,12 +47,12 @@ public class SlimefunBowListener implements Listener {
         return projectiles;
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onBowUse(EntityShootBowEvent e) {
-        if (e.getEntity() instanceof Player && e.getProjectile() instanceof Arrow) {
+        if (e.getEntity() instanceof Player player && e.getProjectile() instanceof Arrow) {
             SlimefunItem bow = SlimefunItem.getByItem(e.getBow());
 
-            if (bow instanceof SlimefunBow slimefunBow) {
+            if (bow instanceof SlimefunBow slimefunBow && slimefunBow.canUse(player, true)) {
                 projectiles.put(e.getProjectile().getUniqueId(), slimefunBow);
             }
         }

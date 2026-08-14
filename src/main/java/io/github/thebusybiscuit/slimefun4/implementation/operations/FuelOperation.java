@@ -29,8 +29,8 @@ public class FuelOperation implements MachineOperation {
         Validate.notNull(ingredient, "The Ingredient cannot be null");
         Validate.isTrue(totalTicks > 0, "The amount of total ticks must be a positive integer");
 
-        this.ingredient = ingredient;
-        this.result = result;
+        this.ingredient = ingredient.clone();
+        this.result = result == null ? null : result.clone();
         this.totalTicks = totalTicks;
     }
 

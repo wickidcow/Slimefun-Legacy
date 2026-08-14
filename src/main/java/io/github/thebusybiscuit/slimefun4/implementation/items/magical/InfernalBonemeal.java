@@ -6,9 +6,9 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.handlers.ItemUseHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import java.util.Optional;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.Effect;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -50,7 +50,7 @@ public class InfernalBonemeal extends SimpleSlimefunItem<ItemUseHandler> {
                     if (ageable.getAge() < ageable.getMaximumAge()) {
                         ageable.setAge(ageable.getMaximumAge());
                         b.setBlockData(ageable);
-                        b.getWorld().playEffect(b.getLocation(), Effect.DESTROY_BLOCK, Material.REDSTONE_BLOCK.createBlockData());
+                        VisualEffectUtils.playBlockBreakEffect(b.getLocation(), Material.REDSTONE_BLOCK);
 
                         if (e.getPlayer().getGameMode() != GameMode.CREATIVE) {
                             ItemUtils.consumeItem(e.getItem(), false);

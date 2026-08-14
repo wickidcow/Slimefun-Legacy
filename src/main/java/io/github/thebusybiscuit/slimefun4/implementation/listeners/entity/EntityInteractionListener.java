@@ -28,7 +28,7 @@ public class EntityInteractionListener implements Listener {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onInteractEntity(PlayerInteractEntityEvent e) {
         if (!e.getRightClicked().isValid()) {
             return;

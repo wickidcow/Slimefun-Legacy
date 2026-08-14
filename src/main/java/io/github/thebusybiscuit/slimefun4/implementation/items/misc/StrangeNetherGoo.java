@@ -10,6 +10,7 @@ import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.attributes.PiglinBarterDrop;
 import io.github.thebusybiscuit.slimefun4.core.handlers.EntityInteractHandler;
 import io.github.thebusybiscuit.slimefun4.core.handlers.ItemUseHandler;
+import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.items.magical.runes.VillagerRune;
 import java.util.Optional;
@@ -67,22 +68,32 @@ public class StrangeNetherGoo extends SimpleSlimefunItem<ItemUseHandler> impleme
 
     private EntityInteractHandler onRightClickEntity() {
         return (e, item, hand) -> {
-            if (e.getRightClicked() instanceof Sheep sheep) {
-                if (sheep.getCustomName() != null) {
-                    e.setCancelled(true);
-                    return;
-                }
-
-                if (e.getPlayer().getGameMode() != GameMode.CREATIVE) {
-                    ItemUtils.consumeItem(item, false);
-                }
-
-                // Give Sheep color, name and effect
-                sheep.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 60, 2));
-                sheep.setColor(DyeColor.PURPLE);
-                sheep.setCustomName(ChatColor.DARK_PURPLE + "Contaminated Sheep");
-                e.setCancelled(true);
+            if (!(e.getRightClicked() instanceof Sheep sheep)) {
+                return;
             }
+
+            if (!Slimefun.getProtectionManager()
+                    .hasPermission(
+                            e.getPlayer(),
+                            sheep.getLocation(),
+                            io.github.bakedlibs.dough.protection.Interaction.INTERACT_ENTITY)) {
+                return;
+            }
+
+            if (sheep.getCustomName() != null) {
+                e.setCancelled(true);
+                return;
+            }
+
+            if (e.getPlayer().getGameMode() != GameMode.CREATIVE) {
+                ItemUtils.consumeItem(item, false);
+            }
+
+            // Give Sheep color, name and effect
+            sheep.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 60, 2));
+            sheep.setColor(DyeColor.PURPLE);
+            sheep.setCustomName(ChatColor.DARK_PURPLE + "Contaminated Sheep");
+            e.setCancelled(true);
         };
     }
 }

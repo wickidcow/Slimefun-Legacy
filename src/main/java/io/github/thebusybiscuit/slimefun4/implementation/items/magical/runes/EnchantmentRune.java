@@ -113,7 +113,6 @@ public class EnchantmentRune extends SimpleSlimefunItem<ItemDropHandler> {
         if (optional.isPresent()) {
             Item item = (Item) optional.get();
             ItemStack itemStack = item.getItemStack();
-            ItemStack runeStack = rune.getItemStack();
 
             List<Enchantment> potentialEnchantments = applicableEnchantments.get(itemStack.getType());
 
@@ -126,7 +125,7 @@ public class EnchantmentRune extends SimpleSlimefunItem<ItemDropHandler> {
 
             SlimefunItem slimefunItem = SlimefunItem.getByItem(itemStack);
 
-            // Fixes #2878 - Respect enchatability config setting.
+            // Fixes #2878 - Respect enchantability config setting.
             if (slimefunItem != null && !slimefunItem.isEnchantable()) {
                 Slimefun.getLocalization().sendMessage(p, "messages.enchantment-rune.fail", true);
                 return;
@@ -153,39 +152,77 @@ public class EnchantmentRune extends SimpleSlimefunItem<ItemDropHandler> {
 
                 Slimefun.runSyncAt(
                         l,
-                        () -> {
-                            // Being sure entities are still valid and not picked up or whatsoever.
-                            if (rune.isValid() && item.isValid() && itemStack.getAmount() == 1) {
-
-                                l.getWorld().spawnParticle(VersionedParticle.ENCHANTED_HIT, l, 1);
-                                SoundEffect.ENCHANTMENT_RUNE_ADD_ENCHANT_SOUND.playAt(l, SoundCategory.PLAYERS);
-
-                                item.remove();
-
-                                // When multiple runes have been merged, reduce one rune.
-                                if (rune.getItemStack().getAmount() > 1) {
-                                    runeStack.setAmount(runeStack.getAmount() - 1);
-                                    rune.setItemStack(runeStack);
-                                } else {
-                                    rune.remove();
-                                }
-
-                                if (enchantment.canEnchantItem(itemStack)) {
-                                    itemStack.addEnchantment(enchantment, level);
-                                    Slimefun.getLocalization()
-                                            .sendMessage(p, "messages.enchantment-rune.success", true);
-                                } else {
-                                    l.getWorld().dropItemNaturally(l, runeStack);
-                                    Slimefun.getLocalization().sendMessage(p, "messages.enchantment-rune.fail", true);
-                                }
-
-                                l.getWorld().dropItemNaturally(l, itemStack);
-                            }
-                        },
+                        () -> commitEnchantment(p, rune, item, enchantment, level, l),
                         10L);
             } else {
                 Slimefun.getLocalization().sendMessage(p, "messages.enchantment-rune.fail", true);
             }
+        }
+    }
+
+    @ParametersAreNonnullByDefault
+    private void commitEnchantment(
+            Player p, Item rune, Item item, Enchantment enchantment, int level, Location location) {
+        // Re-read both entities at commit time. They may have merged, been modified or been picked up during the delay.
+        if (!rune.isValid() || !item.isValid()) {
+            return;
+        }
+
+        ItemStack liveTarget = item.getItemStack();
+        if (liveTarget.getAmount() != 1 || !canApplyEnchantment(liveTarget, enchantment)) {
+            Slimefun.getLocalization().sendMessage(p, "messages.enchantment-rune.fail", true);
+            return;
+        }
+
+        SlimefunItem liveSlimefunItem = SlimefunItem.getByItem(liveTarget);
+        if (liveSlimefunItem != null && !liveSlimefunItem.isEnchantable()) {
+            Slimefun.getLocalization().sendMessage(p, "messages.enchantment-rune.fail", true);
+            return;
+        }
+
+        ItemStack enchanted = liveTarget.clone();
+        try {
+            enchanted.addEnchantment(enchantment, level);
+        } catch (RuntimeException x) {
+            error("An Exception occurred while committing an Enchantment Rune", x);
+            Slimefun.getLocalization().sendMessage(p, "messages.enchantment-rune.fail", true);
+            return;
+        }
+
+        // Only commit entity/item mutations after the enchanted output has been prepared successfully.
+        item.remove();
+        consumeOneRune(rune);
+
+        location.getWorld().spawnParticle(VersionedParticle.ENCHANTED_HIT, location, 1);
+        SoundEffect.ENCHANTMENT_RUNE_ADD_ENCHANT_SOUND.playAt(location, SoundCategory.PLAYERS);
+        location.getWorld().dropItemNaturally(location, enchanted);
+        Slimefun.getLocalization().sendMessage(p, "messages.enchantment-rune.success", true);
+    }
+
+    private boolean canApplyEnchantment(@Nonnull ItemStack target, @Nonnull Enchantment enchantment) {
+        if (!enchantment.canEnchantItem(target)) {
+            return false;
+        }
+
+        for (Enchantment existing : target.getEnchantments().keySet()) {
+            if (existing.equals(enchantment)
+                    || existing.conflictsWith(enchantment)
+                    || enchantment.conflictsWith(existing)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void consumeOneRune(@Nonnull Item rune) {
+        ItemStack liveRune = rune.getItemStack();
+        if (liveRune.getAmount() > 1) {
+            ItemStack remaining = liveRune.clone();
+            remaining.setAmount(liveRune.getAmount() - 1);
+            rune.setItemStack(remaining);
+        } else {
+            rune.remove();
         }
     }
 

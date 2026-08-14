@@ -218,6 +218,25 @@ public abstract class MultiBlockMachine extends SlimefunItem implements NotPlace
         }
     }
 
+    /**
+     * Completes a delayed multiblock craft against the container that is actually
+     * present when the delay finishes. If the original container was broken, the
+     * already-earned output is dropped at its location rather than written into a
+     * detached inventory object.
+     *
+     * @param outputItem the crafted output
+     * @param block the original output-container block
+     */
+    @ParametersAreNonnullByDefault
+    protected final void finishCraftedItemSafely(ItemStack outputItem, Block block) {
+        if (block.getState(false) instanceof Container liveContainer) {
+            handleCraftedItem(outputItem, block, liveContainer.getInventory());
+        } else {
+            SlimefunUtils.spawnItem(
+                    block.getLocation(), outputItem, ItemSpawnReason.MULTIBLOCK_MACHINE_OVERFLOW, true);
+        }
+    }
+
     private static @Nonnull Material[] convertItemStacksToMaterial(@Nonnull ItemStack[] items) {
         List<Material> materials = new ArrayList<>();
 

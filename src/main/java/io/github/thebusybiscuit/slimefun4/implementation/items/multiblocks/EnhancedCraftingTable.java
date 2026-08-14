@@ -85,7 +85,7 @@ public class EnhancedCraftingTable extends AbstractCraftingTable {
             if (sfItem instanceof SlimefunBackpack backpack) {
                 waitCallback = upgradeBackpack(p, inv, backpack, output, () -> {
                     SoundEffect.ENHANCED_CRAFTING_TABLE_CRAFT_SOUND.playAt(b);
-                    handleCraftedItem(output, dispenser, inv);
+                    finishCraftedItem(output, dispenser);
                 });
             }
 
@@ -93,7 +93,7 @@ public class EnhancedCraftingTable extends AbstractCraftingTable {
 
             if (!waitCallback) {
                 SoundEffect.ENHANCED_CRAFTING_TABLE_CRAFT_SOUND.playAt(b);
-                handleCraftedItem(output, dispenser, inv);
+                finishCraftedItem(output, dispenser);
             }
         } else {
             Slimefun.getLocalization().sendMessage(p, "machines.full-inventory", true);

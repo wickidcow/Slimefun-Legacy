@@ -17,6 +17,7 @@ import io.github.thebusybiscuit.slimefun4.core.handlers.ToolUseHandler;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import io.github.thebusybiscuit.slimefun4.utils.tags.SlimefunTag;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,7 +28,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Bukkit;
-import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Tag;
@@ -87,10 +87,6 @@ public class ExplosiveTool extends SimpleSlimefunItem<ToolUseHandler> implements
             if (!blockExplodeEvent.isCancelled()) {
                 for (Block block : blockExplodeEvent.blockList()) {
                     if (canBreak(p, block)) {
-                        if (Slimefun.getIntegrations().isCustomBlock(block)) {
-                            drops.addAll(CustomBlock.byAlreadyPlaced(block).getLoot());
-                            CustomBlock.remove(block.getLocation());
-                        }
                         blocksToDestroy.add(block);
                     }
                 }
@@ -98,10 +94,6 @@ public class ExplosiveTool extends SimpleSlimefunItem<ToolUseHandler> implements
         } else {
             for (Block block : blocks) {
                 if (canBreak(p, block)) {
-                    if (Slimefun.getIntegrations().isCustomBlock(block)) {
-                        drops.addAll(CustomBlock.byAlreadyPlaced(block).getLoot());
-                        CustomBlock.remove(block.getLocation());
-                    }
                     blocksToDestroy.add(block);
                 }
             }
@@ -123,6 +115,11 @@ public class ExplosiveTool extends SimpleSlimefunItem<ToolUseHandler> implements
 
         if (!event.isCancelled()) {
             for (Block block : blocksToDestroy) {
+                if (Slimefun.getIntegrations().isCustomBlock(block)) {
+                    drops.addAll(CustomBlock.byAlreadyPlaced(block).getLoot());
+                    CustomBlock.remove(block.getLocation());
+                }
+
                 breakBlock(e, p, item, block, drops);
             }
         }
@@ -168,9 +165,8 @@ public class ExplosiveTool extends SimpleSlimefunItem<ToolUseHandler> implements
     @ParametersAreNonnullByDefault
     private void breakBlock(BlockBreakEvent event, Player player, ItemStack item, Block block, List<ItemStack> drops) {
         Slimefun.getProtectionManager().logAction(player, block, Interaction.BREAK_BLOCK);
-        Material material = block.getType();
 
-        block.getWorld().playEffect(block.getLocation(), Effect.DESTROY_BLOCK, material.createBlockData());
+        VisualEffectUtils.playBlockBreakEffect(block);
         Location blockLocation = block.getLocation();
 
         Optional<SlimefunItem> blockItem = Optional.ofNullable(StorageCacheUtils.getSlimefunItem(blockLocation));

@@ -16,6 +16,7 @@ import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -93,6 +94,10 @@ abstract class AbstractCraftingTable extends MultiBlockMachine {
 
         ItemUtils.consumeItem(item, amount, true);
         return item.getAmount() > 0 && item.getType() != Material.AIR ? item : null;
+    }
+
+    protected final void finishCraftedItem(@Nonnull ItemStack output, @Nonnull Block dispenser) {
+        finishCraftedItemSafely(output, dispenser);
     }
 
     // Return: true if upgrade from existing backpack, else false

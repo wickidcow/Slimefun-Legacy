@@ -22,7 +22,6 @@ import org.bukkit.inventory.ItemStack;
  * items that enter it.
  *
  * @author TheBusyBiscuit
- *
  */
 public class TrashCan extends SlimefunItem implements InventoryBlock, NotRotatable {
 
@@ -32,7 +31,6 @@ public class TrashCan extends SlimefunItem implements InventoryBlock, NotRotatab
     @ParametersAreNonnullByDefault
     public TrashCan(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
         super(itemGroup, item, recipeType, recipe);
-
         createPreset(this, this::constructMenu);
     }
 
@@ -59,6 +57,9 @@ public class TrashCan extends SlimefunItem implements InventoryBlock, NotRotatab
             @Override
             public void tick(Block b, SlimefunItem item, SlimefunBlockData data) {
                 BlockMenu menu = data.getBlockMenu();
+                if (menu == null) {
+                    return;
+                }
 
                 for (int slot : getInputSlots()) {
                     menu.replaceExistingItem(slot, null);
@@ -67,7 +68,7 @@ public class TrashCan extends SlimefunItem implements InventoryBlock, NotRotatab
 
             @Override
             public boolean isSynchronized() {
-                return false;
+                return true;
             }
         });
     }

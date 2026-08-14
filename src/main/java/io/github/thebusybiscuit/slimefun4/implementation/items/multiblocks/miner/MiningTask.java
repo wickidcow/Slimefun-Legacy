@@ -7,6 +7,7 @@ import io.github.bakedlibs.dough.scheduling.TaskQueue;
 import io.github.thebusybiscuit.slimefun4.api.items.virtual.VirtualItemHandler.InventoryContext;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedParticle;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -14,7 +15,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.MachineFuel;
 import org.bukkit.Bukkit;
-import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -182,7 +182,7 @@ class MiningTask implements Runnable {
         queue.thenRun(() -> {
             try {
                 Block furnace = chest.getRelative(BlockFace.DOWN);
-                furnace.getWorld().playEffect(furnace.getLocation(), Effect.DESTROY_BLOCK, Material.STONE.createBlockData());
+                VisualEffectUtils.playBlockBreakEffect(furnace.getLocation(), Material.STONE);
 
                 World world = start.getWorld();
                 for (int y = height; y > world.getMinHeight(); y--) {
@@ -195,8 +195,8 @@ class MiningTask implements Runnable {
                     }
 
                     if (miner.canMine(b) && push(miner.getOutcome(b.getType()))) {
-                        // Not changed since this is supposed to be a natural sound.
-                        furnace.getWorld().playEffect(furnace.getLocation(), Effect.DESTROY_BLOCK, b.getBlockData());
+                        // Preserve the mined block's natural break visual at the miner furnace.
+                        VisualEffectUtils.playBlockBreakEffect(furnace.getLocation(), b.getType());
 
                         SoundEffect.MINING_TASK_SOUND.playAt(furnace);
 

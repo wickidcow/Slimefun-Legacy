@@ -46,6 +46,10 @@ public class ChristmasPresent extends SimpleSlimefunItem<ItemUseHandler> impleme
         return e -> {
             e.cancel();
 
+            if (gifts.length == 0) {
+                return;
+            }
+
             e.getClickedBlock().ifPresent(block -> {
                 if (e.getPlayer().getGameMode() != GameMode.CREATIVE) {
                     ItemUtils.consumeItem(e.getItem(), false);

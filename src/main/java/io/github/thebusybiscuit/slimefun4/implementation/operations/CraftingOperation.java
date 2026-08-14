@@ -31,9 +31,19 @@ public class CraftingOperation implements MachineOperation {
                 totalTicks >= 0,
                 "The amount of total ticks must be a positive integer or zero, received: " + totalTicks);
 
-        this.ingredients = ingredients;
-        this.results = results;
+        this.ingredients = snapshot(ingredients);
+        this.results = snapshot(results);
         this.totalTicks = totalTicks;
+    }
+
+    private static ItemStack[] snapshot(ItemStack[] stacks) {
+        ItemStack[] snapshot = new ItemStack[stacks.length];
+
+        for (int i = 0; i < stacks.length; i++) {
+            snapshot[i] = stacks[i] == null ? null : stacks[i].clone();
+        }
+
+        return snapshot;
     }
 
     @Override

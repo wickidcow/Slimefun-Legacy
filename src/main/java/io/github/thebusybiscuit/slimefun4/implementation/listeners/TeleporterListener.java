@@ -12,6 +12,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.teleporter.Telepo
 import io.github.thebusybiscuit.slimefun4.implementation.items.teleporter.TeleporterPylon;
 import java.util.UUID;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
@@ -87,7 +88,7 @@ public class TeleporterListener implements Listener {
 
                                 @Override
                                 public void onResult(SlimefunBlockData result) {
-                                    teleport(blockData.getData("owner"), p, block);
+                                    teleport(result.getData("owner"), p, block);
                                 }
                             });
                 }
@@ -95,12 +96,29 @@ public class TeleporterListener implements Listener {
         }
     }
 
-    private void teleport(String ownerUid, Player p, Block b) {
-        Slimefun.getGPSNetwork().getTeleportationManager().openTeleporterGUI(p, UUID.fromString(ownerUid), b);
+    private void teleport(@Nullable String ownerUid, @Nonnull Player p, @Nonnull Block b) {
+        UUID owner = parseOwner(ownerUid);
+        if (owner == null) {
+            return;
+        }
+
+        Slimefun.getGPSNetwork().getTeleportationManager().openTeleporterGUI(p, owner, b);
+    }
+
+    private @Nullable UUID parseOwner(@Nullable String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     /**
-     * This methoc checks if the given teleporter {@link Block} is surrounded
+     * This method checks if the given teleporter {@link Block} is surrounded
      * by all the necessary {@link TeleporterPylon}s.
      *
      * @param teleporter

@@ -230,9 +230,9 @@ public class AncientAltarListener implements Listener {
         if (result.isPresent()) {
             if (SlimefunUtils.canPlayerUseItem(p, result.get(), true)) {
                 List<ItemStack> consumed = new ArrayList<>();
-                consumed.add(catalyst);
 
                 if (p.getGameMode() != GameMode.CREATIVE) {
+                    consumed.add(catalyst);
                     ItemUtils.consumeItem(p.getInventory().getItemInMainHand(), false);
                 }
 

@@ -11,11 +11,11 @@ import io.github.thebusybiscuit.slimefun4.core.attributes.NotPlaceable;
 import io.github.thebusybiscuit.slimefun4.core.handlers.ItemUseHandler;
 import io.github.thebusybiscuit.slimefun4.core.handlers.ToolUseHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Axis;
-import org.bukkit.Effect;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.Tag;
@@ -100,7 +100,7 @@ public class LumberAxe extends SlimefunItem implements NotPlaceable {
     }
 
     private void breakLog(@Nonnull Block b) {
-        b.getWorld().playEffect(b.getLocation(), Effect.DESTROY_BLOCK, b.getBlockData());
+        VisualEffectUtils.playBlockBreakEffect(b);
 
         for (ItemStack drop : b.getDrops(getItem())) {
             b.getWorld().dropItemNaturally(b.getLocation(), drop);

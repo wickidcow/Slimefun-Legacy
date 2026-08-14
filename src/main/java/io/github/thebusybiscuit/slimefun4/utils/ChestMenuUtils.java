@@ -149,29 +149,32 @@ public final class ChestMenuUtils {
         Inventory inv = menu.toInventory();
 
         // We don't need to update the progress bar if noone is watching :o
-        if (inv == null || inv.getViewers().isEmpty()) {
+        if (inv == null || inv.getViewers().isEmpty() || time <= 0) {
             return;
         }
 
+        int safeTimeLeft = Math.max(0, Math.min(timeLeft, time));
         ItemStack item = indicator.clone();
         ItemMeta im = item.getItemMeta();
         im.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
 
         if (im instanceof Damageable damageable) {
-            damageable.setDamage(getDurability(item, timeLeft, time));
+            damageable.setDamage(getDurability(item, safeTimeLeft, time));
         }
 
         im.setDisplayName(" ");
         im.setLore(Arrays.asList(
-                getProgressBar(timeLeft, time), "", ChatColor.GRAY + NumberUtils.getTimeLeft(timeLeft / 2)));
+                getProgressBar(safeTimeLeft, time), "", ChatColor.GRAY + NumberUtils.getTimeLeft(safeTimeLeft / 2)));
         item.setItemMeta(im);
 
         menu.replaceExistingItem(slot, item);
     }
 
     public static @Nonnull String getProgressBar(int time, int total) {
+        int safeTotal = Math.max(1, total);
+        int safeTime = Math.max(0, Math.min(time, safeTotal));
+        float percentage = Math.round(((((safeTotal - safeTime) * 100.0F) / safeTotal) * 100.0F) / 100.0F);
         StringBuilder builder = new StringBuilder();
-        float percentage = Math.round(((((total - time) * 100.0F) / total) * 100.0F) / 100.0F);
 
         builder.append(NumberUtils.getColorFromPercentage(percentage));
 
@@ -191,7 +194,13 @@ public final class ChestMenuUtils {
         return ChatColors.color(builder.toString());
     }
 
-    private static short getDurability(@Nonnull ItemStack item, int timeLeft, int max) {
-        return (short) ((item.getType().getMaxDurability() / max) * timeLeft);
+    private static int getDurability(@Nonnull ItemStack item, int timeLeft, int max) {
+        int maxDurability = item.getType().getMaxDurability();
+        if (maxDurability <= 0 || max <= 0) {
+            return 0;
+        }
+
+        int safeTimeLeft = Math.max(0, Math.min(timeLeft, max));
+        return (int) Math.round((maxDurability * (double) safeTimeLeft) / max);
     }
 }

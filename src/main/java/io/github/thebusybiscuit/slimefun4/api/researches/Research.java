@@ -190,7 +190,7 @@ public class Research implements Keyed {
      */
     @Deprecated
     public void setCost(int cost) {
-        if (levelCost < 0) {
+        if (cost < 0) {
             throw new IllegalArgumentException("Research cost must be zero or greater!");
         }
 
@@ -396,7 +396,7 @@ public class Research implements Keyed {
         if (Slimefun.getConfigManager().isResearchAutoConvert()) {
             setCurrencyCost(getLevelCost() * Slimefun.getConfigManager().getResearchCurrencyCostConvertRate());
         } else {
-            setCurrencyCost(Slimefun.getResearchCfg().getInt(path + ".currency-cost"));
+            setCurrencyCost(Slimefun.getResearchCfg().getDouble(path + ".currency-cost"));
         }
         enabled = true;
 

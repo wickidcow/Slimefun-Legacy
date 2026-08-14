@@ -62,24 +62,27 @@ public class ExplosiveBow extends SlimefunBow {
                         .add(new Vector(0, 0.75, 0));
 
                 double distanceSquared = distanceVector.lengthSquared();
-                double damage = e.getDamage() * (1 - (distanceSquared / (2 * range.getValue() * range.getValue())));
+                double damage = e.getDamage() * (1 - (distanceSquared / (2.0 * radius * radius)));
 
-                if (!entity.getUniqueId().equals(target.getUniqueId())) {
-                    Entity causingEntity = e.getDamager();
-                    if (e.getDamager() instanceof Projectile projectile
-                            && projectile.getShooter() instanceof Entity shooter) {
-                        causingEntity = shooter;
-                    }
+                // Nearby-entity queries use a box, while the damage falloff is radial. The box corners can
+                // therefore fall outside the effective blast radius and must not be passed to Bukkit as
+                // zero/negative damage.
+                if (damage <= 0 || entity.getUniqueId().equals(target.getUniqueId())) {
+                    continue;
+                }
 
-                    DamageType damageType =
-                            causingEntity instanceof Player ? DamageType.PLAYER_EXPLOSION : DamageType.EXPLOSION;
-                    boolean damaged = DamageUtils.damage(entity, damage, damageType, e.getDamager(), causingEntity);
+                Entity causingEntity = e.getDamager();
+                if (e.getDamager() instanceof Projectile projectile && projectile.getShooter() instanceof Entity shooter) {
+                    causingEntity = shooter;
+                }
 
-                    if (damaged) {
-                        distanceVector.setY(0.75);
-                        Vector knockback = distanceVector.normalize().multiply(2);
-                        entity.setVelocity(entity.getVelocity().add(knockback));
-                    }
+                DamageType damageType = causingEntity instanceof Player ? DamageType.PLAYER_EXPLOSION : DamageType.EXPLOSION;
+                boolean damaged = DamageUtils.damage(entity, damage, damageType, e.getDamager(), causingEntity);
+
+                if (damaged) {
+                    distanceVector.setY(0.75);
+                    Vector knockback = distanceVector.normalize().multiply(2);
+                    entity.setVelocity(entity.getVelocity().add(knockback));
                 }
             }
         };

@@ -14,13 +14,13 @@ import io.github.thebusybiscuit.slimefun4.core.handlers.BlockDispenseHandler;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockPlaceHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.handlers.VanillaInventoryDropHandler;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import io.github.thebusybiscuit.slimefun4.utils.tags.SlimefunTag;
 import java.util.List;
 import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Bukkit;
-import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Nameable;
@@ -86,10 +86,6 @@ public class BlockPlacer extends SlimefunItem {
             Material material = e.getItem().getType();
 
             if (SlimefunTag.SHULKER_BOXES.isTagged(material)) {
-                /*
-                 * Since vanilla Dispensers can already place Shulker boxes,
-                 * we simply fallback to the vanilla behaviour.
-                 */
                 return;
             }
 
@@ -101,74 +97,44 @@ public class BlockPlacer extends SlimefunItem {
                 SlimefunItem item = SlimefunItem.getByItem(e.getItem());
 
                 if (item != null) {
-                    // Check if this Item can even be placed down
                     if (!(item instanceof NotPlaceable) && !item.isDisabledIn(dispenser.getWorld())) {
                         placeSlimefunBlock(item, e.getItem(), facedBlock, dispenser);
                     }
                 } else if (!Slimefun.getIntegrations().isCustomItem(e.getItem())) {
-                    // Fixes #3218 - Prevent placement of custom items (ItemsAdder)
                     placeBlock(e.getItem(), facedBlock, dispenser);
                 }
             }
         };
     }
 
-    /**
-     * This checks whether the {@link Player} who placed down this {@link BlockPlacer} has
-     * building permissions at that {@link Location}.
-     *
-     * @param dispenser
-     *            The {@link Dispenser} who represents our {@link BlockPlacer}
-     * @param target
-     *            The {@link Block} where it should be placed
-     *
-     * @return Whether this action is permitted or not
-     */
     @ParametersAreNonnullByDefault
     private boolean hasPermission(Dispenser dispenser, Block target) {
         String owner = StorageCacheUtils.getData(dispenser.getLocation(), "owner");
 
         if (owner == null) {
-            /*
-             * If no owner was set, then we will fallback to the previous behaviour:
-             * Allowing block placers to bypass protection, newly placed Block placers
-             * will respect protection plugins.
-             */
             return true;
         }
 
-        // Get the corresponding OfflinePlayer
-        OfflinePlayer player = Bukkit.getOfflinePlayer(UUID.fromString(owner));
-        return Slimefun.getProtectionManager().hasPermission(player, target, Interaction.PLACE_BLOCK);
+        if (owner.isBlank()) {
+            return false;
+        }
+
+        try {
+            OfflinePlayer player = Bukkit.getOfflinePlayer(UUID.fromString(owner));
+            return Slimefun.getProtectionManager().hasPermission(player, target, Interaction.PLACE_BLOCK);
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
     }
 
-    /**
-     * This checks if the given {@link Material} is allowed to be placed.
-     *
-     * @param type
-     *            The {@link Material} to check
-     *
-     * @return Whether placing this {@link Material} is allowed
-     */
     private boolean isAllowed(@Nonnull Block facedBlock, @Nonnull Material type) {
         if (!type.isBlock()) {
-            // Make sure the material is actually a block.
             return false;
         } else if (type == Material.CAKE) {
-            /*
-             * Special case for cakes.
-             * Cakes are a lie but I really want the Block Placer to place them down!!!
-             */
             return !facedBlock.getRelative(BlockFace.DOWN).isPassable();
         } else if (SlimefunTag.BLOCK_PLACER_IGNORED_MATERIALS.isTagged(type)) {
-            /*
-             * Some materials cannot be reliably placed, like beds,
-             * it would look kinda wonky, so we just ignore these altogether.
-             * The event has already been cancelled too, so they won't drop.
-             */
             return false;
         } else {
-            // Check for all unplaceable block
             for (String blockType : unplaceableBlocks.getValue()) {
                 if (type.toString().equals(blockType)) {
                     return false;
@@ -236,20 +202,14 @@ public class BlockPlacer extends SlimefunItem {
 
     @ParametersAreNonnullByDefault
     private void schedulePlacement(Block b, Inventory inv, ItemStack item, Runnable runnable) {
-        // We need to delay this due to Dispenser-Inventory synchronization issues in Spigot.
         Slimefun.runSyncAt(
                 b.getLocation(),
                 () -> {
-                    // Make sure the Block has not been occupied yet
                     if (b.isEmpty()) {
-                        // Only remove 1 item.
                         ItemStack removedItem = item.clone();
                         removedItem.setAmount(1);
 
-                        // Play particles
-                        b.getWorld().playEffect(b.getLocation(), Effect.DESTROY_BLOCK, item.getType().createBlockData());
-
-                        // Make sure the item was actually removed (fixes #2817)
+                        VisualEffectUtils.playBlockBreakEffect(b.getLocation(), item.getType());
 
                         try {
                             if (inv.removeItem(removedItem).isEmpty()) {

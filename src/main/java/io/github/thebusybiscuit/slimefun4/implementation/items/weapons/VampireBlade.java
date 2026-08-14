@@ -39,6 +39,10 @@ public class VampireBlade extends SimpleSlimefunItem<WeaponUseHandler> {
     @Override
     public @Nonnull WeaponUseHandler getItemHandler() {
         return (e, p, item) -> {
+            if (e.getFinalDamage() <= 0) {
+                return;
+            }
+
             if (ThreadLocalRandom.current().nextInt(100) < getChance()) {
                 SoundEffect.VAMPIRE_BLADE_HEALING_SOUND.playFor(p);
                 double health = p.getHealth() + HEALING_AMOUNT;

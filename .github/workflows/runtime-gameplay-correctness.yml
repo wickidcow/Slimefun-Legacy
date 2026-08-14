@@ -1,0 +1,176 @@
+name: Runtime Gameplay Correctness
+
+on:
+  pull_request:
+    paths:
+      - 'src/main/**'
+      - 'src/test/**'
+      - 'scripts/verify_core_correctness.py'
+      - 'scripts/verify_guide_runtime_correctness.py'
+      - 'scripts/verify_runtime_gameplay_correctness.py'
+      - 'scripts/verify_container_storage_correctness.py'
+      - 'scripts/verify_cargo_correctness.py'
+      - 'scripts/verify_energy_network_correctness.py'
+      - 'scripts/verify_generator_correctness.py'
+      - 'scripts/verify_reactor_correctness.py'
+      - 'scripts/verify_machine_processor_correctness.py'
+      - 'scripts/verify_special_item_correctness.py'
+      - 'scripts/verify_tool_correctness.py'
+      - 'scripts/verify_magical_item_correctness.py'
+      - 'scripts/verify_movement_gear_correctness.py'
+      - 'scripts/verify_armor_correctness.py'
+      - 'scripts/verify_consumable_rune_correctness.py'
+      - 'scripts/verify_weapon_correctness.py'
+      - 'scripts/verify_food_correctness.py'
+      - 'scripts/verify_autocrafter_correctness.py'
+      - 'scripts/verify_block_utility_correctness.py'
+      - 'scripts/verify_interaction_misc_correctness.py'
+      - '.github/workflows/runtime-gameplay-correctness.yml'
+  push:
+    branches:
+      - master
+      - main
+      - 'agent/runtime-gameplay-correctness'
+    paths:
+      - 'src/main/**'
+      - 'src/test/**'
+      - 'scripts/verify_core_correctness.py'
+      - 'scripts/verify_guide_runtime_correctness.py'
+      - 'scripts/verify_runtime_gameplay_correctness.py'
+      - 'scripts/verify_container_storage_correctness.py'
+      - 'scripts/verify_cargo_correctness.py'
+      - 'scripts/verify_energy_network_correctness.py'
+      - 'scripts/verify_generator_correctness.py'
+      - 'scripts/verify_reactor_correctness.py'
+      - 'scripts/verify_machine_processor_correctness.py'
+      - 'scripts/verify_special_item_correctness.py'
+      - 'scripts/verify_tool_correctness.py'
+      - 'scripts/verify_magical_item_correctness.py'
+      - 'scripts/verify_movement_gear_correctness.py'
+      - 'scripts/verify_armor_correctness.py'
+      - 'scripts/verify_consumable_rune_correctness.py'
+      - 'scripts/verify_weapon_correctness.py'
+      - 'scripts/verify_food_correctness.py'
+      - 'scripts/verify_autocrafter_correctness.py'
+      - 'scripts/verify_block_utility_correctness.py'
+      - 'scripts/verify_interaction_misc_correctness.py'
+      - '.github/workflows/runtime-gameplay-correctness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  correctness:
+    name: Verify gameplay invariants and focused runtime tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Verify existing core-correctness invariants
+        run: python3 scripts/verify_core_correctness.py .
+
+      - name: Verify guide runtime correctness
+        run: python3 scripts/verify_guide_runtime_correctness.py .
+
+      - name: Verify runtime gameplay transaction invariants
+        run: python3 scripts/verify_runtime_gameplay_correctness.py .
+
+      - name: Verify AContainer loaded-storage and addon-hook invariants
+        run: python3 scripts/verify_container_storage_correctness.py .
+
+      - name: Verify Cargo transaction and chunk-safety invariants
+        run: python3 scripts/verify_cargo_correctness.py .
+
+      - name: Verify energy network charge and live-component invariants
+        run: python3 scripts/verify_energy_network_correctness.py .
+
+      - name: Verify generator fuel and byproduct transaction invariants
+        run: python3 scripts/verify_generator_correctness.py .
+
+      - name: Verify reactor fuel, byproduct and access-port transaction invariants
+        run: python3 scripts/verify_reactor_correctness.py .
+
+      - name: Verify shared machine processor lifecycle invariants
+        run: python3 scripts/verify_machine_processor_correctness.py .
+
+      - name: Verify special-item runtime invariants
+        run: python3 scripts/verify_special_item_correctness.py .
+
+      - name: Verify player-tool runtime invariants
+        run: python3 scripts/verify_tool_correctness.py .
+
+      - name: Verify magical-item runtime invariants
+        run: python3 scripts/verify_magical_item_correctness.py .
+
+      - name: Verify movement-gear runtime invariants
+        run: python3 scripts/verify_movement_gear_correctness.py .
+
+      - name: Verify passive armor protection invariants
+        run: python3 scripts/verify_armor_correctness.py .
+
+      - name: Verify medical consumable and rune invariants
+        run: python3 scripts/verify_consumable_rune_correctness.py .
+
+      - name: Verify combat runtime invariants
+        run: python3 scripts/verify_weapon_correctness.py .
+
+      - name: Verify food and Cooler runtime invariants
+        run: python3 scripts/verify_food_correctness.py .
+
+      - name: Verify auto-crafter runtime invariants
+        run: python3 scripts/verify_autocrafter_correctness.py .
+
+      - name: Verify block utility runtime invariants
+        run: python3 scripts/verify_block_utility_correctness.py .
+
+      - name: Verify entity and seasonal interaction invariants
+        run: python3 scripts/verify_interaction_misc_correctness.py .
+
+      - name: Run focused machine runtime tests
+        run: |
+          chmod +x gradlew
+          ./gradlew test \
+            --tests io.github.thebusybiscuit.slimefun4.implementation.items.electric.machines.enchanting.EnchantmentMachineRuntimeTest \
+            --tests io.github.thebusybiscuit.slimefun4.implementation.operations.MachineOperationSnapshotTest \
+            --no-daemon
+
+      - name: Publish correctness summary
+        if: always()
+        run: |
+          {
+            echo '## Runtime / gameplay correctness'
+            echo
+            echo '- Guide runtime diagnostics and GuideHistory ownership checked'
+            echo '- Machine cancellation and transaction ordering checked'
+            echo '- AContainer energy/progress/output lifecycle checked'
+            echo '- AContainer loaded storage reuse and legacy addon hooks checked'
+            echo '- Shared MachineProcessor finished-progress lifecycle checked'
+            echo '- Running crafting/fuel operations snapshot mutable recipe ItemStacks at start'
+            echo '- Cargo rollback, exact partial-stack remainder and unloaded-chunk guards checked'
+            echo '- Energy network live-component identity, charge bounds and unloaded-chunk guards checked'
+            echo '- Generator fuel quantity, byproduct preflight and lossless output commit checked'
+            echo '- Reactor fuel quantity, access-port transfer, byproduct preflight and lossless completion checked'
+            echo '- GPS, Android overflow, Elevator and research-cost invariants checked'
+            echo '- Player tool and spawner invariants checked'
+            echo '- Knowledge Tome, Knowledge Flask, Infernal Bonemeal and Zombie Pills invariants checked'
+            echo '- Jetpack, Jet Boots, Bee Wings, Parachute and Slimefun boots lifecycle invariants checked'
+            echo '- Hazmat, bee and Elytra Cap protection resolve current equipment instead of stale armor cache'
+            echo '- Splint eligibility, limited-use counters and delayed Enchantment/Soulbound Rune transactions checked'
+            echo '- Combat item cancellation and projectile/damage invariants checked'
+            echo '- Cancelled consumption and sequential one-juice Cooler transactions checked'
+            echo '- Auto-crafter quantity reservation, lossless output commit and energy ordering checked'
+            echo '- Block Placer ownership, Hologram state recovery and output utility invariants checked'
+            echo '- Cancelled entity interactions, protected misc item effects and seasonal gift validation checked'
+            echo '- Auto Enchanter / Auto Disenchanter timing and operation snapshot tests executed'
+          } >> "$GITHUB_STEP_SUMMARY"

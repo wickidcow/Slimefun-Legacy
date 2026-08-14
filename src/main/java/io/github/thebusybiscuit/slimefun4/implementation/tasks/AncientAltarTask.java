@@ -7,6 +7,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.altar.AncientAltar;
 import io.github.thebusybiscuit.slimefun4.implementation.items.altar.AncientPedestal;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.AncientAltarListener;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedParticle;
 import java.util.Collection;
 import java.util.HashMap;
@@ -17,7 +18,6 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Bukkit;
-import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.SoundCategory;
@@ -104,6 +104,9 @@ public class AncientAltarTask implements Runnable {
 
         if (this.stage > 0 && this.stage % 4 == 0) {
             checkPedestal(pedestals.get(this.stage / 4 - 1));
+            if (!running) {
+                return;
+            }
         }
 
         this.stage += 1;
@@ -112,7 +115,13 @@ public class AncientAltarTask implements Runnable {
 
     private boolean checkLockedItems() {
         for (Map.Entry<Item, Location> entry : positionLock.entrySet()) {
-            if (entry.getKey().getLocation().distanceSquared(entry.getValue()) > 0.1) {
+            Item item = entry.getKey();
+            Location locked = entry.getValue();
+            Location current = item.getLocation();
+
+            if (!item.isValid()
+                    || current.getWorld() != locked.getWorld()
+                    || current.distanceSquared(locked) > 0.1) {
                 return false;
             }
         }
@@ -162,7 +171,12 @@ public class AncientAltarTask implements Runnable {
     }
 
     private void abort() {
+        if (!running) {
+            return;
+        }
+
         running = false;
+        restoreConsumedItems();
 
         for (Block b : pedestals) {
             listener.getAltarsInUse().remove(b.getLocation());
@@ -175,16 +189,31 @@ public class AncientAltarTask implements Runnable {
         listener.getAltars().remove(altar);
     }
 
+    private void restoreConsumedItems() {
+        Location restoreLocation = dropLocation.clone().add(0, -0.5, 0);
+
+        for (ItemStack item : items) {
+            if (item != null && item.getType() != Material.AIR && item.getAmount() > 0) {
+                restoreLocation.getWorld().dropItemNaturally(restoreLocation, item.clone());
+            }
+        }
+
+        items.clear();
+    }
+
     private void finish() {
         if (running) {
-
             AncientAltarCraftEvent event = new AncientAltarCraftEvent(output, altar, player);
             Bukkit.getPluginManager().callEvent(event);
 
             if (!event.isCancelled()) {
                 SoundEffect.ANCIENT_ALTAR_FINISH_SOUND.playAt(dropLocation, SoundCategory.BLOCKS);
-                dropLocation.getWorld().playEffect(dropLocation, Effect.DESTROY_BLOCK, Material.EMERALD_BLOCK.createBlockData());
-                dropLocation.getWorld().dropItemNaturally(dropLocation.add(0, -0.5, 0), event.getItem());
+                VisualEffectUtils.playBlockBreakEffect(dropLocation, Material.EMERALD_BLOCK);
+                dropLocation.getWorld().dropItemNaturally(dropLocation.clone().add(0, -0.5, 0), event.getItem());
+                items.clear();
+            } else {
+                restoreConsumedItems();
+                SoundEffect.ANCIENT_ALTAR_ITEM_DROP_SOUND.playAt(dropLocation, SoundCategory.BLOCKS);
             }
 
             for (Block b : pedestals) {
@@ -194,8 +223,6 @@ public class AncientAltarTask implements Runnable {
             // This should re-enable altar blocks on craft completion.
             listener.getAltarsInUse().remove(altar.getLocation());
             listener.getAltars().remove(altar);
-        } else {
-            SoundEffect.ANCIENT_ALTAR_ITEM_DROP_SOUND.playAt(dropLocation, SoundCategory.BLOCKS);
         }
     }
 }

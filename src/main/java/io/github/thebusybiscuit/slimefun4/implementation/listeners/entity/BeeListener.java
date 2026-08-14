@@ -4,6 +4,7 @@ import io.github.bakedlibs.dough.items.ItemUtils;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
 import io.github.thebusybiscuit.slimefun4.core.attributes.ProtectionType;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.implementation.items.armor.ArmorProtectionUtils;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import org.bukkit.entity.Bee;
@@ -37,9 +38,7 @@ public class BeeListener implements Listener {
                 return;
             }
 
-            PlayerProfile profile = optional.get();
-
-            if (profile.hasFullProtectionAgainst(ProtectionType.BEES)) {
+            if (ArmorProtectionUtils.hasFullProtectionAgainst(p, ProtectionType.BEES)) {
                 for (ItemStack armor : p.getInventory().getArmorContents()) {
                     if (armor != null) {
                         ItemUtils.damageItem(armor, 1, false);

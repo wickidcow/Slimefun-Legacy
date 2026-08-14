@@ -57,8 +57,12 @@ public class FishermanAndroid extends ProgrammableAndroid {
             SoundEffect.FISHERMAN_ANDROID_FISHING_SOUND.playAt(water);
 
             if (ThreadLocalRandom.current().nextInt(100) < 10 * getTier()) {
-                ItemStack drop = fishingLoot.getRandom();
-                menu.pushItem(drop.clone(), getOutputSlots());
+                ItemStack drop = fishingLoot.getRandom().clone();
+                ItemStack remainder = menu.pushItem(drop, getOutputSlots());
+
+                if (remainder != null) {
+                    water.getWorld().dropItemNaturally(water.getLocation(), remainder);
+                }
             }
         }
     }

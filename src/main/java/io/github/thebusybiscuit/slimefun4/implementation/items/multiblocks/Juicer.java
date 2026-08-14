@@ -10,12 +10,12 @@ import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.food.Juice;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Bukkit;
-import org.bukkit.Effect;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -72,24 +72,26 @@ public class Juicer extends MultiBlockMachine {
             for (ItemStack current : inv.getContents()) {
                 for (ItemStack convert : RecipeType.getRecipeInputs(this)) {
                     if (convert != null && SlimefunUtils.isItemSimilar(current, convert, true)) {
-                        ItemStack adding = RecipeType.getRecipeOutput(this, convert);
-                        Inventory outputInv = findOutputInventory(adding, possibleDispenser, inv);
-                        MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, current, adding);
+                        ItemStack defaultOutput = RecipeType.getRecipeOutput(this, convert);
+                        MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, current, defaultOutput);
 
                         Bukkit.getPluginManager().callEvent(event);
                         if (event.isCancelled()) {
                             return;
                         }
 
+                        ItemStack output = event.getOutput();
+                        Inventory outputInv = findOutputInventory(output, possibleDispenser, inv);
+
                         if (outputInv != null) {
                             ItemStack removing = current.clone();
-                            removing.setAmount(1);
+                            removing.setAmount(convert.getAmount());
                             inv.removeItem(removing);
-                            outputInv.addItem(event.getOutput());
+                            handleCraftedItem(output, possibleDispenser, inv);
 
                             SoundEffect.JUICER_USE_SOUND.playAt(b);
-                            // Not changed since this is supposed to be a natural sound.
-                            p.getWorld().playEffect(b.getLocation(), Effect.DESTROY_BLOCK, Material.HAY_BLOCK.createBlockData());
+                            // This remains a natural block-breaking visual/sound effect.
+                            VisualEffectUtils.playBlockBreakEffect(b.getLocation(), Material.HAY_BLOCK);
                         } else {
                             Slimefun.getLocalization().sendMessage(p, "machines.full-inventory", true);
                         }

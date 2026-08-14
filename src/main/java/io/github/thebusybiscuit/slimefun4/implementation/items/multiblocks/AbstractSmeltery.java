@@ -45,18 +45,22 @@ abstract class AbstractSmeltery extends MultiBlockMachine {
 
             for (int i = 0; i < inputs.size(); i++) {
                 if (canCraft(inv, inputs, i)) {
-                    ItemStack output =
+                    ItemStack defaultOutput =
                             RecipeType.getRecipeOutputList(this, inputs.get(i)).clone();
-                    MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, inputs.get(i), output);
+                    MultiBlockCraftEvent event = new MultiBlockCraftEvent(p, this, inputs.get(i), defaultOutput);
 
                     Bukkit.getPluginManager().callEvent(event);
-                    if (!event.isCancelled() && SlimefunUtils.canPlayerUseItem(p, output, true)) {
-                        Inventory outputInv = findOutputInventory(output, possibleDispenser, inv);
+                    if (!event.isCancelled()) {
+                        ItemStack output = event.getOutput();
 
-                        if (outputInv != null) {
-                            craft(p, b, inv, inputs.get(i), event.getOutput(), outputInv);
-                        } else {
-                            Slimefun.getLocalization().sendMessage(p, "machines.full-inventory", true);
+                        if (SlimefunUtils.canPlayerUseItem(p, output, true)) {
+                            Inventory outputInv = findOutputInventory(output, possibleDispenser, inv);
+
+                            if (outputInv != null) {
+                                craft(p, b, inv, inputs.get(i), output, possibleDispenser);
+                            } else {
+                                Slimefun.getLocalization().sendMessage(p, "machines.full-inventory", true);
+                            }
                         }
                     }
 
@@ -68,24 +72,45 @@ abstract class AbstractSmeltery extends MultiBlockMachine {
         }
     }
 
-    private boolean canCraft(Inventory inv, List<ItemStack[]> inputs, int i) {
-        for (ItemStack expectedInput : inputs.get(i)) {
-            if (expectedInput != null) {
-                for (int j = 0; j < inv.getContents().length; j++) {
-                    if (j == (inv.getContents().length - 1)
-                            && !SlimefunUtils.isItemSimilar(inv.getContents()[j], expectedInput, true)) {
-                        return false;
-                    } else if (SlimefunUtils.isItemSimilar(inv.getContents()[j], expectedInput, true)) {
-                        break;
-                    }
+    private boolean canCraft(Inventory inv, List<ItemStack[]> inputs, int recipeIndex) {
+        ItemStack[] contents = inv.getContents();
+        int[] remainingAmounts = new int[contents.length];
+
+        for (int slot = 0; slot < contents.length; slot++) {
+            ItemStack stack = contents[slot];
+            remainingAmounts[slot] = stack == null ? 0 : stack.getAmount();
+        }
+
+        for (ItemStack expectedInput : inputs.get(recipeIndex)) {
+            if (expectedInput == null) {
+                continue;
+            }
+
+            int required = expectedInput.getAmount();
+
+            for (int slot = 0; slot < contents.length && required > 0; slot++) {
+                ItemStack stack = contents[slot];
+
+                if (remainingAmounts[slot] <= 0
+                        || !SlimefunUtils.isItemSimilar(stack, expectedInput, true, false)) {
+                    continue;
                 }
+
+                int reserved = Math.min(remainingAmounts[slot], required);
+                remainingAmounts[slot] -= reserved;
+                required -= reserved;
+            }
+
+            if (required > 0) {
+                return false;
             }
         }
 
         return true;
     }
 
-    protected void craft(Player p, Block b, Inventory inv, ItemStack[] recipe, ItemStack output, Inventory outputInv) {
+    protected void craft(
+            Player p, Block b, Inventory inv, ItemStack[] recipe, ItemStack output, Block dispenser) {
         for (ItemStack removing : recipe) {
             if (removing != null) {
                 InvUtils.removeItem(
@@ -93,8 +118,8 @@ abstract class AbstractSmeltery extends MultiBlockMachine {
             }
         }
 
-        outputInv.addItem(output);
+        handleCraftedItem(output, dispenser, inv);
         SoundEffect.SMELTERY_CRAFT_SOUND.playAt(b);
-        p.getWorld().playEffect(b.getLocation(), Effect.MOBSPAWNER_FLAMES, 1);
+        b.getWorld().playEffect(b.getLocation(), Effect.MOBSPAWNER_FLAMES, 1);
     }
 }

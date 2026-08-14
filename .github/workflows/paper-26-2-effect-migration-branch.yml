@@ -1,0 +1,201 @@
+name: Paper 26.2 Effect Migration Branch
+
+on:
+  push:
+    paths:
+      - '.github/workflows/paper-26-2-effect-migration-branch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout runtime correctness branch
+        uses: actions/checkout@v6
+        with:
+          ref: agent/runtime-gameplay-correctness
+          fetch-depth: 0
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Apply Paper 26.2 Effect API migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          ROOT = Path('src/main/java')
+
+          replacements = {
+              'io/github/thebusybiscuit/slimefun4/implementation/items/tools/ClimbingPick.java': [
+                  ('Effect.STEP_SOUND, b.getType()', 'Effect.DESTROY_BLOCK, b.getBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/tools/GoldPan.java': [
+                  ('Effect.STEP_SOUND, b.getType()', 'Effect.DESTROY_BLOCK, b.getBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/multiblocks/MakeshiftSmeltery.java': [
+                  ('Effect.STEP_SOUND, fire.getType()', 'Effect.DESTROY_BLOCK, fire.getBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/tasks/AncientAltarTask.java': [
+                  ('Effect.STEP_SOUND, Material.EMERALD_BLOCK', 'Effect.DESTROY_BLOCK, Material.EMERALD_BLOCK.createBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/tasks/player/JetpackTask.java': [
+                  ('import org.bukkit.SoundCategory;', 'import org.bukkit.SoundCategory;\nimport org.bukkit.block.BlockFace;', 1),
+                  ('Effect.SMOKE, 1, 1', 'Effect.SMOKE_SHOOT, BlockFace.UP, 1', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/tasks/player/JetBootsTask.java': [
+                  ('import org.bukkit.SoundCategory;', 'import org.bukkit.SoundCategory;\nimport org.bukkit.block.BlockFace;', 1),
+                  ('Effect.SMOKE, 1, 1', 'Effect.SMOKE_SHOOT, BlockFace.UP, 1', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/tools/ExplosiveTool.java': [
+                  ('Effect.STEP_SOUND, material', 'Effect.DESTROY_BLOCK, material.createBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/weapons/SeismicAxe.java': [
+                  ('Effect.STEP_SOUND, ground.getType()', 'Effect.DESTROY_BLOCK, ground.getBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/armor/StomperBoots.java': [
+                  ('Effect.STEP_SOUND, block.getType()', 'Effect.DESTROY_BLOCK, block.getBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/medical/Bandage.java': [
+                  ('Effect.STEP_SOUND, Material.WHITE_WOOL', 'Effect.DESTROY_BLOCK, Material.WHITE_WOOL.createBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/magical/InfernalBonemeal.java': [
+                  ('Effect.STEP_SOUND, Material.REDSTONE_BLOCK', 'Effect.DESTROY_BLOCK, Material.REDSTONE_BLOCK.createBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/magical/staves/WindStaff.java': [
+                  ('import org.bukkit.GameMode;', 'import org.bukkit.GameMode;\nimport org.bukkit.block.BlockFace;', 1),
+                  ('Effect.SMOKE, 1', 'Effect.SMOKE_SHOOT, BlockFace.UP', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/weapons/IcyBow.java': [
+                  ('Effect.STEP_SOUND, Material.ICE', 'Effect.DESTROY_BLOCK, Material.ICE.createBlockData()', 2),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/multiblocks/OreWasher.java': [
+                  ('Effect.STEP_SOUND, Material.WATER', 'Effect.DESTROY_BLOCK, Material.WATER.createBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/entities/AbstractEntityAssembler.java': [
+                  ('Effect.STEP_SOUND,\n                                            getHead().getType()', 'Effect.DESTROY_BLOCK,\n                                            getHead().getType().createBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/blocks/BlockPlacer.java': [
+                  ('Effect.STEP_SOUND, item.getType()', 'Effect.DESTROY_BLOCK, item.getType().createBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/blocks/Composter.java': [
+                  ('Effect.STEP_SOUND, material', 'Effect.DESTROY_BLOCK, material.createBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/tools/PickaxeOfVeinMining.java': [
+                  ('Effect.STEP_SOUND, b.getType()', 'Effect.DESTROY_BLOCK, b.getBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/tools/LumberAxe.java': [
+                  ('Effect.STEP_SOUND, b.getType()', 'Effect.DESTROY_BLOCK, b.getBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/multiblocks/OreCrusher.java': [
+                  ('Effect.STEP_SOUND, 1', 'Effect.DESTROY_BLOCK, Material.STONE.createBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/multiblocks/PressureChamber.java': [
+                  ('Effect.SMOKE, 4', 'Effect.SMOKE_SHOOT, BlockFace.WEST', 3),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/multiblocks/miner/MiningTask.java': [
+                  ('Effect.STEP_SOUND, Material.STONE', 'Effect.DESTROY_BLOCK, Material.STONE.createBlockData()', 1),
+                  ('Effect.STEP_SOUND, b.getType()', 'Effect.DESTROY_BLOCK, b.getBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/multiblocks/Juicer.java': [
+                  ('Effect.STEP_SOUND, Material.HAY_BLOCK', 'Effect.DESTROY_BLOCK, Material.HAY_BLOCK.createBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/multiblocks/Smeltery.java': [
+                  ('Effect.STEP_SOUND, fire.getType()', 'Effect.DESTROY_BLOCK, fire.getBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/multiblocks/TableSaw.java': [
+                  ('Effect.STEP_SOUND, item.getType()', 'Effect.DESTROY_BLOCK, item.getType().createBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/multiblocks/AutomatedPanningMachine.java': [
+                  ('Effect.STEP_SOUND, material', 'Effect.DESTROY_BLOCK, material.createBlockData()', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/androids/WoodcutterAndroid.java': [
+                  ('Effect.STEP_SOUND, log.getType()', 'Effect.DESTROY_BLOCK, log.getBlockData()', 2),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/androids/FarmerAndroid.java': [
+                  ('Effect.STEP_SOUND, blockType', 'Effect.DESTROY_BLOCK, data', 1),
+              ],
+              'io/github/thebusybiscuit/slimefun4/implementation/items/androids/MinerAndroid.java': [
+                  ('Effect.STEP_SOUND, block.getType()', 'Effect.DESTROY_BLOCK, block.getBlockData()', 1),
+              ],
+          }
+
+          total = 0
+          touched = 0
+          for rel, edits in replacements.items():
+              path = ROOT / rel
+              text = path.read_text(encoding='utf-8')
+              original = text
+              for old, new, expected in edits:
+                  found = text.count(old)
+                  if found != expected:
+                      raise SystemExit(f'{rel}: expected {expected} occurrence(s) of {old!r}, found {found}')
+                  text = text.replace(old, new)
+                  total += expected
+              if text != original:
+                  path.write_text(text, encoding='utf-8')
+                  touched += 1
+
+          offenders = []
+          pattern = re.compile(r'Effect\.(?:STEP_SOUND|SMOKE)\b')
+          for path in ROOT.rglob('*.java'):
+              text = path.read_text(encoding='utf-8')
+              if pattern.search(text):
+                  offenders.append(str(path))
+
+          if offenders:
+              raise SystemExit('Removal-pending Effect constants remain:\n' + '\n'.join(offenders))
+
+          print(f'Applied {total} asserted edits across {touched} Java files.')
+          PY
+
+          git diff --check
+          if git diff --quiet -- src/main/java; then
+            echo 'No source changes were produced.'
+            exit 1
+          fi
+
+      - name: Compile against Paper 26.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          for attempt in 1 2 3; do
+            echo "Compile attempt ${attempt}/3"
+            if ./gradlew compileJava -PprojectVersion=Legacy-SNAPSHOT -x test --no-daemon; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep $((attempt * 10))
+          done
+
+      - name: Verify removal-pending effects are gone
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R --line-number -E 'Effect\.(STEP_SOUND|SMOKE)\b' src/main/java; then
+            echo 'Removal-pending Paper Effect API remains in production source.'
+            exit 1
+          fi
+          echo 'Paper 26.2 Effect migration verification passed.'
+
+      - name: Commit migration to runtime correctness branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'AlbionMC Build Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add src/main/java
+          git commit -m 'fix: migrate removal-pending Paper 26.2 effects'
+          git push origin HEAD:agent/runtime-gameplay-correctness

@@ -152,6 +152,10 @@ public abstract class AGenerator extends AbstractEnergyProvider implements Machi
     @Override
     public int getGeneratedOutput(@Nonnull Location l, @Nonnull ASlimefunDataContainer data) {
         BlockMenu inv = StorageCacheUtils.getMenu(l);
+        if (inv == null) {
+            return 0;
+        }
+
         FuelOperation operation = processor.getOperation(l);
 
         if (operation != null) {
@@ -172,10 +176,21 @@ public abstract class AGenerator extends AbstractEnergyProvider implements Machi
                     return getEnergyProduction();
                 }
             } else {
-                ItemStack fuel = operation.getIngredient();
+                ItemStack result = operation.getResult();
 
-                if (isBucket(fuel)) {
-                    inv.pushItem(new ItemStack(Material.BUCKET), getOutputSlots());
+                if (result != null) {
+                    // Output slots are extraction-only, but revalidate at commit time anyway so
+                    // a custom menu implementation cannot make a finished fuel operation lossy.
+                    if (!inv.fits(result, getOutputSlots())) {
+                        return 0;
+                    }
+
+                    ItemStack remainder = inv.pushItem(result.clone(), getOutputSlots());
+                    if (remainder != null) {
+                        // fits(...) should make this unreachable for the stock menu. Preserve the
+                        // remainder rather than retrying the full result and risking duplication.
+                        l.getWorld().dropItemNaturally(l, remainder);
+                    }
                 }
 
                 inv.replaceExistingItem(22, new CustomItemStack(Material.BLACK_STAINED_GLASS_PANE, " "));
@@ -188,15 +203,30 @@ public abstract class AGenerator extends AbstractEnergyProvider implements Machi
             MachineFuel fuel = findRecipe(inv, found);
 
             if (fuel != null) {
+                ItemStack result = getFuelResult(fuel);
+                if (result != null && !inv.fits(result, getOutputSlots())) {
+                    return 0;
+                }
+
                 for (Map.Entry<Integer, Integer> entry : found.entrySet()) {
                     inv.consumeItem(entry.getKey(), entry.getValue());
                 }
 
-                processor.startOperation(l, new FuelOperation(fuel));
+                processor.startOperation(
+                        l, new FuelOperation(fuel.getInput(), result == null ? null : result.clone(), fuel.getTicks()));
             }
 
             return 0;
         }
+    }
+
+    @Nullable private ItemStack getFuelResult(@Nonnull MachineFuel fuel) {
+        ItemStack configuredResult = fuel.getOutput();
+        if (configuredResult != null) {
+            return configuredResult.clone();
+        }
+
+        return isBucket(fuel.getInput()) ? new ItemStack(Material.BUCKET) : null;
     }
 
     private boolean isBucket(@Nullable ItemStack item) {
@@ -212,9 +242,12 @@ public abstract class AGenerator extends AbstractEnergyProvider implements Machi
 
     private MachineFuel findRecipe(BlockMenu menu, Map<Integer, Integer> found) {
         for (MachineFuel fuel : fuelTypes) {
+            int requiredAmount = fuel.getInput().getAmount();
+
             for (int slot : getInputSlots()) {
-                if (fuel.test(menu.getItemInSlot(slot))) {
-                    found.put(slot, fuel.getInput().getAmount());
+                ItemStack candidate = menu.getItemInSlot(slot);
+                if (candidate != null && candidate.getAmount() >= requiredAmount && fuel.test(candidate)) {
+                    found.put(slot, requiredAmount);
                     return fuel;
                 }
             }

@@ -92,33 +92,33 @@ public class MagicWorkbench extends AbstractCraftingTable {
             var waitCallback = false;
             if (sfItem instanceof SlimefunBackpack backpack) {
                 waitCallback =
-                        upgradeBackpack(p, inv, backpack, output, () -> startAnimation(p, b, inv, dispenser, output));
+                        upgradeBackpack(p, inv, backpack, output, () -> startAnimation(b, dispenser, output));
             }
 
             consumeInputs(inv, recipe);
 
             if (!waitCallback) {
-                startAnimation(p, b, inv, dispenser, output);
+                startAnimation(b, dispenser, output);
             }
         } else {
             Slimefun.getLocalization().sendMessage(p, "machines.full-inventory", true);
         }
     }
 
-    private void startAnimation(Player p, Block b, Inventory dispInv, Block dispenser, ItemStack output) {
+    private void startAnimation(Block b, Block dispenser, ItemStack output) {
         for (int j = 0; j < 4; j++) {
             int current = j;
             Slimefun.runSyncAt(
                     b.getLocation(),
                     () -> {
-                        p.getWorld().playEffect(b.getLocation(), Effect.MOBSPAWNER_FLAMES, 1);
-                        p.getWorld().playEffect(b.getLocation(), Effect.ENDER_SIGNAL, 1);
+                        b.getWorld().playEffect(b.getLocation(), Effect.MOBSPAWNER_FLAMES, 1);
+                        b.getWorld().playEffect(b.getLocation(), Effect.ENDER_SIGNAL, 1);
 
                         if (current < 3) {
                             SoundEffect.MAGIC_WORKBENCH_START_ANIMATION_SOUND.playAt(b);
                         } else {
                             SoundEffect.MAGIC_WORKBENCH_FINISH_SOUND.playAt(b);
-                            handleCraftedItem(output, dispenser, dispInv);
+                            finishCraftedItem(output, dispenser);
                         }
                     },
                     j * 20L);

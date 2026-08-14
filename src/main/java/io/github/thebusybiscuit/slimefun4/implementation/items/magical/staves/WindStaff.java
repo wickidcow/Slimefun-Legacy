@@ -9,12 +9,11 @@ import io.github.thebusybiscuit.slimefun4.core.handlers.ItemUseHandler;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
+import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedParticle;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Bukkit;
-import org.bukkit.Effect;
 import org.bukkit.GameMode;
-import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.inventory.ItemStack;
@@ -54,7 +53,7 @@ public class WindStaff extends SimpleSlimefunItem<ItemUseHandler> {
 
                 p.setVelocity(p.getEyeLocation().getDirection().multiply(multiplier.getValue()));
                 SoundEffect.WIND_STAFF_USE_SOUND.playFor(p);
-                p.getWorld().playEffect(p.getLocation(), Effect.SMOKE_SHOOT, BlockFace.UP);
+                p.getWorld().spawnParticle(VersionedParticle.SMOKE, p.getLocation(), 1, 0, 0, 0, 0);
                 p.setFallDistance(0F);
             } else {
                 Slimefun.getLocalization().sendMessage(p, "messages.hungry", true);

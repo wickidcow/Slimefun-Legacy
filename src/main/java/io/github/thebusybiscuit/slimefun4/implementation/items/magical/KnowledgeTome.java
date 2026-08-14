@@ -1,7 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.magical;
 
 import io.github.bakedlibs.dough.common.ChatColors;
-import io.github.bakedlibs.dough.items.ItemUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
@@ -47,33 +46,56 @@ public class KnowledgeTome extends SimpleSlimefunItem<ItemUseHandler> {
             ItemMeta im = item.getItemMeta();
             List<String> lore = im.getLore();
 
+            if (lore == null || lore.size() < 2 || lore.get(1) == null) {
+                p.sendMessage(ChatColor.RED + "This Tome of Knowledge has invalid owner data.");
+                return;
+            }
+
             if (lore.get(1).isEmpty()) {
                 lore.set(0, ChatColors.color("&7Owner: &b" + p.getName()));
                 lore.set(1, ChatColor.BLACK + "" + p.getUniqueId());
                 im.setLore(lore);
                 item.setItemMeta(im);
                 SoundEffect.TOME_OF_KNOWLEDGE_USE_SOUND.playFor(p);
-            } else {
-                UUID uuid = UUID.fromString(
-                        ChatColor.stripColor(item.getItemMeta().getLore().get(1)));
-
-                if (p.getUniqueId().equals(uuid)) {
-                    Slimefun.getLocalization().sendMessage(p, "messages.no-tome-yourself");
-                    return;
-                }
-
-                PlayerProfile.get(
-                        p,
-                        profile -> PlayerProfile.fromUUID(uuid, owner -> {
-                            for (Research research : owner.getResearches()) {
-                                research.unlock(p, true);
-                            }
-                        }));
-
-                if (p.getGameMode() != GameMode.CREATIVE) {
-                    ItemUtils.consumeItem(item, false);
-                }
+                return;
             }
+
+            String serializedOwner = ChatColor.stripColor(lore.get(1));
+            if (serializedOwner == null || serializedOwner.isBlank()) {
+                p.sendMessage(ChatColor.RED + "This Tome of Knowledge has invalid owner data.");
+                return;
+            }
+
+            final UUID uuid;
+            try {
+                uuid = UUID.fromString(serializedOwner.trim());
+            } catch (IllegalArgumentException ignored) {
+                p.sendMessage(ChatColor.RED + "This Tome of Knowledge has invalid owner data.");
+                return;
+            }
+
+            if (p.getUniqueId().equals(uuid)) {
+                Slimefun.getLocalization().sendMessage(p, "messages.no-tome-yourself");
+                return;
+            }
+
+            ItemStack singleTome = item.clone();
+            singleTome.setAmount(1);
+
+            PlayerProfile.get(
+                    p,
+                    profile -> PlayerProfile.fromUUID(uuid, owner -> {
+                        if (p.getGameMode() != GameMode.CREATIVE
+                                && !p.getInventory().removeItem(singleTome).isEmpty()) {
+                            // The player no longer owns the tome that initiated this asynchronous transfer.
+                            // Do not grant research for an item that could not be committed.
+                            return;
+                        }
+
+                        for (Research research : owner.getResearches()) {
+                            research.unlock(p, true);
+                        }
+                    }));
         };
     }
 }

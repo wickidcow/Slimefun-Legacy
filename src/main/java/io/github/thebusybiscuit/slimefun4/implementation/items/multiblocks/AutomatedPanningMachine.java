@@ -14,13 +14,13 @@ import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.blocks.OutputChest;
 import io.github.thebusybiscuit.slimefun4.implementation.items.tools.GoldPan;
 import io.github.thebusybiscuit.slimefun4.implementation.items.tools.NetherGoldPan;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Bukkit;
-import org.bukkit.Effect;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -112,15 +112,18 @@ public class AutomatedPanningMachine extends MultiBlockMachine {
         queue.thenRepeatEvery(
                 20,
                 5,
-                () -> b.getWorld()
-                        .playEffect(b.getRelative(BlockFace.DOWN).getLocation(), Effect.DESTROY_BLOCK, material.createBlockData()));
+                () -> VisualEffectUtils.playBlockBreakEffect(
+                        b.getRelative(BlockFace.DOWN).getLocation(), material));
         queue.thenRun(20, () -> {
             if (finalOutput.getType() != Material.AIR) {
-                Optional<Inventory> outputChest = OutputChest.findOutputChestFor(b.getRelative(BlockFace.DOWN), output);
+                Optional<Inventory> outputChest = OutputChest.findOutputChestFor(b.getRelative(BlockFace.DOWN), finalOutput);
 
                 if (outputChest.isPresent()) {
-                    Slimefun.getItemStackService()
+                    ItemStack remainder = Slimefun.getItemStackService()
                             .addItem(outputChest.get(), finalOutput.clone(), InventoryContext.OUTPUT_CHEST);
+                    if (remainder != null && remainder.getAmount() > 0) {
+                        b.getWorld().dropItemNaturally(b.getLocation(), remainder);
+                    }
                 } else {
                     b.getWorld().dropItemNaturally(b.getLocation(), finalOutput.clone());
                 }

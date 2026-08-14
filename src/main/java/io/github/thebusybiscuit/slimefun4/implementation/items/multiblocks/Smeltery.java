@@ -8,6 +8,7 @@ import io.github.thebusybiscuit.slimefun4.api.items.settings.IntRangeSetting;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.blocks.IgnitionChamber;
 import io.github.thebusybiscuit.slimefun4.implementation.items.misc.AlloyIngot;
+import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -15,7 +16,6 @@ import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.Effect;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -90,8 +90,9 @@ public class Smeltery extends AbstractSmeltery {
     }
 
     @Override
-    protected void craft(Player p, Block b, Inventory inv, ItemStack[] recipe, ItemStack output, Inventory outputInv) {
-        super.craft(p, b, inv, recipe, output, outputInv);
+    protected void craft(
+            Player p, Block b, Inventory inv, ItemStack[] recipe, ItemStack output, Block dispenser) {
+        super.craft(p, b, inv, recipe, output, dispenser);
 
         if (ThreadLocalRandom.current().nextInt(100) < fireBreakingChance.getValue()) {
             consumeFire(p, b.getRelative(BlockFace.DOWN), b);
@@ -104,7 +105,7 @@ public class Smeltery extends AbstractSmeltery {
 
         if (!isFireRenewed) {
             Block fire = b.getRelative(BlockFace.DOWN).getRelative(BlockFace.DOWN);
-            fire.getWorld().playEffect(fire.getLocation(), Effect.DESTROY_BLOCK, fire.getBlockData());
+            VisualEffectUtils.playBlockBreakEffect(fire);
             fire.setType(Material.AIR);
         }
     }

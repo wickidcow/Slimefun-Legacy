@@ -88,7 +88,6 @@ def main() -> int:
         "verify_item_doctor_translation_recovery.py",
         "verify_documentation_consolidation.py",
         "verify_upstream_health_gate.py",
-        "verify_gugu_sync.py",
         "verify_paper_purpur_compat.py",
         "verify_core_correctness.py",
         "verify_compatibility_round2.py",

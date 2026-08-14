@@ -69,37 +69,38 @@ public class ElectricSmeltery extends AContainer implements NotHopperable {
                     return getOutputSlots();
                 }
 
-                int fullSlots = 0;
-                List<Integer> slots = new LinkedList<>();
+                List<Integer> matchingSlots = new LinkedList<>();
+                List<Integer> emptySlots = new LinkedList<>();
 
                 for (int slot : getInputSlots()) {
                     ItemStack stack = menu.getItemInSlot(slot);
-                    if (stack != null && SlimefunUtils.isItemSimilar(stack, item, true, false)) {
-                        if (stack.getAmount() >= stack.getMaxStackSize()) {
-                            fullSlots++;
-                        }
 
-                        slots.add(slot);
+                    if (stack == null || stack.getType().isAir()) {
+                        emptySlots.add(slot);
+                    } else if (SlimefunUtils.isItemSimilar(stack, item, true, false)
+                            && stack.getAmount() < stack.getMaxStackSize()) {
+                        matchingSlots.add(slot);
                     }
                 }
 
-                if (slots.isEmpty()) {
-                    return getInputSlots();
-                } else if (fullSlots == slots.size()) {
-                    // All slots with that item are already full
-                    return new int[0];
-                } else {
-                    Collections.sort(slots, compareSlots(menu));
-                    int[] array = new int[slots.size()];
-
-                    for (int i = 0; i < slots.size(); i++) {
-                        array[i] = slots.get(i);
-                    }
-
-                    return array;
+                if (!matchingSlots.isEmpty()) {
+                    Collections.sort(matchingSlots, compareSlots(menu));
+                    return toSlotArray(matchingSlots);
                 }
+
+                return toSlotArray(emptySlots);
             }
         };
+    }
+
+    private int[] toSlotArray(@Nonnull List<Integer> slots) {
+        int[] array = new int[slots.size()];
+
+        for (int i = 0; i < slots.size(); i++) {
+            array[i] = slots.get(i);
+        }
+
+        return array;
     }
 
     @Nonnull
