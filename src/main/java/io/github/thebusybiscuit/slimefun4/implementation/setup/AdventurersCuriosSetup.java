@@ -7,10 +7,12 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlus;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.DungeonChalk;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.EchoLantern;
+import io.github.thebusybiscuit.slimefun4.implementation.items.curios.EmergencyParachute;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.ExpeditionJournal;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.ExplorersSpyglass;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.MinersCanary;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.StormGlass;
+import io.github.thebusybiscuit.slimefun4.implementation.items.curios.TravelersBedroll;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.WayfindersCompass;
 import java.util.List;
 import org.bukkit.ChatColor;
@@ -109,6 +111,28 @@ final class AdventurersCuriosSetup {
                 "",
                 "&eRight Click &7to record the current biome",
                 "&eSneak & Right Click &7for recent discoveries");
+
+        SlimefunItemStack travelersBedroll = new SlimefunItemStack(
+                "ADVENTURERS_TRAVELERS_BEDROLL",
+                Material.BROWN_BED,
+                "&6Traveler's Bedroll",
+                "&7A portable personal rest for long trips.",
+                "&7Resets phantom rest and restores a little health and food.",
+                "",
+                "&eRight Click at night &7to rest",
+                "&8Does not change time or your respawn point",
+                "&8Cooldown: 5 minutes");
+
+        SlimefunItemStack emergencyParachute = new SlimefunItemStack(
+                "ADVENTURERS_EMERGENCY_PARACHUTE",
+                Material.PHANTOM_MEMBRANE,
+                "&bEmergency Parachute",
+                "&7A reusable last-second fall saver.",
+                "&7Automatically catches dangerous or lethal falls",
+                "&7while carried in your inventory.",
+                "",
+                "&8Ignores small falls",
+                "&8Cooldown: 60 seconds");
 
         SlimefunItemStack beaconPlus = new SlimefunItemStack(
                 "BEACON_PLUS",
@@ -239,6 +263,41 @@ final class AdventurersCuriosSetup {
                             null
                         })
                 .register(plugin);
+
+        new TravelersBedroll(
+                        curios,
+                        travelersBedroll,
+                        RecipeType.ENHANCED_CRAFTING_TABLE,
+                        new ItemStack[] {
+                            new ItemStack(Material.STRING),
+                            new ItemStack(Material.WHITE_WOOL),
+                            new ItemStack(Material.STRING),
+                            new ItemStack(Material.LEATHER),
+                            new ItemStack(Material.BROWN_BED),
+                            new ItemStack(Material.LEATHER),
+                            new ItemStack(Material.STRING),
+                            new ItemStack(Material.RABBIT_HIDE),
+                            new ItemStack(Material.STRING)
+                        })
+                .register(plugin);
+
+        EmergencyParachute parachute = new EmergencyParachute(
+                curios,
+                emergencyParachute,
+                RecipeType.ENHANCED_CRAFTING_TABLE,
+                new ItemStack[] {
+                    new ItemStack(Material.PHANTOM_MEMBRANE),
+                    new ItemStack(Material.STRING),
+                    new ItemStack(Material.PHANTOM_MEMBRANE),
+                    new ItemStack(Material.STRING),
+                    new ItemStack(Material.FEATHER),
+                    new ItemStack(Material.STRING),
+                    new ItemStack(Material.LEATHER),
+                    new ItemStack(Material.SLIME_BALL),
+                    new ItemStack(Material.LEATHER)
+                });
+        parachute.register(plugin);
+        parachute.registerListener(plugin);
 
         new BeaconPlus(
                         curios,
