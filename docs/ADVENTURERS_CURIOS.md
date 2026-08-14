@@ -76,11 +76,12 @@ Slimefun Legacy does **not** reimplement BeaconPlus3's beacon runtime. Instead:
 
 1. The Enhanced Crafting Table crafts a Slimefun `BEACON_PLUS` commissioning item.
 2. Right-clicking that item checks whether the `BeaconPlus3` plugin is installed and enabled.
-3. Slimefun calls BeaconPlus3's public `BeaconAPI#createBeaconEmptyItem(Player)` hook through an optional reflection boundary.
-4. The Curio is replaced with the genuine BeaconPlus3 beacon item created by BeaconPlus3 itself.
-5. From that point onward, BeaconPlus3 exclusively owns placement, GUI, effects, upgrades, access lists, serialization, persistence, chunk behavior, and beacon runtime logic.
+3. Slimefun reads BeaconPlus3's configured `Permissions.Craft` value and honors it when it is set.
+4. Slimefun calls BeaconPlus3's public `BeaconAPI#createBeaconEmptyItem(Player)` hook through an optional reflection boundary.
+5. The Curio is replaced with the genuine BeaconPlus3 beacon item created by BeaconPlus3 itself.
+6. From that point onward, BeaconPlus3 exclusively owns placement, GUI, effects, upgrades, access lists, serialization, persistence, chunk behavior, and beacon runtime logic.
 
-If BeaconPlus3 is missing, disabled, or its creation API cannot be reached, the Curio is **not consumed**. Slimefun Legacy therefore has no hard BeaconPlus3 dependency and remains usable on servers without the plugin.
+If BeaconPlus3 is missing, disabled, its craft permission is denied, or its creation API cannot be reached, the Curio is **not consumed**. Slimefun Legacy therefore has no hard BeaconPlus3 dependency and remains usable on servers without the plugin.
 
 The Curios recipe mirrors the familiar BeaconPlus3 beacon pattern, but uses the Enhanced Crafting Table:
 
@@ -92,7 +93,7 @@ Obsidian    Anvil        Obsidian
 
 The resulting commissioned beacon always uses the installed BeaconPlus3 build's own current configuration. Slimefun does not duplicate or cache BeaconPlus3 settings such as base power, pyramid power sources, range calculation, effects, economy costs, permissions, access-list behavior, GUI configuration, storage, or Albion-specific runtime fixes.
 
-This integration intentionally uses no direct `thito.beaconplus` imports or bundled BeaconPlus classes. The standalone plugin remains independently upgradeable, and Slimefun only depends on the public creation hook at the moment a player commissions the Curio.
+This integration intentionally uses no direct `thito.beaconplus` imports or bundled BeaconPlus classes. The standalone plugin remains independently upgradeable, and Slimefun only depends on the public creation/config hooks at the moment a player commissions the Curio.
 
 ## Runtime design boundaries
 
@@ -105,6 +106,7 @@ Optional third-party bridges should follow the Beacon Plus model:
 - no hard startup dependency
 - no copied third-party runtime implementation
 - no bundled third-party classes
+- target-plugin permissions are honored rather than bypassed
 - failure leaves the player's Curio intact
 - ownership is handed to the target plugin once it creates its native item
 
