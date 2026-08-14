@@ -2,7 +2,7 @@
 
 Adventurer's Curios is a built-in Slimefun Legacy guide category for exploration tools, navigation aids, field safety, and unusual expedition gadgets.
 
-The goal is to add fun utility without creating another large machine progression tree or introducing new plugin dependencies.
+The goal is to add fun utility without creating another large machine progression tree or changing existing Cargo, Energy, storage, or machine transaction semantics. Optional integrations should stay optional and must not become hard startup dependencies.
 
 ## Curios
 
@@ -70,58 +70,43 @@ A player-carried biome log.
 
 ### Beacon Plus
 
-Beacon Plus is a placed expedition-support block with two independent controls.
+Beacon Plus is an optional bridge between Adventurer's Curios and the standalone **BeaconPlus3** plugin.
 
-**Player support** — right-click to cycle:
+Slimefun Legacy does **not** reimplement BeaconPlus3's beacon runtime. Instead:
 
-- Off
-- Speed
-- Haste
-- Resistance
-- Regeneration
-- Night Vision
+1. The Enhanced Crafting Table crafts a Slimefun `BEACON_PLUS` commissioning item.
+2. Right-clicking that item checks whether the `BeaconPlus3` plugin is installed and enabled.
+3. Slimefun calls BeaconPlus3's public `BeaconAPI#createBeaconEmptyItem(Player)` hook through an optional reflection boundary.
+4. The Curio is replaced with the genuine BeaconPlus3 beacon item created by BeaconPlus3 itself.
+5. From that point onward, BeaconPlus3 exclusively owns placement, GUI, effects, upgrades, access lists, serialization, persistence, chunk behavior, and beacon runtime logic.
 
-**Chunk loading** — sneak-right-click to cycle:
+If BeaconPlus3 is missing, disabled, or its creation API cannot be reached, the Curio is **not consumed**. Slimefun Legacy therefore has no hard BeaconPlus3 dependency and remains usable on servers without the plugin.
 
-- Off
-- This Chunk
-- 3x3 Area
+The Curios recipe mirrors the familiar BeaconPlus3 beacon pattern, but uses the Enhanced Crafting Table:
 
-Beacon Plus uses Paper/Folia plugin chunk tickets rather than force-loaded chunks or fake players. Slimefun Legacy's normal ticker already processes registered machines whenever their chunk is loaded, so Beacon Plus does not emulate, duplicate, or directly invoke machine ticks. Networks and compatible addons likewise continue through their own normal runtimes while their required chunks remain loaded.
+```text
+Glass       Lever        Glass
+Clock       End Crystal  Redstone Block
+Obsidian    Anvil        Obsidian
+```
 
-Safety limits are intentionally hard-bounded:
+The resulting commissioned beacon always uses the installed BeaconPlus3 build's own current configuration. Slimefun does not duplicate or cache BeaconPlus3 settings such as base power, pyramid power sources, range calculation, effects, economy costs, permissions, access-list behavior, GUI configuration, storage, or Albion-specific runtime fixes.
 
-- maximum 64 active chunk-loading Beacon Plus blocks per server
-- maximum 256 unique chunks held by Beacon Plus at once
-- overlapping beacon areas use reference-counted tickets so one beacon cannot unload a chunk still required by another
-- tickets are released when the beacon is broken or when Slimefun disables
-- active beacon locations and selected modes are persisted in `plugins/Slimefun/adventurers-curios-beacons.properties` so legitimate loaders can be restored after restart
-- stale saved entries are validated after startup and removed if no `BEACON_PLUS` Slimefun block remains there
-
-Beacon Plus configuration is owner-controlled. Server operators may also change a beacon's modes.
-
-#### Beacon Plus compatibility and migration identifiers
-
-The native Slimefun Legacy item ID is:
-
-- `BEACON_PLUS`
-
-The chunk-mode parser also recognizes the public historical BeaconPlus names:
-
-- `KEEP_CHUNK_LOADED`
-- `CHUNK_ACTIVATOR`
-
-Those names are treated as migration aliases for the single-chunk loader mode. This is an independent Slimefun Legacy implementation; no proprietary BeaconPlus source is copied.
-
-A third-party BeaconPlus item that was never a Slimefun-tagged item cannot be safely converted merely from its display name. Exact automatic migration of those physical items/blocks should only be added if a real legacy item or storage sample is available, so unrelated beacons cannot be misidentified.
+This integration intentionally uses no direct `thito.beaconplus` imports or bundled BeaconPlus classes. The standalone plugin remains independently upgradeable, and Slimefun only depends on the public creation hook at the moment a player commissions the Curio.
 
 ## Runtime design boundaries
 
 Curios should remain lightweight and player-focused. New curios should avoid changing existing saved-world formats, database schemas, Cargo behavior, Energy behavior, or machine transaction semantics.
 
-Beacon Plus is the deliberate exception to the usual "no chunk loading" rule, but it changes chunk residency only. It does not introduce a second machine scheduler, alter energy costs, bypass machine safety/backpressure, or directly operate Networks/Cargo.
+Where possible, Curios use bounded, local runtime work and existing Bukkit/Paper APIs so the category remains safe for the Paper-first Slimefun Legacy runtime.
 
-Where possible, Curios use bounded, local runtime work and existing Bukkit/Paper APIs so the category remains safe for the Paper-first Slimefun Legacy runtime and does not require another addon.
+Optional third-party bridges should follow the Beacon Plus model:
+
+- no hard startup dependency
+- no copied third-party runtime implementation
+- no bundled third-party classes
+- failure leaves the player's Curio intact
+- ownership is handed to the target plugin once it creates its native item
 
 ## Future ideas
 
