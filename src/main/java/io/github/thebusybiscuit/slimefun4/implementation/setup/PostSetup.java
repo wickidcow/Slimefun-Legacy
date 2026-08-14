@@ -39,6 +39,8 @@ public final class PostSetup {
     }
 
     public static void loadItems() {
+        AdventurersCuriosSetup.setup(Slimefun.instance());
+
         Iterator<SlimefunItem> iterator =
                 Slimefun.getRegistry().getEnabledSlimefunItems().iterator();
 
