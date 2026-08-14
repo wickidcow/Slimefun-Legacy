@@ -146,12 +146,20 @@ def main() -> int:
 
     # Paper has marked these legacy Effect constants for removal. Keep production source on
     # Particle/Sound APIs so a future Paper update cannot turn today's warnings into failures.
+    # Report every remaining occurrence at once so CI does not hide later violations behind
+    # the first file it happens to encounter.
     production_source = root / "src/main/java"
+    deprecated_effects: list[str] = []
     for java_file in sorted(production_source.rglob("*.java")):
         java_source = java_file.read_text(encoding="utf-8")
         relative = java_file.relative_to(root)
-        require_absent(java_source, "Effect.STEP_SOUND", f"deprecated STEP_SOUND effect in {relative}")
-        require_absent(java_source, "Effect.SMOKE", f"deprecated SMOKE effect in {relative}")
+        for legacy_effect in ("Effect.STEP_SOUND", "Effect.SMOKE"):
+            if legacy_effect in java_source:
+                deprecated_effects.append(f"{relative}: {legacy_effect}")
+
+    if deprecated_effects:
+        details = "\n - ".join(deprecated_effects)
+        raise SystemExit(f"Machine processor correctness failed: forbidden deprecated effects:\n - {details}")
 
     print("Machine processor correctness verification passed.")
     return 0
