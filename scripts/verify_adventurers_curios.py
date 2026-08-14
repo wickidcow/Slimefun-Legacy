@@ -133,7 +133,8 @@ def main() -> int:
             "apiClass.getMethod(CREATE_EMPTY_ITEM, Player.class)",
             'apiClass.getMethod("getBeaconConfig")',
             'sectionClass.getMethod("getString", String.class)',
-            "player.hasPermission(craftPermission)",
+            'apiClass.getMethod("hasNoPermission", Player.class, String.class, boolean.class)',
+            "Boolean.TRUE.equals(denied)",
             "implements NotPlaceable",
             "event.cancel()",
             "The Curio was not consumed",
@@ -184,7 +185,7 @@ def main() -> int:
         "- Miner's Canary, Dungeon Chalk, Storm Glass and Expedition Journal remain player-triggered and bounded\n"
         "- Beacon Plus is a reflection-only commissioning bridge to the standalone BeaconPlus3 API\n"
         "- BeaconPlus3 creates and owns the genuine beacon item and all runtime behavior after commissioning\n"
-        "- BeaconPlus3's configured craft permission is honored by the commissioning bridge\n"
+        "- BeaconPlus3's configured craft permission is enforced through its own permission helper\n"
         "- the Curio remains intact if BeaconPlus3 is absent, disabled or cannot create the native item\n"
         "- no duplicate Beacon Plus chunk loader, support ticker or persistence runtime remains in Slimefun\n"
         "- no existing database schema, Cargo, Energy or machine transaction semantics are changed\n",
