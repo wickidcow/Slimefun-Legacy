@@ -107,13 +107,12 @@ final class AdventurersCuriosSetup {
         SlimefunItemStack beaconPlus = new SlimefunItemStack(
                 "BEACON_PLUS",
                 Material.BEACON,
-                "&6&lBeacon Plus",
-                "&7An expedition support beacon with",
-                "&7bounded, owner-controlled chunk loading.",
+                "&a&lBeacon Plus",
+                "&7A Slimefun commissioning item for",
+                "&7the installed BeaconPlus3 plugin.",
                 "",
-                "&eRight Click &7to choose player support",
-                "&eSneak & Right Click &7to choose chunk loading",
-                "&8Modes: Off / This Chunk / 3x3 Area");
+                "&eRight Click &7to commission the real beacon",
+                "&8Requires BeaconPlus3 when commissioned");
 
         new WayfindersCompass(
                         curios,
@@ -234,20 +233,21 @@ final class AdventurersCuriosSetup {
                         })
                 .register(plugin);
 
+        // Mirrors the familiar BeaconPlus3 recipe, but is crafted through the Enhanced Crafting Table.
         new BeaconPlus(
                         curios,
                         beaconPlus,
                         RecipeType.ENHANCED_CRAFTING_TABLE,
                         new ItemStack[] {
-                            new ItemStack(Material.ECHO_SHARD),
-                            new ItemStack(Material.NETHERITE_INGOT),
-                            new ItemStack(Material.ECHO_SHARD),
+                            new ItemStack(Material.GLASS),
+                            new ItemStack(Material.LEVER),
+                            new ItemStack(Material.GLASS),
+                            new ItemStack(Material.CLOCK),
+                            new ItemStack(Material.END_CRYSTAL),
                             new ItemStack(Material.REDSTONE_BLOCK),
-                            new ItemStack(Material.BEACON),
-                            new ItemStack(Material.REDSTONE_BLOCK),
-                            new ItemStack(Material.AMETHYST_SHARD),
-                            new ItemStack(Material.ENDER_EYE),
-                            new ItemStack(Material.AMETHYST_SHARD)
+                            new ItemStack(Material.OBSIDIAN),
+                            new ItemStack(Material.ANVIL),
+                            new ItemStack(Material.OBSIDIAN)
                         })
                 .register(plugin);
     }
