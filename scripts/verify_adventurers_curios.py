@@ -126,9 +126,14 @@ def main() -> int:
         for token in (
             'PLUGIN_NAME = "BeaconPlus3"',
             'API_CLASS = "thito.beaconplus.BeaconAPI"',
+            'SECTION_CLASS = "thito.beaconplus.config.Section"',
             'CREATE_EMPTY_ITEM = "createBeaconEmptyItem"',
+            'CRAFT_PERMISSION_PATH = "Permissions.Craft"',
             "Class.forName(API_CLASS, true, classLoader)",
             "apiClass.getMethod(CREATE_EMPTY_ITEM, Player.class)",
+            'apiClass.getMethod("getBeaconConfig")',
+            'sectionClass.getMethod("getString", String.class)',
+            "player.hasPermission(craftPermission)",
             "implements NotPlaceable",
             "event.cancel()",
             "The Curio was not consumed",
@@ -151,6 +156,7 @@ def main() -> int:
             "BeaconAPI#createBeaconEmptyItem(Player)",
             "genuine BeaconPlus3 beacon item",
             "no hard BeaconPlus3 dependency",
+            "`Permissions.Craft`",
             "not consumed",
             "no direct `thito.beaconplus` imports",
         ):
@@ -178,6 +184,7 @@ def main() -> int:
         "- Miner's Canary, Dungeon Chalk, Storm Glass and Expedition Journal remain player-triggered and bounded\n"
         "- Beacon Plus is a reflection-only commissioning bridge to the standalone BeaconPlus3 API\n"
         "- BeaconPlus3 creates and owns the genuine beacon item and all runtime behavior after commissioning\n"
+        "- BeaconPlus3's configured craft permission is honored by the commissioning bridge\n"
         "- the Curio remains intact if BeaconPlus3 is absent, disabled or cannot create the native item\n"
         "- no duplicate Beacon Plus chunk loader, support ticker or persistence runtime remains in Slimefun\n"
         "- no existing database schema, Cargo, Energy or machine transaction semantics are changed\n",
