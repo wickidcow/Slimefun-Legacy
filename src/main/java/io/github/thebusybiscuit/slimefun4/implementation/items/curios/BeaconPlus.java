@@ -51,6 +51,7 @@ public final class BeaconPlus extends SlimefunItem {
     private static final int ACTIVATOR_COVERAGE_SLOT = 49;
     private static final int CLOSE_SLOT = 53;
     private static final double EXTRA_RANGE_BLOCKS = 20.0D;
+    private static final double PLAYER_STATE_RECONCILE_RANGE = 96.0D;
 
     @ParametersAreNonnullByDefault
     public BeaconPlus(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
@@ -133,6 +134,7 @@ public final class BeaconPlus extends SlimefunItem {
                 if (manager != null) {
                     manager.unregister(block.getLocation());
                 }
+                BeaconPlusRuntime.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
             }
         };
     }
@@ -232,6 +234,7 @@ public final class BeaconPlus extends SlimefunItem {
         }
         BeaconPlusRuntime.setConfiguredEffects(block.getLocation(), enabled);
         BeaconPlusRuntime.observe(block);
+        BeaconPlusRuntime.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
 
         boolean active = enabled.contains(effect);
         player.playSound(
@@ -301,7 +304,7 @@ public final class BeaconPlus extends SlimefunItem {
         if (manager != null) {
             setChunkMode(manager, block, owner, BeaconPlusChunkMode.OFF);
         }
-        BeaconPlusRuntime.refreshPlayerState(player);
+        BeaconPlusRuntime.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
         player.playSound(block.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.65F, 1.0F);
         player.sendMessage(ChatColor.RED + "All Beacon Plus effects have been disabled.");
         openMenu(player, block, owner);
