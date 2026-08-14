@@ -54,7 +54,7 @@ A player-carried biome log with a bounded number of persistent discoveries.
 
 `BEACON_PLUS` is a native Slimefun Legacy block. It does not require the discontinued BeaconPlus3 plugin and does not import, bundle, or execute BeaconPlus3 classes.
 
-Right-clicking a placed Beacon Plus opens a 54-slot owner-controlled menu. Server operators may also configure it. Every effect defaults to **OFF**.
+Right-clicking a placed Beacon Plus opens a 54-slot owner-controlled menu with **29 independently toggleable effects**. Server operators may also configure it. Every effect defaults to **OFF**.
 
 Normal field effects require the Beacon Plus block to sit on a valid vanilla beacon pyramid. Its base field range is the range reported by the vanilla/Paper beacon. **Extra Range** adds 20 blocks. **Extra Power** increases supported effect strength by one tier.
 
@@ -120,6 +120,7 @@ Beacon Plus intentionally avoids one scheduler per effect or one scheduler per b
 - Periodic pulses are staggered by beacon location rather than all firing on the same server tick.
 - Tile-entity work is capped at 96 inspected states per pulse.
 - Crop growth uses bounded random samples rather than scanning every block in the field.
+- Flight and Scale are granted during normal pulses and globally reconciled only on movement, configuration changes, beacon power loss, break, and shutdown so overlapping fields do not fight each other.
 - No effect loads chunks just to find targets; Activator is the only feature allowed to hold chunks loaded.
 - On Folia, work that would cross region boundaries is reduced to same-region/same-chunk behavior rather than performing unsafe cross-region access.
 
