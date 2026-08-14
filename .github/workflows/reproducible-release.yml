@@ -70,7 +70,7 @@ jobs:
 
       - name: First clean release build
         run: |
-          ./gradlew clean build -PprojectVersion="${LEGACY_ARTIFACT_VERSION}" --no-daemon --no-build-cache --no-configuration-cache
+          ./gradlew clean shadowJar -PprojectVersion="${LEGACY_ARTIFACT_VERSION}" --no-daemon --no-build-cache --no-configuration-cache
           JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
           test -n "$JAR"
           cp "$JAR" "$RUNNER_TEMP/Slimefun-first.jar"
