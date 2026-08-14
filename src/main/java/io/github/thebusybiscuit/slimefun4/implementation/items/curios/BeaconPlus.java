@@ -33,9 +33,9 @@ import org.bukkit.inventory.meta.ItemMeta;
 /**
  * Native Slimefun Legacy Beacon Plus.
  *
- * <p>The 29-effect menu and runtime are independent of the discontinued BeaconPlus3 plugin. Periodic effects share
- * one Slimefun block ticker, event-driven effects share one listener, and Activator chunk loading remains bounded by
- * the Beacon Plus manager's server-wide safety caps.
+ * <p>The 28 approved powers are configured directly from the Curio menu. Periodic effects share one Slimefun block
+ * ticker, event-driven effects share one listener, and Activator chunk loading remains bounded by the Beacon Plus
+ * manager's server-wide safety caps.
  */
 public final class BeaconPlus extends SlimefunItem {
 
@@ -43,7 +43,7 @@ public final class BeaconPlus extends SlimefunItem {
         9, 10, 11, 12, 13, 14, 15, 16, 17,
         18, 19, 20, 21, 22, 23, 24, 25, 26,
         27, 28, 29, 30, 31, 32, 33, 34, 35,
-        36, 37
+        36
     };
 
     private static final int STATUS_SLOT = 4;
@@ -93,7 +93,7 @@ public final class BeaconPlus extends SlimefunItem {
                 BeaconPlusRuntime.observe(block);
 
                 event.getPlayer().sendMessage(ChatColor.GOLD + "Beacon Plus placed. " + ChatColor.GRAY
-                        + "Build a beacon pyramid, then right click it to configure all 29 effects.");
+                        + "Build a beacon pyramid, then right click it to configure all 28 powers.");
             }
         };
     }
@@ -169,7 +169,7 @@ public final class BeaconPlus extends SlimefunItem {
 
         menu.addItem(STATUS_SLOT, createStatusItem(block, enabled, chunkMode));
 
-        BeaconPlusEffect[] effects = BeaconPlusEffect.values();
+        BeaconPlusEffect[] effects = BeaconPlusEffect.configurableValues();
         for (int index = 0; index < effects.length; index++) {
             BeaconPlusEffect effect = effects[index];
             int slot = EFFECT_SLOTS[index];
@@ -185,9 +185,9 @@ public final class BeaconPlus extends SlimefunItem {
                 DISABLE_ALL_SLOT,
                 createMenuItem(
                         Material.BARRIER,
-                        ChatColor.RED + "Disable All Effects",
+                        ChatColor.RED + "Disable All Powers",
                         List.of(
-                                ChatColor.GRAY + "Turns off every Beacon Plus effect",
+                                ChatColor.GRAY + "Turns off every Beacon Plus power",
                                 ChatColor.GRAY + "including the Activator chunk loader.",
                                 "",
                                 ChatColor.YELLOW + "Click to disable everything")));
@@ -303,12 +303,11 @@ public final class BeaconPlus extends SlimefunItem {
         }
         BeaconPlusRuntime.refreshPlayerState(player);
         player.playSound(block.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.65F, 1.0F);
-        player.sendMessage(ChatColor.RED + "All Beacon Plus effects have been disabled.");
+        player.sendMessage(ChatColor.RED + "All Beacon Plus powers have been disabled.");
         openMenu(player, block, owner);
     }
 
-    private boolean setChunkMode(
-            BeaconPlusManager manager, Block block, UUID owner, BeaconPlusChunkMode next) {
+    private boolean setChunkMode(BeaconPlusManager manager, Block block, UUID owner, BeaconPlusChunkMode next) {
         return manager.updateModes(
                 block.getLocation(),
                 owner,
@@ -333,8 +332,7 @@ public final class BeaconPlus extends SlimefunItem {
         return true;
     }
 
-    private ItemStack createStatusItem(
-            Block block, EnumSet<BeaconPlusEffect> enabled, BeaconPlusChunkMode chunkMode) {
+    private ItemStack createStatusItem(Block block, EnumSet<BeaconPlusEffect> enabled, BeaconPlusChunkMode chunkMode) {
         BlockState state = block.getState();
         int tier = state instanceof Beacon beacon ? beacon.getTier() : 0;
         double range = state instanceof Beacon beacon ? beacon.getEffectRange() : 0.0D;
@@ -347,17 +345,16 @@ public final class BeaconPlus extends SlimefunItem {
         List<String> lore = new ArrayList<>();
         lore.add(ChatColor.GRAY + "Beacon pyramid tier: " + (tier > 0 ? ChatColor.GREEN : ChatColor.RED) + tier);
         lore.add(ChatColor.GRAY + "Effective field range: " + ChatColor.AQUA + (int) Math.floor(range) + " blocks");
-        lore.add(ChatColor.GRAY + "Enabled effects: " + ChatColor.GOLD + effectCount + "/29");
+        lore.add(ChatColor.GRAY + "Enabled powers: " + ChatColor.GOLD + effectCount + "/28");
         lore.add(ChatColor.GRAY + "Activator: " + ChatColor.AQUA + chunkMode.getDisplayName());
         lore.add("");
         lore.add(tier > 0
-                ? ChatColor.GREEN + "Field effects are powered."
+                ? ChatColor.GREEN + "Field powers are active."
                 : ChatColor.RED + "Build a valid beacon pyramid to power field effects.");
         return createMenuItem(icon, ChatColor.GOLD + "Beacon Plus Status", lore);
     }
 
-    private ItemStack createEffectItem(
-            BeaconPlusEffect effect, boolean active, BeaconPlusChunkMode chunkMode) {
+    private ItemStack createEffectItem(BeaconPlusEffect effect, boolean active, BeaconPlusChunkMode chunkMode) {
         boolean shownActive = effect == BeaconPlusEffect.ACTIVATOR
                 ? chunkMode != BeaconPlusChunkMode.OFF
                 : active;
