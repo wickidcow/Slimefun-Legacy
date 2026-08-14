@@ -33,9 +33,9 @@ import org.bukkit.inventory.meta.ItemMeta;
 /**
  * Native Slimefun Legacy Beacon Plus.
  *
- * <p>The 29-effect menu and runtime are independent of the discontinued BeaconPlus3 plugin. Periodic effects share
- * one Slimefun block ticker, event-driven effects share one listener, and Activator chunk loading remains bounded by
- * the Beacon Plus manager's server-wide safety caps.
+ * <p>The 29-effect menu and runtime are independent of any external beacon plugin. Periodic effects share one
+ * Slimefun block ticker, event-driven effects share one listener, and Activator chunk loading remains bounded by the
+ * Beacon Plus manager's server-wide safety caps.
  */
 public final class BeaconPlus extends SlimefunItem {
 
