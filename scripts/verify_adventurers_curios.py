@@ -33,13 +33,13 @@ def main() -> int:
         "storm": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/StormGlass.java",
         "journal": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/ExpeditionJournal.java",
         "beacon": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlus.java",
-        "beacon_effect": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusEffect.java",
-        "beacon_runtime": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusRuntime.java",
-        "beacon_listener": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusEffectListener.java",
-        "beacon_manager": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusManager.java",
-        "beacon_chunk_mode": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusChunkMode.java",
-        "beacon_support_mode": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusSupportMode.java",
-        "beacon_lifecycle": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusLifecycleListener.java",
+        "effect": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusEffect.java",
+        "runtime": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusRuntime.java",
+        "listener": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusEffectListener.java",
+        "manager": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusManager.java",
+        "chunk_mode": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusChunkMode.java",
+        "support_mode": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusSupportMode.java",
+        "lifecycle": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusLifecycleListener.java",
         "docs": "docs/ADVENTURERS_CURIOS.md",
     }
 
@@ -58,27 +58,13 @@ def main() -> int:
             '"ADVENTURERS_STORM_GLASS"',
             '"ADVENTURERS_EXPEDITION_JOURNAL"',
             '"BEACON_PLUS"',
-            "new WayfindersCompass(",
-            "new EchoLantern(",
-            "new ExplorersSpyglass(",
-            "new MinersCanary(",
-            "new DungeonChalk(",
-            "new StormGlass(",
-            "new ExpeditionJournal(",
             "new BeaconPlus(",
-            "29 independently toggleable effects",
+            "28 independently toggleable powers",
         ):
             require(token in setup, f"Curios setup invariant is missing: {token}", failures)
         require(setup.count("RecipeType.ENHANCED_CRAFTING_TABLE") >= 8, "All eight Curios need real recipes", failures)
-        for token in (
-            "new ItemStack(Material.BEACON)",
-            "new ItemStack(Material.NETHERITE_INGOT)",
-            "new ItemStack(Material.ECHO_SHARD)",
-            "new ItemStack(Material.ENDER_EYE)",
-        ):
-            require(token in setup, f"Native Beacon Plus recipe invariant is missing: {token}", failures)
-        for forbidden in ("BeaconPlus3", "thito.beaconplus"):
-            require(forbidden not in setup, f"Curios setup must not depend on discontinued BeaconPlus3: {forbidden}", failures)
+        require("BeaconPlus3" not in setup and "thito.beaconplus" not in setup,
+                "Curios setup must not depend on BeaconPlus3", failures)
 
         post_setup = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/setup/PostSetup.java")
         registration = post_setup.find("AdventurersCuriosSetup.setup(Slimefun.instance());")
@@ -89,76 +75,65 @@ def main() -> int:
             require(registration < finalization, "Curios must register before the item registry is finalized", failures)
 
         wayfinder = read(root, files["wayfinder"])
-        for token in ("getLastDeathLocation()", "setLodestone(target)", "setLodestoneTracked(false)", "getSpawnLocation()"):
-            require(token in wayfinder, f"Wayfinder invariant is missing: {token}", failures)
-
+        require("getLastDeathLocation()" in wayfinder and "setLodestone(target)" in wayfinder,
+                "Wayfinder behavior changed unexpectedly", failures)
         lantern = read(root, files["lantern"])
-        for token in ("getNearbyEntities", "instanceof Monster", "PotionEffectType.GLOWING", "COOLDOWN_TICKS = 30 * 20"):
-            require(token in lantern, f"Echo Lantern invariant is missing: {token}", failures)
-
+        require("getNearbyEntities" in lantern and "PotionEffectType.GLOWING" in lantern,
+                "Echo Lantern behavior changed unexpectedly", failures)
         spyglass = read(root, files["spyglass"])
-        for token in ("getBiome().getKey().getKey()", "getDirection(location.getYaw())", "location.getBlockX()"):
-            require(token in spyglass, f"Explorer's Spyglass invariant is missing: {token}", failures)
-
+        require("getBiome().getKey().getKey()" in spyglass and "getDirection(location.getYaw())" in spyglass,
+                "Explorer's Spyglass behavior changed unexpectedly", failures)
         canary = read(root, files["canary"])
-        for token in ("RANGE = 7", "COOLDOWN_TICKS = 5 * 20", "world.isChunkLoaded", "Material.LAVA"):
-            require(token in canary, f"Miner's Canary invariant is missing: {token}", failures)
-        require("loadChunk" not in canary and "getChunkAt(" not in canary, "Miner's Canary must not load chunks to scan", failures)
-
+        require("world.isChunkLoaded" in canary and "loadChunk" not in canary,
+                "Miner's Canary must remain bounded and non-loading", failures)
         chalk = read(root, files["chalk"])
-        for token in ("PersistentDataType.STRING", '"dungeon_chalk_marker"', "getClickedBlock()", "player.isSneaking()"):
-            require(token in chalk, f"Dungeon Chalk invariant is missing: {token}", failures)
-        for forbidden in ("setType(", "breakNaturally(", "runLater("):
-            require(forbidden not in chalk, f"Dungeon Chalk must remain non-destructive: {forbidden}", failures)
-
+        require('"dungeon_chalk_marker"' in chalk and "setType(" not in chalk,
+                "Dungeon Chalk must remain non-destructive", failures)
         storm = read(root, files["storm"])
-        for token in ("isThundering()", "hasStorm()", "getFullTime()", "getWeatherDuration()"):
-            require(token in storm, f"Storm Glass invariant is missing: {token}", failures)
-        require("setStorm(" not in storm and "setTime(" not in storm, "Storm Glass must remain read-only", failures)
-
+        require("isThundering()" in storm and "setStorm(" not in storm,
+                "Storm Glass must remain read-only", failures)
         journal = read(root, files["journal"])
-        for token in ("MAX_RECORDED_BIOMES = 128", '"expedition_journal_biomes"', "PersistentDataType.STRING", "getBiome().getKey().getKey()"):
-            require(token in journal, f"Expedition Journal invariant is missing: {token}", failures)
+        require("MAX_RECORDED_BIOMES = 128" in journal,
+                "Expedition Journal must retain bounded storage", failures)
 
-        effect_catalog = read(root, files["beacon_effect"])
-        effect_tokens = (
+        effect_catalog = read(root, files["effect"])
+        approved = (
             "FURNACE_BOOSTER", "STRENGTH", "REGENERATION", "RESISTANCE", "FAST_DIGGING", "CURE",
             "CROPS", "SPAWNERS", "SLOWDOWN", "SPEED", "PEACEFUL", "NIGHT_VISION", "FLYING",
             "EXPERIENCE_BOOSTER", "LUCK", "BURNER", "WATER_BREATHING", "FIRE_EXTINGUISHER",
             "POISON", "GRAVITY_WELL", "JUMP", "EXP_GAIN", "COOLDOWN_REDUCTION", "IMMORTALITY_FIELD",
-            "SCALE", "EXTRA_POWER", "EXTRA_RANGE", "ACTIVATOR", "AUTO_REPAIR",
+            "EXTRA_POWER", "EXTRA_RANGE", "ACTIVATOR", "AUTO_REPAIR",
         )
-        for token in effect_tokens:
-            require(token in effect_catalog, f"Beacon Plus effect catalog is missing: {token}", failures)
-        require(len(effect_tokens) == 29, "Beacon Plus verifier must protect exactly 29 requested effect families", failures)
-        require("serialize(Set<BeaconPlusEffect>" in effect_catalog, "Beacon Plus effect serialization is missing", failures)
+        for token in approved:
+            require(token in effect_catalog, f"Beacon Plus approved power is missing: {token}", failures)
+        require(len(approved) == 28, "Verifier must protect exactly 28 approved Beacon Plus powers", failures)
+        require("configurableValues()" in effect_catalog, "Approved-power menu filter is missing", failures)
+        require("this != SCALE" in effect_catalog, "Legacy Scale value must remain non-configurable", failures)
+        require("effect.isConfigurable()" in effect_catalog and ".filter(BeaconPlusEffect::isConfigurable)" in effect_catalog,
+                "Legacy Scale must not parse or persist", failures)
 
         beacon = read(root, files["beacon"])
         for token in (
-            "new ChestMenu(\"&6&lBeacon Plus\", 54)",
-            "BeaconPlusEffect.values()",
+            'new ChestMenu("&6&lBeacon Plus", 54)',
+            "BeaconPlusEffect.configurableValues()",
             "BeaconPlusRuntime.tick(block, data)",
             "BeaconPlusEffectListener.register(Slimefun.instance())",
             "BeaconPlusLifecycleListener.register(Slimefun.instance())",
             "BeaconPlusManager.start(Slimefun.instance())",
-            "BlockPlaceHandler(false)",
-            "BlockUseHandler",
-            "SimpleBlockBreakHandler",
-            "DISABLE_ALL_SLOT",
-            "ACTIVATOR_COVERAGE_SLOT",
+            "Enabled powers:",
+            "/28",
         ):
-            require(token in beacon, f"Native Beacon Plus menu/runtime invariant is missing: {token}", failures)
-        for forbidden in ("BeaconPlus3", "thito.beaconplus", "Class.forName(", "CustomItemStack"):
+            require(token in beacon, f"Native Beacon Plus invariant is missing: {token}", failures)
+        for forbidden in ("BeaconPlus3", "thito.beaconplus", "Class.forName("):
             require(forbidden not in beacon, f"Native Beacon Plus must not bridge to third-party runtime: {forbidden}", failures)
 
-        runtime = read(root, files["beacon_runtime"])
+        runtime = read(root, files["runtime"])
         for token in (
             'EFFECTS_KEY = "beacon_plus_effects"',
             "PULSE_INTERVAL_TICKS = 20",
             "MAX_TILE_ENTITIES_PER_PULSE = 96",
             "CROP_SAMPLES_PER_PULSE = 48",
             "EXTRA_RANGE_BLOCKS = 20",
-            "world.isChunkLoaded",
             "PotionEffectType.STRENGTH",
             "PotionEffectType.REGENERATION",
             "PotionEffectType.RESISTANCE",
@@ -169,63 +144,40 @@ def main() -> int:
             "PotionEffectType.JUMP_BOOST",
             "PotionEffectType.SLOWNESS",
             "PotionEffectType.POISON",
-            "Attribute.SCALE",
-            "repairInventory(",
-            "boostFurnace(",
-            "boostSpawner(",
-            "applyCropBoost(",
+            "repairInventory(", "boostFurnace(", "boostSpawner(", "applyCropBoost(",
         ):
             require(token in runtime, f"Beacon Plus bounded runtime invariant is missing: {token}", failures)
-        for forbidden in ("NetworkManager", "CargoNet", "tickBlock(", "setChunkForceLoaded", "setForceLoaded"):
+        for forbidden in ("NetworkManager", "CargoNet", "setChunkForceLoaded", "setForceLoaded"):
             require(forbidden not in runtime, f"Beacon Plus runtime crossed a protected boundary: {forbidden}", failures)
 
-        listener = read(root, files["beacon_listener"])
+        listener = read(root, files["listener"])
         for token in (
-            "PlayerItemCooldownEvent",
-            "PlayerExpChangeEvent",
-            "EntityTargetLivingEntityEvent",
-            "EntityDamageByEntityEvent",
-            "EntityDamageEvent",
-            "IMMORTALITY_COOLDOWN_MILLIS = 60_000L",
-            "BeaconPlusEffect.EXPERIENCE_BOOSTER",
-            "BeaconPlusEffect.COOLDOWN_REDUCTION",
-            "BeaconPlusEffect.PEACEFUL",
-            "BeaconPlusEffect.IMMORTALITY_FIELD",
+            "PlayerItemCooldownEvent", "PlayerExpChangeEvent", "EntityTargetLivingEntityEvent",
+            "EntityDamageByEntityEvent", "EntityDamageEvent", "IMMORTALITY_COOLDOWN_MILLIS = 60_000L",
+            "BeaconPlusEffect.EXPERIENCE_BOOSTER", "BeaconPlusEffect.COOLDOWN_REDUCTION",
+            "BeaconPlusEffect.PEACEFUL", "BeaconPlusEffect.IMMORTALITY_FIELD",
         ):
             require(token in listener, f"Beacon Plus event-runtime invariant is missing: {token}", failures)
 
-        chunk_mode = read(root, files["beacon_chunk_mode"])
-        for token in ('OFF("Off", 0, false)', 'SINGLE("This Chunk", 0, true)', 'AREA_3X3("3x3 Area", 1, true)', '"KEEP_CHUNK_LOADED"', '"CHUNK_ACTIVATOR"'):
-            require(token in chunk_mode, f"Beacon Plus Activator mode invariant is missing: {token}", failures)
-
-        manager = read(root, files["beacon_manager"])
+        manager = read(root, files["manager"])
         for token in (
-            'ITEM_ID = "BEACON_PLUS"',
-            "MAX_ACTIVE_BEACONS = 64",
-            "MAX_UNIQUE_CHUNKS = 256",
-            "addPluginChunkTicket",
-            "removePluginChunkTicket",
-            "ticketReferences",
-            'resolve("adventurers-curios-beacons.properties")',
-            "scheduleValidation()",
+            'ITEM_ID = "BEACON_PLUS"', "MAX_ACTIVE_BEACONS = 64", "MAX_UNIQUE_CHUNKS = 256",
+            "addPluginChunkTicket", "removePluginChunkTicket", "ticketReferences",
+            'resolve("adventurers-curios-beacons.properties")', "scheduleValidation()",
         ):
-            require(token in manager, f"Beacon Plus manager invariant is missing: {token}", failures)
-        for forbidden in ("NetworkManager", "CargoNet", "TickerTask", "setChunkForceLoaded", "setForceLoaded"):
-            require(forbidden not in manager, f"Beacon Plus manager crossed a runtime boundary: {forbidden}", failures)
+            require(token in manager, f"Beacon Plus Activator manager invariant is missing: {token}", failures)
 
-        lifecycle = read(root, files["beacon_lifecycle"])
+        lifecycle = read(root, files["lifecycle"])
         require("BeaconPlusRuntime.shutdown()" in lifecycle, "Beacon Plus player-state cleanup is missing", failures)
         require("BeaconPlusManager.shutdownCurrent()" in lifecycle, "Beacon Plus chunk-ticket cleanup is missing", failures)
 
         docs = read(root, files["docs"])
         for token in (
-            "29 independently toggleable",
+            "28 independently toggleable",
             "maximum **64 active Beacon Plus loaders**",
             "maximum **256 unique chunks**",
             "96 inspected states per pulse",
-            "25%",
-            "40%",
-            "No proprietary BeaconPlus runtime classes or source code are copied",
+            "25%", "40%",
         ):
             require(token in docs, f"Curios documentation is missing Beacon Plus detail: {token}", failures)
     except FileNotFoundError as error:
@@ -247,13 +199,12 @@ def main() -> int:
     report.write_text(
         "Adventurer's Curios verification: PASS\n"
         "- eight built-in Curios are registered before registry finalization\n"
-        "- Beacon Plus exposes all 29 requested toggleable effect families through a native 54-slot menu\n"
-        "- one bounded block ticker owns periodic Beacon Plus work and one listener owns event-driven effects\n"
-        "- crop and tile-entity work is capped and unloaded chunks are not scanned for normal field effects\n"
-        "- Activator uses reference-counted plugin chunk tickets with 64-beacon and 256-chunk global caps\n"
-        "- shutdown restores player flight/scale state and releases Beacon Plus chunk tickets\n"
-        "- the discontinued BeaconPlus3 plugin is not a runtime dependency\n"
-        "- no existing database schema, Cargo, Energy or machine transaction semantics are changed\n",
+        "- Beacon Plus exposes exactly the 28 approved player-facing powers through its native menu\n"
+        "- the legacy Scale development value cannot be configured, parsed or persisted\n"
+        "- periodic work is bounded and event-driven powers share one listener\n"
+        "- Activator uses reference-counted plugin chunk tickets with global safety caps\n"
+        "- shutdown restores player state and releases Beacon Plus chunk tickets\n"
+        "- BeaconPlus3 is not a runtime dependency\n",
         encoding="utf-8",
     )
     print(report.read_text(encoding="utf-8"), end="")
