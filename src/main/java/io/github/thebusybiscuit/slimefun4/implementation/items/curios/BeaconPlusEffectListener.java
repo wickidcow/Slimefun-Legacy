@@ -1,0 +1,152 @@
+package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
+
+import io.papermc.paper.event.player.PlayerItemCooldownEvent;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.bukkit.Location;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Monster;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
+import org.bukkit.event.player.PlayerExpChangeEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.plugin.Plugin;
+
+/**
+ * Event-driven Beacon Plus effects that do not belong in the periodic block pulse.
+ */
+final class BeaconPlusEffectListener implements Listener {
+
+    private static final AtomicBoolean REGISTERED = new AtomicBoolean();
+    private static final long IMMORTALITY_COOLDOWN_MILLIS = 60_000L;
+    private static final Map<UUID, Long> IMMORTALITY_COOLDOWNS = new ConcurrentHashMap<>();
+
+    private BeaconPlusEffectListener() {}
+
+    static void register(Plugin plugin) {
+        if (REGISTERED.compareAndSet(false, true)) {
+            plugin.getServer().getPluginManager().registerEvents(new BeaconPlusEffectListener(), plugin);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onExperience(PlayerExpChangeEvent event) {
+        if (event.getAmount() <= 0) {
+            return;
+        }
+
+        int power = BeaconPlusRuntime.getPowerForEffect(
+                event.getPlayer().getLocation(), BeaconPlusEffect.EXPERIENCE_BOOSTER);
+        if (power >= 0) {
+            event.setAmount(event.getAmount() * (power > 0 ? 3 : 2));
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onCooldown(PlayerItemCooldownEvent event) {
+        int power = BeaconPlusRuntime.getPowerForEffect(
+                event.getPlayer().getLocation(), BeaconPlusEffect.COOLDOWN_REDUCTION);
+        if (power < 0 || event.getCooldown() <= 1) {
+            return;
+        }
+
+        double multiplier = power > 0 ? 0.40D : 0.60D;
+        event.setCooldown(Math.max(1, (int) Math.ceil(event.getCooldown() * multiplier)));
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onTarget(EntityTargetLivingEntityEvent event) {
+        if (!(event.getTarget() instanceof Player player)) {
+            return;
+        }
+        if (!BeaconPlusRuntime.hasEffect(player.getLocation(), BeaconPlusEffect.PEACEFUL)) {
+            return;
+        }
+
+        event.setCancelled(true);
+        if (event.getEntity() instanceof Monster monster) {
+            monster.setTarget(null);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onHostileDamage(EntityDamageByEntityEvent event) {
+        if (!(event.getEntity() instanceof Player player)) {
+            return;
+        }
+        if (!BeaconPlusRuntime.hasEffect(player.getLocation(), BeaconPlusEffect.PEACEFUL)) {
+            return;
+        }
+
+        Entity damager = event.getDamager();
+        boolean hostile = damager instanceof Monster;
+        if (!hostile && damager instanceof Projectile projectile) {
+            hostile = projectile.getShooter() instanceof Monster;
+        }
+        if (hostile) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onFatalDamage(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Player player)) {
+            return;
+        }
+        if (player.getHealth() - event.getFinalDamage() > 0.0D) {
+            return;
+        }
+
+        int power = BeaconPlusRuntime.getPowerForEffect(
+                player.getLocation(), BeaconPlusEffect.IMMORTALITY_FIELD);
+        if (power < 0) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        long readyAt = IMMORTALITY_COOLDOWNS.getOrDefault(player.getUniqueId(), 0L);
+        if (readyAt > now) {
+            return;
+        }
+
+        double chance = power > 0 ? 0.40D : 0.25D;
+        if (ThreadLocalRandom.current().nextDouble() >= chance) {
+            return;
+        }
+
+        IMMORTALITY_COOLDOWNS.put(player.getUniqueId(), now + IMMORTALITY_COOLDOWN_MILLIS);
+        event.setCancelled(true);
+        player.setHealth(Math.min(player.getMaxHealth(), Math.max(1.0D, player.getHealth())));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onMove(PlayerMoveEvent event) {
+        Location from = event.getFrom();
+        Location to = event.getTo();
+        if (to == null
+                || (from.getWorld() == to.getWorld()
+                        && from.getBlockX() == to.getBlockX()
+                        && from.getBlockY() == to.getBlockY()
+                        && from.getBlockZ() == to.getBlockZ())) {
+            return;
+        }
+
+        BeaconPlusRuntime.refreshPlayerState(event.getPlayer());
+    }
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        IMMORTALITY_COOLDOWNS.remove(event.getPlayer().getUniqueId());
+        BeaconPlusRuntime.clearPlayerState(event.getPlayer());
+    }
+}
