@@ -109,7 +109,7 @@ final class AdventurersCuriosSetup {
                 Material.BEACON,
                 "&6&lBeacon Plus",
                 "&7A native Slimefun expedition beacon",
-                "&7with 29 independently toggleable effects.",
+                "&7with 28 independently toggleable powers.",
                 "",
                 "&eRight Click &7to open the configuration menu",
                 "&8Field effects require a powered beacon pyramid",
