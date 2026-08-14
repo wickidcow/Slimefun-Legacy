@@ -34,7 +34,7 @@ public final class StormGlass extends SimpleSlimefunItem<ItemUseHandler> {
         return event -> {
             event.cancel();
             Player player = event.getPlayer();
-            if (player.hasCooldown(Material.AMETHYST_SHARD)) {
+            if (player.hasCooldown(Material.GLASS_BOTTLE)) {
                 return;
             }
 
@@ -46,7 +46,7 @@ public final class StormGlass extends SimpleSlimefunItem<ItemUseHandler> {
             int moonIndex = (int) ((world.getFullTime() / 24000L) & 7L);
             long weatherSeconds = Math.max(0, world.getWeatherDuration()) / 20L;
 
-            player.setCooldown(Material.AMETHYST_SHARD, 20);
+            player.setCooldown(Material.GLASS_BOTTLE, 20);
             player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.65F, 1.45F);
             player.sendMessage(ChatColor.AQUA + "Storm Glass " + ChatColor.GRAY + "• " + ChatColor.WHITE + weather
                     + ChatColor.GRAY + " • " + ChatColor.YELLOW + dayPart + ChatColor.GRAY + " • " + ChatColor.LIGHT_PURPLE
