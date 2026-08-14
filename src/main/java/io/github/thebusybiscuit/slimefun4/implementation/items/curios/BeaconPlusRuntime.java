@@ -211,6 +211,15 @@ final class BeaconPlusRuntime {
         updateScale(player, shouldScale);
     }
 
+    static void refreshNearbyPlayerStates(Block block, double range) {
+        Location center = block.getLocation().add(0.5D, 0.5D, 0.5D);
+        for (Entity entity : getEntities(block, center, range)) {
+            if (entity instanceof Player player) {
+                refreshPlayerState(player);
+            }
+        }
+    }
+
     static void clearPlayerState(Player player) {
         Boolean original = ORIGINAL_ALLOW_FLIGHT.remove(player.getUniqueId());
         if (original != null && player.getGameMode() != GameMode.CREATIVE && player.getGameMode() != GameMode.SPECTATOR) {
@@ -308,9 +317,12 @@ final class BeaconPlusRuntime {
         if (effects.contains(BeaconPlusEffect.AUTO_REPAIR) && gameTime % 100L < PULSE_INTERVAL_TICKS) {
             repairInventory(player.getInventory(), 1 + power);
         }
-
-        // Resolve stateful player effects across every active nearby Beacon Plus so overlapping fields compose.
-        refreshPlayerState(player);
+        if (effects.contains(BeaconPlusEffect.FLYING)) {
+            updateFlight(player, true);
+        }
+        if (effects.contains(BeaconPlusEffect.SCALE)) {
+            updateScale(player, true);
+        }
     }
 
     private static void applyMonsterEffects(
@@ -464,15 +476,6 @@ final class BeaconPlusRuntime {
             damageable.setDamage(Math.max(0, damageable.getDamage() - amount));
             stack.setItemMeta(meta);
             inventory.setItem(slot, stack);
-        }
-    }
-
-    private static void refreshNearbyPlayerStates(Block block, double range) {
-        Location center = block.getLocation().add(0.5D, 0.5D, 0.5D);
-        for (Entity entity : getEntities(block, center, range)) {
-            if (entity instanceof Player player) {
-                refreshPlayerState(player);
-            }
         }
     }
 
