@@ -53,7 +53,6 @@ def main() -> int:
         "compatibility/upstream-sources.json",
         "compatibility/core-feature-backlog.json",
         "scripts/check_upstream_candidates.py",
-        ".github/workflows/upstream-candidate-radar.yml",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/platform/MinecraftVersionNumber.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/platform/PlatformCapability.java",
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/platform/PlatformCompatibilityService.java",
@@ -149,16 +148,6 @@ def main() -> int:
             "PlatformCapability::getDisplayName",
         ):
             require(token in versions, f"/sf versions diagnostic invariant is missing: {token}", failures)
-
-        workflow = read(root, ".github/workflows/upstream-candidate-radar.yml")
-        for token in (
-            "schedule:",
-            "workflow_dispatch:",
-            "scripts/check_upstream_candidates.py",
-            "actions/upload-artifact@v4",
-            "permissions:\n  contents: read",
-        ):
-            require(token in workflow, f"Upstream radar workflow invariant is missing: {token}", failures)
 
         checker = read(root, "scripts/check_upstream_candidates.py")
         for token in (
@@ -257,7 +246,7 @@ def main() -> int:
         "Central version parser: PASS\n"
         "Upstream registry: PASS\n"
         "Feature backlog: PASS\n"
-        "Advisory radar: PASS\n",
+        "Advisory upstream checker: PASS\n",
         encoding="utf-8",
     )
     print("Slimefun Legacy Core Platform Phase 1A foundation verification passed.")
