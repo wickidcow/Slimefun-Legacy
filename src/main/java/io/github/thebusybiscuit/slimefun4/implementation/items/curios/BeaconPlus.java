@@ -48,6 +48,16 @@ public final class BeaconPlus extends SlimefunItem {
         addItemHandler(onPlace(), onUse(), onBreak(), createTicker());
     }
 
+    @Override
+    public void postRegister() {
+        BeaconPlusLifecycleListener.register(Slimefun.instance());
+        Slimefun.getSchedulerService().runLater(() -> {
+            if (BeaconPlusManager.getInstance() == null) {
+                BeaconPlusManager.start(Slimefun.instance());
+            }
+        }, 1L);
+    }
+
     private @Nonnull BlockPlaceHandler onPlace() {
         return new BlockPlaceHandler(false) {
             @Override
@@ -175,7 +185,8 @@ public final class BeaconPlus extends SlimefunItem {
         if (Slimefun.getSchedulerService().isFolia()) {
             // Keep Folia entity access inside the beacon's owning chunk/region.
             for (Entity entity : block.getChunk().getEntities()) {
-                if (entity instanceof Player player && player.getLocation().distanceSquared(center) <= SUPPORT_RADIUS * SUPPORT_RADIUS) {
+                if (entity instanceof Player player
+                        && player.getLocation().distanceSquared(center) <= SUPPORT_RADIUS * SUPPORT_RADIUS) {
                     player.addPotionEffect(effect);
                 }
             }
