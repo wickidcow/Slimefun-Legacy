@@ -30,7 +30,6 @@ on:
     branches:
       - master
       - main
-      - 'agent/runtime-gameplay-correctness'
     paths:
       - 'src/main/**'
       - 'src/test/**'
