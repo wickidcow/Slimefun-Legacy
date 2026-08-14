@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
 
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Set;
@@ -34,12 +35,17 @@ public enum BeaconPlusEffect {
     EXP_GAIN("exp_gain", "Exp Gain", Material.SCULK, "Passively grant a small amount of experience."),
     COOLDOWN_REDUCTION("cooldown_reduction", "Cooldown Reduction", Material.CLOCK, "Reduce item cooldowns received in range."),
     IMMORTALITY_FIELD("immortality_field", "Immortality Field", Material.TOTEM_OF_UNDYING, "Chance to prevent otherwise fatal damage."),
-    SCALE("scale", "Scale", Material.GOLDEN_APPLE, "Make players slightly larger inside the field."),
     EXTRA_POWER("extra_power", "Extra Power", Material.NETHER_STAR, "Increase the strength of supported effects."),
     EXTRA_RANGE("extra_range", "Extra Range", Material.SPYGLASS, "Extend Beacon Plus effect radius."),
     ACTIVATOR("activator", "Activator", Material.RESPAWN_ANCHOR, "Keep the configured beacon chunks loaded."),
     AUTO_REPAIR("auto_repair", "Auto Repair", Material.ANVIL, "Slowly repair damaged tools, weapons and armor."),
-    ;
+
+    /**
+     * Migration tombstone only. Scale was present briefly during development but is not an approved Curio power.
+     * It is deliberately excluded from parsing, serialization and the configuration menu so old stored values are
+     * harmless and disappear the next time the beacon is saved.
+     */
+    SCALE("scale", "Scale (Legacy Disabled)", Material.BARRIER, "Disabled legacy development value.");
 
     private final String id;
     private final String displayName;
@@ -69,6 +75,14 @@ public enum BeaconPlusEffect {
         return description;
     }
 
+    public boolean isConfigurable() {
+        return this != SCALE;
+    }
+
+    public static BeaconPlusEffect[] configurableValues() {
+        return Arrays.stream(values()).filter(BeaconPlusEffect::isConfigurable).toArray(BeaconPlusEffect[]::new);
+    }
+
     public static EnumSet<BeaconPlusEffect> parse(String stored) {
         EnumSet<BeaconPlusEffect> result = EnumSet.noneOf(BeaconPlusEffect.class);
         if (stored == null || stored.isBlank()) {
@@ -78,7 +92,7 @@ public enum BeaconPlusEffect {
         for (String token : stored.split(",")) {
             String normalized = token.trim().toLowerCase(Locale.ROOT);
             for (BeaconPlusEffect effect : values()) {
-                if (effect.id.equals(normalized)) {
+                if (effect.isConfigurable() && effect.id.equals(normalized)) {
                     result.add(effect);
                     break;
                 }
@@ -88,6 +102,10 @@ public enum BeaconPlusEffect {
     }
 
     public static String serialize(Set<BeaconPlusEffect> effects) {
-        return effects.stream().map(BeaconPlusEffect::getId).sorted().collect(Collectors.joining(","));
+        return effects.stream()
+                .filter(BeaconPlusEffect::isConfigurable)
+                .map(BeaconPlusEffect::getId)
+                .sorted()
+                .collect(Collectors.joining(","));
     }
 }
