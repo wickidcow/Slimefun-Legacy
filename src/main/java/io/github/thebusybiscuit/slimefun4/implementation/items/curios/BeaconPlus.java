@@ -16,8 +16,8 @@ import java.util.List;
 import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
+import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -66,12 +66,15 @@ public final class BeaconPlus extends SlimefunItem {
         BeaconPlusConfig.installDefaults();
         BeaconPlusLifecycleListener.register(Slimefun.instance());
         BeaconPlusEffectListener.register(Slimefun.instance());
-        Slimefun.getSchedulerService().runLater(() -> {
-            if (BeaconPlusManager.getInstance() == null) {
-                BeaconPlusManager.start(Slimefun.instance());
-            }
-            BeaconPlusLegacyDataStore.start(Slimefun.instance());
-        }, 1L);
+        Slimefun.getSchedulerService()
+                .runLater(
+                        () -> {
+                            if (BeaconPlusManager.getInstance() == null) {
+                                BeaconPlusManager.start(Slimefun.instance());
+                            }
+                            BeaconPlusLegacyDataStore.start(Slimefun.instance());
+                        },
+                        1L);
     }
 
     private @Nonnull BlockPlaceHandler onPlace() {
@@ -84,7 +87,8 @@ public final class BeaconPlus extends SlimefunItem {
 
                 StorageCacheUtils.setData(location, BeaconPlusManager.OWNER_KEY, owner.toString());
                 StorageCacheUtils.setData(location, BeaconPlusManager.CHUNK_MODE_KEY, BeaconPlusChunkMode.OFF.name());
-                StorageCacheUtils.setData(location, BeaconPlusManager.SUPPORT_MODE_KEY, BeaconPlusSupportMode.OFF.name());
+                StorageCacheUtils.setData(
+                        location, BeaconPlusManager.SUPPORT_MODE_KEY, BeaconPlusSupportMode.OFF.name());
                 StorageCacheUtils.setData(location, BeaconPlusRuntime.EFFECTS_KEY, "");
                 StorageCacheUtils.removeData(location, BeaconPlusLegacyDataStore.IMPORTED_KEY);
 
@@ -95,8 +99,9 @@ public final class BeaconPlus extends SlimefunItem {
                 BeaconPlusRuntime.observe(block);
                 BeaconPlusLegacyDataStore.sync(block);
 
-                event.getPlayer().sendMessage(ChatColor.GOLD + "Resonance Beacon placed. " + ChatColor.GRAY
-                        + "Build its mineral pyramid, then right click it to unlock and configure powers.");
+                event.getPlayer()
+                        .sendMessage(ChatColor.GOLD + "Resonance Beacon placed. " + ChatColor.GRAY
+                                + "Build its mineral pyramid, then right click it to unlock and configure powers.");
             }
         };
     }
@@ -122,7 +127,8 @@ public final class BeaconPlus extends SlimefunItem {
 
             UUID owner = manager.getOwner(block.getLocation());
             if (!canConfigure(player, owner)) {
-                player.sendMessage(ChatColor.RED + "Only this Resonance Beacon owner or a server operator can configure it.");
+                player.sendMessage(
+                        ChatColor.RED + "Only this Resonance Beacon owner or a server operator can configure it.");
                 return;
             }
 
@@ -172,11 +178,11 @@ public final class BeaconPlus extends SlimefunItem {
         EnumSet<BeaconPlusEffect> enabled = BeaconPlusRuntime.getConfiguredEffects(block.getLocation());
         BeaconPlusPyramid.Profile profile = BeaconPlusPyramid.inspect(block);
         BeaconPlusManager manager = BeaconPlusManager.getInstance();
-        BeaconPlusChunkMode chunkMode = manager == null
-                ? BeaconPlusChunkMode.OFF
-                : manager.getChunkMode(block.getLocation());
+        BeaconPlusChunkMode chunkMode =
+                manager == null ? BeaconPlusChunkMode.OFF : manager.getChunkMode(block.getLocation());
 
         menu.addItem(STATUS_SLOT, createStatusItem(block, owner, enabled, profile, chunkMode));
+        menu.addMenuClickHandler(STATUS_SLOT, (pl, slot, item, action) -> false);
 
         BeaconPlusEffect[] effects = BeaconPlusEffect.configurableValues();
         for (int index = 0; index < effects.length; index++) {
@@ -207,7 +213,9 @@ public final class BeaconPlus extends SlimefunItem {
         });
 
         menu.addItem(PYRAMID_INFO_SLOT, createPyramidItem(profile));
+        menu.addMenuClickHandler(PYRAMID_INFO_SLOT, (pl, slot, item, action) -> false);
         menu.addItem(CONTROLS_SLOT, createControlsItem());
+        menu.addMenuClickHandler(CONTROLS_SLOT, (pl, slot, item, action) -> false);
         menu.addItem(
                 CLOSE_SLOT,
                 createMenuItem(
@@ -223,12 +231,7 @@ public final class BeaconPlus extends SlimefunItem {
     }
 
     private void handleEffectClick(
-            Player player,
-            Block block,
-            UUID owner,
-            BeaconPlusEffect effect,
-            boolean rightClick,
-            boolean shiftClick) {
+            Player player, Block block, UUID owner, BeaconPlusEffect effect, boolean rightClick, boolean shiftClick) {
         if (!rightClick) {
             player.sendMessage(ChatColor.GRAY + "Use right click to buy, enable, disable, or upgrade this power.");
             return;
@@ -322,7 +325,9 @@ public final class BeaconPlus extends SlimefunItem {
         player.playSound(block.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 0.8F, 1.45F);
         player.sendMessage(ChatColor.GREEN + "Unlocked " + ChatColor.WHITE + effect.getDisplayName() + ChatColor.GREEN
                 + " Tier " + result.newTier() + ChatColor.GRAY + "."
-                + (activatorAccepted ? " It is enabled." : " Unlock kept; Activator stayed disabled because of the loader cap."));
+                + (activatorAccepted
+                        ? " It is enabled."
+                        : " Unlock kept; Activator stayed disabled because of the loader cap."));
         openMenu(player, block, owner);
     }
 
@@ -369,7 +374,9 @@ public final class BeaconPlus extends SlimefunItem {
         List<String> lore = new ArrayList<>();
         int baseSize = profile.completedLayers() <= 0 ? 0 : profile.completedLayers() * 2 + 1;
         lore.add(ChatColor.GRAY + "Physical pyramid: "
-                + (baseSize > 0 ? ChatColor.GREEN.toString() + baseSize + "x" + baseSize : ChatColor.RED + "Incomplete"));
+                + (baseSize > 0
+                        ? ChatColor.GREEN.toString() + baseSize + "x" + baseSize
+                        : ChatColor.RED + "Incomplete"));
         lore.add(ChatColor.GRAY + "Natural power tier: " + tierColor(profile.naturalPowerTier())
                 + roman(profile.naturalPowerTier()));
         lore.add(ChatColor.GRAY + "Dominant mineral: " + ChatColor.AQUA + profile.dominantMaterialName());
@@ -384,9 +391,10 @@ public final class BeaconPlus extends SlimefunItem {
         } else if (owner != null) {
             lore.add(ChatColor.DARK_GRAY + "Unlocks are permanently owned by the placing player.");
         }
-        lore.add(profile.naturalPowerTier() > 0
-                ? ChatColor.GREEN + "Pyramid resonance is active."
-                : ChatColor.RED + "Build a valid powered mineral pyramid.");
+        lore.add(
+                profile.naturalPowerTier() > 0
+                        ? ChatColor.GREEN + "Pyramid resonance is active."
+                        : ChatColor.RED + "Build a valid powered mineral pyramid.");
         return createMenuItem(
                 profile.naturalPowerTier() > 0 ? Material.NETHER_STAR : Material.GRAY_DYE,
                 ChatColor.GOLD + "Resonance Beacon Status",
@@ -404,7 +412,8 @@ public final class BeaconPlus extends SlimefunItem {
         List<String> lore = new ArrayList<>();
         lore.add(ChatColor.GRAY + effect.getDescription());
         lore.add("");
-        lore.add(ChatColor.GRAY + "Server: " + (serverEnabled ? ChatColor.GREEN + "AVAILABLE" : ChatColor.RED + "DISABLED"));
+        lore.add(ChatColor.GRAY + "Server: "
+                + (serverEnabled ? ChatColor.GREEN + "AVAILABLE" : ChatColor.RED + "DISABLED"));
         lore.add(ChatColor.GRAY + "Unlocked: " + tierColor(unlocked) + roman(unlocked) + ChatColor.DARK_GRAY + "/III");
         if (BeaconPlusLegacyDataStore.isLegacyImported(block.getLocation()) && selected > 0) {
             lore.add(ChatColor.GRAY + "Legacy selected tier: " + tierColor(selected) + roman(selected));
@@ -423,7 +432,8 @@ public final class BeaconPlus extends SlimefunItem {
         if (serverEnabled && unlocked < maximum && !BeaconPlusLegacyDataStore.isLegacyImported(block.getLocation())) {
             lore.add("");
             lore.add(ChatColor.GOLD + "Next Tier: " + roman(unlocked + 1));
-            lore.add(ChatColor.GRAY + "Cost: " + ChatColor.YELLOW + BeaconPlusProgression.describeCost(effect, unlocked + 1));
+            lore.add(ChatColor.GRAY + "Cost: " + ChatColor.YELLOW
+                    + BeaconPlusProgression.describeCost(effect, unlocked + 1));
         }
 
         lore.add("");
@@ -443,7 +453,9 @@ public final class BeaconPlus extends SlimefunItem {
         Material icon = serverEnabled ? effect.getIcon() : Material.BARRIER;
         String nameColor = !serverEnabled
                 ? ChatColor.DARK_GRAY.toString()
-                : active ? ChatColor.GREEN.toString() : unlocked > 0 ? ChatColor.GOLD.toString() : ChatColor.RED.toString();
+                : active
+                        ? ChatColor.GREEN.toString()
+                        : unlocked > 0 ? ChatColor.GOLD.toString() : ChatColor.RED.toString();
         return createMenuItem(icon, nameColor + effect.getDisplayName(), lore);
     }
 

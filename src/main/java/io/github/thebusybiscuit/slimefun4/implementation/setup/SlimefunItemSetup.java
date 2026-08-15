@@ -26,6 +26,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.androids.Fisherma
 import io.github.thebusybiscuit.slimefun4.implementation.items.androids.MinerAndroid;
 import io.github.thebusybiscuit.slimefun4.implementation.items.androids.ProgrammableAndroid;
 import io.github.thebusybiscuit.slimefun4.implementation.items.androids.WoodcutterAndroid;
+import io.github.thebusybiscuit.slimefun4.implementation.items.armor.AdvancedHazmatArmorPiece;
 import io.github.thebusybiscuit.slimefun4.implementation.items.armor.ElytraCap;
 import io.github.thebusybiscuit.slimefun4.implementation.items.armor.EnderBoots;
 import io.github.thebusybiscuit.slimefun4.implementation.items.armor.FarmerShoes;
@@ -2440,6 +2441,80 @@ public final class SlimefunItemSetup {
                         },
                         new SlimefunItemStack(SlimefunItems.REINFORCED_CLOTH, 2))
                 .register(plugin);
+
+        if (Slimefun.getCfg().getBoolean("options.enable-non-original-slimefun-additions")) {
+            new AdvancedHazmatArmorPiece(
+                            itemGroups.armor,
+                            SlimefunItems.ADVANCED_HAZMAT_HELMET,
+                            RecipeType.ARMOR_FORGE,
+                            new ItemStack[] {
+                                SlimefunItems.REINFORCED_ALLOY_INGOT,
+                                SlimefunItems.REINFORCED_CLOTH,
+                                SlimefunItems.REINFORCED_ALLOY_INGOT,
+                                SlimefunItems.REINFORCED_CLOTH,
+                                SlimefunItems.SCUBA_HELMET,
+                                SlimefunItems.REINFORCED_CLOTH,
+                                null,
+                                null,
+                                null
+                            },
+                            new PotionEffect[] {new PotionEffect(PotionEffectType.WATER_BREATHING, 300, 1)})
+                    .register(plugin);
+
+            new AdvancedHazmatArmorPiece(
+                            itemGroups.armor,
+                            SlimefunItems.ADVANCED_HAZMAT_CHESTPLATE,
+                            RecipeType.ARMOR_FORGE,
+                            new ItemStack[] {
+                                SlimefunItems.REINFORCED_CLOTH,
+                                null,
+                                SlimefunItems.REINFORCED_CLOTH,
+                                SlimefunItems.REINFORCED_ALLOY_INGOT,
+                                SlimefunItems.HAZMAT_CHESTPLATE,
+                                SlimefunItems.REINFORCED_ALLOY_INGOT,
+                                SlimefunItems.REINFORCED_CLOTH,
+                                SlimefunItems.REINFORCED_ALLOY_INGOT,
+                                SlimefunItems.REINFORCED_CLOTH
+                            },
+                            new PotionEffect[] {new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 300, 1)})
+                    .register(plugin);
+
+            new AdvancedHazmatArmorPiece(
+                            itemGroups.armor,
+                            SlimefunItems.ADVANCED_HAZMAT_LEGGINGS,
+                            RecipeType.ARMOR_FORGE,
+                            new ItemStack[] {
+                                SlimefunItems.REINFORCED_ALLOY_INGOT,
+                                SlimefunItems.REINFORCED_CLOTH,
+                                SlimefunItems.REINFORCED_ALLOY_INGOT,
+                                SlimefunItems.REINFORCED_CLOTH,
+                                SlimefunItems.HAZMAT_LEGGINGS,
+                                SlimefunItems.REINFORCED_CLOTH,
+                                SlimefunItems.REINFORCED_CLOTH,
+                                null,
+                                SlimefunItems.REINFORCED_CLOTH
+                            },
+                            new PotionEffect[0])
+                    .register(plugin);
+
+            new AdvancedHazmatArmorPiece(
+                            itemGroups.armor,
+                            SlimefunItems.ADVANCED_HAZMAT_BOOTS,
+                            RecipeType.ARMOR_FORGE,
+                            new ItemStack[] {
+                                SlimefunItems.REINFORCED_CLOTH,
+                                null,
+                                SlimefunItems.REINFORCED_CLOTH,
+                                SlimefunItems.REINFORCED_ALLOY_INGOT,
+                                SlimefunItems.HAZMAT_BOOTS,
+                                SlimefunItems.REINFORCED_ALLOY_INGOT,
+                                null,
+                                null,
+                                null
+                            },
+                            new PotionEffect[0])
+                    .register(plugin);
+        }
 
         new HazmatArmorPiece(
                         itemGroups.armor,

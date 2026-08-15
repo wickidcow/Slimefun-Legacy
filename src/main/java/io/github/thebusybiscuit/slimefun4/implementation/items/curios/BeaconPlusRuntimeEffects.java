@@ -23,6 +23,7 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.CreatureSpawner;
 import org.bukkit.block.Furnace;
 import org.bukkit.block.data.Ageable;
+import org.bukkit.entity.Enemy;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Item;
@@ -67,13 +68,16 @@ final class BeaconPlusRuntimeEffects {
 
     static void applyPulse(Block block, Map<BeaconPlusEffect, Integer> tiers, double range, long gameTime) {
         Location center = block.getLocation().add(0.5D, 0.5D, 0.5D);
+        int gravityTier = tiers.getOrDefault(BeaconPlusEffect.GRAVITY_WELL, 0);
         for (Entity entity : getEntities(block, range)) {
             if (entity instanceof Player player) {
                 applyPlayerEffects(player, tiers, gameTime);
             } else if (entity instanceof Monster monster) {
-                applyMonsterEffects(monster, tiers, center);
-            } else if (entity instanceof Item && tiers.getOrDefault(BeaconPlusEffect.GRAVITY_WELL, 0) > 0) {
-                pullEntity(entity, center, tiers.get(BeaconPlusEffect.GRAVITY_WELL));
+                applyMonsterEffects(monster, tiers);
+            }
+
+            if (gravityTier > 0 && (entity instanceof Enemy || entity instanceof Item)) {
+                pullEntity(entity, center, gravityTier);
             }
         }
 
@@ -175,7 +179,7 @@ final class BeaconPlusRuntimeEffects {
         updateFlight(player, tiers.getOrDefault(BeaconPlusEffect.FLYING, 0) > 0);
     }
 
-    private static void applyMonsterEffects(Monster monster, Map<BeaconPlusEffect, Integer> tiers, Location center) {
+    private static void applyMonsterEffects(Monster monster, Map<BeaconPlusEffect, Integer> tiers) {
         applyPotionIfPresent(
                 monster, tiers, BeaconPlusEffect.SLOWDOWN, PotionEffectType.SLOWNESS, EFFECT_DURATION_TICKS);
         applyPotionIfPresent(monster, tiers, BeaconPlusEffect.POISON, PotionEffectType.POISON, EFFECT_DURATION_TICKS);
@@ -185,10 +189,6 @@ final class BeaconPlusRuntimeEffects {
         }
         if (tiers.getOrDefault(BeaconPlusEffect.PEACEFUL, 0) > 0) {
             monster.setTarget(null);
-        }
-        int gravityTier = tiers.getOrDefault(BeaconPlusEffect.GRAVITY_WELL, 0);
-        if (gravityTier > 0) {
-            pullEntity(monster, center, gravityTier);
         }
     }
 

@@ -1050,6 +1050,64 @@ public final class SlimefunItems {
         HAZMAT_CHESTPLATE.setItemMeta(chestplateMeta);
     }
 
+    public static final SlimefunItemStack ADVANCED_HAZMAT_HELMET = new SlimefunItemStack(
+            "ADVANCED_HAZMAT_HELMET",
+            Material.LEATHER_HELMET,
+            Color.TEAL,
+            "&3&lAdvanced Hazmat Helmet",
+            "",
+            "&7Lead-lined expedition protection",
+            "&9+ Water Breathing",
+            "",
+            "&6Full set effects:",
+            "&e- Radiation immunity",
+            "&e- Bee sting protection");
+    public static final SlimefunItemStack ADVANCED_HAZMAT_CHESTPLATE = new SlimefunItemStack(
+            "ADVANCED_HAZMAT_CHESTPLATE",
+            Material.LEATHER_CHESTPLATE,
+            Color.TEAL,
+            "&3&lAdvanced Hazmat Chestplate",
+            "",
+            "&7Reinforced lead-lined body protection",
+            "&9+ Fire and lava protection",
+            "",
+            "&6Full set effects:",
+            "&e- Radiation immunity",
+            "&e- Bee sting protection");
+    public static final SlimefunItemStack ADVANCED_HAZMAT_LEGGINGS = new SlimefunItemStack(
+            "ADVANCED_HAZMAT_LEGGINGS",
+            Material.LEATHER_LEGGINGS,
+            Color.TEAL,
+            "&3&lAdvanced Hazmat Leggings",
+            "",
+            "&7Reinforced lead-lined leg protection",
+            "",
+            "&6Full set effects:",
+            "&e- Radiation immunity",
+            "&e- Bee sting protection");
+    public static final SlimefunItemStack ADVANCED_HAZMAT_BOOTS = new SlimefunItemStack(
+            "ADVANCED_HAZMAT_BOOTS",
+            Material.LEATHER_BOOTS,
+            Color.BLACK,
+            "&3&lAdvanced Hazmat Boots",
+            "",
+            "&7Sealed reinforced field boots",
+            "",
+            "&6Full set effects:",
+            "&e- Radiation immunity",
+            "&e- Bee sting protection");
+
+    static {
+        Map<Enchantment, Integer> advancedHazmatEnchants = new HashMap<>();
+        advancedHazmatEnchants.put(VersionedEnchantment.PROTECTION, 4);
+        advancedHazmatEnchants.put(VersionedEnchantment.UNBREAKING, 6);
+
+        ADVANCED_HAZMAT_HELMET.addUnsafeEnchantments(advancedHazmatEnchants);
+        ADVANCED_HAZMAT_CHESTPLATE.addUnsafeEnchantments(advancedHazmatEnchants);
+        ADVANCED_HAZMAT_LEGGINGS.addUnsafeEnchantments(advancedHazmatEnchants);
+        ADVANCED_HAZMAT_BOOTS.addUnsafeEnchantments(advancedHazmatEnchants);
+    }
+
     public static final SlimefunItemStack GILDED_IRON_HELMET =
             new SlimefunItemStack("GILDED_IRON_HELMET", Material.GOLDEN_HELMET, "&6Gilded Iron Helmet");
     public static final SlimefunItemStack GILDED_IRON_CHESTPLATE =
