@@ -29,7 +29,6 @@ def main() -> int:
         "lantern": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/EchoLantern.java",
         "spyglass": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/ExplorersSpyglass.java",
         "canary": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/MinersCanary.java",
-        "chalk": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/DungeonChalk.java",
         "storm": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/StormGlass.java",
         "journal": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/ExpeditionJournal.java",
         "bedroll": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/TravelersBedroll.java",
@@ -49,6 +48,9 @@ def main() -> int:
     for relative in files.values():
         require((root / relative).is_file(), f"Missing Adventurer's Curios file: {relative}", failures)
 
+    chalk_path = root / "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/DungeonChalk.java"
+    require(not chalk_path.exists(), "Dungeon Chalk must remain fully removed", failures)
+
     try:
         setup = read(root, files["setup"])
         for token in (
@@ -57,7 +59,6 @@ def main() -> int:
             '"ADVENTURERS_ECHO_LANTERN"',
             '"ADVENTURERS_EXPLORERS_SPYGLASS"',
             '"ADVENTURERS_MINERS_CANARY"',
-            '"ADVENTURERS_DUNGEON_CHALK"',
             '"ADVENTURERS_STORM_GLASS"',
             '"ADVENTURERS_EXPEDITION_JOURNAL"',
             '"ADVENTURERS_TRAVELERS_BEDROLL"',
@@ -66,13 +67,21 @@ def main() -> int:
             "new TravelersBedroll(",
             "new EmergencyParachute(",
             "parachute.registerListener(plugin)",
+            "MinersCanary canary = new MinersCanary(",
+            "canary.registerListener(plugin)",
             "new BeaconPlus(",
             "28 independently toggleable powers",
+            "SlimefunItems.ESSENCE_OF_AFTERLIFE",
+            "SlimefunItems.MAGICAL_GLASS",
+            "SlimefunItems.BLISTERING_INGOT_3",
+            "SlimefunItems.SYNTHETIC_DIAMOND",
             'getBoolean("options.enable-non-original-slimefun-additions")',
         ):
             require(token in setup, f"Curios setup invariant is missing: {token}", failures)
-        require(setup.count("RecipeType.ENHANCED_CRAFTING_TABLE") >= 10,
-                "All ten Curios need real Enhanced Crafting Table recipes", failures)
+        require("DungeonChalk" not in setup and "ADVENTURERS_DUNGEON_CHALK" not in setup,
+                "Dungeon Chalk must not be registered or imported", failures)
+        require(setup.count("RecipeType.ENHANCED_CRAFTING_TABLE") >= 9,
+                "All nine current Curios need real Enhanced Crafting Table recipes", failures)
         require("BeaconPlus3" not in setup and "thito.beaconplus" not in setup,
                 "Curios setup must not depend on BeaconPlus3", failures)
 
@@ -97,12 +106,25 @@ def main() -> int:
         spyglass = read(root, files["spyglass"])
         require("getBiome().getKey().getKey()" in spyglass and "getDirection(location.getYaw())" in spyglass,
                 "Explorer's Spyglass behavior changed unexpectedly", failures)
+
         canary = read(root, files["canary"])
-        require("world.isChunkLoaded" in canary and "loadChunk" not in canary,
-                "Miner's Canary must remain bounded and non-loading", failures)
-        chalk = read(root, files["chalk"])
-        require('"dungeon_chalk_marker"' in chalk and "setType(" not in chalk,
-                "Dungeon Chalk must remain non-destructive", failures)
+        for token in (
+            "implements Listener",
+            "EntityTargetLivingEntityEvent",
+            "PlayerMoveEvent",
+            "instanceof Enemy",
+            "PASSIVE_SCAN_INTERVAL_MILLIS = 2_000L",
+            "ALERT_COOLDOWN_MILLIS = 4_000L",
+            "findApproachingHostile(",
+            "findExposedLava(",
+            "isExposed(",
+            "getStorageContents()",
+            "world.isChunkLoaded",
+        ):
+            require(token in canary, f"Miner's Canary danger-detector invariant is missing: {token}", failures)
+        for forbidden in ("loadChunk", "setChunkForceLoaded", "runTaskTimer", "scheduleSyncRepeatingTask"):
+            require(forbidden not in canary, f"Miner's Canary must remain bounded/event-driven: {forbidden}", failures)
+
         storm = read(root, files["storm"])
         require("isThundering()" in storm and "setStorm(" not in storm,
                 "Storm Glass must remain read-only", failures)
@@ -207,6 +229,8 @@ def main() -> int:
         docs = read(root, files["docs"])
         for token in (
             "Traveler's Bedroll", "Emergency Parachute", "five-minute cooldown", "60-second cooldown",
+            "Miner's Canary", "exposed lava", "hostile mob targets the carrier", "Dungeon Chalk has been removed",
+            "Essence of Afterlife", "Magical Glass", "Blistering Ingot", "Synthetic Diamond",
             "28 independently toggleable", "maximum **64 active Beacon Plus loaders**",
             "maximum **256 unique chunks**", "96 inspected states per pulse", "25%", "40%",
             "Recall Stone is intentionally not planned",
@@ -230,10 +254,14 @@ def main() -> int:
 
     report.write_text(
         "Adventurer's Curios verification: PASS\n"
-        "- ten built-in Curios are registered before registry finalization\n"
+        "- nine built-in Curios are registered before registry finalization\n"
+        "- Dungeon Chalk is fully removed from source and registration\n"
+        "- Miner's Canary passively warns carriers about exposed lava, approaching hostiles and immediate danger\n"
+        "- Miner's Canary scans are throttled, bounded and never load chunks\n"
         "- Traveler's Bedroll is a bounded personal rest action with no world-time or spawn mutation\n"
         "- Emergency Parachute is an event-driven dangerous-fall saver with a 60-second cooldown\n"
         "- non-original Slimefun additions ship enabled by default but remain disable-able in config\n"
+        "- Beacon Plus uses the requested native Slimefun crafting ingredients\n"
         "- Beacon Plus exposes exactly the 28 approved player-facing powers through its native menu\n"
         "- the legacy Scale development value cannot be configured, parsed or persisted\n"
         "- periodic work is bounded and event-driven powers share one listener\n"
