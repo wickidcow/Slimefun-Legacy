@@ -1,0 +1,89 @@
+name: One-shot Beacon visible effects 4.1.31
+
+on:
+  push:
+    branches:
+      - release/4.1.31-beacon-plus
+
+permissions:
+  contents: write
+
+jobs:
+  fix-visible-effects:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: release/4.1.31-beacon-plus
+
+      - name: Make potion effects visible and expose powered state
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          runtime_path = Path('src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusRuntime.java')
+          beacon_path = Path('src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlus.java')
+          docs_path = Path('docs/ADVENTURERS_CURIOS.md')
+          verify_path = Path('scripts/verify_adventurers_curios.py')
+
+          runtime = runtime_path.read_text()
+          runtime = runtime.replace(
+              '    private static final int EFFECT_DURATION_TICKS = 70;\n',
+              '    private static final int EFFECT_DURATION_TICKS = 100;\n'
+          )
+          runtime = runtime.replace(
+              '        entity.addPotionEffect(new PotionEffect(type, duration, amplifier, true, false, true));\n',
+              '        entity.addPotionEffect(new PotionEffect(type, duration, amplifier, false, true, true));\n'
+          )
+          runtime_path.write_text(runtime)
+
+          beacon = beacon_path.read_text()
+          beacon = beacon.replace(
+              '''        lore.add(ChatColor.GRAY + "Field energy: " + ChatColor.YELLOW + storedEnergy + "/" + ENERGY_CAPACITY + " J");\n        lore.add(ChatColor.GRAY + "Current field draw: " + ChatColor.YELLOW + energyCost + " J/s");\n        lore.add(ChatColor.GRAY + "Activator: " + ChatColor.AQUA + chunkMode.getDisplayName());\n''',
+              '''        lore.add(ChatColor.GRAY + "Field energy: " + ChatColor.YELLOW + storedEnergy + "/" + ENERGY_CAPACITY + " J");\n        lore.add(ChatColor.GRAY + "Current field draw: " + ChatColor.YELLOW + energyCost + " J/s");\n        boolean fieldReady = tier > 0 && energyCost > 0 && storedEnergy >= energyCost;\n        lore.add(ChatColor.GRAY + "Field state: " + (fieldReady ? ChatColor.GREEN + "ACTIVE" : ChatColor.RED + "NOT POWERED"));\n        if (tier <= 0) {\n            lore.add(ChatColor.RED + "Reason: beacon pyramid/sky activation is not ready.");\n        } else if (energyCost <= 0) {\n            lore.add(ChatColor.YELLOW + "Reason: no field effect currently needs Energy.");\n        } else if (storedEnergy < energyCost) {\n            lore.add(ChatColor.RED + "Reason: needs at least " + energyCost + " J for the next field pulse.");\n        }\n        lore.add(ChatColor.GRAY + "Activator: " + ChatColor.AQUA + chunkMode.getDisplayName());\n'''
+          )
+          beacon = beacon.replace(
+              '''        player.sendMessage(ChatColor.GOLD + "Beacon Plus: " + ChatColor.WHITE + effect.getDisplayName() + ChatColor.GRAY\n                + " is now " + (active ? ChatColor.GREEN + "ENABLED" : ChatColor.RED + "DISABLED") + ChatColor.GRAY + ".");\n        openMenu(player, block, owner);\n''',
+              '''        player.sendMessage(ChatColor.GOLD + "Beacon Plus: " + ChatColor.WHITE + effect.getDisplayName() + ChatColor.GRAY\n                + " is now " + (active ? ChatColor.GREEN + "ENABLED" : ChatColor.RED + "DISABLED") + ChatColor.GRAY + ".");\n        if (active && effect != BeaconPlusEffect.ACTIVATOR) {\n            int requiredEnergy = calculateFieldEnergyCost(enabled);\n            if (!hasPoweredPyramid(block)) {\n                player.sendMessage(ChatColor.RED + "Configured, but not active: the vanilla beacon pyramid/sky activation is not ready.");\n            } else if (requiredEnergy > 0 && getChargeLong(block.getLocation()) < requiredEnergy) {\n                player.sendMessage(ChatColor.RED + "Configured, but not active: Beacon Plus needs " + requiredEnergy\n                        + " J for its next one-second field pulse.");\n            } else {\n                player.sendMessage(ChatColor.GREEN + "Field is powered. Player potion effects should appear in the HUD and with particles.");\n            }\n        }\n        openMenu(player, block, owner);\n'''
+          )
+          beacon_path.write_text(beacon)
+
+          docs = docs_path.read_text()
+          docs = docs.replace(
+              'Normal field effects require the Beacon Plus block to sit on a valid vanilla beacon pyramid and have Slimefun Energy available.',
+              'Normal field effects require the Beacon Plus block to sit on a valid vanilla beacon pyramid and have Slimefun Energy available. Player potion effects are applied as normal, non-ambient effects with visible HUD icons and particles so Strength, Resistance, Regeneration, Haste, Speed, Luck, Water Breathing and Jump Boost are obvious while active.'
+          )
+          docs = docs.replace(
+              '1. **Disable one placed Beacon Plus:** the owner or an operator can open its menu and click **Disable All Effects**.',
+              '1. **Diagnose or disable one placed Beacon Plus:** open its menu and read **Beacon Plus Status**. It now reports `ACTIVE` or `NOT POWERED` and explains whether the pyramid or stored Energy is blocking the field. The owner or an operator can click **Disable All Effects**.'
+          )
+          docs_path.write_text(docs)
+
+          verify = verify_path.read_text()
+          verify = verify.replace(
+              '            "PotionEffectType.POISON",\n',
+              '            "PotionEffectType.POISON",\n            "EFFECT_DURATION_TICKS = 100",\n            "new PotionEffect(type, duration, amplifier, false, true, true)",\n'
+          )
+          verify = verify.replace(
+              '            "DISABLE_ALL_SLOT",\n',
+              '            "DISABLE_ALL_SLOT",\n            "Field state: ",\n            "Configured, but not active:",\n'
+          )
+          verify_path.write_text(verify)
+          PY
+
+          if git diff --quiet; then
+            echo "Visible-effect fix is already present; no commit needed."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusRuntime.java \
+            src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlus.java \
+            docs/ADVENTURERS_CURIOS.md \
+            scripts/verify_adventurers_curios.py
+          git commit -m "Make Beacon Plus player effects visible and diagnosable"
+          git push origin HEAD:release/4.1.31-beacon-plus
