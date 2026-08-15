@@ -1,0 +1,49 @@
+name: Fix Special Item Verifier
+
+on:
+  push:
+    branches:
+      - "feature/adventurers-curios-expansion"
+
+jobs:
+  fix-verifier:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v6
+        with:
+          ref: feature/adventurers-curios-expansion
+
+      - name: Make Composter invariant formatting-safe
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/verify_special_item_correctness.py')
+          text = path.read_text(encoding='utf-8')
+          old = '    require(composter, "ItemStack remainder = Slimefun.getItemStackService()", "Composter delayed output remainder capture")\n'
+          new = (
+              '    require(composter, "ItemStack remainder =", "Composter delayed output remainder capture")\n'
+              '    require(\n'
+              '        composter,\n'
+              '        "Slimefun.getItemStackService().addItem(outputChest.get(), output, InventoryContext.OUTPUT_CHEST);",\n'
+              '        "Composter delayed output insertion",\n'
+              '    )\n'
+          )
+          if old not in text:
+              raise SystemExit('Expected brittle Composter verifier token was not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Verify special-item invariants
+        run: python3 scripts/verify_special_item_correctness.py .
+
+      - name: Commit verifier fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/verify_special_item_correctness.py
+          git commit -m "fix(ci): make Composter invariant formatting-safe"
+          git push origin HEAD:feature/adventurers-curios-expansion
