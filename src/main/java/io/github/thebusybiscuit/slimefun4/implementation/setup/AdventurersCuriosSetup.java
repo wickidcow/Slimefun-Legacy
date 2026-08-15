@@ -1,9 +1,12 @@
 package io.github.thebusybiscuit.slimefun4.implementation.setup;
 
-import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
+import io.github.thebusybiscuit.slimefun4.api.items.groups.NestedItemGroup;
+import io.github.thebusybiscuit.slimefun4.api.items.groups.SubItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
+import io.github.thebusybiscuit.slimefun4.implementation.items.armor.HazardProtectionArmorPiece;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlus;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.DungeonChalk;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.EchoLantern;
@@ -14,15 +17,22 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.curios.StormGlass
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.WayfindersCompass;
 import java.util.List;
 import org.bukkit.ChatColor;
+import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.LeatherArmorMeta;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 /**
- * Registers the built-in Adventurer's Curios category and its field gadgets.
+ * Registers the built-in Adventurer's Curios category, its field gadgets and protective gear.
  */
 final class AdventurersCuriosSetup {
+
+    private static final String ADVANCED_HAZMAT_SET_ID = "advanced_hazmat_gear";
+    private static final String NETHERITE_CONTAINMENT_SET_ID = "netherite_containment_armor";
 
     private static boolean registered;
 
@@ -34,8 +44,14 @@ final class AdventurersCuriosSetup {
         }
         registered = true;
 
-        ItemGroup curios = new ItemGroup(
+        NestedItemGroup curios = new NestedItemGroup(
                 new NamespacedKey(plugin, "adventurers_curios"), createCategoryIcon(), 2);
+        SubItemGroup fieldCuriosities = new SubItemGroup(
+                new NamespacedKey(plugin, "adventurers_curios_field"), curios, createCuriositiesIcon(), 2);
+        SubItemGroup advancedHazmatGear = new SubItemGroup(
+                new NamespacedKey(plugin, "advanced_hazmat_gear"), curios, createAdvancedHazmatIcon(), 2);
+        SubItemGroup containmentArmor = new SubItemGroup(
+                new NamespacedKey(plugin, "netherite_containment_armor"), curios, createContainmentArmorIcon(), 2);
 
         SlimefunItemStack wayfindersCompass = new SlimefunItemStack(
                 "ADVENTURERS_WAYFINDERS_COMPASS",
@@ -116,8 +132,94 @@ final class AdventurersCuriosSetup {
                 "&8and Slimefun Energy; Extra Power costs 30 XP levels",
                 "&8Activator uses bounded plugin chunk tickets");
 
+        SlimefunItemStack advancedHazmatHelmet = new SlimefunItemStack(
+                "ADVANCED_HAZMAT_HELMET",
+                Material.LEATHER_HELMET,
+                Color.YELLOW,
+                "&eAdvanced Hazmat Helmet",
+                "",
+                "&7Upgraded protection for hazardous environments.",
+                "&7Built for handling sensitive radioactive materials.",
+                "",
+                "&bFull Set: &fRadiation and bee protection");
+        SlimefunItemStack advancedHazmatChestplate = new SlimefunItemStack(
+                "ADVANCED_HAZMAT_CHESTPLATE",
+                Material.LEATHER_CHESTPLATE,
+                Color.YELLOW,
+                "&eAdvanced Hazmat Chestplate",
+                "",
+                "&7Upgraded protection for hazardous environments.",
+                "&7Built for handling sensitive radioactive materials.",
+                "",
+                "&bFull Set: &fRadiation and bee protection");
+        SlimefunItemStack advancedHazmatLeggings = new SlimefunItemStack(
+                "ADVANCED_HAZMAT_LEGGINGS",
+                Material.LEATHER_LEGGINGS,
+                Color.YELLOW,
+                "&eAdvanced Hazmat Leggings",
+                "",
+                "&7Upgraded protection for hazardous environments.",
+                "&7Built for handling sensitive radioactive materials.",
+                "",
+                "&bFull Set: &fRadiation and bee protection");
+        SlimefunItemStack advancedHazmatBoots = new SlimefunItemStack(
+                "ADVANCED_HAZMAT_BOOTS",
+                Material.LEATHER_BOOTS,
+                Color.YELLOW,
+                "&eAdvanced Hazmat Boots",
+                "",
+                "&7Upgraded protection for hazardous environments.",
+                "&7Built for handling sensitive radioactive materials.",
+                "",
+                "&bFull Set: &fRadiation and bee protection");
+
+        SlimefunItemStack containmentHelmet = new SlimefunItemStack(
+                "NETHERITE_CONTAINMENT_HELMET",
+                Material.NETHERITE_HELMET,
+                "&8Netherite Containment Helmet",
+                "",
+                "&7For when you need protection from the world",
+                "&7while handling sensitive or hazardous materials.",
+                "",
+                "&bFull Set: &fRadiation and bee protection",
+                "&8Lead-lined and netherite reinforced",
+                "&8Sealed head protection for contaminated environments.");
+        SlimefunItemStack containmentChestplate = new SlimefunItemStack(
+                "NETHERITE_CONTAINMENT_CHESTPLATE",
+                Material.NETHERITE_CHESTPLATE,
+                "&8Netherite Containment Chestplate",
+                "",
+                "&7For when you need protection from the world",
+                "&7while handling sensitive or hazardous materials.",
+                "",
+                "&bFull Set: &fRadiation and bee protection",
+                "&8Lead-lined and netherite reinforced",
+                "&8Heavy shielding protects the core of the suit.");
+        SlimefunItemStack containmentLeggings = new SlimefunItemStack(
+                "NETHERITE_CONTAINMENT_LEGGINGS",
+                Material.NETHERITE_LEGGINGS,
+                "&8Netherite Containment Leggings",
+                "",
+                "&7For when you need protection from the world",
+                "&7while handling sensitive or hazardous materials.",
+                "",
+                "&bFull Set: &fRadiation and bee protection",
+                "&8Lead-lined and netherite reinforced",
+                "&8Flexible shielding keeps hazardous exposure contained.");
+        SlimefunItemStack containmentBoots = new SlimefunItemStack(
+                "NETHERITE_CONTAINMENT_BOOTS",
+                Material.NETHERITE_BOOTS,
+                "&8Netherite Containment Boots",
+                "",
+                "&7For when you need protection from the world",
+                "&7while handling sensitive or hazardous materials.",
+                "",
+                "&bFull Set: &fRadiation and bee protection",
+                "&8Lead-lined and netherite reinforced",
+                "&8Keeps hazardous ground safely beneath you.");
+
         new WayfindersCompass(
-                        curios,
+                        fieldCuriosities,
                         wayfindersCompass,
                         RecipeType.ENHANCED_CRAFTING_TABLE,
                         new ItemStack[] {
@@ -134,7 +236,7 @@ final class AdventurersCuriosSetup {
                 .register(plugin);
 
         new EchoLantern(
-                        curios,
+                        fieldCuriosities,
                         echoLantern,
                         RecipeType.ENHANCED_CRAFTING_TABLE,
                         new ItemStack[] {
@@ -151,7 +253,7 @@ final class AdventurersCuriosSetup {
                 .register(plugin);
 
         new ExplorersSpyglass(
-                        curios,
+                        fieldCuriosities,
                         explorersSpyglass,
                         RecipeType.ENHANCED_CRAFTING_TABLE,
                         new ItemStack[] {
@@ -168,7 +270,7 @@ final class AdventurersCuriosSetup {
                 .register(plugin);
 
         new MinersCanary(
-                        curios,
+                        fieldCuriosities,
                         minersCanary,
                         RecipeType.ENHANCED_CRAFTING_TABLE,
                         new ItemStack[] {
@@ -185,7 +287,7 @@ final class AdventurersCuriosSetup {
                 .register(plugin);
 
         new DungeonChalk(
-                        curios,
+                        fieldCuriosities,
                         dungeonChalk,
                         RecipeType.ENHANCED_CRAFTING_TABLE,
                         new ItemStack[] {
@@ -202,7 +304,7 @@ final class AdventurersCuriosSetup {
                 .register(plugin);
 
         new StormGlass(
-                        curios,
+                        fieldCuriosities,
                         stormGlass,
                         RecipeType.ENHANCED_CRAFTING_TABLE,
                         new ItemStack[] {
@@ -219,7 +321,7 @@ final class AdventurersCuriosSetup {
                 .register(plugin);
 
         new ExpeditionJournal(
-                        curios,
+                        fieldCuriosities,
                         expeditionJournal,
                         RecipeType.ENHANCED_CRAFTING_TABLE,
                         new ItemStack[] {
@@ -236,7 +338,7 @@ final class AdventurersCuriosSetup {
                 .register(plugin);
 
         new BeaconPlus(
-                        curios,
+                        fieldCuriosities,
                         beaconPlus,
                         RecipeType.ENHANCED_CRAFTING_TABLE,
                         new ItemStack[] {
@@ -251,6 +353,100 @@ final class AdventurersCuriosSetup {
                             new ItemStack(Material.AMETHYST_SHARD)
                         })
                 .register(plugin);
+
+        new HazardProtectionArmorPiece(
+                        advancedHazmatGear,
+                        advancedHazmatHelmet,
+                        RecipeType.ARMOR_FORGE,
+                        advancedHazmatRecipe(SlimefunItems.SCUBA_HELMET),
+                        new PotionEffect[] {new PotionEffect(PotionEffectType.WATER_BREATHING, 300, 1)},
+                        ADVANCED_HAZMAT_SET_ID)
+                .register(plugin);
+        new HazardProtectionArmorPiece(
+                        advancedHazmatGear,
+                        advancedHazmatChestplate,
+                        RecipeType.ARMOR_FORGE,
+                        advancedHazmatRecipe(SlimefunItems.HAZMAT_CHESTPLATE),
+                        new PotionEffect[] {new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 300, 1)},
+                        ADVANCED_HAZMAT_SET_ID)
+                .register(plugin);
+        new HazardProtectionArmorPiece(
+                        advancedHazmatGear,
+                        advancedHazmatLeggings,
+                        RecipeType.ARMOR_FORGE,
+                        advancedHazmatRecipe(SlimefunItems.HAZMAT_LEGGINGS),
+                        new PotionEffect[0],
+                        ADVANCED_HAZMAT_SET_ID)
+                .register(plugin);
+        new HazardProtectionArmorPiece(
+                        advancedHazmatGear,
+                        advancedHazmatBoots,
+                        RecipeType.ARMOR_FORGE,
+                        advancedHazmatRecipe(SlimefunItems.HAZMAT_BOOTS),
+                        new PotionEffect[0],
+                        ADVANCED_HAZMAT_SET_ID)
+                .register(plugin);
+
+        new HazardProtectionArmorPiece(
+                        containmentArmor,
+                        containmentHelmet,
+                        RecipeType.ENHANCED_CRAFTING_TABLE,
+                        containmentRecipe(advancedHazmatHelmet),
+                        new PotionEffect[] {new PotionEffect(PotionEffectType.WATER_BREATHING, 300, 1)},
+                        NETHERITE_CONTAINMENT_SET_ID)
+                .register(plugin);
+        new HazardProtectionArmorPiece(
+                        containmentArmor,
+                        containmentChestplate,
+                        RecipeType.ENHANCED_CRAFTING_TABLE,
+                        containmentRecipe(advancedHazmatChestplate),
+                        new PotionEffect[] {new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 300, 1)},
+                        NETHERITE_CONTAINMENT_SET_ID)
+                .register(plugin);
+        new HazardProtectionArmorPiece(
+                        containmentArmor,
+                        containmentLeggings,
+                        RecipeType.ENHANCED_CRAFTING_TABLE,
+                        containmentRecipe(advancedHazmatLeggings),
+                        new PotionEffect[0],
+                        NETHERITE_CONTAINMENT_SET_ID)
+                .register(plugin);
+        new HazardProtectionArmorPiece(
+                        containmentArmor,
+                        containmentBoots,
+                        RecipeType.ENHANCED_CRAFTING_TABLE,
+                        containmentRecipe(advancedHazmatBoots),
+                        new PotionEffect[0],
+                        NETHERITE_CONTAINMENT_SET_ID)
+                .register(plugin);
+    }
+
+    private static ItemStack[] advancedHazmatRecipe(ItemStack basePiece) {
+        return new ItemStack[] {
+            SlimefunItems.LEAD_INGOT,
+            SlimefunItems.REINFORCED_CLOTH,
+            SlimefunItems.LEAD_INGOT,
+            SlimefunItems.REINFORCED_CLOTH,
+            basePiece,
+            SlimefunItems.REINFORCED_CLOTH,
+            SlimefunItems.LEAD_INGOT,
+            SlimefunItems.REINFORCED_CLOTH,
+            SlimefunItems.LEAD_INGOT
+        };
+    }
+
+    private static ItemStack[] containmentRecipe(ItemStack advancedHazmatPiece) {
+        return new ItemStack[] {
+            SlimefunItems.LEAD_INGOT,
+            new ItemStack(Material.NETHERITE_INGOT),
+            SlimefunItems.LEAD_INGOT,
+            new ItemStack(Material.NETHERITE_INGOT),
+            advancedHazmatPiece,
+            new ItemStack(Material.NETHERITE_INGOT),
+            SlimefunItems.LEAD_INGOT,
+            new ItemStack(Material.NETHERITE_UPGRADE_SMITHING_TEMPLATE),
+            SlimefunItems.LEAD_INGOT
+        };
     }
 
     private static ItemStack createCategoryIcon() {
@@ -259,7 +455,41 @@ final class AdventurersCuriosSetup {
         meta.setDisplayName(ChatColor.GOLD + "Adventurer's Curios");
         meta.setLore(List.of(
                 ChatColor.GRAY + "Exploration tools, navigation,",
-                ChatColor.GRAY + "field safety and expedition support"));
+                ChatColor.GRAY + "field safety and protective equipment"));
+        icon.setItemMeta(meta);
+        return icon;
+    }
+
+    private static ItemStack createCuriositiesIcon() {
+        ItemStack icon = new ItemStack(Material.SPYGLASS);
+        ItemMeta meta = icon.getItemMeta();
+        meta.setDisplayName(ChatColor.GOLD + "Curiosities");
+        meta.setLore(List.of(
+                ChatColor.GRAY + "Exploration tools, navigation,",
+                ChatColor.GRAY + "field support and expedition gear"));
+        icon.setItemMeta(meta);
+        return icon;
+    }
+
+    private static ItemStack createAdvancedHazmatIcon() {
+        ItemStack icon = new ItemStack(Material.LEATHER_CHESTPLATE);
+        LeatherArmorMeta meta = (LeatherArmorMeta) icon.getItemMeta();
+        meta.setColor(Color.YELLOW);
+        meta.setDisplayName(ChatColor.YELLOW + "Advanced Hazmat Gear");
+        meta.setLore(List.of(
+                ChatColor.GRAY + "Upgraded hazardous-material protection",
+                ChatColor.GRAY + "for sensitive and radioactive materials"));
+        icon.setItemMeta(meta);
+        return icon;
+    }
+
+    private static ItemStack createContainmentArmorIcon() {
+        ItemStack icon = new ItemStack(Material.NETHERITE_CHESTPLATE);
+        ItemMeta meta = icon.getItemMeta();
+        meta.setDisplayName(ChatColor.DARK_GRAY + "Netherite Containment Armor");
+        meta.setLore(List.of(
+                ChatColor.GRAY + "For when you need protection from the world",
+                ChatColor.GRAY + "while handling sensitive or hazardous materials"));
         icon.setItemMeta(meta);
         return icon;
     }
