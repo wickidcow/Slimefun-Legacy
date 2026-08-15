@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify Slimefun Legacy 4.1.30 Core Platform Phase 1L Part 4 Paper runtime smoke coverage."""
+"""Verify retained Core Platform Phase 1L Part 4 Paper runtime smoke coverage for 4.1.30 and newer."""
 from __future__ import annotations
 
 import json
@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-CURRENT_VERSION = "4.1.30"
+MINIMUM_VERSION = (4, 1, 30)
 
 
 def read(root: Path, relative: str) -> str:
@@ -27,14 +27,22 @@ def project_version(root: Path) -> str:
     return match.group(1) if match else ""
 
 
+def version_tuple(version: str) -> tuple[int, int, int]:
+    return tuple(map(int, version.split(".")))
+
+
 def main() -> int:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     failures: list[str] = []
 
     try:
-        require(project_version(root) == CURRENT_VERSION, "Part 4 requires projectVersion 4.1.30", failures)
+        version = project_version(root)
+        require(bool(version), "Part 4 projectVersion is missing", failures)
+        if version:
+            require(version_tuple(version) >= MINIMUM_VERSION, f"Part 4 requires 4.1.30 or newer, got {version}", failures)
 
         support = json.loads(read(root, "compatibility/support-contract.json"))
+        require(support.get("release") == version, "Support contract release must match projectVersion", failures)
         primary = support.get("primary_platform", {})
         require(primary.get("release_line") == "26.2", "Primary Paper release line must be 26.2", failures)
         require(primary.get("minecraft") == "26.2", "Primary Minecraft version must be 26.2", failures)
@@ -54,6 +62,11 @@ def main() -> int:
             "phase1l_part4_changes_storage_or_gameplay_semantics",
         ):
             require(policy.get(key) is False, f"Phase 1L Part 4 policy must remain false: {key}", failures)
+        require(
+            type(policy.get("gameplay_behavior_changed")) is bool,
+            "Active release must explicitly declare whether gameplay behavior changed",
+            failures,
+        )
 
         versions = read(root, "gradle/libs.versions.toml")
         require('paperApi = "26.2.build.+"' in versions, "Production Paper API catalog target must be 26.2.build.+", failures)
@@ -126,6 +139,7 @@ def main() -> int:
         print(report.read_text(encoding="utf-8"), end="")
         return 1
 
+    gameplay_changed = support.get("compatibility_policy", {}).get("gameplay_behavior_changed")
     report.write_text(
         "Core Platform Phase 1L Part 4 Paper runtime smoke verification: PASS\n"
         "- production source compiles against Paper API 26.2.build.+\n"
@@ -135,7 +149,8 @@ def main() -> int:
         "- /sf doctor upgrade is executed during the runtime smoke\n"
         "- two boot cycles exercise enable, clean shutdown and restart persistence\n"
         "- BLOCKED upgrade diagnostics fail the smoke test\n"
-        "- no production data, release publishing or force-upgrade path is used\n",
+        "- no production data, release publishing or force-upgrade path is used\n"
+        f"- active release gameplay behavior changed is explicitly declared as {str(gameplay_changed).lower()}\n",
         encoding="utf-8",
     )
     print(report.read_text(encoding="utf-8"), end="")
