@@ -26,7 +26,9 @@ jobs:
           cache: gradle
 
       - name: Apply 4.1.31 source update
-        run: python3 scripts/apply_4131_beacon_energy.py
+        run: |
+          python3 scripts/apply_4131_beacon_energy.py
+          python3 scripts/fix_4131_verifier_order.py
 
       - name: Run full Slimefun Legacy verifier
         run: python3 scripts/verify_legacy.py .
@@ -46,7 +48,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git reset -- .github/workflows/apply-4131-beacon-energy.yml scripts/apply_4131_beacon_energy.py
+          git reset -- .github/workflows/apply-4131-beacon-energy.yml scripts/apply_4131_beacon_energy.py scripts/fix_4131_verifier_order.py
           if git diff --cached --quiet; then
             exit 0
           fi
