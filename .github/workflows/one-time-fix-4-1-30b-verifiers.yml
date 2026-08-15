@@ -20,7 +20,7 @@ jobs:
           ref: feature/adventurers-curios-expansion
           fetch-depth: 0
 
-      - name: Fix version documentation and whitespace-safe verifier
+      - name: Fix version documentation and formatting-safe verifier
         shell: bash
         run: |
           set -euo pipefail
@@ -43,18 +43,22 @@ jobs:
           verifier = Path('scripts/verify_guide_runtime_correctness.py')
           text = verifier.read_text(encoding='utf-8')
           anchor = '''    profile = read(\n        root,\n        "src/main/java/io/github/thebusybiscuit/slimefun4/api/player/PlayerProfile.java",\n    )\n'''
-          replacement = anchor + '    profile_compact = " ".join(profile.split())\n'
+          replacement = anchor + '    profile_compact = "".join(profile.split())\n'
           if anchor not in text:
               raise SystemExit('Profile verifier anchor not found')
           text = text.replace(anchor, replacement, 1)
-          needle = '"pendingProfileCallbacks.computeIfAbsent(uuid, ignored -> new CopyOnWriteArrayList<>()).add(callback);"'
-          first = '''    require(\n        profile,\n        ''' + needle + ''',\n        "profile callback queuing",\n    )\n'''
-          first_new = '''    require(\n        profile_compact,\n        ''' + needle + ''',\n        "profile callback queuing",\n    )\n'''
+
+          original_needle = '"pendingProfileCallbacks.computeIfAbsent(uuid, ignored -> new CopyOnWriteArrayList<>()).add(callback);"'
+          compact_needle = '"pendingProfileCallbacks.computeIfAbsent(uuid,ignored->newCopyOnWriteArrayList<>()).add(callback);"'
+
+          first = '''    require(\n        profile,\n        ''' + original_needle + ''',\n        "profile callback queuing",\n    )\n'''
+          first_new = '''    require(\n        profile_compact,\n        ''' + compact_needle + ''',\n        "profile callback queuing",\n    )\n'''
           if first not in text:
               raise SystemExit('Profile callback verifier block not found')
           text = text.replace(first, first_new, 1)
-          second = '''    require_before(\n        profile,\n        ''' + needle + ''',\n        "if (loadingProfiles.add(uuid))",\n        "callback queued before profile-load ownership",\n    )\n'''
-          second_new = '''    require_before(\n        profile_compact,\n        ''' + needle + ''',\n        "if (loadingProfiles.add(uuid))",\n        "callback queued before profile-load ownership",\n    )\n'''
+
+          second = '''    require_before(\n        profile,\n        ''' + original_needle + ''',\n        "if (loadingProfiles.add(uuid))",\n        "callback queued before profile-load ownership",\n    )\n'''
+          second_new = '''    require_before(\n        profile_compact,\n        ''' + compact_needle + ''',\n        "if(loadingProfiles.add(uuid))",\n        "callback queued before profile-load ownership",\n    )\n'''
           if second not in text:
               raise SystemExit('Profile callback ordering verifier block not found')
           verifier.write_text(text.replace(second, second_new, 1), encoding='utf-8')
