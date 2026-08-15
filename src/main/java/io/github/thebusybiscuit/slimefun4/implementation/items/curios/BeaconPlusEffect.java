@@ -12,6 +12,7 @@ import org.bukkit.Material;
 public enum BeaconPlusEffect {
     FURNACE_BOOSTER("furnace", "Furnace Booster", Material.FURNACE, "Boost nearby furnace cooking speed."),
     STRENGTH("strength", "Strength Effect", Material.IRON_SWORD, "Give Strength to players in range."),
+    INVISIBLE("invisible", "Invisible Effect", Material.GLASS, "Make players invisible while inside the field."),
     REGENERATION("regeneration", "Regeneration Effect", Material.GOLDEN_APPLE, "Regenerate players in range."),
     RESISTANCE("resistance", "Resistance Effect", Material.SHIELD, "Give Resistance to players in range."),
     FAST_DIGGING("fast_digging", "Fast Digging", Material.GOLDEN_PICKAXE, "Give Haste to players in range."),
