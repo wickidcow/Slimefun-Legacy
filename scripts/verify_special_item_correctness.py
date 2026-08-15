@@ -154,7 +154,12 @@ def main() -> int:
     )
 
     composter = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/blocks/Composter.java")
-    require(composter, "ItemStack remainder = Slimefun.getItemStackService()", "Composter delayed output remainder capture")
+    require(composter, "ItemStack remainder =", "Composter delayed output remainder capture")
+    require(
+        composter,
+        "Slimefun.getItemStackService().addItem(outputChest.get(), output, InventoryContext.OUTPUT_CHEST);",
+        "Composter delayed output insertion",
+    )
     require(composter, "InventoryContext.OUTPUT_CHEST", "Composter output-chest insertion context")
     require(composter, "dropItemNaturally(b.getRelative(BlockFace.UP).getLocation(), remainder)", "Composter overflow preservation")
 
