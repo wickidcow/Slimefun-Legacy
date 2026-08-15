@@ -6,13 +6,16 @@ import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
+import io.github.thebusybiscuit.slimefun4.core.attributes.EnergyNetComponent;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockPlaceHandler;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockUseHandler;
+import io.github.thebusybiscuit.slimefun4.core.networks.energy.EnergyNetComponentType;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.handlers.SimpleBlockBreakHandler;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -33,23 +36,32 @@ import org.bukkit.inventory.meta.ItemMeta;
 /**
  * Native Slimefun Legacy Beacon Plus.
  *
- * <p>The 29-effect menu and runtime are independent of any external beacon plugin. Periodic effects share one
+ * <p>The 30-effect menu and runtime are independent of any external beacon plugin. Periodic effects share one
  * Slimefun block ticker, event-driven effects share one listener, and Activator chunk loading remains bounded by the
  * Beacon Plus manager's server-wide safety caps.
  */
-public final class BeaconPlus extends SlimefunItem {
+@SuppressWarnings("deprecation")
+public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent {
 
     private static final int[] EFFECT_SLOTS = {
         9, 10, 11, 12, 13, 14, 15, 16, 17,
         18, 19, 20, 21, 22, 23, 24, 25, 26,
         27, 28, 29, 30, 31, 32, 33, 34, 35,
-        36, 37
+        36, 37, 38
     };
 
     private static final int STATUS_SLOT = 4;
     private static final int DISABLE_ALL_SLOT = 47;
     private static final int ACTIVATOR_COVERAGE_SLOT = 49;
     private static final int CLOSE_SLOT = 53;
+
+    private static final int ENERGY_CAPACITY = 8_192;
+    private static final int BASE_ENERGY_PER_EFFECT_PER_PULSE = 16;
+    private static final int EXTRA_POWER_PERCENT = 50;
+    private static final int EXTRA_POWER_XP_LEVEL_COST = 30;
+    private static final String EXTRA_POWER_UNLOCKED_KEY = "beacon_plus_extra_power_unlocked";
+
+    private static final int POWER_PULSE_INTERVAL_TICKS = 20;
     private static final double EXTRA_RANGE_BLOCKS = 20.0D;
     private static final double PLAYER_STATE_RECONCILE_RANGE = 96.0D;
 
@@ -57,6 +69,16 @@ public final class BeaconPlus extends SlimefunItem {
     public BeaconPlus(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
         super(itemGroup, item, recipeType, recipe);
         addItemHandler(onPlace(), onUse(), onBreak(), createTicker());
+    }
+
+    @Override
+    public int getCapacity() {
+        return ENERGY_CAPACITY;
+    }
+
+    @Override
+    public @Nonnull EnergyNetComponentType getEnergyComponentType() {
+        return EnergyNetComponentType.CONSUMER;
     }
 
     @Override
@@ -86,15 +108,17 @@ public final class BeaconPlus extends SlimefunItem {
                 StorageCacheUtils.setData(location, BeaconPlusManager.CHUNK_MODE_KEY, BeaconPlusChunkMode.OFF.name());
                 StorageCacheUtils.setData(location, BeaconPlusManager.SUPPORT_MODE_KEY, BeaconPlusSupportMode.OFF.name());
                 StorageCacheUtils.setData(location, BeaconPlusRuntime.EFFECTS_KEY, "");
+                StorageCacheUtils.setData(location, EXTRA_POWER_UNLOCKED_KEY, "false");
 
                 BeaconPlusManager manager = BeaconPlusManager.getInstance();
                 if (manager != null) {
                     manager.register(location, owner);
                 }
+                BeaconPlusPowerState.markUnpowered(location);
                 BeaconPlusRuntime.observe(block);
 
                 event.getPlayer().sendMessage(ChatColor.GOLD + "Beacon Plus placed. " + ChatColor.GRAY
-                        + "Build a beacon pyramid, then right click it to configure all 29 effects.");
+                        + "Build a beacon pyramid, supply Slimefun Energy, then right click it to configure all 30 effects.");
             }
         };
     }
@@ -129,12 +153,13 @@ public final class BeaconPlus extends SlimefunItem {
         return new SimpleBlockBreakHandler() {
             @Override
             public void onBlockBreak(@Nonnull Block block) {
+                BeaconPlusPowerState.markUnpowered(block.getLocation());
                 BeaconPlusRuntime.forget(block.getLocation());
                 BeaconPlusManager manager = BeaconPlusManager.getInstance();
                 if (manager != null) {
                     manager.unregister(block.getLocation());
                 }
-                BeaconPlusRuntime.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
+                BeaconPlusPowerState.reconcileNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
             }
         };
     }
@@ -148,7 +173,31 @@ public final class BeaconPlus extends SlimefunItem {
 
             @Override
             public void tick(Block block, SlimefunItem item, ASlimefunDataContainer data) {
+                BeaconPlusRuntime.observe(block);
+
+                if (!isFieldPulse(block)) {
+                    BeaconPlusRuntime.tick(block, data);
+                    return;
+                }
+
+                int energyCost = calculateFieldEnergyCost(BeaconPlusEffect.parse(data.getData(BeaconPlusRuntime.EFFECTS_KEY)));
+                if (!hasPoweredPyramid(block) || energyCost <= 0) {
+                    BeaconPlusPowerState.markUnpowered(block.getLocation());
+                    BeaconPlusRuntime.tick(block, data);
+                    return;
+                }
+
+                long stored = getChargeLong(block.getLocation(), data);
+                if (stored < energyCost) {
+                    BeaconPlusPowerState.markUnpowered(block.getLocation());
+                    BeaconPlusPowerState.reconcileNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
+                    return;
+                }
+
+                removeCharge(block.getLocation(), energyCost, data);
+                BeaconPlusPowerState.markPowered(block, data);
                 BeaconPlusRuntime.tick(block, data);
+                BeaconPlusPowerState.applyInvisibility(block);
             }
         };
     }
@@ -229,12 +278,29 @@ public final class BeaconPlus extends SlimefunItem {
         }
 
         EnumSet<BeaconPlusEffect> enabled = BeaconPlusRuntime.getConfiguredEffects(block.getLocation());
+        boolean activating = !enabled.contains(effect);
+        if (activating && effect == BeaconPlusEffect.EXTRA_POWER && !isExtraPowerUnlocked(block.getLocation())) {
+            if (!player.isOp()) {
+                if (player.getLevel() < EXTRA_POWER_XP_LEVEL_COST) {
+                    player.sendMessage(ChatColor.RED + "Extra Power requires " + EXTRA_POWER_XP_LEVEL_COST
+                            + " experience levels to unlock on this Beacon Plus.");
+                    return;
+                }
+                player.giveExpLevels(-EXTRA_POWER_XP_LEVEL_COST);
+            }
+
+            StorageCacheUtils.setData(block.getLocation(), EXTRA_POWER_UNLOCKED_KEY, "true");
+            player.sendMessage(ChatColor.LIGHT_PURPLE + "Extra Power unlocked. " + ChatColor.GRAY
+                    + "Its field-energy draw is " + EXTRA_POWER_PERCENT + "% higher while enabled.");
+        }
+
         if (!enabled.remove(effect)) {
             enabled.add(effect);
         }
         BeaconPlusRuntime.setConfiguredEffects(block.getLocation(), enabled);
         BeaconPlusRuntime.observe(block);
-        BeaconPlusRuntime.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
+        BeaconPlusPowerState.markUnpowered(block.getLocation());
+        BeaconPlusPowerState.reconcileNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
 
         boolean active = enabled.contains(effect);
         player.playSound(
@@ -300,11 +366,12 @@ public final class BeaconPlus extends SlimefunItem {
         }
 
         BeaconPlusRuntime.setConfiguredEffects(block.getLocation(), EnumSet.noneOf(BeaconPlusEffect.class));
+        BeaconPlusPowerState.markUnpowered(block.getLocation());
         BeaconPlusManager manager = BeaconPlusManager.getInstance();
         if (manager != null) {
             setChunkMode(manager, block, owner, BeaconPlusChunkMode.OFF);
         }
-        BeaconPlusRuntime.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
+        BeaconPlusPowerState.reconcileNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
         player.playSound(block.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.65F, 1.0F);
         player.sendMessage(ChatColor.RED + "All Beacon Plus effects have been disabled.");
         openMenu(player, block, owner);
@@ -346,15 +413,19 @@ public final class BeaconPlus extends SlimefunItem {
         }
 
         int effectCount = enabled.size();
+        int energyCost = calculateFieldEnergyCost(enabled);
+        long storedEnergy = getChargeLong(block.getLocation());
         Material icon = tier > 0 ? Material.NETHER_STAR : Material.GRAY_DYE;
         List<String> lore = new ArrayList<>();
         lore.add(ChatColor.GRAY + "Beacon pyramid tier: " + (tier > 0 ? ChatColor.GREEN : ChatColor.RED) + tier);
         lore.add(ChatColor.GRAY + "Effective field range: " + ChatColor.AQUA + (int) Math.floor(range) + " blocks");
-        lore.add(ChatColor.GRAY + "Enabled effects: " + ChatColor.GOLD + effectCount + "/29");
+        lore.add(ChatColor.GRAY + "Enabled effects: " + ChatColor.GOLD + effectCount + "/30");
+        lore.add(ChatColor.GRAY + "Field energy: " + ChatColor.YELLOW + storedEnergy + "/" + ENERGY_CAPACITY + " J");
+        lore.add(ChatColor.GRAY + "Current field draw: " + ChatColor.YELLOW + energyCost + " J/s");
         lore.add(ChatColor.GRAY + "Activator: " + ChatColor.AQUA + chunkMode.getDisplayName());
         lore.add("");
         lore.add(tier > 0
-                ? ChatColor.GREEN + "Field effects are powered."
+                ? ChatColor.GREEN + "Pyramid is ready; field effects also require Energy."
                 : ChatColor.RED + "Build a valid beacon pyramid to power field effects.");
         return createMenuItem(icon, ChatColor.GOLD + "Beacon Plus Status", lore);
     }
@@ -372,6 +443,13 @@ public final class BeaconPlus extends SlimefunItem {
         if (effect == BeaconPlusEffect.ACTIVATOR) {
             lore.add(ChatColor.GRAY + "Coverage: " + ChatColor.AQUA + chunkMode.getDisplayName());
             lore.add(ChatColor.DARK_GRAY + "Bounded by server-wide loader safety caps.");
+        } else if (effect == BeaconPlusEffect.EXTRA_POWER) {
+            lore.add(ChatColor.LIGHT_PURPLE + "One-time unlock: " + ChatColor.WHITE
+                    + EXTRA_POWER_XP_LEVEL_COST + " XP levels");
+            lore.add(ChatColor.YELLOW + "Energy overclock: +" + EXTRA_POWER_PERCENT + "%");
+            lore.add(ChatColor.DARK_GRAY + "Operators bypass the XP unlock cost.");
+        } else {
+            lore.add(ChatColor.DARK_GRAY + "Base field cost: " + BASE_ENERGY_PER_EFFECT_PER_PULSE + " J/s");
         }
         lore.add("");
         lore.add(ChatColor.YELLOW + "Click to toggle");
@@ -392,6 +470,33 @@ public final class BeaconPlus extends SlimefunItem {
                         ChatColor.DARK_GRAY + "3x3 coverage uses 9 chunk tickets at most.",
                         "",
                         ChatColor.YELLOW + "Click to change coverage"));
+    }
+
+    private static int calculateFieldEnergyCost(Set<BeaconPlusEffect> configured) {
+        EnumSet<BeaconPlusEffect> effects = configured.isEmpty()
+                ? EnumSet.noneOf(BeaconPlusEffect.class)
+                : EnumSet.copyOf(configured);
+        effects.remove(BeaconPlusEffect.ACTIVATOR);
+        boolean extraPower = effects.remove(BeaconPlusEffect.EXTRA_POWER);
+
+        int baseCost = effects.size() * BASE_ENERGY_PER_EFFECT_PER_PULSE;
+        if (baseCost <= 0 || !extraPower) {
+            return baseCost;
+        }
+        return (int) Math.ceil(baseCost * (100.0D + EXTRA_POWER_PERCENT) / 100.0D);
+    }
+
+    private static boolean isFieldPulse(Block block) {
+        long gameTime = block.getWorld().getGameTime();
+        return Math.floorMod(gameTime + block.getX() * 31L + block.getZ() * 17L, POWER_PULSE_INTERVAL_TICKS) == 0L;
+    }
+
+    private static boolean hasPoweredPyramid(Block block) {
+        return block.getState() instanceof Beacon beacon && beacon.getTier() > 0;
+    }
+
+    private static boolean isExtraPowerUnlocked(Location location) {
+        return Boolean.parseBoolean(StorageCacheUtils.getData(location, EXTRA_POWER_UNLOCKED_KEY));
     }
 
     private static ItemStack createMenuItem(Material material, String displayName, List<String> lore) {
