@@ -101,43 +101,44 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-
-          old = Path('existing-release-notes.md').read_text(encoding='utf-8').strip()
-          old = re.sub(r'^## Slimefun Legacy 4\.1\.31 — Stable\s*', '', old, count=1)
-          update = '''## Slimefun Legacy 4.1.31 — Stable
-
-### Netherite Containment Armor update
-
-- Added **Advanced Hazmat Gear** as a real four-piece protective prerequisite set built from the existing Hazmat/Scuba equipment.
-- Added **Netherite Containment Armor** with Helmet, Chestplate, Leggings, and Boots.
-- **Adventurer's Curios** now opens organized submenus for **Curiosities**, **Advanced Hazmat Gear**, and **Netherite Containment Armor**.
-- Netherite Containment Armor is a full-set protective suit for radiation and bee hazards. The helmet retains water-breathing support and the chestplate retains fire resistance.
-- Containment lore describes the set as protection for hostile environments while handling sensitive or hazardous materials, with lead-lined, netherite-reinforced construction.
-- Fixed the Paper 26.2 runtime smoke verifier so it reads the active Slimefun Legacy version instead of hard-coding 4.1.30.
-
-**Containment recipe for each corresponding armor piece:**
-
-```text
-Lead Ingot      | Netherite Ingot                | Lead Ingot
-Netherite Ingot | Advanced Hazmat <Armor Piece>  | Netherite Ingot
-Lead Ingot      | Netherite Upgrade               | Lead Ingot
-```
-
-New item IDs:
-
-- `ADVANCED_HAZMAT_HELMET`
-- `ADVANCED_HAZMAT_CHESTPLATE`
-- `ADVANCED_HAZMAT_LEGGINGS`
-- `ADVANCED_HAZMAT_BOOTS`
-- `NETHERITE_CONTAINMENT_HELMET`
-- `NETHERITE_CONTAINMENT_CHESTPLATE`
-- `NETHERITE_CONTAINMENT_LEGGINGS`
-- `NETHERITE_CONTAINMENT_BOOTS`
-
-### Earlier 4.1.31 release notes
-
-'''
-          Path('release-notes.md').write_text(update + old + '\n', encoding='utf-8')
+          old = Path("existing-release-notes.md").read_text(encoding="utf-8").strip()
+          old = re.sub(r"^## Slimefun Legacy 4\.1\.31 — Stable\s*", "", old, count=1)
+          lines = [
+              "## Slimefun Legacy 4.1.31 — Stable",
+              "",
+              "### Netherite Containment Armor update",
+              "",
+              "- Added **Advanced Hazmat Gear** as a real four-piece protective prerequisite set built from the existing Hazmat/Scuba equipment.",
+              "- Added **Netherite Containment Armor** with Helmet, Chestplate, Leggings, and Boots.",
+              "- **Adventurer's Curios** now opens organized submenus for **Curiosities**, **Advanced Hazmat Gear**, and **Netherite Containment Armor**.",
+              "- Netherite Containment Armor is a full-set protective suit for radiation and bee hazards. The helmet retains water-breathing support and the chestplate retains fire resistance.",
+              "- Containment lore describes the set as protection for hostile environments while handling sensitive or hazardous materials, with lead-lined, netherite-reinforced construction.",
+              "- Fixed the Paper 26.2 runtime smoke verifier so it reads the active Slimefun Legacy version instead of hard-coding 4.1.30.",
+              "",
+              "**Containment recipe for each corresponding armor piece:**",
+              "",
+              "```text",
+              "Lead Ingot      | Netherite Ingot                | Lead Ingot",
+              "Netherite Ingot | Advanced Hazmat <Armor Piece>  | Netherite Ingot",
+              "Lead Ingot      | Netherite Upgrade               | Lead Ingot",
+              "```",
+              "",
+              "New item IDs:",
+              "",
+              "- `ADVANCED_HAZMAT_HELMET`",
+              "- `ADVANCED_HAZMAT_CHESTPLATE`",
+              "- `ADVANCED_HAZMAT_LEGGINGS`",
+              "- `ADVANCED_HAZMAT_BOOTS`",
+              "- `NETHERITE_CONTAINMENT_HELMET`",
+              "- `NETHERITE_CONTAINMENT_CHESTPLATE`",
+              "- `NETHERITE_CONTAINMENT_LEGGINGS`",
+              "- `NETHERITE_CONTAINMENT_BOOTS`",
+              "",
+              "### Earlier 4.1.31 release notes",
+              "",
+          ]
+          update = "\n".join(lines)
+          Path("release-notes.md").write_text(update + old + "\n", encoding="utf-8")
           PY
 
       - name: Update stable tag, release notes, JAR and checksum
