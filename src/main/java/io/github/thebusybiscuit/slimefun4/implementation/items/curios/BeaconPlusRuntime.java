@@ -45,9 +45,8 @@ final class BeaconPlusRuntime {
     }
 
     static void setConfiguredEffects(Location location, Set<BeaconPlusEffect> effects) {
-        EnumSet<BeaconPlusEffect> stored = effects.isEmpty()
-                ? EnumSet.noneOf(BeaconPlusEffect.class)
-                : EnumSet.copyOf(effects);
+        EnumSet<BeaconPlusEffect> stored =
+                effects.isEmpty() ? EnumSet.noneOf(BeaconPlusEffect.class) : EnumSet.copyOf(effects);
         StorageCacheUtils.setData(location, EFFECTS_KEY, BeaconPlusEffect.serialize(stored));
         World world = location.getWorld();
         if (world != null && world.isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)) {
@@ -93,8 +92,9 @@ final class BeaconPlusRuntime {
             }
 
             double range = getRange(block, tiers);
-            Location beaconLocation = block.getLocation().add(0.5D, 0.5D, 0.5D);
-            if (range <= 0.0D || beaconLocation.distanceSquared(target) > range * range) {
+            if (range <= 0.0D
+                    || !BeaconPlusField.contains(
+                            block.getX(), block.getZ(), range, target.getBlockX(), target.getBlockZ())) {
                 continue;
             }
 
@@ -114,6 +114,10 @@ final class BeaconPlusRuntime {
 
     static int getEffectiveTierAtBeacon(Block block, BeaconPlusEffect effect) {
         return getActiveTiers(block).getOrDefault(effect, 0);
+    }
+
+    static double getEffectiveRange(Block block) {
+        return getRange(block, getActiveTiers(block));
     }
 
     static int getPotentialTierAtBeacon(Block block, BeaconPlusEffect effect) {
@@ -289,12 +293,13 @@ final class BeaconPlusRuntime {
         if (manager == null) {
             return false;
         }
-        BeaconPlusChunkMode desired = switch (tier) {
-            case 1 -> BeaconPlusChunkMode.SINGLE;
-            case 2 -> BeaconPlusChunkMode.AREA_3X3;
-            case 3 -> BeaconPlusChunkMode.AREA_5X5;
-            default -> BeaconPlusChunkMode.OFF;
-        };
+        BeaconPlusChunkMode desired =
+                switch (tier) {
+                    case 1 -> BeaconPlusChunkMode.SINGLE;
+                    case 2 -> BeaconPlusChunkMode.AREA_3X3;
+                    case 3 -> BeaconPlusChunkMode.AREA_5X5;
+                    default -> BeaconPlusChunkMode.OFF;
+                };
         if (manager.getChunkMode(block.getLocation()) == desired) {
             return true;
         }
@@ -316,10 +321,7 @@ final class BeaconPlusRuntime {
     private record BeaconKey(UUID worldId, int x, int y, int z) {
         private static BeaconKey from(Location location) {
             return new BeaconKey(
-                    location.getWorld().getUID(),
-                    location.getBlockX(),
-                    location.getBlockY(),
-                    location.getBlockZ());
+                    location.getWorld().getUID(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
         }
     }
 }

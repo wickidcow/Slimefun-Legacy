@@ -67,7 +67,7 @@ final class BeaconPlusRuntimeEffects {
 
     static void applyPulse(Block block, Map<BeaconPlusEffect, Integer> tiers, double range, long gameTime) {
         Location center = block.getLocation().add(0.5D, 0.5D, 0.5D);
-        for (Entity entity : getEntities(block, center, range)) {
+        for (Entity entity : getEntities(block, range)) {
             if (entity instanceof Player player) {
                 applyPlayerEffects(player, tiers, gameTime);
             } else if (entity instanceof Monster monster) {
@@ -80,11 +80,11 @@ final class BeaconPlusRuntimeEffects {
         int furnaceTier = tiers.getOrDefault(BeaconPlusEffect.FURNACE_BOOSTER, 0);
         int spawnerTier = tiers.getOrDefault(BeaconPlusEffect.SPAWNERS, 0);
         if (furnaceTier > 0 || spawnerTier > 0) {
-            applyTileEntityBoosts(block, center, range, furnaceTier, spawnerTier);
+            applyTileEntityBoosts(block, range, furnaceTier, spawnerTier);
         }
         int cropTier = tiers.getOrDefault(BeaconPlusEffect.CROPS, 0);
         if (cropTier > 0 && gameTime % 40L < PULSE_INTERVAL_TICKS) {
-            applyCropBoost(block, center, range, cropTier);
+            applyCropBoost(block, range, cropTier);
         }
     }
 
@@ -95,7 +95,9 @@ final class BeaconPlusRuntimeEffects {
 
     static void clearPlayerState(Player player) {
         Boolean original = ORIGINAL_ALLOW_FLIGHT.remove(player.getUniqueId());
-        if (original != null && player.getGameMode() != GameMode.CREATIVE && player.getGameMode() != GameMode.SPECTATOR) {
+        if (original != null
+                && player.getGameMode() != GameMode.CREATIVE
+                && player.getGameMode() != GameMode.SPECTATOR) {
             player.setAllowFlight(original);
             if (!original && player.isFlying()) {
                 player.setFlying(false);
@@ -112,37 +114,46 @@ final class BeaconPlusRuntimeEffects {
     }
 
     static void refreshNearbyPlayerStates(Block block, double range) {
-        Location center = block.getLocation().add(0.5D, 0.5D, 0.5D);
-        for (Entity entity : getEntities(block, center, range)) {
+        for (Entity entity : getEntities(block, range)) {
             if (entity instanceof Player player) {
                 refreshPlayerState(player);
             }
         }
     }
 
-    private static Collection<Entity> getEntities(Block block, Location center, double range) {
-        if (Slimefun.getSchedulerService().isFolia()) {
-            List<Entity> result = new ArrayList<>();
-            double rangeSquared = range * range;
-            for (Entity entity : block.getChunk().getEntities()) {
-                if (entity.getLocation().distanceSquared(center) <= rangeSquared) {
-                    result.add(entity);
-                }
+    private static Collection<Entity> getEntities(Block block, double range) {
+        List<Entity> result = new ArrayList<>();
+        for (Chunk chunk : getLoadedChunksInField(block, range)) {
+            for (Entity entity : chunk.getEntities()) {
+                result.add(entity);
             }
-            return result;
         }
-        return block.getWorld().getNearbyEntities(center, range, range, range);
+        return result;
     }
 
     private static void applyPlayerEffects(Player player, Map<BeaconPlusEffect, Integer> tiers, long gameTime) {
-        applyPotionIfPresent(player, tiers, BeaconPlusEffect.STRENGTH, PotionEffectType.STRENGTH, EFFECT_DURATION_TICKS);
-        applyPotionIfPresent(player, tiers, BeaconPlusEffect.REGENERATION, PotionEffectType.REGENERATION, EFFECT_DURATION_TICKS);
-        applyPotionIfPresent(player, tiers, BeaconPlusEffect.RESISTANCE, PotionEffectType.RESISTANCE, EFFECT_DURATION_TICKS);
-        applyPotionIfPresent(player, tiers, BeaconPlusEffect.FAST_DIGGING, PotionEffectType.HASTE, EFFECT_DURATION_TICKS);
+        applyPotionIfPresent(
+                player, tiers, BeaconPlusEffect.STRENGTH, PotionEffectType.STRENGTH, EFFECT_DURATION_TICKS);
+        applyPotionIfPresent(
+                player, tiers, BeaconPlusEffect.REGENERATION, PotionEffectType.REGENERATION, EFFECT_DURATION_TICKS);
+        applyPotionIfPresent(
+                player, tiers, BeaconPlusEffect.RESISTANCE, PotionEffectType.RESISTANCE, EFFECT_DURATION_TICKS);
+        applyPotionIfPresent(
+                player, tiers, BeaconPlusEffect.FAST_DIGGING, PotionEffectType.HASTE, EFFECT_DURATION_TICKS);
         applyPotionIfPresent(player, tiers, BeaconPlusEffect.SPEED, PotionEffectType.SPEED, EFFECT_DURATION_TICKS);
-        applyPotionIfPresent(player, tiers, BeaconPlusEffect.NIGHT_VISION, PotionEffectType.NIGHT_VISION, NIGHT_VISION_DURATION_TICKS);
+        applyPotionIfPresent(
+                player,
+                tiers,
+                BeaconPlusEffect.NIGHT_VISION,
+                PotionEffectType.NIGHT_VISION,
+                NIGHT_VISION_DURATION_TICKS);
         applyPotionIfPresent(player, tiers, BeaconPlusEffect.LUCK, PotionEffectType.LUCK, EFFECT_DURATION_TICKS);
-        applyPotionIfPresent(player, tiers, BeaconPlusEffect.WATER_BREATHING, PotionEffectType.WATER_BREATHING, EFFECT_DURATION_TICKS);
+        applyPotionIfPresent(
+                player,
+                tiers,
+                BeaconPlusEffect.WATER_BREATHING,
+                PotionEffectType.WATER_BREATHING,
+                EFFECT_DURATION_TICKS);
         applyPotionIfPresent(player, tiers, BeaconPlusEffect.JUMP, PotionEffectType.JUMP_BOOST, EFFECT_DURATION_TICKS);
 
         if (tiers.getOrDefault(BeaconPlusEffect.CURE, 0) > 0) {
@@ -165,7 +176,8 @@ final class BeaconPlusRuntimeEffects {
     }
 
     private static void applyMonsterEffects(Monster monster, Map<BeaconPlusEffect, Integer> tiers, Location center) {
-        applyPotionIfPresent(monster, tiers, BeaconPlusEffect.SLOWDOWN, PotionEffectType.SLOWNESS, EFFECT_DURATION_TICKS);
+        applyPotionIfPresent(
+                monster, tiers, BeaconPlusEffect.SLOWDOWN, PotionEffectType.SLOWNESS, EFFECT_DURATION_TICKS);
         applyPotionIfPresent(monster, tiers, BeaconPlusEffect.POISON, PotionEffectType.POISON, EFFECT_DURATION_TICKS);
         int burnerTier = tiers.getOrDefault(BeaconPlusEffect.BURNER, 0);
         if (burnerTier > 0 && isUndead(monster.getType())) {
@@ -217,17 +229,12 @@ final class BeaconPlusRuntimeEffects {
         entity.setVelocity(entity.getVelocity().multiply(0.50D).add(pull));
     }
 
-    private static void applyTileEntityBoosts(
-            Block beaconBlock, Location center, double range, int furnaceTier, int spawnerTier) {
+    private static void applyTileEntityBoosts(Block beaconBlock, double range, int furnaceTier, int spawnerTier) {
         int inspected = 0;
-        double rangeSquared = range * range;
-        for (Chunk chunk : getLoadedChunksInRange(beaconBlock, range)) {
+        for (Chunk chunk : getLoadedChunksInField(beaconBlock, range)) {
             for (BlockState state : chunk.getTileEntities()) {
                 if (++inspected > MAX_TILE_ENTITIES_PER_PULSE) {
                     return;
-                }
-                if (state.getLocation().distanceSquared(center) > rangeSquared) {
-                    continue;
                 }
                 if (furnaceTier > 0 && state instanceof Furnace furnace) {
                     boostFurnace(furnace, furnaceTier);
@@ -258,28 +265,20 @@ final class BeaconPlusRuntimeEffects {
         }
     }
 
-    private static void applyCropBoost(Block beaconBlock, Location center, double range, int tier) {
+    private static void applyCropBoost(Block beaconBlock, double range, int tier) {
+        List<Chunk> chunks = getLoadedChunksInField(beaconBlock, range);
+        if (chunks.isEmpty()) {
+            return;
+        }
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        int horizontal = Math.max(1, (int) Math.floor(range));
+        World world = beaconBlock.getWorld();
         int samples = CROP_SAMPLES_PER_PULSE + (tier - 1) * 16;
         for (int i = 0; i < samples; i++) {
-            int x = center.getBlockX() + random.nextInt(-horizontal, horizontal + 1);
-            int z = center.getBlockZ() + random.nextInt(-horizontal, horizontal + 1);
-            int y = center.getBlockY() + random.nextInt(-8, 9);
-            if (y < beaconBlock.getWorld().getMinHeight() || y >= beaconBlock.getWorld().getMaxHeight()) {
-                continue;
-            }
-            if (!beaconBlock.getWorld().isChunkLoaded(x >> 4, z >> 4)) {
-                continue;
-            }
-            if (Slimefun.getSchedulerService().isFolia()
-                    && (x >> 4 != beaconBlock.getX() >> 4 || z >> 4 != beaconBlock.getZ() >> 4)) {
-                continue;
-            }
-            Block target = beaconBlock.getWorld().getBlockAt(x, y, z);
-            if (target.getLocation().distanceSquared(center) > range * range) {
-                continue;
-            }
+            Chunk chunk = chunks.get(random.nextInt(chunks.size()));
+            int x = (chunk.getX() << 4) + random.nextInt(16);
+            int z = (chunk.getZ() << 4) + random.nextInt(16);
+            int y = random.nextInt(world.getMinHeight(), world.getMaxHeight());
+            Block target = world.getBlockAt(x, y, z);
             if (target.getBlockData() instanceof Ageable ageable && ageable.getAge() < ageable.getMaximumAge()) {
                 ageable.setAge(Math.min(ageable.getMaximumAge(), ageable.getAge() + tier));
                 target.setBlockData(ageable, false);
@@ -287,18 +286,17 @@ final class BeaconPlusRuntimeEffects {
         }
     }
 
-    private static List<Chunk> getLoadedChunksInRange(Block beaconBlock, double range) {
+    private static List<Chunk> getLoadedChunksInField(Block beaconBlock, double range) {
         List<Chunk> chunks = new ArrayList<>();
         if (Slimefun.getSchedulerService().isFolia()) {
             chunks.add(beaconBlock.getChunk());
             return chunks;
         }
-        int centerChunkX = beaconBlock.getX() >> 4;
-        int centerChunkZ = beaconBlock.getZ() >> 4;
-        int chunkRadius = Math.max(0, (int) Math.ceil(range / 16.0D));
+        BeaconPlusField.ChunkFootprint footprint =
+                BeaconPlusField.footprint(beaconBlock.getX(), beaconBlock.getZ(), range);
         World world = beaconBlock.getWorld();
-        for (int x = centerChunkX - chunkRadius; x <= centerChunkX + chunkRadius; x++) {
-            for (int z = centerChunkZ - chunkRadius; z <= centerChunkZ + chunkRadius; z++) {
+        for (int x = footprint.minChunkX(); x <= footprint.maxChunkX(); x++) {
+            for (int z = footprint.minChunkZ(); z <= footprint.maxChunkZ(); z++) {
                 if (world.isChunkLoaded(x, z)) {
                     chunks.add(world.getChunkAt(x, z));
                 }
@@ -310,7 +308,9 @@ final class BeaconPlusRuntimeEffects {
     static void repairInventory(PlayerInventory inventory, int amount) {
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             ItemStack stack = inventory.getItem(slot);
-            if (stack == null || stack.getType() == Material.AIR || stack.getType().getMaxDurability() <= 0) {
+            if (stack == null
+                    || stack.getType() == Material.AIR
+                    || stack.getType().getMaxDurability() <= 0) {
                 continue;
             }
             ItemMeta meta = stack.getItemMeta();
@@ -362,8 +362,18 @@ final class BeaconPlusRuntimeEffects {
 
     private static boolean isUndead(EntityType type) {
         return switch (type) {
-            case ZOMBIE, ZOMBIE_VILLAGER, HUSK, DROWNED, SKELETON, STRAY, WITHER_SKELETON,
-                    BOGGED, PHANTOM, ZOGLIN, ZOMBIFIED_PIGLIN, WITHER -> true;
+            case ZOMBIE,
+                    ZOMBIE_VILLAGER,
+                    HUSK,
+                    DROWNED,
+                    SKELETON,
+                    STRAY,
+                    WITHER_SKELETON,
+                    BOGGED,
+                    PHANTOM,
+                    ZOGLIN,
+                    ZOMBIFIED_PIGLIN,
+                    WITHER -> true;
             default -> false;
         };
     }

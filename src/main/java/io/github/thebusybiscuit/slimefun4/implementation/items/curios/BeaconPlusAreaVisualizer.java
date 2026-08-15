@@ -15,7 +15,6 @@ import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
-import org.bukkit.block.Beacon;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.entity.Player;
@@ -38,18 +37,18 @@ import org.bukkit.inventory.meta.ItemMeta;
  * Optional particle-only effect-area preview for Resonance Beacons.
  *
  * <p>This is deliberately not a 29th beacon power. It stores one display toggle on the placed Slimefun block and
- * renders a sparse three-ring wireframe at the exact runtime effect radius. Rendering is packet-only, does not load
- * chunks, and is scheduled on each viewing player's scheduler for Folia safety.
+ * renders the exact chunk-aligned square footprint used by field powers. The preview follows each viewer's current
+ * Y level because the field covers the full world height. Rendering is packet-only and never loads chunks.
  */
 final class BeaconPlusAreaVisualizer implements Listener {
 
     static final String SHOW_AREA_KEY = "beacon_plus_show_effect_area";
 
     private static final int MENU_SLOT = 45;
-    private static final int RING_POINTS = 24;
+    private static final int GRID_POINT_STEP = 8;
+    private static final int VIEW_MARGIN_CHUNKS = 3;
+    private static final int MAX_PARTICLES_PER_VIEWER = 512;
     private static final long RENDER_INTERVAL_TICKS = 40L;
-    private static final double VIEW_MARGIN = 48.0D;
-    private static final int EXTRA_RANGE_PER_TIER = 10;
 
     private static final AtomicBoolean REGISTERED = new AtomicBoolean();
     private static final Set<BeaconKey> VISIBLE_BEACONS = ConcurrentHashMap.newKeySet();
@@ -73,7 +72,8 @@ final class BeaconPlusAreaVisualizer implements Listener {
 
         Bukkit.getPluginManager().registerEvents(instance, plugin);
         Slimefun.getSchedulerService().runLater(instance::bootstrapLoadedChunks, 20L);
-        Slimefun.getSchedulerService().runAtFixedRate(instance::renderAll, RENDER_INTERVAL_TICKS, RENDER_INTERVAL_TICKS);
+        Slimefun.getSchedulerService()
+                .runAtFixedRate(instance::renderAll, RENDER_INTERVAL_TICKS, RENDER_INTERVAL_TICKS);
     }
 
     static void shutdown() {
@@ -96,7 +96,8 @@ final class BeaconPlusAreaVisualizer implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryOpen(InventoryOpenEvent event) {
-        if (!(event.getPlayer() instanceof Player player) || !isResonanceMenu(event.getView().getTitle())) {
+        if (!(event.getPlayer() instanceof Player player)
+                || !isResonanceMenu(event.getView().getTitle())) {
             return;
         }
         BeaconKey key = OPEN_MENU_TARGETS.get(player.getUniqueId());
@@ -164,7 +165,8 @@ final class BeaconPlusAreaVisualizer implements Listener {
 
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
-        if (event.getPlayer() instanceof Player player && isResonanceMenu(event.getView().getTitle())) {
+        if (event.getPlayer() instanceof Player player
+                && isResonanceMenu(event.getView().getTitle())) {
             OPEN_MENU_TARGETS.remove(player.getUniqueId());
         }
     }
@@ -265,17 +267,16 @@ final class BeaconPlusAreaVisualizer implements Listener {
             return;
         }
 
-        double range = getEffectiveRange(block);
+        double range = BeaconPlusRuntime.getEffectiveRange(block);
         if (range <= 0.0D) {
             return;
         }
 
+        BeaconPlusField.ChunkFootprint footprint =
+                Slimefun.getSchedulerService().isFolia()
+                        ? BeaconPlusField.footprint(block.getX(), block.getZ(), 1.0D)
+                        : BeaconPlusField.footprint(block.getX(), block.getZ(), range);
         UUID worldId = world.getUID();
-        double centerX = block.getX() + 0.5D;
-        double centerY = block.getY() + 0.5D;
-        double centerZ = block.getZ() + 0.5D;
-        double viewerRange = range + VIEW_MARGIN;
-        double viewerRangeSquared = viewerRange * viewerRange;
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             Slimefun.getSchedulerService().runFor(player, () -> {
@@ -283,47 +284,53 @@ final class BeaconPlusAreaVisualizer implements Listener {
                     return;
                 }
                 Location viewer = player.getLocation();
-                double dx = viewer.getX() - centerX;
-                double dy = viewer.getY() - centerY;
-                double dz = viewer.getZ() - centerZ;
-                if (dx * dx + dy * dy + dz * dz > viewerRangeSquared) {
+                int viewerChunkX = viewer.getBlockX() >> 4;
+                int viewerChunkZ = viewer.getBlockZ() >> 4;
+                if (viewerChunkX < footprint.minChunkX() - VIEW_MARGIN_CHUNKS
+                        || viewerChunkX > footprint.maxChunkX() + VIEW_MARGIN_CHUNKS
+                        || viewerChunkZ < footprint.minChunkZ() - VIEW_MARGIN_CHUNKS
+                        || viewerChunkZ > footprint.maxChunkZ() + VIEW_MARGIN_CHUNKS) {
                     return;
                 }
-                renderWireframe(player, centerX, centerY, centerZ, range);
+                double renderY = Math.max(
+                        world.getMinHeight() + 0.15D,
+                        Math.min(world.getMaxHeight() - 0.15D, Math.floor(viewer.getY()) + 0.15D));
+                renderChunkGrid(player, footprint, renderY);
             });
         }
     }
 
-    private static void renderWireframe(Player player, double centerX, double centerY, double centerZ, double radius) {
-        int minHeight = player.getWorld().getMinHeight();
-        int maxHeight = player.getWorld().getMaxHeight();
-        for (int index = 0; index < RING_POINTS; index++) {
-            double angle = Math.PI * 2.0D * index / RING_POINTS;
-            double cos = Math.cos(angle) * radius;
-            double sin = Math.sin(angle) * radius;
+    private static void renderChunkGrid(Player player, BeaconPlusField.ChunkFootprint footprint, double y) {
+        int minX = footprint.minBlockX();
+        int maxX = footprint.maxBlockXExclusive();
+        int minZ = footprint.minBlockZ();
+        int maxZ = footprint.maxBlockZExclusive();
+        int width = maxX - minX;
+        int gridLines = footprint.widthChunks() + 1;
+        long estimated = 2L * gridLines * (width / GRID_POINT_STEP + 1L);
+        int step = estimated > MAX_PARTICLES_PER_VIEWER ? 16 : GRID_POINT_STEP;
+        int sent = 0;
 
-            spawn(player, centerX + cos, centerY, centerZ + sin, minHeight, maxHeight);
-            spawn(player, centerX + cos, centerY + sin, centerZ, minHeight, maxHeight);
-            spawn(player, centerX, centerY + sin, centerZ + cos, minHeight, maxHeight);
+        for (int x = minX; x <= maxX; x += 16) {
+            for (int z = minZ; z <= maxZ; z += step) {
+                spawn(player, x, y, z);
+                if (++sent >= MAX_PARTICLES_PER_VIEWER) {
+                    return;
+                }
+            }
+        }
+        for (int z = minZ; z <= maxZ; z += 16) {
+            for (int x = minX; x <= maxX; x += step) {
+                spawn(player, x, y, z);
+                if (++sent >= MAX_PARTICLES_PER_VIEWER) {
+                    return;
+                }
+            }
         }
     }
 
-    private static void spawn(Player player, double x, double y, double z, int minHeight, int maxHeight) {
-        if (y < minHeight || y >= maxHeight) {
-            return;
-        }
+    private static void spawn(Player player, double x, double y, double z) {
         player.spawnParticle(Particle.END_ROD, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
-    }
-
-    private static double getEffectiveRange(Block block) {
-        BlockState state = block.getState();
-        if (!(state instanceof Beacon beacon) || beacon.getTier() <= 0) {
-            return 0.0D;
-        }
-        double importedOverride = BeaconPlusLegacyDataStore.getImportedOverriddenRange(block.getLocation());
-        double range = importedOverride > 0.0D ? importedOverride : Math.max(0.0D, beacon.getEffectRange());
-        int extraRangeTier = BeaconPlusRuntime.getEffectiveTierAtBeacon(block, BeaconPlusEffect.EXTRA_RANGE);
-        return extraRangeTier > 0 ? range + EXTRA_RANGE_PER_TIER * extraRangeTier : range;
     }
 
     private static boolean isEnabled(Location location) {
@@ -332,20 +339,28 @@ final class BeaconPlusAreaVisualizer implements Listener {
 
     private static ItemStack createMenuItem(Block block) {
         boolean enabled = isEnabled(block.getLocation());
-        double range = getEffectiveRange(block);
+        double range = BeaconPlusRuntime.getEffectiveRange(block);
+        BeaconPlusField.ChunkFootprint footprint =
+                Slimefun.getSchedulerService().isFolia()
+                        ? BeaconPlusField.footprint(block.getX(), block.getZ(), 1.0D)
+                        : BeaconPlusField.footprint(block.getX(), block.getZ(), range);
         ItemStack item = new ItemStack(Material.SPYGLASS);
         ItemMeta meta = item.getItemMeta();
         meta.setDisplayName((enabled ? ChatColor.GREEN : ChatColor.GRAY) + "Show Effect Area");
         meta.setLore(java.util.List.of(
-                ChatColor.GRAY + "Shows a sparse particle outline of the",
-                ChatColor.GRAY + "Resonance Beacon's actual effect radius.",
+                ChatColor.GRAY + "Shows the exact chunk-aligned square",
+                ChatColor.GRAY + "covered by Resonance Beacon field powers.",
                 "",
                 ChatColor.GRAY + "Status: " + (enabled ? ChatColor.GREEN + "ON" : ChatColor.RED + "OFF"),
-                ChatColor.GRAY + "Current radius: "
-                        + (range > 0.0D ? ChatColor.AQUA.toString() + (int) Math.floor(range) + " blocks" : ChatColor.RED + "Dormant"),
+                ChatColor.GRAY + "Effect footprint: "
+                        + (range > 0.0D
+                                ? ChatColor.AQUA.toString() + footprint.widthChunks() + "x" + footprint.widthChunks()
+                                        + " chunks"
+                                : ChatColor.RED + "Dormant"),
+                ChatColor.GRAY + "Vertical reach: " + ChatColor.AQUA + "Full world height",
                 "",
-                ChatColor.DARK_GRAY + "Display only • visible to nearby players",
-                ChatColor.DARK_GRAY + "Does not load chunks or change beacon powers",
+                ChatColor.DARK_GRAY + "Particle grid follows your current Y level",
+                ChatColor.DARK_GRAY + "Display only • never loads extra chunks",
                 "",
                 ChatColor.YELLOW + "Click to toggle"));
         item.setItemMeta(meta);
@@ -366,10 +381,7 @@ final class BeaconPlusAreaVisualizer implements Listener {
     private record BeaconKey(UUID worldId, int x, int y, int z) {
         private static BeaconKey from(Location location) {
             return new BeaconKey(
-                    location.getWorld().getUID(),
-                    location.getBlockX(),
-                    location.getBlockY(),
-                    location.getBlockZ());
+                    location.getWorld().getUID(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
         }
 
         private Location toLocation() {

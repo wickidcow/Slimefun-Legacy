@@ -61,14 +61,15 @@ final class BeaconPlusAdminCommand implements CommandExecutor, TabCompleter {
 
         boolean current = BeaconPlusChunkLoadingControl.isEnabled();
         if (current == desired) {
-            sender.sendMessage(ChatColor.GRAY + "Resonance Beacon chunk loading is already "
-                    + colorState(desired) + BeaconPlusChunkLoadingControl.stateWord(desired) + ChatColor.GRAY + ".");
+            sender.sendMessage(ChatColor.GRAY + "Resonance Beacon chunk loading is already " + colorState(desired)
+                    + BeaconPlusChunkLoadingControl.stateWord(desired) + ChatColor.GRAY + ".");
             sendStatus(sender);
             return true;
         }
 
         if (!BeaconPlusChunkLoadingControl.setEnabled(plugin, desired)) {
-            sender.sendMessage(ChatColor.RED + "Could not save the Resonance Beacon chunk-loading setting. Check console.");
+            sender.sendMessage(
+                    ChatColor.RED + "Could not save the Resonance Beacon chunk-loading setting. Check console.");
             return true;
         }
 
@@ -91,8 +92,8 @@ final class BeaconPlusAdminCommand implements CommandExecutor, TabCompleter {
     private void sendStatus(CommandSender sender) {
         boolean enabled = BeaconPlusChunkLoadingControl.isEnabled();
         BeaconPlusManager manager = BeaconPlusManager.getInstance();
-        sender.sendMessage(ChatColor.GOLD + "Resonance Beacon chunk loading: "
-                + colorState(enabled) + BeaconPlusChunkLoadingControl.stateWord(enabled));
+        sender.sendMessage(ChatColor.GOLD + "Resonance Beacon chunk loading: " + colorState(enabled)
+                + BeaconPlusChunkLoadingControl.stateWord(enabled));
         if (manager == null) {
             sender.sendMessage(ChatColor.GRAY + "Beacon manager is still initializing.");
             return;

@@ -28,6 +28,7 @@ def main() -> int:
         "effect": base + "BeaconPlusEffect.java",
         "runtime": base + "BeaconPlusRuntime.java",
         "runtime_effects": base + "BeaconPlusRuntimeEffects.java",
+        "field": base + "BeaconPlusField.java",
         "listener": base + "BeaconPlusEffectListener.java",
         "manager": base + "BeaconPlusManager.java",
         "mode": base + "BeaconPlusChunkMode.java",
@@ -120,8 +121,12 @@ def main() -> int:
             "BeaconPlusLegacyDataStore.getImportedOverriddenRange", "AREA_5X5", "BeaconPlusRuntimeEffects.applyPulse",
         ):
             req(token in runtime, f"Resonance Beacon runtime invariant missing: {token}", failures)
-        for token in ("MAX_TILE_ENTITIES_PER_PULSE = 96", "CROP_SAMPLES_PER_PULSE = 48", "repairInventory("):
+        for token in ("MAX_TILE_ENTITIES_PER_PULSE = 96", "CROP_SAMPLES_PER_PULSE = 48", "repairInventory(", "getLoadedChunksInField"):
             req(token in runtime_effects, f"Bounded Resonance Beacon effects invariant missing: {token}", failures)
+        field = read(root, files["field"])
+        for token in ("chunkRadius", "ChunkFootprint", "containsChunk", "widthChunks"):
+            req(token in field, f"Full-height chunk field invariant missing: {token}", failures)
+        req("distanceSquared(target)" not in runtime, "Resonance Beacon field must not retain a vertical/spherical distance limit", failures)
         for forbidden in ("NetworkManager", "CargoNet", "setChunkForceLoaded", "setForceLoaded"):
             req(forbidden not in runtime and forbidden not in runtime_effects,
                 f"Resonance Beacon runtime crossed protected boundary: {forbidden}", failures)
@@ -174,6 +179,7 @@ def main() -> int:
         "- exactly 28 administrator-controlled powers support three-tier progression\n"
         "- pyramid size and configurable mineral resonance cap effective tiers\n"
         "- legacy WORLD BeaconData JSON is imported/mirrored without renaming existing effect aliases\n"
+        "- field powers use full-height chunk-aligned square footprints without loading chunks\n"
         "- Activator remains reference-counted and hard-capped\n"
     )
     report.write_text(text, encoding="utf-8")

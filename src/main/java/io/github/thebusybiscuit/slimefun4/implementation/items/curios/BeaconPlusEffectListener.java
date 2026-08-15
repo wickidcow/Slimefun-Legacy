@@ -59,11 +59,12 @@ final class BeaconPlusEffectListener implements Listener {
             return;
         }
 
-        double multiplier = switch (tier) {
-            case 1 -> 0.60D;
-            case 2 -> 0.40D;
-            default -> 0.25D;
-        };
+        double multiplier =
+                switch (tier) {
+                    case 1 -> 0.60D;
+                    case 2 -> 0.40D;
+                    default -> 0.25D;
+                };
         event.setCooldown(Math.max(1, (int) Math.ceil(event.getCooldown() * multiplier)));
     }
 
@@ -109,8 +110,7 @@ final class BeaconPlusEffectListener implements Listener {
             return;
         }
 
-        int tier = BeaconPlusRuntime.getTierForEffect(
-                player.getLocation(), BeaconPlusEffect.IMMORTALITY_FIELD);
+        int tier = BeaconPlusRuntime.getTierForEffect(player.getLocation(), BeaconPlusEffect.IMMORTALITY_FIELD);
         if (tier <= 0) {
             return;
         }
@@ -121,11 +121,12 @@ final class BeaconPlusEffectListener implements Listener {
             return;
         }
 
-        double chance = switch (tier) {
-            case 1 -> 0.25D;
-            case 2 -> 0.40D;
-            default -> 0.55D;
-        };
+        double chance =
+                switch (tier) {
+                    case 1 -> 0.25D;
+                    case 2 -> 0.40D;
+                    default -> 0.55D;
+                };
         if (ThreadLocalRandom.current().nextDouble() >= chance) {
             return;
         }

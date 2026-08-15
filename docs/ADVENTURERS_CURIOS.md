@@ -124,6 +124,8 @@ Experience Booster multiplies positive XP by 2x/3x/4x. Cooldown Reduction uses 4
 
 Extra Range adds 10 blocks per tier. Extra Power can raise supported field powers further, still capped at Tier III.
 
+Field powers use a **chunk-aligned square footprint** derived from the beacon's effective range. Every covered chunk is affected from the world's minimum build height through its maximum build height, so there is no vertical distance limit. Normal field powers still never load chunks on their own. The **Show Effect Area** control renders the exact covered chunk grid as a flat square at each viewer's current Y level.
+
 Activator coverage is derived from its effective tier:
 
 - Tier I: this chunk
@@ -174,7 +176,7 @@ This allows an existing BeaconPlus `BeaconData` directory to be copied directly 
 - Event-driven XP, cooldown, Peaceful, Immortality and player-state work share one listener.
 - Tile-entity inspection is bounded to 96 states per pulse.
 - Crop growth uses bounded random samples.
-- Normal field powers never load chunks.
+- Normal field powers cover full-height chunk columns but never load chunks.
 - Activator is the only Resonance Beacon system allowed to hold chunks loaded.
 - Folia cross-region work is reduced to safe local behavior.
 - Shutdown restores temporary player state, saves progression, and releases chunk tickets.

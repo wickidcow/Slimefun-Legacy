@@ -18,8 +18,7 @@ final class BeaconPlusChunkLoadingControl {
     static final String CONFIG_PATH = BeaconPlusConfig.ROOT + ".chunk-loading-enabled";
 
     private static final Pattern CONFIG_LINE = Pattern.compile(
-            "(?m)^(\\s*)chunk-loading-enabled\\s*:\\s*(?:true|false)\\s*(?:#.*)?$",
-            Pattern.CASE_INSENSITIVE);
+            "(?m)^(\\s*)chunk-loading-enabled\\s*:\\s*(?:true|false)\\s*(?:#.*)?$", Pattern.CASE_INSENSITIVE);
 
     private static volatile boolean enabled = true;
 
@@ -27,7 +26,8 @@ final class BeaconPlusChunkLoadingControl {
 
     static void initialize(@Nonnull Slimefun plugin) {
         enabled = Slimefun.getCfg().getBoolean(CONFIG_PATH);
-        plugin.getLogger().info("Resonance Beacon chunk loading is " + stateWord(enabled).toLowerCase(Locale.ROOT) + ".");
+        plugin.getLogger()
+                .info("Resonance Beacon chunk loading is " + stateWord(enabled).toLowerCase(Locale.ROOT) + ".");
     }
 
     static boolean isEnabled() {
@@ -47,8 +47,9 @@ final class BeaconPlusChunkLoadingControl {
             String current = Files.readString(configPath, StandardCharsets.UTF_8);
             Matcher matcher = CONFIG_LINE.matcher(current);
             if (!matcher.find()) {
-                plugin.getLogger().severe("Could not find '" + CONFIG_PATH
-                        + "' in config.yml. Resonance Beacon chunk-loading state was not changed.");
+                plugin.getLogger()
+                        .severe("Could not find '" + CONFIG_PATH
+                                + "' in config.yml. Resonance Beacon chunk-loading state was not changed.");
                 return false;
             }
 
@@ -63,10 +64,11 @@ final class BeaconPlusChunkLoadingControl {
             enabled = newValue;
             return true;
         } catch (IOException exception) {
-            plugin.getLogger().log(
-                    Level.SEVERE,
-                    "Could not persist Resonance Beacon chunk-loading state to config.yml.",
-                    exception);
+            plugin.getLogger()
+                    .log(
+                            Level.SEVERE,
+                            "Could not persist Resonance Beacon chunk-loading state to config.yml.",
+                            exception);
             return false;
         }
     }

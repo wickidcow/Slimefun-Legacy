@@ -240,7 +240,8 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
                             Location loc =
                                     new Location(b.getWorld(), b.getX() + 0.5D, b.getY() + offset, b.getZ() + 0.5D);
                             spawnEntity(loc);
-                            VisualEffectUtils.playBlockBreakEffect(b.getLocation(), getHead().getType());
+                            VisualEffectUtils.playBlockBreakEffect(
+                                    b.getLocation(), getHead().getType());
                         });
                     }
                 }

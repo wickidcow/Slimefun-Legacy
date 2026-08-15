@@ -60,8 +60,8 @@ final class BeaconPlusLegacyDataStore implements Listener {
     static final String LEGACY_OVERRIDDEN_RANGE_KEY = "beacon_plus_legacy_overridden_range";
 
     /** Imported BeaconPlus records have no owner field, so they remain operator-managed until explicitly migrated. */
-    static final UUID LEGACY_IMPORTED_OWNER = UUID.nameUUIDFromBytes(
-            "SlimefunLegacy:ResonanceBeacon:LegacyImported".getBytes(StandardCharsets.UTF_8));
+    static final UUID LEGACY_IMPORTED_OWNER =
+            UUID.nameUUIDFromBytes("SlimefunLegacy:ResonanceBeacon:LegacyImported".getBytes(StandardCharsets.UTF_8));
 
     private static final AtomicBoolean REGISTERED = new AtomicBoolean();
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
@@ -83,8 +83,9 @@ final class BeaconPlusLegacyDataStore implements Listener {
         }
 
         if (!"WORLD".equals(BeaconPlusConfig.getBeaconDataStorageType())) {
-            plugin.getLogger().warning("Resonance Beacon BeaconData storage-type currently supports WORLD only; "
-                    + "using exact legacy WORLD storage for compatibility.");
+            plugin.getLogger()
+                    .warning("Resonance Beacon BeaconData storage-type currently supports WORLD only; "
+                            + "using exact legacy WORLD storage for compatibility.");
         }
 
         if (instance == null) {
@@ -117,14 +118,16 @@ final class BeaconPlusLegacyDataStore implements Listener {
         if (!isLegacyImported(location)) {
             return 0;
         }
-        return readTierMap(StorageCacheUtils.getData(location, LEGACY_UNLOCKS_KEY)).getOrDefault(effect, 0);
+        return readTierMap(StorageCacheUtils.getData(location, LEGACY_UNLOCKS_KEY))
+                .getOrDefault(effect, 0);
     }
 
     static int getImportedSelectedTier(@Nonnull Location location, @Nonnull BeaconPlusEffect effect) {
         if (!isLegacyImported(location)) {
             return 0;
         }
-        return readTierMap(StorageCacheUtils.getData(location, LEGACY_SELECTED_KEY)).getOrDefault(effect, 0);
+        return readTierMap(StorageCacheUtils.getData(location, LEGACY_SELECTED_KEY))
+                .getOrDefault(effect, 0);
     }
 
     static double getImportedOverriddenRange(@Nonnull Location location) {
@@ -218,18 +221,16 @@ final class BeaconPlusLegacyDataStore implements Listener {
 
                     world.getChunkAtAsync(chunkX, chunkZ, true).thenAccept(chunk -> {
                         Location anchor = new Location(
-                                world,
-                                (chunkX << 4) + 8,
-                                Math.max(world.getMinHeight(), 0),
-                                (chunkZ << 4) + 8);
+                                world, (chunkX << 4) + 8, Math.max(world.getMinHeight(), 0), (chunkZ << 4) + 8);
                         Slimefun.getSchedulerService().runAtLater(anchor, () -> importChunk(chunk), 1L);
                     });
                 });
             } catch (IOException | RuntimeException exception) {
-                plugin.getLogger().log(
-                        Level.WARNING,
-                        "Could not scan legacy Resonance Beacon activators in " + directory,
-                        exception);
+                plugin.getLogger()
+                        .log(
+                                Level.WARNING,
+                                "Could not scan legacy Resonance Beacon activators in " + directory,
+                                exception);
             }
         }
     }
@@ -277,8 +278,9 @@ final class BeaconPlusLegacyDataStore implements Listener {
         boolean newlyImported = false;
         if (data == null) {
             if (StorageCacheUtils.hasSlimefunBlock(location)) {
-                plugin.getLogger().warning("Skipped BeaconData import at " + describe(location)
-                        + " because another Slimefun block already owns that location.");
+                plugin.getLogger()
+                        .warning("Skipped BeaconData import at " + describe(location)
+                                + " because another Slimefun block already owns that location.");
                 return;
             }
             try {
@@ -289,7 +291,8 @@ final class BeaconPlusLegacyDataStore implements Listener {
             } catch (IllegalStateException exception) {
                 data = StorageCacheUtils.getBlock(location);
                 if (data == null) {
-                    plugin.getLogger().log(Level.WARNING, "Could not import BeaconData at " + describe(location), exception);
+                    plugin.getLogger()
+                            .log(Level.WARNING, "Could not import BeaconData at " + describe(location), exception);
                     return;
                 }
             }
@@ -345,10 +348,13 @@ final class BeaconPlusLegacyDataStore implements Listener {
             }
             data.setData(
                     LEGACY_SHOW_PARTICLES_KEY,
-                    Boolean.toString(!legacy.has("showParticles") || legacy.get("showParticles").getAsBoolean()));
+                    Boolean.toString(!legacy.has("showParticles")
+                            || legacy.get("showParticles").getAsBoolean()));
             if (legacy.has("overriddenRange") && legacy.get("overriddenRange").isJsonPrimitive()) {
                 try {
-                    data.setData(LEGACY_OVERRIDDEN_RANGE_KEY, Double.toString(legacy.get("overriddenRange").getAsDouble()));
+                    data.setData(
+                            LEGACY_OVERRIDDEN_RANGE_KEY,
+                            Double.toString(legacy.get("overriddenRange").getAsDouble()));
                 } catch (RuntimeException ignored) {
                     data.removeData(LEGACY_OVERRIDDEN_RANGE_KEY);
                 }
@@ -366,11 +372,7 @@ final class BeaconPlusLegacyDataStore implements Listener {
                 if (manager.getOwner(location) == null) {
                     manager.register(location, LEGACY_IMPORTED_OWNER);
                 }
-                manager.updateModes(
-                        location,
-                        LEGACY_IMPORTED_OWNER,
-                        desiredMode,
-                        manager.getSupportMode(location));
+                manager.updateModes(location, LEGACY_IMPORTED_OWNER, desiredMode, manager.getSupportMode(location));
             }
             BeaconPlusRuntime.observe(block);
 
@@ -556,8 +558,9 @@ final class BeaconPlusLegacyDataStore implements Listener {
                 return null;
             }
             if (unwrapped > 0) {
-                plugin.getLogger().warning("Recovered double-encoded BeaconData JSON at " + file + " ("
-                        + unwrapped + " layer(s)); it will normalize on the next save.");
+                plugin.getLogger()
+                        .warning("Recovered double-encoded BeaconData JSON at " + file + " (" + unwrapped
+                                + " layer(s)); it will normalize on the next save.");
             }
             return element.getAsJsonObject();
         } catch (IOException | RuntimeException exception) {
@@ -574,11 +577,7 @@ final class BeaconPlusLegacyDataStore implements Listener {
                 GSON.toJson(root, writer);
             }
             try {
-                Files.move(
-                        temporary,
-                        file,
-                        StandardCopyOption.REPLACE_EXISTING,
-                        StandardCopyOption.ATOMIC_MOVE);
+                Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
             } catch (AtomicMoveNotSupportedException ignored) {
                 Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING);
             }
@@ -677,11 +676,8 @@ final class BeaconPlusLegacyDataStore implements Listener {
         if (max <= BeaconPlusConfig.getMaxTier()) {
             return Math.min(value, BeaconPlusConfig.getMaxTier());
         }
-        return Math.max(
-                1,
-                Math.min(
-                        BeaconPlusConfig.getMaxTier(),
-                        (int) Math.ceil(value * (double) BeaconPlusConfig.getMaxTier() / max)));
+        return Math.max(1, Math.min(BeaconPlusConfig.getMaxTier(), (int)
+                Math.ceil(value * (double) BeaconPlusConfig.getMaxTier() / max)));
     }
 
     private static int legacyMaximum(BeaconPlusEffect effect) {
@@ -801,10 +797,7 @@ final class BeaconPlusLegacyDataStore implements Listener {
     private record LocationKey(UUID worldId, int x, int y, int z) {
         private static LocationKey from(Location location) {
             return new LocationKey(
-                    location.getWorld().getUID(),
-                    location.getBlockX(),
-                    location.getBlockY(),
-                    location.getBlockZ());
+                    location.getWorld().getUID(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
         }
     }
 }
