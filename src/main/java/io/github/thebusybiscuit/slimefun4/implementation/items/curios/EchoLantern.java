@@ -53,8 +53,8 @@ public final class EchoLantern extends SimpleSlimefunItem<ItemUseHandler> {
 
             player.setCooldown(Material.SOUL_LANTERN, COOLDOWN_TICKS);
             player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.65F, 1.55F);
-            player.sendMessage(ChatColor.AQUA + "Echo Lantern pulse: " + ChatColor.WHITE + revealed + ChatColor.GRAY
-                    + (revealed == 1 ? " hostile revealed." : " hostiles revealed."));
+            player.sendMessage(ChatColor.AQUA + "Echo Lantern pulse: " + ChatColor.WHITE + revealed
+                    + ChatColor.GRAY + (revealed == 1 ? " hostile revealed." : " hostiles revealed."));
         };
     }
 }

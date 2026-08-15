@@ -150,7 +150,10 @@ public class EnchantmentRune extends SimpleSlimefunItem<ItemDropHandler> {
                 // This lightning is just an effect, it deals no damage.
                 l.getWorld().strikeLightningEffect(l);
 
-                Slimefun.runSyncAt(l, () -> commitEnchantment(p, rune, item, enchantment, level, l), 10L);
+                Slimefun.runSyncAt(
+                        l,
+                        () -> commitEnchantment(p, rune, item, enchantment, level, l),
+                        10L);
             } else {
                 Slimefun.getLocalization().sendMessage(p, "messages.enchantment-rune.fail", true);
             }

@@ -144,15 +144,17 @@ final class BeaconPlusConfig {
     static int getRequiredPyramidTier(int tier) {
         int safeTier = clamp(tier, 1, getMaxTier());
         return clamp(
-                Slimefun.getCfg().getInt(ROOT + ".pyramid.tier-requirements." + safeTier + ".min-pyramid-tier"), 1, 4);
+                Slimefun.getCfg().getInt(ROOT + ".pyramid.tier-requirements." + safeTier + ".min-pyramid-tier"),
+                1,
+                4);
     }
 
     static double getRequiredAverageMaterialPower(int tier) {
         int safeTier = clamp(tier, 1, getMaxTier());
         return Math.max(
                 0.0D,
-                Slimefun.getCfg()
-                        .getDouble(ROOT + ".pyramid.tier-requirements." + safeTier + ".min-average-material-power"));
+                Slimefun.getCfg().getDouble(
+                        ROOT + ".pyramid.tier-requirements." + safeTier + ".min-average-material-power"));
     }
 
     static String getConfigKey(BeaconPlusEffect effect) {
@@ -164,13 +166,12 @@ final class BeaconPlusConfig {
     }
 
     private static int defaultExperienceCost(BeaconPlusEffect effect, int tier) {
-        int base =
-                switch (effect) {
-                    case FLYING, IMMORTALITY_FIELD, ACTIVATOR -> 25;
-                    case EXTRA_POWER, EXTRA_RANGE, AUTO_REPAIR, EXPERIENCE_BOOSTER, COOLDOWN_REDUCTION -> 15;
-                    case REGENERATION, RESISTANCE, PEACEFUL, GRAVITY_WELL, SPAWNERS, CROPS -> 10;
-                    default -> 5;
-                };
+        int base = switch (effect) {
+            case FLYING, IMMORTALITY_FIELD, ACTIVATOR -> 25;
+            case EXTRA_POWER, EXTRA_RANGE, AUTO_REPAIR, EXPERIENCE_BOOSTER, COOLDOWN_REDUCTION -> 15;
+            case REGENERATION, RESISTANCE, PEACEFUL, GRAVITY_WELL, SPAWNERS, CROPS -> 10;
+            default -> 5;
+        };
         return switch (tier) {
             case 1 -> base;
             case 2 -> base * 2 + 5;

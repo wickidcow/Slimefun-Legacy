@@ -166,9 +166,7 @@ public final class BeaconPlusManager {
     }
 
     public synchronized int getActiveBeaconCount() {
-        return (int) records.values().stream()
-                .filter(record -> record.chunkMode().isActive())
-                .count();
+        return (int) records.values().stream().filter(record -> record.chunkMode().isActive()).count();
     }
 
     public synchronized int getLoadedChunkCount() {
@@ -228,17 +226,13 @@ public final class BeaconPlusManager {
             }
 
             Set<ChunkKey> recordCoverage = coverage(record);
-            long newChunks = recordCoverage.stream()
-                    .filter(key -> !ticketReferences.containsKey(key))
-                    .count();
+            long newChunks = recordCoverage.stream().filter(key -> !ticketReferences.containsKey(key)).count();
             if (restoredActive >= MAX_ACTIVE_BEACONS || ticketReferences.size() + newChunks > MAX_UNIQUE_CHUNKS) {
                 records.put(
                         entry.getKey(),
-                        new BeaconRecord(
-                                record.location(), record.owner(), BeaconPlusChunkMode.OFF, record.supportMode()));
-                plugin.getLogger()
-                        .warning("Resonance Beacon at " + record.location().describe()
-                                + " restored with Activator disabled because the global safety cap was reached.");
+                        new BeaconRecord(record.location(), record.owner(), BeaconPlusChunkMode.OFF, record.supportMode()));
+                plugin.getLogger().warning("Resonance Beacon at " + record.location().describe()
+                        + " restored with Activator disabled because the global safety cap was reached.");
                 changed = true;
                 continue;
             }
@@ -323,8 +317,7 @@ public final class BeaconPlusManager {
                 try {
                     world.addPluginChunkTicket(key.x(), key.z(), plugin);
                 } catch (RuntimeException exception) {
-                    plugin.getLogger()
-                            .log(Level.WARNING, "Could not load Resonance Beacon chunk " + key.describe(), exception);
+                    plugin.getLogger().log(Level.WARNING, "Could not load Resonance Beacon chunk " + key.describe(), exception);
                     continue;
                 }
             }
@@ -346,11 +339,7 @@ public final class BeaconPlusManager {
                     try {
                         world.removePluginChunkTicket(key.x(), key.z(), plugin);
                     } catch (RuntimeException exception) {
-                        plugin.getLogger()
-                                .log(
-                                        Level.WARNING,
-                                        "Could not release Resonance Beacon chunk " + key.describe(),
-                                        exception);
+                        plugin.getLogger().log(Level.WARNING, "Could not release Resonance Beacon chunk " + key.describe(), exception);
                     }
                 }
             } else {
@@ -366,11 +355,7 @@ public final class BeaconPlusManager {
                 try {
                     world.removePluginChunkTicket(key.x(), key.z(), plugin);
                 } catch (RuntimeException exception) {
-                    plugin.getLogger()
-                            .log(
-                                    Level.WARNING,
-                                    "Could not release Resonance Beacon chunk " + key.describe(),
-                                    exception);
+                    plugin.getLogger().log(Level.WARNING, "Could not release Resonance Beacon chunk " + key.describe(), exception);
                 }
             }
         }
@@ -442,8 +427,7 @@ public final class BeaconPlusManager {
         for (BeaconRecord record : records.values()) {
             properties.setProperty(
                     record.location().serialize(),
-                    record.owner() + ";" + record.chunkMode().name() + ";"
-                            + record.supportMode().name());
+                    record.owner() + ";" + record.chunkMode().name() + ";" + record.supportMode().name());
         }
 
         try {
@@ -467,7 +451,10 @@ public final class BeaconPlusManager {
     private record LocationKey(UUID worldId, int x, int y, int z) {
         private static LocationKey from(Location location) {
             return new LocationKey(
-                    location.getWorld().getUID(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
+                    location.getWorld().getUID(),
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ());
         }
 
         private static LocationKey parse(String value) {

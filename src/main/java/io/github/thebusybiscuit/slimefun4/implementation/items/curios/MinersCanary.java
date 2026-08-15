@@ -53,11 +53,20 @@ public final class MinersCanary extends SimpleSlimefunItem<ItemUseHandler> imple
     private static final double APPROACHING_DOT_THRESHOLD = 0.08D;
 
     private static final BlockFace[] EXPOSED_FACES = {
-        BlockFace.UP, BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST
+        BlockFace.UP,
+        BlockFace.NORTH,
+        BlockFace.SOUTH,
+        BlockFace.EAST,
+        BlockFace.WEST
     };
 
     private static final BlockFace[] BREAK_HAZARD_FACES = {
-        BlockFace.UP, BlockFace.DOWN, BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST
+        BlockFace.UP,
+        BlockFace.DOWN,
+        BlockFace.NORTH,
+        BlockFace.SOUTH,
+        BlockFace.EAST,
+        BlockFace.WEST
     };
 
     private final Map<UUID, Long> lastPassiveScan = new ConcurrentHashMap<>();
@@ -150,19 +159,14 @@ public final class MinersCanary extends SimpleSlimefunItem<ItemUseHandler> imple
         }
 
         if (Slimefun.getSchedulerService().isFolia()
-                && (event.getEntity().getLocation().getBlockX() >> 4
-                                != player.getLocation().getBlockX() >> 4
-                        || event.getEntity().getLocation().getBlockZ() >> 4
-                                != player.getLocation().getBlockZ() >> 4)) {
+                && (event.getEntity().getLocation().getBlockX() >> 4 != player.getLocation().getBlockX() >> 4
+                        || event.getEntity().getLocation().getBlockZ() >> 4 != player.getLocation().getBlockZ() >> 4)) {
             return;
         }
 
         double distanceSquared = event.getEntity().getLocation().distanceSquared(player.getLocation());
         if (distanceSquared <= (double) MOB_RANGE * MOB_RANGE) {
-            chirp(
-                    player,
-                    new Danger(DangerType.HOSTILE, event.getEntity().getType().name(), Math.sqrt(distanceSquared)),
-                    false);
+            chirp(player, new Danger(DangerType.HOSTILE, event.getEntity().getType().name(), Math.sqrt(distanceSquared)), false);
         }
     }
 
@@ -223,8 +227,7 @@ public final class MinersCanary extends SimpleSlimefunItem<ItemUseHandler> imple
 
             boolean targetingPlayer = entity instanceof Mob mob && player.equals(mob.getTarget());
             Vector velocity = entity.getVelocity();
-            Vector towardPlayer =
-                    origin.toVector().subtract(entity.getLocation().toVector());
+            Vector towardPlayer = origin.toVector().subtract(entity.getLocation().toVector());
             boolean movingTowardPlayer = velocity.lengthSquared() >= APPROACHING_VELOCITY_SQUARED
                     && velocity.dot(towardPlayer) > APPROACHING_DOT_THRESHOLD;
 
@@ -308,19 +311,15 @@ public final class MinersCanary extends SimpleSlimefunItem<ItemUseHandler> imple
         lastAlert.put(player.getUniqueId(), now);
 
         player.playSound(player.getLocation(), Sound.ENTITY_PARROT_HURT, 0.9F, 1.7F);
-        String detail =
-                switch (danger.type()) {
-                    case HOSTILE ->
-                        ChatColor.RED + prettyName(danger.detail()) + ChatColor.GRAY + " is closing in about "
-                                + ChatColor.WHITE + (int) Math.ceil(danger.distance()) + ChatColor.GRAY
-                                + " blocks away.";
-                    case LAVA ->
-                        ChatColor.RED + "Exposed lava" + ChatColor.GRAY + " is about " + ChatColor.WHITE
-                                + (int) Math.ceil(danger.distance()) + ChatColor.GRAY + " blocks away.";
-                    case FIRE -> ChatColor.RED + "You are on fire.";
-                    case DROWNING -> ChatColor.RED + "Your air is dangerously low.";
-                    case FALL -> ChatColor.RED + "You are in a dangerous fall.";
-                };
+        String detail = switch (danger.type()) {
+            case HOSTILE -> ChatColor.RED + prettyName(danger.detail()) + ChatColor.GRAY + " is closing in about "
+                    + ChatColor.WHITE + (int) Math.ceil(danger.distance()) + ChatColor.GRAY + " blocks away.";
+            case LAVA -> ChatColor.RED + "Exposed lava" + ChatColor.GRAY + " is about " + ChatColor.WHITE
+                    + (int) Math.ceil(danger.distance()) + ChatColor.GRAY + " blocks away.";
+            case FIRE -> ChatColor.RED + "You are on fire.";
+            case DROWNING -> ChatColor.RED + "Your air is dangerously low.";
+            case FALL -> ChatColor.RED + "You are in a dangerous fall.";
+        };
         player.sendMessage(ChatColor.GOLD + "The Miner's Canary chirps sharply! " + detail);
     }
 

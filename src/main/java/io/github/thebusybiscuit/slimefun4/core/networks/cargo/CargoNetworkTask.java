@@ -146,7 +146,8 @@ class CargoNetworkTask implements Runnable {
         // Exceptional rollback must never honor Cargo's normal overflow-deletion option.
         // If the exact source slot cannot be restored, preserve the remainder in-world.
         try {
-            SlimefunUtils.spawnItem(inputTarget.getLocation().add(0, 1, 0), item, ItemSpawnReason.CARGO_OVERFLOW);
+            SlimefunUtils.spawnItem(
+                    inputTarget.getLocation().add(0, 1, 0), item, ItemSpawnReason.CARGO_OVERFLOW);
         } catch (Exception | LinkageError overflowFailure) {
             failure.addSuppressed(overflowFailure);
             Slimefun.logger()

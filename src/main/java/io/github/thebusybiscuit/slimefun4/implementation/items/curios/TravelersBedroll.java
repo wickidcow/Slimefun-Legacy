@@ -57,8 +57,7 @@ public final class TravelersBedroll extends SimpleSlimefunItem<ItemUseHandler> {
 
             for (Entity entity : player.getNearbyEntities(HOSTILE_CHECK_RADIUS, 5.0D, HOSTILE_CHECK_RADIUS)) {
                 if (entity instanceof Monster) {
-                    player.sendMessage(
-                            ChatColor.RED + "It is too dangerous to rest while hostile creatures are nearby.");
+                    player.sendMessage(ChatColor.RED + "It is too dangerous to rest while hostile creatures are nearby.");
                     return;
                 }
             }
