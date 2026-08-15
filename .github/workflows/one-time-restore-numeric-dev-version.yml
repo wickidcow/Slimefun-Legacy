@@ -1,0 +1,64 @@
+name: One-time Align README Development Version
+
+on:
+  push:
+    branches:
+      - feature/adventurers-curios-expansion
+    paths:
+      - .github/workflows/one-time-restore-numeric-dev-version.yml
+
+permissions:
+  contents: write
+
+jobs:
+  align:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: feature/adventurers-curios-expansion
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Align README development line
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('README.md')
+          text = path.read_text(encoding='utf-8')
+          replacements = {
+              'Current development release: **4.1.30B — Core Platform Phase 1L (Release Lifecycle & Upgrade Safety)**. ·':
+                  'Current development release: **4.1.30 — Core Platform Phase 1L (Release Lifecycle & Upgrade Safety)**. ·',
+              'Slimefun Legacy 4.1.30B is tested primarily against **Paper 26.2 / Minecraft 26.2 on Java 25**.':
+                  'Slimefun Legacy 4.1.30 is tested primarily against **Paper 26.2 / Minecraft 26.2 on Java 25**.',
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f'Expected README marker not found: {old}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Remove one-time workflow
+        run: rm .github/workflows/one-time-restore-numeric-dev-version.yml
+
+      - name: Verify Legacy invariants
+        run: python3 scripts/verify_legacy.py .
+
+      - name: Commit alignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md .github/workflows/one-time-restore-numeric-dev-version.yml
+          git diff --cached --check
+          git commit -m "Align README with 4.1.30 development line"
+          git push origin HEAD:feature/adventurers-curios-expansion
