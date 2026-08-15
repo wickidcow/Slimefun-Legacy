@@ -1,0 +1,147 @@
+name: Publish Beacon Upgrade Addon Release
+
+on:
+  push:
+    branches:
+      - feature/adventurers-curios-expansion
+    paths:
+      - .github/workflows/publish-beacon-upgrade-release.yml
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SOURCE_SHA: d96c8dfba0e41ae359b2103c4e3bd5043832013a
+      RELEASE_TAG: beacon-upgrade-addon-chunk-loader-v1.0.0
+      RELEASE_TITLE: Resonance Beacon Upgrade Addon - Chunk Loader Edition
+      JAR_NAME: SF_Slimefun_Legacy_v4.1.30.jar
+    steps:
+      - name: Check out validated feature source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Verify validated source identity
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          python3 scripts/verify_legacy.py .
+
+      - name: Build release JAR
+        run: |
+          chmod +x gradlew
+          ./gradlew clean shadowJar -PprojectVersion=4.1.30 --no-daemon --no-build-cache --no-configuration-cache
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -n "$JAR"
+          mkdir -p dist
+          cp "$JAR" "dist/$JAR_NAME"
+          test -s "dist/$JAR_NAME"
+          sha256sum "dist/$JAR_NAME"
+
+      - name: Verify Java 21 bytecode and release artifact
+        run: |
+          python3 scripts/check_bytecode_target.py "dist/$JAR_NAME" --expected-java 21
+          python3 scripts/verify_release_artifact.py "dist/$JAR_NAME" --root .
+
+      - name: Write release notes
+        run: |
+          cat > release-notes.md <<'EOF'
+          # Resonance Beacon Upgrade Addon - Chunk Loader Edition
+
+          A major **Slimefun Legacy 4.1.30** feature pack built around the new Adventurer's Curios collection and the upgraded **Resonance Beacon**.
+
+          > **Important:** This feature pack is integrated directly into the included Slimefun Legacy JAR. It is not a separate addon JAR and should replace your current Slimefun Legacy JAR when testing this release.
+
+          ## What's included
+
+          ### Resonance Beacon
+          - Replaces the player-facing Beacon Plus concept with the **Resonance Beacon** while retaining internal ID `BEACON_PLUS` for migration compatibility.
+          - 28 configurable beacon powers with permanent **Tier I / II / III** progression.
+          - Pyramid size and mineral resonance physically cap the maximum effective power tier.
+          - Configurable Minecraft experience-level or Vault-money upgrade costs.
+          - **Extra Range**, **Extra Power**, **Auto Repair**, **Flying**, **Immortality Field**, crop, spawner, furnace, combat, movement, utility and other beacon effects.
+
+          ### Chunk Loader Edition
+          - Activator Tier I: keeps the beacon's current chunk active.
+          - Activator Tier II: up to a **3x3** chunk area.
+          - Activator Tier III: up to a **5x5** chunk area.
+          - Existing global safeguards remain: **64 active Resonance Beacon loaders** and **256 unique ticketed chunks** maximum.
+          - New operator command: `/beacon enable` to globally allow Resonance Beacon chunk loading.
+          - New operator command: `/beacon disable` to immediately release all Resonance Beacon chunk tickets without erasing beacon Activator selections.
+          - New operator command: `/beacon status` to display the global state, configured loaders and current ticketed chunk count.
+          - Global chunk loading defaults to **enabled** with `SlimefunLegacyAddition.PoweredBeacon.chunk-loading-enabled: true`.
+
+          ### Show Effect Area
+          - Every Resonance Beacon has a toggleable **Show Effect Area** control in its GUI.
+          - Displays a sparse three-ring particle wireframe of the beacon's real current effect radius.
+          - Includes native beacon range, imported overridden range and active Extra Range.
+          - Display-only and does **not** load chunks.
+
+          ### BeaconPlus migration
+          - Reads the original BeaconPlus WORLD-storage layout directly from `<world>/BeaconData/<chunkX>.<chunkZ>.json`.
+          - Imports existing custom names, selected effects, levels, modes, overridden range and legacy particle settings.
+          - Grandfathers legacy levels without charging players again.
+          - Preserves unknown legacy effect data in compatibility JSON without activating unsupported powers.
+          - Repairs the old double-encoded JSON failure mode during migration.
+          - Do **not** run the old standalone BeaconPlus/BeaconPlus3 plugin at the same time as this native implementation.
+
+          ### Adventurer's Curios
+          All current Curios use the **Slimefun Enhanced Crafting Table**:
+          - Wayfinder's Compass
+          - Echo Lantern
+          - Explorer's Spyglass
+          - Miner's Canary
+          - Storm Glass
+          - Expedition Journal
+          - Traveler's Bedroll
+          - Emergency Parachute
+          - Resonance Beacon
+
+          The Miner's Canary also provides passive warnings for approaching hostiles, exposed lava, fire, low air and dangerous falls.
+
+          ## Compatibility and validation
+          - Built for the Slimefun Legacy 4.1.30 line.
+          - Paper 26.2 primary target.
+          - Built using Java 25 with **Java 21 bytecode compatibility**.
+          - Production build passed.
+          - Runtime Gameplay Correctness passed.
+          - Paper 26.2 two-boot runtime smoke test passed.
+          - Public API Compatibility passed.
+          - Slimefun addon compatibility matrix passed.
+
+          ## Included download
+          **`SF_Slimefun_Legacy_v4.1.30.jar`** - raw server-ready JAR; no extraction required.
+
+          Source feature commit: `d96c8dfba0e41ae359b2103c4e3bd5043832013a`
+          EOF
+
+      - name: Publish GitHub prerelease with raw JAR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "dist/$JAR_NAME" --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$RELEASE_TITLE" \
+              --notes-file release-notes.md \
+              --prerelease
+          else
+            gh release create "$RELEASE_TAG" "dist/$JAR_NAME#$JAR_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$SOURCE_SHA" \
+              --title "$RELEASE_TITLE" \
+              --notes-file release-notes.md \
+              --prerelease
+          fi
