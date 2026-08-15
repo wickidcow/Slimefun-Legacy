@@ -141,6 +141,8 @@ def main() -> int:
             "EnergyNetComponentType.CONSUMER",
             "ENERGY_CAPACITY = 8_192",
             "BASE_ENERGY_PER_EFFECT_PER_PULSE = 16",
+            "LAST_FIELD_PULSE_TICKS",
+            "gameTime - previous < POWER_PULSE_INTERVAL_TICKS",
             "EXTRA_POWER_PERCENT = 50",
             "EXTRA_POWER_XP_LEVEL_COST = 30",
             "player.giveExpLevels(-EXTRA_POWER_XP_LEVEL_COST)",
@@ -184,6 +186,8 @@ def main() -> int:
             "boostFurnace(",
             "boostSpawner(",
             "applyCropBoost(",
+            "0.30D + 0.12D * power",
+            "Math.max(-0.60D, Math.min(0.60D, pull.getY()))",
         ):
             require(token in runtime, f"Beacon Plus bounded runtime invariant is missing: {token}", failures)
         for forbidden in ("NetworkManager", "CargoNet", "tickBlock(", "setChunkForceLoaded", "setForceLoaded"):
@@ -240,6 +244,7 @@ def main() -> int:
 
         lifecycle = read(root, files["beacon_lifecycle"])
         require("BeaconPlusPowerState.shutdown()" in lifecycle, "Beacon Plus paid-power cleanup is missing", failures)
+        require("BeaconPlus.clearPulseState()" in lifecycle, "Beacon Plus field-pulse cleanup is missing", failures)
         require("BeaconPlusRuntime.shutdown()" in lifecycle, "Beacon Plus player-state cleanup is missing", failures)
         require("BeaconPlusManager.shutdownCurrent()" in lifecycle, "Beacon Plus chunk-ticket cleanup is missing", failures)
 

@@ -15,8 +15,10 @@ import io.github.thebusybiscuit.slimefun4.implementation.handlers.SimpleBlockBre
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
@@ -62,6 +64,7 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
     private static final String EXTRA_POWER_UNLOCKED_KEY = "beacon_plus_extra_power_unlocked";
 
     private static final int POWER_PULSE_INTERVAL_TICKS = 20;
+    private static final Map<PulseKey, Long> LAST_FIELD_PULSE_TICKS = new ConcurrentHashMap<>();
     private static final double EXTRA_RANGE_BLOCKS = 20.0D;
     private static final double PLAYER_STATE_RECONCILE_RANGE = 96.0D;
 
@@ -154,6 +157,7 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
             @Override
             public void onBlockBreak(@Nonnull Block block) {
                 BeaconPlusPowerState.markUnpowered(block.getLocation());
+                LAST_FIELD_PULSE_TICKS.remove(PulseKey.from(block.getLocation()));
                 BeaconPlusRuntime.forget(block.getLocation());
                 BeaconPlusManager manager = BeaconPlusManager.getInstance();
                 if (manager != null) {
@@ -176,14 +180,13 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
                 BeaconPlusRuntime.observe(block);
 
                 if (!isFieldPulse(block)) {
-                    BeaconPlusRuntime.tick(block, data);
                     return;
                 }
 
                 int energyCost = calculateFieldEnergyCost(BeaconPlusEffect.parse(data.getData(BeaconPlusRuntime.EFFECTS_KEY)));
                 if (!hasPoweredPyramid(block) || energyCost <= 0) {
                     BeaconPlusPowerState.markUnpowered(block.getLocation());
-                    BeaconPlusRuntime.tick(block, data);
+                    BeaconPlusPowerState.reconcileNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
                     return;
                 }
 
@@ -487,8 +490,26 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
     }
 
     private static boolean isFieldPulse(Block block) {
+        PulseKey key = PulseKey.from(block.getLocation());
         long gameTime = block.getWorld().getGameTime();
-        return Math.floorMod(gameTime + block.getX() * 31L + block.getZ() * 17L, POWER_PULSE_INTERVAL_TICKS) == 0L;
+        Long previous = LAST_FIELD_PULSE_TICKS.get(key);
+
+        if (previous == null) {
+            long stagger = Math.floorMod(block.getX() * 31L + block.getZ() * 17L, POWER_PULSE_INTERVAL_TICKS);
+            LAST_FIELD_PULSE_TICKS.put(key, gameTime - stagger);
+            return stagger == 0L;
+        }
+
+        if (gameTime - previous < POWER_PULSE_INTERVAL_TICKS) {
+            return false;
+        }
+
+        LAST_FIELD_PULSE_TICKS.put(key, gameTime);
+        return true;
+    }
+
+    static void clearPulseState() {
+        LAST_FIELD_PULSE_TICKS.clear();
     }
 
     private static boolean hasPoweredPyramid(Block block) {
@@ -514,5 +535,15 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
 
     private static UUID ownerOrPlayer(UUID owner, Player player) {
         return owner == null ? player.getUniqueId() : owner;
+    }
+
+    private record PulseKey(UUID worldId, int x, int y, int z) {
+        private static PulseKey from(Location location) {
+            return new PulseKey(
+                    location.getWorld().getUID(),
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ());
+        }
     }
 }

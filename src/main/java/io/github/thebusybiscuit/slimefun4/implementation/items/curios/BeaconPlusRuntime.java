@@ -164,10 +164,6 @@ final class BeaconPlusRuntime {
         observe(block);
 
         long gameTime = block.getWorld().getGameTime();
-        long phase = Math.floorMod(gameTime + block.getX() * 31L + block.getZ() * 17L, PULSE_INTERVAL_TICKS);
-        if (phase != 0L) {
-            return;
-        }
 
         double range = getRange(block);
         if (range <= 0.0D) {
@@ -354,8 +350,8 @@ final class BeaconPlusRuntime {
             return;
         }
 
-        Vector pull = delta.normalize().multiply(0.10D + 0.04D * power);
-        pull.setY(Math.max(-0.20D, Math.min(0.20D, pull.getY())));
+        Vector pull = delta.normalize().multiply(0.30D + 0.12D * power);
+        pull.setY(Math.max(-0.60D, Math.min(0.60D, pull.getY())));
         entity.setVelocity(entity.getVelocity().multiply(0.75D).add(pull));
     }
 

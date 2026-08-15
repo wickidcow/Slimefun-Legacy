@@ -80,7 +80,7 @@ Normal field effects require the Beacon Plus block to sit on a valid vanilla bea
 18. **Water Breathing** — gives Water Breathing to players inside the field.
 19. **Fire Extinguisher** — extinguishes players inside the field.
 20. **Poison** — poisons hostile monsters inside the field.
-21. **Gravity Well** — gently pulls hostile mobs and loose item entities toward the beacon.
+21. **Gravity Well** — pulls hostile mobs and loose item entities toward the beacon at roughly 3× the original native-port force, on a resilient once-per-second cadence.
 22. **Jump** — gives Jump Boost to players inside the field.
 23. **Exp Gain** — grants a small passive XP pulse while players remain inside the field.
 24. **Cooldown Reduction** — shortens newly applied item cooldowns while the player is in range.
@@ -130,7 +130,8 @@ Beacon Plus intentionally avoids one scheduler per effect or one scheduler per b
 
 - One normal Slimefun `BlockTicker` handles periodic Beacon Plus work and energy payment.
 - One listener handles XP changes, cooldowns, peaceful targeting/damage, immortality, and movement cleanup.
-- Periodic pulses are staggered by beacon location rather than all firing on the same server tick.
+- Periodic pulses keep their initial location-based staggering, then use elapsed-tick tracking so a missed exact modulo tick cannot skip a whole one-second field pulse.
+- Gravity Well therefore receives one pull on the first eligible ticker at least 20 game ticks after its previous pull instead of requiring one exact server tick.
 - Tile-entity work is capped at 96 inspected states per pulse.
 - Crop growth uses bounded random samples rather than scanning every block in the field.
 - Event-driven effects consult a short-lived powered-state cache populated only after the Beacon Plus successfully pays its energy pulse.
