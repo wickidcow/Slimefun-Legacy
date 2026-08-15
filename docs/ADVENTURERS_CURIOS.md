@@ -56,7 +56,7 @@ A player-carried biome log with a bounded number of persistent discoveries.
 
 Right-clicking a placed Beacon Plus opens a 54-slot owner-controlled menu with **30 independently toggleable effects**. Server operators may also configure it. Every effect defaults to **OFF**.
 
-Normal field effects require the Beacon Plus block to sit on a valid vanilla beacon pyramid and have Slimefun Energy available. Its base field range is the range reported by the vanilla/Paper beacon. **Extra Range** adds 20 blocks. **Extra Power** increases supported effect strength by one tier and is treated as a +50% energy overclock.
+Normal field effects require the Beacon Plus block to sit on a valid vanilla beacon pyramid and have Slimefun Energy available. Player potion effects are applied as normal, non-ambient effects with visible HUD icons and particles so Strength, Resistance, Regeneration, Haste, Speed, Luck, Water Breathing and Jump Boost are obvious while active. Its base field range is the range reported by the vanilla/Paper beacon. **Extra Range** adds 20 blocks. **Extra Power** increases supported effect strength by one tier and is treated as a +50% energy overclock.
 
 ### Toggleable effects
 
@@ -143,7 +143,7 @@ Beacon Plus intentionally avoids one scheduler per effect or one scheduler per b
 
 There are three levels of control:
 
-1. **Disable one placed Beacon Plus:** the owner or an operator can open its menu and click **Disable All Effects**. This also turns its Activator off.
+1. **Diagnose or disable one placed Beacon Plus:** open its menu and read **Beacon Plus Status**. It now reports `ACTIVE` or `NOT POWERED` and explains whether the pyramid or stored Energy is blocking the field. The owner or an operator can click **Disable All Effects**. This also turns its Activator off.
 2. **Disable Beacon Plus globally:** stop the server, open `plugins/Slimefun/Items.yml`, and set:
 
    ```yaml

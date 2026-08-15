@@ -157,6 +157,8 @@ def main() -> int:
             "BlockUseHandler",
             "SimpleBlockBreakHandler",
             "DISABLE_ALL_SLOT",
+            "Field state: ",
+            "Configured, but not active:",
             "ACTIVATOR_COVERAGE_SLOT",
         ):
             require(token in beacon, f"Native Beacon Plus menu/runtime invariant is missing: {token}", failures)
@@ -181,6 +183,8 @@ def main() -> int:
             "PotionEffectType.JUMP_BOOST",
             "PotionEffectType.SLOWNESS",
             "PotionEffectType.POISON",
+            "EFFECT_DURATION_TICKS = 100",
+            "new PotionEffect(type, duration, amplifier, false, true, true)",
             "Attribute.SCALE",
             "repairInventory(",
             "boostFurnace(",

@@ -313,6 +313,17 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
                 active ? 1.35F : 0.85F);
         player.sendMessage(ChatColor.GOLD + "Beacon Plus: " + ChatColor.WHITE + effect.getDisplayName() + ChatColor.GRAY
                 + " is now " + (active ? ChatColor.GREEN + "ENABLED" : ChatColor.RED + "DISABLED") + ChatColor.GRAY + ".");
+        if (active && effect != BeaconPlusEffect.ACTIVATOR) {
+            int requiredEnergy = calculateFieldEnergyCost(enabled);
+            if (!hasPoweredPyramid(block)) {
+                player.sendMessage(ChatColor.RED + "Configured, but not active: the vanilla beacon pyramid/sky activation is not ready.");
+            } else if (requiredEnergy > 0 && getChargeLong(block.getLocation()) < requiredEnergy) {
+                player.sendMessage(ChatColor.RED + "Configured, but not active: Beacon Plus needs " + requiredEnergy
+                        + " J for its next one-second field pulse.");
+            } else {
+                player.sendMessage(ChatColor.GREEN + "Field is powered. Player potion effects should appear in the HUD and with particles.");
+            }
+        }
         openMenu(player, block, owner);
     }
 
@@ -425,6 +436,15 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         lore.add(ChatColor.GRAY + "Enabled effects: " + ChatColor.GOLD + effectCount + "/30");
         lore.add(ChatColor.GRAY + "Field energy: " + ChatColor.YELLOW + storedEnergy + "/" + ENERGY_CAPACITY + " J");
         lore.add(ChatColor.GRAY + "Current field draw: " + ChatColor.YELLOW + energyCost + " J/s");
+        boolean fieldReady = tier > 0 && energyCost > 0 && storedEnergy >= energyCost;
+        lore.add(ChatColor.GRAY + "Field state: " + (fieldReady ? ChatColor.GREEN + "ACTIVE" : ChatColor.RED + "NOT POWERED"));
+        if (tier <= 0) {
+            lore.add(ChatColor.RED + "Reason: beacon pyramid/sky activation is not ready.");
+        } else if (energyCost <= 0) {
+            lore.add(ChatColor.YELLOW + "Reason: no field effect currently needs Energy.");
+        } else if (storedEnergy < energyCost) {
+            lore.add(ChatColor.RED + "Reason: needs at least " + energyCost + " J for the next field pulse.");
+        }
         lore.add(ChatColor.GRAY + "Activator: " + ChatColor.AQUA + chunkMode.getDisplayName());
         lore.add("");
         lore.add(tier > 0

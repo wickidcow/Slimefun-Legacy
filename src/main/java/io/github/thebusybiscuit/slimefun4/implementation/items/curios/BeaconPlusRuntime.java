@@ -52,7 +52,7 @@ final class BeaconPlusRuntime {
     static final String EFFECTS_KEY = "beacon_plus_effects";
 
     private static final int PULSE_INTERVAL_TICKS = 20;
-    private static final int EFFECT_DURATION_TICKS = 70;
+    private static final int EFFECT_DURATION_TICKS = 100;
     private static final int NIGHT_VISION_DURATION_TICKS = 240;
     private static final int EXTRA_RANGE_BLOCKS = 20;
     private static final int MAX_TILE_ENTITIES_PER_PULSE = 96;
@@ -341,7 +341,7 @@ final class BeaconPlusRuntime {
     }
 
     private static void applyPotion(LivingEntity entity, PotionEffectType type, int amplifier, int duration) {
-        entity.addPotionEffect(new PotionEffect(type, duration, amplifier, true, false, true));
+        entity.addPotionEffect(new PotionEffect(type, duration, amplifier, false, true, true));
     }
 
     private static void pullEntity(Entity entity, Location center, int power) {
