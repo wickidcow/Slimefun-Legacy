@@ -35,6 +35,7 @@ def main() -> int:
         "beacon": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlus.java",
         "beacon_effect": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusEffect.java",
         "beacon_runtime": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusRuntime.java",
+        "beacon_power": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusPowerState.java",
         "beacon_listener": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusEffectListener.java",
         "beacon_manager": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusManager.java",
         "beacon_chunk_mode": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusChunkMode.java",
@@ -66,7 +67,8 @@ def main() -> int:
             "new StormGlass(",
             "new ExpeditionJournal(",
             "new BeaconPlus(",
-            "29 independently toggleable effects",
+            "30 independently toggleable effects",
+            "Extra Power costs 30 XP levels",
         ):
             require(token in setup, f"Curios setup invariant is missing: {token}", failures)
         require(setup.count("RecipeType.ENHANCED_CRAFTING_TABLE") >= 8, "All eight Curios need real recipes", failures)
@@ -122,7 +124,7 @@ def main() -> int:
 
         effect_catalog = read(root, files["beacon_effect"])
         effect_tokens = (
-            "FURNACE_BOOSTER", "STRENGTH", "REGENERATION", "RESISTANCE", "FAST_DIGGING", "CURE",
+            "FURNACE_BOOSTER", "STRENGTH", "INVISIBLE", "REGENERATION", "RESISTANCE", "FAST_DIGGING", "CURE",
             "CROPS", "SPAWNERS", "SLOWDOWN", "SPEED", "PEACEFUL", "NIGHT_VISION", "FLYING",
             "EXPERIENCE_BOOSTER", "LUCK", "BURNER", "WATER_BREATHING", "FIRE_EXTINGUISHER",
             "POISON", "GRAVITY_WELL", "JUMP", "EXP_GAIN", "COOLDOWN_REDUCTION", "IMMORTALITY_FIELD",
@@ -130,14 +132,22 @@ def main() -> int:
         )
         for token in effect_tokens:
             require(token in effect_catalog, f"Beacon Plus effect catalog is missing: {token}", failures)
-        require(len(effect_tokens) == 29, "Beacon Plus verifier must protect exactly 29 requested effect families", failures)
+        require(len(effect_tokens) == 30, "Beacon Plus verifier must protect exactly 30 requested effect families", failures)
         require("serialize(Set<BeaconPlusEffect>" in effect_catalog, "Beacon Plus effect serialization is missing", failures)
 
         beacon = read(root, files["beacon"])
         for token in (
+            "implements EnergyNetComponent",
+            "EnergyNetComponentType.CONSUMER",
+            "ENERGY_CAPACITY = 8_192",
+            "BASE_ENERGY_PER_EFFECT_PER_PULSE = 16",
+            "EXTRA_POWER_PERCENT = 50",
+            "EXTRA_POWER_XP_LEVEL_COST = 30",
+            "player.giveExpLevels(-EXTRA_POWER_XP_LEVEL_COST)",
             "new ChestMenu(\"&6&lBeacon Plus\", 54)",
             "BeaconPlusEffect.values()",
             "BeaconPlusRuntime.tick(block, data)",
+            "BeaconPlusPowerState.markPowered(block, data)",
             "BeaconPlusEffectListener.register(Slimefun.instance())",
             "BeaconPlusLifecycleListener.register(Slimefun.instance())",
             "BeaconPlusManager.start(Slimefun.instance())",
@@ -179,6 +189,19 @@ def main() -> int:
         for forbidden in ("NetworkManager", "CargoNet", "tickBlock(", "setChunkForceLoaded", "setForceLoaded"):
             require(forbidden not in runtime, f"Beacon Plus runtime crossed a protected boundary: {forbidden}", failures)
 
+        power_state = read(root, files["beacon_power"])
+        for token in (
+            "POWERED_TTL_MILLIS = 2_500L",
+            "markPowered(Block block, ASlimefunDataContainer data)",
+            "getPowerForEffect(Location target, BeaconPlusEffect effect)",
+            "BeaconPlusEffect.INVISIBLE",
+            "PotionEffectType.INVISIBILITY",
+            "world.isChunkLoaded",
+            "reconcileNearbyPlayerStates",
+        ):
+            require(token in power_state, f"Beacon Plus paid-power invariant is missing: {token}", failures)
+        require("loadChunk" not in power_state, "Beacon Plus power-state checks must not load chunks", failures)
+
         listener = read(root, files["beacon_listener"])
         for token in (
             "PlayerItemCooldownEvent",
@@ -187,6 +210,8 @@ def main() -> int:
             "EntityDamageByEntityEvent",
             "EntityDamageEvent",
             "IMMORTALITY_COOLDOWN_MILLIS = 60_000L",
+            "BeaconPlusPowerState.getPowerForEffect",
+            "BeaconPlusPowerState.hasPoweredEffect",
             "BeaconPlusEffect.EXPERIENCE_BOOSTER",
             "BeaconPlusEffect.COOLDOWN_REDUCTION",
             "BeaconPlusEffect.PEACEFUL",
@@ -214,12 +239,20 @@ def main() -> int:
             require(forbidden not in manager, f"Beacon Plus manager crossed a runtime boundary: {forbidden}", failures)
 
         lifecycle = read(root, files["beacon_lifecycle"])
+        require("BeaconPlusPowerState.shutdown()" in lifecycle, "Beacon Plus paid-power cleanup is missing", failures)
         require("BeaconPlusRuntime.shutdown()" in lifecycle, "Beacon Plus player-state cleanup is missing", failures)
         require("BeaconPlusManager.shutdownCurrent()" in lifecycle, "Beacon Plus chunk-ticket cleanup is missing", failures)
 
         docs = read(root, files["docs"])
         for token in (
-            "29 independently toggleable",
+            "30 independently toggleable",
+            "Invisible Effect",
+            "8,192 J internal buffer",
+            "16 J per pulse",
+            "50% more machine energy",
+            "30 XP levels",
+            "BEACON_PLUS:",
+            "enabled: false",
             "maximum **64 active Beacon Plus loaders**",
             "maximum **256 unique chunks**",
             "96 inspected states per pulse",
@@ -247,13 +280,15 @@ def main() -> int:
     report.write_text(
         "Adventurer's Curios verification: PASS\n"
         "- eight built-in Curios are registered before registry finalization\n"
-        "- Beacon Plus exposes all 29 requested toggleable effect families through a native 54-slot menu\n"
-        "- one bounded block ticker owns periodic Beacon Plus work and one listener owns event-driven effects\n"
+        "- Beacon Plus exposes all 30 requested toggleable effect families through a native 54-slot menu\n"
+        "- Invisible Effect restores the historical BeaconPlus effect omitted by the initial native port\n"
+        "- Beacon Plus is a normal EnergyNet consumer with an 8,192 J buffer and 16 J/effect field pulses\n"
+        "- Extra Power requires a 30-level unlock and increases field-energy draw by exactly 50%\n"
+        "- event-driven bonuses require a recently successful paid energy pulse\n"
         "- crop and tile-entity work is capped and unloaded chunks are not scanned for normal field effects\n"
         "- Activator uses reference-counted plugin chunk tickets with 64-beacon and 256-chunk global caps\n"
-        "- shutdown restores player flight/scale state and releases Beacon Plus chunk tickets\n"
-        "- the discontinued BeaconPlus3 plugin is not a runtime dependency\n"
-        "- no existing database schema, Cargo, Energy or machine transaction semantics are changed\n",
+        "- shutdown restores player flight/scale state, clears paid-power state and releases chunk tickets\n"
+        "- the discontinued BeaconPlus3 plugin is not a runtime dependency\n",
         encoding="utf-8",
     )
     print(report.read_text(encoding="utf-8"), end="")
