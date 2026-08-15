@@ -50,8 +50,7 @@ final class BeaconPlusConfig {
 
         for (BeaconPlusEffect effect : BeaconPlusEffect.configurableValues()) {
             String path = powerPath(effect);
-            boolean enabledByDefault = effect != BeaconPlusEffect.FLYING && effect != BeaconPlusEffect.IMMORTALITY_FIELD;
-            config.setDefaultValue(path + ".enabled", enabledByDefault);
+            config.setDefaultValue(path + ".enabled", true);
             config.setDefaultValue(path + ".payment-mode", "INHERIT");
             for (int tier = 1; tier <= MAX_TIER; tier++) {
                 config.setDefaultValue(path + ".experience-costs.tier-" + tier, defaultExperienceCost(effect, tier));
