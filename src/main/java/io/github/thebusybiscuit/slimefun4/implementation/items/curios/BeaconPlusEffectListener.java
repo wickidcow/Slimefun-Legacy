@@ -45,7 +45,7 @@ final class BeaconPlusEffectListener implements Listener {
             return;
         }
 
-        int power = BeaconPlusRuntime.getPowerForEffect(
+        int power = BeaconPlusPowerState.getPowerForEffect(
                 event.getPlayer().getLocation(), BeaconPlusEffect.EXPERIENCE_BOOSTER);
         if (power >= 0) {
             event.setAmount(event.getAmount() * (power > 0 ? 3 : 2));
@@ -54,7 +54,7 @@ final class BeaconPlusEffectListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onCooldown(PlayerItemCooldownEvent event) {
-        int power = BeaconPlusRuntime.getPowerForEffect(
+        int power = BeaconPlusPowerState.getPowerForEffect(
                 event.getPlayer().getLocation(), BeaconPlusEffect.COOLDOWN_REDUCTION);
         if (power < 0 || event.getCooldown() <= 1) {
             return;
@@ -69,7 +69,7 @@ final class BeaconPlusEffectListener implements Listener {
         if (!(event.getTarget() instanceof Player player)) {
             return;
         }
-        if (!BeaconPlusRuntime.hasEffect(player.getLocation(), BeaconPlusEffect.PEACEFUL)) {
+        if (!BeaconPlusPowerState.hasPoweredEffect(player.getLocation(), BeaconPlusEffect.PEACEFUL)) {
             return;
         }
 
@@ -84,7 +84,7 @@ final class BeaconPlusEffectListener implements Listener {
         if (!(event.getEntity() instanceof Player player)) {
             return;
         }
-        if (!BeaconPlusRuntime.hasEffect(player.getLocation(), BeaconPlusEffect.PEACEFUL)) {
+        if (!BeaconPlusPowerState.hasPoweredEffect(player.getLocation(), BeaconPlusEffect.PEACEFUL)) {
             return;
         }
 
@@ -107,7 +107,7 @@ final class BeaconPlusEffectListener implements Listener {
             return;
         }
 
-        int power = BeaconPlusRuntime.getPowerForEffect(
+        int power = BeaconPlusPowerState.getPowerForEffect(
                 player.getLocation(), BeaconPlusEffect.IMMORTALITY_FIELD);
         if (power < 0) {
             return;
@@ -141,7 +141,13 @@ final class BeaconPlusEffectListener implements Listener {
             return;
         }
 
-        BeaconPlusRuntime.refreshPlayerState(event.getPlayer());
+        boolean poweredPersistentState = BeaconPlusPowerState.hasPoweredEffect(to, BeaconPlusEffect.FLYING)
+                || BeaconPlusPowerState.hasPoweredEffect(to, BeaconPlusEffect.SCALE);
+        if (poweredPersistentState) {
+            BeaconPlusRuntime.refreshPlayerState(event.getPlayer());
+        } else {
+            BeaconPlusRuntime.clearPlayerState(event.getPlayer());
+        }
     }
 
     @EventHandler
