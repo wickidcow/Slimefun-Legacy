@@ -1,0 +1,224 @@
+name: Publish Resonance Beacon 4.1.30B Retry
+
+on:
+  push:
+    branches:
+      - automation/refresh-beacon-release-asset
+    paths:
+      - .github/workflows/refresh-beacon-release-4-1-30b-retry.yml
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SOURCE_SHA: e4915952f879fe457e248d533da87ba7e71eb4e6
+      RELEASE_TAG: beacon-upgrade-addon-chunk-loader-v1.0.0
+      RELEASE_ID: '371037327'
+      RELEASE_VERSION: 4.1.30B
+      JAR_NAME: SF_Slimefun_Legacy_v4.1.30B.jar
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out exact validated source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Verify source and build 4.1.30B with pinned provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          python3 scripts/verify_legacy.py .
+          chmod +x gradlew
+          export SOURCE_COMMIT="$SOURCE_SHA"
+          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct "$SOURCE_SHA")"
+          ./gradlew clean test shadowJar \
+            -PprojectVersion="$RELEASE_VERSION" \
+            --no-daemon --no-build-cache --no-configuration-cache
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -n "$JAR"
+          mkdir -p dist
+          cp "$JAR" "dist/$JAR_NAME"
+          test -s "dist/$JAR_NAME"
+
+      - name: Verify Java target, metadata, and release packaging
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/check_bytecode_target.py "dist/$JAR_NAME" \
+            --expected-java 21 \
+            --report /tmp/beacon-4.1.30b-bytecode.txt
+
+          mkdir -p /tmp/release-verify-root/compatibility
+          cp gradle.properties /tmp/release-verify-root/gradle.properties
+          cp compatibility/support-contract.json /tmp/release-verify-root/compatibility/support-contract.json
+          cp compatibility/release-baselines.json /tmp/release-verify-root/compatibility/release-baselines.json
+          cp scripts/verify_release_artifact.py /tmp/verify_release_artifact_4_1_30b.py
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          version = "4.1.30B"
+          root = Path("/tmp/release-verify-root")
+
+          properties = root / "gradle.properties"
+          text = properties.read_text(encoding="utf-8")
+          text = text.replace("projectVersion=4.1.30", f"projectVersion={version}", 1)
+          properties.write_text(text, encoding="utf-8")
+
+          support_path = root / "compatibility/support-contract.json"
+          support = json.loads(support_path.read_text(encoding="utf-8"))
+          support["release"] = version
+          support_path.write_text(json.dumps(support, indent=2) + "\n", encoding="utf-8")
+
+          baseline_path = root / "compatibility/release-baselines.json"
+          baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+          baseline["candidate"]["version"] = version
+          baseline_path.write_text(json.dumps(baseline, indent=2) + "\n", encoding="utf-8")
+
+          verifier = Path("/tmp/verify_release_artifact_4_1_30b.py")
+          text = verifier.read_text(encoding="utf-8")
+          old = 'r"^projectVersion=(\\d+\\.\\d+\\.\\d+)$"'
+          new = 'r"^projectVersion=(\\d+\\.\\d+\\.\\d+[A-Za-z0-9.-]*)$"'
+          if old not in text:
+              raise SystemExit("Could not locate release-version regex")
+          verifier.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
+          SOURCE_COMMIT="$SOURCE_SHA" python3 /tmp/verify_release_artifact_4_1_30b.py "dist/$JAR_NAME" \
+            --root /tmp/release-verify-root \
+            --json-report /tmp/beacon-4.1.30b-release-artifact.json \
+            --summary /tmp/beacon-4.1.30b-release-artifact.md
+
+          unzip -p "dist/$JAR_NAME" plugin.yml | grep -F "$RELEASE_VERSION"
+          unzip -p "dist/$JAR_NAME" git.properties | grep -F "git.source.commit=$SOURCE_SHA"
+          SHA256="$(sha256sum "dist/$JAR_NAME" | awk '{print $1}')"
+          SIZE="$(stat -c '%s' "dist/$JAR_NAME")"
+          echo "JAR_SHA256=$SHA256" >> "$GITHUB_ENV"
+          echo "JAR_SIZE=$SIZE" >> "$GITHUB_ENV"
+          {
+            echo "# Resonance Beacon 4.1.30B"
+            echo
+            echo "- Source: \`$SOURCE_SHA\`"
+            echo "- Size: \`$SIZE\` bytes"
+            echo "- SHA-256: \`$SHA256\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Write 4.1.30B release notes
+        shell: bash
+        run: |
+          cat > /tmp/release-notes.md <<'EOF'
+          # Slimefun Legacy 4.1.30B — Resonance Beacon Chunk Loader Edition
+
+          This maintenance build updates the **Resonance Beacon** and Adventurer's Curios feature pack inside Slimefun Legacy.
+
+          > **Important:** This is a complete Slimefun Legacy JAR, not a separate addon JAR. Replace your current Slimefun Legacy JAR with the attached `SF_Slimefun_Legacy_v4.1.30B.jar` when testing this release.
+
+          ## Full-height, chunk-aligned Resonance Beacon fields
+
+          - Field powers now use a **chunk-aligned square footprint** instead of a spherical 3D radius.
+          - Every covered chunk column is affected from the world's minimum build height through its maximum build height.
+          - There is **no vertical distance limit** inside a covered chunk column.
+          - Horizontal coverage still comes from the beacon's effective range, including imported BeaconPlus range overrides and Extra Range.
+          - Normal field powers operate only in already-loaded chunks and **never load chunks on their own**.
+          - Existing bounded tile-entity, crop, and machine/block work limits remain in place.
+
+          ## Show Effect Area
+
+          - The old spherical three-ring particle preview is removed.
+          - **Show Effect Area** now renders the exact affected chunk grid as a flat square at each viewer's current Y level.
+          - Chunk boundary lines show exactly which chunk columns are covered.
+          - The preview is display-only and never loads chunks.
+
+          ## Activator chunk loading
+
+          Activator remains the only Resonance Beacon power that intentionally keeps chunks loaded:
+
+          - Tier I: current chunk
+          - Tier II: **3x3** chunks
+          - Tier III: **5x5** chunks
+          - Safety caps remain **64 active Resonance Beacon loaders** and **256 unique ticketed chunks**.
+          - `/beacon enable`, `/beacon disable`, and `/beacon status` remain available to operators.
+          - Global chunk loading defaults enabled through `SlimefunLegacyAddition.PoweredBeacon.chunk-loading-enabled: true`.
+
+          ## Resonance Beacon and Adventurer's Curios
+
+          - 28 configurable Resonance Beacon powers with permanent Tier I / II / III progression.
+          - Pyramid size and mineral resonance cap effective tiers.
+          - Experience-level or Vault-money upgrade costs remain configurable.
+          - BeaconPlus WORLD-storage migration remains supported from `<world>/BeaconData/<chunkX>.<chunkZ>.json`.
+          - Legacy effect levels remain grandfathered without charging players again.
+          - All 9 Adventurer's Curios continue to use the **Slimefun Enhanced Crafting Table**.
+          - Miner's Canary retains passive hostile/lava/fire/air/fall danger detection.
+
+          ## Validation
+
+          Exact source commit `e4915952f879fe457e248d533da87ba7e71eb4e6` passed all five release gates:
+
+          - Build English Slimefun
+          - Paper 26.2 Runtime Smoke
+          - Runtime Gameplay Correctness
+          - Public API Compatibility
+          - Slimefun Compatibility, including required and advisory addon checks
+
+          The attached JAR is built on Java 25, verified for **Java 21 bytecode**, and contains pinned source provenance for the exact validated commit.
+          EOF
+
+      - name: Replace 4.1.30 asset with 4.1.30B and update release
+        shell: bash
+        run: |
+          set -euo pipefail
+          for NAME in "SF_Slimefun_Legacy_v4.1.30.jar" "$JAR_NAME"; do
+            ASSET_ID="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets" \
+              --paginate --jq ".[] | select(.name == \"$NAME\") | .id" | head -n1)"
+            if [[ -n "$ASSET_ID" ]]; then
+              gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$ASSET_ID"
+            fi
+          done
+
+          gh release upload "$RELEASE_TAG" "dist/$JAR_NAME" --repo "$GITHUB_REPOSITORY" --clobber
+
+          BODY="$(cat /tmp/release-notes.md)"
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+            -f name='Slimefun Legacy 4.1.30B - Resonance Beacon Chunk Loader Edition' \
+            -f body="$BODY" \
+            -f target_commitish="$SOURCE_SHA" \
+            -F draft=false \
+            -F prerelease=false >/tmp/release-patch.json
+
+      - name: Verify published release
+        shell: bash
+        run: |
+          set -euo pipefail
+          RELEASE_JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
+          echo "$RELEASE_JSON" | jq -e '.name == "Slimefun Legacy 4.1.30B - Resonance Beacon Chunk Loader Edition"' >/dev/null
+          echo "$RELEASE_JSON" | jq -e '.draft == false and .prerelease == false' >/dev/null
+          echo "$RELEASE_JSON" | jq -e --arg sha "$SOURCE_SHA" '.target_commitish == $sha' >/dev/null
+          echo "$RELEASE_JSON" | jq -e --arg name "$JAR_NAME" --arg digest "sha256:$JAR_SHA256" --argjson size "$JAR_SIZE" \
+            '.assets | length == 1 and .[0].name == $name and .[0].state == "uploaded" and .[0].size == $size and .[0].digest == $digest' >/dev/null
+          if echo "$RELEASE_JSON" | jq -e '.assets[] | select(.name == "SF_Slimefun_Legacy_v4.1.30.jar")' >/dev/null; then
+            echo "Old 4.1.30 JAR remains attached" >&2
+            exit 1
+          fi
+          echo "$RELEASE_JSON" | jq '{name, tag_name, target_commitish, assets: [.assets[] | {id, name, size, digest, content_type, state}]}'
+
+      - name: Upload direct 4.1.30B JAR artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: SF_Slimefun_Legacy_v4.1.30B.jar
+          path: dist/SF_Slimefun_Legacy_v4.1.30B.jar
+          archive: false
+          if-no-files-found: error
