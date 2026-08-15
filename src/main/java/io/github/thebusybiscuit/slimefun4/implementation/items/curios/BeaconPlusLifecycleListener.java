@@ -22,11 +22,13 @@ final class BeaconPlusLifecycleListener implements Listener {
         }
         registered = true;
         Bukkit.getPluginManager().registerEvents(new BeaconPlusLifecycleListener(plugin), plugin);
+        BeaconPlusAreaVisualizer.register(plugin);
     }
 
     @EventHandler
     public void onPluginDisable(PluginDisableEvent event) {
         if (event.getPlugin() == plugin) {
+            BeaconPlusAreaVisualizer.shutdown();
             BeaconPlusRuntime.shutdown();
             BeaconPlusProgression.shutdown();
             BeaconPlusLegacyDataStore.shutdownCurrent();
