@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
 
-import io.github.bakedlibs.dough.config.Config;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.Locale;
 import org.bukkit.Material;
@@ -19,7 +18,7 @@ final class BeaconPlusConfig {
     private BeaconPlusConfig() {}
 
     static void installDefaults() {
-        Config config = Slimefun.getCfg();
+        var config = Slimefun.getCfg();
         config.setDefaultValue(ROOT + ".enabled", true);
         config.setDefaultValue(ROOT + ".progression.max-tier", MAX_TIER);
         config.setDefaultValue(ROOT + ".progression.payment-mode", "EXPERIENCE");
