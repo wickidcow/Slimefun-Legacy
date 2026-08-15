@@ -185,6 +185,10 @@ public class EnergyNet extends Network implements HologramOwner {
                         continue;
                     }
 
+                    if (!component.isEnergyNetActive(loc, data)) {
+                        continue;
+                    }
+
                     long capacity = getSafeCapacity(component, loc);
                     long charge = getSafeCharge(component, loc, data, capacity);
 

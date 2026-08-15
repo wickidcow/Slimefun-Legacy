@@ -1,3 +1,16 @@
+# Slimefun Legacy 4.1.31 — Resonance Beacon & Radiation Gear Update
+
+- Fixed the Resonance Beacon GUI so display-only status, pyramid and controls items cannot be picked up or moved.
+- Gravity Well now pulls every Bukkit `Enemy` implementation, including Endermen, plus dropped items while preserving Monster-only debuff behavior.
+- Added the Advanced Hazmat Suit: a four-piece Armor Forge upgrade with native Slimefun radiation and bee protection, Protection IV and Unbreaking VI; the helmet retains water breathing and the chestplate retains fire resistance.
+- Added optional per-beacon **Electric Operation** using the native Slimefun Energy Network. It is OFF by default for backwards compatibility.
+- Electric beacons use a configurable 4,096 J buffer and a bounded once-per-second cost derived from active power tiers. Insufficient energy pauses powers without deleting unlocks or selections.
+- Activator chunk tickets are released while an electric beacon is unpowered and resume automatically when energy returns.
+- Added a backwards-compatible location-aware EnergyNet participation hook; existing energy components inherit the old always-active behavior.
+- Resonance Beacon still has exactly 28 powers; Electric Operation is an operating mode, not a new power.
+
+---
+
 # Slimefun Legacy 4.1.29 — Core Platform Phase 1K
 
 ## Part 2 — Addon Boundary Evidence in `/sf versions`

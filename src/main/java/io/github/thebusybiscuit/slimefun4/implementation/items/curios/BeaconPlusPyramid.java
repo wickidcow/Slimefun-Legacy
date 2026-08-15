@@ -100,7 +100,8 @@ final class BeaconPlusPyramid {
             if (dominantMaterial == Material.AIR) {
                 return "None";
             }
-            String[] parts = dominantMaterial.name().toLowerCase(java.util.Locale.ROOT).split("_");
+            String[] parts =
+                    dominantMaterial.name().toLowerCase(java.util.Locale.ROOT).split("_");
             StringBuilder result = new StringBuilder();
             for (String part : parts) {
                 if (!result.isEmpty()) {

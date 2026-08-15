@@ -21,6 +21,11 @@ final class BeaconPlusConfig {
         var config = Slimefun.getCfg();
         config.setDefaultValue(ROOT + ".enabled", true);
         config.setDefaultValue(ROOT + ".chunk-loading-enabled", true);
+        config.setDefaultValue(ROOT + ".electric-operation.enabled", true);
+        config.setDefaultValue(ROOT + ".electric-operation.capacity", 4096);
+        config.setDefaultValue(ROOT + ".electric-operation.base-joules-per-pulse", 16);
+        config.setDefaultValue(ROOT + ".electric-operation.tier-joules-per-pulse", 4);
+        config.setDefaultValue(ROOT + ".electric-operation.activator-tier-surcharge-joules-per-pulse", 16);
         config.setDefaultValue(ROOT + ".progression.max-tier", MAX_TIER);
         config.setDefaultValue(ROOT + ".progression.payment-mode", "EXPERIENCE");
         config.setDefaultValue(ROOT + ".progression.creative-bypass-cost", true);
@@ -67,6 +72,28 @@ final class BeaconPlusConfig {
 
     static boolean isPowerEnabled(BeaconPlusEffect effect) {
         return effect.isConfigurable() && Slimefun.getCfg().getBoolean(powerPath(effect) + ".enabled");
+    }
+
+    static boolean isElectricOperationEnabled() {
+        return Slimefun.getCfg().getBoolean(ROOT + ".electric-operation.enabled");
+    }
+
+    static int getEnergyCapacity() {
+        int configured = Slimefun.getCfg().getInt(ROOT + ".electric-operation.capacity");
+        return configured > 0 ? configured : 4096;
+    }
+
+    static int getEnergyBaseCostPerPulse() {
+        return Math.max(0, Slimefun.getCfg().getInt(ROOT + ".electric-operation.base-joules-per-pulse"));
+    }
+
+    static int getEnergyTierCostPerPulse() {
+        return Math.max(0, Slimefun.getCfg().getInt(ROOT + ".electric-operation.tier-joules-per-pulse"));
+    }
+
+    static int getEnergyActivatorTierSurchargePerPulse() {
+        return Math.max(
+                0, Slimefun.getCfg().getInt(ROOT + ".electric-operation.activator-tier-surcharge-joules-per-pulse"));
     }
 
     static int getMaxTier() {
@@ -144,17 +171,15 @@ final class BeaconPlusConfig {
     static int getRequiredPyramidTier(int tier) {
         int safeTier = clamp(tier, 1, getMaxTier());
         return clamp(
-                Slimefun.getCfg().getInt(ROOT + ".pyramid.tier-requirements." + safeTier + ".min-pyramid-tier"),
-                1,
-                4);
+                Slimefun.getCfg().getInt(ROOT + ".pyramid.tier-requirements." + safeTier + ".min-pyramid-tier"), 1, 4);
     }
 
     static double getRequiredAverageMaterialPower(int tier) {
         int safeTier = clamp(tier, 1, getMaxTier());
         return Math.max(
                 0.0D,
-                Slimefun.getCfg().getDouble(
-                        ROOT + ".pyramid.tier-requirements." + safeTier + ".min-average-material-power"));
+                Slimefun.getCfg()
+                        .getDouble(ROOT + ".pyramid.tier-requirements." + safeTier + ".min-average-material-power"));
     }
 
     static String getConfigKey(BeaconPlusEffect effect) {
@@ -166,12 +191,13 @@ final class BeaconPlusConfig {
     }
 
     private static int defaultExperienceCost(BeaconPlusEffect effect, int tier) {
-        int base = switch (effect) {
-            case FLYING, IMMORTALITY_FIELD, ACTIVATOR -> 25;
-            case EXTRA_POWER, EXTRA_RANGE, AUTO_REPAIR, EXPERIENCE_BOOSTER, COOLDOWN_REDUCTION -> 15;
-            case REGENERATION, RESISTANCE, PEACEFUL, GRAVITY_WELL, SPAWNERS, CROPS -> 10;
-            default -> 5;
-        };
+        int base =
+                switch (effect) {
+                    case FLYING, IMMORTALITY_FIELD, ACTIVATOR -> 25;
+                    case EXTRA_POWER, EXTRA_RANGE, AUTO_REPAIR, EXPERIENCE_BOOSTER, COOLDOWN_REDUCTION -> 15;
+                    case REGENERATION, RESISTANCE, PEACEFUL, GRAVITY_WELL, SPAWNERS, CROPS -> 10;
+                    default -> 5;
+                };
         return switch (tier) {
             case 1 -> base;
             case 2 -> base * 2 + 5;

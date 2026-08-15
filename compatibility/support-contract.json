@@ -1,5 +1,5 @@
 {
-  "release": "4.1.30",
+  "release": "4.1.31",
   "project": "Slimefun Legacy",
   "plugin_name": "Slimefun",
   "primary_platform": {
@@ -181,7 +181,9 @@
     "paper_runtime_smoke_runs_upgrade_diagnostics": true,
     "paper_runtime_smoke_requires_clean_restart_evidence": true,
     "phase1l_part4_changes_normal_cargo_energy_machine_semantics": false,
-    "phase1l_part4_changes_storage_or_gameplay_semantics": false
+    "phase1l_part4_changes_storage_or_gameplay_semantics": false,
+    "resonance_beacon_optional_energy_operation": true,
+    "energy_net_inactive_consumers_preserve_existing_behavior": true
   },
   "phase": "Core Platform Phase 1L"
 }

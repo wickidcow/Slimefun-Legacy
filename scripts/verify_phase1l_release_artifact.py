@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-CURRENT_VERSION = "4.1.30"
+CURRENT_VERSION = "4.1.31"
 CURRENT_PHASE = "Core Platform Phase 1L"
 PREVIOUS_STABLE_VERSION = "4.1.29"
 PREVIOUS_STABLE_REF = "9794baffdd4a96f71fa18ae45ced8bab30982fb0"
@@ -43,7 +43,7 @@ def main() -> int:
         require(version == CURRENT_VERSION, f"Part 2 requires projectVersion {CURRENT_VERSION}", failures)
 
         support = load_json(root, "compatibility/support-contract.json")
-        require(support.get("release") == CURRENT_VERSION, "Support contract release must match 4.1.30", failures)
+        require(support.get("release") == CURRENT_VERSION, "Support contract release must match 4.1.31", failures)
         require(support.get("phase") == CURRENT_PHASE, "Support contract phase must remain Core Platform Phase 1L", failures)
         policy = support.get("compatibility_policy", {})
         for key in (
@@ -64,7 +64,7 @@ def main() -> int:
             require(policy.get(key) is False, f"Phase 1L Part 2 policy must remain false: {key}", failures)
 
         baselines = load_json(root, "compatibility/release-baselines.json")
-        require(baselines.get("candidate", {}).get("version") == CURRENT_VERSION, "Candidate baseline must remain 4.1.30", failures)
+        require(baselines.get("candidate", {}).get("version") == CURRENT_VERSION, "Candidate baseline must remain 4.1.31", failures)
         require(baselines.get("previous_stable", {}).get("version") == PREVIOUS_STABLE_VERSION, "Previous stable must remain 4.1.29", failures)
         require(
             baselines.get("previous_stable", {}).get("source", {}).get("ref") == PREVIOUS_STABLE_REF,
@@ -141,7 +141,7 @@ def main() -> int:
             require(token in release_workflow, f"Reproducible release workflow invariant missing: {token}", failures)
 
         core_registry = load_json(root, "compatibility/core-api-registry.json")
-        require(core_registry.get("release") == CURRENT_VERSION, "Core API registry release must remain 4.1.30", failures)
+        require(core_registry.get("release") == CURRENT_VERSION, "Core API registry release must remain 4.1.31", failures)
         capabilities = set(core_registry.get("compatibility_capabilities", []))
         require(
             "reproducible-release-artifact-verification" in capabilities,

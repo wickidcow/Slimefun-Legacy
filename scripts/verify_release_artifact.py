@@ -236,7 +236,7 @@ def main() -> int:
     if baselines.get("candidate", {}).get("version") != version:
         failures.append("Release baseline candidate does not match projectVersion")
     if baselines.get("previous_stable", {}).get("version") != "4.1.29":
-        failures.append("4.1.30 release candidate must compare against previous stable 4.1.29")
+        failures.append("4.1.31 release candidate must compare against previous stable 4.1.29")
     if baselines.get("previous_stable", {}).get("source", {}).get("ref") != "9794baffdd4a96f71fa18ae45ced8bab30982fb0":
         failures.append("Previous stable 4.1.29 baseline is not pinned to the validated release commit")
 

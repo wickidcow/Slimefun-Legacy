@@ -91,8 +91,7 @@ abstract class AbstractSmeltery extends MultiBlockMachine {
             for (int slot = 0; slot < contents.length && required > 0; slot++) {
                 ItemStack stack = contents[slot];
 
-                if (remainingAmounts[slot] <= 0
-                        || !SlimefunUtils.isItemSimilar(stack, expectedInput, true, false)) {
+                if (remainingAmounts[slot] <= 0 || !SlimefunUtils.isItemSimilar(stack, expectedInput, true, false)) {
                     continue;
                 }
 
@@ -109,8 +108,7 @@ abstract class AbstractSmeltery extends MultiBlockMachine {
         return true;
     }
 
-    protected void craft(
-            Player p, Block b, Inventory inv, ItemStack[] recipe, ItemStack output, Block dispenser) {
+    protected void craft(Player p, Block b, Inventory inv, ItemStack[] recipe, ItemStack output, Block dispenser) {
         for (ItemStack removing : recipe) {
             if (removing != null) {
                 InvUtils.removeItem(

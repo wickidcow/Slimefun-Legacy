@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "release": "4.1.30",
+  "release": "4.1.31",
   "policy": {
     "legacy_contract_is_release_blocking": true,
     "external_fork_drift_is_advisory": true,

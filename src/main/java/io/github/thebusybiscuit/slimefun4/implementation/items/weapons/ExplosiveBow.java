@@ -72,11 +72,13 @@ public class ExplosiveBow extends SlimefunBow {
                 }
 
                 Entity causingEntity = e.getDamager();
-                if (e.getDamager() instanceof Projectile projectile && projectile.getShooter() instanceof Entity shooter) {
+                if (e.getDamager() instanceof Projectile projectile
+                        && projectile.getShooter() instanceof Entity shooter) {
                     causingEntity = shooter;
                 }
 
-                DamageType damageType = causingEntity instanceof Player ? DamageType.PLAYER_EXPLOSION : DamageType.EXPLOSION;
+                DamageType damageType =
+                        causingEntity instanceof Player ? DamageType.PLAYER_EXPLOSION : DamageType.EXPLOSION;
                 boolean damaged = DamageUtils.damage(entity, damage, damageType, e.getDamager(), causingEntity);
 
                 if (damaged) {

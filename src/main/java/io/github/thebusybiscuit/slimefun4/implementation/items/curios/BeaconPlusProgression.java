@@ -39,8 +39,7 @@ final class BeaconPlusProgression {
         if (!BeaconPlusConfig.isPowerEnabled(effect)) {
             return PurchaseResult.failure("That power is disabled by the server administrator.");
         }
-        if (!owner.equals(buyer.getUniqueId())
-                && !(buyer.isOp() && BeaconPlusConfig.operatorCanSponsorUpgrades())) {
+        if (!owner.equals(buyer.getUniqueId()) && !(buyer.isOp() && BeaconPlusConfig.operatorCanSponsorUpgrades())) {
             return PurchaseResult.failure("Only the Resonance Beacon owner can purchase power upgrades.");
         }
 
@@ -68,8 +67,7 @@ final class BeaconPlusProgression {
                     }
                     EconomyResponse response = economy.withdrawPlayer(buyer, cost);
                     if (!response.transactionSuccess()) {
-                        return PurchaseResult.failure(
-                                "The economy transaction failed: " + response.errorMessage);
+                        return PurchaseResult.failure("The economy transaction failed: " + response.errorMessage);
                     }
                 }
             } else {

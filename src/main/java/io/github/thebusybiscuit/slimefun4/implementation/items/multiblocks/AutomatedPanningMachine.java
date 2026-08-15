@@ -116,7 +116,8 @@ public class AutomatedPanningMachine extends MultiBlockMachine {
                         b.getRelative(BlockFace.DOWN).getLocation(), material));
         queue.thenRun(20, () -> {
             if (finalOutput.getType() != Material.AIR) {
-                Optional<Inventory> outputChest = OutputChest.findOutputChestFor(b.getRelative(BlockFace.DOWN), finalOutput);
+                Optional<Inventory> outputChest =
+                        OutputChest.findOutputChestFor(b.getRelative(BlockFace.DOWN), finalOutput);
 
                 if (outputChest.isPresent()) {
                     ItemStack remainder = Slimefun.getItemStackService()

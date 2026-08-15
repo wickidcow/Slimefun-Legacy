@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "release": "4.1.30",
+  "release": "4.1.31",
   "policy": {
     "required_failures_block_release": true,
     "advisory_failures_are_reported": true,
@@ -18,7 +18,9 @@
       "tier": "required",
       "advisory": false,
       "enabled": true,
-      "tested_core_variants": ["legacy"]
+      "tested_core_variants": [
+        "legacy"
+      ]
     },
     {
       "name": "Networks Expansion Legacy",
@@ -27,7 +29,9 @@
       "tier": "required",
       "advisory": false,
       "enabled": true,
-      "tested_core_variants": ["legacy"]
+      "tested_core_variants": [
+        "legacy"
+      ]
     },
     {
       "name": "SlimeTinker IE2 Legacy",
@@ -36,7 +40,9 @@
       "tier": "required",
       "advisory": false,
       "enabled": true,
-      "tested_core_variants": ["legacy"]
+      "tested_core_variants": [
+        "legacy"
+      ]
     },
     {
       "name": "BetterChests Legacy",
@@ -45,7 +51,9 @@
       "tier": "required",
       "advisory": false,
       "enabled": true,
-      "tested_core_variants": ["legacy"]
+      "tested_core_variants": [
+        "legacy"
+      ]
     },
     {
       "name": "Networks upstream",
@@ -54,7 +62,11 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["original", "gugu", "legacy"]
+      "tested_core_variants": [
+        "original",
+        "gugu",
+        "legacy"
+      ]
     },
     {
       "name": "Infinity Expansion 2",
@@ -63,7 +75,10 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["gugu", "legacy"]
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
     },
     {
       "name": "DynaTech",
@@ -72,7 +87,10 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["original", "legacy"]
+      "tested_core_variants": [
+        "original",
+        "legacy"
+      ]
     },
     {
       "name": "Supreme",
@@ -81,7 +99,12 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["original", "gugu", "united", "legacy"]
+      "tested_core_variants": [
+        "original",
+        "gugu",
+        "united",
+        "legacy"
+      ]
     },
     {
       "name": "Magic Expansion",
@@ -90,7 +113,10 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["gugu", "legacy"]
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
     },
     {
       "name": "FluffyMachines",
@@ -99,7 +125,10 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["gugu", "legacy"]
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
     },
     {
       "name": "FastMachines upstream",
@@ -108,7 +137,10 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["gugu", "legacy"]
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
     },
     {
       "name": "SlimeTinker upstream",
@@ -117,7 +149,10 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["original", "legacy"]
+      "tested_core_variants": [
+        "original",
+        "legacy"
+      ]
     },
     {
       "name": "FoxyMachines",
@@ -126,7 +161,10 @@
       "tier": "gugu-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["gugu", "legacy"]
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
     },
     {
       "name": "FlowerPower",
@@ -135,7 +173,10 @@
       "tier": "gugu-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["gugu", "legacy"]
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
     },
     {
       "name": "IDreamOfEasy",
@@ -144,7 +185,10 @@
       "tier": "gugu-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["gugu", "legacy"]
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
     },
     {
       "name": "Gastronomicon",
@@ -153,7 +197,10 @@
       "tier": "gugu-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["gugu", "legacy"]
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
     },
     {
       "name": "Bump",
@@ -162,7 +209,10 @@
       "tier": "gugu-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["gugu", "legacy"]
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
     },
     {
       "name": "SlimeCustomizer",
@@ -171,7 +221,10 @@
       "tier": "gugu-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["gugu", "legacy"]
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
     },
     {
       "name": "EMCTech",
@@ -180,7 +233,10 @@
       "tier": "gugu-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": ["gugu", "legacy"]
+      "tested_core_variants": [
+        "gugu",
+        "legacy"
+      ]
     }
   ],
   "baseline_registry": "compatibility/release-baselines.json"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify Slimefun Legacy 4.1.30 Core Platform Phase 1L Part 3 upgrade diagnostics."""
+"""Verify Slimefun Legacy 4.1.31 Core Platform Phase 1L Part 3 upgrade diagnostics."""
 from __future__ import annotations
 
 import json
@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-CURRENT_VERSION = "4.1.30"
+CURRENT_VERSION = "4.1.31"
 CURRENT_PHASE = "Core Platform Phase 1L"
 PREVIOUS_STABLE_VERSION = "4.1.29"
 
@@ -38,7 +38,7 @@ def main() -> int:
     failures: list[str] = []
 
     try:
-        require(project_version(root) == CURRENT_VERSION, "Part 3 requires projectVersion 4.1.30", failures)
+        require(project_version(root) == CURRENT_VERSION, "Part 3 requires projectVersion 4.1.31", failures)
 
         upgrade = read(
             root,
@@ -116,7 +116,7 @@ def main() -> int:
         baselines = load_json(root, "compatibility/release-baselines.json")
         require(
             baselines.get("candidate", {}).get("version") == CURRENT_VERSION,
-            "Upgrade diagnostics candidate baseline must remain 4.1.30",
+            "Upgrade diagnostics candidate baseline must remain 4.1.31",
             failures,
         )
         require(
@@ -126,7 +126,7 @@ def main() -> int:
         )
 
         support = load_json(root, "compatibility/support-contract.json")
-        require(support.get("release") == CURRENT_VERSION, "Support contract release must remain 4.1.30", failures)
+        require(support.get("release") == CURRENT_VERSION, "Support contract release must remain 4.1.31", failures)
         require(support.get("phase") == CURRENT_PHASE, "Support contract phase must remain Core Platform Phase 1L", failures)
         policy = support.get("compatibility_policy", {})
         for key in (
@@ -150,7 +150,7 @@ def main() -> int:
             require(policy.get(key) is False, f"Phase 1L Part 3 policy must remain false: {key}", failures)
 
         registry = load_json(root, "compatibility/core-api-registry.json")
-        require(registry.get("release") == CURRENT_VERSION, "Core API registry release must remain 4.1.30", failures)
+        require(registry.get("release") == CURRENT_VERSION, "Core API registry release must remain 4.1.31", failures)
         require(
             "runtime-upgrade-readiness-diagnostics" in set(registry.get("compatibility_capabilities", [])),
             "Core API registry is missing runtime upgrade diagnostics capability",

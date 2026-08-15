@@ -186,7 +186,12 @@ final class BeaconPlusRuntime {
             return;
         }
 
-        EnumMap<BeaconPlusEffect, Integer> tiers = getActiveTiers(block);
+        EnumMap<BeaconPlusEffect, Integer> tiers = getPotentialActiveTiers(block);
+        if (!BeaconPlusEnergy.consumePulse(block, data, tiers)) {
+            reconcileActivator(block, 0);
+            BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, 64.0D);
+            return;
+        }
         reconcileActivator(block, tiers.getOrDefault(BeaconPlusEffect.ACTIVATOR, 0));
         double range = getRange(block, tiers);
         if (range <= 0.0D) {
@@ -206,10 +211,19 @@ final class BeaconPlusRuntime {
 
     static void shutdown() {
         BeaconPlusRuntimeEffects.shutdown();
+        BeaconPlusEnergy.shutdown();
         OBSERVED_BEACONS.clear();
     }
 
     private static EnumMap<BeaconPlusEffect, Integer> getActiveTiers(Block block) {
+        EnumMap<BeaconPlusEffect, Integer> tiers = getPotentialActiveTiers(block);
+        if (tiers.isEmpty() || BeaconPlusEnergy.hasOperationalPower(block, tiers)) {
+            return tiers;
+        }
+        return new EnumMap<>(BeaconPlusEffect.class);
+    }
+
+    static EnumMap<BeaconPlusEffect, Integer> getPotentialActiveTiers(Block block) {
         EnumMap<BeaconPlusEffect, Integer> tiers = new EnumMap<>(BeaconPlusEffect.class);
         if (!BeaconPlusConfig.isEnabled() || getOwner(block.getLocation()) == null) {
             return tiers;

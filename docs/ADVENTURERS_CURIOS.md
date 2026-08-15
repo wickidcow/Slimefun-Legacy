@@ -65,6 +65,21 @@ Costs may use Minecraft experience levels or Vault money. Global and per-power p
 
 Purchasing Tier III never bypasses the physical beacon. The effective tier is capped by the pyramid below the beacon.
 
+### Optional electric operation
+
+Every Resonance Beacon can optionally operate as a native Slimefun Energy Network consumer. Electric operation is **OFF by default**, including existing and BeaconData-imported beacons, so upgrading does not add an energy requirement to an established beacon.
+
+The owner or an operator can toggle **Electric Operation** from the beacon GUI. When enabled:
+
+- the beacon accepts Slimefun energy through the normal Energy Network and stores it in a 4,096 J buffer by default;
+- once per 20-tick runtime pulse it pays a configurable base cost plus a small cost for each active power tier;
+- Activator adds a configurable tier surcharge because it can hold 1x1, 3x3, or 5x5 chunks loaded;
+- if the buffer cannot pay the current pulse, all powers become dormant without losing selections or purchased tiers;
+- Activator chunk tickets are released while unpowered and automatically return when enough energy is available again;
+- turning electric operation OFF immediately returns the beacon to normal pyramid/progression-only operation.
+
+The capacity and pulse-cost values are configurable under `SlimefunLegacyAddition.PoweredBeacon.electric-operation`. The energy option does not create a 29th power and never bypasses pyramid tier requirements.
+
 ### Pyramid resonance
 
 Default mineral values:

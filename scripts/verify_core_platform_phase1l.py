@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify Slimefun Legacy 4.1.30 Core Platform Phase 1L release-lifecycle invariants."""
+"""Verify Slimefun Legacy 4.1.31 Core Platform Phase 1L release-lifecycle invariants."""
 from __future__ import annotations
 
 import json
@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-CURRENT_VERSION = "4.1.30"
+CURRENT_VERSION = "4.1.31"
 CURRENT_PHASE = "Core Platform Phase 1L"
 PREVIOUS_STABLE_VERSION = "4.1.29"
 PREVIOUS_STABLE_REF = "9794baffdd4a96f71fa18ae45ced8bab30982fb0"
@@ -44,7 +44,7 @@ def main() -> int:
         require(version == CURRENT_VERSION, f"Phase 1L projectVersion must be {CURRENT_VERSION}, got {version or '<missing>'}", failures)
 
         support = load_json(root, "compatibility/support-contract.json")
-        require(support.get("release") == CURRENT_VERSION, "Support contract release must match 4.1.30", failures)
+        require(support.get("release") == CURRENT_VERSION, "Support contract release must match 4.1.31", failures)
         require(support.get("phase") == CURRENT_PHASE, "Support contract phase must be Core Platform Phase 1L", failures)
 
         policy = support.get("compatibility_policy", {})
@@ -81,7 +81,7 @@ def main() -> int:
         candidate = baselines.get("candidate", {})
         previous = baselines.get("previous_stable", {})
         floor = baselines.get("legacy_floor", {})
-        require(candidate.get("version") == CURRENT_VERSION, "Candidate baseline must be 4.1.30", failures)
+        require(candidate.get("version") == CURRENT_VERSION, "Candidate baseline must be 4.1.31", failures)
         require(previous.get("version") == PREVIOUS_STABLE_VERSION, "Previous stable baseline must be 4.1.29", failures)
         require(previous.get("source", {}).get("mode") == "git-ref", "Previous stable baseline must use a pinned git ref", failures)
         require(previous.get("source", {}).get("ref") == PREVIOUS_STABLE_REF, "Previous stable 4.1.29 baseline must be pinned to the validated release commit", failures)
@@ -95,7 +95,7 @@ def main() -> int:
             "compatibility/core-api-registry.json",
         ):
             data = load_json(root, relative)
-            require(data.get("release") == CURRENT_VERSION, f"{relative} release must be 4.1.30", failures)
+            require(data.get("release") == CURRENT_VERSION, f"{relative} release must be 4.1.31", failures)
 
         addon_matrix = load_json(root, "compatibility/addon-compatibility-matrix.json")
         required = [addon for addon in addon_matrix.get("addons", []) if addon.get("enabled") and not addon.get("advisory")]
@@ -117,7 +117,7 @@ def main() -> int:
 
     report.write_text(
         "Core Platform Phase 1L verification: PASS\n"
-        "- 4.1.30 development metadata is aligned across the support contract and compatibility registries\n"
+        "- 4.1.31 development metadata is aligned across the support contract and compatibility registries\n"
         "- validated 4.1.29 is now the release-blocking previous-stable baseline\n"
         "- the 4.1.15 historical compatibility floor remains advisory\n"
         "- required Legacy addon regressions continue to block release\n"

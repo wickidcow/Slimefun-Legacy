@@ -111,8 +111,8 @@ public class Composter extends SimpleSlimefunItem<BlockUseHandler> implements Re
         Optional<Inventory> outputChest = findOutputChest(b, output);
 
         if (outputChest.isPresent()) {
-            ItemStack remainder = Slimefun.getItemStackService()
-                    .addItem(outputChest.get(), output, InventoryContext.OUTPUT_CHEST);
+            ItemStack remainder =
+                    Slimefun.getItemStackService().addItem(outputChest.get(), output, InventoryContext.OUTPUT_CHEST);
 
             if (remainder != null && remainder.getAmount() > 0) {
                 b.getWorld().dropItemNaturally(b.getRelative(BlockFace.UP).getLocation(), remainder);

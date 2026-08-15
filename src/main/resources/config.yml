@@ -147,6 +147,16 @@ SlimefunLegacyAddition:
     # /beacon enable|disable changes this at runtime and preserves each beacon's Activator selection.
     chunk-loading-enabled: true
 
+    # Optional per-beacon Slimefun Energy Network operation. Existing/native/imported beacons default OFF.
+    # A player can toggle electric operation from the Resonance Beacon GUI. When ON, powers pause
+    # if the internal buffer cannot pay the once-per-second pulse cost; Activator tickets are released.
+    electric-operation:
+      enabled: true
+      capacity: 4096
+      base-joules-per-pulse: 16
+      tier-joules-per-pulse: 4
+      activator-tier-surcharge-joules-per-pulse: 16
+
     # Unlocks are permanent per beacon owner. EXPERIENCE means Minecraft experience levels.
     # MONEY uses Vault and the active economy provider. Individual powers can override this.
     progression:

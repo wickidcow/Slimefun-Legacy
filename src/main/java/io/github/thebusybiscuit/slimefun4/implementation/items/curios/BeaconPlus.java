@@ -6,8 +6,10 @@ import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
+import io.github.thebusybiscuit.slimefun4.core.attributes.EnergyNetComponent;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockPlaceHandler;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockUseHandler;
+import io.github.thebusybiscuit.slimefun4.core.networks.energy.EnergyNetComponentType;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.handlers.SimpleBlockBreakHandler;
 import java.util.ArrayList;
@@ -36,7 +38,7 @@ import org.bukkit.inventory.meta.ItemMeta;
  * 28 administrator-controlled powers, permanent owner unlocks up to Tier III, and a physical pyramid/material
  * resonance ceiling.
  */
-public final class BeaconPlus extends SlimefunItem {
+public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent {
 
     private static final int[] EFFECT_SLOTS = {
         9, 10, 11, 12, 13, 14, 15, 16, 17,
@@ -46,6 +48,7 @@ public final class BeaconPlus extends SlimefunItem {
     };
 
     private static final int STATUS_SLOT = 4;
+    private static final int ELECTRIC_OPERATION_SLOT = 46;
     private static final int DISABLE_ALL_SLOT = 47;
     private static final int PYRAMID_INFO_SLOT = 49;
     private static final int CONTROLS_SLOT = 51;
@@ -55,6 +58,26 @@ public final class BeaconPlus extends SlimefunItem {
     public BeaconPlus(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
         super(itemGroup, item, recipeType, recipe);
         addItemHandler(onPlace(), onUse(), onBreak(), createTicker());
+    }
+
+    @Override
+    public EnergyNetComponentType getEnergyComponentType() {
+        return EnergyNetComponentType.CONSUMER;
+    }
+
+    @Override
+    public int getCapacity() {
+        return BeaconPlusConfig.getEnergyCapacity();
+    }
+
+    @Override
+    public long getCapacityLong() {
+        return BeaconPlusConfig.getEnergyCapacity();
+    }
+
+    @Override
+    public boolean isEnergyNetActive(@Nonnull Location location, @Nonnull ASlimefunDataContainer data) {
+        return BeaconPlusConfig.isElectricOperationEnabled() && BeaconPlusEnergy.isElectricModeSelected(location);
     }
 
     @Override
@@ -90,6 +113,7 @@ public final class BeaconPlus extends SlimefunItem {
                 StorageCacheUtils.setData(
                         location, BeaconPlusManager.SUPPORT_MODE_KEY, BeaconPlusSupportMode.OFF.name());
                 StorageCacheUtils.setData(location, BeaconPlusRuntime.EFFECTS_KEY, "");
+                StorageCacheUtils.setData(location, BeaconPlusEnergy.ELECTRIC_MODE_KEY, Boolean.FALSE.toString());
                 StorageCacheUtils.removeData(location, BeaconPlusLegacyDataStore.IMPORTED_KEY);
 
                 BeaconPlusManager manager = BeaconPlusManager.getInstance();
@@ -142,6 +166,7 @@ public final class BeaconPlus extends SlimefunItem {
             @Override
             public void onBlockBreak(@Nonnull Block block) {
                 BeaconPlusRuntime.forget(block.getLocation());
+                BeaconPlusEnergy.forget(block.getLocation());
                 BeaconPlusManager manager = BeaconPlusManager.getInstance();
                 if (manager != null) {
                     manager.unregister(block.getLocation());
@@ -194,6 +219,14 @@ public final class BeaconPlus extends SlimefunItem {
                 return false;
             });
         }
+
+        menu.addItem(ELECTRIC_OPERATION_SLOT, createElectricOperationItem(block));
+        menu.addMenuClickHandler(ELECTRIC_OPERATION_SLOT, (pl, slot, item, action) -> {
+            if (action.isRightClicked()) {
+                toggleElectricOperation(pl, block, owner);
+            }
+            return false;
+        });
 
         menu.addItem(
                 DISABLE_ALL_SLOT,
@@ -348,6 +381,35 @@ public final class BeaconPlus extends SlimefunItem {
         openMenu(player, block, owner);
     }
 
+    private void toggleElectricOperation(Player player, Block block, UUID owner) {
+        if (!validateMenuAction(player, block, owner)) {
+            return;
+        }
+        if (!BeaconPlusConfig.isElectricOperationEnabled()) {
+            player.sendMessage(
+                    ChatColor.RED + "Electric Resonance Beacon operation is disabled by the server administrator.");
+            openMenu(player, block, owner);
+            return;
+        }
+
+        boolean enabled = !BeaconPlusEnergy.isElectricModeSelected(block.getLocation());
+        BeaconPlusEnergy.setElectricMode(block.getLocation(), enabled);
+        BeaconPlusRuntime.reconcileActivator(block);
+        BeaconPlusRuntime.refreshPlayerState(player);
+        player.playSound(
+                block.getLocation(),
+                enabled ? Sound.BLOCK_BEACON_POWER_SELECT : Sound.BLOCK_BEACON_DEACTIVATE,
+                0.65F,
+                enabled ? 1.55F : 1.0F);
+        player.sendMessage(ChatColor.GOLD + "Resonance Beacon electric operation: "
+                + (enabled ? ChatColor.GREEN + "ON" : ChatColor.RED + "OFF")
+                + ChatColor.GRAY
+                + (enabled
+                        ? ". Powers now require Slimefun energy."
+                        : ". Powers now use normal pyramid-only operation."));
+        openMenu(player, block, owner);
+    }
+
     private boolean validateMenuAction(Player player, Block block, UUID expectedOwner) {
         if (!StorageCacheUtils.isBlock(block.getLocation(), getId())) {
             player.closeInventory();
@@ -457,6 +519,38 @@ public final class BeaconPlus extends SlimefunItem {
                         ? ChatColor.GREEN.toString()
                         : unlocked > 0 ? ChatColor.GOLD.toString() : ChatColor.RED.toString();
         return createMenuItem(icon, nameColor + effect.getDisplayName(), lore);
+    }
+
+    private ItemStack createElectricOperationItem(Block block) {
+        boolean available = BeaconPlusConfig.isElectricOperationEnabled();
+        boolean selected = BeaconPlusEnergy.isElectricModeSelected(block.getLocation());
+        long charge = BeaconPlusEnergy.getStoredCharge(block.getLocation());
+        long capacity = BeaconPlusConfig.getEnergyCapacity();
+        long demand = BeaconPlusEnergy.getDemand(BeaconPlusRuntime.getPotentialActiveTiers(block));
+        boolean powered = !selected
+                || demand <= 0L
+                || BeaconPlusEnergy.hasOperationalPower(block, BeaconPlusRuntime.getPotentialActiveTiers(block));
+
+        List<String> lore = new ArrayList<>();
+        lore.add(ChatColor.GRAY + "Optional native Slimefun Energy Network operation.");
+        lore.add(ChatColor.GRAY + "Mode: " + (selected ? ChatColor.GREEN + "ON" : ChatColor.RED + "OFF"));
+        lore.add(ChatColor.GRAY + "Charge: " + ChatColor.AQUA + charge + ChatColor.GRAY + "/" + capacity + " J");
+        lore.add(ChatColor.GRAY + "Current draw: " + ChatColor.YELLOW + demand + " J/second");
+        lore.add(ChatColor.GRAY + "Power state: "
+                + (powered ? ChatColor.GREEN + "READY" : ChatColor.RED + "INSUFFICIENT ENERGY"));
+        lore.add("");
+        if (!available) {
+            lore.add(ChatColor.RED + "Disabled by server configuration.");
+        } else {
+            lore.add(ChatColor.YELLOW + "Right click to turn electric operation " + (selected ? "OFF" : "ON"));
+            lore.add(ChatColor.DARK_GRAY + "When ON, all powers pause if charge is too low.");
+            lore.add(ChatColor.DARK_GRAY + "Activator chunk tickets release until energy returns.");
+        }
+
+        return createMenuItem(
+                available ? (selected ? Material.REDSTONE_BLOCK : Material.REDSTONE_TORCH) : Material.BARRIER,
+                ChatColor.YELLOW + "Electric Operation",
+                lore);
     }
 
     private ItemStack createPyramidItem(BeaconPlusPyramid.Profile profile) {

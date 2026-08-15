@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify Slimefun Legacy 4.1.30 Core Platform Phase 1L Part 4 Paper runtime smoke coverage."""
+"""Verify Slimefun Legacy 4.1.31 Core Platform Phase 1L Part 4 Paper runtime smoke coverage."""
 from __future__ import annotations
 
 import json
@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-CURRENT_VERSION = "4.1.30"
+CURRENT_VERSION = "4.1.31"
 
 
 def read(root: Path, relative: str) -> str:
@@ -32,7 +32,7 @@ def main() -> int:
     failures: list[str] = []
 
     try:
-        require(project_version(root) == CURRENT_VERSION, "Part 4 requires projectVersion 4.1.30", failures)
+        require(project_version(root) == CURRENT_VERSION, "Part 4 requires projectVersion 4.1.31", failures)
 
         support = json.loads(read(root, "compatibility/support-contract.json"))
         primary = support.get("primary_platform", {})

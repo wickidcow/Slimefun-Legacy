@@ -105,7 +105,8 @@ public abstract class Reactor extends AbstractEnergyProvider
             @Override
             public boolean canOpen(Block b, Player p) {
                 return p.hasPermission("slimefun.inventory.bypass")
-                        || Slimefun.getProtectionManager().hasPermission(p, b.getLocation(), Interaction.INTERACT_BLOCK);
+                        || Slimefun.getProtectionManager()
+                                .hasPermission(p, b.getLocation(), Interaction.INTERACT_BLOCK);
             }
 
             @Override
@@ -188,7 +189,13 @@ public abstract class Reactor extends AbstractEnergyProvider
         if (port != null) {
             menu.replaceExistingItem(
                     INFO_SLOT,
-                    new CustomItemStack(Material.GREEN_WOOL, "&7Access Port", "", "&6Connected", "", "&7> Click to view access port"));
+                    new CustomItemStack(
+                            Material.GREEN_WOOL,
+                            "&7Access Port",
+                            "",
+                            "&6Connected",
+                            "",
+                            "&7> Click to view access port"));
             menu.addMenuClickHandler(INFO_SLOT, (p, slot, item, action) -> {
                 port.open(p);
                 updateInventory(menu, b);
@@ -218,42 +225,71 @@ public abstract class Reactor extends AbstractEnergyProvider
             preset.addItem(i, ChestMenuUtils.getBackground(), ChestMenuUtils.getEmptyClickHandler());
         }
         for (int i : border_1) {
-            preset.addItem(i, new CustomItemStack(Material.LIME_STAINED_GLASS_PANE, " "), ChestMenuUtils.getEmptyClickHandler());
+            preset.addItem(
+                    i,
+                    new CustomItemStack(Material.LIME_STAINED_GLASS_PANE, " "),
+                    ChestMenuUtils.getEmptyClickHandler());
         }
         for (int i : border_3) {
-            preset.addItem(i, new CustomItemStack(Material.GREEN_STAINED_GLASS_PANE, " "), ChestMenuUtils.getEmptyClickHandler());
+            preset.addItem(
+                    i,
+                    new CustomItemStack(Material.GREEN_STAINED_GLASS_PANE, " "),
+                    ChestMenuUtils.getEmptyClickHandler());
         }
-        preset.addItem(22, new CustomItemStack(Material.BLACK_STAINED_GLASS_PANE, " "), ChestMenuUtils.getEmptyClickHandler());
+        preset.addItem(
+                22, new CustomItemStack(Material.BLACK_STAINED_GLASS_PANE, " "), ChestMenuUtils.getEmptyClickHandler());
 
         if (this instanceof NuclearReactor) {
             preset.addItem(
                     1,
                     new CustomItemStack(
-                            getFuelIcon(), "&7Fuel Slot", "", "&fThis Slot accepts radioactive Fuel such as:", "&2Uranium &for &aNeptunium"),
+                            getFuelIcon(),
+                            "&7Fuel Slot",
+                            "",
+                            "&fThis Slot accepts radioactive Fuel such as:",
+                            "&2Uranium &for &aNeptunium"),
                     ChestMenuUtils.getEmptyClickHandler());
         } else if (this instanceof NetherStarReactor) {
-            preset.addItem(1, new CustomItemStack(getFuelIcon(), "&7Fuel Slot", "", "&fPlace fuel here:", "&bNether Star"), ChestMenuUtils.getEmptyClickHandler());
+            preset.addItem(
+                    1,
+                    new CustomItemStack(getFuelIcon(), "&7Fuel Slot", "", "&fPlace fuel here:", "&bNether Star"),
+                    ChestMenuUtils.getEmptyClickHandler());
         } else {
             preset.addItem(
                     1,
                     new CustomItemStack(
-                            getFuelIcon(), "&7Fuel Slot", "", "&fThis Slot accepts radioactive Fuel such as:", "&2Uranium &for &aNeptunium"),
+                            getFuelIcon(),
+                            "&7Fuel Slot",
+                            "",
+                            "&fThis Slot accepts radioactive Fuel such as:",
+                            "&2Uranium &for &aNeptunium"),
                     ChestMenuUtils.getEmptyClickHandler());
         }
 
         for (int i : border_2) {
-            preset.addItem(i, new CustomItemStack(Material.CYAN_STAINED_GLASS_PANE, " "), ChestMenuUtils.getEmptyClickHandler());
+            preset.addItem(
+                    i,
+                    new CustomItemStack(Material.CYAN_STAINED_GLASS_PANE, " "),
+                    ChestMenuUtils.getEmptyClickHandler());
         }
 
         if (needsCooling()) {
             preset.addItem(
                     7,
                     new CustomItemStack(
-                            getCoolant(), "&bCoolant Slot", "", "&fPlace Coolant here", "&4Without Coolant, your reactor", "&4will explode instantly"));
+                            getCoolant(),
+                            "&bCoolant Slot",
+                            "",
+                            "&fPlace Coolant here",
+                            "&4Without Coolant, your reactor",
+                            "&4will explode instantly"));
         } else {
             preset.addItem(7, new CustomItemStack(Material.BARRIER, "&bCoolant", "", "&fPlace Coolant here"));
             for (int i : border_4) {
-                preset.addItem(i, new CustomItemStack(Material.BARRIER, "&cNo Coolant required"), ChestMenuUtils.getEmptyClickHandler());
+                preset.addItem(
+                        i,
+                        new CustomItemStack(Material.BARRIER, "&cNo Coolant required"),
+                        ChestMenuUtils.getEmptyClickHandler());
             }
         }
     }
@@ -434,8 +470,7 @@ public abstract class Reactor extends AbstractEnergyProvider
         for (int slot : getOutputSlots()) {
             ItemStack stack = inv.getItemInSlot(slot);
             if (stack != null) {
-                inv.replaceExistingItem(
-                        slot, accessPort.pushItem(stack.clone(), ReactorAccessPort.getOutputSlots()));
+                inv.replaceExistingItem(slot, accessPort.pushItem(stack.clone(), ReactorAccessPort.getOutputSlots()));
             }
         }
     }
@@ -512,8 +547,7 @@ public abstract class Reactor extends AbstractEnergyProvider
         for (int slot : getFuelSlots()) {
             for (MachineFuel fuelType : fuelTypes) {
                 ItemStack portItem = port.getItemInSlot(slot);
-                if (fuelType.test(portItem)
-                        && menu.fits(new CustomItemStack(portItem, 1), getFuelSlots())) {
+                if (fuelType.test(portItem) && menu.fits(new CustomItemStack(portItem, 1), getFuelSlots())) {
                     port.replaceExistingItem(slot, menu.pushItem(portItem.clone(), getFuelSlots()));
                     return;
                 }
@@ -521,8 +555,7 @@ public abstract class Reactor extends AbstractEnergyProvider
         }
     }
 
-    @Nullable
-    @ParametersAreNonnullByDefault
+    @Nullable @ParametersAreNonnullByDefault
     private MachineFuel findFuel(BlockMenu menu, Map<Integer, Integer> found) {
         for (MachineFuel fuel : fuelTypes) {
             int requiredAmount = fuel.getInput().getAmount();
@@ -538,8 +571,7 @@ public abstract class Reactor extends AbstractEnergyProvider
         return null;
     }
 
-    @Nullable
-    protected BlockMenu getAccessPort(BlockMenu menu, @Nonnull Location l) {
+    @Nullable protected BlockMenu getAccessPort(BlockMenu menu, @Nonnull Location l) {
         Location portLoc = new Location(l.getWorld(), l.getX(), l.getY() + 3, l.getZ());
         var controller = Slimefun.getDatabaseManager().getBlockDataController();
         var port = controller.getBlockData(portLoc);

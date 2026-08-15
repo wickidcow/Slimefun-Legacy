@@ -39,8 +39,7 @@ final class AdventurersCuriosSetup {
         }
 
         registered = true;
-        ItemGroup curios = new ItemGroup(
-                new NamespacedKey(plugin, "adventurers_curios"), createCategoryIcon(), 2);
+        ItemGroup curios = new ItemGroup(new NamespacedKey(plugin, "adventurers_curios"), createCategoryIcon(), 2);
 
         SlimefunItemStack wayfindersCompass = new SlimefunItemStack(
                 "ADVENTURERS_WAYFINDERS_COMPASS",
@@ -133,62 +132,47 @@ final class AdventurersCuriosSetup {
                 "&8Pyramid size and mineral resonance cap power tier",
                 "&8Legacy BeaconData folders can be imported directly");
 
-        new WayfindersCompass(
-                        curios,
-                        wayfindersCompass,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
-                        new ItemStack[] {
-                            new ItemStack(Material.AMETHYST_SHARD),
-                            new ItemStack(Material.REDSTONE),
-                            new ItemStack(Material.AMETHYST_SHARD),
-                            new ItemStack(Material.GOLD_INGOT),
-                            new ItemStack(Material.COMPASS),
-                            new ItemStack(Material.GOLD_INGOT),
-                            null,
-                            new ItemStack(Material.ECHO_SHARD),
-                            null
-                        })
+        new WayfindersCompass(curios, wayfindersCompass, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.AMETHYST_SHARD),
+                    new ItemStack(Material.REDSTONE),
+                    new ItemStack(Material.AMETHYST_SHARD),
+                    new ItemStack(Material.GOLD_INGOT),
+                    new ItemStack(Material.COMPASS),
+                    new ItemStack(Material.GOLD_INGOT),
+                    null,
+                    new ItemStack(Material.ECHO_SHARD),
+                    null
+                })
                 .register(plugin);
 
-        new EchoLantern(
-                        curios,
-                        echoLantern,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
-                        new ItemStack[] {
-                            new ItemStack(Material.AMETHYST_SHARD),
-                            new ItemStack(Material.GLOW_INK_SAC),
-                            new ItemStack(Material.AMETHYST_SHARD),
-                            new ItemStack(Material.IRON_NUGGET),
-                            new ItemStack(Material.SOUL_LANTERN),
-                            new ItemStack(Material.IRON_NUGGET),
-                            null,
-                            new ItemStack(Material.ECHO_SHARD),
-                            null
-                        })
+        new EchoLantern(curios, echoLantern, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.AMETHYST_SHARD),
+                    new ItemStack(Material.GLOW_INK_SAC),
+                    new ItemStack(Material.AMETHYST_SHARD),
+                    new ItemStack(Material.IRON_NUGGET),
+                    new ItemStack(Material.SOUL_LANTERN),
+                    new ItemStack(Material.IRON_NUGGET),
+                    null,
+                    new ItemStack(Material.ECHO_SHARD),
+                    null
+                })
                 .register(plugin);
 
-        new ExplorersSpyglass(
-                        curios,
-                        explorersSpyglass,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
-                        new ItemStack[] {
-                            new ItemStack(Material.PAPER),
-                            new ItemStack(Material.COMPASS),
-                            new ItemStack(Material.PAPER),
-                            new ItemStack(Material.COPPER_INGOT),
-                            new ItemStack(Material.SPYGLASS),
-                            new ItemStack(Material.COPPER_INGOT),
-                            null,
-                            new ItemStack(Material.AMETHYST_SHARD),
-                            null
-                        })
+        new ExplorersSpyglass(curios, explorersSpyglass, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.PAPER),
+                    new ItemStack(Material.COMPASS),
+                    new ItemStack(Material.PAPER),
+                    new ItemStack(Material.COPPER_INGOT),
+                    new ItemStack(Material.SPYGLASS),
+                    new ItemStack(Material.COPPER_INGOT),
+                    null,
+                    new ItemStack(Material.AMETHYST_SHARD),
+                    null
+                })
                 .register(plugin);
 
-        MinersCanary canary = new MinersCanary(
-                curios,
-                minersCanary,
-                RecipeType.ENHANCED_CRAFTING_TABLE,
-                new ItemStack[] {
+        MinersCanary canary =
+                new MinersCanary(curios, minersCanary, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
                     new ItemStack(Material.FEATHER),
                     new ItemStack(Material.GOLD_NUGGET),
                     new ItemStack(Material.FEATHER),
@@ -202,62 +186,47 @@ final class AdventurersCuriosSetup {
         canary.register(plugin);
         canary.registerListener(plugin);
 
-        new StormGlass(
-                        curios,
-                        stormGlass,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
-                        new ItemStack[] {
-                            new ItemStack(Material.COPPER_INGOT),
-                            new ItemStack(Material.AMETHYST_SHARD),
-                            new ItemStack(Material.COPPER_INGOT),
-                            null,
-                            new ItemStack(Material.GLASS_BOTTLE),
-                            null,
-                            null,
-                            new ItemStack(Material.REDSTONE),
-                            null
-                        })
+        new StormGlass(curios, stormGlass, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.COPPER_INGOT),
+                    new ItemStack(Material.AMETHYST_SHARD),
+                    new ItemStack(Material.COPPER_INGOT),
+                    null,
+                    new ItemStack(Material.GLASS_BOTTLE),
+                    null,
+                    null,
+                    new ItemStack(Material.REDSTONE),
+                    null
+                })
                 .register(plugin);
 
-        new ExpeditionJournal(
-                        curios,
-                        expeditionJournal,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
-                        new ItemStack[] {
-                            new ItemStack(Material.PAPER),
-                            new ItemStack(Material.COMPASS),
-                            new ItemStack(Material.PAPER),
-                            new ItemStack(Material.MAP),
-                            new ItemStack(Material.WRITABLE_BOOK),
-                            new ItemStack(Material.SPYGLASS),
-                            null,
-                            new ItemStack(Material.AMETHYST_SHARD),
-                            null
-                        })
+        new ExpeditionJournal(curios, expeditionJournal, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.PAPER),
+                    new ItemStack(Material.COMPASS),
+                    new ItemStack(Material.PAPER),
+                    new ItemStack(Material.MAP),
+                    new ItemStack(Material.WRITABLE_BOOK),
+                    new ItemStack(Material.SPYGLASS),
+                    null,
+                    new ItemStack(Material.AMETHYST_SHARD),
+                    null
+                })
                 .register(plugin);
 
-        new TravelersBedroll(
-                        curios,
-                        travelersBedroll,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
-                        new ItemStack[] {
-                            new ItemStack(Material.STRING),
-                            new ItemStack(Material.WHITE_WOOL),
-                            new ItemStack(Material.STRING),
-                            new ItemStack(Material.LEATHER),
-                            new ItemStack(Material.BROWN_BED),
-                            new ItemStack(Material.LEATHER),
-                            new ItemStack(Material.STRING),
-                            new ItemStack(Material.RABBIT_HIDE),
-                            new ItemStack(Material.STRING)
-                        })
+        new TravelersBedroll(curios, travelersBedroll, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.STRING),
+                    new ItemStack(Material.WHITE_WOOL),
+                    new ItemStack(Material.STRING),
+                    new ItemStack(Material.LEATHER),
+                    new ItemStack(Material.BROWN_BED),
+                    new ItemStack(Material.LEATHER),
+                    new ItemStack(Material.STRING),
+                    new ItemStack(Material.RABBIT_HIDE),
+                    new ItemStack(Material.STRING)
+                })
                 .register(plugin);
 
-        EmergencyParachute parachute = new EmergencyParachute(
-                curios,
-                emergencyParachute,
-                RecipeType.ENHANCED_CRAFTING_TABLE,
-                new ItemStack[] {
+        EmergencyParachute parachute =
+                new EmergencyParachute(curios, emergencyParachute, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
                     new ItemStack(Material.PHANTOM_MEMBRANE),
                     new ItemStack(Material.STRING),
                     new ItemStack(Material.PHANTOM_MEMBRANE),
@@ -271,21 +240,17 @@ final class AdventurersCuriosSetup {
         parachute.register(plugin);
         parachute.registerListener(plugin);
 
-        new BeaconPlus(
-                        curios,
-                        resonanceBeacon,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
-                        new ItemStack[] {
-                            new ItemStack(Material.ECHO_SHARD),
-                            SlimefunItems.ESSENCE_OF_AFTERLIFE,
-                            new ItemStack(Material.ECHO_SHARD),
-                            SlimefunItems.MAGICAL_GLASS,
-                            new ItemStack(Material.BEACON),
-                            SlimefunItems.MAGICAL_GLASS,
-                            SlimefunItems.BLISTERING_INGOT_3,
-                            SlimefunItems.SYNTHETIC_DIAMOND,
-                            SlimefunItems.BLISTERING_INGOT_3
-                        })
+        new BeaconPlus(curios, resonanceBeacon, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.ECHO_SHARD),
+                    SlimefunItems.ESSENCE_OF_AFTERLIFE,
+                    new ItemStack(Material.ECHO_SHARD),
+                    SlimefunItems.MAGICAL_GLASS,
+                    new ItemStack(Material.BEACON),
+                    SlimefunItems.MAGICAL_GLASS,
+                    SlimefunItems.BLISTERING_INGOT_3,
+                    SlimefunItems.SYNTHETIC_DIAMOND,
+                    SlimefunItems.BLISTERING_INGOT_3
+                })
                 .register(plugin);
     }
 

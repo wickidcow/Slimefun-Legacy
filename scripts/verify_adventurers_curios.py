@@ -28,6 +28,7 @@ def main() -> int:
         "effect": base + "BeaconPlusEffect.java",
         "runtime": base + "BeaconPlusRuntime.java",
         "runtime_effects": base + "BeaconPlusRuntimeEffects.java",
+        "energy": base + "BeaconPlusEnergy.java",
         "field": base + "BeaconPlusField.java",
         "listener": base + "BeaconPlusEffectListener.java",
         "manager": base + "BeaconPlusManager.java",
@@ -81,6 +82,7 @@ def main() -> int:
             'ROOT = "SlimefunLegacyAddition.PoweredBeacon"', 'BEACON_DATA_ROOT = ROOT + ".BeaconData"',
             '"WORLD"', '"BeaconData"', '"EXPERIENCE"', "PaymentMode.MONEY",
             "material-power.IRON_BLOCK", "material-power.NETHERITE_BLOCK", "tier-requirements.3",
+            "electric-operation.capacity", "base-joules-per-pulse",
         ):
             req(token in cfgclass, f"Resonance Beacon config invariant missing: {token}", failures)
 
@@ -89,6 +91,7 @@ def main() -> int:
             "SlimefunLegacyAddition:", "PoweredBeacon:", "BeaconData:", "storage-type: WORLD",
             "folder-name: BeaconData", "payment-mode: EXPERIENCE", "IRON_BLOCK: 1.0", "NETHERITE_BLOCK: 5.0",
             "flying:\n        enabled: true", "immortality-field:\n        enabled: true", "auto-repair:",
+            "electric-operation:", "capacity: 4096",
         ):
             req(token in config, f"config.yml Resonance Beacon default missing: {token}", failures)
 
@@ -105,6 +108,7 @@ def main() -> int:
             'new ChestMenu("&6&lResonance Beacon", 54)', "purchaseNextTier", "action.isRightClicked()",
             "action.isShiftClicked()", "BeaconPlusPyramid.inspect", "BeaconPlusConfig.installDefaults()",
             "BeaconPlusLegacyDataStore.start", "BeaconPlusRuntime.reconcileActivator", "Enabled powers:",
+            "EnergyNetComponent", "ELECTRIC_OPERATION_SLOT", "isEnergyNetActive",
         ):
             req(token in beacon, f"Resonance Beacon menu invariant missing: {token}", failures)
         for forbidden in ("BeaconPlus3", "thito.beaconplus", "Class.forName("):
@@ -115,6 +119,17 @@ def main() -> int:
 
         runtime = read(root, files["runtime"])
         runtime_effects = read(root, files["runtime_effects"])
+        energy = read(root, files["energy"])
+        for token in (
+            'ELECTRIC_MODE_KEY = "beacon_plus_electric_mode"', "energy-charge", "getDemand(",
+            "consumePulse(", "hasOperationalPower(", "Activator",
+        ):
+            req(token in energy, f"Resonance Beacon energy invariant missing: {token}", failures)
+        req("BeaconPlusEnergy.consumePulse(block, data, tiers)" in runtime,
+            "Resonance Beacon runtime must pay electric cost once per pulse", failures)
+        req("getPotentialActiveTiers" in runtime,
+            "Electric operation must preserve configured tiers while energy-gating active tiers", failures)
+
         for token in (
             'EFFECTS_KEY = "beacon_plus_effects"', "EXTRA_RANGE_PER_TIER = 10", "getActiveTiers",
             "getUnlockedTierAtBeacon", "getSelectedTierAtBeacon", "BeaconPlusPyramid.inspect",
