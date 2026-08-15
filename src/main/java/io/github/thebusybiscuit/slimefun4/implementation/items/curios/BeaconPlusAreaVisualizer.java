@@ -94,7 +94,7 @@ final class BeaconPlusAreaVisualizer implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryOpen(InventoryOpenEvent event) {
         if (!(event.getPlayer() instanceof Player player) || !isResonanceMenu(event.getView().getTitle())) {
             return;
@@ -176,7 +176,9 @@ final class BeaconPlusAreaVisualizer implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent event) {
-        scheduleInspection(event.getBlockPlaced().getChunk(), 2L);
+        if (event.getBlockPlaced().getType() == Material.BEACON) {
+            scheduleInspection(event.getBlockPlaced().getChunk(), 2L);
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
