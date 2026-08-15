@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify Slimefun Legacy 4.1.30 Core Platform Phase 1L Part 3 upgrade diagnostics."""
+"""Verify retained Core Platform Phase 1L Part 3 upgrade diagnostics for 4.1.30 and newer."""
 from __future__ import annotations
 
 import json
@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-CURRENT_VERSION = "4.1.30"
+MINIMUM_VERSION = (4, 1, 30)
 CURRENT_PHASE = "Core Platform Phase 1L"
 PREVIOUS_STABLE_VERSION = "4.1.29"
 
@@ -33,12 +33,19 @@ def project_version(root: Path) -> str:
     return match.group(1) if match else ""
 
 
+def version_tuple(version: str) -> tuple[int, int, int]:
+    return tuple(map(int, version.split(".")))
+
+
 def main() -> int:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     failures: list[str] = []
 
     try:
-        require(project_version(root) == CURRENT_VERSION, "Part 3 requires projectVersion 4.1.30", failures)
+        version = project_version(root)
+        require(bool(version), "Part 3 projectVersion is missing", failures)
+        if version:
+            require(version_tuple(version) >= MINIMUM_VERSION, f"Part 3 requires 4.1.30 or newer, got {version}", failures)
 
         upgrade = read(
             root,
@@ -115,19 +122,19 @@ def main() -> int:
 
         baselines = load_json(root, "compatibility/release-baselines.json")
         require(
-            baselines.get("candidate", {}).get("version") == CURRENT_VERSION,
-            "Upgrade diagnostics candidate baseline must remain 4.1.30",
+            baselines.get("candidate", {}).get("version") == version,
+            "Upgrade diagnostics candidate baseline must match projectVersion",
             failures,
         )
         require(
             baselines.get("previous_stable", {}).get("version") == PREVIOUS_STABLE_VERSION,
-            "Upgrade diagnostics previous stable must remain 4.1.29",
+            "Upgrade diagnostics previous stable must remain 4.1.29 until a newer stable release is validated",
             failures,
         )
 
         support = load_json(root, "compatibility/support-contract.json")
-        require(support.get("release") == CURRENT_VERSION, "Support contract release must remain 4.1.30", failures)
-        require(support.get("phase") == CURRENT_PHASE, "Support contract phase must remain Core Platform Phase 1L", failures)
+        require(support.get("release") == version, "Support contract release must match projectVersion", failures)
+        require(support.get("phase") == CURRENT_PHASE, "Support contract phase must retain Core Platform Phase 1L", failures)
         policy = support.get("compatibility_policy", {})
         for key in (
             "runtime_upgrade_diagnostics",
@@ -145,12 +152,16 @@ def main() -> int:
             "phase1l_part3_changes_storage_or_gameplay_semantics",
             "database_format_changed",
             "storage_schema_changed",
-            "gameplay_behavior_changed",
         ):
             require(policy.get(key) is False, f"Phase 1L Part 3 policy must remain false: {key}", failures)
+        require(
+            type(policy.get("gameplay_behavior_changed")) is bool,
+            "Active release must explicitly declare whether gameplay behavior changed",
+            failures,
+        )
 
         registry = load_json(root, "compatibility/core-api-registry.json")
-        require(registry.get("release") == CURRENT_VERSION, "Core API registry release must remain 4.1.30", failures)
+        require(registry.get("release") == version, "Core API registry release must match projectVersion", failures)
         require(
             "runtime-upgrade-readiness-diagnostics" in set(registry.get("compatibility_capabilities", [])),
             "Core API registry is missing runtime upgrade diagnostics capability",
@@ -185,6 +196,7 @@ def main() -> int:
         print(report.read_text(encoding="utf-8"), end="")
         return 1
 
+    gameplay_changed = support.get("compatibility_policy", {}).get("gameplay_behavior_changed")
     report.write_text(
         "Core Platform Phase 1L Part 3 upgrade diagnostics verification: PASS\n"
         "- /sf doctor upgrade is wired as a read-only diagnostic command\n"
@@ -192,7 +204,8 @@ def main() -> int:
         "- canonical candidate and previous-stable metadata are packaged from the existing baseline registry\n"
         "- READY/ATTENTION/BLOCKED status remains conservative and is not promoted to a compatibility guarantee\n"
         "- no automatic repair, migration, plugin-state change, machine retry or integration reload is performed\n"
-        "- no normal Cargo, Energy, machine, gameplay, database, storage-schema or saved-world semantics are changed\n",
+        "- Phase 1L Part 3 does not change Cargo/Energy, database, storage-schema or saved-world semantics\n"
+        f"- active release gameplay behavior changed is explicitly declared as {str(gameplay_changed).lower()}\n",
         encoding="utf-8",
     )
     print(report.read_text(encoding="utf-8"), end="")
