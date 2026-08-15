@@ -4,8 +4,8 @@ import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlus;
-import io.github.thebusybiscuit.slimefun4.implementation.items.curios.DungeonChalk;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.EchoLantern;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.EmergencyParachute;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.ExpeditionJournal;
@@ -77,21 +77,12 @@ final class AdventurersCuriosSetup {
                 "ADVENTURERS_MINERS_CANARY",
                 Material.YELLOW_DYE,
                 "&eMiner's Canary",
-                "&7A reusable warning charm for miners.",
-                "&7It squawks when exposed lava is nearby.",
+                "&7A carried early-warning charm.",
+                "&7It chirps for exposed lava, approaching",
+                "&7hostile mobs and immediate danger.",
                 "",
-                "&eRight Click &7to listen");
-
-        SlimefunItemStack dungeonChalk = new SlimefunItemStack(
-                "ADVENTURERS_DUNGEON_CHALK",
-                Material.WHITE_DYE,
-                "&fDungeon Chalk",
-                "&7Keep one personal breadcrumb without",
-                "&7placing or changing blocks in the world.",
-                "",
-                "&eRight Click a block &7to mark it",
-                "&eRight Click air &7to recall it",
-                "&eSneak & Right Click &7to clear it");
+                "&eCarry it &7for passive warnings",
+                "&eRight Click &7for an immediate scan");
 
         SlimefunItemStack stormGlass = new SlimefunItemStack(
                 "ADVENTURERS_STORM_GLASS",
@@ -196,39 +187,23 @@ final class AdventurersCuriosSetup {
                         })
                 .register(plugin);
 
-        new MinersCanary(
-                        curios,
-                        minersCanary,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
-                        new ItemStack[] {
-                            new ItemStack(Material.FEATHER),
-                            new ItemStack(Material.GOLD_NUGGET),
-                            new ItemStack(Material.FEATHER),
-                            new ItemStack(Material.STRING),
-                            new ItemStack(Material.YELLOW_DYE),
-                            new ItemStack(Material.STRING),
-                            null,
-                            new ItemStack(Material.REDSTONE),
-                            null
-                        })
-                .register(plugin);
-
-        new DungeonChalk(
-                        curios,
-                        dungeonChalk,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
-                        new ItemStack[] {
-                            new ItemStack(Material.CALCITE),
-                            new ItemStack(Material.GLOW_INK_SAC),
-                            new ItemStack(Material.CALCITE),
-                            null,
-                            new ItemStack(Material.WHITE_DYE),
-                            null,
-                            null,
-                            new ItemStack(Material.PAPER),
-                            null
-                        })
-                .register(plugin);
+        MinersCanary canary = new MinersCanary(
+                curios,
+                minersCanary,
+                RecipeType.ENHANCED_CRAFTING_TABLE,
+                new ItemStack[] {
+                    new ItemStack(Material.FEATHER),
+                    new ItemStack(Material.GOLD_NUGGET),
+                    new ItemStack(Material.FEATHER),
+                    new ItemStack(Material.STRING),
+                    new ItemStack(Material.YELLOW_DYE),
+                    new ItemStack(Material.STRING),
+                    null,
+                    new ItemStack(Material.REDSTONE),
+                    null
+                });
+        canary.register(plugin);
+        canary.registerListener(plugin);
 
         new StormGlass(
                         curios,
@@ -305,14 +280,14 @@ final class AdventurersCuriosSetup {
                         RecipeType.ENHANCED_CRAFTING_TABLE,
                         new ItemStack[] {
                             new ItemStack(Material.ECHO_SHARD),
-                            new ItemStack(Material.NETHERITE_INGOT),
+                            SlimefunItems.ESSENCE_OF_AFTERLIFE,
                             new ItemStack(Material.ECHO_SHARD),
-                            new ItemStack(Material.REDSTONE_BLOCK),
+                            SlimefunItems.MAGICAL_GLASS,
                             new ItemStack(Material.BEACON),
-                            new ItemStack(Material.REDSTONE_BLOCK),
-                            new ItemStack(Material.AMETHYST_SHARD),
-                            new ItemStack(Material.ENDER_EYE),
-                            new ItemStack(Material.AMETHYST_SHARD)
+                            SlimefunItems.MAGICAL_GLASS,
+                            SlimefunItems.BLISTERING_INGOT_3,
+                            SlimefunItems.SYNTHETIC_DIAMOND,
+                            SlimefunItems.BLISTERING_INGOT_3
                         })
                 .register(plugin);
     }
