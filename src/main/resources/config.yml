@@ -323,7 +323,7 @@ SlimefunLegacyAddition:
           tier-2: 600.0
           tier-3: 800.0
       flying:
-        enabled: false
+        enabled: true
         payment-mode: INHERIT
         experience-costs:
           tier-1: 25
@@ -444,7 +444,7 @@ SlimefunLegacyAddition:
           tier-2: 1400.0
           tier-3: 2400.0
       immortality-field:
-        enabled: false
+        enabled: true
         payment-mode: INHERIT
         experience-costs:
           tier-1: 25
