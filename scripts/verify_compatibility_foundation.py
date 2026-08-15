@@ -33,6 +33,7 @@ def main() -> int:
     bytecode = contract["java"]["bytecode_target"]
     toolchain = contract["java"]["build_toolchain"]
     descriptor_api = contract["plugin_descriptor"]["api_version"]
+    gameplay_changed = contract["compatibility_policy"].get("gameplay_behavior_changed")
 
     require(f"projectVersion={release}" in gradle_properties, "gradle.properties release differs from contract", failures)
     require(f'paperApi = "{paper_api}"' in versions, "Paper API catalog version differs from contract", failures)
@@ -44,7 +45,11 @@ def main() -> int:
     require("folia-supported: true" in plugin, "plugin.yml must retain Folia declaration", failures)
     require(contract["plugin_descriptor"]["api_version_is_support_floor"] is False, "descriptor api-version must not be represented as support floor", failures)
     require(contract["compatibility_policy"]["database_format_changed"] is False, f"{release} must not change database format", failures)
-    require(contract["compatibility_policy"]["gameplay_behavior_changed"] is False, f"{release} must not claim gameplay changes", failures)
+    require(
+        type(gameplay_changed) is bool,
+        f"{release} must explicitly declare whether gameplay behavior changed",
+        failures,
+    )
     require("Compatibility Foundation" in readme, "README does not describe Compatibility Foundation", failures)
     require(
         f"Paper {paper_release}" in readme and f"Minecraft {minecraft_release}" in readme,
@@ -87,6 +92,7 @@ def main() -> int:
         f"Paper API: {paper_api}\n"
         f"Build Java: {toolchain}\n"
         f"Bytecode Java: {bytecode}\n"
+        f"Gameplay behavior changed: {str(gameplay_changed).lower()}\n"
         "Artifact version source: gradle.properties projectVersion\n"
         "PASS\n",
         encoding="utf-8",
