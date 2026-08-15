@@ -36,6 +36,8 @@ jobs:
       - name: Verify validated source identity
         run: |
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          echo "SOURCE_COMMIT=$SOURCE_SHA" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct "$SOURCE_SHA")" >> "$GITHUB_ENV"
           python3 scripts/verify_legacy.py .
 
       - name: Build release JAR
