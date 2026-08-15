@@ -23,7 +23,7 @@ permissions:
 
 env:
   PAPER_MINECRAFT_VERSION: "26.2"
-  PAPER_DOWNLOAD_USER_AGENT: "Slimefun-Legacy-CI/4.1.30 (https://github.com/wickidcow/Slimefun-Legacy)"
+  PAPER_DOWNLOAD_USER_AGENT: "Slimefun-Legacy-CI/4.1.31 (https://github.com/wickidcow/Slimefun-Legacy)"
 
 jobs:
   paper-runtime-smoke:
