@@ -2,9 +2,6 @@ name: Reproducible Release Candidate
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - release/4.1.31-beacon-plus
 
 permissions:
   contents: read
