@@ -4,7 +4,10 @@ set -euo pipefail
 PLUGIN_JAR="${1:?Usage: paper_runtime_smoke.sh <slimefun-jar> [work-directory]}"
 WORK_DIR="${2:-build/paper-runtime-smoke}"
 MC_VERSION="${PAPER_MINECRAFT_VERSION:-26.2}"
-USER_AGENT="${PAPER_DOWNLOAD_USER_AGENT:-Slimefun-Legacy-CI/4.1.30 (https://github.com/wickidcow/Slimefun-Legacy)}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+SF_VERSION="${SLIMEFUN_VERSION:-$(sed -n 's/^projectVersion=//p' "${PROJECT_ROOT}/gradle.properties" | head -n 1)}"
+USER_AGENT="${PAPER_DOWNLOAD_USER_AGENT:-Slimefun-Legacy-CI/${SF_VERSION} (https://github.com/wickidcow/Slimefun-Legacy)}"
 STARTUP_TIMEOUT_SECONDS="${PAPER_SMOKE_STARTUP_TIMEOUT:-240}"
 SHUTDOWN_TIMEOUT_SECONDS="${PAPER_SMOKE_SHUTDOWN_TIMEOUT:-60}"
 
@@ -14,6 +17,11 @@ for command in curl jq java; do
         exit 1
     fi
 done
+
+if [[ -z "$SF_VERSION" ]]; then
+    echo "Unable to resolve Slimefun projectVersion from gradle.properties." >&2
+    exit 1
+fi
 
 if [[ ! -s "$PLUGIN_JAR" ]]; then
     echo "Slimefun JAR not found or empty: $PLUGIN_JAR" >&2
@@ -129,8 +137,8 @@ run_cycle() {
         return 1
     fi
 
-    if ! grep -Fq 'Enabling Slimefun v4.1.30' "$console_log"; then
-        echo "Paper runtime smoke ${label}: Slimefun 4.1.30 was not observed enabling." >&2
+    if ! grep -Fq "Enabling Slimefun v${SF_VERSION}" "$console_log"; then
+        echo "Paper runtime smoke ${label}: Slimefun ${SF_VERSION} was not observed enabling." >&2
         cat "$console_log" >&2 || true
         return 1
     fi
@@ -171,6 +179,7 @@ run_cycle "second" true
 
 cat > "$WORK_DIR/smoke-result.txt" <<EOF
 Slimefun Legacy Paper runtime smoke: PASS
+Slimefun: ${SF_VERSION}
 Minecraft: ${MC_VERSION}
 Paper stable build: ${PAPER_BUILD}
 Cycles: 2
