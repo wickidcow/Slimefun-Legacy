@@ -143,6 +143,10 @@ SlimefunLegacyAddition:
     # Master switch for the Resonance Beacon runtime. The item remains registered for data safety.
     enabled: true
 
+    # Global safety switch for the Activator power's Paper chunk tickets.
+    # /beacon enable|disable changes this at runtime and preserves each beacon's Activator selection.
+    chunk-loading-enabled: true
+
     # Unlocks are permanent per beacon owner. EXPERIENCE means Minecraft experience levels.
     # MONEY uses Vault and the active economy provider. Individual powers can override this.
     progression:
