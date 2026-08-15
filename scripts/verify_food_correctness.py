@@ -54,10 +54,17 @@ def main() -> int:
         raise SystemExit("Food correctness failed: Cooler hunger and starvation handlers must ignore cancellation")
     require(cooler, "List<ItemStack> coolers = new ArrayList<>();", "Cooler candidate snapshot")
     require(cooler, "tryConsumeFromCoolers(p, coolers, 0);", "Cooler sequential consumption start")
+    require(cooler, "PlayerBackpack.getAsync(coolerItem)", "Cooler asynchronous backpack load")
     require(
         cooler,
-        "PlayerBackpack.getAsync(coolerItem).whenComplete((backpack, error) -> Slimefun.runSyncFor(p, () -> {",
+        ".whenComplete((backpack, error) -> Slimefun.runSyncFor(p, () -> {",
         "Cooler async load returned to player-owned thread",
+    )
+    require_before(
+        cooler,
+        "PlayerBackpack.getAsync(coolerItem)",
+        ".whenComplete((backpack, error) -> Slimefun.runSyncFor(p, () -> {",
+        "Cooler async load before player-owned continuation",
     )
     require(cooler, "ItemStack currentCooler = findCurrentCooler(p, coolerItem);", "Cooler live-item revalidation")
     require(
@@ -66,9 +73,11 @@ def main() -> int:
         "Cooler live-item and permission guard",
     )
     require(cooler, "PlayerBackpack.migrateLegacyItem(currentCooler, backpack);", "Cooler legacy identity migration")
-    require(
+    require(cooler, "if (!consumeJuice(p, currentCooler, backpack)) {", "Cooler failed-consumption fallthrough guard")
+    require_before(
         cooler,
-        "if (!consumeJuice(p, currentCooler, backpack)) {\n                tryConsumeFromCoolers(p, coolers, index + 1);",
+        "if (!consumeJuice(p, currentCooler, backpack)) {",
+        "tryConsumeFromCoolers(p, coolers, index + 1);\n                    }",
         "Cooler fallthrough only after failed consumption",
     )
     require_before(
