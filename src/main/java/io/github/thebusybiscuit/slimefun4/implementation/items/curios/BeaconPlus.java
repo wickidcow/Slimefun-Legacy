@@ -369,7 +369,7 @@ public final class BeaconPlus extends SlimefunItem {
         List<String> lore = new ArrayList<>();
         int baseSize = profile.completedLayers() <= 0 ? 0 : profile.completedLayers() * 2 + 1;
         lore.add(ChatColor.GRAY + "Physical pyramid: "
-                + (baseSize > 0 ? ChatColor.GREEN + baseSize + "x" + baseSize : ChatColor.RED + "Incomplete"));
+                + (baseSize > 0 ? ChatColor.GREEN.toString() + baseSize + "x" + baseSize : ChatColor.RED + "Incomplete"));
         lore.add(ChatColor.GRAY + "Natural power tier: " + tierColor(profile.naturalPowerTier())
                 + roman(profile.naturalPowerTier()));
         lore.add(ChatColor.GRAY + "Dominant mineral: " + ChatColor.AQUA + profile.dominantMaterialName());
