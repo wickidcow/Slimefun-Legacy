@@ -69,7 +69,6 @@ def main() -> int:
         for key in (
             "database_format_changed",
             "storage_schema_changed",
-            "gameplay_behavior_changed",
             "third_party_plugin_dependency_emulation",
             "gugu_runtime_core_target",
             "phase1k_changes_normal_cargo_energy_machine_semantics",
@@ -77,6 +76,12 @@ def main() -> int:
             "phase1k_part4_changes_storage_or_gameplay_semantics",
         ):
             require(policy.get(key) is False, f"Retained release-hardening policy must remain false: {key}", failures)
+
+        require(
+            type(policy.get("gameplay_behavior_changed")) is bool,
+            "Active release must explicitly declare whether gameplay behavior changed",
+            failures,
+        )
 
         baselines = load_json(root, "compatibility/release-baselines.json")
         candidate = baselines.get("candidate", {})
@@ -130,13 +135,15 @@ def main() -> int:
         print(report.read_text(encoding="utf-8"), end="")
         return 1
 
+    gameplay_changed = support.get("compatibility_policy", {}).get("gameplay_behavior_changed")
     report.write_text(
         "Retained Phase 1K release hardening: PASS\n"
         "- the 4.1.29 dependency and release gates remain enforced\n"
         "- Java 25 runtime/toolchain and Java 21 bytecode contract remains intact\n"
         "- post-release development rolls the release-blocking baseline to validated 4.1.29\n"
         "- compatibility matrices remain aligned with the active candidate\n"
-        "- gameplay, Cargo/Energy, database, storage-schema and saved-world semantics remain protected\n",
+        "- Cargo/Energy compatibility boundaries, database, storage-schema and saved-world formats remain protected\n"
+        f"- gameplay behavior changed is explicitly declared as {str(gameplay_changed).lower()} for the active release\n",
         encoding="utf-8",
     )
     print(report.read_text(encoding="utf-8"), end="")

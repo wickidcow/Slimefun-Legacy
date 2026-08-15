@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify Phase 1L Part 2 reproducible release-artifact infrastructure."""
+"""Verify retained Phase 1L Part 2 reproducible release-artifact infrastructure."""
 from __future__ import annotations
 
 import json
@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-CURRENT_VERSION = "4.1.30"
+MINIMUM_VERSION = (4, 1, 30)
 CURRENT_PHASE = "Core Platform Phase 1L"
 PREVIOUS_STABLE_VERSION = "4.1.29"
 PREVIOUS_STABLE_REF = "9794baffdd4a96f71fa18ae45ced8bab30982fb0"
@@ -34,17 +34,23 @@ def project_version(root: Path) -> str:
     return match.group(1) if match else ""
 
 
+def version_tuple(version: str) -> tuple[int, int, int]:
+    return tuple(map(int, version.split(".")))
+
+
 def main() -> int:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     failures: list[str] = []
 
     try:
         version = project_version(root)
-        require(version == CURRENT_VERSION, f"Part 2 requires projectVersion {CURRENT_VERSION}", failures)
+        require(bool(version), "Part 2 projectVersion is missing", failures)
+        if version:
+            require(version_tuple(version) >= MINIMUM_VERSION, f"Part 2 requires 4.1.30 or newer, got {version}", failures)
 
         support = load_json(root, "compatibility/support-contract.json")
-        require(support.get("release") == CURRENT_VERSION, "Support contract release must match 4.1.30", failures)
-        require(support.get("phase") == CURRENT_PHASE, "Support contract phase must remain Core Platform Phase 1L", failures)
+        require(support.get("release") == version, "Support contract release must match projectVersion", failures)
+        require(support.get("phase") == CURRENT_PHASE, "Support contract phase must retain Core Platform Phase 1L", failures)
         policy = support.get("compatibility_policy", {})
         for key in (
             "reproducible_release_archives",
@@ -59,13 +65,17 @@ def main() -> int:
             "phase1l_part2_changes_storage_or_gameplay_semantics",
             "database_format_changed",
             "storage_schema_changed",
-            "gameplay_behavior_changed",
         ):
             require(policy.get(key) is False, f"Phase 1L Part 2 policy must remain false: {key}", failures)
+        require(
+            type(policy.get("gameplay_behavior_changed")) is bool,
+            "Active release must explicitly declare whether gameplay behavior changed",
+            failures,
+        )
 
         baselines = load_json(root, "compatibility/release-baselines.json")
-        require(baselines.get("candidate", {}).get("version") == CURRENT_VERSION, "Candidate baseline must remain 4.1.30", failures)
-        require(baselines.get("previous_stable", {}).get("version") == PREVIOUS_STABLE_VERSION, "Previous stable must remain 4.1.29", failures)
+        require(baselines.get("candidate", {}).get("version") == version, "Candidate baseline must match projectVersion", failures)
+        require(baselines.get("previous_stable", {}).get("version") == PREVIOUS_STABLE_VERSION, "Previous stable must remain 4.1.29 until a newer stable release is validated", failures)
         require(
             baselines.get("previous_stable", {}).get("source", {}).get("ref") == PREVIOUS_STABLE_REF,
             "Previous stable 4.1.29 must remain pinned to its validated release commit",
@@ -141,7 +151,7 @@ def main() -> int:
             require(token in release_workflow, f"Reproducible release workflow invariant missing: {token}", failures)
 
         core_registry = load_json(root, "compatibility/core-api-registry.json")
-        require(core_registry.get("release") == CURRENT_VERSION, "Core API registry release must remain 4.1.30", failures)
+        require(core_registry.get("release") == version, "Core API registry release must match projectVersion", failures)
         capabilities = set(core_registry.get("compatibility_capabilities", []))
         require(
             "reproducible-release-artifact-verification" in capabilities,
@@ -169,6 +179,7 @@ def main() -> int:
         print(report.read_text(encoding="utf-8"), end="")
         return 1
 
+    gameplay_changed = support.get("compatibility_policy", {}).get("gameplay_behavior_changed")
     report.write_text(
         "Core Platform Phase 1L Part 2 reproducible release verification: PASS\n"
         "- archive entry ordering and timestamps are reproducible\n"
@@ -177,11 +188,12 @@ def main() -> int:
         "- standard git.commit.id metadata is retained for Git plugin provenance\n"
         "- the normal build inspects embedded version, source identity, bytecode and packaging boundaries\n"
         "- the full Legacy verifier retains the Phase 1L Part 2 gate\n"
-        "- a manual release workflow performs two independent clean builds of the exact source commit\n"
+        "- the release workflow performs two independent clean builds of the exact source commit\n"
         "- build and configuration caches are disabled for the reproducibility comparison\n"
         "- release workflow requires byte-for-byte and SHA-256 equality\n"
-        "- 4.1.29 remains the pinned release-blocking previous-stable baseline\n"
-        "- no gameplay, Cargo/Energy, database, storage-schema or saved-world semantics are changed\n",
+        "- 4.1.29 remains the pinned release-blocking previous-stable baseline until a newer stable release is validated\n"
+        "- Phase 1L Part 2 itself does not change Cargo/Energy, database, storage-schema or saved-world semantics\n"
+        f"- active release gameplay behavior changed is explicitly declared as {str(gameplay_changed).lower()}\n",
         encoding="utf-8",
     )
     print(report.read_text(encoding="utf-8"), end="")

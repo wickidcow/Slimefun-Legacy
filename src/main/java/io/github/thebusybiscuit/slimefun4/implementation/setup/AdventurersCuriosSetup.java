@@ -109,10 +109,11 @@ final class AdventurersCuriosSetup {
                 Material.BEACON,
                 "&6&lBeacon Plus",
                 "&7A native Slimefun expedition beacon",
-                "&7with 29 independently toggleable effects.",
+                "&7with 30 independently toggleable effects.",
                 "",
                 "&eRight Click &7to open the configuration menu",
                 "&8Field effects require a powered beacon pyramid",
+                "&8and Slimefun Energy; Extra Power costs 30 XP levels",
                 "&8Activator uses bounded plugin chunk tickets");
 
         new WayfindersCompass(

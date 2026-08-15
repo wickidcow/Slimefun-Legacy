@@ -29,6 +29,8 @@ final class BeaconPlusLifecycleListener implements Listener {
     @EventHandler
     public void onPluginDisable(PluginDisableEvent event) {
         if (event.getPlugin() == plugin) {
+            BeaconPlusPowerState.shutdown();
+            BeaconPlus.clearPulseState();
             BeaconPlusRuntime.shutdown();
             BeaconPlusManager.shutdownCurrent();
             registered = false;
