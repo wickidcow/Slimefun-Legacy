@@ -193,13 +193,28 @@ final class BeaconPlusRuntimeEffects {
     }
 
     private static void pullEntity(Entity entity, Location center, int tier) {
-        Vector delta = center.toVector().subtract(entity.getLocation().toVector());
-        if (delta.lengthSquared() < 0.25D) {
+        Location location = entity.getLocation();
+        double deltaX = center.getX() - location.getX();
+        double deltaZ = center.getZ() - location.getZ();
+        double horizontalDistanceSquared = deltaX * deltaX + deltaZ * deltaZ;
+        double deltaY = center.getY() - location.getY();
+
+        if (horizontalDistanceSquared < 0.04D && Math.abs(deltaY) < 0.25D) {
             return;
         }
-        Vector pull = delta.normalize().multiply(0.06D + 0.04D * tier);
-        pull.setY(Math.max(-0.20D, Math.min(0.20D, pull.getY())));
-        entity.setVelocity(entity.getVelocity().multiply(0.75D).add(pull));
+
+        Vector pull = new Vector();
+        if (horizontalDistanceSquared >= 0.04D) {
+            double horizontalStrength = 0.12D + 0.12D * Math.max(1, Math.min(3, tier));
+            double inverseHorizontalDistance = 1.0D / Math.sqrt(horizontalDistanceSquared);
+            pull.setX(deltaX * inverseHorizontalDistance * horizontalStrength);
+            pull.setZ(deltaZ * inverseHorizontalDistance * horizontalStrength);
+        }
+
+        // Keep vertical separation from stealing most of the pull. Gravity Well is primarily an X/Z attraction field,
+        // which keeps mobs on farm platforms moving toward the beacon even when the beacon is far above or below them.
+        pull.setY(Math.max(-0.12D, Math.min(0.12D, deltaY * 0.03D)));
+        entity.setVelocity(entity.getVelocity().multiply(0.50D).add(pull));
     }
 
     private static void applyTileEntityBoosts(
