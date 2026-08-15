@@ -1,0 +1,48 @@
+name: One-shot 4.1.31 contract rollover
+
+on:
+  push:
+    branches:
+      - release/4.1.31-beacon-plus
+
+permissions:
+  contents: write
+
+jobs:
+  rollover-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: release/4.1.31-beacon-plus
+
+      - name: Roll compatibility metadata to 4.1.31
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          matrix_path = Path('compatibility/addon-compatibility-matrix.json')
+          matrix = json.loads(matrix_path.read_text())
+          matrix['release'] = '4.1.31'
+          matrix_path.write_text(json.dumps(matrix, indent=2) + '\n')
+
+          support_path = Path('compatibility/support-contract.json')
+          support = json.loads(support_path.read_text())
+          support['release'] = '4.1.31'
+          support['compatibility_policy']['gameplay_behavior_changed'] = True
+          support_path.write_text(json.dumps(support, indent=2) + '\n')
+          PY
+
+          if git diff --quiet; then
+            echo "Compatibility metadata is already on 4.1.31."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add compatibility/addon-compatibility-matrix.json compatibility/support-contract.json
+          git commit -m "Roll compatibility contracts to 4.1.31"
+          git push origin HEAD:release/4.1.31-beacon-plus
