@@ -2,6 +2,8 @@
 
 Slimefun Legacy 4.1.30B updates the Resonance Beacon field model so its visible area and runtime behavior match chunk boundaries cleanly.
 
+The repository remains on the numeric `4.1.30` development line so the existing Legacy compatibility gates retain their historical three-part version contract. The published Resonance Beacon JAR is built with the maintenance version **4.1.30B**, so the server/plugin build itself reports the B release version.
+
 ## Full-height field powers
 
 Resonance Beacon field powers use a chunk-aligned square footprint instead of a spherical three-dimensional radius.
