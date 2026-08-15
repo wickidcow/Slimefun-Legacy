@@ -44,6 +44,7 @@ final class BeaconPlusRuntimeEffects {
     static final int MAX_TILE_ENTITIES_PER_PULSE = 96;
     static final int CROP_SAMPLES_PER_PULSE = 48;
     private static final int PULSE_INTERVAL_TICKS = 20;
+    private static final int GRAVITY_PULSE_INTERVAL_TICKS = 24;
     private static final int EFFECT_DURATION_TICKS = 70;
     private static final int NIGHT_VISION_DURATION_TICKS = 240;
     private static final NamespacedKey SCALE_KEY = new NamespacedKey(Slimefun.instance(), "beacon_plus_scale");
@@ -69,6 +70,8 @@ final class BeaconPlusRuntimeEffects {
     static void applyPulse(Block block, Map<BeaconPlusEffect, Integer> tiers, double range, long gameTime) {
         Location center = block.getLocation().add(0.5D, 0.5D, 0.5D);
         int gravityTier = tiers.getOrDefault(BeaconPlusEffect.GRAVITY_WELL, 0);
+        boolean gravityPulse = gravityTier > 0
+                && Math.floorMod(gameTime, GRAVITY_PULSE_INTERVAL_TICKS) < PULSE_INTERVAL_TICKS;
         for (Entity entity : getEntities(block, range)) {
             if (entity instanceof Player player) {
                 applyPlayerEffects(player, tiers, gameTime);
@@ -76,7 +79,7 @@ final class BeaconPlusRuntimeEffects {
                 applyMonsterEffects(monster, tiers);
             }
 
-            if (gravityTier > 0 && (entity instanceof Enemy || entity instanceof Item)) {
+            if (gravityPulse && (entity instanceof Enemy || entity instanceof Item)) {
                 pullEntity(entity, center, gravityTier);
             }
         }
@@ -209,24 +212,25 @@ final class BeaconPlusRuntimeEffects {
         double deltaX = center.getX() - location.getX();
         double deltaZ = center.getZ() - location.getZ();
         double horizontalDistanceSquared = deltaX * deltaX + deltaZ * deltaZ;
-        double deltaY = center.getY() - location.getY();
 
-        if (horizontalDistanceSquared < 0.04D && Math.abs(deltaY) < 0.25D) {
+        // Avoid jitter once an entity is already essentially centered over the beacon.
+        if (horizontalDistanceSquared < 0.25D) {
             return;
         }
 
-        Vector pull = new Vector();
-        if (horizontalDistanceSquared >= 0.04D) {
-            double horizontalStrength = 0.12D + 0.12D * Math.max(1, Math.min(3, tier));
-            double inverseHorizontalDistance = 1.0D / Math.sqrt(horizontalDistanceSquared);
-            pull.setX(deltaX * inverseHorizontalDistance * horizontalStrength);
-            pull.setZ(deltaZ * inverseHorizontalDistance * horizontalStrength);
-        }
+        double inverseHorizontalDistance = 1.0D / Math.sqrt(horizontalDistanceSquared);
+        double horizontalStrength = switch (Math.max(1, Math.min(3, tier))) {
+            case 1 -> 0.45D;
+            case 2 -> 0.65D;
+            default -> 0.85D;
+        };
 
-        // Keep vertical separation from stealing most of the pull. Gravity Well is primarily an X/Z attraction field,
-        // which keeps mobs on farm platforms moving toward the beacon even when the beacon is far above or below them.
-        pull.setY(Math.max(-0.12D, Math.min(0.12D, deltaY * 0.03D)));
-        entity.setVelocity(entity.getVelocity().multiply(0.50D).add(pull));
+        // Deliberately overwrite X/Z instead of blending with AI movement. This makes Gravity Well behave like
+        // reverse knockback toward the beacon and is strong enough to visibly move Endermen and other Enemy mobs.
+        Vector velocity = entity.getVelocity();
+        velocity.setX(deltaX * inverseHorizontalDistance * horizontalStrength);
+        velocity.setZ(deltaZ * inverseHorizontalDistance * horizontalStrength);
+        entity.setVelocity(velocity);
     }
 
     private static void applyTileEntityBoosts(Block beaconBlock, double range, int furnaceTier, int spawnerTier) {
