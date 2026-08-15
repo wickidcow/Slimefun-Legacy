@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify Slimefun Legacy 4.1.30 Core Platform Phase 1L release-lifecycle invariants."""
+"""Verify retained Core Platform Phase 1L release-lifecycle invariants for 4.1.30 and newer."""
 from __future__ import annotations
 
 import json
@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-CURRENT_VERSION = "4.1.30"
+MINIMUM_VERSION = (4, 1, 30)
 CURRENT_PHASE = "Core Platform Phase 1L"
 PREVIOUS_STABLE_VERSION = "4.1.29"
 PREVIOUS_STABLE_REF = "9794baffdd4a96f71fa18ae45ced8bab30982fb0"
@@ -35,17 +35,23 @@ def project_version(root: Path) -> str:
     return match.group(1) if match else ""
 
 
+def version_tuple(version: str) -> tuple[int, int, int]:
+    return tuple(map(int, version.split(".")))
+
+
 def main() -> int:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     failures: list[str] = []
 
     try:
         version = project_version(root)
-        require(version == CURRENT_VERSION, f"Phase 1L projectVersion must be {CURRENT_VERSION}, got {version or '<missing>'}", failures)
+        require(bool(version), "Phase 1L projectVersion is missing", failures)
+        if version:
+            require(version_tuple(version) >= MINIMUM_VERSION, f"Phase 1L requires 4.1.30 or newer, got {version}", failures)
 
         support = load_json(root, "compatibility/support-contract.json")
-        require(support.get("release") == CURRENT_VERSION, "Support contract release must match 4.1.30", failures)
-        require(support.get("phase") == CURRENT_PHASE, "Support contract phase must be Core Platform Phase 1L", failures)
+        require(support.get("release") == version, "Support contract release must match projectVersion", failures)
+        require(support.get("phase") == CURRENT_PHASE, "Support contract phase must retain Core Platform Phase 1L", failures)
 
         policy = support.get("compatibility_policy", {})
         for key in (
@@ -64,13 +70,18 @@ def main() -> int:
         for key in (
             "database_format_changed",
             "storage_schema_changed",
-            "gameplay_behavior_changed",
             "third_party_plugin_dependency_emulation",
             "gugu_runtime_core_target",
             "phase1l_changes_normal_cargo_energy_machine_semantics",
             "phase1l_changes_storage_or_gameplay_semantics",
         ):
             require(policy.get(key) is False, f"Phase 1L policy must remain false: {key}", failures)
+
+        require(
+            type(policy.get("gameplay_behavior_changed")) is bool,
+            "Active release must explicitly declare whether gameplay behavior changed",
+            failures,
+        )
 
         java = support.get("java", {})
         require(java.get("build_toolchain") == 25, "Phase 1L build toolchain must remain Java 25", failures)
@@ -81,8 +92,8 @@ def main() -> int:
         candidate = baselines.get("candidate", {})
         previous = baselines.get("previous_stable", {})
         floor = baselines.get("legacy_floor", {})
-        require(candidate.get("version") == CURRENT_VERSION, "Candidate baseline must be 4.1.30", failures)
-        require(previous.get("version") == PREVIOUS_STABLE_VERSION, "Previous stable baseline must be 4.1.29", failures)
+        require(candidate.get("version") == version, "Candidate baseline must match projectVersion", failures)
+        require(previous.get("version") == PREVIOUS_STABLE_VERSION, "Previous stable baseline must remain 4.1.29 until a newer stable release is validated", failures)
         require(previous.get("source", {}).get("mode") == "git-ref", "Previous stable baseline must use a pinned git ref", failures)
         require(previous.get("source", {}).get("ref") == PREVIOUS_STABLE_REF, "Previous stable 4.1.29 baseline must be pinned to the validated release commit", failures)
         require(previous.get("release_blocking") is True, "Previous stable 4.1.29 must be release blocking", failures)
@@ -95,7 +106,7 @@ def main() -> int:
             "compatibility/core-api-registry.json",
         ):
             data = load_json(root, relative)
-            require(data.get("release") == CURRENT_VERSION, f"{relative} release must be 4.1.30", failures)
+            require(data.get("release") == version, f"{relative} release must match projectVersion", failures)
 
         addon_matrix = load_json(root, "compatibility/addon-compatibility-matrix.json")
         required = [addon for addon in addon_matrix.get("addons", []) if addon.get("enabled") and not addon.get("advisory")]
@@ -115,15 +126,17 @@ def main() -> int:
         print(report.read_text(encoding="utf-8"), end="")
         return 1
 
+    gameplay_changed = support.get("compatibility_policy", {}).get("gameplay_behavior_changed")
     report.write_text(
         "Core Platform Phase 1L verification: PASS\n"
-        "- 4.1.30 development metadata is aligned across the support contract and compatibility registries\n"
-        "- validated 4.1.29 is now the release-blocking previous-stable baseline\n"
+        f"- active development/release metadata is aligned at {version}\n"
+        "- validated 4.1.29 remains the release-blocking previous-stable baseline until a newer stable release is validated\n"
         "- the 4.1.15 historical compatibility floor remains advisory\n"
         "- required Legacy addon regressions continue to block release\n"
         "- Phase 1K dependency and release-hardening gates remain active\n"
         "- Java 25 runtime/toolchain and Java 21 bytecode targeting remain unchanged\n"
-        "- no normal Cargo, Energy, machine, database, storage-schema or saved-world semantics are changed\n",
+        "- Phase 1L itself does not alter normal Cargo, Energy, machine, database, storage-schema or saved-world semantics\n"
+        f"- active release gameplay behavior changed is explicitly declared as {str(gameplay_changed).lower()}\n",
         encoding="utf-8",
     )
     print(report.read_text(encoding="utf-8"), end="")
