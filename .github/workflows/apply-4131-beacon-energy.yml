@@ -36,6 +36,8 @@ jobs:
       - name: Format and build
         run: |
           chmod +x gradlew
+          export SOURCE_COMMIT="$GITHUB_SHA"
+          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct "$GITHUB_SHA")"
           ./gradlew spotlessApply --no-daemon
           ./gradlew clean build --no-daemon
           JAR="$(find build/libs -name 'Slimefun-4.1.31.jar' -print -quit)"
