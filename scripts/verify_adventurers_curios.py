@@ -87,7 +87,7 @@ def main() -> int:
         for token in (
             "SlimefunLegacyAddition:", "PoweredBeacon:", "BeaconData:", "storage-type: WORLD",
             "folder-name: BeaconData", "payment-mode: EXPERIENCE", "IRON_BLOCK: 1.0", "NETHERITE_BLOCK: 5.0",
-            "flying:\n        enabled: false", "immortality-field:\n        enabled: false", "auto-repair:",
+            "flying:\n        enabled: true", "immortality-field:\n        enabled: true", "auto-repair:",
         ):
             req(token in config, f"config.yml Resonance Beacon default missing: {token}", failures)
 
