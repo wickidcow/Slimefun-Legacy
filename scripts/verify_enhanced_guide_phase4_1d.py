@@ -23,7 +23,11 @@ changelog_text = changelog.read_text(encoding="utf-8")
 guide_text = guide.read_text(encoding="utf-8")
 properties_text = properties.read_text(encoding="utf-8")
 
-version_match = re.search(r"^projectVersion=(\d+)\.(\d+)\.(\d+)$", properties_text, re.MULTILINE)
+version_match = re.search(
+    r"^projectVersion=(\d+)\.(\d+)\.(\d+)(?:[A-Za-z][A-Za-z0-9.-]*)?$",
+    properties_text,
+    re.MULTILINE,
+)
 release_is_compatible = bool(version_match) and tuple(map(int, version_match.groups())) >= (4, 1, 15)
 
 checks = {
