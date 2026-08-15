@@ -61,7 +61,7 @@ For native Resonance Beacons, unlocks are permanent to the beacon owner and supp
 - right click an unlocked power to enable/disable it;
 - shift-right-click to purchase the next tier.
 
-Costs may use Minecraft experience levels or Vault money. Global and per-power payment modes/costs are configurable. Flying and Immortality Field ship disabled by default so a server must explicitly opt into them.
+Costs may use Minecraft experience levels or Vault money. Global and per-power payment modes/costs are configurable. All Resonance Beacon powers ship enabled by default; a server owner can disable any individual power by setting that power's `enabled` value to `false` under `SlimefunLegacyAddition.PoweredBeacon.powers`.
 
 Purchasing Tier III never bypasses the physical beacon. The effective tier is capped by the pyramid below the beacon.
 
@@ -150,7 +150,7 @@ Legacy aliases such as `exp_boost`, `resist`, `fastdig`, `nightvision`, `immorta
 
 Legacy levels are mapped proportionally into three native tiers, so an old effect that was fully upgraded remains a Tier III unlock even if that old effect used a maximum level above three. The raw old `level` value is preserved when mirroring the JSON. Powers whose old maximum was already three or lower retain their old numeric tier directly.
 
-Existing legacy records contain no owner UUID. Imported beacons are therefore operator-managed and their old unlock/selected levels are grandfathered rather than charging a new purchase cost. Native owner/progression metadata remains in Slimefun storage and is not injected into the compatibility JSON.
+Existing legacy records contain no owner UUID. Imported beacons are therefore operator-managed and their old unlock/selected levels are grandfathered rather than charging a new purchase cost. Native owner/progression metadata remains in Slimefun storage and is not injected into the compatibility JSON schema.
 
 The reader also recovers the old double-encoded JSON failure mode and normalizes it on the next save.
 
