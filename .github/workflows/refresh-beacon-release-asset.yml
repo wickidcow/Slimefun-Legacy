@@ -1,0 +1,46 @@
+name: Refresh Resonance Beacon Release Asset
+
+on:
+  push:
+    branches:
+      - automation/refresh-beacon-release-asset
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  refresh-release-asset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download validated Slimefun Legacy JAR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifact
+          gh run download 31884231190 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "SF_Slimefun_Legacy_v4.1.30.jar" \
+            --dir artifact
+          JAR="$(find artifact -type f -name 'SF_Slimefun_Legacy_v4.1.30.jar' -print -quit)"
+          test -n "$JAR"
+          cp "$JAR" SF_Slimefun_Legacy_v4.1.30.jar
+          sha256sum SF_Slimefun_Legacy_v4.1.30.jar
+
+      - name: Replace Beacon release JAR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload beacon-upgrade-addon-chunk-loader-v1.0.0 \
+            SF_Slimefun_Legacy_v4.1.30.jar \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+          gh release view beacon-upgrade-addon-chunk-loader-v1.0.0 \
+            --repo "$GITHUB_REPOSITORY" \
+            --json assets \
+            --jq '.assets[] | select(.name == "SF_Slimefun_Legacy_v4.1.30.jar") | {name: .name, size: .size, digest: .digest}'
