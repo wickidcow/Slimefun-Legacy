@@ -130,6 +130,12 @@ public final class MinersCanary extends SimpleSlimefunItem<ItemUseHandler> imple
             return;
         }
 
+        if (Slimefun.getSchedulerService().isFolia()
+                && (event.getEntity().getLocation().getBlockX() >> 4 != player.getLocation().getBlockX() >> 4
+                        || event.getEntity().getLocation().getBlockZ() >> 4 != player.getLocation().getBlockZ() >> 4)) {
+            return;
+        }
+
         double distanceSquared = event.getEntity().getLocation().distanceSquared(player.getLocation());
         if (distanceSquared <= (double) MOB_RANGE * MOB_RANGE) {
             chirp(player, new Danger(DangerType.HOSTILE, event.getEntity().getType().name(), Math.sqrt(distanceSquared)), false);
@@ -248,7 +254,7 @@ public final class MinersCanary extends SimpleSlimefunItem<ItemUseHandler> imple
     private static boolean isExposed(Block lava) {
         for (BlockFace face : EXPOSED_FACES) {
             Block adjacent = lava.getRelative(face);
-            if (adjacent.getType().isAir() || adjacent.isPassable()) {
+            if (adjacent.getType() != Material.LAVA && (adjacent.getType().isAir() || adjacent.isPassable())) {
                 return true;
             }
         }
