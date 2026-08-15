@@ -1,0 +1,160 @@
+name: Resonance Beacon 4.1.30C Hotfix
+
+on:
+  push:
+    branches: [ feature/adventurers-curios-expansion ]
+
+permissions:
+  contents: write
+
+jobs:
+  hotfix-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v6
+        with:
+          ref: feature/adventurers-curios-expansion
+          fetch-depth: 0
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Apply 4.1.30C fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          beacon_path = Path('src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlus.java')
+          beacon = beacon_path.read_text(encoding='utf-8')
+
+          status = '        menu.addItem(STATUS_SLOT, createStatusItem(block, owner, enabled, profile, chunkMode));\n'
+          status_locked = status + '        menu.addMenuClickHandler(STATUS_SLOT, (pl, slot, item, action) -> false);\n'
+          if 'menu.addMenuClickHandler(STATUS_SLOT' not in beacon:
+              if status not in beacon:
+                  raise SystemExit('Could not locate Resonance Beacon status slot insertion point')
+              beacon = beacon.replace(status, status_locked, 1)
+
+          pyramid_controls = (
+              '        menu.addItem(PYRAMID_INFO_SLOT, createPyramidItem(profile));\n'
+              '        menu.addItem(CONTROLS_SLOT, createControlsItem());\n'
+          )
+          pyramid_controls_locked = (
+              '        menu.addItem(PYRAMID_INFO_SLOT, createPyramidItem(profile));\n'
+              '        menu.addMenuClickHandler(PYRAMID_INFO_SLOT, (pl, slot, item, action) -> false);\n'
+              '        menu.addItem(CONTROLS_SLOT, createControlsItem());\n'
+              '        menu.addMenuClickHandler(CONTROLS_SLOT, (pl, slot, item, action) -> false);\n'
+          )
+          if 'menu.addMenuClickHandler(PYRAMID_INFO_SLOT' not in beacon or 'menu.addMenuClickHandler(CONTROLS_SLOT' not in beacon:
+              if pyramid_controls not in beacon:
+                  raise SystemExit('Could not locate Resonance Beacon pyramid/controls insertion point')
+              beacon = beacon.replace(pyramid_controls, pyramid_controls_locked, 1)
+
+          beacon_path.write_text(beacon, encoding='utf-8')
+
+          runtime_path = Path('src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusRuntimeEffects.java')
+          runtime = runtime_path.read_text(encoding='utf-8')
+
+          if 'import org.bukkit.entity.Enemy;' not in runtime:
+              runtime = runtime.replace('import org.bukkit.entity.Entity;\n', 'import org.bukkit.entity.Enemy;\nimport org.bukkit.entity.Entity;\n', 1)
+          runtime = runtime.replace('import org.bukkit.entity.Monster;\n', 'import org.bukkit.entity.Mob;\n', 1)
+          runtime = runtime.replace(
+              '            } else if (entity instanceof Monster monster) {\n'
+              '                applyMonsterEffects(monster, tiers, center);\n',
+              '            } else if (entity instanceof Enemy enemy) {\n'
+              '                applyEnemyEffects(enemy, tiers, center);\n',
+              1,
+          )
+
+          old_method = re.compile(
+              r'    private static void applyMonsterEffects\(Monster monster, Map<BeaconPlusEffect, Integer> tiers, Location center\) \{.*?^    \}\n\n(?=    private static void applyPotionIfPresent)',
+              re.MULTILINE | re.DOTALL,
+          )
+          new_method = '''    private static void applyEnemyEffects(Enemy enemy, Map<BeaconPlusEffect, Integer> tiers, Location center) {
+              applyPotionIfPresent(
+                      enemy, tiers, BeaconPlusEffect.SLOWDOWN, PotionEffectType.SLOWNESS, EFFECT_DURATION_TICKS);
+              applyPotionIfPresent(enemy, tiers, BeaconPlusEffect.POISON, PotionEffectType.POISON, EFFECT_DURATION_TICKS);
+              int burnerTier = tiers.getOrDefault(BeaconPlusEffect.BURNER, 0);
+              if (burnerTier > 0 && isUndead(enemy.getType())) {
+                  enemy.setFireTicks(Math.max(enemy.getFireTicks(), 40 + burnerTier * 40));
+              }
+              if (tiers.getOrDefault(BeaconPlusEffect.PEACEFUL, 0) > 0 && enemy instanceof Mob mob) {
+                  mob.setTarget(null);
+              }
+              int gravityTier = tiers.getOrDefault(BeaconPlusEffect.GRAVITY_WELL, 0);
+              if (gravityTier > 0) {
+                  pullEntity(enemy, center, gravityTier);
+              }
+          }
+
+'''
+          if 'private static void applyMonsterEffects(' in runtime:
+              runtime, count = old_method.subn(new_method, runtime, count=1)
+              if count != 1:
+                  raise SystemExit('Could not replace Monster-only Resonance Beacon effect handler')
+
+          if 'instanceof Monster' in runtime or 'applyMonsterEffects(' in runtime:
+              raise SystemExit('Monster-only Resonance Beacon filtering remains after patch')
+          if 'instanceof Enemy enemy' not in runtime or 'applyEnemyEffects(Enemy enemy' not in runtime:
+              raise SystemExit('Enemy-wide Resonance Beacon filtering was not installed')
+
+          runtime_path.write_text(runtime, encoding='utf-8')
+
+          properties = Path('gradle.properties')
+          props = properties.read_text(encoding='utf-8')
+          props = re.sub(r'(?m)^projectVersion=.*$', 'projectVersion=4.1.30C', props)
+          properties.write_text(props, encoding='utf-8')
+          PY
+
+      - name: Format and verify fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon
+          grep -q 'projectVersion=4.1.30C' gradle.properties
+          grep -q 'addMenuClickHandler(STATUS_SLOT' src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlus.java
+          grep -q 'addMenuClickHandler(PYRAMID_INFO_SLOT' src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlus.java
+          grep -q 'addMenuClickHandler(CONTROLS_SLOT' src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlus.java
+          grep -q 'instanceof Enemy enemy' src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusRuntimeEffects.java
+
+      - name: Build 4.1.30C
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew clean build --no-daemon
+          JAR="$(find build/libs -name 'Slimefun-4.1.30C.jar' -print -quit)"
+          test -n "$JAR"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+          mkdir -p dist
+          cp "$JAR" dist/SF_Slimefun_Legacy_v4.1.30C.jar
+          test -s dist/SF_Slimefun_Legacy_v4.1.30C.jar
+          sha256sum dist/SF_Slimefun_Legacy_v4.1.30C.jar
+
+      - name: Commit hotfix source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add gradle.properties \
+            src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlus.java \
+            src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusRuntimeEffects.java
+          if ! git diff --cached --quiet; then
+            git commit -m 'fix(curios): harden beacon menu and gravity well'
+            git push origin HEAD:feature/adventurers-curios-expansion
+          fi
+
+      - name: Upload raw 4.1.30C JAR
+        uses: actions/upload-artifact@v7
+        with:
+          name: SF_Slimefun_Legacy_v4.1.30C.jar
+          path: dist/SF_Slimefun_Legacy_v4.1.30C.jar
+          archive: false
+          if-no-files-found: error
