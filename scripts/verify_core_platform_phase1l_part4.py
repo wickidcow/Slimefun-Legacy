@@ -62,6 +62,7 @@ def main() -> int:
         for token in (
             "name: Paper 26.2 Runtime Smoke",
             'PAPER_MINECRAFT_VERSION: "26.2"',
+            'PAPER_DOWNLOAD_USER_AGENT: "Slimefun-Legacy-CI/4.1.31',
             "distribution: temurin",
             "java-version: '25'",
             "python3 scripts/verify_legacy.py .",
@@ -73,6 +74,10 @@ def main() -> int:
         harness = read(root, "scripts/paper_runtime_smoke.sh")
         for token in (
             'MC_VERSION="${PAPER_MINECRAFT_VERSION:-26.2}"',
+            'SF_VERSION="${SLIMEFUN_VERSION:-$(sed -n',
+            'projectVersion=//p',
+            'Slimefun-Legacy-CI/${SF_VERSION}',
+            '"Enabling Slimefun v${SF_VERSION}"',
             "https://fill.papermc.io/v3/projects/paper/versions/${MC_VERSION}/builds",
             'select(.channel == "STABLE")',
             "sf doctor upgrade",
@@ -86,6 +91,11 @@ def main() -> int:
             "Slimefun Legacy Paper runtime smoke: PASS",
         ):
             require(token in harness, f"Paper smoke harness invariant missing: {token}", failures)
+        require(
+            "Enabling Slimefun v4.1.30" not in harness,
+            "Paper smoke harness must not pin a stale Slimefun enable version",
+            failures,
+        )
 
         for forbidden in (
             "force-upgrade",
@@ -132,6 +142,7 @@ def main() -> int:
         "- the support contract identifies Minecraft/Paper 26.2 consistently\n"
         "- stable Paper 26.2 is selected through PaperMC's downloads service\n"
         "- the candidate JAR is boot-tested with Java 25\n"
+        "- the smoke harness derives the expected Slimefun version from projectVersion\n"
         "- /sf doctor upgrade is executed during the runtime smoke\n"
         "- two boot cycles exercise enable, clean shutdown and restart persistence\n"
         "- BLOCKED upgrade diagnostics fail the smoke test\n"
