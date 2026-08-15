@@ -21,10 +21,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifact
-          gh run download 31884231190 \
-            --repo "$GITHUB_REPOSITORY" \
-            --name "SF_Slimefun_Legacy_v4.1.30.jar" \
-            --dir artifact
+          curl --fail --location --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/9246833365/zip" \
+            -o artifact.zip
+          unzip -q artifact.zip -d artifact
           JAR="$(find artifact -type f -name 'SF_Slimefun_Legacy_v4.1.30.jar' -print -quit)"
           test -n "$JAR"
           cp "$JAR" SF_Slimefun_Legacy_v4.1.30.jar
