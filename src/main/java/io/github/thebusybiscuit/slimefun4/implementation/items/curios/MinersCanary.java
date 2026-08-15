@@ -27,6 +27,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -53,6 +54,15 @@ public final class MinersCanary extends SimpleSlimefunItem<ItemUseHandler> imple
 
     private static final BlockFace[] EXPOSED_FACES = {
         BlockFace.UP,
+        BlockFace.NORTH,
+        BlockFace.SOUTH,
+        BlockFace.EAST,
+        BlockFace.WEST
+    };
+
+    private static final BlockFace[] BREAK_HAZARD_FACES = {
+        BlockFace.UP,
+        BlockFace.DOWN,
         BlockFace.NORTH,
         BlockFace.SOUTH,
         BlockFace.EAST,
@@ -119,6 +129,24 @@ public final class MinersCanary extends SimpleSlimefunItem<ItemUseHandler> imple
         Danger danger = detectDanger(player, true);
         if (danger != null) {
             chirp(player, danger, false);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBlockBreak(BlockBreakEvent event) {
+        Player player = event.getPlayer();
+        if (!isCarryingCanary(player)) {
+            return;
+        }
+
+        Block broken = event.getBlock();
+        for (BlockFace face : BREAK_HAZARD_FACES) {
+            Block adjacent = broken.getRelative(face);
+            if (adjacent.getType() == Material.LAVA) {
+                double distance = adjacent.getLocation().add(0.5D, 0.5D, 0.5D).distance(player.getLocation());
+                chirp(player, new Danger(DangerType.LAVA, "newly exposed lava", distance), false);
+                return;
+            }
         }
     }
 
