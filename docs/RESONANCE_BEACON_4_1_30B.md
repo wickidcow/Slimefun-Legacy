@@ -34,3 +34,7 @@ Activator remains the only Resonance Beacon power that intentionally keeps chunk
 - `/beacon enable`, `/beacon disable`, and `/beacon status` continue to control Activator chunk loading globally.
 
 The full-height field model does not increase Activator coverage and does not turn ordinary beacon effects into chunk loaders.
+
+## Validation
+
+The cleaned source passed the Adventurer's Curios verifier, special-item correctness verifier, full Slimefun Legacy invariant suite, Gradle tests, and a `shadowJar` build without applying repository-wide formatting changes.
