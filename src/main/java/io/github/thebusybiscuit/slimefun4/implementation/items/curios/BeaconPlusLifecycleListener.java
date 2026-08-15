@@ -22,6 +22,7 @@ final class BeaconPlusLifecycleListener implements Listener {
         }
         registered = true;
         Bukkit.getPluginManager().registerEvents(new BeaconPlusLifecycleListener(plugin), plugin);
+        BeaconPlusAdminCommand.register(plugin);
         BeaconPlusAreaVisualizer.register(plugin);
     }
 

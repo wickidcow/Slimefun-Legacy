@@ -153,6 +153,18 @@ public final class BeaconPlusManager {
         return true;
     }
 
+    /** Applies the global admin switch without changing any beacon's saved Activator selection. */
+    public synchronized void applyGlobalChunkLoadingState() {
+        if (!BeaconPlusChunkLoadingControl.isEnabled()) {
+            releaseAllChunkTickets();
+            return;
+        }
+
+        if (ticketReferences.isEmpty()) {
+            restoreTickets();
+        }
+    }
+
     public synchronized int getActiveBeaconCount() {
         return (int) records.values().stream().filter(record -> record.chunkMode().isActive()).count();
     }
@@ -169,6 +181,17 @@ public final class BeaconPlusManager {
         int activeAfter = getActiveBeaconCount() + (previous.chunkMode().isActive() ? 0 : 1);
         if (activeAfter > MAX_ACTIVE_BEACONS) {
             return false;
+        }
+
+        if (!BeaconPlusChunkLoadingControl.isEnabled()) {
+            Set<ChunkKey> configuredCoverage = new HashSet<>();
+            for (BeaconRecord record : records.values()) {
+                if (!record.location().equals(replacement.location())) {
+                    configuredCoverage.addAll(coverage(record));
+                }
+            }
+            configuredCoverage.addAll(coverage(replacement));
+            return configuredCoverage.size() <= MAX_UNIQUE_CHUNKS;
         }
 
         Set<ChunkKey> previousCoverage = coverage(previous);
@@ -189,6 +212,10 @@ public final class BeaconPlusManager {
     }
 
     private void restoreTickets() {
+        if (!BeaconPlusChunkLoadingControl.isEnabled()) {
+            return;
+        }
+
         boolean changed = false;
         int restoredActive = 0;
 
@@ -204,7 +231,7 @@ public final class BeaconPlusManager {
                 records.put(
                         entry.getKey(),
                         new BeaconRecord(record.location(), record.owner(), BeaconPlusChunkMode.OFF, record.supportMode()));
-                plugin.getLogger().warning("Beacon Plus at " + record.location().describe()
+                plugin.getLogger().warning("Resonance Beacon at " + record.location().describe()
                         + " restored with Activator disabled because the global safety cap was reached.");
                 changed = true;
                 continue;
@@ -276,7 +303,7 @@ public final class BeaconPlusManager {
     }
 
     private void acquireCoverage(BeaconRecord record) {
-        if (!record.chunkMode().isActive()) {
+        if (!BeaconPlusChunkLoadingControl.isEnabled() || !record.chunkMode().isActive()) {
             return;
         }
 
@@ -290,7 +317,7 @@ public final class BeaconPlusManager {
                 try {
                     world.addPluginChunkTicket(key.x(), key.z(), plugin);
                 } catch (RuntimeException exception) {
-                    plugin.getLogger().log(Level.WARNING, "Could not load Beacon Plus chunk " + key.describe(), exception);
+                    plugin.getLogger().log(Level.WARNING, "Could not load Resonance Beacon chunk " + key.describe(), exception);
                     continue;
                 }
             }
@@ -312,13 +339,27 @@ public final class BeaconPlusManager {
                     try {
                         world.removePluginChunkTicket(key.x(), key.z(), plugin);
                     } catch (RuntimeException exception) {
-                        plugin.getLogger().log(Level.WARNING, "Could not release Beacon Plus chunk " + key.describe(), exception);
+                        plugin.getLogger().log(Level.WARNING, "Could not release Resonance Beacon chunk " + key.describe(), exception);
                     }
                 }
             } else {
                 ticketReferences.put(key, references - 1);
             }
         }
+    }
+
+    private void releaseAllChunkTickets() {
+        for (ChunkKey key : new HashSet<>(ticketReferences.keySet())) {
+            World world = Bukkit.getWorld(key.worldId());
+            if (world != null) {
+                try {
+                    world.removePluginChunkTicket(key.x(), key.z(), plugin);
+                } catch (RuntimeException exception) {
+                    plugin.getLogger().log(Level.WARNING, "Could not release Resonance Beacon chunk " + key.describe(), exception);
+                }
+            }
+        }
+        ticketReferences.clear();
     }
 
     private Set<ChunkKey> coverage(BeaconRecord record) {
@@ -400,17 +441,7 @@ public final class BeaconPlusManager {
     }
 
     private synchronized void shutdown() {
-        for (ChunkKey key : new HashSet<>(ticketReferences.keySet())) {
-            World world = Bukkit.getWorld(key.worldId());
-            if (world != null) {
-                try {
-                    world.removePluginChunkTicket(key.x(), key.z(), plugin);
-                } catch (RuntimeException exception) {
-                    plugin.getLogger().log(Level.FINE, "Could not release Beacon Plus chunk during shutdown.", exception);
-                }
-            }
-        }
-        ticketReferences.clear();
+        releaseAllChunkTickets();
         saveRegistry();
     }
 

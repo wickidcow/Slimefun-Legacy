@@ -20,6 +20,7 @@ final class BeaconPlusConfig {
     static void installDefaults() {
         var config = Slimefun.getCfg();
         config.setDefaultValue(ROOT + ".enabled", true);
+        config.setDefaultValue(ROOT + ".chunk-loading-enabled", true);
         config.setDefaultValue(ROOT + ".progression.max-tier", MAX_TIER);
         config.setDefaultValue(ROOT + ".progression.payment-mode", "EXPERIENCE");
         config.setDefaultValue(ROOT + ".progression.creative-bypass-cost", true);
@@ -94,7 +95,8 @@ final class BeaconPlusConfig {
     }
 
     static boolean shouldBootstrapLegacyActivators() {
-        return shouldImportExistingBeaconData()
+        return BeaconPlusChunkLoadingControl.isEnabled()
+                && shouldImportExistingBeaconData()
                 && Slimefun.getCfg().getBoolean(BEACON_DATA_ROOT + ".bootstrap-legacy-activators");
     }
 
