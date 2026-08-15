@@ -30,19 +30,21 @@ A survey tool that reports coordinates, biome, and heading while retaining norma
 
 ### Miner's Canary
 
-A bounded lava detector for mining.
+A carried, bounded early-warning curio for mining and exploration.
 
-- Runs only when deliberately used.
-- Never loads a chunk to perform its scan.
-- Folia limits cross-region block inspection.
+- Chirps automatically when a nearby hostile mob targets the carrier or is moving toward them.
+- Chirps for nearby **exposed lava**, rather than sealed lava completely enclosed by blocks.
+- Also warns for a few immediate player dangers such as being on fire, dangerously low air, or a dangerous fall.
+- Passive checks occur only for players actually carrying the Canary.
+- Movement-based hazard scans are throttled to once every two seconds per carrier.
+- Repeated warning chirps are rate-limited to once every four seconds per carrier.
+- Right-click performs an immediate manual danger scan and reports either the nearest detected danger or an all-clear.
+- The lava scan is bounded to six blocks horizontally and five blocks vertically.
+- Hostile approach detection is bounded to 12 blocks.
+- Never loads a chunk to perform a scan.
+- On Folia, entity and block inspection is restricted to safe local chunk behavior.
 
-### Dungeon Chalk
-
-A personal breadcrumb stored on the item rather than placed in the world.
-
-- Right-click a block to mark it.
-- Right-click air to recall the marker.
-- Sneak-right-click to erase it.
+Dungeon Chalk has been removed from Adventurer's Curios and is no longer registered or built.
 
 ### Storm Glass
 
@@ -78,6 +80,18 @@ A player-carried biome log with a bounded number of persistent discoveries.
 ## Beacon Plus
 
 `BEACON_PLUS` is a native Slimefun Legacy block in Adventurer's Curios. It does not require the discontinued BeaconPlus3 plugin and does not import, bundle, or execute BeaconPlus3 classes.
+
+### Recipe
+
+Beacon Plus uses this exact Enhanced Crafting Table recipe:
+
+| | | |
+|---|---|---|
+| Echo Shard | Essence of Afterlife | Echo Shard |
+| Magical Glass | Beacon | Magical Glass |
+| Blistering Ingot | Synthetic Diamond | Blistering Ingot |
+
+The recipe uses the real Slimefun `ESSENCE_OF_AFTERLIFE`, `MAGICAL_GLASS`, completed `BLISTERING_INGOT_3`, and `SYNTHETIC_DIAMOND` item stacks.
 
 Right-clicking a placed Beacon Plus opens a 54-slot owner-controlled menu. Server operators may also configure it. The menu exposes exactly **28 independently toggleable powers**, matching the Albion keep list. Every power defaults to **OFF**.
 
