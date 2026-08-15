@@ -23,9 +23,7 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 
-/**
- * Event-driven Beacon Plus powers that do not belong in the periodic block pulse.
- */
+/** Event-driven Resonance Beacon powers that do not belong in the periodic block pulse. */
 final class BeaconPlusEffectListener implements Listener {
 
     private static final AtomicBoolean REGISTERED = new AtomicBoolean();
@@ -46,22 +44,26 @@ final class BeaconPlusEffectListener implements Listener {
             return;
         }
 
-        int power = BeaconPlusRuntime.getPowerForEffect(
+        int tier = BeaconPlusRuntime.getTierForEffect(
                 event.getPlayer().getLocation(), BeaconPlusEffect.EXPERIENCE_BOOSTER);
-        if (power >= 0) {
-            event.setAmount(event.getAmount() * (power > 0 ? 3 : 2));
+        if (tier > 0) {
+            event.setAmount(event.getAmount() * (tier + 1));
         }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onCooldown(PlayerItemCooldownEvent event) {
-        int power = BeaconPlusRuntime.getPowerForEffect(
+        int tier = BeaconPlusRuntime.getTierForEffect(
                 event.getPlayer().getLocation(), BeaconPlusEffect.COOLDOWN_REDUCTION);
-        if (power < 0 || event.getCooldown() <= 1) {
+        if (tier <= 0 || event.getCooldown() <= 1) {
             return;
         }
 
-        double multiplier = power > 0 ? 0.40D : 0.60D;
+        double multiplier = switch (tier) {
+            case 1 -> 0.60D;
+            case 2 -> 0.40D;
+            default -> 0.25D;
+        };
         event.setCooldown(Math.max(1, (int) Math.ceil(event.getCooldown() * multiplier)));
     }
 
@@ -107,9 +109,9 @@ final class BeaconPlusEffectListener implements Listener {
             return;
         }
 
-        int power = BeaconPlusRuntime.getPowerForEffect(
+        int tier = BeaconPlusRuntime.getTierForEffect(
                 player.getLocation(), BeaconPlusEffect.IMMORTALITY_FIELD);
-        if (power < 0) {
+        if (tier <= 0) {
             return;
         }
 
@@ -119,7 +121,11 @@ final class BeaconPlusEffectListener implements Listener {
             return;
         }
 
-        double chance = power > 0 ? 0.40D : 0.25D;
+        double chance = switch (tier) {
+            case 1 -> 0.25D;
+            case 2 -> 0.40D;
+            default -> 0.55D;
+        };
         if (ThreadLocalRandom.current().nextDouble() >= chance) {
             return;
         }

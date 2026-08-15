@@ -2,13 +2,12 @@ package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
 
 import java.util.Locale;
 
-/**
- * Bounded Activator coverage profiles for Beacon Plus.
- */
+/** Bounded Activator coverage profiles for the Resonance Beacon. */
 public enum BeaconPlusChunkMode {
     OFF("Off", 0, false),
     SINGLE("This Chunk", 0, true),
-    AREA_3X3("3x3 Area", 1, true);
+    AREA_3X3("3x3 Area", 1, true),
+    AREA_5X5("5x5 Area", 2, true);
 
     private final String displayName;
     private final int radius;

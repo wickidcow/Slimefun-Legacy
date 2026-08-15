@@ -21,9 +21,7 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-/**
- * Registers the built-in Adventurer's Curios category and its field gadgets.
- */
+/** Registers the built-in Adventurer's Curios category and its field gadgets. */
 final class AdventurersCuriosSetup {
 
     private static boolean registered;
@@ -41,7 +39,6 @@ final class AdventurersCuriosSetup {
         }
 
         registered = true;
-
         ItemGroup curios = new ItemGroup(
                 new NamespacedKey(plugin, "adventurers_curios"), createCategoryIcon(), 2);
 
@@ -125,16 +122,16 @@ final class AdventurersCuriosSetup {
                 "&8Ignores small falls",
                 "&8Cooldown: 60 seconds");
 
-        SlimefunItemStack beaconPlus = new SlimefunItemStack(
+        SlimefunItemStack resonanceBeacon = new SlimefunItemStack(
                 "BEACON_PLUS",
                 Material.BEACON,
-                "&6&lBeacon Plus",
-                "&7A native Slimefun expedition beacon",
-                "&7with 28 independently toggleable powers.",
+                "&6&lResonance Beacon",
+                "&7A Slimefun-powered expedition beacon",
+                "&7with 28 configurable three-tier powers.",
                 "",
-                "&eRight Click &7to open the configuration menu",
-                "&8Field effects require a powered beacon pyramid",
-                "&8Activator uses bounded plugin chunk tickets");
+                "&eRight Click &7to unlock, enable and upgrade powers",
+                "&8Pyramid size and mineral resonance cap power tier",
+                "&8Legacy BeaconData folders can be imported directly");
 
         new WayfindersCompass(
                         curios,
@@ -276,7 +273,7 @@ final class AdventurersCuriosSetup {
 
         new BeaconPlus(
                         curios,
-                        beaconPlus,
+                        resonanceBeacon,
                         RecipeType.ENHANCED_CRAFTING_TABLE,
                         new ItemStack[] {
                             new ItemStack(Material.ECHO_SHARD),

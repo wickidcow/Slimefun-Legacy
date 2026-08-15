@@ -6,9 +6,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.server.PluginDisableEvent;
 
-/**
- * Releases Beacon Plus runtime state and chunk tickets before Slimefun finishes disabling.
- */
+/** Releases Resonance Beacon runtime state, progression data and chunk tickets during Slimefun shutdown. */
 final class BeaconPlusLifecycleListener implements Listener {
 
     private static boolean registered;
@@ -30,6 +28,8 @@ final class BeaconPlusLifecycleListener implements Listener {
     public void onPluginDisable(PluginDisableEvent event) {
         if (event.getPlugin() == plugin) {
             BeaconPlusRuntime.shutdown();
+            BeaconPlusProgression.shutdown();
+            BeaconPlusLegacyDataStore.shutdownCurrent();
             BeaconPlusManager.shutdownCurrent();
             registered = false;
         }

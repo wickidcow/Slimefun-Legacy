@@ -3,81 +3,27 @@ package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.ASlimefunDataContainer;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import java.util.ArrayList;
-import java.util.Collection;
+import java.util.EnumMap;
 import java.util.EnumSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ThreadLocalRandom;
-import org.bukkit.Chunk;
-import org.bukkit.GameMode;
 import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.World;
-import org.bukkit.attribute.Attribute;
-import org.bukkit.attribute.AttributeInstance;
-import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.block.Beacon;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
-import org.bukkit.block.CreatureSpawner;
-import org.bukkit.block.Furnace;
-import org.bukkit.block.data.Ageable;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Item;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.PlayerInventory;
-import org.bukkit.inventory.meta.Damageable;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
-import org.bukkit.util.Vector;
 
-/**
- * Shared, bounded runtime for Beacon Plus area effects.
- *
- * <p>One Slimefun block ticker drives periodic work. Event-driven effects query only recently observed, loaded
- * Beacon Plus blocks. No per-effect or per-beacon scheduler is created.
- */
+/** Coordinates Resonance Beacon tier resolution and delegates bounded world effects. */
 final class BeaconPlusRuntime {
 
     static final String EFFECTS_KEY = "beacon_plus_effects";
-
     private static final int PULSE_INTERVAL_TICKS = 20;
-    private static final int EFFECT_DURATION_TICKS = 70;
-    private static final int NIGHT_VISION_DURATION_TICKS = 240;
-    private static final int EXTRA_RANGE_BLOCKS = 20;
-    private static final int MAX_TILE_ENTITIES_PER_PULSE = 96;
-    private static final int CROP_SAMPLES_PER_PULSE = 48;
+    private static final int EXTRA_RANGE_PER_TIER = 10;
     private static final long OBSERVED_BEACON_TTL_MILLIS = 15_000L;
-    private static final NamespacedKey SCALE_KEY = new NamespacedKey(Slimefun.instance(), "beacon_plus_scale");
-
     private static final Map<BeaconKey, Long> OBSERVED_BEACONS = new ConcurrentHashMap<>();
-    private static final Map<UUID, Boolean> ORIGINAL_ALLOW_FLIGHT = new ConcurrentHashMap<>();
-
-    private static final Set<PotionEffectType> HARMFUL_EFFECTS = Set.of(
-            PotionEffectType.SLOWNESS,
-            PotionEffectType.MINING_FATIGUE,
-            PotionEffectType.NAUSEA,
-            PotionEffectType.BLINDNESS,
-            PotionEffectType.HUNGER,
-            PotionEffectType.WEAKNESS,
-            PotionEffectType.POISON,
-            PotionEffectType.WITHER,
-            PotionEffectType.LEVITATION,
-            PotionEffectType.UNLUCK,
-            PotionEffectType.DARKNESS,
-            PotionEffectType.BAD_OMEN,
-            PotionEffectType.RAID_OMEN,
-            PotionEffectType.TRIAL_OMEN);
 
     private BeaconPlusRuntime() {}
 
@@ -102,24 +48,24 @@ final class BeaconPlusRuntime {
         EnumSet<BeaconPlusEffect> stored = effects.isEmpty()
                 ? EnumSet.noneOf(BeaconPlusEffect.class)
                 : EnumSet.copyOf(effects);
-        stored.remove(BeaconPlusEffect.ACTIVATOR);
         StorageCacheUtils.setData(location, EFFECTS_KEY, BeaconPlusEffect.serialize(stored));
+        World world = location.getWorld();
+        if (world != null && world.isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)) {
+            BeaconPlusLegacyDataStore.sync(location.getBlock());
+        }
     }
 
     static boolean hasEffect(Location target, BeaconPlusEffect effect) {
-        return getPowerForEffect(target, effect) >= 0;
+        return getTierForEffect(target, effect) > 0;
     }
 
-    /**
-     * @return -1 when no active beacon provides the effect, otherwise 0 or 1 for normal/extra power
-     */
-    static int getPowerForEffect(Location target, BeaconPlusEffect effect) {
-        if (target.getWorld() == null) {
-            return -1;
+    static int getTierForEffect(Location target, BeaconPlusEffect effect) {
+        if (!BeaconPlusConfig.isEnabled() || target.getWorld() == null || !BeaconPlusConfig.isPowerEnabled(effect)) {
+            return 0;
         }
 
         purgeStaleObservedBeacons();
-        int bestPower = -1;
+        int bestTier = 0;
         long now = System.currentTimeMillis();
         for (Map.Entry<BeaconKey, Long> entry : OBSERVED_BEACONS.entrySet()) {
             if (now - entry.getValue() > OBSERVED_BEACON_TTL_MILLIS) {
@@ -127,41 +73,108 @@ final class BeaconPlusRuntime {
             }
 
             BeaconKey key = entry.getKey();
-            if (!key.worldId().equals(target.getWorld().getUID())) {
+            World world = target.getWorld();
+            if (!key.worldId().equals(world.getUID())) {
                 continue;
             }
-
             if (Slimefun.getSchedulerService().isFolia()
                     && (key.x() >> 4 != target.getBlockX() >> 4 || key.z() >> 4 != target.getBlockZ() >> 4)) {
                 continue;
             }
-
-            World world = target.getWorld();
             if (!world.isChunkLoaded(key.x() >> 4, key.z() >> 4)) {
                 continue;
             }
 
-            Location beaconLocation = key.toLocation(world);
-            if (!isEffectEnabled(beaconLocation, effect)) {
-                continue;
-            }
-
             Block block = world.getBlockAt(key.x(), key.y(), key.z());
-            double range = getRange(block);
-            if (range <= 0.0D || beaconLocation.clone().add(0.5D, 0.5D, 0.5D).distanceSquared(target) > range * range) {
+            EnumMap<BeaconPlusEffect, Integer> tiers = getActiveTiers(block);
+            int tier = tiers.getOrDefault(effect, 0);
+            if (tier <= 0) {
                 continue;
             }
 
-            bestPower = Math.max(bestPower, isEffectEnabled(beaconLocation, BeaconPlusEffect.EXTRA_POWER) ? 1 : 0);
-            if (bestPower == 1) {
+            double range = getRange(block, tiers);
+            Location beaconLocation = block.getLocation().add(0.5D, 0.5D, 0.5D);
+            if (range <= 0.0D || beaconLocation.distanceSquared(target) > range * range) {
+                continue;
+            }
+
+            bestTier = Math.max(bestTier, tier);
+            if (bestTier >= BeaconPlusConfig.getMaxTier()) {
                 break;
             }
         }
-        return bestPower;
+        return bestTier;
+    }
+
+    /** Legacy helper: -1 inactive, then 0/1/2 for Tier I/II/III. */
+    static int getPowerForEffect(Location target, BeaconPlusEffect effect) {
+        int tier = getTierForEffect(target, effect);
+        return tier <= 0 ? -1 : tier - 1;
+    }
+
+    static int getEffectiveTierAtBeacon(Block block, BeaconPlusEffect effect) {
+        return getActiveTiers(block).getOrDefault(effect, 0);
+    }
+
+    static int getPotentialTierAtBeacon(Block block, BeaconPlusEffect effect) {
+        if (!BeaconPlusConfig.isEnabled() || !BeaconPlusConfig.isPowerEnabled(effect)) {
+            return 0;
+        }
+        if (getOwner(block.getLocation()) == null) {
+            return 0;
+        }
+
+        int naturalTier = BeaconPlusPyramid.inspect(block).naturalPowerTier();
+        if (naturalTier <= 0) {
+            return 0;
+        }
+
+        int unlocked = getUnlockedTierAtBeacon(block, effect);
+        int requested = getRequestedTierAtBeacon(block, effect, unlocked);
+        int baseTier = Math.min(Math.min(unlocked, requested), naturalTier);
+        if (baseTier <= 0 || !supportsExtraPower(effect)) {
+            return baseTier;
+        }
+
+        EnumSet<BeaconPlusEffect> configured = getConfiguredEffects(block.getLocation());
+        int extraUnlocked = getUnlockedTierAtBeacon(block, BeaconPlusEffect.EXTRA_POWER);
+        int extraRequested = getRequestedTierAtBeacon(block, BeaconPlusEffect.EXTRA_POWER, extraUnlocked);
+        int extraTier = configured.contains(BeaconPlusEffect.EXTRA_POWER)
+                ? Math.min(Math.min(extraUnlocked, extraRequested), naturalTier)
+                : 0;
+        return Math.min(BeaconPlusConfig.getMaxTier(), baseTier + extraTier);
+    }
+
+    static int getUnlockedTierAtBeacon(Block block, BeaconPlusEffect effect) {
+        if (!effect.isConfigurable()) {
+            return 0;
+        }
+        int imported = BeaconPlusLegacyDataStore.getImportedUnlockedTier(block.getLocation(), effect);
+        if (imported > 0) {
+            return Math.min(imported, BeaconPlusConfig.getMaxTier());
+        }
+        UUID owner = getOwner(block.getLocation());
+        return owner == null ? 0 : BeaconPlusProgression.getUnlockedTier(owner, effect);
+    }
+
+    static int getSelectedTierAtBeacon(Block block, BeaconPlusEffect effect) {
+        return getRequestedTierAtBeacon(block, effect, getUnlockedTierAtBeacon(block, effect));
+    }
+
+    private static int getRequestedTierAtBeacon(Block block, BeaconPlusEffect effect, int unlocked) {
+        if (unlocked <= 0) {
+            return 0;
+        }
+        int imported = BeaconPlusLegacyDataStore.getImportedSelectedTier(block.getLocation(), effect);
+        return imported > 0 ? Math.min(imported, unlocked) : unlocked;
     }
 
     static void tick(Block block, ASlimefunDataContainer data) {
         observe(block);
+        if (!BeaconPlusConfig.isEnabled()) {
+            BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, 64.0D);
+            return;
+        }
 
         long gameTime = block.getWorld().getGameTime();
         long phase = Math.floorMod(gameTime + block.getX() * 31L + block.getZ() * 17L, PULSE_INTERVAL_TICKS);
@@ -169,370 +182,130 @@ final class BeaconPlusRuntime {
             return;
         }
 
-        double range = getRange(block);
+        EnumMap<BeaconPlusEffect, Integer> tiers = getActiveTiers(block);
+        reconcileActivator(block, tiers.getOrDefault(BeaconPlusEffect.ACTIVATOR, 0));
+        double range = getRange(block, tiers);
         if (range <= 0.0D) {
-            refreshNearbyPlayerStates(block, 64.0D);
+            BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, 64.0D);
             return;
         }
-
-        EnumSet<BeaconPlusEffect> effects = BeaconPlusEffect.parse(data.getData(EFFECTS_KEY));
-        BeaconPlusManager manager = BeaconPlusManager.getInstance();
-        if (manager != null && manager.getChunkMode(block.getLocation()) != BeaconPlusChunkMode.OFF) {
-            effects.add(BeaconPlusEffect.ACTIVATOR);
-        }
-
-        int power = effects.contains(BeaconPlusEffect.EXTRA_POWER) ? 1 : 0;
-        Location center = block.getLocation().add(0.5D, 0.5D, 0.5D);
-        Collection<Entity> entities = getEntities(block, center, range);
-
-        for (Entity entity : entities) {
-            if (entity instanceof Player player) {
-                applyPlayerEffects(player, effects, power, gameTime);
-            } else if (entity instanceof Monster monster) {
-                applyMonsterEffects(monster, effects, power, center);
-            } else if (effects.contains(BeaconPlusEffect.GRAVITY_WELL) && entity instanceof Item) {
-                pullEntity(entity, center, power);
-            }
-        }
-
-        if (effects.contains(BeaconPlusEffect.FURNACE_BOOSTER) || effects.contains(BeaconPlusEffect.SPAWNERS)) {
-            applyTileEntityBoosts(block, center, range, effects, power);
-        }
-        if (effects.contains(BeaconPlusEffect.CROPS) && gameTime % 40L < PULSE_INTERVAL_TICKS) {
-            applyCropBoost(block, center, range, power);
-        }
+        BeaconPlusRuntimeEffects.applyPulse(block, tiers, range, gameTime);
     }
 
     static void refreshPlayerState(Player player) {
-        boolean shouldFly = hasEffect(player.getLocation(), BeaconPlusEffect.FLYING);
-        updateFlight(player, shouldFly);
-
-        boolean shouldScale = hasEffect(player.getLocation(), BeaconPlusEffect.SCALE);
-        updateScale(player, shouldScale);
+        BeaconPlusRuntimeEffects.refreshPlayerState(player);
     }
 
     static void clearPlayerState(Player player) {
-        Boolean original = ORIGINAL_ALLOW_FLIGHT.remove(player.getUniqueId());
-        if (original != null && player.getGameMode() != GameMode.CREATIVE && player.getGameMode() != GameMode.SPECTATOR) {
-            player.setAllowFlight(original);
-            if (!original && player.isFlying()) {
-                player.setFlying(false);
-            }
-        }
-        updateScale(player, false);
+        BeaconPlusRuntimeEffects.clearPlayerState(player);
     }
 
     static void shutdown() {
-        for (Player player : Slimefun.instance().getServer().getOnlinePlayers()) {
-            clearPlayerState(player);
-        }
+        BeaconPlusRuntimeEffects.shutdown();
         OBSERVED_BEACONS.clear();
-        ORIGINAL_ALLOW_FLIGHT.clear();
     }
 
-    private static boolean isEffectEnabled(Location location, BeaconPlusEffect effect) {
-        if (effect == BeaconPlusEffect.ACTIVATOR) {
-            BeaconPlusManager manager = BeaconPlusManager.getInstance();
-            return manager != null && manager.getChunkMode(location) != BeaconPlusChunkMode.OFF;
+    private static EnumMap<BeaconPlusEffect, Integer> getActiveTiers(Block block) {
+        EnumMap<BeaconPlusEffect, Integer> tiers = new EnumMap<>(BeaconPlusEffect.class);
+        if (!BeaconPlusConfig.isEnabled() || getOwner(block.getLocation()) == null) {
+            return tiers;
         }
-        return BeaconPlusEffect.parse(StorageCacheUtils.getData(location, EFFECTS_KEY)).contains(effect);
+
+        int naturalTier = BeaconPlusPyramid.inspect(block).naturalPowerTier();
+        if (naturalTier <= 0) {
+            return tiers;
+        }
+
+        EnumSet<BeaconPlusEffect> configured = getConfiguredEffects(block.getLocation());
+        int extraPowerTier = 0;
+        if (configured.contains(BeaconPlusEffect.EXTRA_POWER)
+                && BeaconPlusConfig.isPowerEnabled(BeaconPlusEffect.EXTRA_POWER)) {
+            int unlocked = getUnlockedTierAtBeacon(block, BeaconPlusEffect.EXTRA_POWER);
+            int requested = getRequestedTierAtBeacon(block, BeaconPlusEffect.EXTRA_POWER, unlocked);
+            extraPowerTier = Math.min(Math.min(unlocked, requested), naturalTier);
+            if (extraPowerTier > 0) {
+                tiers.put(BeaconPlusEffect.EXTRA_POWER, extraPowerTier);
+            }
+        }
+
+        for (BeaconPlusEffect effect : configured) {
+            if (!effect.isConfigurable()
+                    || effect == BeaconPlusEffect.EXTRA_POWER
+                    || !BeaconPlusConfig.isPowerEnabled(effect)) {
+                continue;
+            }
+            int unlocked = getUnlockedTierAtBeacon(block, effect);
+            int requested = getRequestedTierAtBeacon(block, effect, unlocked);
+            int tier = Math.min(Math.min(unlocked, requested), naturalTier);
+            if (tier <= 0) {
+                continue;
+            }
+            if (supportsExtraPower(effect)) {
+                tier = Math.min(BeaconPlusConfig.getMaxTier(), tier + extraPowerTier);
+            }
+            tiers.put(effect, tier);
+        }
+        return tiers;
     }
 
-    private static double getRange(Block block) {
+    private static boolean supportsExtraPower(BeaconPlusEffect effect) {
+        return effect != BeaconPlusEffect.EXTRA_POWER
+                && effect != BeaconPlusEffect.EXTRA_RANGE
+                && effect != BeaconPlusEffect.ACTIVATOR;
+    }
+
+    private static UUID getOwner(Location location) {
+        BeaconPlusManager manager = BeaconPlusManager.getInstance();
+        if (manager != null) {
+            UUID owner = manager.getOwner(location);
+            if (owner != null) {
+                return owner;
+            }
+        }
+        String stored = StorageCacheUtils.getData(location, BeaconPlusManager.OWNER_KEY);
+        if (stored == null || stored.isBlank()) {
+            return null;
+        }
+        try {
+            return UUID.fromString(stored);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    private static double getRange(Block block, Map<BeaconPlusEffect, Integer> tiers) {
         BlockState state = block.getState();
         if (!(state instanceof Beacon beacon) || beacon.getTier() <= 0) {
             return 0.0D;
         }
-
-        double range = Math.max(0.0D, beacon.getEffectRange());
-        if (isEffectEnabled(block.getLocation(), BeaconPlusEffect.EXTRA_RANGE)) {
-            range += EXTRA_RANGE_BLOCKS;
-        }
-        return range;
+        double importedOverride = BeaconPlusLegacyDataStore.getImportedOverriddenRange(block.getLocation());
+        double range = importedOverride > 0.0D ? importedOverride : Math.max(0.0D, beacon.getEffectRange());
+        int extraRangeTier = tiers.getOrDefault(BeaconPlusEffect.EXTRA_RANGE, 0);
+        return extraRangeTier > 0 ? range + EXTRA_RANGE_PER_TIER * extraRangeTier : range;
     }
 
-    private static Collection<Entity> getEntities(Block block, Location center, double range) {
-        if (Slimefun.getSchedulerService().isFolia()) {
-            List<Entity> result = new ArrayList<>();
-            double rangeSquared = range * range;
-            for (Entity entity : block.getChunk().getEntities()) {
-                if (entity.getLocation().distanceSquared(center) <= rangeSquared) {
-                    result.add(entity);
-                }
-            }
-            return result;
+    private static boolean reconcileActivator(Block block, int tier) {
+        BeaconPlusManager manager = BeaconPlusManager.getInstance();
+        if (manager == null) {
+            return false;
         }
-        return block.getWorld().getNearbyEntities(center, range, range, range);
-    }
-
-    private static void applyPlayerEffects(
-            Player player, EnumSet<BeaconPlusEffect> effects, int power, long gameTime) {
-        if (effects.contains(BeaconPlusEffect.STRENGTH)) {
-            applyPotion(player, PotionEffectType.STRENGTH, power, EFFECT_DURATION_TICKS);
-        }
-        if (effects.contains(BeaconPlusEffect.REGENERATION)) {
-            applyPotion(player, PotionEffectType.REGENERATION, power, EFFECT_DURATION_TICKS);
-        }
-        if (effects.contains(BeaconPlusEffect.RESISTANCE)) {
-            applyPotion(player, PotionEffectType.RESISTANCE, power, EFFECT_DURATION_TICKS);
-        }
-        if (effects.contains(BeaconPlusEffect.FAST_DIGGING)) {
-            applyPotion(player, PotionEffectType.HASTE, power, EFFECT_DURATION_TICKS);
-        }
-        if (effects.contains(BeaconPlusEffect.SPEED)) {
-            applyPotion(player, PotionEffectType.SPEED, power, EFFECT_DURATION_TICKS);
-        }
-        if (effects.contains(BeaconPlusEffect.NIGHT_VISION)) {
-            applyPotion(player, PotionEffectType.NIGHT_VISION, 0, NIGHT_VISION_DURATION_TICKS);
-        }
-        if (effects.contains(BeaconPlusEffect.LUCK)) {
-            applyPotion(player, PotionEffectType.LUCK, power, EFFECT_DURATION_TICKS);
-        }
-        if (effects.contains(BeaconPlusEffect.WATER_BREATHING)) {
-            applyPotion(player, PotionEffectType.WATER_BREATHING, 0, EFFECT_DURATION_TICKS);
-        }
-        if (effects.contains(BeaconPlusEffect.JUMP)) {
-            applyPotion(player, PotionEffectType.JUMP_BOOST, power, EFFECT_DURATION_TICKS);
-        }
-        if (effects.contains(BeaconPlusEffect.CURE)) {
-            for (PotionEffectType harmful : HARMFUL_EFFECTS) {
-                player.removePotionEffect(harmful);
-            }
-        }
-        if (effects.contains(BeaconPlusEffect.FIRE_EXTINGUISHER) && player.getFireTicks() > 0) {
-            player.setFireTicks(0);
-        }
-        if (effects.contains(BeaconPlusEffect.EXP_GAIN) && gameTime % 100L < PULSE_INTERVAL_TICKS) {
-            player.giveExp(1 + power);
-        }
-        if (effects.contains(BeaconPlusEffect.AUTO_REPAIR) && gameTime % 100L < PULSE_INTERVAL_TICKS) {
-            repairInventory(player.getInventory(), 1 + power);
-        }
-
-        updateFlight(player, effects.contains(BeaconPlusEffect.FLYING));
-        updateScale(player, effects.contains(BeaconPlusEffect.SCALE));
-    }
-
-    private static void applyMonsterEffects(
-            Monster monster, EnumSet<BeaconPlusEffect> effects, int power, Location center) {
-        if (effects.contains(BeaconPlusEffect.SLOWDOWN)) {
-            applyPotion(monster, PotionEffectType.SLOWNESS, power, EFFECT_DURATION_TICKS);
-        }
-        if (effects.contains(BeaconPlusEffect.POISON)) {
-            applyPotion(monster, PotionEffectType.POISON, power, EFFECT_DURATION_TICKS);
-        }
-        if (effects.contains(BeaconPlusEffect.BURNER) && isUndead(monster.getType())) {
-            monster.setFireTicks(Math.max(monster.getFireTicks(), 80));
-        }
-        if (effects.contains(BeaconPlusEffect.PEACEFUL)) {
-            monster.setTarget(null);
-        }
-        if (effects.contains(BeaconPlusEffect.GRAVITY_WELL)) {
-            pullEntity(monster, center, power);
-        }
-    }
-
-    private static void applyPotion(LivingEntity entity, PotionEffectType type, int amplifier, int duration) {
-        entity.addPotionEffect(new PotionEffect(type, duration, amplifier, true, false, true));
-    }
-
-    private static void pullEntity(Entity entity, Location center, int power) {
-        Vector delta = center.toVector().subtract(entity.getLocation().toVector());
-        if (delta.lengthSquared() < 0.25D) {
-            return;
-        }
-
-        Vector pull = delta.normalize().multiply(0.10D + 0.04D * power);
-        pull.setY(Math.max(-0.20D, Math.min(0.20D, pull.getY())));
-        entity.setVelocity(entity.getVelocity().multiply(0.75D).add(pull));
-    }
-
-    private static void applyTileEntityBoosts(
-            Block beaconBlock,
-            Location center,
-            double range,
-            EnumSet<BeaconPlusEffect> effects,
-            int power) {
-        int inspected = 0;
-        double rangeSquared = range * range;
-        for (Chunk chunk : getLoadedChunksInRange(beaconBlock, range)) {
-            for (BlockState state : chunk.getTileEntities()) {
-                if (++inspected > MAX_TILE_ENTITIES_PER_PULSE) {
-                    return;
-                }
-                if (state.getLocation().distanceSquared(center) > rangeSquared) {
-                    continue;
-                }
-
-                if (effects.contains(BeaconPlusEffect.FURNACE_BOOSTER) && state instanceof Furnace furnace) {
-                    boostFurnace(furnace, power);
-                }
-                if (effects.contains(BeaconPlusEffect.SPAWNERS) && state instanceof CreatureSpawner spawner) {
-                    boostSpawner(spawner, power);
-                }
-            }
-        }
-    }
-
-    private static void boostFurnace(Furnace furnace, int power) {
-        if (furnace.getBurnTime() <= 0 || furnace.getCookTimeTotal() <= 0) {
-            return;
-        }
-
-        int extraTicks = 4 + power * 4;
-        int next = Math.min(furnace.getCookTimeTotal() - 1, furnace.getCookTime() + extraTicks);
-        if (next > furnace.getCookTime()) {
-            furnace.setCookTime((short) next);
-            furnace.update(true, false);
-        }
-    }
-
-    private static void boostSpawner(CreatureSpawner spawner, int power) {
-        int reduction = 20 + power * 10;
-        int next = Math.max(20, spawner.getDelay() - reduction);
-        if (next < spawner.getDelay()) {
-            spawner.setDelay(next);
-            spawner.update(true, false);
-        }
-    }
-
-    private static void applyCropBoost(Block beaconBlock, Location center, double range, int power) {
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-        int horizontal = Math.max(1, (int) Math.floor(range));
-        int samples = CROP_SAMPLES_PER_PULSE + power * 16;
-
-        for (int i = 0; i < samples; i++) {
-            int x = center.getBlockX() + random.nextInt(-horizontal, horizontal + 1);
-            int z = center.getBlockZ() + random.nextInt(-horizontal, horizontal + 1);
-            int y = center.getBlockY() + random.nextInt(-8, 9);
-
-            if (y < beaconBlock.getWorld().getMinHeight() || y >= beaconBlock.getWorld().getMaxHeight()) {
-                continue;
-            }
-            if (!beaconBlock.getWorld().isChunkLoaded(x >> 4, z >> 4)) {
-                continue;
-            }
-            if (Slimefun.getSchedulerService().isFolia()
-                    && (x >> 4 != beaconBlock.getX() >> 4 || z >> 4 != beaconBlock.getZ() >> 4)) {
-                continue;
-            }
-
-            Block target = beaconBlock.getWorld().getBlockAt(x, y, z);
-            if (target.getLocation().distanceSquared(center) > range * range) {
-                continue;
-            }
-            if (target.getBlockData() instanceof Ageable ageable && ageable.getAge() < ageable.getMaximumAge()) {
-                ageable.setAge(Math.min(ageable.getMaximumAge(), ageable.getAge() + 1 + power));
-                target.setBlockData(ageable, false);
-            }
-        }
-    }
-
-    private static List<Chunk> getLoadedChunksInRange(Block beaconBlock, double range) {
-        List<Chunk> chunks = new ArrayList<>();
-        int centerChunkX = beaconBlock.getX() >> 4;
-        int centerChunkZ = beaconBlock.getZ() >> 4;
-        if (Slimefun.getSchedulerService().isFolia()) {
-            chunks.add(beaconBlock.getChunk());
-            return chunks;
-        }
-
-        int chunkRadius = Math.max(0, (int) Math.ceil(range / 16.0D));
-        World world = beaconBlock.getWorld();
-        for (int x = centerChunkX - chunkRadius; x <= centerChunkX + chunkRadius; x++) {
-            for (int z = centerChunkZ - chunkRadius; z <= centerChunkZ + chunkRadius; z++) {
-                if (world.isChunkLoaded(x, z)) {
-                    chunks.add(world.getChunkAt(x, z));
-                }
-            }
-        }
-        return chunks;
-    }
-
-    private static void repairInventory(PlayerInventory inventory, int amount) {
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            ItemStack stack = inventory.getItem(slot);
-            if (stack == null || stack.getType() == Material.AIR || stack.getType().getMaxDurability() <= 0) {
-                continue;
-            }
-
-            ItemMeta meta = stack.getItemMeta();
-            if (!(meta instanceof Damageable damageable) || damageable.getDamage() <= 0) {
-                continue;
-            }
-
-            damageable.setDamage(Math.max(0, damageable.getDamage() - amount));
-            stack.setItemMeta(meta);
-            inventory.setItem(slot, stack);
-        }
-    }
-
-    private static void refreshNearbyPlayerStates(Block block, double range) {
-        Location center = block.getLocation().add(0.5D, 0.5D, 0.5D);
-        for (Entity entity : getEntities(block, center, range)) {
-            if (entity instanceof Player player) {
-                refreshPlayerState(player);
-            }
-        }
-    }
-
-    private static void updateFlight(Player player, boolean enabled) {
-        if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) {
-            ORIGINAL_ALLOW_FLIGHT.remove(player.getUniqueId());
-            return;
-        }
-
-        if (enabled) {
-            ORIGINAL_ALLOW_FLIGHT.putIfAbsent(player.getUniqueId(), player.getAllowFlight());
-            if (!player.getAllowFlight()) {
-                player.setAllowFlight(true);
-            }
-            return;
-        }
-
-        Boolean original = ORIGINAL_ALLOW_FLIGHT.remove(player.getUniqueId());
-        if (original != null) {
-            player.setAllowFlight(original);
-            if (!original && player.isFlying()) {
-                player.setFlying(false);
-            }
-        }
-    }
-
-    private static void updateScale(Player player, boolean enabled) {
-        AttributeInstance scale = player.getAttribute(Attribute.SCALE);
-        if (scale == null) {
-            return;
-        }
-
-        AttributeModifier existing = scale.getModifiers().stream()
-                .filter(modifier -> SCALE_KEY.equals(modifier.getKey()))
-                .findFirst()
-                .orElse(null);
-
-        if (enabled && existing == null) {
-            scale.addModifier(new AttributeModifier(SCALE_KEY, 0.25D, AttributeModifier.Operation.ADD_SCALAR));
-        } else if (!enabled && existing != null) {
-            scale.removeModifier(existing);
-        }
-    }
-
-    private static boolean isUndead(EntityType type) {
-        return switch (type) {
-            case ZOMBIE,
-                    ZOMBIE_VILLAGER,
-                    HUSK,
-                    DROWNED,
-                    SKELETON,
-                    STRAY,
-                    WITHER_SKELETON,
-                    BOGGED,
-                    PHANTOM,
-                    ZOGLIN,
-                    ZOMBIFIED_PIGLIN,
-                    WITHER -> true;
-            default -> false;
+        BeaconPlusChunkMode desired = switch (tier) {
+            case 1 -> BeaconPlusChunkMode.SINGLE;
+            case 2 -> BeaconPlusChunkMode.AREA_3X3;
+            case 3 -> BeaconPlusChunkMode.AREA_5X5;
+            default -> BeaconPlusChunkMode.OFF;
         };
+        if (manager.getChunkMode(block.getLocation()) == desired) {
+            return true;
+        }
+        UUID owner = getOwner(block.getLocation());
+        return owner != null
+                && manager.updateModes(
+                        block.getLocation(), owner, desired, manager.getSupportMode(block.getLocation()));
+    }
+
+    static boolean reconcileActivator(Block block) {
+        return reconcileActivator(block, getActiveTiers(block).getOrDefault(BeaconPlusEffect.ACTIVATOR, 0));
     }
 
     private static void purgeStaleObservedBeacons() {
@@ -547,10 +320,6 @@ final class BeaconPlusRuntime {
                     location.getBlockX(),
                     location.getBlockY(),
                     location.getBlockZ());
-        }
-
-        private Location toLocation(World world) {
-            return new Location(world, x, y, z);
         }
     }
 }

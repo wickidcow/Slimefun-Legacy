@@ -1,89 +1,49 @@
 # Adventurer's Curios
 
-Adventurer's Curios is a built-in Slimefun Legacy guide category for exploration tools, navigation aids, field safety, and unusual expedition gadgets.
+Adventurer's Curios is a built-in Slimefun Legacy guide category for exploration tools, navigation aids, field safety, and expedition gadgets. It is controlled by `options.enable-non-original-slimefun-additions`.
 
-The category is intentionally lightweight and Paper-first. Curios should not change existing Cargo, Energy, database, storage-schema, or machine transaction semantics.
-
-The category is controlled by `options.enable-non-original-slimefun-additions`. Slimefun Legacy ships this option as `true`; setting it to `false` disables Adventurer's Curios and future Legacy-only gameplay additions on the next restart.
-
-## Curios
+## Current Curios
 
 ### Wayfinder's Compass
-
-A reusable field compass that retunes itself when right-clicked.
-
-- Points to the player's last recorded death location.
-- Falls back to the current world's spawn when no death is recorded.
-- Stores its target on the compass as an untracked lodestone target.
+Retunes to the player's last death location and falls back to world spawn.
 
 ### Echo Lantern
-
-A short-range spectral detector.
-
-- Reveals nearby hostile monsters with Glowing for eight seconds.
-- Uses a 20-block radius and a 30-second cooldown.
-- Does not load chunks.
+Reveals nearby hostile monsters with Glowing for eight seconds. It uses a 20-block radius, 30-second cooldown, and does not load chunks.
 
 ### Explorer's Spyglass
-
-A survey tool that reports coordinates, biome, and heading while retaining normal spyglass use.
+Reports coordinates, biome and heading.
 
 ### Miner's Canary
+A carried passive danger alarm.
 
-A carried, bounded early-warning curio for mining and exploration.
+- Warns when an `Enemy` is targeting or moving toward the carrier within 12 blocks.
+- Warns about exposed lava in a bounded local scan.
+- Chirps immediately when breaking a block exposes adjacent lava.
+- Warns for fire, dangerously low air, and dangerous falls.
+- Passive scans are rate-limited and never load chunks.
+- Right click performs an immediate manual scan.
 
-- Chirps automatically when a nearby hostile mob targets the carrier or is moving toward them.
-- Chirps for nearby **exposed lava**, rather than sealed lava completely enclosed by blocks.
-- Also warns for a few immediate player dangers such as being on fire, dangerously low air, or a dangerous fall.
-- Passive checks occur only for players actually carrying the Canary.
-- Movement-based hazard scans are throttled to once every two seconds per carrier.
-- Repeated warning chirps are rate-limited to once every four seconds per carrier.
-- Right-click performs an immediate manual danger scan and reports either the nearest detected danger or an all-clear.
-- The lava scan is bounded to six blocks horizontally and five blocks vertically.
-- Hostile approach detection is bounded to 12 blocks.
-- Never loads a chunk to perform a scan.
-- On Folia, entity and block inspection is restricted to safe local chunk behavior.
-
-Dungeon Chalk has been removed from Adventurer's Curios and is no longer registered or built.
+Dungeon Chalk was intentionally removed from Adventurer's Curios.
 
 ### Storm Glass
-
-A read-only field instrument reporting weather, day phase, moon phase, and remaining weather duration.
+Read-only weather, day-phase and moon-phase field instrument.
 
 ### Expedition Journal
-
-A player-carried biome log with a bounded number of persistent discoveries.
+Bounded player-carried biome log.
 
 ### Traveler's Bedroll
-
-`ADVENTURERS_TRAVELERS_BEDROLL` is a portable personal rest tool intended for long expeditions without replacing Minecraft's real bed/spawn mechanics.
-
-- Right-click at night in the Overworld to rest.
-- Rest is refused when hostile monsters are within eight blocks.
-- Resets the player's phantom-rest timer.
-- Restores two hearts, four food points, and a small amount of saturation.
-- Has a five-minute cooldown.
-- Does **not** place a temporary bed, change world time, skip the night, teleport the player, or change the player's respawn point.
-- Runs only when deliberately used; there is no repeating bedroll task.
+Portable personal rest with a five-minute cooldown. It resets phantom rest and restores a little health/food without changing world time or the player's respawn point.
 
 ### Emergency Parachute
+Event-driven carried fall saver with a 60-second cooldown. It prevents dangerous/lethal fall damage and has no repeating task.
 
-`ADVENTURERS_EMERGENCY_PARACHUTE` is a reusable carried safety curio.
+## Resonance Beacon
 
-- Automatically activates when a fall would deal at least three hearts of damage, or when a smaller fall would otherwise be lethal.
-- Prevents that fall's damage and resets fall distance.
-- Can activate while carried in the player's normal inventory or off-hand; it does not need to be equipped as armor.
-- Ignores small non-lethal falls so the safety cooldown is not wasted.
-- Has a 60-second cooldown after a successful deployment.
-- Uses an event listener only; it has no repeating scheduler and performs no chunk scans.
-
-## Beacon Plus
-
-`BEACON_PLUS` is a native Slimefun Legacy block in Adventurer's Curios. It does not require the discontinued BeaconPlus3 plugin and does not import, bundle, or execute BeaconPlus3 classes.
+`BEACON_PLUS` is retained as the internal Slimefun id for migration compatibility, but the player-facing item is **Resonance Beacon**.
 
 ### Recipe
 
-Beacon Plus uses this exact Enhanced Crafting Table recipe:
+Enhanced Crafting Table:
 
 | | | |
 |---|---|---|
@@ -91,93 +51,131 @@ Beacon Plus uses this exact Enhanced Crafting Table recipe:
 | Magical Glass | Beacon | Magical Glass |
 | Blistering Ingot | Synthetic Diamond | Blistering Ingot |
 
-The recipe uses the real Slimefun `ESSENCE_OF_AFTERLIFE`, `MAGICAL_GLASS`, completed `BLISTERING_INGOT_3`, and `SYNTHETIC_DIAMOND` item stacks.
+### Progression
 
-Right-clicking a placed Beacon Plus opens a 54-slot owner-controlled menu. Server operators may also configure it. The menu exposes exactly **28 independently toggleable powers**, matching the Albion keep list. Every power defaults to **OFF**.
+The Resonance Beacon has exactly 28 player-facing powers. Every power is independently controlled by the server under `SlimefunLegacyAddition.PoweredBeacon.powers`.
 
-Normal field powers require the Beacon Plus block to sit on a valid vanilla beacon pyramid. Its base field range is the range reported by the vanilla/Paper beacon. **Extra Range** adds 20 blocks. **Extra Power** increases supported effect strength by one tier.
+For native Resonance Beacons, unlocks are permanent to the beacon owner and support **Tier I, Tier II and Tier III**. A player can:
+
+- right click a locked power to purchase Tier I and enable it;
+- right click an unlocked power to enable/disable it;
+- shift-right-click to purchase the next tier.
+
+Costs may use Minecraft experience levels or Vault money. Global and per-power payment modes/costs are configurable. Flying and Immortality Field ship disabled by default so a server must explicitly opt into them.
+
+Purchasing Tier III never bypasses the physical beacon. The effective tier is capped by the pyramid below the beacon.
+
+### Pyramid resonance
+
+Default mineral values:
+
+- Iron Block: 1
+- Gold Block: 2
+- Emerald Block: 3
+- Diamond Block: 4
+- Netherite Block: 5
+
+Default physical thresholds:
+
+- Tier I: at least a 3x3 / one-layer beacon base and average material power 1
+- Tier II: at least a 5x5 / two-layer base and average material power 3
+- Tier III: at least a 7x7 / three-layer base and average material power 4
+
+Mixed valid beacon minerals are supported; the average configured material power is used. All mineral values and thresholds are editable in `config.yml`.
 
 ### Toggleable powers
 
-1. **Furnace Booster** — advances nearby active furnace cooking progress in bounded pulses.
-2. **Strength Effect** — gives Strength to players inside the field.
-3. **Regeneration Effect** — gives Regeneration to players inside the field.
-4. **Resistance Effect** — gives Resistance to players inside the field.
-5. **Fast Digging** — gives Haste to players inside the field.
-6. **Cure** — removes harmful potion effects from players inside the field.
-7. **Crops** — samples nearby loaded crop blocks and advances age without scanning every block in the radius.
-8. **Spawners** — reduces the current delay of nearby loaded creature spawners, with a safe minimum delay.
-9. **Slowdown** — gives Slowness to hostile monsters inside the field.
-10. **Speed** — gives Speed to players inside the field.
-11. **Peaceful** — prevents hostile monsters in the field from targeting or directly damaging players.
-12. **Nightvision** — gives Night Vision to players inside the field.
-13. **Flying** — grants survival flight while the player remains inside the field, then restores the player's prior flight permission on exit or shutdown.
-14. **Experience Booster** — multiplies positive experience gains; normal power doubles XP and Extra Power triples it.
-15. **Luck** — gives Luck to players inside the field.
-16. **Burner** — ignites nearby undead monsters even when ordinary sunlight would not.
-17. **Water Breathing** — gives Water Breathing to players inside the field.
-18. **Fire Extinguisher** — extinguishes players inside the field.
-19. **Poison** — poisons hostile monsters inside the field.
-20. **Gravity Well** — pulls supported nearby non-player entities toward the beacon.
-21. **Jump** — gives Jump Boost to players inside the field.
-22. **Exp Gain** — grants a small passive XP pulse while players remain inside the field.
-23. **Cooldown Reduction** — shortens newly applied item cooldowns while the player is in range.
-24. **Immortality Field** — gives a chance to cancel otherwise fatal damage. Normal power is 25%; Extra Power is 40%; successful saves have a 60-second per-player cooldown.
-25. **Extra Power** — raises supported potion/booster strength by one tier and strengthens several utility powers.
-26. **Extra Range** — adds 20 blocks to the active beacon field range.
-27. **Activator** — keeps selected chunks loaded using bounded Paper plugin chunk tickets.
-28. **Auto Repair** — slowly repairs damaged tools, weapons, and armor carried by players in the field.
+1. Furnace Booster
+2. Strength Effect
+3. Regeneration Effect
+4. Resistance Effect
+5. Fast Digging
+6. Cure
+7. Crops
+8. Spawners
+9. Slowdown
+10. Speed
+11. Peaceful
+12. Nightvision
+13. Flying
+14. Experience Booster
+15. Luck
+16. Burner
+17. Water Breathing
+18. Fire Extinguisher
+19. Poison
+20. Gravity Well
+21. Jump
+22. Exp Gain
+23. Cooldown Reduction
+24. Immortality Field
+25. Extra Power
+26. Extra Range
+27. Activator
+28. Auto Repair
 
-The brief development-only **Scale** experiment is not an available power. Its enum value remains only as a migration tombstone so an old stored `scale` value is ignored and removed rather than becoming active.
+The old Scale experiment remains only as a disabled migration tombstone and is not a configurable power.
 
-### Activator modes and safety
+### Tier behavior
 
-Activator is controlled from the same menu. Coverage can be:
+Potion powers use Tier I/II/III as effect amplifiers 0/1/2. Other powers scale within bounded limits. Examples include stronger furnace/spawner/crop boosts, more passive XP, faster repair, stronger Gravity Well pull, and stronger Burner duration.
 
-- **Off**
-- **This Chunk**
-- **3x3 Area**
+Experience Booster multiplies positive XP by 2x/3x/4x. Cooldown Reduction uses 40%/60%/75% reduction. Immortality Field uses 25%/40%/55% save chance with a 60-second successful-save cooldown.
 
-The loader is deliberately hard-bounded:
+Extra Range adds 10 blocks per tier. Extra Power can raise supported field powers further, still capped at Tier III.
 
-- maximum **64 active Beacon Plus loaders** server-wide
-- maximum **256 unique chunks** held by Beacon Plus at once
-- overlapping beacons reference-count the same ticket rather than fighting over chunk ownership
-- tickets are released when a beacon is broken or Slimefun disables
-- Activator locations and coverage modes persist in `plugins/Slimefun/adventurers-curios-beacons.properties`
-- restored records are validated after startup and stale entries are removed
+Activator coverage is derived from its effective tier:
 
-Activator changes chunk residency only. It does not directly call Slimefun machine, Cargo, Energy, Networks, or addon tick methods. Loaded systems continue through their normal runtimes.
+- Tier I: this chunk
+- Tier II: 3x3 chunks
+- Tier III: 5x5 chunks
 
-Historical public mode names `KEEP_CHUNK_LOADED` and `CHUNK_ACTIVATOR` are accepted as migration aliases for **This Chunk**.
+Activator retains hard server safety caps of 64 active Resonance Beacon loaders and 256 unique ticketed chunks. Overlapping loaders are reference-counted.
 
-### Performance model
+## BeaconData compatibility
 
-Beacon Plus intentionally avoids one scheduler per power or one scheduler per beacon.
+The old BeaconPlus **WORLD** storage layout is supported directly. By default Slimefun creates a `BeaconData` folder inside every world folder:
 
-- One normal Slimefun `BlockTicker` handles periodic Beacon Plus work.
-- One listener handles XP changes, cooldowns, peaceful targeting/damage, immortality, and movement cleanup.
-- Periodic pulses are staggered by beacon location rather than all firing on the same server tick.
-- Tile-entity work is capped at 96 inspected states per pulse.
-- Crop growth uses bounded random samples rather than scanning every block in the field.
-- No field power loads chunks just to find targets; Activator is the only power allowed to hold chunks loaded.
-- On Folia, work that would cross region boundaries is reduced to same-region/same-chunk behavior rather than performing unsafe cross-region access.
+`<world>/BeaconData/<chunkX>.<chunkZ>.json`
 
-### Ownership and implementation boundary
+The JSON layout remains the legacy shape:
 
-The placed block stores an owner UUID. Only its owner or a server operator can change settings.
+```json
+{"Beacons":[{"x":0,"y":64,"z":0,"customName":"Beacon","showParticles":true,"effects":{}}]}
+```
 
-This is a native Slimefun Legacy implementation built around the requested behavior list and configuration semantics. BeaconPlus3 is not loaded as a dependency and its runtime classes are not bundled into Slimefun Legacy.
+The compatibility reader supports the old fields `x`, `y`, `z`, `customName`, `showParticles`, optional `overriddenRange`, and per-effect `level`, `selected`, and optional `modes`.
 
-## Runtime design boundaries
+Legacy aliases such as `exp_boost`, `resist`, `fastdig`, `nightvision`, `immortality`, `fireExtinguisher`, and `fire_extenguisher` are recognized. Unknown/unapproved legacy effects (for example Glow, Invisible and Scale) are preserved in the compatibility JSON but ignored by the native Resonance Beacon runtime.
 
-New Curios should prefer bounded local work, existing Bukkit/Paper APIs, and deliberate player interaction. Beacon Plus is the deliberate exception that may hold chunks loaded, but its loader is explicitly capped and isolated from Slimefun machine execution.
+Legacy levels are mapped proportionally into three native tiers, so an old effect that was fully upgraded remains a Tier III unlock even if that old effect used a maximum level above three. The raw old `level` value is preserved when mirroring the JSON. Powers whose old maximum was already three or lower retain their old numeric tier directly.
 
-## Future ideas
+Existing legacy records contain no owner UUID. Imported beacons are therefore operator-managed and their old unlock/selected levels are grandfathered rather than charging a new purchase cost. Native owner/progression metadata remains in Slimefun storage and is not injected into the compatibility JSON.
 
-Possible later additions include:
+The reader also recovers the old double-encoded JSON failure mode and normalizes it on the next save.
 
-- Pocket Campfire
-- Relic Detector
+### BeaconData config
 
-A Recall Stone is intentionally not planned because existing RTP/teleport tooling already fills that role. These ideas are not compatibility promises and should be added individually with runtime and performance checks.
+`SlimefunLegacyAddition.PoweredBeacon.BeaconData` controls:
+
+- `enabled`
+- `storage-type` (WORLD is the compatibility mode)
+- `folder-name` (default `BeaconData`)
+- `import-existing`
+- `mirror-native-beacons`
+- `bootstrap-legacy-activators`
+- `honor-overridden-range`
+
+This allows an existing BeaconPlus `BeaconData` directory to be copied directly into the appropriate world folder.
+
+## Runtime boundaries
+
+- One normal Slimefun `BlockTicker` handles periodic Resonance Beacon work.
+- Event-driven XP, cooldown, Peaceful, Immortality and player-state work share one listener.
+- Tile-entity inspection is bounded to 96 states per pulse.
+- Crop growth uses bounded random samples.
+- Normal field powers never load chunks.
+- Activator is the only Resonance Beacon system allowed to hold chunks loaded.
+- Folia cross-region work is reduced to safe local behavior.
+- Shutdown restores temporary player state, saves progression, and releases chunk tickets.
+- No BeaconPlus3 runtime classes are loaded or bundled.
