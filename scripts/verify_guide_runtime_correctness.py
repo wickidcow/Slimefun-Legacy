@@ -77,6 +77,7 @@ def main() -> int:
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/api/player/PlayerProfile.java",
     )
+    profile_compact = "".join(profile.split())
     require(
         profile,
         "private final GuideHistory guideHistory = new GuideHistory(this);",
@@ -97,14 +98,14 @@ def main() -> int:
         "per-player callback queue",
     )
     require(
-        profile,
-        "pendingProfileCallbacks.computeIfAbsent(uuid, ignored -> new CopyOnWriteArrayList<>()).add(callback);",
+        profile_compact,
+        "pendingProfileCallbacks.computeIfAbsent(uuid,ignored->newCopyOnWriteArrayList<>()).add(callback);",
         "profile callback queuing",
     )
     require_before(
-        profile,
-        "pendingProfileCallbacks.computeIfAbsent(uuid, ignored -> new CopyOnWriteArrayList<>()).add(callback);",
-        "if (loadingProfiles.add(uuid))",
+        profile_compact,
+        "pendingProfileCallbacks.computeIfAbsent(uuid,ignored->newCopyOnWriteArrayList<>()).add(callback);",
+        "if(loadingProfiles.add(uuid))",
         "callback queued before profile-load ownership",
     )
     require(
