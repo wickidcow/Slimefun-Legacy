@@ -1,0 +1,65 @@
+name: One-shot Gravity Well tuning
+
+on:
+  push:
+    branches:
+      - 'fix/gravity-well-strength-range'
+    paths:
+      - '.github/workflows/one-shot-gravity-well-tune.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tune:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out tuning branch
+        uses: actions/checkout@v6
+        with:
+          ref: fix/gravity-well-strength-range
+          fetch-depth: 0
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Apply Gravity Well tuning
+        run: python3 scripts/one_shot_gravity_well_tune.py
+
+      - name: Verify formatting
+        run: |
+          chmod +x gradlew
+          ./gradlew spotlessCheck --no-daemon
+          git diff --check
+
+      - name: Build and run complete test suite
+        run: ./gradlew clean build --no-daemon
+
+      - name: Verify focused Gravity Well regression
+        shell: bash
+        run: |
+          test -f build/test-results/test/TEST-io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlusEffectTest.xml
+          grep -q 'failures="0"' build/test-results/test/TEST-io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlusEffectTest.xml
+
+      - name: Verify Java 21 bytecode
+        run: |
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -n "$JAR"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+
+      - name: Commit tuned source and remove one-shot files
+        run: |
+          rm -f .github/workflows/one-shot-gravity-well-tune.yml
+          rm -f scripts/one_shot_gravity_well_tune.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Strengthen and extend Beacon Plus Gravity Well"
+          git push origin HEAD:fix/gravity-well-strength-range
