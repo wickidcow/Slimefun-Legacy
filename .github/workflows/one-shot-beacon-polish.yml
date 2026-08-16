@@ -27,21 +27,23 @@ jobs:
           java-version: '25'
           cache: gradle
 
-      - name: Apply final polish
+      - name: Apply final polish and focused regression tests
         run: python3 scripts/one_shot_beacon_polish.py
 
-      - name: Compile and run all tests
+      - name: Compile and run complete test suite
         run: |
           chmod +x gradlew
           ./gradlew clean build --no-daemon -x spotlessCheck
 
-      - name: Run focused Beacon Plus tests
+      - name: Verify focused Beacon Plus tests were executed
+        shell: bash
         run: |
-          ./gradlew test \
-            --tests io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlusPowerModeTest \
-            --tests io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlusEffectTest \
-            --tests io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlusChunkModeTest \
-            --no-daemon
+          test -f build/test-results/test/TEST-io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlusPowerModeTest.xml
+          test -f build/test-results/test/TEST-io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlusEffectTest.xml
+          test -f build/test-results/test/TEST-io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlusChunkModeTest.xml
+          grep -q 'failures="0"' build/test-results/test/TEST-io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlusPowerModeTest.xml
+          grep -q 'failures="0"' build/test-results/test/TEST-io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlusEffectTest.xml
+          grep -q 'failures="0"' build/test-results/test/TEST-io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlusChunkModeTest.xml
 
       - name: Verify Java 21 bytecode
         run: |
