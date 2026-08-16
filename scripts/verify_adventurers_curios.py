@@ -39,6 +39,8 @@ def main() -> int:
         "beacon_listener": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusEffectListener.java",
         "beacon_manager": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusManager.java",
         "beacon_chunk_mode": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusChunkMode.java",
+        "beacon_field_area": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusFieldArea.java",
+        "beacon_gravity": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusGravity.java",
         "beacon_support_mode": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusSupportMode.java",
         "beacon_lifecycle": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusLifecycleListener.java",
         "docs": "docs/ADVENTURERS_CURIOS.md",
@@ -159,7 +161,11 @@ def main() -> int:
             "DISABLE_ALL_SLOT",
             "Field state: ",
             "Configured, but not active:",
-            "ACTIVATOR_COVERAGE_SLOT",
+            "FIELD_AREA_SLOT",
+            "createFieldAreaItem",
+            "cycleFieldArea",
+            "Affected area:",
+            "BeaconPlusFieldArea.DEFAULT.name()",
         ):
             require(token in beacon, f"Native Beacon Plus menu/runtime invariant is missing: {token}", failures)
         for forbidden in ("BeaconPlus3", "thito.beaconplus", "Class.forName(", "CustomItemStack"):
@@ -170,8 +176,9 @@ def main() -> int:
             'EFFECTS_KEY = "beacon_plus_effects"',
             "PULSE_INTERVAL_TICKS = 20",
             "MAX_TILE_ENTITIES_PER_PULSE = 96",
-            "CROP_SAMPLES_PER_PULSE = 48",
-            "EXTRA_RANGE_BLOCKS = 20",
+            "CROP_SAMPLES_PER_CHUNK = 8",
+            "getEffectiveFieldArea",
+            "getEntitiesInArea",
             "world.isChunkLoaded",
             "PotionEffectType.STRENGTH",
             "PotionEffectType.REGENERATION",
@@ -190,8 +197,8 @@ def main() -> int:
             "boostFurnace(",
             "boostSpawner(",
             "applyCropBoost(",
-            "0.30D + 0.12D * power",
-            "Math.max(-0.60D, Math.min(0.60D, pull.getY()))",
+            "BeaconPlusGravity.getPullStrength(power)",
+            "Math.max(-1.25D, Math.min(1.25D, pull.getY()))",
         ):
             require(token in runtime, f"Beacon Plus bounded runtime invariant is missing: {token}", failures)
         for forbidden in ("NetworkManager", "CargoNet", "tickBlock(", "setChunkForceLoaded", "setForceLoaded"):
@@ -228,12 +235,43 @@ def main() -> int:
             require(token in listener, f"Beacon Plus event-runtime invariant is missing: {token}", failures)
 
         chunk_mode = read(root, files["beacon_chunk_mode"])
-        for token in ('OFF("Off", 0, false)', 'SINGLE("This Chunk", 0, true)', 'AREA_3X3("3x3 Area", 1, true)', '"KEEP_CHUNK_LOADED"', '"CHUNK_ACTIVATOR"'):
+        for token in (
+            'OFF("Off", 0, false)',
+            'SINGLE("1x1 Chunks", 0, true)',
+            'AREA_3X3("3x3 Chunks", 1, true)',
+            'AREA_5X5("5x5 Chunks", 2, true)',
+            "forFieldArea",
+            '"KEEP_CHUNK_LOADED"',
+            '"CHUNK_ACTIVATOR"',
+        ):
             require(token in chunk_mode, f"Beacon Plus Activator mode invariant is missing: {token}", failures)
+
+        field_area = read(root, files["beacon_field_area"])
+        for token in (
+            'CHUNK_1X1("1x1 Chunks", 0)',
+            'AREA_3X3("3x3 Chunks", 1)',
+            'AREA_5X5("5x5 Chunks", 2)',
+            "DEFAULT = AREA_3X3",
+            "BeaconPlusFieldArea expand()",
+            "containsChunk(",
+            'case "AREA_5X5", "5X5", "LARGE" -> AREA_5X5',
+        ):
+            require(token in field_area, f"Beacon Plus shared effect-area invariant is missing: {token}", failures)
+
+        gravity = read(root, files["beacon_gravity"])
+        for token in (
+            "NORMAL_PULL = 1.50D",
+            "EXTRA_POWER_PULL = 2.10D",
+            "getPullStrength(int power)",
+        ):
+            require(token in gravity, f"Beacon Plus Gravity Well strength invariant is missing: {token}", failures)
 
         manager = read(root, files["beacon_manager"])
         for token in (
             'ITEM_ID = "BEACON_PLUS"',
+            'FIELD_AREA_KEY = "beacon_plus_field_area"',
+            "getFieldArea(",
+            "BeaconPlusFieldArea.DEFAULT.name()",
             "MAX_ACTIVE_BEACONS = 64",
             "MAX_UNIQUE_CHUNKS = 256",
             "addPluginChunkTicket",
@@ -262,6 +300,10 @@ def main() -> int:
             "30 XP levels",
             "BEACON_PLUS:",
             "enabled: false",
+            "Slimefun Electricity",
+            "Beacon Blocks",
+            "3x3 Chunks",
+            "5x5 Chunks",
             "maximum **64 active Beacon Plus loaders**",
             "maximum **256 unique chunks**",
             "96 inspected states per pulse",

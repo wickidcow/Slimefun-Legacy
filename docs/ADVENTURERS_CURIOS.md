@@ -56,7 +56,7 @@ A player-carried biome log with a bounded number of persistent discoveries.
 
 Right-clicking a placed Beacon Plus opens a 54-slot owner-controlled menu with **30 independently toggleable effects**. Server operators may also configure it. Every effect defaults to **OFF**.
 
-Normal field effects require the Beacon Plus block to sit on a valid vanilla beacon pyramid and have Slimefun Energy available. Player potion effects are applied as normal, non-ambient effects with visible HUD icons and particles so Strength, Resistance, Regeneration, Haste, Speed, Luck, Water Breathing and Jump Boost are obvious while active. Its base field range is the range reported by the vanilla/Paper beacon. **Extra Range** adds 20 blocks. **Extra Power** increases supported effect strength by one tier and is treated as a +50% energy overclock.
+The menu has two independent controls in addition to the 30 effect toggles. **Power Source** chooses either **Slimefun Electricity** or **Beacon Blocks**. Electricity mode works without a vanilla pyramid and pays the configured field cost once per second. Beacon Blocks mode uses normal vanilla beacon pyramid/sky activation as its power requirement and consumes no Slimefun Energy. **Effect Area** chooses the chunk-aligned area used by every enabled effect: **1x1 Chunks**, **3x3 Chunks**, or **5x5 Chunks**. New and migrated beacons default to **3x3 Chunks**. Player potion effects are applied as normal, non-ambient effects with visible HUD icons and particles. **Extra Range** expands the selected Effect Area by one tier, capped at 5x5. **Extra Power** increases supported effect strength by one tier and increases electricity-mode field draw by 50%.
 
 ### Toggleable effects
 
@@ -80,36 +80,41 @@ Normal field effects require the Beacon Plus block to sit on a valid vanilla bea
 18. **Water Breathing** — gives Water Breathing to players inside the field.
 19. **Fire Extinguisher** — extinguishes players inside the field.
 20. **Poison** — poisons hostile monsters inside the field.
-21. **Gravity Well** — pulls hostile mobs and loose item entities toward the beacon at roughly 3× the original native-port force, on a resilient once-per-second cadence.
+21. **Gravity Well** — strongly pulls Bukkit mobs, including Endermen and passive/hostile AI mobs, plus loose item entities toward the beacon once per second. Players and armor stands are excluded. Normal pull strength is 1.50 versus the prior 0.30 setting, exactly 5× the previous normal pull; Extra Power raises it to 2.10.
 22. **Jump** — gives Jump Boost to players inside the field.
 23. **Exp Gain** — grants a small passive XP pulse while players remain inside the field.
 24. **Cooldown Reduction** — shortens newly applied item cooldowns while the player is in range.
 25. **Immortality Field** — gives a chance to cancel otherwise fatal damage. Normal power is 25%; Extra Power is 40%; successful saves have a 60-second per-player cooldown.
 26. **Scale** — makes players 25% larger using Slimefun's own namespaced Scale attribute modifier, removed when they leave the field.
 27. **Extra Power** — raises supported potion/booster strength by one tier and strengthens several utility effects. The first activation on each Beacon Plus costs 30 XP levels for non-operators.
-28. **Extra Range** — adds 20 blocks to the active beacon field range.
-29. **Activator** — keeps selected chunks loaded using bounded Paper plugin chunk tickets.
+28. **Extra Range** — expands the selected Effect Area by one tier: 1x1 becomes 3x3, 3x3 becomes 5x5, and 5x5 remains capped at 5x5.
+29. **Activator** — when enabled, keeps the current effective Effect Area loaded using bounded Paper plugin chunk tickets.
 30. **Auto Repair** — slowly repairs damaged tools, weapons, and armor carried by players in the field.
 
 ### Energy and Extra Power balance
 
 Beacon Plus is an `EnergyNetComponentType.CONSUMER` with an **8,192 J internal buffer**.
 
-- Field work is paid once per staggered one-second pulse.
-- Each enabled field effect costs **16 J per pulse** before Extra Power. Extra Power itself and Activator are excluded from the base effect count.
-- When **Extra Power** is enabled, the aggregate field-energy cost is multiplied by **1.50**, so the stronger mode uses exactly **50% more machine energy**.
+- Field work runs on a staggered one-second pulse.
+- In **Slimefun Electricity** mode, each enabled field effect costs **16 J per pulse** before Extra Power. Extra Power itself and Activator are excluded from the base effect count.
+- In **Beacon Blocks** mode, a valid vanilla beacon pyramid/sky activation powers the field and no Slimefun Energy is consumed.
+- When **Extra Power** is enabled in electricity mode, the aggregate field-energy cost is multiplied by **1.50**, so the stronger mode uses exactly **50% more machine energy**.
 - The first time Extra Power is activated on a particular Beacon Plus, a non-operator owner pays **30 XP levels**. That unlock is stored on the placed Beacon Plus, so turning Extra Power off and back on does not charge again.
 - Operators can configure and unlock Extra Power without paying the XP cost.
-- If the buffer cannot pay a field pulse, periodic field work is skipped and event-driven Beacon Plus bonuses stop treating that beacon as powered until a later pulse succeeds.
+- In electricity mode, if the buffer cannot pay a field pulse, periodic field work is skipped and event-driven Beacon Plus bonuses stop treating that beacon as powered until a later pulse succeeds. Beacon Blocks mode instead depends on the vanilla pyramid/sky power condition.
 - Activator chunk loading remains a separately bounded safety feature. It does not add to the normal field-energy pulse calculation.
 
-### Activator modes and safety
+### Effect Area, Activator, and safety
 
-Activator is controlled from the same menu. Coverage can be:
+**Effect Area** is controlled from the same menu and applies to every enabled Beacon Plus effect. The choices are:
 
-- **Off**
-- **This Chunk**
-- **3x3 Area**
+- **1x1 Chunks**
+- **3x3 Chunks** — default
+- **5x5 Chunks**
+
+Every individual effect remains independently toggleable. The Status item and each effect button display the current affected area. **Extra Range** expands the selected area one tier, capped at 5x5.
+
+**Activator** remains a separate ON/OFF effect. When Activator is enabled, it keeps the current effective Effect Area loaded. Changing Effect Area or Extra Range while Activator is enabled updates the chunk-loader coverage as long as the global safety cap is not exceeded.
 
 The loader is deliberately hard-bounded:
 
@@ -117,12 +122,12 @@ The loader is deliberately hard-bounded:
 - maximum **256 unique chunks** held by Beacon Plus at once
 - overlapping beacons reference-count the same ticket rather than fighting over chunk ownership
 - tickets are released when a beacon is broken or Slimefun disables
-- Activator locations and coverage modes persist in `plugins/Slimefun/adventurers-curios-beacons.properties`
+- Activator locations/load states persist in `plugins/Slimefun/adventurers-curios-beacons.properties`; the selected Effect Area is stored on the placed Beacon Plus
 - restored records are validated after startup and stale entries are removed
 
 Activator changes chunk residency only. It does not directly call Slimefun machine, Cargo, Energy, Networks, or addon tick methods. Loaded systems continue through their normal runtimes.
 
-Historical public mode names `KEEP_CHUNK_LOADED` and `CHUNK_ACTIVATOR` are accepted as migration aliases for **This Chunk**.
+Historical public loader mode names `KEEP_CHUNK_LOADED` and `CHUNK_ACTIVATOR` remain accepted as migration aliases for 1x1 loader coverage. Existing Beacon Plus blocks without a stored Effect Area migrate safely to the 3x3 default.
 
 ### Performance model
 
@@ -134,7 +139,7 @@ Beacon Plus intentionally avoids one scheduler per effect or one scheduler per b
 - Gravity Well therefore receives one pull on the first eligible ticker at least 20 game ticks after its previous pull instead of requiring one exact server tick.
 - Tile-entity work is capped at 96 inspected states per pulse.
 - Crop growth uses bounded random samples rather than scanning every block in the field.
-- Event-driven effects consult a short-lived powered-state cache populated only after the Beacon Plus successfully pays its energy pulse.
+- Event-driven effects consult a short-lived powered-state cache populated only after the Beacon Plus completes a successful pulse using its selected valid power source.
 - Flight and Scale are reconciled on movement, configuration changes, power loss, break, and shutdown so persistent player state is cleaned up.
 - No normal field effect loads chunks just to find targets; Activator is the only feature allowed to hold chunks loaded.
 - On Folia, work that would cross region boundaries is reduced to same-region/same-chunk behavior rather than performing unsafe cross-region access.
@@ -143,7 +148,7 @@ Beacon Plus intentionally avoids one scheduler per effect or one scheduler per b
 
 There are three levels of control:
 
-1. **Diagnose or disable one placed Beacon Plus:** open its menu and read **Beacon Plus Status**. It now reports `ACTIVE` or `NOT POWERED` and explains whether the pyramid or stored Energy is blocking the field. The owner or an operator can click **Disable All Effects**. This also turns its Activator off.
+1. **Diagnose or disable one placed Beacon Plus:** open its menu and read **Beacon Plus Status**. It reports the selected Power Source, selected/effective Effect Area, Activator state, `ACTIVE`/`NOT POWERED`, and whether electricity or the Beacon Blocks pyramid condition is blocking the field. The owner or an operator can click **Disable All Effects**. This also turns its Activator off.
 2. **Disable Beacon Plus globally:** stop the server, open `plugins/Slimefun/Items.yml`, and set:
 
    ```yaml
