@@ -55,6 +55,7 @@ def main() -> int:
 
     scripts = (
         "verify_english.py",
+        "verify_localization_keys.py",
         "verify_chunk_load_threading.py",
         "check_api_annotations.py",
         "verify_api_compatibility.py",
