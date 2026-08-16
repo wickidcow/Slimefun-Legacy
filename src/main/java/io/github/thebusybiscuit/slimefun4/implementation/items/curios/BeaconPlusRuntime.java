@@ -30,6 +30,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Mob;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -146,7 +147,7 @@ final class BeaconPlusRuntime {
                 applyMonsterEffects(monster, effects, power, center);
             }
             if (effects.contains(BeaconPlusEffect.GRAVITY_WELL)
-                    && (entity instanceof LivingEntity || entity instanceof Item)) {
+                    && (entity instanceof Mob || entity instanceof Item)) {
                 pullEntity(entity, center, power);
             }
         }

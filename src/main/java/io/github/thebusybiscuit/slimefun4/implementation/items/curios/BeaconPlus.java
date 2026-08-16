@@ -248,7 +248,7 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
             BeaconPlusEffect effect = effects[index];
             int slot = EFFECT_SLOTS[index];
             boolean active = enabled.contains(effect);
-            menu.addItem(slot, createEffectItem(effect, active, chunkMode));
+            menu.addItem(slot, createEffectItem(effect, active, chunkMode, powerMode));
             menu.addMenuClickHandler(slot, (pl, clickedSlot, item, action) -> {
                 toggleEffect(pl, block, owner, effect);
                 return false;
@@ -504,7 +504,11 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         return createMenuItem(icon, ChatColor.GOLD + "Beacon Plus Status", lore);
     }
 
-    private ItemStack createEffectItem(BeaconPlusEffect effect, boolean active, BeaconPlusChunkMode chunkMode) {
+    private ItemStack createEffectItem(
+            BeaconPlusEffect effect,
+            boolean active,
+            BeaconPlusChunkMode chunkMode,
+            BeaconPlusPowerMode powerMode) {
         boolean shownActive = effect == BeaconPlusEffect.ACTIVATOR ? chunkMode != BeaconPlusChunkMode.OFF : active;
         List<String> lore = new ArrayList<>();
         lore.add(ChatColor.GRAY + effect.getDescription());
@@ -517,10 +521,17 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         } else if (effect == BeaconPlusEffect.EXTRA_POWER) {
             lore.add(ChatColor.LIGHT_PURPLE + "One-time unlock: " + ChatColor.WHITE + EXTRA_POWER_XP_LEVEL_COST
                     + " XP levels");
-            lore.add(ChatColor.YELLOW + "Energy overclock: +" + EXTRA_POWER_PERCENT + "%");
+            lore.add(ChatColor.YELLOW + "Supported effect boost: +" + EXTRA_POWER_PERCENT + "%");
+            if (powerMode == BeaconPlusPowerMode.SLIMEFUN_ENERGY) {
+                lore.add(ChatColor.DARK_GRAY + "Electricity draw: +" + EXTRA_POWER_PERCENT + "% while enabled.");
+            } else {
+                lore.add(ChatColor.DARK_GRAY + "Beacon Blocks mode consumes no electricity.");
+            }
             lore.add(ChatColor.DARK_GRAY + "Operators bypass the XP unlock cost.");
-        } else {
+        } else if (powerMode == BeaconPlusPowerMode.SLIMEFUN_ENERGY) {
             lore.add(ChatColor.DARK_GRAY + "Base field cost: " + BASE_ENERGY_PER_EFFECT_PER_PULSE + " J/s");
+        } else {
+            lore.add(ChatColor.DARK_GRAY + "Powered by beacon blocks; no electricity consumed.");
         }
         lore.add("");
         lore.add(ChatColor.YELLOW + "Click to toggle");
@@ -559,7 +570,7 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
                         ChatColor.YELLOW + "Click to change coverage"));
     }
 
-    private static int calculateFieldEnergyCost(Set<BeaconPlusEffect> configured) {
+    static int calculateFieldEnergyCost(Set<BeaconPlusEffect> configured) {
         EnumSet<BeaconPlusEffect> effects =
                 configured.isEmpty() ? EnumSet.noneOf(BeaconPlusEffect.class) : EnumSet.copyOf(configured);
         effects.remove(BeaconPlusEffect.ACTIVATOR);
