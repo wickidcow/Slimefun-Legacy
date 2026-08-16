@@ -115,9 +115,23 @@ public class OreWasher extends MultiBlockMachine {
                     ItemStack output = event.getOutput();
                     ItemStack selector = legacyMode ? output : SlimefunItems.DEBUG_FISH;
                     Inventory outputInv = findSafeOutputInventory(
-                            selector, dispBlock, inv, input, 1, output, SlimefunItems.STONE_CHUNK);
+                            selector,
+                            dispBlock,
+                            inv,
+                            input,
+                            1,
+                            output,
+                            SlimefunItems.STONE_CHUNK);
 
-                    completeCraft(p, b, inv, outputInv, input, 1, output, SlimefunItems.STONE_CHUNK);
+                    completeCraft(
+                            p,
+                            b,
+                            inv,
+                            outputInv,
+                            input,
+                            1,
+                            output,
+                            SlimefunItems.STONE_CHUNK);
                     return;
                 } else if (SlimefunUtils.isItemSimilar(input, new ItemStack(Material.SAND, 2), false)) {
                     ItemStack defaultOutput = SlimefunItems.SALT;
@@ -129,7 +143,8 @@ public class OreWasher extends MultiBlockMachine {
                     }
 
                     ItemStack output = event.getOutput();
-                    Inventory outputInv = findSafeOutputInventory(output, dispBlock, inv, input, 2, output);
+                    Inventory outputInv =
+                            findSafeOutputInventory(output, dispBlock, inv, input, 2, output);
                     completeCraft(p, b, inv, outputInv, input, 2, output);
                     return;
                 } else if (SlimefunUtils.isItemSimilar(input, SlimefunItems.PULVERIZED_ORE, true)) {
@@ -142,7 +157,8 @@ public class OreWasher extends MultiBlockMachine {
                     }
 
                     ItemStack output = event.getOutput();
-                    Inventory outputInv = findSafeOutputInventory(output, dispBlock, inv, input, 1, output);
+                    Inventory outputInv =
+                            findSafeOutputInventory(output, dispBlock, inv, input, 1, output);
                     completeCraft(p, b, inv, outputInv, input, 1, output);
                     return;
                 }
@@ -174,7 +190,12 @@ public class OreWasher extends MultiBlockMachine {
     }
 
     @ParametersAreNonnullByDefault
-    private boolean canFitAll(Inventory target, Inventory inputInv, ItemStack input, int amount, ItemStack... outputs) {
+    private boolean canFitAll(
+            Inventory target,
+            Inventory inputInv,
+            ItemStack input,
+            int amount,
+            ItemStack... outputs) {
         Inventory simulation = Bukkit.createInventory(null, target.getSize());
         ItemStack[] contents = target.getContents();
         ItemStack[] cloned = new ItemStack[contents.length];
@@ -220,8 +241,7 @@ public class OreWasher extends MultiBlockMachine {
         removing.setAmount(amount);
         inputInv.removeItem(removing);
 
-        InventoryContext context =
-                outputInv == inputInv ? InventoryContext.MACHINE_OUTPUT : InventoryContext.OUTPUT_CHEST;
+        InventoryContext context = outputInv == inputInv ? InventoryContext.MACHINE_OUTPUT : InventoryContext.OUTPUT_CHEST;
         for (ItemStack output : outputs) {
             ItemStack remainder = Slimefun.getItemStackService().addItem(outputInv, output.clone(), context);
             if (remainder != null && remainder.getAmount() > 0) {

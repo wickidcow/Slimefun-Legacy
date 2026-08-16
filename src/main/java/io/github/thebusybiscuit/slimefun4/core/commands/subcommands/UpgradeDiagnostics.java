@@ -36,9 +36,11 @@ import org.bukkit.command.CommandSender;
 final class UpgradeDiagnostics {
 
     private static final Pattern CANDIDATE_VERSION = Pattern.compile(
-            "\\\"candidate\\\"\\s*:\\s*\\{[^}]*\\\"version\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"", Pattern.DOTALL);
+            "\\\"candidate\\\"\\s*:\\s*\\{[^}]*\\\"version\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"",
+            Pattern.DOTALL);
     private static final Pattern PREVIOUS_STABLE_VERSION = Pattern.compile(
-            "\\\"previous_stable\\\"\\s*:\\s*\\{[^}]*\\\"version\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"", Pattern.DOTALL);
+            "\\\"previous_stable\\\"\\s*:\\s*\\{[^}]*\\\"version\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"",
+            Pattern.DOTALL);
     private static final String BASELINE_RESOURCE = "compatibility/release-baselines.json";
 
     private UpgradeDiagnostics() {}
@@ -50,8 +52,7 @@ final class UpgradeDiagnostics {
         SchedulerSnapshot scheduler = Slimefun.getSchedulerService().getSnapshot();
         MachineRuntimeSnapshot machines = Slimefun.getMachineRuntimeService().getSnapshot();
         StorageRuntimeSnapshot storage = Slimefun.getStorageRuntimeService().getSnapshot();
-        WorldChunkRuntimeSnapshot chunks =
-                Slimefun.getWorldChunkRuntimeService().getSnapshot();
+        WorldChunkRuntimeSnapshot chunks = Slimefun.getWorldChunkRuntimeService().getSnapshot();
         BlockDataRuntimeSnapshot blocks = Slimefun.getBlockDataRuntimeService().getSnapshot();
         BaselineInfo baselines = readBaselines();
 
@@ -100,8 +101,7 @@ final class UpgradeDiagnostics {
             blockers.add("Required plugin dependencies are missing or disabled");
         }
         if (providerAliases > 0) {
-            warnings.add(
-                    "Required dependencies are satisfied through provider aliases; descriptor resolution is not API proof");
+            warnings.add("Required dependencies are satisfied through provider aliases; descriptor resolution is not API proof");
         }
         if (compatibility.getCount(AddonCompatibilityStatus.INCOMPATIBLE) > 0) {
             blockers.add("One or more installed Slimefun addons report an incompatible compatibility result");
@@ -176,11 +176,9 @@ final class UpgradeDiagnostics {
                         + " &8| &7build time &f" + EnvUtil.getBuildTime());
         send(
                 sender,
-                "&7Platform: &f" + platform.getSoftwareName() + " " + platform.getServerVersion()
-                        + " &8| &7Minecraft &f"
+                "&7Platform: &f" + platform.getSoftwareName() + " " + platform.getServerVersion() + " &8| &7Minecraft &f"
                         + platform.getRawMinecraftVersion() + " &8| &7Java &f" + platform.getJavaFeatureVersion()
-                        + " &8| " + supportColor(platform.getSupportLevel())
-                        + platform.getSupportLevel().getDisplayName());
+                        + " &8| " + supportColor(platform.getSupportLevel()) + platform.getSupportLevel().getDisplayName());
         send(
                 sender,
                 "&7Core runtime: &f" + readiness.getState() + " &8| &7registry "
@@ -218,15 +216,9 @@ final class UpgradeDiagnostics {
         send(
                 sender,
                 "&7Addon API path: targets &e"
-                        + Slimefun.getAddonApiCompatibilityFacade()
-                                .getSnapshot()
-                                .getCompatibilityTargets()
-                                .size()
+                        + Slimefun.getAddonApiCompatibilityFacade().getSnapshot().getCompatibilityTargets().size()
                         + " &8| &7capabilities &e"
-                        + Slimefun.getAddonApiCompatibilityFacade()
-                                .getSnapshot()
-                                .getCapabilities()
-                                .size()
+                        + Slimefun.getAddonApiCompatibilityFacade().getSnapshot().getCapabilities().size()
                         + " &8| &7pending callbacks &e" + registration.getPendingCallbacks());
         if (itemDoctor == null) {
             send(sender, "&7Item Doctor: &7No completed server-wide scan recorded this runtime");
@@ -248,7 +240,8 @@ final class UpgradeDiagnostics {
                         + "or alter Cargo, Energy, machines, recipes, or saved data.");
     }
 
-    private static void evaluatePlatform(PlatformProfile platform, List<String> blockers, List<String> warnings) {
+    private static void evaluatePlatform(
+            PlatformProfile platform, List<String> blockers, List<String> warnings) {
         if (platform.getSupportLevel() == PlatformSupportLevel.UNSUPPORTED) {
             blockers.add("Detected server platform is unsupported by this Slimefun Legacy release");
         } else if (platform.getSupportLevel() == PlatformSupportLevel.UNKNOWN) {
@@ -311,8 +304,8 @@ final class UpgradeDiagnostics {
 
     private static boolean isLinkageFailureClass(String exceptionClass) {
         int separator = exceptionClass.lastIndexOf('.');
-        String name =
-                (separator >= 0 ? exceptionClass.substring(separator + 1) : exceptionClass).toLowerCase(Locale.ROOT);
+        String name = (separator >= 0 ? exceptionClass.substring(separator + 1) : exceptionClass)
+                .toLowerCase(Locale.ROOT);
         return name.equals("linkageerror")
                 || name.equals("noclassdeffounderror")
                 || name.equals("classnotfoundexception")

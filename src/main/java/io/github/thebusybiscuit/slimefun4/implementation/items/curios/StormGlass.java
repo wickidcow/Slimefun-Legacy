@@ -41,21 +41,15 @@ public final class StormGlass extends SimpleSlimefunItem<ItemUseHandler> {
             World world = player.getWorld();
             long time = world.getTime();
             String weather = world.isThundering() ? "Thunderstorm" : world.hasStorm() ? "Rain" : "Clear";
-            String dayPart = time < 1000
-                    ? "Dawn"
-                    : time < 6000
-                            ? "Morning"
-                            : time < 12000
-                                    ? "Afternoon"
-                                    : time < 14000 ? "Dusk" : time < 22000 ? "Night" : "Late Night";
+            String dayPart = time < 1000 ? "Dawn" : time < 6000 ? "Morning" : time < 12000 ? "Afternoon"
+                    : time < 14000 ? "Dusk" : time < 22000 ? "Night" : "Late Night";
             int moonIndex = (int) ((world.getFullTime() / 24000L) & 7L);
             long weatherSeconds = Math.max(0, world.getWeatherDuration()) / 20L;
 
             player.setCooldown(Material.GLASS_BOTTLE, 20);
             player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.65F, 1.45F);
             player.sendMessage(ChatColor.AQUA + "Storm Glass " + ChatColor.GRAY + "• " + ChatColor.WHITE + weather
-                    + ChatColor.GRAY + " • " + ChatColor.YELLOW + dayPart + ChatColor.GRAY + " • "
-                    + ChatColor.LIGHT_PURPLE
+                    + ChatColor.GRAY + " • " + ChatColor.YELLOW + dayPart + ChatColor.GRAY + " • " + ChatColor.LIGHT_PURPLE
                     + MOON_PHASES[moonIndex]);
             player.sendMessage(ChatColor.GRAY + "Current weather cycle has about " + ChatColor.WHITE + weatherSeconds
                     + ChatColor.GRAY + " seconds remaining.");

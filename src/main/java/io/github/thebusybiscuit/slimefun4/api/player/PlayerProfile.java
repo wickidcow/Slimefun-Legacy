@@ -434,9 +434,7 @@ public class PlayerProfile {
             return true;
         }
 
-        pendingProfileCallbacks
-                .computeIfAbsent(uuid, ignored -> new CopyOnWriteArrayList<>())
-                .add(callback);
+        pendingProfileCallbacks.computeIfAbsent(uuid, ignored -> new CopyOnWriteArrayList<>()).add(callback);
 
         if (loadingProfiles.add(uuid)) {
             getOrCreate(p);
