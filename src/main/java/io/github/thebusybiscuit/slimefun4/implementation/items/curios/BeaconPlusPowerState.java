@@ -11,18 +11,16 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.block.Beacon;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockState;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
 /**
- * Tracks Beacon Plus locations that successfully paid their most recent field-energy pulse.
+ * Tracks Beacon Plus locations that successfully completed their most recent powered field pulse.
  *
- * <p>This keeps event-driven effects tied to real Slimefun Energy consumption without adding a scheduler per beacon.
+ * <p>This keeps event-driven effects tied to the currently selected and valid Beacon Plus power source.
  */
 final class BeaconPlusPowerState {
 
@@ -35,12 +33,6 @@ final class BeaconPlusPowerState {
     private BeaconPlusPowerState() {}
 
     static void markPowered(Block block, ASlimefunDataContainer data) {
-        BlockState state = block.getState();
-        if (!(state instanceof Beacon beacon) || beacon.getTier() <= 0) {
-            markUnpowered(block.getLocation());
-            return;
-        }
-
         EnumSet<BeaconPlusEffect> effects = BeaconPlusEffect.parse(data.getData(BeaconPlusRuntime.EFFECTS_KEY));
         effects.remove(BeaconPlusEffect.ACTIVATOR);
         if (effects.isEmpty()) {
@@ -48,8 +40,8 @@ final class BeaconPlusPowerState {
             return;
         }
 
-        double range = Math.max(0.0D, beacon.getEffectRange());
-        if (effects.contains(BeaconPlusEffect.EXTRA_RANGE)) {
+        double range = BeaconPlusPowerSource.getBaseRange(block);
+        if (effects.contains(BeaconPlusEffect.EXTRA_RANGE) && range > 0.0D) {
             range += EXTRA_RANGE_BLOCKS;
         }
         if (range <= 0.0D) {
@@ -72,7 +64,7 @@ final class BeaconPlusPowerState {
     }
 
     /**
-     * @return -1 if no energy-paid Beacon Plus currently provides the effect, otherwise 0 or 1 for normal/extra power.
+     * @return -1 if no powered Beacon Plus currently provides the effect, otherwise 0 or 1 for normal/extra power.
      */
     static int getPowerForEffect(Location target, BeaconPlusEffect effect) {
         World world = target.getWorld();
@@ -126,12 +118,7 @@ final class BeaconPlusPowerState {
         for (Entity entity : getEntities(block, center, powered.range())) {
             if (entity instanceof Player player && player.getLocation().distanceSquared(center) <= rangeSquared) {
                 player.addPotionEffect(new PotionEffect(
-                        PotionEffectType.INVISIBILITY,
-                        INVISIBILITY_DURATION_TICKS,
-                        0,
-                        true,
-                        false,
-                        true));
+                        PotionEffectType.INVISIBILITY, INVISIBILITY_DURATION_TICKS, 0, true, false, true));
             }
         }
     }
@@ -176,16 +163,12 @@ final class BeaconPlusPowerState {
         POWERED_BEACONS.entrySet().removeIf(entry -> entry.getValue().paidAtMillis() < cutoff);
     }
 
-    private record PoweredBeacon(
-            long paidAtMillis, EnumSet<BeaconPlusEffect> effects, double range, int power) {}
+    private record PoweredBeacon(long paidAtMillis, EnumSet<BeaconPlusEffect> effects, double range, int power) {}
 
     private record BeaconKey(UUID worldId, int x, int y, int z) {
         private static BeaconKey from(Location location) {
             return new BeaconKey(
-                    location.getWorld().getUID(),
-                    location.getBlockX(),
-                    location.getBlockY(),
-                    location.getBlockZ());
+                    location.getWorld().getUID(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
         }
     }
 }

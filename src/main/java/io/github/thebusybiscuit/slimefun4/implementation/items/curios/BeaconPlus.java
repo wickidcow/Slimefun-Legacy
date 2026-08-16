@@ -27,9 +27,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
-import org.bukkit.block.Beacon;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockState;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.inventory.ItemStack;
@@ -53,6 +51,7 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
     };
 
     private static final int STATUS_SLOT = 4;
+    private static final int POWER_SOURCE_SLOT = 45;
     private static final int DISABLE_ALL_SLOT = 47;
     private static final int ACTIVATOR_COVERAGE_SLOT = 49;
     private static final int CLOSE_SLOT = 53;
@@ -92,11 +91,14 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
 
         BeaconPlusLifecycleListener.register(Slimefun.instance());
         BeaconPlusEffectListener.register(Slimefun.instance());
-        Slimefun.getSchedulerService().runLater(() -> {
-            if (BeaconPlusManager.getInstance() == null) {
-                BeaconPlusManager.start(Slimefun.instance());
-            }
-        }, 1L);
+        Slimefun.getSchedulerService()
+                .runLater(
+                        () -> {
+                            if (BeaconPlusManager.getInstance() == null) {
+                                BeaconPlusManager.start(Slimefun.instance());
+                            }
+                        },
+                        1L);
     }
 
     private @Nonnull BlockPlaceHandler onPlace() {
@@ -109,9 +111,11 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
 
                 StorageCacheUtils.setData(location, BeaconPlusManager.OWNER_KEY, owner.toString());
                 StorageCacheUtils.setData(location, BeaconPlusManager.CHUNK_MODE_KEY, BeaconPlusChunkMode.OFF.name());
-                StorageCacheUtils.setData(location, BeaconPlusManager.SUPPORT_MODE_KEY, BeaconPlusSupportMode.OFF.name());
+                StorageCacheUtils.setData(
+                        location, BeaconPlusManager.SUPPORT_MODE_KEY, BeaconPlusSupportMode.OFF.name());
                 StorageCacheUtils.setData(location, BeaconPlusRuntime.EFFECTS_KEY, "");
                 StorageCacheUtils.setData(location, EXTRA_POWER_UNLOCKED_KEY, "false");
+                BeaconPlusPowerSource.setMode(location, BeaconPlusPowerMode.SLIMEFUN_ENERGY);
 
                 BeaconPlusManager manager = BeaconPlusManager.getInstance();
                 if (manager != null) {
@@ -120,8 +124,10 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
                 BeaconPlusPowerState.markUnpowered(location);
                 BeaconPlusRuntime.observe(block);
 
-                event.getPlayer().sendMessage(ChatColor.GOLD + "Beacon Plus placed. " + ChatColor.GRAY
-                        + "Build a beacon pyramid, supply Slimefun Energy, then right click it to configure all 30 effects.");
+                event.getPlayer()
+                        .sendMessage(
+                                ChatColor.GOLD + "Beacon Plus placed. " + ChatColor.GRAY
+                                        + "Right click it to choose Slimefun Electricity or Beacon Blocks and configure all 30 effects.");
             }
         };
     }
@@ -143,7 +149,8 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
 
             UUID owner = manager.getOwner(block.getLocation());
             if (!canConfigure(player, owner)) {
-                player.sendMessage(ChatColor.RED + "Only this Beacon Plus owner or a server operator can configure it.");
+                player.sendMessage(
+                        ChatColor.RED + "Only this Beacon Plus owner or a server operator can configure it.");
                 return;
             }
 
@@ -183,21 +190,27 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
                     return;
                 }
 
-                int energyCost = calculateFieldEnergyCost(BeaconPlusEffect.parse(data.getData(BeaconPlusRuntime.EFFECTS_KEY)));
-                if (!hasPoweredPyramid(block) || energyCost <= 0) {
+                EnumSet<BeaconPlusEffect> configured =
+                        BeaconPlusEffect.parse(data.getData(BeaconPlusRuntime.EFFECTS_KEY));
+                int fieldCost = calculateFieldEnergyCost(configured);
+                BeaconPlusPowerMode powerMode = BeaconPlusPowerSource.getMode(block.getLocation());
+
+                if (fieldCost <= 0 || !BeaconPlusPowerSource.isSourceReady(block, powerMode)) {
                     BeaconPlusPowerState.markUnpowered(block.getLocation());
                     BeaconPlusPowerState.reconcileNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
                     return;
                 }
 
-                long stored = getChargeLong(block.getLocation(), data);
-                if (stored < energyCost) {
-                    BeaconPlusPowerState.markUnpowered(block.getLocation());
-                    BeaconPlusPowerState.reconcileNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
-                    return;
+                if (powerMode == BeaconPlusPowerMode.SLIMEFUN_ENERGY) {
+                    long stored = getChargeLong(block.getLocation(), data);
+                    if (stored < fieldCost) {
+                        BeaconPlusPowerState.markUnpowered(block.getLocation());
+                        BeaconPlusPowerState.reconcileNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
+                        return;
+                    }
+                    removeCharge(block.getLocation(), fieldCost, data);
                 }
 
-                removeCharge(block.getLocation(), energyCost, data);
                 BeaconPlusPowerState.markPowered(block, data);
                 BeaconPlusRuntime.tick(block, data);
                 BeaconPlusPowerState.applyInvisibility(block);
@@ -217,18 +230,25 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
 
         EnumSet<BeaconPlusEffect> enabled = BeaconPlusRuntime.getConfiguredEffects(block.getLocation());
         BeaconPlusManager manager = BeaconPlusManager.getInstance();
-        BeaconPlusChunkMode chunkMode = manager == null
-                ? BeaconPlusChunkMode.OFF
-                : manager.getChunkMode(block.getLocation());
+        BeaconPlusChunkMode chunkMode =
+                manager == null ? BeaconPlusChunkMode.OFF : manager.getChunkMode(block.getLocation());
 
         menu.addItem(STATUS_SLOT, createStatusItem(block, enabled, chunkMode));
+        menu.addMenuClickHandler(STATUS_SLOT, (pl, slot, item, action) -> false);
+
+        BeaconPlusPowerMode powerMode = BeaconPlusPowerSource.getMode(block.getLocation());
+        menu.addItem(POWER_SOURCE_SLOT, createPowerSourceItem(powerMode));
+        menu.addMenuClickHandler(POWER_SOURCE_SLOT, (pl, slot, item, action) -> {
+            togglePowerSource(pl, block, owner);
+            return false;
+        });
 
         BeaconPlusEffect[] effects = BeaconPlusEffect.values();
         for (int index = 0; index < effects.length; index++) {
             BeaconPlusEffect effect = effects[index];
             int slot = EFFECT_SLOTS[index];
             boolean active = enabled.contains(effect);
-            menu.addItem(slot, createEffectItem(effect, active, chunkMode));
+            menu.addItem(slot, createEffectItem(effect, active, chunkMode, powerMode));
             menu.addMenuClickHandler(slot, (pl, clickedSlot, item, action) -> {
                 toggleEffect(pl, block, owner, effect);
                 return false;
@@ -306,24 +326,44 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         BeaconPlusPowerState.reconcileNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
 
         boolean active = enabled.contains(effect);
-        player.playSound(
-                block.getLocation(),
-                Sound.BLOCK_BEACON_POWER_SELECT,
-                0.65F,
-                active ? 1.35F : 0.85F);
+        player.playSound(block.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 0.65F, active ? 1.35F : 0.85F);
         player.sendMessage(ChatColor.GOLD + "Beacon Plus: " + ChatColor.WHITE + effect.getDisplayName() + ChatColor.GRAY
-                + " is now " + (active ? ChatColor.GREEN + "ENABLED" : ChatColor.RED + "DISABLED") + ChatColor.GRAY + ".");
+                + " is now " + (active ? ChatColor.GREEN + "ENABLED" : ChatColor.RED + "DISABLED") + ChatColor.GRAY
+                + ".");
         if (active && effect != BeaconPlusEffect.ACTIVATOR) {
             int requiredEnergy = calculateFieldEnergyCost(enabled);
-            if (!hasPoweredPyramid(block)) {
-                player.sendMessage(ChatColor.RED + "Configured, but not active: the vanilla beacon pyramid/sky activation is not ready.");
-            } else if (requiredEnergy > 0 && getChargeLong(block.getLocation()) < requiredEnergy) {
+            BeaconPlusPowerMode powerMode = BeaconPlusPowerSource.getMode(block.getLocation());
+            if (!BeaconPlusPowerSource.isSourceReady(block, powerMode)) {
+                player.sendMessage(
+                        ChatColor.RED
+                                + "Configured, but not active: Beacon Blocks mode needs a valid vanilla beacon pyramid and sky activation.");
+            } else if (powerMode == BeaconPlusPowerMode.SLIMEFUN_ENERGY
+                    && requiredEnergy > 0
+                    && getChargeLong(block.getLocation()) < requiredEnergy) {
                 player.sendMessage(ChatColor.RED + "Configured, but not active: Beacon Plus needs " + requiredEnergy
                         + " J for its next one-second field pulse.");
             } else {
-                player.sendMessage(ChatColor.GREEN + "Field is powered. Player potion effects should appear in the HUD and with particles.");
+                player.sendMessage(ChatColor.GREEN + "Field is powered by " + ChatColor.WHITE
+                        + powerMode.getDisplayName() + ChatColor.GREEN + ".");
             }
         }
+        openMenu(player, block, owner);
+    }
+
+    private void togglePowerSource(Player player, Block block, UUID owner) {
+        if (!validateMenuAction(player, block, owner)) {
+            return;
+        }
+
+        BeaconPlusPowerMode current = BeaconPlusPowerSource.getMode(block.getLocation());
+        BeaconPlusPowerMode next = current.next();
+        BeaconPlusPowerSource.setMode(block.getLocation(), next);
+        BeaconPlusPowerState.markUnpowered(block.getLocation());
+        BeaconPlusPowerState.reconcileNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
+        BeaconPlusRuntime.observe(block);
+
+        player.playSound(block.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 0.7F, 1.2F);
+        player.sendMessage(ChatColor.GOLD + "Beacon Plus power source: " + ChatColor.WHITE + next.getDisplayName());
         openMenu(player, block, owner);
     }
 
@@ -335,7 +375,8 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         }
 
         BeaconPlusChunkMode current = manager.getChunkMode(block.getLocation());
-        BeaconPlusChunkMode next = current == BeaconPlusChunkMode.OFF ? BeaconPlusChunkMode.SINGLE : BeaconPlusChunkMode.OFF;
+        BeaconPlusChunkMode next =
+                current == BeaconPlusChunkMode.OFF ? BeaconPlusChunkMode.SINGLE : BeaconPlusChunkMode.OFF;
         if (!setChunkMode(manager, block, owner, next)) {
             player.sendMessage(ChatColor.RED + "The Beacon Plus chunk-loader safety cap would be exceeded.");
             return;
@@ -358,11 +399,12 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         }
 
         BeaconPlusChunkMode current = manager.getChunkMode(block.getLocation());
-        BeaconPlusChunkMode next = switch (current) {
-            case OFF -> BeaconPlusChunkMode.SINGLE;
-            case SINGLE -> BeaconPlusChunkMode.AREA_3X3;
-            case AREA_3X3 -> BeaconPlusChunkMode.SINGLE;
-        };
+        BeaconPlusChunkMode next =
+                switch (current) {
+                    case OFF -> BeaconPlusChunkMode.SINGLE;
+                    case SINGLE -> BeaconPlusChunkMode.AREA_3X3;
+                    case AREA_3X3 -> BeaconPlusChunkMode.SINGLE;
+                };
 
         if (!setChunkMode(manager, block, owner, next)) {
             player.sendMessage(ChatColor.RED + "The requested coverage would exceed the Beacon Plus safety cap.");
@@ -391,13 +433,8 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         openMenu(player, block, owner);
     }
 
-    private boolean setChunkMode(
-            BeaconPlusManager manager, Block block, UUID owner, BeaconPlusChunkMode next) {
-        return manager.updateModes(
-                block.getLocation(),
-                owner,
-                next,
-                manager.getSupportMode(block.getLocation()));
+    private boolean setChunkMode(BeaconPlusManager manager, Block block, UUID owner, BeaconPlusChunkMode next) {
+        return manager.updateModes(block.getLocation(), owner, next, manager.getSupportMode(block.getLocation()));
     }
 
     private boolean validateMenuAction(Player player, Block block, UUID expectedOwner) {
@@ -417,68 +454,106 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         return true;
     }
 
-    private ItemStack createStatusItem(
-            Block block, EnumSet<BeaconPlusEffect> enabled, BeaconPlusChunkMode chunkMode) {
-        BlockState state = block.getState();
-        int tier = state instanceof Beacon beacon ? beacon.getTier() : 0;
-        double range = state instanceof Beacon beacon ? beacon.getEffectRange() : 0.0D;
-        if (enabled.contains(BeaconPlusEffect.EXTRA_RANGE)) {
+    private ItemStack createStatusItem(Block block, EnumSet<BeaconPlusEffect> enabled, BeaconPlusChunkMode chunkMode) {
+        BeaconPlusPowerMode powerMode = BeaconPlusPowerSource.getMode(block.getLocation());
+        int tier = BeaconPlusPowerSource.getPyramidTier(block);
+        double range = BeaconPlusPowerSource.getBaseRange(block);
+        if (enabled.contains(BeaconPlusEffect.EXTRA_RANGE) && range > 0.0D) {
             range += EXTRA_RANGE_BLOCKS;
         }
 
         int effectCount = enabled.size();
         int energyCost = calculateFieldEnergyCost(enabled);
         long storedEnergy = getChargeLong(block.getLocation());
-        Material icon = tier > 0 ? Material.NETHER_STAR : Material.GRAY_DYE;
+        boolean sourceReady = BeaconPlusPowerSource.isSourceReady(block, powerMode);
+        boolean hasFieldWork = energyCost > 0;
+        boolean enoughEnergy = powerMode != BeaconPlusPowerMode.SLIMEFUN_ENERGY || storedEnergy >= energyCost;
+        boolean fieldReady = hasFieldWork && sourceReady && enoughEnergy;
+        Material icon = fieldReady ? Material.NETHER_STAR : powerMode.getIcon();
+
         List<String> lore = new ArrayList<>();
-        lore.add(ChatColor.GRAY + "Beacon pyramid tier: " + (tier > 0 ? ChatColor.GREEN : ChatColor.RED) + tier);
+        lore.add(ChatColor.GRAY + "Power source: " + ChatColor.AQUA + powerMode.getDisplayName());
+        if (powerMode == BeaconPlusPowerMode.BEACON_BLOCKS) {
+            lore.add(ChatColor.GRAY + "Beacon pyramid tier: " + (tier > 0 ? ChatColor.GREEN : ChatColor.RED) + tier);
+            lore.add(ChatColor.DARK_GRAY + "Uses normal vanilla beacon pyramid/sky rules.");
+        } else {
+            lore.add(
+                    ChatColor.GRAY + "Field energy: " + ChatColor.YELLOW + storedEnergy + "/" + ENERGY_CAPACITY + " J");
+            lore.add(ChatColor.GRAY + "Current field draw: " + ChatColor.YELLOW + energyCost + " J/s");
+        }
         lore.add(ChatColor.GRAY + "Effective field range: " + ChatColor.AQUA + (int) Math.floor(range) + " blocks");
         lore.add(ChatColor.GRAY + "Enabled effects: " + ChatColor.GOLD + effectCount + "/30");
-        lore.add(ChatColor.GRAY + "Field energy: " + ChatColor.YELLOW + storedEnergy + "/" + ENERGY_CAPACITY + " J");
-        lore.add(ChatColor.GRAY + "Current field draw: " + ChatColor.YELLOW + energyCost + " J/s");
-        boolean fieldReady = tier > 0 && energyCost > 0 && storedEnergy >= energyCost;
-        lore.add(ChatColor.GRAY + "Field state: " + (fieldReady ? ChatColor.GREEN + "ACTIVE" : ChatColor.RED + "NOT POWERED"));
-        if (tier <= 0) {
-            lore.add(ChatColor.RED + "Reason: beacon pyramid/sky activation is not ready.");
-        } else if (energyCost <= 0) {
-            lore.add(ChatColor.YELLOW + "Reason: no field effect currently needs Energy.");
-        } else if (storedEnergy < energyCost) {
-            lore.add(ChatColor.RED + "Reason: needs at least " + energyCost + " J for the next field pulse.");
+
+        if (!hasFieldWork) {
+            lore.add(ChatColor.GRAY + "Field state: " + ChatColor.YELLOW + "IDLE");
+            lore.add(ChatColor.YELLOW + "Reason: no field effect currently needs power.");
+        } else if (fieldReady) {
+            lore.add(ChatColor.GRAY + "Field state: " + ChatColor.GREEN + "ACTIVE");
+        } else {
+            lore.add(ChatColor.GRAY + "Field state: " + ChatColor.RED + "NOT POWERED");
+            if (!sourceReady) {
+                lore.add(ChatColor.RED + "Reason: Beacon Blocks mode needs a valid pyramid and sky activation.");
+            } else if (!enoughEnergy) {
+                lore.add(ChatColor.RED + "Reason: needs at least " + energyCost + " J for the next field pulse.");
+            }
         }
+
         lore.add(ChatColor.GRAY + "Activator: " + ChatColor.AQUA + chunkMode.getDisplayName());
         lore.add("");
-        lore.add(tier > 0
-                ? ChatColor.GREEN + "Pyramid is ready; field effects also require Energy."
-                : ChatColor.RED + "Build a valid beacon pyramid to power field effects.");
+        lore.add(ChatColor.YELLOW + "Use the Power Source button to switch modes.");
         return createMenuItem(icon, ChatColor.GOLD + "Beacon Plus Status", lore);
     }
 
     private ItemStack createEffectItem(
-            BeaconPlusEffect effect, boolean active, BeaconPlusChunkMode chunkMode) {
-        boolean shownActive = effect == BeaconPlusEffect.ACTIVATOR
-                ? chunkMode != BeaconPlusChunkMode.OFF
-                : active;
+            BeaconPlusEffect effect,
+            boolean active,
+            BeaconPlusChunkMode chunkMode,
+            BeaconPlusPowerMode powerMode) {
+        boolean shownActive = effect == BeaconPlusEffect.ACTIVATOR ? chunkMode != BeaconPlusChunkMode.OFF : active;
         List<String> lore = new ArrayList<>();
         lore.add(ChatColor.GRAY + effect.getDescription());
         lore.add("");
-        lore.add(ChatColor.GRAY + "Status: "
-                + (shownActive ? ChatColor.GREEN + "ENABLED" : ChatColor.RED + "DISABLED"));
+        lore.add(
+                ChatColor.GRAY + "Status: " + (shownActive ? ChatColor.GREEN + "ENABLED" : ChatColor.RED + "DISABLED"));
         if (effect == BeaconPlusEffect.ACTIVATOR) {
             lore.add(ChatColor.GRAY + "Coverage: " + ChatColor.AQUA + chunkMode.getDisplayName());
             lore.add(ChatColor.DARK_GRAY + "Bounded by server-wide loader safety caps.");
         } else if (effect == BeaconPlusEffect.EXTRA_POWER) {
-            lore.add(ChatColor.LIGHT_PURPLE + "One-time unlock: " + ChatColor.WHITE
-                    + EXTRA_POWER_XP_LEVEL_COST + " XP levels");
-            lore.add(ChatColor.YELLOW + "Energy overclock: +" + EXTRA_POWER_PERCENT + "%");
+            lore.add(ChatColor.LIGHT_PURPLE + "One-time unlock: " + ChatColor.WHITE + EXTRA_POWER_XP_LEVEL_COST
+                    + " XP levels");
+            lore.add(ChatColor.YELLOW + "Supported effect boost: +" + EXTRA_POWER_PERCENT + "%");
+            if (powerMode == BeaconPlusPowerMode.SLIMEFUN_ENERGY) {
+                lore.add(ChatColor.DARK_GRAY + "Electricity draw: +" + EXTRA_POWER_PERCENT + "% while enabled.");
+            } else {
+                lore.add(ChatColor.DARK_GRAY + "Beacon Blocks mode consumes no electricity.");
+            }
             lore.add(ChatColor.DARK_GRAY + "Operators bypass the XP unlock cost.");
-        } else {
+        } else if (powerMode == BeaconPlusPowerMode.SLIMEFUN_ENERGY) {
             lore.add(ChatColor.DARK_GRAY + "Base field cost: " + BASE_ENERGY_PER_EFFECT_PER_PULSE + " J/s");
+        } else {
+            lore.add(ChatColor.DARK_GRAY + "Powered by beacon blocks; no electricity consumed.");
         }
         lore.add("");
         lore.add(ChatColor.YELLOW + "Click to toggle");
 
         String nameColor = shownActive ? ChatColor.GREEN.toString() : ChatColor.RED.toString();
         return createMenuItem(effect.getIcon(), nameColor + effect.getDisplayName(), lore);
+    }
+
+    private ItemStack createPowerSourceItem(BeaconPlusPowerMode powerMode) {
+        BeaconPlusPowerMode other = powerMode.next();
+        return createMenuItem(
+                powerMode.getIcon(),
+                ChatColor.GOLD + "Power Source: " + ChatColor.WHITE + powerMode.getDisplayName(),
+                List.of(
+                        ChatColor.GRAY + "Choose how this Beacon Plus powers all field effects.",
+                        "",
+                        powerMode == BeaconPlusPowerMode.SLIMEFUN_ENERGY
+                                ? ChatColor.GRAY + "Consumes Slimefun electricity once per second."
+                                : ChatColor.GRAY + "Uses a normal vanilla beacon pyramid; no J is consumed.",
+                        ChatColor.GRAY + "Switch to: " + ChatColor.AQUA + other.getDisplayName(),
+                        "",
+                        ChatColor.YELLOW + "Click to switch power source"));
     }
 
     private ItemStack createActivatorCoverageItem(BeaconPlusChunkMode chunkMode) {
@@ -495,10 +570,9 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
                         ChatColor.YELLOW + "Click to change coverage"));
     }
 
-    private static int calculateFieldEnergyCost(Set<BeaconPlusEffect> configured) {
-        EnumSet<BeaconPlusEffect> effects = configured.isEmpty()
-                ? EnumSet.noneOf(BeaconPlusEffect.class)
-                : EnumSet.copyOf(configured);
+    static int calculateFieldEnergyCost(Set<BeaconPlusEffect> configured) {
+        EnumSet<BeaconPlusEffect> effects =
+                configured.isEmpty() ? EnumSet.noneOf(BeaconPlusEffect.class) : EnumSet.copyOf(configured);
         effects.remove(BeaconPlusEffect.ACTIVATOR);
         boolean extraPower = effects.remove(BeaconPlusEffect.EXTRA_POWER);
 
@@ -532,10 +606,6 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         LAST_FIELD_PULSE_TICKS.clear();
     }
 
-    private static boolean hasPoweredPyramid(Block block) {
-        return block.getState() instanceof Beacon beacon && beacon.getTier() > 0;
-    }
-
     private static boolean isExtraPowerUnlocked(Location location) {
         return Boolean.parseBoolean(StorageCacheUtils.getData(location, EXTRA_POWER_UNLOCKED_KEY));
     }
@@ -560,10 +630,7 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
     private record PulseKey(UUID worldId, int x, int y, int z) {
         private static PulseKey from(Location location) {
             return new PulseKey(
-                    location.getWorld().getUID(),
-                    location.getBlockX(),
-                    location.getBlockY(),
-                    location.getBlockZ());
+                    location.getWorld().getUID(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
         }
     }
 }

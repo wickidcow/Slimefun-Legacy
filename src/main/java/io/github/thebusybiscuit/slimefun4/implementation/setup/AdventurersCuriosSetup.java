@@ -22,7 +22,6 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
@@ -44,14 +43,12 @@ final class AdventurersCuriosSetup {
         }
         registered = true;
 
-        NestedItemGroup curios = new NestedItemGroup(
-                new NamespacedKey(plugin, "adventurers_curios"), createCategoryIcon(), 2);
+        NestedItemGroup curios =
+                new NestedItemGroup(new NamespacedKey(plugin, "adventurers_curios"), createCategoryIcon(), 2);
         SubItemGroup fieldCuriosities = new SubItemGroup(
                 new NamespacedKey(plugin, "adventurers_curios_field"), curios, createCuriositiesIcon(), 2);
-        SubItemGroup advancedHazmatGear = new SubItemGroup(
-                new NamespacedKey(plugin, "advanced_hazmat_gear"), curios, createAdvancedHazmatIcon(), 2);
         SubItemGroup containmentArmor = new SubItemGroup(
-                new NamespacedKey(plugin, "netherite_containment_armor"), curios, createContainmentArmorIcon(), 2);
+                new NamespacedKey(plugin, "containment_armor"), curios, createContainmentArmorIcon(), 2);
 
         SlimefunItemStack wayfindersCompass = new SlimefunItemStack(
                 "ADVENTURERS_WAYFINDERS_COMPASS",
@@ -128,8 +125,8 @@ final class AdventurersCuriosSetup {
                 "&7with 30 independently toggleable effects.",
                 "",
                 "&eRight Click &7to open the configuration menu",
-                "&8Field effects require a powered beacon pyramid",
-                "&8and Slimefun Energy; Extra Power costs 30 XP levels",
+                "&8Choose Slimefun Electricity or Beacon Blocks for power",
+                "&8Extra Power costs 30 XP levels",
                 "&8Activator uses bounded plugin chunk tickets");
 
         SlimefunItemStack advancedHazmatHelmet = new SlimefunItemStack(
@@ -218,144 +215,112 @@ final class AdventurersCuriosSetup {
                 "&8Lead-lined and netherite reinforced",
                 "&8Keeps hazardous ground safely beneath you.");
 
-        new WayfindersCompass(
-                        fieldCuriosities,
-                        wayfindersCompass,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
-                        new ItemStack[] {
-                            new ItemStack(Material.AMETHYST_SHARD),
-                            new ItemStack(Material.REDSTONE),
-                            new ItemStack(Material.AMETHYST_SHARD),
-                            new ItemStack(Material.GOLD_INGOT),
-                            new ItemStack(Material.COMPASS),
-                            new ItemStack(Material.GOLD_INGOT),
-                            null,
-                            new ItemStack(Material.ECHO_SHARD),
-                            null
-                        })
+        new WayfindersCompass(fieldCuriosities, wayfindersCompass, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.AMETHYST_SHARD),
+                    new ItemStack(Material.REDSTONE),
+                    new ItemStack(Material.AMETHYST_SHARD),
+                    new ItemStack(Material.GOLD_INGOT),
+                    new ItemStack(Material.COMPASS),
+                    new ItemStack(Material.GOLD_INGOT),
+                    null,
+                    new ItemStack(Material.ECHO_SHARD),
+                    null
+                })
                 .register(plugin);
 
-        new EchoLantern(
-                        fieldCuriosities,
-                        echoLantern,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
-                        new ItemStack[] {
-                            new ItemStack(Material.AMETHYST_SHARD),
-                            new ItemStack(Material.GLOW_INK_SAC),
-                            new ItemStack(Material.AMETHYST_SHARD),
-                            new ItemStack(Material.IRON_NUGGET),
-                            new ItemStack(Material.SOUL_LANTERN),
-                            new ItemStack(Material.IRON_NUGGET),
-                            null,
-                            new ItemStack(Material.ECHO_SHARD),
-                            null
-                        })
+        new EchoLantern(fieldCuriosities, echoLantern, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.AMETHYST_SHARD),
+                    new ItemStack(Material.GLOW_INK_SAC),
+                    new ItemStack(Material.AMETHYST_SHARD),
+                    new ItemStack(Material.IRON_NUGGET),
+                    new ItemStack(Material.SOUL_LANTERN),
+                    new ItemStack(Material.IRON_NUGGET),
+                    null,
+                    new ItemStack(Material.ECHO_SHARD),
+                    null
+                })
                 .register(plugin);
 
-        new ExplorersSpyglass(
-                        fieldCuriosities,
-                        explorersSpyglass,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
-                        new ItemStack[] {
-                            new ItemStack(Material.PAPER),
-                            new ItemStack(Material.COMPASS),
-                            new ItemStack(Material.PAPER),
-                            new ItemStack(Material.COPPER_INGOT),
-                            new ItemStack(Material.SPYGLASS),
-                            new ItemStack(Material.COPPER_INGOT),
-                            null,
-                            new ItemStack(Material.AMETHYST_SHARD),
-                            null
-                        })
+        new ExplorersSpyglass(fieldCuriosities, explorersSpyglass, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.PAPER),
+                    new ItemStack(Material.COMPASS),
+                    new ItemStack(Material.PAPER),
+                    new ItemStack(Material.COPPER_INGOT),
+                    new ItemStack(Material.SPYGLASS),
+                    new ItemStack(Material.COPPER_INGOT),
+                    null,
+                    new ItemStack(Material.AMETHYST_SHARD),
+                    null
+                })
                 .register(plugin);
 
-        new MinersCanary(
-                        fieldCuriosities,
-                        minersCanary,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
-                        new ItemStack[] {
-                            new ItemStack(Material.FEATHER),
-                            new ItemStack(Material.GOLD_NUGGET),
-                            new ItemStack(Material.FEATHER),
-                            new ItemStack(Material.STRING),
-                            new ItemStack(Material.YELLOW_DYE),
-                            new ItemStack(Material.STRING),
-                            null,
-                            new ItemStack(Material.REDSTONE),
-                            null
-                        })
+        new MinersCanary(fieldCuriosities, minersCanary, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.FEATHER),
+                    new ItemStack(Material.GOLD_NUGGET),
+                    new ItemStack(Material.FEATHER),
+                    new ItemStack(Material.STRING),
+                    new ItemStack(Material.YELLOW_DYE),
+                    new ItemStack(Material.STRING),
+                    null,
+                    new ItemStack(Material.REDSTONE),
+                    null
+                })
                 .register(plugin);
 
-        new DungeonChalk(
-                        fieldCuriosities,
-                        dungeonChalk,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
-                        new ItemStack[] {
-                            new ItemStack(Material.CALCITE),
-                            new ItemStack(Material.GLOW_INK_SAC),
-                            new ItemStack(Material.CALCITE),
-                            null,
-                            new ItemStack(Material.WHITE_DYE),
-                            null,
-                            null,
-                            new ItemStack(Material.PAPER),
-                            null
-                        })
+        new DungeonChalk(fieldCuriosities, dungeonChalk, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.CALCITE),
+                    new ItemStack(Material.GLOW_INK_SAC),
+                    new ItemStack(Material.CALCITE),
+                    null,
+                    new ItemStack(Material.WHITE_DYE),
+                    null,
+                    null,
+                    new ItemStack(Material.PAPER),
+                    null
+                })
                 .register(plugin);
 
-        new StormGlass(
-                        fieldCuriosities,
-                        stormGlass,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
-                        new ItemStack[] {
-                            new ItemStack(Material.COPPER_INGOT),
-                            new ItemStack(Material.AMETHYST_SHARD),
-                            new ItemStack(Material.COPPER_INGOT),
-                            null,
-                            new ItemStack(Material.GLASS_BOTTLE),
-                            null,
-                            null,
-                            new ItemStack(Material.REDSTONE),
-                            null
-                        })
+        new StormGlass(fieldCuriosities, stormGlass, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.COPPER_INGOT),
+                    new ItemStack(Material.AMETHYST_SHARD),
+                    new ItemStack(Material.COPPER_INGOT),
+                    null,
+                    new ItemStack(Material.GLASS_BOTTLE),
+                    null,
+                    null,
+                    new ItemStack(Material.REDSTONE),
+                    null
+                })
                 .register(plugin);
 
-        new ExpeditionJournal(
-                        fieldCuriosities,
-                        expeditionJournal,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
-                        new ItemStack[] {
-                            new ItemStack(Material.PAPER),
-                            new ItemStack(Material.COMPASS),
-                            new ItemStack(Material.PAPER),
-                            new ItemStack(Material.MAP),
-                            new ItemStack(Material.WRITABLE_BOOK),
-                            new ItemStack(Material.SPYGLASS),
-                            null,
-                            new ItemStack(Material.AMETHYST_SHARD),
-                            null
-                        })
+        new ExpeditionJournal(fieldCuriosities, expeditionJournal, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.PAPER),
+                    new ItemStack(Material.COMPASS),
+                    new ItemStack(Material.PAPER),
+                    new ItemStack(Material.MAP),
+                    new ItemStack(Material.WRITABLE_BOOK),
+                    new ItemStack(Material.SPYGLASS),
+                    null,
+                    new ItemStack(Material.AMETHYST_SHARD),
+                    null
+                })
                 .register(plugin);
 
-        new BeaconPlus(
-                        fieldCuriosities,
-                        beaconPlus,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
-                        new ItemStack[] {
-                            new ItemStack(Material.ECHO_SHARD),
-                            new ItemStack(Material.NETHERITE_INGOT),
-                            new ItemStack(Material.ECHO_SHARD),
-                            new ItemStack(Material.REDSTONE_BLOCK),
-                            new ItemStack(Material.BEACON),
-                            new ItemStack(Material.REDSTONE_BLOCK),
-                            new ItemStack(Material.AMETHYST_SHARD),
-                            new ItemStack(Material.ENDER_EYE),
-                            new ItemStack(Material.AMETHYST_SHARD)
-                        })
+        new BeaconPlus(fieldCuriosities, beaconPlus, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.ECHO_SHARD),
+                    new ItemStack(Material.NETHERITE_INGOT),
+                    new ItemStack(Material.ECHO_SHARD),
+                    new ItemStack(Material.REDSTONE_BLOCK),
+                    new ItemStack(Material.BEACON),
+                    new ItemStack(Material.REDSTONE_BLOCK),
+                    new ItemStack(Material.AMETHYST_SHARD),
+                    new ItemStack(Material.ENDER_EYE),
+                    new ItemStack(Material.AMETHYST_SHARD)
+                })
                 .register(plugin);
 
         new HazardProtectionArmorPiece(
-                        advancedHazmatGear,
+                        containmentArmor,
                         advancedHazmatHelmet,
                         RecipeType.ARMOR_FORGE,
                         advancedHazmatRecipe(SlimefunItems.SCUBA_HELMET),
@@ -363,7 +328,7 @@ final class AdventurersCuriosSetup {
                         ADVANCED_HAZMAT_SET_ID)
                 .register(plugin);
         new HazardProtectionArmorPiece(
-                        advancedHazmatGear,
+                        containmentArmor,
                         advancedHazmatChestplate,
                         RecipeType.ARMOR_FORGE,
                         advancedHazmatRecipe(SlimefunItems.HAZMAT_CHESTPLATE),
@@ -371,7 +336,7 @@ final class AdventurersCuriosSetup {
                         ADVANCED_HAZMAT_SET_ID)
                 .register(plugin);
         new HazardProtectionArmorPiece(
-                        advancedHazmatGear,
+                        containmentArmor,
                         advancedHazmatLeggings,
                         RecipeType.ARMOR_FORGE,
                         advancedHazmatRecipe(SlimefunItems.HAZMAT_LEGGINGS),
@@ -379,7 +344,7 @@ final class AdventurersCuriosSetup {
                         ADVANCED_HAZMAT_SET_ID)
                 .register(plugin);
         new HazardProtectionArmorPiece(
-                        advancedHazmatGear,
+                        containmentArmor,
                         advancedHazmatBoots,
                         RecipeType.ARMOR_FORGE,
                         advancedHazmatRecipe(SlimefunItems.HAZMAT_BOOTS),
@@ -390,7 +355,7 @@ final class AdventurersCuriosSetup {
         new HazardProtectionArmorPiece(
                         containmentArmor,
                         containmentHelmet,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
+                        RecipeType.ARMOR_FORGE,
                         containmentRecipe(advancedHazmatHelmet),
                         new PotionEffect[] {new PotionEffect(PotionEffectType.WATER_BREATHING, 300, 1)},
                         NETHERITE_CONTAINMENT_SET_ID)
@@ -398,7 +363,7 @@ final class AdventurersCuriosSetup {
         new HazardProtectionArmorPiece(
                         containmentArmor,
                         containmentChestplate,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
+                        RecipeType.ARMOR_FORGE,
                         containmentRecipe(advancedHazmatChestplate),
                         new PotionEffect[] {new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 300, 1)},
                         NETHERITE_CONTAINMENT_SET_ID)
@@ -406,7 +371,7 @@ final class AdventurersCuriosSetup {
         new HazardProtectionArmorPiece(
                         containmentArmor,
                         containmentLeggings,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
+                        RecipeType.ARMOR_FORGE,
                         containmentRecipe(advancedHazmatLeggings),
                         new PotionEffect[0],
                         NETHERITE_CONTAINMENT_SET_ID)
@@ -414,7 +379,7 @@ final class AdventurersCuriosSetup {
         new HazardProtectionArmorPiece(
                         containmentArmor,
                         containmentBoots,
-                        RecipeType.ENHANCED_CRAFTING_TABLE,
+                        RecipeType.ARMOR_FORGE,
                         containmentRecipe(advancedHazmatBoots),
                         new PotionEffect[0],
                         NETHERITE_CONTAINMENT_SET_ID)
@@ -471,25 +436,13 @@ final class AdventurersCuriosSetup {
         return icon;
     }
 
-    private static ItemStack createAdvancedHazmatIcon() {
-        ItemStack icon = new ItemStack(Material.LEATHER_CHESTPLATE);
-        LeatherArmorMeta meta = (LeatherArmorMeta) icon.getItemMeta();
-        meta.setColor(Color.YELLOW);
-        meta.setDisplayName(ChatColor.YELLOW + "Advanced Hazmat Gear");
-        meta.setLore(List.of(
-                ChatColor.GRAY + "Upgraded hazardous-material protection",
-                ChatColor.GRAY + "for sensitive and radioactive materials"));
-        icon.setItemMeta(meta);
-        return icon;
-    }
-
     private static ItemStack createContainmentArmorIcon() {
         ItemStack icon = new ItemStack(Material.NETHERITE_CHESTPLATE);
         ItemMeta meta = icon.getItemMeta();
-        meta.setDisplayName(ChatColor.DARK_GRAY + "Netherite Containment Armor");
+        meta.setDisplayName(ChatColor.DARK_GRAY + "Containment Armor");
         meta.setLore(List.of(
-                ChatColor.GRAY + "For when you need protection from the world",
-                ChatColor.GRAY + "while handling sensitive or hazardous materials"));
+                ChatColor.GRAY + "Advanced Hazmat and Netherite Containment gear",
+                ChatColor.GRAY + "for sensitive, radioactive and hazardous materials"));
         icon.setItemMeta(meta);
         return icon;
     }
