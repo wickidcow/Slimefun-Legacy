@@ -229,7 +229,7 @@ messages:
   enchantment-rune:
     fail: '&cYou cannot enchant this item.'
     no-enchantment: '&cCouldn''t find any applicable enchantment for this item.'
-    success: '&aYou have successfully applied a random applicable enchantment to this item.'
+    success: '&aYou have successfully applied a random applicable enchantment to your item.'
 
   research:
     start: '&7The Ancient Spirits whisper mysterious words into your ear!'
@@ -287,7 +287,7 @@ machines:
 
   ANCIENT_ALTAR:
     not-enough-pedestals: '&4The Altar is not surrounded by the needed amount of Pedestals &c(%pedestals% / 8)'
-    unknown-catalyst: '&4Unknown Catalyst! &cUse the correct Recipe instead!'
+    unknown-catalyst: '&4Unknown catalyst! &cUse the correct Recipe instead!'
     unknown-recipe: '&4Unknown Recipe! &cUse the correct Recipe instead!'
 
   ANCIENT_PEDESTAL:
@@ -342,7 +342,6 @@ machines:
 
 anvil:
   not-working: '&4You cannot use Slimefun items in an anvil!'
-  mcmmo-salvaging: '&4You cannot salvage Slimefun items!'
 
 brewing_stand:
   not-working: '&4You cannot use Slimefun items in a brewing stand!'
@@ -359,6 +358,7 @@ villagers:
 backpack:
   already-open: '&cSorry, this Backpack is open somewhere else!'
   no-stack: '&cYou cannot stack Backpacks'
+  set-name: '&eHold this backpack and type a name in chat.'
 
 workbench:
   not-enhanced: '&4You cannot use Slimefun items in a normal workbench'
