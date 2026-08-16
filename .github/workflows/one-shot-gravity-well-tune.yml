@@ -30,7 +30,9 @@ jobs:
           cache: gradle
 
       - name: Apply shared effect-area and Gravity Well tuning
-        run: python3 scripts/one_shot_gravity_well_tune.py
+        run: |
+          python3 scripts/one_shot_gravity_well_tune.py
+          python3 scripts/one_shot_gravity_well_test_isolation.py
 
       - name: Format only intended Java changes
         shell: bash
@@ -39,17 +41,15 @@ jobs:
           chmod +x gradlew
           ./gradlew spotlessApply --no-daemon
 
-          # Capture the changed-file list before restoring anything.
           git diff --name-only > "$RUNNER_TEMP/changed-files.txt"
 
-          # Restore unrelated files without touching the Git index. This avoids
-          # the transient JGit index lock that Spotless can leave behind.
           while IFS= read -r path; do
             case "$path" in
               src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlus.java|\
               src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusChunkMode.java|\
               src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusEffect.java|\
               src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusFieldArea.java|\
+              src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusGravity.java|\
               src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusManager.java|\
               src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusPowerState.java|\
               src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusRuntime.java|\
@@ -57,6 +57,7 @@ jobs:
               src/test/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusEffectTest.java|\
               src/test/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusFieldAreaTest.java|\
               scripts/one_shot_gravity_well_tune.py|\
+              scripts/one_shot_gravity_well_test_isolation.py|\
               .github/workflows/one-shot-gravity-well-tune.yml)
                 ;;
               *)
@@ -91,8 +92,7 @@ jobs:
           set -euo pipefail
           rm -f .github/workflows/one-shot-gravity-well-tune.yml
           rm -f scripts/one_shot_gravity_well_tune.py
-
-          # By this point Gradle has exited for several steps. Remove only a stale lock.
+          rm -f scripts/one_shot_gravity_well_test_isolation.py
           rm -f .git/index.lock
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
