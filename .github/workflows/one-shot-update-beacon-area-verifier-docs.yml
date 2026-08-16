@@ -30,7 +30,7 @@ jobs:
           cache: gradle
 
       - name: Update verifier and documentation
-        run: python3 scripts/one_shot_update_beacon_area_verifier_docs.py
+        run: python3 scripts/one_shot_run_beacon_area_verifier_docs_fixed.py
 
       - name: Run complete Legacy static verification
         run: python3 scripts/verify_legacy.py .
@@ -52,6 +52,7 @@ jobs:
           set -euo pipefail
           rm -f .github/workflows/one-shot-update-beacon-area-verifier-docs.yml
           rm -f scripts/one_shot_update_beacon_area_verifier_docs.py
+          rm -f scripts/one_shot_run_beacon_area_verifier_docs_fixed.py
           rm -f .git/index.lock
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
