@@ -1,0 +1,50 @@
+name: Release 4.1.31 Backpack Hot Fix
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - '.github/workflows/release-4.1.31-backpack-hotfix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  backpack-hotfix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Build 4.1.31 backpack hotfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
+          test "$VERSION" = "4.1.31"
+          chmod +x gradlew
+          ./gradlew clean shadowJar -PprojectVersion="$VERSION" --no-daemon
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -n "$JAR"
+          mkdir -p dist
+          cp "$JAR" "dist/SF_Slimefun_Legacy_v4.1.31-backpackhotfix.jar"
+          test -s "dist/SF_Slimefun_Legacy_v4.1.31-backpackhotfix.jar"
+
+      - name: Add hotfix JAR to existing 4.1.31 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view SlimefunLegacy4.1.31 >/dev/null
+          gh release upload SlimefunLegacy4.1.31 \
+            dist/SF_Slimefun_Legacy_v4.1.31-backpackhotfix.jar \
+            --clobber
