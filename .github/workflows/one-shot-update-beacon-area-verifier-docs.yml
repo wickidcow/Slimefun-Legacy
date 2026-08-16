@@ -1,0 +1,61 @@
+name: One-shot Beacon Plus area verifier/docs
+
+on:
+  push:
+    branches:
+      - 'fix/gravity-well-strength-range'
+    paths:
+      - '.github/workflows/one-shot-update-beacon-area-verifier-docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v6
+        with:
+          ref: fix/gravity-well-strength-range
+          fetch-depth: 0
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Update verifier and documentation
+        run: python3 scripts/one_shot_update_beacon_area_verifier_docs.py
+
+      - name: Run complete Legacy static verification
+        run: python3 scripts/verify_legacy.py .
+
+      - name: Build and run tests
+        run: |
+          chmod +x gradlew
+          ./gradlew clean build --no-daemon -x spotlessCheck
+
+      - name: Verify Java 21 bytecode
+        run: |
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -n "$JAR"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+
+      - name: Commit verifier/docs update and remove one-shot files
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/one-shot-update-beacon-area-verifier-docs.yml
+          rm -f scripts/one_shot_update_beacon_area_verifier_docs.py
+          rm -f .git/index.lock
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Update Beacon Plus area verifier and documentation"
+          git push origin HEAD:fix/gravity-well-strength-range
