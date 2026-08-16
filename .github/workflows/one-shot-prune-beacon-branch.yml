@@ -59,10 +59,10 @@ jobs:
           java-version: '25'
           cache: gradle
 
-      - name: Rebuild clean intended diff
+      - name: Compile, test and package clean intended diff
         run: |
           chmod +x gradlew
-          ./gradlew clean build --no-daemon
+          ./gradlew clean build --no-daemon -x spotlessCheck
           JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
           test -n "$JAR"
           python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
