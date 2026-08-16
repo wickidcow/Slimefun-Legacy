@@ -1,31 +1,60 @@
 <div align="center">
 
-<img src="../images/slimefun-legacy-logo.png" alt="Slimefun Legacy" width="180">
+<img src="https://raw.githubusercontent.com/wickidcow/Slimefun-Legacy/master/docs/images/slimefun-legacy-logo.png" alt="Slimefun Legacy" width="180">
 
 # Slimefun Legacy Wiki
 ### Classic Slimefun gameplay. Modern Paper maintenance. Production-focused diagnostics.
 
-**[Getting Started](Getting-Started.md)** · **[Install](Installation-and-Upgrades.md)** · **[Addons](Compatibility-and-Addons.md)** · **[Troubleshoot](Troubleshooting.md)** · **[Developers](Developer-Guide.md)**
+**[Getting Started](Getting-Started.md)** · **[Learn Slimefun](Slimefun-in-a-Nutshell.md)** · **[Install](Installation-and-Upgrades.md)** · **[Addons](Addon-Ecosystem.md)** · **[Troubleshoot](Troubleshooting.md)** · **[Developers](Developer-Guide.md)**
 
 </div>
 
 > [!IMPORTANT]
 > **Slimefun Legacy is an unofficial, independently maintained downstream fork of Slimefun 4.** It is not an official release of the original Slimefun project, Slimefun United, or the SlimefunGuguProject.
 
-Slimefun Legacy turns a normal Minecraft server into a modpack-like experience with machines, electricity, automation, cargo networks, magic, backpacks, equipment, resources and a huge addon ecosystem — without requiring a client mod.
+Slimefun Legacy turns a normal Minecraft server into a modpack-like experience with machines, electricity, automation, Cargo networks, magic, backpacks, Androids, GPS, reactors, equipment, resources and a huge addon ecosystem — without requiring a client mod.
 
-This wiki keeps the approachable structure that made the classic Slimefun community wiki useful, while adding documentation for Legacy's modern server support, Enhanced Guide, compatibility tooling and recovery diagnostics.
+This wiki keeps the approachable structure that made the classic Slimefun community wiki useful, while rewriting it for Legacy's modern Paper support, Enhanced Guide, compatibility tooling, production safeguards and recovery diagnostics.
 
 ## 🧭 Choose your path
 
 | I am a... | Start here |
 | --- | --- |
-| 🧪 **New player** | [Getting Started](Getting-Started.md) → [Enhanced Guide](Enhanced-Guide.md) |
-| ⚙️ **Factory builder** | [Energy, Cargo & Automation](Energy-Cargo-and-Automation.md) |
+| 🧪 **New player** | [Getting Started](Getting-Started.md) → [Research & Progression](Research-and-Progression.md) |
+| ⚒️ **Learning machines** | [Multiblocks & Basic Machines](Multiblocks-and-Basic-Machines.md) → [Resources, Dusts & Alloys](Resources-Dusts-and-Alloys.md) |
+| ⚙️ **Factory builder** | [Energy Networks](Energy-Networks.md) + [Cargo Networks](Cargo-Networks.md) |
+| 🤖 **Automation player** | [Programmable Androids](Programmable-Androids.md) |
+| 🛰️ **Explorer / late game** | [GPS, GEO & Teleportation](GPS-GEO-and-Teleportation.md) → [Radiation & Reactors](Radiation-and-Reactors.md) |
 | 🛡️ **Server owner** | [Installation & Upgrades](Installation-and-Upgrades.md) → [Server Owner Guide](Server-Owner-Guide.md) |
-| 🔌 **Addon administrator** | [Compatibility & Addons](Compatibility-and-Addons.md) |
+| 🔌 **Addon administrator** | [Addon Ecosystem](Addon-Ecosystem.md) → [Compatibility & Addons](Compatibility-and-Addons.md) |
+| 🚀 **Performance admin** | [Server Performance](Server-Performance.md) |
 | 🩺 **Troubleshooter** | [Doctor & Diagnostics](Doctor-and-Diagnostics.md) → [Troubleshooting](Troubleshooting.md) |
+| 🐛 **Bug reporter** | [Bug Reporting](Bug-Reporting.md) |
 | 🧑‍💻 **Addon developer** | [Developer Guide](Developer-Guide.md) |
+
+## 🎮 Player guides
+
+| Guide | What it covers |
+| --- | --- |
+| [🧪 Slimefun in a Nutshell](Slimefun-in-a-Nutshell.md) | What Slimefun is, classic progression and project history |
+| [🚀 Getting Started](Getting-Started.md) | Your first Guide, research, resources and machines |
+| [📚 Research & Progression](Research-and-Progression.md) | Unlocks, XP progression and planning your tech tree |
+| [⚒️ Multiblocks & Basic Machines](Multiblocks-and-Basic-Machines.md) | The classic pre-electric workshop |
+| [⛏️ Resources, Dusts & Alloys](Resources-Dusts-and-Alloys.md) | Material processing and component chains |
+| [⚡ Energy Networks](Energy-Networks.md) | Generation, storage, distribution and consumers |
+| [📦 Cargo Networks](Cargo-Networks.md) | Item transport, channels and factory automation |
+| [🤖 Programmable Androids](Programmable-Androids.md) | Slimefun's programmable worker robots |
+| [🛰️ GPS, GEO & Teleportation](GPS-GEO-and-Teleportation.md) | GPS infrastructure, GEO resources and teleporters |
+| [🎒 Backpacks & Storage](Backpacks-and-Storage.md) | Portable storage and Legacy safety notes |
+| [☢️ Radiation & Reactors](Radiation-and-Reactors.md) | Nuclear materials, Hazmat protection and reactors |
+
+## 🛡️ Server administration
+
+Server operators should begin with the installation and backup procedure, then learn the Doctor tooling before adding a large addon stack.
+
+Recommended administrator path:
+
+**[Installation & Upgrades](Installation-and-Upgrades.md)** → **[Server Owner Guide](Server-Owner-Guide.md)** → **[Addon Ecosystem](Addon-Ecosystem.md)** → **[Doctor & Diagnostics](Doctor-and-Diagnostics.md)** → **[Server Performance](Server-Performance.md)**
 
 ## 🚀 Current platform target
 
@@ -44,7 +73,7 @@ For the exact current release, always use the repository's **Releases** page rat
 
 ## 📚 Classic Slimefun knowledge, modernized
 
-The original Slimefun 4 community wiki organized documentation around onboarding, commands, addons, common issues, developer guides and item categories. This wiki follows those successful concepts but rewrites them for Slimefun Legacy and its supported runtime.
+The original Slimefun community wiki documented individual machines, resources, Androids, Cargo, GPS, reactors, performance guidance, common issues and developer topics. Slimefun Legacy's wiki uses those proven concepts as a roadmap while rewriting documentation for the current project rather than copying historical pages verbatim.
 
 For recipes and item availability on a specific server, **the in-game Slimefun Guide is authoritative** because server owners can disable content and addons can add or modify categories.
 
