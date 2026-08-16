@@ -67,6 +67,7 @@ abstract class AbstractEnchantmentMachine extends AContainer {
             @Override
             public void onBlockBreak(Block block) {
                 CraftingOperation operation = getMachineProcessor().getOperation(block);
+                boolean interrupted = operation != null && !operation.isFinished();
                 boolean endedOperation = operation != null && getMachineProcessor().endOperation(block);
 
                 BlockMenu menu = StorageCacheUtils.getMenu(block.getLocation());
@@ -75,7 +76,7 @@ abstract class AbstractEnchantmentMachine extends AContainer {
                     menu.dropItems(block.getLocation(), getOutputSlots());
                 }
 
-                if (endedOperation && operation.isCancelled()) {
+                if (endedOperation && interrupted) {
                     dropInterruptedInputs(block.getLocation(), operation);
                 }
             }
