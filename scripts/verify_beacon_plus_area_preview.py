@@ -48,9 +48,12 @@ def main() -> int:
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusFieldArea.java",
     )
-    require(field_area, 'ONE_BY_ONE(1, "1x1 Chunk")', "1x1 field tier")
-    require(field_area, 'THREE_BY_THREE(3, "3x3 Chunks")', "3x3 field tier")
-    require(field_area, 'FIVE_BY_FIVE(5, "5x5 Chunks")', "5x5 field tier")
+    require(field_area, 'CHUNK_1X1("1x1 Chunks", 0)', "1x1 field tier")
+    require(field_area, 'AREA_3X3("3x3 Chunks", 1)', "3x3 field tier")
+    require(field_area, 'AREA_5X5("5x5 Chunks", 2)', "5x5 field tier")
+    require(field_area, "static final BeaconPlusFieldArea DEFAULT = AREA_3X3;", "default 3x3 field tier")
+    require(field_area, "case CHUNK_1X1 -> AREA_3X3;", "Extra Range expansion from 1x1")
+    require(field_area, "case AREA_3X3, AREA_5X5 -> AREA_5X5;", "Extra Range expansion/cap at 5x5")
 
     beam = read(
         root,
@@ -74,11 +77,19 @@ def main() -> int:
     require(listener, "BeaconPlusRuntime.getEffectiveFieldArea", "menu displays effective area")
     require(listener, "Visual only; effect range is unchanged.", "non-gameplay toggle explanation")
 
+    beacon = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlus.java",
+    )
+    require(beacon, "private static final int POWER_PULSE_INTERVAL_TICKS = 20;", "one-second field pulse cadence")
+
     print("Beacon Plus Area Preview verification passed.")
     print("- preview defaults ON unless explicitly disabled")
     print("- exact effective 1x1/3x3/5x5 field boundary is used")
+    print("- Extra Range expansion follows the same field-area runtime")
     print("- sparse particles are used without marker entities or chunk loading")
     print("- menu lever has explicit up/down ON/OFF state and persistence")
+    print("- powered preview refreshes at the existing one-second Beacon Plus field cadence")
     return 0
 
 
