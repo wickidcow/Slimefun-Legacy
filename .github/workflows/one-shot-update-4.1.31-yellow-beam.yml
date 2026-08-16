@@ -1,0 +1,144 @@
+name: Update Slimefun Legacy 4.1.31 Powered Yellow Beam
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/one-shot-update-4.1.31-yellow-beam.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SOURCE_COMMIT: eacc2ad7c215aa532e15ce8b27fdf2231e32772e
+      LEGACY_VERSION: 4.1.31
+      RELEASE_TAG: SlimefunLegacy4.1.31
+      RELEASE_JAR: SF_Slimefun_Legacy_v4.1.31.jar
+    steps:
+      - name: Check out exact verified source
+        uses: actions/checkout@v6
+        with:
+          ref: eacc2ad7c215aa532e15ce8b27fdf2231e32772e
+          fetch-depth: 0
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Verify exact 4.1.31 source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
+          test "$VERSION" = "$LEGACY_VERSION"
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct "$SOURCE_COMMIT")" >> "$GITHUB_ENV"
+          echo "Publishing Slimefun Legacy $LEGACY_VERSION powered yellow beam from $SOURCE_COMMIT" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify Slimefun Legacy invariants
+        run: python3 scripts/verify_legacy.py .
+
+      - name: First clean release build
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew clean shadowJar -PprojectVersion="$LEGACY_VERSION" --no-daemon --no-build-cache --no-configuration-cache
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -n "$JAR"
+          cp "$JAR" "$RUNNER_TEMP/Slimefun-first.jar"
+          sha256sum "$RUNNER_TEMP/Slimefun-first.jar"
+
+      - name: Verify first release artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/check_bytecode_target.py "$RUNNER_TEMP/Slimefun-first.jar" --expected-java 21
+          python3 scripts/verify_release_artifact.py "$RUNNER_TEMP/Slimefun-first.jar" --root . --json-report "$RUNNER_TEMP/artifact-first.json" --summary "$RUNNER_TEMP/artifact-first.md"
+
+      - name: Second clean release build
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew clean shadowJar -PprojectVersion="$LEGACY_VERSION" --no-daemon --no-build-cache --no-configuration-cache
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -n "$JAR"
+          cp "$JAR" "$RUNNER_TEMP/Slimefun-second.jar"
+          sha256sum "$RUNNER_TEMP/Slimefun-second.jar"
+
+      - name: Verify second release artifact and reproducibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/check_bytecode_target.py "$RUNNER_TEMP/Slimefun-second.jar" --expected-java 21
+          python3 scripts/verify_release_artifact.py "$RUNNER_TEMP/Slimefun-second.jar" --root . --json-report "$RUNNER_TEMP/artifact-second.json" --summary "$RUNNER_TEMP/artifact-second.md"
+          FIRST_SHA="$(sha256sum "$RUNNER_TEMP/Slimefun-first.jar" | awk '{print $1}')"
+          SECOND_SHA="$(sha256sum "$RUNNER_TEMP/Slimefun-second.jar" | awk '{print $1}')"
+          test "$FIRST_SHA" = "$SECOND_SHA"
+          cmp "$RUNNER_TEMP/Slimefun-first.jar" "$RUNNER_TEMP/Slimefun-second.jar"
+          echo "RELEASE_SHA256=$FIRST_SHA" >> "$GITHUB_ENV"
+          echo "Verified reproducible SHA-256: $FIRST_SHA" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Stage release JAR and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp "$RUNNER_TEMP/Slimefun-first.jar" "dist/$RELEASE_JAR"
+          cd dist
+          sha256sum "$RELEASE_JAR" > "${RELEASE_JAR%.jar}.sha256"
+          cat "${RELEASE_JAR%.jar}.sha256" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Update 4.1.31 tag to exact verified source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "$RELEASE_TAG" "$SOURCE_COMMIT"
+          git push origin "refs/tags/$RELEASE_TAG" --force
+
+      - name: Update release notes and replace raw release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" --json body --jq '.body' > "$RUNNER_TEMP/existing-release-notes.md"
+          cat > "$RUNNER_TEMP/new-release-notes.md" <<'EOF'
+          ### Powered yellow Beacon Plus beam
+
+          - Beacon Plus now synchronizes a **yellow/gold vanilla beacon beam tint** with successful powered field pulses.
+          - After a field pulse is successfully powered, Beacon Plus automatically places a **yellow stained-glass-pane beam filter** directly above itself when that space is empty.
+          - If field power stops, the selected source becomes invalid, or Slimefun Electricity is insufficient for the next pulse, Beacon Plus removes only the beam filter it placed itself.
+          - Beacon Plus will **not overwrite a player block** above the beacon and will not claim or remove a player-provided yellow filter.
+          - Because this is the real vanilla beacon beam, Minecraft's normal beam-rendering conditions still apply; the automatic filter controls the yellow tint and follows the Beacon Plus powered state.
+          - All **30 Beacon Plus effects**, dual **Slimefun Electricity / Beacon Blocks** power modes, Effect Area settings, and the current horizontal Gravity Well tuning remain unchanged.
+          - Verified by Build English Slimefun, Runtime Gameplay Correctness, and the two-boot Paper 26.2 Runtime Smoke gate before release publication.
+
+          EOF
+          cat "$RUNNER_TEMP/existing-release-notes.md" >> "$RUNNER_TEMP/new-release-notes.md"
+          gh release edit "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/new-release-notes.md"
+          gh release upload "$RELEASE_TAG" "dist/$RELEASE_JAR" "dist/${RELEASE_JAR%.jar}.sha256" --clobber
+
+      - name: Verify published tag and assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          REMOTE_TAG="$(git ls-remote origin "refs/tags/$RELEASE_TAG" | awk '{print $1}')"
+          test "$REMOTE_TAG" = "$SOURCE_COMMIT"
+          gh release view "$RELEASE_TAG" --json tagName,isDraft,isPrerelease,assets --jq '.tagName, .isDraft, .isPrerelease, (.assets[] | [.name, .size] | @tsv)' | tee "$RUNNER_TEMP/published-assets.txt"
+          grep -q "$RELEASE_JAR" "$RUNNER_TEMP/published-assets.txt"
+          grep -q "${RELEASE_JAR%.jar}.sha256" "$RUNNER_TEMP/published-assets.txt"
+          echo "4.1.31 powered yellow beam release tag and raw assets verified." >> "$GITHUB_STEP_SUMMARY"
+          echo "Published SHA-256: $RELEASE_SHA256" >> "$GITHUB_STEP_SUMMARY"
