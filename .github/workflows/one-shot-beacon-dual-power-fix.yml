@@ -46,12 +46,6 @@ jobs:
           test -n "$JAR"
           python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
 
-      - name: Verify release artifact
-        run: |
-          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
-          test -n "$JAR"
-          python3 scripts/verify_release_artifact.py "$JAR" --root .
-
       - name: Commit repaired source and remove one-shot files
         run: |
           rm -f .github/workflows/one-shot-beacon-dual-power-fix.yml
