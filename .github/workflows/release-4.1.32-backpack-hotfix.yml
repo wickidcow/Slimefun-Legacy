@@ -53,6 +53,22 @@ jobs:
           python3 scripts/verify_release_artifact.py "$OUTPUT" --root .
           sha256sum "$OUTPUT" > "dist/SF_Slimefun_Legacy_v${VERSION}.sha256"
 
+      - name: Write release notes
+        shell: bash
+        run: |
+          printf '%s\n' \
+            '## 🎒 Backpack Hot Fix' \
+            '' \
+            'Slimefun Legacy 4.1.32 is a focused hotfix for backpack renaming.' \
+            '' \
+            '### Fixed' \
+            '- Added the missing `backpack.set-name` English localization entry.' \
+            '- Fixes the missing-string warning shown when the backpack rename prompt is requested.' \
+            '- Restores the intended rename instruction: hold the backpack and type its new name in chat.' \
+            '' \
+            'This release contains no gameplay balance changes and is intended as a direct hotfix for 4.1.31.' \
+            > release-notes.md
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -67,34 +83,12 @@ jobs:
               --clobber
             gh release edit "$TAG" \
               --title "Slimefun Legacy ${VERSION} — Backpack Hot Fix" \
-              --notes-file - <<'EOF'
-## 🎒 Backpack Hot Fix
-
-Slimefun Legacy 4.1.32 is a focused hotfix for backpack renaming.
-
-### Fixed
-- Added the missing `backpack.set-name` English localization entry.
-- Fixes the missing-string warning shown when the backpack rename prompt is requested.
-- Restores the intended rename instruction: hold the backpack and type its new name in chat.
-
-This release contains no gameplay balance changes and is intended as a direct hotfix for 4.1.31.
-EOF
+              --notes-file release-notes.md
           else
             gh release create "$TAG" \
               "dist/SF_Slimefun_Legacy_v${VERSION}.jar" \
               "dist/SF_Slimefun_Legacy_v${VERSION}.sha256" \
               --target "$GITHUB_SHA" \
               --title "Slimefun Legacy ${VERSION} — Backpack Hot Fix" \
-              --notes-file - <<'EOF'
-## 🎒 Backpack Hot Fix
-
-Slimefun Legacy 4.1.32 is a focused hotfix for backpack renaming.
-
-### Fixed
-- Added the missing `backpack.set-name` English localization entry.
-- Fixes the missing-string warning shown when the backpack rename prompt is requested.
-- Restores the intended rename instruction: hold the backpack and type its new name in chat.
-
-This release contains no gameplay balance changes and is intended as a direct hotfix for 4.1.31.
-EOF
+              --notes-file release-notes.md
           fi
