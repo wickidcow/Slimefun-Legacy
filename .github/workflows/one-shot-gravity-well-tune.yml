@@ -39,15 +39,11 @@ jobs:
           chmod +x gradlew
           ./gradlew spotlessApply --no-daemon
 
-          # Gradle/Spotless occasionally leaves a stale JGit lock for a moment.
-          for i in {1..20}; do
-            if [ ! -e .git/index.lock ]; then
-              break
-            fi
-            sleep 0.5
-          done
-          rm -f .git/index.lock
+          # Capture the changed-file list before restoring anything.
+          git diff --name-only > "$RUNNER_TEMP/changed-files.txt"
 
+          # Restore unrelated files without touching the Git index. This avoids
+          # the transient JGit index lock that Spotless can leave behind.
           while IFS= read -r path; do
             case "$path" in
               src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlus.java|\
@@ -64,10 +60,10 @@ jobs:
               .github/workflows/one-shot-gravity-well-tune.yml)
                 ;;
               *)
-                git checkout HEAD -- "$path"
+                git show "HEAD:$path" > "$path"
                 ;;
             esac
-          done < <(git diff --name-only)
+          done < "$RUNNER_TEMP/changed-files.txt"
 
           git diff --check
 
@@ -90,9 +86,13 @@ jobs:
           python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
 
       - name: Commit tuned source and remove one-shot files
+        shell: bash
         run: |
+          set -euo pipefail
           rm -f .github/workflows/one-shot-gravity-well-tune.yml
           rm -f scripts/one_shot_gravity_well_tune.py
+
+          # By this point Gradle has exited for several steps. Remove only a stale lock.
           rm -f .git/index.lock
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
