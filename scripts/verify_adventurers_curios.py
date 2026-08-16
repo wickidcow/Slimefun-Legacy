@@ -198,7 +198,10 @@ def main() -> int:
             "boostSpawner(",
             "applyCropBoost(",
             "BeaconPlusGravity.getPullStrength(power)",
-            "Math.max(-1.25D, Math.min(1.25D, pull.getY()))",
+            "double horizontalDistanceSquared = deltaX * deltaX + deltaZ * deltaZ",
+            "currentVelocity.getX() * 0.75D + deltaX * scale",
+            "currentVelocity.getY()",
+            "currentVelocity.getZ() * 0.75D + deltaZ * scale",
         ):
             require(token in runtime, f"Beacon Plus bounded runtime invariant is missing: {token}", failures)
         for forbidden in ("NetworkManager", "CargoNet", "tickBlock(", "setChunkForceLoaded", "setForceLoaded"):
@@ -260,8 +263,8 @@ def main() -> int:
 
         gravity = read(root, files["beacon_gravity"])
         for token in (
-            "NORMAL_PULL = 1.50D",
-            "EXTRA_POWER_PULL = 2.10D",
+            "NORMAL_PULL = 0.45D",
+            "EXTRA_POWER_PULL = 0.63D",
             "getPullStrength(int power)",
         ):
             require(token in gravity, f"Beacon Plus Gravity Well strength invariant is missing: {token}", failures)
@@ -309,6 +312,8 @@ def main() -> int:
             "96 inspected states per pulse",
             "25%",
             "40%",
+            "horizontal reverse-knockback",
+            "existing Y velocity is preserved",
             "No proprietary BeaconPlus runtime classes or source code are copied",
         ):
             require(token in docs, f"Curios documentation is missing Beacon Plus detail: {token}", failures)
@@ -337,6 +342,7 @@ def main() -> int:
         "- Extra Power requires a 30-level unlock and increases field-energy draw by exactly 50%\n"
         "- event-driven bonuses require a recently successful paid energy pulse\n"
         "- crop and tile-entity work is capped and unloaded chunks are not scanned for normal field effects\n"
+        "- Gravity Well uses a controlled horizontal reverse-knockback pull and preserves existing Y velocity\n"
         "- Activator uses reference-counted plugin chunk tickets with 64-beacon and 256-chunk global caps\n"
         "- shutdown restores player flight/scale state, clears paid-power state and releases chunk tickets\n"
         "- the discontinued BeaconPlus3 plugin is not a runtime dependency\n",

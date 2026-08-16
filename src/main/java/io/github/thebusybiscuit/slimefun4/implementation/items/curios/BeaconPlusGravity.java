@@ -1,10 +1,10 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
 
-/** Pure Gravity Well tuning values, deliberately independent of Bukkit plugin initialization. */
+/** Pure Gravity Well tuning values for a controlled horizontal reverse-knockback effect. */
 final class BeaconPlusGravity {
 
-    static final double NORMAL_PULL = 1.50D;
-    static final double EXTRA_POWER_PULL = 2.10D;
+    static final double NORMAL_PULL = 0.45D;
+    static final double EXTRA_POWER_PULL = 0.63D;
 
     private BeaconPlusGravity() {}
 

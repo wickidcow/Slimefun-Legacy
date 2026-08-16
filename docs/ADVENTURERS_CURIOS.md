@@ -80,7 +80,7 @@ The menu has two independent controls in addition to the 30 effect toggles. **Po
 18. **Water Breathing** — gives Water Breathing to players inside the field.
 19. **Fire Extinguisher** — extinguishes players inside the field.
 20. **Poison** — poisons hostile monsters inside the field.
-21. **Gravity Well** — strongly pulls Bukkit mobs, including Endermen and passive/hostile AI mobs, plus loose item entities toward the beacon once per second. Players and armor stands are excluded. Normal pull strength is 1.50 versus the prior 0.30 setting, exactly 5× the previous normal pull; Extra Power raises it to 2.10.
+21. **Gravity Well** — applies a controlled horizontal reverse-knockback pull toward the beacon once per second to Bukkit mobs, including Endermen and passive/hostile AI mobs, plus loose item entities. Players and armor stands are excluded. Normal horizontal pull strength is 0.45; Extra Power raises it to 0.63. The effect never adds vertical force: each target's existing Y velocity is preserved, so jumping and falling are not cancelled or yanked vertically.
 22. **Jump** — gives Jump Boost to players inside the field.
 23. **Exp Gain** — grants a small passive XP pulse while players remain inside the field.
 24. **Cooldown Reduction** — shortens newly applied item cooldowns while the player is in range.

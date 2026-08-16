@@ -297,14 +297,21 @@ final class BeaconPlusRuntime {
     }
 
     private static void pullEntity(Entity entity, Location center, int power) {
-        Vector delta = center.toVector().subtract(entity.getLocation().toVector());
-        if (delta.lengthSquared() < 0.25D) {
+        Location target = entity.getLocation();
+        double deltaX = center.getX() - target.getX();
+        double deltaZ = center.getZ() - target.getZ();
+        double horizontalDistanceSquared = deltaX * deltaX + deltaZ * deltaZ;
+        if (horizontalDistanceSquared < 0.25D) {
             return;
         }
 
-        Vector pull = delta.normalize().multiply(BeaconPlusGravity.getPullStrength(power));
-        pull.setY(Math.max(-1.25D, Math.min(1.25D, pull.getY())));
-        entity.setVelocity(entity.getVelocity().multiply(0.75D).add(pull));
+        double scale = BeaconPlusGravity.getPullStrength(power) / Math.sqrt(horizontalDistanceSquared);
+        Vector currentVelocity = entity.getVelocity();
+        Vector nextVelocity = new Vector(
+                currentVelocity.getX() * 0.75D + deltaX * scale,
+                currentVelocity.getY(),
+                currentVelocity.getZ() * 0.75D + deltaZ * scale);
+        entity.setVelocity(nextVelocity);
     }
 
     private static void applyTileEntityBoosts(
