@@ -31,9 +31,10 @@ class BeaconPlusEffectTest {
     }
 
     @Test
-    void gravityWellIsFiveTimesStrongerThanLegacyNormalPull() {
-        assertEquals(1.50D, BeaconPlusGravity.getPullStrength(0));
-        assertEquals(2.10D, BeaconPlusGravity.getPullStrength(1));
+    void gravityWellUsesControlledReverseKnockbackStrength() {
+        assertEquals(0.45D, BeaconPlusGravity.getPullStrength(0));
+        assertEquals(0.63D, BeaconPlusGravity.getPullStrength(1));
+        assertEquals(BeaconPlusGravity.getPullStrength(0) * 1.4D, BeaconPlusGravity.getPullStrength(1), 1.0E-9D);
     }
 
     @Test
