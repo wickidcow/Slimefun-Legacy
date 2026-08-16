@@ -1,4 +1,4 @@
-name: One-shot Gravity Well tuning
+name: One-shot Beacon Plus area and Gravity tuning
 
 on:
   push:
@@ -29,21 +29,37 @@ jobs:
           java-version: '25'
           cache: gradle
 
-      - name: Apply Gravity Well tuning
+      - name: Apply shared effect-area and Gravity Well tuning
         run: python3 scripts/one_shot_gravity_well_tune.py
 
-      - name: Format intended source without unrelated churn
+      - name: Format only intended Java changes
         shell: bash
         run: |
           set -euo pipefail
           chmod +x gradlew
           ./gradlew spotlessApply --no-daemon
 
+          # Gradle/Spotless occasionally leaves a stale JGit lock for a moment.
+          for i in {1..20}; do
+            if [ ! -e .git/index.lock ]; then
+              break
+            fi
+            sleep 0.5
+          done
+          rm -f .git/index.lock
+
           while IFS= read -r path; do
             case "$path" in
-              src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusRuntime.java|\
+              src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlus.java|\
+              src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusChunkMode.java|\
               src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusEffect.java|\
+              src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusFieldArea.java|\
+              src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusManager.java|\
+              src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusPowerState.java|\
+              src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusRuntime.java|\
+              src/test/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusChunkModeTest.java|\
               src/test/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusEffectTest.java|\
+              src/test/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusFieldAreaTest.java|\
               scripts/one_shot_gravity_well_tune.py|\
               .github/workflows/one-shot-gravity-well-tune.yml)
                 ;;
@@ -58,11 +74,14 @@ jobs:
       - name: Build and run complete test suite
         run: ./gradlew clean build --no-daemon -x spotlessCheck
 
-      - name: Verify focused Gravity Well regression
+      - name: Verify focused Beacon Plus regressions
         shell: bash
         run: |
-          test -f build/test-results/test/TEST-io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlusEffectTest.xml
-          grep -q 'failures="0"' build/test-results/test/TEST-io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlusEffectTest.xml
+          for test in BeaconPlusEffectTest BeaconPlusFieldAreaTest BeaconPlusChunkModeTest BeaconPlusPowerModeTest; do
+            file="build/test-results/test/TEST-io.github.thebusybiscuit.slimefun4.implementation.items.curios.${test}.xml"
+            test -f "$file"
+            grep -q 'failures="0"' "$file"
+          done
 
       - name: Verify Java 21 bytecode
         run: |
@@ -74,9 +93,10 @@ jobs:
         run: |
           rm -f .github/workflows/one-shot-gravity-well-tune.yml
           rm -f scripts/one_shot_gravity_well_tune.py
+          rm -f .git/index.lock
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git diff --cached --check
-          git commit -m "Strengthen and extend Beacon Plus Gravity Well"
+          git commit -m "Expand Beacon Plus effect area and strengthen Gravity Well"
           git push origin HEAD:fix/gravity-well-strength-range
