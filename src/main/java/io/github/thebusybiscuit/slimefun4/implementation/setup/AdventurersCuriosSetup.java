@@ -8,6 +8,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.armor.HazardProtectionArmorPiece;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlus;
+import io.github.thebusybiscuit.slimefun4.implementation.items.curios.ContainmentTrap;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.DungeonChalk;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.EchoLantern;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.ExpeditionJournal;
@@ -47,8 +48,9 @@ final class AdventurersCuriosSetup {
                 new NestedItemGroup(new NamespacedKey(plugin, "adventurers_curios"), createCategoryIcon(), 2);
         SubItemGroup fieldCuriosities = new SubItemGroup(
                 new NamespacedKey(plugin, "adventurers_curios_field"), curios, createCuriositiesIcon(), 2);
-        SubItemGroup containmentArmor = new SubItemGroup(
-                new NamespacedKey(plugin, "containment_armor"), curios, createContainmentArmorIcon(), 2);
+        // Keep the original key so existing guide data and integrations remain compatible.
+        SubItemGroup containment = new SubItemGroup(
+                new NamespacedKey(plugin, "containment_armor"), curios, createContainmentIcon(), 2);
 
         SlimefunItemStack wayfindersCompass = new SlimefunItemStack(
                 "ADVENTURERS_WAYFINDERS_COMPASS",
@@ -128,6 +130,17 @@ final class AdventurersCuriosSetup {
                 "&8Choose Slimefun Electricity or Beacon Blocks for power",
                 "&8Extra Power costs 30 XP levels",
                 "&8Activator uses bounded plugin chunk tickets");
+
+        SlimefunItemStack containmentTrap = new SlimefunItemStack(
+                "CONTAINMENT_TRAP",
+                Material.IRON_TRAPDOOR,
+                "&6Containment Trap",
+                "&7A reusable field trap for dangerous cargo.",
+                "&7It can safely seal one dropped radioactive stack.",
+                "",
+                "&eRight Click &7to throw",
+                "&8Lands near radioactive material to capture it");
+        ContainmentTrap.ensureSingleStack(containmentTrap);
 
         SlimefunItemStack advancedHazmatHelmet = new SlimefunItemStack(
                 "ADVANCED_HAZMAT_HELMET",
@@ -319,8 +332,21 @@ final class AdventurersCuriosSetup {
                 })
                 .register(plugin);
 
+        new ContainmentTrap(containment, containmentTrap, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    SlimefunItems.LEAD_INGOT,
+                    new ItemStack(Material.REDSTONE),
+                    SlimefunItems.LEAD_INGOT,
+                    new ItemStack(Material.COPPER_INGOT),
+                    new ItemStack(Material.IRON_TRAPDOOR),
+                    new ItemStack(Material.COPPER_INGOT),
+                    SlimefunItems.LEAD_INGOT,
+                    new ItemStack(Material.REDSTONE),
+                    SlimefunItems.LEAD_INGOT
+                })
+                .register(plugin);
+
         new HazardProtectionArmorPiece(
-                        containmentArmor,
+                        containment,
                         advancedHazmatHelmet,
                         RecipeType.ARMOR_FORGE,
                         advancedHazmatRecipe(SlimefunItems.SCUBA_HELMET),
@@ -328,7 +354,7 @@ final class AdventurersCuriosSetup {
                         ADVANCED_HAZMAT_SET_ID)
                 .register(plugin);
         new HazardProtectionArmorPiece(
-                        containmentArmor,
+                        containment,
                         advancedHazmatChestplate,
                         RecipeType.ARMOR_FORGE,
                         advancedHazmatRecipe(SlimefunItems.HAZMAT_CHESTPLATE),
@@ -336,7 +362,7 @@ final class AdventurersCuriosSetup {
                         ADVANCED_HAZMAT_SET_ID)
                 .register(plugin);
         new HazardProtectionArmorPiece(
-                        containmentArmor,
+                        containment,
                         advancedHazmatLeggings,
                         RecipeType.ARMOR_FORGE,
                         advancedHazmatRecipe(SlimefunItems.HAZMAT_LEGGINGS),
@@ -344,7 +370,7 @@ final class AdventurersCuriosSetup {
                         ADVANCED_HAZMAT_SET_ID)
                 .register(plugin);
         new HazardProtectionArmorPiece(
-                        containmentArmor,
+                        containment,
                         advancedHazmatBoots,
                         RecipeType.ARMOR_FORGE,
                         advancedHazmatRecipe(SlimefunItems.HAZMAT_BOOTS),
@@ -353,7 +379,7 @@ final class AdventurersCuriosSetup {
                 .register(plugin);
 
         new HazardProtectionArmorPiece(
-                        containmentArmor,
+                        containment,
                         containmentHelmet,
                         RecipeType.ARMOR_FORGE,
                         containmentRecipe(advancedHazmatHelmet),
@@ -361,7 +387,7 @@ final class AdventurersCuriosSetup {
                         NETHERITE_CONTAINMENT_SET_ID)
                 .register(plugin);
         new HazardProtectionArmorPiece(
-                        containmentArmor,
+                        containment,
                         containmentChestplate,
                         RecipeType.ARMOR_FORGE,
                         containmentRecipe(advancedHazmatChestplate),
@@ -369,7 +395,7 @@ final class AdventurersCuriosSetup {
                         NETHERITE_CONTAINMENT_SET_ID)
                 .register(plugin);
         new HazardProtectionArmorPiece(
-                        containmentArmor,
+                        containment,
                         containmentLeggings,
                         RecipeType.ARMOR_FORGE,
                         containmentRecipe(advancedHazmatLeggings),
@@ -377,7 +403,7 @@ final class AdventurersCuriosSetup {
                         NETHERITE_CONTAINMENT_SET_ID)
                 .register(plugin);
         new HazardProtectionArmorPiece(
-                        containmentArmor,
+                        containment,
                         containmentBoots,
                         RecipeType.ARMOR_FORGE,
                         containmentRecipe(advancedHazmatBoots),
@@ -436,13 +462,13 @@ final class AdventurersCuriosSetup {
         return icon;
     }
 
-    private static ItemStack createContainmentArmorIcon() {
-        ItemStack icon = new ItemStack(Material.NETHERITE_CHESTPLATE);
+    private static ItemStack createContainmentIcon() {
+        ItemStack icon = new ItemStack(Material.IRON_TRAPDOOR);
         ItemMeta meta = icon.getItemMeta();
-        meta.setDisplayName(ChatColor.DARK_GRAY + "Containment Armor");
+        meta.setDisplayName(ChatColor.GOLD + "Containment");
         meta.setLore(List.of(
-                ChatColor.GRAY + "Advanced Hazmat and Netherite Containment gear",
-                ChatColor.GRAY + "for sensitive, radioactive and hazardous materials"));
+                ChatColor.GRAY + "Protective armor and field containment tools",
+                ChatColor.GRAY + "for radioactive and hazardous materials"));
         icon.setItemMeta(meta);
         return icon;
     }
