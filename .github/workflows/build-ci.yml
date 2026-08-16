@@ -46,6 +46,16 @@ jobs:
           ./gradlew spotlessApply --no-daemon
           ./gradlew clean build --no-daemon
 
+      - name: Verify critical backpack runtime classes are packaged
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -n "$JAR"
+          jar tf "$JAR" > build/reports/release-jar-entries.txt
+          grep -Fxq 'io/github/thebusybiscuit/slimefun4/implementation/listeners/BackpackListener.class' build/reports/release-jar-entries.txt
+          grep -Fxq 'io/github/thebusybiscuit/slimefun4/utils/ThreadUtils.class' build/reports/release-jar-entries.txt
+
       - name: Verify Java 21 bytecode target
         run: |
           JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"

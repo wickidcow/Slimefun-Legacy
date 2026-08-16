@@ -315,7 +315,7 @@ public class BackpackListener implements Listener {
                                 }
                             },
                             ThreadUtils.getEntityThreadExecutor(p));
-        } catch (RuntimeException ex) {
+        } catch (RuntimeException | Error ex) {
             openRegistry.release(playerId, reservationKey);
             throw ex;
         }
