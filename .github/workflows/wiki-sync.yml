@@ -1,0 +1,61 @@
+name: Publish Slimefun Legacy Wiki
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'docs/wiki/**'
+      - '.github/workflows/wiki-sync.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: slimefun-legacy-wiki
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Sync docs/wiki to GitHub Wiki
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate wiki source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f docs/wiki/Home.md
+          test -f docs/wiki/_Sidebar.md
+          test -f docs/wiki/_Footer.md
+
+      - name: Publish wiki
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          WIKI_DIR="${RUNNER_TEMP}/slimefun-legacy-wiki"
+          rm -rf "${WIKI_DIR}"
+
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" "${WIKI_DIR}"
+
+          rsync -a --delete --exclude='.git/' docs/wiki/ "${WIKI_DIR}/"
+
+          cd "${WIKI_DIR}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "Wiki is already up to date."
+            exit 0
+          fi
+
+          git commit -m "Sync wiki from ${GITHUB_SHA::7}"
+          git push origin HEAD
