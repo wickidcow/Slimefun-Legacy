@@ -31,7 +31,8 @@ public final class BastionResonator extends SimpleSlimefunItem<ItemUseHandler> {
     static final int SEARCH_RADIUS_CHUNKS = 128;
     static final long COOLDOWN_MILLIS = 30_000L;
 
-    private final NamespacedKey cooldownKey = new NamespacedKey(Slimefun.instance(), "bastion_resonator_cooldown_until");
+    private final NamespacedKey cooldownKey =
+            new NamespacedKey(Slimefun.instance(), "bastion_resonator_cooldown_until");
 
     @ParametersAreNonnullByDefault
     public BastionResonator(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
@@ -50,8 +51,8 @@ public final class BastionResonator extends SimpleSlimefunItem<ItemUseHandler> {
 
             long remaining = getCooldownRemainingMillis(player);
             if (remaining > 0L) {
-                player.sendMessage(ChatColor.RED + "Bastion Resonator is retuning for "
-                        + formatSeconds(remaining) + " more seconds.");
+                player.sendMessage(ChatColor.RED + "Bastion Resonator is retuning for " + formatSeconds(remaining)
+                        + " more seconds.");
                 return;
             }
 
@@ -62,14 +63,11 @@ public final class BastionResonator extends SimpleSlimefunItem<ItemUseHandler> {
             }
 
             player.playSound(player.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.7F, 1.25F);
-            player.sendMessage(ChatColor.GOLD + "Bastion Resonator: " + ChatColor.GRAY + "listening for Piglin stonework...");
+            player.sendMessage(
+                    ChatColor.GOLD + "Bastion Resonator: " + ChatColor.GRAY + "listening for Piglin stonework...");
             startCooldown(player);
 
-            Slimefun.getSchedulerService()
-                    .runFor(
-                            player,
-                            () -> locate(player, item, compassMeta),
-                            () -> {});
+            Slimefun.getSchedulerService().runFor(player, () -> locate(player, item, compassMeta), () -> {});
         };
     }
 
@@ -82,8 +80,7 @@ public final class BastionResonator extends SimpleSlimefunItem<ItemUseHandler> {
         }
 
         Location origin = player.getLocation();
-        StructureSearchResult result =
-                world.locateNearestStructure(origin, bastion, SEARCH_RADIUS_CHUNKS, false);
+        StructureSearchResult result = world.locateNearestStructure(origin, bastion, SEARCH_RADIUS_CHUNKS, false);
         if (result == null) {
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.65F, 0.75F);
             player.sendMessage(ChatColor.RED + "No Bastion Remnant responded within " + SEARCH_RADIUS_CHUNKS

@@ -49,7 +49,8 @@ public final class EmergencyFlare extends SimpleSlimefunItem<ItemUseHandler> {
             Player player = event.getPlayer();
             ItemStack item = event.getItem();
             ItemMeta meta = item.getItemMeta();
-            FlareMode mode = FlareMode.fromStored(meta.getPersistentDataContainer().get(modeKey, PersistentDataType.STRING));
+            FlareMode mode =
+                    FlareMode.fromStored(meta.getPersistentDataContainer().get(modeKey, PersistentDataType.STRING));
 
             if (player.isSneaking()) {
                 FlareMode next = mode.next();
@@ -62,8 +63,8 @@ public final class EmergencyFlare extends SimpleSlimefunItem<ItemUseHandler> {
 
             long remaining = getCooldownRemainingMillis(player);
             if (remaining > 0L) {
-                player.sendMessage(ChatColor.RED + "Emergency Flare is recharging for "
-                        + formatSeconds(remaining) + " more seconds.");
+                player.sendMessage(ChatColor.RED + "Emergency Flare is recharging for " + formatSeconds(remaining)
+                        + " more seconds.");
                 return;
             }
 

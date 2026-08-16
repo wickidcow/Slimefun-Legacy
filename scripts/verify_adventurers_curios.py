@@ -32,6 +32,11 @@ def main() -> int:
         "chalk": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/DungeonChalk.java",
         "storm": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/StormGlass.java",
         "journal": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/ExpeditionJournal.java",
+        "wayfarer": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/WayfarersLodestone.java",
+        "bastion": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BastionResonator.java",
+        "flare": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/EmergencyFlare.java",
+        "surveyor": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/SurveyorsRod.java",
+        "stabilizer": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/ChunkStabilizer.java",
         "beacon": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlus.java",
         "beacon_effect": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusEffect.java",
         "beacon_runtime": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusRuntime.java",
@@ -61,6 +66,11 @@ def main() -> int:
             '"ADVENTURERS_STORM_GLASS"',
             '"ADVENTURERS_EXPEDITION_JOURNAL"',
             '"BEACON_PLUS"',
+            '"ADVENTURERS_WAYFARERS_LODESTONE"',
+            '"ADVENTURERS_BASTION_RESONATOR"',
+            '"ADVENTURERS_EMERGENCY_FLARE"',
+            '"ADVENTURERS_SURVEYORS_ROD"',
+            '"ADVENTURERS_CHUNK_STABILIZER"',
             "new WayfindersCompass(",
             "new EchoLantern(",
             "new ExplorersSpyglass(",
@@ -69,11 +79,16 @@ def main() -> int:
             "new StormGlass(",
             "new ExpeditionJournal(",
             "new BeaconPlus(",
+            "new WayfarersLodestone(",
+            "new BastionResonator(",
+            "new EmergencyFlare(",
+            "new SurveyorsRod(",
+            "new ChunkStabilizer(",
             "30 independently toggleable effects",
             "Extra Power costs 30 XP levels",
         ):
             require(token in setup, f"Curios setup invariant is missing: {token}", failures)
-        require(setup.count("RecipeType.ENHANCED_CRAFTING_TABLE") >= 8, "All eight Curios need real recipes", failures)
+        require(setup.count("RecipeType.ENHANCED_CRAFTING_TABLE") >= 13, "All thirteen Curios need real recipes", failures)
         for token in (
             "new ItemStack(Material.BEACON)",
             "new ItemStack(Material.NETHERITE_INGOT)",
@@ -123,6 +138,90 @@ def main() -> int:
         journal = read(root, files["journal"])
         for token in ("MAX_RECORDED_BIOMES = 128", '"expedition_journal_biomes"', "PersistentDataType.STRING", "getBiome().getKey().getKey()"):
             require(token in journal, f"Expedition Journal invariant is missing: {token}", failures)
+
+        wayfarer = read(root, files["wayfarer"])
+        for token in (
+            """new ChestMenu("&6&lWayfarer's Lodestone", 54)""",
+            "SEARCH_RADIUS_BLOCKS = 4_096",
+            "RANDOM_PROBE_RADIUS_BLOCKS = 10_000",
+            "MAX_SEARCH_PROBES = 3",
+            "COOLDOWN_MILLIS = 180_000L",
+            "world.locateNearestBiome(",
+            "HORIZONTAL_SEARCH_INTERVAL",
+            "VERTICAL_SEARCH_INTERVAL",
+            "player.teleportAsync(safe)",
+            "world.getWorldBorder().isInside(destination)",
+            "runAt(probe",
+            "runForLater(",
+            "player.isSneaking()",
+        ):
+            require(token in wayfarer, f"Wayfarer's Lodestone invariant is missing: {token}", failures)
+        for forbidden in ("loadChunk(", "setChunkForceLoaded", "setForceLoaded"):
+            require(forbidden not in wayfarer, f"Wayfarer's Lodestone must not force chunk loading while searching: {forbidden}", failures)
+
+        bastion = read(root, files["bastion"])
+        for token in (
+            "SEARCH_RADIUS_CHUNKS = 128",
+            "COOLDOWN_MILLIS = 30_000L",
+            "World.Environment.NETHER",
+            "Registry.STRUCTURE_TYPE",
+            'NamespacedKey.minecraft("bastion_remnant")',
+            "world.locateNearestStructure(origin, bastion, SEARCH_RADIUS_CHUNKS, false)",
+            "compassMeta.setLodestone(target)",
+            "compassMeta.setLodestoneTracked(false)",
+        ):
+            require(token in bastion, f"Bastion Resonator invariant is missing: {token}", failures)
+        require("loadChunk(" not in bastion, "Bastion Resonator must not generate/load chunks for its search", failures)
+
+        flare = read(root, files["flare"])
+        for token in (
+            "FLARE_PULSES = 40",
+            "PULSE_DELAY_TICKS = 10L",
+            "COOLDOWN_MILLIS = 45_000L",
+            "FireworkEffect.builder()",
+            "Particle.DUST",
+            "Particle.END_ROD",
+            "runAtLater(origin",
+            "FlareMode next()",
+            "player.isSneaking()",
+        ):
+            require(token in flare, f"Emergency Flare invariant is missing: {token}", failures)
+
+        surveyor = read(root, files["surveyor"])
+        for token in (
+            "Math.floorDiv(chunk.getX(), 32)",
+            "Math.floorDiv(chunk.getZ(), 32)",
+            "chunk.getEntities()",
+            "chunk.getTileEntities()",
+            "chunk.isForceLoaded()",
+            "block.getLightFromBlocks()",
+            "block.getLightFromSky()",
+            "world.isChunkLoaded",
+            "runAt(target",
+            "runFor(",
+        ):
+            require(token in surveyor, f"Surveyor's Rod invariant is missing: {token}", failures)
+        require("loadChunk(" not in surveyor, "Surveyor's Rod must not load chunks for a survey", failures)
+
+        stabilizer = read(root, files["stabilizer"])
+        for token in (
+            "BUSY_SCORE = 120",
+            "HEAVY_SCORE = 300",
+            "CRITICAL_SCORE = 800",
+            "chunk.getEntities()",
+            "chunk.getTileEntities()",
+            "instanceof ArmorStand",
+            "instanceof Item",
+            "instanceof Minecart",
+            "Material.HOPPER",
+            "calculateScore(",
+            "very high armor-stand density",
+            "This scan is read-only",
+            "world.isChunkLoaded",
+        ):
+            require(token in stabilizer, f"Chunk Stabilizer invariant is missing: {token}", failures)
+        for forbidden in ("entity.remove(", "breakNaturally(", "setType(", "loadChunk("):
+            require(forbidden not in stabilizer, f"Chunk Stabilizer must remain read-only: {forbidden}", failures)
 
         effect_catalog = read(root, files["beacon_effect"])
         effect_tokens = (
@@ -310,6 +409,14 @@ def main() -> int:
             "25%",
             "40%",
             "No proprietary BeaconPlus runtime classes or source code are copied",
+            "Wayfarer's Lodestone",
+            "Bastion Resonator",
+            "Emergency Flare",
+            "Surveyor's Rod",
+            "Chunk Stabilizer",
+            "randomized probe",
+            "findUnexplored=false",
+            "read-only",
         ):
             require(token in docs, f"Curios documentation is missing Beacon Plus detail: {token}", failures)
     except FileNotFoundError as error:
@@ -330,7 +437,7 @@ def main() -> int:
 
     report.write_text(
         "Adventurer's Curios verification: PASS\n"
-        "- eight built-in Curios are registered before registry finalization\n"
+        "- thirteen built-in Curios are registered before registry finalization\n"
         "- Beacon Plus exposes all 30 requested toggleable effect families through a native 54-slot menu\n"
         "- Invisible Effect restores the historical BeaconPlus effect omitted by the initial native port\n"
         "- Beacon Plus is a normal EnergyNet consumer with an 8,192 J buffer and 16 J/effect field pulses\n"

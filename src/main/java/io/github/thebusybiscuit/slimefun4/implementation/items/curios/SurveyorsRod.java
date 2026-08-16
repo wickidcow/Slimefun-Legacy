@@ -41,11 +41,7 @@ public final class SurveyorsRod extends SimpleSlimefunItem<ItemUseHandler> {
 
             Slimefun.getSchedulerService().runAt(target, () -> {
                 SurveyReport report = detailedBlock ? inspectBlock(target) : inspectChunk(target);
-                Slimefun.getSchedulerService()
-                        .runFor(
-                                player,
-                                () -> sendReport(player, report),
-                                () -> {});
+                Slimefun.getSchedulerService().runFor(player, () -> sendReport(player, report), () -> {});
             });
         };
     }
@@ -67,12 +63,14 @@ public final class SurveyorsRod extends SimpleSlimefunItem<ItemUseHandler> {
         Block sample = target.getBlock();
         int regionX = Math.floorDiv(chunk.getX(), 32);
         int regionZ = Math.floorDiv(chunk.getZ(), 32);
-        int surfaceY = world.getHighestBlockYAt(target.getBlockX(), target.getBlockZ(), HeightMap.MOTION_BLOCKING_NO_LEAVES);
+        int surfaceY =
+                world.getHighestBlockYAt(target.getBlockX(), target.getBlockZ(), HeightMap.MOTION_BLOCKING_NO_LEAVES);
 
         String first = ChatColor.GOLD + "Surveyor's Rod " + ChatColor.GRAY + "• " + ChatColor.WHITE + world.getName()
                 + ChatColor.GRAY + " • XYZ " + ChatColor.YELLOW + target.getBlockX() + ", " + target.getBlockY() + ", "
                 + target.getBlockZ();
-        String second = ChatColor.GRAY + "Biome: " + ChatColor.AQUA + humanize(sample.getBiome().getKey().getKey())
+        String second = ChatColor.GRAY + "Biome: " + ChatColor.AQUA
+                + humanize(sample.getBiome().getKey().getKey())
                 + ChatColor.GRAY + " • Chunk: " + ChatColor.WHITE + chunkX + ", " + chunkZ + ChatColor.GRAY
                 + " • Region: " + ChatColor.WHITE + regionX + ", " + regionZ;
         String third = ChatColor.GRAY + "Surface Y: " + ChatColor.WHITE + surfaceY + ChatColor.GRAY + " • Entities: "
@@ -85,10 +83,12 @@ public final class SurveyorsRod extends SimpleSlimefunItem<ItemUseHandler> {
     private static SurveyReport inspectBlock(Location target) {
         Block block = target.getBlock();
         String first = ChatColor.GOLD + "Surveyor's Rod " + ChatColor.GRAY + "• detailed block survey";
-        String second = ChatColor.GRAY + "Block: " + ChatColor.WHITE + humanize(block.getType().getKey().getKey())
+        String second = ChatColor.GRAY + "Block: " + ChatColor.WHITE
+                + humanize(block.getType().getKey().getKey())
                 + ChatColor.GRAY + " • XYZ " + ChatColor.YELLOW + block.getX() + ", " + block.getY() + ", "
                 + block.getZ();
-        String third = ChatColor.GRAY + "Biome: " + ChatColor.AQUA + humanize(block.getBiome().getKey().getKey())
+        String third = ChatColor.GRAY + "Biome: " + ChatColor.AQUA
+                + humanize(block.getBiome().getKey().getKey())
                 + ChatColor.GRAY + " • Block light: " + ChatColor.YELLOW + block.getLightFromBlocks() + ChatColor.GRAY
                 + " • Sky light: " + ChatColor.YELLOW + block.getLightFromSky() + ChatColor.GRAY + " • Total: "
                 + ChatColor.YELLOW + block.getLightLevel();

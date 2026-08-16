@@ -51,11 +51,7 @@ public final class ChunkStabilizer extends SimpleSlimefunItem<ItemUseHandler> {
 
             Slimefun.getSchedulerService().runAt(target, () -> {
                 StabilityReport report = scan(target);
-                Slimefun.getSchedulerService()
-                        .runFor(
-                                player,
-                                () -> sendReport(player, report, verbose),
-                                () -> {});
+                Slimefun.getSchedulerService().runFor(player, () -> sendReport(player, report, verbose), () -> {});
             });
         };
     }
@@ -163,7 +159,8 @@ public final class ChunkStabilizer extends SimpleSlimefunItem<ItemUseHandler> {
 
         player.sendMessage(ChatColor.GOLD + "Chunk Stabilizer " + ChatColor.GRAY + "• " + ChatColor.WHITE
                 + report.worldName() + ChatColor.GRAY + " chunk " + ChatColor.YELLOW + report.chunkX() + ", "
-                + report.chunkZ() + ChatColor.GRAY + " • " + report.band().color() + report.band().displayName()
+                + report.chunkZ() + ChatColor.GRAY + " • " + report.band().color()
+                + report.band().displayName()
                 + ChatColor.GRAY + " • score " + ChatColor.WHITE + report.score());
         player.sendMessage(ChatColor.GRAY + "Entities: " + ChatColor.YELLOW + report.totalEntities() + ChatColor.GRAY
                 + " • Armor stands: " + ChatColor.YELLOW + report.armorStands() + ChatColor.GRAY + " • Items: "
@@ -174,10 +171,12 @@ public final class ChunkStabilizer extends SimpleSlimefunItem<ItemUseHandler> {
                 + " • Containers: " + ChatColor.YELLOW + report.containers());
 
         if (report.armorStands() >= 100) {
-            player.sendMessage(ChatColor.RED + "Warning: very high armor-stand density can cause severe client FPS loss.");
+            player.sendMessage(
+                    ChatColor.RED + "Warning: very high armor-stand density can cause severe client FPS loss.");
         }
         if (report.droppedItems() >= 100) {
-            player.sendMessage(ChatColor.RED + "Warning: large dropped-item concentrations can create entity pressure.");
+            player.sendMessage(
+                    ChatColor.RED + "Warning: large dropped-item concentrations can create entity pressure.");
         }
         if (report.totalEntities() >= 500) {
             player.sendMessage(ChatColor.RED + "Warning: this chunk has an unusually high total entity count.");
@@ -186,7 +185,8 @@ public final class ChunkStabilizer extends SimpleSlimefunItem<ItemUseHandler> {
         if (verbose) {
             player.sendMessage(ChatColor.DARK_GRAY + "Extra: minecarts=" + report.minecarts() + ", projectiles="
                     + report.projectiles() + ", XP orbs=" + report.experienceOrbs());
-            player.sendMessage(ChatColor.DARK_GRAY + "This scan is read-only; the Chunk Stabilizer never deletes entities or blocks.");
+            player.sendMessage(ChatColor.DARK_GRAY
+                    + "This scan is read-only; the Chunk Stabilizer never deletes entities or blocks.");
         }
     }
 
@@ -246,22 +246,7 @@ public final class ChunkStabilizer extends SimpleSlimefunItem<ItemUseHandler> {
 
         static StabilityReport unloaded(String worldName, int chunkX, int chunkZ) {
             return new StabilityReport(
-                    worldName,
-                    chunkX,
-                    chunkZ,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    StabilityBand.STABLE,
-                    false);
+                    worldName, chunkX, chunkZ, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, StabilityBand.STABLE, false);
         }
     }
 }

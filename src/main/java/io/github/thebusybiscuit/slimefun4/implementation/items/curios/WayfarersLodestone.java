@@ -51,7 +51,8 @@ public final class WayfarersLodestone extends SimpleSlimefunItem<ItemUseHandler>
     };
     private static final Map<UUID, SearchRequest> ACTIVE_SEARCHES = new ConcurrentHashMap<>();
 
-    private final NamespacedKey cooldownKey = new NamespacedKey(Slimefun.instance(), "wayfarers_lodestone_cooldown_until");
+    private final NamespacedKey cooldownKey =
+            new NamespacedKey(Slimefun.instance(), "wayfarers_lodestone_cooldown_until");
 
     @ParametersAreNonnullByDefault
     public WayfarersLodestone(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
@@ -75,14 +76,15 @@ public final class WayfarersLodestone extends SimpleSlimefunItem<ItemUseHandler>
             }
 
             if (ACTIVE_SEARCHES.containsKey(playerId)) {
-                player.sendMessage(ChatColor.GRAY + "A biome search is already running. Sneak-right-click to cancel it.");
+                player.sendMessage(
+                        ChatColor.GRAY + "A biome search is already running. Sneak-right-click to cancel it.");
                 return;
             }
 
             long remaining = getCooldownRemainingMillis(player);
             if (remaining > 0L) {
-                player.sendMessage(ChatColor.RED + "Wayfarer's Lodestone is recovering for "
-                        + formatSeconds(remaining) + " more seconds.");
+                player.sendMessage(ChatColor.RED + "Wayfarer's Lodestone is recovering for " + formatSeconds(remaining)
+                        + " more seconds.");
                 return;
             }
 
@@ -104,7 +106,8 @@ public final class WayfarersLodestone extends SimpleSlimefunItem<ItemUseHandler>
                         ChatColor.GOLD + "Random Biome Travel",
                         List.of(
                                 ChatColor.GRAY + "World: " + ChatColor.WHITE + world.getName(),
-                                ChatColor.GRAY + "Dimension: " + ChatColor.AQUA + world.getEnvironment().name(),
+                                ChatColor.GRAY + "Dimension: " + ChatColor.AQUA
+                                        + world.getEnvironment().name(),
                                 "",
                                 ChatColor.GRAY + "Choose a biome below.",
                                 ChatColor.GRAY + "The search begins from a randomized probe",
@@ -142,7 +145,8 @@ public final class WayfarersLodestone extends SimpleSlimefunItem<ItemUseHandler>
                     createMenuItem(
                             Material.BARRIER,
                             ChatColor.RED + "Unsupported Dimension",
-                            List.of(ChatColor.GRAY + "No biome destinations are configured for this world environment.")));
+                            List.of(ChatColor.GRAY
+                                    + "No biome destinations are configured for this world environment.")));
             menu.addMenuClickHandler(22, (pl, slot, item, action) -> false);
         }
 
@@ -274,24 +278,27 @@ public final class WayfarersLodestone extends SimpleSlimefunItem<ItemUseHandler>
             return;
         }
 
-        player.teleportAsync(safe).whenComplete((success, error) -> Slimefun.getSchedulerService()
-                .runFor(
-                        player,
-                        () -> {
-                            ACTIVE_SEARCHES.remove(playerId, request);
-                            if (error != null || !Boolean.TRUE.equals(success)) {
-                                player.sendMessage(ChatColor.RED + "Wayfarer's Lodestone could not complete the teleport.");
-                                return;
-                            }
+        player.teleportAsync(safe)
+                .whenComplete((success, error) -> Slimefun.getSchedulerService()
+                        .runFor(
+                                player,
+                                () -> {
+                                    ACTIVE_SEARCHES.remove(playerId, request);
+                                    if (error != null || !Boolean.TRUE.equals(success)) {
+                                        player.sendMessage(ChatColor.RED
+                                                + "Wayfarer's Lodestone could not complete the teleport.");
+                                        return;
+                                    }
 
-                            startCooldown(player);
-                            player.playSound(player.getLocation(), Sound.BLOCK_PORTAL_TRAVEL, 0.5F, 1.25F);
-                            player.sendMessage(ChatColor.GOLD + "Wayfarer's Lodestone: " + ChatColor.GRAY + "arrived in "
-                                    + ChatColor.AQUA + request.target().displayName() + ChatColor.GRAY + " at "
-                                    + ChatColor.YELLOW + safe.getBlockX() + ", " + safe.getBlockY() + ", "
-                                    + safe.getBlockZ() + ChatColor.GRAY + ".");
-                        },
-                        () -> ACTIVE_SEARCHES.remove(playerId, request)));
+                                    startCooldown(player);
+                                    player.playSound(player.getLocation(), Sound.BLOCK_PORTAL_TRAVEL, 0.5F, 1.25F);
+                                    player.sendMessage(ChatColor.GOLD + "Wayfarer's Lodestone: " + ChatColor.GRAY
+                                            + "arrived in "
+                                            + ChatColor.AQUA + request.target().displayName() + ChatColor.GRAY + " at "
+                                            + ChatColor.YELLOW + safe.getBlockX() + ", " + safe.getBlockY() + ", "
+                                            + safe.getBlockZ() + ChatColor.GRAY + ".");
+                                },
+                                () -> ACTIVE_SEARCHES.remove(playerId, request)));
     }
 
     private void failSearch(Player player, SearchRequest request, String message) {
@@ -462,8 +469,7 @@ public final class WayfarersLodestone extends SimpleSlimefunItem<ItemUseHandler>
         NETHER_WASTES(World.Environment.NETHER, Biome.NETHER_WASTES, Material.NETHERRACK, "Nether Wastes"),
         CRIMSON_FOREST(World.Environment.NETHER, Biome.CRIMSON_FOREST, Material.CRIMSON_FUNGUS, "Crimson Forest"),
         WARPED_FOREST(World.Environment.NETHER, Biome.WARPED_FOREST, Material.WARPED_FUNGUS, "Warped Forest"),
-        SOUL_SAND_VALLEY(
-                World.Environment.NETHER, Biome.SOUL_SAND_VALLEY, Material.SOUL_SAND, "Soul Sand Valley"),
+        SOUL_SAND_VALLEY(World.Environment.NETHER, Biome.SOUL_SAND_VALLEY, Material.SOUL_SAND, "Soul Sand Valley"),
         BASALT_DELTAS(World.Environment.NETHER, Biome.BASALT_DELTAS, Material.BASALT, "Basalt Deltas"),
         THE_END(World.Environment.THE_END, Biome.THE_END, Material.END_STONE, "The End"),
         END_HIGHLANDS(World.Environment.THE_END, Biome.END_HIGHLANDS, Material.CHORUS_FLOWER, "End Highlands"),

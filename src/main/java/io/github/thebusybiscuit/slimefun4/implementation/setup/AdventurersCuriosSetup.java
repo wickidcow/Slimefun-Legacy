@@ -7,13 +7,18 @@ import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.armor.HazardProtectionArmorPiece;
+import io.github.thebusybiscuit.slimefun4.implementation.items.curios.BastionResonator;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlus;
+import io.github.thebusybiscuit.slimefun4.implementation.items.curios.ChunkStabilizer;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.DungeonChalk;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.EchoLantern;
+import io.github.thebusybiscuit.slimefun4.implementation.items.curios.EmergencyFlare;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.ExpeditionJournal;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.ExplorersSpyglass;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.MinersCanary;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.StormGlass;
+import io.github.thebusybiscuit.slimefun4.implementation.items.curios.SurveyorsRod;
+import io.github.thebusybiscuit.slimefun4.implementation.items.curios.WayfarersLodestone;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.WayfindersCompass;
 import java.util.List;
 import org.bukkit.ChatColor;
@@ -128,6 +133,59 @@ final class AdventurersCuriosSetup {
                 "&8Choose Slimefun Electricity or Beacon Blocks for power",
                 "&8Extra Power costs 30 XP levels",
                 "&8Activator uses bounded plugin chunk tickets");
+
+        SlimefunItemStack wayfarersLodestone = new SlimefunItemStack(
+                "ADVENTURERS_WAYFARERS_LODESTONE",
+                Material.LODESTONE,
+                "&6Wayfarer's Lodestone",
+                "&7Opens a biome travel menu and searches",
+                "&7from a randomized probe for safe terrain.",
+                "",
+                "&eRight Click &7to choose a biome",
+                "&eSneak & Right Click &7to cancel an active search",
+                "&8Successful travel cooldown: 3 minutes");
+
+        SlimefunItemStack bastionResonator = new SlimefunItemStack(
+                "ADVENTURERS_BASTION_RESONATOR",
+                Material.RECOVERY_COMPASS,
+                "&6Bastion Resonator",
+                "&7Tunes itself to the nearest Bastion Remnant",
+                "&7without intentionally generating unexplored terrain.",
+                "",
+                "&eRight Click in the Nether &7to resonate",
+                "&8Search radius: 128 chunks");
+
+        SlimefunItemStack emergencyFlare = new SlimefunItemStack(
+                "ADVENTURERS_EMERGENCY_FLARE",
+                Material.FIREWORK_ROCKET,
+                "&cEmergency Flare",
+                "&7Launches a bright reusable expedition marker.",
+                "&7Modes: Help, Rally Point, and Danger.",
+                "",
+                "&eRight Click &7to launch",
+                "&eSneak & Right Click &7to change mode",
+                "&8Marker: ~20 seconds • Cooldown: 45 seconds");
+
+        SlimefunItemStack surveyorsRod = new SlimefunItemStack(
+                "ADVENTURERS_SURVEYORS_ROD",
+                Material.BLAZE_ROD,
+                "&6Surveyor's Rod",
+                "&7Reports detailed field, chunk, region,",
+                "&7light, biome, entity and block-entity data.",
+                "",
+                "&eRight Click &7for a chunk survey",
+                "&eSneak & Right Click a block &7for block detail");
+
+        SlimefunItemStack chunkStabilizer = new SlimefunItemStack(
+                "ADVENTURERS_CHUNK_STABILIZER",
+                Material.HEART_OF_THE_SEA,
+                "&bChunk Stabilizer",
+                "&7Performs a read-only chunk stability scan",
+                "&7for entity and block-entity concentrations.",
+                "",
+                "&eRight Click &7to scan the target chunk",
+                "&eSneak & Right Click &7for extra diagnostics",
+                "&8Never removes entities or blocks");
 
         SlimefunItemStack advancedHazmatHelmet = new SlimefunItemStack(
                 "ADVANCED_HAZMAT_HELMET",
@@ -316,6 +374,72 @@ final class AdventurersCuriosSetup {
                     new ItemStack(Material.AMETHYST_SHARD),
                     new ItemStack(Material.ENDER_EYE),
                     new ItemStack(Material.AMETHYST_SHARD)
+                })
+                .register(plugin);
+
+        new WayfarersLodestone(
+                        fieldCuriosities, wayfarersLodestone, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                            new ItemStack(Material.ENDER_PEARL),
+                            new ItemStack(Material.COMPASS),
+                            new ItemStack(Material.ENDER_PEARL),
+                            new ItemStack(Material.AMETHYST_SHARD),
+                            new ItemStack(Material.LODESTONE),
+                            new ItemStack(Material.AMETHYST_SHARD),
+                            new ItemStack(Material.ECHO_SHARD),
+                            new ItemStack(Material.NETHERITE_INGOT),
+                            new ItemStack(Material.ECHO_SHARD)
+                        })
+                .register(plugin);
+
+        new BastionResonator(fieldCuriosities, bastionResonator, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.GILDED_BLACKSTONE),
+                    new ItemStack(Material.ECHO_SHARD),
+                    new ItemStack(Material.GILDED_BLACKSTONE),
+                    new ItemStack(Material.CRYING_OBSIDIAN),
+                    new ItemStack(Material.RECOVERY_COMPASS),
+                    new ItemStack(Material.CRYING_OBSIDIAN),
+                    new ItemStack(Material.GOLD_INGOT),
+                    new ItemStack(Material.ENDER_EYE),
+                    new ItemStack(Material.GOLD_INGOT)
+                })
+                .register(plugin);
+
+        new EmergencyFlare(fieldCuriosities, emergencyFlare, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.GLOWSTONE_DUST),
+                    new ItemStack(Material.FIREWORK_STAR),
+                    new ItemStack(Material.GLOWSTONE_DUST),
+                    new ItemStack(Material.REDSTONE),
+                    new ItemStack(Material.FIREWORK_ROCKET),
+                    new ItemStack(Material.REDSTONE),
+                    new ItemStack(Material.PAPER),
+                    new ItemStack(Material.GUNPOWDER),
+                    new ItemStack(Material.PAPER)
+                })
+                .register(plugin);
+
+        new SurveyorsRod(fieldCuriosities, surveyorsRod, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.COPPER_INGOT),
+                    new ItemStack(Material.SPYGLASS),
+                    new ItemStack(Material.COPPER_INGOT),
+                    new ItemStack(Material.PAPER),
+                    new ItemStack(Material.BLAZE_ROD),
+                    new ItemStack(Material.PAPER),
+                    new ItemStack(Material.REDSTONE),
+                    new ItemStack(Material.COMPASS),
+                    new ItemStack(Material.REDSTONE)
+                })
+                .register(plugin);
+
+        new ChunkStabilizer(fieldCuriosities, chunkStabilizer, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.AMETHYST_SHARD),
+                    new ItemStack(Material.REDSTONE_BLOCK),
+                    new ItemStack(Material.AMETHYST_SHARD),
+                    new ItemStack(Material.OBSERVER),
+                    new ItemStack(Material.HEART_OF_THE_SEA),
+                    new ItemStack(Material.OBSERVER),
+                    new ItemStack(Material.IRON_BLOCK),
+                    new ItemStack(Material.CLOCK),
+                    new ItemStack(Material.IRON_BLOCK)
                 })
                 .register(plugin);
 

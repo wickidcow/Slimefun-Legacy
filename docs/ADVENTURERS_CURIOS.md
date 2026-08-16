@@ -50,6 +50,53 @@ A read-only field instrument reporting weather, day phase, moon phase, and remai
 
 A player-carried biome log with a bounded number of persistent discoveries.
 
+### Wayfarer's Lodestone
+
+A reusable biome-travel curio with a locked 54-slot destination menu.
+
+- Presents dimension-appropriate biome choices in the Overworld, Nether, and End.
+- Each search starts from a **randomized probe** up to 10,000 blocks from the user's origin, then uses Paper's biome locator with a bounded 4,096-block search radius.
+- The search uses at most three probes and does not deliberately brute-force/generate hundreds of chunks.
+- After a biome is located, the destination is checked again for solid, non-liquid, non-hazardous standing space and the world border before `teleportAsync` is attempted.
+- Successful travel has a three-minute per-player cooldown; failed searches do not consume the cooldown.
+- Sneak-right-click cancels an active search.
+
+### Bastion Resonator
+
+A Nether-only structure compass.
+
+- Resolves the modern `minecraft:bastion_remnant` structure type from the server registry.
+- Searches up to 128 chunks and calls the structure locator with **findUnexplored=false**, so the item does not intentionally generate unexplored terrain just to find a Bastion.
+- Tunes its Recovery Compass lodestone target to the located Bastion and reports direction and approximate distance.
+- Uses a 30-second per-player cooldown to prevent structure-locator spam.
+
+### Emergency Flare
+
+A reusable visual expedition signal.
+
+- Sneak-right-click cycles **Help**, **Rally Point**, and **Danger** modes.
+- Right-click launches a colored large firework and a matching particle column.
+- The particle marker pulses for about 20 seconds and the item has a 45-second cooldown.
+- In normal dimensions the flare is moved above local terrain when practical; in the Nether it stays near the user's vertical level rather than being placed above the bedrock roof.
+
+### Surveyor's Rod
+
+A deeper diagnostic companion to the Explorer's Spyglass.
+
+- Right-click reports world coordinates, biome, chunk coordinates, region-file coordinates, surface height, entity count, block-entity count, and force-loaded state.
+- Sneak-right-clicking a block reports block type, biome, block light, sky light, and total light.
+- It refuses to load an unloaded chunk merely to inspect it.
+- Region/chunk work is scheduled at the target location and the immutable report is returned to the player on the player's scheduler.
+
+### Chunk Stabilizer
+
+A read-only stability scanner intended to expose problematic chunks before they become severe FPS/TPS problems.
+
+- Scores total entities, armor stands, dropped items, minecarts, projectiles, XP orbs, block entities, and hoppers.
+- Reports **STABLE**, **BUSY**, **HEAVY**, or **CRITICAL** and highlights extreme armor-stand/item/entity concentrations.
+- Sneak-right-click includes extra entity-class counts.
+- It never removes entities, breaks blocks, changes block types, or loads an unloaded chunk to perform a scan.
+
 ## Beacon Plus
 
 `BEACON_PLUS` is a native Slimefun Legacy block. It does not require the discontinued BeaconPlus3 plugin and does not import, bundle, or execute BeaconPlus3 classes.
