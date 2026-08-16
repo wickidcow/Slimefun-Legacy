@@ -28,8 +28,31 @@ jobs:
           java-version: '25'
           cache: gradle
 
-      - name: Wire guide, docs, verifier and tests
-        run: python3 scripts/one_shot_curios_expedition_setup.py
+      - name: Fix registration marker and wire guide, docs, verifier and tests
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          path = Path('scripts/one_shot_curios_expedition_setup.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''setup = replace_once(
+              setup,
+              '        new HazardProtectionArmorPiece(\\n',
+              registrations + '        new HazardProtectionArmorPiece(\\n',
+              'new Curios registrations',
+          )'''
+          new = '''setup = replace_once(
+              setup,
+              ''' + "'''        new HazardProtectionArmorPiece(\n                        containmentArmor,\n                        advancedHazmatHelmet,\n'''" + ''',
+              registrations
+              + ''' + "'''        new HazardProtectionArmorPiece(\n                        containmentArmor,\n                        advancedHazmatHelmet,\n'''" + ''',
+              'new Curios registrations',
+          )'''
+          if old not in text:
+              raise SystemExit('Expected old Curios registration patch block not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          python3 scripts/one_shot_curios_expedition_setup.py
 
       - name: Format only the intended changed files
         shell: bash
