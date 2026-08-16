@@ -42,7 +42,8 @@ public enum BeaconPlusSupportMode {
             return OFF;
         }
 
-        String normalized = value.trim().toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
+        String normalized =
+                value.trim().toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
         try {
             return valueOf(normalized);
         } catch (IllegalArgumentException ignored) {

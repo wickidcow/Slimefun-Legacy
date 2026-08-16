@@ -43,7 +43,8 @@ public enum BeaconPlusChunkMode {
             return OFF;
         }
 
-        String normalized = value.trim().toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
+        String normalized =
+                value.trim().toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
         return switch (normalized) {
             // Historical/public identifiers retained as safe migration aliases.
             case "KEEP_CHUNK_LOADED", "CHUNK_ACTIVATOR", "LOCAL", "THIS_CHUNK", "SINGLE" -> SINGLE;

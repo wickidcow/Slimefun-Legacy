@@ -262,8 +262,7 @@ public class ElevatorPlate extends SimpleSlimefunItem<BlockUseHandler> {
 
                 Slimefun.runSyncFor(
                         player,
-                        () -> player.sendTitle(
-                                ChatColor.WHITE + ChatColors.color(floor.getName()), null, 20, 60, 20));
+                        () -> player.sendTitle(ChatColor.WHITE + ChatColors.color(floor.getName()), null, 20, 60, 20));
             });
         });
     }

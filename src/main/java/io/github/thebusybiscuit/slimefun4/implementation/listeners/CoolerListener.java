@@ -93,27 +93,28 @@ public class CoolerListener implements Listener {
             return;
         }
 
-        PlayerBackpack.getAsync(coolerItem).whenComplete((backpack, error) -> Slimefun.runSyncFor(p, () -> {
-            if (!p.isOnline()) {
-                return;
-            }
+        PlayerBackpack.getAsync(coolerItem)
+                .whenComplete((backpack, error) -> Slimefun.runSyncFor(p, () -> {
+                    if (!p.isOnline()) {
+                        return;
+                    }
 
-            if (error != null || backpack == null) {
-                tryConsumeFromCoolers(p, coolers, index + 1);
-                return;
-            }
+                    if (error != null || backpack == null) {
+                        tryConsumeFromCoolers(p, coolers, index + 1);
+                        return;
+                    }
 
-            ItemStack currentCooler = findCurrentCooler(p, coolerItem);
-            if (currentCooler == null || !cooler.canUse(p, false)) {
-                tryConsumeFromCoolers(p, coolers, index + 1);
-                return;
-            }
+                    ItemStack currentCooler = findCurrentCooler(p, coolerItem);
+                    if (currentCooler == null || !cooler.canUse(p, false)) {
+                        tryConsumeFromCoolers(p, coolers, index + 1);
+                        return;
+                    }
 
-            PlayerBackpack.migrateLegacyItem(currentCooler, backpack);
-            if (!consumeJuice(p, currentCooler, backpack)) {
-                tryConsumeFromCoolers(p, coolers, index + 1);
-            }
-        }));
+                    PlayerBackpack.migrateLegacyItem(currentCooler, backpack);
+                    if (!consumeJuice(p, currentCooler, backpack)) {
+                        tryConsumeFromCoolers(p, coolers, index + 1);
+                    }
+                }));
     }
 
     private ItemStack findCurrentCooler(@Nonnull Player p, @Nonnull ItemStack expected) {

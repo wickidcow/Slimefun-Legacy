@@ -20,9 +20,7 @@ import org.bukkit.potion.PotionEffect;
  */
 public final class HazardProtectionArmorPiece extends SlimefunArmorPiece implements ProtectiveArmor {
 
-    private static final ProtectionType[] PROTECTION_TYPES = {
-        ProtectionType.BEES, ProtectionType.RADIATION
-    };
+    private static final ProtectionType[] PROTECTION_TYPES = {ProtectionType.BEES, ProtectionType.RADIATION};
 
     private final NamespacedKey armorSetId;
 

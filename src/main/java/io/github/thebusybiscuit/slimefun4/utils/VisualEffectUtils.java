@@ -56,15 +56,7 @@ public final class VisualEffectUtils {
         Location center = location.clone().add(0.5, 0.5, 0.5);
         SoundGroup sounds = blockData.getSoundGroup();
 
-        world.spawnParticle(
-                Particle.BLOCK,
-                center,
-                BLOCK_BREAK_PARTICLE_COUNT,
-                0.35,
-                0.35,
-                0.35,
-                0.05,
-                blockData);
+        world.spawnParticle(Particle.BLOCK, center, BLOCK_BREAK_PARTICLE_COUNT, 0.35, 0.35, 0.35, 0.05, blockData);
         world.playSound(
                 center,
                 sounds.getBreakSound(),
@@ -85,12 +77,6 @@ public final class VisualEffectUtils {
         }
 
         world.spawnParticle(
-                Particle.SMOKE,
-                location.clone().add(0, 0.5, 0),
-                SMOKE_PARTICLE_COUNT,
-                0.25,
-                0.2,
-                0.25,
-                0.01);
+                Particle.SMOKE, location.clone().add(0, 0.5, 0), SMOKE_PARTICLE_COUNT, 0.25, 0.2, 0.25, 0.01);
     }
 }

@@ -107,8 +107,7 @@ final class BeaconPlusEffectListener implements Listener {
             return;
         }
 
-        int power = BeaconPlusPowerState.getPowerForEffect(
-                player.getLocation(), BeaconPlusEffect.IMMORTALITY_FIELD);
+        int power = BeaconPlusPowerState.getPowerForEffect(player.getLocation(), BeaconPlusEffect.IMMORTALITY_FIELD);
         if (power < 0) {
             return;
         }

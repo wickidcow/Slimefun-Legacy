@@ -74,8 +74,7 @@ public abstract class GPSTransmitter extends SimpleSlimefunItem<BlockTicker>
         };
     }
 
-    @Nullable
-    private UUID parseOwner(@Nullable String value) {
+    @Nullable private UUID parseOwner(@Nullable String value) {
         if (value == null || value.isBlank()) {
             return null;
         }

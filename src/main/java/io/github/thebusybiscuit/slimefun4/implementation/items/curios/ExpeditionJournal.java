@@ -60,8 +60,8 @@ public final class ExpeditionJournal extends SimpleSlimefunItem<ItemUseHandler> 
                 player.sendMessage(ChatColor.GOLD + "New journal entry: " + ChatColor.AQUA + humanize(current));
             }
 
-            player.sendMessage(ChatColor.GRAY + "Expedition Journal: " + ChatColor.WHITE + biomes.size() + ChatColor.GRAY
-                    + " biomes recorded • current: " + ChatColor.AQUA + humanize(current));
+            player.sendMessage(ChatColor.GRAY + "Expedition Journal: " + ChatColor.WHITE + biomes.size()
+                    + ChatColor.GRAY + " biomes recorded • current: " + ChatColor.AQUA + humanize(current));
 
             if (player.isSneaking() && !biomes.isEmpty()) {
                 String recent = biomes.stream()

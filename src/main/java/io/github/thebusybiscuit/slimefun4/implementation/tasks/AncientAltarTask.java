@@ -119,9 +119,7 @@ public class AncientAltarTask implements Runnable {
             Location locked = entry.getValue();
             Location current = item.getLocation();
 
-            if (!item.isValid()
-                    || current.getWorld() != locked.getWorld()
-                    || current.distanceSquared(locked) > 0.1) {
+            if (!item.isValid() || current.getWorld() != locked.getWorld() || current.distanceSquared(locked) > 0.1) {
                 return false;
             }
         }
