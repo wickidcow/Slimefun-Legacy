@@ -25,7 +25,16 @@ class BeaconPlusChunkModeTest {
     void chunkModeCycleRemainsBounded() {
         assertEquals(BeaconPlusChunkMode.SINGLE, BeaconPlusChunkMode.OFF.next());
         assertEquals(BeaconPlusChunkMode.AREA_3X3, BeaconPlusChunkMode.SINGLE.next());
-        assertEquals(BeaconPlusChunkMode.OFF, BeaconPlusChunkMode.AREA_3X3.next());
+        assertEquals(BeaconPlusChunkMode.AREA_5X5, BeaconPlusChunkMode.AREA_3X3.next());
+        assertEquals(BeaconPlusChunkMode.OFF, BeaconPlusChunkMode.AREA_5X5.next());
+    }
+
+    @Test
+    void loaderModeMapsToSharedEffectArea() {
+        assertEquals(BeaconPlusChunkMode.SINGLE, BeaconPlusChunkMode.forFieldArea(BeaconPlusFieldArea.CHUNK_1X1));
+        assertEquals(BeaconPlusChunkMode.AREA_3X3, BeaconPlusChunkMode.forFieldArea(BeaconPlusFieldArea.AREA_3X3));
+        assertEquals(BeaconPlusChunkMode.AREA_5X5, BeaconPlusChunkMode.forFieldArea(BeaconPlusFieldArea.AREA_5X5));
+        assertEquals(BeaconPlusChunkMode.AREA_5X5, BeaconPlusChunkMode.fromStored("5x5"));
     }
 
     @Test

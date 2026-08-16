@@ -26,7 +26,6 @@ final class BeaconPlusPowerState {
 
     private static final long POWERED_TTL_MILLIS = 2_500L;
     private static final int INVISIBILITY_DURATION_TICKS = 70;
-    private static final double EXTRA_RANGE_BLOCKS = 20.0D;
 
     private static final Map<BeaconKey, PoweredBeacon> POWERED_BEACONS = new ConcurrentHashMap<>();
 
@@ -40,19 +39,11 @@ final class BeaconPlusPowerState {
             return;
         }
 
-        double range = BeaconPlusPowerSource.getBaseRange(block);
-        if (effects.contains(BeaconPlusEffect.EXTRA_RANGE) && range > 0.0D) {
-            range += EXTRA_RANGE_BLOCKS;
-        }
-        if (range <= 0.0D) {
-            markUnpowered(block.getLocation());
-            return;
-        }
-
+        BeaconPlusFieldArea area = BeaconPlusRuntime.getEffectiveFieldArea(block.getLocation(), effects);
         int power = effects.contains(BeaconPlusEffect.EXTRA_POWER) ? 1 : 0;
         POWERED_BEACONS.put(
                 BeaconKey.from(block.getLocation()),
-                new PoweredBeacon(System.currentTimeMillis(), EnumSet.copyOf(effects), range, power));
+                new PoweredBeacon(System.currentTimeMillis(), EnumSet.copyOf(effects), area, power));
     }
 
     static void markUnpowered(Location location) {
@@ -84,16 +75,10 @@ final class BeaconPlusPowerState {
                 continue;
             }
 
-            if (Slimefun.getSchedulerService().isFolia()
-                    && (key.x() >> 4 != target.getBlockX() >> 4 || key.z() >> 4 != target.getBlockZ() >> 4)) {
-                continue;
-            }
             if (!world.isChunkLoaded(key.x() >> 4, key.z() >> 4)) {
                 continue;
             }
-
-            Location center = new Location(world, key.x() + 0.5D, key.y() + 0.5D, key.z() + 0.5D);
-            if (center.distanceSquared(target) > powered.range() * powered.range()) {
+            if (!powered.area().containsChunk(key.x(), key.z(), target.getBlockX(), target.getBlockZ())) {
                 continue;
             }
 
@@ -113,10 +98,8 @@ final class BeaconPlusPowerState {
             return;
         }
 
-        Location center = block.getLocation().add(0.5D, 0.5D, 0.5D);
-        double rangeSquared = powered.range() * powered.range();
-        for (Entity entity : getEntities(block, center, powered.range())) {
-            if (entity instanceof Player player && player.getLocation().distanceSquared(center) <= rangeSquared) {
+        for (Entity entity : getEntitiesInArea(block, powered.area())) {
+            if (entity instanceof Player player) {
                 player.addPotionEffect(new PotionEffect(
                         PotionEffectType.INVISIBILITY, INVISIBILITY_DURATION_TICKS, 0, true, false, true));
             }
@@ -144,6 +127,29 @@ final class BeaconPlusPowerState {
         POWERED_BEACONS.clear();
     }
 
+    private static Collection<Entity> getEntitiesInArea(Block block, BeaconPlusFieldArea area) {
+        if (Slimefun.getSchedulerService().isFolia()) {
+            return List.of(block.getChunk().getEntities());
+        }
+
+        List<Entity> result = new ArrayList<>();
+        World world = block.getWorld();
+        int centerChunkX = block.getX() >> 4;
+        int centerChunkZ = block.getZ() >> 4;
+        int radius = area.getRadius();
+        for (int x = centerChunkX - radius; x <= centerChunkX + radius; x++) {
+            for (int z = centerChunkZ - radius; z <= centerChunkZ + radius; z++) {
+                if (!world.isChunkLoaded(x, z)) {
+                    continue;
+                }
+                for (Entity entity : world.getChunkAt(x, z).getEntities()) {
+                    result.add(entity);
+                }
+            }
+        }
+        return result;
+    }
+
     private static Collection<Entity> getEntities(Block block, Location center, double range) {
         if (Slimefun.getSchedulerService().isFolia()) {
             List<Entity> result = new ArrayList<>();
@@ -163,7 +169,8 @@ final class BeaconPlusPowerState {
         POWERED_BEACONS.entrySet().removeIf(entry -> entry.getValue().paidAtMillis() < cutoff);
     }
 
-    private record PoweredBeacon(long paidAtMillis, EnumSet<BeaconPlusEffect> effects, double range, int power) {}
+    private record PoweredBeacon(
+            long paidAtMillis, EnumSet<BeaconPlusEffect> effects, BeaconPlusFieldArea area, int power) {}
 
     private record BeaconKey(UUID worldId, int x, int y, int z) {
         private static BeaconKey from(Location location) {

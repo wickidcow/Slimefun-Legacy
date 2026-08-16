@@ -39,7 +39,7 @@ public enum BeaconPlusEffect {
             "gravity_well",
             "Gravity Well",
             Material.HEART_OF_THE_SEA,
-            "Pull all nearby non-player mobs and loose items toward the beacon once per second."),
+            "Strongly yank mobs and loose items toward the beacon once per second."),
     JUMP("jump", "Jump", Material.RABBIT_FOOT, "Give Jump Boost to players in range."),
     EXP_GAIN("exp_gain", "Exp Gain", Material.SCULK, "Passively grant a small amount of experience."),
     COOLDOWN_REDUCTION(
@@ -51,8 +51,16 @@ public enum BeaconPlusEffect {
             "Chance to prevent otherwise fatal damage."),
     SCALE("scale", "Scale", Material.GOLDEN_APPLE, "Make players slightly larger inside the field."),
     EXTRA_POWER("extra_power", "Extra Power", Material.NETHER_STAR, "Increase the strength of supported effects."),
-    EXTRA_RANGE("extra_range", "Extra Range", Material.SPYGLASS, "Extend Beacon Plus effect radius."),
-    ACTIVATOR("activator", "Activator", Material.RESPAWN_ANCHOR, "Keep the configured beacon chunks loaded."),
+    EXTRA_RANGE(
+            "extra_range",
+            "Extra Range",
+            Material.SPYGLASS,
+            "Expand the selected effect area one tier, up to 5x5 chunks."),
+    ACTIVATOR(
+            "activator",
+            "Activator",
+            Material.RESPAWN_ANCHOR,
+            "Keep the current Beacon Plus effect-area chunks loaded."),
     AUTO_REPAIR("auto_repair", "Auto Repair", Material.ANVIL, "Slowly repair damaged tools, weapons and armor."),
     ;
 

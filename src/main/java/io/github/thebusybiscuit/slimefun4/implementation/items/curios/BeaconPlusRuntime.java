@@ -54,9 +54,8 @@ final class BeaconPlusRuntime {
     private static final int PULSE_INTERVAL_TICKS = 20;
     private static final int EFFECT_DURATION_TICKS = 100;
     private static final int NIGHT_VISION_DURATION_TICKS = 240;
-    private static final int EXTRA_RANGE_BLOCKS = 20;
     private static final int MAX_TILE_ENTITIES_PER_PULSE = 96;
-    private static final int CROP_SAMPLES_PER_PULSE = 48;
+    private static final int CROP_SAMPLES_PER_CHUNK = 8;
     private static final long OBSERVED_BEACON_TTL_MILLIS = 15_000L;
     private static final NamespacedKey SCALE_KEY = new NamespacedKey(Slimefun.instance(), "beacon_plus_scale");
 
@@ -121,12 +120,6 @@ final class BeaconPlusRuntime {
 
         long gameTime = block.getWorld().getGameTime();
 
-        double range = getRange(block);
-        if (range <= 0.0D) {
-            refreshNearbyPlayerStates(block, 96.0D);
-            return;
-        }
-
         EnumSet<BeaconPlusEffect> effects = BeaconPlusEffect.parse(data.getData(EFFECTS_KEY));
         BeaconPlusManager manager = BeaconPlusManager.getInstance();
         if (manager != null && manager.getChunkMode(block.getLocation()) != BeaconPlusChunkMode.OFF) {
@@ -134,8 +127,9 @@ final class BeaconPlusRuntime {
         }
 
         int power = effects.contains(BeaconPlusEffect.EXTRA_POWER) ? 1 : 0;
+        BeaconPlusFieldArea area = getEffectiveFieldArea(block.getLocation(), effects);
         Location center = block.getLocation().add(0.5D, 0.5D, 0.5D);
-        Collection<Entity> entities = getEntities(block, center, range);
+        Collection<Entity> entities = getEntitiesInArea(block, area);
 
         for (Entity entity : entities) {
             if (entity instanceof Player player) {
@@ -146,17 +140,16 @@ final class BeaconPlusRuntime {
             if (entity instanceof Monster monster) {
                 applyMonsterEffects(monster, effects, power, center);
             }
-            if (effects.contains(BeaconPlusEffect.GRAVITY_WELL)
-                    && (entity instanceof Mob || entity instanceof Item)) {
+            if (effects.contains(BeaconPlusEffect.GRAVITY_WELL) && (entity instanceof Mob || entity instanceof Item)) {
                 pullEntity(entity, center, power);
             }
         }
 
         if (effects.contains(BeaconPlusEffect.FURNACE_BOOSTER) || effects.contains(BeaconPlusEffect.SPAWNERS)) {
-            applyTileEntityBoosts(block, center, range, effects, power);
+            applyTileEntityBoosts(block, area, effects, power);
         }
         if (effects.contains(BeaconPlusEffect.CROPS) && gameTime % 40L < PULSE_INTERVAL_TICKS) {
-            applyCropBoost(block, center, range, power);
+            applyCropBoost(block, area, power);
         }
     }
 
@@ -170,7 +163,7 @@ final class BeaconPlusRuntime {
 
     static void refreshNearbyPlayerStates(Block block, double range) {
         Location center = block.getLocation().add(0.5D, 0.5D, 0.5D);
-        for (Entity entity : getEntities(block, center, range)) {
+        for (Entity entity : getEntitiesInRadius(block, center, range)) {
             if (entity instanceof Player player) {
                 refreshPlayerState(player);
             }
@@ -198,28 +191,28 @@ final class BeaconPlusRuntime {
         ORIGINAL_ALLOW_FLIGHT.clear();
     }
 
-    private static boolean isEffectEnabled(Location location, BeaconPlusEffect effect) {
-        if (effect == BeaconPlusEffect.ACTIVATOR) {
-            BeaconPlusManager manager = BeaconPlusManager.getInstance();
-            return manager != null && manager.getChunkMode(location) != BeaconPlusChunkMode.OFF;
-        }
-        return BeaconPlusEffect.parse(StorageCacheUtils.getData(location, EFFECTS_KEY))
-                .contains(effect);
+    static BeaconPlusFieldArea getEffectiveFieldArea(Location location, Set<BeaconPlusEffect> effects) {
+        BeaconPlusFieldArea selected =
+                BeaconPlusFieldArea.fromStored(StorageCacheUtils.getData(location, BeaconPlusManager.FIELD_AREA_KEY));
+        return effects.contains(BeaconPlusEffect.EXTRA_RANGE) ? selected.expand() : selected;
     }
 
-    private static double getRange(Block block) {
-        double range = BeaconPlusPowerSource.getBaseRange(block);
-        if (range <= 0.0D) {
-            return 0.0D;
+    private static Collection<Entity> getEntitiesInArea(Block block, BeaconPlusFieldArea area) {
+        if (Slimefun.getSchedulerService().isFolia()) {
+            // Periodic cross-region entity mutation must stay region-local on Folia.
+            return List.of(block.getChunk().getEntities());
         }
 
-        if (isEffectEnabled(block.getLocation(), BeaconPlusEffect.EXTRA_RANGE)) {
-            range += EXTRA_RANGE_BLOCKS;
+        List<Entity> result = new ArrayList<>();
+        for (Chunk chunk : getLoadedChunksInArea(block, area)) {
+            for (Entity entity : chunk.getEntities()) {
+                result.add(entity);
+            }
         }
-        return range;
+        return result;
     }
 
-    private static Collection<Entity> getEntities(Block block, Location center, double range) {
+    private static Collection<Entity> getEntitiesInRadius(Block block, Location center, double range) {
         if (Slimefun.getSchedulerService().isFolia()) {
             List<Entity> result = new ArrayList<>();
             double rangeSquared = range * range;
@@ -309,22 +302,18 @@ final class BeaconPlusRuntime {
             return;
         }
 
-        Vector pull = delta.normalize().multiply(0.30D + 0.12D * power);
-        pull.setY(Math.max(-0.60D, Math.min(0.60D, pull.getY())));
+        Vector pull = delta.normalize().multiply(BeaconPlusGravity.getPullStrength(power));
+        pull.setY(Math.max(-1.25D, Math.min(1.25D, pull.getY())));
         entity.setVelocity(entity.getVelocity().multiply(0.75D).add(pull));
     }
 
     private static void applyTileEntityBoosts(
-            Block beaconBlock, Location center, double range, EnumSet<BeaconPlusEffect> effects, int power) {
+            Block beaconBlock, BeaconPlusFieldArea area, EnumSet<BeaconPlusEffect> effects, int power) {
         int inspected = 0;
-        double rangeSquared = range * range;
-        for (Chunk chunk : getLoadedChunksInRange(beaconBlock, range)) {
+        for (Chunk chunk : getLoadedChunksInArea(beaconBlock, area)) {
             for (BlockState state : chunk.getTileEntities()) {
                 if (++inspected > MAX_TILE_ENTITIES_PER_PULSE) {
                     return;
-                }
-                if (state.getLocation().distanceSquared(center) > rangeSquared) {
-                    continue;
                 }
 
                 if (effects.contains(BeaconPlusEffect.FURNACE_BOOSTER) && state instanceof Furnace furnace) {
@@ -359,15 +348,21 @@ final class BeaconPlusRuntime {
         }
     }
 
-    private static void applyCropBoost(Block beaconBlock, Location center, double range, int power) {
+    private static void applyCropBoost(Block beaconBlock, BeaconPlusFieldArea area, int power) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        int horizontal = Math.max(1, (int) Math.floor(range));
-        int samples = CROP_SAMPLES_PER_PULSE + power * 16;
+        int centerChunkX = beaconBlock.getX() >> 4;
+        int centerChunkZ = beaconBlock.getZ() >> 4;
+        int radius = area.getRadius();
+        int minX = (centerChunkX - radius) << 4;
+        int maxX = ((centerChunkX + radius) << 4) + 15;
+        int minZ = (centerChunkZ - radius) << 4;
+        int maxZ = ((centerChunkZ + radius) << 4) + 15;
+        int samples = area.getChunkCount() * (CROP_SAMPLES_PER_CHUNK + power * 4);
 
         for (int i = 0; i < samples; i++) {
-            int x = center.getBlockX() + random.nextInt(-horizontal, horizontal + 1);
-            int z = center.getBlockZ() + random.nextInt(-horizontal, horizontal + 1);
-            int y = center.getBlockY() + random.nextInt(-8, 9);
+            int x = random.nextInt(minX, maxX + 1);
+            int z = random.nextInt(minZ, maxZ + 1);
+            int y = beaconBlock.getY() + random.nextInt(-8, 9);
 
             if (y < beaconBlock.getWorld().getMinHeight()
                     || y >= beaconBlock.getWorld().getMaxHeight()) {
@@ -382,9 +377,6 @@ final class BeaconPlusRuntime {
             }
 
             Block target = beaconBlock.getWorld().getBlockAt(x, y, z);
-            if (target.getLocation().distanceSquared(center) > range * range) {
-                continue;
-            }
             if (target.getBlockData() instanceof Ageable ageable && ageable.getAge() < ageable.getMaximumAge()) {
                 ageable.setAge(Math.min(ageable.getMaximumAge(), ageable.getAge() + 1 + power));
                 target.setBlockData(ageable, false);
@@ -392,19 +384,19 @@ final class BeaconPlusRuntime {
         }
     }
 
-    private static List<Chunk> getLoadedChunksInRange(Block beaconBlock, double range) {
+    private static List<Chunk> getLoadedChunksInArea(Block beaconBlock, BeaconPlusFieldArea area) {
         List<Chunk> chunks = new ArrayList<>();
-        int centerChunkX = beaconBlock.getX() >> 4;
-        int centerChunkZ = beaconBlock.getZ() >> 4;
         if (Slimefun.getSchedulerService().isFolia()) {
             chunks.add(beaconBlock.getChunk());
             return chunks;
         }
 
-        int chunkRadius = Math.max(0, (int) Math.ceil(range / 16.0D));
+        int centerChunkX = beaconBlock.getX() >> 4;
+        int centerChunkZ = beaconBlock.getZ() >> 4;
+        int radius = area.getRadius();
         World world = beaconBlock.getWorld();
-        for (int x = centerChunkX - chunkRadius; x <= centerChunkX + chunkRadius; x++) {
-            for (int z = centerChunkZ - chunkRadius; z <= centerChunkZ + chunkRadius; z++) {
+        for (int x = centerChunkX - radius; x <= centerChunkX + radius; x++) {
+            for (int z = centerChunkZ - radius; z <= centerChunkZ + radius; z++) {
                 if (world.isChunkLoaded(x, z)) {
                     chunks.add(world.getChunkAt(x, z));
                 }

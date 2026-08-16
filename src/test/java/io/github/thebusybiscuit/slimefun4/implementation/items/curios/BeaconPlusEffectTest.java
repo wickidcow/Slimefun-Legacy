@@ -31,6 +31,12 @@ class BeaconPlusEffectTest {
     }
 
     @Test
+    void gravityWellIsFiveTimesStrongerThanLegacyNormalPull() {
+        assertEquals(1.50D, BeaconPlusGravity.getPullStrength(0));
+        assertEquals(2.10D, BeaconPlusGravity.getPullStrength(1));
+    }
+
+    @Test
     void electricityCostRulesRemainBoundedAndPredictable() {
         assertEquals(16, BeaconPlus.calculateFieldEnergyCost(EnumSet.of(BeaconPlusEffect.STRENGTH)));
         assertEquals(0, BeaconPlus.calculateFieldEnergyCost(EnumSet.of(BeaconPlusEffect.ACTIVATOR)));
@@ -42,9 +48,6 @@ class BeaconPlusEffectTest {
         assertEquals(
                 48,
                 BeaconPlus.calculateFieldEnergyCost(
-                        EnumSet.of(
-                                BeaconPlusEffect.STRENGTH,
-                                BeaconPlusEffect.SPEED,
-                                BeaconPlusEffect.EXTRA_POWER)));
+                        EnumSet.of(BeaconPlusEffect.STRENGTH, BeaconPlusEffect.SPEED, BeaconPlusEffect.EXTRA_POWER)));
     }
 }

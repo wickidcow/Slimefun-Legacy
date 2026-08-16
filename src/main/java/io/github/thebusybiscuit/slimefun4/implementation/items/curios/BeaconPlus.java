@@ -53,7 +53,7 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
     private static final int STATUS_SLOT = 4;
     private static final int POWER_SOURCE_SLOT = 45;
     private static final int DISABLE_ALL_SLOT = 47;
-    private static final int ACTIVATOR_COVERAGE_SLOT = 49;
+    private static final int FIELD_AREA_SLOT = 49;
     private static final int CLOSE_SLOT = 53;
 
     private static final int ENERGY_CAPACITY = 8_192;
@@ -64,7 +64,6 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
 
     private static final int POWER_PULSE_INTERVAL_TICKS = 20;
     private static final Map<PulseKey, Long> LAST_FIELD_PULSE_TICKS = new ConcurrentHashMap<>();
-    private static final double EXTRA_RANGE_BLOCKS = 20.0D;
     private static final double PLAYER_STATE_RECONCILE_RANGE = 96.0D;
 
     @ParametersAreNonnullByDefault
@@ -112,6 +111,8 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
                 StorageCacheUtils.setData(location, BeaconPlusManager.OWNER_KEY, owner.toString());
                 StorageCacheUtils.setData(location, BeaconPlusManager.CHUNK_MODE_KEY, BeaconPlusChunkMode.OFF.name());
                 StorageCacheUtils.setData(
+                        location, BeaconPlusManager.FIELD_AREA_KEY, BeaconPlusFieldArea.DEFAULT.name());
+                StorageCacheUtils.setData(
                         location, BeaconPlusManager.SUPPORT_MODE_KEY, BeaconPlusSupportMode.OFF.name());
                 StorageCacheUtils.setData(location, BeaconPlusRuntime.EFFECTS_KEY, "");
                 StorageCacheUtils.setData(location, EXTRA_POWER_UNLOCKED_KEY, "false");
@@ -127,7 +128,7 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
                 event.getPlayer()
                         .sendMessage(
                                 ChatColor.GOLD + "Beacon Plus placed. " + ChatColor.GRAY
-                                        + "Right click it to choose Slimefun Electricity or Beacon Blocks and configure all 30 effects.");
+                                        + "Right click it to configure all 30 effects. Effect coverage defaults to a 3x3 chunk area.");
             }
         };
     }
@@ -232,8 +233,13 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         BeaconPlusManager manager = BeaconPlusManager.getInstance();
         BeaconPlusChunkMode chunkMode =
                 manager == null ? BeaconPlusChunkMode.OFF : manager.getChunkMode(block.getLocation());
+        BeaconPlusFieldArea selectedArea = manager == null
+                ? BeaconPlusFieldArea.fromStored(
+                        StorageCacheUtils.getData(block.getLocation(), BeaconPlusManager.FIELD_AREA_KEY))
+                : manager.getFieldArea(block.getLocation());
+        BeaconPlusFieldArea effectiveArea = BeaconPlusRuntime.getEffectiveFieldArea(block.getLocation(), enabled);
 
-        menu.addItem(STATUS_SLOT, createStatusItem(block, enabled, chunkMode));
+        menu.addItem(STATUS_SLOT, createStatusItem(block, enabled, chunkMode, selectedArea, effectiveArea));
         menu.addMenuClickHandler(STATUS_SLOT, (pl, slot, item, action) -> false);
 
         BeaconPlusPowerMode powerMode = BeaconPlusPowerSource.getMode(block.getLocation());
@@ -248,7 +254,7 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
             BeaconPlusEffect effect = effects[index];
             int slot = EFFECT_SLOTS[index];
             boolean active = enabled.contains(effect);
-            menu.addItem(slot, createEffectItem(effect, active, chunkMode, powerMode));
+            menu.addItem(slot, createEffectItem(effect, active, chunkMode, powerMode, effectiveArea));
             menu.addMenuClickHandler(slot, (pl, clickedSlot, item, action) -> {
                 toggleEffect(pl, block, owner, effect);
                 return false;
@@ -270,9 +276,9 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
             return false;
         });
 
-        menu.addItem(ACTIVATOR_COVERAGE_SLOT, createActivatorCoverageItem(chunkMode));
-        menu.addMenuClickHandler(ACTIVATOR_COVERAGE_SLOT, (pl, slot, item, action) -> {
-            cycleActivatorCoverage(pl, block, owner);
+        menu.addItem(FIELD_AREA_SLOT, createFieldAreaItem(selectedArea, effectiveArea, chunkMode));
+        menu.addMenuClickHandler(FIELD_AREA_SLOT, (pl, slot, item, action) -> {
+            cycleFieldArea(pl, block, owner);
             return false;
         });
 
@@ -320,6 +326,20 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         if (!enabled.remove(effect)) {
             enabled.add(effect);
         }
+
+        if (effect == BeaconPlusEffect.EXTRA_RANGE) {
+            BeaconPlusManager manager = BeaconPlusManager.getInstance();
+            if (manager != null && manager.getChunkMode(block.getLocation()) != BeaconPlusChunkMode.OFF) {
+                BeaconPlusFieldArea effectiveArea =
+                        BeaconPlusRuntime.getEffectiveFieldArea(block.getLocation(), enabled);
+                if (!setChunkMode(manager, block, owner, BeaconPlusChunkMode.forFieldArea(effectiveArea))) {
+                    player.sendMessage(ChatColor.RED
+                            + "Extra Range would make the active chunk coverage exceed the Beacon Plus safety cap.");
+                    return;
+                }
+            }
+        }
+
         BeaconPlusRuntime.setConfiguredEffects(block.getLocation(), enabled);
         BeaconPlusRuntime.observe(block);
         BeaconPlusPowerState.markUnpowered(block.getLocation());
@@ -375,8 +395,11 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         }
 
         BeaconPlusChunkMode current = manager.getChunkMode(block.getLocation());
-        BeaconPlusChunkMode next =
-                current == BeaconPlusChunkMode.OFF ? BeaconPlusChunkMode.SINGLE : BeaconPlusChunkMode.OFF;
+        EnumSet<BeaconPlusEffect> effects = BeaconPlusRuntime.getConfiguredEffects(block.getLocation());
+        BeaconPlusFieldArea effectiveArea = BeaconPlusRuntime.getEffectiveFieldArea(block.getLocation(), effects);
+        BeaconPlusChunkMode next = current == BeaconPlusChunkMode.OFF
+                ? BeaconPlusChunkMode.forFieldArea(effectiveArea)
+                : BeaconPlusChunkMode.OFF;
         if (!setChunkMode(manager, block, owner, next)) {
             player.sendMessage(ChatColor.RED + "The Beacon Plus chunk-loader safety cap would be exceeded.");
             return;
@@ -387,32 +410,40 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         openMenu(player, block, owner);
     }
 
-    private void cycleActivatorCoverage(Player player, Block block, UUID owner) {
+    private void cycleFieldArea(Player player, Block block, UUID owner) {
         if (!validateMenuAction(player, block, owner)) {
             return;
         }
 
         BeaconPlusManager manager = BeaconPlusManager.getInstance();
         if (manager == null) {
-            player.sendMessage(ChatColor.RED + "Beacon Plus chunk loading is not ready.");
+            player.sendMessage(ChatColor.RED + "Beacon Plus area controls are not ready.");
             return;
         }
 
-        BeaconPlusChunkMode current = manager.getChunkMode(block.getLocation());
-        BeaconPlusChunkMode next =
-                switch (current) {
-                    case OFF -> BeaconPlusChunkMode.SINGLE;
-                    case SINGLE -> BeaconPlusChunkMode.AREA_3X3;
-                    case AREA_3X3 -> BeaconPlusChunkMode.SINGLE;
-                };
+        BeaconPlusFieldArea current = manager.getFieldArea(block.getLocation());
+        BeaconPlusFieldArea next = current.next();
+        EnumSet<BeaconPlusEffect> effects = BeaconPlusRuntime.getConfiguredEffects(block.getLocation());
+        BeaconPlusFieldArea effectiveNext = effects.contains(BeaconPlusEffect.EXTRA_RANGE) ? next.expand() : next;
 
-        if (!setChunkMode(manager, block, owner, next)) {
-            player.sendMessage(ChatColor.RED + "The requested coverage would exceed the Beacon Plus safety cap.");
+        if (manager.getChunkMode(block.getLocation()) != BeaconPlusChunkMode.OFF
+                && !setChunkMode(manager, block, owner, BeaconPlusChunkMode.forFieldArea(effectiveNext))) {
+            player.sendMessage(
+                    ChatColor.RED + "The requested effect area would exceed the Beacon Plus chunk safety cap.");
             return;
         }
+
+        StorageCacheUtils.setData(block.getLocation(), BeaconPlusManager.FIELD_AREA_KEY, next.name());
+        BeaconPlusPowerState.markUnpowered(block.getLocation());
+        BeaconPlusPowerState.reconcileNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
+        BeaconPlusRuntime.observe(block);
 
         player.playSound(block.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 0.65F, 1.25F);
-        player.sendMessage(ChatColor.AQUA + "Activator coverage: " + ChatColor.WHITE + next.getDisplayName());
+        player.sendMessage(ChatColor.AQUA + "Beacon Plus effect area: " + ChatColor.WHITE + next.getDisplayName());
+        if (effectiveNext != next) {
+            player.sendMessage(ChatColor.LIGHT_PURPLE + "Extra Range expands the active field to " + ChatColor.WHITE
+                    + effectiveNext.getDisplayName() + ChatColor.LIGHT_PURPLE + ".");
+        }
         openMenu(player, block, owner);
     }
 
@@ -454,14 +485,14 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         return true;
     }
 
-    private ItemStack createStatusItem(Block block, EnumSet<BeaconPlusEffect> enabled, BeaconPlusChunkMode chunkMode) {
+    private ItemStack createStatusItem(
+            Block block,
+            EnumSet<BeaconPlusEffect> enabled,
+            BeaconPlusChunkMode chunkMode,
+            BeaconPlusFieldArea selectedArea,
+            BeaconPlusFieldArea effectiveArea) {
         BeaconPlusPowerMode powerMode = BeaconPlusPowerSource.getMode(block.getLocation());
         int tier = BeaconPlusPowerSource.getPyramidTier(block);
-        double range = BeaconPlusPowerSource.getBaseRange(block);
-        if (enabled.contains(BeaconPlusEffect.EXTRA_RANGE) && range > 0.0D) {
-            range += EXTRA_RANGE_BLOCKS;
-        }
-
         int effectCount = enabled.size();
         int energyCost = calculateFieldEnergyCost(enabled);
         long storedEnergy = getChargeLong(block.getLocation());
@@ -475,18 +506,23 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         lore.add(ChatColor.GRAY + "Power source: " + ChatColor.AQUA + powerMode.getDisplayName());
         if (powerMode == BeaconPlusPowerMode.BEACON_BLOCKS) {
             lore.add(ChatColor.GRAY + "Beacon pyramid tier: " + (tier > 0 ? ChatColor.GREEN : ChatColor.RED) + tier);
-            lore.add(ChatColor.DARK_GRAY + "Uses normal vanilla beacon pyramid/sky rules.");
+            lore.add(ChatColor.DARK_GRAY + "Uses normal vanilla beacon pyramid/sky rules for power.");
         } else {
             lore.add(
                     ChatColor.GRAY + "Field energy: " + ChatColor.YELLOW + storedEnergy + "/" + ENERGY_CAPACITY + " J");
             lore.add(ChatColor.GRAY + "Current field draw: " + ChatColor.YELLOW + energyCost + " J/s");
         }
-        lore.add(ChatColor.GRAY + "Effective field range: " + ChatColor.AQUA + (int) Math.floor(range) + " blocks");
+        lore.add(ChatColor.GRAY + "Selected effect area: " + ChatColor.AQUA + selectedArea.getDisplayName());
+        lore.add(ChatColor.GRAY + "Effective effect area: " + ChatColor.GREEN + effectiveArea.getDisplayName());
         lore.add(ChatColor.GRAY + "Enabled effects: " + ChatColor.GOLD + effectCount + "/30");
+        lore.add(ChatColor.GRAY + "Activator chunk loading: "
+                + (chunkMode == BeaconPlusChunkMode.OFF
+                        ? ChatColor.RED + "OFF"
+                        : ChatColor.GREEN + chunkMode.getDisplayName()));
 
         if (!hasFieldWork) {
             lore.add(ChatColor.GRAY + "Field state: " + ChatColor.YELLOW + "IDLE");
-            lore.add(ChatColor.YELLOW + "Reason: no field effect currently needs power.");
+            lore.add(ChatColor.YELLOW + "Reason: no powered field effect currently needs power.");
         } else if (fieldReady) {
             lore.add(ChatColor.GRAY + "Field state: " + ChatColor.GREEN + "ACTIVE");
         } else {
@@ -498,9 +534,8 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
             }
         }
 
-        lore.add(ChatColor.GRAY + "Activator: " + ChatColor.AQUA + chunkMode.getDisplayName());
         lore.add("");
-        lore.add(ChatColor.YELLOW + "Use the Power Source button to switch modes.");
+        lore.add(ChatColor.YELLOW + "Use Effect Area to choose 1x1, 3x3 or 5x5 chunks.");
         return createMenuItem(icon, ChatColor.GOLD + "Beacon Plus Status", lore);
     }
 
@@ -508,16 +543,18 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
             BeaconPlusEffect effect,
             boolean active,
             BeaconPlusChunkMode chunkMode,
-            BeaconPlusPowerMode powerMode) {
+            BeaconPlusPowerMode powerMode,
+            BeaconPlusFieldArea effectiveArea) {
         boolean shownActive = effect == BeaconPlusEffect.ACTIVATOR ? chunkMode != BeaconPlusChunkMode.OFF : active;
         List<String> lore = new ArrayList<>();
         lore.add(ChatColor.GRAY + effect.getDescription());
         lore.add("");
         lore.add(
                 ChatColor.GRAY + "Status: " + (shownActive ? ChatColor.GREEN + "ENABLED" : ChatColor.RED + "DISABLED"));
+        lore.add(ChatColor.GRAY + "Affected area: " + ChatColor.AQUA + effectiveArea.getDisplayName());
         if (effect == BeaconPlusEffect.ACTIVATOR) {
-            lore.add(ChatColor.GRAY + "Coverage: " + ChatColor.AQUA + chunkMode.getDisplayName());
-            lore.add(ChatColor.DARK_GRAY + "Bounded by server-wide loader safety caps.");
+            lore.add(ChatColor.GRAY + "Chunk loading: " + ChatColor.AQUA + chunkMode.getDisplayName());
+            lore.add(ChatColor.DARK_GRAY + "When enabled, keeps the effective effect area loaded.");
         } else if (effect == BeaconPlusEffect.EXTRA_POWER) {
             lore.add(ChatColor.LIGHT_PURPLE + "One-time unlock: " + ChatColor.WHITE + EXTRA_POWER_XP_LEVEL_COST
                     + " XP levels");
@@ -556,18 +593,25 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
                         ChatColor.YELLOW + "Click to switch power source"));
     }
 
-    private ItemStack createActivatorCoverageItem(BeaconPlusChunkMode chunkMode) {
+    private ItemStack createFieldAreaItem(
+            BeaconPlusFieldArea selectedArea, BeaconPlusFieldArea effectiveArea, BeaconPlusChunkMode chunkMode) {
         return createMenuItem(
                 Material.LODESTONE,
-                ChatColor.AQUA + "Activator Coverage",
+                ChatColor.AQUA + "Effect Area: " + ChatColor.WHITE + effectiveArea.getDisplayName(),
                 List.of(
-                        ChatColor.GRAY + "Current: " + ChatColor.WHITE + chunkMode.getDisplayName(),
+                        ChatColor.GRAY + "All enabled Beacon Plus effects use this chunk area.",
+                        ChatColor.GRAY + "Selected: " + ChatColor.WHITE + selectedArea.getDisplayName(),
+                        ChatColor.GRAY + "Effective: " + ChatColor.GREEN + effectiveArea.getDisplayName(),
+                        ChatColor.GRAY + "Activator: "
+                                + (chunkMode == BeaconPlusChunkMode.OFF
+                                        ? ChatColor.RED + "OFF"
+                                        : ChatColor.GREEN + "ON"),
                         "",
-                        ChatColor.GRAY + "Off -> This Chunk",
-                        ChatColor.GRAY + "This Chunk <-> 3x3 Area",
-                        ChatColor.DARK_GRAY + "3x3 coverage uses 9 chunk tickets at most.",
+                        ChatColor.GRAY + "1x1 -> 3x3 -> 5x5 -> 1x1",
+                        ChatColor.GRAY + "Default: " + ChatColor.AQUA + "3x3 Chunks",
+                        ChatColor.DARK_GRAY + "Extra Range expands one tier, capped at 5x5.",
                         "",
-                        ChatColor.YELLOW + "Click to change coverage"));
+                        ChatColor.YELLOW + "Click to change affected area"));
     }
 
     static int calculateFieldEnergyCost(Set<BeaconPlusEffect> configured) {
