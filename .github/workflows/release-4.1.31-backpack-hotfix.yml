@@ -38,13 +38,44 @@ jobs:
           cp "$JAR" "dist/SF_Slimefun_Legacy_v4.1.31-backpackhotfix.jar"
           test -s "dist/SF_Slimefun_Legacy_v4.1.31-backpackhotfix.jar"
 
-      - name: Add hotfix JAR to existing 4.1.31 release
+      - name: Verify backpack runtime classes are packaged
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR="dist/SF_Slimefun_Legacy_v4.1.31-backpackhotfix.jar"
+          jar tf "$JAR" > dist/backpack-hotfix-jar-entries.txt
+          grep -Fxq 'io/github/thebusybiscuit/slimefun4/implementation/listeners/BackpackListener.class' dist/backpack-hotfix-jar-entries.txt
+          grep -Fxq 'io/github/thebusybiscuit/slimefun4/utils/ThreadUtils.class' dist/backpack-hotfix-jar-entries.txt
+          sha256sum "$JAR" | tee dist/backpack-hotfix.sha256
+
+      - name: Replace hotfix JAR and update existing 4.1.31 release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          gh release view SlimefunLegacy4.1.31 >/dev/null
-          gh release upload SlimefunLegacy4.1.31 \
-            dist/SF_Slimefun_Legacy_v4.1.31-backpackhotfix.jar \
-            --clobber
+          TAG="SlimefunLegacy4.1.31"
+          JAR="dist/SF_Slimefun_Legacy_v4.1.31-backpackhotfix.jar"
+          NOTES="dist/release-notes.md"
+          MARKER="### Backpack hotfix refresh — August 16, 2026"
+          PATCH_SHA="$(sha256sum "$JAR" | awk '{print $1}')"
+
+          gh release view "$TAG" >/dev/null
+          gh release upload "$TAG" "$JAR" --clobber
+
+          gh release view "$TAG" --json body --jq '.body' > "$NOTES"
+          if ! grep -Fq "$MARKER" "$NOTES"; then
+            {
+              echo
+              echo '---'
+              echo "$MARKER"
+              echo
+              echo '- Replaced the 4.1.31 backpack hotfix JAR with the patched build from current master.'
+              echo '- Fixes LARGE_BACKPACK and other backpack opens failing when ThreadUtils was unavailable at runtime.'
+              echo '- Failed JVM linkage during backpack open now releases the temporary open reservation instead of leaving a stale "already open elsewhere" state.'
+              echo '- Release packaging now verifies both BackpackListener.class and ThreadUtils.class are present before publication.'
+              echo '- No backpack storage format, Slimefun item IDs, recipe IDs, or inventory contents are changed by this hotfix.'
+              echo "- Patched JAR SHA-256: $PATCH_SHA"
+            } >> "$NOTES"
+          fi
+          gh release edit "$TAG" --notes-file "$NOTES"
