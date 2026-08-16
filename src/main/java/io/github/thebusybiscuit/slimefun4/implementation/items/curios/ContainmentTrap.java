@@ -123,7 +123,7 @@ public final class ContainmentTrap extends SimpleSlimefunItem<ItemUseHandler> {
                 .filter(Item.class::isInstance)
                 .map(Item.class::cast)
                 .filter(Entity::isValid)
-                .filter(item -> item.getUniqueId() != trapEntity.getUniqueId())
+                .filter(item -> !item.getUniqueId().equals(trapEntity.getUniqueId()))
                 .filter(item -> isRadioactive(item.getItemStack()))
                 .min(Comparator.comparingDouble(item -> item.getLocation().distanceSquared(trapEntity.getLocation())))
                 .orElse(null);
