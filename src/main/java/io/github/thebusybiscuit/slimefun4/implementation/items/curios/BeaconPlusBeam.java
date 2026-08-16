@@ -26,6 +26,7 @@ final class BeaconPlusBeam {
     static void markPowered(Block beaconBlock) {
         Location location = beaconBlock.getLocation();
         cleanupLegacyFilter(location);
+        BeaconPlusAreaPreview.render(beaconBlock);
 
         if (!isVisualsEnabled(location)) {
             return;
@@ -37,6 +38,7 @@ final class BeaconPlusBeam {
     static void markUnpowered(Location location) {
         // Particle visuals naturally expire. This only cleans up panes left by the previous implementation.
         cleanupLegacyFilter(location);
+        BeaconPlusAreaPreview.render(location);
     }
 
     static boolean isVisualsEnabled(Location location) {

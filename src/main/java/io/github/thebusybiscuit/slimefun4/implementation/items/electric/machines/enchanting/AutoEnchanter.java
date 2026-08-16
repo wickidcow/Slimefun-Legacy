@@ -138,7 +138,9 @@ public class AutoEnchanter extends AbstractEnchantmentMachine {
             return null;
         }
 
-        if (!(enchantedBook.getItemMeta() instanceof EnchantmentStorageMeta meta)) {
+        ItemStack targetSnapshot = EnchantmentMachineRuntime.one(target);
+        ItemStack bookSnapshot = EnchantmentMachineRuntime.one(enchantedBook);
+        if (!(bookSnapshot.getItemMeta() instanceof EnchantmentStorageMeta meta)) {
             EnchantmentMachineRuntime.status(
                     menu, Material.BARRIER, "&cInvalid enchanted book", "&7The book metadata could not be read.");
             return null;
@@ -149,13 +151,13 @@ public class AutoEnchanter extends AbstractEnchantmentMachine {
         AdvancedEnchantmentsIntegration advancedEnchantments =
                 Slimefun.getIntegrations().getAdvancedEnchantments();
         EnchantmentBook customBook =
-                advancedEnchantments == null ? null : advancedEnchantments.getEnchantmentBook(enchantedBook);
+                advancedEnchantments == null ? null : advancedEnchantments.getEnchantmentBook(bookSnapshot);
         if (customBook != null) {
             customEnchantments.put(customBook.enchantment(), customBook.level());
         }
 
         for (Map.Entry<Enchantment, Integer> entry : meta.getStoredEnchants().entrySet()) {
-            if (!entry.getKey().canEnchantItem(target)) {
+            if (!entry.getKey().canEnchantItem(targetSnapshot)) {
                 continue;
             }
             if (!isEnchantmentLevelAllowed(entry.getValue())) {
@@ -177,9 +179,11 @@ public class AutoEnchanter extends AbstractEnchantmentMachine {
         }
 
         Map<String, Integer> existingCustomEnchantments =
-                advancedEnchantments == null ? Map.of() : advancedEnchantments.getEnchantments(target);
+                advancedEnchantments == null ? Map.of() : advancedEnchantments.getEnchantments(targetSnapshot);
         if (!overrideExistingEnchantsLvl.getValue()) {
-            enchantments.entrySet().removeIf(entry -> target.getEnchantmentLevel(entry.getKey()) >= entry.getValue());
+            enchantments
+                    .entrySet()
+                    .removeIf(entry -> targetSnapshot.getEnchantmentLevel(entry.getKey()) >= entry.getValue());
             customEnchantments
                     .entrySet()
                     .removeIf(entry -> existingCustomEnchantments.getOrDefault(entry.getKey(), 0) >= entry.getValue());
@@ -196,9 +200,9 @@ public class AutoEnchanter extends AbstractEnchantmentMachine {
             return null;
         }
 
-        int resultingCount = target.getEnchantments().size() + existingCustomEnchantments.size();
+        int resultingCount = targetSnapshot.getEnchantments().size() + existingCustomEnchantments.size();
         for (Enchantment enchantment : enchantments.keySet()) {
-            if (!target.containsEnchantment(enchantment)) {
+            if (!targetSnapshot.containsEnchantment(enchantment)) {
                 resultingCount++;
             }
         }
@@ -212,7 +216,7 @@ public class AutoEnchanter extends AbstractEnchantmentMachine {
             return null;
         }
 
-        ItemStack enchantedItem = EnchantmentMachineRuntime.one(target);
+        ItemStack enchantedItem = EnchantmentMachineRuntime.one(targetSnapshot);
         enchantedItem.addUnsafeEnchantments(enchantments);
         if (!customEnchantments.isEmpty()) {
             if (advancedEnchantments == null) {
@@ -238,7 +242,9 @@ public class AutoEnchanter extends AbstractEnchantmentMachine {
 
         MachineRecipe recipe = new MachineRecipe(
                 EnchantmentMachineRuntime.processingTicks(75, enchantmentCount, getSpeed()),
-                new ItemStack[] {EnchantmentMachineRuntime.one(target), EnchantmentMachineRuntime.one(enchantedBook)},
+                new ItemStack[] {
+                    EnchantmentMachineRuntime.one(targetSnapshot), EnchantmentMachineRuntime.one(bookSnapshot)
+                },
                 new ItemStack[] {enchantedItem, new ItemStack(Material.BOOK)});
         if (!Slimefun.getItemStackService()
                 .fitAll(menu.toInventory(), recipe.getOutput(), InventoryContext.MACHINE_OUTPUT, getOutputSlots())) {
@@ -247,7 +253,8 @@ public class AutoEnchanter extends AbstractEnchantmentMachine {
             return null;
         }
 
-        if (!EnchantmentMachineRuntime.consumeOneEach(menu, getInputSlots())) {
+        if (!EnchantmentMachineRuntime.consumeOneEachIfUnchanged(
+                menu, getInputSlots(), new ItemStack[] {targetSnapshot, bookSnapshot})) {
             EnchantmentMachineRuntime.status(
                     menu, Material.BARRIER, "&cInputs changed", "&7The operation was cancelled before consumption.");
             return null;

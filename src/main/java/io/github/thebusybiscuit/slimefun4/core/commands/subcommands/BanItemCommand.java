@@ -48,7 +48,7 @@ public class BanItemCommand extends SubCommand {
                         return;
                     }
                 }
-                Slimefun.getLocalization().sendMessage(sender, "invalid-item-in-hand", true);
+                Slimefun.getLocalization().sendMessage(sender, "messages.invalid-item-in-hand", true);
                 return;
             }
             Slimefun.getLocalization()

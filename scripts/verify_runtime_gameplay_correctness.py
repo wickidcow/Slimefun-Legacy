@@ -42,12 +42,17 @@ def main() -> int:
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/enchanting/EnchantmentMachineRuntime.java",
     )
     require(runtime, "Math.max(1,", "non-zero enchantment processing duration")
-    require(runtime, "static boolean consumeOneEach", "transactional enchantment input helper")
+    require(
+        runtime,
+        "static boolean consumeOneEachIfUnchanged",
+        "snapshot-bound transactional enchantment input helper",
+    )
+    require(runtime, "current.isSimilar(expected)", "exact enchantment input snapshot revalidation")
     require_before(
         runtime,
-        "for (int slot : slots) {\n            ItemStack item = menu.getItemInSlot(slot);",
+        "ItemStack current = menu.getItemInSlot(slots[index]);",
         "for (int slot : slots) {\n            menu.consumeItem(slot, 1);",
-        "preflight-before-consume transaction",
+        "snapshot preflight before enchantment input consumption",
     )
     require(runtime, "Inputs were left untouched.", "machine failure safety diagnostic")
 
@@ -58,14 +63,21 @@ def main() -> int:
     require(enchanter, "AutoEnchantEvent event", "AutoEnchantEvent dispatch")
     require(enchanter, "AsyncAutoEnchanterProcessEvent event", "async process event dispatch")
     require(enchanter, "if (event.isCancelled())", "enchanter cancellation handling")
+    require(enchanter, "ItemStack targetSnapshot", "Auto Enchanter target snapshot")
+    require(enchanter, "ItemStack bookSnapshot", "Auto Enchanter book snapshot")
     require_before(
         enchanter,
         ".fitAll(menu.toInventory(), recipe.getOutput(), InventoryContext.MACHINE_OUTPUT, getOutputSlots())",
-        "EnchantmentMachineRuntime.consumeOneEach(menu, getInputSlots())",
-        "enchanter output fit before input consumption",
+        "EnchantmentMachineRuntime.consumeOneEachIfUnchanged(",
+        "enchanter output fit before snapshot-bound input consumption",
     )
-    require(enchanter, "EnchantmentMachineRuntime.one(target)", "single target-item recipe input")
-    require(enchanter, "EnchantmentMachineRuntime.one(enchantedBook)", "single enchanted-book recipe input")
+    require(
+        enchanter,
+        "new ItemStack[] {targetSnapshot, bookSnapshot}",
+        "Auto Enchanter exact input snapshots supplied to transaction helper",
+    )
+    require(enchanter, "EnchantmentMachineRuntime.one(targetSnapshot)", "single target-item recipe input")
+    require(enchanter, "EnchantmentMachineRuntime.one(bookSnapshot)", "single enchanted-book recipe input")
 
     disenchanter = read(
         root,
@@ -74,11 +86,18 @@ def main() -> int:
     require(disenchanter, "AutoDisenchantEvent event", "AutoDisenchantEvent dispatch")
     require(disenchanter, "if (event.isCancelled())", "disenchanter cancellation handling")
     require(disenchanter, "transferWasComplete", "disenchantment transfer verification")
+    require(disenchanter, "ItemStack itemSnapshot", "Auto Disenchanter item snapshot")
+    require(disenchanter, "ItemStack bookSnapshot", "Auto Disenchanter book snapshot")
     require_before(
         disenchanter,
         ".fitAll(menu.toInventory(), recipe.getOutput(), InventoryContext.MACHINE_OUTPUT, getOutputSlots())",
-        "EnchantmentMachineRuntime.consumeOneEach(menu, getInputSlots())",
-        "disenchanter output fit before input consumption",
+        "EnchantmentMachineRuntime.consumeOneEachIfUnchanged(",
+        "disenchanter output fit before snapshot-bound input consumption",
+    )
+    require(
+        disenchanter,
+        "new ItemStack[] {item, book}",
+        "Auto Disenchanter exact input snapshots supplied to transaction helper",
     )
     require(disenchanter, "EnchantmentMachineRuntime.one(book)", "single book recipe input")
     require(disenchanter, "EnchantmentMachineRuntime.one(item)", "single enchanted-item recipe input")

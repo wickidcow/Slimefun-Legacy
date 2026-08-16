@@ -125,11 +125,14 @@ public class AutoDisenchanter extends AbstractEnchantmentMachine {
 
     @ParametersAreNonnullByDefault
     private @Nullable MachineRecipe disenchantSafely(BlockMenu menu, ItemStack item, ItemStack book) {
+        ItemStack itemSnapshot = EnchantmentMachineRuntime.one(item);
+        ItemStack bookSnapshot = EnchantmentMachineRuntime.one(book);
         AdvancedEnchantmentsIntegration advancedEnchantments =
                 Slimefun.getIntegrations().getAdvancedEnchantments();
-        Map<String, Integer> customEnchantments =
-                advancedEnchantments == null ? Collections.emptyMap() : advancedEnchantments.getEnchantments(item);
-        int totalEnchantments = item.getEnchantments().size() + customEnchantments.size();
+        Map<String, Integer> customEnchantments = advancedEnchantments == null
+                ? Collections.emptyMap()
+                : advancedEnchantments.getEnchantments(itemSnapshot);
+        int totalEnchantments = itemSnapshot.getEnchantments().size() + customEnchantments.size();
         if (totalEnchantments == 0) {
             EnchantmentMachineRuntime.status(
                     menu, Material.BARRIER, "&eNothing to extract", "&7The item has no supported enchantments.");
@@ -153,7 +156,8 @@ public class AutoDisenchanter extends AbstractEnchantmentMachine {
             Map.Entry<String, Integer> enchantment =
                     customEnchantments.entrySet().iterator().next();
             Map<String, Integer> extracted = Collections.singletonMap(enchantment.getKey(), enchantment.getValue());
-            ItemStack disenchantedItem = advancedEnchantments.removeEnchantments(item, extracted);
+            ItemStack disenchantedItem =
+                    advancedEnchantments.removeEnchantments(EnchantmentMachineRuntime.one(itemSnapshot), extracted);
             ItemStack enchantedBook =
                     advancedEnchantments.createEnchantmentBook(enchantment.getKey(), enchantment.getValue());
             if (disenchantedItem == null || enchantedBook == null) {
@@ -166,11 +170,11 @@ public class AutoDisenchanter extends AbstractEnchantmentMachine {
                 return null;
             }
             disenchantedItem.setAmount(1);
-            return createRecipe(menu, item, book, disenchantedItem, enchantedBook, 1);
+            return createRecipe(menu, itemSnapshot, bookSnapshot, disenchantedItem, enchantedBook, 1);
         }
 
         Map<Enchantment, Integer> enchantments = new HashMap<>();
-        for (Map.Entry<Enchantment, Integer> entry : item.getEnchantments().entrySet()) {
+        for (Map.Entry<Enchantment, Integer> entry : itemSnapshot.getEnchantments().entrySet()) {
             if (!isEnchantmentLevelAllowed(entry.getValue())) {
                 if (!menu.toInventory().getViewers().isEmpty()) {
                     showEnchantmentLevelWarning(menu);
@@ -185,7 +189,7 @@ public class AutoDisenchanter extends AbstractEnchantmentMachine {
             return null;
         }
 
-        ItemStack disenchantedItem = EnchantmentMachineRuntime.one(item);
+        ItemStack disenchantedItem = EnchantmentMachineRuntime.one(itemSnapshot);
         ItemStack enchantedBook = new ItemStack(Material.ENCHANTED_BOOK);
         transferEnchantments(disenchantedItem, enchantedBook, enchantments);
         if (!transferWasComplete(disenchantedItem, enchantedBook, enchantments)) {
@@ -197,7 +201,7 @@ public class AutoDisenchanter extends AbstractEnchantmentMachine {
             return null;
         }
 
-        return createRecipe(menu, item, book, disenchantedItem, enchantedBook, enchantments.size());
+        return createRecipe(menu, itemSnapshot, bookSnapshot, disenchantedItem, enchantedBook, enchantments.size());
     }
 
     @ParametersAreNonnullByDefault
@@ -219,7 +223,8 @@ public class AutoDisenchanter extends AbstractEnchantmentMachine {
             return null;
         }
 
-        if (!EnchantmentMachineRuntime.consumeOneEach(menu, getInputSlots())) {
+        if (!EnchantmentMachineRuntime.consumeOneEachIfUnchanged(
+                menu, getInputSlots(), new ItemStack[] {item, book})) {
             EnchantmentMachineRuntime.status(
                     menu, Material.BARRIER, "&cInputs changed", "&7The operation was cancelled before consumption.");
             return null;
