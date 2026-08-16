@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.electric.machines.enchanting;
 
+import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
@@ -7,14 +8,19 @@ import io.github.thebusybiscuit.slimefun4.api.items.ItemSetting;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.settings.IntRangeSetting;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
+import io.github.thebusybiscuit.slimefun4.core.handlers.BlockBreakHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.implementation.handlers.SimpleBlockBreakHandler;
+import io.github.thebusybiscuit.slimefun4.implementation.operations.CraftingOperation;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.AContainer;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.block.Block;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -51,6 +57,41 @@ abstract class AbstractEnchantmentMachine extends AContainer {
         addItemSetting(ignoredLores);
         addItemSetting(enchantLimit);
         addItemSetting(useEnchantLimit);
+    }
+
+    @Override
+    @Nonnull
+    protected BlockBreakHandler onBlockBreak() {
+        return new SimpleBlockBreakHandler() {
+
+            @Override
+            public void onBlockBreak(Block block) {
+                CraftingOperation operation = getMachineProcessor().getOperation(block);
+                boolean interrupted = operation != null && !operation.isFinished();
+                boolean endedOperation = operation != null && getMachineProcessor().endOperation(block);
+
+                BlockMenu menu = StorageCacheUtils.getMenu(block.getLocation());
+                if (menu != null) {
+                    menu.dropItems(block.getLocation(), getInputSlots());
+                    menu.dropItems(block.getLocation(), getOutputSlots());
+                }
+
+                if (endedOperation && interrupted) {
+                    dropInterruptedInputs(block.getLocation(), operation);
+                }
+            }
+        };
+    }
+
+    private void dropInterruptedInputs(@Nonnull Location location, @Nonnull CraftingOperation operation) {
+        ItemStack[] ingredients = operation.getIngredients();
+        Slimefun.runSyncAt(location, () -> {
+            for (ItemStack ingredient : ingredients) {
+                if (ingredient != null && !ingredient.getType().isAir()) {
+                    location.getWorld().dropItemNaturally(location, ingredient.clone());
+                }
+            }
+        });
     }
 
     protected boolean isEnchantmentLevelAllowed(int enchantmentLevel) {
