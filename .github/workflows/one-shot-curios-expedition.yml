@@ -53,6 +53,16 @@ jobs:
           path.write_text(text.replace(old, new, 1), encoding='utf-8')
           PY
           python3 scripts/one_shot_curios_expedition_setup.py
+          python3 <<'PY'
+          from pathlib import Path
+          path = Path('scripts/verify_adventurers_curios.py')
+          text = path.read_text(encoding='utf-8')
+          bad = '            "new ChestMenu("&6&lWayfarer\'s Lodestone", 54)",'
+          good = '            """new ChestMenu("&6&lWayfarer\'s Lodestone", 54)""",'
+          if bad not in text:
+              raise SystemExit('Generated Wayfarer verifier string was not found')
+          path.write_text(text.replace(bad, good, 1), encoding='utf-8')
+          PY
 
       - name: Format only the intended changed files
         shell: bash
