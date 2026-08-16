@@ -26,6 +26,13 @@ This release is intentionally focused on stability, compatibility, regression fi
   - Outputs are calculated from one-item snapshots.
   - Inputs are consumed only if the current input pair still matches those exact snapshots.
   - AdvancedEnchantments disenchanting now receives a cloned input rather than the live inventory stack.
+- [x] Beacon Plus: add a default-on Area Preview toggle to the existing configuration menu.
+  - Uses the unused menu slot 51 and a lever icon with clear up/down ON/OFF state text and lever-click feedback.
+  - Preview follows the exact effective 1x1 / 3x3 / 5x5 chunk field, including Extra Range expansion.
+  - Only the outer boundary is rendered with sparse particles; no armor stands or marker entities are created.
+  - Unloaded chunks are skipped instead of being force-loaded, and Folia perimeter work is handed to the relevant region scheduler.
+- [ ] Validate Beacon Plus Area Preview live for 1x1, 3x3, 5x5, and Extra Range expansion.
+- [ ] Validate Area Preview OFF persistence and confirm existing Beacon Plus blocks default to ON when no setting is stored.
 - [ ] Validate Auto Enchanter I/II and Auto Disenchanter I/II end-to-end: input → operation → power → output.
 - [ ] Validate machine interruption behavior: GUI close, cargo/hopper changes, chunk unload/reload, restart, and output-full conditions.
 - [ ] Run Enhanced Guide verification suite and confirm no category/search/bookmark regression.
