@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.operations;
 
+import io.github.bakedlibs.dough.blocks.BlockPosition;
 import io.github.thebusybiscuit.slimefun4.core.machines.MachineOperation;
 import javax.annotation.Nonnull;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.MachineRecipe;
@@ -19,6 +20,7 @@ public class CraftingOperation implements MachineOperation {
 
     private final int totalTicks;
     private int currentTicks = 0;
+    private volatile boolean cancelled;
 
     public CraftingOperation(@Nonnull MachineRecipe recipe) {
         this(recipe.getInput(), recipe.getOutput(), recipe.getTicks());
@@ -70,5 +72,19 @@ public class CraftingOperation implements MachineOperation {
     @Override
     public int getTotalTicks() {
         return totalTicks;
+    }
+
+    @Override
+    public void onCancel(BlockPosition position) {
+        cancelled = true;
+    }
+
+    /**
+     * Returns whether this operation was removed from its processor before it completed.
+     *
+     * @return whether the operation was cancelled
+     */
+    public boolean isCancelled() {
+        return cancelled;
     }
 }
