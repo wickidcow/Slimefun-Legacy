@@ -48,52 +48,46 @@ jobs:
           replace_exact(gravity, 'static final double EXTRA_POWER_PULL = 2.10D;', 'static final double EXTRA_POWER_PULL = 0.63D;')
 
           runtime = 'src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusRuntime.java'
-          old_runtime = '''    private static void pullEntity(Entity entity, Location center, int power) {
-              Vector delta = center.toVector().subtract(entity.getLocation().toVector());
-              if (delta.lengthSquared() < 0.25D) {
-                  return;
-              }
-
-              Vector pull = delta.normalize().multiply(BeaconPlusGravity.getPullStrength(power));
-              pull.setY(Math.max(-1.25D, Math.min(1.25D, pull.getY())));
-              entity.setVelocity(entity.getVelocity().multiply(0.75D).add(pull));
-          }
-          '''
-          new_runtime = '''    private static void pullEntity(Entity entity, Location center, int power) {
-              Location target = entity.getLocation();
-              double deltaX = center.getX() - target.getX();
-              double deltaZ = center.getZ() - target.getZ();
-              double horizontalDistanceSquared = deltaX * deltaX + deltaZ * deltaZ;
-              if (horizontalDistanceSquared < 0.25D) {
-                  return;
-              }
-
-              double scale = BeaconPlusGravity.getPullStrength(power) / Math.sqrt(horizontalDistanceSquared);
-              Vector currentVelocity = entity.getVelocity();
-              Vector nextVelocity = new Vector(
-                      currentVelocity.getX() * 0.75D + deltaX * scale,
-                      currentVelocity.getY(),
-                      currentVelocity.getZ() * 0.75D + deltaZ * scale);
-              entity.setVelocity(nextVelocity);
-          }
-          '''
-          replace_exact(runtime, old_runtime, new_runtime)
+          replace_exact(
+              runtime,
+              '        Vector delta = center.toVector().subtract(entity.getLocation().toVector());\n'
+              '        if (delta.lengthSquared() < 0.25D) {\n',
+              '        Location target = entity.getLocation();\n'
+              '        double deltaX = center.getX() - target.getX();\n'
+              '        double deltaZ = center.getZ() - target.getZ();\n'
+              '        double horizontalDistanceSquared = deltaX * deltaX + deltaZ * deltaZ;\n'
+              '        if (horizontalDistanceSquared < 0.25D) {\n',
+          )
+          replace_exact(
+              runtime,
+              '        Vector pull = delta.normalize().multiply(BeaconPlusGravity.getPullStrength(power));\n'
+              '        pull.setY(Math.max(-1.25D, Math.min(1.25D, pull.getY())));\n'
+              '        entity.setVelocity(entity.getVelocity().multiply(0.75D).add(pull));\n',
+              '        double scale = BeaconPlusGravity.getPullStrength(power) / Math.sqrt(horizontalDistanceSquared);\n'
+              '        Vector currentVelocity = entity.getVelocity();\n'
+              '        Vector nextVelocity = new Vector(\n'
+              '                currentVelocity.getX() * 0.75D + deltaX * scale,\n'
+              '                currentVelocity.getY(),\n'
+              '                currentVelocity.getZ() * 0.75D + deltaZ * scale);\n'
+              '        entity.setVelocity(nextVelocity);\n',
+          )
 
           test = 'src/test/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusEffectTest.java'
-          old_test = '''    @Test
-              void gravityWellIsFiveTimesStrongerThanLegacyNormalPull() {
-                  assertEquals(1.50D, BeaconPlusGravity.getPullStrength(0));
-                  assertEquals(2.10D, BeaconPlusGravity.getPullStrength(1));
-              }
-          '''
-          new_test = '''    @Test
-              void gravityWellUsesControlledReverseKnockbackStrength() {
-                  assertEquals(0.45D, BeaconPlusGravity.getPullStrength(0));
-                  assertEquals(0.63D, BeaconPlusGravity.getPullStrength(1));
-                  assertEquals(BeaconPlusGravity.getPullStrength(0) * 1.4D, BeaconPlusGravity.getPullStrength(1), 1.0E-9D);
-              }
-          '''
-          replace_exact(test, old_test, new_test)
+          replace_exact(
+              test,
+              '    void gravityWellIsFiveTimesStrongerThanLegacyNormalPull() {',
+              '    void gravityWellUsesControlledReverseKnockbackStrength() {',
+          )
+          replace_exact(test, '        assertEquals(1.50D, BeaconPlusGravity.getPullStrength(0));', '        assertEquals(0.45D, BeaconPlusGravity.getPullStrength(0));')
+          replace_exact(
+              test,
+              '        assertEquals(2.10D, BeaconPlusGravity.getPullStrength(1));',
+              '        assertEquals(0.63D, BeaconPlusGravity.getPullStrength(1));\n'
+              '        assertEquals(\n'
+              '                BeaconPlusGravity.getPullStrength(0) * 1.4D,\n'
+              '                BeaconPlusGravity.getPullStrength(1),\n'
+              '                1.0E-9D);',
+          )
 
           verifier = 'scripts/verify_adventurers_curios.py'
           replace_exact(
