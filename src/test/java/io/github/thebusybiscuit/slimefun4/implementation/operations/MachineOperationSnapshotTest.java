@@ -1,6 +1,8 @@
 package io.github.thebusybiscuit.slimefun4.implementation.operations;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.MachineFuel;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.MachineRecipe;
@@ -43,6 +45,21 @@ class MachineOperationSnapshotTest {
         assertEquals(Material.DIAMOND, operation.getResults()[0].getType());
         assertEquals(2, operation.getResults()[0].getAmount());
         assertEquals(expectedTicks, operation.getTotalTicks());
+    }
+
+    @Test
+    void craftingOperationRecordsCancellation() {
+        MachineRecipe recipe = new MachineRecipe(
+                40,
+                new ItemStack[] {new ItemStack(Material.DIAMOND_SWORD), new ItemStack(Material.BOOK)},
+                new ItemStack[] {new ItemStack(Material.DIAMOND_SWORD), new ItemStack(Material.ENCHANTED_BOOK)});
+        CraftingOperation operation = new CraftingOperation(recipe);
+
+        assertFalse(operation.isCancelled());
+        operation.onCancel(null);
+        assertTrue(operation.isCancelled());
+        assertEquals(Material.DIAMOND_SWORD, operation.getIngredients()[0].getType());
+        assertEquals(Material.BOOK, operation.getIngredients()[1].getType());
     }
 
     @Test
