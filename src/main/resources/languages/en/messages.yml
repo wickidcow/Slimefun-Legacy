@@ -20,6 +20,32 @@ commands:
     player-never-joined: '&4No player with that name could be found!'
     backpack-does-not-exist: '&4The specified backpack does not exist!'
     restored-backpack-given: '&aYour backpack has been restored and was added to your inventory!'
+    searching: '&7Searching for the requested backpack...'
+
+  banitem:
+    description: Disables a Slimefun item
+    success: '&aThe Slimefun item has been disabled successfully.'
+
+  unbanitem:
+    description: Re-enables a disabled Slimefun item
+    success: '&aThe Slimefun item has been re-enabled successfully.'
+
+  cleardata:
+    description: Clears stored Slimefun data from a world
+    block: 'block'
+    oil: 'oil'
+    worldNotFound: '&4The specified world could not be found!'
+    confirm: '&eThis permanently clears the selected Slimefun data. Add &6confirm &eto the command to continue.'
+    success: '&aSuccessfully cleared {1} data from world &f{0}&a.'
+
+  migrate:
+    description: Migrates legacy Slimefun storage data
+    started: '&eStarting Slimefun data migration...'
+    failed: '&4Slimefun data migration failed. Check the console for details.'
+    confirm: '&eData migration can modify stored data. Run &6/sf migrate confirm &eto continue.'
+    success: '&aSuccessfully migrated %migrate_type%.'
+    in-progress: '&eThis Slimefun data migration is already in progress.'
+    already-migrated: '&eThis Slimefun data has already been migrated.'
 
   charge:
     description: Charges the item you are holding
@@ -43,6 +69,13 @@ commands:
     description: "Reload config file"
     reload-success: "&aReloaded config file successfully."
     reload-failed: "&cReload config failed, you may need restart server to apply change, see console for more info."
+
+sf-cn:
+  timings:
+    warning: '&4The database timings report could not be written. Check the console for details.'
+    stopped: '&aDatabase timings stopped. Report: &f{0}'
+    running: '&eDatabase timings profiling is already running.'
+    started: '&aDatabase timings profiling started.'
 
 placeholderapi:
   profile-loading: 'Loading...'
@@ -162,6 +195,7 @@ messages:
   usage: '&4Usage: &c%usage%'
   not-online: '&4%player% &cis not online!'
   invalid-item: '&4%item% &cis not a valid Item!'
+  invalid-item-in-hand: '&4The item in your hand is not a valid Slimefun item!'
   invalid-amount: '&4%amount% &cis not a valid amount : it must be higher than 0!'
   given-item: '&bYou have been given &a%amount% &7"%item%&7"'
   give-item: '&bYou have given %player% &a%amount% &7"%item%&7"'
@@ -177,6 +211,7 @@ messages:
   deprecated-item: '&4This item has been deprecated and will be removed from Slimefun soon.'
   researching-is-disabled: '&cResearching has been disabled on this server. Everything is unlocked by default!'
   await-deletion: '&cYou cannot place a Slimefun block so soon after breaking one. Try again shortly.'
+  above-enchant-limit: '&cCannot (dis)enchant an item with more than %max% enchantments!'
 
   multi-tool:
     mode-change: '&b%device% mode changed to: &9%mode%'
@@ -191,6 +226,7 @@ messages:
     select: 'Select this recipe'
     temporarily-disabled: '&eThis Auto-Crafter was temporarily disabled. You can re-enable it at any time!'
     re-enabled: '&eThis Auto-Crafter was re-enabled!'
+    recipe-unavailable: '&cYou have not unlocked this recipe in your recipe book.'
 
     tooltips:
       enabled:
@@ -201,7 +237,7 @@ messages:
       disabled:
       - '&cThis recipe is currently disabled'
       - ''
-      - '&eLeft Click &7to re-enable this recipe'
+      - '&eLeft Click &7to re-enable the recipe'
       - '&eRight Click &7to remove this recipe'
 
   talisman:
@@ -285,6 +321,9 @@ machines:
   ignition-chamber-no-flint: '&cIgnition Chamber is missing Flint and Steel.'
   inventory-empty: '&6You have successfully constructed this Multiblock. Proceed by placing items inside the dispenser and click me again to craft the item you want!'
 
+  TABLE_SAW:
+    no-slimefun-item: '&4Slimefun items cannot be processed by the Table Saw.'
+
   ANCIENT_ALTAR:
     not-enough-pedestals: '&4The Altar is not surrounded by the needed amount of Pedestals &c(%pedestals% / 8)'
     unknown-catalyst: '&4Unknown Catalyst! &cUse the correct Recipe instead!'
@@ -360,6 +399,8 @@ backpack:
   already-open: '&cSorry, this Backpack is open somewhere else!'
   no-stack: '&cYou cannot stack Backpacks'
   set-name: '&eHold this backpack and type a name in chat.'
+  not-backpack-owner: '&cThe owner of this Backpack must be online before it can be opened.'
+  not-original-item: '&cThe Backpack changed or moved while you were naming it. Hold the original Backpack and try again.'
 
 workbench:
   not-enhanced: '&4You cannot use Slimefun items in a normal workbench'
@@ -458,6 +499,7 @@ android:
       cannot-add-yourself: '&cYou cannot add yourself!'
       add-success: '&aAdded trusted player %player% successfully.'
       delete-success: '&aDeleted trusted player %player% successfully.'
+      reach-limit: '&cYou have reached the trusted-player limit for this Android.'
 
 languages:
   default: 'Server-Default'
