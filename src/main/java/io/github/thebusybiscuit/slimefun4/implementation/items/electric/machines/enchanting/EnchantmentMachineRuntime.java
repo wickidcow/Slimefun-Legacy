@@ -34,10 +34,42 @@ final class EnchantmentMachineRuntime {
         return copy;
     }
 
-    static boolean consumeOneEach(@Nonnull BlockMenu menu, @Nonnull int[] slots) {
-        for (int slot : slots) {
-            ItemStack item = menu.getItemInSlot(slot);
-            if (item == null || item.getType().isAir() || item.getAmount() < 1) {
+    static boolean consumeOneEachIfUnchanged(
+            @Nonnull BlockMenu menu, @Nonnull int[] slots, @Nonnull ItemStack[] expectedInputs) {
+        if (slots.length != expectedInputs.length || slots.length == 0) {
+            return false;
+        }
+
+        boolean[] matchedSlots = new boolean[slots.length];
+        for (ItemStack expected : expectedInputs) {
+            if (expected == null || expected.getType().isAir()) {
+                return false;
+            }
+
+            boolean matched = false;
+            for (int index = 0; index < slots.length; index++) {
+                if (matchedSlots[index]) {
+                    continue;
+                }
+
+                ItemStack current = menu.getItemInSlot(slots[index]);
+                if (current != null
+                        && !current.getType().isAir()
+                        && current.getAmount() >= 1
+                        && current.isSimilar(expected)) {
+                    matchedSlots[index] = true;
+                    matched = true;
+                    break;
+                }
+            }
+
+            if (!matched) {
+                return false;
+            }
+        }
+
+        for (int index = 0; index < slots.length; index++) {
+            if (!matchedSlots[index]) {
                 return false;
             }
         }
