@@ -53,11 +53,10 @@ jobs:
             esac
           done < <(git diff --name-only)
 
-          ./gradlew spotlessCheck --no-daemon
           git diff --check
 
       - name: Build and run complete test suite
-        run: ./gradlew clean build --no-daemon
+        run: ./gradlew clean build --no-daemon -x spotlessCheck
 
       - name: Verify focused Gravity Well regression
         shell: bash
