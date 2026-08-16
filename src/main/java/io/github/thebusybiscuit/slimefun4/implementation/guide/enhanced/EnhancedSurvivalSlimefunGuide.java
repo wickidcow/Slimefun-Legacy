@@ -423,8 +423,7 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
                 }
             }
             meta.setLore(lore);
-            meta.addItemFlags(
-                    ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ENCHANTS, VersionedItemFlag.HIDE_ADDITIONAL_TOOLTIP);
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, VersionedItemFlag.HIDE_ADDITIONAL_TOOLTIP);
         });
     }
 
