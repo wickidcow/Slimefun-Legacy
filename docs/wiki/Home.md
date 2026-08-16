@@ -21,11 +21,13 @@ This wiki keeps the approachable structure that made the classic Slimefun commun
 | I am a... | Start here |
 | --- | --- |
 | 🧪 **New player** | [Getting Started](Getting-Started.md) → [Research & Progression](Research-and-Progression.md) |
-| ⚒️ **Learning machines** | [Multiblocks & Basic Machines](Multiblocks-and-Basic-Machines.md) → [Resources, Dusts & Alloys](Resources-Dusts-and-Alloys.md) |
-| ⚙️ **Factory builder** | [Energy Networks](Energy-Networks.md) + [Cargo Networks](Cargo-Networks.md) |
+| ⚒️ **Learning machines** | [Multiblocks & Basic Machines](Multiblocks-and-Basic-Machines.md) → [Electric Machines](Electric-Machines.md) |
+| ⚙️ **Factory builder** | [Energy Networks](Energy-Networks.md) + [Cargo Networks](Cargo-Networks.md) → [Factory Design Patterns](Factory-Design-Patterns.md) |
+| 🪄 **Magic player** | [Magic, Runes & Talismans](Magic-Runes-and-Talismans.md) → [Tools, Armor & Equipment](Tools-Armor-and-Equipment.md) |
 | 🤖 **Automation player** | [Programmable Androids](Programmable-Androids.md) |
 | 🛰️ **Explorer / late game** | [GPS, GEO & Teleportation](GPS-GEO-and-Teleportation.md) → [Radiation & Reactors](Radiation-and-Reactors.md) |
-| 🛡️ **Server owner** | [Installation & Upgrades](Installation-and-Upgrades.md) → [Server Owner Guide](Server-Owner-Guide.md) |
+| 🛡️ **Server owner** | [Installation & Upgrades](Installation-and-Upgrades.md) → [Server Configuration](Server-Configuration.md) → [Server Owner Guide](Server-Owner-Guide.md) |
+| 🔐 **Claims / protection admin** | [Protection Plugins & Claims](Protection-Plugins-and-Claims.md) |
 | 🔌 **Addon administrator** | [Addon Ecosystem](Addon-Ecosystem.md) → [Compatibility & Addons](Compatibility-and-Addons.md) |
 | 🚀 **Performance admin** | [Server Performance](Server-Performance.md) |
 | 🩺 **Troubleshooter** | [Doctor & Diagnostics](Doctor-and-Diagnostics.md) → [Troubleshooting](Troubleshooting.md) |
@@ -41,20 +43,25 @@ This wiki keeps the approachable structure that made the classic Slimefun commun
 | [📚 Research & Progression](Research-and-Progression.md) | Unlocks, XP progression and planning your tech tree |
 | [⚒️ Multiblocks & Basic Machines](Multiblocks-and-Basic-Machines.md) | The classic pre-electric workshop |
 | [⛏️ Resources, Dusts & Alloys](Resources-Dusts-and-Alloys.md) | Material processing and component chains |
+| [⚙️ Electric Machines](Electric-Machines.md) | Powered processing, machine tiers and automation |
 | [⚡ Energy Networks](Energy-Networks.md) | Generation, storage, distribution and consumers |
 | [📦 Cargo Networks](Cargo-Networks.md) | Item transport, channels and factory automation |
+| [🏭 Factory Design Patterns](Factory-Design-Patterns.md) | Reliable production-line layouts and debugging patterns |
 | [🤖 Programmable Androids](Programmable-Androids.md) | Slimefun's programmable worker robots |
 | [🛰️ GPS, GEO & Teleportation](GPS-GEO-and-Teleportation.md) | GPS infrastructure, GEO resources and teleporters |
+| [🪄 Magic, Runes & Talismans](Magic-Runes-and-Talismans.md) | Magical crafting, runes, passive effects and gadgets |
+| [🛠️ Tools, Armor & Equipment](Tools-Armor-and-Equipment.md) | Special tools, movement gear, armor and weapons |
 | [🎒 Backpacks & Storage](Backpacks-and-Storage.md) | Portable storage and Legacy safety notes |
 | [☢️ Radiation & Reactors](Radiation-and-Reactors.md) | Nuclear materials, Hazmat protection and reactors |
+| [📖 Glossary](Glossary.md) | Common Slimefun and Legacy terminology |
 
 ## 🛡️ Server administration
 
-Server operators should begin with the installation and backup procedure, then learn the Doctor tooling before adding a large addon stack.
+Server operators should begin with the installation and backup procedure, then learn the configuration and Doctor tooling before adding a large addon stack.
 
 Recommended administrator path:
 
-**[Installation & Upgrades](Installation-and-Upgrades.md)** → **[Server Owner Guide](Server-Owner-Guide.md)** → **[Addon Ecosystem](Addon-Ecosystem.md)** → **[Doctor & Diagnostics](Doctor-and-Diagnostics.md)** → **[Server Performance](Server-Performance.md)**
+**[Installation & Upgrades](Installation-and-Upgrades.md)** → **[Server Configuration](Server-Configuration.md)** → **[Server Owner Guide](Server-Owner-Guide.md)** → **[Protection Plugins & Claims](Protection-Plugins-and-Claims.md)** → **[Addon Ecosystem](Addon-Ecosystem.md)** → **[Doctor & Diagnostics](Doctor-and-Diagnostics.md)** → **[Server Performance](Server-Performance.md)**
 
 ## 🚀 Current platform target
 
@@ -73,7 +80,7 @@ For the exact current release, always use the repository's **Releases** page rat
 
 ## 📚 Classic Slimefun knowledge, modernized
 
-The original Slimefun community wiki documented individual machines, resources, Androids, Cargo, GPS, reactors, performance guidance, common issues and developer topics. Slimefun Legacy's wiki uses those proven concepts as a roadmap while rewriting documentation for the current project rather than copying historical pages verbatim.
+The original Slimefun community wiki documented individual machines, resources, Androids, Cargo, GPS, reactors, magic, equipment, performance guidance, protection integrations, common issues and developer topics. Slimefun Legacy's wiki uses those proven concepts as a roadmap while rewriting documentation for the current project rather than copying historical pages verbatim.
 
 For recipes and item availability on a specific server, **the in-game Slimefun Guide is authoritative** because server owners can disable content and addons can add or modify categories.
 
