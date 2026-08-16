@@ -32,9 +32,27 @@ jobs:
       - name: Apply Gravity Well tuning
         run: python3 scripts/one_shot_gravity_well_tune.py
 
-      - name: Verify formatting
+      - name: Format intended source without unrelated churn
+        shell: bash
         run: |
+          set -euo pipefail
           chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon
+
+          while IFS= read -r path; do
+            case "$path" in
+              src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusRuntime.java|\
+              src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusEffect.java|\
+              src/test/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusEffectTest.java|\
+              scripts/one_shot_gravity_well_tune.py|\
+              .github/workflows/one-shot-gravity-well-tune.yml)
+                ;;
+              *)
+                git checkout HEAD -- "$path"
+                ;;
+            esac
+          done < <(git diff --name-only)
+
           ./gradlew spotlessCheck --no-daemon
           git diff --check
 
