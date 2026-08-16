@@ -44,10 +44,12 @@ final class BeaconPlusPowerState {
         POWERED_BEACONS.put(
                 BeaconKey.from(block.getLocation()),
                 new PoweredBeacon(System.currentTimeMillis(), EnumSet.copyOf(effects), area, power));
+        BeaconPlusBeam.markPowered(block);
     }
 
     static void markUnpowered(Location location) {
         POWERED_BEACONS.remove(BeaconKey.from(location));
+        BeaconPlusBeam.markUnpowered(location);
     }
 
     static boolean hasPoweredEffect(Location target, BeaconPlusEffect effect) {
