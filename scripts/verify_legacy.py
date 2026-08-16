@@ -92,6 +92,7 @@ def main() -> int:
         "verify_paper_purpur_compat.py",
         "verify_core_correctness.py",
         "verify_adventurers_curios.py",
+        "verify_beacon_plus_area_preview.py",
         "verify_compatibility_round2.py",
         "verify_compatibility_foundation.py",
         "check_dependency_boundaries.py",
