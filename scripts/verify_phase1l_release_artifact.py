@@ -128,7 +128,8 @@ def main() -> int:
             "SOURCE_DATE_EPOCH=",
             "verify_release_artifact.py",
             "Verify release artifact metadata and packaging",
-            "Slimefun-English-Albion",
+            "OUTPUT_NAME=Slimefun-Legacy${VERSION}.jar",
+            "dist/${OUTPUT_NAME}",
         ):
             require(token in primary_workflow, f"Primary build artifact-verification invariant missing: {token}", failures)
 
@@ -146,7 +147,8 @@ def main() -> int:
             "Require byte-for-byte reproducibility",
             "sha256sum",
             "cmp \"$RUNNER_TEMP/Slimefun-first.jar\" \"$RUNNER_TEMP/Slimefun-second.jar\"",
-            "Slimefun-Reproducible-Release-Candidate",
+            "Slimefun-Legacy${{ env.LEGACY_ARTIFACT_VERSION }}-reproducible",
+            "dist/${{ env.OUTPUT_NAME }}",
         ):
             require(token in release_workflow, f"Reproducible release workflow invariant missing: {token}", failures)
 
