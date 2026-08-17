@@ -248,7 +248,7 @@ public abstract class AContainer extends SlimefunItem
      * @param energyConsumption
      *            The energy consumed per tick
      *
-     * @return This method will return the current instance of {@link AContainer}, so that can be chained.
+     * @return This method will return the current instance of this {@link AContainer}, so that can be chained.
      */
     public final AContainer setEnergyConsumption(int energyConsumption) {
         Validate.isTrue(energyConsumption > 0, "The energy consumption must be greater than zero!");
@@ -393,6 +393,10 @@ public abstract class AContainer extends SlimefunItem
 
         if (currentOperation != null) {
             if (!currentOperation.isFinished()) {
+                if (!canProgressOperation(inv, currentOperation)) {
+                    return;
+                }
+
                 if (takeCharge(b.getLocation())) {
                     processor.updateProgressBar(inv, 22, currentOperation);
                     currentOperation.addProgress(1);
@@ -405,6 +409,10 @@ public abstract class AContainer extends SlimefunItem
                     .fitAll(inv.toInventory(), results, InventoryContext.MACHINE_OUTPUT, getOutputSlots())) {
                 // Preserve the completed operation without charging another tick until every
                 // result can be committed. This prevents output loss when cargo fills the slots.
+                return;
+            }
+
+            if (!commitOperationInputs(inv, currentOperation)) {
                 return;
             }
 
@@ -433,6 +441,16 @@ public abstract class AContainer extends SlimefunItem
             // Fixes #3534 - Update indicator immediately
             processor.updateProgressBar(inv, 22, currentOperation);
         }
+    }
+
+    @ParametersAreNonnullByDefault
+    protected boolean canProgressOperation(BlockMenu menu, CraftingOperation operation) {
+        return true;
+    }
+
+    @ParametersAreNonnullByDefault
+    protected boolean commitOperationInputs(BlockMenu menu, CraftingOperation operation) {
+        return true;
     }
 
     /**

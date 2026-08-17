@@ -34,16 +34,16 @@ final class EnchantmentMachineRuntime {
         return copy;
     }
 
-    static boolean consumeOneEachIfUnchanged(
+    private static @Nullable boolean[] matchInputSlots(
             @Nonnull BlockMenu menu, @Nonnull int[] slots, @Nonnull ItemStack[] expectedInputs) {
         if (slots.length != expectedInputs.length || slots.length == 0) {
-            return false;
+            return null;
         }
 
         boolean[] matchedSlots = new boolean[slots.length];
         for (ItemStack expected : expectedInputs) {
             if (expected == null || expected.getType().isAir()) {
-                return false;
+                return null;
             }
 
             boolean matched = false;
@@ -64,14 +64,28 @@ final class EnchantmentMachineRuntime {
             }
 
             if (!matched) {
-                return false;
+                return null;
             }
         }
 
-        for (int index = 0; index < slots.length; index++) {
-            if (!matchedSlots[index]) {
-                return false;
+        for (boolean matched : matchedSlots) {
+            if (!matched) {
+                return null;
             }
+        }
+
+        return matchedSlots;
+    }
+
+    static boolean inputsMatchSnapshots(
+            @Nonnull BlockMenu menu, @Nonnull int[] slots, @Nonnull ItemStack[] expectedInputs) {
+        return matchInputSlots(menu, slots, expectedInputs) != null;
+    }
+
+    static boolean consumeOneEachIfUnchanged(
+            @Nonnull BlockMenu menu, @Nonnull int[] slots, @Nonnull ItemStack[] expectedInputs) {
+        if (matchInputSlots(menu, slots, expectedInputs) == null) {
+            return false;
         }
 
         for (int slot : slots) {
