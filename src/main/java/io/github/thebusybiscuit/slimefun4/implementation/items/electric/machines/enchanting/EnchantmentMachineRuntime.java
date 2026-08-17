@@ -41,15 +41,12 @@ final class EnchantmentMachineRuntime {
 
     static boolean consumeOneEachIfUnchanged(
             @Nonnull BlockMenu menu, @Nonnull int[] slots, @Nonnull ItemStack[] expectedInputs) {
-        boolean[] matchedSlots = matchInputSlots(menu, slots, expectedInputs);
-        if (matchedSlots == null) {
+        if (matchInputSlots(menu, slots, expectedInputs) == null) {
             return false;
         }
 
-        for (int index = 0; index < slots.length; index++) {
-            if (matchedSlots[index]) {
-                menu.consumeItem(slots[index], 1);
-            }
+        for (int slot : slots) {
+            menu.consumeItem(slot, 1);
         }
         return true;
     }
