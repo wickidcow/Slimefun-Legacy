@@ -69,22 +69,6 @@ abstract class AbstractEnchantmentMachine extends AContainer {
         return valid;
     }
 
-    @Override
-    @ParametersAreNonnullByDefault
-    protected boolean commitOperationInputs(BlockMenu menu, CraftingOperation operation) {
-        boolean consumed = EnchantmentMachineRuntime.consumeOneEachIfUnchanged(
-                menu, getInputSlots(), operation.getIngredients());
-        if (!consumed) {
-            EnchantmentMachineRuntime.status(
-                    menu,
-                    Material.BARRIER,
-                    "&eCompletion paused",
-                    "&7The original item and book must still",
-                    "&7be present before outputs can be created.");
-        }
-        return consumed;
-    }
-
     protected boolean isEnchantmentLevelAllowed(int enchantmentLevel) {
         return !useLevelLimit.getValue() || levelLimit.getValue() >= enchantmentLevel;
     }
