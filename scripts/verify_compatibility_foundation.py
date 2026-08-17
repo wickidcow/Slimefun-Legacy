@@ -45,11 +45,7 @@ def main() -> int:
     require("folia-supported: true" in plugin, "plugin.yml must retain Folia declaration", failures)
     require(contract["plugin_descriptor"]["api_version_is_support_floor"] is False, "descriptor api-version must not be represented as support floor", failures)
     require(contract["compatibility_policy"]["database_format_changed"] is False, f"{release} must not change database format", failures)
-    require(
-        type(gameplay_changed) is bool,
-        f"{release} must explicitly declare whether gameplay behavior changed",
-        failures,
-    )
+    require(type(gameplay_changed) is bool, f"{release} must explicitly declare whether gameplay behavior changed", failures)
     require("Compatibility Foundation" in readme, "README does not describe Compatibility Foundation", failures)
     require(
         f"Paper {paper_release}" in readme and f"Minecraft {minecraft_release}" in readme,
@@ -62,8 +58,8 @@ def main() -> int:
         failures,
     )
     require(
-        "SF_Slimefun_Legacy_v${LEGACY_ARTIFACT_VERSION}.jar" in build_ci,
-        "Build CI does not stage the versioned Slimefun Legacy JAR",
+        "Slimefun-Legacy${VERSION}.jar" in build_ci and "dist/${OUTPUT_NAME}" in build_ci,
+        "Build CI does not stage the standardized versioned Slimefun Legacy JAR",
         failures,
     )
     require(
