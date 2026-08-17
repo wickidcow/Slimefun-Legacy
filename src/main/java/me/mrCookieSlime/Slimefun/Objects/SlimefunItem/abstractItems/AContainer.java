@@ -47,24 +47,10 @@ import org.bukkit.inventory.ItemStack;
 public abstract class AContainer extends SlimefunItem
         implements InventoryBlock, EnergyNetComponent, MachineProcessHolder<CraftingOperation> {
 
-    /**
-     * The border slots for the menu layout.
-     */
     private static final int[] BORDER = {0, 1, 2, 3, 4, 5, 6, 7, 8, 13, 31, 36, 37, 38, 39, 40, 41, 42, 43, 44};
-
-    /**
-     * The input border slots for the menu layout.
-     */
     private static final int[] BORDER_IN = {9, 10, 11, 12, 18, 21, 27, 28, 29, 30};
-
-    /**
-     * The output border slots for the menu layout.
-     */
     private static final int[] BORDER_OUT = {14, 15, 16, 17, 23, 26, 32, 33, 34, 35};
 
-    /**
-     * The list of registered machine recipes.
-     */
     protected final List<MachineRecipe> recipes = new ArrayList<>();
 
     private final MachineProcessor<CraftingOperation> processor = new MachineProcessor<>(this);
@@ -82,23 +68,19 @@ public abstract class AContainer extends SlimefunItem
 
         processor.setProgressBar(getProgressBar());
         createPreset(this, getInventoryTitle(), this::constructMenu);
-
         addItemHandler(onBlockBreak());
     }
 
     @Nonnull
     protected BlockBreakHandler onBlockBreak() {
         return new SimpleBlockBreakHandler() {
-
             @Override
             public void onBlockBreak(Block b) {
                 BlockMenu inv = StorageCacheUtils.getMenu(b.getLocation());
-
                 if (inv != null) {
                     inv.dropItems(b.getLocation(), getInputSlots());
                     inv.dropItems(b.getLocation(), getOutputSlots());
                 }
-
                 processor.endOperation(b);
             }
         };
@@ -124,11 +106,9 @@ public abstract class AContainer extends SlimefunItem
         for (int i : BORDER) {
             preset.addItem(i, ChestMenuUtils.getBackground(), ChestMenuUtils.getEmptyClickHandler());
         }
-
         for (int i : BORDER_IN) {
             preset.addItem(i, ChestMenuUtils.getInputSlotTexture(), ChestMenuUtils.getEmptyClickHandler());
         }
-
         for (int i : BORDER_OUT) {
             preset.addItem(i, ChestMenuUtils.getOutputSlotTexture(), ChestMenuUtils.getEmptyClickHandler());
         }
@@ -138,7 +118,6 @@ public abstract class AContainer extends SlimefunItem
 
         for (int i : getOutputSlots()) {
             preset.addMenuClickHandler(i, new AdvancedMenuClickHandler() {
-
                 @Override
                 public boolean onClick(Player p, int slot, ItemStack cursor, ClickAction action) {
                     return false;
@@ -153,110 +132,47 @@ public abstract class AContainer extends SlimefunItem
         }
     }
 
-    /**
-     * This method returns the title that is used for the {@link Inventory} of an
-     * {@link AContainer} that has been opened by a Player.
-     *
-     * Override this method to set the title.
-     *
-     * @return The title of the {@link Inventory} of this {@link AContainer}
-     */
     @Nonnull
     public String getInventoryTitle() {
         return getItemName();
     }
 
-    /**
-     * This method returns the {@link ItemStack} that this {@link AContainer} will
-     * use as a progress bar.
-     *
-     * Override this method to set the progress bar.
-     *
-     * @return The {@link ItemStack} to use as the progress bar
-     */
     public abstract ItemStack getProgressBar();
 
-    /**
-     * This method returns the max amount of electricity this machine can hold.
-     *
-     * @return The max amount of electricity this Block can store.
-     */
     @Override
     public int getCapacity() {
         return energyCapacity;
     }
 
-    /**
-     * This method returns the amount of energy that is consumed per operation.
-     *
-     * @return The rate of energy consumption
-     */
     public int getEnergyConsumption() {
         return energyConsumedPerTick;
     }
 
-    /**
-     * This method returns the speed at which this machine will operate.
-     * This can be implemented on an instantiation-level to create different tiers
-     * of machines.
-     *
-     * @return The speed of this machine
-     */
     public int getSpeed() {
         return processingSpeed;
     }
 
-    /**
-     * This sets the energy capacity for this machine.
-     * This method <strong>must</strong> be called before registering the item
-     * and only before registering.
-     *
-     * @param capacity
-     *            The amount of energy this machine can store
-     *
-     * @return This method will return the current instance of {@link AContainer}, so that can be chained.
-     */
     public final AContainer setCapacity(int capacity) {
         Validate.isTrue(capacity > 0, "The capacity must be greater than zero!");
-
         if (getState() == ItemState.UNREGISTERED) {
             this.energyCapacity = capacity;
             return this;
-        } else {
-            throw new IllegalStateException("You cannot modify the capacity after the Item was registered.");
         }
+        throw new IllegalStateException("You cannot modify the capacity after the Item was registered.");
     }
 
-    /**
-     * This sets the speed of this machine.
-     *
-     * @param speed
-     *            The speed multiplier for this machine, must be above zero
-     *
-     * @return This method will return the current instance of {@link AContainer}, so that can be chained.
-     */
     public final AContainer setProcessingSpeed(int speed) {
         Validate.isTrue(speed > 0, "The speed must be greater than zero!");
-
         this.processingSpeed = speed;
         return this;
     }
 
-    /**
-     * This method sets the energy consumed by this machine per tick.
-     *
-     * @param energyConsumption
-     *            The energy consumed per tick
-     *
-     * @return This method will return the current instance of {@link AContainer}, so that can be chained.
-     */
     public final AContainer setEnergyConsumption(int energyConsumption) {
         Validate.isTrue(energyConsumption > 0, "The energy consumption must be greater than zero!");
         Validate.isTrue(energyCapacity > 0, "You must specify the capacity before you can set the consumption amount.");
         Validate.isTrue(
                 energyConsumption <= energyCapacity,
                 "The energy consumption cannot be higher than the capacity (" + energyCapacity + ')');
-
         this.energyConsumedPerTick = energyConsumption;
         return this;
     }
@@ -264,50 +180,29 @@ public abstract class AContainer extends SlimefunItem
     @Override
     public void register(@Nonnull SlimefunAddon addon) {
         this.addon = addon;
-
         if (getCapacity() <= 0) {
             warn("The capacity has not been configured correctly. The Item was disabled.");
             warn("Make sure to call '" + getClass().getSimpleName() + "#setEnergyCapacity(...)' before registering!");
         }
-
         if (getEnergyConsumption() <= 0) {
             warn("The energy consumption has not been configured correctly. The Item was disabled.");
             warn("Make sure to call '"
                     + getClass().getSimpleName()
                     + "#setEnergyConsumption(...)' before registering!");
         }
-
         if (getSpeed() <= 0) {
             warn("The processing speed has not been configured correctly. The Item was disabled.");
             warn("Make sure to call '" + getClass().getSimpleName() + "#setProcessingSpeed(...)' before registering!");
         }
-
         if (getCapacity() > 0 && getEnergyConsumption() > 0 && getSpeed() > 0) {
             super.register(addon);
         }
     }
 
-    /**
-     * This method returns an internal identifier that is used to identify this {@link AContainer}
-     * and its recipes.
-     *
-     * When adding recipes to an {@link AContainer} we will use this identifier to
-     * identify all instances of the same {@link AContainer}.
-     * This way we can add the recipes to all instances of the same machine.
-     *
-     * <strong>This method will be deprecated and replaced in the future</strong>
-     *
-     * @return The identifier of this machine
-     */
     @Nonnull
     public abstract String getMachineIdentifier();
 
-    /**
-     * This method registers all default recipes for this machine.
-     */
-    protected void registerDefaultRecipes() {
-        // Override this method to register your machine recipes
-    }
+    protected void registerDefaultRecipes() {}
 
     public List<MachineRecipe> getMachineRecipes() {
         return recipes;
@@ -315,16 +210,13 @@ public abstract class AContainer extends SlimefunItem
 
     public List<ItemStack> getDisplayRecipes() {
         List<ItemStack> displayRecipes = new ArrayList<>(recipes.size() * 2);
-
         for (MachineRecipe recipe : recipes) {
             if (recipe.getInput().length != 1) {
                 continue;
             }
-
             displayRecipes.add(recipe.getInput()[0]);
             displayRecipes.add(recipe.getOutput()[0]);
         }
-
         return displayRecipes;
     }
 
@@ -359,12 +251,10 @@ public abstract class AContainer extends SlimefunItem
     @Override
     public void preRegister() {
         addItemHandler(new BlockTicker() {
-
             @Override
             public void tick(Block b, SlimefunItem sf, SlimefunBlockData data) {
                 TickContext previous = tickContext.get();
                 tickContext.set(new TickContext(b.getLocation(), data));
-
                 try {
                     AContainer.this.tick(b);
                 } finally {
@@ -390,9 +280,11 @@ public abstract class AContainer extends SlimefunItem
         }
 
         CraftingOperation currentOperation = processor.getOperation(b);
-
         if (currentOperation != null) {
             if (!currentOperation.isFinished()) {
+                if (!canProgressOperation(inv, currentOperation)) {
+                    return;
+                }
                 if (takeCharge(b.getLocation())) {
                     processor.updateProgressBar(inv, 22, currentOperation);
                     currentOperation.addProgress(1);
@@ -403,8 +295,9 @@ public abstract class AContainer extends SlimefunItem
             ItemStack[] results = currentOperation.getResults();
             if (!Slimefun.getItemStackService()
                     .fitAll(inv.toInventory(), results, InventoryContext.MACHINE_OUTPUT, getOutputSlots())) {
-                // Preserve the completed operation without charging another tick until every
-                // result can be committed. This prevents output loss when cargo fills the slots.
+                return;
+            }
+            if (!commitOperationInputs(inv, currentOperation)) {
                 return;
             }
 
@@ -425,26 +318,33 @@ public abstract class AContainer extends SlimefunItem
         }
 
         MachineRecipe next = findNextRecipe(inv);
-
         if (next != null) {
             currentOperation = new CraftingOperation(next);
             processor.startOperation(b, currentOperation);
-
-            // Fixes #3534 - Update indicator immediately
             processor.updateProgressBar(inv, 22, currentOperation);
         }
     }
 
     /**
-     * This method will remove charge from a location if it is chargeable.
-     *
-     * @param l
-     *            location to try to remove charge from
-     * @return Whether charge was taken if its chargeable
+     * Hook for machines that keep their operation inputs in inventory while processing.
+     * Returning false pauses progress without consuming energy.
      */
+    @ParametersAreNonnullByDefault
+    protected boolean canProgressOperation(BlockMenu menu, CraftingOperation operation) {
+        return true;
+    }
+
+    /**
+     * Hook for machines that defer input consumption until their finished outputs are ready to commit.
+     * Returning false keeps the completed operation pending without producing outputs.
+     */
+    @ParametersAreNonnullByDefault
+    protected boolean commitOperationInputs(BlockMenu menu, CraftingOperation operation) {
+        return true;
+    }
+
     protected boolean takeCharge(@Nonnull Location l) {
         Validate.notNull(l, "Can't attempt to take charge from a null location!");
-
         if (!isChargeable()) {
             return true;
         }
@@ -458,12 +358,10 @@ public abstract class AContainer extends SlimefunItem
         if (data == null || data.isPendingRemove()) {
             return false;
         }
-
         if (!data.isDataLoaded()) {
             StorageCacheUtils.requestLoad(data);
             return false;
         }
-
         return takeCharge(l, data);
     }
 
@@ -471,7 +369,6 @@ public abstract class AContainer extends SlimefunItem
         if (data.isPendingRemove()) {
             return false;
         }
-
         if (!data.isDataLoaded()) {
             StorageCacheUtils.requestLoad(data);
             return false;
@@ -481,31 +378,26 @@ public abstract class AContainer extends SlimefunItem
         if (charge < getEnergyConsumption()) {
             return false;
         }
-
         setCharge(l, charge - getEnergyConsumption(), data);
         return true;
     }
 
     protected MachineRecipe findNextRecipe(BlockMenu inv) {
         Map<Integer, ItemStack> inventory = new HashMap<>();
-
         for (int slot : getInputSlots()) {
             ItemStack item = inv.getItemInSlot(slot);
-
             if (item != null) {
                 inventory.put(slot, ItemStackWrapper.wrap(item));
             }
         }
 
         Map<Integer, Integer> found = new HashMap<>();
-
         for (MachineRecipe recipe : recipes) {
             for (ItemStack input : recipe.getInput()) {
                 for (int slot : getInputSlots()) {
                     if (found.containsKey(slot)) {
                         continue;
                     }
-
                     if (Slimefun.getItemStackService()
                             .isSimilar(inventory.get(slot), input, MatchContext.RECIPE_INPUT, true, true)) {
                         found.put(slot, input.getAmount());
@@ -523,17 +415,13 @@ public abstract class AContainer extends SlimefunItem
                                 getOutputSlots())) {
                     return null;
                 }
-
                 for (Map.Entry<Integer, Integer> entry : found.entrySet()) {
                     inv.consumeItem(entry.getKey(), entry.getValue());
                 }
-
                 return recipe;
-            } else {
-                found.clear();
             }
+            found.clear();
         }
-
         return null;
     }
 
