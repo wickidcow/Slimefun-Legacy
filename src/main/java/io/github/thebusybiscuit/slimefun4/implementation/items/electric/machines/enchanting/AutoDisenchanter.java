@@ -223,10 +223,10 @@ public class AutoDisenchanter extends AbstractEnchantmentMachine {
             return null;
         }
 
-        if (!EnchantmentMachineRuntime.consumeOneEachIfUnchanged(
+        if (!EnchantmentMachineRuntime.inputsMatchSnapshots(
                 menu, getInputSlots(), new ItemStack[] {item, book})) {
             EnchantmentMachineRuntime.status(
-                    menu, Material.BARRIER, "&cInputs changed", "&7The operation was cancelled before consumption.");
+                    menu, Material.BARRIER, "&cInputs changed", "&7The operation was cancelled before processing.");
             return null;
         }
         return recipe;
