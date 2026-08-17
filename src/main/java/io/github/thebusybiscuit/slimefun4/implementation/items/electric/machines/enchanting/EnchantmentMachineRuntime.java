@@ -34,16 +34,36 @@ final class EnchantmentMachineRuntime {
         return copy;
     }
 
+    static boolean inputsMatchSnapshots(
+            @Nonnull BlockMenu menu, @Nonnull int[] slots, @Nonnull ItemStack[] expectedInputs) {
+        return matchInputSlots(menu, slots, expectedInputs) != null;
+    }
+
     static boolean consumeOneEachIfUnchanged(
             @Nonnull BlockMenu menu, @Nonnull int[] slots, @Nonnull ItemStack[] expectedInputs) {
-        if (slots.length != expectedInputs.length || slots.length == 0) {
+        boolean[] matchedSlots = matchInputSlots(menu, slots, expectedInputs);
+        if (matchedSlots == null) {
             return false;
+        }
+
+        for (int index = 0; index < slots.length; index++) {
+            if (matchedSlots[index]) {
+                menu.consumeItem(slots[index], 1);
+            }
+        }
+        return true;
+    }
+
+    private static @Nullable boolean[] matchInputSlots(
+            @Nonnull BlockMenu menu, @Nonnull int[] slots, @Nonnull ItemStack[] expectedInputs) {
+        if (slots.length != expectedInputs.length || slots.length == 0) {
+            return null;
         }
 
         boolean[] matchedSlots = new boolean[slots.length];
         for (ItemStack expected : expectedInputs) {
             if (expected == null || expected.getType().isAir()) {
-                return false;
+                return null;
             }
 
             boolean matched = false;
@@ -64,20 +84,17 @@ final class EnchantmentMachineRuntime {
             }
 
             if (!matched) {
-                return false;
+                return null;
             }
         }
 
-        for (int index = 0; index < slots.length; index++) {
-            if (!matchedSlots[index]) {
-                return false;
+        for (boolean matched : matchedSlots) {
+            if (!matched) {
+                return null;
             }
         }
 
-        for (int slot : slots) {
-            menu.consumeItem(slot, 1);
-        }
-        return true;
+        return matchedSlots;
     }
 
     static void status(
