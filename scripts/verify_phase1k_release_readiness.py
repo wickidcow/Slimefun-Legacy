@@ -110,7 +110,8 @@ def main() -> int:
             "python3 scripts/verify_legacy.py .",
             "./gradlew clean build --no-daemon",
             "--expected-java 21",
-            "name: Slimefun-English-Albion",
+            "OUTPUT_NAME=Slimefun-Legacy${VERSION}.jar",
+            "dist/${OUTPUT_NAME}",
         ):
             require(token in build_workflow, f"Primary build workflow invariant missing: {token}", failures)
 
