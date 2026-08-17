@@ -7,6 +7,7 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.virtual.VirtualItemHandler.InventoryContext;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.implementation.operations.CraftingOperation;
 import io.github.thebusybiscuit.slimefun4.integrations.AdvancedEnchantmentsIntegration;
 import java.util.Collections;
 import java.util.HashMap;
@@ -230,6 +231,22 @@ public class AutoDisenchanter extends AbstractEnchantmentMachine {
             return null;
         }
         return recipe;
+    }
+
+    @Override
+    @ParametersAreNonnullByDefault
+    protected boolean commitOperationInputs(BlockMenu menu, CraftingOperation operation) {
+        boolean consumed = EnchantmentMachineRuntime.consumeOneEachIfUnchanged(
+                menu, getInputSlots(), operation.getIngredients());
+        if (!consumed) {
+            EnchantmentMachineRuntime.status(
+                    menu,
+                    Material.BARRIER,
+                    "&eCompletion paused",
+                    "&7The original item and book must still",
+                    "&7be present before outputs can be created.");
+        }
+        return consumed;
     }
 
     @ParametersAreNonnullByDefault
