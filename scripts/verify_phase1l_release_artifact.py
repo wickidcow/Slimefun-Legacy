@@ -147,7 +147,8 @@ def main() -> int:
             "Require byte-for-byte reproducibility",
             "sha256sum",
             "cmp \"$RUNNER_TEMP/Slimefun-first.jar\" \"$RUNNER_TEMP/Slimefun-second.jar\"",
-            "Slimefun-Legacy${{ env.LEGACY_ARTIFACT_VERSION }}-reproducible",
+            "Upload raw reproducible JAR artifact",
+            "archive: false",
             "dist/${{ env.OUTPUT_NAME }}",
         ):
             require(token in release_workflow, f"Reproducible release workflow invariant missing: {token}", failures)
