@@ -21,11 +21,13 @@ import me.mrCookieSlime.Slimefun.api.inventory.DirtyChestMenu;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event.Result;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
@@ -45,6 +47,37 @@ public class SlimefunItemInteractListener implements Listener {
 
     public SlimefunItemInteractListener(@Nonnull Slimefun plugin) {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
+    }
+
+    /**
+     * Invisible item frames can sit directly in front of storage blocks as labels.
+     * Right-clicking one fires an entity interaction rather than the block interaction
+     * Slimefun normally uses to open a BlockMenu. Forward that interaction to the
+     * attached Slimefun inventory while leaving normal visible item frames untouched.
+     */
+    @EventHandler(ignoreCancelled = true)
+    public void onInvisibleItemFrameRightClick(PlayerInteractEntityEvent e) {
+        if (e.getHand() != EquipmentSlot.HAND
+                || !(e.getRightClicked() instanceof ItemFrame frame)
+                || frame.isVisible()) {
+            return;
+        }
+
+        Block attachedBlock = frame.getLocation().getBlock().getRelative(frame.getAttachedFace());
+        SlimefunItem sfItem = StorageCacheUtils.getSlimefunItem(attachedBlock.getLocation());
+
+        if (sfItem == null || !BlockMenuPreset.isInventory(sfItem.getId())) {
+            return;
+        }
+
+        // Do not let the item-frame interaction fall through to the vanilla container.
+        e.setCancelled(true);
+
+        if (StorageCacheUtils.isBlockPendingRemove(attachedBlock) || !sfItem.canUse(e.getPlayer(), true)) {
+            return;
+        }
+
+        openInventory(e.getPlayer(), sfItem, attachedBlock);
     }
 
     @EventHandler
@@ -140,76 +173,80 @@ public class SlimefunItemInteractListener implements Listener {
 
     @ParametersAreNonnullByDefault
     private void openInventory(Player p, SlimefunItem item, Block clickedBlock, PlayerRightClickEvent event) {
+        if (!p.isSneaking() || event.getItem().getType() == Material.AIR) {
+            event.getInteractEvent().setCancelled(true);
+            openInventory(p, item, clickedBlock);
+        }
+    }
+
+    @ParametersAreNonnullByDefault
+    private void openInventory(Player p, SlimefunItem item, Block clickedBlock) {
         try {
-            if (!p.isSneaking() || event.getItem().getType() == Material.AIR) {
-                event.getInteractEvent().setCancelled(true);
+            if (!(item instanceof UniversalBlock)) {
+                var blockData = StorageCacheUtils.getBlock(clickedBlock.getLocation());
 
-                if (!(item instanceof UniversalBlock)) {
-                    var blockData = StorageCacheUtils.getBlock(clickedBlock.getLocation());
+                if (blockData == null) {
+                    return;
+                }
 
-                    if (blockData == null) {
-                        return;
-                    }
-
-                    if (blockData.isDataLoaded()) {
-                        openMenu(blockData.getBlockMenu(), clickedBlock, p);
-                    } else {
-                        Slimefun.getDatabaseManager()
-                                .getBlockDataController()
-                                .loadBlockDataAsync(blockData, new IAsyncReadCallback<>() {
-                                    @Override
-                                    public boolean runOnMainThread() {
-                                        return true;
-                                    }
-
-                                    @Override
-                                    public void onResult(SlimefunBlockData result) {
-                                        if (!p.isOnline()) {
-                                            return;
-                                        }
-
-                                        openMenu(result.getBlockMenu(), clickedBlock, p);
-                                    }
-                                });
-                    }
+                if (blockData.isDataLoaded()) {
+                    openMenu(blockData.getBlockMenu(), clickedBlock, p);
                 } else {
-                    var uniData = StorageCacheUtils.getUniversalBlock(clickedBlock);
+                    Slimefun.getDatabaseManager()
+                            .getBlockDataController()
+                            .loadBlockDataAsync(blockData, new IAsyncReadCallback<>() {
+                                @Override
+                                public boolean runOnMainThread() {
+                                    return true;
+                                }
 
-                    if (uniData == null) {
-                        return;
-                    }
-
-                    // Fix: on some case universal block may lose its location info
-                    // We added a manual patch by identify its pdc info to fix it.
-                    if (uniData.getData(UniversalDataTrait.BLOCK.getReservedKey()) == null) {
-                        uniData.setLastPresent(clickedBlock.getLocation());
-
-                        if (item.isTicking()) {
-                            Slimefun.getTickerTask().enableTicker(clickedBlock.getLocation(), uniData.getUUID());
-                        }
-                    }
-
-                    if (uniData.isDataLoaded()) {
-                        openMenu(uniData.getMenu(), clickedBlock, p);
-                    } else {
-                        Slimefun.getDatabaseManager()
-                                .getBlockDataController()
-                                .loadUniversalDataAsync(uniData, new IAsyncReadCallback<>() {
-                                    @Override
-                                    public boolean runOnMainThread() {
-                                        return true;
+                                @Override
+                                public void onResult(SlimefunBlockData result) {
+                                    if (!p.isOnline()) {
+                                        return;
                                     }
 
-                                    @Override
-                                    public void onResult(SlimefunUniversalData result) {
-                                        if (!p.isOnline()) {
-                                            return;
-                                        }
+                                    openMenu(result.getBlockMenu(), clickedBlock, p);
+                                }
+                            });
+                }
+            } else {
+                var uniData = StorageCacheUtils.getUniversalBlock(clickedBlock);
 
-                                        openMenu(result.getMenu(), clickedBlock, p);
-                                    }
-                                });
+                if (uniData == null) {
+                    return;
+                }
+
+                // Fix: on some case universal block may lose its location info
+                // We added a manual patch by identify its pdc info to fix it.
+                if (uniData.getData(UniversalDataTrait.BLOCK.getReservedKey()) == null) {
+                    uniData.setLastPresent(clickedBlock.getLocation());
+
+                    if (item.isTicking()) {
+                        Slimefun.getTickerTask().enableTicker(clickedBlock.getLocation(), uniData.getUUID());
                     }
+                }
+
+                if (uniData.isDataLoaded()) {
+                    openMenu(uniData.getMenu(), clickedBlock, p);
+                } else {
+                    Slimefun.getDatabaseManager()
+                            .getBlockDataController()
+                            .loadUniversalDataAsync(uniData, new IAsyncReadCallback<>() {
+                                @Override
+                                public boolean runOnMainThread() {
+                                    return true;
+                                }
+
+                                @Override
+                                public void onResult(SlimefunUniversalData result) {
+                                    if (!p.isOnline()) {
+                                        return;
+                                    }
+
+                                    openMenu(result.getMenu(), clickedBlock, p);
+                                }
+                            });
                 }
             }
         } catch (Exception | LinkageError x) {
