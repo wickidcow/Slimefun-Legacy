@@ -4,7 +4,7 @@ enabled: true
 
 titles:
   survival: "&2&lSlimefun Legacy Guide"
-  cheat: "&c&lSlimefun Legacy Guide &4(Cheat Mode)"
+  cheat: "&c&lSlimefun Guide &4(Cheat Mode)"
   search: "&2&lSearch &8- &f%query%"
   bookmarks: "&6&lBookmarked Items"
 

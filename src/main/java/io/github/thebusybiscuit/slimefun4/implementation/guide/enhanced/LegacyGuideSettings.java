@@ -21,6 +21,8 @@ public final class LegacyGuideSettings {
     private static final List<String> DEFAULT_SEARCH = DEFAULT_GROUP;
     private static final List<String> DEFAULT_BOOKMARKS =
             List.of("BbBBBBRSB", "iiiiiiiii", "iiiiiiiii", "iiiiiiiii", "iiiiiiiii", "BPBBBBBNB");
+    private static final String OLD_DEFAULT_CHEAT_TITLE = "&c&lSlimefun Legacy Guide &4(Cheat Mode)";
+    private static final String DEFAULT_CHEAT_TITLE = "&c&lSlimefun Guide &4(Cheat Mode)";
 
     private static LegacyGuideSettings instance;
 
@@ -80,7 +82,13 @@ public final class LegacyGuideSettings {
         recipeFillMaximumMissingLines =
                 clamp(config.getInt("features.recipe-fill.missing-report.maximum-lore-lines", 4), 1, 8);
         survivalTitle = color(config.getString("titles.survival", "&2&lSlimefun Legacy Guide"));
-        cheatTitle = color(config.getString("titles.cheat", "&c&lSlimefun Legacy Guide &4(Cheat Mode)"));
+
+        String configuredCheatTitle = config.getString("titles.cheat", DEFAULT_CHEAT_TITLE);
+        if (OLD_DEFAULT_CHEAT_TITLE.equals(configuredCheatTitle)) {
+            configuredCheatTitle = DEFAULT_CHEAT_TITLE;
+        }
+        cheatTitle = color(configuredCheatTitle);
+
         searchTitle = color(config.getString("titles.search", "&2&lSearch &8- &f%query%"));
         bookmarksTitle = color(config.getString("titles.bookmarks", "&6&lBookmarked Items"));
         mainFormat = validate(config.getStringList("format.main"), DEFAULT_MAIN);

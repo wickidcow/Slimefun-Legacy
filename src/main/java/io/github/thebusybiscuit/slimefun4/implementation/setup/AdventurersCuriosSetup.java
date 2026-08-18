@@ -15,6 +15,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.curios.Expedition
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.ExplorersSpyglass;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.MinersCanary;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.StormGlass;
+import io.github.thebusybiscuit.slimefun4.implementation.items.curios.TravelersBedroll;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.WayfindersCompass;
 import java.util.List;
 import org.bukkit.ChatColor;
@@ -118,6 +119,16 @@ final class AdventurersCuriosSetup {
                 "",
                 "&eRight Click &7to record the current biome",
                 "&eSneak & Right Click &7for recent discoveries");
+
+        SlimefunItemStack travelersBedroll = new SlimefunItemStack(
+                "ADVENTURERS_TRAVELERS_BEDROLL",
+                Material.RED_BED,
+                "&6Traveler's Bedroll",
+                "&7A portable bed for long expeditions.",
+                "&7Sleeping here does not replace your saved bed spawn.",
+                "",
+                "&ePlace and sleep &7like a normal bed",
+                "&8Your /home bed location stays unchanged");
 
         SlimefunItemStack beaconPlus = new SlimefunItemStack(
                 "BEACON_PLUS",
@@ -316,6 +327,19 @@ final class AdventurersCuriosSetup {
                     null,
                     new ItemStack(Material.AMETHYST_SHARD),
                     null
+                })
+                .register(plugin);
+
+        new TravelersBedroll(fieldCuriosities, travelersBedroll, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                    new ItemStack(Material.STRING),
+                    new ItemStack(Material.WHITE_WOOL),
+                    new ItemStack(Material.STRING),
+                    new ItemStack(Material.LEATHER),
+                    new ItemStack(Material.RED_BED),
+                    new ItemStack(Material.LEATHER),
+                    new ItemStack(Material.STRING),
+                    new ItemStack(Material.WHITE_WOOL),
+                    new ItemStack(Material.STRING)
                 })
                 .register(plugin);
 
