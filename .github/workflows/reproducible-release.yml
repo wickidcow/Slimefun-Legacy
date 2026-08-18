@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   release-artifact:
@@ -71,15 +71,16 @@ jobs:
           cp "$RUNNER_TEMP/first.sha256" "$RUNNER_TEMP/second.sha256" "$RUNNER_TEMP/bytecode-first.txt" "$RUNNER_TEMP/bytecode-second.txt" build/release-verification/
           cp "$RUNNER_TEMP/release-artifact-first.json" "$RUNNER_TEMP/release-artifact-first.md" "$RUNNER_TEMP/release-artifact-second.json" "$RUNNER_TEMP/release-artifact-second.md" build/release-verification/
           printf '# Reproducible release verification\n\n- Source: `%s`\n- SHA-256: `%s`\n- Result: **PASS — byte-for-byte identical**\n' "$GITHUB_SHA" "$FIRST_SHA" | tee build/release-verification/reproducible-release.md >> "$GITHUB_STEP_SUMMARY"
-      - name: Upload reproducible JAR artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: Slimefun-Legacy${{ env.LEGACY_ARTIFACT_VERSION }}-reproducible
-          path: dist/${{ env.OUTPUT_NAME }}
-          if-no-files-found: error
-      - name: Upload reproducible release evidence
-        uses: actions/upload-artifact@v7
-        with:
-          name: Slimefun-Reproducible-Release-Evidence
-          path: build/release-verification/
-          if-no-files-found: error
+      - name: Publish reproducible raw JAR release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="v${LEGACY_ARTIFACT_VERSION}"
+          JAR="dist/${OUTPUT_NAME}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$JAR" --clobber
+          else
+            gh release create "$TAG" "$JAR" --target "$GITHUB_SHA" --generate-notes --title "Slimefun Legacy ${LEGACY_ARTIFACT_VERSION}"
+          fi
