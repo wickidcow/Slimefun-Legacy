@@ -97,11 +97,14 @@ def main() -> int:
             'FILE_NAME = "configSFLAddons.yml"', 'RETIRED_FILE_NAME = "curiosities.yml"',
             'LEGACY_MODULE_TOGGLE = "options.enable-non-original-slimefun-additions"',
             'LEGACY_BEACON_ROOT = "SlimefunLegacyAddition.PoweredBeacon"',
-            "plugin.saveResource(FILE_NAME, false)", "new Config(plugin, FILE_NAME)",
-            "Files.copy(retired.toPath(), target.toPath())", "migrateLegacyCoreSettings(plugin, config)",
-            'target.setValue("enabled", core.getBoolean(LEGACY_MODULE_TOGGLE))', 'getBoolean("enabled")',
+            "plugin.saveResource(FILE_NAME, false)", "YamlConfiguration.loadConfiguration(file)",
+            "Files.copy(retired.toPath(), file.toPath())", "migrateLegacyCoreSettings()",
+            'setValue("enabled", core.getBoolean(LEGACY_MODULE_TOGGLE))', 'getBoolean("enabled")',
+            "if (!dirty)",
         ):
             req(token in curiosities_config_class, f"Slimefun Legacy addons config loader invariant missing: {token}", failures)
+        req("io.github.bakedlibs.dough" not in curiosities_config_class,
+            "Slimefun Legacy addons config must not expand the Dough dependency boundary", failures)
 
         addons_config = read(root, files["sfl_addons_config"])
         req("\nenabled: false\n\nSlimefunLegacyAddition:" in addons_config,
