@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
 
+import io.github.thebusybiscuit.slimefun4.core.config.CuriositiesConfig;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -25,7 +26,7 @@ final class BeaconPlusChunkLoadingControl {
     private BeaconPlusChunkLoadingControl() {}
 
     static void initialize(@Nonnull Slimefun plugin) {
-        enabled = Slimefun.getCfg().getBoolean(CONFIG_PATH);
+        enabled = CuriositiesConfig.getConfig().getBoolean(CONFIG_PATH);
         plugin.getLogger()
                 .info("Resonance Beacon chunk loading is " + stateWord(enabled).toLowerCase(Locale.ROOT) + ".");
     }
@@ -42,14 +43,14 @@ final class BeaconPlusChunkLoadingControl {
             return true;
         }
 
-        Path configPath = plugin.getDataFolder().toPath().resolve("config.yml");
+        Path configPath = plugin.getDataFolder().toPath().resolve(CuriositiesConfig.FILE_NAME);
         try {
             String current = Files.readString(configPath, StandardCharsets.UTF_8);
             Matcher matcher = CONFIG_LINE.matcher(current);
             if (!matcher.find()) {
                 plugin.getLogger()
-                        .severe("Could not find '" + CONFIG_PATH
-                                + "' in config.yml. Resonance Beacon chunk-loading state was not changed.");
+                        .severe("Could not find '" + CONFIG_PATH + "' in " + CuriositiesConfig.FILE_NAME
+                                + ". Resonance Beacon chunk-loading state was not changed.");
                 return false;
             }
 
@@ -61,13 +62,15 @@ final class BeaconPlusChunkLoadingControl {
                     StandardCharsets.UTF_8,
                     StandardOpenOption.TRUNCATE_EXISTING,
                     StandardOpenOption.WRITE);
+            CuriositiesConfig.getConfig().reload();
             enabled = newValue;
             return true;
         } catch (IOException exception) {
             plugin.getLogger()
                     .log(
                             Level.SEVERE,
-                            "Could not persist Resonance Beacon chunk-loading state to config.yml.",
+                            "Could not persist Resonance Beacon chunk-loading state to " + CuriositiesConfig.FILE_NAME
+                                    + ".",
                             exception);
             return false;
         }

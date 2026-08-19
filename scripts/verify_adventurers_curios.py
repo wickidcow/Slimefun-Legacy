@@ -34,16 +34,21 @@ def main() -> int:
         "manager": base + "BeaconPlusManager.java",
         "mode": base + "BeaconPlusChunkMode.java",
         "config_class": base + "BeaconPlusConfig.java",
+        "chunk_control": base + "BeaconPlusChunkLoadingControl.java",
         "progression": base + "BeaconPlusProgression.java",
         "pyramid": base + "BeaconPlusPyramid.java",
         "legacy": base + "BeaconPlusLegacyDataStore.java",
         "lifecycle": base + "BeaconPlusLifecycleListener.java",
-        "config": "src/main/resources/config.yml",
+        "core_config": "src/main/resources/config.yml",
+        "sfl_addons_config": "src/main/resources/configSFLAddons.yml",
+        "curiosities_config_class": "src/main/java/io/github/thebusybiscuit/slimefun4/core/config/CuriositiesConfig.java",
         "docs": "docs/ADVENTURERS_CURIOS.md",
     }
     for rel in files.values():
         req((root / rel).is_file(), f"Missing Curios file: {rel}", failures)
     req(not (root / (base + "DungeonChalk.java")).exists(), "Dungeon Chalk source must stay removed", failures)
+    req(not (root / "src/main/resources/curiosities.yml").exists(),
+        "Legacy curiosities.yml must stay removed; use configSFLAddons.yml", failures)
 
     try:
         setup = read(root, files["setup"])
@@ -52,6 +57,7 @@ def main() -> int:
             '"&6&lResonance Beacon"', "SlimefunItems.ESSENCE_OF_AFTERLIFE",
             "SlimefunItems.MAGICAL_GLASS", "SlimefunItems.BLISTERING_INGOT_3",
             "SlimefunItems.SYNTHETIC_DIAMOND", "canary.registerListener(plugin)", "new BeaconPlus(",
+            "CuriositiesConfig.isEnabled()", "CuriositiesConfig.FILE_NAME",
         ):
             req(token in setup, f"Curios setup invariant missing: {token}", failures)
         req("DUNGEON_CHALK" not in setup and "DungeonChalk" not in setup, "Dungeon Chalk is still registered", failures)
@@ -82,18 +88,59 @@ def main() -> int:
             'ROOT = "SlimefunLegacyAddition.PoweredBeacon"', 'BEACON_DATA_ROOT = ROOT + ".BeaconData"',
             '"WORLD"', '"BeaconData"', '"EXPERIENCE"', "PaymentMode.MONEY",
             "material-power.IRON_BLOCK", "material-power.NETHERITE_BLOCK", "tier-requirements.3",
-            "electric-operation.capacity", "base-joules-per-pulse",
+            "electric-operation.capacity", "base-joules-per-pulse", "CuriositiesConfig.getConfig()",
         ):
             req(token in cfgclass, f"Resonance Beacon config invariant missing: {token}", failures)
 
-        config = read(root, files["config"])
+        curiosities_config_class = read(root, files["curiosities_config_class"])
+        for token in (
+            'FILE_NAME = "configSFLAddons.yml"', 'RETIRED_FILE_NAME = "curiosities.yml"',
+            'LEGACY_MODULE_TOGGLE = "options.enable-non-original-slimefun-additions"',
+            'LEGACY_ADDITIONS_ROOT = "SlimefunLegacyAddition"',
+            'LEGACY_BEACON_ROOT = LEGACY_ADDITIONS_ROOT + ".PoweredBeacon"',
+            "plugin.saveResource(FILE_NAME, false)", "YamlConfiguration.loadConfiguration(file)",
+            "Files.copy(retired.toPath(), file.toPath())", "migrateLegacyCoreSettings()",
+            'setValue("enabled", core.getBoolean(LEGACY_MODULE_TOGGLE))', 'getBoolean("enabled")',
+            "if (!save())", "cleanupLegacyCoreSettings()", "core.set(LEGACY_MODULE_TOGGLE, null)",
+            "core.set(LEGACY_BEACON_ROOT, null)", "plugin.saveConfig()", "public synchronized boolean save()",
+            "if (!dirty)",
+        ):
+            req(token in curiosities_config_class, f"Slimefun Legacy addons config loader invariant missing: {token}", failures)
+        req("io.github.bakedlibs.dough" not in curiosities_config_class,
+            "Slimefun Legacy addons config must not expand the Dough dependency boundary", failures)
+
+        addons_config = read(root, files["sfl_addons_config"])
+        req("\nenabled: false\n\nSlimefunLegacyAddition:" in addons_config,
+            "configSFLAddons.yml must default Adventurer's Curios OFF for fresh installs", failures)
         for token in (
             "SlimefunLegacyAddition:", "PoweredBeacon:", "BeaconData:", "storage-type: WORLD",
             "folder-name: BeaconData", "payment-mode: EXPERIENCE", "IRON_BLOCK: 1.0", "NETHERITE_BLOCK: 5.0",
             "flying:\n        enabled: true", "immortality-field:\n        enabled: true", "auto-repair:",
             "electric-operation:", "capacity: 4096",
         ):
-            req(token in config, f"config.yml Resonance Beacon default missing: {token}", failures)
+            req(token in addons_config, f"configSFLAddons.yml Resonance Beacon default missing: {token}", failures)
+
+        core_config = read(root, files["core_config"])
+        for forbidden in (
+            "SlimefunLegacyAddition:", "PoweredBeacon:", "enable-non-original-slimefun-additions",
+        ):
+            req(forbidden not in core_config,
+                f"generic config.yml must not own Slimefun Legacy addon setting: {forbidden}", failures)
+
+        chunk_control = read(root, files["chunk_control"])
+        for token in (
+            "resolve(CuriositiesConfig.FILE_NAME)", "CuriositiesConfig.getConfig().reload()",
+            '"Could not persist Resonance Beacon chunk-loading state to " + CuriositiesConfig.FILE_NAME',
+        ):
+            req(token in chunk_control, f"Resonance Beacon addons config persistence invariant missing: {token}", failures)
+
+        for source_name, source in (
+            ("AdventurersCuriosSetup", setup),
+            ("BeaconPlusConfig", cfgclass),
+            ("BeaconPlusChunkLoadingControl", chunk_control),
+        ):
+            req("curiosities.yml" not in source,
+                f"{source_name} still references retired curiosities.yml outside migration code", failures)
 
         progression = read(root, files["progression"])
         for token in ("adventurers-curios-beacon-progress.yml", "purchaseNextTier", "Vault", "Economy", "experience levels"):
@@ -193,6 +240,9 @@ def main() -> int:
         "- Resonance Beacon retains BEACON_PLUS only as its migration-safe internal id\n"
         "- exactly 28 administrator-controlled powers support three-tier progression\n"
         "- pyramid size and configurable mineral resonance cap effective tiers\n"
+        "- Legacy addon settings live in configSFLAddons.yml, not generic config.yml\n"
+        "- fresh installs default Curiosities off while existing enabled installations are migrated\n"
+        "- migrated Curiosities keys are removed from config.yml only after the replacement config saves successfully\n"
         "- legacy WORLD BeaconData JSON is imported/mirrored without renaming existing effect aliases\n"
         "- field powers use full-height chunk-aligned square footprints without loading chunks\n"
         "- Activator remains reference-counted and hard-capped\n"

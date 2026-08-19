@@ -3,6 +3,7 @@ package io.github.thebusybiscuit.slimefun4.implementation.setup;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
+import io.github.thebusybiscuit.slimefun4.core.config.CuriositiesConfig;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlus;
@@ -33,8 +34,10 @@ final class AdventurersCuriosSetup {
             return;
         }
 
-        if (!Slimefun.getCfg().getBoolean("options.enable-non-original-slimefun-additions")) {
-            Slimefun.logger().info("Non-original Slimefun additions are disabled; skipping Adventurer's Curios.");
+        if (!CuriositiesConfig.isEnabled()) {
+            Slimefun.logger()
+                    .info("Adventurer's Curios is disabled in " + CuriositiesConfig.FILE_NAME
+                            + "; skipping its item group.");
             return;
         }
 
