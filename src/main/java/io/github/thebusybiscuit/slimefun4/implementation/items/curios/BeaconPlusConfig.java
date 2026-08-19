@@ -7,7 +7,7 @@ import org.bukkit.Material;
 /**
  * Server-owner configuration for the native Adventurer's Curios Resonance Beacon.
  *
- * <p>All settings live under {@code SlimefunLegacyAddition.PoweredBeacon} in {@code curiosities.yml}.
+ * <p>All settings live under {@code SlimefunLegacyAddition.PoweredBeacon} in {@code configSFLAddons.yml}.
  */
 final class BeaconPlusConfig {
 
