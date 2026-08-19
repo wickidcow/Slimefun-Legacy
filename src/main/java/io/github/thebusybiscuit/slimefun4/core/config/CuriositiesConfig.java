@@ -1,13 +1,14 @@
 package io.github.thebusybiscuit.slimefun4.core.config;
 
-import io.github.bakedlibs.dough.config.Config;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
 
 /**
  * Dedicated configuration access for Adventurer's Curios and related Slimefun Legacy addon-style features.
@@ -23,9 +24,18 @@ public final class CuriositiesConfig {
     private static final String LEGACY_MODULE_TOGGLE = "options.enable-non-original-slimefun-additions";
     private static final String LEGACY_BEACON_ROOT = "SlimefunLegacyAddition.PoweredBeacon";
 
-    private static Config config;
+    private static CuriositiesConfig config;
 
-    private CuriositiesConfig() {}
+    private final Slimefun plugin;
+    private final File file;
+    private YamlConfiguration yaml;
+    private boolean dirty;
+
+    private CuriositiesConfig(@Nonnull Slimefun plugin) {
+        this.plugin = plugin;
+        this.file = new File(plugin.getDataFolder(), FILE_NAME);
+        initialize();
+    }
 
     /**
      * Returns the lazily loaded Slimefun Legacy addons configuration.
@@ -36,54 +46,57 @@ public final class CuriositiesConfig {
      *
      * @return the Slimefun Legacy addons configuration
      */
-    public static synchronized @Nonnull Config getConfig() {
+    public static synchronized @Nonnull CuriositiesConfig getConfig() {
         if (config == null) {
             Slimefun plugin = Slimefun.instance();
             if (plugin == null) {
                 throw new IllegalStateException("Cannot load " + FILE_NAME + " while Slimefun is disabled.");
             }
-
-            File target = new File(plugin.getDataFolder(), FILE_NAME);
-            File retired = new File(plugin.getDataFolder(), RETIRED_FILE_NAME);
-            boolean copiedRetiredConfig = false;
-            boolean createdFromBundledResource = false;
-
-            if (!target.isFile() && retired.isFile()) {
-                try {
-                    Files.copy(retired.toPath(), target.toPath());
-                    copiedRetiredConfig = true;
-                    plugin.getLogger().info("Migrated " + RETIRED_FILE_NAME + " to " + FILE_NAME + ".");
-                } catch (IOException exception) {
-                    plugin.getLogger()
-                            .log(
-                                    Level.WARNING,
-                                    "Could not copy " + RETIRED_FILE_NAME + " to " + FILE_NAME
-                                            + "; falling back to the bundled addons configuration.",
-                                    exception);
-                }
-            }
-
-            if (!target.isFile()) {
-                plugin.saveResource(FILE_NAME, false);
-                createdFromBundledResource = true;
-            }
-
-            config = new Config(plugin, FILE_NAME);
-
-            if (createdFromBundledResource || (!copiedRetiredConfig && !config.contains("enabled"))) {
-                boolean migrated = migrateLegacyCoreSettings(plugin, config);
-                if (!migrated && !config.contains("enabled")) {
-                    config.setValue("enabled", false);
-                    config.save();
-                }
-            }
+            config = new CuriositiesConfig(plugin);
         }
 
         return config;
     }
 
-    private static boolean migrateLegacyCoreSettings(@Nonnull Slimefun plugin, @Nonnull Config target) {
-        Config core = Slimefun.getCfg();
+    private void initialize() {
+        File retired = new File(plugin.getDataFolder(), RETIRED_FILE_NAME);
+        boolean copiedRetiredConfig = false;
+        boolean createdFromBundledResource = false;
+
+        if (!file.isFile() && retired.isFile()) {
+            try {
+                Files.copy(retired.toPath(), file.toPath());
+                copiedRetiredConfig = true;
+                plugin.getLogger().info("Migrated " + RETIRED_FILE_NAME + " to " + FILE_NAME + ".");
+            } catch (IOException exception) {
+                plugin.getLogger()
+                        .log(
+                                Level.WARNING,
+                                "Could not copy " + RETIRED_FILE_NAME + " to " + FILE_NAME
+                                        + "; falling back to the bundled addons configuration.",
+                                exception);
+            }
+        }
+
+        if (!file.isFile()) {
+            plugin.saveResource(FILE_NAME, false);
+            createdFromBundledResource = true;
+        }
+
+        yaml = YamlConfiguration.loadConfiguration(file);
+        dirty = false;
+
+        if (createdFromBundledResource || (!copiedRetiredConfig && !contains("enabled"))) {
+            boolean migrated = migrateLegacyCoreSettings();
+            if (!migrated && !contains("enabled")) {
+                setValue("enabled", false);
+                save();
+            }
+        }
+    }
+
+    private boolean migrateLegacyCoreSettings() {
+        var core = Slimefun.getCfg();
         boolean hasLegacyToggle = core.contains(LEGACY_MODULE_TOGGLE);
         ConfigurationSection legacyBeacon = core.getConfiguration().getConfigurationSection(LEGACY_BEACON_ROOT);
 
@@ -92,23 +105,74 @@ public final class CuriositiesConfig {
         }
 
         if (hasLegacyToggle) {
-            target.setValue("enabled", core.getBoolean(LEGACY_MODULE_TOGGLE));
+            setValue("enabled", core.getBoolean(LEGACY_MODULE_TOGGLE));
         } else {
             // The old Beacon tree only existed on Curios-enabled development builds.
-            target.setValue("enabled", true);
+            setValue("enabled", true);
         }
 
         if (legacyBeacon != null) {
             for (var entry : legacyBeacon.getValues(true).entrySet()) {
                 if (!(entry.getValue() instanceof ConfigurationSection)) {
-                    target.setValue(LEGACY_BEACON_ROOT + "." + entry.getKey(), entry.getValue());
+                    setValue(LEGACY_BEACON_ROOT + "." + entry.getKey(), entry.getValue());
                 }
             }
         }
 
-        target.save();
+        save();
         plugin.getLogger().info("Migrated existing Adventurer's Curios settings from config.yml to " + FILE_NAME + ".");
         return true;
+    }
+
+    public boolean contains(@Nonnull String path) {
+        return yaml.contains(path);
+    }
+
+    public boolean getBoolean(@Nonnull String path) {
+        return yaml.getBoolean(path);
+    }
+
+    public int getInt(@Nonnull String path) {
+        return yaml.getInt(path);
+    }
+
+    public double getDouble(@Nonnull String path) {
+        return yaml.getDouble(path);
+    }
+
+    public @Nullable String getString(@Nonnull String path) {
+        return yaml.getString(path);
+    }
+
+    public void setDefaultValue(@Nonnull String path, @Nullable Object value) {
+        if (!contains(path)) {
+            setValue(path, value);
+        }
+    }
+
+    private void setValue(@Nonnull String path, @Nullable Object value) {
+        yaml.set(path, value);
+        dirty = true;
+    }
+
+    /** Saves pending default or migration changes, leaving an unchanged bundled file untouched. */
+    public synchronized void save() {
+        if (!dirty) {
+            return;
+        }
+
+        try {
+            yaml.save(file);
+            dirty = false;
+        } catch (IOException exception) {
+            plugin.getLogger().log(Level.SEVERE, "Could not save " + FILE_NAME + ".", exception);
+        }
+    }
+
+    /** Reloads the addons configuration after an intentional direct file edit. */
+    public synchronized void reload() {
+        yaml = YamlConfiguration.loadConfiguration(file);
+        dirty = false;
     }
 
     /**
