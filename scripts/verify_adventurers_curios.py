@@ -94,11 +94,18 @@ def main() -> int:
 
         curiosities_config_class = read(root, files["curiosities_config_class"])
         for token in (
-            'FILE_NAME = "configSFLAddons.yml"', "new Config(plugin, FILE_NAME)", 'getBoolean("enabled")',
+            'FILE_NAME = "configSFLAddons.yml"', 'RETIRED_FILE_NAME = "curiosities.yml"',
+            'LEGACY_MODULE_TOGGLE = "options.enable-non-original-slimefun-additions"',
+            'LEGACY_BEACON_ROOT = "SlimefunLegacyAddition.PoweredBeacon"',
+            "plugin.saveResource(FILE_NAME, false)", "new Config(plugin, FILE_NAME)",
+            "Files.copy(retired.toPath(), target.toPath())", "migrateLegacyCoreSettings(plugin, config)",
+            'target.setValue("enabled", core.getBoolean(LEGACY_MODULE_TOGGLE))', 'getBoolean("enabled")',
         ):
             req(token in curiosities_config_class, f"Slimefun Legacy addons config loader invariant missing: {token}", failures)
 
         addons_config = read(root, files["sfl_addons_config"])
+        req("\nenabled: false\n\nSlimefunLegacyAddition:" in addons_config,
+            "configSFLAddons.yml must default Adventurer's Curios OFF for fresh installs", failures)
         for token in (
             "SlimefunLegacyAddition:", "PoweredBeacon:", "BeaconData:", "storage-type: WORLD",
             "folder-name: BeaconData", "payment-mode: EXPERIENCE", "IRON_BLOCK: 1.0", "NETHERITE_BLOCK: 5.0",
@@ -122,13 +129,12 @@ def main() -> int:
             req(token in chunk_control, f"Resonance Beacon addons config persistence invariant missing: {token}", failures)
 
         for source_name, source in (
-            ("CuriositiesConfig", curiosities_config_class),
             ("AdventurersCuriosSetup", setup),
             ("BeaconPlusConfig", cfgclass),
             ("BeaconPlusChunkLoadingControl", chunk_control),
         ):
             req("curiosities.yml" not in source,
-                f"{source_name} still references retired curiosities.yml", failures)
+                f"{source_name} still references retired curiosities.yml outside migration code", failures)
 
         progression = read(root, files["progression"])
         for token in ("adventurers-curios-beacon-progress.yml", "purchaseNextTier", "Vault", "Economy", "experience levels"):
@@ -229,6 +235,7 @@ def main() -> int:
         "- exactly 28 administrator-controlled powers support three-tier progression\n"
         "- pyramid size and configurable mineral resonance cap effective tiers\n"
         "- Legacy addon settings live in configSFLAddons.yml, not generic config.yml\n"
+        "- fresh installs default Curiosities off while existing enabled installations are migrated\n"
         "- legacy WORLD BeaconData JSON is imported/mirrored without renaming existing effect aliases\n"
         "- field powers use full-height chunk-aligned square footprints without loading chunks\n"
         "- Activator remains reference-counted and hard-capped\n"
