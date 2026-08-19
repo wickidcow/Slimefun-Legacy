@@ -22,7 +22,8 @@ public final class CuriositiesConfig {
 
     private static final String RETIRED_FILE_NAME = "curiosities.yml";
     private static final String LEGACY_MODULE_TOGGLE = "options.enable-non-original-slimefun-additions";
-    private static final String LEGACY_BEACON_ROOT = "SlimefunLegacyAddition.PoweredBeacon";
+    private static final String LEGACY_ADDITIONS_ROOT = "SlimefunLegacyAddition";
+    private static final String LEGACY_BEACON_ROOT = LEGACY_ADDITIONS_ROOT + ".PoweredBeacon";
 
     private static CuriositiesConfig config;
 
@@ -119,9 +120,34 @@ public final class CuriositiesConfig {
             }
         }
 
-        save();
+        if (!save()) {
+            plugin.getLogger()
+                    .warning("Kept legacy Adventurer's Curios settings in config.yml because " + FILE_NAME
+                            + " could not be saved successfully.");
+            return true;
+        }
+
+        cleanupLegacyCoreSettings();
         plugin.getLogger().info("Migrated existing Adventurer's Curios settings from config.yml to " + FILE_NAME + ".");
         return true;
+    }
+
+    /**
+     * Removes only the retired Curiosities keys after the replacement file has been written successfully.
+     * Other generic Slimefun settings and unrelated Slimefun Legacy additions are preserved.
+     */
+    private void cleanupLegacyCoreSettings() {
+        var core = plugin.getConfig();
+        core.set(LEGACY_MODULE_TOGGLE, null);
+        core.set(LEGACY_BEACON_ROOT, null);
+
+        ConfigurationSection additions = core.getConfigurationSection(LEGACY_ADDITIONS_ROOT);
+        if (additions != null && additions.getKeys(false).isEmpty()) {
+            core.set(LEGACY_ADDITIONS_ROOT, null);
+        }
+
+        plugin.saveConfig();
+        plugin.getLogger().info("Removed migrated Adventurer's Curios keys from config.yml.");
     }
 
     public boolean contains(@Nonnull String path) {
@@ -156,16 +182,18 @@ public final class CuriositiesConfig {
     }
 
     /** Saves pending default or migration changes, leaving an unchanged bundled file untouched. */
-    public synchronized void save() {
+    public synchronized boolean save() {
         if (!dirty) {
-            return;
+            return true;
         }
 
         try {
             yaml.save(file);
             dirty = false;
+            return true;
         } catch (IOException exception) {
             plugin.getLogger().log(Level.SEVERE, "Could not save " + FILE_NAME + ".", exception);
+            return false;
         }
     }
 
