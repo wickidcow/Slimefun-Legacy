@@ -2,8 +2,9 @@
 #
 # Adventurer's Curios and related Slimefun Legacy addon-style gameplay settings live here.
 # Core Slimefun4 settings remain in config.yml.
+# Fresh installs default Curiosities OFF. Existing enabled installations are migrated and stay enabled.
 
-enabled: true
+enabled: false
 
 SlimefunLegacyAddition:
   PoweredBeacon:
