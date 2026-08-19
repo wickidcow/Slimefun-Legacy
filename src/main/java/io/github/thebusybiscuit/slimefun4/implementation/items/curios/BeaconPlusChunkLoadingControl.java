@@ -43,14 +43,14 @@ final class BeaconPlusChunkLoadingControl {
             return true;
         }
 
-        Path configPath = plugin.getDataFolder().toPath().resolve("curiosities.yml");
+        Path configPath = plugin.getDataFolder().toPath().resolve(CuriositiesConfig.FILE_NAME);
         try {
             String current = Files.readString(configPath, StandardCharsets.UTF_8);
             Matcher matcher = CONFIG_LINE.matcher(current);
             if (!matcher.find()) {
                 plugin.getLogger()
-                        .severe("Could not find '" + CONFIG_PATH
-                                + "' in curiosities.yml. Resonance Beacon chunk-loading state was not changed.");
+                        .severe("Could not find '" + CONFIG_PATH + "' in " + CuriositiesConfig.FILE_NAME
+                                + ". Resonance Beacon chunk-loading state was not changed.");
                 return false;
             }
 
@@ -69,7 +69,8 @@ final class BeaconPlusChunkLoadingControl {
             plugin.getLogger()
                     .log(
                             Level.SEVERE,
-                            "Could not persist Resonance Beacon chunk-loading state to curiosities.yml.",
+                            "Could not persist Resonance Beacon chunk-loading state to " + CuriositiesConfig.FILE_NAME
+                                    + ".",
                             exception);
             return false;
         }
