@@ -96,9 +96,9 @@ public final class CuriositiesConfig {
     }
 
     private boolean migrateLegacyCoreSettings() {
-        var core = Slimefun.getCfg();
+        var core = plugin.getConfig();
         boolean hasLegacyToggle = core.contains(LEGACY_MODULE_TOGGLE);
-        ConfigurationSection legacyBeacon = core.getConfiguration().getConfigurationSection(LEGACY_BEACON_ROOT);
+        ConfigurationSection legacyBeacon = core.getConfigurationSection(LEGACY_BEACON_ROOT);
 
         if (!hasLegacyToggle && legacyBeacon == null) {
             return false;
