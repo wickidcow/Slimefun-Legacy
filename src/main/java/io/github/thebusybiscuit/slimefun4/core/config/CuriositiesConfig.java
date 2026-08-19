@@ -5,29 +5,31 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import javax.annotation.Nonnull;
 
 /**
- * Dedicated configuration for Adventurer's Curios and its related Legacy-only features.
+ * Dedicated configuration access for Adventurer's Curios and related Slimefun Legacy addon-style features.
  *
- * <p>This deliberately stays separate from Slimefun's generic {@code config.yml} so addon-style gameplay additions
+ * <p>This deliberately stays separate from Slimefun's generic {@code config.yml} so Legacy-only gameplay additions
  * do not leak their settings into the core configuration surface.
  */
 public final class CuriositiesConfig {
+
+    public static final String FILE_NAME = "configSFLAddons.yml";
 
     private static Config config;
 
     private CuriositiesConfig() {}
 
     /**
-     * Returns the lazily loaded {@code curiosities.yml} configuration.
+     * Returns the lazily loaded Slimefun Legacy addons configuration.
      *
-     * @return the Curiosities configuration
+     * @return the Slimefun Legacy addons configuration
      */
     public static synchronized @Nonnull Config getConfig() {
         if (config == null) {
             Slimefun plugin = Slimefun.instance();
             if (plugin == null) {
-                throw new IllegalStateException("Cannot load curiosities.yml while Slimefun is disabled.");
+                throw new IllegalStateException("Cannot load " + FILE_NAME + " while Slimefun is disabled.");
             }
-            config = new Config(plugin, "curiosities.yml");
+            config = new Config(plugin, FILE_NAME);
         }
 
         return config;
