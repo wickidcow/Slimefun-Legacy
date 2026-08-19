@@ -1,7 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
 
 import java.util.Locale;
-import javax.annotation.Nonnull;
 import org.bukkit.potion.PotionEffectType;
 
 /**
@@ -24,7 +23,7 @@ public enum BeaconPlusSupportMode {
         this.effectType = effectType;
     }
 
-    public @Nonnull String getDisplayName() {
+    public String getDisplayName() {
         return displayName;
     }
 
@@ -32,19 +31,12 @@ public enum BeaconPlusSupportMode {
         return effectType;
     }
 
-    public @Nonnull BeaconPlusSupportMode next() {
-        BeaconPlusSupportMode[] values = values();
-        return values[(ordinal() + 1) % values.length];
-    }
-
-    public static @Nonnull BeaconPlusSupportMode fromStored(String value) {
+    public static BeaconPlusSupportMode fromStored(String value) {
         if (value == null || value.isBlank()) {
             return OFF;
         }
-
-        String normalized = value.trim().toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
         try {
-            return valueOf(normalized);
+            return valueOf(value.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ignored) {
             return OFF;
         }

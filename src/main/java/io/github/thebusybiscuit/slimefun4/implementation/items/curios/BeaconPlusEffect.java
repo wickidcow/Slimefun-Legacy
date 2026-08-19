@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
 
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Set;
@@ -12,7 +13,6 @@ import org.bukkit.Material;
 public enum BeaconPlusEffect {
     FURNACE_BOOSTER("furnace", "Furnace Booster", Material.FURNACE, "Boost nearby furnace cooking speed."),
     STRENGTH("strength", "Strength Effect", Material.IRON_SWORD, "Give Strength to players in range."),
-    INVISIBLE("invisible", "Invisible Effect", Material.GLASS, "Make players invisible while inside the field."),
     REGENERATION("regeneration", "Regeneration Effect", Material.GOLDEN_APPLE, "Regenerate players in range."),
     RESISTANCE("resistance", "Resistance Effect", Material.SHIELD, "Give Resistance to players in range."),
     FAST_DIGGING("fast_digging", "Fast Digging", Material.GOLDEN_PICKAXE, "Give Haste to players in range."),
@@ -39,7 +39,7 @@ public enum BeaconPlusEffect {
             "gravity_well",
             "Gravity Well",
             Material.HEART_OF_THE_SEA,
-            "Strongly yank mobs and loose items toward the beacon once per second."),
+            "Pull nearby non-player entities toward the beacon."),
     JUMP("jump", "Jump", Material.RABBIT_FOOT, "Give Jump Boost to players in range."),
     EXP_GAIN("exp_gain", "Exp Gain", Material.SCULK, "Passively grant a small amount of experience."),
     COOLDOWN_REDUCTION(
@@ -49,20 +49,17 @@ public enum BeaconPlusEffect {
             "Immortality Field",
             Material.TOTEM_OF_UNDYING,
             "Chance to prevent otherwise fatal damage."),
-    SCALE("scale", "Scale", Material.GOLDEN_APPLE, "Make players slightly larger inside the field."),
     EXTRA_POWER("extra_power", "Extra Power", Material.NETHER_STAR, "Increase the strength of supported effects."),
-    EXTRA_RANGE(
-            "extra_range",
-            "Extra Range",
-            Material.SPYGLASS,
-            "Expand the selected effect area one tier, up to 5x5 chunks."),
-    ACTIVATOR(
-            "activator",
-            "Activator",
-            Material.RESPAWN_ANCHOR,
-            "Keep the current Beacon Plus effect-area chunks loaded."),
+    EXTRA_RANGE("extra_range", "Extra Range", Material.SPYGLASS, "Extend Beacon Plus effect radius."),
+    ACTIVATOR("activator", "Activator", Material.RESPAWN_ANCHOR, "Keep the configured beacon chunks loaded."),
     AUTO_REPAIR("auto_repair", "Auto Repair", Material.ANVIL, "Slowly repair damaged tools, weapons and armor."),
-    ;
+
+    /**
+     * Migration tombstone only. Scale was present briefly during development but is not an approved Curio power.
+     * It is deliberately excluded from parsing, serialization and the configuration menu so old stored values are
+     * harmless and disappear the next time the beacon is saved.
+     */
+    SCALE("scale", "Scale (Legacy Disabled)", Material.BARRIER, "Disabled legacy development value.");
 
     private final String id;
     private final String displayName;
@@ -92,6 +89,14 @@ public enum BeaconPlusEffect {
         return description;
     }
 
+    public boolean isConfigurable() {
+        return this != SCALE;
+    }
+
+    public static BeaconPlusEffect[] configurableValues() {
+        return Arrays.stream(values()).filter(BeaconPlusEffect::isConfigurable).toArray(BeaconPlusEffect[]::new);
+    }
+
     public static EnumSet<BeaconPlusEffect> parse(String stored) {
         EnumSet<BeaconPlusEffect> result = EnumSet.noneOf(BeaconPlusEffect.class);
         if (stored == null || stored.isBlank()) {
@@ -101,7 +106,7 @@ public enum BeaconPlusEffect {
         for (String token : stored.split(",")) {
             String normalized = token.trim().toLowerCase(Locale.ROOT);
             for (BeaconPlusEffect effect : values()) {
-                if (effect.id.equals(normalized)) {
+                if (effect.isConfigurable() && effect.id.equals(normalized)) {
                     result.add(effect);
                     break;
                 }
@@ -111,6 +116,10 @@ public enum BeaconPlusEffect {
     }
 
     public static String serialize(Set<BeaconPlusEffect> effects) {
-        return effects.stream().map(BeaconPlusEffect::getId).sorted().collect(Collectors.joining(","));
+        return effects.stream()
+                .filter(BeaconPlusEffect::isConfigurable)
+                .map(BeaconPlusEffect::getId)
+                .sorted()
+                .collect(Collectors.joining(","));
     }
 }

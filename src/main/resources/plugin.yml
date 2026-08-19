@@ -33,6 +33,10 @@ commands:
     description: basic Slimefun command
     aliases: sf
     usage: 'The Slimefun version you have installed does not seem to be compatible with your server setup. Check your console for more detailed info.'
+  beacon:
+    description: Controls Resonance Beacon Activator chunk loading
+    usage: '/beacon <enable|disable|status>'
+    permission: slimefun.command.beacon
 
 # Default permissions
 permissions:
@@ -101,6 +105,9 @@ permissions:
     default: op
   slimefun.command.unbanitem:
     description: Allows you to do /sf unbanitem
+    default: op
+  slimefun.command.beacon:
+    description: Allows use of /beacon enable, disable and status
     default: op
   slimefun.android.bypass:
     description: Allows you to edit other Players Androids
