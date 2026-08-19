@@ -35,7 +35,9 @@ final class AdventurersCuriosSetup {
         }
 
         if (!CuriositiesConfig.isEnabled()) {
-            Slimefun.logger().info("Adventurer's Curios is disabled in curiosities.yml; skipping its item group.");
+            Slimefun.logger()
+                    .info("Adventurer's Curios is disabled in " + CuriositiesConfig.FILE_NAME
+                            + "; skipping its item group.");
             return;
         }
 
