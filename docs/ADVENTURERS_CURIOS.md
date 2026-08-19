@@ -1,6 +1,6 @@
 # Adventurer's Curios
 
-Adventurer's Curios is a built-in Slimefun Legacy guide category for exploration tools, navigation aids, field safety, and expedition gadgets. It is controlled by `options.enable-non-original-slimefun-additions`.
+Adventurer's Curios is a built-in Slimefun Legacy guide category for exploration tools, navigation aids, field safety, and expedition gadgets. Its Slimefun Legacy addon-style settings live in `configSFLAddons.yml`. Set the top-level `enabled` value there to enable or disable the category. Fresh installs default it to `false`; existing installations that already enabled Curiosities are migrated without being silently disabled.
 
 ## Current Curios
 
@@ -53,7 +53,7 @@ Enhanced Crafting Table:
 
 ### Progression
 
-The Resonance Beacon has exactly 28 player-facing powers. Every power is independently controlled by the server under `SlimefunLegacyAddition.PoweredBeacon.powers`.
+The Resonance Beacon has exactly 28 player-facing powers. Every power is independently controlled by the server under `SlimefunLegacyAddition.PoweredBeacon.powers` in `configSFLAddons.yml`.
 
 For native Resonance Beacons, unlocks are permanent to the beacon owner and support **Tier I, Tier II and Tier III**. A player can:
 
@@ -78,7 +78,7 @@ The owner or an operator can toggle **Electric Operation** from the beacon GUI. 
 - Activator chunk tickets are released while unpowered and automatically return when enough energy is available again;
 - turning electric operation OFF immediately returns the beacon to normal pyramid/progression-only operation.
 
-The capacity and pulse-cost values are configurable under `SlimefunLegacyAddition.PoweredBeacon.electric-operation`. The energy option does not create a 29th power and never bypasses pyramid tier requirements.
+The capacity and pulse-cost values are configurable under `SlimefunLegacyAddition.PoweredBeacon.electric-operation` in `configSFLAddons.yml`. The energy option does not create a 29th power and never bypasses pyramid tier requirements.
 
 ### Pyramid resonance
 
@@ -96,7 +96,7 @@ Default physical thresholds:
 - Tier II: at least a 5x5 / two-layer base and average material power 3
 - Tier III: at least a 7x7 / three-layer base and average material power 4
 
-Mixed valid beacon minerals are supported; the average configured material power is used. All mineral values and thresholds are editable in `config.yml`.
+Mixed valid beacon minerals are supported; the average configured material power is used. All mineral values and thresholds are editable in `configSFLAddons.yml`.
 
 ### Toggleable powers
 
@@ -173,7 +173,7 @@ The reader also recovers the old double-encoded JSON failure mode and normalizes
 
 ### BeaconData config
 
-`SlimefunLegacyAddition.PoweredBeacon.BeaconData` controls:
+`SlimefunLegacyAddition.PoweredBeacon.BeaconData` in `configSFLAddons.yml` controls:
 
 - `enabled`
 - `storage-type` (WORLD is the compatibility mode)
