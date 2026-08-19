@@ -96,10 +96,13 @@ def main() -> int:
         for token in (
             'FILE_NAME = "configSFLAddons.yml"', 'RETIRED_FILE_NAME = "curiosities.yml"',
             'LEGACY_MODULE_TOGGLE = "options.enable-non-original-slimefun-additions"',
-            'LEGACY_BEACON_ROOT = "SlimefunLegacyAddition.PoweredBeacon"',
+            'LEGACY_ADDITIONS_ROOT = "SlimefunLegacyAddition"',
+            'LEGACY_BEACON_ROOT = LEGACY_ADDITIONS_ROOT + ".PoweredBeacon"',
             "plugin.saveResource(FILE_NAME, false)", "YamlConfiguration.loadConfiguration(file)",
             "Files.copy(retired.toPath(), file.toPath())", "migrateLegacyCoreSettings()",
             'setValue("enabled", core.getBoolean(LEGACY_MODULE_TOGGLE))', 'getBoolean("enabled")',
+            "if (!save())", "cleanupLegacyCoreSettings()", "core.set(LEGACY_MODULE_TOGGLE, null)",
+            "core.set(LEGACY_BEACON_ROOT, null)", "plugin.saveConfig()", "public synchronized boolean save()",
             "if (!dirty)",
         ):
             req(token in curiosities_config_class, f"Slimefun Legacy addons config loader invariant missing: {token}", failures)
@@ -239,6 +242,7 @@ def main() -> int:
         "- pyramid size and configurable mineral resonance cap effective tiers\n"
         "- Legacy addon settings live in configSFLAddons.yml, not generic config.yml\n"
         "- fresh installs default Curiosities off while existing enabled installations are migrated\n"
+        "- migrated Curiosities keys are removed from config.yml only after the replacement config saves successfully\n"
         "- legacy WORLD BeaconData JSON is imported/mirrored without renaming existing effect aliases\n"
         "- field powers use full-height chunk-aligned square footprints without loading chunks\n"
         "- Activator remains reference-counted and hard-capped\n"
