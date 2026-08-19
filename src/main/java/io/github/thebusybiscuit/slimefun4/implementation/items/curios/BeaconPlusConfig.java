@@ -1,13 +1,13 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
 
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.core.config.CuriositiesConfig;
 import java.util.Locale;
 import org.bukkit.Material;
 
 /**
  * Server-owner configuration for the native Adventurer's Curios Resonance Beacon.
  *
- * <p>All settings live under {@code SlimefunLegacyAddition.PoweredBeacon} in Slimefun's normal config.yml.
+ * <p>All settings live under {@code SlimefunLegacyAddition.PoweredBeacon} in {@code curiosities.yml}.
  */
 final class BeaconPlusConfig {
 
@@ -18,7 +18,7 @@ final class BeaconPlusConfig {
     private BeaconPlusConfig() {}
 
     static void installDefaults() {
-        var config = Slimefun.getCfg();
+        var config = CuriositiesConfig.getConfig();
         config.setDefaultValue(ROOT + ".enabled", true);
         config.setDefaultValue(ROOT + ".chunk-loading-enabled", true);
         config.setDefaultValue(ROOT + ".electric-operation.enabled", true);
@@ -67,76 +67,85 @@ final class BeaconPlusConfig {
     }
 
     static boolean isEnabled() {
-        return Slimefun.getCfg().getBoolean(ROOT + ".enabled");
+        return CuriositiesConfig.getConfig().getBoolean(ROOT + ".enabled");
     }
 
     static boolean isPowerEnabled(BeaconPlusEffect effect) {
-        return effect.isConfigurable() && Slimefun.getCfg().getBoolean(powerPath(effect) + ".enabled");
+        return effect.isConfigurable()
+                && CuriositiesConfig.getConfig().getBoolean(powerPath(effect) + ".enabled");
     }
 
     static boolean isElectricOperationEnabled() {
-        return Slimefun.getCfg().getBoolean(ROOT + ".electric-operation.enabled");
+        return CuriositiesConfig.getConfig().getBoolean(ROOT + ".electric-operation.enabled");
     }
 
     static int getEnergyCapacity() {
-        int configured = Slimefun.getCfg().getInt(ROOT + ".electric-operation.capacity");
+        int configured = CuriositiesConfig.getConfig().getInt(ROOT + ".electric-operation.capacity");
         return configured > 0 ? configured : 4096;
     }
 
     static int getEnergyBaseCostPerPulse() {
-        return Math.max(0, Slimefun.getCfg().getInt(ROOT + ".electric-operation.base-joules-per-pulse"));
+        return Math.max(
+                0,
+                CuriositiesConfig.getConfig().getInt(ROOT + ".electric-operation.base-joules-per-pulse"));
     }
 
     static int getEnergyTierCostPerPulse() {
-        return Math.max(0, Slimefun.getCfg().getInt(ROOT + ".electric-operation.tier-joules-per-pulse"));
+        return Math.max(
+                0,
+                CuriositiesConfig.getConfig().getInt(ROOT + ".electric-operation.tier-joules-per-pulse"));
     }
 
     static int getEnergyActivatorTierSurchargePerPulse() {
         return Math.max(
-                0, Slimefun.getCfg().getInt(ROOT + ".electric-operation.activator-tier-surcharge-joules-per-pulse"));
+                0,
+                CuriositiesConfig.getConfig()
+                        .getInt(ROOT + ".electric-operation.activator-tier-surcharge-joules-per-pulse"));
     }
 
     static int getMaxTier() {
-        return clamp(Slimefun.getCfg().getInt(ROOT + ".progression.max-tier"), 1, MAX_TIER);
+        return clamp(CuriositiesConfig.getConfig().getInt(ROOT + ".progression.max-tier"), 1, MAX_TIER);
     }
 
     static boolean creativeBypassesCost() {
-        return Slimefun.getCfg().getBoolean(ROOT + ".progression.creative-bypass-cost");
+        return CuriositiesConfig.getConfig().getBoolean(ROOT + ".progression.creative-bypass-cost");
     }
 
     static boolean operatorCanSponsorUpgrades() {
-        return Slimefun.getCfg().getBoolean(ROOT + ".progression.operator-can-sponsor-upgrades");
+        return CuriositiesConfig.getConfig().getBoolean(ROOT + ".progression.operator-can-sponsor-upgrades");
     }
 
     static boolean isBeaconDataEnabled() {
-        return Slimefun.getCfg().getBoolean(BEACON_DATA_ROOT + ".enabled");
+        return CuriositiesConfig.getConfig().getBoolean(BEACON_DATA_ROOT + ".enabled");
     }
 
     static boolean shouldImportExistingBeaconData() {
-        return isBeaconDataEnabled() && Slimefun.getCfg().getBoolean(BEACON_DATA_ROOT + ".import-existing");
+        return isBeaconDataEnabled()
+                && CuriositiesConfig.getConfig().getBoolean(BEACON_DATA_ROOT + ".import-existing");
     }
 
     static boolean shouldMirrorBeaconData() {
-        return isBeaconDataEnabled() && Slimefun.getCfg().getBoolean(BEACON_DATA_ROOT + ".mirror-native-beacons");
+        return isBeaconDataEnabled()
+                && CuriositiesConfig.getConfig().getBoolean(BEACON_DATA_ROOT + ".mirror-native-beacons");
     }
 
     static boolean shouldBootstrapLegacyActivators() {
         return BeaconPlusChunkLoadingControl.isEnabled()
                 && shouldImportExistingBeaconData()
-                && Slimefun.getCfg().getBoolean(BEACON_DATA_ROOT + ".bootstrap-legacy-activators");
+                && CuriositiesConfig.getConfig().getBoolean(BEACON_DATA_ROOT + ".bootstrap-legacy-activators");
     }
 
     static boolean shouldHonorOverriddenRange() {
-        return Slimefun.getCfg().getBoolean(BEACON_DATA_ROOT + ".honor-overridden-range");
+        return CuriositiesConfig.getConfig().getBoolean(BEACON_DATA_ROOT + ".honor-overridden-range");
     }
 
     static String getBeaconDataStorageType() {
-        String value = Slimefun.getCfg().getString(BEACON_DATA_ROOT + ".storage-type");
+        String value = CuriositiesConfig.getConfig().getString(BEACON_DATA_ROOT + ".storage-type");
         return value == null ? "WORLD" : value.trim().toUpperCase(Locale.ROOT);
     }
 
     static String getBeaconDataFolderName() {
-        String value = Slimefun.getCfg().getString(BEACON_DATA_ROOT + ".folder-name");
+        String value = CuriositiesConfig.getConfig().getString(BEACON_DATA_ROOT + ".folder-name");
         if (value == null || value.isBlank() || value.contains("/") || value.contains("\\")) {
             return "BeaconData";
         }
@@ -144,41 +153,54 @@ final class BeaconPlusConfig {
     }
 
     static PaymentMode getPaymentMode(BeaconPlusEffect effect) {
-        PaymentMode mode = PaymentMode.parse(Slimefun.getCfg().getString(powerPath(effect) + ".payment-mode"));
+        PaymentMode mode = PaymentMode.parse(
+                CuriositiesConfig.getConfig().getString(powerPath(effect) + ".payment-mode"));
         if (mode == PaymentMode.INHERIT) {
-            mode = PaymentMode.parse(Slimefun.getCfg().getString(ROOT + ".progression.payment-mode"));
+            mode = PaymentMode.parse(
+                    CuriositiesConfig.getConfig().getString(ROOT + ".progression.payment-mode"));
         }
         return mode == PaymentMode.MONEY ? PaymentMode.MONEY : PaymentMode.EXPERIENCE;
     }
 
     static int getExperienceCost(BeaconPlusEffect effect, int tier) {
         int safeTier = clamp(tier, 1, getMaxTier());
-        return Math.max(0, Slimefun.getCfg().getInt(powerPath(effect) + ".experience-costs.tier-" + safeTier));
+        return Math.max(
+                0,
+                CuriositiesConfig.getConfig()
+                        .getInt(powerPath(effect) + ".experience-costs.tier-" + safeTier));
     }
 
     static double getMoneyCost(BeaconPlusEffect effect, int tier) {
         int safeTier = clamp(tier, 1, getMaxTier());
-        return Math.max(0.0D, Slimefun.getCfg().getDouble(powerPath(effect) + ".money-costs.tier-" + safeTier));
+        return Math.max(
+                0.0D,
+                CuriositiesConfig.getConfig()
+                        .getDouble(powerPath(effect) + ".money-costs.tier-" + safeTier));
     }
 
     static double getMaterialPower(Material material) {
         if (material == null) {
             return 0.0D;
         }
-        return Math.max(0.0D, Slimefun.getCfg().getDouble(ROOT + ".pyramid.material-power." + material.name()));
+        return Math.max(
+                0.0D,
+                CuriositiesConfig.getConfig().getDouble(ROOT + ".pyramid.material-power." + material.name()));
     }
 
     static int getRequiredPyramidTier(int tier) {
         int safeTier = clamp(tier, 1, getMaxTier());
         return clamp(
-                Slimefun.getCfg().getInt(ROOT + ".pyramid.tier-requirements." + safeTier + ".min-pyramid-tier"), 1, 4);
+                CuriositiesConfig.getConfig()
+                        .getInt(ROOT + ".pyramid.tier-requirements." + safeTier + ".min-pyramid-tier"),
+                1,
+                4);
     }
 
     static double getRequiredAverageMaterialPower(int tier) {
         int safeTier = clamp(tier, 1, getMaxTier());
         return Math.max(
                 0.0D,
-                Slimefun.getCfg()
+                CuriositiesConfig.getConfig()
                         .getDouble(ROOT + ".pyramid.tier-requirements." + safeTier + ".min-average-material-power"));
     }
 
