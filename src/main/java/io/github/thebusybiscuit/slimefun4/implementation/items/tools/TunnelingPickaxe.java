@@ -37,7 +37,7 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
 /**
- * A directional excavation pickaxe that cuts a rectangular tunnel face in front of the player.
+ * A directional excavation pickaxe that cuts a short rectangular tunnel section in front of the player.
  *
  * <p>The primary broken block still uses normal Minecraft breaking. Additional terrain is filtered through Slimefun's
  * protection manager and never force-loads chunks. Slimefun blocks, custom blocks and tile entities are deliberately
@@ -46,6 +46,7 @@ import org.bukkit.persistence.PersistentDataType;
 public final class TunnelingPickaxe extends SimpleSlimefunItem<ToolUseHandler>
         implements NotPlaceable, DamageableItem {
 
+    private static final int TUNNEL_DEPTH = 3;
     private static final int EXTRA_BLOCKS_PER_DURABILITY = 12;
 
     private final ItemSetting<Boolean> damageOnUse = new ItemSetting<>(this, "damage-on-use", true);
@@ -79,7 +80,7 @@ public final class TunnelingPickaxe extends SimpleSlimefunItem<ToolUseHandler>
             }
 
             Block primary = event.getBlock();
-            List<Block> candidates = findTunnelFace(player, primary, mode);
+            List<Block> candidates = findTunnelVolume(player, primary, mode);
             int broken = 0;
 
             for (Block block : candidates) {
@@ -130,46 +131,51 @@ public final class TunnelingPickaxe extends SimpleSlimefunItem<ToolUseHandler>
         return true;
     }
 
-    private List<Block> findTunnelFace(Player player, Block primary, BoreMode mode) {
+    private List<Block> findTunnelVolume(Player player, Block primary, BoreMode mode) {
         World world = primary.getWorld();
         BlockFace facing = player.getFacing();
         int halfWidth = mode.width / 2;
         int floorY = player.getLocation().getBlockY();
-        List<Block> blocks = new ArrayList<>(mode.width * mode.height - 1);
+        List<Block> blocks = new ArrayList<>(mode.width * mode.height * TUNNEL_DEPTH - 1);
 
-        for (int yOffset = 0; yOffset < mode.height; yOffset++) {
-            int y = floorY + yOffset;
-            if (y < world.getMinHeight() || y >= world.getMaxHeight()) {
-                continue;
-            }
+        for (int depth = 0; depth < TUNNEL_DEPTH; depth++) {
+            int baseX = primary.getX() + facing.getModX() * depth;
+            int baseZ = primary.getZ() + facing.getModZ() * depth;
 
-            for (int lateral = -halfWidth; lateral <= halfWidth; lateral++) {
-                int x = primary.getX();
-                int z = primary.getZ();
-
-                if (facing == BlockFace.NORTH || facing == BlockFace.SOUTH) {
-                    x += lateral;
-                } else {
-                    z += lateral;
-                }
-
-                if (x == primary.getX() && y == primary.getY() && z == primary.getZ()) {
+            for (int yOffset = 0; yOffset < mode.height; yOffset++) {
+                int y = floorY + yOffset;
+                if (y < world.getMinHeight() || y >= world.getMaxHeight()) {
                     continue;
                 }
 
-                int chunkX = Math.floorDiv(x, 16);
-                int chunkZ = Math.floorDiv(z, 16);
-                if (!world.isChunkLoaded(chunkX, chunkZ)) {
-                    continue;
-                }
+                for (int lateral = -halfWidth; lateral <= halfWidth; lateral++) {
+                    int x = baseX;
+                    int z = baseZ;
 
-                Location location = new Location(world, x, y, z);
-                if (Slimefun.getSchedulerService().isFolia()
-                        && !Slimefun.getSchedulerService().isOwnedByCurrentRegion(location)) {
-                    continue;
-                }
+                    if (facing == BlockFace.NORTH || facing == BlockFace.SOUTH) {
+                        x += lateral;
+                    } else {
+                        z += lateral;
+                    }
 
-                blocks.add(world.getBlockAt(x, y, z));
+                    if (x == primary.getX() && y == primary.getY() && z == primary.getZ()) {
+                        continue;
+                    }
+
+                    int chunkX = Math.floorDiv(x, 16);
+                    int chunkZ = Math.floorDiv(z, 16);
+                    if (!world.isChunkLoaded(chunkX, chunkZ)) {
+                        continue;
+                    }
+
+                    Location location = new Location(world, x, y, z);
+                    if (Slimefun.getSchedulerService().isFolia()
+                            && !Slimefun.getSchedulerService().isOwnedByCurrentRegion(location)) {
+                        continue;
+                    }
+
+                    blocks.add(world.getBlockAt(x, y, z));
+                }
             }
         }
 
