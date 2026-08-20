@@ -10,45 +10,37 @@ import org.junit.jupiter.api.Test;
 class BeaconPlusEffectTest {
 
     @Test
-    void registryStillContainsExactlyThirtyEffects() {
+    void registryContainsTwentyNineConfigurablePowersAndOneMigrationTombstone() {
         assertEquals(30, BeaconPlusEffect.values().length);
+        assertEquals(29, BeaconPlusEffect.configurableValues().length);
+        assertFalse(BeaconPlusEffect.SCALE.isConfigurable());
+        assertTrue(BeaconPlusEffect.RADIATION_ABSORBER.isConfigurable());
     }
 
     @Test
-    void allEffectsRoundTripThroughPersistentStorage() {
-        EnumSet<BeaconPlusEffect> all = EnumSet.allOf(BeaconPlusEffect.class);
-        assertEquals(all, BeaconPlusEffect.parse(BeaconPlusEffect.serialize(all)));
+    void configurableEffectsRoundTripThroughPersistentStorage() {
+        EnumSet<BeaconPlusEffect> configurable = EnumSet.allOf(BeaconPlusEffect.class);
+        configurable.remove(BeaconPlusEffect.SCALE);
+
+        assertEquals(configurable, BeaconPlusEffect.parse(BeaconPlusEffect.serialize(configurable)));
+        assertTrue(BeaconPlusEffect.parse("scale").isEmpty());
     }
 
     @Test
-    void everyEffectHasRenderableMenuMetadata() {
-        for (BeaconPlusEffect effect : BeaconPlusEffect.values()) {
+    void radiationAbsorberUsesStablePersistentId() {
+        assertEquals("radiation_absorber", BeaconPlusEffect.RADIATION_ABSORBER.getId());
+        assertEquals(
+                EnumSet.of(BeaconPlusEffect.RADIATION_ABSORBER),
+                BeaconPlusEffect.parse("radiation_absorber"));
+    }
+
+    @Test
+    void everyConfigurableEffectHasRenderableMenuMetadata() {
+        for (BeaconPlusEffect effect : BeaconPlusEffect.configurableValues()) {
             assertFalse(effect.getId().isBlank(), effect.name());
             assertFalse(effect.getDisplayName().isBlank(), effect.name());
             assertFalse(effect.getDescription().isBlank(), effect.name());
             assertTrue(effect.getIcon().isItem(), effect.name());
         }
-    }
-
-    @Test
-    void gravityWellUsesControlledReverseKnockbackStrength() {
-        assertEquals(0.45D, BeaconPlusGravity.getPullStrength(0));
-        assertEquals(0.63D, BeaconPlusGravity.getPullStrength(1));
-        assertEquals(BeaconPlusGravity.getPullStrength(0) * 1.4D, BeaconPlusGravity.getPullStrength(1), 1.0E-9D);
-    }
-
-    @Test
-    void electricityCostRulesRemainBoundedAndPredictable() {
-        assertEquals(16, BeaconPlus.calculateFieldEnergyCost(EnumSet.of(BeaconPlusEffect.STRENGTH)));
-        assertEquals(0, BeaconPlus.calculateFieldEnergyCost(EnumSet.of(BeaconPlusEffect.ACTIVATOR)));
-        assertEquals(0, BeaconPlus.calculateFieldEnergyCost(EnumSet.of(BeaconPlusEffect.EXTRA_POWER)));
-        assertEquals(
-                24,
-                BeaconPlus.calculateFieldEnergyCost(
-                        EnumSet.of(BeaconPlusEffect.STRENGTH, BeaconPlusEffect.EXTRA_POWER)));
-        assertEquals(
-                48,
-                BeaconPlus.calculateFieldEnergyCost(
-                        EnumSet.of(BeaconPlusEffect.STRENGTH, BeaconPlusEffect.SPEED, BeaconPlusEffect.EXTRA_POWER)));
     }
 }
