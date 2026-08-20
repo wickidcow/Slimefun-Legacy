@@ -1,6 +1,8 @@
 # Adventurer's Curios
 
-Adventurer's Curios is a built-in Slimefun Legacy guide category for exploration tools, navigation aids, field safety, and expedition gadgets. Its Slimefun Legacy addon-style settings live in `configSFLAddons.yml`. Set the top-level `enabled` value there to enable or disable the category. Fresh installs default it to `false`; existing installations that already enabled Curiosities are migrated without being silently disabled.
+Adventurer's Curios is a built-in Slimefun Legacy guide category for exploration tools, navigation aids, field safety, containment equipment, and expedition gadgets. Its Slimefun Legacy addon-style settings live in `configSFLAddons.yml`; core Slimefun4 settings remain in `config.yml`.
+
+The top-level `enabled` value in `configSFLAddons.yml` controls the category. Genuinely fresh Slimefun Legacy installations default it to `false`. Existing Slimefun Legacy installations that already had Adventurer's Curios remain enabled automatically, and older Curios/Resonance Beacon settings are migrated without silently disabling an established server.
 
 ## Current Curios
 
@@ -32,10 +34,14 @@ Read-only weather, day-phase and moon-phase field instrument.
 Bounded player-carried biome log.
 
 ### Traveler's Bedroll
-Portable personal rest with a five-minute cooldown. It resets phantom rest and restores a little health/food without changing world time or the player's respawn point.
+A portable Slimefun bed that can be placed and slept in like a normal bed while preserving the player's previously saved respawn point. Sleeping in the bedroll does not replace the player's existing `/home bed` / saved-bed location.
 
 ### Emergency Parachute
 Event-driven carried fall saver with a 60-second cooldown. It prevents dangerous/lethal fall damage and has no repeating task.
+
+## Containment
+
+The existing Curiosities containment section remains part of the category. It includes the Containment Trap, Advanced Hazmat gear, and Netherite Containment armor for radioactive/hazardous material handling. These current master-branch features are retained by the Resonance Beacon update.
 
 ## Resonance Beacon
 
@@ -53,7 +59,7 @@ Enhanced Crafting Table:
 
 ### Progression
 
-The Resonance Beacon has exactly 28 player-facing powers. Every power is independently controlled by the server under `SlimefunLegacyAddition.PoweredBeacon.powers` in `configSFLAddons.yml`.
+The Resonance Beacon has exactly **29 player-facing powers**. Every power is independently controlled by the server under `SlimefunLegacyAddition.PoweredBeacon.powers` in `configSFLAddons.yml`.
 
 For native Resonance Beacons, unlocks are permanent to the beacon owner and support **Tier I, Tier II and Tier III**. A player can:
 
@@ -61,13 +67,25 @@ For native Resonance Beacons, unlocks are permanent to the beacon owner and supp
 - right click an unlocked power to enable/disable it;
 - shift-right-click to purchase the next tier.
 
-Costs may use Minecraft experience levels or Vault money. Global and per-power payment modes/costs are configurable. All Resonance Beacon powers ship enabled by default; a server owner can disable any individual power by setting that power's `enabled` value to `false` under `SlimefunLegacyAddition.PoweredBeacon.powers`.
+Costs may use Minecraft experience levels or Vault money. Global and per-power payment modes/costs are configurable. All Resonance Beacon powers ship enabled by default inside the Resonance Beacon section; a server owner can disable any individual power by setting that power's `enabled` value to `false` under `SlimefunLegacyAddition.PoweredBeacon.powers`.
 
 Purchasing Tier III never bypasses the physical beacon. The effective tier is capped by the pyramid below the beacon.
 
+### Radiation Absorber
+
+Radiation Absorber is a separate toggleable Resonance Beacon power rather than being bundled into Fire Extinguisher. This lets a server owner or beacon owner control radiation protection independently from fire protection.
+
+While a player is inside an active Radiation Absorber field, Slimefun radiation symptoms are suppressed and existing exposure is scrubbed according to the effective tier:
+
+- **Tier I removes 25 exposure** per radiation update.
+- **Tier II removes 50 exposure** per radiation update.
+- **Tier III clears all current exposure**.
+
+The power uses the same physical pyramid, owner progression, range, server enable/disable setting, and optional electric-operation rules as the other Resonance Beacon powers. It is configured under `SlimefunLegacyAddition.PoweredBeacon.powers.radiation-absorber` in `configSFLAddons.yml`.
+
 ### Optional electric operation
 
-Every Resonance Beacon can optionally operate as a native Slimefun Energy Network consumer. Electric operation is **OFF by default**, including existing and BeaconData-imported beacons, so upgrading does not add an energy requirement to an established beacon.
+Every Resonance Beacon can optionally operate as a native Slimefun Energy Network consumer. Electric operation is **OFF by default per beacon**, including existing and BeaconData-imported beacons, so upgrading does not add an energy requirement to an established beacon.
 
 The owner or an operator can toggle **Electric Operation** from the beacon GUI. When enabled:
 
@@ -78,7 +96,7 @@ The owner or an operator can toggle **Electric Operation** from the beacon GUI. 
 - Activator chunk tickets are released while unpowered and automatically return when enough energy is available again;
 - turning electric operation OFF immediately returns the beacon to normal pyramid/progression-only operation.
 
-The capacity and pulse-cost values are configurable under `SlimefunLegacyAddition.PoweredBeacon.electric-operation` in `configSFLAddons.yml`. The energy option does not create a 29th power and never bypasses pyramid tier requirements.
+The capacity and pulse-cost values are configurable under `SlimefunLegacyAddition.PoweredBeacon.electric-operation` in `configSFLAddons.yml`. Electric operation is a mode, not a power, so it does not create a 30th power and never bypasses pyramid tier requirements.
 
 ### Pyramid resonance
 
@@ -118,24 +136,25 @@ Mixed valid beacon minerals are supported; the average configured material power
 16. Burner
 17. Water Breathing
 18. Fire Extinguisher
-19. Poison
-20. Gravity Well
-21. Jump
-22. Exp Gain
-23. Cooldown Reduction
-24. Immortality Field
-25. Extra Power
-26. Extra Range
-27. Activator
-28. Auto Repair
+19. Radiation Absorber
+20. Poison
+21. Gravity Well
+22. Jump
+23. Exp Gain
+24. Cooldown Reduction
+25. Immortality Field
+26. Extra Power
+27. Extra Range
+28. Activator
+29. Auto Repair
 
 The old Scale experiment remains only as a disabled migration tombstone and is not a configurable power.
 
 ### Tier behavior
 
-Potion powers use Tier I/II/III as effect amplifiers 0/1/2. Other powers scale within bounded limits. Examples include stronger furnace/spawner/crop boosts, more passive XP, faster repair, stronger Gravity Well pull, and stronger Burner duration.
+Potion powers use Tier I/II/III as effect amplifiers 0/1/2. Other powers scale within bounded limits. Examples include stronger furnace/spawner/crop boosts, more passive XP, faster repair, stronger Gravity Well pull, stronger Burner duration, and faster Radiation Absorber cleanup.
 
-Experience Booster multiplies positive XP by 2x/3x/4x. Cooldown Reduction uses 40%/60%/75% reduction. Immortality Field uses 25%/40%/55% save chance with a 60-second successful-save cooldown.
+Experience Booster multiplies positive XP by 2x/3x/4x. Cooldown Reduction uses 40%/60%/75% reduction. Immortality Field uses 25%/40%/55% save chance with a 60-second successful-save cooldown. Radiation Absorber removes 25/50/all stored radiation exposure at Tier I/II/III while suppressing symptoms inside the active field.
 
 Extra Range adds 10 blocks per tier. Extra Power can raise supported field powers further, still capped at Tier III.
 
@@ -148,6 +167,14 @@ Activator coverage is derived from its effective tier:
 - Tier III: 5x5 chunks
 
 Activator retains hard server safety caps of 64 active Resonance Beacon loaders and 256 unique ticketed chunks. Overlapping loaders are reference-counted.
+
+## Configuration migration
+
+`config.yml` remains the generic/core Slimefun4 configuration. Adventurer's Curios and Resonance Beacon settings live in `configSFLAddons.yml`.
+
+On upgrade, Slimefun Legacy checks for the retired `curiosities.yml` file and the old Curiosities/PoweredBeacon keys in `config.yml`. Values are copied into `configSFLAddons.yml` first. Only after the replacement file saves successfully are the obsolete Curiosities keys removed from `config.yml`. Unrelated generic Slimefun settings and unrelated Legacy additions are not removed.
+
+If the replacement file cannot be saved, the old keys remain in `config.yml` so the migration is non-destructive.
 
 ## BeaconData compatibility
 
@@ -188,7 +215,7 @@ This allows an existing BeaconPlus `BeaconData` directory to be copied directly 
 ## Runtime boundaries
 
 - One normal Slimefun `BlockTicker` handles periodic Resonance Beacon work.
-- Event-driven XP, cooldown, Peaceful, Immortality and player-state work share one listener.
+- Event-driven XP, cooldown, Peaceful, Immortality, Radiation Absorber and player-state work share one listener.
 - Tile-entity inspection is bounded to 96 states per pulse.
 - Crop growth uses bounded random samples.
 - Normal field powers cover full-height chunk columns but never load chunks.
