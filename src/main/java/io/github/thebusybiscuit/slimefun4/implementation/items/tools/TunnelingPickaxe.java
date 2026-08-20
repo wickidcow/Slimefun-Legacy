@@ -1,19 +1,13 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.tools;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
-import io.github.bakedlibs.dough.protection.Interaction;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
-import io.github.thebusybiscuit.slimefun4.api.items.ItemSetting;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
-import io.github.thebusybiscuit.slimefun4.core.attributes.DamageableItem;
-import io.github.thebusybiscuit.slimefun4.core.attributes.NotPlaceable;
 import io.github.thebusybiscuit.slimefun4.core.handlers.ItemUseHandler;
 import io.github.thebusybiscuit.slimefun4.core.handlers.ToolUseHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
 import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
-import io.github.thebusybiscuit.slimefun4.utils.tags.SlimefunTag;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -43,20 +37,17 @@ import org.bukkit.persistence.PersistentDataType;
  * protection manager and never force-loads chunks. Slimefun blocks, custom blocks and tile entities are deliberately
  * left untouched so a large bore cannot wipe machines or storage by accident.</p>
  */
-public final class TunnelingPickaxe extends SimpleSlimefunItem<ToolUseHandler>
-        implements NotPlaceable, DamageableItem {
+public final class TunnelingPickaxe extends ExplosiveTool {
 
     private static final int TUNNEL_DEPTH = 3;
     private static final int EXTRA_BLOCKS_PER_DURABILITY = 12;
 
-    private final ItemSetting<Boolean> damageOnUse = new ItemSetting<>(this, "damage-on-use", true);
     private final NamespacedKey modeKey = new NamespacedKey(Slimefun.instance(), "tunnel_borer_mode");
     private final Map<UUID, Long> lastBoreUse = new ConcurrentHashMap<>();
 
     @ParametersAreNonnullByDefault
     public TunnelingPickaxe(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
         super(itemGroup, item, recipeType, recipe);
-        addItemSetting(damageOnUse);
     }
 
     @Override
@@ -70,7 +61,6 @@ public final class TunnelingPickaxe extends SimpleSlimefunItem<ToolUseHandler>
         return (event, tool, fortune, drops) -> {
             Player player = event.getPlayer();
             if (player.isSneaking()) {
-                // Precision override: sneaking mines only the block the player actually targeted.
                 return;
             }
 
@@ -88,7 +78,6 @@ public final class TunnelingPickaxe extends SimpleSlimefunItem<ToolUseHandler>
                     continue;
                 }
 
-                Slimefun.getProtectionManager().logAction(player, block, Interaction.BREAK_BLOCK);
                 VisualEffectUtils.playBlockBreakEffect(block);
                 if (block.breakNaturally(tool)) {
                     broken++;
@@ -183,16 +172,7 @@ public final class TunnelingPickaxe extends SimpleSlimefunItem<ToolUseHandler>
     }
 
     private boolean canTunnelBreak(Player player, Block block) {
-        if (block.isEmpty() || block.isLiquid()) {
-            return false;
-        }
-        if (SlimefunTag.UNBREAKABLE_MATERIALS.isTagged(block.getType())) {
-            return false;
-        }
-        if (!block.getWorld().getWorldBorder().isInside(block.getLocation())) {
-            return false;
-        }
-        if (!Slimefun.getProtectionManager().hasPermission(player, block.getLocation(), Interaction.BREAK_BLOCK)) {
+        if (!canBreak(player, block)) {
             return false;
         }
         if (block.getState() instanceof TileState) {
@@ -216,11 +196,6 @@ public final class TunnelingPickaxe extends SimpleSlimefunItem<ToolUseHandler>
         } catch (IllegalArgumentException ignored) {
             return BoreMode.SERVICE;
         }
-    }
-
-    @Override
-    public boolean isDamageable() {
-        return damageOnUse.getValue();
     }
 
     private enum BoreMode {
