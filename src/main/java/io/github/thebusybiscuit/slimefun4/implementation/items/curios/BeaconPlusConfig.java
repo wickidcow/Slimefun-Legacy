@@ -216,7 +216,12 @@ final class BeaconPlusConfig {
         int base =
                 switch (effect) {
                     case FLYING, IMMORTALITY_FIELD, ACTIVATOR -> 25;
-                    case EXTRA_POWER, EXTRA_RANGE, AUTO_REPAIR, EXPERIENCE_BOOSTER, COOLDOWN_REDUCTION -> 15;
+                    case EXTRA_POWER,
+                            EXTRA_RANGE,
+                            AUTO_REPAIR,
+                            EXPERIENCE_BOOSTER,
+                            COOLDOWN_REDUCTION,
+                            RADIATION_ABSORBER -> 15;
                     case REGENERATION, RESISTANCE, PEACEFUL, GRAVITY_WELL, SPAWNERS, CROPS -> 10;
                     default -> 5;
                 };
