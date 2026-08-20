@@ -14,7 +14,9 @@ The Deepcore Tunnel Borer converts the existing Explosive Pickaxe into a control
 
 Right-click cycles the selected bore size. Sneaking while mining temporarily disables the area effect for precision single-block mining.
 
-The block the player mines determines the forward tunnel face. The bottom of the bore follows the player's foot level, so the remaining blocks are removed upward rather than equally above and below the targeted block.
+Each activation excavates a maximum of **3 blocks forward**. The selected 3x5, 5x7 or 9x11 mode controls only the width and height of the tunnel face, producing short 3-block-long sections for smooth continuous tunneling instead of giant cavities.
+
+The block the player mines determines the forward tunnel direction. The bottom of the bore follows the player's foot level, so the remaining blocks are removed upward rather than equally above and below the targeted block.
 
 ### Safety and performance
 
