@@ -650,6 +650,7 @@ final class BeaconPlusLegacyDataStore implements Listener {
             case BURNER -> List.of("burner");
             case WATER_BREATHING -> List.of("water_breathing");
             case FIRE_EXTINGUISHER -> List.of("fireExtinguisher", "fire_extenguisher", "fire_extinguisher");
+            case RADIATION_ABSORBER -> List.of("radiation_absorber");
             case POISON -> List.of("poison");
             case GRAVITY_WELL -> List.of("gravity_well");
             case JUMP -> List.of("jump");
