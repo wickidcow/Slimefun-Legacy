@@ -33,6 +33,7 @@ final class BeaconPlusRuntime {
 
     static void forget(Location location) {
         OBSERVED_BEACONS.remove(BeaconKey.from(location));
+        BeaconPlusBeam.markUnpowered(location);
     }
 
     static EnumSet<BeaconPlusEffect> getConfiguredEffects(Location location) {
@@ -176,6 +177,7 @@ final class BeaconPlusRuntime {
     static void tick(Block block, ASlimefunDataContainer data) {
         observe(block);
         if (!BeaconPlusConfig.isEnabled()) {
+            BeaconPlusBeam.markUnpowered(block.getLocation());
             BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, 64.0D);
             return;
         }
@@ -188,6 +190,7 @@ final class BeaconPlusRuntime {
 
         EnumMap<BeaconPlusEffect, Integer> tiers = getPotentialActiveTiers(block);
         if (!BeaconPlusEnergy.consumePulse(block, data, tiers)) {
+            BeaconPlusBeam.markUnpowered(block.getLocation());
             reconcileActivator(block, 0);
             BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, 64.0D);
             return;
@@ -195,9 +198,12 @@ final class BeaconPlusRuntime {
         reconcileActivator(block, tiers.getOrDefault(BeaconPlusEffect.ACTIVATOR, 0));
         double range = getRange(block, tiers);
         if (range <= 0.0D) {
+            BeaconPlusBeam.markUnpowered(block.getLocation());
             BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, 64.0D);
             return;
         }
+
+        BeaconPlusBeam.markPowered(block);
         BeaconPlusRuntimeEffects.applyPulse(block, tiers, range, gameTime);
     }
 
