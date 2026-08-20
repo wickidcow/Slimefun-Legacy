@@ -1,5 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
 
+import io.github.thebusybiscuit.slimefun4.api.events.RadiationDamageEvent;
+import io.github.thebusybiscuit.slimefun4.utils.RadiationUtils;
 import io.papermc.paper.event.player.PlayerItemCooldownEvent;
 import java.util.Map;
 import java.util.UUID;
@@ -8,6 +10,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
@@ -22,9 +25,7 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 
-/**
- * Event-driven Beacon Plus effects that do not belong in the periodic block pulse.
- */
+/** Event-driven Resonance Beacon powers that do not belong in the periodic block pulse. */
 final class BeaconPlusEffectListener implements Listener {
 
     private static final AtomicBoolean REGISTERED = new AtomicBoolean();
@@ -45,46 +46,69 @@ final class BeaconPlusEffectListener implements Listener {
             return;
         }
 
-        int power = BeaconPlusPowerState.getPowerForEffect(
+        int tier = BeaconPlusRuntime.getTierForEffect(
                 event.getPlayer().getLocation(), BeaconPlusEffect.EXPERIENCE_BOOSTER);
-        if (power >= 0) {
-            event.setAmount(event.getAmount() * (power > 0 ? 3 : 2));
+        if (tier > 0) {
+            event.setAmount(event.getAmount() * (tier + 1));
         }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onCooldown(PlayerItemCooldownEvent event) {
-        int power = BeaconPlusPowerState.getPowerForEffect(
+        int tier = BeaconPlusRuntime.getTierForEffect(
                 event.getPlayer().getLocation(), BeaconPlusEffect.COOLDOWN_REDUCTION);
-        if (power < 0 || event.getCooldown() <= 1) {
+        if (tier <= 0 || event.getCooldown() <= 1) {
             return;
         }
 
-        double multiplier = power > 0 ? 0.40D : 0.60D;
+        double multiplier =
+                switch (tier) {
+                    case 1 -> 0.60D;
+                    case 2 -> 0.40D;
+                    default -> 0.25D;
+                };
         event.setCooldown(Math.max(1, (int) Math.ceil(event.getCooldown() * multiplier)));
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onRadiationDamage(RadiationDamageEvent event) {
+        Player player = event.getPlayer();
+        int tier = BeaconPlusRuntime.getTierForEffect(player.getLocation(), BeaconPlusEffect.RADIATION_ABSORBER);
+        if (tier <= 0) {
+            return;
+        }
+
+        int exposure = RadiationUtils.getExposure(player);
+        switch (tier) {
+            case 1 -> RadiationUtils.removeExposure(player, Math.min(25, exposure));
+            case 2 -> RadiationUtils.removeExposure(player, Math.min(50, exposure));
+            default -> RadiationUtils.clearExposure(player);
+        }
+
+        // The field blocks symptoms while actively absorbing the stored exposure.
+        event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onTarget(EntityTargetLivingEntityEvent event) {
-        if (!(event.getTarget() instanceof Player player)) {
+        LivingEntity target = event.getTarget();
+        if (target == null || !BeaconPlusRuntime.hasEffect(target.getLocation(), BeaconPlusEffect.PEACEFUL)) {
             return;
         }
-        if (!BeaconPlusPowerState.hasPoweredEffect(player.getLocation(), BeaconPlusEffect.PEACEFUL)) {
+        if (!(event.getEntity() instanceof Monster monster)) {
             return;
         }
 
         event.setCancelled(true);
-        if (event.getEntity() instanceof Monster monster) {
-            monster.setTarget(null);
-        }
+        monster.setTarget(null);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onHostileDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getEntity() instanceof Player player)) {
+        if (!(event.getEntity() instanceof LivingEntity victim)) {
             return;
         }
-        if (!BeaconPlusPowerState.hasPoweredEffect(player.getLocation(), BeaconPlusEffect.PEACEFUL)) {
+        if (!BeaconPlusRuntime.hasEffect(victim.getLocation(), BeaconPlusEffect.PEACEFUL)) {
             return;
         }
 
@@ -107,9 +131,8 @@ final class BeaconPlusEffectListener implements Listener {
             return;
         }
 
-        int power = BeaconPlusPowerState.getPowerForEffect(
-                player.getLocation(), BeaconPlusEffect.IMMORTALITY_FIELD);
-        if (power < 0) {
+        int tier = BeaconPlusRuntime.getTierForEffect(player.getLocation(), BeaconPlusEffect.IMMORTALITY_FIELD);
+        if (tier <= 0) {
             return;
         }
 
@@ -119,7 +142,12 @@ final class BeaconPlusEffectListener implements Listener {
             return;
         }
 
-        double chance = power > 0 ? 0.40D : 0.25D;
+        double chance =
+                switch (tier) {
+                    case 1 -> 0.25D;
+                    case 2 -> 0.40D;
+                    default -> 0.55D;
+                };
         if (ThreadLocalRandom.current().nextDouble() >= chance) {
             return;
         }
@@ -141,13 +169,7 @@ final class BeaconPlusEffectListener implements Listener {
             return;
         }
 
-        boolean poweredPersistentState = BeaconPlusPowerState.hasPoweredEffect(to, BeaconPlusEffect.FLYING)
-                || BeaconPlusPowerState.hasPoweredEffect(to, BeaconPlusEffect.SCALE);
-        if (poweredPersistentState) {
-            BeaconPlusRuntime.refreshPlayerState(event.getPlayer());
-        } else {
-            BeaconPlusRuntime.clearPlayerState(event.getPlayer());
-        }
+        BeaconPlusRuntime.refreshPlayerState(event.getPlayer());
     }
 
     @EventHandler

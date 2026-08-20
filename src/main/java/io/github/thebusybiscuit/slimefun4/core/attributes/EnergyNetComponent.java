@@ -47,6 +47,24 @@ public interface EnergyNetComponent extends ItemAttribute {
     EnergyNetComponentType getEnergyComponentType();
 
     /**
+     * Returns whether this component should currently participate in its energy network at the supplied block.
+     *
+     * <p>The default remains {@code true} for full backwards compatibility. Location-aware components may override
+     * this to pause network transfer without changing their registered component type or forcing a network rebuild.
+     *
+     * @param l
+     *            The component location
+     * @param data
+     *            The loaded Slimefun block data
+     * @return {@code true} when the component should participate in energy transfer
+     */
+    default boolean isEnergyNetActive(@Nonnull Location l, @Nonnull ASlimefunDataContainer data) {
+        Validate.notNull(l, "Location was null!");
+        Validate.notNull(data, "Data container was null!");
+        return true;
+    }
+
+    /**
      * This method returns the max amount of electricity this Block can hold.
      * If the capacity is zero, then this Block cannot hold any electricity.
      *

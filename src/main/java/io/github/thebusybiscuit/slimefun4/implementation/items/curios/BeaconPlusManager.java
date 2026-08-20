@@ -21,17 +21,13 @@ import org.bukkit.Location;
 import org.bukkit.World;
 
 /**
- * Owns Beacon Plus persistence and Paper/Folia plugin chunk tickets.
- *
- * <p>This manager never ticks machines itself. It only keeps selected chunks loaded so Slimefun core and addon
- * runtimes continue using their normal schedulers and transaction rules.
+ * Owns Beacon Plus placement ownership, Activator persistence and reference-counted plugin chunk tickets.
  */
 public final class BeaconPlusManager {
 
     public static final String ITEM_ID = "BEACON_PLUS";
     public static final String OWNER_KEY = "beacon_plus_owner";
     public static final String CHUNK_MODE_KEY = "beacon_plus_chunk_mode";
-    public static final String FIELD_AREA_KEY = "beacon_plus_field_area";
     public static final String SUPPORT_MODE_KEY = "beacon_plus_support_mode";
 
     private static final int MAX_ACTIVE_BEACONS = 64;
@@ -48,7 +44,7 @@ public final class BeaconPlusManager {
 
     private BeaconPlusManager(Slimefun plugin) {
         this.plugin = plugin;
-        this.registryPath = plugin.getDataFolder().toPath().resolve("adventurers-curios-beacons.properties");
+        registryPath = plugin.getDataFolder().toPath().resolve("adventurers-curios-beacons.properties");
     }
 
     public static synchronized void start(@Nonnull Slimefun plugin) {
@@ -76,9 +72,9 @@ public final class BeaconPlusManager {
 
     public synchronized void register(@Nonnull Location location, @Nonnull UUID owner) {
         LocationKey key = LocationKey.from(location);
-        BeaconRecord existing = records.get(key);
-        if (existing != null) {
-            releaseCoverage(existing);
+        BeaconRecord previous = records.get(key);
+        if (previous != null) {
+            releaseCoverage(previous);
         }
 
         BeaconRecord record = new BeaconRecord(key, owner, BeaconPlusChunkMode.OFF, BeaconPlusSupportMode.OFF);
@@ -88,8 +84,7 @@ public final class BeaconPlusManager {
     }
 
     public synchronized void unregister(@Nonnull Location location) {
-        LocationKey key = LocationKey.from(location);
-        BeaconRecord record = records.remove(key);
+        BeaconRecord record = records.remove(LocationKey.from(location));
         if (record != null) {
             releaseCoverage(record);
             saveRegistry();
@@ -102,10 +97,6 @@ public final class BeaconPlusManager {
             return record.chunkMode();
         }
         return BeaconPlusChunkMode.fromStored(StorageCacheUtils.getData(location, CHUNK_MODE_KEY));
-    }
-
-    public synchronized @Nonnull BeaconPlusFieldArea getFieldArea(@Nonnull Location location) {
-        return BeaconPlusFieldArea.fromStored(StorageCacheUtils.getData(location, FIELD_AREA_KEY));
     }
 
     public synchronized @Nonnull BeaconPlusSupportMode getSupportMode(@Nonnull Location location) {
@@ -123,10 +114,9 @@ public final class BeaconPlusManager {
         }
 
         String stored = StorageCacheUtils.getData(location, OWNER_KEY);
-        if (stored == null) {
+        if (stored == null || stored.isBlank()) {
             return null;
         }
-
         try {
             return UUID.fromString(stored);
         } catch (IllegalArgumentException ignored) {
@@ -134,11 +124,6 @@ public final class BeaconPlusManager {
         }
     }
 
-    /**
-     * Updates both independent Beacon Plus controls atomically.
-     *
-     * @return {@code true} when the requested chunk profile could be activated within the safety caps
-     */
     public synchronized boolean updateModes(
             @Nonnull Location location,
             @Nonnull UUID owner,
@@ -153,14 +138,13 @@ public final class BeaconPlusManager {
             return false;
         }
 
-        boolean chunkModeChanged = previous.chunkMode() != replacement.chunkMode();
-        if (chunkModeChanged) {
+        boolean coverageChanged = previous.chunkMode() != replacement.chunkMode();
+        if (coverageChanged) {
             releaseCoverage(previous);
         }
 
         records.put(key, replacement);
-
-        if (chunkModeChanged) {
+        if (coverageChanged) {
             acquireCoverage(replacement);
         }
 
@@ -169,9 +153,21 @@ public final class BeaconPlusManager {
         return true;
     }
 
+    /** Applies the global admin switch without changing any beacon's saved Activator selection. */
+    public synchronized void applyGlobalChunkLoadingState() {
+        if (!BeaconPlusChunkLoadingControl.isEnabled()) {
+            releaseAllChunkTickets();
+            return;
+        }
+
+        if (ticketReferences.isEmpty()) {
+            restoreTickets();
+        }
+    }
+
     public synchronized int getActiveBeaconCount() {
         return (int) records.values().stream()
-                .filter(record -> record.chunkMode() != BeaconPlusChunkMode.OFF)
+                .filter(record -> record.chunkMode().isActive())
                 .count();
     }
 
@@ -180,14 +176,24 @@ public final class BeaconPlusManager {
     }
 
     private boolean canActivate(BeaconRecord previous, BeaconRecord replacement) {
-        if (replacement.chunkMode() == BeaconPlusChunkMode.OFF) {
+        if (!replacement.chunkMode().isActive()) {
             return true;
         }
 
-        boolean previousWasActive = previous.chunkMode() != BeaconPlusChunkMode.OFF;
-        int activeAfter = getActiveBeaconCount() + (previousWasActive ? 0 : 1);
+        int activeAfter = getActiveBeaconCount() + (previous.chunkMode().isActive() ? 0 : 1);
         if (activeAfter > MAX_ACTIVE_BEACONS) {
             return false;
+        }
+
+        if (!BeaconPlusChunkLoadingControl.isEnabled()) {
+            Set<ChunkKey> configuredCoverage = new HashSet<>();
+            for (BeaconRecord record : records.values()) {
+                if (!record.location().equals(replacement.location())) {
+                    configuredCoverage.addAll(coverage(record));
+                }
+            }
+            configuredCoverage.addAll(coverage(replacement));
+            return configuredCoverage.size() <= MAX_UNIQUE_CHUNKS;
         }
 
         Set<ChunkKey> previousCoverage = coverage(previous);
@@ -204,17 +210,20 @@ public final class BeaconPlusManager {
                 projected++;
             }
         }
-
         return projected <= MAX_UNIQUE_CHUNKS;
     }
 
     private void restoreTickets() {
+        if (!BeaconPlusChunkLoadingControl.isEnabled()) {
+            return;
+        }
+
         boolean changed = false;
-        int restoredActiveBeacons = 0;
+        int restoredActive = 0;
 
         for (Map.Entry<LocationKey, BeaconRecord> entry : new HashMap<>(records).entrySet()) {
             BeaconRecord record = entry.getValue();
-            if (record.chunkMode() == BeaconPlusChunkMode.OFF) {
+            if (!record.chunkMode().isActive()) {
                 continue;
             }
 
@@ -222,23 +231,20 @@ public final class BeaconPlusManager {
             long newChunks = recordCoverage.stream()
                     .filter(key -> !ticketReferences.containsKey(key))
                     .count();
-            boolean exceedsBeaconCap = restoredActiveBeacons >= MAX_ACTIVE_BEACONS;
-            boolean exceedsChunkCap = ticketReferences.size() + newChunks > MAX_UNIQUE_CHUNKS;
-
-            if (exceedsBeaconCap || exceedsChunkCap) {
-                BeaconRecord inactive = new BeaconRecord(
-                        record.location(), record.owner(), BeaconPlusChunkMode.OFF, record.supportMode());
+            if (restoredActive >= MAX_ACTIVE_BEACONS || ticketReferences.size() + newChunks > MAX_UNIQUE_CHUNKS) {
+                records.put(
+                        entry.getKey(),
+                        new BeaconRecord(
+                                record.location(), record.owner(), BeaconPlusChunkMode.OFF, record.supportMode()));
                 plugin.getLogger()
-                        .warning(
-                                "Beacon Plus at " + record.location().describe()
-                                        + " was restored with chunk loading disabled because the global safety cap was reached.");
-                records.put(entry.getKey(), inactive);
+                        .warning("Resonance Beacon at " + record.location().describe()
+                                + " restored with Activator disabled because the global safety cap was reached.");
                 changed = true;
                 continue;
             }
 
             acquireCoverage(record);
-            restoredActiveBeacons++;
+            restoredActive++;
         }
 
         if (changed) {
@@ -252,7 +258,6 @@ public final class BeaconPlusManager {
             if (world == null) {
                 continue;
             }
-
             Location location = record.location().toLocation(world);
             Slimefun.getSchedulerService()
                     .runAtLater(location, () -> validateRecord(record.location(), 1), VALIDATION_DELAY_TICKS);
@@ -292,25 +297,22 @@ public final class BeaconPlusManager {
             return;
         }
 
-        String owner = data.getData(OWNER_KEY);
-        if (owner == null || owner.isBlank()) {
+        if (data.getData(OWNER_KEY) == null) {
             data.setData(OWNER_KEY, persisted.owner().toString());
         }
-        String chunkMode = data.getData(CHUNK_MODE_KEY);
-        if (chunkMode == null || chunkMode.isBlank()) {
+        if (data.getData(CHUNK_MODE_KEY) == null) {
             data.setData(CHUNK_MODE_KEY, persisted.chunkMode().name());
         }
-        String fieldArea = data.getData(FIELD_AREA_KEY);
-        if (fieldArea == null || fieldArea.isBlank()) {
-            data.setData(FIELD_AREA_KEY, BeaconPlusFieldArea.DEFAULT.name());
-        }
-        String supportMode = data.getData(SUPPORT_MODE_KEY);
-        if (supportMode == null || supportMode.isBlank()) {
+        if (data.getData(SUPPORT_MODE_KEY) == null) {
             data.setData(SUPPORT_MODE_KEY, persisted.supportMode().name());
         }
     }
 
     private void acquireCoverage(BeaconRecord record) {
+        if (!BeaconPlusChunkLoadingControl.isEnabled() || !record.chunkMode().isActive()) {
+            return;
+        }
+
         for (ChunkKey key : coverage(record)) {
             int references = ticketReferences.getOrDefault(key, 0);
             if (references == 0) {
@@ -318,12 +320,11 @@ public final class BeaconPlusManager {
                 if (world == null) {
                     continue;
                 }
-
                 try {
                     world.addPluginChunkTicket(key.x(), key.z(), plugin);
                 } catch (RuntimeException exception) {
                     plugin.getLogger()
-                            .log(Level.WARNING, "Could not load Beacon Plus chunk " + key.describe(), exception);
+                            .log(Level.WARNING, "Could not load Resonance Beacon chunk " + key.describe(), exception);
                     continue;
                 }
             }
@@ -346,7 +347,10 @@ public final class BeaconPlusManager {
                         world.removePluginChunkTicket(key.x(), key.z(), plugin);
                     } catch (RuntimeException exception) {
                         plugin.getLogger()
-                                .log(Level.WARNING, "Could not release Beacon Plus chunk " + key.describe(), exception);
+                                .log(
+                                        Level.WARNING,
+                                        "Could not release Resonance Beacon chunk " + key.describe(),
+                                        exception);
                     }
                 }
             } else {
@@ -355,9 +359,27 @@ public final class BeaconPlusManager {
         }
     }
 
+    private void releaseAllChunkTickets() {
+        for (ChunkKey key : new HashSet<>(ticketReferences.keySet())) {
+            World world = Bukkit.getWorld(key.worldId());
+            if (world != null) {
+                try {
+                    world.removePluginChunkTicket(key.x(), key.z(), plugin);
+                } catch (RuntimeException exception) {
+                    plugin.getLogger()
+                            .log(
+                                    Level.WARNING,
+                                    "Could not release Resonance Beacon chunk " + key.describe(),
+                                    exception);
+                }
+            }
+        }
+        ticketReferences.clear();
+    }
+
     private Set<ChunkKey> coverage(BeaconRecord record) {
         Set<ChunkKey> chunks = new HashSet<>();
-        if (record.chunkMode() == BeaconPlusChunkMode.OFF) {
+        if (!record.chunkMode().isActive()) {
             return chunks;
         }
 
@@ -377,13 +399,8 @@ public final class BeaconPlusManager {
         if (data == null) {
             return;
         }
-
         data.setData(OWNER_KEY, record.owner().toString());
         data.setData(CHUNK_MODE_KEY, record.chunkMode().name());
-        String fieldArea = data.getData(FIELD_AREA_KEY);
-        if (fieldArea == null || fieldArea.isBlank()) {
-            data.setData(FIELD_AREA_KEY, BeaconPlusFieldArea.DEFAULT.name());
-        }
         data.setData(SUPPORT_MODE_KEY, record.supportMode().name());
     }
 
@@ -407,11 +424,13 @@ public final class BeaconPlusManager {
                 if (parts.length < 3) {
                     continue;
                 }
-
-                UUID owner = UUID.fromString(parts[0]);
-                BeaconPlusChunkMode chunkMode = BeaconPlusChunkMode.fromStored(parts[1]);
-                BeaconPlusSupportMode supportMode = BeaconPlusSupportMode.fromStored(parts[2]);
-                records.put(location, new BeaconRecord(location, owner, chunkMode, supportMode));
+                records.put(
+                        location,
+                        new BeaconRecord(
+                                location,
+                                UUID.fromString(parts[0]),
+                                BeaconPlusChunkMode.fromStored(parts[1]),
+                                BeaconPlusSupportMode.fromStored(parts[2])));
             } catch (IllegalArgumentException exception) {
                 plugin.getLogger().warning("Ignored malformed Beacon Plus registry entry: " + keyText);
             }
@@ -438,18 +457,7 @@ public final class BeaconPlusManager {
     }
 
     private synchronized void shutdown() {
-        for (ChunkKey key : new HashSet<>(ticketReferences.keySet())) {
-            World world = Bukkit.getWorld(key.worldId());
-            if (world != null) {
-                try {
-                    world.removePluginChunkTicket(key.x(), key.z(), plugin);
-                } catch (RuntimeException exception) {
-                    plugin.getLogger()
-                            .log(Level.FINE, "Could not release Beacon Plus chunk during shutdown.", exception);
-                }
-            }
-        }
-        ticketReferences.clear();
+        releaseAllChunkTickets();
         saveRegistry();
     }
 

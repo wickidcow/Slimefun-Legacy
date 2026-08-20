@@ -9,7 +9,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 
-/** Renders the optional powered Beacon Plus beam without placing any world blocks. */
+/** Renders the optional powered Resonance Beacon yellow beam without placing any world blocks. */
 final class BeaconPlusBeam {
 
     /** Kept for one-way cleanup of the old 4.1.31 stained-glass beam implementation. */
@@ -26,7 +26,6 @@ final class BeaconPlusBeam {
     static void markPowered(Block beaconBlock) {
         Location location = beaconBlock.getLocation();
         cleanupLegacyFilter(location);
-        BeaconPlusAreaPreview.render(beaconBlock);
 
         if (!isVisualsEnabled(location)) {
             return;
@@ -38,7 +37,6 @@ final class BeaconPlusBeam {
     static void markUnpowered(Location location) {
         // Particle visuals naturally expire. This only cleans up panes left by the previous implementation.
         cleanupLegacyFilter(location);
-        BeaconPlusAreaPreview.render(location);
     }
 
     static boolean isVisualsEnabled(Location location) {

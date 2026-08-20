@@ -1,7 +1,12 @@
-name: Reproducible Release Candidate
+name: Reproducible Release
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - gradle.properties
 
 permissions:
   contents: write

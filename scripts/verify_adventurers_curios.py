@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
-"""Verify the built-in Adventurer's Curios category and native Beacon Plus runtime."""
-
+"""Verify Adventurer's Curios and the native Resonance Beacon invariants."""
 from __future__ import annotations
-
 import sys
 from pathlib import Path
 
 
-def read(root: Path, relative: str) -> str:
-    path = root / relative
+def read(root: Path, rel: str) -> str:
+    path = root / rel
     if not path.is_file():
-        raise FileNotFoundError(relative)
+        raise FileNotFoundError(rel)
     return path.read_text(encoding="utf-8")
 
 
-def require(condition: bool, message: str, failures: list[str]) -> None:
+def req(condition: bool, message: str, failures: list[str]) -> None:
     if not condition:
         failures.append(message)
 
@@ -22,333 +20,266 @@ def require(condition: bool, message: str, failures: list[str]) -> None:
 def main() -> int:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     failures: list[str] = []
-
+    base = "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/"
     files = {
         "setup": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/setup/AdventurersCuriosSetup.java",
-        "wayfinder": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/WayfindersCompass.java",
-        "lantern": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/EchoLantern.java",
-        "spyglass": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/ExplorersSpyglass.java",
-        "canary": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/MinersCanary.java",
-        "chalk": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/DungeonChalk.java",
-        "storm": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/StormGlass.java",
-        "journal": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/ExpeditionJournal.java",
-        "beacon": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlus.java",
-        "beacon_effect": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusEffect.java",
-        "beacon_runtime": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusRuntime.java",
-        "beacon_power": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusPowerState.java",
-        "beacon_listener": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusEffectListener.java",
-        "beacon_manager": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusManager.java",
-        "beacon_chunk_mode": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusChunkMode.java",
-        "beacon_field_area": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusFieldArea.java",
-        "beacon_gravity": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusGravity.java",
-        "beacon_support_mode": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusSupportMode.java",
-        "beacon_lifecycle": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlusLifecycleListener.java",
+        "canary": base + "MinersCanary.java",
+        "parachute": base + "EmergencyParachute.java",
+        "beacon": base + "BeaconPlus.java",
+        "effect": base + "BeaconPlusEffect.java",
+        "runtime": base + "BeaconPlusRuntime.java",
+        "runtime_effects": base + "BeaconPlusRuntimeEffects.java",
+        "energy": base + "BeaconPlusEnergy.java",
+        "field": base + "BeaconPlusField.java",
+        "listener": base + "BeaconPlusEffectListener.java",
+        "manager": base + "BeaconPlusManager.java",
+        "mode": base + "BeaconPlusChunkMode.java",
+        "config_class": base + "BeaconPlusConfig.java",
+        "chunk_control": base + "BeaconPlusChunkLoadingControl.java",
+        "progression": base + "BeaconPlusProgression.java",
+        "pyramid": base + "BeaconPlusPyramid.java",
+        "legacy": base + "BeaconPlusLegacyDataStore.java",
+        "lifecycle": base + "BeaconPlusLifecycleListener.java",
+        "core_config": "src/main/resources/config.yml",
+        "sfl_addons_config": "src/main/resources/configSFLAddons.yml",
+        "curiosities_config_class": "src/main/java/io/github/thebusybiscuit/slimefun4/core/config/CuriositiesConfig.java",
         "docs": "docs/ADVENTURERS_CURIOS.md",
     }
 
-    for relative in files.values():
-        require((root / relative).is_file(), f"Missing Adventurer's Curios file: {relative}", failures)
+    for rel in files.values():
+        req((root / rel).is_file(), f"Missing Curios file: {rel}", failures)
+    req(not (root / (base + "DungeonChalk.java")).exists(), "Dungeon Chalk source must stay removed", failures)
+    req(not (root / "src/main/resources/curiosities.yml").exists(),
+        "Legacy curiosities.yml must stay removed; use configSFLAddons.yml", failures)
 
     try:
         setup = read(root, files["setup"])
         for token in (
-            '"adventurers_curios"',
-            '"ADVENTURERS_WAYFINDERS_COMPASS"',
-            '"ADVENTURERS_ECHO_LANTERN"',
-            '"ADVENTURERS_EXPLORERS_SPYGLASS"',
-            '"ADVENTURERS_MINERS_CANARY"',
-            '"ADVENTURERS_DUNGEON_CHALK"',
-            '"ADVENTURERS_STORM_GLASS"',
-            '"ADVENTURERS_EXPEDITION_JOURNAL"',
-            '"BEACON_PLUS"',
-            "new WayfindersCompass(",
-            "new EchoLantern(",
-            "new ExplorersSpyglass(",
-            "new MinersCanary(",
-            "new DungeonChalk(",
-            "new StormGlass(",
-            "new ExpeditionJournal(",
-            "new BeaconPlus(",
-            "30 independently toggleable effects",
-            "Extra Power costs 30 XP levels",
+            '"adventurers_curios"', '"adventurers_curios_field"', '"containment_armor"',
+            '"ADVENTURERS_MINERS_CANARY"', '"ADVENTURERS_TRAVELERS_BEDROLL"',
+            '"ADVENTURERS_EMERGENCY_PARACHUTE"', '"BEACON_PLUS"', '"&6&lResonance Beacon"',
+            '"with 29 configurable three-tier powers."', "SlimefunItems.ESSENCE_OF_AFTERLIFE",
+            "SlimefunItems.MAGICAL_GLASS", "SlimefunItems.BLISTERING_INGOT_3",
+            "SlimefunItems.SYNTHETIC_DIAMOND", "canary.registerListener(plugin)",
+            "parachute.registerListener(plugin)", "new BeaconPlus(", "CuriositiesConfig.isEnabled()",
+            "CuriositiesConfig.FILE_NAME", "new ContainmentTrap(", "new HazardProtectionArmorPiece(",
         ):
-            require(token in setup, f"Curios setup invariant is missing: {token}", failures)
-        require(setup.count("RecipeType.ENHANCED_CRAFTING_TABLE") >= 8, "All eight Curios need real recipes", failures)
-        for token in (
-            "new ItemStack(Material.BEACON)",
-            "new ItemStack(Material.NETHERITE_INGOT)",
-            "new ItemStack(Material.ECHO_SHARD)",
-            "new ItemStack(Material.ENDER_EYE)",
-        ):
-            require(token in setup, f"Native Beacon Plus recipe invariant is missing: {token}", failures)
-        for forbidden in ("BeaconPlus3", "thito.beaconplus"):
-            require(forbidden not in setup, f"Curios setup must not depend on discontinued BeaconPlus3: {forbidden}", failures)
-
-        post_setup = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/setup/PostSetup.java")
-        registration = post_setup.find("AdventurersCuriosSetup.setup(Slimefun.instance());")
-        finalization = post_setup.find("markInitialRegistrationFinalized()")
-        require(registration >= 0, "Adventurer's Curios is not registered during PostSetup", failures)
-        require(finalization >= 0, "Registry finalization marker is missing", failures)
-        if registration >= 0 and finalization >= 0:
-            require(registration < finalization, "Curios must register before the item registry is finalized", failures)
-
-        wayfinder = read(root, files["wayfinder"])
-        for token in ("getLastDeathLocation()", "setLodestone(target)", "setLodestoneTracked(false)", "getSpawnLocation()"):
-            require(token in wayfinder, f"Wayfinder invariant is missing: {token}", failures)
-
-        lantern = read(root, files["lantern"])
-        for token in ("getNearbyEntities", "instanceof Monster", "PotionEffectType.GLOWING", "COOLDOWN_TICKS = 30 * 20"):
-            require(token in lantern, f"Echo Lantern invariant is missing: {token}", failures)
-
-        spyglass = read(root, files["spyglass"])
-        for token in ("getBiome().getKey().getKey()", "getDirection(location.getYaw())", "location.getBlockX()"):
-            require(token in spyglass, f"Explorer's Spyglass invariant is missing: {token}", failures)
+            req(token in setup, f"Curios setup invariant missing: {token}", failures)
+        req("DUNGEON_CHALK" not in setup and "DungeonChalk" not in setup,
+            "Dungeon Chalk is still registered", failures)
+        req(setup.count("RecipeType.ENHANCED_CRAFTING_TABLE") >= 10,
+            "Curios/containment recipes are unexpectedly missing", failures)
 
         canary = read(root, files["canary"])
-        for token in ("RANGE = 7", "COOLDOWN_TICKS = 5 * 20", "world.isChunkLoaded", "Material.LAVA"):
-            require(token in canary, f"Miner's Canary invariant is missing: {token}", failures)
-        require("loadChunk" not in canary and "getChunkAt(" not in canary, "Miner's Canary must not load chunks to scan", failures)
+        for token in ("EntityTargetLivingEntityEvent", "BlockBreakEvent", "Material.LAVA",
+                      "PASSIVE_SCAN_INTERVAL_MILLIS", "isCarryingCanary"):
+            req(token in canary, f"Miner's Canary danger invariant missing: {token}", failures)
+        for forbidden in ("loadChunk", "setChunkForceLoaded", "runTaskTimer", "scheduleSyncRepeatingTask"):
+            req(forbidden not in canary, f"Miner's Canary must remain bounded/event-driven: {forbidden}", failures)
 
-        chalk = read(root, files["chalk"])
-        for token in ("PersistentDataType.STRING", '"dungeon_chalk_marker"', "getClickedBlock()", "player.isSneaking()"):
-            require(token in chalk, f"Dungeon Chalk invariant is missing: {token}", failures)
-        for forbidden in ("setType(", "breakNaturally(", "runLater("):
-            require(forbidden not in chalk, f"Dungeon Chalk must remain non-destructive: {forbidden}", failures)
+        parachute = read(root, files["parachute"])
+        for token in ("EntityDamageEvent", "FALL", "registerListener", "60"):
+            req(token in parachute, f"Emergency Parachute invariant missing: {token}", failures)
 
-        storm = read(root, files["storm"])
-        for token in ("isThundering()", "hasStorm()", "getFullTime()", "getWeatherDuration()"):
-            require(token in storm, f"Storm Glass invariant is missing: {token}", failures)
-        require("setStorm(" not in storm and "setTime(" not in storm, "Storm Glass must remain read-only", failures)
-
-        journal = read(root, files["journal"])
-        for token in ("MAX_RECORDED_BIOMES = 128", '"expedition_journal_biomes"', "PersistentDataType.STRING", "getBiome().getKey().getKey()"):
-            require(token in journal, f"Expedition Journal invariant is missing: {token}", failures)
-
-        effect_catalog = read(root, files["beacon_effect"])
-        effect_tokens = (
-            "FURNACE_BOOSTER", "STRENGTH", "INVISIBLE", "REGENERATION", "RESISTANCE", "FAST_DIGGING", "CURE",
+        effects = read(root, files["effect"])
+        approved = (
+            "FURNACE_BOOSTER", "STRENGTH", "REGENERATION", "RESISTANCE", "FAST_DIGGING", "CURE",
             "CROPS", "SPAWNERS", "SLOWDOWN", "SPEED", "PEACEFUL", "NIGHT_VISION", "FLYING",
             "EXPERIENCE_BOOSTER", "LUCK", "BURNER", "WATER_BREATHING", "FIRE_EXTINGUISHER",
-            "POISON", "GRAVITY_WELL", "JUMP", "EXP_GAIN", "COOLDOWN_REDUCTION", "IMMORTALITY_FIELD",
-            "SCALE", "EXTRA_POWER", "EXTRA_RANGE", "ACTIVATOR", "AUTO_REPAIR",
+            "RADIATION_ABSORBER", "POISON", "GRAVITY_WELL", "JUMP", "EXP_GAIN",
+            "COOLDOWN_REDUCTION", "IMMORTALITY_FIELD", "EXTRA_POWER", "EXTRA_RANGE", "ACTIVATOR",
+            "AUTO_REPAIR",
         )
-        for token in effect_tokens:
-            require(token in effect_catalog, f"Beacon Plus effect catalog is missing: {token}", failures)
-        require(len(effect_tokens) == 30, "Beacon Plus verifier must protect exactly 30 requested effect families", failures)
-        require("serialize(Set<BeaconPlusEffect>" in effect_catalog, "Beacon Plus effect serialization is missing", failures)
+        req(len(approved) == 29, "Verifier must protect exactly 29 Resonance Beacon powers", failures)
+        for token in approved:
+            req(token in effects, f"Approved Resonance Beacon power missing: {token}", failures)
+        for token in ('"radiation_absorber"', '"Radiation Absorber"', "Material.HEAVY_CORE"):
+            req(token in effects, f"Radiation Absorber definition missing: {token}", failures)
+        req("this != SCALE" in effects and ".filter(BeaconPlusEffect::isConfigurable)" in effects,
+            "Scale must remain a non-configurable migration tombstone", failures)
+
+        cfgclass = read(root, files["config_class"])
+        for token in (
+            'ROOT = "SlimefunLegacyAddition.PoweredBeacon"', 'BEACON_DATA_ROOT = ROOT + ".BeaconData"',
+            '"WORLD"', '"BeaconData"', '"EXPERIENCE"', "PaymentMode.MONEY",
+            "material-power.IRON_BLOCK", "material-power.NETHERITE_BLOCK", "tier-requirements.3",
+            "electric-operation.capacity", "base-joules-per-pulse", "CuriositiesConfig.getConfig()",
+            "RADIATION_ABSORBER",
+        ):
+            req(token in cfgclass, f"Resonance Beacon config invariant missing: {token}", failures)
+
+        curiosities_config_class = read(root, files["curiosities_config_class"])
+        for token in (
+            'FILE_NAME = "configSFLAddons.yml"', 'RETIRED_FILE_NAME = "curiosities.yml"',
+            'LEGACY_MODULE_TOGGLE = "options.enable-non-original-slimefun-additions"',
+            'LEGACY_ADDITIONS_ROOT = "SlimefunLegacyAddition"',
+            'LEGACY_BEACON_ROOT = LEGACY_ADDITIONS_ROOT + ".PoweredBeacon"',
+            "plugin.saveResource(FILE_NAME, false)", "YamlConfiguration.loadConfiguration(file)",
+            "Files.copy(retired.toPath(), file.toPath())", "migrateLegacyCoreSettings()",
+            'setValue("enabled", core.getBoolean(LEGACY_MODULE_TOGGLE))', "Slimefun.isNewlyInstalled()",
+            'setValue("enabled", true)', "if (!save())", "cleanupLegacyCoreSettings()",
+            "core.set(LEGACY_MODULE_TOGGLE, null)", "core.set(LEGACY_BEACON_ROOT, null)",
+            "plugin.saveConfig()", "public synchronized boolean save()", "if (!dirty)",
+        ):
+            req(token in curiosities_config_class,
+                f"Slimefun Legacy addons config loader invariant missing: {token}", failures)
+        req("io.github.bakedlibs.dough" not in curiosities_config_class,
+            "Slimefun Legacy addons config must not expand the Dough dependency boundary", failures)
+
+        addons_config = read(root, files["sfl_addons_config"])
+        req("\nenabled: false\n\nSlimefunLegacyAddition:" in addons_config,
+            "configSFLAddons.yml must default Adventurer's Curios OFF for a genuinely fresh install", failures)
+        for token in (
+            "SlimefunLegacyAddition:", "PoweredBeacon:", "BeaconData:", "storage-type: WORLD",
+            "folder-name: BeaconData", "payment-mode: EXPERIENCE", "IRON_BLOCK: 1.0", "NETHERITE_BLOCK: 5.0",
+            "flying:\n        enabled: true", "immortality-field:\n        enabled: true",
+            "radiation-absorber:\n        enabled: true", "auto-repair:", "electric-operation:", "capacity: 4096",
+        ):
+            req(token in addons_config, f"configSFLAddons.yml Resonance Beacon default missing: {token}", failures)
+
+        core_config = read(root, files["core_config"])
+        for forbidden in ("SlimefunLegacyAddition:", "PoweredBeacon:", "enable-non-original-slimefun-additions"):
+            req(forbidden not in core_config,
+                f"generic config.yml must not own Slimefun Legacy addon setting: {forbidden}", failures)
+
+        chunk_control = read(root, files["chunk_control"])
+        for token in (
+            "resolve(CuriositiesConfig.FILE_NAME)", "CuriositiesConfig.getConfig().reload()",
+            '"Could not persist Resonance Beacon chunk-loading state to " + CuriositiesConfig.FILE_NAME',
+        ):
+            req(token in chunk_control, f"Resonance Beacon addons config persistence invariant missing: {token}", failures)
+
+        for source_name, source in (
+            ("AdventurersCuriosSetup", setup),
+            ("BeaconPlusConfig", cfgclass),
+            ("BeaconPlusChunkLoadingControl", chunk_control),
+        ):
+            req("curiosities.yml" not in source,
+                f"{source_name} still references retired curiosities.yml outside migration code", failures)
+
+        progression = read(root, files["progression"])
+        for token in ("adventurers-curios-beacon-progress.yml", "purchaseNextTier", "Vault", "Economy", "experience levels"):
+            req(token.lower() in progression.lower(), f"Progression invariant missing: {token}", failures)
+
+        pyramid = read(root, files["pyramid"])
+        for token in ("naturalPowerTier", "averageMaterialPower", "getMaterialPower", "getRequiredPyramidTier"):
+            req(token in pyramid, f"Pyramid resonance invariant missing: {token}", failures)
 
         beacon = read(root, files["beacon"])
         for token in (
-            "implements EnergyNetComponent",
-            "EnergyNetComponentType.CONSUMER",
-            "ENERGY_CAPACITY = 8_192",
-            "BASE_ENERGY_PER_EFFECT_PER_PULSE = 16",
-            "LAST_FIELD_PULSE_TICKS",
-            "gameTime - previous < POWER_PULSE_INTERVAL_TICKS",
-            "EXTRA_POWER_PERCENT = 50",
-            "EXTRA_POWER_XP_LEVEL_COST = 30",
-            "player.giveExpLevels(-EXTRA_POWER_XP_LEVEL_COST)",
-            "new ChestMenu(\"&6&lBeacon Plus\", 54)",
-            "BeaconPlusEffect.values()",
-            "BeaconPlusRuntime.tick(block, data)",
-            "BeaconPlusPowerState.markPowered(block, data)",
-            "BeaconPlusEffectListener.register(Slimefun.instance())",
-            "BeaconPlusLifecycleListener.register(Slimefun.instance())",
-            "BeaconPlusManager.start(Slimefun.instance())",
-            "BlockPlaceHandler(false)",
-            "BlockUseHandler",
-            "SimpleBlockBreakHandler",
-            "DISABLE_ALL_SLOT",
-            "Field state: ",
-            "Configured, but not active:",
-            "FIELD_AREA_SLOT",
-            "createFieldAreaItem",
-            "cycleFieldArea",
-            "Affected area:",
-            "BeaconPlusFieldArea.DEFAULT.name()",
+            'new ChestMenu("&6&lResonance Beacon", 54)', "purchaseNextTier", "action.isRightClicked()",
+            "action.isShiftClicked()", "BeaconPlusPyramid.inspect", "BeaconPlusConfig.installDefaults()",
+            "BeaconPlusLegacyDataStore.start", "BeaconPlusRuntime.reconcileActivator", "Enabled powers:",
+            'enabled.size() + "/29"', "37", "EnergyNetComponent", "ELECTRIC_OPERATION_SLOT", "isEnergyNetActive",
+            "BeaconPlusEffect.RADIATION_ABSORBER", "Tier I absorbs 25 exposure",
+            "Disabled in configSFLAddons.yml",
         ):
-            require(token in beacon, f"Native Beacon Plus menu/runtime invariant is missing: {token}", failures)
-        for forbidden in ("BeaconPlus3", "thito.beaconplus", "Class.forName(", "CustomItemStack"):
-            require(forbidden not in beacon, f"Native Beacon Plus must not bridge to third-party runtime: {forbidden}", failures)
+            req(token in beacon, f"Resonance Beacon menu invariant missing: {token}", failures)
+        for forbidden in ("BeaconPlus3", "thito.beaconplus", "Class.forName("):
+            req(forbidden not in beacon, f"Resonance Beacon must not bridge third-party runtime: {forbidden}", failures)
 
-        runtime = read(root, files["beacon_runtime"])
+        listener = read(root, files["listener"])
         for token in (
-            'EFFECTS_KEY = "beacon_plus_effects"',
-            "PULSE_INTERVAL_TICKS = 20",
-            "MAX_TILE_ENTITIES_PER_PULSE = 96",
-            "CROP_SAMPLES_PER_CHUNK = 8",
-            "getEffectiveFieldArea",
-            "getEntitiesInArea",
-            "world.isChunkLoaded",
-            "PotionEffectType.STRENGTH",
-            "PotionEffectType.REGENERATION",
-            "PotionEffectType.RESISTANCE",
-            "PotionEffectType.HASTE",
-            "PotionEffectType.NIGHT_VISION",
-            "PotionEffectType.LUCK",
-            "PotionEffectType.WATER_BREATHING",
-            "PotionEffectType.JUMP_BOOST",
-            "PotionEffectType.SLOWNESS",
-            "PotionEffectType.POISON",
-            "EFFECT_DURATION_TICKS = 100",
-            "new PotionEffect(type, duration, amplifier, false, true, true)",
-            "Attribute.SCALE",
-            "repairInventory(",
-            "boostFurnace(",
-            "boostSpawner(",
-            "applyCropBoost(",
-            "BeaconPlusGravity.getPullStrength(power)",
-            "double horizontalDistanceSquared = deltaX * deltaX + deltaZ * deltaZ",
-            "currentVelocity.getX() * 0.75D + deltaX * scale",
-            "currentVelocity.getY()",
-            "currentVelocity.getZ() * 0.75D + deltaZ * scale",
+            "PlayerItemCooldownEvent", "PlayerExpChangeEvent", "IMMORTALITY_COOLDOWN_MILLIS = 60_000L", "0.55D",
+            "RadiationDamageEvent", "BeaconPlusEffect.RADIATION_ABSORBER", "RadiationUtils.getExposure",
+            "Math.min(25, exposure)", "Math.min(50, exposure)", "RadiationUtils.clearExposure(player)",
+            "event.setCancelled(true)",
         ):
-            require(token in runtime, f"Beacon Plus bounded runtime invariant is missing: {token}", failures)
-        for forbidden in ("NetworkManager", "CargoNet", "tickBlock(", "setChunkForceLoaded", "setForceLoaded"):
-            require(forbidden not in runtime, f"Beacon Plus runtime crossed a protected boundary: {forbidden}", failures)
+            req(token in listener, f"Event power invariant missing: {token}", failures)
 
-        power_state = read(root, files["beacon_power"])
+        mode = read(root, files["mode"])
+        req("AREA_5X5" in mode and '"5x5 Area"' in mode, "Tier III Activator coverage missing", failures)
+
+        runtime = read(root, files["runtime"])
+        runtime_effects = read(root, files["runtime_effects"])
+        energy = read(root, files["energy"])
         for token in (
-            "POWERED_TTL_MILLIS = 2_500L",
-            "markPowered(Block block, ASlimefunDataContainer data)",
-            "getPowerForEffect(Location target, BeaconPlusEffect effect)",
-            "BeaconPlusEffect.INVISIBLE",
-            "PotionEffectType.INVISIBILITY",
-            "world.isChunkLoaded",
-            "reconcileNearbyPlayerStates",
+            'ELECTRIC_MODE_KEY = "beacon_plus_electric_mode"', "energy-charge", "getDemand(",
+            "consumePulse(", "hasOperationalPower(", "Activator",
         ):
-            require(token in power_state, f"Beacon Plus paid-power invariant is missing: {token}", failures)
-        require("loadChunk" not in power_state, "Beacon Plus power-state checks must not load chunks", failures)
+            req(token in energy, f"Resonance Beacon energy invariant missing: {token}", failures)
+        req("BeaconPlusEnergy.consumePulse(block, data, tiers)" in runtime,
+            "Resonance Beacon runtime must pay electric cost once per pulse", failures)
+        req("getPotentialActiveTiers" in runtime,
+            "Electric operation must preserve configured tiers while energy-gating active tiers", failures)
 
-        listener = read(root, files["beacon_listener"])
         for token in (
-            "PlayerItemCooldownEvent",
-            "PlayerExpChangeEvent",
-            "EntityTargetLivingEntityEvent",
-            "EntityDamageByEntityEvent",
-            "EntityDamageEvent",
-            "IMMORTALITY_COOLDOWN_MILLIS = 60_000L",
-            "BeaconPlusPowerState.getPowerForEffect",
-            "BeaconPlusPowerState.hasPoweredEffect",
-            "BeaconPlusEffect.EXPERIENCE_BOOSTER",
-            "BeaconPlusEffect.COOLDOWN_REDUCTION",
-            "BeaconPlusEffect.PEACEFUL",
-            "BeaconPlusEffect.IMMORTALITY_FIELD",
+            'EFFECTS_KEY = "beacon_plus_effects"', "EXTRA_RANGE_PER_TIER = 10", "getActiveTiers",
+            "getUnlockedTierAtBeacon", "getSelectedTierAtBeacon", "BeaconPlusPyramid.inspect",
+            "BeaconPlusLegacyDataStore.getImportedOverriddenRange", "AREA_5X5", "BeaconPlusRuntimeEffects.applyPulse",
         ):
-            require(token in listener, f"Beacon Plus event-runtime invariant is missing: {token}", failures)
+            req(token in runtime, f"Resonance Beacon runtime invariant missing: {token}", failures)
+        for token in ("MAX_TILE_ENTITIES_PER_PULSE = 96", "CROP_SAMPLES_PER_PULSE = 48", "repairInventory(", "getLoadedChunksInField"):
+            req(token in runtime_effects, f"Bounded Resonance Beacon effects invariant missing: {token}", failures)
+        field = read(root, files["field"])
+        for token in ("chunkRadius", "ChunkFootprint", "containsChunk", "widthChunks"):
+            req(token in field, f"Full-height chunk field invariant missing: {token}", failures)
+        req("distanceSquared(target)" not in runtime,
+            "Resonance Beacon field must not retain a vertical/spherical distance limit", failures)
+        for forbidden in ("NetworkManager", "CargoNet", "setChunkForceLoaded", "setForceLoaded"):
+            req(forbidden not in runtime and forbidden not in runtime_effects,
+                f"Resonance Beacon runtime crossed protected boundary: {forbidden}", failures)
 
-        chunk_mode = read(root, files["beacon_chunk_mode"])
+        manager = read(root, files["manager"])
         for token in (
-            'OFF("Off", 0, false)',
-            'SINGLE("1x1 Chunks", 0, true)',
-            'AREA_3X3("3x3 Chunks", 1, true)',
-            'AREA_5X5("5x5 Chunks", 2, true)',
-            "forFieldArea",
-            '"KEEP_CHUNK_LOADED"',
-            '"CHUNK_ACTIVATOR"',
-        ):
-            require(token in chunk_mode, f"Beacon Plus Activator mode invariant is missing: {token}", failures)
-
-        field_area = read(root, files["beacon_field_area"])
-        for token in (
-            'CHUNK_1X1("1x1 Chunks", 0)',
-            'AREA_3X3("3x3 Chunks", 1)',
-            'AREA_5X5("5x5 Chunks", 2)',
-            "DEFAULT = AREA_3X3",
-            "BeaconPlusFieldArea expand()",
-            "containsChunk(",
-            'case "AREA_5X5", "5X5", "LARGE" -> AREA_5X5',
-        ):
-            require(token in field_area, f"Beacon Plus shared effect-area invariant is missing: {token}", failures)
-
-        gravity = read(root, files["beacon_gravity"])
-        for token in (
-            "NORMAL_PULL = 0.45D",
-            "EXTRA_POWER_PULL = 0.63D",
-            "getPullStrength(int power)",
-        ):
-            require(token in gravity, f"Beacon Plus Gravity Well strength invariant is missing: {token}", failures)
-
-        manager = read(root, files["beacon_manager"])
-        for token in (
-            'ITEM_ID = "BEACON_PLUS"',
-            'FIELD_AREA_KEY = "beacon_plus_field_area"',
-            "getFieldArea(",
-            "BeaconPlusFieldArea.DEFAULT.name()",
-            "MAX_ACTIVE_BEACONS = 64",
-            "MAX_UNIQUE_CHUNKS = 256",
-            "addPluginChunkTicket",
-            "removePluginChunkTicket",
-            "ticketReferences",
+            'ITEM_ID = "BEACON_PLUS"', "MAX_ACTIVE_BEACONS = 64", "MAX_UNIQUE_CHUNKS = 256",
+            "addPluginChunkTicket", "removePluginChunkTicket", "ticketReferences",
             'resolve("adventurers-curios-beacons.properties")',
-            "scheduleValidation()",
         ):
-            require(token in manager, f"Beacon Plus manager invariant is missing: {token}", failures)
-        for forbidden in ("NetworkManager", "CargoNet", "TickerTask", "setChunkForceLoaded", "setForceLoaded"):
-            require(forbidden not in manager, f"Beacon Plus manager crossed a runtime boundary: {forbidden}", failures)
+            req(token in manager, f"Activator manager invariant missing: {token}", failures)
 
-        lifecycle = read(root, files["beacon_lifecycle"])
-        require("BeaconPlusPowerState.shutdown()" in lifecycle, "Beacon Plus paid-power cleanup is missing", failures)
-        require("BeaconPlus.clearPulseState()" in lifecycle, "Beacon Plus field-pulse cleanup is missing", failures)
-        require("BeaconPlusRuntime.shutdown()" in lifecycle, "Beacon Plus player-state cleanup is missing", failures)
-        require("BeaconPlusManager.shutdownCurrent()" in lifecycle, "Beacon Plus chunk-ticket cleanup is missing", failures)
+        legacy = read(root, files["legacy"])
+        for token in (
+            'resolve(BeaconPlusConfig.getBeaconDataFolderName())', 'chunkX + "." + chunkZ + ".json"',
+            'root.get("Beacons")', '"customName"', '"showParticles"', '"overriddenRange"',
+            '"exp_boost"', '"resist"', '"fastdig"', '"fireExtinguisher"', '"fire_extenguisher"',
+            "MAX_JSON_STRING_LAYERS = 3", "normalizeLegacyTier", "LEGACY_IMPORTED_OWNER",
+            "createBlock(location, BeaconPlusManager.ITEM_ID)",
+        ):
+            req(token in legacy, f"BeaconData compatibility invariant missing: {token}", failures)
+        req('effects.add(existingKey == null ? legacyKey(effect) : existingKey, existing)' in legacy,
+            "Legacy effect aliases must be preserved when mirroring", failures)
+
+        lifecycle = read(root, files["lifecycle"])
+        for token in ("BeaconPlusRuntime.shutdown()", "BeaconPlusProgression.shutdown()",
+                      "BeaconPlusLegacyDataStore.shutdownCurrent()", "BeaconPlusManager.shutdownCurrent()"):
+            req(token in lifecycle, f"Shutdown cleanup missing: {token}", failures)
 
         docs = read(root, files["docs"])
         for token in (
-            "30 independently toggleable",
-            "Invisible Effect",
-            "8,192 J internal buffer",
-            "16 J per pulse",
-            "50% more machine energy",
-            "30 XP levels",
-            "BEACON_PLUS:",
-            "enabled: false",
-            "Slimefun Electricity",
-            "Beacon Blocks",
-            "3x3 Chunks",
-            "5x5 Chunks",
-            "maximum **64 active Beacon Plus loaders**",
-            "maximum **256 unique chunks**",
-            "96 inspected states per pulse",
-            "25%",
-            "40%",
-            "horizontal reverse-knockback",
-            "existing Y velocity is preserved",
-            "No proprietary BeaconPlus runtime classes or source code are copied",
+            "Resonance Beacon", "29 player-facing powers", "Radiation Absorber", "Tier I removes 25",
+            "BeaconData", "Tier III", "5x5 chunks", "Dungeon Chalk was intentionally removed", "Blistering Ingot",
+            "configSFLAddons.yml",
         ):
-            require(token in docs, f"Curios documentation is missing Beacon Plus detail: {token}", failures)
-    except FileNotFoundError as error:
-        failures.append(f"Unable to inspect missing Adventurer's Curios file: {error}")
+            req(token in docs, f"Curios documentation missing: {token}", failures)
+    except FileNotFoundError as exc:
+        failures.append(f"Unable to inspect missing Curios file: {exc}")
 
     report = root / "build/reports/adventurers-curios.txt"
     report.parent.mkdir(parents=True, exist_ok=True)
-
     if failures:
-        report.write_text(
-            "Adventurer's Curios verification: FAIL\n"
-            + "\n".join(f"- {failure}" for failure in failures)
-            + "\n",
-            encoding="utf-8",
-        )
-        print(report.read_text(encoding="utf-8"), end="")
+        text = "Adventurer's Curios verification: FAIL\n" + "\n".join(f"- {x}" for x in failures) + "\n"
+        report.write_text(text, encoding="utf-8")
+        print(text, end="")
         return 1
 
-    report.write_text(
+    text = (
         "Adventurer's Curios verification: PASS\n"
-        "- eight built-in Curios are registered before registry finalization\n"
-        "- Beacon Plus exposes all 30 requested toggleable effect families through a native 54-slot menu\n"
-        "- Invisible Effect restores the historical BeaconPlus effect omitted by the initial native port\n"
-        "- Beacon Plus is a normal EnergyNet consumer with an 8,192 J buffer and 16 J/effect field pulses\n"
-        "- Extra Power requires a 30-level unlock and increases field-energy draw by exactly 50%\n"
-        "- event-driven bonuses require a recently successful paid energy pulse\n"
-        "- crop and tile-entity work is capped and unloaded chunks are not scanned for normal field effects\n"
-        "- Gravity Well uses a controlled horizontal reverse-knockback pull and preserves existing Y velocity\n"
-        "- Activator uses reference-counted plugin chunk tickets with 64-beacon and 256-chunk global caps\n"
-        "- shutdown restores player flight/scale state, clears paid-power state and releases chunk tickets\n"
-        "- the discontinued BeaconPlus3 plugin is not a runtime dependency\n",
-        encoding="utf-8",
+        "- current Curiosities and containment content remain integrated on the master baseline\n"
+        "- Dungeon Chalk is removed and Miner's Canary remains a bounded passive danger alarm\n"
+        "- Resonance Beacon retains BEACON_PLUS only as its migration-safe internal id\n"
+        "- exactly 29 administrator-controlled powers support three-tier progression\n"
+        "- Radiation Absorber suppresses symptoms and scrubs 25/50/all exposure by tier\n"
+        "- pyramid size and configurable mineral resonance cap effective tiers\n"
+        "- Legacy addon settings live in configSFLAddons.yml, not generic config.yml\n"
+        "- fresh installs default Curiosities off while existing installations stay enabled\n"
+        "- migrated Curiosities keys are removed from config.yml only after the replacement config saves\n"
+        "- legacy WORLD BeaconData JSON remains import/mirror compatible\n"
+        "- field powers use full-height chunk-aligned square footprints without loading chunks\n"
+        "- Activator remains reference-counted and hard-capped\n"
     )
-    print(report.read_text(encoding="utf-8"), end="")
+    report.write_text(text, encoding="utf-8")
+    print(text, end="")
     return 0
 
 
