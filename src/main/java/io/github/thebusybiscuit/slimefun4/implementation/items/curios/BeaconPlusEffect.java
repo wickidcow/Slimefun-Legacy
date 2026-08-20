@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 import org.bukkit.Material;
 
 /**
- * Toggleable effects exposed by the native Slimefun Legacy Beacon Plus menu.
+ * Toggleable effects exposed by the native Slimefun Legacy Resonance Beacon menu.
  */
 public enum BeaconPlusEffect {
     FURNACE_BOOSTER("furnace", "Furnace Booster", Material.FURNACE, "Boost nearby furnace cooking speed."),
@@ -34,6 +34,11 @@ public enum BeaconPlusEffect {
     WATER_BREATHING("water_breathing", "Water Breathing", Material.TURTLE_HELMET, "Give Water Breathing in range."),
     FIRE_EXTINGUISHER(
             "fire_extinguisher", "Fire Extinguisher", Material.WATER_BUCKET, "Extinguish burning players in range."),
+    RADIATION_ABSORBER(
+            "radiation_absorber",
+            "Radiation Absorber",
+            Material.HEAVY_CORE,
+            "Absorb radiation exposure and suppress radiation symptoms in range."),
     POISON("poison", "Poison", Material.SPIDER_EYE, "Poison nearby hostile monsters."),
     GRAVITY_WELL(
             "gravity_well",
@@ -50,7 +55,7 @@ public enum BeaconPlusEffect {
             Material.TOTEM_OF_UNDYING,
             "Chance to prevent otherwise fatal damage."),
     EXTRA_POWER("extra_power", "Extra Power", Material.NETHER_STAR, "Increase the strength of supported effects."),
-    EXTRA_RANGE("extra_range", "Extra Range", Material.SPYGLASS, "Extend Beacon Plus effect radius."),
+    EXTRA_RANGE("extra_range", "Extra Range", Material.SPYGLASS, "Extend Resonance Beacon effect radius."),
     ACTIVATOR("activator", "Activator", Material.RESPAWN_ANCHOR, "Keep the configured beacon chunks loaded."),
     AUTO_REPAIR("auto_repair", "Auto Repair", Material.ANVIL, "Slowly repair damaged tools, weapons and armor."),
 
