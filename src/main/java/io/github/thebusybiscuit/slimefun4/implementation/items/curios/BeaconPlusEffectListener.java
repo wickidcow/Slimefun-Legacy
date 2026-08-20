@@ -1,5 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
 
+import io.github.thebusybiscuit.slimefun4.api.events.RadiationDamageEvent;
+import io.github.thebusybiscuit.slimefun4.utils.RadiationUtils;
 import io.papermc.paper.event.player.PlayerItemCooldownEvent;
 import java.util.Map;
 import java.util.UUID;
@@ -66,6 +68,25 @@ final class BeaconPlusEffectListener implements Listener {
                     default -> 0.25D;
                 };
         event.setCooldown(Math.max(1, (int) Math.ceil(event.getCooldown() * multiplier)));
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onRadiationDamage(RadiationDamageEvent event) {
+        Player player = event.getPlayer();
+        int tier = BeaconPlusRuntime.getTierForEffect(player.getLocation(), BeaconPlusEffect.RADIATION_ABSORBER);
+        if (tier <= 0) {
+            return;
+        }
+
+        int exposure = RadiationUtils.getExposure(player);
+        switch (tier) {
+            case 1 -> RadiationUtils.removeExposure(player, Math.min(25, exposure));
+            case 2 -> RadiationUtils.removeExposure(player, Math.min(50, exposure));
+            default -> RadiationUtils.clearExposure(player);
+        }
+
+        // The field blocks symptoms while actively absorbing the stored exposure.
+        event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
