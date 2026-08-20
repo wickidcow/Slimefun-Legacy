@@ -135,8 +135,12 @@ def main() -> int:
 
         release_workflow = read(root, ".github/workflows/reproducible-release.yml")
         for token in (
-            "name: Reproducible Release Candidate",
+            "name: Reproducible Release",
             "workflow_dispatch:",
+            "push:",
+            "branches:",
+            "- master",
+            "- gradle.properties",
             "fetch-depth: 0",
             "SOURCE_COMMIT=$GITHUB_SHA",
             "SOURCE_DATE_EPOCH=",
@@ -194,6 +198,7 @@ def main() -> int:
         "- the release workflow performs two independent clean builds of the exact source commit\n"
         "- build and configuration caches are disabled for the reproducibility comparison\n"
         "- release workflow requires byte-for-byte and SHA-256 equality\n"
+        "- release workflow can publish automatically from master version bumps and remains manually dispatchable\n"
         "- 4.1.29 remains the pinned release-blocking previous-stable baseline until a newer stable release is validated\n"
         "- Phase 1L Part 2 itself does not change Cargo/Energy, database, storage-schema or saved-world semantics\n"
         f"- active release gameplay behavior changed is explicitly declared as {str(gameplay_changed).lower()}\n",
