@@ -5,6 +5,7 @@ import io.github.thebusybiscuit.slimefun4.api.events.AsyncPlayerRadiationLevelUp
 import io.github.thebusybiscuit.slimefun4.api.events.RadiationDamageEvent;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
+import io.github.thebusybiscuit.slimefun4.core.attributes.HeldRadioactive;
 import io.github.thebusybiscuit.slimefun4.core.attributes.ProtectionType;
 import io.github.thebusybiscuit.slimefun4.core.attributes.RadiationSymptom;
 import io.github.thebusybiscuit.slimefun4.core.attributes.Radioactive;
@@ -33,6 +34,7 @@ public class RadiationTask extends AbstractArmorTask {
 
     private static final int GRACE_PERIOD_DURATION = Slimefun.getCfg().getInt("options.radiation-grace-period");
     private static final Map<UUID, Long> ACTIVE_GRACE_PERIODS = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> LAST_HELD_EXPOSURE = new ConcurrentHashMap<>();
 
     private final RadiationSymptom[] symptoms = RadiationSymptom.values();
 
@@ -53,11 +55,18 @@ public class RadiationTask extends AbstractArmorTask {
                     continue;
                 }
                 SlimefunItem sfItem = SlimefunItem.getByItem(item);
+                if (sfItem instanceof HeldRadioactive) {
+                    // Held-radioactive equipment is intentionally harmless while merely stored.
+                    continue;
+                }
                 if (sfItem instanceof Radioactive radioactiveItem) {
                     exposureTotal += item.getAmount()
                             * radioactiveItem.getRadioactivity().getExposureModifier();
                 }
             }
+
+            exposureTotal += getHeldExposure(p);
+
             int exposureLevelBefore = RadiationUtils.getExposure(p);
             int deltaLevel = exposureTotal > 0 ? exposureTotal : (exposureLevelBefore > 0 ? -1 : 0);
             AsyncPlayerRadiationLevelUpdateEvent updateEvent =
@@ -94,6 +103,7 @@ public class RadiationTask extends AbstractArmorTask {
                 p.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(ChatColors.color(msg)));
             }
         } else {
+            LAST_HELD_EXPOSURE.remove(p.getUniqueId());
             int exposureLevelBefore = RadiationUtils.getExposure(p);
             int deltaLevel = -1;
             AsyncPlayerRadiationLevelUpdateEvent updateEvent =
@@ -106,6 +116,40 @@ public class RadiationTask extends AbstractArmorTask {
                 RadiationUtils.removeExposure(p, -deltaLevel);
             }
         }
+    }
+
+    private static int getHeldExposure(Player player) {
+        int exposure = 0;
+        long interval = Long.MAX_VALUE;
+        ItemStack[] heldItems = {
+            player.getInventory().getItemInMainHand(), player.getInventory().getItemInOffHand()
+        };
+
+        for (ItemStack item : heldItems) {
+            if (item == null || item.getType().isAir()) {
+                continue;
+            }
+            SlimefunItem sfItem = SlimefunItem.getByItem(item);
+            if (sfItem instanceof HeldRadioactive heldRadioactive) {
+                exposure += heldRadioactive.getRadioactivity().getExposureModifier();
+                interval = Math.min(interval, Math.max(1_000L, heldRadioactive.getHeldExposureIntervalMillis()));
+            }
+        }
+
+        UUID playerId = player.getUniqueId();
+        if (exposure <= 0) {
+            LAST_HELD_EXPOSURE.remove(playerId);
+            return 0;
+        }
+
+        long now = System.currentTimeMillis();
+        long last = LAST_HELD_EXPOSURE.getOrDefault(playerId, 0L);
+        if (last > 0L && now - last < interval) {
+            return 0;
+        }
+
+        LAST_HELD_EXPOSURE.put(playerId, now);
+        return exposure;
     }
 
     /**
