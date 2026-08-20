@@ -35,7 +35,7 @@ import org.bukkit.inventory.meta.ItemMeta;
  *
  * <p>The historic {@code BEACON_PLUS} item id and storage keys are deliberately retained so development builds and
  * imported BeaconPlus data migrate without losing their locations. Player-facing behavior is the Resonance Beacon:
- * 28 administrator-controlled powers, permanent owner unlocks up to Tier III, and a physical pyramid/material
+ * 29 administrator-controlled powers, permanent owner unlocks up to Tier III, and a physical pyramid/material
  * resonance ceiling.
  */
 public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent {
@@ -44,7 +44,7 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         9, 10, 11, 12, 13, 14, 15, 16, 17,
         18, 19, 20, 21, 22, 23, 24, 25, 26,
         27, 28, 29, 30, 31, 32, 33, 34, 35,
-        36
+        36, 37
     };
 
     private static final int STATUS_SLOT = 4;
@@ -444,7 +444,7 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         lore.add(ChatColor.GRAY + "Dominant mineral: " + ChatColor.AQUA + profile.dominantMaterialName());
         lore.add(ChatColor.GRAY + "Average mineral power: " + ChatColor.AQUA
                 + String.format(java.util.Locale.ROOT, "%.2f", profile.averageMaterialPower()));
-        lore.add(ChatColor.GRAY + "Enabled powers: " + ChatColor.GOLD + enabled.size() + "/28");
+        lore.add(ChatColor.GRAY + "Enabled powers: " + ChatColor.GOLD + enabled.size() + "/29");
         lore.add(ChatColor.GRAY + "Activator coverage: " + ChatColor.AQUA + chunkMode.getDisplayName());
         lore.add("");
         if (BeaconPlusLegacyDataStore.isLegacyImported(block.getLocation())) {
@@ -489,6 +489,8 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         }
         if (effect == BeaconPlusEffect.ACTIVATOR) {
             lore.add(ChatColor.DARK_GRAY + "Tier I = this chunk; II = 3x3; III = 5x5.");
+        } else if (effect == BeaconPlusEffect.RADIATION_ABSORBER) {
+            lore.add(ChatColor.DARK_GRAY + "Tier I absorbs 25 exposure; II absorbs 50; III clears all.");
         }
 
         if (serverEnabled && unlocked < maximum && !BeaconPlusLegacyDataStore.isLegacyImported(block.getLocation())) {
@@ -500,7 +502,7 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
 
         lore.add("");
         if (!serverEnabled) {
-            lore.add(ChatColor.RED + "Disabled in config.yml");
+            lore.add(ChatColor.RED + "Disabled in configSFLAddons.yml");
         } else if (unlocked <= 0 && BeaconPlusLegacyDataStore.isLegacyImported(block.getLocation())) {
             lore.add(ChatColor.DARK_GRAY + "Not unlocked in imported BeaconData.");
         } else if (unlocked <= 0) {
