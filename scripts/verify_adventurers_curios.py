@@ -6,10 +6,10 @@ from pathlib import Path
 
 
 def read(root: Path, rel: str) -> str:
-    p = root / rel
-    if not p.is_file():
+    path = root / rel
+    if not path.is_file():
         raise FileNotFoundError(rel)
-    return p.read_text(encoding="utf-8")
+    return path.read_text(encoding="utf-8")
 
 
 def req(condition: bool, message: str, failures: list[str]) -> None:
@@ -24,6 +24,7 @@ def main() -> int:
     files = {
         "setup": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/setup/AdventurersCuriosSetup.java",
         "canary": base + "MinersCanary.java",
+        "parachute": base + "EmergencyParachute.java",
         "beacon": base + "BeaconPlus.java",
         "effect": base + "BeaconPlusEffect.java",
         "runtime": base + "BeaconPlusRuntime.java",
@@ -44,6 +45,7 @@ def main() -> int:
         "curiosities_config_class": "src/main/java/io/github/thebusybiscuit/slimefun4/core/config/CuriositiesConfig.java",
         "docs": "docs/ADVENTURERS_CURIOS.md",
     }
+
     for rel in files.values():
         req((root / rel).is_file(), f"Missing Curios file: {rel}", failures)
     req(not (root / (base + "DungeonChalk.java")).exists(), "Dungeon Chalk source must stay removed", failures)
@@ -53,33 +55,46 @@ def main() -> int:
     try:
         setup = read(root, files["setup"])
         for token in (
-            '"adventurers_curios"', '"ADVENTURERS_MINERS_CANARY"', '"BEACON_PLUS"',
-            '"&6&lResonance Beacon"', "SlimefunItems.ESSENCE_OF_AFTERLIFE",
+            '"adventurers_curios"', '"adventurers_curios_field"', '"containment_armor"',
+            '"ADVENTURERS_MINERS_CANARY"', '"ADVENTURERS_TRAVELERS_BEDROLL"',
+            '"ADVENTURERS_EMERGENCY_PARACHUTE"', '"BEACON_PLUS"', '"&6&lResonance Beacon"',
+            '"with 29 configurable three-tier powers."', "SlimefunItems.ESSENCE_OF_AFTERLIFE",
             "SlimefunItems.MAGICAL_GLASS", "SlimefunItems.BLISTERING_INGOT_3",
-            "SlimefunItems.SYNTHETIC_DIAMOND", "canary.registerListener(plugin)", "new BeaconPlus(",
-            "CuriositiesConfig.isEnabled()", "CuriositiesConfig.FILE_NAME",
+            "SlimefunItems.SYNTHETIC_DIAMOND", "canary.registerListener(plugin)",
+            "parachute.registerListener(plugin)", "new BeaconPlus(", "CuriositiesConfig.isEnabled()",
+            "CuriositiesConfig.FILE_NAME", "new ContainmentTrap(", "new HazardProtectionArmorPiece(",
         ):
             req(token in setup, f"Curios setup invariant missing: {token}", failures)
-        req("DUNGEON_CHALK" not in setup and "DungeonChalk" not in setup, "Dungeon Chalk is still registered", failures)
-        req(setup.count("RecipeType.ENHANCED_CRAFTING_TABLE") >= 9, "Curios recipes are missing", failures)
+        req("DUNGEON_CHALK" not in setup and "DungeonChalk" not in setup,
+            "Dungeon Chalk is still registered", failures)
+        req(setup.count("RecipeType.ENHANCED_CRAFTING_TABLE") >= 10,
+            "Curios/containment recipes are unexpectedly missing", failures)
 
         canary = read(root, files["canary"])
-        for token in ("EntityTargetLivingEntityEvent", "BlockBreakEvent", "Material.LAVA", "PASSIVE_SCAN_INTERVAL_MILLIS", "isCarryingCanary"):
+        for token in ("EntityTargetLivingEntityEvent", "BlockBreakEvent", "Material.LAVA",
+                      "PASSIVE_SCAN_INTERVAL_MILLIS", "isCarryingCanary"):
             req(token in canary, f"Miner's Canary danger invariant missing: {token}", failures)
         for forbidden in ("loadChunk", "setChunkForceLoaded", "runTaskTimer", "scheduleSyncRepeatingTask"):
             req(forbidden not in canary, f"Miner's Canary must remain bounded/event-driven: {forbidden}", failures)
+
+        parachute = read(root, files["parachute"])
+        for token in ("EntityDamageEvent", "FALL", "registerListener", "60"):
+            req(token in parachute, f"Emergency Parachute invariant missing: {token}", failures)
 
         effects = read(root, files["effect"])
         approved = (
             "FURNACE_BOOSTER", "STRENGTH", "REGENERATION", "RESISTANCE", "FAST_DIGGING", "CURE",
             "CROPS", "SPAWNERS", "SLOWDOWN", "SPEED", "PEACEFUL", "NIGHT_VISION", "FLYING",
             "EXPERIENCE_BOOSTER", "LUCK", "BURNER", "WATER_BREATHING", "FIRE_EXTINGUISHER",
-            "POISON", "GRAVITY_WELL", "JUMP", "EXP_GAIN", "COOLDOWN_REDUCTION", "IMMORTALITY_FIELD",
-            "EXTRA_POWER", "EXTRA_RANGE", "ACTIVATOR", "AUTO_REPAIR",
+            "RADIATION_ABSORBER", "POISON", "GRAVITY_WELL", "JUMP", "EXP_GAIN",
+            "COOLDOWN_REDUCTION", "IMMORTALITY_FIELD", "EXTRA_POWER", "EXTRA_RANGE", "ACTIVATOR",
+            "AUTO_REPAIR",
         )
-        req(len(approved) == 28, "Verifier must protect exactly 28 powers", failures)
+        req(len(approved) == 29, "Verifier must protect exactly 29 Resonance Beacon powers", failures)
         for token in approved:
             req(token in effects, f"Approved Resonance Beacon power missing: {token}", failures)
+        for token in ('"radiation_absorber"', '"Radiation Absorber"', "Material.HEAVY_CORE"):
+            req(token in effects, f"Radiation Absorber definition missing: {token}", failures)
         req("this != SCALE" in effects and ".filter(BeaconPlusEffect::isConfigurable)" in effects,
             "Scale must remain a non-configurable migration tombstone", failures)
 
@@ -89,6 +104,7 @@ def main() -> int:
             '"WORLD"', '"BeaconData"', '"EXPERIENCE"', "PaymentMode.MONEY",
             "material-power.IRON_BLOCK", "material-power.NETHERITE_BLOCK", "tier-requirements.3",
             "electric-operation.capacity", "base-joules-per-pulse", "CuriositiesConfig.getConfig()",
+            "RADIATION_ABSORBER",
         ):
             req(token in cfgclass, f"Resonance Beacon config invariant missing: {token}", failures)
 
@@ -100,30 +116,29 @@ def main() -> int:
             'LEGACY_BEACON_ROOT = LEGACY_ADDITIONS_ROOT + ".PoweredBeacon"',
             "plugin.saveResource(FILE_NAME, false)", "YamlConfiguration.loadConfiguration(file)",
             "Files.copy(retired.toPath(), file.toPath())", "migrateLegacyCoreSettings()",
-            'setValue("enabled", core.getBoolean(LEGACY_MODULE_TOGGLE))', 'getBoolean("enabled")',
-            "if (!save())", "cleanupLegacyCoreSettings()", "core.set(LEGACY_MODULE_TOGGLE, null)",
-            "core.set(LEGACY_BEACON_ROOT, null)", "plugin.saveConfig()", "public synchronized boolean save()",
-            "if (!dirty)",
+            'setValue("enabled", core.getBoolean(LEGACY_MODULE_TOGGLE))', "Slimefun.isNewlyInstalled()",
+            'setValue("enabled", true)', "if (!save())", "cleanupLegacyCoreSettings()",
+            "core.set(LEGACY_MODULE_TOGGLE, null)", "core.set(LEGACY_BEACON_ROOT, null)",
+            "plugin.saveConfig()", "public synchronized boolean save()", "if (!dirty)",
         ):
-            req(token in curiosities_config_class, f"Slimefun Legacy addons config loader invariant missing: {token}", failures)
+            req(token in curiosities_config_class,
+                f"Slimefun Legacy addons config loader invariant missing: {token}", failures)
         req("io.github.bakedlibs.dough" not in curiosities_config_class,
             "Slimefun Legacy addons config must not expand the Dough dependency boundary", failures)
 
         addons_config = read(root, files["sfl_addons_config"])
         req("\nenabled: false\n\nSlimefunLegacyAddition:" in addons_config,
-            "configSFLAddons.yml must default Adventurer's Curios OFF for fresh installs", failures)
+            "configSFLAddons.yml must default Adventurer's Curios OFF for a genuinely fresh install", failures)
         for token in (
             "SlimefunLegacyAddition:", "PoweredBeacon:", "BeaconData:", "storage-type: WORLD",
             "folder-name: BeaconData", "payment-mode: EXPERIENCE", "IRON_BLOCK: 1.0", "NETHERITE_BLOCK: 5.0",
-            "flying:\n        enabled: true", "immortality-field:\n        enabled: true", "auto-repair:",
-            "electric-operation:", "capacity: 4096",
+            "flying:\n        enabled: true", "immortality-field:\n        enabled: true",
+            "radiation-absorber:\n        enabled: true", "auto-repair:", "electric-operation:", "capacity: 4096",
         ):
             req(token in addons_config, f"configSFLAddons.yml Resonance Beacon default missing: {token}", failures)
 
         core_config = read(root, files["core_config"])
-        for forbidden in (
-            "SlimefunLegacyAddition:", "PoweredBeacon:", "enable-non-original-slimefun-additions",
-        ):
+        for forbidden in ("SlimefunLegacyAddition:", "PoweredBeacon:", "enable-non-original-slimefun-additions"):
             req(forbidden not in core_config,
                 f"generic config.yml must not own Slimefun Legacy addon setting: {forbidden}", failures)
 
@@ -155,11 +170,22 @@ def main() -> int:
             'new ChestMenu("&6&lResonance Beacon", 54)', "purchaseNextTier", "action.isRightClicked()",
             "action.isShiftClicked()", "BeaconPlusPyramid.inspect", "BeaconPlusConfig.installDefaults()",
             "BeaconPlusLegacyDataStore.start", "BeaconPlusRuntime.reconcileActivator", "Enabled powers:",
-            "EnergyNetComponent", "ELECTRIC_OPERATION_SLOT", "isEnergyNetActive",
+            'enabled.size() + "/29"', "37", "EnergyNetComponent", "ELECTRIC_OPERATION_SLOT", "isEnergyNetActive",
+            "BeaconPlusEffect.RADIATION_ABSORBER", "Tier I absorbs 25 exposure",
+            "Disabled in configSFLAddons.yml",
         ):
             req(token in beacon, f"Resonance Beacon menu invariant missing: {token}", failures)
         for forbidden in ("BeaconPlus3", "thito.beaconplus", "Class.forName("):
             req(forbidden not in beacon, f"Resonance Beacon must not bridge third-party runtime: {forbidden}", failures)
+
+        listener = read(root, files["listener"])
+        for token in (
+            "PlayerItemCooldownEvent", "PlayerExpChangeEvent", "IMMORTALITY_COOLDOWN_MILLIS = 60_000L", "0.55D",
+            "RadiationDamageEvent", "BeaconPlusEffect.RADIATION_ABSORBER", "RadiationUtils.getExposure",
+            "Math.min(25, exposure)", "Math.min(50, exposure)", "RadiationUtils.clearExposure(player)",
+            "event.setCancelled(true)",
+        ):
+            req(token in listener, f"Event power invariant missing: {token}", failures)
 
         mode = read(root, files["mode"])
         req("AREA_5X5" in mode and '"5x5 Area"' in mode, "Tier III Activator coverage missing", failures)
@@ -188,14 +214,11 @@ def main() -> int:
         field = read(root, files["field"])
         for token in ("chunkRadius", "ChunkFootprint", "containsChunk", "widthChunks"):
             req(token in field, f"Full-height chunk field invariant missing: {token}", failures)
-        req("distanceSquared(target)" not in runtime, "Resonance Beacon field must not retain a vertical/spherical distance limit", failures)
+        req("distanceSquared(target)" not in runtime,
+            "Resonance Beacon field must not retain a vertical/spherical distance limit", failures)
         for forbidden in ("NetworkManager", "CargoNet", "setChunkForceLoaded", "setForceLoaded"):
             req(forbidden not in runtime and forbidden not in runtime_effects,
                 f"Resonance Beacon runtime crossed protected boundary: {forbidden}", failures)
-
-        listener = read(root, files["listener"])
-        for token in ("PlayerItemCooldownEvent", "PlayerExpChangeEvent", "IMMORTALITY_COOLDOWN_MILLIS = 60_000L", "0.55D"):
-            req(token in listener, f"Event power invariant missing: {token}", failures)
 
         manager = read(root, files["manager"])
         for token in (
@@ -218,11 +241,16 @@ def main() -> int:
             "Legacy effect aliases must be preserved when mirroring", failures)
 
         lifecycle = read(root, files["lifecycle"])
-        for token in ("BeaconPlusRuntime.shutdown()", "BeaconPlusProgression.shutdown()", "BeaconPlusLegacyDataStore.shutdownCurrent()", "BeaconPlusManager.shutdownCurrent()"):
+        for token in ("BeaconPlusRuntime.shutdown()", "BeaconPlusProgression.shutdown()",
+                      "BeaconPlusLegacyDataStore.shutdownCurrent()", "BeaconPlusManager.shutdownCurrent()"):
             req(token in lifecycle, f"Shutdown cleanup missing: {token}", failures)
 
         docs = read(root, files["docs"])
-        for token in ("Resonance Beacon", "BeaconData", "Tier III", "5x5 chunks", "Dungeon Chalk was intentionally removed", "Blistering Ingot"):
+        for token in (
+            "Resonance Beacon", "29 player-facing powers", "Radiation Absorber", "Tier I removes 25",
+            "BeaconData", "Tier III", "5x5 chunks", "Dungeon Chalk was intentionally removed", "Blistering Ingot",
+            "configSFLAddons.yml",
+        ):
             req(token in docs, f"Curios documentation missing: {token}", failures)
     except FileNotFoundError as exc:
         failures.append(f"Unable to inspect missing Curios file: {exc}")
@@ -234,16 +262,19 @@ def main() -> int:
         report.write_text(text, encoding="utf-8")
         print(text, end="")
         return 1
+
     text = (
         "Adventurer's Curios verification: PASS\n"
-        "- Dungeon Chalk is removed and Miner's Canary is a bounded passive danger alarm\n"
+        "- current Curiosities and containment content remain integrated on the master baseline\n"
+        "- Dungeon Chalk is removed and Miner's Canary remains a bounded passive danger alarm\n"
         "- Resonance Beacon retains BEACON_PLUS only as its migration-safe internal id\n"
-        "- exactly 28 administrator-controlled powers support three-tier progression\n"
+        "- exactly 29 administrator-controlled powers support three-tier progression\n"
+        "- Radiation Absorber suppresses symptoms and scrubs 25/50/all exposure by tier\n"
         "- pyramid size and configurable mineral resonance cap effective tiers\n"
         "- Legacy addon settings live in configSFLAddons.yml, not generic config.yml\n"
-        "- fresh installs default Curiosities off while existing enabled installations are migrated\n"
-        "- migrated Curiosities keys are removed from config.yml only after the replacement config saves successfully\n"
-        "- legacy WORLD BeaconData JSON is imported/mirrored without renaming existing effect aliases\n"
+        "- fresh installs default Curiosities off while existing installations stay enabled\n"
+        "- migrated Curiosities keys are removed from config.yml only after the replacement config saves\n"
+        "- legacy WORLD BeaconData JSON remains import/mirror compatible\n"
         "- field powers use full-height chunk-aligned square footprints without loading chunks\n"
         "- Activator remains reference-counted and hard-capped\n"
     )
