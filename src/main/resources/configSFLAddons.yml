@@ -158,6 +158,11 @@ SlimefunLegacyAddition:
         payment-mode: INHERIT
         experience-costs: { tier-1: 5, tier-2: 15, tier-3: 20 }
         money-costs: { tier-1: 200.0, tier-2: 600.0, tier-3: 800.0 }
+      radiation-absorber:
+        enabled: true
+        payment-mode: INHERIT
+        experience-costs: { tier-1: 15, tier-2: 35, tier-3: 60 }
+        money-costs: { tier-1: 600.0, tier-2: 1400.0, tier-3: 2400.0 }
       poison:
         enabled: true
         payment-mode: INHERIT
