@@ -58,7 +58,7 @@ def main() -> int:
             '"adventurers_curios"', '"adventurers_curios_field"', '"containment_armor"',
             '"ADVENTURERS_MINERS_CANARY"', '"ADVENTURERS_TRAVELERS_BEDROLL"',
             '"ADVENTURERS_EMERGENCY_PARACHUTE"', '"BEACON_PLUS"', '"&6&lResonance Beacon"',
-            '"with 29 configurable three-tier powers."', "SlimefunItems.ESSENCE_OF_AFTERLIFE",
+            'with 29 configurable three-tier powers.', "SlimefunItems.ESSENCE_OF_AFTERLIFE",
             "SlimefunItems.MAGICAL_GLASS", "SlimefunItems.BLISTERING_INGOT_3",
             "SlimefunItems.SYNTHETIC_DIAMOND", "canary.registerListener(plugin)",
             "parachute.registerListener(plugin)", "new BeaconPlus(", "CuriositiesConfig.isEnabled()",
