@@ -4,13 +4,14 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.groups.NestedItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.groups.SubItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
+import io.github.thebusybiscuit.slimefun4.core.config.CuriositiesConfig;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.armor.HazardProtectionArmorPiece;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlus;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.ContainmentTrap;
-import io.github.thebusybiscuit.slimefun4.implementation.items.curios.DungeonChalk;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.EchoLantern;
+import io.github.thebusybiscuit.slimefun4.implementation.items.curios.EmergencyParachute;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.ExpeditionJournal;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.ExplorersSpyglass;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.MinersCanary;
@@ -43,6 +44,14 @@ final class AdventurersCuriosSetup {
         if (registered) {
             return;
         }
+
+        if (!CuriositiesConfig.isEnabled()) {
+            Slimefun.logger()
+                    .info("Adventurer's Curios is disabled in " + CuriositiesConfig.FILE_NAME
+                            + "; skipping its item groups.");
+            return;
+        }
+
         registered = true;
 
         NestedItemGroup curios =
@@ -85,21 +94,12 @@ final class AdventurersCuriosSetup {
                 "ADVENTURERS_MINERS_CANARY",
                 Material.YELLOW_DYE,
                 "&eMiner's Canary",
-                "&7A reusable warning charm for miners.",
-                "&7It squawks when exposed lava is nearby.",
+                "&7A carried early-warning charm.",
+                "&7It chirps for exposed lava, approaching",
+                "&7hostile mobs and immediate danger.",
                 "",
-                "&eRight Click &7to listen");
-
-        SlimefunItemStack dungeonChalk = new SlimefunItemStack(
-                "ADVENTURERS_DUNGEON_CHALK",
-                Material.WHITE_DYE,
-                "&fDungeon Chalk",
-                "&7Keep one personal breadcrumb without",
-                "&7placing or changing blocks in the world.",
-                "",
-                "&eRight Click a block &7to mark it",
-                "&eRight Click air &7to recall it",
-                "&eSneak & Right Click &7to clear it");
+                "&eCarry it &7for passive warnings",
+                "&eRight Click &7for an immediate scan");
 
         SlimefunItemStack stormGlass = new SlimefunItemStack(
                 "ADVENTURERS_STORM_GLASS",
@@ -130,17 +130,28 @@ final class AdventurersCuriosSetup {
                 "&ePlace and sleep &7like a normal bed",
                 "&8Your /home bed location stays unchanged");
 
-        SlimefunItemStack beaconPlus = new SlimefunItemStack(
+        SlimefunItemStack emergencyParachute = new SlimefunItemStack(
+                "ADVENTURERS_EMERGENCY_PARACHUTE",
+                Material.PHANTOM_MEMBRANE,
+                "&bEmergency Parachute",
+                "&7A reusable last-second fall saver.",
+                "&7Automatically catches dangerous or lethal falls",
+                "&7while carried in your inventory.",
+                "",
+                "&8Ignores small falls",
+                "&8Cooldown: 60 seconds");
+
+        SlimefunItemStack resonanceBeacon = new SlimefunItemStack(
                 "BEACON_PLUS",
                 Material.BEACON,
-                "&6&lBeacon Plus",
-                "&7A native Slimefun expedition beacon",
-                "&7with 30 independently toggleable effects.",
+                "&6&lResonance Beacon",
+                "&7A Slimefun-powered expedition beacon",
+                "&7with 29 configurable three-tier powers.",
                 "",
-                "&eRight Click &7to open the configuration menu",
-                "&8Choose Slimefun Electricity or Beacon Blocks for power",
-                "&8Extra Power costs 30 XP levels",
-                "&8Activator uses bounded plugin chunk tickets");
+                "&eRight Click &7to unlock, enable and upgrade powers",
+                "&8Pyramid size and mineral resonance cap power tier",
+                "&8Includes a tiered Radiation Absorber field",
+                "&8Legacy BeaconData folders can be imported directly");
 
         SlimefunItemStack containmentTrap = new SlimefunItemStack(
                 "CONTAINMENT_TRAP",
@@ -278,7 +289,8 @@ final class AdventurersCuriosSetup {
                 })
                 .register(plugin);
 
-        new MinersCanary(fieldCuriosities, minersCanary, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+        MinersCanary canary =
+                new MinersCanary(fieldCuriosities, minersCanary, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
                     new ItemStack(Material.FEATHER),
                     new ItemStack(Material.GOLD_NUGGET),
                     new ItemStack(Material.FEATHER),
@@ -288,21 +300,9 @@ final class AdventurersCuriosSetup {
                     null,
                     new ItemStack(Material.REDSTONE),
                     null
-                })
-                .register(plugin);
-
-        new DungeonChalk(fieldCuriosities, dungeonChalk, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
-                    new ItemStack(Material.CALCITE),
-                    new ItemStack(Material.GLOW_INK_SAC),
-                    new ItemStack(Material.CALCITE),
-                    null,
-                    new ItemStack(Material.WHITE_DYE),
-                    null,
-                    null,
-                    new ItemStack(Material.PAPER),
-                    null
-                })
-                .register(plugin);
+                });
+        canary.register(plugin);
+        canary.registerListener(plugin);
 
         new StormGlass(fieldCuriosities, stormGlass, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
                     new ItemStack(Material.COPPER_INGOT),
@@ -343,16 +343,34 @@ final class AdventurersCuriosSetup {
                 })
                 .register(plugin);
 
-        new BeaconPlus(fieldCuriosities, beaconPlus, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+        EmergencyParachute parachute = new EmergencyParachute(
+                fieldCuriosities,
+                emergencyParachute,
+                RecipeType.ENHANCED_CRAFTING_TABLE,
+                new ItemStack[] {
+                    new ItemStack(Material.PHANTOM_MEMBRANE),
+                    new ItemStack(Material.STRING),
+                    new ItemStack(Material.PHANTOM_MEMBRANE),
+                    new ItemStack(Material.STRING),
+                    new ItemStack(Material.FEATHER),
+                    new ItemStack(Material.STRING),
+                    new ItemStack(Material.LEATHER),
+                    new ItemStack(Material.SLIME_BALL),
+                    new ItemStack(Material.LEATHER)
+                });
+        parachute.register(plugin);
+        parachute.registerListener(plugin);
+
+        new BeaconPlus(fieldCuriosities, resonanceBeacon, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
                     new ItemStack(Material.ECHO_SHARD),
-                    new ItemStack(Material.NETHERITE_INGOT),
+                    SlimefunItems.ESSENCE_OF_AFTERLIFE,
                     new ItemStack(Material.ECHO_SHARD),
-                    new ItemStack(Material.REDSTONE_BLOCK),
+                    SlimefunItems.MAGICAL_GLASS,
                     new ItemStack(Material.BEACON),
-                    new ItemStack(Material.REDSTONE_BLOCK),
-                    new ItemStack(Material.AMETHYST_SHARD),
-                    new ItemStack(Material.ENDER_EYE),
-                    new ItemStack(Material.AMETHYST_SHARD)
+                    SlimefunItems.MAGICAL_GLASS,
+                    SlimefunItems.BLISTERING_INGOT_3,
+                    SlimefunItems.SYNTHETIC_DIAMOND,
+                    SlimefunItems.BLISTERING_INGOT_3
                 })
                 .register(plugin);
 
