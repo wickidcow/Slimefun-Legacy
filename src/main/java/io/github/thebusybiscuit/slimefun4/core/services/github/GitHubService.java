@@ -16,6 +16,9 @@ import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang.Validate;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.entity.Player;
 
 /**
  * This Service is responsible for grabbing every {@link Contributor} to this project
@@ -23,69 +26,52 @@ import org.apache.commons.lang.Validate;
  * as open issues or pending pull requests.
  *
  * @author TheBusyBiscuit
- *
  */
 public class GitHubService {
 
     private final String repository;
     private final Set<GitHubConnector> connectors;
     private final ConcurrentMap<String, Contributor> contributors;
+    private final ConcurrentMap<UUID, String> notifiedReleaseByPlayer = new ConcurrentHashMap<>();
 
     private final Config uuidCache = new Config("plugins/Slimefun/cache/github/uuids.yml");
     private final Config texturesCache = new Config("plugins/Slimefun/cache/github/skins.yml");
 
     private boolean logging = false;
-
     private LocalDateTime lastUpdate = LocalDateTime.now();
-
     private int openIssues = 0;
     private int pendingPullRequests = 0;
     private int publicForks = 0;
     private int stargazers = 0;
+    private volatile String latestReleaseTag;
+    private volatile String latestReleaseUrl;
+    private volatile String loggedReleaseTag;
 
     /**
      * This creates a new {@link GitHubService} for the given repository.
      *
-     * @param repository
-     *            The repository to create this {@link GitHubService} for
+     * @param repository The repository to create this {@link GitHubService} for
      */
     public GitHubService(@Nonnull String repository) {
         this.repository = repository;
-
+        this.latestReleaseUrl = "https://github.com/" + repository + "/releases";
         connectors = new HashSet<>();
         contributors = new ConcurrentHashMap<>();
     }
 
-    /**
-     * This will start the {@link GitHubService} and run the asynchronous {@link GitHubTask}
-     * every so often to update its data.
-     *
-     * @param plugin
-     *            Our instance of {@link Slimefun}
-     */
+    /** Starts the asynchronous GitHub refresh task. */
     public void start(@Nonnull Slimefun plugin) {
         loadConnectors(false);
-
         long period = TimeUnit.HOURS.toSeconds(1) * 20L;
         GitHubTask task = new GitHubTask(this);
-
         Slimefun.getSchedulerService().runAsyncAtFixedRate(task, 30L * 20L, period);
     }
 
-    /**
-     * This method adds a few default {@link Contributor Contributors}.
-     * Think of them like honorable mentions that aren't listed through
-     * the usual methods.
-     */
     private void addDefaultContributors() {
-        // Artists
         addContributor("Fuffles_", "&dArtist");
         addContributor("IMS_Art", "https://github.com/IAmSorryArt", "&dArtist", 0);
-
-        // Addon Jam winners
         addContributor("nahkd123", "&aWinner of the 2020 Addon Jam");
 
-        // Translators
         try {
             TranslatorsReader translators = new TranslatorsReader(this);
             translators.load();
@@ -109,9 +95,7 @@ public class GitHubService {
         Validate.isTrue(commits >= 0, "Commit count cannot be negative.");
 
         String username = profileURL.substring(profileURL.lastIndexOf('/') + 1);
-
-        Contributor contributor =
-                contributors.computeIfAbsent(username, key -> new Contributor(minecraftName, profileURL));
+        Contributor contributor = contributors.computeIfAbsent(username, key -> new Contributor(minecraftName, profileURL));
         contributor.setContributions(role, commits);
         contributor.setUniqueId(uuidCache.getUUID(minecraftName));
         return contributor;
@@ -131,30 +115,22 @@ public class GitHubService {
         this.logging = logging;
         addDefaultContributors();
 
-        // TheBusyBiscuit/Slimefun4 (multiple times because there may me multiple pages)
         connectors.add(new ContributionsConnector(this, "code", 1, repository, ContributorRole.DEVELOPER));
         connectors.add(new ContributionsConnector(this, "code2", 2, repository, ContributorRole.DEVELOPER));
         connectors.add(new ContributionsConnector(this, "code3", 3, repository, ContributorRole.DEVELOPER));
-
-        // TheBusyBiscuit/Slimefun4-Wiki
         connectors.add(new ContributionsConnector(this, "wiki", 1, "Slimefun/Wiki", ContributorRole.WIKI_EDITOR));
-
-        // TheBusyBiscuit/Slimefun4-Resourcepack
         connectors.add(new ContributionsConnector(
                 this, "resourcepack", 1, "Slimefun/Resourcepack", ContributorRole.RESOURCEPACK_ARTIST));
-
-        // Issues and Pull Requests
         connectors.add(new GitHubIssuesConnector(this, repository, (issues, pullRequests) -> {
             this.openIssues = issues;
             this.pendingPullRequests = pullRequests;
         }));
-
-        // Forks, star count and last commit date
         connectors.add(new GitHubActivityConnector(this, repository, (forks, stars, date) -> {
             this.publicForks = forks;
             this.stargazers = stars;
             this.lastUpdate = date;
         }));
+        connectors.add(new GitHubReleaseConnector(this, repository));
     }
 
     protected @Nonnull Set<GitHubConnector> getConnectors() {
@@ -165,73 +141,142 @@ public class GitHubService {
         return logging;
     }
 
-    /**
-     * This returns the {@link Contributor Contributors} to this project.
-     *
-     * @return A {@link ConcurrentMap} containing all {@link Contributor Contributors}
-     */
     public @Nonnull ConcurrentMap<String, Contributor> getContributors() {
         return contributors;
     }
 
-    /**
-     * This returns the amount of forks of our repository
-     *
-     * @return The amount of forks
-     */
     public int getForks() {
         return publicForks;
     }
 
-    /**
-     * This method returns the amount of stargazers of the repository.
-     *
-     * @return The amount of people who starred the repository
-     */
     public int getStars() {
         return stargazers;
     }
 
-    /**
-     * This returns the amount of open Issues on our repository.
-     *
-     * @return The amount of open issues
-     */
     public int getOpenIssues() {
         return openIssues;
     }
 
-    /**
-     * Returns the id of Slimefun's GitHub Repository. (e.g. "Slimefun/Slimefun4").
-     *
-     * @return The id of our GitHub Repository
-     */
     public @Nonnull String getRepository() {
         return repository;
     }
 
-    /**
-     * This method returns the amount of pending pull requests.
-     *
-     * @return The amount of pending pull requests
-     */
     public int getPendingPullRequests() {
         return pendingPullRequests;
     }
 
-    /**
-     * This returns the date and time of the last commit to this repository.
-     *
-     * @return A {@link LocalDateTime} object representing the date and time of the latest commit
-     */
     public @Nonnull LocalDateTime getLastUpdate() {
         return lastUpdate;
     }
 
-    /**
-     * This will store the {@link UUID} and texture of all {@link Contributor Contributors}
-     * in memory in a {@link File} to save requests the next time we iterate over them.
-     */
+    /** Returns the latest published GitHub Release tag when the service has fetched one. */
+    public @Nonnull Optional<String> getLatestReleaseTag() {
+        return Optional.ofNullable(latestReleaseTag);
+    }
+
+    /** Returns whether the latest published release is newer than the running Slimefun Legacy version. */
+    public boolean isUpdateAvailable() {
+        String latest = latestReleaseTag;
+        return latest != null && compareVersions(latest, Slimefun.getVersion()) > 0;
+    }
+
+    /** Sends an update notice once per published tag to online operators only. */
+    public void notifyUpdateIfAvailable(@Nonnull Player player) {
+        if (!player.isOp() || !isUpdateAvailable()) {
+            return;
+        }
+
+        String tag = latestReleaseTag;
+        if (tag == null || tag.equals(notifiedReleaseByPlayer.put(player.getUniqueId(), tag))) {
+            return;
+        }
+
+        player.sendMessage(ChatColor.GOLD + "[Slimefun Legacy] " + ChatColor.YELLOW + "Update available: "
+                + ChatColor.GREEN + tag + ChatColor.GRAY + " (running " + Slimefun.getVersion() + ")");
+        player.sendMessage(ChatColor.GRAY + latestReleaseUrl);
+    }
+
+    void updateLatestRelease(@Nonnull String tag, @Nonnull String releaseUrl) {
+        boolean changed = !tag.equals(latestReleaseTag);
+        latestReleaseTag = tag;
+        latestReleaseUrl = releaseUrl;
+        if (!changed || !isUpdateAvailable()) {
+            return;
+        }
+
+        if (!tag.equals(loggedReleaseTag)) {
+            loggedReleaseTag = tag;
+            Slimefun.logger().warning("Slimefun Legacy update available: " + tag + " (running "
+                    + Slimefun.getVersion() + ") - " + releaseUrl);
+        }
+
+        if (Slimefun.instance() == null || !Slimefun.instance().isEnabled()) {
+            return;
+        }
+
+        Slimefun.getSchedulerService().run(() -> {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (player.isOp()) {
+                    Slimefun.getSchedulerService().runFor(player, () -> notifyUpdateIfAvailable(player), () -> {});
+                }
+            }
+        });
+    }
+
+    private static int compareVersions(String left, String right) {
+        int[] leftParts = parseVersion(left);
+        int[] rightParts = parseVersion(right);
+        if (leftParts.length == 0 || rightParts.length == 0) {
+            return 0;
+        }
+
+        int length = Math.max(leftParts.length, rightParts.length);
+        for (int i = 0; i < length; i++) {
+            int l = i < leftParts.length ? leftParts[i] : 0;
+            int r = i < rightParts.length ? rightParts[i] : 0;
+            if (l != r) {
+                return Integer.compare(l, r);
+            }
+        }
+        return 0;
+    }
+
+    private static int[] parseVersion(String value) {
+        if (value == null) {
+            return new int[0];
+        }
+
+        String normalized = value.trim();
+        if (normalized.startsWith("v") || normalized.startsWith("V")) {
+            normalized = normalized.substring(1);
+        }
+        int suffix = normalized.indexOf('-');
+        if (suffix < 0) {
+            suffix = normalized.indexOf('+');
+        }
+        if (suffix >= 0) {
+            normalized = normalized.substring(0, suffix);
+        }
+
+        String[] pieces = normalized.split("\\.");
+        int[] result = new int[pieces.length];
+        for (int i = 0; i < pieces.length; i++) {
+            int end = 0;
+            while (end < pieces[i].length() && Character.isDigit(pieces[i].charAt(end))) {
+                end++;
+            }
+            if (end == 0) {
+                return new int[0];
+            }
+            try {
+                result[i] = Integer.parseInt(pieces[i].substring(0, end));
+            } catch (NumberFormatException ignored) {
+                return new int[0];
+            }
+        }
+        return result;
+    }
+
     protected void saveCache() {
         for (Contributor contributor : contributors.values()) {
             Optional<UUID> uuid = contributor.getUniqueId();
@@ -239,7 +284,6 @@ public class GitHubService {
 
             if (contributor.hasTexture()) {
                 String texture = contributor.getTexture(this);
-
                 if (!texture.equals(HeadTexture.UNKNOWN.getTexture())) {
                     texturesCache.setValue(contributor.getName(), texture);
                 }
@@ -250,14 +294,6 @@ public class GitHubService {
         texturesCache.save();
     }
 
-    /**
-     * This returns the cached skin texture for a given username.
-     *
-     * @param username
-     *            The minecraft username
-     *
-     * @return The cached skin texture for that user (or null)
-     */
     protected @Nullable String getCachedTexture(@Nonnull String username) {
         return texturesCache.getString(username);
     }

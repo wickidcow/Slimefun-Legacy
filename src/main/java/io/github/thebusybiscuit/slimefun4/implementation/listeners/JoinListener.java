@@ -41,5 +41,7 @@ public class JoinListener implements Listener {
                 }
             }
         });
+
+        Slimefun.getGitHubService().notifyUpdateIfAvailable(p);
     }
 }
