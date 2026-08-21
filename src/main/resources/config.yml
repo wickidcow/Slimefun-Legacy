@@ -34,6 +34,21 @@ guide:
   # Include hidden groups in guide search results.
   show-hidden-item-groups-in-search: false
 
+# Optional external resource-pack delivery for Minecraft 1.21.11+ clients.
+# Slimefun Legacy does not host or upload a pack. This remains OFF unless a server owner
+# explicitly supplies an externally hosted pack. Leave this disabled when ItemsAdder or
+# another plugin already manages the server's resource pack.
+resource-pack:
+  enabled: false
+  # Direct HTTP(S) URL to a resource-pack ZIP. HTTPS is recommended for public servers.
+  url: ''
+  # Optional 40-character SHA-1 of the ZIP. Recommended so clients can cache/update it reliably.
+  sha1: ''
+  # If true, clients that decline or fail the pack may be disconnected by Minecraft.
+  required: false
+  # Optional text shown in Minecraft's resource-pack prompt.
+  prompt: 'Slimefun Legacy resource pack'
+
 researches:
   # Creative players can unlock researches without paying.
   free-in-creative-mode: true
