@@ -26,6 +26,9 @@ import org.bukkit.inventory.ItemStack;
 /**
  * A combined pickaxe, axe and shovel which automatically changes its vanilla tool type
  * to match the block being mined while preserving its Slimefun item data.
+ *
+ * <p>Because the canonical item is a diamond pickaxe, the normal vanilla Netherite
+ * Smithing Table upgrade path also upgrades the Paxel while preserving its Slimefun ID.
  */
 public final class Paxel extends SlimefunItem implements Listener, NotPlaceable {
 
