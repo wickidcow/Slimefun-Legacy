@@ -10,6 +10,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.tools.DeepcoreTunnelTool;
 import io.github.thebusybiscuit.slimefun4.implementation.items.tools.DeepcoreTunnelTool.ExcavationType;
+import io.github.thebusybiscuit.slimefun4.implementation.items.tools.Paxel;
 import java.util.List;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -46,6 +47,30 @@ final class AdventurersToolsSetup {
         registered = true;
         SubItemGroup tools =
                 new SubItemGroup(new NamespacedKey(plugin, "adventurers_curios_tools"), curios, createToolsIcon(), 2);
+
+        SlimefunItemStack paxel = new SlimefunItemStack(
+                "ADVENTURERS_PAXEL",
+                Material.DIAMOND_PICKAXE,
+                "&bPaxel",
+                "",
+                "&7A pickaxe, axe, and shovel in one tool!",
+                "&8Automatically adapts to the block you mine");
+        new Paxel(
+                        tools,
+                        paxel,
+                        RecipeType.ENHANCED_CRAFTING_TABLE,
+                        new ItemStack[] {
+                            SlimefunItems.SYNTHETIC_EMERALD,
+                            new ItemStack(Material.DIAMOND_PICKAXE),
+                            SlimefunItems.SYNTHETIC_EMERALD,
+                            SlimefunItems.REINFORCED_ALLOY_INGOT,
+                            new ItemStack(Material.DIAMOND_AXE),
+                            SlimefunItems.REINFORCED_ALLOY_INGOT,
+                            SlimefunItems.SYNTHETIC_DIAMOND,
+                            new ItemStack(Material.DIAMOND_SHOVEL),
+                            SlimefunItems.SYNTHETIC_DIAMOND
+                        })
+                .register(plugin);
 
         SlimefunItemStack pickaxe3 = tool(
                 "ADVENTURERS_DEEPCORE_TUNNEL_BORER",
@@ -144,7 +169,7 @@ final class AdventurersToolsSetup {
                     SlimefunItems.REINFORCED_ALLOY_INGOT,
                     SlimefunItems.CARBONADO,
                     pickaxe3,
-                    SlimefunItems.STEEL_PLATE,
+                    paxel,
                     shovel3,
                     SlimefunItems.REINFORCED_ALLOY_INGOT,
                     SlimefunItems.REINFORCED_ALLOY_INGOT,
