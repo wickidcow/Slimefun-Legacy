@@ -20,7 +20,7 @@ Slimefun Legacy turns a normal Minecraft server into a modpack-like experience w
 [Report a Bug](https://github.com/wickidcow/Slimefun-Legacy/issues) ·
 [Release History](EVERYTHING_THAT_CHANGED.md)
 
-Current development release: **4.1.33 — Deepcore Tool Families**. ·
+Current development release: **4.1.34 — Optional Resource Pack & Paxel Models**. ·
 [Contributing](CONTRIBUTING.md)
 
 </div>
@@ -87,8 +87,10 @@ These are historical Slimefun community showcase images. Full image credits and 
 | **Secondary server** | Purpur based on Paper 26.2 |
 | **Java runtime** | Java 25 |
 | **Client** | Normal Minecraft Java client; no client mod required |
-| **Resource pack** | Optional and provided separately by the server |
+| **Resource pack** | Optional; Slimefun Legacy's external sender is disabled by default |
 The supported production line uses Java 25. The repository also builds with Java 25 while deliberately targeting Java 21 bytecode for Slimefun-owned classes.
+
+Resource-pack delivery is optional and remains off unless a server owner explicitly enables it. Servers already using ItemsAdder can leave Legacy's sender disabled and continue using their own combined pack. See [`docs/RESOURCE_PACK.md`](docs/RESOURCE_PACK.md).
 
 Download a tested build from [GitHub Releases](https://github.com/wickidcow/Slimefun-Legacy/releases). Development artifacts are available from [GitHub Actions](https://github.com/wickidcow/Slimefun-Legacy/actions).
 > [!WARNING]
@@ -219,7 +221,7 @@ Historical compatibility, core-platform, release, validation, and Enhanced Guide
 | Sponge | ❌ Unsupported |
 | Hybrid servers such as Arclight, Mohist, or Cardboard | ❌ Unsupported and blocked |
 | Fabric / Forge / NeoForge | ❌ Unsupported — this is a server plugin, not a mod |
-Slimefun Legacy 4.1.33 is tested primarily against **Paper 26.2 / Minecraft 26.2 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
+Slimefun Legacy 4.1.34 is tested primarily against **Paper 26.2 / Minecraft 26.2 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
 The machine-readable support contract remains under `compatibility/`. Historical Compatibility Foundation and Paper/Purpur maintenance notes are consolidated in [`EVERYTHING_THAT_CHANGED.md`](EVERYTHING_THAT_CHANGED.md).
 Folia Phase 1 routes machine ticks and entity/location callbacks through their owning schedulers while preserving Paper behavior. Cargo and energy networks intentionally operate only on nodes owned by the regulator's current Folia region; transactional cross-region transfers are not enabled yet. Folia therefore remains experimental.
 **Every installed addon must also be Folia-safe.** The historical Folia Phase 1 safety boundary and staging checklist are preserved in [`EVERYTHING_THAT_CHANGED.md`](EVERYTHING_THAT_CHANGED.md).
