@@ -90,8 +90,24 @@ jobs:
           set -euo pipefail
           TAG="v${LEGACY_ARTIFACT_VERSION}"
           JAR="dist/${OUTPUT_NAME}"
+          NOTES_FILE="docs/releases/${LEGACY_ARTIFACT_VERSION}.md"
+          TITLE="Slimefun Legacy ${LEGACY_ARTIFACT_VERSION}"
+
           if gh release view "$TAG" >/dev/null 2>&1; then
+            gh api --method PATCH \
+              "repos/${GITHUB_REPOSITORY}/git/refs/tags/${TAG}" \
+              -f sha="$GITHUB_SHA" \
+              -F force=true >/dev/null
             gh release upload "$TAG" "$JAR" --clobber
+            if [[ -f "$NOTES_FILE" ]]; then
+              gh release edit "$TAG" --title "$TITLE" --notes-file "$NOTES_FILE"
+            else
+              gh release edit "$TAG" --title "$TITLE"
+            fi
           else
-            gh release create "$TAG" "$JAR" --target "$GITHUB_SHA" --generate-notes --title "Slimefun Legacy ${LEGACY_ARTIFACT_VERSION}"
+            if [[ -f "$NOTES_FILE" ]]; then
+              gh release create "$TAG" "$JAR" --target "$GITHUB_SHA" --notes-file "$NOTES_FILE" --title "$TITLE"
+            else
+              gh release create "$TAG" "$JAR" --target "$GITHUB_SHA" --generate-notes --title "$TITLE"
+            fi
           fi
