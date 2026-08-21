@@ -16,9 +16,10 @@ import org.junit.jupiter.api.Test;
 
 class ChunkStorageIdentityTest {
     @Test
-    void storageContainersDoNotRetainBukkitChunkInstances() {
-        assertFalse(hasChunkField(ChunkKey.class));
-        assertFalse(hasChunkField(SlimefunChunkData.class));
+    void storageScopeKeysDoNotRetainBukkitObjects() {
+        assertFalse(hasFieldAssignableTo(ChunkKey.class, Chunk.class));
+        assertFalse(hasFieldAssignableTo(SlimefunChunkData.class, Chunk.class));
+        assertFalse(hasFieldAssignableTo(LocationKey.class, Location.class));
     }
 
     @Test
@@ -29,6 +30,9 @@ class ChunkStorageIdentityTest {
         assertSame(
                 ChunkKey.class,
                 ChunkKey.class.getConstructor(DataScope.class, Chunk.class).getDeclaringClass());
+        assertSame(
+                LocationKey.class,
+                LocationKey.class.getConstructor(DataScope.class, Location.class).getDeclaringClass());
     }
 
     @Test
@@ -41,6 +45,19 @@ class ChunkStorageIdentityTest {
         assertEquals(first, same);
         assertEquals(first.hashCode(), same.hashCode());
         assertNotEquals(first, otherChunk);
+        assertNotEquals(first, otherScope);
+    }
+
+    @Test
+    void stringBackedLocationKeysKeepStableIdentity() {
+        var first = new LocationKey(DataScope.NONE, "world;192:64:-64");
+        var same = new LocationKey(DataScope.NONE, "world;192:64:-64");
+        var otherLocation = new LocationKey(DataScope.NONE, "world;193:64:-64");
+        var otherScope = new LocationKey(DataScope.BLOCK_DATA, "world;192:64:-64");
+
+        assertEquals(first, same);
+        assertEquals(first.hashCode(), same.hashCode());
+        assertNotEquals(first, otherLocation);
         assertNotEquals(first, otherScope);
     }
 
@@ -71,8 +88,8 @@ class ChunkStorageIdentityTest {
         assertEquals(-64, anchor.getBlockZ());
     }
 
-    private static boolean hasChunkField(Class<?> type) {
+    private static boolean hasFieldAssignableTo(Class<?> type, Class<?> fieldType) {
         return Arrays.stream(type.getDeclaredFields())
-                .anyMatch(field -> Chunk.class.isAssignableFrom(field.getType()));
+                .anyMatch(field -> fieldType.isAssignableFrom(field.getType()));
     }
 }
