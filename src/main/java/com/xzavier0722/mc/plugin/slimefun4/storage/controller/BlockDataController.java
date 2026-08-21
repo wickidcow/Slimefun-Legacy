@@ -1248,10 +1248,10 @@ public class BlockDataController extends ADataController {
             return CompletableFuture.completedFuture(chunkData);
         }
 
-        // loadChunk fires SlimefunChunkDataLoadEvent and touches Bukkit chunk state. Paper requires
-        // that work to remain on the primary server thread, even when callers use the async API.
+        // loadChunk fires SlimefunChunkDataLoadEvent and touches Bukkit chunk state. Route the load through the
+        // scheduler that owns this chunk without reading a block from an arbitrary caller thread first.
         CompletableFuture<SlimefunChunkData> future = new CompletableFuture<>();
-        var task = Slimefun.runSyncAt(chunk.getBlock(0, 0, 0).getLocation(), () -> {
+        var task = Slimefun.runSyncAt(chunkSchedulerAnchor(chunk), () -> {
             try {
                 future.complete(getChunkData(chunk));
             } catch (Throwable error) {
@@ -1266,6 +1266,10 @@ public class BlockDataController extends ADataController {
                     new IllegalStateException("Cannot load Slimefun chunk data because the plugin is disabled."));
         }
         return future;
+    }
+
+    static Location chunkSchedulerAnchor(Chunk chunk) {
+        return new Location(chunk.getWorld(), chunk.getX() << 4, 0, chunk.getZ() << 4);
     }
 
     public void getChunkDataAsync(Chunk chunk, IAsyncReadCallback<SlimefunChunkData> callback) {
