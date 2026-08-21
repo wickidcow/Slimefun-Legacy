@@ -3,6 +3,7 @@ package io.github.thebusybiscuit.slimefun4.implementation.listeners;
 import io.github.thebusybiscuit.slimefun4.api.items.HashedArmorpiece;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
+import io.github.thebusybiscuit.slimefun4.core.services.ExternalResourcePackService;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.armor.SlimefunArmorPiece;
 import io.github.thebusybiscuit.slimefun4.implementation.tasks.armor.RadiationTask;
@@ -21,7 +22,10 @@ import org.bukkit.inventory.ItemStack;
  */
 public class JoinListener implements Listener {
 
+    private final ExternalResourcePackService resourcePackService;
+
     public JoinListener(@Nonnull Slimefun plugin) {
+        resourcePackService = new ExternalResourcePackService(plugin);
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
@@ -42,6 +46,7 @@ public class JoinListener implements Listener {
             }
         });
 
+        resourcePackService.sendIfEnabled(p);
         Slimefun.getGitHubService().notifyUpdateIfAvailable(p);
     }
 }

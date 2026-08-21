@@ -85,6 +85,10 @@ public class CustomTextureService {
 
                 if (config.getInt(item.getId()) != 0) {
                     modified = true;
+                    // Addons can construct their SlimefunItemStack before bundled/default model mappings are loaded.
+                    // Re-apply the final configured mapping to the canonical registered template so Guide icons and
+                    // freshly created items use the same model data as persisted items.
+                    setTexture(item.getItem(), item.getId());
                 }
             }
         }
