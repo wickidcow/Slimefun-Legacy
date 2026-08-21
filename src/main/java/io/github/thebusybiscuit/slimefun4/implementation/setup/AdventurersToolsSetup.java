@@ -1,6 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.implementation.setup;
 
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
+import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.groups.NestedItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.groups.SubItemGroup;
@@ -10,6 +11,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.tools.DeepcoreTunnelTool;
 import io.github.thebusybiscuit.slimefun4.implementation.items.tools.DeepcoreTunnelTool.ExcavationType;
+import io.github.thebusybiscuit.slimefun4.implementation.items.tools.Paxel;
 import java.util.List;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -46,6 +48,31 @@ final class AdventurersToolsSetup {
         registered = true;
         SubItemGroup tools =
                 new SubItemGroup(new NamespacedKey(plugin, "adventurers_curios_tools"), curios, createToolsIcon(), 2);
+
+        SlimefunItemStack paxel = new SlimefunItemStack(
+                "ADVENTURERS_PAXEL",
+                Material.DIAMOND_PICKAXE,
+                "&bPaxel",
+                "",
+                "&7A pickaxe, axe, and shovel in one tool!",
+                "&8Automatically adapts to the block you mine",
+                "&8Upgrade it to Netherite in a Smithing Table");
+        new Paxel(
+                        tools,
+                        paxel,
+                        RecipeType.ENHANCED_CRAFTING_TABLE,
+                        new ItemStack[] {
+                            SlimefunItems.SYNTHETIC_EMERALD,
+                            new ItemStack(Material.DIAMOND_PICKAXE),
+                            SlimefunItems.SYNTHETIC_EMERALD,
+                            SlimefunItems.REINFORCED_ALLOY_INGOT,
+                            new ItemStack(Material.DIAMOND_AXE),
+                            SlimefunItems.REINFORCED_ALLOY_INGOT,
+                            SlimefunItems.SYNTHETIC_DIAMOND,
+                            new ItemStack(Material.DIAMOND_SHOVEL),
+                            SlimefunItems.SYNTHETIC_DIAMOND
+                        })
+                .register(plugin);
 
         SlimefunItemStack pickaxe3 = tool(
                 "ADVENTURERS_DEEPCORE_TUNNEL_BORER",
@@ -133,23 +160,31 @@ final class AdventurersToolsSetup {
                 "&b&lDeepcore Tunnel Paxel &f3x3",
                 3,
                 "&7Mines both pickaxe and shovel terrain");
-        register(
-                plugin,
-                tools,
-                paxel3,
-                3,
-                ExcavationType.PAXEL,
-                new ItemStack[] {
-                    SlimefunItems.CARBONADO,
-                    SlimefunItems.REINFORCED_ALLOY_INGOT,
-                    SlimefunItems.CARBONADO,
-                    pickaxe3,
-                    SlimefunItems.STEEL_PLATE,
-                    shovel3,
-                    SlimefunItems.REINFORCED_ALLOY_INGOT,
-                    SlimefunItems.REINFORCED_ALLOY_INGOT,
-                    SlimefunItems.REINFORCED_ALLOY_INGOT
-                });
+
+        ItemStack netheritePaxelPickaxe = netheritePaxel(paxel, Material.NETHERITE_PICKAXE);
+        ItemStack[] paxel3Recipe = new ItemStack[] {
+            SlimefunItems.CARBONADO,
+            SlimefunItems.REINFORCED_ALLOY_INGOT,
+            SlimefunItems.CARBONADO,
+            pickaxe3,
+            netheritePaxelPickaxe,
+            shovel3,
+            SlimefunItems.REINFORCED_ALLOY_INGOT,
+            SlimefunItems.REINFORCED_ALLOY_INGOT,
+            SlimefunItems.REINFORCED_ALLOY_INGOT
+        };
+        register(plugin, tools, paxel3, 3, ExcavationType.PAXEL, paxel3Recipe);
+
+        // Paxels retain their Slimefun ID while switching vanilla tool material. Accept every
+        // Netherite form here so a player does not need to mine a stone block just before crafting.
+        RecipeType.ENHANCED_CRAFTING_TABLE.register(
+                recipeWithCenter(paxel3Recipe, netheritePaxel(paxel, Material.NETHERITE_AXE)), paxel3);
+        RecipeType.ENHANCED_CRAFTING_TABLE.register(
+                recipeWithCenter(paxel3Recipe, netheritePaxel(paxel, Material.NETHERITE_SHOVEL)), paxel3);
+
+        // FluffyMachines owns the legacy PAXEL id. Resolve it only at runtime so Slimefun Legacy
+        // keeps no compile-time dependency on the addon while still accepting its Netherite Paxel.
+        registerOptionalFluffyPaxelRecipes(paxel3Recipe, paxel3);
 
         SlimefunItemStack paxel5 = tool(
                 "ADVENTURERS_DEEPCORE_PAXEL_5X5",
@@ -223,6 +258,39 @@ final class AdventurersToolsSetup {
             ExcavationType type,
             ItemStack[] recipe) {
         new DeepcoreTunnelTool(tools, item, RecipeType.ENHANCED_CRAFTING_TABLE, recipe, size, type).register(plugin);
+    }
+
+    private static void registerOptionalFluffyPaxelRecipes(ItemStack[] baseRecipe, SlimefunItemStack output) {
+        SlimefunItem fluffyPaxel = SlimefunItem.getById("PAXEL");
+        if (fluffyPaxel == null || fluffyPaxel.isDisabled()) {
+            return;
+        }
+
+        ItemStack template = fluffyPaxel.getItem();
+        for (Material material :
+                List.of(Material.NETHERITE_PICKAXE, Material.NETHERITE_AXE, Material.NETHERITE_SHOVEL)) {
+            ItemStack upgraded = template.clone();
+            upgraded.setType(material);
+            RecipeType.ENHANCED_CRAFTING_TABLE.register(recipeWithCenter(baseRecipe, upgraded), output);
+        }
+    }
+
+    private static ItemStack netheritePaxel(SlimefunItemStack paxel, Material material) {
+        if (material != Material.NETHERITE_PICKAXE
+                && material != Material.NETHERITE_AXE
+                && material != Material.NETHERITE_SHOVEL) {
+            throw new IllegalArgumentException("A Netherite Paxel recipe ingredient must use a Netherite tool material");
+        }
+
+        ItemStack upgraded = paxel.clone();
+        upgraded.setType(material);
+        return upgraded;
+    }
+
+    private static ItemStack[] recipeWithCenter(ItemStack[] recipe, ItemStack center) {
+        ItemStack[] variant = recipe.clone();
+        variant[4] = center;
+        return variant;
     }
 
     private static ItemStack[] upgradeRecipe(ItemStack previous) {
