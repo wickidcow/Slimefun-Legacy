@@ -181,6 +181,9 @@ final class AdventurersToolsSetup {
                 recipeWithCenter(paxel3Recipe, netheritePaxel(paxel, Material.NETHERITE_AXE)), paxel3);
         RecipeType.ENHANCED_CRAFTING_TABLE.register(
                 recipeWithCenter(paxel3Recipe, netheritePaxel(paxel, Material.NETHERITE_SHOVEL)), paxel3);
+
+        // FluffyMachines owns the legacy PAXEL id. Resolve it only at runtime so Slimefun Legacy
+        // keeps no compile-time dependency on the addon while still accepting its Netherite Paxel.
         registerOptionalFluffyPaxelRecipes(paxel3Recipe, paxel3);
 
         SlimefunItemStack paxel5 = tool(
