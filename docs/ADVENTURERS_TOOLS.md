@@ -2,29 +2,35 @@
 
 The **Tools** child section is reserved for specialized excavation and field-engineering equipment that does not belong in the normal Slimefun tool progression.
 
-## Deepcore Tunnel Borer
+## Deepcore Tunnel Tools
 
-The Deepcore Tunnel Borer converts the existing Explosive Pickaxe into a controlled rectangular excavation tool.
+Deepcore tunnel tools excavate a fixed square tunnel face while preserving the existing directional and player-height behavior.
 
-### Bore modes
+### Tool families
 
-- **Service bore — 3x5**
-- **Freight bore — 5x7**
-- **Shelter bore — 9x11**
+Each family has separate **3x3**, **5x5**, and **9x9** tools with its own Enhanced Crafting Table recipe:
 
-Right-click cycles the selected bore size. Sneaking while mining temporarily disables the area effect for precision single-block mining.
+- **Deepcore Tunnel Pickaxe** — expands only through pickaxe-mineable stone, ore, and similar terrain.
+- **Deepcore Tunnel Shovel** — expands only through shovel-mineable dirt, sand, gravel, snow, and similar terrain.
+- **Deepcore Tunnel Paxel** — combines the pickaxe and shovel terrain sets in one tool.
 
-Each activation excavates a maximum of **3 blocks forward**. The selected 3x5, 5x7 or 9x11 mode controls only the width and height of the tunnel face, producing short 3-block-long sections for smooth continuous tunneling instead of giant cavities.
+The 5x5 tools upgrade from their matching 3x3 tool, and the 9x9 tools upgrade from their matching 5x5 tool. Paxels additionally require the corresponding pickaxe and shovel progression.
 
-The block the player mines determines the forward tunnel direction. The bottom of the bore follows the player's foot level, so the remaining blocks are removed upward rather than equally above and below the targeted block.
+Sneaking while mining temporarily disables the area effect for precision single-block mining.
+
+### Tunnel geometry
+
+Each activation excavates a maximum of **3 blocks forward**. The tool's 3x3, 5x5, or 9x9 size controls the width and height of the tunnel face.
+
+The block the player mines determines the forward tunnel direction. The bottom of the tunnel follows the player's foot level, so excavation grows upward from the player's current height rather than being centered around the targeted block.
 
 ### Safety and performance
 
 - Additional blocks are checked through Slimefun's protection manager before breaking.
 - World-border and unbreakable-material rules are respected.
-- The borer never force-loads chunks.
+- Deepcore tools never force-load chunks.
 - Slimefun blocks, custom blocks and tile entities such as containers and spawners are skipped.
 - Folia operations stay inside the region owned by the current execution context.
-- Larger modes have progressively longer short cooldowns to prevent rapid 9x11 excavation from becoming a server-load spike.
+- Larger tools have progressively longer short cooldowns to limit rapid 9x9 excavation load.
 - Tool durability is charged progressively: approximately one extra durability roll for every 12 additional blocks actually broken, in addition to the normal primary-block wear.
 - Extra terrain uses normal `breakNaturally` behavior, preserving ordinary tool enchantment/drop semantics.
