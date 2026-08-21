@@ -1,6 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.implementation.setup;
 
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
+import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.groups.NestedItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.groups.SubItemGroup;
@@ -180,6 +181,7 @@ final class AdventurersToolsSetup {
                 recipeWithCenter(paxel3Recipe, netheritePaxel(paxel, Material.NETHERITE_AXE)), paxel3);
         RecipeType.ENHANCED_CRAFTING_TABLE.register(
                 recipeWithCenter(paxel3Recipe, netheritePaxel(paxel, Material.NETHERITE_SHOVEL)), paxel3);
+        registerOptionalFluffyPaxelRecipes(paxel3Recipe, paxel3);
 
         SlimefunItemStack paxel5 = tool(
                 "ADVENTURERS_DEEPCORE_PAXEL_5X5",
@@ -253,6 +255,21 @@ final class AdventurersToolsSetup {
             ExcavationType type,
             ItemStack[] recipe) {
         new DeepcoreTunnelTool(tools, item, RecipeType.ENHANCED_CRAFTING_TABLE, recipe, size, type).register(plugin);
+    }
+
+    private static void registerOptionalFluffyPaxelRecipes(ItemStack[] baseRecipe, SlimefunItemStack output) {
+        SlimefunItem fluffyPaxel = SlimefunItem.getById("PAXEL");
+        if (fluffyPaxel == null || fluffyPaxel.isDisabled()) {
+            return;
+        }
+
+        ItemStack template = fluffyPaxel.getItem();
+        for (Material material :
+                List.of(Material.NETHERITE_PICKAXE, Material.NETHERITE_AXE, Material.NETHERITE_SHOVEL)) {
+            ItemStack upgraded = template.clone();
+            upgraded.setType(material);
+            RecipeType.ENHANCED_CRAFTING_TABLE.register(recipeWithCenter(baseRecipe, upgraded), output);
+        }
     }
 
     private static ItemStack netheritePaxel(SlimefunItemStack paxel, Material material) {
