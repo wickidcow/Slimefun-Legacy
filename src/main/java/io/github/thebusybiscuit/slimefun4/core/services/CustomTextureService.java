@@ -10,6 +10,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang.Validate;
@@ -46,6 +47,8 @@ public class CustomTextureService {
      */
     private boolean modified = false;
 
+    private boolean defaultsLoaded = false;
+
     /**
      * This creates a new {@link CustomTextureService} for the provided {@link Config}
      *
@@ -63,6 +66,10 @@ public class CustomTextureService {
                         + "0 means there is no data assigned to that item.\n\n"
                         + "There is no official Slimefun resource pack at the moment.");
         config.getConfiguration().options().copyHeader(true);
+
+        // SlimefunItemStack applies configured model data while the stack is constructed. Load bundled mappings
+        // before core or addon items are created so those immutable templates are correct from the beginning.
+        loadDefaultValues();
     }
 
     /**
@@ -85,10 +92,6 @@ public class CustomTextureService {
 
                 if (config.getInt(item.getId()) != 0) {
                     modified = true;
-                    // Addons can construct their SlimefunItemStack before bundled/default model mappings are loaded.
-                    // Re-apply the final configured mapping to the canonical registered template so Guide icons and
-                    // freshly created items use the same model data as persisted items.
-                    setTexture(item.getItem(), item.getId());
                 }
             }
         }
@@ -101,6 +104,10 @@ public class CustomTextureService {
     }
 
     private void loadDefaultValues() {
+        if (defaultsLoaded) {
+            return;
+        }
+
         InputStream inputStream = Slimefun.class.getResourceAsStream("/item-models.yml");
 
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
@@ -109,8 +116,13 @@ public class CustomTextureService {
             for (String key : cfg.getKeys(false)) {
                 config.setDefaultValue(key, cfg.getInt(key));
             }
+
+            defaultsLoaded = true;
         } catch (Exception e) {
-            Slimefun.logger().log(Level.SEVERE, "Failed to load default item-models.yml file", e);
+            Logger logger = Slimefun.instance() == null
+                    ? Logger.getLogger(CustomTextureService.class.getName())
+                    : Slimefun.logger();
+            logger.log(Level.SEVERE, "Failed to load default item-models.yml file", e);
         }
     }
 
