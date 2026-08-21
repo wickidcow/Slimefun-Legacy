@@ -11,21 +11,23 @@ This is intentional for servers that already use ItemsAdder, Oraxen, a proxy-lev
 ```yaml
 resource-pack:
   enabled: false
-  url: ''
+  url: 'https://cdn.modrinth.com/data/TznkVJky/versions/nwij66MR/Slimefun-ResourcePack.zip'
   sha1: ''
   required: false
   prompt: 'Slimefun Legacy resource pack'
 ```
 
-When `enabled` is `false`, Slimefun Legacy sends no pack request at all.
+When `enabled` is `false`, Slimefun Legacy sends no pack request at all. The pre-filled URL matches AdvanceTexture's public `official_pack_1211` option and can be replaced with any direct HTTP(S) resource-pack ZIP URL.
+
+The sender itself targets Minecraft 1.21.11+ / current Paper server APIs. The pre-filled third-party Modrinth pack is maintained separately and should be replaced by the server owner if their client version or custom assets require a newer pack build.
 
 ## External pack delivery
 
 To let Slimefun Legacy add an externally hosted pack on player join:
 
-1. Host the completed resource-pack ZIP on an HTTP(S) endpoint reachable by players. HTTPS is recommended.
+1. Use the pre-filled pack URL or host a completed resource-pack ZIP on an HTTP(S) endpoint reachable by players. HTTPS is recommended.
 2. Set `resource-pack.enabled` to `true`.
-3. Set `resource-pack.url` to the direct ZIP URL.
+3. Set `resource-pack.url` to the direct ZIP URL if you want to override the pre-filled pack.
 4. Set `resource-pack.sha1` to the 40-character SHA-1 of that exact ZIP when possible.
 5. Leave `required: false` unless the server should reject players who decline the pack.
 6. Restart the server or reload the Slimefun configuration through the supported server workflow.
