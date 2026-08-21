@@ -17,7 +17,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 /**
@@ -28,6 +28,8 @@ import org.bukkit.entity.Player;
  * @author TheBusyBiscuit
  */
 public class GitHubService {
+
+    private static final String UPDATE_SEPARATOR = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
 
     private final String repository;
     private final Set<GitHubConnector> connectors;
@@ -54,7 +56,7 @@ public class GitHubService {
      */
     public GitHubService(@Nonnull String repository) {
         this.repository = repository;
-        this.latestReleaseUrl = "https://github.com/" + repository + "/releases";
+        this.latestReleaseUrl = "https://github.com/" + repository + "/releases/latest";
         connectors = new HashSet<>();
         contributors = new ConcurrentHashMap<>();
     }
@@ -180,7 +182,7 @@ public class GitHubService {
         return latest != null && compareVersions(latest, Slimefun.getVersion()) > 0;
     }
 
-    /** Sends an update notice once per published tag to online operators only. */
+    /** Sends the configured update notice once per published tag to online operators only. */
     public void notifyUpdateIfAvailable(@Nonnull Player player) {
         if (!player.isOp() || !isUpdateAvailable()) {
             return;
@@ -191,23 +193,20 @@ public class GitHubService {
             return;
         }
 
-        player.sendMessage(ChatColor.GOLD + "[Slimefun Legacy] " + ChatColor.YELLOW + "Update available: "
-                + ChatColor.GREEN + tag + ChatColor.GRAY + " (running " + Slimefun.getVersion() + ")");
-        player.sendMessage(ChatColor.GRAY + latestReleaseUrl);
+        sendUpdateNotice(player, tag);
     }
 
     void updateLatestRelease(@Nonnull String tag, @Nonnull String releaseUrl) {
         boolean changed = !tag.equals(latestReleaseTag);
         latestReleaseTag = tag;
-        latestReleaseUrl = releaseUrl;
+        latestReleaseUrl = "https://github.com/" + repository + "/releases/latest";
         if (!changed || !isUpdateAvailable()) {
             return;
         }
 
         if (!tag.equals(loggedReleaseTag)) {
             loggedReleaseTag = tag;
-            Slimefun.logger().warning("Slimefun Legacy update available: " + tag + " (running "
-                    + Slimefun.getVersion() + ") - " + releaseUrl);
+            sendUpdateNotice(Bukkit.getConsoleSender(), tag);
         }
 
         if (Slimefun.instance() == null || !Slimefun.instance().isEnabled()) {
@@ -221,6 +220,26 @@ public class GitHubService {
                 }
             }
         });
+    }
+
+    private void sendUpdateNotice(@Nonnull CommandSender recipient, @Nonnull String latestTag) {
+        recipient.sendMessage(UPDATE_SEPARATOR);
+        recipient.sendMessage("Slimefun Legacy Update Available");
+        recipient.sendMessage(UPDATE_SEPARATOR);
+        recipient.sendMessage("Installed: " + displayVersion(Slimefun.getVersion()));
+        recipient.sendMessage("Latest:    " + displayVersion(latestTag));
+        recipient.sendMessage("A newer version of Slimefun Legacy is available.");
+        recipient.sendMessage("Update to receive the latest fixes and improvements.");
+        recipient.sendMessage("Download:");
+        recipient.sendMessage(latestReleaseUrl);
+        recipient.sendMessage(UPDATE_SEPARATOR);
+    }
+
+    private static String displayVersion(String version) {
+        if (version != null && version.length() > 1 && (version.charAt(0) == 'v' || version.charAt(0) == 'V')) {
+            return version.substring(1);
+        }
+        return version;
     }
 
     private static int compareVersions(String left, String right) {

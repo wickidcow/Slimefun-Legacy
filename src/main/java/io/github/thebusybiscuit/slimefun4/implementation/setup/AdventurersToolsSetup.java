@@ -8,7 +8,8 @@ import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.config.CuriositiesConfig;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
-import io.github.thebusybiscuit.slimefun4.implementation.items.tools.TunnelingPickaxe;
+import io.github.thebusybiscuit.slimefun4.implementation.items.tools.DeepcoreTunnelTool;
+import io.github.thebusybiscuit.slimefun4.implementation.items.tools.DeepcoreTunnelTool.ExcavationType;
 import java.util.List;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -46,21 +47,19 @@ final class AdventurersToolsSetup {
         SubItemGroup tools =
                 new SubItemGroup(new NamespacedKey(plugin, "adventurers_curios_tools"), curios, createToolsIcon(), 2);
 
-        SlimefunItemStack tunnelBorer = new SlimefunItemStack(
+        SlimefunItemStack pickaxe3 = tool(
                 "ADVENTURERS_DEEPCORE_TUNNEL_BORER",
                 Material.NETHERITE_PICKAXE,
-                "&6&lDeepcore Tunnel Borer",
-                "&7Cuts a clean rectangular tunnel face",
-                "&7forward from the block you are mining.",
-                "",
-                "&eRight Click &7to cycle bore size",
-                "&eSneak while mining &7for precision mode",
-                "&bBores: &f3x5, 5x7, 9x11",
-                "&8The floor stays at your feet and the bore grows upward",
-                "&8Skips machines, storage, custom blocks and unloaded chunks",
-                "&8Works with normal pickaxe enchants and drops");
-
-        new TunnelingPickaxe(tools, tunnelBorer, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+                "&6&lDeepcore Tunnel Pickaxe &f3x3",
+                3,
+                "&7Stone and pickaxe-mineable terrain");
+        register(
+                plugin,
+                tools,
+                pickaxe3,
+                3,
+                ExcavationType.PICKAXE,
+                new ItemStack[] {
                     SlimefunItems.REINFORCED_ALLOY_INGOT,
                     SlimefunItems.STEEL_PLATE,
                     SlimefunItems.REINFORCED_ALLOY_INGOT,
@@ -70,8 +69,188 @@ final class AdventurersToolsSetup {
                     SlimefunItems.REINFORCED_ALLOY_INGOT,
                     SlimefunItems.STEEL_PLATE,
                     SlimefunItems.REINFORCED_ALLOY_INGOT
-                })
-                .register(plugin);
+                });
+
+        SlimefunItemStack pickaxe5 = tool(
+                "ADVENTURERS_DEEPCORE_PICKAXE_5X5",
+                Material.NETHERITE_PICKAXE,
+                "&6&lDeepcore Tunnel Pickaxe &f5x5",
+                5,
+                "&7Stone and pickaxe-mineable terrain");
+        register(plugin, tools, pickaxe5, 5, ExcavationType.PICKAXE, upgradeRecipe(pickaxe3));
+
+        SlimefunItemStack pickaxe9 = tool(
+                "ADVENTURERS_DEEPCORE_PICKAXE_9X9",
+                Material.NETHERITE_PICKAXE,
+                "&6&lDeepcore Tunnel Pickaxe &f9x9",
+                9,
+                "&7Stone and pickaxe-mineable terrain");
+        register(plugin, tools, pickaxe9, 9, ExcavationType.PICKAXE, heavyUpgradeRecipe(pickaxe5));
+
+        SlimefunItemStack shovel3 = tool(
+                "ADVENTURERS_DEEPCORE_SHOVEL_3X3",
+                Material.NETHERITE_SHOVEL,
+                "&e&lDeepcore Tunnel Shovel &f3x3",
+                3,
+                "&7Dirt and shovel-mineable terrain");
+        register(
+                plugin,
+                tools,
+                shovel3,
+                3,
+                ExcavationType.SHOVEL,
+                new ItemStack[] {
+                    SlimefunItems.REINFORCED_ALLOY_INGOT,
+                    SlimefunItems.STEEL_PLATE,
+                    SlimefunItems.REINFORCED_ALLOY_INGOT,
+                    SlimefunItems.CARBONADO,
+                    SlimefunItems.EXPLOSIVE_SHOVEL,
+                    SlimefunItems.CARBONADO,
+                    SlimefunItems.REINFORCED_ALLOY_INGOT,
+                    SlimefunItems.STEEL_PLATE,
+                    SlimefunItems.REINFORCED_ALLOY_INGOT
+                });
+
+        SlimefunItemStack shovel5 = tool(
+                "ADVENTURERS_DEEPCORE_SHOVEL_5X5",
+                Material.NETHERITE_SHOVEL,
+                "&e&lDeepcore Tunnel Shovel &f5x5",
+                5,
+                "&7Dirt and shovel-mineable terrain");
+        register(plugin, tools, shovel5, 5, ExcavationType.SHOVEL, upgradeRecipe(shovel3));
+
+        SlimefunItemStack shovel9 = tool(
+                "ADVENTURERS_DEEPCORE_SHOVEL_9X9",
+                Material.NETHERITE_SHOVEL,
+                "&e&lDeepcore Tunnel Shovel &f9x9",
+                9,
+                "&7Dirt and shovel-mineable terrain");
+        register(plugin, tools, shovel9, 9, ExcavationType.SHOVEL, heavyUpgradeRecipe(shovel5));
+
+        SlimefunItemStack paxel3 = tool(
+                "ADVENTURERS_DEEPCORE_PAXEL_3X3",
+                Material.NETHERITE_PICKAXE,
+                "&b&lDeepcore Tunnel Paxel &f3x3",
+                3,
+                "&7Mines both pickaxe and shovel terrain");
+        register(
+                plugin,
+                tools,
+                paxel3,
+                3,
+                ExcavationType.PAXEL,
+                new ItemStack[] {
+                    SlimefunItems.CARBONADO,
+                    SlimefunItems.REINFORCED_ALLOY_INGOT,
+                    SlimefunItems.CARBONADO,
+                    pickaxe3,
+                    SlimefunItems.STEEL_PLATE,
+                    shovel3,
+                    SlimefunItems.REINFORCED_ALLOY_INGOT,
+                    SlimefunItems.REINFORCED_ALLOY_INGOT,
+                    SlimefunItems.REINFORCED_ALLOY_INGOT
+                });
+
+        SlimefunItemStack paxel5 = tool(
+                "ADVENTURERS_DEEPCORE_PAXEL_5X5",
+                Material.NETHERITE_PICKAXE,
+                "&b&lDeepcore Tunnel Paxel &f5x5",
+                5,
+                "&7Mines both pickaxe and shovel terrain");
+        register(
+                plugin,
+                tools,
+                paxel5,
+                5,
+                ExcavationType.PAXEL,
+                new ItemStack[] {
+                    SlimefunItems.REINFORCED_ALLOY_INGOT,
+                    pickaxe5,
+                    SlimefunItems.REINFORCED_ALLOY_INGOT,
+                    SlimefunItems.CARBONADO,
+                    paxel3,
+                    SlimefunItems.CARBONADO,
+                    SlimefunItems.REINFORCED_ALLOY_INGOT,
+                    shovel5,
+                    SlimefunItems.REINFORCED_ALLOY_INGOT
+                });
+
+        SlimefunItemStack paxel9 = tool(
+                "ADVENTURERS_DEEPCORE_PAXEL_9X9",
+                Material.NETHERITE_PICKAXE,
+                "&b&lDeepcore Tunnel Paxel &f9x9",
+                9,
+                "&7Mines both pickaxe and shovel terrain");
+        register(
+                plugin,
+                tools,
+                paxel9,
+                9,
+                ExcavationType.PAXEL,
+                new ItemStack[] {
+                    SlimefunItems.CARBONADO,
+                    pickaxe9,
+                    SlimefunItems.CARBONADO,
+                    SlimefunItems.REINFORCED_ALLOY_INGOT,
+                    paxel5,
+                    SlimefunItems.REINFORCED_ALLOY_INGOT,
+                    SlimefunItems.CARBONADO,
+                    shovel9,
+                    SlimefunItems.CARBONADO
+                });
+    }
+
+    private static SlimefunItemStack tool(String id, Material material, String name, int size, String terrainLore) {
+        return new SlimefunItemStack(
+                id,
+                material,
+                name,
+                "&7Cuts a fixed " + size + "x" + size + " tunnel face",
+                "&7three blocks forward from the block mined.",
+                "",
+                terrainLore,
+                "&eSneak while mining &7for precision mode",
+                "&8The floor stays at your feet and the tunnel grows upward",
+                "&8Skips machines, storage, custom blocks and unloaded chunks",
+                "&8Uses normal tool enchantments and drops");
+    }
+
+    private static void register(
+            Slimefun plugin,
+            ItemGroup tools,
+            SlimefunItemStack item,
+            int size,
+            ExcavationType type,
+            ItemStack[] recipe) {
+        new DeepcoreTunnelTool(tools, item, RecipeType.ENHANCED_CRAFTING_TABLE, recipe, size, type).register(plugin);
+    }
+
+    private static ItemStack[] upgradeRecipe(ItemStack previous) {
+        return new ItemStack[] {
+            SlimefunItems.REINFORCED_ALLOY_INGOT,
+            SlimefunItems.CARBONADO,
+            SlimefunItems.REINFORCED_ALLOY_INGOT,
+            SlimefunItems.STEEL_PLATE,
+            previous,
+            SlimefunItems.STEEL_PLATE,
+            SlimefunItems.REINFORCED_ALLOY_INGOT,
+            SlimefunItems.CARBONADO,
+            SlimefunItems.REINFORCED_ALLOY_INGOT
+        };
+    }
+
+    private static ItemStack[] heavyUpgradeRecipe(ItemStack previous) {
+        return new ItemStack[] {
+            SlimefunItems.CARBONADO,
+            SlimefunItems.REINFORCED_ALLOY_INGOT,
+            SlimefunItems.CARBONADO,
+            SlimefunItems.STEEL_PLATE,
+            previous,
+            SlimefunItems.STEEL_PLATE,
+            SlimefunItems.CARBONADO,
+            SlimefunItems.REINFORCED_ALLOY_INGOT,
+            SlimefunItems.CARBONADO
+        };
     }
 
     private static ItemStack createToolsIcon() {

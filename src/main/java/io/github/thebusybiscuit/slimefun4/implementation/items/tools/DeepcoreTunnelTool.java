@@ -4,7 +4,6 @@ import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
-import io.github.thebusybiscuit.slimefun4.core.handlers.ItemUseHandler;
 import io.github.thebusybiscuit.slimefun4.core.handlers.ToolUseHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
@@ -15,45 +14,56 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
-import org.bukkit.Sound;
+import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.TileState;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.persistence.PersistentDataContainer;
-import org.bukkit.persistence.PersistentDataType;
 
 /**
- * A directional excavation pickaxe that cuts a short rectangular tunnel section in front of the player.
+ * A fixed-size directional excavation tool used by the Deepcore tunnel tool family.
  *
- * <p>The primary broken block still uses normal Minecraft breaking. Additional terrain is filtered through Slimefun's
- * protection manager and never force-loads chunks. Slimefun blocks, custom blocks and tile entities are deliberately
- * left untouched so a large bore cannot wipe machines or storage by accident.</p>
+ * <p>The tunnel face is anchored to the player's feet and extends upward. Each use
+ * reaches three blocks forward from the mined block. Additional terrain is filtered
+ * through Slimefun protection checks and never force-loads chunks. Slimefun blocks,
+ * custom blocks and tile entities are deliberately left untouched.</p>
  */
-public final class TunnelingPickaxe extends ExplosiveTool {
+public final class DeepcoreTunnelTool extends ExplosiveTool {
 
     private static final int TUNNEL_DEPTH = 3;
     private static final int EXTRA_BLOCKS_PER_DURABILITY = 12;
+    private static final Map<UUID, Long> LAST_BORE_USE = new ConcurrentHashMap<>();
 
-    private final NamespacedKey modeKey = new NamespacedKey(Slimefun.instance(), "tunnel_borer_mode");
-    private final Map<UUID, Long> lastBoreUse = new ConcurrentHashMap<>();
+    private final int size;
+    private final ExcavationType excavationType;
+    private final long cooldownMillis;
 
     @ParametersAreNonnullByDefault
-    public TunnelingPickaxe(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
+    public DeepcoreTunnelTool(
+            ItemGroup itemGroup,
+            SlimefunItemStack item,
+            RecipeType recipeType,
+            ItemStack[] recipe,
+            int size,
+            ExcavationType excavationType) {
         super(itemGroup, item, recipeType, recipe);
-    }
 
-    @Override
-    public void preRegister() {
-        super.preRegister();
-        addItemHandler(modeSwitchHandler());
+        if (size != 3 && size != 5 && size != 9) {
+            throw new IllegalArgumentException("Deepcore tunnel size must be 3, 5 or 9");
+        }
+
+        this.size = size;
+        this.excavationType = excavationType;
+        this.cooldownMillis = switch (size) {
+            case 3 -> 250L;
+            case 5 -> 450L;
+            case 9 -> 800L;
+            default -> throw new IllegalStateException("Unexpected Deepcore tunnel size: " + size);
+        };
     }
 
     @Override
@@ -64,13 +74,12 @@ public final class TunnelingPickaxe extends ExplosiveTool {
                 return;
             }
 
-            BoreMode mode = getMode(tool);
-            if (!cooldownReady(player, mode)) {
+            Block primary = event.getBlock();
+            if (!excavationType.canExcavate(primary.getType()) || !cooldownReady(player)) {
                 return;
             }
 
-            Block primary = event.getBlock();
-            List<Block> candidates = findTunnelVolume(player, primary, mode);
+            List<Block> candidates = findTunnelVolume(player, primary);
             int broken = 0;
 
             for (Block block : candidates) {
@@ -79,7 +88,7 @@ public final class TunnelingPickaxe extends ExplosiveTool {
                 }
 
                 VisualEffectUtils.playBlockBreakEffect(block);
-                if (block.breakNaturally(tool)) {
+                if (block.breakNaturally(effectiveToolFor(block, tool))) {
                     broken++;
                 }
             }
@@ -94,44 +103,29 @@ public final class TunnelingPickaxe extends ExplosiveTool {
         };
     }
 
-    private @Nonnull ItemUseHandler modeSwitchHandler() {
-        return event -> {
-            event.cancel();
-            ItemStack tool = event.getItem();
-            BoreMode next = getMode(tool).next();
-            ItemMeta meta = tool.getItemMeta();
-            meta.getPersistentDataContainer().set(modeKey, PersistentDataType.STRING, next.name());
-            tool.setItemMeta(meta);
-
-            Player player = event.getPlayer();
-            player.sendMessage(ChatColor.GOLD + "Deepcore Tunnel Borer: " + ChatColor.AQUA + next.displayName
-                    + ChatColor.GRAY + " bore selected.");
-            player.playSound(player.getLocation(), Sound.BLOCK_PISTON_EXTEND, 0.55F, next.pitch);
-        };
-    }
-
-    private boolean cooldownReady(Player player, BoreMode mode) {
+    private boolean cooldownReady(Player player) {
         long now = System.currentTimeMillis();
-        long previous = lastBoreUse.getOrDefault(player.getUniqueId(), 0L);
-        if (previous > 0L && now - previous < mode.cooldownMillis) {
+        long previous = LAST_BORE_USE.getOrDefault(player.getUniqueId(), 0L);
+        if (previous > 0L && now - previous < cooldownMillis) {
             return false;
         }
-        lastBoreUse.put(player.getUniqueId(), now);
+
+        LAST_BORE_USE.put(player.getUniqueId(), now);
         return true;
     }
 
-    private List<Block> findTunnelVolume(Player player, Block primary, BoreMode mode) {
+    private List<Block> findTunnelVolume(Player player, Block primary) {
         World world = primary.getWorld();
         BlockFace facing = player.getFacing();
-        int halfWidth = mode.width / 2;
+        int halfWidth = size / 2;
         int floorY = player.getLocation().getBlockY();
-        List<Block> blocks = new ArrayList<>(mode.width * mode.height * TUNNEL_DEPTH - 1);
+        List<Block> blocks = new ArrayList<>(size * size * TUNNEL_DEPTH - 1);
 
         for (int depth = 0; depth < TUNNEL_DEPTH; depth++) {
             int baseX = primary.getX() + facing.getModX() * depth;
             int baseZ = primary.getZ() + facing.getModZ() * depth;
 
-            for (int yOffset = 0; yOffset < mode.height; yOffset++) {
+            for (int yOffset = 0; yOffset < size; yOffset++) {
                 int y = floorY + yOffset;
                 if (y < world.getMinHeight() || y >= world.getMaxHeight()) {
                     continue;
@@ -172,7 +166,7 @@ public final class TunnelingPickaxe extends ExplosiveTool {
     }
 
     private boolean canTunnelBreak(Player player, Block block) {
-        if (!canBreak(player, block)) {
+        if (!excavationType.canExcavate(block.getType()) || !canBreak(player, block)) {
             return false;
         }
         if (block.getState() instanceof TileState) {
@@ -184,44 +178,31 @@ public final class TunnelingPickaxe extends ExplosiveTool {
         return !Slimefun.getIntegrations().isCustomBlock(block);
     }
 
-    private BoreMode getMode(ItemStack tool) {
-        ItemMeta meta = tool.getItemMeta();
-        PersistentDataContainer data = meta.getPersistentDataContainer();
-        String stored = data.get(modeKey, PersistentDataType.STRING);
-        if (stored == null) {
-            return BoreMode.SERVICE;
+    private ItemStack effectiveToolFor(Block block, ItemStack tool) {
+        if (excavationType == ExcavationType.PAXEL
+                && Tag.MINEABLE_SHOVEL.isTagged(block.getType())
+                && !Tag.MINEABLE_PICKAXE.isTagged(block.getType())) {
+            ItemStack shovel = tool.clone();
+            shovel.setType(Material.NETHERITE_SHOVEL);
+            return shovel;
         }
-        try {
-            return BoreMode.valueOf(stored);
-        } catch (IllegalArgumentException ignored) {
-            return BoreMode.SERVICE;
-        }
+
+        return tool;
     }
 
-    private enum BoreMode {
-        SERVICE("3x5", 3, 5, 250L, 1.35F),
-        FREIGHT("5x7", 5, 7, 450L, 1.10F),
-        SHELTER("9x11", 9, 11, 800L, 0.80F);
+    public enum ExcavationType {
+        PICKAXE,
+        SHOVEL,
+        PAXEL;
 
-        private final String displayName;
-        private final int width;
-        private final int height;
-        private final long cooldownMillis;
-        private final float pitch;
+        private boolean canExcavate(Material material) {
+            boolean pickaxe = Tag.MINEABLE_PICKAXE.isTagged(material);
+            boolean shovel = Tag.MINEABLE_SHOVEL.isTagged(material);
 
-        BoreMode(String displayName, int width, int height, long cooldownMillis, float pitch) {
-            this.displayName = displayName;
-            this.width = width;
-            this.height = height;
-            this.cooldownMillis = cooldownMillis;
-            this.pitch = pitch;
-        }
-
-        private BoreMode next() {
             return switch (this) {
-                case SERVICE -> FREIGHT;
-                case FREIGHT -> SHELTER;
-                case SHELTER -> SERVICE;
+                case PICKAXE -> pickaxe;
+                case SHOVEL -> shovel;
+                case PAXEL -> pickaxe || shovel;
             };
         }
     }
