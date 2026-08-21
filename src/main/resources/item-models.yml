@@ -17,4 +17,9 @@ _UI_PREVIOUS_INACTIVE: 0
 _UI_NEXT_ACTIVE: 0
 _UI_NEXT_INACTIVE: 0
 
+# Shared Paxel model used by the established Slimefun resource-pack mapping.
+# FluffyMachines keeps its historical PAXEL ID; Adventurer's Curios uses a collision-safe core ID.
+PAXEL: 2201302
+ADVENTURERS_PAXEL: 2201302
+
 ## The rest of the file will be auto-populated with all registered Slimefun items.
