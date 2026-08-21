@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataScope;
+import com.xzavier0722.mc.plugin.slimefun4.storage.event.SlimefunChunkDataLoadEvent;
 import java.lang.reflect.Proxy;
 import java.util.Arrays;
 import org.bukkit.Chunk;
@@ -23,6 +24,8 @@ class ChunkStorageIdentityTest {
     @Test
     void preservesLegacyChunkApiDescriptors() throws Exception {
         assertSame(Chunk.class, SlimefunChunkData.class.getMethod("getChunk").getReturnType());
+        assertSame(World.class, SlimefunChunkData.class.getMethod("getWorld").getReturnType());
+        assertSame(World.class, SlimefunChunkDataLoadEvent.class.getMethod("getWorld").getReturnType());
         assertSame(
                 ChunkKey.class,
                 ChunkKey.class.getConstructor(DataScope.class, Chunk.class).getDeclaringClass());

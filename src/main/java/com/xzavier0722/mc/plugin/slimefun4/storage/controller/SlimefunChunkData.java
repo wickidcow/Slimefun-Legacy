@@ -41,6 +41,21 @@ public class SlimefunChunkData extends ADataContainer {
         sfBlocks = new ConcurrentHashMap<>();
     }
 
+    /**
+     * Resolves the currently loaded world that owns this chunk data without resolving or loading the chunk itself.
+     *
+     * @return the loaded world that owns this data
+     * @throws IllegalStateException if the owning world is no longer loaded
+     */
+    @Nonnull
+    public World getWorld() {
+        World world = Bukkit.getWorld(worldId);
+        if (world == null) {
+            throw new IllegalStateException("The world for chunk data " + getKey() + " is no longer loaded");
+        }
+        return world;
+    }
+
     @Nonnull
     public Chunk getChunk() {
         Chunk chunk = chunkRef.get();
@@ -48,11 +63,7 @@ public class SlimefunChunkData extends ADataContainer {
             return chunk;
         }
 
-        World world = Bukkit.getWorld(worldId);
-        if (world == null) {
-            throw new IllegalStateException("The world for chunk data " + getKey() + " is no longer loaded");
-        }
-        return world.getChunkAt(chunkX, chunkZ, false);
+        return getWorld().getChunkAt(chunkX, chunkZ, false);
     }
 
     @Nonnull
