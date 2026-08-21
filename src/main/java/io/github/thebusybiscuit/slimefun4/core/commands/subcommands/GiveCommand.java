@@ -1,7 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
 import io.github.bakedlibs.dough.common.CommonPatterns;
-import io.github.bakedlibs.dough.common.PlayerList;
 import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
@@ -10,8 +9,8 @@ import io.github.thebusybiscuit.slimefun4.core.multiblocks.MultiBlockMachine;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import javax.annotation.ParametersAreNonnullByDefault;
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -31,11 +30,9 @@ class GiveCommand extends SubCommand {
     public void onExecute(CommandSender sender, String[] args) {
         if (sender.hasPermission("slimefun.cheat.items") || !(sender instanceof Player)) {
             if (args.length > 2) {
-                Optional<Player> player = PlayerList.findByName(args[1]);
+                Player p = Bukkit.getPlayerExact(args[1]);
 
-                if (player.isPresent()) {
-                    Player p = player.get();
-
+                if (p != null) {
                     SlimefunItem sfItem = SlimefunItem.getById(args[2].toUpperCase(Locale.ROOT));
 
                     if (sfItem != null) {
