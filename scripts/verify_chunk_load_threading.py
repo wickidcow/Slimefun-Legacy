@@ -18,8 +18,14 @@ failures: list[str] = []
 
 if "CompletableFuture.runAsync(() -> loadChunk" in controller:
     failures.append("BlockDataController still loads chunks on a CompletableFuture executor")
-if "Slimefun.runSyncAt(chunk.getBlock(0, 0, 0).getLocation()" not in controller:
+if "Slimefun.runSyncAt(chunkSchedulerAnchor(chunk)" not in controller:
     failures.append("BlockDataController async API does not marshal chunk loading to the owning chunk region")
+if "static Location chunkSchedulerAnchor(Chunk chunk)" not in controller:
+    failures.append("BlockDataController does not provide an identity-only chunk scheduler anchor")
+if "return new Location(chunk.getWorld(), chunk.getX() << 4, 0, chunk.getZ() << 4);" not in controller:
+    failures.append("BlockDataController chunk scheduler anchor is not derived from immutable chunk identity")
+if "Slimefun.runSyncAt(chunk.getBlock(0, 0, 0).getLocation()" in controller:
+    failures.append("BlockDataController still reads a Bukkit block before chunk scheduler handoff")
 if "controller.getChunkDataAsync(chunk)" in doctor:
     failures.append("ItemDoctorService still requests async storage loading from ChunkLoadEvent")
 if "onSlimefunChunkDataLoad(SlimefunChunkDataLoadEvent event)" not in doctor:

@@ -3,19 +3,24 @@ package com.xzavier0722.mc.plugin.slimefun4.storage.controller;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataScope;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.ScopeKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.LocationUtils;
+import java.util.Objects;
 import org.bukkit.Location;
 
 public class LocationKey extends ScopeKey {
-    private final Location location;
+    private final String locationKey;
 
     public LocationKey(DataScope scope, Location location) {
+        this(scope, LocationUtils.getLocKey(location));
+    }
+
+    LocationKey(DataScope scope, String locationKey) {
         super(scope);
-        this.location = location;
+        this.locationKey = Objects.requireNonNull(locationKey, "Location key must not be null");
     }
 
     @Override
     protected String getKeyStr() {
-        return scope + "/" + LocationUtils.getLocKey(location);
+        return scope + "/" + locationKey;
     }
 
     @Override
@@ -23,11 +28,6 @@ public class LocationKey extends ScopeKey {
         return obj == this
                 || (obj instanceof LocationKey other
                         && scope == other.scope
-                        && location.getWorld()
-                                .getName()
-                                .equals(other.location.getWorld().getName())
-                        && location.getBlockX() == other.location.getBlockX()
-                        && location.getBlockY() == other.location.getBlockY()
-                        && location.getBlockZ() == other.location.getBlockZ());
+                        && locationKey.equals(other.locationKey));
     }
 }
