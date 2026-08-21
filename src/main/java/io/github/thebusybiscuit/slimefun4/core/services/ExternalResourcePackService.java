@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.core.services;
 
-import io.github.bakedlibs.dough.config.Config;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -37,7 +36,7 @@ public final class ExternalResourcePackService {
      * @param player The player that just joined
      */
     public void sendIfEnabled(@Nonnull Player player) {
-        Config config = Slimefun.getCfg();
+        var config = Slimefun.getCfg();
         if (!config.getBoolean(CONFIG_ROOT + "enabled")) {
             return;
         }
