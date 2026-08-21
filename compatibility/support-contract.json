@@ -1,5 +1,5 @@
 {
-  "release": "4.1.33",
+  "release": "4.1.34",
   "project": "Slimefun Legacy",
   "plugin_name": "Slimefun",
   "primary_platform": {
@@ -181,7 +181,12 @@
     "paper_runtime_smoke_runs_upgrade_diagnostics": true,
     "paper_runtime_smoke_requires_clean_restart_evidence": true,
     "phase1l_part4_changes_normal_cargo_energy_machine_semantics": false,
-    "phase1l_part4_changes_storage_or_gameplay_semantics": false
+    "phase1l_part4_changes_storage_or_gameplay_semantics": false,
+    "external_resource_pack_delivery": true,
+    "external_resource_pack_delivery_default_enabled": false,
+    "external_resource_pack_hosting": false,
+    "external_resource_pack_additive_stack": true,
+    "item_model_mapping_reapplied_after_registration": true
   },
   "phase": "Core Platform Phase 1L"
 }
