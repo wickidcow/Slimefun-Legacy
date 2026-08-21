@@ -54,7 +54,8 @@ final class AdventurersToolsSetup {
                 "&bPaxel",
                 "",
                 "&7A pickaxe, axe, and shovel in one tool!",
-                "&8Automatically adapts to the block you mine");
+                "&8Automatically adapts to the block you mine",
+                "&8Upgrade it to Netherite in a Smithing Table");
         new Paxel(
                         tools,
                         paxel,
@@ -158,23 +159,27 @@ final class AdventurersToolsSetup {
                 "&b&lDeepcore Tunnel Paxel &f3x3",
                 3,
                 "&7Mines both pickaxe and shovel terrain");
-        register(
-                plugin,
-                tools,
-                paxel3,
-                3,
-                ExcavationType.PAXEL,
-                new ItemStack[] {
-                    SlimefunItems.CARBONADO,
-                    SlimefunItems.REINFORCED_ALLOY_INGOT,
-                    SlimefunItems.CARBONADO,
-                    pickaxe3,
-                    paxel,
-                    shovel3,
-                    SlimefunItems.REINFORCED_ALLOY_INGOT,
-                    SlimefunItems.REINFORCED_ALLOY_INGOT,
-                    SlimefunItems.REINFORCED_ALLOY_INGOT
-                });
+
+        ItemStack netheritePaxelPickaxe = netheritePaxel(paxel, Material.NETHERITE_PICKAXE);
+        ItemStack[] paxel3Recipe = new ItemStack[] {
+            SlimefunItems.CARBONADO,
+            SlimefunItems.REINFORCED_ALLOY_INGOT,
+            SlimefunItems.CARBONADO,
+            pickaxe3,
+            netheritePaxelPickaxe,
+            shovel3,
+            SlimefunItems.REINFORCED_ALLOY_INGOT,
+            SlimefunItems.REINFORCED_ALLOY_INGOT,
+            SlimefunItems.REINFORCED_ALLOY_INGOT
+        };
+        register(plugin, tools, paxel3, 3, ExcavationType.PAXEL, paxel3Recipe);
+
+        // Paxels retain their Slimefun ID while switching vanilla tool material. Accept every
+        // Netherite form here so a player does not need to mine a stone block just before crafting.
+        RecipeType.ENHANCED_CRAFTING_TABLE.register(
+                recipeWithCenter(paxel3Recipe, netheritePaxel(paxel, Material.NETHERITE_AXE)), paxel3);
+        RecipeType.ENHANCED_CRAFTING_TABLE.register(
+                recipeWithCenter(paxel3Recipe, netheritePaxel(paxel, Material.NETHERITE_SHOVEL)), paxel3);
 
         SlimefunItemStack paxel5 = tool(
                 "ADVENTURERS_DEEPCORE_PAXEL_5X5",
@@ -248,6 +253,24 @@ final class AdventurersToolsSetup {
             ExcavationType type,
             ItemStack[] recipe) {
         new DeepcoreTunnelTool(tools, item, RecipeType.ENHANCED_CRAFTING_TABLE, recipe, size, type).register(plugin);
+    }
+
+    private static ItemStack netheritePaxel(SlimefunItemStack paxel, Material material) {
+        if (material != Material.NETHERITE_PICKAXE
+                && material != Material.NETHERITE_AXE
+                && material != Material.NETHERITE_SHOVEL) {
+            throw new IllegalArgumentException("A Netherite Paxel recipe ingredient must use a Netherite tool material");
+        }
+
+        ItemStack upgraded = paxel.clone();
+        upgraded.setType(material);
+        return upgraded;
+    }
+
+    private static ItemStack[] recipeWithCenter(ItemStack[] recipe, ItemStack center) {
+        ItemStack[] variant = recipe.clone();
+        variant[4] = center;
+        return variant;
     }
 
     private static ItemStack[] upgradeRecipe(ItemStack previous) {
