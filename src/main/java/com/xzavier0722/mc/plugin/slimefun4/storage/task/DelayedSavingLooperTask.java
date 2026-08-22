@@ -14,7 +14,7 @@ public class DelayedSavingLooperTask implements Runnable {
     private long nextForceRun;
 
     /**
-     * @param forceSavePeriod: force save period in second
+     * @param forceSavePeriod force save period in second
      */
     public DelayedSavingLooperTask(
             int forceSavePeriod,
@@ -42,8 +42,9 @@ public class DelayedSavingLooperTask implements Runnable {
         } else {
             updateNextForceRunTime();
             tasks.forEach((key, task) -> {
-                task.runUnsafely();
-                executeCallback.accept(key);
+                if (task.runNow()) {
+                    executeCallback.accept(key);
+                }
             });
         }
     }

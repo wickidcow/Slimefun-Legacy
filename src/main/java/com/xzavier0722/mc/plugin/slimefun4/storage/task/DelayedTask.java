@@ -8,6 +8,7 @@ public class DelayedTask {
     private final Runnable task;
     private long runAfter = 0;
     private boolean executed = false;
+    private boolean completed = false;
 
     public DelayedTask(long delay, TimeUnit unit, Runnable task) {
         this.task = task;
@@ -23,9 +24,25 @@ public class DelayedTask {
             return false;
         }
 
+        return runNow();
+    }
+
+    /**
+     * Executes this delayed task immediately and reports whether the wrapped work completed successfully.
+     *
+     * <p>A failed task remains retryable. A task that has already completed successfully is not executed twice.
+     *
+     * @return whether the delayed work has completed successfully
+     */
+    public synchronized boolean runNow() {
+        if (completed) {
+            return true;
+        }
+
         try {
             executed = true;
             task.run();
+            completed = true;
             return true;
         } catch (Exception e) {
             log.warn("An error occurred while running delayed task", e);
@@ -38,11 +55,6 @@ public class DelayedTask {
     }
 
     public void runUnsafely() {
-        try {
-            executed = true;
-            task.run();
-        } catch (Exception e) {
-            log.warn("An error occurred while running delayed task", e);
-        }
+        runNow();
     }
 }
