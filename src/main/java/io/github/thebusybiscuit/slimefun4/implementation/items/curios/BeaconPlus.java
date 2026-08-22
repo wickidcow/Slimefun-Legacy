@@ -377,12 +377,13 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
             return;
         }
 
-        BeaconPlusRuntime.setConfiguredEffects(block.getLocation(), EnumSet.noneOf(BeaconPlusEffect.class));
+        // Release Activator first so native storage and the optional legacy BeaconData mirror see the same OFF state.
         BeaconPlusManager manager = BeaconPlusManager.getInstance();
         if (manager != null) {
             manager.updateModes(
                     block.getLocation(), owner, BeaconPlusChunkMode.OFF, manager.getSupportMode(block.getLocation()));
         }
+        BeaconPlusRuntime.setConfiguredEffects(block.getLocation(), EnumSet.noneOf(BeaconPlusEffect.class));
         BeaconPlusRuntime.refreshPlayerState(player);
         player.playSound(block.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.65F, 1.0F);
         player.sendMessage(ChatColor.RED + "All Resonance Beacon powers have been disabled.");
