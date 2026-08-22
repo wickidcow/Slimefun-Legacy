@@ -88,6 +88,8 @@ public final class CuriositiesConfig {
         yaml = YamlConfiguration.loadConfiguration(file);
         dirty = false;
 
+        // Do not restore the former Slimefun.isNewlyInstalled() auto-enable path here.
+        // Creating configSFLAddons.yml must never opt a server into Curiosities by itself.
         if (createdFromBundledResource || (!copiedRetiredConfig && !contains("enabled"))) {
             boolean migrated = migrateLegacyCoreSettings();
             if (!migrated && !contains("enabled")) {
