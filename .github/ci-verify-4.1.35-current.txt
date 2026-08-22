@@ -1,0 +1,2 @@
+Slimefun Legacy 4.1.35 full CI verification marker.
+This temporary file exists only on the verification branch and is not intended for merge.
