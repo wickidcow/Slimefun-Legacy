@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import org.junit.jupiter.api.Test;
 
 class ADataControllerWriteQueueTest {
@@ -24,23 +25,16 @@ class ADataControllerWriteQueueTest {
     void currentScopeCompletionWaitsForRegisteredQueue() throws Exception {
         var controller = new TestController();
         controller.init(new NoOpAdapter(), 1, 1);
+        var release = new CountDownLatch(1);
 
         try {
             var started = new CountDownLatch(1);
-            var release = new CountDownLatch(1);
             var scope = new LocationKey(DataScope.NONE, "world;0:64:0");
             var record = record("inventory");
 
             controller.schedule(scope, record, () -> {
                 started.countDown();
-                try {
-                    if (!release.await(5, TimeUnit.SECONDS)) {
-                        throw new AssertionError("Timed out waiting to release controller write");
-                    }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new AssertionError(e);
-                }
+                awaitRelease(release);
             });
 
             assertTrue(started.await(5, TimeUnit.SECONDS));
@@ -53,7 +47,63 @@ class ADataControllerWriteQueueTest {
             assertEquals(0, controller.getPendingWriteTaskCount());
             assertTrue(controller.currentCompletion(scope).isDone());
         } finally {
+            release.countDown();
             controller.shutdown();
+        }
+    }
+
+    @Test
+    void filteredCompletionWaitsOnlyForMatchingWriteScopes() throws Exception {
+        var controller = new TestController();
+        controller.init(new NoOpAdapter(), 1, 3);
+        var releaseFirst = new CountDownLatch(1);
+        var releaseSecond = new CountDownLatch(1);
+
+        try {
+            var firstStarted = new CountDownLatch(1);
+            var secondStarted = new CountDownLatch(1);
+            var firstScope = new LocationKey(DataScope.NONE, "world;0:64:0");
+            var secondScope = new LocationKey(DataScope.NONE, "world;32:64:0");
+
+            controller.schedule(firstScope, record("first"), () -> {
+                firstStarted.countDown();
+                awaitRelease(releaseFirst);
+            });
+            controller.schedule(secondScope, record("second"), () -> {
+                secondStarted.countDown();
+                awaitRelease(releaseSecond);
+            });
+
+            assertTrue(firstStarted.await(5, TimeUnit.SECONDS));
+            assertTrue(secondStarted.await(5, TimeUnit.SECONDS));
+
+            CompletableFuture<Void> firstOnly = controller.currentCompletion(firstScope::equals);
+            assertFalse(firstOnly.isDone());
+
+            releaseFirst.countDown();
+            firstOnly.get(5, TimeUnit.SECONDS);
+
+            assertEquals(1, controller.getPendingWriteTaskCount());
+            assertFalse(controller.currentCompletion(secondScope).isDone());
+
+            releaseSecond.countDown();
+            controller.currentCompletion(scope -> true).get(5, TimeUnit.SECONDS);
+            assertEquals(0, controller.getPendingWriteTaskCount());
+        } finally {
+            releaseFirst.countDown();
+            releaseSecond.countDown();
+            controller.shutdown();
+        }
+    }
+
+    private static void awaitRelease(CountDownLatch release) {
+        try {
+            if (!release.await(5, TimeUnit.SECONDS)) {
+                throw new AssertionError("Timed out waiting to release controller write");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError(e);
         }
     }
 
@@ -74,6 +124,10 @@ class ADataControllerWriteQueueTest {
 
         private CompletableFuture<Void> currentCompletion(ScopeKey scope) {
             return getCurrentWriteCompletion(scope);
+        }
+
+        private CompletableFuture<Void> currentCompletion(Predicate<ScopeKey> filter) {
+            return getCurrentWriteCompletion(filter);
         }
     }
 

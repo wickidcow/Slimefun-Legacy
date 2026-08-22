@@ -11,6 +11,7 @@ import com.xzavier0722.mc.plugin.slimefun4.storage.common.ScopeKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.task.DatabaseThreadFactory;
 import com.xzavier0722.mc.plugin.slimefun4.storage.task.QueuedWriteTask;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -18,6 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.OverridingMethodsMustInvokeSuper;
@@ -280,6 +282,26 @@ public abstract class ADataController {
         } finally {
             lock.unlock(scopeKey);
         }
+    }
+
+    /**
+     * Returns a completion snapshot for all currently registered write queues whose scope matches the supplied filter.
+     *
+     * <p>The returned future represents only queues visible during this snapshot. Callers performing destructive cache
+     * work must rescan before eviction so a write queued concurrently after this snapshot cannot be missed.
+     *
+     * @param scopeFilter selects write scopes to include in the snapshot
+     * @return a future that completes after all matching queues from this snapshot have drained
+     */
+    protected CompletableFuture<Void> getCurrentWriteCompletion(Predicate<ScopeKey> scopeFilter) {
+        checkDestroy();
+        var completions = new ArrayList<CompletableFuture<Void>>();
+        scheduledWriteTasks.forEach((scope, task) -> {
+            if (scopeFilter.test(scope)) {
+                completions.add(task.getCompletionFuture());
+            }
+        });
+        return CompletableFuture.allOf(completions.toArray(CompletableFuture[]::new));
     }
 
     protected void checkDestroy() {
