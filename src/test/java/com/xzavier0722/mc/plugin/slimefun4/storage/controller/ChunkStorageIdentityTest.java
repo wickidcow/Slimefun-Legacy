@@ -42,6 +42,7 @@ class ChunkStorageIdentityTest {
         var otherChunk = new ChunkKey(DataScope.NONE, "world;12:-3");
         var otherScope = new ChunkKey(DataScope.CHUNK_DATA, "world;12:-4");
 
+        assertEquals("world;12:-4", first.getChunkKey());
         assertEquals(first, same);
         assertEquals(first.hashCode(), same.hashCode());
         assertNotEquals(first, otherChunk);
@@ -55,6 +56,7 @@ class ChunkStorageIdentityTest {
         var otherLocation = new LocationKey(DataScope.NONE, "world;193:64:-64");
         var otherScope = new LocationKey(DataScope.BLOCK_DATA, "world;192:64:-64");
 
+        assertEquals("world;192:64:-64", first.getLocationKey());
         assertEquals(first, same);
         assertEquals(first.hashCode(), same.hashCode());
         assertNotEquals(first, otherLocation);
