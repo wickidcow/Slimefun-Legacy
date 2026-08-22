@@ -1,0 +1,2 @@
+Slimefun Legacy 4.1.35 CI verification after README/release metadata alignment.
+Temporary verification marker; not intended for merge.
