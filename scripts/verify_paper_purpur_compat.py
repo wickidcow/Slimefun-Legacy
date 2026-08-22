@@ -32,9 +32,15 @@ def main() -> int:
         "sendVersionReport",
         "PlainTextComponentSerializer.plainText().serialize(report)",
         "catch (RuntimeException | LinkageError ignored)",
+        "builder.asComponent()",
+        "markers.asComponent()",
     ):
         if token not in versions:
             failures.append(f"/sf versions fallback is missing: {token}")
+    if ".build()" in versions:
+        failures.append(
+            "/sf versions must not invoke Adventure TextComponent.Builder.build(); its covariant return descriptor is not binary-stable across the 1.21.11 and 26.2 Paper-family runtimes"
+        )
     profiler = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/profiler/SlimefunProfiler.java")
     if "if (isProfiling)" not in profiler or "mixed-cycle summary" not in profiler:
         failures.append("Profiler superseded-cycle guard is missing")
