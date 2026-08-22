@@ -13,6 +13,7 @@ import io.github.thebusybiscuit.slimefun4.core.networks.energy.EnergyNetComponen
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.handlers.SimpleBlockBreakHandler;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.UUID;
@@ -205,6 +206,8 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         BeaconPlusManager manager = BeaconPlusManager.getInstance();
         BeaconPlusChunkMode chunkMode =
                 manager == null ? BeaconPlusChunkMode.OFF : manager.getChunkMode(block.getLocation());
+        EnumMap<BeaconPlusEffect, Integer> potentialTiers = BeaconPlusRuntime.getPotentialActiveTiers(block);
+        boolean operational = BeaconPlusRuntime.isOperational(block, potentialTiers);
 
         menu.addItem(STATUS_SLOT, createStatusItem(block, owner, enabled, profile, chunkMode));
         menu.addMenuClickHandler(STATUS_SLOT, (pl, slot, item, action) -> false);
@@ -213,14 +216,17 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         for (int index = 0; index < effects.length; index++) {
             BeaconPlusEffect effect = effects[index];
             int slot = EFFECT_SLOTS[index];
-            menu.addItem(slot, createEffectItem(block, effect, enabled.contains(effect), profile));
+            menu.addItem(
+                    slot,
+                    createEffectItem(
+                            block, effect, enabled.contains(effect), profile, potentialTiers, operational));
             menu.addMenuClickHandler(slot, (pl, clickedSlot, item, action) -> {
                 handleEffectClick(pl, block, owner, effect, action.isRightClicked(), action.isShiftClicked());
                 return false;
             });
         }
 
-        menu.addItem(ELECTRIC_OPERATION_SLOT, createElectricOperationItem(block));
+        menu.addItem(ELECTRIC_OPERATION_SLOT, createElectricOperationItem(block, potentialTiers, operational));
         menu.addMenuClickHandler(ELECTRIC_OPERATION_SLOT, (pl, slot, item, action) -> {
             if (action.isRightClicked()) {
                 toggleElectricOperation(pl, block, owner);
@@ -301,10 +307,12 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         EnumSet<BeaconPlusEffect> enabled = BeaconPlusRuntime.getConfiguredEffects(block.getLocation());
         if (enabled.contains(effect)) {
             enabled.remove(effect);
-            BeaconPlusRuntime.setConfiguredEffects(block.getLocation(), enabled);
-            if (effect == BeaconPlusEffect.ACTIVATOR) {
-                BeaconPlusRuntime.reconcileActivator(block);
+            if (effect == BeaconPlusEffect.ACTIVATOR && !BeaconPlusRuntime.reconcileActivator(block, 0)) {
+                player.sendMessage(ChatColor.RED + "Could not release this Resonance Beacon's Activator coverage.");
+                openMenu(player, block, owner);
+                return;
             }
+            BeaconPlusRuntime.setConfiguredEffects(block.getLocation(), enabled);
             BeaconPlusRuntime.refreshPlayerState(player);
             player.playSound(block.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.65F, 1.0F);
             player.sendMessage(ChatColor.GOLD + "Resonance Beacon: " + ChatColor.WHITE + effect.getDisplayName()
@@ -464,11 +472,16 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
     }
 
     private ItemStack createEffectItem(
-            Block block, BeaconPlusEffect effect, boolean active, BeaconPlusPyramid.Profile profile) {
+            Block block,
+            BeaconPlusEffect effect,
+            boolean active,
+            BeaconPlusPyramid.Profile profile,
+            EnumMap<BeaconPlusEffect, Integer> potentialTiers,
+            boolean operational) {
         boolean serverEnabled = BeaconPlusConfig.isPowerEnabled(effect);
         int unlocked = BeaconPlusRuntime.getUnlockedTierAtBeacon(block, effect);
         int selected = BeaconPlusRuntime.getSelectedTierAtBeacon(block, effect);
-        int effective = active ? BeaconPlusRuntime.getEffectiveTierAtBeacon(block, effect) : 0;
+        int effective = active ? potentialTiers.getOrDefault(effect, 0) : 0;
         int maximum = BeaconPlusConfig.getMaxTier();
 
         List<String> lore = new ArrayList<>();
@@ -486,6 +499,10 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         if (active) {
             lore.add(ChatColor.GRAY + "Effective tier: "
                     + (effective > 0 ? tierColor(effective) + roman(effective) : ChatColor.RED + "DORMANT"));
+            if (effective > 0) {
+                lore.add(ChatColor.GRAY + "Runtime: "
+                        + (operational ? ChatColor.GREEN + "ACTIVE" : ChatColor.RED + "DORMANT (ENERGY)"));
+            }
         }
         if (effect == BeaconPlusEffect.ACTIVATOR) {
             lore.add(ChatColor.DARK_GRAY + "Tier I = this chunk; II = 3x3; III = 5x5.");
@@ -523,15 +540,14 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         return createMenuItem(icon, nameColor + effect.getDisplayName(), lore);
     }
 
-    private ItemStack createElectricOperationItem(Block block) {
+    private ItemStack createElectricOperationItem(
+            Block block, EnumMap<BeaconPlusEffect, Integer> potentialTiers, boolean operational) {
         boolean available = BeaconPlusConfig.isElectricOperationEnabled();
         boolean selected = BeaconPlusEnergy.isElectricModeSelected(block.getLocation());
         long charge = BeaconPlusEnergy.getStoredCharge(block.getLocation());
         long capacity = BeaconPlusConfig.getEnergyCapacity();
-        long demand = BeaconPlusEnergy.getDemand(BeaconPlusRuntime.getPotentialActiveTiers(block));
-        boolean powered = !selected
-                || demand <= 0L
-                || BeaconPlusEnergy.hasOperationalPower(block, BeaconPlusRuntime.getPotentialActiveTiers(block));
+        long demand = BeaconPlusEnergy.getDemand(potentialTiers);
+        boolean powered = !selected || demand <= 0L || operational;
 
         List<String> lore = new ArrayList<>();
         lore.add(ChatColor.GRAY + "Optional native Slimefun Energy Network operation.");
