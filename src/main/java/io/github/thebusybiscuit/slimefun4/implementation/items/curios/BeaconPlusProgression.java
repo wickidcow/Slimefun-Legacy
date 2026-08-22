@@ -31,6 +31,28 @@ final class BeaconPlusProgression {
         return clamp(data.getInt(path(owner, effect), 0), 0, BeaconPlusConfig.getMaxTier());
     }
 
+    /**
+     * Repairs an older configured-power record that predates the player progression file. This helper never lowers an
+     * existing tier and is only called after the runtime has proven that the power was already configured on a beacon.
+     */
+    static synchronized int ensureMinimumTier(UUID owner, BeaconPlusEffect effect, int minimumTier) {
+        ensureLoaded();
+        if (owner == null || effect == null || !effect.isConfigurable()) {
+            return 0;
+        }
+
+        int maximum = BeaconPlusConfig.getMaxTier();
+        int target = clamp(minimumTier, 0, maximum);
+        int current = clamp(data.getInt(path(owner, effect), 0), 0, maximum);
+        if (current >= target) {
+            return current;
+        }
+
+        data.set(path(owner, effect), target);
+        save();
+        return target;
+    }
+
     static synchronized PurchaseResult purchaseNextTier(Player buyer, UUID owner, BeaconPlusEffect effect) {
         ensureLoaded();
         if (owner == null || effect == null || !effect.isConfigurable()) {
