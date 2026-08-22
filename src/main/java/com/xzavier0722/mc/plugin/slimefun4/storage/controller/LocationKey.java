@@ -18,6 +18,10 @@ public class LocationKey extends ScopeKey {
         this.locationKey = Objects.requireNonNull(locationKey, "Location key must not be null");
     }
 
+    String getLocationKey() {
+        return locationKey;
+    }
+
     @Override
     protected String getKeyStr() {
         return scope + "/" + locationKey;

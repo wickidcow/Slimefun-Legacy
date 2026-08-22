@@ -18,6 +18,10 @@ public class ChunkKey extends ScopeKey {
         this.chunkKey = Objects.requireNonNull(chunkKey, "Chunk key must not be null");
     }
 
+    String getChunkKey() {
+        return chunkKey;
+    }
+
     @Override
     protected String getKeyStr() {
         return scope + "/" + chunkKey;

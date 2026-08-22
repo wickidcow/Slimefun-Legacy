@@ -11,12 +11,15 @@ import com.xzavier0722.mc.plugin.slimefun4.storage.common.ScopeKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.task.DatabaseThreadFactory;
 import com.xzavier0722.mc.plugin.slimefun4.storage.task.QueuedWriteTask;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.OverridingMethodsMustInvokeSuper;
@@ -34,6 +37,7 @@ public abstract class ADataController {
     private final DataType dataType;
     private final Map<ScopeKey, QueuedWriteTask> scheduledWriteTasks;
     private final ScopedLock lock;
+    private final Object writeSubmissionLock;
 
     private volatile IDataSourceAdapter<?> dataAdapter;
     /**
@@ -74,13 +78,14 @@ public abstract class ADataController {
         this.dataType = dataType;
         scheduledWriteTasks = new ConcurrentHashMap<>();
         lock = new ScopedLock();
+        writeSubmissionLock = new Object();
         logger = Logger.getLogger("SF-" + dataType.name() + "-Controller");
     }
 
     /**
      * 初始化 {@link ADataController}
      *
-     * @param dataAdapter   The data source adapter
+     * @param dataAdapter The data source adapter
      * @param maxReadThread Maximum number of read threads
      * @param maxWriteThread Maximum number of write threads
      */
@@ -89,7 +94,7 @@ public abstract class ADataController {
         this.dataAdapter = dataAdapter;
         dataAdapter.initStorage(dataType);
         dataAdapter.patch();
-        readExecutor = new SlimefunPoolExecutor(
+        readExecutor = new TrackedReadExecutor(
                 "SF-" + dataType.name() + "-Read-Executor",
                 maxReadThread,
                 maxReadThread,
@@ -216,50 +221,140 @@ public abstract class ADataController {
 
     protected void scheduleWriteTask(ScopeKey scopeKey, RecordKey key, Runnable task, boolean forceScopeKey) {
         checkDestroy();
-        lock.lock(scopeKey);
-
-        // log.info("schedule write scope [{}], key [{}]", scopeKey, key);
-
-        try {
+        synchronized (writeSubmissionLock) {
             checkDestroy();
-            var scopeToUse = forceScopeKey ? scopeKey : key;
-            var queuedTask = scheduledWriteTasks.get(scopeKey);
-            if (queuedTask == null && scopeKey != scopeToUse) {
-                queuedTask = scheduledWriteTasks.get(scopeToUse);
-            }
+            lock.lock(scopeKey);
 
-            if (queuedTask != null && queuedTask.queue(key, task)) {
-                return;
-            }
+            // log.info("schedule write scope [{}], key [{}]", scopeKey, key);
 
-            queuedTask = new QueuedWriteTask() {
-                @Override
-                protected void onSuccess() {
-                    scheduledWriteTasks.remove(scopeToUse);
+            try {
+                checkDestroy();
+                var scopeToUse = forceScopeKey ? scopeKey : key;
+                var queuedTask = scheduledWriteTasks.get(scopeKey);
+                if (queuedTask == null && scopeKey != scopeToUse) {
+                    queuedTask = scheduledWriteTasks.get(scopeToUse);
                 }
 
-                @Override
-                protected void onError(Throwable e) {
-                    scheduledWriteTasks.remove(scopeToUse, this);
-                    Slimefun.logger()
-                            .log(
-                                    Level.SEVERE,
-                                    "[" + Thread.currentThread().getName()
-                                            + "] Exception thrown while executing write task: ",
-                                    e);
+                if (queuedTask != null && queuedTask.queue(key, task)) {
+                    return;
                 }
-            };
-            queuedTask.queue(key, task);
-            scheduledWriteTasks.put(scopeToUse, queuedTask);
 
-            if (serialWriteExecutor != null && key.getScope().isSerial()) {
-                serialWriteExecutor.submit(queuedTask);
-            } else {
-                writeExecutor.submit(queuedTask);
+                queuedTask = new QueuedWriteTask() {
+                    @Override
+                    protected void onSuccess() {
+                        scheduledWriteTasks.remove(scopeToUse, this);
+                    }
+
+                    @Override
+                    protected void onError(Throwable e) {
+                        Slimefun.logger()
+                                .log(
+                                        Level.SEVERE,
+                                        "[" + Thread.currentThread().getName()
+                                                + "] Exception thrown while executing write task: ",
+                                        e);
+                    }
+                };
+                queuedTask.queue(key, task);
+                scheduledWriteTasks.put(scopeToUse, queuedTask);
+
+                if (serialWriteExecutor != null && key.getScope().isSerial()) {
+                    serialWriteExecutor.submit(queuedTask);
+                } else {
+                    writeExecutor.submit(queuedTask);
+                }
+            } finally {
+                lock.unlock(scopeKey);
             }
+        }
+    }
+
+    /**
+     * Returns the completion state for the write queue currently registered to the supplied scope.
+     *
+     * <p>This is a snapshot, not a permanent barrier: writes scheduled after this method releases the scope lock are
+     * represented by a later queue and must be checked again before destructive cache eviction.
+     *
+     * @param scopeKey the write scope to inspect
+     * @return a future that completes when the currently registered queue drains
+     */
+    protected CompletableFuture<Void> getCurrentWriteCompletion(ScopeKey scopeKey) {
+        checkDestroy();
+        lock.lock(scopeKey);
+        try {
+            var task = scheduledWriteTasks.get(scopeKey);
+            return task == null ? CompletableFuture.completedFuture(null) : task.getCompletionFuture();
         } finally {
             lock.unlock(scopeKey);
         }
+    }
+
+    /**
+     * Returns a completion snapshot for all currently registered write queues whose scope matches the supplied filter.
+     *
+     * <p>The returned future represents only queues visible during this snapshot. Callers performing destructive cache
+     * work must rescan before eviction so a write queued concurrently after this snapshot cannot be missed.
+     *
+     * @param scopeFilter selects write scopes to include in the snapshot
+     * @return a future that completes after all matching queues from this snapshot have drained
+     */
+    protected CompletableFuture<Void> getCurrentWriteCompletion(Predicate<ScopeKey> scopeFilter) {
+        checkDestroy();
+        var completions = new ArrayList<CompletableFuture<Void>>();
+        scheduledWriteTasks.forEach((scope, task) -> {
+            if (scopeFilter.test(scope)) {
+                completions.add(task.getCompletionFuture());
+            }
+        });
+        return CompletableFuture.allOf(completions.toArray(CompletableFuture[]::new));
+    }
+
+    /**
+     * Runs a short critical section only if no currently registered write queue matches the supplied scope filter.
+     * New write registration is held until the action returns.
+     *
+     * @param scopeFilter selects write scopes that would make the action unsafe
+     * @param action cache work that must not schedule another write
+     * @return whether the action ran with matching write scopes idle
+     */
+    protected boolean runIfWriteScopesIdle(Predicate<ScopeKey> scopeFilter, Runnable action) {
+        checkDestroy();
+        synchronized (writeSubmissionLock) {
+            if (scheduledWriteTasks.keySet().stream().anyMatch(scopeFilter)) {
+                return false;
+            }
+            action.run();
+            return true;
+        }
+    }
+
+    /**
+     * Returns a completion snapshot for every read currently queued or running on this controller's read executor.
+     *
+     * <p>This is a snapshot rather than a permanent barrier. Use {@link #runIfReadExecutorIdle(Runnable)} for the short
+     * destructive critical section after the snapshot has completed.
+     *
+     * @return a future that completes when the currently visible read tasks have finished
+     */
+    protected CompletableFuture<Void> getCurrentReadCompletion() {
+        checkDestroy();
+        return readExecutor instanceof TrackedReadExecutor tracked
+                ? tracked.snapshot()
+                : CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Runs a short critical section only when the tracked read executor is idle and prevents new read submissions until
+     * that section returns.
+     *
+     * <p>If a subclass replaced the standard read executor, this method fails closed and does not run the action.
+     *
+     * @param action cache work that must not submit another read task
+     * @return whether the action ran while read submissions were gated
+     */
+    protected boolean runIfReadExecutorIdle(Runnable action) {
+        checkDestroy();
+        return readExecutor instanceof TrackedReadExecutor tracked && tracked.runIfIdle(action);
     }
 
     protected void checkDestroy() {
