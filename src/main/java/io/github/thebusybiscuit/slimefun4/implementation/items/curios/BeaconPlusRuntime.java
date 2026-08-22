@@ -21,7 +21,9 @@ final class BeaconPlusRuntime {
 
     static final String EFFECTS_KEY = "beacon_plus_effects";
     private static final int PULSE_INTERVAL_TICKS = 20;
-    private static final int EXTRA_RANGE_PER_TIER = 10;
+    // One tier must always add exactly one chunk ring to the chunk-aligned field.
+    private static final int EXTRA_RANGE_PER_TIER = 16;
+    private static final double PLAYER_STATE_RECONCILE_RANGE = 128.0D;
     private static final long OBSERVED_BEACON_TTL_MILLIS = 15_000L;
     private static final Map<BeaconKey, Long> OBSERVED_BEACONS = new ConcurrentHashMap<>();
     private static final Map<BeaconKey, Long> LAST_PULSE_GAME_TICKS = new ConcurrentHashMap<>();
@@ -42,6 +44,7 @@ final class BeaconPlusRuntime {
     static EnumSet<BeaconPlusEffect> getConfiguredEffects(Location location) {
         EnumSet<BeaconPlusEffect> effects = BeaconPlusEffect.parse(StorageCacheUtils.getData(location, EFFECTS_KEY));
         BeaconPlusManager manager = BeaconPlusManager.getInstance();
+        // Preserve pre-progression/legacy Activator selections whose chunk mode was stored separately.
         if (manager != null && manager.getChunkMode(location) != BeaconPlusChunkMode.OFF) {
             effects.add(BeaconPlusEffect.ACTIVATOR);
         }
@@ -186,7 +189,7 @@ final class BeaconPlusRuntime {
         observe(block);
         if (!BeaconPlusConfig.isEnabled()) {
             BeaconPlusBeam.markUnpowered(block.getLocation());
-            BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, 64.0D);
+            BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
             return;
         }
 
@@ -199,14 +202,14 @@ final class BeaconPlusRuntime {
         if (!BeaconPlusEnergy.consumePulse(block, data, tiers)) {
             BeaconPlusBeam.markUnpowered(block.getLocation());
             reconcileActivator(block, 0);
-            BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, 64.0D);
+            BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
             return;
         }
         reconcileActivator(block, tiers.getOrDefault(BeaconPlusEffect.ACTIVATOR, 0));
         double range = getRange(block, tiers);
         if (range <= 0.0D) {
             BeaconPlusBeam.markUnpowered(block.getLocation());
-            BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, 64.0D);
+            BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
             return;
         }
 
@@ -239,9 +242,13 @@ final class BeaconPlusRuntime {
         return true;
     }
 
+    static boolean isOperational(Block block, Map<BeaconPlusEffect, Integer> tiers) {
+        return tiers.isEmpty() || BeaconPlusEnergy.hasOperationalPower(block, tiers);
+    }
+
     private static EnumMap<BeaconPlusEffect, Integer> getActiveTiers(Block block) {
         EnumMap<BeaconPlusEffect, Integer> tiers = getPotentialActiveTiers(block);
-        if (tiers.isEmpty() || BeaconPlusEnergy.hasOperationalPower(block, tiers)) {
+        if (isOperational(block, tiers)) {
             return tiers;
         }
         return new EnumMap<>(BeaconPlusEffect.class);
@@ -264,7 +271,7 @@ final class BeaconPlusRuntime {
                 && BeaconPlusConfig.isPowerEnabled(BeaconPlusEffect.EXTRA_POWER)) {
             int unlocked = getUnlockedTierAtBeacon(block, BeaconPlusEffect.EXTRA_POWER);
             int requested = getRequestedTierAtBeacon(block, BeaconPlusEffect.EXTRA_POWER, unlocked);
-            extraPowerTier = Math.min(Math.min(unlocked, requested), naturalTier);
+            extraPowerTier = Math.min(Math.min(unlocked, extraRequested), naturalTier);
             if (extraPowerTier > 0) {
                 tiers.put(BeaconPlusEffect.EXTRA_POWER, extraPowerTier);
             }
@@ -350,7 +357,7 @@ final class BeaconPlusRuntime {
         return extraRangeTier > 0 ? range + EXTRA_RANGE_PER_TIER * extraRangeTier : range;
     }
 
-    private static boolean reconcileActivator(Block block, int tier) {
+    static boolean reconcileActivator(Block block, int tier) {
         BeaconPlusManager manager = BeaconPlusManager.getInstance();
         if (manager == null) {
             return false;
@@ -377,7 +384,13 @@ final class BeaconPlusRuntime {
 
     private static void purgeStaleObservedBeacons() {
         long cutoff = System.currentTimeMillis() - OBSERVED_BEACON_TTL_MILLIS;
-        OBSERVED_BEACONS.entrySet().removeIf(entry -> entry.getValue() < cutoff);
+        OBSERVED_BEACONS.entrySet().removeIf(entry -> {
+            if (entry.getValue() >= cutoff) {
+                return false;
+            }
+            LAST_PULSE_GAME_TICKS.remove(entry.getKey());
+            return true;
+        });
     }
 
     private record BeaconKey(UUID worldId, int x, int y, int z) {
