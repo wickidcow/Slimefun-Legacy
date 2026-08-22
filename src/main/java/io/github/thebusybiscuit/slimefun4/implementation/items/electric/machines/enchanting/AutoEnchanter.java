@@ -15,6 +15,7 @@ import io.github.thebusybiscuit.slimefun4.integrations.AdvancedEnchantmentsInteg
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.MachineRecipe;
@@ -39,6 +40,13 @@ import org.bukkit.inventory.meta.EnchantmentStorageMeta;
  * @see AutoDisenchanter
  */
 public class AutoEnchanter extends AbstractEnchantmentMachine {
+
+    private static final Set<String> PAXEL_IDS = Set.of(
+            "PAXEL",
+            "ADVENTURERS_PAXEL",
+            "ADVENTURERS_DEEPCORE_PAXEL_3X3",
+            "ADVENTURERS_DEEPCORE_PAXEL_5X5",
+            "ADVENTURERS_DEEPCORE_PAXEL_9X9");
 
     // Slimefun Legacy 4.1.18 machine runtime hardening.
     private final ItemSetting<Boolean> overrideExistingEnchantsLvl =
@@ -158,7 +166,7 @@ public class AutoEnchanter extends AbstractEnchantmentMachine {
         }
 
         for (Map.Entry<Enchantment, Integer> entry : meta.getStoredEnchants().entrySet()) {
-            if (!entry.getKey().canEnchantItem(targetSnapshot)) {
+            if (!canEnchantTarget(entry.getKey(), targetSnapshot)) {
                 continue;
             }
             if (!isEnchantmentLevelAllowed(entry.getValue())) {
@@ -277,6 +285,28 @@ public class AutoEnchanter extends AbstractEnchantmentMachine {
                     "&7be present before outputs can be created.");
         }
         return consumed;
+    }
+
+    @ParametersAreNonnullByDefault
+    private boolean canEnchantTarget(Enchantment enchantment, ItemStack target) {
+        SlimefunItem sfItem = SlimefunItem.getByItem(target);
+        if (sfItem == null || !PAXEL_IDS.contains(sfItem.getId())) {
+            return enchantment.canEnchantItem(target);
+        }
+
+        boolean netherite = switch (target.getType()) {
+            case NETHERITE_PICKAXE, NETHERITE_AXE, NETHERITE_SHOVEL -> true;
+            default -> false;
+        };
+
+        ItemStack variant = target.clone();
+        variant.setType(netherite ? Material.NETHERITE_PICKAXE : Material.DIAMOND_PICKAXE);
+        if (enchantment.canEnchantItem(variant)) {
+            return true;
+        }
+
+        variant.setType(netherite ? Material.NETHERITE_SHOVEL : Material.DIAMOND_SHOVEL);
+        return enchantment.canEnchantItem(variant);
     }
 
     private boolean isEnchantable(@Nullable ItemStack item) {
