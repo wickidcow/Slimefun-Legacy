@@ -22,4 +22,9 @@ _UI_NEXT_INACTIVE: 0
 PAXEL: 2201302
 ADVENTURERS_PAXEL: 2201302
 
+# Deepcore Paxels keep their own Slimefun IDs and progression while reusing the Netherite Paxel visual.
+ADVENTURERS_DEEPCORE_PAXEL_3X3: 2201302
+ADVENTURERS_DEEPCORE_PAXEL_5X5: 2201302
+ADVENTURERS_DEEPCORE_PAXEL_9X9: 2201302
+
 ## The rest of the file will be auto-populated with all registered Slimefun items.
