@@ -2,7 +2,7 @@
 
 Adventurer's Curios is a built-in Slimefun Legacy guide category for exploration tools, navigation aids, field safety, containment equipment, and expedition gadgets. Its Slimefun Legacy addon-style settings live in `configSFLAddons.yml`; core Slimefun4 settings remain in `config.yml`.
 
-The top-level `enabled` value in `configSFLAddons.yml` controls the category. Genuinely fresh Slimefun Legacy installations default it to `false`. Existing Slimefun Legacy installations that already had Adventurer's Curios remain enabled automatically, and older Curios/Resonance Beacon settings are migrated without silently disabling an established server.
+The top-level `enabled` value in `configSFLAddons.yml` controls the category. Genuinely fresh Slimefun Legacy installations default it to `false`. Existing installations preserve an explicit Curiosities setting: servers already set to `enabled: true` stay enabled, while merely having an older Slimefun installation no longer opts a server into Curiosities automatically. Older explicit Curios/Resonance Beacon settings are migrated when present.
 
 ## Current Curios
 
@@ -45,7 +45,7 @@ The existing Curiosities containment section remains part of the category. It in
 
 ## Resonance Beacon
 
-`BEACON_PLUS` is retained as the internal Slimefun id for migration compatibility, but the player-facing item is **Resonance Beacon**.
+`BEACON_PLUS` is retained as the internal Slimefun id for migration compatibility, but the player-facing item is **Resonance Beacon**. The name change does not change the saved Slimefun block id or the legacy BeaconData identity.
 
 ### Recipe
 
@@ -95,6 +95,8 @@ The owner or an operator can toggle **Electric Operation** from the beacon GUI. 
 - if the buffer cannot pay the current pulse, all powers become dormant without losing selections or purchased tiers;
 - Activator chunk tickets are released while unpowered and automatically return when enough energy is available again;
 - turning electric operation OFF immediately returns the beacon to normal pyramid/progression-only operation.
+
+The GUI resolves the power tiers and electric readiness from the same state snapshot. `Power state: READY` therefore means an enabled power with a valid pyramid remains operational; a genuine energy pause is shown explicitly as `DORMANT (ENERGY)`.
 
 The capacity and pulse-cost values are configurable under `SlimefunLegacyAddition.PoweredBeacon.electric-operation` in `configSFLAddons.yml`. Electric operation is a mode, not a power, so it does not create a 30th power and never bypasses pyramid tier requirements.
 
@@ -156,7 +158,7 @@ Potion powers use Tier I/II/III as effect amplifiers 0/1/2. Other powers scale w
 
 Experience Booster multiplies positive XP by 2x/3x/4x. Cooldown Reduction uses 40%/60%/75% reduction. Immortality Field uses 25%/40%/55% save chance with a 60-second successful-save cooldown. Radiation Absorber removes 25/50/all stored radiation exposure at Tier I/II/III while suppressing symptoms inside the active field.
 
-Extra Range adds 10 blocks per tier. Extra Power can raise supported field powers further, still capped at Tier III.
+Extra Range adds **16 blocks per tier**, which is one complete chunk ring in the chunk-aligned field calculation. This ensures Tier I, Tier II and Tier III each produce a real increase in the covered chunk footprint. Extra Power can raise supported field powers further, still capped at Tier III.
 
 Field powers use a **chunk-aligned square footprint** derived from the beacon's effective range. Every covered chunk is affected from the world's minimum build height through its maximum build height, so there is no vertical distance limit. Normal field powers still never load chunks on their own. The **Show Effect Area** control renders the exact covered chunk grid as a flat square at each viewer's current Y level.
 
@@ -166,7 +168,15 @@ Activator coverage is derived from its effective tier:
 - Tier II: 3x3 chunks
 - Tier III: 5x5 chunks
 
-Activator retains hard server safety caps of 64 active Resonance Beacon loaders and 256 unique ticketed chunks. Overlapping loaders are reference-counted.
+Activator retains hard server safety caps of 64 active Resonance Beacon loaders and 256 unique ticketed chunks. Overlapping loaders are reference-counted, and disabling Activator releases its coverage instead of allowing the stored chunk mode to re-enable the selection.
+
+### Runtime pulse behavior
+
+The gameplay field uses one elapsed-game-time pulse gate per beacon. The first eligible Slimefun block tick can run immediately and subsequent gameplay/energy pulses are limited to once per 20 game ticks. Pulse timing is independent of beacon X/Z coordinates, so a beacon cannot become permanently stuck between modulo phases when the global Slimefun ticker runs at a different cadence.
+
+The visual yellow beam and **Show Effect Area** particle grid are deliberately separate from the gameplay pulse. They can display the configured physical beacon/field geometry, but they are not used as proof that a gameplay pulse executed.
+
+Crops use bounded random samples in loaded covered chunks and within eight blocks vertically of the beacon instead of sampling random Y coordinates across the entire build height. Gravity Well affects AI mobs and dropped items on each resolved pulse, matching the established BeaconPlus behavior.
 
 ## Configuration migration
 
@@ -217,7 +227,7 @@ This allows an existing BeaconPlus `BeaconData` directory to be copied directly 
 - One normal Slimefun `BlockTicker` handles periodic Resonance Beacon work.
 - Event-driven XP, cooldown, Peaceful, Immortality, Radiation Absorber and player-state work share one listener.
 - Tile-entity inspection is bounded to 96 states per pulse.
-- Crop growth uses bounded random samples.
+- Crop growth uses bounded per-covered-chunk random samples in a local vertical band.
 - Normal field powers cover full-height chunk columns but never load chunks.
 - Activator is the only Resonance Beacon system allowed to hold chunks loaded.
 - Folia cross-region work is reduced to safe local behavior.
