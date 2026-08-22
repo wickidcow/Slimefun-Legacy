@@ -93,6 +93,7 @@ def main() -> int:
         "verify_core_correctness.py",
         "verify_adventurers_curios.py",
         "verify_resonance_beacon_effect_recovery.py",
+        "verify_resonance_beacon_functionality.py",
         "verify_beacon_plus_area_preview.py",
         "verify_enchantment_restart_safety.py",
         "verify_compatibility_round2.py",
