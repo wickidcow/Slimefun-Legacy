@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "release": "4.1.34",
+  "release": "4.1.35",
   "running_core": "legacy",
   "protected_namespaces": [
     "io/github/thebusybiscuit/slimefun4/",
