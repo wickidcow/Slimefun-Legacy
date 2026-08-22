@@ -13,6 +13,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import org.junit.jupiter.api.Test;
 
@@ -91,6 +92,35 @@ class ADataControllerWriteQueueTest {
         }
     }
 
+    @Test
+    void writeSubmissionGateRunsOnlyAfterMatchingQueueDrains() throws Exception {
+        var controller = new TestController(1);
+        var release = new CountDownLatch(1);
+
+        try {
+            var started = new CountDownLatch(1);
+            var scope = new LocationKey(DataScope.NONE, "world;0:64:0");
+            controller.schedule(scope, record("gate"), () -> {
+                started.countDown();
+                awaitRelease(release);
+            });
+
+            assertTrue(started.await(5, TimeUnit.SECONDS));
+            var actionRan = new AtomicBoolean();
+            assertFalse(controller.runIfWritesIdle(scope::equals, () -> actionRan.set(true)));
+            assertFalse(actionRan.get());
+
+            release.countDown();
+            controller.currentCompletion(scope).get(5, TimeUnit.SECONDS);
+
+            assertTrue(controller.runIfWritesIdle(scope::equals, () -> actionRan.set(true)));
+            assertTrue(actionRan.get());
+        } finally {
+            release.countDown();
+            controller.closeExecutors();
+        }
+    }
+
     private static void awaitRelease(CountDownLatch release) {
         try {
             if (!release.await(5, TimeUnit.SECONDS)) {
@@ -126,6 +156,10 @@ class ADataControllerWriteQueueTest {
 
         private CompletableFuture<Void> currentCompletion(Predicate<ScopeKey> filter) {
             return getCurrentWriteCompletion(filter);
+        }
+
+        private boolean runIfWritesIdle(Predicate<ScopeKey> filter, Runnable action) {
+            return runIfWriteScopesIdle(filter, action);
         }
 
         private void closeExecutors() {
