@@ -1,0 +1,108 @@
+name: Purpur/Folia 26.2 Runtime Smoke
+
+on:
+  pull_request:
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'src/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'gradle.properties'
+      - 'compatibility/**'
+      - 'scripts/paper_family_26_2_runtime_smoke.sh'
+      - 'scripts/verify_legacy.py'
+      - '.github/workflows/paper-family-26.2-runtime-smoke.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '11 8 * * 2'
+
+permissions:
+  contents: read
+
+env:
+  SERVER_MINECRAFT_VERSION: "26.2"
+  SERVER_DOWNLOAD_USER_AGENT: "Slimefun-Legacy-CI/4.1.35 (https://github.com/wickidcow/Slimefun-Legacy)"
+
+jobs:
+  runtime-smoke:
+    name: Boot twice on ${{ matrix.software }} 26.2
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        software: [purpur, folia]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Pin source identity
+        run: |
+          echo "SOURCE_COMMIT=$GITHUB_SHA" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
+
+      - name: Verify Slimefun Legacy invariants
+        run: python3 scripts/verify_legacy.py .
+
+      - name: Build production Slimefun JAR
+        run: |
+          chmod +x gradlew scripts/paper_family_26_2_runtime_smoke.sh
+          ./gradlew spotlessApply --no-daemon
+          ./gradlew clean shadowJar --no-daemon
+
+      - name: Locate candidate JAR
+        id: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -n "$JAR"
+          test -s "$JAR"
+          echo "jar=$JAR" >> "$GITHUB_OUTPUT"
+
+      - name: Boot-test ${{ matrix.software }} 26.2 twice
+        env:
+          SERVER_SOFTWARE: ${{ matrix.software }}
+        run: bash scripts/paper_family_26_2_runtime_smoke.sh "${{ steps.candidate.outputs.jar }}"
+
+      - name: Publish runtime smoke summary
+        if: always()
+        run: |
+          if [[ -f build/paper-family-26.2-runtime-smoke/smoke-result.txt ]]; then
+            {
+              echo "## ${{ matrix.software }} 26.2 runtime smoke"
+              echo
+              echo '```text'
+              cat build/paper-family-26.2-runtime-smoke/smoke-result.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -f build/paper-family-26.2-runtime-smoke/runtime-build.txt ]]; then
+            {
+              echo
+              echo '### Runtime build'
+              echo
+              echo '```text'
+              cat build/paper-family-26.2-runtime-smoke/runtime-build.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload runtime smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.software }}-26.2-runtime-smoke
+          path: |
+            build/paper-family-26.2-runtime-smoke/*.console.log
+            build/paper-family-26.2-runtime-smoke/runtime-build.txt
+            build/paper-family-26.2-runtime-smoke/smoke-result.txt
+          if-no-files-found: warn
