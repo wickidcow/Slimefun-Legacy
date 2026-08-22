@@ -22,4 +22,10 @@ _UI_NEXT_INACTIVE: 0
 PAXEL: 2201302
 ADVENTURERS_PAXEL: 2201302
 
+# Advanced Hazmat pieces reuse the established protective-gear models.
+ADVANCED_HAZMAT_HELMET: 2200207
+ADVANCED_HAZMAT_CHESTPLATE: 2200208
+ADVANCED_HAZMAT_LEGGINGS: 2200209
+ADVANCED_HAZMAT_BOOTS: 2200210
+
 ## The rest of the file will be auto-populated with all registered Slimefun items.
