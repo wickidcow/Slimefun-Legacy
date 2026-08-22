@@ -9,6 +9,26 @@
     "paper_api": "26.2.build.+",
     "status": "supported"
   },
+  "legacy_compatibility_targets": [
+    {
+      "software": "Paper",
+      "release_line": "1.21.11",
+      "minecraft": "1.21.11",
+      "paper_api": "1.21.11-R0.1-SNAPSHOT",
+      "runtime_java": 21,
+      "status": "supported",
+      "validation": "source compile plus two-boot real-server runtime smoke"
+    },
+    {
+      "software": "Purpur",
+      "release_line": "1.21.11",
+      "minecraft": "1.21.11",
+      "basis": "Paper 1.21.11",
+      "runtime_java": 21,
+      "status": "supported",
+      "validation": "two-boot real-server runtime smoke"
+    }
+  ],
   "secondary_platforms": [
     {
       "software": "Purpur",
@@ -41,6 +61,7 @@
   "java": {
     "build_toolchain": 25,
     "supported_runtime": 25,
+    "legacy_1_21_11_runtime": 21,
     "bytecode_target": 21
   },
   "plugin_descriptor": {
@@ -180,6 +201,11 @@
     "paper_runtime_smoke_two_boot_lifecycle": true,
     "paper_runtime_smoke_runs_upgrade_diagnostics": true,
     "paper_runtime_smoke_requires_clean_restart_evidence": true,
+    "paper_1_21_11_api_compile": true,
+    "paper_1_21_11_runtime_smoke": true,
+    "purpur_1_21_11_runtime_smoke": true,
+    "legacy_1_21_11_runtime_smoke_two_boot_lifecycle": true,
+    "legacy_1_21_11_runtime_smoke_runs_upgrade_diagnostics": true,
     "phase1l_part4_changes_normal_cargo_energy_machine_semantics": false,
     "phase1l_part4_changes_storage_or_gameplay_semantics": false,
     "external_resource_pack_delivery": true,
