@@ -13,6 +13,7 @@ import com.xzavier0722.mc.plugin.slimefun4.storage.task.QueuedWriteTask;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -80,7 +81,7 @@ public abstract class ADataController {
     /**
      * 初始化 {@link ADataController}
      *
-     * @param dataAdapter   The data source adapter
+     * @param dataAdapter The data source adapter
      * @param maxReadThread Maximum number of read threads
      * @param maxWriteThread Maximum number of write threads
      */
@@ -235,12 +236,11 @@ public abstract class ADataController {
             queuedTask = new QueuedWriteTask() {
                 @Override
                 protected void onSuccess() {
-                    scheduledWriteTasks.remove(scopeToUse);
+                    scheduledWriteTasks.remove(scopeToUse, this);
                 }
 
                 @Override
                 protected void onError(Throwable e) {
-                    scheduledWriteTasks.remove(scopeToUse, this);
                     Slimefun.logger()
                             .log(
                                     Level.SEVERE,
@@ -257,6 +257,26 @@ public abstract class ADataController {
             } else {
                 writeExecutor.submit(queuedTask);
             }
+        } finally {
+            lock.unlock(scopeKey);
+        }
+    }
+
+    /**
+     * Returns the completion state for the write queue currently registered to the supplied scope.
+     *
+     * <p>This is a snapshot, not a permanent barrier: writes scheduled after this method releases the scope lock are
+     * represented by a later queue and must be checked again before destructive cache eviction.
+     *
+     * @param scopeKey the write scope to inspect
+     * @return a future that completes when the currently registered queue drains
+     */
+    protected CompletableFuture<Void> getCurrentWriteCompletion(ScopeKey scopeKey) {
+        checkDestroy();
+        lock.lock(scopeKey);
+        try {
+            var task = scheduledWriteTasks.get(scopeKey);
+            return task == null ? CompletableFuture.completedFuture(null) : task.getCompletionFuture();
         } finally {
             lock.unlock(scopeKey);
         }
