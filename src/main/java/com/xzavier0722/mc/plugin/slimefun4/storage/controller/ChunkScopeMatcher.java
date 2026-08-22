@@ -60,6 +60,7 @@ final class ChunkScopeMatcher {
 
         try {
             int blockX = Integer.parseInt(coordinates[0]);
+            Integer.parseInt(coordinates[1]);
             int blockZ = Integer.parseInt(coordinates[2]);
             return world + ";" + (blockX >> 4) + ":" + (blockZ >> 4);
         } catch (NumberFormatException failure) {
