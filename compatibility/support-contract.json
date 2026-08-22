@@ -9,11 +9,33 @@
     "paper_api": "26.2.build.+",
     "status": "supported"
   },
+  "legacy_compatibility_targets": [
+    {
+      "software": "Paper",
+      "release_line": "1.21.11",
+      "minecraft": "1.21.11",
+      "paper_api": "1.21.11-R0.1-SNAPSHOT",
+      "runtime_java": 21,
+      "status": "supported",
+      "validation": "source compile plus two-boot real-server runtime smoke"
+    },
+    {
+      "software": "Purpur",
+      "release_line": "1.21.11",
+      "minecraft": "1.21.11",
+      "basis": "Paper 1.21.11",
+      "runtime_java": 21,
+      "status": "supported",
+      "validation": "two-boot real-server runtime smoke"
+    }
+  ],
   "secondary_platforms": [
     {
       "software": "Purpur",
       "basis": "Paper 26.2",
-      "status": "supported"
+      "runtime_java": 25,
+      "status": "supported",
+      "validation": "two-boot real-server runtime smoke"
     },
     {
       "software": "Conventional Paper derivatives",
@@ -23,7 +45,9 @@
     {
       "software": "Folia",
       "basis": "Paper 26.2",
-      "status": "experimental"
+      "runtime_java": 25,
+      "status": "experimental",
+      "validation": "two-boot real-server runtime smoke; full gameplay and addon region-safety remain experimental"
     }
   ],
   "unsupported_platforms": [
@@ -41,6 +65,7 @@
   "java": {
     "build_toolchain": 25,
     "supported_runtime": 25,
+    "legacy_1_21_11_runtime": 21,
     "bytecode_target": 21
   },
   "plugin_descriptor": {
@@ -176,10 +201,18 @@
     "phase1l_part3_changes_normal_cargo_energy_machine_semantics": false,
     "phase1l_part3_changes_storage_or_gameplay_semantics": false,
     "paper_26_2_runtime_smoke": true,
+    "purpur_26_2_runtime_smoke": true,
+    "folia_26_2_runtime_smoke": true,
+    "folia_26_2_runtime_smoke_is_boot_validation_not_full_gameplay_guarantee": true,
     "paper_runtime_smoke_uses_latest_stable_build": true,
     "paper_runtime_smoke_two_boot_lifecycle": true,
     "paper_runtime_smoke_runs_upgrade_diagnostics": true,
     "paper_runtime_smoke_requires_clean_restart_evidence": true,
+    "paper_1_21_11_api_compile": true,
+    "paper_1_21_11_runtime_smoke": true,
+    "purpur_1_21_11_runtime_smoke": true,
+    "legacy_1_21_11_runtime_smoke_two_boot_lifecycle": true,
+    "legacy_1_21_11_runtime_smoke_runs_upgrade_diagnostics": true,
     "phase1l_part4_changes_normal_cargo_energy_machine_semantics": false,
     "phase1l_part4_changes_storage_or_gameplay_semantics": false,
     "external_resource_pack_delivery": true,
