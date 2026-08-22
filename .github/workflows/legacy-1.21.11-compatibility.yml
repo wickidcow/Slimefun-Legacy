@@ -1,0 +1,140 @@
+name: Paper/Purpur 1.21.11 Compatibility
+
+on:
+  pull_request:
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'src/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'gradle.properties'
+      - 'compatibility/**'
+      - 'scripts/legacy_1_21_11_runtime_smoke.sh'
+      - 'scripts/verify_legacy.py'
+      - '.github/workflows/legacy-1.21.11-compatibility.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '41 7 * * 2'
+
+permissions:
+  contents: read
+
+env:
+  LEGACY_MINECRAFT_VERSION: "1.21.11"
+  LEGACY_PAPER_API_VERSION: "1.21.11-R0.1-SNAPSHOT"
+  LEGACY_DOWNLOAD_USER_AGENT: "Slimefun-Legacy-CI/4.1.35 (https://github.com/wickidcow/Slimefun-Legacy)"
+
+jobs:
+  paper-api-compile:
+    name: Compile Slimefun against Paper 1.21.11 API
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Java 25 build toolchain
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Verify Slimefun Legacy invariants
+        run: python3 scripts/verify_legacy.py .
+
+      - name: Compile against Paper 1.21.11 API
+        run: |
+          chmod +x gradlew
+          ./gradlew clean compileJava -PpaperApiVersion="${LEGACY_PAPER_API_VERSION}" --no-daemon
+
+  legacy-runtime-smoke:
+    name: Boot twice on ${{ matrix.software }} 1.21.11
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        software: [paper, purpur]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Java 25 build toolchain
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Pin source identity
+        run: |
+          echo "SOURCE_COMMIT=$GITHUB_SHA" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
+
+      - name: Verify Slimefun Legacy invariants
+        run: python3 scripts/verify_legacy.py .
+
+      - name: Build production Slimefun JAR
+        run: |
+          chmod +x gradlew scripts/legacy_1_21_11_runtime_smoke.sh
+          ./gradlew spotlessApply --no-daemon
+          ./gradlew clean shadowJar --no-daemon
+
+      - name: Locate candidate JAR
+        id: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -n "$JAR"
+          test -s "$JAR"
+          echo "jar=$JAR" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Java 21 runtime
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Boot-test ${{ matrix.software }} 1.21.11 twice
+        env:
+          SERVER_SOFTWARE: ${{ matrix.software }}
+          SERVER_MINECRAFT_VERSION: ${{ env.LEGACY_MINECRAFT_VERSION }}
+          SERVER_DOWNLOAD_USER_AGENT: ${{ env.LEGACY_DOWNLOAD_USER_AGENT }}
+        run: bash scripts/legacy_1_21_11_runtime_smoke.sh "${{ steps.candidate.outputs.jar }}"
+
+      - name: Publish runtime smoke summary
+        if: always()
+        run: |
+          if [[ -f build/legacy-1.21.11-runtime-smoke/smoke-result.txt ]]; then
+            {
+              echo "## ${{ matrix.software }} 1.21.11 runtime smoke"
+              echo
+              echo '```text'
+              cat build/legacy-1.21.11-runtime-smoke/smoke-result.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -f build/legacy-1.21.11-runtime-smoke/runtime-build.txt ]]; then
+            {
+              echo
+              echo '### Runtime build'
+              echo
+              echo '```text'
+              cat build/legacy-1.21.11-runtime-smoke/runtime-build.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload runtime smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.software }}-1.21.11-runtime-smoke
+          path: |
+            build/legacy-1.21.11-runtime-smoke/*.console.log
+            build/legacy-1.21.11-runtime-smoke/runtime-build.txt
+            build/legacy-1.21.11-runtime-smoke/smoke-result.txt
+          if-no-files-found: warn
