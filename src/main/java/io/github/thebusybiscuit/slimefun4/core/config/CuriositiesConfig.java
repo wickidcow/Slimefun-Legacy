@@ -41,10 +41,10 @@ public final class CuriositiesConfig {
     /**
      * Returns the lazily loaded Slimefun Legacy addons configuration.
      *
-     * <p>Fresh installations receive the bundled {@code configSFLAddons.yml}. Existing installations are migrated
-     * from the retired {@code curiosities.yml} file first, or from the former generic {@code config.yml} keys when
-     * those keys are still present. Servers upgrading from a release where Curiosities were already built in remain
-     * enabled automatically even when they never had either legacy config key.
+     * <p>Fresh installations receive the bundled {@code configSFLAddons.yml} with Curiosities disabled by default.
+     * Existing installations are migrated from the retired {@code curiosities.yml} file first, or from the former
+     * generic {@code config.yml} keys when those keys are still present. An existing explicit enabled value is
+     * preserved, but the migration never opts a server into Curiosities merely because Slimefun was already installed.
      *
      * @return the Slimefun Legacy addons configuration
      */
@@ -90,13 +90,7 @@ public final class CuriositiesConfig {
 
         if (createdFromBundledResource || (!copiedRetiredConfig && !contains("enabled"))) {
             boolean migrated = migrateLegacyCoreSettings();
-            if (!migrated && createdFromBundledResource && !Slimefun.isNewlyInstalled()) {
-                setValue("enabled", true);
-                if (save()) {
-                    plugin.getLogger()
-                            .info("Preserved Adventurer's Curios as enabled for this existing Slimefun Legacy installation.");
-                }
-            } else if (!migrated && !contains("enabled")) {
+            if (!migrated && !contains("enabled")) {
                 setValue("enabled", false);
                 save();
             }
