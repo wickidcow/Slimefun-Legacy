@@ -24,6 +24,7 @@ final class BeaconPlusRuntime {
     private static final int EXTRA_RANGE_PER_TIER = 10;
     private static final long OBSERVED_BEACON_TTL_MILLIS = 15_000L;
     private static final Map<BeaconKey, Long> OBSERVED_BEACONS = new ConcurrentHashMap<>();
+    private static final Map<BeaconKey, Long> LAST_PULSE_GAME_TICKS = new ConcurrentHashMap<>();
 
     private BeaconPlusRuntime() {}
 
@@ -32,7 +33,9 @@ final class BeaconPlusRuntime {
     }
 
     static void forget(Location location) {
-        OBSERVED_BEACONS.remove(BeaconKey.from(location));
+        BeaconKey key = BeaconKey.from(location);
+        OBSERVED_BEACONS.remove(key);
+        LAST_PULSE_GAME_TICKS.remove(key);
         BeaconPlusBeam.markUnpowered(location);
     }
 
@@ -188,8 +191,7 @@ final class BeaconPlusRuntime {
         }
 
         long gameTime = block.getWorld().getGameTime();
-        long phase = Math.floorMod(gameTime + block.getX() * 31L + block.getZ() * 17L, PULSE_INTERVAL_TICKS);
-        if (phase != 0L) {
+        if (!shouldPulse(block.getLocation(), gameTime)) {
             return;
         }
 
@@ -224,6 +226,17 @@ final class BeaconPlusRuntime {
         BeaconPlusRuntimeEffects.shutdown();
         BeaconPlusEnergy.shutdown();
         OBSERVED_BEACONS.clear();
+        LAST_PULSE_GAME_TICKS.clear();
+    }
+
+    private static boolean shouldPulse(Location location, long gameTime) {
+        BeaconKey key = BeaconKey.from(location);
+        Long previous = LAST_PULSE_GAME_TICKS.get(key);
+        if (previous != null && gameTime >= previous && gameTime - previous < PULSE_INTERVAL_TICKS) {
+            return false;
+        }
+        LAST_PULSE_GAME_TICKS.put(key, gameTime);
+        return true;
     }
 
     private static EnumMap<BeaconPlusEffect, Integer> getActiveTiers(Block block) {
