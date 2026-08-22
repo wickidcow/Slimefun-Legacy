@@ -147,7 +147,7 @@ class VersionsCommand extends SubCommand {
             addAddonBoundarySummary(builder, addons, dependencyDiagnostics);
             addPluginVersions(builder, addons, dependencyDiagnostics);
 
-            sendVersionReport(sender, builder.build());
+            sendVersionReport(sender, builder.asComponent());
         } else {
             Slimefun.getLocalization().sendMessage(sender, "messages.no-permission", true);
         }
@@ -524,7 +524,7 @@ class VersionsCommand extends SubCommand {
             added = true;
         }
 
-        return added ? markers.build() : Component.empty();
+        return added ? markers.asComponent() : Component.empty();
     }
 
     private String requiredDependencyProblemText(@Nonnull PluginDependencySnapshot snapshot) {
@@ -632,7 +632,7 @@ class VersionsCommand extends SubCommand {
                                 .append(Component.text("Authors: ", NamedTextColor.YELLOW))
                                 .append(Component.text(authors, NamedTextColor.YELLOW))
                                 .append(Component.text("\n> Click to open the issue tracker", NamedTextColor.GOLD))
-                                .build();
+                                .asComponent();
                         hoverEvent = HoverEvent.showText(hoverComp);
                     } catch (IllegalArgumentException e) {
                         Component hoverComp = Component.text()
@@ -640,7 +640,7 @@ class VersionsCommand extends SubCommand {
                                 .append(Component.text(authors, NamedTextColor.YELLOW))
                                 .append(Component.text(
                                         "\n> The addon provided an invalid issue tracker URL!", NamedTextColor.RED))
-                                .build();
+                                .asComponent();
                         hoverEvent = HoverEvent.showText(hoverComp);
                     }
 
@@ -648,7 +648,7 @@ class VersionsCommand extends SubCommand {
                     Component hoverComp = Component.text()
                             .append(Component.text("Authors: ", NamedTextColor.YELLOW))
                             .append(Component.text(authors, NamedTextColor.YELLOW))
-                            .build();
+                            .asComponent();
                     hoverEvent = HoverEvent.showText(hoverComp);
                 }
             } else {
@@ -665,7 +665,7 @@ class VersionsCommand extends SubCommand {
                                 .append(Component.text(
                                         "This plugin is disabled.\nCheck the console for errors.", NamedTextColor.RED))
                                 .append(Component.text("\n> Click to open the issue tracker", NamedTextColor.DARK_RED))
-                                .build();
+                                .asComponent();
                         hoverEvent = HoverEvent.showText(hoverComp);
                     } catch (IllegalArgumentException e) {
                         Component hoverComp = Component.text()
@@ -674,7 +674,7 @@ class VersionsCommand extends SubCommand {
                                 .append(Component.text(
                                         "\n> The plugin provided an invalid issue tracker URL",
                                         NamedTextColor.DARK_RED))
-                                .build();
+                                .asComponent();
                         hoverEvent = HoverEvent.showText(hoverComp);
                     }
                 } else {
