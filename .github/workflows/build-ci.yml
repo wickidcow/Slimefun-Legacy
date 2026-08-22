@@ -42,7 +42,7 @@ jobs:
           chmod +x gradlew
           ./gradlew spotlessApply --no-daemon
           ./gradlew clean build --no-daemon
-      - name: Verify critical backpack runtime classes are packaged
+      - name: Verify critical runtime classes are packaged
         shell: bash
         run: |
           set -euo pipefail
@@ -52,6 +52,9 @@ jobs:
           jar tf "$JAR" > build/reports/release-jar-entries.txt
           grep -Fxq 'io/github/thebusybiscuit/slimefun4/implementation/listeners/BackpackListener.class' build/reports/release-jar-entries.txt
           grep -Fxq 'io/github/thebusybiscuit/slimefun4/utils/ThreadUtils.class' build/reports/release-jar-entries.txt
+          grep -Fxq 'io/github/thebusybiscuit/slimefun4/implementation/tasks/AsyncRecipeChoiceTask.class' build/reports/release-jar-entries.txt
+          grep -Fxq 'io/github/thebusybiscuit/slimefun4/libraries/dough/blocks/Vein.class' build/reports/release-jar-entries.txt
+          grep -Fxq 'io/github/thebusybiscuit/slimefun4/libraries/dough/collections/LoopIterator.class' build/reports/release-jar-entries.txt
       - name: Verify Java 21 bytecode target
         shell: bash
         run: |
