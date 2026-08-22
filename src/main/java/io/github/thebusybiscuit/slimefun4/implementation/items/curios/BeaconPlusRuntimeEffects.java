@@ -23,11 +23,11 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.CreatureSpawner;
 import org.bukkit.block.Furnace;
 import org.bukkit.block.data.Ageable;
-import org.bukkit.entity.Enemy;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Mob;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -42,9 +42,10 @@ import org.bukkit.util.Vector;
 final class BeaconPlusRuntimeEffects {
 
     static final int MAX_TILE_ENTITIES_PER_PULSE = 96;
-    static final int CROP_SAMPLES_PER_PULSE = 48;
+    static final int CROP_SAMPLES_PER_CHUNK = 8;
+    static final int MAX_CROP_SAMPLES_PER_PULSE = 512;
+    private static final int CROP_VERTICAL_RADIUS = 8;
     private static final int PULSE_INTERVAL_TICKS = 20;
-    private static final int GRAVITY_PULSE_INTERVAL_TICKS = 24;
     private static final int EFFECT_DURATION_TICKS = 70;
     private static final int NIGHT_VISION_DURATION_TICKS = 240;
     private static final NamespacedKey SCALE_KEY = new NamespacedKey(Slimefun.instance(), "beacon_plus_scale");
@@ -70,8 +71,6 @@ final class BeaconPlusRuntimeEffects {
     static void applyPulse(Block block, Map<BeaconPlusEffect, Integer> tiers, double range, long gameTime) {
         Location center = block.getLocation().add(0.5D, 0.5D, 0.5D);
         int gravityTier = tiers.getOrDefault(BeaconPlusEffect.GRAVITY_WELL, 0);
-        boolean gravityPulse = gravityTier > 0
-                && Math.floorMod(gameTime, GRAVITY_PULSE_INTERVAL_TICKS) < PULSE_INTERVAL_TICKS;
         for (Entity entity : getEntities(block, range)) {
             if (entity instanceof Player player) {
                 applyPlayerEffects(player, tiers, gameTime);
@@ -79,7 +78,8 @@ final class BeaconPlusRuntimeEffects {
                 applyMonsterEffects(monster, tiers);
             }
 
-            if (gravityPulse && (entity instanceof Enemy || entity instanceof Item)) {
+            // Match the proven BeaconPlus behavior: every resolved once-per-second pulse may pull AI mobs and items.
+            if (gravityTier > 0 && (entity instanceof Mob || entity instanceof Item)) {
                 pullEntity(entity, center, gravityTier);
             }
         }
@@ -213,7 +213,6 @@ final class BeaconPlusRuntimeEffects {
         double deltaZ = center.getZ() - location.getZ();
         double horizontalDistanceSquared = deltaX * deltaX + deltaZ * deltaZ;
 
-        // Avoid jitter once an entity is already essentially centered over the beacon.
         if (horizontalDistanceSquared < 0.25D) {
             return;
         }
@@ -225,8 +224,6 @@ final class BeaconPlusRuntimeEffects {
             default -> 0.85D;
         };
 
-        // Deliberately overwrite X/Z instead of blending with AI movement. This makes Gravity Well behave like
-        // reverse knockback toward the beacon and is strong enough to visibly move Endermen and other Enemy mobs.
         Vector velocity = entity.getVelocity();
         velocity.setX(deltaX * inverseHorizontalDistance * horizontalStrength);
         velocity.setZ(deltaZ * inverseHorizontalDistance * horizontalStrength);
@@ -274,14 +271,22 @@ final class BeaconPlusRuntimeEffects {
         if (chunks.isEmpty()) {
             return;
         }
+
         ThreadLocalRandom random = ThreadLocalRandom.current();
         World world = beaconBlock.getWorld();
-        int samples = CROP_SAMPLES_PER_PULSE + (tier - 1) * 16;
+        int perChunk = CROP_SAMPLES_PER_CHUNK + (tier - 1) * 4;
+        int samples = Math.min(MAX_CROP_SAMPLES_PER_PULSE, chunks.size() * perChunk);
+        int minY = Math.max(world.getMinHeight(), beaconBlock.getY() - CROP_VERTICAL_RADIUS);
+        int maxYExclusive = Math.min(world.getMaxHeight(), beaconBlock.getY() + CROP_VERTICAL_RADIUS + 1);
+        if (minY >= maxYExclusive) {
+            return;
+        }
+
         for (int i = 0; i < samples; i++) {
             Chunk chunk = chunks.get(random.nextInt(chunks.size()));
             int x = (chunk.getX() << 4) + random.nextInt(16);
             int z = (chunk.getZ() << 4) + random.nextInt(16);
-            int y = random.nextInt(world.getMinHeight(), world.getMaxHeight());
+            int y = random.nextInt(minY, maxYExclusive);
             Block target = world.getBlockAt(x, y, z);
             if (target.getBlockData() instanceof Ageable ageable && ageable.getAge() < ageable.getMaximumAge()) {
                 ageable.setAge(Math.min(ageable.getMaximumAge(), ageable.getAge() + tier));
