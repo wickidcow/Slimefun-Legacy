@@ -154,12 +154,17 @@ final class BeaconPlusRuntime {
         if (!effect.isConfigurable()) {
             return 0;
         }
-        int imported = BeaconPlusLegacyDataStore.getImportedUnlockedTier(block.getLocation(), effect);
+        Location location = block.getLocation();
+        int imported = BeaconPlusLegacyDataStore.getImportedUnlockedTier(location, effect);
         if (imported > 0) {
             return Math.min(imported, BeaconPlusConfig.getMaxTier());
         }
-        UUID owner = getOwner(block.getLocation());
-        return owner == null ? 0 : BeaconPlusProgression.getUnlockedTier(owner, effect);
+        UUID owner = getOwner(location);
+        if (owner == null) {
+            return 0;
+        }
+        int unlocked = BeaconPlusProgression.getUnlockedTier(owner, effect);
+        return unlocked > 0 ? unlocked : recoverConfiguredTier(location, owner, effect);
     }
 
     static int getSelectedTierAtBeacon(Block block, BeaconPlusEffect effect) {
@@ -272,6 +277,28 @@ final class BeaconPlusRuntime {
         return tiers;
     }
 
+    private static int recoverConfiguredTier(Location location, UUID owner, BeaconPlusEffect effect) {
+        if (BeaconPlusLegacyDataStore.isLegacyImported(location) || !getConfiguredEffects(location).contains(effect)) {
+            return 0;
+        }
+
+        int minimumTier = 1;
+        if (effect == BeaconPlusEffect.ACTIVATOR) {
+            BeaconPlusManager manager = BeaconPlusManager.getInstance();
+            BeaconPlusChunkMode mode = manager == null
+                    ? BeaconPlusChunkMode.fromStored(StorageCacheUtils.getData(location, BeaconPlusManager.CHUNK_MODE_KEY))
+                    : manager.getChunkMode(location);
+            minimumTier = switch (mode) {
+                case SINGLE -> 1;
+                case AREA_3X3 -> 2;
+                case AREA_5X5 -> 3;
+                case OFF -> 0;
+            };
+        }
+
+        return minimumTier <= 0 ? 0 : BeaconPlusProgression.ensureMinimumTier(owner, effect, minimumTier);
+    }
+
     private static boolean supportsExtraPower(BeaconPlusEffect effect) {
         return effect != BeaconPlusEffect.EXTRA_POWER
                 && effect != BeaconPlusEffect.EXTRA_RANGE
@@ -287,14 +314,16 @@ final class BeaconPlusRuntime {
             }
         }
         String stored = StorageCacheUtils.getData(location, BeaconPlusManager.OWNER_KEY);
-        if (stored == null || stored.isBlank()) {
-            return null;
+        if (stored != null && !stored.isBlank()) {
+            try {
+                return UUID.fromString(stored);
+            } catch (IllegalArgumentException ignored) {
+                // Older imported records are recovered below using their fixed compatibility owner.
+            }
         }
-        try {
-            return UUID.fromString(stored);
-        } catch (IllegalArgumentException ignored) {
-            return null;
-        }
+        return BeaconPlusLegacyDataStore.isLegacyImported(location)
+                ? BeaconPlusLegacyDataStore.LEGACY_IMPORTED_OWNER
+                : null;
     }
 
     private static double getRange(Block block, Map<BeaconPlusEffect, Integer> tiers) {
