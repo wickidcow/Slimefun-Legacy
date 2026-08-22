@@ -33,7 +33,9 @@
     {
       "software": "Purpur",
       "basis": "Paper 26.2",
-      "status": "supported"
+      "runtime_java": 25,
+      "status": "supported",
+      "validation": "two-boot real-server runtime smoke"
     },
     {
       "software": "Conventional Paper derivatives",
@@ -43,7 +45,9 @@
     {
       "software": "Folia",
       "basis": "Paper 26.2",
-      "status": "experimental"
+      "runtime_java": 25,
+      "status": "experimental",
+      "validation": "two-boot real-server runtime smoke; full gameplay and addon region-safety remain experimental"
     }
   ],
   "unsupported_platforms": [
@@ -197,6 +201,9 @@
     "phase1l_part3_changes_normal_cargo_energy_machine_semantics": false,
     "phase1l_part3_changes_storage_or_gameplay_semantics": false,
     "paper_26_2_runtime_smoke": true,
+    "purpur_26_2_runtime_smoke": true,
+    "folia_26_2_runtime_smoke": true,
+    "folia_26_2_runtime_smoke_is_boot_validation_not_full_gameplay_guarantee": true,
     "paper_runtime_smoke_uses_latest_stable_build": true,
     "paper_runtime_smoke_two_boot_lifecycle": true,
     "paper_runtime_smoke_runs_upgrade_diagnostics": true,
