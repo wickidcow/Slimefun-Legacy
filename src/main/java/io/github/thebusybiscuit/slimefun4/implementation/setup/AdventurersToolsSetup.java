@@ -163,14 +163,14 @@ final class AdventurersToolsSetup {
 
         ItemStack netheritePaxelPickaxe = netheritePaxel(paxel, Material.NETHERITE_PICKAXE);
         ItemStack[] paxel3Recipe = new ItemStack[] {
-            SlimefunItems.CARBONADO,
+            SlimefunItems.REINFORCED_ALLOY_INGOT,
+            SlimefunItems.STEEL_PLATE,
             SlimefunItems.REINFORCED_ALLOY_INGOT,
             SlimefunItems.CARBONADO,
-            pickaxe3,
             netheritePaxelPickaxe,
-            shovel3,
+            SlimefunItems.CARBONADO,
             SlimefunItems.REINFORCED_ALLOY_INGOT,
-            SlimefunItems.REINFORCED_ALLOY_INGOT,
+            SlimefunItems.STEEL_PLATE,
             SlimefunItems.REINFORCED_ALLOY_INGOT
         };
         register(plugin, tools, paxel3, 3, ExcavationType.PAXEL, paxel3Recipe);
@@ -192,23 +192,7 @@ final class AdventurersToolsSetup {
                 "&b&lDeepcore Tunnel Paxel &f5x5",
                 5,
                 "&7Mines both pickaxe and shovel terrain");
-        register(
-                plugin,
-                tools,
-                paxel5,
-                5,
-                ExcavationType.PAXEL,
-                new ItemStack[] {
-                    SlimefunItems.REINFORCED_ALLOY_INGOT,
-                    pickaxe5,
-                    SlimefunItems.REINFORCED_ALLOY_INGOT,
-                    SlimefunItems.CARBONADO,
-                    paxel3,
-                    SlimefunItems.CARBONADO,
-                    SlimefunItems.REINFORCED_ALLOY_INGOT,
-                    shovel5,
-                    SlimefunItems.REINFORCED_ALLOY_INGOT
-                });
+        register(plugin, tools, paxel5, 5, ExcavationType.PAXEL, upgradeRecipe(paxel3));
 
         SlimefunItemStack paxel9 = tool(
                 "ADVENTURERS_DEEPCORE_PAXEL_9X9",
@@ -216,23 +200,7 @@ final class AdventurersToolsSetup {
                 "&b&lDeepcore Tunnel Paxel &f9x9",
                 9,
                 "&7Mines both pickaxe and shovel terrain");
-        register(
-                plugin,
-                tools,
-                paxel9,
-                9,
-                ExcavationType.PAXEL,
-                new ItemStack[] {
-                    SlimefunItems.CARBONADO,
-                    pickaxe9,
-                    SlimefunItems.CARBONADO,
-                    SlimefunItems.REINFORCED_ALLOY_INGOT,
-                    paxel5,
-                    SlimefunItems.REINFORCED_ALLOY_INGOT,
-                    SlimefunItems.CARBONADO,
-                    shovel9,
-                    SlimefunItems.CARBONADO
-                });
+        register(plugin, tools, paxel9, 9, ExcavationType.PAXEL, heavyUpgradeRecipe(paxel5));
     }
 
     private static SlimefunItemStack tool(String id, Material material, String name, int size, String terrainLore) {
