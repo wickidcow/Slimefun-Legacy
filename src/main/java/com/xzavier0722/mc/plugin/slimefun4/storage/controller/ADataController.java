@@ -221,13 +221,14 @@ public abstract class ADataController {
 
     protected void scheduleWriteTask(ScopeKey scopeKey, RecordKey key, Runnable task, boolean forceScopeKey) {
         checkDestroy();
-        lock.lock(scopeKey);
-
-        // log.info("schedule write scope [{}], key [{}]", scopeKey, key);
-
-        try {
+        synchronized (writeSubmissionLock) {
             checkDestroy();
-            synchronized (writeSubmissionLock) {
+            lock.lock(scopeKey);
+
+            // log.info("schedule write scope [{}], key [{}]", scopeKey, key);
+
+            try {
+                checkDestroy();
                 var scopeToUse = forceScopeKey ? scopeKey : key;
                 var queuedTask = scheduledWriteTasks.get(scopeKey);
                 if (queuedTask == null && scopeKey != scopeToUse) {
@@ -262,9 +263,9 @@ public abstract class ADataController {
                 } else {
                     writeExecutor.submit(queuedTask);
                 }
+            } finally {
+                lock.unlock(scopeKey);
             }
-        } finally {
-            lock.unlock(scopeKey);
         }
     }
 
