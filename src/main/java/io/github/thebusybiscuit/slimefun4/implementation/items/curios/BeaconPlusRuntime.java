@@ -271,7 +271,7 @@ final class BeaconPlusRuntime {
                 && BeaconPlusConfig.isPowerEnabled(BeaconPlusEffect.EXTRA_POWER)) {
             int unlocked = getUnlockedTierAtBeacon(block, BeaconPlusEffect.EXTRA_POWER);
             int requested = getRequestedTierAtBeacon(block, BeaconPlusEffect.EXTRA_POWER, unlocked);
-            extraPowerTier = Math.min(Math.min(unlocked, extraRequested), naturalTier);
+            extraPowerTier = Math.min(Math.min(unlocked, requested), naturalTier);
             if (extraPowerTier > 0) {
                 tiers.put(BeaconPlusEffect.EXTRA_POWER, extraPowerTier);
             }
