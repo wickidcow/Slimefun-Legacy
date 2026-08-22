@@ -160,7 +160,6 @@ final class AdventurersToolsSetup {
                 "&b&lDeepcore Tunnel Paxel &f3x3",
                 3,
                 "&7Mines both pickaxe and shovel terrain");
-        inheritPaxelVisualIfUnset(paxel3, paxel);
 
         ItemStack netheritePaxelPickaxe = netheritePaxel(paxel, Material.NETHERITE_PICKAXE);
         ItemStack[] paxel3Recipe = new ItemStack[] {
@@ -193,7 +192,6 @@ final class AdventurersToolsSetup {
                 "&b&lDeepcore Tunnel Paxel &f5x5",
                 5,
                 "&7Mines both pickaxe and shovel terrain");
-        inheritPaxelVisualIfUnset(paxel5, paxel);
         register(plugin, tools, paxel5, 5, ExcavationType.PAXEL, upgradeRecipe(paxel3));
 
         SlimefunItemStack paxel9 = tool(
@@ -202,7 +200,6 @@ final class AdventurersToolsSetup {
                 "&b&lDeepcore Tunnel Paxel &f9x9",
                 9,
                 "&7Mines both pickaxe and shovel terrain");
-        inheritPaxelVisualIfUnset(paxel9, paxel);
         register(plugin, tools, paxel9, 9, ExcavationType.PAXEL, heavyUpgradeRecipe(paxel5));
     }
 
@@ -219,21 +216,6 @@ final class AdventurersToolsSetup {
                 "&8The floor stays at your feet and the tunnel grows upward",
                 "&8Skips machines, storage, custom blocks and unloaded chunks",
                 "&8Uses normal tool enchantments and drops");
-    }
-
-    private static void inheritPaxelVisualIfUnset(SlimefunItemStack target, SlimefunItemStack paxel) {
-        ItemMeta targetMeta = target.getItemMeta();
-        if (targetMeta.hasCustomModelData()) {
-            return;
-        }
-
-        ItemMeta paxelMeta = paxel.getItemMeta();
-        if (!paxelMeta.hasCustomModelData()) {
-            return;
-        }
-
-        targetMeta.setCustomModelData(paxelMeta.getCustomModelData());
-        target.setItemMeta(targetMeta);
     }
 
     private static void register(
