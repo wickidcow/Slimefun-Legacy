@@ -311,26 +311,51 @@ public final class ChunkCacheEvictionService {
             return false;
         }
 
-        for (SlimefunBlockData blockData : expectedCache.getAllCacheInternal()) {
-            if (blockData.isDataLoaded()
-                    && Slimefun.getRegistry().getTickerBlocks().contains(blockData.getSfId())) {
-                try {
-                    Slimefun.getTickerTask().disableTicker(blockData.getLocation());
-                } catch (RuntimeException | LinkageError failure) {
-                    Slimefun.logger()
-                            .log(
-                                    Level.WARNING,
-                                    "Keeping Slimefun chunk cache because a ticker could not be detached: " + chunkKey,
-                                    failure);
-                    return false;
+        var blocks = expectedCache.getAllCacheInternal();
+        var detachedTickers = new ArrayList<Location>();
+
+        try {
+            for (SlimefunBlockData blockData : blocks) {
+                if (blockData.isDataLoaded()
+                        && Slimefun.getRegistry().getTickerBlocks().contains(blockData.getSfId())) {
+                    Location location = blockData.getLocation();
+                    Slimefun.getTickerTask().disableTicker(location);
+                    detachedTickers.add(location);
                 }
             }
+        } catch (RuntimeException | LinkageError failure) {
+            restoreTickers(detachedTickers, chunkKey);
+            Slimefun.logger()
+                    .log(
+                            Level.WARNING,
+                            "Keeping Slimefun chunk cache because a ticker could not be detached: " + chunkKey,
+                            failure);
+            return false;
         }
 
-        for (SlimefunBlockData blockData : expectedCache.getAllCacheInternal()) {
+        if (!loadedChunks.remove(chunkKey, expectedCache)) {
+            restoreTickers(detachedTickers, chunkKey);
+            return false;
+        }
+
+        for (SlimefunBlockData blockData : blocks) {
             snapshots.remove(blockData.getKey());
         }
-        return loadedChunks.remove(chunkKey, expectedCache);
+        return true;
+    }
+
+    private static void restoreTickers(ArrayList<Location> detachedTickers, String chunkKey) {
+        for (Location location : detachedTickers) {
+            try {
+                Slimefun.getTickerTask().enableTicker(location);
+            } catch (RuntimeException | LinkageError failure) {
+                Slimefun.logger()
+                        .log(
+                                Level.SEVERE,
+                                "Failed to restore a ticker after Slimefun chunk-cache eviction was cancelled: " + chunkKey,
+                                failure);
+            }
+        }
     }
 
     private static boolean hasMatchingDelayedWrite(Map<LinkedKey, DelayedTask> tasks, String chunkKey) {
