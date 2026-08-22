@@ -172,9 +172,11 @@ def main() -> int:
             "BeaconPlusLegacyDataStore.start", "BeaconPlusRuntime.reconcileActivator", "Enabled powers:",
             'enabled.size() + "/29"', "37", "EnergyNetComponent", "ELECTRIC_OPERATION_SLOT", "isEnergyNetActive",
             "BeaconPlusEffect.RADIATION_ABSORBER", "Tier I absorbs 25 exposure",
-            "Disabled in configSFLAddons.yml",
+            "Disabled in configSFLAddons.yml", "potentialTiers", "DORMANT (ENERGY)",
         ):
             req(token in beacon, f"Resonance Beacon menu invariant missing: {token}", failures)
+        req("BeaconPlusRuntime.reconcileActivator(block, 0)" in beacon,
+            "Activator must have an explicit off/release path", failures)
         for forbidden in ("BeaconPlus3", "thito.beaconplus", "Class.forName("):
             req(forbidden not in beacon, f"Resonance Beacon must not bridge third-party runtime: {forbidden}", failures)
 
@@ -204,13 +206,22 @@ def main() -> int:
             "Electric operation must preserve configured tiers while energy-gating active tiers", failures)
 
         for token in (
-            'EFFECTS_KEY = "beacon_plus_effects"', "EXTRA_RANGE_PER_TIER = 10", "getActiveTiers",
+            'EFFECTS_KEY = "beacon_plus_effects"', "EXTRA_RANGE_PER_TIER = 16", "getActiveTiers",
             "getUnlockedTierAtBeacon", "getSelectedTierAtBeacon", "BeaconPlusPyramid.inspect",
             "BeaconPlusLegacyDataStore.getImportedOverriddenRange", "AREA_5X5", "BeaconPlusRuntimeEffects.applyPulse",
+            "LAST_PULSE_GAME_TICKS", "shouldPulse(block.getLocation(), gameTime)", "PLAYER_STATE_RECONCILE_RANGE = 128.0D",
         ):
             req(token in runtime, f"Resonance Beacon runtime invariant missing: {token}", failures)
-        for token in ("MAX_TILE_ENTITIES_PER_PULSE = 96", "CROP_SAMPLES_PER_PULSE = 48", "repairInventory(", "getLoadedChunksInField"):
+        req("gameTime + block.getX() * 31L + block.getZ() * 17L" not in runtime,
+            "Resonance Beacon must not use coordinate-dependent pulse phasing", failures)
+        for token in (
+            "MAX_TILE_ENTITIES_PER_PULSE = 96", "CROP_SAMPLES_PER_CHUNK = 8",
+            "MAX_CROP_SAMPLES_PER_PULSE = 512", "CROP_VERTICAL_RADIUS = 8", "repairInventory(",
+            "getLoadedChunksInField", "entity instanceof Mob || entity instanceof Item",
+        ):
             req(token in runtime_effects, f"Bounded Resonance Beacon effects invariant missing: {token}", failures)
+        req("random.nextInt(world.getMinHeight(), world.getMaxHeight())" not in runtime_effects,
+            "Crop boost must not sample random Y across the entire world height", failures)
         field = read(root, files["field"])
         for token in ("chunkRadius", "ChunkFootprint", "containsChunk", "widthChunks"):
             req(token in field, f"Full-height chunk field invariant missing: {token}", failures)
@@ -276,7 +287,9 @@ def main() -> int:
         "- migrated Curiosities keys are removed from config.yml only after the replacement config saves\n"
         "- legacy WORLD BeaconData JSON remains import/mirror compatible\n"
         "- field powers use full-height chunk-aligned square footprints without loading chunks\n"
-        "- Activator remains reference-counted and hard-capped\n"
+        "- Beacon pulses use elapsed game time rather than coordinate-dependent modulo phasing\n"
+        "- crop work is bounded to loaded field chunks and a local vertical band\n"
+        "- Activator remains reference-counted, releasable, and hard-capped\n"
     )
     report.write_text(text, encoding="utf-8")
     print(text, end="")
