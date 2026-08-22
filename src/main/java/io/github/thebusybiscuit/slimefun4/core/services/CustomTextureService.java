@@ -29,6 +29,15 @@ import org.bukkit.inventory.meta.ItemMeta;
  */
 public class CustomTextureService {
 
+    private static final int SHARED_PAXEL_MODEL_DATA = 2201302;
+    private static final String DEEPCORE_PAXEL_VISUAL_MIGRATION =
+            "_SLIMEFUN_LEGACY_MIGRATIONS.DEEPCORE_PAXEL_VISUAL_SEPARATION";
+    private static final String[] DEEPCORE_PAXEL_IDS = {
+        "ADVENTURERS_DEEPCORE_PAXEL_3X3",
+        "ADVENTURERS_DEEPCORE_PAXEL_5X5",
+        "ADVENTURERS_DEEPCORE_PAXEL_9X9"
+    };
+
     /**
      * The {@link Config} object in which the Server Owner can configure the item models.
      */
@@ -70,6 +79,7 @@ public class CustomTextureService {
         // SlimefunItemStack applies configured model data while the stack is constructed. Load bundled mappings
         // before core or addon items are created so those immutable templates are correct from the beginning.
         loadDefaultValues();
+        migrateAccidentalDeepcorePaxelMappings();
     }
 
     /**
@@ -123,6 +133,32 @@ public class CustomTextureService {
                     ? Logger.getLogger(CustomTextureService.class.getName())
                     : Slimefun.logger();
             logger.log(Level.SEVERE, "Failed to load default item-models.yml file", e);
+        }
+    }
+
+    private void migrateAccidentalDeepcorePaxelMappings() {
+        FileConfiguration configuration = config.getConfiguration();
+        if (configuration.getBoolean(DEEPCORE_PAXEL_VISUAL_MIGRATION, false)) {
+            return;
+        }
+
+        int migrated = 0;
+        for (String id : DEEPCORE_PAXEL_IDS) {
+            if (configuration.isSet(id) && configuration.getInt(id) == SHARED_PAXEL_MODEL_DATA) {
+                configuration.set(id, 0);
+                migrated++;
+            }
+        }
+
+        // This marker makes the repair one-time. Server owners remain free to deliberately assign
+        // any custom model data they want after the migration has completed.
+        configuration.set(DEEPCORE_PAXEL_VISUAL_MIGRATION, true);
+
+        if (migrated > 0) {
+            Logger logger = Slimefun.instance() == null
+                    ? Logger.getLogger(CustomTextureService.class.getName())
+                    : Slimefun.logger();
+            logger.info("Cleared accidental shared Paxel visual mapping from " + migrated + " Deepcore Paxel item(s).");
         }
     }
 
