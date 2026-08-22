@@ -37,6 +37,7 @@ public abstract class ADataController {
     private final DataType dataType;
     private final Map<ScopeKey, QueuedWriteTask> scheduledWriteTasks;
     private final ScopedLock lock;
+    private final Object writeSubmissionLock;
 
     private volatile IDataSourceAdapter<?> dataAdapter;
     /**
@@ -77,6 +78,7 @@ public abstract class ADataController {
         this.dataType = dataType;
         scheduledWriteTasks = new ConcurrentHashMap<>();
         lock = new ScopedLock();
+        writeSubmissionLock = new Object();
         logger = Logger.getLogger("SF-" + dataType.name() + "-Controller");
     }
 
@@ -225,39 +227,41 @@ public abstract class ADataController {
 
         try {
             checkDestroy();
-            var scopeToUse = forceScopeKey ? scopeKey : key;
-            var queuedTask = scheduledWriteTasks.get(scopeKey);
-            if (queuedTask == null && scopeKey != scopeToUse) {
-                queuedTask = scheduledWriteTasks.get(scopeToUse);
-            }
-
-            if (queuedTask != null && queuedTask.queue(key, task)) {
-                return;
-            }
-
-            queuedTask = new QueuedWriteTask() {
-                @Override
-                protected void onSuccess() {
-                    scheduledWriteTasks.remove(scopeToUse, this);
+            synchronized (writeSubmissionLock) {
+                var scopeToUse = forceScopeKey ? scopeKey : key;
+                var queuedTask = scheduledWriteTasks.get(scopeKey);
+                if (queuedTask == null && scopeKey != scopeToUse) {
+                    queuedTask = scheduledWriteTasks.get(scopeToUse);
                 }
 
-                @Override
-                protected void onError(Throwable e) {
-                    Slimefun.logger()
-                            .log(
-                                    Level.SEVERE,
-                                    "[" + Thread.currentThread().getName()
-                                            + "] Exception thrown while executing write task: ",
-                                    e);
+                if (queuedTask != null && queuedTask.queue(key, task)) {
+                    return;
                 }
-            };
-            queuedTask.queue(key, task);
-            scheduledWriteTasks.put(scopeToUse, queuedTask);
 
-            if (serialWriteExecutor != null && key.getScope().isSerial()) {
-                serialWriteExecutor.submit(queuedTask);
-            } else {
-                writeExecutor.submit(queuedTask);
+                queuedTask = new QueuedWriteTask() {
+                    @Override
+                    protected void onSuccess() {
+                        scheduledWriteTasks.remove(scopeToUse, this);
+                    }
+
+                    @Override
+                    protected void onError(Throwable e) {
+                        Slimefun.logger()
+                                .log(
+                                        Level.SEVERE,
+                                        "[" + Thread.currentThread().getName()
+                                                + "] Exception thrown while executing write task: ",
+                                        e);
+                    }
+                };
+                queuedTask.queue(key, task);
+                scheduledWriteTasks.put(scopeToUse, queuedTask);
+
+                if (serialWriteExecutor != null && key.getScope().isSerial()) {
+                    serialWriteExecutor.submit(queuedTask);
+                } else {
+                    writeExecutor.submit(queuedTask);
+                }
             }
         } finally {
             lock.unlock(scopeKey);
@@ -302,6 +306,25 @@ public abstract class ADataController {
             }
         });
         return CompletableFuture.allOf(completions.toArray(CompletableFuture[]::new));
+    }
+
+    /**
+     * Runs a short critical section only if no currently registered write queue matches the supplied scope filter.
+     * New write registration is held until the action returns.
+     *
+     * @param scopeFilter selects write scopes that would make the action unsafe
+     * @param action cache work that must not schedule another write
+     * @return whether the action ran with matching write scopes idle
+     */
+    protected boolean runIfWriteScopesIdle(Predicate<ScopeKey> scopeFilter, Runnable action) {
+        checkDestroy();
+        synchronized (writeSubmissionLock) {
+            if (scheduledWriteTasks.keySet().stream().anyMatch(scopeFilter)) {
+                return false;
+            }
+            action.run();
+            return true;
+        }
     }
 
     /**
