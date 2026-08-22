@@ -4,17 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.xzavier0722.mc.plugin.slimefun4.storage.adapter.IDataSourceAdapter;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataScope;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataType;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.FieldKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordKey;
-import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordSet;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.ScopeKey;
-import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import org.junit.jupiter.api.Test;
@@ -23,8 +20,7 @@ class ADataControllerWriteQueueTest {
 
     @Test
     void currentScopeCompletionWaitsForRegisteredQueue() throws Exception {
-        var controller = new TestController();
-        controller.init(new NoOpAdapter(), 1, 1);
+        var controller = new TestController(1);
         var release = new CountDownLatch(1);
 
         try {
@@ -48,14 +44,13 @@ class ADataControllerWriteQueueTest {
             assertTrue(controller.currentCompletion(scope).isDone());
         } finally {
             release.countDown();
-            controller.shutdown();
+            controller.closeExecutors();
         }
     }
 
     @Test
     void filteredCompletionWaitsOnlyForMatchingWriteScopes() throws Exception {
-        var controller = new TestController();
-        controller.init(new NoOpAdapter(), 1, 3);
+        var controller = new TestController(2);
         var releaseFirst = new CountDownLatch(1);
         var releaseSecond = new CountDownLatch(1);
 
@@ -92,7 +87,7 @@ class ADataControllerWriteQueueTest {
         } finally {
             releaseFirst.countDown();
             releaseSecond.countDown();
-            controller.shutdown();
+            controller.closeExecutors();
         }
     }
 
@@ -114,8 +109,11 @@ class ADataControllerWriteQueueTest {
     }
 
     private static final class TestController extends ADataController {
-        private TestController() {
+        private TestController(int writeThreads) {
             super(DataType.BLOCK_STORAGE);
+            readExecutor = Executors.newSingleThreadExecutor();
+            writeExecutor = Executors.newFixedThreadPool(writeThreads);
+            callbackExecutor = Executors.newSingleThreadExecutor();
         }
 
         private void schedule(ScopeKey scope, RecordKey key, Runnable task) {
@@ -129,30 +127,11 @@ class ADataControllerWriteQueueTest {
         private CompletableFuture<Void> currentCompletion(Predicate<ScopeKey> filter) {
             return getCurrentWriteCompletion(filter);
         }
-    }
 
-    private static final class NoOpAdapter implements IDataSourceAdapter<Object> {
-        @Override
-        public void prepare(Object config) {}
-
-        @Override
-        public void initStorage(DataType type) {}
-
-        @Override
-        public void shutdown() {}
-
-        @Override
-        public void setData(RecordKey key, RecordSet item) {}
-
-        @Override
-        public List<RecordSet> getData(RecordKey key, boolean distinct) {
-            return Collections.emptyList();
+        private void closeExecutors() {
+            readExecutor.shutdownNow();
+            writeExecutor.shutdownNow();
+            callbackExecutor.shutdownNow();
         }
-
-        @Override
-        public void deleteData(RecordKey key) {}
-
-        @Override
-        public void patch() {}
     }
 }

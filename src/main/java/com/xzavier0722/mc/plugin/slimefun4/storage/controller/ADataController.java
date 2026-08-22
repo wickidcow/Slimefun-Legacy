@@ -92,7 +92,7 @@ public abstract class ADataController {
         this.dataAdapter = dataAdapter;
         dataAdapter.initStorage(dataType);
         dataAdapter.patch();
-        readExecutor = new SlimefunPoolExecutor(
+        readExecutor = new TrackedReadExecutor(
                 "SF-" + dataType.name() + "-Read-Executor",
                 maxReadThread,
                 maxReadThread,
@@ -302,6 +302,35 @@ public abstract class ADataController {
             }
         });
         return CompletableFuture.allOf(completions.toArray(CompletableFuture[]::new));
+    }
+
+    /**
+     * Returns a completion snapshot for every read currently queued or running on this controller's read executor.
+     *
+     * <p>This is a snapshot rather than a permanent barrier. Use {@link #runIfReadExecutorIdle(Runnable)} for the short
+     * destructive critical section after the snapshot has completed.
+     *
+     * @return a future that completes when the currently visible read tasks have finished
+     */
+    protected CompletableFuture<Void> getCurrentReadCompletion() {
+        checkDestroy();
+        return readExecutor instanceof TrackedReadExecutor tracked
+                ? tracked.snapshot()
+                : CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Runs a short critical section only when the tracked read executor is idle and prevents new read submissions until
+     * that section returns.
+     *
+     * <p>If a subclass replaced the standard read executor, this method fails closed and does not run the action.
+     *
+     * @param action cache work that must not submit another read task
+     * @return whether the action ran while read submissions were gated
+     */
+    protected boolean runIfReadExecutorIdle(Runnable action) {
+        checkDestroy();
+        return readExecutor instanceof TrackedReadExecutor tracked && tracked.runIfIdle(action);
     }
 
     protected void checkDestroy() {
