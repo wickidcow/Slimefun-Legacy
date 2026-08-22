@@ -155,6 +155,8 @@ run_cycle() {
 
     printf 'sf doctor upgrade\n' >&3
     sleep 4
+    printf 'sf versions\n' >&3
+    sleep 4
     stop_process "$server_pid" 3
 
     local server_status=0
@@ -191,6 +193,18 @@ run_cycle() {
         return 1
     fi
 
+    if grep -Fq 'Command exception: /sf versions' "$console_log"; then
+        echo "${SOFTWARE_NAME} runtime smoke ${label}: /sf versions threw a command exception." >&2
+        cat "$console_log" >&2 || true
+        return 1
+    fi
+
+    if ! grep -Fq 'Slimefun server environment:' "$console_log"; then
+        echo "${SOFTWARE_NAME} runtime smoke ${label}: /sf versions did not produce its environment report." >&2
+        cat "$console_log" >&2 || true
+        return 1
+    fi
+
     if [[ "$require_previous_clean" == true ]] && ! grep -Eq 'previous shutdown[[:space:]]+Clean' "$console_log"; then
         echo "${SOFTWARE_NAME} runtime smoke ${label}: the second boot did not observe a clean prior Slimefun shutdown." >&2
         cat "$console_log" >&2 || true
@@ -215,6 +229,7 @@ ${SOFTWARE_NAME} build: ${SERVER_BUILD}
 Runtime Java: $(java -version 2>&1 | head -n 1)
 Cycles: 2
 Upgrade diagnostics: executed on both boots without BLOCKED status
+/sf versions diagnostics: executed on both boots without command exception
 Clean shutdown persistence: observed on second boot
 EOF
 cat "$WORK_DIR/smoke-result.txt"
