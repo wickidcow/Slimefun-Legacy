@@ -1,7 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.implementation.guide.enhanced;
 
-import io.github.bakedlibs.dough.chat.ChatInput;
-import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
 import io.github.thebusybiscuit.slimefun4.core.guide.GuideHistory;
@@ -17,7 +15,6 @@ import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedItemFlag;
 import java.util.ArrayList;
 import java.util.List;
-import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import org.bukkit.ChatColor;
@@ -25,6 +22,7 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 /** Enhanced Slimefun Legacy guide backed by the shared cached search index. */
 public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimefunGuide {
@@ -129,16 +127,7 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
 
         for (int slot : LegacyGuideSettings.get().findSlots(format, 'R')) {
             if (LegacyGuideSettings.get().hasSmartSearch()) {
-                menu.addItem(
-                        slot,
-                        new CustomItemStack(
-                                Material.COMPASS,
-                                "&b&lSmart Search",
-                                "",
-                                "&7Search names, IDs, addons, categories,",
-                                "&7recipe types and item lore.",
-                                "",
-                                "&fFilters: &7id:, addon:, group:, recipe:"));
+                menu.addItem(slot, createSmartSearchButton());
                 menu.addMenuClickHandler(slot, (clickedPlayer, clickedSlot, item, action) -> {
                     requestIndexedSearch(clickedPlayer, profile);
                     return false;
@@ -152,15 +141,7 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
             for (int slot : LegacyGuideSettings.get().findSlots(format, marker)) {
                 if (LegacyGuideSettings.get().hasBookmarks()) {
                     int count = LegacyGuideBookmarks.get().size(player.getUniqueId());
-                    menu.addItem(
-                            slot,
-                            new CustomItemStack(
-                                    Material.NETHER_STAR,
-                                    "&6&lBookmarks",
-                                    "",
-                                    "&7Saved items: &f" + count,
-                                    "",
-                                    "&eClick to open"));
+                    menu.addItem(slot, createBookmarksButton(count));
                     menu.addMenuClickHandler(slot, (clickedPlayer, clickedSlot, item, action) -> {
                         runIndexedPage(
                                 profile,
@@ -203,11 +184,42 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
         }
     }
 
+    private ItemStack createSmartSearchButton() {
+        ItemStack item = new ItemStack(Material.COMPASS);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(ChatColor.AQUA + "" + ChatColor.BOLD + "Smart Search");
+            meta.setLore(List.of(
+                    "",
+                    ChatColor.GRAY + "Search names, IDs, addons, categories,",
+                    ChatColor.GRAY + "recipe types and item lore.",
+                    "",
+                    ChatColor.WHITE + "Filters: " + ChatColor.GRAY + "id:, addon:, group:, recipe:"));
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    private ItemStack createBookmarksButton(int count) {
+        ItemStack item = new ItemStack(Material.NETHER_STAR);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(ChatColor.GOLD + "" + ChatColor.BOLD + "Bookmarks");
+            meta.setLore(List.of(
+                    "",
+                    ChatColor.GRAY + "Saved items: " + ChatColor.WHITE + count,
+                    "",
+                    ChatColor.YELLOW + "Click to open"));
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
     private void requestIndexedSearch(Player player, PlayerProfile profile) {
         player.closeInventory();
         player.sendMessage(ChatColor.GREEN + "Enter a search term. " + ChatColor.GRAY
                 + "Optional filters: id:, addon:, group:, recipe:");
-        ChatInput.waitForPlayer(
+        io.github.bakedlibs.dough.chat.ChatInput.waitForPlayer(
                 Slimefun.instance(),
                 player,
                 message -> SlimefunGuide.openSearch(profile, message, getMode(), isSurvivalMode()));
@@ -225,11 +237,11 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
         if (isSurvivalMode() && history.size() > 1) {
             menu.addItem(
                     slot,
-                    new CustomItemStack(ChestMenuUtils.getBackButton(
+                    ChestMenuUtils.getBackButton(
                             player,
                             "",
                             "&fLeft Click: &7Return to previous page",
-                            "&fShift + Left Click: &7Return to main menu")));
+                            "&fShift + Left Click: &7Return to main menu"));
             menu.addMenuClickHandler(slot, (clickedPlayer, clickedSlot, item, action) -> {
                 if (action.isShiftClicked()) {
                     SlimefunGuide.openMainMenu(profile, getMode(), history.getMainMenuPage());
@@ -249,29 +261,37 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
     }
 
     private ItemStack decorateIndexedItem(Player player, SlimefunItem item, boolean bookmarked) {
-        return new CustomItemStack(item.getItem(), meta -> {
-            List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+        ItemStack decorated = item.getItem().clone();
+        ItemMeta meta = decorated.getItemMeta();
+        if (meta == null) {
+            return decorated;
+        }
+
+        List<String> lore = meta.hasLore() && meta.getLore() != null
+                ? new ArrayList<>(meta.getLore())
+                : new ArrayList<>();
+        lore.add("");
+        lore.add(ChatColor.DARK_GRAY + "Category: " + ChatColor.WHITE
+                + item.getItemGroup().getDisplayName(player));
+        if (LegacyGuideSettings.get().shouldDisplayAddon()) {
+            lore.add(ChatColor.DARK_GRAY + "Addon: " + ChatColor.WHITE + GuideSearchIndex.getAddonName(item));
+        }
+        if (LegacyGuideSettings.get().shouldDisplayItemId()) {
+            lore.add(ChatColor.DARK_GRAY + "ID: " + ChatColor.GRAY + item.getId());
+        }
+        if (LegacyGuideSettings.get().hasBookmarks()) {
             lore.add("");
-            lore.add(ChatColor.DARK_GRAY + "Category: " + ChatColor.WHITE
-                    + item.getItemGroup().getDisplayName(player));
-            if (LegacyGuideSettings.get().shouldDisplayAddon()) {
-                lore.add(ChatColor.DARK_GRAY + "Addon: " + ChatColor.WHITE + GuideSearchIndex.getAddonName(item));
+            lore.add(bookmarked
+                    ? ChatColor.GOLD + "★ Bookmarked"
+                    : ChatColor.YELLOW + "Right-click to bookmark");
+            if (bookmarked) {
+                lore.add(ChatColor.GRAY + "Right-click to remove bookmark");
             }
-            if (LegacyGuideSettings.get().shouldDisplayItemId()) {
-                lore.add(ChatColor.DARK_GRAY + "ID: " + ChatColor.GRAY + item.getId());
-            }
-            if (LegacyGuideSettings.get().hasBookmarks()) {
-                lore.add("");
-                lore.add(bookmarked
-                        ? ChatColor.GOLD + "★ Bookmarked"
-                        : ChatColor.YELLOW + "Right-click to bookmark");
-                if (bookmarked) {
-                    lore.add(ChatColor.GRAY + "Right-click to remove bookmark");
-                }
-            }
-            meta.setLore(lore);
-            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, VersionedItemFlag.HIDE_ADDITIONAL_TOOLTIP);
-        });
+        }
+        meta.setLore(lore);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, VersionedItemFlag.HIDE_ADDITIONAL_TOOLTIP);
+        decorated.setItemMeta(meta);
+        return decorated;
     }
 
     private void openIndexedItem(
