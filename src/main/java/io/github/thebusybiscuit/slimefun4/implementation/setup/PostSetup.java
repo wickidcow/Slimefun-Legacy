@@ -35,7 +35,7 @@ public final class PostSetup {
     public static void setupWiki() {
         Slimefun.logger().log(Level.INFO, "Loading Wiki pages...");
 
-        WikiUtils.setupJson(Slimefun.instance(), (page) -> page.replace("#", "?id="));
+        WikiUtils.setupJson(Slimefun.instance(), page -> page);
     }
 
     public static void loadItems() {
