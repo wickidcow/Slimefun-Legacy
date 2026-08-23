@@ -46,6 +46,9 @@ public class ItemGroup implements Keyed {
     protected int tier;
     protected boolean crossAddonItemGroup = false;
 
+    /** Optional high-level guide category declared by this group's owner. */
+    private @Nullable String categoryId;
+
     /**
      * Constructs a new {@link ItemGroup} with the given {@link NamespacedKey} as an identifier
      * and the given {@link ItemStack} as its display item.
@@ -135,6 +138,47 @@ public class ItemGroup implements Keyed {
      */
     public int getTier() {
         return tier;
+    }
+
+    /**
+     * Assigns one high-level guide category to every item in this group.
+     *
+     * <p>This mirrors the Slimefun5 category declaration API while keeping Slimefun4's existing
+     * {@link ItemGroup} layout intact. Addons should normally call this once during setup.
+     *
+     * @param categoryId
+     *            category id such as {@code machines}, or {@code null} to clear it
+     * @return this group for fluent setup
+     */
+    public @Nonnull ItemGroup setCategory(@Nullable String categoryId) {
+        this.categoryId = categoryId;
+        return this;
+    }
+
+    /**
+     * Returns the high-level guide category declared for this group.
+     *
+     * @return category id, or {@code null} when this group did not declare one
+     */
+    public @Nullable String getCategoryId() {
+        return categoryId;
+    }
+
+    /**
+     * @deprecated Use {@link #setCategory(String)}. Kept for source/runtime compatibility with addons
+     *             that used Slimefun5's earlier theme terminology.
+     */
+    @Deprecated
+    public @Nonnull ItemGroup setTheme(@Nullable String themeId) {
+        return setCategory(themeId);
+    }
+
+    /**
+     * @deprecated Use {@link #getCategoryId()}.
+     */
+    @Deprecated
+    public @Nullable String getThemeId() {
+        return categoryId;
     }
 
     /**
@@ -258,7 +302,7 @@ public class ItemGroup implements Keyed {
 
     /**
      * This method makes Walshy happy.
-     * It adds a way to get the name of a {@link ItemGroup} without localization nor coloring.
+     * It adds a way to get the name of an {@link ItemGroup} without localization nor coloring.
      *
      * @return The unlocalized name of this {@link ItemGroup}
      */
