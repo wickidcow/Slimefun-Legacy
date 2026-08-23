@@ -12,13 +12,17 @@ import yaml
 ROOT = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
 
 JAVA_ROOT = ROOT / "src/main/java/io/github/thebusybiscuit/slimefun4"
-ENHANCED = JAVA_ROOT / "implementation/guide/enhanced"
+GUIDE = JAVA_ROOT / "implementation/guide"
+ENHANCED = GUIDE / "enhanced"
 REQUIRED_FILES = [
     JAVA_ROOT / "core/SlimefunRegistry.java",
+    GUIDE / "GuideSearchIndex.java",
+    GUIDE / "IndexedSurvivalSlimefunGuide.java",
     ENHANCED / "LegacyGuideBootstrap.java",
     ENHANCED / "LegacyGuideSettings.java",
     ENHANCED / "LegacyGuideBookmarks.java",
     ENHANCED / "EnhancedSurvivalSlimefunGuide.java",
+    ENHANCED / "IndexedEnhancedSurvivalSlimefunGuide.java",
     ENHANCED / "EnhancedCheatSheetSlimefunGuide.java",
     ROOT / "src/main/resources/enhanced-guide.yml",
     ROOT / "EVERYTHING_THAT_CHANGED.md",
@@ -57,23 +61,33 @@ def main() -> int:
 
     registry = sources[JAVA_ROOT / "core/SlimefunRegistry.java"]
     bootstrap = sources[ENHANCED / "LegacyGuideBootstrap.java"]
+    search_index = sources[GUIDE / "GuideSearchIndex.java"]
+    indexed_classic = sources[GUIDE / "IndexedSurvivalSlimefunGuide.java"]
     guide = sources[ENHANCED / "EnhancedSurvivalSlimefunGuide.java"]
+    indexed_guide = sources[ENHANCED / "IndexedEnhancedSurvivalSlimefunGuide.java"]
     cheat_guide = sources[ENHANCED / "EnhancedCheatSheetSlimefunGuide.java"]
     bookmarks = sources[ENHANCED / "LegacyGuideBookmarks.java"]
 
     require("LegacyGuideBootstrap.register(plugin, guides);" in registry, "Registry does not use the native guide bootstrap")
-    require("new EnhancedSurvivalSlimefunGuide()" in bootstrap, "Enhanced survival guide is not registered")
+    require("new IndexedEnhancedSurvivalSlimefunGuide()" in bootstrap,
+            "Indexed enhanced survival guide is not registered")
     require("new EnhancedCheatSheetSlimefunGuide()" in bootstrap, "Enhanced cheat guide is not registered")
-    require("new SurvivalSlimefunGuide()" in bootstrap, "Classic survival fallback is missing")
+    require("new IndexedSurvivalSlimefunGuide()" in bootstrap, "Indexed classic survival fallback is missing")
     require("new CheatSheetSlimefunGuide()" in bootstrap, "Classic cheat fallback is missing")
     require('getPlugin("JustEnoughGuide")' in bootstrap, "JEG coexistence warning is missing")
 
+    require("searchByName" in indexed_classic, "Classic guide does not use the shared search index")
+    require("searchSmart" in indexed_guide, "Enhanced guide does not use the shared search index")
+    require("sortedByName" in search_index, "Shared search index does not keep a pre-sorted view")
+    require("entriesByItem" in search_index, "Shared search index does not cache item metadata")
+
     for marker in ["id:", "addon:", "group:", "recipe:"]:
-        require(marker in guide, f"Smart-search filter missing: {marker}")
-    require("openSearchPage" in guide and "pageCount" in guide, "Paged search implementation is missing")
-    require("action.isRightClicked()" in guide, "Right-click bookmark control is missing")
+        require(marker in search_index, f"Smart-search filter missing: {marker}")
+    require("openIndexedSearchPage" in indexed_guide and "pageCount" in indexed_guide,
+            "Paged indexed search implementation is missing")
+    require("action.isRightClicked()" in indexed_guide, "Right-click bookmark control is missing")
     require("research.unlockFromGuide" in guide, "Research unlock behavior is missing")
-    require('hasPermission("slimefun.cheat.items")' in guide, "Cheat-item permission guard is missing")
+    require('hasPermission("slimefun.cheat.items")' in indexed_guide, "Cheat-item permission guard is missing")
     require("displayItem(profile, item, true)" in guide, "Classic recipe rendering bridge is missing")
     require("getVisibleItemGroups(player, profile, SlimefunGuideMode.SURVIVAL_MODE)" in cheat_guide,
             "Enhanced cheat guide does not mirror the normal guide category hierarchy")
