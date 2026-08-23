@@ -2,6 +2,7 @@ name: Build English Slimefun
 
 on:
   push:
+    branches: ['master']
     tags: ['v*']
   workflow_dispatch:
 
@@ -103,11 +104,49 @@ jobs:
           JAR="dist/${OUTPUT_NAME}"
           CHECKED_ADDONS="dist/${CHECKED_ADDONS_NAME}"
           RELEASE_TITLE="Slimefun Legacy ${LEGACY_ARTIFACT_VERSION}"
+          NOTES_ARGS=(--generate-notes)
+
           if [[ "$LEGACY_ARTIFACT_VERSION" == "4.1.38" ]]; then
-            RELEASE_TITLE="Slimefun Legacy 4.1.38 — Test Notification & Wiki Update"
+            RELEASE_TITLE="Slimefun Legacy 4.1.38 — Test Notification, Wiki & EnergyNet Update"
+            cat > /tmp/release-notes.md <<'EOF'
+          # Slimefun Legacy 4.1.38 — Test Notification, Wiki & EnergyNet Update
+
+          This 4.1.38 refresh is a test-oriented release for the GitHub update notification path while also carrying the latest Slimefun Legacy Wiki and EnergyNet improvements.
+
+          ## Highlights
+
+          - **Update notification test:** keeps the clean `4.1.38` version format so servers on 4.1.37 can detect a newer published release.
+          - **Legacy Wiki links:** Slimefun Guide item Wiki buttons now point to the rendered Slimefun Legacy GitHub Wiki.
+          - **EnergyNet powered heads:** player-head EnergyNet components mirror active energy transport to vanilla `powered=true/false` when the underlying head supports that block state.
+          - **Electrical visualizer:** EnergyNet uses yellow `INSTANT_EFFECT` particles for a more electrical visual while Cargo and other network visualizers keep their existing appearance.
+          - **Chunk-load topology repair:** unloaded EnergyNet discovery frontier positions are preserved and retried after their chunks load, fixing nodes that could report `Connected` but fail to visualize until a neighboring node was broken and replaced.
+          - **Checked addon snapshot:** the release includes the compatibility matrix used for this build alongside the JAR.
+
+          ## Compatibility
+
+          - Paper 26.2 primary
+          - Purpur 26.2 supported
+          - Folia 26.2 experimental
+          - Paper/Purpur 1.21.11 compatibility checks passed
+          - Built/tested with Java 25 and verified to Java 21 bytecode target
+
+          ## Release assets
+
+          - `Slimefun-Legacy4.1.38.jar`
+          - `Slimefun-Legacy4.1.38-checked-addons.json`
+
+          > **Testing note:** servers already running a previous 4.1.38 JAR will not receive another update warning because the semantic version is unchanged. Replace the JAR manually to test this refreshed 4.1.38 build. Servers still on 4.1.37 should detect 4.1.38 as newer.
+          EOF
+            NOTES_ARGS=(--notes-file /tmp/release-notes.md)
           fi
+
           if gh release view "$TAG" >/dev/null 2>&1; then
+            if [[ "$GITHUB_REF" == refs/heads/* ]]; then
+              git tag -f "$TAG" "$GITHUB_SHA"
+              git push origin "refs/tags/$TAG" --force
+            fi
+            gh release edit "$TAG" --title "$RELEASE_TITLE" "${NOTES_ARGS[@]}"
             gh release upload "$TAG" "$JAR" "$CHECKED_ADDONS" --clobber
           else
-            gh release create "$TAG" "$JAR" "$CHECKED_ADDONS" --target "$GITHUB_SHA" --generate-notes --title "$RELEASE_TITLE"
+            gh release create "$TAG" "$JAR" "$CHECKED_ADDONS" --target "$GITHUB_SHA" --title "$RELEASE_TITLE" "${NOTES_ARGS[@]}"
           fi
