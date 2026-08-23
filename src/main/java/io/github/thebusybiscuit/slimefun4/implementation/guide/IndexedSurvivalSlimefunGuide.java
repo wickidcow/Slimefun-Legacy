@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.implementation.guide;
 
-import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
@@ -18,6 +17,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 /** Classic Slimefun guide with the shared cached search index. */
 public class IndexedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
@@ -52,7 +52,9 @@ public class IndexedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
 
         int index = 9;
         for (SlimefunItem slimefunItem : matches) {
-            ItemStack itemStack = new CustomItemStack(slimefunItem.getItem(), meta -> {
+            ItemStack itemStack = slimefunItem.getItem().clone();
+            ItemMeta meta = itemStack.getItemMeta();
+            if (meta != null) {
                 ItemGroup itemGroup = slimefunItem.getItemGroup();
                 meta.setLore(Arrays.asList(
                         "", ChatColor.DARK_GRAY + "\u21E8 " + ChatColor.WHITE + itemGroup.getDisplayName(player)));
@@ -60,7 +62,8 @@ public class IndexedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
                         ItemFlag.HIDE_ATTRIBUTES,
                         ItemFlag.HIDE_ENCHANTS,
                         VersionedItemFlag.HIDE_ADDITIONAL_TOOLTIP);
-            });
+                itemStack.setItemMeta(meta);
+            }
 
             menu.addItem(index, itemStack);
             menu.addMenuClickHandler(index, (clickedPlayer, slot, item, action) -> {
@@ -93,11 +96,11 @@ public class IndexedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
         if (isSurvivalMode() && history.size() > 1) {
             menu.addItem(
                     slot,
-                    new CustomItemStack(ChestMenuUtils.getBackButton(
+                    ChestMenuUtils.getBackButton(
                             player,
                             "",
                             "&fLeft Click: &7Return to previous page",
-                            "&fShift + Left Click: &7Return to main menu")));
+                            "&fShift + Left Click: &7Return to main menu"));
             menu.addMenuClickHandler(slot, (clickedPlayer, clickedSlot, item, action) -> {
                 if (action.isShiftClicked()) {
                     SlimefunGuide.openMainMenu(profile, getMode(), history.getMainMenuPage());
@@ -111,10 +114,10 @@ public class IndexedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
 
         menu.addItem(
                 slot,
-                new CustomItemStack(ChestMenuUtils.getBackButton(
+                ChestMenuUtils.getBackButton(
                         player,
                         "",
-                        ChatColor.GRAY + Slimefun.getLocalization().getMessage(player, "guide.back.guide"))));
+                        ChatColor.GRAY + Slimefun.getLocalization().getMessage(player, "guide.back.guide")));
         menu.addMenuClickHandler(slot, (clickedPlayer, clickedSlot, item, action) -> {
             SlimefunGuide.openMainMenu(profile, getMode(), history.getMainMenuPage());
             return false;
