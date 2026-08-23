@@ -28,6 +28,7 @@ jobs:
           test -n "$VERSION"
           echo "LEGACY_ARTIFACT_VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "OUTPUT_NAME=Slimefun-Legacy${VERSION}.jar" >> "$GITHUB_ENV"
+          echo "CHECKED_ADDONS_NAME=Slimefun-Legacy${VERSION}-checked-addons.json" >> "$GITHUB_ENV"
           echo "Slimefun Legacy artifact version: $VERSION" >> "$GITHUB_STEP_SUMMARY"
       - name: Pin reproducible source identity
         run: |
@@ -66,23 +67,32 @@ jobs:
           test -n "$JAR"
           python3 scripts/verify_release_artifact.py "$JAR" --root .
           cat build/reports/release-artifact.md >> "$GITHUB_STEP_SUMMARY"
-      - name: Stage versioned Slimefun Legacy JAR
+      - name: Stage release assets
         shell: bash
         run: |
           set -euo pipefail
           JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
           test -n "$JAR"
+          test -s compatibility/addon-compatibility-matrix.json
           mkdir -p dist
           cp "$JAR" "dist/${OUTPUT_NAME}"
+          cp compatibility/addon-compatibility-matrix.json "dist/${CHECKED_ADDONS_NAME}"
           test -s "dist/${OUTPUT_NAME}"
-          sha256sum "dist/${OUTPUT_NAME}"
+          test -s "dist/${CHECKED_ADDONS_NAME}"
+          sha256sum "dist/${OUTPUT_NAME}" "dist/${CHECKED_ADDONS_NAME}"
       - name: Upload raw JAR artifact
         uses: actions/upload-artifact@v7
         with:
           path: dist/${{ env.OUTPUT_NAME }}
           archive: false
           if-no-files-found: error
-      - name: Publish raw JAR release asset
+      - name: Upload checked addon compatibility artifact
+        uses: actions/upload-artifact@v7
+        with:
+          path: dist/${{ env.CHECKED_ADDONS_NAME }}
+          archive: false
+          if-no-files-found: error
+      - name: Publish release assets
         if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/') || github.ref_name == github.event.repository.default_branch
         env:
           GH_TOKEN: ${{ github.token }}
@@ -91,8 +101,9 @@ jobs:
           set -euo pipefail
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then TAG="$GITHUB_REF_NAME"; else TAG="v${LEGACY_ARTIFACT_VERSION}"; fi
           JAR="dist/${OUTPUT_NAME}"
+          CHECKED_ADDONS="dist/${CHECKED_ADDONS_NAME}"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$JAR" --clobber
+            gh release upload "$TAG" "$JAR" "$CHECKED_ADDONS" --clobber
           else
-            gh release create "$TAG" "$JAR" --target "$GITHUB_SHA" --generate-notes --title "Slimefun Legacy ${LEGACY_ARTIFACT_VERSION}"
+            gh release create "$TAG" "$JAR" "$CHECKED_ADDONS" --target "$GITHUB_SHA" --generate-notes --title "Slimefun Legacy ${LEGACY_ARTIFACT_VERSION}"
           fi
