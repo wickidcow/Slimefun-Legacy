@@ -184,7 +184,7 @@ public class SlimefunConfigManager {
                     if (status) {
                         research.register();
                     } else {
-                        item.disable();
+                        research.disable();
                         continue;
                     }
                 }
