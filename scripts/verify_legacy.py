@@ -91,6 +91,7 @@ def main() -> int:
         "verify_upstream_health_gate.py",
         "verify_paper_purpur_compat.py",
         "verify_core_correctness.py",
+        "verify_github_release_updater.py",
         "verify_adventurers_curios.py",
         "verify_resonance_beacon_effect_recovery.py",
         "verify_resonance_beacon_functionality.py",
