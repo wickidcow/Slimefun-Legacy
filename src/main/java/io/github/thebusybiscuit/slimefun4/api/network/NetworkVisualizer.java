@@ -44,12 +44,7 @@ class NetworkVisualizer implements Runnable {
     }
 
     /** Creates a bounded network visualizer that only sends particles to one player. */
-    NetworkVisualizer(@Nonnull Network network, @Nonnull Color color, @Nonnull Player viewer, int maxParticles) {
-        this(network, color, viewer, maxParticles);
-    }
-
-    private NetworkVisualizer(
-            @Nonnull Network network, @Nonnull Color color, @Nullable Player viewer, int maxParticles) {
+    NetworkVisualizer(@Nonnull Network network, @Nonnull Color color, @Nullable Player viewer, int maxParticles) {
         Validate.notNull(network, "The network should not be null.");
         Validate.notNull(color, "The color cannot be null.");
         Validate.isTrue(maxParticles > 0, "The particle budget must be above zero.");
