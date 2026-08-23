@@ -569,7 +569,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
 
     @Override
     public String getWikiURL() {
-        return "https://slimefun-wiki.guizhanss.cn/{0}";
+        return "https://github.com/wickidcow/Slimefun-Legacy/wiki/{0}";
     }
 
     /**
@@ -1229,7 +1229,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     }
 
     /**
-     * This returns our {@link  SoundService} which handles the configuration of all sounds used in Slimefun
+     * This returns our {@link SoundService} which handles the configuration of all sounds used in Slimefun
      *
      * @return Our instance of {@link SoundService}
      */
