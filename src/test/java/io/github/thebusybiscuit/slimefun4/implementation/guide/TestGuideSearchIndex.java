@@ -19,7 +19,60 @@ class TestGuideSearchIndex {
                 "carbonado edged capacitor",
                 "carbonado_edged_capacitor",
                 "slimefun",
+                "energy_tech",
                 "stores energy",
+                () -> {
+                    groupCalls.incrementAndGet();
+                    return "energy and electricity";
+                },
+                () -> {
+                    recipeCalls.incrementAndGet();
+                    return "enhanced crafting table";
+                });
+
+        assertTrue(matched);
+        assertEquals(0, groupCalls.get());
+        assertEquals(0, recipeCalls.get());
+    }
+
+    @Test
+    void categoryFilterDoesNotResolveDynamicFields() {
+        AtomicInteger groupCalls = new AtomicInteger();
+        AtomicInteger recipeCalls = new AtomicInteger();
+
+        boolean matched = GuideSearchIndex.matchesSmart(
+                GuideSearchIndex.SearchQuery.parse("category:energy"),
+                "carbonado edged capacitor",
+                "carbonado_edged_capacitor",
+                "slimefun",
+                "energy_tech",
+                "stores energy",
+                () -> {
+                    groupCalls.incrementAndGet();
+                    return "energy and electricity";
+                },
+                () -> {
+                    recipeCalls.incrementAndGet();
+                    return "enhanced crafting table";
+                });
+
+        assertTrue(matched);
+        assertEquals(0, groupCalls.get());
+        assertEquals(0, recipeCalls.get());
+    }
+
+    @Test
+    void cachedCategoryMatchDoesNotResolveDynamicFields() {
+        AtomicInteger groupCalls = new AtomicInteger();
+        AtomicInteger recipeCalls = new AtomicInteger();
+
+        boolean matched = GuideSearchIndex.matchesSmart(
+                GuideSearchIndex.SearchQuery.parse("energy"),
+                "capacitor",
+                "basic_capacitor",
+                "slimefun",
+                "energy_tech",
+                "stores power",
                 () -> {
                     groupCalls.incrementAndGet();
                     return "energy and electricity";
@@ -44,6 +97,7 @@ class TestGuideSearchIndex {
                 "carbonado edged capacitor",
                 "carbonado_edged_capacitor",
                 "slimefun",
+                "energy_tech",
                 "stores energy",
                 () -> {
                     groupCalls.incrementAndGet();
@@ -69,6 +123,7 @@ class TestGuideSearchIndex {
                 "capacitor",
                 "basic_capacitor",
                 "slimefun",
+                "energy_tech",
                 "stores power",
                 () -> {
                     groupCalls.incrementAndGet();
@@ -94,6 +149,7 @@ class TestGuideSearchIndex {
                 "capacitor",
                 "basic_capacitor",
                 "slimefun",
+                "energy_tech",
                 "stores power",
                 () -> {
                     groupCalls.incrementAndGet();
@@ -119,6 +175,7 @@ class TestGuideSearchIndex {
                 "capacitor",
                 "basic_capacitor",
                 "slimefun",
+                "energy_tech",
                 "stores power",
                 () -> {
                     groupCalls.incrementAndGet();
