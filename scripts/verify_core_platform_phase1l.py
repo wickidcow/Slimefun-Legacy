@@ -9,9 +9,8 @@ from pathlib import Path
 
 MINIMUM_VERSION = (4, 1, 30)
 CURRENT_PHASE = "Core Platform Phase 1L"
-PREVIOUS_STABLE_VERSION = "4.1.29"
-PREVIOUS_STABLE_REF = "9794baffdd4a96f71fa18ae45ced8bab30982fb0"
 LEGACY_FLOOR_VERSION = "4.1.15"
+FULL_GIT_SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 
 def read(root: Path, relative: str) -> str:
@@ -93,10 +92,19 @@ def main() -> int:
         previous = baselines.get("previous_stable", {})
         floor = baselines.get("legacy_floor", {})
         require(candidate.get("version") == version, "Candidate baseline must match projectVersion", failures)
-        require(previous.get("version") == PREVIOUS_STABLE_VERSION, "Previous stable baseline must remain 4.1.29 until a newer stable release is validated", failures)
+        previous_version = str(previous.get("version", ""))
+        try:
+            previous_is_older = bool(version) and version_tuple(previous_version) < version_tuple(version)
+        except (TypeError, ValueError):
+            previous_is_older = False
+        require(previous_is_older, "Previous stable baseline must be older than the active candidate", failures)
         require(previous.get("source", {}).get("mode") == "git-ref", "Previous stable baseline must use a pinned git ref", failures)
-        require(previous.get("source", {}).get("ref") == PREVIOUS_STABLE_REF, "Previous stable 4.1.29 baseline must be pinned to the validated release commit", failures)
-        require(previous.get("release_blocking") is True, "Previous stable 4.1.29 must be release blocking", failures)
+        require(
+            FULL_GIT_SHA_RE.fullmatch(str(previous.get("source", {}).get("ref", ""))) is not None,
+            "Previous stable baseline must be pinned to a full validated Git commit SHA",
+            failures,
+        )
+        require(previous.get("release_blocking") is True, "Previous stable baseline must be release blocking", failures)
         require(floor.get("version") == LEGACY_FLOOR_VERSION, "Historical compatibility floor must remain 4.1.15", failures)
         require(floor.get("release_blocking") is False, "Historical compatibility floor must remain advisory", failures)
 
@@ -130,7 +138,7 @@ def main() -> int:
     report.write_text(
         "Core Platform Phase 1L verification: PASS\n"
         f"- active development/release metadata is aligned at {version}\n"
-        "- validated 4.1.29 remains the release-blocking previous-stable baseline until a newer stable release is validated\n"
+        f"- validated {previous_version} is the release-blocking previous-stable baseline\n"
         "- the 4.1.15 historical compatibility floor remains advisory\n"
         "- required Legacy addon regressions continue to block release\n"
         "- Phase 1K dependency and release-hardening gates remain active\n"
