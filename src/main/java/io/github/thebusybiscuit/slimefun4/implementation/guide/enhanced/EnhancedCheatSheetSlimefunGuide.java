@@ -10,7 +10,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 /** Admin variant of the native enhanced guide. */
-public final class EnhancedCheatSheetSlimefunGuide extends EnhancedSurvivalSlimefunGuide {
+public final class EnhancedCheatSheetSlimefunGuide extends IndexedEnhancedSurvivalSlimefunGuide {
 
     private final ItemStack guideItem;
 
