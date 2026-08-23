@@ -17,6 +17,8 @@ import org.bukkit.entity.Player;
  */
 class NetworkVisualizer implements Runnable {
 
+    private static final double PLAYER_VISUALIZER_RANGE_SQUARED = 96.0 * 96.0;
+
     /**
      * The {@link DustOptions} define the {@link Color} and size of our particles.
      */
@@ -61,7 +63,9 @@ class NetworkVisualizer implements Runnable {
     @Override
     public void run() {
         if (viewer != null) {
-            if (!viewer.isOnline() || !viewer.getWorld().equals(network.regulator.getWorld())) {
+            if (!viewer.isOnline()
+                    || !viewer.getWorld().equals(network.regulator.getWorld())
+                    || viewer.getLocation().distanceSquared(network.regulator) > PLAYER_VISUALIZER_RANGE_SQUARED) {
                 return;
             }
             spawnParticles(network.regulator);
