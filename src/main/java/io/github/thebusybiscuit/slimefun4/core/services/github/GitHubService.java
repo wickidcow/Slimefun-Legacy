@@ -35,6 +35,7 @@ public class GitHubService {
     private final Set<GitHubConnector> connectors;
     private final ConcurrentMap<String, Contributor> contributors;
     private final ConcurrentMap<UUID, String> notifiedReleaseByPlayer = new ConcurrentHashMap<>();
+    private final GitHubReleaseUpdateService releaseUpdateService;
 
     private final Config uuidCache = new Config("plugins/Slimefun/cache/github/uuids.yml");
     private final Config texturesCache = new Config("plugins/Slimefun/cache/github/skins.yml");
@@ -59,10 +60,15 @@ public class GitHubService {
         this.latestReleaseUrl = "https://github.com/" + repository + "/releases/latest";
         connectors = new HashSet<>();
         contributors = new ConcurrentHashMap<>();
+        releaseUpdateService = new GitHubReleaseUpdateService(this, repository);
     }
 
-    /** Starts the asynchronous GitHub refresh task. */
+    /** Starts the asynchronous GitHub refresh tasks. */
     public void start(@Nonnull Slimefun plugin) {
+        // Release checks are intentionally independent from contributor/issue refreshes so the
+        // server owner can see an update notice during boot without waiting for the larger task.
+        releaseUpdateService.start();
+
         loadConnectors(false);
         long period = TimeUnit.HOURS.toSeconds(1) * 20L;
         GitHubTask task = new GitHubTask(this);
@@ -132,7 +138,6 @@ public class GitHubService {
             this.stargazers = stars;
             this.lastUpdate = date;
         }));
-        connectors.add(new GitHubReleaseConnector(this, repository));
     }
 
     protected @Nonnull Set<GitHubConnector> getConnectors() {
@@ -199,7 +204,12 @@ public class GitHubService {
     void updateLatestRelease(@Nonnull String tag, @Nonnull String releaseUrl) {
         boolean changed = !tag.equals(latestReleaseTag);
         latestReleaseTag = tag;
-        latestReleaseUrl = "https://github.com/" + repository + "/releases/latest";
+
+        String expectedPrefix = "https://github.com/" + repository + "/releases/";
+        latestReleaseUrl = releaseUrl.startsWith(expectedPrefix)
+                ? releaseUrl
+                : "https://github.com/" + repository + "/releases/latest";
+
         if (!changed || !isUpdateAvailable()) {
             return;
         }
@@ -228,7 +238,7 @@ public class GitHubService {
         recipient.sendMessage(UPDATE_SEPARATOR);
         recipient.sendMessage("Installed: " + displayVersion(Slimefun.getVersion()));
         recipient.sendMessage("Latest:    " + displayVersion(latestTag));
-        recipient.sendMessage("A newer version of Slimefun Legacy is available.");
+        recipient.sendMessage("A newer published GitHub release of Slimefun Legacy is available.");
         recipient.sendMessage("Update to receive the latest fixes and improvements.");
         recipient.sendMessage("Download:");
         recipient.sendMessage(latestReleaseUrl);
@@ -236,10 +246,19 @@ public class GitHubService {
     }
 
     private static String displayVersion(String version) {
-        if (version != null && version.length() > 1 && (version.charAt(0) == 'v' || version.charAt(0) == 'V')) {
-            return version.substring(1);
+        int[] parsed = parseVersion(version);
+        if (parsed.length == 0) {
+            return version;
         }
-        return version;
+
+        StringBuilder display = new StringBuilder();
+        for (int i = 0; i < parsed.length; i++) {
+            if (i > 0) {
+                display.append('.');
+            }
+            display.append(parsed[i]);
+        }
+        return display.toString();
     }
 
     private static int compareVersions(String left, String right) {
@@ -266,29 +285,36 @@ public class GitHubService {
         }
 
         String normalized = value.trim();
-        if (normalized.startsWith("v") || normalized.startsWith("V")) {
-            normalized = normalized.substring(1);
+        int start = 0;
+        while (start < normalized.length() && !Character.isDigit(normalized.charAt(start))) {
+            start++;
         }
-        int suffix = normalized.indexOf('-');
-        if (suffix < 0) {
-            suffix = normalized.indexOf('+');
+        if (start >= normalized.length()) {
+            return new int[0];
         }
-        if (suffix >= 0) {
-            normalized = normalized.substring(0, suffix);
+
+        int end = start;
+        while (end < normalized.length()) {
+            char character = normalized.charAt(end);
+            if (!Character.isDigit(character) && character != '.') {
+                break;
+            }
+            end++;
+        }
+
+        normalized = normalized.substring(start, end);
+        if (normalized.isEmpty() || normalized.endsWith(".")) {
+            return new int[0];
         }
 
         String[] pieces = normalized.split("\\.");
         int[] result = new int[pieces.length];
         for (int i = 0; i < pieces.length; i++) {
-            int end = 0;
-            while (end < pieces[i].length() && Character.isDigit(pieces[i].charAt(end))) {
-                end++;
-            }
-            if (end == 0) {
+            if (pieces[i].isEmpty()) {
                 return new int[0];
             }
             try {
-                result[i] = Integer.parseInt(pieces[i].substring(0, end));
+                result[i] = Integer.parseInt(pieces[i]);
             } catch (NumberFormatException ignored) {
                 return new int[0];
             }
