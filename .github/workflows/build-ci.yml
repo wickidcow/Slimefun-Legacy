@@ -102,8 +102,12 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then TAG="$GITHUB_REF_NAME"; else TAG="v${LEGACY_ARTIFACT_VERSION}"; fi
           JAR="dist/${OUTPUT_NAME}"
           CHECKED_ADDONS="dist/${CHECKED_ADDONS_NAME}"
+          RELEASE_TITLE="Slimefun Legacy ${LEGACY_ARTIFACT_VERSION}"
+          if [[ "$LEGACY_ARTIFACT_VERSION" == "4.1.38" ]]; then
+            RELEASE_TITLE="Slimefun Legacy 4.1.38 — Test Notification & Wiki Update"
+          fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$JAR" "$CHECKED_ADDONS" --clobber
           else
-            gh release create "$TAG" "$JAR" "$CHECKED_ADDONS" --target "$GITHUB_SHA" --generate-notes --title "Slimefun Legacy ${LEGACY_ARTIFACT_VERSION}"
+            gh release create "$TAG" "$JAR" "$CHECKED_ADDONS" --target "$GITHUB_SHA" --generate-notes --title "$RELEASE_TITLE"
           fi
