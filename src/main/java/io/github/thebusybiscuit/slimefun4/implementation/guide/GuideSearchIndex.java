@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.implementation.guide;
 
-import io.github.bakedlibs.dough.items.ItemUtils;
 import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
@@ -240,7 +239,17 @@ public final class GuideSearchIndex {
 
     private static @Nonnull String normalizeRecipe(@Nonnull SlimefunItem item, @Nonnull Player player) {
         try {
-            return normalize(ItemUtils.getItemName(item.getRecipeType().getItem(player)));
+            ItemStack stack = item.getRecipeType().getItem(player);
+            if (stack == null) {
+                return "";
+            }
+
+            ItemMeta meta = stack.getItemMeta();
+            if (meta != null && meta.hasDisplayName()) {
+                return normalize(meta.getDisplayName());
+            }
+
+            return normalize(stack.getType().name().replace('_', ' '));
         } catch (RuntimeException | LinkageError ignored) {
             return "";
         }
