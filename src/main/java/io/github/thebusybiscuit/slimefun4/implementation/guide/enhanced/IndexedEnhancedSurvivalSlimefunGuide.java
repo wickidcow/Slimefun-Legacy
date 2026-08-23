@@ -192,9 +192,10 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
             meta.setLore(List.of(
                     "",
                     ChatColor.GRAY + "Search names, IDs, addons, categories,",
-                    ChatColor.GRAY + "recipe types and item lore.",
+                    ChatColor.GRAY + "groups, recipe types and item lore.",
                     "",
-                    ChatColor.WHITE + "Filters: " + ChatColor.GRAY + "id:, addon:, group:, recipe:"));
+                    ChatColor.WHITE + "Filters: " + ChatColor.GRAY + "id:, addon:, category:,",
+                    ChatColor.GRAY + "group:, recipe:"));
             item.setItemMeta(meta);
         }
         return item;
@@ -218,7 +219,7 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
     private void requestIndexedSearch(Player player, PlayerProfile profile) {
         player.closeInventory();
         player.sendMessage(ChatColor.GREEN + "Enter a search term. " + ChatColor.GRAY
-                + "Optional filters: id:, addon:, group:, recipe:");
+                + "Optional filters: id:, addon:, category:, group:, recipe:");
         io.github.bakedlibs.dough.chat.ChatInput.waitForPlayer(
                 Slimefun.instance(),
                 player,
@@ -271,8 +272,13 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
                 ? new ArrayList<>(meta.getLore())
                 : new ArrayList<>();
         lore.add("");
-        lore.add(ChatColor.DARK_GRAY + "Category: " + ChatColor.WHITE
+        lore.add(ChatColor.DARK_GRAY + "Group: " + ChatColor.WHITE
                 + item.getItemGroup().getDisplayName(player));
+        String categoryId = item.getItemGroup().getCategoryId();
+        if (categoryId != null && !categoryId.isBlank()) {
+            lore.add(ChatColor.DARK_GRAY + "Guide Category: " + ChatColor.WHITE
+                    + categoryId.replace('_', ' '));
+        }
         if (LegacyGuideSettings.get().shouldDisplayAddon()) {
             lore.add(ChatColor.DARK_GRAY + "Addon: " + ChatColor.WHITE + GuideSearchIndex.getAddonName(item));
         }

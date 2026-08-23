@@ -22,7 +22,7 @@ import org.bukkit.inventory.meta.ItemMeta;
  * Shared cached search index for the classic and enhanced Slimefun guides.
  *
  * <p>The index stores stable searchable metadata once and keeps both registry order and a name-sorted view. Player,
- * world and category visibility checks remain on the server thread at query time. Player-sensitive category and recipe
+ * world and group visibility checks remain on the server thread at query time. Player-sensitive group and recipe
  * labels are resolved lazily only when a query actually needs them.
  */
 public final class GuideSearchIndex {
@@ -133,15 +133,17 @@ public final class GuideSearchIndex {
             @Nonnull String name,
             @Nonnull String id,
             @Nonnull String addon,
+            @Nonnull String category,
             @Nonnull String lore,
             @Nonnull Supplier<String> groupSupplier,
             @Nonnull Supplier<String> recipeSupplier) {
         return switch (query.filter()) {
             case ID -> id.contains(query.value());
             case ADDON -> addon.contains(query.value());
+            case CATEGORY -> category.contains(query.value());
             case GROUP -> groupSupplier.get().contains(query.value());
             case RECIPE -> recipeSupplier.get().contains(query.value());
-            case ANY -> matchesAny(query.tokens(), name, id, addon, lore, groupSupplier, recipeSupplier);
+            case ANY -> matchesAny(query.tokens(), name, id, addon, category, lore, groupSupplier, recipeSupplier);
         };
     }
 
@@ -150,6 +152,7 @@ public final class GuideSearchIndex {
             String name,
             String id,
             String addon,
+            String category,
             String lore,
             Supplier<String> groupSupplier,
             Supplier<String> recipeSupplier) {
@@ -160,7 +163,12 @@ public final class GuideSearchIndex {
         String group = null;
         String recipe = null;
         for (String token : tokens) {
-            if (token.isBlank() || name.contains(token) || id.contains(token) || addon.contains(token) || lore.contains(token)) {
+            if (token.isBlank()
+                    || name.contains(token)
+                    || id.contains(token)
+                    || addon.contains(token)
+                    || category.contains(token)
+                    || lore.contains(token)) {
                 continue;
             }
 
@@ -181,7 +189,7 @@ public final class GuideSearchIndex {
         return true;
     }
 
-    private record Entry(SlimefunItem item, String name, String id, String addon, String lore) {
+    private record Entry(SlimefunItem item, String name, String id, String addon, String category, String lore) {
 
         private static @Nonnull Entry create(@Nonnull SlimefunItem item) {
             return new Entry(
@@ -189,6 +197,7 @@ public final class GuideSearchIndex {
                     safeNormalize(item::getItemName),
                     safeNormalize(item::getId),
                     normalize(getAddonName(item)),
+                    safeCategory(item),
                     safeLore(item));
         }
 
@@ -202,6 +211,7 @@ public final class GuideSearchIndex {
                     name,
                     id,
                     addon,
+                    category,
                     lore,
                     () -> normalizeGroup(item, player),
                     () -> normalizeRecipe(item, player));
@@ -211,6 +221,14 @@ public final class GuideSearchIndex {
     private static @Nonnull String safeNormalize(@Nonnull Supplier<String> supplier) {
         try {
             return normalize(supplier.get());
+        } catch (RuntimeException | LinkageError ignored) {
+            return "";
+        }
+    }
+
+    private static @Nonnull String safeCategory(@Nonnull SlimefunItem item) {
+        try {
+            return normalize(item.getItemGroup().getCategoryId());
         } catch (RuntimeException | LinkageError ignored) {
             return "";
         }
@@ -259,6 +277,7 @@ public final class GuideSearchIndex {
         ANY,
         ID,
         ADDON,
+        CATEGORY,
         GROUP,
         RECIPE
     }
@@ -272,6 +291,9 @@ public final class GuideSearchIndex {
             }
             if (normalized.startsWith("addon:")) {
                 return filtered(Filter.ADDON, normalized.substring(6));
+            }
+            if (normalized.startsWith("category:")) {
+                return filtered(Filter.CATEGORY, normalized.substring(9));
             }
             if (normalized.startsWith("group:")) {
                 return filtered(Filter.GROUP, normalized.substring(6));
