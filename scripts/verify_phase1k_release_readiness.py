@@ -7,8 +7,8 @@ import re
 import sys
 from pathlib import Path
 
-RELEASED_VERSION = "4.1.29"
-RELEASED_REF = "9794baffdd4a96f71fa18ae45ced8bab30982fb0"
+HISTORICAL_RELEASED_VERSION = "4.1.29"
+FULL_GIT_SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 
 def read(root: Path, relative: str) -> str:
@@ -88,11 +88,20 @@ def main() -> int:
         previous = baselines.get("previous_stable", {})
         floor = baselines.get("legacy_floor", {})
         require(candidate.get("version") == version, "Baseline candidate must match projectVersion", failures)
-        if version == RELEASED_VERSION:
+        if version == HISTORICAL_RELEASED_VERSION:
             require(previous.get("version") == "4.1.21", "4.1.29 must compare against 4.1.21", failures)
-        else:
-            require(previous.get("version") == RELEASED_VERSION, "Post-4.1.29 development must use 4.1.29 as previous stable", failures)
-            require(previous.get("source", {}).get("ref") == RELEASED_REF, "4.1.29 stable baseline must remain pinned to its validated release commit", failures)
+        elif version:
+            previous_version = previous.get("version")
+            try:
+                previous_is_older = version_tuple(str(previous_version)) < version_tuple(version)
+            except (TypeError, ValueError):
+                previous_is_older = False
+            require(previous_is_older, "Later releases must compare against an older previous-stable version", failures)
+            require(
+                FULL_GIT_SHA_RE.fullmatch(str(previous.get("source", {}).get("ref", ""))) is not None,
+                "Later releases must pin previous stable to a full Git commit SHA",
+                failures,
+            )
         require(previous.get("release_blocking") is True, "Previous stable baseline must remain release blocking", failures)
         require(floor.get("version") == "4.1.15", "Historical compatibility floor must remain 4.1.15", failures)
         require(floor.get("release_blocking") is False, "Historical compatibility floor must remain advisory", failures)
@@ -139,9 +148,9 @@ def main() -> int:
     gameplay_changed = support.get("compatibility_policy", {}).get("gameplay_behavior_changed")
     report.write_text(
         "Retained Phase 1K release hardening: PASS\n"
-        "- the 4.1.29 dependency and release gates remain enforced\n"
+        "- the historical 4.1.29 dependency and release gates remain enforced\n"
         "- Java 25 runtime/toolchain and Java 21 bytecode contract remains intact\n"
-        "- post-release development rolls the release-blocking baseline to validated 4.1.29\n"
+        "- later development uses a pinned, rolling previous-stable release baseline\n"
         "- compatibility matrices remain aligned with the active candidate\n"
         "- Cargo/Energy compatibility boundaries, database, storage-schema and saved-world formats remain protected\n"
         f"- gameplay behavior changed is explicitly declared as {str(gameplay_changed).lower()} for the active release\n",
