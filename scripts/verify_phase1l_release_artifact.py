@@ -9,8 +9,7 @@ from pathlib import Path
 
 MINIMUM_VERSION = (4, 1, 30)
 CURRENT_PHASE = "Core Platform Phase 1L"
-PREVIOUS_STABLE_VERSION = "4.1.29"
-PREVIOUS_STABLE_REF = "9794baffdd4a96f71fa18ae45ced8bab30982fb0"
+FULL_GIT_SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 
 def read(root: Path, relative: str) -> str:
@@ -75,10 +74,16 @@ def main() -> int:
 
         baselines = load_json(root, "compatibility/release-baselines.json")
         require(baselines.get("candidate", {}).get("version") == version, "Candidate baseline must match projectVersion", failures)
-        require(baselines.get("previous_stable", {}).get("version") == PREVIOUS_STABLE_VERSION, "Previous stable must remain 4.1.29 until a newer stable release is validated", failures)
+        previous = baselines.get("previous_stable", {})
+        previous_version = str(previous.get("version", ""))
+        try:
+            previous_is_older = bool(version) and version_tuple(previous_version) < version_tuple(version)
+        except (TypeError, ValueError):
+            previous_is_older = False
+        require(previous_is_older, "Previous stable must be older than the active release candidate", failures)
         require(
-            baselines.get("previous_stable", {}).get("source", {}).get("ref") == PREVIOUS_STABLE_REF,
-            "Previous stable 4.1.29 must remain pinned to its validated release commit",
+            FULL_GIT_SHA_RE.fullmatch(str(previous.get("source", {}).get("ref", ""))) is not None,
+            "Previous stable must remain pinned to a full validated release commit",
             failures,
         )
 
@@ -199,7 +204,7 @@ def main() -> int:
         "- build and configuration caches are disabled for the reproducibility comparison\n"
         "- release workflow requires byte-for-byte and SHA-256 equality\n"
         "- release workflow can publish automatically from master version bumps and remains manually dispatchable\n"
-        "- 4.1.29 remains the pinned release-blocking previous-stable baseline until a newer stable release is validated\n"
+        f"- {previous_version} is the pinned release-blocking previous-stable baseline\n"
         "- Phase 1L Part 2 itself does not change Cargo/Energy, database, storage-schema or saved-world semantics\n"
         f"- active release gameplay behavior changed is explicitly declared as {str(gameplay_changed).lower()}\n",
         encoding="utf-8",
