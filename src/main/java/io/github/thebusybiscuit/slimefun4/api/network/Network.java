@@ -17,6 +17,7 @@ import org.apache.commons.lang.Validate;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Particle;
+import org.bukkit.entity.Player;
 
 /**
  * An abstract Network class to manage networks in a stateful way
@@ -251,6 +252,31 @@ public abstract class Network {
     public void display() {
         if (manager.isVisualizerEnabled()) {
             Slimefun.runSyncAt(regulator, new NetworkVisualizer(this, Color.BLUE));
+        }
+    }
+
+    /**
+     * Displays this network to one player with a custom color and bounded particle budget.
+     * The player-scoped path does not broadcast particles to other players.
+     *
+     * @param player the player who should see the network
+     * @param color the dust color
+     * @param maxParticles the maximum number of particles in this pass
+     */
+    public void display(@Nonnull Player player, @Nonnull Color color, int maxParticles) {
+        Validate.notNull(player, "The player cannot be null.");
+        Validate.notNull(color, "The color cannot be null.");
+        Validate.isTrue(maxParticles > 0, "The particle budget must be above zero.");
+
+        if (!manager.isVisualizerEnabled()) {
+            return;
+        }
+
+        Runnable visualizer = new NetworkVisualizer(this, color, player, maxParticles);
+        if (Slimefun.getSchedulerService().isOwnedByCurrentRegion(player)) {
+            visualizer.run();
+        } else {
+            Slimefun.getSchedulerService().runFor(player, visualizer);
         }
     }
 
