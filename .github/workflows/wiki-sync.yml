@@ -76,15 +76,23 @@ jobs:
 
           rsync -a docs/wiki/ "${BUILD_DIR}/"
 
-          # Keep inherited Slimefun4 wiki links inside the Legacy wiki and make legacy image
-          # references self-contained in the published wiki repository.
+          # Keep every internal page link inside GitHub's rendered Wiki experience.
+          # GitHub's Wiki URLs do not use the source .md suffix. Using full Wiki URLs
+          # also guarantees that sidebar/footer/navigation remain visible after a click.
           python3 - "${BUILD_DIR}" "${TARGET_REPOSITORY}" <<'PY'
           from pathlib import Path
+          import re
           import sys
+          from urllib.parse import unquote
 
           root = Path(sys.argv[1])
           repository = sys.argv[2]
           target_wiki = f"https://github.com/{repository}/wiki/"
+
+          pages = {
+              page.stem.casefold(): page.stem
+              for page in root.glob('*.md')
+          }
 
           replacements = {
               "https://github.com/Slimefun/Slimefun4/wiki/": target_wiki,
@@ -92,11 +100,82 @@ jobs:
               "https://raw.githubusercontent.com/Slimefun/Wiki/master/images/": "images/",
           }
 
+          markdown_link = re.compile(
+              r'(?<!!)\[([^\]]+)\]\(([^)\s]+)(?:\s+["\'][^"\']*["\'])?\)'
+          )
+          html_href = re.compile(r'(<a\s+[^>]*href=["\'])([^"\']+)(["\'])', re.IGNORECASE)
+
+          def wiki_target(target: str):
+              if target.startswith(("#", "mailto:", "tel:")):
+                  return None
+
+              # Already points to this Wiki: remove an accidental .md suffix.
+              if target.startswith(target_wiki):
+                  suffix = target[len(target_wiki):]
+                  path, sep, fragment = suffix.partition('#')
+                  if path.casefold().endswith('.md'):
+                      path = path[:-3]
+                  return target_wiki + path + (("#" + fragment) if sep else "")
+
+              # External links stay external.
+              if target.startswith(("http://", "https://", "//")):
+                  return None
+
+              path, sep, fragment = target.partition('#')
+              path = path.removeprefix('./')
+              decoded = unquote(path)
+
+              if decoded.casefold().endswith('.md'):
+                  decoded = decoded[:-3]
+
+              # Only rewrite a relative target when it is an actual published Wiki page.
+              key = decoded.casefold()
+              if key in pages:
+                  rendered = target_wiki + pages[key]
+                  if sep:
+                      rendered += "#" + fragment
+                  return rendered
+
+              return None
+
+          def replace_markdown(match):
+              label, target = match.group(1), match.group(2)
+              rendered = wiki_target(target)
+              if rendered is None:
+                  return match.group(0)
+              return f"[{label}]({rendered})"
+
+          def replace_html(match):
+              rendered = wiki_target(match.group(2))
+              if rendered is None:
+                  return match.group(0)
+              return f"{match.group(1)}{rendered}{match.group(3)}"
+
           for page in root.rglob('*.md'):
               text = page.read_text(encoding='utf-8')
               for old, new in replacements.items():
                   text = text.replace(old, new)
+              text = markdown_link.sub(replace_markdown, text)
+              text = html_href.sub(replace_html, text)
               page.write_text(text, encoding='utf-8')
+
+          # Guard against the regression that caused links to open source-like .md pages.
+          offenders = []
+          for page in root.glob('*.md'):
+              text = page.read_text(encoding='utf-8')
+              for match in markdown_link.finditer(text):
+                  target = match.group(2)
+                  if target.startswith(("http://", "https://", "#", "mailto:", "tel:")):
+                      continue
+                  path = unquote(target.partition('#')[0].removeprefix('./'))
+                  if path.casefold().endswith('.md') and path[:-3].casefold() in pages:
+                      offenders.append(f"{page.name}: {target}")
+
+          if offenders:
+              raise SystemExit(
+                  "Local .md Wiki links remain and would bypass rendered navigation:\n"
+                  + "\n".join(offenders[:50])
+              )
           PY
 
           test -f "${BUILD_DIR}/Home.md"
