@@ -31,6 +31,8 @@ import org.bukkit.entity.Player;
 @SlimefunAPI
 public abstract class Network {
 
+    private static final int DEFERRED_CHUNK_RECHECK_INTERVAL = 10;
+
     /**
      * Our {@link NetworkManager} instance.
      */
@@ -42,10 +44,13 @@ public abstract class Network {
     protected Location regulator;
 
     private final Queue<Location> nodeQueue = new ConcurrentLinkedQueue<>();
+    private final Set<Location> deferredLocations = ConcurrentHashMap.newKeySet();
     protected final Set<Location> connectedLocations = ConcurrentHashMap.newKeySet();
     protected final Set<Location> regulatorNodes = ConcurrentHashMap.newKeySet();
     protected final Set<Location> connectorNodes = ConcurrentHashMap.newKeySet();
     protected final Set<Location> terminusNodes = ConcurrentHashMap.newKeySet();
+
+    private int deferredChunkRecheckTicks;
 
     /**
      * This constructs a new {@link Network} at the given {@link Location}.
@@ -136,6 +141,7 @@ public abstract class Network {
         if (regulator.equals(l)) {
             manager.unregisterNetwork(this);
         } else {
+            deferredLocations.remove(l);
             nodeQueue.add(l.clone());
         }
     }
@@ -186,6 +192,15 @@ public abstract class Network {
                 continue;
             }
 
+            if (!l.getWorld().isChunkLoaded(l.getBlockX() >> 4, l.getBlockZ() >> 4)) {
+                // Do not lose a valid network frontier just because the neighboring chunk is not loaded yet.
+                // The deferred location will be retried after its chunk becomes available.
+                deferredLocations.add(l.clone());
+                steps++;
+                continue;
+            }
+
+            deferredLocations.remove(l);
             NetworkComponent classification = classifyLocation(l);
 
             if (classification != currentAssignment) {
@@ -215,6 +230,23 @@ public abstract class Network {
 
             if (steps >= maxSteps) {
                 break;
+            }
+        }
+    }
+
+    private void wakeLoadedDeferredLocations() {
+        if (deferredLocations.isEmpty()) {
+            return;
+        }
+
+        for (Location l : deferredLocations) {
+            if (!isLocationAccessible(l)) {
+                continue;
+            }
+
+            if (l.getWorld().isChunkLoaded(l.getBlockX() >> 4, l.getBlockZ() >> 4)
+                    && deferredLocations.remove(l)) {
+                nodeQueue.offer(l.clone());
             }
         }
     }
@@ -281,7 +313,7 @@ public abstract class Network {
     }
 
     /**
-     * This returns the {@link Location} of the regulator block for this {@link Network}
+     * This returns the {@link Location} of our regulator block for this {@link Network}
      *
      * @return The {@link Location} of our regulator
      */
@@ -295,6 +327,12 @@ public abstract class Network {
      * for any running operations.
      */
     public void tick() {
+        deferredChunkRecheckTicks++;
+        if (deferredChunkRecheckTicks >= DEFERRED_CHUNK_RECHECK_INTERVAL) {
+            deferredChunkRecheckTicks = 0;
+            wakeLoadedDeferredLocations();
+        }
+
         discoverStep();
     }
 }
