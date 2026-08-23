@@ -3,6 +3,7 @@ name: Build English Slimefun
 on:
   push:
     tags: ['v*']
+    branches: ['master']
   workflow_dispatch:
 
 permissions:
@@ -94,5 +95,5 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$JAR" --clobber
           else
-            gh release create "$TAG" "$JAR" --target "$GITHUB_SHA" --generate-notes --title "Slimefun Legacy ${LEGACY_ARTIFACT_VERSION}"
+            gh release create "$TAG" "$JAR" --target "$GITHUB_SHA" --generate-notes --title "Slimefun Legacy ${LEGACY_ARTIFACT_VERSION} — Test Notification & Wiki Update"
           fi
