@@ -313,7 +313,7 @@ public abstract class Network {
     }
 
     /**
-     * This returns the {@link Location} of our regulator block for this {@link Network}
+     * This returns the {@link Location} of the regulator block for this {@link Network}
      *
      * @return The {@link Location} of our regulator
      */
