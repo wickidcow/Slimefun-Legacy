@@ -20,7 +20,7 @@ Slimefun Legacy turns a normal Minecraft server into a modpack-like experience w
 [Report a Bug](https://github.com/wickidcow/Slimefun-Legacy/issues) ·
 [Release History](EVERYTHING_THAT_CHANGED.md)
 
-Current development release: **4.1.36 — GitHub Release Update Notifications**. ·
+Current development release: **4.1.37 — Guide Search Performance**. ·
 [Contributing](CONTRIBUTING.md)
 
 </div>
@@ -200,7 +200,7 @@ Slimefun Legacy currently includes:
 - Global, asynchronous, location-owned, and entity-owned scheduler paths
 - Modern `BlockTicker` and long-capacity energy API overloads
 - Preserved legacy method descriptors for addon compatibility
-- Native Enhanced Guide with smart search, bookmarks, safe recipe preparation, and universal machine recipe browsing
+- Native Enhanced Guide with indexed smart search, bookmarks, safe recipe preparation, and universal machine recipe browsing
 - Guide runtime isolation with slow-menu and addon ownership diagnostics
 - Addon-facing machine recipe provider API for structured inputs, alternatives, outputs, timing, and energy metadata
 - Safe machine input-fill adapter API for standard and custom addon inventories, including Supreme `GenericMachine` and FastMachines compatibility
@@ -220,7 +220,7 @@ Historical compatibility, core-platform, release, validation, and Enhanced Guide
 | Sponge | ❌ Unsupported |
 | Hybrid servers such as Arclight, Mohist, or Cardboard | ❌ Unsupported and blocked |
 | Fabric / Forge / NeoForge | ❌ Unsupported — this is a server plugin, not a mod |
-Slimefun Legacy 4.1.36 is tested primarily against **Paper 26.2 / Minecraft 26.2 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
+Slimefun Legacy 4.1.37 is tested primarily against **Paper 26.2 / Minecraft 26.2 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
 The machine-readable support contract remains under `compatibility/`. Historical Compatibility Foundation and Paper/Purpur maintenance notes are consolidated in [`EVERYTHING_THAT_CHANGED.md`](EVERYTHING_THAT_CHANGED.md).
 Folia Phase 1 routes machine ticks and entity/location callbacks through their owning schedulers while preserving Paper behavior. Cargo and energy networks intentionally operate only on nodes owned by the regulator's current Folia region; transactional cross-region transfers are not enabled yet. Folia therefore remains experimental.
 **Every installed addon must also be Folia-safe.** The historical Folia Phase 1 safety boundary and staging checklist are preserved in [`EVERYTHING_THAT_CHANGED.md`](EVERYTHING_THAT_CHANGED.md).
