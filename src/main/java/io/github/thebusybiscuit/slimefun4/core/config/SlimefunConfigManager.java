@@ -119,7 +119,16 @@ public class SlimefunConfigManager {
             useMoneyUnlock = pluginConfig.getBoolean("researches.use-money-unlock");
             showVanillaRecipes = pluginConfig.getBoolean("guide.show-vanilla-recipes");
             showHiddenItemGroupsInSearch = pluginConfig.getBoolean("guide.show-hidden-item-groups-in-search");
-            autoUpdate = pluginConfig.getBoolean("options.auto-update");
+
+            // Slimefun Legacy never self-replaces from community/upstream build services.
+            // Update discovery is handled exclusively by the GitHub Release notification service.
+            if (pluginConfig.getBoolean("options.auto-update")) {
+                plugin.getLogger()
+                        .warning(
+                                "options.auto-update is ignored by Slimefun Legacy. Published GitHub Releases are checked for notifications only.");
+            }
+            autoUpdate = false;
+
             bypassEnvironmentCheck = pluginConfig.getBoolean("options.bypass-environment-check");
             bypassItemLengthCheck = pluginConfig.getBoolean("options.bypass-item-length-check");
 
@@ -175,7 +184,8 @@ public class SlimefunConfigManager {
                     if (status) {
                         research.register();
                     } else {
-                        research.disable();
+                        item.disable();
+                        continue;
                     }
                 }
             } catch (Exception x) {
