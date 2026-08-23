@@ -146,6 +146,7 @@ public class EnergyNet extends Network implements HologramOwner {
         AtomicLong timestamp = new AtomicLong(Slimefun.getProfiler().newEntry());
         try {
             if (!regulator.equals(b.getLocation())) {
+                VanillaPowerStateBridge.sync(b.getLocation(), false);
                 updateHologram(b, "&4Another regulator detected nearby", blockData::isPendingRemove);
 
                 return;
@@ -154,6 +155,7 @@ public class EnergyNet extends Network implements HologramOwner {
             super.tick();
 
             if (connectorNodes.isEmpty() && terminusNodes.isEmpty()) {
+                syncNetworkTransportState(false);
                 updateHologram(b, "&4No energy network found", blockData::isPendingRemove);
             } else {
                 long generatorsSupply = tickAllGenerators(timestamp::getAndAdd);
@@ -170,6 +172,7 @@ public class EnergyNet extends Network implements HologramOwner {
 
                     var data = StorageCacheUtils.getDataContainer(loc);
                     if (data == null || data.isPendingRemove()) {
+                        VanillaPowerStateBridge.sync(loc, false);
                         consumers.remove(loc, entry.getValue());
                         continue;
                     }
@@ -177,6 +180,7 @@ public class EnergyNet extends Network implements HologramOwner {
                     EnergyNetComponent component = resolveLiveComponent(
                             loc, entry.getValue(), data.getSfId(), EnergyNetComponentType.CONSUMER, consumers);
                     if (component == null) {
+                        VanillaPowerStateBridge.sync(loc, false);
                         continue;
                     }
 
@@ -186,11 +190,13 @@ public class EnergyNet extends Network implements HologramOwner {
                     }
 
                     if (!component.isEnergyNetActive(loc, data)) {
+                        VanillaPowerStateBridge.sync(loc, false);
                         continue;
                     }
 
                     long capacity = getSafeCapacity(component, loc);
                     long charge = getSafeCharge(component, loc, data, capacity);
+                    long resultingCharge = charge;
 
                     if (charge < capacity) {
                         long availableSpace = capacity - charge;
@@ -198,18 +204,23 @@ public class EnergyNet extends Network implements HologramOwner {
 
                         if (remainingEnergy > 0) {
                             if (remainingEnergy > availableSpace) {
-                                setSafeCharge(component, loc, data, capacity);
+                                resultingCharge = capacity;
+                                setSafeCharge(component, loc, data, resultingCharge);
                                 remainingEnergy -= availableSpace;
                             } else {
-                                long curCharge = NumberUtils.flowSafeAddition(charge, remainingEnergy);
-                                setSafeCharge(component, loc, data, Math.min(curCharge, capacity));
+                                resultingCharge = Math.min(
+                                        NumberUtils.flowSafeAddition(charge, remainingEnergy), capacity);
+                                setSafeCharge(component, loc, data, resultingCharge);
                                 remainingEnergy = 0;
                             }
                         }
                     }
+
+                    VanillaPowerStateBridge.sync(loc, resultingCharge > 0);
                 }
 
                 storeRemainingEnergy(remainingEnergy);
+                syncNetworkTransportState(supply > 0 && demand > 0);
                 updateHologram(blockData, supply, demand);
             }
         } finally {
@@ -230,6 +241,7 @@ public class EnergyNet extends Network implements HologramOwner {
 
             var data = StorageCacheUtils.getDataContainer(loc);
             if (data == null || data.isPendingRemove()) {
+                VanillaPowerStateBridge.sync(loc, false);
                 capacitors.remove(loc, entry.getValue());
                 continue;
             }
@@ -237,6 +249,7 @@ public class EnergyNet extends Network implements HologramOwner {
             EnergyNetComponent component = resolveLiveComponent(
                     loc, entry.getValue(), data.getSfId(), EnergyNetComponentType.CAPACITOR, capacitors);
             if (component == null) {
+                VanillaPowerStateBridge.sync(loc, false);
                 continue;
             }
 
@@ -248,6 +261,7 @@ public class EnergyNet extends Network implements HologramOwner {
             long capacity = getSafeCapacity(component, loc);
             long stored = Math.min(remainingEnergy, capacity);
             setSafeCharge(component, loc, data, stored);
+            VanillaPowerStateBridge.sync(loc, stored > 0);
             remainingEnergy -= stored;
         }
 
@@ -259,12 +273,14 @@ public class EnergyNet extends Network implements HologramOwner {
 
             var data = StorageCacheUtils.getDataContainer(loc);
             if (data == null || data.isPendingRemove()) {
+                VanillaPowerStateBridge.sync(loc, false);
                 generators.remove(loc, entry.getValue());
                 continue;
             }
 
             EnergyNetProvider component = resolveLiveGenerator(loc, entry.getValue(), data.getSfId());
             if (component == null) {
+                VanillaPowerStateBridge.sync(loc, false);
                 continue;
             }
 
@@ -297,12 +313,14 @@ public class EnergyNet extends Network implements HologramOwner {
             try {
                 var data = StorageCacheUtils.getDataContainer(loc);
                 if (data == null || data.isPendingRemove()) {
+                    VanillaPowerStateBridge.sync(loc, false);
                     generators.remove(loc, entry.getValue());
                     continue;
                 }
 
                 provider = resolveLiveGenerator(loc, provider, data.getSfId());
                 if (provider == null) {
+                    VanillaPowerStateBridge.sync(loc, false);
                     continue;
                 }
                 item = (SlimefunItem) provider;
@@ -321,6 +339,7 @@ public class EnergyNet extends Network implements HologramOwner {
                 }
 
                 if (provider.willExplode(loc, data)) {
+                    VanillaPowerStateBridge.sync(loc, false);
                     explodedBlocks.add(loc);
                     Slimefun.getDatabaseManager().getBlockDataController().removeBlock(loc);
 
@@ -329,9 +348,11 @@ public class EnergyNet extends Network implements HologramOwner {
                         loc.getWorld().createExplosion(loc, 0F, false);
                     });
                 } else {
+                    VanillaPowerStateBridge.sync(loc, energy > 0);
                     supply = NumberUtils.flowSafeAddition(supply, energy);
                 }
             } catch (Exception | LinkageError throwable) {
+                VanillaPowerStateBridge.sync(loc, false);
                 explodedBlocks.add(loc);
                 new ErrorReport<>(throwable, loc, item);
             }
@@ -359,6 +380,7 @@ public class EnergyNet extends Network implements HologramOwner {
 
             var data = StorageCacheUtils.getDataContainer(loc);
             if (data == null || data.isPendingRemove()) {
+                VanillaPowerStateBridge.sync(loc, false);
                 capacitors.remove(loc, entry.getValue());
                 continue;
             }
@@ -366,6 +388,7 @@ public class EnergyNet extends Network implements HologramOwner {
             EnergyNetComponent component = resolveLiveComponent(
                     loc, entry.getValue(), data.getSfId(), EnergyNetComponentType.CAPACITOR, capacitors);
             if (component == null) {
+                VanillaPowerStateBridge.sync(loc, false);
                 continue;
             }
 
@@ -376,10 +399,23 @@ public class EnergyNet extends Network implements HologramOwner {
 
             long capacity = getSafeCapacity(component, loc);
             long charge = getSafeCharge(component, loc, data, capacity);
+            VanillaPowerStateBridge.sync(loc, charge > 0);
             supply = NumberUtils.flowSafeAddition(supply, charge);
         }
 
         return supply;
+    }
+
+    private void syncNetworkTransportState(boolean powered) {
+        if (isEnergyLocationAccessible(regulator)) {
+            VanillaPowerStateBridge.sync(regulator, powered);
+        }
+
+        for (Location loc : connectorNodes) {
+            if (isEnergyLocationAccessible(loc)) {
+                VanillaPowerStateBridge.sync(loc, powered);
+            }
+        }
     }
 
     private boolean isEnergyLocationAccessible(@Nonnull Location location) {
