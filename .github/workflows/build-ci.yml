@@ -3,6 +3,7 @@ name: Build English Slimefun
 on:
   push:
     tags: ['v*']
+    branches: ['master']
   workflow_dispatch:
 
 permissions:
