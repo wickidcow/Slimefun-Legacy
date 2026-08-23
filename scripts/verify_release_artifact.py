@@ -60,6 +60,10 @@ def project_version(root: Path) -> str:
     return match.group(1) if match else ""
 
 
+def version_tuple(version: str) -> tuple[int, int, int]:
+    return tuple(map(int, version.split(".")))
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -235,10 +239,21 @@ def main() -> int:
         failures.append("Support contract phase is not Core Platform Phase 1L")
     if baselines.get("candidate", {}).get("version") != version:
         failures.append("Release baseline candidate does not match projectVersion")
-    if baselines.get("previous_stable", {}).get("version") != "4.1.29":
-        failures.append("4.1.30 release candidate must compare against previous stable 4.1.29")
-    if baselines.get("previous_stable", {}).get("source", {}).get("ref") != "9794baffdd4a96f71fa18ae45ced8bab30982fb0":
-        failures.append("Previous stable 4.1.29 baseline is not pinned to the validated release commit")
+
+    previous = baselines.get("previous_stable", {})
+    previous_version = str(previous.get("version", ""))
+    try:
+        previous_is_older = bool(version) and version_tuple(previous_version) < version_tuple(version)
+    except (TypeError, ValueError):
+        previous_is_older = False
+    if not previous_is_older:
+        failures.append("Previous stable release baseline must be older than the active release candidate")
+    if previous.get("source", {}).get("mode") != "git-ref":
+        failures.append("Previous stable release baseline must use a pinned git ref")
+    if not FULL_SHA.fullmatch(str(previous.get("source", {}).get("ref", ""))):
+        failures.append("Previous stable release baseline must be pinned to a full validated Git commit SHA")
+    if previous.get("release_blocking") is not True:
+        failures.append("Previous stable release baseline must remain release blocking")
 
     policy = support.get("compatibility_policy", {})
     for key in (
@@ -269,8 +284,8 @@ def main() -> int:
         "java_bytecode_target": expected_java,
         "owned_class_count": class_count,
         "max_owned_class_major": max_class_major,
-        "previous_stable": baselines.get("previous_stable", {}).get("version"),
-        "previous_stable_ref": baselines.get("previous_stable", {}).get("source", {}).get("ref"),
+        "previous_stable": previous_version,
+        "previous_stable_ref": previous.get("source", {}).get("ref"),
         "relocated_library_class_count": relocated_library_entries,
         "failures": failures,
     }
