@@ -16,22 +16,99 @@ concurrency:
   group: slimefun-legacy-wiki
   cancel-in-progress: true
 
+env:
+  # Pinned so the Legacy wiki does not silently drift when upstream documentation changes.
+  UPSTREAM_WIKI_REPOSITORY: Slimefun/Wiki
+  UPSTREAM_WIKI_REF: 43bf127a5033bbb74fdcb5e51e1eb6f31dd7131c
+
 jobs:
   publish:
-    name: Sync docs/wiki to GitHub Wiki
+    name: Build and sync GitHub Wiki
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out repository
+      - name: Check out Slimefun Legacy
         uses: actions/checkout@v4
 
-      - name: Validate wiki source
+      - name: Validate Legacy wiki overrides
         shell: bash
         run: |
           set -euo pipefail
           test -f docs/wiki/Home.md
           test -f docs/wiki/_Sidebar.md
           test -f docs/wiki/_Footer.md
+          test -f docs/wiki/Upstream-Wiki-Attribution.md
+
+      - name: Build complete Legacy wiki
+        shell: bash
+        env:
+          TARGET_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          UPSTREAM_DIR="${RUNNER_TEMP}/slimefun-upstream-wiki"
+          BUILD_DIR="${RUNNER_TEMP}/slimefun-legacy-wiki-build"
+          rm -rf "${UPSTREAM_DIR}" "${BUILD_DIR}"
+
+          git clone --quiet "https://github.com/${UPSTREAM_WIKI_REPOSITORY}.git" "${UPSTREAM_DIR}"
+          git -C "${UPSTREAM_DIR}" checkout --quiet "${UPSTREAM_WIKI_REF}"
+
+          mkdir -p "${BUILD_DIR}"
+          rsync -a "${UPSTREAM_DIR}/pages/" "${BUILD_DIR}/"
+
+          if [ -d "${UPSTREAM_DIR}/images" ]; then
+            mkdir -p "${BUILD_DIR}/images"
+            rsync -a "${UPSTREAM_DIR}/images/" "${BUILD_DIR}/images/"
+          fi
+
+          # Legacy-maintained pages always win. Remove case-only upstream collisions first.
+          python3 - "${BUILD_DIR}" "docs/wiki" <<'PY'
+          from pathlib import Path
+          import sys
+
+          build = Path(sys.argv[1])
+          overrides = Path(sys.argv[2])
+          override_names = {p.name.lower() for p in overrides.glob('*.md')}
+          for page in build.glob('*.md'):
+              if page.name.lower() in override_names:
+                  page.unlink()
+          PY
+
+          rsync -a docs/wiki/ "${BUILD_DIR}/"
+
+          # Keep inherited Slimefun4 wiki links inside the Legacy wiki and make legacy image
+          # references self-contained in the published wiki repository.
+          python3 - "${BUILD_DIR}" "${TARGET_REPOSITORY}" <<'PY'
+          from pathlib import Path
+          import sys
+
+          root = Path(sys.argv[1])
+          repository = sys.argv[2]
+          target_wiki = f"https://github.com/{repository}/wiki/"
+
+          replacements = {
+              "https://github.com/Slimefun/Slimefun4/wiki/": target_wiki,
+              "https://raw.githubusercontent.com/TheBusyBiscuit/Slimefun4-Wiki/master/images/": "images/",
+              "https://raw.githubusercontent.com/Slimefun/Wiki/master/images/": "images/",
+          }
+
+          for page in root.rglob('*.md'):
+              text = page.read_text(encoding='utf-8')
+              for old, new in replacements.items():
+                  text = text.replace(old, new)
+              page.write_text(text, encoding='utf-8')
+          PY
+
+          test -f "${BUILD_DIR}/Home.md"
+          test -f "${BUILD_DIR}/_Sidebar.md"
+          test -f "${BUILD_DIR}/_Footer.md"
+          test -f "${BUILD_DIR}/Elemental-Staves.md"
+          test -f "${BUILD_DIR}/Weapons.md"
+          test -f "${BUILD_DIR}/Basic-Machines.md"
+          test -f "${BUILD_DIR}/Electric-Machines.md"
+
+          echo "WIKI_BUILD_DIR=${BUILD_DIR}" >> "${GITHUB_ENV}"
+          echo "Built $(find "${BUILD_DIR}" -maxdepth 1 -name '*.md' | wc -l) wiki pages."
 
       - name: Publish wiki
         shell: bash
@@ -44,8 +121,7 @@ jobs:
           rm -rf "${WIKI_DIR}"
 
           git clone "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" "${WIKI_DIR}"
-
-          rsync -a --delete --exclude='.git/' docs/wiki/ "${WIKI_DIR}/"
+          rsync -a --delete --exclude='.git/' "${WIKI_BUILD_DIR}/" "${WIKI_DIR}/"
 
           cd "${WIKI_DIR}"
           git config user.name "github-actions[bot]"
@@ -57,5 +133,5 @@ jobs:
             exit 0
           fi
 
-          git commit -m "Sync wiki from ${GITHUB_SHA::7}"
+          git commit -m "Sync Legacy wiki from ${GITHUB_SHA::7}"
           git push origin HEAD
