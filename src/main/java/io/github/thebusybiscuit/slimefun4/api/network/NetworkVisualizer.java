@@ -1,12 +1,15 @@
 package io.github.thebusybiscuit.slimefun4.api.network;
 
+import io.github.thebusybiscuit.slimefun4.core.networks.energy.EnergyNet;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedParticle;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Color;
 import org.bukkit.Location;
+import org.bukkit.Particle;
 import org.bukkit.Particle.DustOptions;
+import org.bukkit.Particle.Spell;
 import org.bukkit.entity.Player;
 
 /**
@@ -18,9 +21,10 @@ import org.bukkit.entity.Player;
 class NetworkVisualizer implements Runnable {
 
     private static final double PLAYER_VISUALIZER_RANGE_SQUARED = 96.0 * 96.0;
+    private static final Spell ENERGY_PARTICLE_OPTIONS = new Spell(Color.YELLOW, 1.0F);
 
     /**
-     * The {@link DustOptions} define the {@link Color} and size of our particles.
+     * The {@link DustOptions} define the {@link Color} and size of non-energy network particles.
      */
     private final DustOptions particleOptions;
 
@@ -29,6 +33,7 @@ class NetworkVisualizer implements Runnable {
      */
     private final Network network;
 
+    private final boolean energyNetwork;
     @Nullable private final Player viewer;
     private final int maxParticles;
     private int spawnedParticles;
@@ -50,6 +55,7 @@ class NetworkVisualizer implements Runnable {
         Validate.isTrue(maxParticles > 0, "The particle budget must be above zero.");
 
         this.network = network;
+        this.energyNetwork = network instanceof EnergyNet;
         this.viewer = viewer;
         this.maxParticles = maxParticles;
         this.particleOptions = new DustOptions(color, viewer == null ? 3F : 1.25F);
@@ -97,34 +103,63 @@ class NetworkVisualizer implements Runnable {
                 return;
             }
 
-            l.getWorld()
-                    .spawnParticle(
-                            VersionedParticle.DUST,
-                            l.getX() + 0.5,
-                            l.getY() + 0.5,
-                            l.getZ() + 0.5,
-                            1,
-                            0,
-                            0,
-                            0,
-                            1,
-                            particleOptions);
+            if (energyNetwork) {
+                l.getWorld()
+                        .spawnParticle(
+                                Particle.INSTANT_EFFECT,
+                                l.getX() + 0.5,
+                                l.getY() + 0.5,
+                                l.getZ() + 0.5,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                ENERGY_PARTICLE_OPTIONS);
+            } else {
+                l.getWorld()
+                        .spawnParticle(
+                                VersionedParticle.DUST,
+                                l.getX() + 0.5,
+                                l.getY() + 0.5,
+                                l.getZ() + 0.5,
+                                1,
+                                0,
+                                0,
+                                0,
+                                1,
+                                particleOptions);
+            }
         } else {
             if (!viewer.getWorld().equals(l.getWorld())) {
                 return;
             }
 
-            viewer.spawnParticle(
-                    VersionedParticle.DUST,
-                    l.getX() + 0.5,
-                    l.getY() + 0.5,
-                    l.getZ() + 0.5,
-                    1,
-                    0,
-                    0,
-                    0,
-                    1,
-                    particleOptions);
+            if (energyNetwork) {
+                viewer.spawnParticle(
+                        Particle.INSTANT_EFFECT,
+                        l.getX() + 0.5,
+                        l.getY() + 0.5,
+                        l.getZ() + 0.5,
+                        1,
+                        0,
+                        0,
+                        0,
+                        0,
+                        ENERGY_PARTICLE_OPTIONS);
+            } else {
+                viewer.spawnParticle(
+                        VersionedParticle.DUST,
+                        l.getX() + 0.5,
+                        l.getY() + 0.5,
+                        l.getZ() + 0.5,
+                        1,
+                        0,
+                        0,
+                        0,
+                        1,
+                        particleOptions);
+            }
         }
 
         spawnedParticles++;
