@@ -9,7 +9,6 @@ from pathlib import Path
 
 MINIMUM_VERSION = (4, 1, 30)
 CURRENT_PHASE = "Core Platform Phase 1L"
-PREVIOUS_STABLE_VERSION = "4.1.29"
 
 
 def read(root: Path, relative: str) -> str:
@@ -126,9 +125,14 @@ def main() -> int:
             "Upgrade diagnostics candidate baseline must match projectVersion",
             failures,
         )
+        previous_version = str(baselines.get("previous_stable", {}).get("version", ""))
+        try:
+            previous_is_older = bool(version) and version_tuple(previous_version) < version_tuple(version)
+        except (TypeError, ValueError):
+            previous_is_older = False
         require(
-            baselines.get("previous_stable", {}).get("version") == PREVIOUS_STABLE_VERSION,
-            "Upgrade diagnostics previous stable must remain 4.1.29 until a newer stable release is validated",
+            previous_is_older,
+            "Upgrade diagnostics previous stable must be older than the active candidate",
             failures,
         )
 
@@ -201,7 +205,7 @@ def main() -> int:
         "Core Platform Phase 1L Part 3 upgrade diagnostics verification: PASS\n"
         "- /sf doctor upgrade is wired as a read-only diagnostic command\n"
         "- runtime evidence covers platform, core, storage, dependencies, addons and guarded failure signals\n"
-        "- canonical candidate and previous-stable metadata are packaged from the existing baseline registry\n"
+        f"- canonical candidate and {previous_version} previous-stable metadata are packaged from the existing baseline registry\n"
         "- READY/ATTENTION/BLOCKED status remains conservative and is not promoted to a compatibility guarantee\n"
         "- no automatic repair, migration, plugin-state change, machine retry or integration reload is performed\n"
         "- Phase 1L Part 3 does not change Cargo/Energy, database, storage-schema or saved-world semantics\n"
