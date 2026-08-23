@@ -569,7 +569,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
 
     @Override
     public String getWikiURL() {
-        return "https://slimefun-wiki.guizhanss.cn/{0}";
+        return "https://github.com/wickidcow/Slimefun-Legacy/wiki/{0}";
     }
 
     /**
@@ -684,7 +684,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     }
 
     /**
-     * This returns the {@link Logger} instance that Slimefun uses.
+     * This returns the {@linkLogger} instance that Slimefun uses.
      * <p>
      * <strong>Any {@link SlimefunAddon} should use their own {@link Logger} instance!</strong>
      *
@@ -1292,7 +1292,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
      * This method returns the {@link AnalyticsService} of Slimefun.
      * It is used to handle sending analytic information.
      *
-     * @return The {@link AnalyticsService} for Slimefun
+     * @return The {@link AnalyticsService} of Slimefun
      */
     public static @Nonnull AnalyticsService getAnalyticsService() {
         validateInstance();
@@ -1403,7 +1403,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
      * <p>
      * We will just assume this to be a list of our addons.
      *
-     * @return A {@link Set} of every {@link Plugin} that is dependent on Slimefun
+     * @return A {@linkSet} of every {@link Plugin} that is dependent on Slimefun
      */
     public static @Nonnull Set<Plugin> getInstalledAddons() {
         validateInstance();
