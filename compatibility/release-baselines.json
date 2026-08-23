@@ -2,13 +2,13 @@
   "schema": 1,
   "project": "Slimefun Legacy",
   "candidate": {
-    "version": "4.1.35"
+    "version": "4.1.36"
   },
   "previous_stable": {
-    "version": "4.1.29",
+    "version": "4.1.35",
     "source": {
       "mode": "git-ref",
-      "ref": "9794baffdd4a96f71fa18ae45ced8bab30982fb0"
+      "ref": "5659504c6f464853a9fb8d5645b2ab86f82a8a49"
     },
     "release_blocking": true,
     "purpose": "Primary regression baseline. Required addons that work here but fail against the candidate block release."
