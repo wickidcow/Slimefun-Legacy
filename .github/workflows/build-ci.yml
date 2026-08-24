@@ -128,6 +128,35 @@ jobs:
           > **Testing note:** servers already running a previous 4.1.38 JAR will not receive another update warning because the semantic version is unchanged. Replace the JAR manually to test this refreshed 4.1.38 build. Servers still on 4.1.37 should detect 4.1.38 as newer.
           EOF
             NOTES_ARGS=(--notes-file /tmp/release-notes.md)
+          elif [[ "$LEGACY_ARTIFACT_VERSION" == "4.1.39" ]]; then
+            RELEASE_TITLE="Slimefun Legacy 4.1.39 — Smart Search Stability"
+            cat > /tmp/release-notes.md <<'EOF'
+          # Slimefun Legacy 4.1.39 — Smart Search Stability
+
+          This release improves Slimefun Guide search stability and fixes the increasing overhead seen after repeated Search → Back navigation.
+
+          ## Highlights
+
+          - **Exact classic search fallback:** when `features.smart-search` is disabled, the enhanced guide now bypasses indexed Smart Search entirely and delegates to the original `SurvivalSlimefunGuide` search path.
+          - **Back-navigation performance:** Smart Search results are cached per player profile and world/query so returning to a prior search page can reuse the previous result set instead of rescanning the full Slimefun registry.
+          - **Bounded search state:** per-profile Smart Search caches are capped at 8 entries and weakly keyed to avoid unbounded retention.
+          - **Duplicate history cleanup:** consecutive duplicate search history entries are collapsed, reducing repeated Search → Back history growth.
+          - **Compatibility preserved:** Smart Search ON keeps enhanced indexed search and filters; Smart Search OFF restores standard Slimefun search behavior.
+          - **Tick diagnostics unaffected:** this release does not alter the separate `/sf tick` diagnostics path.
+
+          ## Compatibility
+
+          - Paper 26.2 primary
+          - Purpur 26.2 supported
+          - Folia 26.2 experimental
+          - Paper/Purpur 1.21.11 compatibility checks
+          - Built with Java 25 and verified to Java 21 bytecode target
+
+          ## Release asset
+
+          - `Slimefun-Legacy4.1.39.jar`
+          EOF
+            NOTES_ARGS=(--notes-file /tmp/release-notes.md)
           fi
 
           if gh release view "$TAG" >/dev/null 2>&1; then
