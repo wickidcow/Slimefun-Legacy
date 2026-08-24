@@ -74,7 +74,7 @@ public class GuideHistory {
 
     public void add(@Nonnull String searchTerm) {
         Validate.notNull(searchTerm, "Cannot add an empty Search Term to the GuideHistory!");
-        queue.add(new GuideEntry<>(searchTerm, 0));
+        refresh(searchTerm, 0);
     }
 
     private <T> void refresh(@Nonnull T object, int page) {
