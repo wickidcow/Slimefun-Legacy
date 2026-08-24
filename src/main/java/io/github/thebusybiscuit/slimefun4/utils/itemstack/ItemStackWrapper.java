@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
 import org.apache.commons.lang.Validate;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
@@ -29,17 +30,19 @@ public final class ItemStackWrapper extends ItemStack {
     private final int amount;
     private final boolean hasItemMeta;
 
+    /**
+     * Reads the item's meta once and derives {@code hasItemMeta} from that cached value.
+     * Modern CraftBukkit builds a full {@link ItemMeta} when {@link ItemStack#hasItemMeta()}
+     * is queried, so calling it before {@link ItemStack#getItemMeta()} creates the meta twice.
+     */
     private ItemStackWrapper(@Nonnull ItemStack item) {
         super(item.getType());
 
         amount = item.getAmount();
-        hasItemMeta = item.hasItemMeta();
 
-        if (hasItemMeta) {
-            meta = item.getItemMeta();
-        } else {
-            meta = null;
-        }
+        ItemMeta itemMeta = item.getItemMeta();
+        hasItemMeta = itemMeta != null && !Bukkit.getItemFactory().equals(itemMeta, null);
+        meta = hasItemMeta ? itemMeta : null;
     }
 
     @Override
