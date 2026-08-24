@@ -27,6 +27,8 @@ import org.bukkit.inventory.meta.ItemMeta;
 /** Enhanced Slimefun Legacy guide backed by the shared cached search index. */
 public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimefunGuide {
 
+    private static final int STANDARD_SEARCH_RESULT_LIMIT = 35;
+
     @Override
     @ParametersAreNonnullByDefault
     public void openSearch(PlayerProfile profile, String input, boolean addToHistory) {
@@ -47,14 +49,22 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
             profile.getGuideHistory().add(searchTerm);
         }
 
-        List<SlimefunItem> matches = GuideSearchIndex.get().searchSmart(
-                player,
-                searchTerm,
-                item -> !item.isHidden()
-                        && !item.isDisabledIn(player.getWorld())
-                        && isItemGroupAccessible(player, item));
-
         LegacyGuideSettings settings = LegacyGuideSettings.get();
+        List<SlimefunItem> matches;
+        if (settings.hasSmartSearch()) {
+            matches = GuideSearchIndex.get().searchSmart(
+                    player,
+                    searchTerm,
+                    item -> !item.isHidden()
+                            && !item.isDisabledIn(player.getWorld())
+                            && isItemGroupAccessible(player, item));
+        } else {
+            matches = GuideSearchIndex.get().searchByName(
+                    searchTerm,
+                    item -> !item.isHidden() && isItemGroupAccessible(player, item),
+                    STANDARD_SEARCH_RESULT_LIMIT);
+        }
+
         List<String> format = settings.getSearchFormat();
         List<Integer> contentSlots = settings.findSlots(format, 'i');
         int pages = pageCount(matches.size(), contentSlots.size());
@@ -218,8 +228,12 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
 
     private void requestIndexedSearch(Player player, PlayerProfile profile) {
         player.closeInventory();
-        player.sendMessage(ChatColor.GREEN + "Enter a search term. " + ChatColor.GRAY
-                + "Optional filters: id:, addon:, category:, group:, recipe:");
+        if (LegacyGuideSettings.get().hasSmartSearch()) {
+            player.sendMessage(ChatColor.GREEN + "Enter a search term. " + ChatColor.GRAY
+                    + "Optional filters: id:, addon:, category:, group:, recipe:");
+        } else {
+            player.sendMessage(ChatColor.GREEN + "Enter a search term.");
+        }
         io.github.bakedlibs.dough.chat.ChatInput.waitForPlayer(
                 Slimefun.instance(),
                 player,
