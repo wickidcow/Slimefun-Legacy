@@ -10,11 +10,15 @@ import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.guide.GuideRuntimeGuard;
 import io.github.thebusybiscuit.slimefun4.implementation.guide.GuideSearchIndex;
+import io.github.thebusybiscuit.slimefun4.implementation.guide.SurvivalSlimefunGuide;
 import io.github.thebusybiscuit.slimefun4.utils.ChatUtils;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedItemFlag;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import org.bukkit.ChatColor;
@@ -27,11 +31,21 @@ import org.bukkit.inventory.meta.ItemMeta;
 /** Enhanced Slimefun Legacy guide backed by the shared cached search index. */
 public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimefunGuide {
 
-    private static final int STANDARD_SEARCH_RESULT_LIMIT = 35;
+    private static final int SMART_SEARCH_CACHE_SIZE = 8;
+    private static final Map<PlayerProfile, SearchCache> SMART_SEARCH_CACHE = new WeakHashMap<>();
+
+    private final SurvivalSlimefunGuide classicSearchGuide = new SurvivalSlimefunGuide();
 
     @Override
     @ParametersAreNonnullByDefault
     public void openSearch(PlayerProfile profile, String input, boolean addToHistory) {
+        if (!LegacyGuideSettings.get().hasSmartSearch()) {
+            // Smart Search OFF must be the actual classic Slimefun search path, not the indexed/enhanced approximation.
+            SMART_SEARCH_CACHE.remove(profile);
+            classicSearchGuide.openSearch(profile, input, addToHistory);
+            return;
+        }
+
         runIndexedPage(
                 profile,
                 "open indexed enhanced search page 1",
@@ -44,26 +58,19 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
             return;
         }
 
+        LegacyGuideSettings settings = LegacyGuideSettings.get();
+        if (!settings.hasSmartSearch()) {
+            SMART_SEARCH_CACHE.remove(profile);
+            classicSearchGuide.openSearch(profile, input, addToHistory);
+            return;
+        }
+
         String searchTerm = GuideSearchIndex.normalize(input);
         if (addToHistory && isSurvivalMode()) {
             profile.getGuideHistory().add(searchTerm);
         }
 
-        LegacyGuideSettings settings = LegacyGuideSettings.get();
-        List<SlimefunItem> matches;
-        if (settings.hasSmartSearch()) {
-            matches = GuideSearchIndex.get().searchSmart(
-                    player,
-                    searchTerm,
-                    item -> !item.isHidden()
-                            && !item.isDisabledIn(player.getWorld())
-                            && isItemGroupAccessible(player, item));
-        } else {
-            matches = GuideSearchIndex.get().searchByName(
-                    searchTerm,
-                    item -> !item.isHidden() && isItemGroupAccessible(player, item),
-                    STANDARD_SEARCH_RESULT_LIMIT);
-        }
+        List<SlimefunItem> matches = getCachedSmartMatches(profile, player, searchTerm);
 
         List<String> format = settings.getSearchFormat();
         List<Integer> contentSlots = settings.findSlots(format, 'i');
@@ -100,6 +107,24 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
             });
         }
         menu.open(player);
+    }
+
+    private List<SlimefunItem> getCachedSmartMatches(PlayerProfile profile, Player player, String searchTerm) {
+        String cacheKey = player.getWorld().getUID() + "\u0000" + searchTerm;
+        SearchCache cache = SMART_SEARCH_CACHE.computeIfAbsent(profile, ignored -> new SearchCache());
+        List<SlimefunItem> cached = cache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+
+        List<SlimefunItem> matches = List.copyOf(GuideSearchIndex.get().searchSmart(
+                player,
+                searchTerm,
+                item -> !item.isHidden()
+                        && !item.isDisabledIn(player.getWorld())
+                        && isItemGroupAccessible(player, item)));
+        cache.put(cacheKey, matches);
+        return matches;
     }
 
     private void addSearchControls(
@@ -381,5 +406,14 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
 
     private static int clampPage(int page, int pages) {
         return Math.max(1, Math.min(page, pages));
+    }
+
+    private static final class SearchCache extends LinkedHashMap<String, List<SlimefunItem>> {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, List<SlimefunItem>> eldest) {
+            return size() > SMART_SEARCH_CACHE_SIZE;
+        }
     }
 }
