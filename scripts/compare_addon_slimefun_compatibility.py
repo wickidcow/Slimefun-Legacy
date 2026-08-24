@@ -198,6 +198,18 @@ allprojects {
         }
     }
 }
+
+// A dependency plugin may inject a released Slimefun jar as a plain file dependency in its own
+// afterEvaluate callback, after the normal dependency replacement above. Wait until every project
+// has finished evaluation, then prepend the exact baseline/candidate jar to every JavaCompile
+// classpath so the compatibility result cannot accidentally resolve symbols from a release jar.
+gradle.projectsEvaluated {
+    allprojects { p ->
+        p.tasks.withType(org.gradle.api.tasks.compile.JavaCompile).configureEach { task ->
+            task.classpath = p.files(System.getenv('SLIMEFUN_COMPATIBILITY_JAR')) + task.classpath
+        }
+    }
+}
 """.strip()
         + "\n",
         encoding="utf-8",
