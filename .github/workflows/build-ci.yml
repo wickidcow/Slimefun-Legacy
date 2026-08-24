@@ -104,6 +104,7 @@ jobs:
           ## Highlights
 
           - **Update notification test:** keeps the clean `4.1.38` version format so servers on 4.1.37 can detect a newer published release.
+          - **Beacon Plus Auto Repair hotfix:** respects each item's actual custom maximum damage and clamps invalid damage values before repair, preventing Paper's `Damage cannot exceed max damage` exception with custom gear.
           - **Legacy Wiki links:** Slimefun Guide item Wiki buttons now point to the rendered Slimefun Legacy GitHub Wiki.
           - **EnergyNet powered heads:** player-head EnergyNet components mirror active energy transport to vanilla `powered=true/false` when the underlying head supports that block state.
           - **Electrical visualizer:** EnergyNet uses yellow `INSTANT_EFFECT` particles for a more electrical visual while Cargo and other network visualizers keep their existing appearance.
