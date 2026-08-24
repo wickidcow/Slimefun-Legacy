@@ -50,6 +50,7 @@ def patch_maven_dependencies(project: Path) -> bool:
         tree.write(pom, encoding="utf-8", xml_declaration=True)
     return changed
 
+
 def build_maven(project: Path, jar: Path) -> None:
     if not patch_maven_dependencies(project):
         raise RuntimeError("No Slimefun Maven dependency was found")
@@ -65,6 +66,7 @@ def build_maven(project: Path, jar: Path) -> None:
         run(str(wrapper), "-B", "-DskipTests", "package", cwd=project)
     else:
         run("mvn", "-B", "-DskipTests", "package", cwd=project)
+
 
 def build_gradle(project: Path, jar: Path) -> None:
     init_script = project / ".slimefun-legacy-ci.init.gradle"
@@ -84,6 +86,18 @@ allprojects {
                 matches.each { configuration.dependencies.remove(it) }
                 p.dependencies.add(configuration.name, p.files(System.getenv('SLIMEFUN_LEGACY_JAR')))
             }
+        }
+    }
+}
+
+// Some addon dependency plugins inject a released Slimefun jar from their own afterEvaluate
+// callback as a plain file dependency. That has no module coordinate for substitution and may
+// happen after the dependency replacement above. Once every project is fully evaluated, prepend
+// the exact Legacy jar to every JavaCompile classpath so symbol resolution always uses it first.
+gradle.projectsEvaluated {
+    allprojects { p ->
+        p.tasks.withType(org.gradle.api.tasks.compile.JavaCompile).configureEach { task ->
+            task.classpath = p.files(System.getenv('SLIMEFUN_LEGACY_JAR')) + task.classpath
         }
     }
 }
