@@ -255,6 +255,7 @@ class CargoNetworkTask implements Runnable {
 
         int size = outputNodes.size();
         int startIndex = roundRobin ? Math.floorMod(network.roundRobin.getOrDefault(inputNode, 0), size) : 0;
+        ItemStackWrapper wrapper = null;
 
         for (int offset = 0; offset < size; offset++) {
             int outputIndex = roundRobin ? (startIndex + offset) % size : offset;
@@ -265,7 +266,15 @@ class CargoNetworkTask implements Runnable {
                 continue;
             }
 
-            ItemStackWrapper wrapper = ItemStackWrapper.wrap(item);
+            /*
+             * Cargo insertion either consumes the stack or leaves the same instance with a smaller
+             * amount. Its cached type/meta therefore stays valid across destinations. Re-wrap only
+             * when the remaining amount changes because menu presets may inspect that amount.
+             */
+            if (wrapper == null || wrapper.getAmount() != item.getAmount()) {
+                wrapper = ItemStackWrapper.wrap(item);
+            }
+
             item = CargoUtils.insert(network, inventories, output.getBlock(), target.get(), smartFill, item, wrapper);
 
             if (item == null) {
