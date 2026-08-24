@@ -367,7 +367,8 @@ final class ExtraGearSetup {
             return researchId;
         }
 
-        SlimefunItemStack stack = new SlimefunItemStack(itemId, type, "&r" + ChatUtils.humanize(component));
+        SlimefunItemStack stack =
+                new SlimefunItemStack(itemId, type, "&r" + ChatUtils.humanize(component) + " Sword");
         applyEnchantments(stack, enchantments);
 
         SlimefunItem item = new SlimefunItem(
