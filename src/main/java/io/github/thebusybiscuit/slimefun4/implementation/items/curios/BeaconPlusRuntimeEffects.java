@@ -315,18 +315,30 @@ final class BeaconPlusRuntimeEffects {
     }
 
     static void repairInventory(PlayerInventory inventory, int amount) {
+        if (amount <= 0) {
+            return;
+        }
+
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             ItemStack stack = inventory.getItem(slot);
-            if (stack == null
-                    || stack.getType() == Material.AIR
-                    || stack.getType().getMaxDurability() <= 0) {
+            if (stack == null || stack.getType() == Material.AIR) {
                 continue;
             }
+
             ItemMeta meta = stack.getItemMeta();
             if (!(meta instanceof Damageable damageable) || damageable.getDamage() <= 0) {
                 continue;
             }
-            damageable.setDamage(Math.max(0, damageable.getDamage() - amount));
+
+            int maxDamage = damageable.hasMaxDamage()
+                    ? damageable.getMaxDamage()
+                    : stack.getType().getMaxDurability();
+            if (maxDamage <= 0) {
+                continue;
+            }
+
+            int repairedDamage = Math.max(0, Math.min(maxDamage, damageable.getDamage() - amount));
+            damageable.setDamage(repairedDamage);
             stack.setItemMeta(meta);
             inventory.setItem(slot, stack);
         }
