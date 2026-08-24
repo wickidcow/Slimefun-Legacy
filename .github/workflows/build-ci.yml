@@ -2,6 +2,7 @@ name: Build English Slimefun
 
 on:
   push:
+    branches: ['master']
     tags: ['v*']
   workflow_dispatch:
 
