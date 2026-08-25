@@ -201,7 +201,7 @@ def main() -> int:
         ):
             req(token in energy, f"Resonance Beacon energy invariant missing: {token}", failures)
         req("BeaconPlusEnergy.consumePulse(block, data, tiers)" in runtime,
-            "Resonance Beacon runtime must pay electric cost once per pulse", failures)
+            "Resonance Beacon runtime must pay electric cost once per maintenance pulse", failures)
         req("getPotentialActiveTiers" in runtime,
             "Electric operation must preserve configured tiers while energy-gating active tiers", failures)
 
@@ -209,15 +209,19 @@ def main() -> int:
             'EFFECTS_KEY = "beacon_plus_effects"', "EXTRA_RANGE_PER_TIER = 16", "getActiveTiers",
             "getUnlockedTierAtBeacon", "getSelectedTierAtBeacon", "BeaconPlusPyramid.inspect",
             "BeaconPlusLegacyDataStore.getImportedOverriddenRange", "AREA_5X5", "BeaconPlusRuntimeEffects.applyPulse",
-            "LAST_PULSE_GAME_TICKS", "shouldPulse(block.getLocation(), gameTime)", "PLAYER_STATE_RECONCILE_RANGE = 128.0D",
+            "LAST_PULSE_GAME_TICKS", "LAST_GRAVITY_GAME_TICKS", "PULSE_INTERVAL_TICKS = 20 * 5",
+            "GRAVITY_INTERVAL_TICKS = 20", "ACTIVE_PULSES", "BeaconPlusRuntimeEffects.applyGravityPulse",
+            "PLAYER_STATE_RECONCILE_RANGE = 128.0D",
         ):
             req(token in runtime, f"Resonance Beacon runtime invariant missing: {token}", failures)
+        req("shouldPulse(" in runtime,
+            "Resonance Beacon runtime must retain an elapsed maintenance pulse gate", failures)
         req("gameTime + block.getX() * 31L + block.getZ() * 17L" not in runtime,
             "Resonance Beacon must not use coordinate-dependent pulse phasing", failures)
         for token in (
             "MAX_TILE_ENTITIES_PER_PULSE = 96", "CROP_SAMPLES_PER_CHUNK = 8",
             "MAX_CROP_SAMPLES_PER_PULSE = 512", "CROP_VERTICAL_RADIUS = 8", "repairInventory(",
-            "getLoadedChunksInField", "entity instanceof Mob || entity instanceof Item",
+            "getLoadedChunksInField", "entity instanceof Mob || entity instanceof Item", "applyGravityPulse",
         ):
             req(token in runtime_effects, f"Bounded Resonance Beacon effects invariant missing: {token}", failures)
         req("random.nextInt(world.getMinHeight(), world.getMaxHeight())" not in runtime_effects,
@@ -287,7 +291,7 @@ def main() -> int:
         "- migrated Curiosities keys are removed from config.yml only after the replacement config saves\n"
         "- legacy WORLD BeaconData JSON remains import/mirror compatible\n"
         "- field powers use full-height chunk-aligned square footprints without loading chunks\n"
-        "- Beacon pulses use elapsed game time rather than coordinate-dependent modulo phasing\n"
+        "- Beacon maintenance uses elapsed game time and Gravity Well keeps a one-second fast path\n"
         "- crop work is bounded to loaded field chunks and a local vertical band\n"
         "- Activator remains reference-counted, releasable, and hard-capped\n"
     )
