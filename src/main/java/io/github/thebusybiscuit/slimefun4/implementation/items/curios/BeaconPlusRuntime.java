@@ -20,13 +20,16 @@ import org.bukkit.entity.Player;
 final class BeaconPlusRuntime {
 
     static final String EFFECTS_KEY = "beacon_plus_effects";
-    private static final int PULSE_INTERVAL_TICKS = 20 * 15;
+    private static final int PULSE_INTERVAL_TICKS = 20 * 5;
+    private static final int GRAVITY_INTERVAL_TICKS = 20;
     // One tier must always add exactly one chunk ring to the chunk-aligned field.
     private static final int EXTRA_RANGE_PER_TIER = 16;
     private static final double PLAYER_STATE_RECONCILE_RANGE = 128.0D;
-    private static final long OBSERVED_BEACON_TTL_MILLIS = 45_000L;
+    private static final long OBSERVED_BEACON_TTL_MILLIS = 20_000L;
     private static final Map<BeaconKey, Long> OBSERVED_BEACONS = new ConcurrentHashMap<>();
     private static final Map<BeaconKey, Long> LAST_PULSE_GAME_TICKS = new ConcurrentHashMap<>();
+    private static final Map<BeaconKey, Long> LAST_GRAVITY_GAME_TICKS = new ConcurrentHashMap<>();
+    private static final Map<BeaconKey, ActivePulse> ACTIVE_PULSES = new ConcurrentHashMap<>();
 
     private BeaconPlusRuntime() {}
 
@@ -38,7 +41,16 @@ final class BeaconPlusRuntime {
         BeaconKey key = BeaconKey.from(location);
         OBSERVED_BEACONS.remove(key);
         LAST_PULSE_GAME_TICKS.remove(key);
+        LAST_GRAVITY_GAME_TICKS.remove(key);
+        ACTIVE_PULSES.remove(key);
         BeaconPlusBeam.markUnpowered(location);
+    }
+
+    static void invalidate(Location location) {
+        BeaconKey key = BeaconKey.from(location);
+        LAST_PULSE_GAME_TICKS.remove(key);
+        LAST_GRAVITY_GAME_TICKS.remove(key);
+        ACTIVE_PULSES.remove(key);
     }
 
     static EnumSet<BeaconPlusEffect> getConfiguredEffects(Location location) {
@@ -55,6 +67,7 @@ final class BeaconPlusRuntime {
         EnumSet<BeaconPlusEffect> stored =
                 effects.isEmpty() ? EnumSet.noneOf(BeaconPlusEffect.class) : EnumSet.copyOf(effects);
         StorageCacheUtils.setData(location, EFFECTS_KEY, BeaconPlusEffect.serialize(stored));
+        invalidate(location);
         World world = location.getWorld();
         if (world != null && world.isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)) {
             BeaconPlusLegacyDataStore.sync(location.getBlock());
@@ -91,17 +104,23 @@ final class BeaconPlusRuntime {
                 continue;
             }
 
-            Block block = world.getBlockAt(key.x(), key.y(), key.z());
-            EnumMap<BeaconPlusEffect, Integer> tiers = getActiveTiers(block);
-            int tier = tiers.getOrDefault(effect, 0);
-            if (tier <= 0) {
-                continue;
+            ActivePulse active = ACTIVE_PULSES.get(key);
+            int tier;
+            double range;
+            if (active != null) {
+                tier = active.tiers().getOrDefault(effect, 0);
+                range = active.range();
+            } else {
+                Block block = world.getBlockAt(key.x(), key.y(), key.z());
+                EnumMap<BeaconPlusEffect, Integer> tiers = getActiveTiers(block);
+                tier = tiers.getOrDefault(effect, 0);
+                range = getRange(block, tiers);
             }
 
-            double range = getRange(block, tiers);
-            if (range <= 0.0D
-                    || !BeaconPlusField.contains(
-                            block.getX(), block.getZ(), range, target.getBlockX(), target.getBlockZ())) {
+            if (tier <= 0 || range <= 0.0D) {
+                continue;
+            }
+            if (!BeaconPlusField.contains(key.x(), key.z(), range, target.getBlockX(), target.getBlockZ())) {
                 continue;
             }
 
@@ -124,7 +143,8 @@ final class BeaconPlusRuntime {
     }
 
     static double getEffectiveRange(Block block) {
-        return getRange(block, getActiveTiers(block));
+        ActivePulse active = ACTIVE_PULSES.get(BeaconKey.from(block.getLocation()));
+        return active != null ? active.range() : getRange(block, getActiveTiers(block));
     }
 
     static int getPotentialTierAtBeacon(Block block, BeaconPlusEffect effect) {
@@ -186,37 +206,59 @@ final class BeaconPlusRuntime {
     }
 
     static void tick(Block block, ASlimefunDataContainer data) {
+        Location location = block.getLocation();
+        BeaconKey key = BeaconKey.from(location);
         long gameTime = block.getWorld().getGameTime();
-        if (!shouldPulse(block.getLocation(), gameTime)) {
-            return;
-        }
 
         if (!BeaconPlusConfig.isEnabled()) {
-            BeaconPlusBeam.markUnpowered(block.getLocation());
-            BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
+            ACTIVE_PULSES.remove(key);
+            LAST_GRAVITY_GAME_TICKS.remove(key);
+            BeaconPlusBeam.markUnpowered(location);
+            if (shouldPulse(location, gameTime)) {
+                BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
+            }
             return;
         }
 
-        // Refresh the observed-beacon cache only on the bounded maintenance pulse instead of every Slimefun tick.
-        observe(block);
+        if (shouldPulse(location, gameTime)) {
+            // Expensive pyramid, progression, energy and world maintenance work runs every five seconds.
+            observe(block);
 
-        EnumMap<BeaconPlusEffect, Integer> tiers = getPotentialActiveTiers(block);
-        if (!BeaconPlusEnergy.consumePulse(block, data, tiers)) {
-            BeaconPlusBeam.markUnpowered(block.getLocation());
-            reconcileActivator(block, 0);
-            BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
+            EnumMap<BeaconPlusEffect, Integer> tiers = getPotentialActiveTiers(block);
+            if (!BeaconPlusEnergy.consumePulse(block, data, tiers)) {
+                ACTIVE_PULSES.remove(key);
+                LAST_GRAVITY_GAME_TICKS.remove(key);
+                BeaconPlusBeam.markUnpowered(location);
+                reconcileActivator(block, 0);
+                BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
+                return;
+            }
+
+            reconcileActivator(block, tiers.getOrDefault(BeaconPlusEffect.ACTIVATOR, 0));
+            double range = getRange(block, tiers);
+            if (range <= 0.0D) {
+                ACTIVE_PULSES.remove(key);
+                LAST_GRAVITY_GAME_TICKS.remove(key);
+                BeaconPlusBeam.markUnpowered(location);
+                BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
+                return;
+            }
+
+            BeaconPlusBeam.markPowered(block);
+            ACTIVE_PULSES.put(key, new ActivePulse(new EnumMap<>(tiers), range));
+            LAST_GRAVITY_GAME_TICKS.put(key, gameTime);
+            BeaconPlusRuntimeEffects.applyPulse(block, tiers, range, gameTime);
             return;
         }
-        reconcileActivator(block, tiers.getOrDefault(BeaconPlusEffect.ACTIVATOR, 0));
-        double range = getRange(block, tiers);
-        if (range <= 0.0D) {
-            BeaconPlusBeam.markUnpowered(block.getLocation());
-            BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
-            return;
-        }
 
-        BeaconPlusBeam.markPowered(block);
-        BeaconPlusRuntimeEffects.applyPulse(block, tiers, range, gameTime);
+        // Gravity Well remains responsive once per second and reuses the last resolved beacon state.
+        ActivePulse active = ACTIVE_PULSES.get(key);
+        if (active != null && shouldGravityPulse(key, gameTime)) {
+            int gravityTier = active.tiers().getOrDefault(BeaconPlusEffect.GRAVITY_WELL, 0);
+            if (gravityTier > 0) {
+                BeaconPlusRuntimeEffects.applyGravityPulse(block, gravityTier, active.range());
+            }
+        }
     }
 
     static void refreshPlayerState(Player player) {
@@ -232,6 +274,8 @@ final class BeaconPlusRuntime {
         BeaconPlusEnergy.shutdown();
         OBSERVED_BEACONS.clear();
         LAST_PULSE_GAME_TICKS.clear();
+        LAST_GRAVITY_GAME_TICKS.clear();
+        ACTIVE_PULSES.clear();
     }
 
     private static boolean shouldPulse(Location location, long gameTime) {
@@ -244,11 +288,25 @@ final class BeaconPlusRuntime {
         return true;
     }
 
+    private static boolean shouldGravityPulse(BeaconKey key, long gameTime) {
+        Long previous = LAST_GRAVITY_GAME_TICKS.get(key);
+        if (previous != null && gameTime >= previous && gameTime - previous < GRAVITY_INTERVAL_TICKS) {
+            return false;
+        }
+        LAST_GRAVITY_GAME_TICKS.put(key, gameTime);
+        return true;
+    }
+
     static boolean isOperational(Block block, Map<BeaconPlusEffect, Integer> tiers) {
         return tiers.isEmpty() || BeaconPlusEnergy.hasOperationalPower(block, tiers);
     }
 
     private static EnumMap<BeaconPlusEffect, Integer> getActiveTiers(Block block) {
+        ActivePulse active = ACTIVE_PULSES.get(BeaconKey.from(block.getLocation()));
+        if (active != null) {
+            return new EnumMap<>(active.tiers());
+        }
+
         EnumMap<BeaconPlusEffect, Integer> tiers = getPotentialActiveTiers(block);
         if (isOperational(block, tiers)) {
             return tiers;
@@ -390,10 +448,15 @@ final class BeaconPlusRuntime {
             if (entry.getValue() >= cutoff) {
                 return false;
             }
-            LAST_PULSE_GAME_TICKS.remove(entry.getKey());
+            BeaconKey key = entry.getKey();
+            LAST_PULSE_GAME_TICKS.remove(key);
+            LAST_GRAVITY_GAME_TICKS.remove(key);
+            ACTIVE_PULSES.remove(key);
             return true;
         });
     }
+
+    private record ActivePulse(EnumMap<BeaconPlusEffect, Integer> tiers, double range) {}
 
     private record BeaconKey(UUID worldId, int x, int y, int z) {
         private static BeaconKey from(Location location) {
