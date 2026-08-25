@@ -20,11 +20,11 @@ import org.bukkit.entity.Player;
 final class BeaconPlusRuntime {
 
     static final String EFFECTS_KEY = "beacon_plus_effects";
-    private static final int PULSE_INTERVAL_TICKS = 20;
+    private static final int PULSE_INTERVAL_TICKS = 20 * 15;
     // One tier must always add exactly one chunk ring to the chunk-aligned field.
     private static final int EXTRA_RANGE_PER_TIER = 16;
     private static final double PLAYER_STATE_RECONCILE_RANGE = 128.0D;
-    private static final long OBSERVED_BEACON_TTL_MILLIS = 15_000L;
+    private static final long OBSERVED_BEACON_TTL_MILLIS = 45_000L;
     private static final Map<BeaconKey, Long> OBSERVED_BEACONS = new ConcurrentHashMap<>();
     private static final Map<BeaconKey, Long> LAST_PULSE_GAME_TICKS = new ConcurrentHashMap<>();
 
@@ -186,17 +186,19 @@ final class BeaconPlusRuntime {
     }
 
     static void tick(Block block, ASlimefunDataContainer data) {
-        observe(block);
+        long gameTime = block.getWorld().getGameTime();
+        if (!shouldPulse(block.getLocation(), gameTime)) {
+            return;
+        }
+
         if (!BeaconPlusConfig.isEnabled()) {
             BeaconPlusBeam.markUnpowered(block.getLocation());
             BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
             return;
         }
 
-        long gameTime = block.getWorld().getGameTime();
-        if (!shouldPulse(block.getLocation(), gameTime)) {
-            return;
-        }
+        // Refresh the observed-beacon cache only on the bounded maintenance pulse instead of every Slimefun tick.
+        observe(block);
 
         EnumMap<BeaconPlusEffect, Integer> tiers = getPotentialActiveTiers(block);
         if (!BeaconPlusEnergy.consumePulse(block, data, tiers)) {
