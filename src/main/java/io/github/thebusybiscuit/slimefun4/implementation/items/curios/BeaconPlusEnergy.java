@@ -13,7 +13,7 @@ final class BeaconPlusEnergy {
 
     static final String ELECTRIC_MODE_KEY = "beacon_plus_electric_mode";
     private static final String ENERGY_CHARGE_KEY = "energy-charge";
-    private static final long PAID_WINDOW_TICKS = 20L;
+    private static final long PAID_WINDOW_TICKS = 20L * 15L;
     private static final Map<BeaconKey, Long> PAID_UNTIL = new ConcurrentHashMap<>();
 
     private BeaconPlusEnergy() {}
