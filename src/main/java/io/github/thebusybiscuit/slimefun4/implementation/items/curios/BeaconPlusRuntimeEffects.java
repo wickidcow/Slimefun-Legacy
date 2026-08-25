@@ -45,10 +45,14 @@ final class BeaconPlusRuntimeEffects {
     static final int MAX_CROP_SAMPLES_PER_PULSE = 512;
     private static final int CROP_VERTICAL_RADIUS = 8;
     private static final int PULSE_INTERVAL_TICKS = 20;
-    private static final int EFFECT_DURATION_TICKS = 70;
-    private static final int NIGHT_VISION_DURATION_TICKS = 240;
+    private static final int PLAYER_EFFECT_DURATION_TICKS = 600;
+    private static final int PLAYER_EFFECT_REFRESH_THRESHOLD_TICKS = 300;
+    private static final int MOB_EFFECT_DURATION_TICKS = 70;
+    private static final long TILE_ENTITY_DISCOVERY_CACHE_TICKS = 300L;
+    private static final int MAX_TILE_ENTITY_CACHE_CHUNKS = 4096;
     private static final NamespacedKey SCALE_KEY = new NamespacedKey(Slimefun.instance(), "beacon_plus_scale");
     private static final Map<UUID, Boolean> ORIGINAL_ALLOW_FLIGHT = new ConcurrentHashMap<>();
+    private static final Map<TileEntityChunkKey, CachedTileEntities> TILE_ENTITY_CACHE = new ConcurrentHashMap<>();
     private static final Set<PotionEffectType> HARMFUL_EFFECTS = Set.of(
             PotionEffectType.SLOWNESS,
             PotionEffectType.MINING_FATIGUE,
@@ -95,7 +99,7 @@ final class BeaconPlusRuntimeEffects {
         int furnaceTier = tiers.getOrDefault(BeaconPlusEffect.FURNACE_BOOSTER, 0);
         int spawnerTier = tiers.getOrDefault(BeaconPlusEffect.SPAWNERS, 0);
         if (furnaceTier > 0 || spawnerTier > 0) {
-            applyTileEntityBoosts(loadedChunks, furnaceTier, spawnerTier);
+            applyTileEntityBoosts(loadedChunks, furnaceTier, spawnerTier, gameTime);
         }
         int cropTier = tiers.getOrDefault(BeaconPlusEffect.CROPS, 0);
         if (cropTier > 0 && gameTime % 40L < PULSE_INTERVAL_TICKS) {
@@ -126,6 +130,7 @@ final class BeaconPlusRuntimeEffects {
             clearPlayerState(player);
         }
         ORIGINAL_ALLOW_FLIGHT.clear();
+        TILE_ENTITY_CACHE.clear();
     }
 
     static void refreshNearbyPlayerStates(Block block, double range) {
@@ -140,29 +145,16 @@ final class BeaconPlusRuntimeEffects {
     }
 
     private static void applyPlayerEffects(Player player, Map<BeaconPlusEffect, Integer> tiers, long gameTime) {
-        applyPotionIfPresent(
-                player, tiers, BeaconPlusEffect.STRENGTH, PotionEffectType.STRENGTH, EFFECT_DURATION_TICKS);
-        applyPotionIfPresent(
-                player, tiers, BeaconPlusEffect.REGENERATION, PotionEffectType.REGENERATION, EFFECT_DURATION_TICKS);
-        applyPotionIfPresent(
-                player, tiers, BeaconPlusEffect.RESISTANCE, PotionEffectType.RESISTANCE, EFFECT_DURATION_TICKS);
-        applyPotionIfPresent(
-                player, tiers, BeaconPlusEffect.FAST_DIGGING, PotionEffectType.HASTE, EFFECT_DURATION_TICKS);
-        applyPotionIfPresent(player, tiers, BeaconPlusEffect.SPEED, PotionEffectType.SPEED, EFFECT_DURATION_TICKS);
-        applyPotionIfPresent(
-                player,
-                tiers,
-                BeaconPlusEffect.NIGHT_VISION,
-                PotionEffectType.NIGHT_VISION,
-                NIGHT_VISION_DURATION_TICKS);
-        applyPotionIfPresent(player, tiers, BeaconPlusEffect.LUCK, PotionEffectType.LUCK, EFFECT_DURATION_TICKS);
-        applyPotionIfPresent(
-                player,
-                tiers,
-                BeaconPlusEffect.WATER_BREATHING,
-                PotionEffectType.WATER_BREATHING,
-                EFFECT_DURATION_TICKS);
-        applyPotionIfPresent(player, tiers, BeaconPlusEffect.JUMP, PotionEffectType.JUMP_BOOST, EFFECT_DURATION_TICKS);
+        applyPlayerPotionIfPresent(player, tiers, BeaconPlusEffect.STRENGTH, PotionEffectType.STRENGTH);
+        applyPlayerPotionIfPresent(player, tiers, BeaconPlusEffect.REGENERATION, PotionEffectType.REGENERATION);
+        applyPlayerPotionIfPresent(player, tiers, BeaconPlusEffect.RESISTANCE, PotionEffectType.RESISTANCE);
+        applyPlayerPotionIfPresent(player, tiers, BeaconPlusEffect.FAST_DIGGING, PotionEffectType.HASTE);
+        applyPlayerPotionIfPresent(player, tiers, BeaconPlusEffect.SPEED, PotionEffectType.SPEED);
+        applyPlayerPotionIfPresent(player, tiers, BeaconPlusEffect.NIGHT_VISION, PotionEffectType.NIGHT_VISION);
+        applyPlayerPotionIfPresent(player, tiers, BeaconPlusEffect.LUCK, PotionEffectType.LUCK);
+        applyPlayerPotionIfPresent(
+                player, tiers, BeaconPlusEffect.WATER_BREATHING, PotionEffectType.WATER_BREATHING);
+        applyPlayerPotionIfPresent(player, tiers, BeaconPlusEffect.JUMP, PotionEffectType.JUMP_BOOST);
 
         if (tiers.getOrDefault(BeaconPlusEffect.CURE, 0) > 0) {
             for (PotionEffectType harmful : HARMFUL_EFFECTS) {
@@ -183,10 +175,37 @@ final class BeaconPlusRuntimeEffects {
         updateFlight(player, tiers.getOrDefault(BeaconPlusEffect.FLYING, 0) > 0);
     }
 
+    private static void applyPlayerPotionIfPresent(
+            Player player,
+            Map<BeaconPlusEffect, Integer> tiers,
+            BeaconPlusEffect effect,
+            PotionEffectType type) {
+        int tier = tiers.getOrDefault(effect, 0);
+        if (tier <= 0) {
+            return;
+        }
+
+        int amplifier = tier - 1;
+        PotionEffect current = player.getPotionEffect(type);
+        if (current != null) {
+            // Never churn a stronger externally supplied effect. A matching Resonance Beacon effect is refreshed
+            // only when about 15 seconds remain, giving players a stable 30-second countdown without
+            // re-sending the same potion effect every one-second beacon pulse.
+            if (current.getAmplifier() > amplifier
+                    || (current.getAmplifier() == amplifier
+                            && current.getDuration() > PLAYER_EFFECT_REFRESH_THRESHOLD_TICKS)) {
+                return;
+            }
+        }
+
+        player.addPotionEffect(new PotionEffect(type, PLAYER_EFFECT_DURATION_TICKS, amplifier, true, false, true));
+    }
+
     private static void applyMonsterEffects(Monster monster, Map<BeaconPlusEffect, Integer> tiers) {
         applyPotionIfPresent(
-                monster, tiers, BeaconPlusEffect.SLOWDOWN, PotionEffectType.SLOWNESS, EFFECT_DURATION_TICKS);
-        applyPotionIfPresent(monster, tiers, BeaconPlusEffect.POISON, PotionEffectType.POISON, EFFECT_DURATION_TICKS);
+                monster, tiers, BeaconPlusEffect.SLOWDOWN, PotionEffectType.SLOWNESS, MOB_EFFECT_DURATION_TICKS);
+        applyPotionIfPresent(
+                monster, tiers, BeaconPlusEffect.POISON, PotionEffectType.POISON, MOB_EFFECT_DURATION_TICKS);
         int burnerTier = tiers.getOrDefault(BeaconPlusEffect.BURNER, 0);
         if (burnerTier > 0 && isUndead(monster.getType())) {
             monster.setFireTicks(Math.max(monster.getFireTicks(), 40 + burnerTier * 40));
@@ -231,21 +250,54 @@ final class BeaconPlusRuntimeEffects {
         entity.setVelocity(velocity);
     }
 
-    private static void applyTileEntityBoosts(List<Chunk> loadedChunks, int furnaceTier, int spawnerTier) {
+    private static void applyTileEntityBoosts(
+            List<Chunk> loadedChunks, int furnaceTier, int spawnerTier, long gameTime) {
         int inspected = 0;
         for (Chunk chunk : loadedChunks) {
-            for (BlockState state : chunk.getTileEntities()) {
+            for (TileEntityRef ref : getCachedTileEntities(chunk, gameTime)) {
                 if (++inspected > MAX_TILE_ENTITIES_PER_PULSE) {
                     return;
                 }
-                if (furnaceTier > 0 && state instanceof Furnace furnace) {
-                    boostFurnace(furnace, furnaceTier);
-                }
-                if (spawnerTier > 0 && state instanceof CreatureSpawner spawner) {
-                    boostSpawner(spawner, spawnerTier);
+
+                if (ref.kind() == TileEntityKind.FURNACE && furnaceTier > 0) {
+                    BlockState state = chunk.getWorld().getBlockAt(ref.x(), ref.y(), ref.z()).getState(false);
+                    if (state instanceof Furnace furnace) {
+                        boostFurnace(furnace, furnaceTier);
+                    }
+                } else if (ref.kind() == TileEntityKind.SPAWNER && spawnerTier > 0) {
+                    BlockState state = chunk.getWorld().getBlockAt(ref.x(), ref.y(), ref.z()).getState(false);
+                    if (state instanceof CreatureSpawner spawner) {
+                        boostSpawner(spawner, spawnerTier);
+                    }
                 }
             }
         }
+    }
+
+    private static List<TileEntityRef> getCachedTileEntities(Chunk chunk, long gameTime) {
+        TileEntityChunkKey key = new TileEntityChunkKey(chunk.getWorld().getUID(), chunk.getX(), chunk.getZ());
+        CachedTileEntities cached = TILE_ENTITY_CACHE.get(key);
+        if (cached != null
+                && gameTime >= cached.scannedGameTime()
+                && gameTime - cached.scannedGameTime() < TILE_ENTITY_DISCOVERY_CACHE_TICKS) {
+            return cached.entries();
+        }
+
+        List<TileEntityRef> entries = new ArrayList<>();
+        for (BlockState state : chunk.getTileEntities(false)) {
+            TileEntityKind kind = state instanceof Furnace
+                    ? TileEntityKind.FURNACE
+                    : state instanceof CreatureSpawner ? TileEntityKind.SPAWNER : TileEntityKind.OTHER;
+            entries.add(new TileEntityRef(state.getX(), state.getY(), state.getZ(), kind));
+        }
+
+        if (TILE_ENTITY_CACHE.size() >= MAX_TILE_ENTITY_CACHE_CHUNKS) {
+            TILE_ENTITY_CACHE.clear();
+        }
+
+        List<TileEntityRef> immutableEntries = List.copyOf(entries);
+        TILE_ENTITY_CACHE.put(key, new CachedTileEntities(gameTime, immutableEntries));
+        return immutableEntries;
     }
 
     private static void boostFurnace(Furnace furnace, int tier) {
@@ -398,4 +450,16 @@ final class BeaconPlusRuntimeEffects {
             default -> false;
         };
     }
+
+    private enum TileEntityKind {
+        OTHER,
+        FURNACE,
+        SPAWNER
+    }
+
+    private record TileEntityRef(int x, int y, int z, TileEntityKind kind) {}
+
+    private record TileEntityChunkKey(UUID worldId, int x, int z) {}
+
+    private record CachedTileEntities(long scannedGameTime, List<TileEntityRef> entries) {}
 }

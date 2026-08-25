@@ -1,4 +1,4 @@
-name: Build English Slimefun
+name: Build Slimefun Legacy
 
 on:
   push:
@@ -155,6 +155,41 @@ jobs:
           🔖 Release build: `0c6959b`
 
           > Keeping the classic Slimefun4 experience alive on modern Minecraft — with stability first.
+          EOF
+            NOTES_ARGS=(--notes-file /tmp/release-notes.md)
+          elif [[ "$LEGACY_ARTIFACT_VERSION" == "4.1.40" ]]; then
+            RELEASE_TITLE="Slimefun Legacy 4.1.40 — Performance & Stability"
+            cat > /tmp/release-notes.md <<'EOF'
+          # Slimefun Legacy 4.1.40 — Performance & Stability
+
+          Slimefun Legacy 4.1.40 is the stable production baseline for the current Legacy line, focused on smoother runtime performance, better diagnostics, and keeping established Slimefun behavior intact on modern servers.
+
+          ## ⚡ Resonance Beacon performance
+          - Player beacon potion effects now last **30 seconds** and are refreshed only when roughly **15 seconds remain**, instead of being reapplied every one-second beacon pulse.
+          - Expensive furnace/spawner tile-entity discovery is cached for **15 seconds** while boosts continue to operate from live block states on the normal gameplay cadence.
+          - Reuses the same loaded-chunk footprint across beacon effect families instead of rebuilding it repeatedly during one pulse.
+          - Resonance Beacons receive deterministic startup offsets so multiple loaded beacons do not synchronize their expensive work onto the same tick.
+          - Player-state cleanup now runs when a beacon actually transitions from powered to unpowered instead of repeatedly rescanning the same area.
+          - Powered beam rendering is bounded to prevent particle dispatch cost from scaling excessively with world height.
+          - Existing Gravity Well, furnace, spawner, crop, XP, repair, flight, and other beacon behavior remains active without reducing the normal gameplay pulse rate.
+
+          ## ⏱️ Diagnostics and server-owner tooling
+          - `/sf tick top` remains available for profiling high-cost Slimefun machines.
+          - Hotspot reports include actionable machine coordinates so expensive chunks can be located quickly.
+          - Existing ticker freeze, inspection, circuit-breaker, and compatibility diagnostics remain intact.
+
+          ## 🛡️ Stability and compatibility
+          - Paper 26.2 is the primary supported platform.
+          - Purpur 26.2 is supported.
+          - Folia 26.2 remains experimental.
+          - Paper/Purpur 1.21.11 compatibility checks are retained.
+          - Built with Java 25 and verified to a Java 21 bytecode target.
+          - Existing Slimefun item IDs, saved-world data, machine behavior, and addon-facing compatibility remain the priority.
+
+          ## 📦 Release asset
+          - `Slimefun-Legacy4.1.40.jar`
+
+          > 4.1.40 is intended to be the stable baseline for production servers. Future 4.1.x updates can focus on targeted maintenance, compatibility, and measured performance improvements without requiring disruptive migrations.
           EOF
             NOTES_ARGS=(--notes-file /tmp/release-notes.md)
           fi
