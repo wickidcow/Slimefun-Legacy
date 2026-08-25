@@ -2,7 +2,6 @@ package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
 
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -69,29 +68,38 @@ final class BeaconPlusRuntimeEffects {
     private BeaconPlusRuntimeEffects() {}
 
     static void applyPulse(Block block, Map<BeaconPlusEffect, Integer> tiers, double range, long gameTime) {
+        // Resolve the loaded field once per pulse. Entity, tile-entity and crop work all use the same
+        // snapshot instead of rebuilding the chunk footprint independently for every effect family.
+        List<Chunk> loadedChunks = getLoadedChunksInField(block, range);
+        if (loadedChunks.isEmpty()) {
+            return;
+        }
+
         Location center = block.getLocation().add(0.5D, 0.5D, 0.5D);
         int gravityTier = tiers.getOrDefault(BeaconPlusEffect.GRAVITY_WELL, 0);
-        for (Entity entity : getEntities(block, range)) {
-            if (entity instanceof Player player) {
-                applyPlayerEffects(player, tiers, gameTime);
-            } else if (entity instanceof Monster monster) {
-                applyMonsterEffects(monster, tiers);
-            }
+        for (Chunk chunk : loadedChunks) {
+            for (Entity entity : chunk.getEntities()) {
+                if (entity instanceof Player player) {
+                    applyPlayerEffects(player, tiers, gameTime);
+                } else if (entity instanceof Monster monster) {
+                    applyMonsterEffects(monster, tiers);
+                }
 
-            // Match the proven BeaconPlus behavior: every resolved once-per-second pulse may pull AI mobs and items.
-            if (gravityTier > 0 && (entity instanceof Mob || entity instanceof Item)) {
-                pullEntity(entity, center, gravityTier);
+                // Match the proven BeaconPlus behavior: every resolved once-per-second pulse may pull AI mobs and items.
+                if (gravityTier > 0 && (entity instanceof Mob || entity instanceof Item)) {
+                    pullEntity(entity, center, gravityTier);
+                }
             }
         }
 
         int furnaceTier = tiers.getOrDefault(BeaconPlusEffect.FURNACE_BOOSTER, 0);
         int spawnerTier = tiers.getOrDefault(BeaconPlusEffect.SPAWNERS, 0);
         if (furnaceTier > 0 || spawnerTier > 0) {
-            applyTileEntityBoosts(block, range, furnaceTier, spawnerTier);
+            applyTileEntityBoosts(loadedChunks, furnaceTier, spawnerTier);
         }
         int cropTier = tiers.getOrDefault(BeaconPlusEffect.CROPS, 0);
         if (cropTier > 0 && gameTime % 40L < PULSE_INTERVAL_TICKS) {
-            applyCropBoost(block, range, cropTier);
+            applyCropBoost(block, loadedChunks, cropTier);
         }
     }
 
@@ -121,21 +129,14 @@ final class BeaconPlusRuntimeEffects {
     }
 
     static void refreshNearbyPlayerStates(Block block, double range) {
-        for (Entity entity : getEntities(block, range)) {
-            if (entity instanceof Player player) {
-                refreshPlayerState(player);
-            }
-        }
-    }
-
-    private static Collection<Entity> getEntities(Block block, double range) {
-        List<Entity> result = new ArrayList<>();
+        // This path is mostly used for power-loss cleanup. Avoid building an intermediate entity list.
         for (Chunk chunk : getLoadedChunksInField(block, range)) {
             for (Entity entity : chunk.getEntities()) {
-                result.add(entity);
+                if (entity instanceof Player player) {
+                    refreshPlayerState(player);
+                }
             }
         }
-        return result;
     }
 
     private static void applyPlayerEffects(Player player, Map<BeaconPlusEffect, Integer> tiers, long gameTime) {
@@ -230,9 +231,9 @@ final class BeaconPlusRuntimeEffects {
         entity.setVelocity(velocity);
     }
 
-    private static void applyTileEntityBoosts(Block beaconBlock, double range, int furnaceTier, int spawnerTier) {
+    private static void applyTileEntityBoosts(List<Chunk> loadedChunks, int furnaceTier, int spawnerTier) {
         int inspected = 0;
-        for (Chunk chunk : getLoadedChunksInField(beaconBlock, range)) {
+        for (Chunk chunk : loadedChunks) {
             for (BlockState state : chunk.getTileEntities()) {
                 if (++inspected > MAX_TILE_ENTITIES_PER_PULSE) {
                     return;
@@ -266,8 +267,7 @@ final class BeaconPlusRuntimeEffects {
         }
     }
 
-    private static void applyCropBoost(Block beaconBlock, double range, int tier) {
-        List<Chunk> chunks = getLoadedChunksInField(beaconBlock, range);
+    private static void applyCropBoost(Block beaconBlock, List<Chunk> chunks, int tier) {
         if (chunks.isEmpty()) {
             return;
         }
