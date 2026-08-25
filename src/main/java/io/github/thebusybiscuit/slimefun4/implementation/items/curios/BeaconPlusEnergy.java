@@ -30,6 +30,7 @@ final class BeaconPlusEnergy {
     static void setElectricMode(Location location, boolean enabled) {
         StorageCacheUtils.setData(location, ELECTRIC_MODE_KEY, Boolean.toString(enabled));
         PAID_UNTIL.remove(BeaconKey.from(location));
+        BeaconPlusRuntime.invalidate(location);
     }
 
     static long getStoredCharge(Location location) {
