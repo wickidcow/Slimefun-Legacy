@@ -129,43 +129,76 @@ jobs:
           EOF
             NOTES_ARGS=(--notes-file /tmp/release-notes.md)
           elif [[ "$LEGACY_ARTIFACT_VERSION" == "4.1.39" ]]; then
-            RELEASE_TITLE="Slimefun Legacy 4.1.39 — Smart Search Stability"
+            RELEASE_TITLE="⚙️ Slimefun Legacy 4.1.39 — Smart Search + Ticker Diagnostics"
             cat > /tmp/release-notes.md <<'EOF'
-          # Slimefun Legacy 4.1.39 — Smart Search Stability
+          # ⚙️ Slimefun Legacy 4.1.39
+          ## Smart Search Stability • Safe `/sf tick` Diagnostics
 
-          This release improves Slimefun Guide search stability and fixes the increasing overhead seen after repeated Search → Back navigation.
+          Slimefun Legacy 4.1.39 is a stability-focused release that improves Guide search behavior while adding a lightweight server-side diagnostics toolkit for Slimefun ticking — without rewriting the normal machine ticker path.
 
-          ## Highlights
+          ---
 
-          - **Exact classic search fallback:** when `features.smart-search` is disabled, the enhanced guide now bypasses indexed Smart Search entirely and delegates to the original `SurvivalSlimefunGuide` search path.
-          - **Back-navigation performance:** Smart Search results are cached per player profile and world/query so returning to a prior search page can reuse the previous result set instead of rescanning the full Slimefun registry.
-          - **Bounded search state:** per-profile Smart Search caches are capped at 8 entries and weakly keyed to avoid unbounded retention.
-          - **Duplicate history cleanup:** consecutive duplicate search history entries are collapsed, reducing repeated Search → Back history growth.
-          - **Compatibility preserved:** Smart Search ON keeps enhanced indexed search and filters; Smart Search OFF restores standard Slimefun search behavior.
-          - **Tick diagnostics unaffected:** this release does not alter the separate `/sf tick` diagnostics path.
+          ## 🔎 Smarter Guide Search
 
-          ## Compatibility
+          - **True classic fallback:** with `features.smart-search` disabled, the Enhanced Guide now delegates directly to the original `SurvivalSlimefunGuide` search path.
+          - **Search → Back performance fix:** Smart Search results are cached per profile, world, and query so returning to a previous result page can reuse the existing result set instead of rescanning the full registry.
+          - **Bounded cache:** each profile keeps a maximum of 8 Smart Search result entries and uses weak profile keys to avoid unbounded retention.
+          - **Cleaner history:** consecutive duplicate search-history entries are collapsed to prevent repeated Search → Back navigation from continuously growing guide state.
+          - **No behavior surprise:** Smart Search ON keeps the enhanced indexed search and filters; Smart Search OFF behaves like classic Slimefun search.
 
-          - Paper 26.2 primary
-          - Purpur 26.2 supported
-          - Folia 26.2 experimental
-          - Paper/Purpur 1.21.11 compatibility checks
-          - Built with Java 25 and verified to Java 21 bytecode target
+          ## ⏱️ New `/sf tick` Diagnostics
 
-          ## Release asset
+          A new operator-focused `/sf tick` command provides safe runtime visibility into Slimefun machine ticking.
+
+          - **`/sf tick` / `query` / `show` / `status`** — view ticker state, current tick rate, registered machine locations/chunks, paused circuits, and failing machines.
+          - **`/sf tick at`** — inspect the Slimefun block you are looking at, including its item ID, location, ticker type, and paused state.
+          - **`/sf tick <ITEM_ID>`** — inspect whether a Slimefun item uses a block ticker and whether that ticker is synchronous or asynchronous.
+          - **`/sf tick top`** — reuse Slimefun's existing performance profiler to surface the most expensive machine tickers.
+          - **`/sf tick freeze` / `unfreeze`** — safely pause or resume Slimefun machine ticking using the existing ticker pause mechanism.
+          - **`/sf tick rate`** — report the configured ticker rate without changing live cadence.
+          - Protected by **`slimefun.command.tick`**, defaulting to server operators.
+
+          ## 🛡️ Designed to Stay Lightweight
+
+          The diagnostics implementation deliberately avoids the heavier parts of other ticker-debugging approaches:
+
+          - no global waiting queue inserted into every machine tick
+          - no unmanaged common thread pool
+          - no timeout wrapper around every asynchronous machine
+          - no broad `TickerTask` execution-path rewrite
+          - no extra per-tick diagnostics cost when the command is not being used
+
+          Normal Paper, Purpur, and Folia machine execution stays on the existing Legacy ticker path.
+
+          ## 🧩 Compatibility
+
+          - **Paper 26.2** — primary target
+          - **Purpur 26.2** — supported
+          - **Folia 26.2** — experimental support
+          - **Paper/Purpur 1.21.11** compatibility checks
+          - Built with **Java 25** and verified to a **Java 21 bytecode target**
+
+          ## 📦 Release Build
 
           - `Slimefun-Legacy4.1.39.jar`
+          - Release source: `0c6959b58a5511c313ef0b89b4d0a29e0524c00c`
+
+          ---
+
+          **Slimefun Legacy** keeps the classic Slimefun4 experience alive on modern Minecraft versions while prioritizing compatibility, stability, and practical server-owner tooling.
           EOF
             NOTES_ARGS=(--notes-file /tmp/release-notes.md)
           fi
 
           if gh release view "$TAG" >/dev/null 2>&1; then
-            if [[ "$GITHUB_REF" == refs/heads/* ]]; then
-              git tag -f "$TAG" "$GITHUB_SHA"
-              git push origin "refs/tags/$TAG" --force
-            fi
+            # Existing releases are treated as stable snapshots on normal master pushes.
+            # This lets us refresh release notes without silently moving the tag or
+            # replacing the published JAR with a later same-version development commit.
             gh release edit "$TAG" --title "$RELEASE_TITLE" "${NOTES_ARGS[@]}"
-            gh release upload "$TAG" "$JAR" --clobber
+
+            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+              gh release upload "$TAG" "$JAR" --clobber
+            fi
           else
             gh release create "$TAG" "$JAR" --target "$GITHUB_SHA" --title "$RELEASE_TITLE" "${NOTES_ARGS[@]}"
           fi
