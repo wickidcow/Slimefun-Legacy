@@ -19,6 +19,8 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu.AdvancedMenuClickHandler;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ClickAction;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.AContainer;
+import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.MachineRecipe;
+import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 import me.mrCookieSlime.Slimefun.api.inventory.DirtyChestMenu;
 import me.mrCookieSlime.Slimefun.api.item_transport.ItemTransportFlow;
@@ -39,6 +41,8 @@ public class ElectricSmeltery extends AContainer implements NotHopperable {
     private static final int[] border = {4, 5, 6, 7, 8, 13, 31, 40, 41, 42, 43, 44};
     private static final int[] inputBorder = {0, 1, 2, 3, 9, 12, 18, 21, 27, 30, 36, 37, 38, 39};
     private static final int[] outputBorder = {14, 15, 16, 17, 23, 26, 32, 33, 34, 35};
+    private static final int[] INPUT_SLOTS = {10, 11, 19, 20, 28, 29};
+    private static final int[] OUTPUT_SLOTS = {24, 25};
 
     @ParametersAreNonnullByDefault
     public ElectricSmeltery(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
@@ -72,7 +76,7 @@ public class ElectricSmeltery extends AContainer implements NotHopperable {
                 List<Integer> matchingSlots = new LinkedList<>();
                 List<Integer> emptySlots = new LinkedList<>();
 
-                for (int slot : getInputSlots()) {
+                for (int slot : INPUT_SLOTS) {
                     ItemStack stack = menu.getItemInSlot(slot);
 
                     if (stack == null || stack.getType().isAir()) {
@@ -125,7 +129,7 @@ public class ElectricSmeltery extends AContainer implements NotHopperable {
         preset.addItem(
                 22, new CustomItemStack(Material.BLACK_STAINED_GLASS_PANE, " "), ChestMenuUtils.getEmptyClickHandler());
 
-        for (int i : getOutputSlots()) {
+        for (int i : OUTPUT_SLOTS) {
             preset.addMenuClickHandler(i, new AdvancedMenuClickHandler() {
 
                 @Override
@@ -143,18 +147,30 @@ public class ElectricSmeltery extends AContainer implements NotHopperable {
     }
 
     @Override
+    protected MachineRecipe findNextRecipe(BlockMenu inv) {
+        for (int slot : INPUT_SLOTS) {
+            ItemStack item = inv.getItemInSlot(slot);
+            if (item != null && !item.getType().isAir()) {
+                return super.findNextRecipe(inv);
+            }
+        }
+
+        return null;
+    }
+
+    @Override
     public ItemStack getProgressBar() {
         return new ItemStack(Material.FLINT_AND_STEEL);
     }
 
     @Override
     public int[] getInputSlots() {
-        return new int[] {10, 11, 19, 20, 28, 29};
+        return INPUT_SLOTS;
     }
 
     @Override
     public int[] getOutputSlots() {
-        return new int[] {24, 25};
+        return OUTPUT_SLOTS;
     }
 
     @Override
