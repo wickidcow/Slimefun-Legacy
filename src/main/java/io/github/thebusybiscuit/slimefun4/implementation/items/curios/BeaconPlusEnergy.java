@@ -14,6 +14,7 @@ final class BeaconPlusEnergy {
     static final String ELECTRIC_MODE_KEY = "beacon_plus_electric_mode";
     private static final String ENERGY_CHARGE_KEY = "energy-charge";
     private static final long PAID_WINDOW_TICKS = 20L * 15L;
+    private static final long PER_PULSE_ENERGY_SCALE = PAID_WINDOW_TICKS / 20L;
     private static final Map<BeaconKey, Long> PAID_UNTIL = new ConcurrentHashMap<>();
 
     private BeaconPlusEnergy() {}
@@ -49,7 +50,12 @@ final class BeaconPlusEnergy {
                 BeaconPlusConfig.getEnergyBaseCostPerPulse() + tierSum * BeaconPlusConfig.getEnergyTierCostPerPulse();
         int activatorTier = Math.max(0, tiers.getOrDefault(BeaconPlusEffect.ACTIVATOR, 0));
         demand += (long) activatorTier * BeaconPlusConfig.getEnergyActivatorTierSurchargePerPulse();
-        return Math.max(0L, demand);
+        if (demand <= 0L) {
+            return 0L;
+        }
+        return demand > Long.MAX_VALUE / PER_PULSE_ENERGY_SCALE
+                ? Long.MAX_VALUE
+                : demand * PER_PULSE_ENERGY_SCALE;
     }
 
     static boolean hasOperationalPower(Block block, Map<BeaconPlusEffect, Integer> tiers) {
