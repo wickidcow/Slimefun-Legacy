@@ -41,7 +41,7 @@ final class ProfiledBlock {
      * @param l
      *            The {@link Location}
      * @param item
-     *            The {@link SlimefunItem} found at that {@link Location}
+     *            The {@link SlimefunItem} found at this {@link Location}
      */
     ProfiledBlock(@Nonnull Location l, @Nonnull SlimefunItem item) {
         this.world = l.getWorld();
@@ -98,7 +98,8 @@ final class ProfiledBlock {
      * @return This blocks y coordinate.
      */
     public int getY() {
-        return (int) (this.position & 0xFFF);
+        int y = (int) (this.position & 0xFFF);
+        return y >= 0x800 ? y - 0x1000 : y;
     }
 
     /**
