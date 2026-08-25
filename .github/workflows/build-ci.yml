@@ -157,6 +157,38 @@ jobs:
           - `Slimefun-Legacy4.1.39.jar`
           EOF
             NOTES_ARGS=(--notes-file /tmp/release-notes.md)
+          elif [[ "$LEGACY_ARTIFACT_VERSION" == "4.1.40" ]]; then
+            RELEASE_TITLE="Slimefun Legacy 4.1.40 — Ticker Diagnostics"
+            cat > /tmp/release-notes.md <<'EOF'
+          # Slimefun Legacy 4.1.40 — Ticker Diagnostics
+
+          This release adds safe, operator-focused Slimefun machine ticker diagnostics inspired by the Gugu tick-freeze tooling while preserving Slimefun Legacy's existing Paper, Purpur, and Folia execution model.
+
+          ## Highlights
+
+          - **New `/sf tick` diagnostics:** quickly view ticker state, platform, configured rate, registered machine locations/chunks, paused machine circuits, and failing machines.
+          - **Target inspection:** `/sf tick at` inspects the ticking Slimefun machine you are looking at, including its item ID, location, and synchronized/asynchronous ticker mode.
+          - **Item inspection:** `/sf tick <ITEM_ID>` reports whether a Slimefun item has a block ticker and which execution mode it uses.
+          - **Live performance ranking:** `/sf tick top` reuses Slimefun Legacy's existing profiler to collect the current highest-cost ticker sample instead of adding a second profiling pipeline.
+          - **Safe freeze controls:** `/sf tick freeze` and `/sf tick unfreeze` use Legacy's existing ticker pause switch. The normal machine execution path is not moved into a new queue or executor.
+          - **Read-only rate diagnostics:** `/sf tick rate` reports the configured interval without mutating scheduler cadence at runtime.
+          - **Admin permission:** `slimefun.command.tick` is OP-only by default, with tab completion for diagnostic actions and Slimefun item IDs.
+
+          ## Safety and compatibility
+
+          Unlike the referenced Gugu implementation, Slimefun Legacy does not route every machine callback through a new waiting queue or the Java common pool. Normal Paper/Purpur asynchronous behavior and Folia region ownership remain unchanged when diagnostics are unused.
+
+          - Paper 26.2 primary
+          - Purpur 26.2 supported
+          - Folia 26.2 experimental
+          - Paper/Purpur 1.21.11 compatibility checks
+          - Built with Java 25 and verified to Java 21 bytecode target
+
+          ## Release asset
+
+          - `Slimefun-Legacy4.1.40.jar`
+          EOF
+            NOTES_ARGS=(--notes-file /tmp/release-notes.md)
           fi
 
           if gh release view "$TAG" >/dev/null 2>&1; then
