@@ -68,7 +68,7 @@ public class SlimefunProfiler {
 
     /**
      * All possible values of {@link PerformanceRating}.
-     * We cache these for fast access since Enum#values() creates
+     * We cache these for fast access since Enum#values creates
      * an array everytime it is called.
      */
     private final PerformanceRating[] performanceRatings = PerformanceRating.values();
@@ -327,6 +327,36 @@ public class SlimefunProfiler {
         }
 
         return map;
+    }
+
+    /**
+     * Returns the highest-cost individual machine in a profiled chunk.
+     * The returned value is formatted as x,y,z so administrators can teleport
+     * directly to a real ticking block while still retaining the chunk summary.
+     */
+    @Nonnull
+    protected String getHottestBlockInChunk(@Nonnull String chunk) {
+        Validate.notNull(chunk, "The chunk cannot be null!");
+
+        ProfiledBlock hottestBlock = null;
+        long hottestTiming = Long.MIN_VALUE;
+
+        for (Map.Entry<ProfiledBlock, Long> entry : timings.entrySet()) {
+            ProfiledBlock block = entry.getKey();
+            String world = block.getWorld().getName();
+            String blockChunk = world + " (" + block.getChunkX() + ',' + block.getChunkZ() + ')';
+
+            if (chunk.equals(blockChunk) && entry.getValue() > hottestTiming) {
+                hottestBlock = block;
+                hottestTiming = entry.getValue();
+            }
+        }
+
+        if (hottestBlock == null) {
+            return "";
+        }
+
+        return hottestBlock.getX() + "," + hottestBlock.getY() + "," + hottestBlock.getZ();
     }
 
     protected int getBlocksInChunk(@Nonnull String chunk) {
