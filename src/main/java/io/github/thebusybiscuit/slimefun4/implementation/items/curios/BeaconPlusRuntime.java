@@ -234,8 +234,19 @@ final class BeaconPlusRuntime {
 
     private static boolean shouldPulse(Location location, long gameTime) {
         BeaconKey key = BeaconKey.from(location);
-        Long previous = LAST_PULSE_GAME_TICKS.get(key);
-        if (previous != null && gameTime >= previous && gameTime - previous < PULSE_INTERVAL_TICKS) {
+
+        // Newly observed beacons previously all pulsed immediately, which synchronized every Beacon Plus instance
+        // onto the same heavy 20-tick cycle. Give each location a stable startup offset while preserving the exact
+        // once-per-20-game-ticks cadence after its first pulse. Slower Slimefun ticker rates simply quantize the
+        // offset to the next available ticker invocation; they never reduce the steady-state pulse frequency.
+        long initialPrevious = gameTime - PULSE_INTERVAL_TICKS
+                + Math.floorMod(key.hashCode(), PULSE_INTERVAL_TICKS);
+        Long previous = LAST_PULSE_GAME_TICKS.putIfAbsent(key, initialPrevious);
+        if (previous == null) {
+            previous = initialPrevious;
+        }
+
+        if (gameTime >= previous && gameTime - previous < PULSE_INTERVAL_TICKS) {
             return false;
         }
         LAST_PULSE_GAME_TICKS.put(key, gameTime);
