@@ -37,7 +37,6 @@ Current development release: **4.1.39 — Smart Search Stability**. ·
 Slimefun Legacy preserves the familiar Slimefun 4 gameplay, saved-world format, and addon ecosystem while maintaining the project for modern Paper servers.
 | Focus | What it means |
 | --- | --- |
-| **English first** | Player-facing names, lore, menus, messages, and controls are maintained in English without requiring Slimefun Translate. |
 | **Legacy compatible** | Established Slimefun addon entry points and saved data are preserved wherever practical. |
 | **Stability focused** | Storage recovery, machine circuit breakers, lifecycle safeguards, and regression tests protect production servers. |
 | **Modernized carefully** | Paper APIs, scheduling, energy handling, and internal annotations are updated without casually breaking older addons. |
