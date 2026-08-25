@@ -129,63 +129,32 @@ jobs:
           EOF
             NOTES_ARGS=(--notes-file /tmp/release-notes.md)
           elif [[ "$LEGACY_ARTIFACT_VERSION" == "4.1.39" ]]; then
-            RELEASE_TITLE="⚙️ Slimefun Legacy 4.1.39 — Smart Search + Ticker Diagnostics"
+            RELEASE_TITLE="✨ Slimefun Legacy 4.1.39 — Search & Tick Tools"
             cat > /tmp/release-notes.md <<'EOF'
-          # ⚙️ Slimefun Legacy 4.1.39
-          ## Smart Search Stability • Safe `/sf tick` Diagnostics
+          # ✨ Slimefun Legacy 4.1.39
+          ### Smarter Search • Safer Ticker Diagnostics
 
-          Slimefun Legacy 4.1.39 is a stability-focused release that improves Guide search behavior while adding a lightweight server-side diagnostics toolkit for Slimefun ticking — without rewriting the normal machine ticker path.
+          A compact stability update focused on smoother Guide search and better tools for server owners.
 
-          ---
+          ## 🔎 Search Improvements
+          - Smart Search **OFF** now uses classic Slimefun search exactly.
+          - Repeated **Search → Back** navigation reuses cached results instead of repeatedly rebuilding them.
+          - Search cache/history is bounded and cleaned up to avoid unnecessary growth.
 
-          ## 🔎 Smarter Guide Search
-
-          - **True classic fallback:** with `features.smart-search` disabled, the Enhanced Guide now delegates directly to the original `SurvivalSlimefunGuide` search path.
-          - **Search → Back performance fix:** Smart Search results are cached per profile, world, and query so returning to a previous result page can reuse the existing result set instead of rescanning the full registry.
-          - **Bounded cache:** each profile keeps a maximum of 8 Smart Search result entries and uses weak profile keys to avoid unbounded retention.
-          - **Cleaner history:** consecutive duplicate search-history entries are collapsed to prevent repeated Search → Back navigation from continuously growing guide state.
-          - **No behavior surprise:** Smart Search ON keeps the enhanced indexed search and filters; Smart Search OFF behaves like classic Slimefun search.
-
-          ## ⏱️ New `/sf tick` Diagnostics
-
-          A new operator-focused `/sf tick` command provides safe runtime visibility into Slimefun machine ticking.
-
-          - **`/sf tick` / `query` / `show` / `status`** — view ticker state, current tick rate, registered machine locations/chunks, paused circuits, and failing machines.
-          - **`/sf tick at`** — inspect the Slimefun block you are looking at, including its item ID, location, ticker type, and paused state.
-          - **`/sf tick <ITEM_ID>`** — inspect whether a Slimefun item uses a block ticker and whether that ticker is synchronous or asynchronous.
-          - **`/sf tick top`** — reuse Slimefun's existing performance profiler to surface the most expensive machine tickers.
-          - **`/sf tick freeze` / `unfreeze`** — safely pause or resume Slimefun machine ticking using the existing ticker pause mechanism.
-          - **`/sf tick rate`** — report the configured ticker rate without changing live cadence.
-          - Protected by **`slimefun.command.tick`**, defaulting to server operators.
-
-          ## 🛡️ Designed to Stay Lightweight
-
-          The diagnostics implementation deliberately avoids the heavier parts of other ticker-debugging approaches:
-
-          - no global waiting queue inserted into every machine tick
-          - no unmanaged common thread pool
-          - no timeout wrapper around every asynchronous machine
-          - no broad `TickerTask` execution-path rewrite
-          - no extra per-tick diagnostics cost when the command is not being used
-
-          Normal Paper, Purpur, and Folia machine execution stays on the existing Legacy ticker path.
+          ## ⏱️ New `/sf tick`
+          - Inspect ticker status, machine locations, failing machines, and specific Slimefun blocks/items.
+          - Use `/sf tick top` to find expensive machine tickers with the existing profiler.
+          - Safely `/sf tick freeze` and `unfreeze` using Legacy's existing pause system.
+          - Read the current tick rate without changing live cadence.
+          - No heavy queue, executor, or broad ticker-path rewrite.
 
           ## 🧩 Compatibility
+          **Paper 26.2** • **Purpur 26.2** • **Folia 26.2 experimental** • **Java 21+ runtime target**
 
-          - **Paper 26.2** — primary target
-          - **Purpur 26.2** — supported
-          - **Folia 26.2** — experimental support
-          - **Paper/Purpur 1.21.11** compatibility checks
-          - Built with **Java 25** and verified to a **Java 21 bytecode target**
+          📦 `Slimefun-Legacy4.1.39.jar`  
+          🔖 Release build: `0c6959b`
 
-          ## 📦 Release Build
-
-          - `Slimefun-Legacy4.1.39.jar`
-          - Release source: `0c6959b58a5511c313ef0b89b4d0a29e0524c00c`
-
-          ---
-
-          **Slimefun Legacy** keeps the classic Slimefun4 experience alive on modern Minecraft versions while prioritizing compatibility, stability, and practical server-owner tooling.
+          > Keeping the classic Slimefun4 experience alive on modern Minecraft — with stability first.
           EOF
             NOTES_ARGS=(--notes-file /tmp/release-notes.md)
           fi
