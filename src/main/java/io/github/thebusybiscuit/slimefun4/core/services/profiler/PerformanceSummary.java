@@ -84,8 +84,11 @@ class PerformanceSummary {
         summarizeTimings(chunks.size(), "chunk", sender, chunks, entry -> {
             int count = profiler.getBlocksInChunk(entry.getKey());
             String time = NumberUtils.getAsMillis(entry.getValue());
+            String hotspot = profiler.getHottestBlockInChunk(entry.getKey());
+            String chunkLabel = formatChunkLabel(entry.getKey());
+            String hotspotLabel = hotspot.isEmpty() ? "" : " | hotspot " + hotspot;
 
-            return entry.getKey() + " - " + count + " block" + (count != 1 ? 's' : "") + " (" + time + ")";
+            return chunkLabel + hotspotLabel + " - " + count + " block" + (count != 1 ? 's' : "") + " (" + time + ")";
         });
 
         summarizeTimings(plugins.size(), "plugin", sender, plugins, entry -> {
@@ -99,6 +102,16 @@ class PerformanceSummary {
             sender.sendMessage("");
             sender.sendMessage(profiler.getThreadPoolStatus());
         }
+    }
+
+    @Nonnull
+    private String formatChunkLabel(@Nonnull String chunk) {
+        int coordinatesStart = chunk.lastIndexOf(" (");
+        if (coordinatesStart <= 0) {
+            return chunk;
+        }
+
+        return chunk.substring(0, coordinatesStart) + " chunk" + chunk.substring(coordinatesStart);
     }
 
     @ParametersAreNonnullByDefault
