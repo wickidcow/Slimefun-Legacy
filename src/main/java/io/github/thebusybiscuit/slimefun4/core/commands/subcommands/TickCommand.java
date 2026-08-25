@@ -1,7 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
-import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
@@ -61,70 +60,70 @@ final class TickCommand extends SubCommand {
         Map<?, ? extends Set<TickLocation>> locations = ticker.getTickLocations();
         int machineCount = locations.values().stream().mapToInt(Set::size).sum();
 
-        send(sender, "&6Slimefun Legacy Ticker");
-        send(sender, "&7State: " + (ticker.isPaused() ? "&cFROZEN" : ticker.isHalted() ? "&cHALTED" : "&aRUNNING"));
-        send(sender, "&7Platform: &e" + (Slimefun.getSchedulerService().isFolia() ? "Folia" : "Paper/Purpur"));
-        send(sender, "&7Ticker rate: &e" + ticker.getTickRate() + " tick(s)");
-        send(sender, "&7Registered machine locations: &e" + machineCount);
-        send(sender, "&7Registered machine chunks: &e" + locations.size());
-        send(sender, "&7Paused machine circuits: &e" + ticker.getPausedMachineCount());
-        send(sender, "&7Failing machines: &e" + ticker.getFailingMachineCount());
-        send(sender, "&8Use /sf tick top for the current profiler ranking or /sf tick at while looking at a machine.");
+        send(sender, "Slimefun Legacy Ticker");
+        send(sender, "State: " + (ticker.isPaused() ? "FROZEN" : ticker.isHalted() ? "HALTED" : "RUNNING"));
+        send(sender, "Platform: " + (Slimefun.getSchedulerService().isFolia() ? "Folia" : "Paper/Purpur"));
+        send(sender, "Ticker rate: " + ticker.getTickRate() + " tick(s)");
+        send(sender, "Registered machine locations: " + machineCount);
+        send(sender, "Registered machine chunks: " + locations.size());
+        send(sender, "Paused machine circuits: " + ticker.getPausedMachineCount());
+        send(sender, "Failing machines: " + ticker.getFailingMachineCount());
+        send(sender, "Use /sf tick top for the current profiler ranking or /sf tick at while looking at a machine.");
     }
 
     private void freeze(CommandSender sender) {
         TickerTask ticker = Slimefun.getTickerTask();
         if (ticker.isPaused()) {
-            send(sender, "&eThe Slimefun machine ticker is already frozen.");
+            send(sender, "The Slimefun machine ticker is already frozen.");
             return;
         }
 
         ticker.setPaused(true);
-        send(sender, "&cSlimefun machine ticker frozen. &7Already-dispatched work may finish, but new ticker cycles are paused.");
+        send(sender, "Slimefun machine ticker frozen. Already-dispatched work may finish, but new ticker cycles are paused.");
     }
 
     private void unfreeze(CommandSender sender) {
         TickerTask ticker = Slimefun.getTickerTask();
         if (!ticker.isPaused()) {
-            send(sender, "&eThe Slimefun machine ticker is already running.");
+            send(sender, "The Slimefun machine ticker is already running.");
             return;
         }
 
         ticker.setPaused(false);
-        send(sender, "&aSlimefun machine ticker resumed.");
+        send(sender, "Slimefun machine ticker resumed.");
     }
 
     private void inspectTarget(CommandSender sender) {
         if (!(sender instanceof Player player)) {
-            send(sender, "&cOnly a player can use /sf tick at.");
+            send(sender, "Only a player can use /sf tick at.");
             return;
         }
 
         Block target = player.getTargetBlockExact(TARGET_DISTANCE, FluidCollisionMode.NEVER);
         if (target == null || target.getType().isAir()) {
-            send(sender, "&cLook directly at a Slimefun machine within " + TARGET_DISTANCE + " blocks.");
+            send(sender, "Look directly at a Slimefun machine within " + TARGET_DISTANCE + " blocks.");
             return;
         }
 
         Location location = target.getLocation();
         SlimefunItem item = StorageCacheUtils.getSlimefunItem(location);
         if (item == null || item.getBlockTicker() == null) {
-            send(sender, "&eThat block is not a ticking Slimefun machine.");
+            send(sender, "That block is not a ticking Slimefun machine.");
             return;
         }
 
-        send(sender, "&6Ticker target");
-        send(sender, "&7Item: &e" + item.getId());
-        send(sender, "&7Location: &e" + location.getWorld().getName() + " " + location.getBlockX() + " "
+        send(sender, "Ticker target");
+        send(sender, "Item: " + item.getId());
+        send(sender, "Location: " + location.getWorld().getName() + " " + location.getBlockX() + " "
                 + location.getBlockY() + " " + location.getBlockZ());
-        send(sender, "&7Ticker mode: &e" + (item.getBlockTicker().isSynchronized() ? "synchronized" : "asynchronous"));
-        send(sender, "&7Global ticker: " + (Slimefun.getTickerTask().isPaused() ? "&cfrozen" : "&arunning"));
-        send(sender, "&8Use /sf tick top to compare this machine type with the current profiler sample.");
+        send(sender, "Ticker mode: " + (item.getBlockTicker().isSynchronized() ? "synchronized" : "asynchronous"));
+        send(sender, "Global ticker: " + (Slimefun.getTickerTask().isPaused() ? "frozen" : "running"));
+        send(sender, "Use /sf tick top to compare this machine type with the current profiler sample.");
     }
 
     private void showTop(CommandSender sender) {
         if (Slimefun.getTickerTask().isPaused()) {
-            send(sender, "&eThe ticker is frozen, so a new timing sample cannot complete. Use /sf tick unfreeze first.");
+            send(sender, "The ticker is frozen, so a new timing sample cannot complete. Use /sf tick unfreeze first.");
             return;
         }
 
@@ -135,13 +134,13 @@ final class TickCommand extends SubCommand {
             inspector = new ConsolePerformanceInspector(sender, false, SummaryOrderType.HIGHEST);
         }
 
-        send(sender, "&7Collecting the next Slimefun ticker profiler sample...");
+        send(sender, "Collecting the next Slimefun ticker profiler sample...");
         Slimefun.getProfiler().requestSummary(inspector);
     }
 
     private void showRate(CommandSender sender) {
-        send(sender, "&7Current Slimefun ticker rate: &e" + Slimefun.getTickerTask().getTickRate() + " tick(s)");
-        send(sender, "&8Runtime rate mutation is intentionally not exposed; configure URID.custom-ticker-delay instead.");
+        send(sender, "Current Slimefun ticker rate: " + Slimefun.getTickerTask().getTickRate() + " tick(s)");
+        send(sender, "Runtime rate mutation is intentionally not exposed; configure URID.custom-ticker-delay instead.");
     }
 
     private void inspectItem(CommandSender sender, String itemId) {
@@ -152,20 +151,20 @@ final class TickCommand extends SubCommand {
         }
 
         if (item.getBlockTicker() == null) {
-            send(sender, "&e" + item.getId() + " does not have a BlockTicker.");
+            send(sender, item.getId() + " does not have a BlockTicker.");
             return;
         }
 
-        send(sender, "&6Ticker item &e" + item.getId());
-        send(sender, "&7Mode: &e" + (item.getBlockTicker().isSynchronized() ? "synchronized" : "asynchronous"));
-        send(sender, "&8Use /sf tick top for live timing data.");
+        send(sender, "Ticker item " + item.getId());
+        send(sender, "Mode: " + (item.getBlockTicker().isSynchronized() ? "synchronized" : "asynchronous"));
+        send(sender, "Use /sf tick top for live timing data.");
     }
 
     private void sendUsage(CommandSender sender) {
-        send(sender, "&eUsage: /sf tick [query|show|at|freeze|unfreeze|top|rate|<Slimefun item ID>]");
+        send(sender, "Usage: /sf tick [query|show|at|freeze|unfreeze|top|rate|<Slimefun item ID>]");
     }
 
     private void send(CommandSender sender, String message) {
-        sender.sendMessage(ChatColors.color(message));
+        sender.sendMessage(message);
     }
 }
