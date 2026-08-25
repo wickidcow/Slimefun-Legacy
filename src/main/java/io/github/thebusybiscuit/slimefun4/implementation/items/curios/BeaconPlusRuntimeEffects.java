@@ -2,7 +2,6 @@ package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
 
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -45,12 +44,12 @@ final class BeaconPlusRuntimeEffects {
     static final int CROP_SAMPLES_PER_CHUNK = 8;
     static final int MAX_CROP_SAMPLES_PER_PULSE = 512;
     private static final int CROP_VERTICAL_RADIUS = 8;
-    private static final int PULSE_INTERVAL_TICKS = 20 * 15;
-    private static final int EFFECT_DURATION_TICKS = 20 * 30;
-    private static final int NIGHT_VISION_DURATION_TICKS = EFFECT_DURATION_TICKS;
+    private static final int PULSE_INTERVAL_TICKS = 20 * 5;
+    private static final int EFFECT_DURATION_TICKS = 20 * 10;
+    private static final int NIGHT_VISION_DURATION_TICKS = 20 * 15;
     private static final int WORLD_RATE_SCALE = PULSE_INTERVAL_TICKS / 20;
     private static final int FIVE_SECOND_RATE_SCALE = Math.max(1, PULSE_INTERVAL_TICKS / 100);
-    private static final int CROP_GROWTH_SCALE = Math.max(1, (PULSE_INTERVAL_TICKS + 39) / 40);
+    private static final int CROP_GROWTH_SCALE = 2;
     private static final NamespacedKey SCALE_KEY = new NamespacedKey(Slimefun.instance(), "beacon_plus_scale");
     private static final Map<UUID, Boolean> ORIGINAL_ALLOW_FLIGHT = new ConcurrentHashMap<>();
     private static final Set<PotionEffectType> HARMFUL_EFFECTS = Set.of(
@@ -71,19 +70,25 @@ final class BeaconPlusRuntimeEffects {
 
     private BeaconPlusRuntimeEffects() {}
 
+    /**
+     * Applies the slower maintenance work. Gravity is included here so the maintenance
+     * second does not need a second entity traversal.
+     */
     static void applyPulse(Block block, Map<BeaconPlusEffect, Integer> tiers, double range, long gameTime) {
         Location center = block.getLocation().add(0.5D, 0.5D, 0.5D);
         int gravityTier = tiers.getOrDefault(BeaconPlusEffect.GRAVITY_WELL, 0);
-        for (Entity entity : getEntities(block, range)) {
-            if (entity instanceof Player player) {
-                applyPlayerEffects(player, tiers, gameTime);
-            } else if (entity instanceof Monster monster) {
-                applyMonsterEffects(monster, tiers);
-            }
 
-            // Gravity Well now follows the bounded 15-second maintenance pulse instead of forcing a second fast scan.
-            if (gravityTier > 0 && (entity instanceof Mob || entity instanceof Item)) {
-                pullEntity(entity, center, gravityTier);
+        for (Chunk chunk : getLoadedChunksInField(block, range)) {
+            for (Entity entity : chunk.getEntities()) {
+                if (entity instanceof Player player) {
+                    applyPlayerEffects(player, tiers, gameTime);
+                } else if (entity instanceof Monster monster) {
+                    applyMonsterEffects(monster, tiers);
+                }
+
+                if (gravityTier > 0 && (entity instanceof Mob || entity instanceof Item)) {
+                    pullEntity(entity, center, gravityTier);
+                }
             }
         }
 
@@ -92,9 +97,29 @@ final class BeaconPlusRuntimeEffects {
         if (furnaceTier > 0 || spawnerTier > 0) {
             applyTileEntityBoosts(block, range, furnaceTier, spawnerTier);
         }
+
         int cropTier = tiers.getOrDefault(BeaconPlusEffect.CROPS, 0);
-        if (cropTier > 0 && gameTime % 40L < PULSE_INTERVAL_TICKS) {
+        if (cropTier > 0) {
             applyCropBoost(block, range, cropTier);
+        }
+    }
+
+    /**
+     * Keeps Gravity Well at the proven once-per-second cadence without re-running
+     * potion, inventory, tile-entity, crop, or other maintenance work.
+     */
+    static void applyGravityPulse(Block block, int gravityTier, double range) {
+        if (gravityTier <= 0 || range <= 0.0D) {
+            return;
+        }
+
+        Location center = block.getLocation().add(0.5D, 0.5D, 0.5D);
+        for (Chunk chunk : getLoadedChunksInField(block, range)) {
+            for (Entity entity : chunk.getEntities()) {
+                if (entity instanceof Mob || entity instanceof Item) {
+                    pullEntity(entity, center, gravityTier);
+                }
+            }
         }
     }
 
@@ -124,21 +149,13 @@ final class BeaconPlusRuntimeEffects {
     }
 
     static void refreshNearbyPlayerStates(Block block, double range) {
-        for (Entity entity : getEntities(block, range)) {
-            if (entity instanceof Player player) {
-                refreshPlayerState(player);
-            }
-        }
-    }
-
-    private static Collection<Entity> getEntities(Block block, double range) {
-        List<Entity> result = new ArrayList<>();
         for (Chunk chunk : getLoadedChunksInField(block, range)) {
             for (Entity entity : chunk.getEntities()) {
-                result.add(entity);
+                if (entity instanceof Player player) {
+                    refreshPlayerState(player);
+                }
             }
         }
-        return result;
     }
 
     private static void applyPlayerEffects(Player player, Map<BeaconPlusEffect, Integer> tiers, long gameTime) {
