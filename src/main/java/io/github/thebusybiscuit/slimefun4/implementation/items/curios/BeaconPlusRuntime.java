@@ -27,6 +27,7 @@ final class BeaconPlusRuntime {
     private static final long OBSERVED_BEACON_TTL_MILLIS = 15_000L;
     private static final Map<BeaconKey, Long> OBSERVED_BEACONS = new ConcurrentHashMap<>();
     private static final Map<BeaconKey, Long> LAST_PULSE_GAME_TICKS = new ConcurrentHashMap<>();
+    private static final Set<BeaconKey> POWERED_BEACONS = ConcurrentHashMap.newKeySet();
 
     private BeaconPlusRuntime() {}
 
@@ -38,6 +39,13 @@ final class BeaconPlusRuntime {
         BeaconKey key = BeaconKey.from(location);
         OBSERVED_BEACONS.remove(key);
         LAST_PULSE_GAME_TICKS.remove(key);
+        if (POWERED_BEACONS.remove(key)) {
+            World world = location.getWorld();
+            if (world != null && world.isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)) {
+                BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(
+                        location.getBlock(), PLAYER_STATE_RECONCILE_RANGE);
+            }
+        }
         BeaconPlusBeam.markUnpowered(location);
     }
 
@@ -188,8 +196,7 @@ final class BeaconPlusRuntime {
     static void tick(Block block, ASlimefunDataContainer data) {
         observe(block);
         if (!BeaconPlusConfig.isEnabled()) {
-            BeaconPlusBeam.markUnpowered(block.getLocation());
-            BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
+            markUnpoweredAndReconcile(block);
             return;
         }
 
@@ -200,19 +207,18 @@ final class BeaconPlusRuntime {
 
         EnumMap<BeaconPlusEffect, Integer> tiers = getPotentialActiveTiers(block);
         if (!BeaconPlusEnergy.consumePulse(block, data, tiers)) {
-            BeaconPlusBeam.markUnpowered(block.getLocation());
+            markUnpoweredAndReconcile(block);
             reconcileActivator(block, 0);
-            BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
             return;
         }
         reconcileActivator(block, tiers.getOrDefault(BeaconPlusEffect.ACTIVATOR, 0));
         double range = getRange(block, tiers);
         if (range <= 0.0D) {
-            BeaconPlusBeam.markUnpowered(block.getLocation());
-            BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
+            markUnpoweredAndReconcile(block);
             return;
         }
 
+        POWERED_BEACONS.add(BeaconKey.from(block.getLocation()));
         BeaconPlusBeam.markPowered(block);
         BeaconPlusRuntimeEffects.applyPulse(block, tiers, range, gameTime);
     }
@@ -230,6 +236,7 @@ final class BeaconPlusRuntime {
         BeaconPlusEnergy.shutdown();
         OBSERVED_BEACONS.clear();
         LAST_PULSE_GAME_TICKS.clear();
+        POWERED_BEACONS.clear();
     }
 
     private static boolean shouldPulse(Location location, long gameTime) {
@@ -251,6 +258,14 @@ final class BeaconPlusRuntime {
         }
         LAST_PULSE_GAME_TICKS.put(key, gameTime);
         return true;
+    }
+
+    private static void markUnpoweredAndReconcile(Block block) {
+        Location location = block.getLocation();
+        BeaconPlusBeam.markUnpowered(location);
+        if (POWERED_BEACONS.remove(BeaconKey.from(location))) {
+            BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(block, PLAYER_STATE_RECONCILE_RANGE);
+        }
     }
 
     static boolean isOperational(Block block, Map<BeaconPlusEffect, Integer> tiers) {
@@ -400,6 +415,7 @@ final class BeaconPlusRuntime {
                 return false;
             }
             LAST_PULSE_GAME_TICKS.remove(entry.getKey());
+            POWERED_BEACONS.remove(entry.getKey());
             return true;
         });
     }
