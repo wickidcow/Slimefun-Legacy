@@ -83,8 +83,8 @@ def main() -> int:
     for power, token in {
         "CURE": "player.removePotionEffect(harmful)",
         "FIRE_EXTINGUISHER": "player.setFireTicks(0)",
-        "EXP_GAIN": "player.giveExp(expGainTier)",
-        "AUTO_REPAIR": "repairInventory(player.getInventory(), repairTier)",
+        "EXP_GAIN": "player.giveExp(expGainTier * FIVE_SECOND_RATE_SCALE)",
+        "AUTO_REPAIR": "repairInventory(player.getInventory(), repairTier * FIVE_SECOND_RATE_SCALE)",
         "FLYING": "updateFlight(player, tiers.getOrDefault(BeaconPlusEffect.FLYING, 0) > 0)",
     }.items():
         require(effects, f"BeaconPlusEffect.{power}", f"{power} power lookup", failures)
@@ -128,7 +128,8 @@ def main() -> int:
     for token, label in (
         ("LAST_PULSE_GAME_TICKS", "per-beacon pulse state"),
         ("shouldPulse(block.getLocation(), gameTime)", "elapsed pulse gate"),
-        ("gameTime - previous < PULSE_INTERVAL_TICKS", "20-tick throttle"),
+        ("gameTime - previous < PULSE_INTERVAL_TICKS", "elapsed pulse throttle"),
+        ("PULSE_INTERVAL_TICKS = 20 * 15", "15-second maintenance cadence"),
         ("BeaconPlusRuntimeEffects.applyPulse(block, tiers, range, gameTime)", "gameplay pulse dispatch"),
     ):
         require(runtime, token, label, failures)
@@ -137,6 +138,15 @@ def main() -> int:
         "Math.floorMod(gameTime + block.getX()",
     ):
         forbid(runtime, token, "coordinate-dependent pulse phasing", failures)
+
+    # Sparse pulse effects retain overlap and compensate cheap rate-based effects without restoring frequent scans.
+    for token, label in (
+        ("EFFECT_DURATION_TICKS = 20 * 30", "30-second potion effect duration"),
+        ("WORLD_RATE_SCALE = PULSE_INTERVAL_TICKS / 20", "world-effect rate compensation"),
+        ("FIVE_SECOND_RATE_SCALE = Math.max(1, PULSE_INTERVAL_TICKS / 100)", "XP/repair rate compensation"),
+        ("CROP_GROWTH_SCALE", "crop growth compensation"),
+    ):
+        require(effects, token, label, failures)
 
     # Electric mode is only a power gate over the same potential tier snapshot.
     for token, label in (
@@ -151,6 +161,7 @@ def main() -> int:
         ("consumePulse", "electric consumption"),
         ('ELECTRIC_MODE_KEY = "beacon_plus_electric_mode"', "per-beacon electric mode"),
         ('ENERGY_CHARGE_KEY = "energy-charge"', "Slimefun charge key"),
+        ("PAID_WINDOW_TICKS = 20L * 15L", "electric paid window matches maintenance cadence"),
     ):
         require(energy, token, label, failures)
     for token, label in (
@@ -216,9 +227,10 @@ def main() -> int:
     print("Resonance Beacon functionality verification: PASS")
     print("- all 29 approved powers have a periodic, event-driven, or modifier runtime path")
     print("- pulse scheduling cannot phase-lock against beacon coordinates")
+    print("- 15-second maintenance pulses retain 30-second persistent effect overlap")
     print("- electric READY/effect runtime status share one operational snapshot")
     print("- Activator has bounded acquire/release paths")
-    print("- crop and gravity behavior retain the proven BeaconPlus gameplay semantics")
+    print("- crop and gravity behavior retain bounded BeaconPlus gameplay semantics")
     print("- pyramid, field, energy, ownership, and legacy persistence contracts remain connected")
     return 0
 
