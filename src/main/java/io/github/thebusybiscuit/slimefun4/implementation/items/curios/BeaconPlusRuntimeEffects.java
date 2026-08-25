@@ -45,9 +45,12 @@ final class BeaconPlusRuntimeEffects {
     static final int CROP_SAMPLES_PER_CHUNK = 8;
     static final int MAX_CROP_SAMPLES_PER_PULSE = 512;
     private static final int CROP_VERTICAL_RADIUS = 8;
-    private static final int PULSE_INTERVAL_TICKS = 20;
-    private static final int EFFECT_DURATION_TICKS = 70;
-    private static final int NIGHT_VISION_DURATION_TICKS = 240;
+    private static final int PULSE_INTERVAL_TICKS = 20 * 15;
+    private static final int EFFECT_DURATION_TICKS = 20 * 30;
+    private static final int NIGHT_VISION_DURATION_TICKS = EFFECT_DURATION_TICKS;
+    private static final int WORLD_RATE_SCALE = PULSE_INTERVAL_TICKS / 20;
+    private static final int FIVE_SECOND_RATE_SCALE = Math.max(1, PULSE_INTERVAL_TICKS / 100);
+    private static final int CROP_GROWTH_SCALE = Math.max(1, (PULSE_INTERVAL_TICKS + 39) / 40);
     private static final NamespacedKey SCALE_KEY = new NamespacedKey(Slimefun.instance(), "beacon_plus_scale");
     private static final Map<UUID, Boolean> ORIGINAL_ALLOW_FLIGHT = new ConcurrentHashMap<>();
     private static final Set<PotionEffectType> HARMFUL_EFFECTS = Set.of(
@@ -78,7 +81,7 @@ final class BeaconPlusRuntimeEffects {
                 applyMonsterEffects(monster, tiers);
             }
 
-            // Match the proven BeaconPlus behavior: every resolved once-per-second pulse may pull AI mobs and items.
+            // Gravity Well now follows the bounded 15-second maintenance pulse instead of forcing a second fast scan.
             if (gravityTier > 0 && (entity instanceof Mob || entity instanceof Item)) {
                 pullEntity(entity, center, gravityTier);
             }
@@ -173,11 +176,11 @@ final class BeaconPlusRuntimeEffects {
         }
         int expGainTier = tiers.getOrDefault(BeaconPlusEffect.EXP_GAIN, 0);
         if (expGainTier > 0 && gameTime % 100L < PULSE_INTERVAL_TICKS) {
-            player.giveExp(expGainTier);
+            player.giveExp(expGainTier * FIVE_SECOND_RATE_SCALE);
         }
         int repairTier = tiers.getOrDefault(BeaconPlusEffect.AUTO_REPAIR, 0);
         if (repairTier > 0 && gameTime % 100L < PULSE_INTERVAL_TICKS) {
-            repairInventory(player.getInventory(), repairTier);
+            repairInventory(player.getInventory(), repairTier * FIVE_SECOND_RATE_SCALE);
         }
         updateFlight(player, tiers.getOrDefault(BeaconPlusEffect.FLYING, 0) > 0);
     }
@@ -188,7 +191,7 @@ final class BeaconPlusRuntimeEffects {
         applyPotionIfPresent(monster, tiers, BeaconPlusEffect.POISON, PotionEffectType.POISON, EFFECT_DURATION_TICKS);
         int burnerTier = tiers.getOrDefault(BeaconPlusEffect.BURNER, 0);
         if (burnerTier > 0 && isUndead(monster.getType())) {
-            monster.setFireTicks(Math.max(monster.getFireTicks(), 40 + burnerTier * 40));
+            monster.setFireTicks(Math.max(monster.getFireTicks(), EFFECT_DURATION_TICKS));
         }
         if (tiers.getOrDefault(BeaconPlusEffect.PEACEFUL, 0) > 0) {
             monster.setTarget(null);
@@ -251,7 +254,9 @@ final class BeaconPlusRuntimeEffects {
         if (furnace.getBurnTime() <= 0 || furnace.getCookTimeTotal() <= 0) {
             return;
         }
-        int next = Math.min(furnace.getCookTimeTotal() - 1, furnace.getCookTime() + tier * 4);
+        int next = Math.min(
+                furnace.getCookTimeTotal() - 1,
+                furnace.getCookTime() + tier * 4 * WORLD_RATE_SCALE);
         if (next > furnace.getCookTime()) {
             furnace.setCookTime((short) next);
             furnace.update(true, false);
@@ -259,7 +264,8 @@ final class BeaconPlusRuntimeEffects {
     }
 
     private static void boostSpawner(CreatureSpawner spawner, int tier) {
-        int next = Math.max(20, spawner.getDelay() - (10 + tier * 10));
+        int reduction = (10 + tier * 10) * WORLD_RATE_SCALE;
+        int next = Math.max(20, spawner.getDelay() - reduction);
         if (next < spawner.getDelay()) {
             spawner.setDelay(next);
             spawner.update(true, false);
@@ -289,7 +295,8 @@ final class BeaconPlusRuntimeEffects {
             int y = random.nextInt(minY, maxYExclusive);
             Block target = world.getBlockAt(x, y, z);
             if (target.getBlockData() instanceof Ageable ageable && ageable.getAge() < ageable.getMaximumAge()) {
-                ageable.setAge(Math.min(ageable.getMaximumAge(), ageable.getAge() + tier));
+                int growth = tier * CROP_GROWTH_SCALE;
+                ageable.setAge(Math.min(ageable.getMaximumAge(), ageable.getAge() + growth));
                 target.setBlockData(ageable, false);
             }
         }
