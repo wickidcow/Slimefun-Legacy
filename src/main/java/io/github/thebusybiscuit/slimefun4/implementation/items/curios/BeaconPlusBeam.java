@@ -20,6 +20,7 @@ final class BeaconPlusBeam {
     private static final Particle.DustOptions GOLD_BEAM = new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.65F);
     private static final Particle.DustOptions GOLD_AURA = new Particle.DustOptions(Color.fromRGB(255, 196, 32), 1.25F);
     private static final double BEAM_STEP = 1.75D;
+    private static final int MAX_BEAM_SEGMENTS = 64;
 
     private BeaconPlusBeam() {}
 
@@ -57,15 +58,33 @@ final class BeaconPlusBeam {
         double z = beaconBlock.getZ() + 0.5D;
         double startY = beaconBlock.getY() + 1.05D;
         double endY = world.getMaxHeight() - 0.25D;
+        double height = endY - startY;
 
-        int segment = 0;
-        for (double y = startY; y < endY; y += BEAM_STEP) {
-            Location point = new Location(world, x, y, z);
-            world.spawnParticle(Particle.DUST, point, 2, 0.025D, 0.20D, 0.025D, 0.0D, GOLD_BEAM);
+        if (height > 0.0D) {
+            int naturalSegments = Math.max(1, (int) Math.ceil(height / BEAM_STEP));
+            int segments = Math.min(MAX_BEAM_SEGMENTS, naturalSegments);
+            double segmentHeight = height / segments;
+            double verticalSpread = Math.max(0.20D, segmentHeight * 0.30D);
+            int dustCount = naturalSegments <= MAX_BEAM_SEGMENTS ? 2 : 4;
 
-            // A sparse electric halo keeps the shaft lively without turning every pulse into particle spam.
-            if ((segment++ & 3) == 0) {
-                world.spawnParticle(Particle.ELECTRIC_SPARK, point, 2, 0.22D, 0.35D, 0.22D, 0.015D);
+            // Keep the effect full-height, but cap server-side particle dispatches. On tall/custom-height worlds the
+            // old fixed 1.75-block loop could issue thousands of spawnParticle calls per beacon every second.
+            for (int segment = 0; segment < segments; segment++) {
+                double y = startY + (segment + 0.5D) * segmentHeight;
+                Location point = new Location(world, x, y, z);
+                world.spawnParticle(
+                        Particle.DUST, point, dustCount, 0.025D, verticalSpread, 0.025D, 0.0D, GOLD_BEAM);
+
+                if ((segment & 3) == 0) {
+                    world.spawnParticle(
+                            Particle.ELECTRIC_SPARK,
+                            point,
+                            2,
+                            0.22D,
+                            Math.min(1.5D, verticalSpread),
+                            0.22D,
+                            0.015D);
+                }
             }
         }
 
