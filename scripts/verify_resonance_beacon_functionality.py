@@ -124,13 +124,17 @@ def main() -> int:
     require(pyramid, "averageMaterialPower", "pyramid material resonance", failures)
     require(field, "Math.ceil(range / CHUNK_SIZE) - 1", "chunk-aligned range footprint", failures)
 
-    # Reliable pulse timing: never phase-lock to coordinates against Slimefun's ticker cadence.
+    # Reliable split pulse timing: maintenance is sparse, Gravity Well stays once per second.
     for token, label in (
-        ("LAST_PULSE_GAME_TICKS", "per-beacon pulse state"),
-        ("shouldPulse(block.getLocation(), gameTime)", "elapsed pulse gate"),
-        ("gameTime - previous < PULSE_INTERVAL_TICKS", "elapsed pulse throttle"),
-        ("PULSE_INTERVAL_TICKS = 20 * 15", "15-second maintenance cadence"),
-        ("BeaconPlusRuntimeEffects.applyPulse(block, tiers, range, gameTime)", "gameplay pulse dispatch"),
+        ("LAST_PULSE_GAME_TICKS", "per-beacon maintenance state"),
+        ("LAST_GRAVITY_GAME_TICKS", "per-beacon Gravity Well state"),
+        ("shouldPulse(location, gameTime)", "elapsed maintenance gate"),
+        ("gameTime - previous < PULSE_INTERVAL_TICKS", "elapsed maintenance throttle"),
+        ("PULSE_INTERVAL_TICKS = 20 * 5", "five-second maintenance cadence"),
+        ("GRAVITY_INTERVAL_TICKS = 20", "one-second Gravity Well cadence"),
+        ("BeaconPlusRuntimeEffects.applyPulse(block, tiers, range, gameTime)", "maintenance pulse dispatch"),
+        ("BeaconPlusRuntimeEffects.applyGravityPulse(block, gravityTier, active.range())", "Gravity Well pulse dispatch"),
+        ("ACTIVE_PULSES", "resolved beacon state cache"),
     ):
         require(runtime, token, label, failures)
     for token in (
@@ -139,18 +143,19 @@ def main() -> int:
     ):
         forbid(runtime, token, "coordinate-dependent pulse phasing", failures)
 
-    # Sparse pulse effects retain overlap and compensate cheap rate-based effects without restoring frequent scans.
+    # Sparse maintenance effects retain overlap and compensate rate-based world effects.
     for token, label in (
-        ("EFFECT_DURATION_TICKS = 20 * 30", "30-second potion effect duration"),
+        ("EFFECT_DURATION_TICKS = 20 * 10", "10-second potion effect duration"),
         ("WORLD_RATE_SCALE = PULSE_INTERVAL_TICKS / 20", "world-effect rate compensation"),
         ("FIVE_SECOND_RATE_SCALE = Math.max(1, PULSE_INTERVAL_TICKS / 100)", "XP/repair rate compensation"),
         ("CROP_GROWTH_SCALE", "crop growth compensation"),
+        ("static void applyGravityPulse", "separate Gravity Well fast path"),
     ):
         require(effects, token, label, failures)
 
     # Electric mode is only a power gate over the same potential tier snapshot.
     for token, label in (
-        ("BeaconPlusEnergy.consumePulse(block, data, tiers)", "once-per-pulse electric payment"),
+        ("BeaconPlusEnergy.consumePulse(block, data, tiers)", "once-per-maintenance electric payment"),
         ("getPotentialActiveTiers", "potential tier resolution"),
         ("static boolean isOperational", "shared operational state"),
     ):
@@ -161,7 +166,8 @@ def main() -> int:
         ("consumePulse", "electric consumption"),
         ('ELECTRIC_MODE_KEY = "beacon_plus_electric_mode"', "per-beacon electric mode"),
         ('ENERGY_CHARGE_KEY = "energy-charge"', "Slimefun charge key"),
-        ("PAID_WINDOW_TICKS = 20L * 15L", "electric paid window matches maintenance cadence"),
+        ("PAID_WINDOW_TICKS = 20L * 5L", "electric paid window matches maintenance cadence"),
+        ("BeaconPlusRuntime.invalidate(location)", "electric-mode cache invalidation"),
     ):
         require(energy, token, label, failures)
     for token, label in (
@@ -175,7 +181,7 @@ def main() -> int:
 
     # Activator must turn on and off and remain bounded.
     for token, label in (
-        ("BeaconPlusRuntime.reconcileActivator(block, 0)", "explicit Activator off path"),
+        ("reconcileActivator(block, 0)", "explicit Activator off path"),
         ("AREA_3X3", "Activator Tier II"),
         ("AREA_5X5", "Activator Tier III"),
     ):
@@ -226,8 +232,9 @@ def main() -> int:
 
     print("Resonance Beacon functionality verification: PASS")
     print("- all 29 approved powers have a periodic, event-driven, or modifier runtime path")
-    print("- pulse scheduling cannot phase-lock against beacon coordinates")
-    print("- 15-second maintenance pulses retain 30-second persistent effect overlap")
+    print("- maintenance scheduling cannot phase-lock against beacon coordinates")
+    print("- Gravity Well retains its proven one-second cadence")
+    print("- five-second maintenance pulses retain persistent effect overlap")
     print("- electric READY/effect runtime status share one operational snapshot")
     print("- Activator has bounded acquire/release paths")
     print("- crop and gravity behavior retain bounded BeaconPlus gameplay semantics")
