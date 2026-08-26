@@ -14,6 +14,7 @@ SHUTDOWN_TIMEOUT_SECONDS="${SERVER_SMOKE_SHUTDOWN_TIMEOUT:-60}"
 case "$SOFTWARE" in
     purpur) SOFTWARE_NAME="Purpur" ;;
     folia) SOFTWARE_NAME="Folia" ;;
+    leaf) SOFTWARE_NAME="Leaf" ;;
     *)
         echo "Unsupported runtime software: $SOFTWARE" >&2
         exit 1
@@ -73,6 +74,24 @@ if [[ "$SOFTWARE" == "purpur" ]]; then
     fi
     SERVER_URL="https://api.purpurmc.org/v2/purpur/${MC_VERSION}/${SERVER_BUILD}/download"
     SERVER_CHANNEL="latest"
+elif [[ "$SOFTWARE" == "leaf" ]]; then
+    LEAF_VERSION_URL="https://api.leafmc.one/v2/projects/leaf/versions/${MC_VERSION}"
+    LEAF_VERSION="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "$LEAF_VERSION_URL")"
+    SERVER_BUILD="$(jq -r '(.builds // []) | max // empty' <<<"$LEAF_VERSION")"
+    if [[ -z "$SERVER_BUILD" ]]; then
+        echo "Leaf downloads service did not report a build for Minecraft ${MC_VERSION}." >&2
+        exit 1
+    fi
+
+    LEAF_BUILD_URL="https://api.leafmc.one/v2/projects/leaf/versions/${MC_VERSION}/builds/${SERVER_BUILD}"
+    LEAF_BUILD="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "$LEAF_BUILD_URL")"
+    LEAF_FILENAME="$(jq -r '.downloads.application.name // ([.downloads[]? | .name] | first) // empty' <<<"$LEAF_BUILD")"
+    SERVER_CHANNEL="$(jq -r '.channel // "unknown"' <<<"$LEAF_BUILD")"
+    if [[ -z "$LEAF_FILENAME" ]]; then
+        echo "Leaf downloads service did not report a server JAR for Minecraft ${MC_VERSION} build ${SERVER_BUILD}." >&2
+        exit 1
+    fi
+    SERVER_URL="https://api.leafmc.one/v2/projects/leaf/versions/${MC_VERSION}/builds/${SERVER_BUILD}/downloads/${LEAF_FILENAME}"
 else
     BUILDS_URL="https://fill.papermc.io/v3/projects/folia/versions/${MC_VERSION}/builds"
     BUILDS_RESPONSE="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "$BUILDS_URL")"
