@@ -12,7 +12,9 @@ import io.github.thebusybiscuit.slimefun4.implementation.listeners.NetworkListen
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
@@ -47,6 +49,12 @@ public class NetworkManager {
      * if insertions come at a slight cost.
      */
     private final List<Network> networks = new CopyOnWriteArrayList<>();
+
+    /**
+     * Exact regulator locations are indexed separately so regulator tickers do not need
+     * to scan every registered network just to recover their own network instance.
+     */
+    private final Map<Location, Network> regulatorNetworks = new ConcurrentHashMap<>();
 
     /**
      * This creates a new {@link NetworkManager} with the given capacity.
@@ -116,6 +124,29 @@ public class NetworkManager {
         return Collections.unmodifiableList(networks);
     }
 
+    /**
+     * Returns the network whose regulator is exactly at the supplied location.
+     *
+     * <p>This is intentionally separate from {@link #getNetworkFromLocation(Location, Class)}.
+     * Arbitrary network-node lookups still use the full connectivity check, while regulator
+     * tickers can use this constant-time index.</p>
+     */
+    @Nonnull
+    public <T extends Network> Optional<T> getNetworkFromRegulator(@Nullable Location l, @Nonnull Class<T> type) {
+        if (l == null) {
+            return Optional.empty();
+        }
+
+        Validate.notNull(type, "Type must not be null");
+
+        Network network = regulatorNetworks.get(l);
+        if (type.isInstance(network)) {
+            return Optional.of(type.cast(network));
+        }
+
+        return Optional.empty();
+    }
+
     @Nonnull
     public <T extends Network> Optional<T> getNetworkFromLocation(@Nullable Location l, @Nonnull Class<T> type) {
         if (l == null) {
@@ -165,6 +196,7 @@ public class NetworkManager {
                 TestCase.ENERGYNET, "Registering network @ " + LocationUtils.locationToString(network.getRegulator()));
 
         networks.add(network);
+        regulatorNetworks.put(network.getRegulator().clone(), network);
     }
 
     /**
@@ -181,6 +213,7 @@ public class NetworkManager {
                 "Unregistering network @ " + LocationUtils.locationToString(network.getRegulator()));
 
         networks.remove(network);
+        regulatorNetworks.remove(network.getRegulator(), network);
     }
 
     /**
