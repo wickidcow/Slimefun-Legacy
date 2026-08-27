@@ -116,7 +116,10 @@ public class EnergyRegulator extends SlimefunItem implements HologramOwner, NotR
     }
 
     private void tick(@Nonnull Block b, SlimefunBlockData blockData) {
-        EnergyNet network = EnergyNet.getNetworkFromLocationOrCreate(b.getLocation());
+        Location location = b.getLocation();
+        EnergyNet network = Slimefun.getNetworkManager()
+                .getNetworkFromRegulator(location, EnergyNet.class)
+                .orElseGet(() -> EnergyNet.getNetworkFromLocationOrCreate(location));
         network.tick(b, blockData);
         displayActiveVisualizer(b, network);
     }
