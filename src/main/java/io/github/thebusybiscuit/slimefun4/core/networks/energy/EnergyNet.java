@@ -205,12 +205,12 @@ public class EnergyNet extends Network implements HologramOwner {
                         if (remainingEnergy > 0) {
                             if (remainingEnergy > availableSpace) {
                                 resultingCharge = capacity;
-                                setSafeCharge(component, loc, data, resultingCharge);
+                                setSafeCharge(component, loc, data, resultingCharge, capacity);
                                 remainingEnergy -= availableSpace;
                             } else {
                                 resultingCharge = Math.min(
                                         NumberUtils.flowSafeAddition(charge, remainingEnergy), capacity);
-                                setSafeCharge(component, loc, data, resultingCharge);
+                                setSafeCharge(component, loc, data, resultingCharge, capacity);
                                 remainingEnergy = 0;
                             }
                         }
@@ -260,7 +260,7 @@ public class EnergyNet extends Network implements HologramOwner {
 
             long capacity = getSafeCapacity(component, loc);
             long stored = Math.min(remainingEnergy, capacity);
-            setSafeCharge(component, loc, data, stored);
+            setSafeCharge(component, loc, data, stored, capacity);
             VanillaPowerStateBridge.sync(loc, stored > 0);
             remainingEnergy -= stored;
         }
@@ -291,7 +291,7 @@ public class EnergyNet extends Network implements HologramOwner {
 
             long capacity = getSafeCapacity(component, loc);
             long stored = Math.min(remainingEnergy, capacity);
-            setSafeCharge(component, loc, data, stored);
+            setSafeCharge(component, loc, data, stored, capacity);
             remainingEnergy -= stored;
         }
     }
@@ -453,8 +453,8 @@ public class EnergyNet extends Network implements HologramOwner {
             @Nonnull EnergyNetComponent component,
             @Nonnull Location loc,
             @Nonnull ASlimefunDataContainer data,
-            long charge) {
-        long capacity = getSafeCapacity(component, loc);
+            long charge,
+            long capacity) {
         long safeCharge = NumberUtils.clamp(0L, charge, capacity);
 
         try {
