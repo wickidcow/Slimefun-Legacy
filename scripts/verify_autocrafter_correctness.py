@@ -82,6 +82,18 @@ def main() -> int:
         root,
         "src/main/java/com/xzavier0722/mc/plugin/slimefun4/autocrafter/ChestInventoryParser.java",
     )
+    require(chest, "ItemStack[] contents = inv.getContents();", "single vanilla inventory snapshot")
+    require(
+        chest,
+        "AutoCrafterInventoryMatcher.matchesAny(crafter, contents, itemQuantities, predicate)",
+        "snapshot reuse for every ingredient predicate",
+    )
+    require_before(
+        chest,
+        "ItemStack[] contents = inv.getContents();",
+        "for (Predicate<ItemStack> predicate : recipe)",
+        "snapshot before recipe predicate loop",
+    )
     require(
         chest,
         "ItemStack remainder = Slimefun.getItemStackService().addItem(inv, item, InventoryContext.MACHINE_OUTPUT);",
@@ -95,6 +107,22 @@ def main() -> int:
         "dropItemNaturally(location, remainder)",
         "chest insertion-before-overflow preservation",
     )
+
+    matcher = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/autocrafters/AutoCrafterInventoryMatcher.java",
+    )
+    require(
+        matcher,
+        "int amount = itemQuantities.getOrDefault(slot, item.getAmount());",
+        "snapshot matcher per-slot remaining quantity tracking",
+    )
+    require(
+        matcher,
+        "if (amount > 0 && crafter.matches(item, predicate))",
+        "snapshot matcher delegates to crafter predicate semantics",
+    )
+    require(matcher, "itemQuantities.put(slot, amount - 1);", "snapshot matcher one-unit reservation")
 
     smart_port = read(
         root,
