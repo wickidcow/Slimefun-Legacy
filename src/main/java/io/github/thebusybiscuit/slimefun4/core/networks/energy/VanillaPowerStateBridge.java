@@ -1,5 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.core.networks.energy;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -18,19 +20,59 @@ import org.bukkit.block.data.Powerable;
  */
 final class VanillaPowerStateBridge {
 
+    private static final long REVALIDATE_INTERVAL_TICKS = 20L;
+    private static final int MAX_CACHED_LOCATIONS = 32_768;
+
+    private static final Map<Location, CachedState> LAST_APPLIED_STATE = new ConcurrentHashMap<>();
+
     private VanillaPowerStateBridge() {}
 
     static void sync(@Nonnull Location location, boolean powered) {
+        long gameTime = location.getWorld().getGameTime();
+        CachedState cached = LAST_APPLIED_STATE.get(location);
+
+        if (cached != null
+                && cached.powered == powered
+                && gameTime - cached.lastValidationTick >= 0
+                && gameTime - cached.lastValidationTick < REVALIDATE_INTERVAL_TICKS) {
+            return;
+        }
+
         Block block = location.getBlock();
         Material type = block.getType();
         if (type != Material.PLAYER_HEAD && type != Material.PLAYER_WALL_HEAD) {
+            if (cached != null) {
+                LAST_APPLIED_STATE.remove(location, cached);
+            }
             return;
         }
 
         BlockData data = block.getBlockData();
-        if (data instanceof Powerable powerable && powerable.isPowered() != powered) {
-            powerable.setPowered(powered);
-            block.setBlockData(powerable, false);
+        if (data instanceof Powerable powerable) {
+            if (powerable.isPowered() != powered) {
+                powerable.setPowered(powered);
+                block.setBlockData(powerable, false);
+            }
+
+            cache(location, powered, gameTime);
+        }
+    }
+
+    private static void cache(@Nonnull Location location, boolean powered, long gameTime) {
+        if (LAST_APPLIED_STATE.size() >= MAX_CACHED_LOCATIONS && !LAST_APPLIED_STATE.containsKey(location)) {
+            LAST_APPLIED_STATE.clear();
+        }
+
+        LAST_APPLIED_STATE.put(location.clone(), new CachedState(powered, gameTime));
+    }
+
+    private static final class CachedState {
+        private final boolean powered;
+        private final long lastValidationTick;
+
+        private CachedState(boolean powered, long lastValidationTick) {
+            this.powered = powered;
+            this.lastValidationTick = lastValidationTick;
         }
     }
 }
