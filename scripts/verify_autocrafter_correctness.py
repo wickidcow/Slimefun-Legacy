@@ -42,16 +42,18 @@ def main() -> int:
     )
     require(crafter, "public boolean isSynchronized()", "synchronized auto-crafter ticker declaration")
     require(crafter, "return true;", "synchronized auto-crafter ticker")
+    require(crafter, "Location location = b.getLocation();", "cached auto-crafter block location")
+    require(crafter, "int energyConsumption = getEnergyConsumption();", "cached auto-crafter energy cost")
     require(
         crafter,
-        "if (recipe == null || !recipe.isEnabled() || getCharge(b.getLocation(), data) < getEnergyConsumption())",
+        "if (recipe == null || !recipe.isEnabled() || getCharge(location, data) < energyConsumption)",
         "recipe, enabled-state and energy preflight",
     )
     require(crafter, "if (craft(interactor, recipe))", "craft success gate before energy charge")
     require_before(
         crafter,
         "if (craft(interactor, recipe))",
-        "removeCharge(b.getLocation(), getEnergyConsumption());",
+        "removeCharge(location, energyConsumption);",
         "auto-crafter craft-before-energy ordering",
     )
     require(
