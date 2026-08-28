@@ -30,6 +30,7 @@ import org.bukkit.entity.Player;
 public class GitHubService {
 
     private static final String UPDATE_SEPARATOR = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
+    private static final String UPDATE_NOTIFICATION_PERMISSION = "slimefun.update-notifications";
 
     private final String repository;
     private final Set<GitHubConnector> connectors;
@@ -187,9 +188,9 @@ public class GitHubService {
         return latest != null && compareVersions(latest, Slimefun.getVersion()) > 0;
     }
 
-    /** Sends the configured update notice once per published tag to online operators only. */
+    /** Sends the configured update notice once per published tag to operators and authorized administrators. */
     public void notifyUpdateIfAvailable(@Nonnull Player player) {
-        if (!player.isOp() || !isUpdateAvailable()) {
+        if (!canReceiveUpdateNotifications(player) || !isUpdateAvailable()) {
             return;
         }
 
@@ -199,6 +200,10 @@ public class GitHubService {
         }
 
         sendUpdateNotice(player, tag);
+    }
+
+    private boolean canReceiveUpdateNotifications(@Nonnull Player player) {
+        return player.isOp() || player.hasPermission(UPDATE_NOTIFICATION_PERMISSION);
     }
 
     void updateLatestRelease(@Nonnull String tag, @Nonnull String releaseUrl) {
@@ -225,7 +230,7 @@ public class GitHubService {
 
         Slimefun.getSchedulerService().run(() -> {
             for (Player player : Bukkit.getOnlinePlayers()) {
-                if (player.isOp()) {
+                if (canReceiveUpdateNotifications(player)) {
                     Slimefun.getSchedulerService().runFor(player, () -> notifyUpdateIfAvailable(player), () -> {});
                 }
             }
