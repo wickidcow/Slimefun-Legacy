@@ -41,10 +41,12 @@ final class BeaconPlusLifecycleListener implements Listener {
 
     /**
      * Sneak-right-click keeps the 4.1.31 yellow powered-beam toggle without replacing the new Resonance Beacon menu.
+     * Off-hand interactions are consumed so the underlying vanilla beacon cannot replace the custom menu opened by
+     * Slimefun's main-hand BlockUseHandler.
      */
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onBeaconInteract(PlayerInteractEvent event) {
-        if (event.getHand() != EquipmentSlot.HAND || event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) {
             return;
         }
 
@@ -53,7 +55,12 @@ final class BeaconPlusLifecycleListener implements Listener {
             return;
         }
 
-        if (!event.getPlayer().isSneaking()) {
+        if (event.getHand() == EquipmentSlot.OFF_HAND) {
+            denyInteraction(event);
+            return;
+        }
+
+        if (event.getHand() != EquipmentSlot.HAND || !event.getPlayer().isSneaking()) {
             return;
         }
 
@@ -61,9 +68,7 @@ final class BeaconPlusLifecycleListener implements Listener {
         BeaconPlusManager manager = BeaconPlusManager.getInstance();
         UUID owner = manager == null ? null : manager.getOwner(block.getLocation());
         if (!canConfigure(player, owner)) {
-            event.setCancelled(true);
-            event.setUseInteractedBlock(Event.Result.DENY);
-            event.setUseItemInHand(Event.Result.DENY);
+            denyInteraction(event);
             player.sendMessage(
                     ChatColor.RED + "Only this Resonance Beacon owner or a server operator can change beam visuals.");
             return;
@@ -72,9 +77,7 @@ final class BeaconPlusLifecycleListener implements Listener {
         boolean enabled = !BeaconPlusBeam.isVisualsEnabled(block.getLocation());
         BeaconPlusBeam.setVisualsEnabled(block.getLocation(), enabled);
 
-        event.setCancelled(true);
-        event.setUseInteractedBlock(Event.Result.DENY);
-        event.setUseItemInHand(Event.Result.DENY);
+        denyInteraction(event);
         player.playSound(
                 block.getLocation(),
                 enabled ? Sound.BLOCK_BEACON_POWER_SELECT : Sound.BLOCK_BEACON_DEACTIVATE,
@@ -83,6 +86,12 @@ final class BeaconPlusLifecycleListener implements Listener {
         player.sendMessage(ChatColor.GOLD + "Resonance Beacon yellow beam visuals: "
                 + (enabled ? ChatColor.GREEN + "ENABLED" : ChatColor.RED + "DISABLED")
                 + ChatColor.GRAY + ". Sneak-right-click the Resonance Beacon to toggle them.");
+    }
+
+    private static void denyInteraction(PlayerInteractEvent event) {
+        event.setCancelled(true);
+        event.setUseInteractedBlock(Event.Result.DENY);
+        event.setUseItemInHand(Event.Result.DENY);
     }
 
     private static boolean canConfigure(Player player, UUID owner) {
