@@ -128,6 +128,30 @@ def main() -> int:
         root,
         "src/main/java/com/xzavier0722/mc/plugin/slimefun4/autocrafter/CrafterSmartPortParser.java",
     )
+    require(smart_port, "private final Inventory inventory;", "cached Smart Port inventory view")
+    require(smart_port, "this.inventory = inv.toInventory();", "single Smart Port inventory-view capture")
+    require(
+        smart_port,
+        ".fits(inventory, item, InventoryContext.MACHINE_OUTPUT, CrafterSmartPort.OUTPUT_SLOTS)",
+        "Smart Port output fit uses cached inventory view",
+    )
+    require(smart_port, "ItemStack[] contents = inventory.getContents();", "single Smart Port contents snapshot")
+    require(
+        smart_port,
+        "AutoCrafterInventoryMatcher.matchesAny(crafter, contents, itemQuantities, predicate)",
+        "Smart Port snapshot reuse for every ingredient predicate",
+    )
+    require_before(
+        smart_port,
+        "ItemStack[] contents = inventory.getContents();",
+        "for (Predicate<ItemStack> predicate : recipe)",
+        "Smart Port snapshot before recipe predicate loop",
+    )
+    forbid(
+        smart_port,
+        "crafter.matchesAny(inv.toInventory(), itemQuantities, predicate)",
+        "per-ingredient Smart Port inventory conversion",
+    )
     require(
         smart_port,
         "ItemStack remainder = inv.pushItem(item, CrafterSmartPort.OUTPUT_SLOTS);",
@@ -138,6 +162,19 @@ def main() -> int:
         "inv.getBlock().getWorld().dropItemNaturally(inv.getLocation(), remainder);",
         "smart-port rejected remainder preservation",
     )
+
+    manager = read(
+        root,
+        "src/main/java/com/xzavier0722/mc/plugin/slimefun4/autocrafter/CrafterInteractorManager.java",
+    )
+    require(manager, "var blockData = StorageCacheUtils.getBlock(b.getLocation());", "direct interactor block-data lookup")
+    require(manager, "CrafterInteractorHandler handler = handlers.get(blockData.getSfId());", "direct interactor handler lookup")
+    require(
+        manager,
+        "return handler == null ? null : handler.getInteractor(blockData.getBlockMenu());",
+        "interactor null-safe construction",
+    )
+    forbid(manager, "if (hasInterator(b))", "duplicate has-interactor lookup inside getInteractor")
 
     contract = read(
         root,
