@@ -2,7 +2,6 @@ package io.github.thebusybiscuit.slimefun4.implementation.items.autocrafters;
 
 import java.util.Map;
 import java.util.function.Predicate;
-import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.inventory.ItemStack;
 
@@ -47,16 +46,5 @@ public final class AutoCrafterInventoryMatcher {
         }
 
         return false;
-    }
-
-    /**
-     * Captures one snapshot for callers that need to share it across multiple predicate matches.
-     *
-     * @param contents the contents returned by a Bukkit inventory
-     * @return the same non-null snapshot reference
-     */
-    @Nonnull
-    public static ItemStack[] snapshot(@Nonnull ItemStack[] contents) {
-        return contents;
     }
 }
