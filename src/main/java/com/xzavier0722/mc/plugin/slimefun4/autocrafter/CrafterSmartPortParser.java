@@ -14,16 +14,18 @@ import org.bukkit.inventory.ItemStack;
 
 public class CrafterSmartPortParser implements CrafterInteractable {
 
-    BlockMenu inv;
+    private final BlockMenu inv;
+    private final Inventory inventory;
 
     public CrafterSmartPortParser(BlockMenu inv) {
         this.inv = inv;
+        this.inventory = inv.toInventory();
     }
 
     @Override
     public boolean canOutput(ItemStack item) {
         return Slimefun.getItemStackService()
-                .fits(inv.toInventory(), item, InventoryContext.MACHINE_OUTPUT, CrafterSmartPort.OUTPUT_SLOTS);
+                .fits(inventory, item, InventoryContext.MACHINE_OUTPUT, CrafterSmartPort.OUTPUT_SLOTS);
     }
 
     @Override
@@ -31,7 +33,6 @@ public class CrafterSmartPortParser implements CrafterInteractable {
             AbstractAutoCrafter crafter,
             Collection<Predicate<ItemStack>> recipe,
             Map<Integer, Integer> itemQuantities) {
-        Inventory inventory = inv.toInventory();
         ItemStack[] contents = inventory.getContents();
 
         for (Predicate<ItemStack> predicate : recipe) {
