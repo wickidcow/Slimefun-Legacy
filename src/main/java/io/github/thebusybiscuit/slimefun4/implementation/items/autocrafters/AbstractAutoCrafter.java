@@ -205,37 +205,41 @@ public abstract class AbstractAutoCrafter extends SlimefunItem implements Energy
      */
     protected void tick(@Nonnull Block b, @Nonnull SlimefunBlockData data) {
         AbstractRecipe recipe = getSelectedRecipe(b);
-        Location location = b.getLocation();
-        int energyConsumption = getEnergyConsumption();
 
-        if (recipe == null || !recipe.isEnabled() || getCharge(location, data) < energyConsumption) {
+        if (recipe == null || !recipe.isEnabled() || getCharge(b.getLocation(), data) < getEnergyConsumption()) {
             // No recipe / disabled recipe / no energy, abort...
             return;
         }
 
         // The block below where we would expect our inventory holder.
         Block targetBlock = b.getRelative(BlockFace.DOWN);
-        boolean hasInteractor = CrafterInteractorManager.hasInterator(targetBlock);
-        CrafterInteractable customInteractor = hasInteractor ? CrafterInteractorManager.getInteractor(targetBlock) : null;
 
         // Check if special interactor used. If so, check the recipe.
-        if (customInteractor != null) {
+        if (CrafterInteractorManager.hasInterator(targetBlock)) {
             // Check if recipe change. If so, update the count...
-            ItemStack recipeResult = recipe.getResult();
             ItemStack cachedRecipeResult = recipeCache.get(b);
 
             if (cachedRecipeResult == null
-                    || !SlimefunUtils.isItemSimilar(recipeResult, cachedRecipeResult, true, false)) {
-                recipeCache.put(b, recipeResult);
-                customInteractor.setIngredientCount(targetBlock, getIngredientCount(recipe));
+                    || !SlimefunUtils.isItemSimilar(recipe.getResult(), cachedRecipeResult, true, false)) {
+                recipeCache.put(b, recipe.getResult());
+                CrafterInteractorManager.getInteractor(targetBlock)
+                        .setIngredientCount(targetBlock, getIngredientCount(recipe));
             }
+        }
+
+        // If recipe noe enabled or no enough charge, return
+        if (!recipe.isEnabled() || getCharge(b.getLocation(), data) < getEnergyConsumption()) {
+            return;
         }
 
         // Make sure this is interactable
         if (isValidInventory(targetBlock)) {
-            CrafterInteractable interactor = customInteractor;
+            CrafterInteractable interactor = null;
 
-            if (!hasInteractor) {
+            if (CrafterInteractorManager.hasInterator(targetBlock)) {
+                // Has valid interactor
+                interactor = CrafterInteractorManager.getInteractor(targetBlock);
+            } else {
                 // No custom interactor, check if the vanilla inventory
                 BlockState state = targetBlock.getState(false);
                 if (state instanceof InventoryHolder) {
@@ -248,9 +252,9 @@ public abstract class AbstractAutoCrafter extends SlimefunItem implements Energy
             if (interactor != null) {
                 if (craft(interactor, recipe)) {
                     // We are done crafting!
-                    Location particleLocation = location.clone().add(0.5, 0.8, 0.5);
-                    b.getWorld().spawnParticle(VersionedParticle.HAPPY_VILLAGER, particleLocation, 6);
-                    removeCharge(location, energyConsumption);
+                    Location loc = b.getLocation().add(0.5, 0.8, 0.5);
+                    b.getWorld().spawnParticle(VersionedParticle.HAPPY_VILLAGER, loc, 6);
+                    removeCharge(b.getLocation(), getEnergyConsumption());
                 }
             }
         } else recipeCache.remove(b);
@@ -384,7 +388,7 @@ public abstract class AbstractAutoCrafter extends SlimefunItem implements Energy
      * This shows the given {@link AbstractRecipe} to the {@link Player} in a preview window.
      *
      * @param p
-     *            The {@link Player} to show them
+     *            The {@link Player}
      * @param b
      *            The {@link Block} of the {@link AbstractAutoCrafter}
      * @param recipe
