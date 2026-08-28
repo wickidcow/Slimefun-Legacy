@@ -112,6 +112,9 @@ permissions:
   slimefun.command.beacon:
     description: Allows use of /beacon enable, disable and status
     default: op
+  slimefun.update-notifications:
+    description: Notifies administrators when a newer Slimefun Legacy release is available
+    default: op
   slimefun.android.bypass:
     description: Allows you to edit other Players Androids
     default: op
