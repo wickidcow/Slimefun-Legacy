@@ -25,6 +25,7 @@ on:
       - 'scripts/verify_autocrafter_correctness.py'
       - 'scripts/verify_block_utility_correctness.py'
       - 'scripts/verify_interaction_misc_correctness.py'
+      - 'scripts/verify_resonance_beacon_functionality.py'
       - '.github/workflows/runtime-gameplay-correctness.yml'
   push:
     branches:
@@ -53,6 +54,7 @@ on:
       - 'scripts/verify_autocrafter_correctness.py'
       - 'scripts/verify_block_utility_correctness.py'
       - 'scripts/verify_interaction_misc_correctness.py'
+      - 'scripts/verify_resonance_beacon_functionality.py'
       - '.github/workflows/runtime-gameplay-correctness.yml'
   workflow_dispatch:
 
@@ -136,6 +138,9 @@ jobs:
       - name: Verify entity and seasonal interaction invariants
         run: python3 scripts/verify_interaction_misc_correctness.py .
 
+      - name: Verify Resonance Beacon gameplay and interaction invariants
+        run: python3 scripts/verify_resonance_beacon_functionality.py .
+
       - name: Run focused machine runtime tests
         run: |
           chmod +x gradlew
@@ -171,5 +176,6 @@ jobs:
             echo '- Auto-crafter quantity reservation, lossless output commit and energy ordering checked'
             echo '- Block Placer ownership, Hologram state recovery and output utility invariants checked'
             echo '- Cancelled entity interactions, protected misc item effects and seasonal gift validation checked'
+            echo '- Resonance Beacon main-hand menu, off-hand suppression and sneak beam routing checked'
             echo '- Auto Enchanter / Auto Disenchanter timing and operation snapshot tests executed'
           } >> "$GITHUB_STEP_SUMMARY"
