@@ -24,6 +24,8 @@ import org.bukkit.inventory.EquipmentSlot;
  */
 final class BeaconPlusLifecycleListener implements Listener {
 
+    private static final int MINIMUM_BEACON_CHUNK_SPACING = 3;
+
     private static boolean registered;
     private final Slimefun plugin;
 
@@ -42,9 +44,10 @@ final class BeaconPlusLifecycleListener implements Listener {
     }
 
     /**
-     * Prevent a new Resonance Beacon from being placed inside another active Activator field.
-     * This runs before Slimefun's HIGHEST-priority placement listener, so cancellation happens
-     * before any Slimefun block data or Beacon Plus registry entry is created.
+     * Prevent a new Resonance Beacon from being placed within three chunks of another
+     * Resonance Beacon. This runs before Slimefun's HIGHEST-priority placement listener,
+     * so cancellation happens before any Slimefun block data or Beacon Plus registry entry
+     * is created. Activator state is intentionally irrelevant; this is placement spacing only.
      */
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onBeaconPlace(BlockPlaceEvent event) {
@@ -65,10 +68,11 @@ final class BeaconPlusLifecycleListener implements Listener {
             return;
         }
 
-        if (manager.isChunkCoveredByActiveBeacon(event.getBlockPlaced().getLocation())) {
+        if (manager.isBeaconWithinChunkRadius(
+                event.getBlockPlaced().getLocation(), MINIMUM_BEACON_CHUNK_SPACING)) {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "Cannot place Resonance Beacon: " + ChatColor.GRAY
-                    + "this chunk is already covered by another Resonance Beacon's Activator.");
+                    + "it is too close to another Resonance Beacon. Beacons must be more than 3 chunks apart.");
         }
     }
 
