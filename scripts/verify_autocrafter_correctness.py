@@ -85,14 +85,25 @@ def main() -> int:
     require(chest, "ItemStack[] contents = inv.getContents();", "single vanilla inventory snapshot")
     require(
         chest,
-        "AutoCrafterInventoryMatcher.matchesAny(crafter, contents, itemQuantities, predicate)",
-        "snapshot reuse for every ingredient predicate",
+        "byte[] matchModes = AutoCrafterInventoryMatcher.createMatchModeCache(crafter, contents.length);",
+        "lazy per-slot match-mode cache creation",
+    )
+    require(
+        chest,
+        "AutoCrafterInventoryMatcher.matchesAny(crafter, contents, itemQuantities, predicate, matchModes)",
+        "snapshot and match-mode reuse for every ingredient predicate",
     )
     require_before(
         chest,
         "ItemStack[] contents = inv.getContents();",
         "for (Predicate<ItemStack> predicate : recipe)",
         "snapshot before recipe predicate loop",
+    )
+    require_before(
+        chest,
+        "byte[] matchModes = AutoCrafterInventoryMatcher.createMatchModeCache(crafter, contents.length);",
+        "for (Predicate<ItemStack> predicate : recipe)",
+        "match-mode cache before recipe predicate loop",
     )
     require(
         chest,
@@ -114,15 +125,30 @@ def main() -> int:
     )
     require(
         matcher,
-        "int amount = itemQuantities.getOrDefault(slot, item.getAmount());",
-        "snapshot matcher per-slot remaining quantity tracking",
+        "crafter.getClass() == EnhancedAutoCrafter.class",
+        "fast path restricted to exact core Enhanced Auto Crafter",
     )
     require(
         matcher,
-        "if (amount > 0 && crafter.matches(item, predicate))",
-        "snapshot matcher delegates to crafter predicate semantics",
+        "Slimefun.getItemStackService().isVirtualItem(item)",
+        "lazy virtual-item resolution",
+    )
+    require(
+        matcher,
+        "matches = mode == MATCH_MODE_DIRECT ? predicate.test(item) : crafter.matches(item, predicate);",
+        "direct normal-stack predicate with virtual fallback",
+    )
+    require(
+        matcher,
+        "int amount = itemQuantities.getOrDefault(slot, item.getAmount());",
+        "snapshot matcher per-slot remaining quantity tracking",
     )
     require(matcher, "itemQuantities.put(slot, amount - 1);", "snapshot matcher one-unit reservation")
+    require(
+        matcher,
+        "return matchesAny(crafter, contents, itemQuantities, predicate, null);",
+        "legacy matcher path preserves crafter matching semantics",
+    )
 
     smart_port = read(
         root,
