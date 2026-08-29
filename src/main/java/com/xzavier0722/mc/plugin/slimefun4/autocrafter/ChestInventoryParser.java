@@ -36,10 +36,12 @@ public class ChestInventoryParser implements CrafterInteractable {
             Collection<Predicate<ItemStack>> recipe,
             Map<Integer, Integer> itemQuantities) {
         ItemStack[] contents = inv.getContents();
+        byte[] matchModes = AutoCrafterInventoryMatcher.createMatchModeCache(crafter, contents.length);
 
         for (Predicate<ItemStack> predicate : recipe) {
-            // Reuse one synchronized inventory snapshot for the complete recipe attempt.
-            if (!AutoCrafterInventoryMatcher.matchesAny(crafter, contents, itemQuantities, predicate)) {
+            // Reuse one synchronized inventory snapshot and one lazy per-slot virtual-item resolution cache
+            // for the complete recipe attempt.
+            if (!AutoCrafterInventoryMatcher.matchesAny(crafter, contents, itemQuantities, predicate, matchModes)) {
                 return false;
             }
         }
