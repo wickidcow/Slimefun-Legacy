@@ -105,6 +105,22 @@ def main() -> int:
         require(effects, f"BeaconPlusEffect.{power}", f"{power} power lookup", failures)
         require(effects, token, f"{power} behavior", failures)
 
+    # Pulse scan routing: player-only powers use the cheap world-player path on Paper-family servers;
+    # mob effects and Gravity Well retain full entity enumeration, while Folia stays region-local.
+    for token, label in (
+        ("PLAYER_PULSE_EFFECTS = Set.of", "player pulse effect classification"),
+        ("MONSTER_PULSE_EFFECTS = Set.of", "monster pulse effect classification"),
+        ("if (playerPulse && !folia)", "Paper player-only fast path"),
+        ("for (Player player : world.getPlayers())", "world player iteration"),
+        ("footprint.containsChunk", "chunk-aligned player range filter"),
+        ("boolean scanChunkEntities = gravityTier > 0 || monsterPulse || (folia && playerPulse)", "entity scan gate"),
+        ("boolean needsLoadedChunks = scanChunkEntities || furnaceTier > 0 || spawnerTier > 0 || cropPulse", "chunk work gate"),
+        ("if (scanChunkEntities)", "conditional full entity scan"),
+        ("if (folia && playerPulse && entity instanceof Player player)", "Folia region-local player pulse path"),
+        ("else if (monsterPulse && entity instanceof Monster monster)", "conditional monster pulse path"),
+    ):
+        require(effects, token, label, failures)
+
     # Event-driven powers.
     for power, token in {
         "EXPERIENCE_BOOSTER": "PlayerExpChangeEvent",
@@ -227,6 +243,7 @@ def main() -> int:
 
     print("Resonance Beacon functionality verification: PASS")
     print("- all 29 approved powers have a periodic, event-driven, or modifier runtime path")
+    print("- player-only Paper pulses avoid full chunk entity scans; mob/gravity and Folia paths remain guarded")
     print("- main-hand menu and off-hand vanilla-interaction routing are guarded")
     print("- pulse scheduling cannot phase-lock against beacon coordinates")
     print("- electric READY/effect runtime status share one operational snapshot")
