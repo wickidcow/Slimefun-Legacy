@@ -187,6 +187,32 @@ final class BeaconPlusConfig {
                 CuriositiesConfig.getConfig().getDouble(ROOT + ".pyramid.material-power." + material.name()));
     }
 
+    /**
+     * Captures the small pyramid configuration surface once for a complete physical pyramid inspection.
+     *
+     * <p>A four-layer beacon contains up to 164 mineral blocks. Reading the YAML-backed configuration for every
+     * block turned each Resonance Beacon pulse into hundreds of synchronized config lookups and temporary path
+     * strings. The snapshot deliberately lives for only one inspection, so direct config reloads are still visible
+     * on the very next inspection while all blocks in that inspection share the same settings.
+     */
+    static PyramidSettings getPyramidSettings() {
+        CuriositiesConfig config = CuriositiesConfig.getConfig();
+        int maxTier = clamp(config.getInt(ROOT + ".progression.max-tier"), 1, MAX_TIER);
+        return new PyramidSettings(
+                maxTier,
+                readMaterialPower(config, Material.IRON_BLOCK),
+                readMaterialPower(config, Material.GOLD_BLOCK),
+                readMaterialPower(config, Material.EMERALD_BLOCK),
+                readMaterialPower(config, Material.DIAMOND_BLOCK),
+                readMaterialPower(config, Material.NETHERITE_BLOCK),
+                readRequiredPyramidTier(config, 1),
+                readRequiredPyramidTier(config, 2),
+                readRequiredPyramidTier(config, 3),
+                readRequiredAverageMaterialPower(config, 1),
+                readRequiredAverageMaterialPower(config, 2),
+                readRequiredAverageMaterialPower(config, 3));
+    }
+
     static int getRequiredPyramidTier(int tier) {
         int safeTier = clamp(tier, 1, getMaxTier());
         return clamp(
@@ -206,6 +232,23 @@ final class BeaconPlusConfig {
 
     static String getConfigKey(BeaconPlusEffect effect) {
         return effect.name().toLowerCase(Locale.ROOT).replace('_', '-');
+    }
+
+    private static double readMaterialPower(CuriositiesConfig config, Material material) {
+        return Math.max(0.0D, config.getDouble(ROOT + ".pyramid.material-power." + material.name()));
+    }
+
+    private static int readRequiredPyramidTier(CuriositiesConfig config, int tier) {
+        return clamp(
+                config.getInt(ROOT + ".pyramid.tier-requirements." + tier + ".min-pyramid-tier"),
+                1,
+                4);
+    }
+
+    private static double readRequiredAverageMaterialPower(CuriositiesConfig config, int tier) {
+        return Math.max(
+                0.0D,
+                config.getDouble(ROOT + ".pyramid.tier-requirements." + tier + ".min-average-material-power"));
     }
 
     private static String powerPath(BeaconPlusEffect effect) {
@@ -238,6 +281,51 @@ final class BeaconPlusConfig {
 
     private static int clamp(int value, int minimum, int maximum) {
         return Math.max(minimum, Math.min(maximum, value));
+    }
+
+    record PyramidSettings(
+            int maxTier,
+            double ironPower,
+            double goldPower,
+            double emeraldPower,
+            double diamondPower,
+            double netheritePower,
+            int tier1RequiredPyramid,
+            int tier2RequiredPyramid,
+            int tier3RequiredPyramid,
+            double tier1RequiredAverage,
+            double tier2RequiredAverage,
+            double tier3RequiredAverage) {
+
+        double materialPower(Material material) {
+            if (material == null) {
+                return 0.0D;
+            }
+            return switch (material) {
+                case IRON_BLOCK -> ironPower;
+                case GOLD_BLOCK -> goldPower;
+                case EMERALD_BLOCK -> emeraldPower;
+                case DIAMOND_BLOCK -> diamondPower;
+                case NETHERITE_BLOCK -> netheritePower;
+                default -> 0.0D;
+            };
+        }
+
+        int requiredPyramidTier(int tier) {
+            return switch (clamp(tier, 1, maxTier)) {
+                case 1 -> tier1RequiredPyramid;
+                case 2 -> tier2RequiredPyramid;
+                default -> tier3RequiredPyramid;
+            };
+        }
+
+        double requiredAverageMaterialPower(int tier) {
+            return switch (clamp(tier, 1, maxTier)) {
+                case 1 -> tier1RequiredAverage;
+                case 2 -> tier2RequiredAverage;
+                default -> tier3RequiredAverage;
+            };
+        }
     }
 
     enum PaymentMode {
