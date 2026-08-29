@@ -1,6 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
+import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.UUID;
 import org.bukkit.Bukkit;
@@ -13,6 +14,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.inventory.EquipmentSlot;
@@ -37,6 +39,37 @@ final class BeaconPlusLifecycleListener implements Listener {
         Bukkit.getPluginManager().registerEvents(new BeaconPlusLifecycleListener(plugin), plugin);
         BeaconPlusAdminCommand.register(plugin);
         BeaconPlusAreaVisualizer.register(plugin);
+    }
+
+    /**
+     * Prevent a new Resonance Beacon from being placed inside another active Activator field.
+     * This runs before Slimefun's HIGHEST-priority placement listener, so cancellation happens
+     * before any Slimefun block data or Beacon Plus registry entry is created.
+     */
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onBeaconPlace(BlockPlaceEvent event) {
+        if (!event.canBuild()) {
+            return;
+        }
+
+        SlimefunItem item = SlimefunItem.getByItem(event.getItemInHand());
+        if (item == null || !BeaconPlusManager.ITEM_ID.equals(item.getId())) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+        BeaconPlusManager manager = BeaconPlusManager.getInstance();
+        if (manager == null) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Resonance Beacon is still initializing. Try placing it again shortly.");
+            return;
+        }
+
+        if (manager.isChunkCoveredByActiveBeacon(event.getBlockPlaced().getLocation())) {
+            event.setCancelled(true);
+            player.sendMessage(ChatColor.RED + "Cannot place Resonance Beacon: " + ChatColor.GRAY
+                    + "this chunk is already covered by another Resonance Beacon's Activator.");
+        }
     }
 
     /**
