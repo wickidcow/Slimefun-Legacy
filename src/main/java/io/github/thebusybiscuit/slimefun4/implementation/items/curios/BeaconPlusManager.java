@@ -125,17 +125,29 @@ public final class BeaconPlusManager {
     }
 
     /**
-     * Returns whether the chunk containing {@code location} is already covered by another
-     * Resonance Beacon whose Activator mode is active.
-     *
-     * <p>This intentionally checks configured Activator coverage instead of generic Bukkit
-     * chunk-loaded state. A player, spawn ticket or unrelated plugin loading a chunk must not
-     * prevent Resonance Beacon placement.</p>
+     * Returns whether another registered Resonance Beacon exists within the supplied chunk radius.
+     * Distance is chunk-aligned and uses a square/Chebyshev radius so a radius of three reserves
+     * a 7x7 chunk area centered on each existing beacon. Activator state is deliberately ignored:
+     * this is a placement-spacing rule for Resonance Beacons themselves.
      */
-    public synchronized boolean isChunkCoveredByActiveBeacon(@Nonnull Location location) {
-        ChunkKey target = ChunkKey.from(location);
+    public synchronized boolean isBeaconWithinChunkRadius(@Nonnull Location location, int radius) {
+        if (radius < 0) {
+            return false;
+        }
+
+        UUID worldId = location.getWorld().getUID();
+        int chunkX = location.getBlockX() >> 4;
+        int chunkZ = location.getBlockZ() >> 4;
+
         for (BeaconRecord record : records.values()) {
-            if (coversChunk(record, target)) {
+            LocationKey other = record.location();
+            if (!other.worldId().equals(worldId)) {
+                continue;
+            }
+
+            int otherChunkX = other.x() >> 4;
+            int otherChunkZ = other.z() >> 4;
+            if (Math.abs(otherChunkX - chunkX) <= radius && Math.abs(otherChunkZ - chunkZ) <= radius) {
                 return true;
             }
         }
@@ -198,10 +210,6 @@ public final class BeaconPlusManager {
             return true;
         }
 
-        if (introducesCoverageOverlap(previous, replacement)) {
-            return false;
-        }
-
         int activeAfter = getActiveBeaconCount() + (previous.chunkMode().isActive() ? 0 : 1);
         if (activeAfter > MAX_ACTIVE_BEACONS) {
             return false;
@@ -233,44 +241,6 @@ public final class BeaconPlusManager {
             }
         }
         return projected <= MAX_UNIQUE_CHUNKS;
-    }
-
-    /**
-     * Reject only overlap introduced by an activation or coverage expansion. Existing overlaps
-     * from older builds are left untouched, and reducing a 5x5/3x3 field is always allowed.
-     */
-    private boolean introducesCoverageOverlap(BeaconRecord previous, BeaconRecord replacement) {
-        Set<ChunkKey> newlyCovered = coverage(replacement);
-        newlyCovered.removeAll(coverage(previous));
-        if (newlyCovered.isEmpty()) {
-            return false;
-        }
-
-        for (BeaconRecord other : records.values()) {
-            if (other.location().equals(replacement.location()) || !other.chunkMode().isActive()) {
-                continue;
-            }
-            for (ChunkKey key : newlyCovered) {
-                if (coversChunk(other, key)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private boolean coversChunk(BeaconRecord record, ChunkKey key) {
-        if (!record.chunkMode().isActive() || !record.location().worldId().equals(key.worldId())) {
-            return false;
-        }
-
-        int centerX = record.location().x() >> 4;
-        int centerZ = record.location().z() >> 4;
-        int radius = record.chunkMode().getRadius();
-        return key.x() >= centerX - radius
-                && key.x() <= centerX + radius
-                && key.z() >= centerZ - radius
-                && key.z() <= centerZ + radius;
     }
 
     private void restoreTickets() {
@@ -556,10 +526,6 @@ public final class BeaconPlusManager {
     }
 
     private record ChunkKey(UUID worldId, int x, int z) {
-        private static ChunkKey from(Location location) {
-            return new ChunkKey(location.getWorld().getUID(), location.getBlockX() >> 4, location.getBlockZ() >> 4);
-        }
-
         private String describe() {
             return worldId + " [" + x + ", " + z + "]";
         }
