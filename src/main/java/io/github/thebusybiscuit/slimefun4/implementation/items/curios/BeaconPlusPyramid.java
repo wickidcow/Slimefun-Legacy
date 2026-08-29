@@ -3,6 +3,7 @@ package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
 import java.util.EnumMap;
 import java.util.Map;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.Beacon;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -23,12 +24,22 @@ final class BeaconPlusPyramid {
             return Profile.empty();
         }
 
+        // Snapshot the small configurable pyramid surface once. A max-size pyramid contains 164 blocks, so
+        // resolving YAML-backed material power and tier thresholds inside the block loop is needlessly expensive.
+        BeaconPlusConfig.PyramidSettings settings = BeaconPlusConfig.getPyramidSettings();
         EnumMap<Material, Integer> counts = new EnumMap<>(Material.class);
         int completedLayers = 0;
         int totalBlocks = 0;
         double totalPower = 0.0D;
+        World world = beaconBlock.getWorld();
+        int beaconX = beaconBlock.getX();
+        int beaconY = beaconBlock.getY();
+        int beaconZ = beaconBlock.getZ();
 
-        for (int layer = 1; layer <= MAX_LAYERS; layer++) {
+        // The vanilla Beacon state already bounds the physically complete base. Never inspect impossible layers
+        // below its current tier; configured material-power checks can still reject a layer within that bound.
+        int layersToInspect = Math.min(MAX_LAYERS, vanillaTier);
+        for (int layer = 1; layer <= layersToInspect; layer++) {
             int radius = layer;
             EnumMap<Material, Integer> layerCounts = new EnumMap<>(Material.class);
             int layerBlocks = 0;
@@ -37,11 +48,8 @@ final class BeaconPlusPyramid {
 
             for (int x = -radius; x <= radius && complete; x++) {
                 for (int z = -radius; z <= radius; z++) {
-                    Material material = beaconBlock
-                            .getWorld()
-                            .getBlockAt(beaconBlock.getX() + x, beaconBlock.getY() - layer, beaconBlock.getZ() + z)
-                            .getType();
-                    double materialPower = BeaconPlusConfig.getMaterialPower(material);
+                    Material material = world.getBlockAt(beaconX + x, beaconY - layer, beaconZ + z).getType();
+                    double materialPower = settings.materialPower(material);
                     if (materialPower <= 0.0D) {
                         complete = false;
                         break;
@@ -70,16 +78,16 @@ final class BeaconPlusPyramid {
 
         double averagePower = totalPower / totalBlocks;
         int naturalTier = 0;
-        for (int tier = 1; tier <= BeaconPlusConfig.getMaxTier(); tier++) {
-            if (usableLayers >= BeaconPlusConfig.getRequiredPyramidTier(tier)
-                    && averagePower >= BeaconPlusConfig.getRequiredAverageMaterialPower(tier)) {
+        for (int tier = 1; tier <= settings.maxTier(); tier++) {
+            if (usableLayers >= settings.requiredPyramidTier(tier)
+                    && averagePower >= settings.requiredAverageMaterialPower(tier)) {
                 naturalTier = tier;
             }
         }
 
         Material dominant = counts.entrySet().stream()
                 .max(Map.Entry.<Material, Integer>comparingByValue()
-                        .thenComparing(entry -> BeaconPlusConfig.getMaterialPower(entry.getKey())))
+                        .thenComparing(entry -> settings.materialPower(entry.getKey())))
                 .map(Map.Entry::getKey)
                 .orElse(Material.IRON_BLOCK);
 
