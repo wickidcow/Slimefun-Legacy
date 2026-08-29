@@ -3,6 +3,7 @@ package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.bukkit.Material;
@@ -66,6 +67,11 @@ public enum BeaconPlusEffect {
      */
     SCALE("scale", "Scale (Legacy Disabled)", Material.BARRIER, "Disabled legacy development value.");
 
+    private static final BeaconPlusEffect[] CONFIGURABLE_VALUES =
+            Arrays.stream(values()).filter(BeaconPlusEffect::isConfigurable).toArray(BeaconPlusEffect[]::new);
+    private static final Map<String, BeaconPlusEffect> BY_ID = Arrays.stream(CONFIGURABLE_VALUES)
+            .collect(Collectors.toUnmodifiableMap(BeaconPlusEffect::getId, effect -> effect));
+
     private final String id;
     private final String displayName;
     private final Material icon;
@@ -99,7 +105,7 @@ public enum BeaconPlusEffect {
     }
 
     public static BeaconPlusEffect[] configurableValues() {
-        return Arrays.stream(values()).filter(BeaconPlusEffect::isConfigurable).toArray(BeaconPlusEffect[]::new);
+        return CONFIGURABLE_VALUES.clone();
     }
 
     public static EnumSet<BeaconPlusEffect> parse(String stored) {
@@ -109,12 +115,9 @@ public enum BeaconPlusEffect {
         }
 
         for (String token : stored.split(",")) {
-            String normalized = token.trim().toLowerCase(Locale.ROOT);
-            for (BeaconPlusEffect effect : values()) {
-                if (effect.isConfigurable() && effect.id.equals(normalized)) {
-                    result.add(effect);
-                    break;
-                }
+            BeaconPlusEffect effect = BY_ID.get(token.trim().toLowerCase(Locale.ROOT));
+            if (effect != null) {
+                result.add(effect);
             }
         }
         return result;
