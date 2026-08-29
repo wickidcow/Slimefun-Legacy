@@ -33,6 +33,7 @@ def main() -> int:
     runtime = read(root, base.relative_to(root).as_posix() + "/BeaconPlusRuntime.java")
     effects = read(root, base.relative_to(root).as_posix() + "/BeaconPlusRuntimeEffects.java")
     listener = read(root, base.relative_to(root).as_posix() + "/BeaconPlusEffectListener.java")
+    lifecycle = read(root, base.relative_to(root).as_posix() + "/BeaconPlusLifecycleListener.java")
     effect_enum = read(root, base.relative_to(root).as_posix() + "/BeaconPlusEffect.java")
     energy = read(root, base.relative_to(root).as_posix() + "/BeaconPlusEnergy.java")
     manager = read(root, base.relative_to(root).as_posix() + "/BeaconPlusManager.java")
@@ -104,6 +105,22 @@ def main() -> int:
         require(effects, f"BeaconPlusEffect.{power}", f"{power} power lookup", failures)
         require(effects, token, f"{power} behavior", failures)
 
+    # Pulse scan routing: player-only powers use the cheap world-player path on Paper-family servers;
+    # mob effects and Gravity Well retain full entity enumeration, while Folia stays region-local.
+    for token, label in (
+        ("PLAYER_PULSE_EFFECTS = Set.of", "player pulse effect classification"),
+        ("MONSTER_PULSE_EFFECTS = Set.of", "monster pulse effect classification"),
+        ("if (playerPulse && !folia)", "Paper player-only fast path"),
+        ("for (Player player : world.getPlayers())", "world player iteration"),
+        ("footprint.containsChunk", "chunk-aligned player range filter"),
+        ("boolean scanChunkEntities = gravityTier > 0 || monsterPulse || (folia && playerPulse)", "entity scan gate"),
+        ("boolean needsLoadedChunks = scanChunkEntities || furnaceTier > 0 || spawnerTier > 0 || cropPulse", "chunk work gate"),
+        ("if (scanChunkEntities)", "conditional full entity scan"),
+        ("if (folia && playerPulse && entity instanceof Player player)", "Folia region-local player pulse path"),
+        ("else if (monsterPulse && entity instanceof Monster monster)", "conditional monster pulse path"),
+    ):
+        require(effects, token, label, failures)
+
     # Event-driven powers.
     for power, token in {
         "EXPERIENCE_BOOSTER": "PlayerExpChangeEvent",
@@ -123,6 +140,17 @@ def main() -> int:
     require(runtime, "BeaconPlusPyramid.inspect(block).naturalPowerTier()", "pyramid ceiling lookup", failures)
     require(pyramid, "averageMaterialPower", "pyramid material resonance", failures)
     require(field, "Math.ceil(range / CHUNK_SIZE) - 1", "chunk-aligned range footprint", failures)
+
+    # Interaction routing: normal main-hand clicks use the custom menu while the second hand must never fall through
+    # to Minecraft's vanilla Beacon interaction. Sneak-main-hand remains reserved for the beam visual toggle.
+    for text, token, label in (
+        (beacon, "addItemHandler(onPlace(), onUse(), onBreak(), createTicker())", "Resonance Beacon BlockUseHandler"),
+        (beacon, "openMenu(player, block, owner)", "normal-click custom menu dispatch"),
+        (lifecycle, "event.getHand() == EquipmentSlot.OFF_HAND", "off-hand interaction guard"),
+        (lifecycle, "denyInteraction(event)", "vanilla beacon interaction suppression"),
+        (lifecycle, "event.getHand() != EquipmentSlot.HAND || !event.getPlayer().isSneaking()", "sneak-main-hand beam gate"),
+    ):
+        require(text, token, label, failures)
 
     # Reliable pulse timing: never phase-lock to coordinates against Slimefun's ticker cadence.
     for token, label in (
@@ -215,6 +243,8 @@ def main() -> int:
 
     print("Resonance Beacon functionality verification: PASS")
     print("- all 29 approved powers have a periodic, event-driven, or modifier runtime path")
+    print("- player-only Paper pulses avoid full chunk entity scans; mob/gravity and Folia paths remain guarded")
+    print("- main-hand menu and off-hand vanilla-interaction routing are guarded")
     print("- pulse scheduling cannot phase-lock against beacon coordinates")
     print("- electric READY/effect runtime status share one operational snapshot")
     print("- Activator has bounded acquire/release paths")

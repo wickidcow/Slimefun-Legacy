@@ -35,12 +35,13 @@ public class CrafterInteractorManager {
     }
 
     public static CrafterInteractable getInteractor(Block b) {
-        if (hasInterator(b)) {
-            var blockData = StorageCacheUtils.getBlock(b.getLocation());
-            CrafterInteractorHandler handler = handlers.get(blockData.getSfId());
-            return handler.getInteractor(blockData.getBlockMenu());
+        var blockData = StorageCacheUtils.getBlock(b.getLocation());
+        if (blockData == null) {
+            return null;
         }
-        return null;
+
+        CrafterInteractorHandler handler = handlers.get(blockData.getSfId());
+        return handler == null ? null : handler.getInteractor(blockData.getBlockMenu());
     }
 
     public static boolean hasInterator(Block b) {

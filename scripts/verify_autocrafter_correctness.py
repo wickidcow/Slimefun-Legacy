@@ -77,10 +77,53 @@ def main() -> int:
         "if (success) {\n                // Fixes #2926 - Push leftover items to the inventory.",
         "leftovers only after result commit",
     )
+    require(
+        crafter,
+        "return shapelessRecipe.getChoiceList().size();",
+        "generic shapeless RecipeChoice ingredient counting",
+    )
+    require(
+        crafter,
+        "RecipeChoice choice = shapedRecipe.getChoiceMap().get(each);",
+        "generic shaped RecipeChoice lookup",
+    )
+    require(
+        crafter,
+        "ItemStack itemInChoice = choice.getItemStack();",
+        "Paper RecipeChoice representative-stack ingredient counting",
+    )
+    forbid(
+        crafter,
+        "RecipeChoice.MaterialChoice materialChoice = (RecipeChoice.MaterialChoice)",
+        "MaterialChoice-only shaped recipe cast",
+    )
 
     chest = read(
         root,
         "src/main/java/com/xzavier0722/mc/plugin/slimefun4/autocrafter/ChestInventoryParser.java",
+    )
+    require(chest, "ItemStack[] contents = inv.getContents();", "single vanilla inventory snapshot")
+    require(
+        chest,
+        "byte[] matchModes = AutoCrafterInventoryMatcher.createMatchModeCache(crafter, contents.length);",
+        "lazy per-slot match-mode cache creation",
+    )
+    require(
+        chest,
+        "AutoCrafterInventoryMatcher.matchesAny(crafter, contents, itemQuantities, predicate, matchModes)",
+        "snapshot and match-mode reuse for every ingredient predicate",
+    )
+    require_before(
+        chest,
+        "ItemStack[] contents = inv.getContents();",
+        "for (Predicate<ItemStack> predicate : recipe)",
+        "snapshot before recipe predicate loop",
+    )
+    require_before(
+        chest,
+        "byte[] matchModes = AutoCrafterInventoryMatcher.createMatchModeCache(crafter, contents.length);",
+        "for (Predicate<ItemStack> predicate : recipe)",
+        "match-mode cache before recipe predicate loop",
     )
     require(
         chest,
@@ -96,9 +139,64 @@ def main() -> int:
         "chest insertion-before-overflow preservation",
     )
 
+    matcher = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/autocrafters/AutoCrafterInventoryMatcher.java",
+    )
+    require(
+        matcher,
+        "crafter.getClass() == EnhancedAutoCrafter.class",
+        "fast path restricted to exact core Enhanced Auto Crafter",
+    )
+    require(
+        matcher,
+        "Slimefun.getItemStackService().isVirtualItem(item)",
+        "lazy virtual-item resolution",
+    )
+    require(
+        matcher,
+        "matches = mode == MATCH_MODE_DIRECT ? predicate.test(item) : crafter.matches(item, predicate);",
+        "direct normal-stack predicate with virtual fallback",
+    )
+    require(
+        matcher,
+        "int amount = itemQuantities.getOrDefault(slot, item.getAmount());",
+        "snapshot matcher per-slot remaining quantity tracking",
+    )
+    require(matcher, "itemQuantities.put(slot, amount - 1);", "snapshot matcher one-unit reservation")
+    require(
+        matcher,
+        "return matchesAny(crafter, contents, itemQuantities, predicate, null);",
+        "legacy matcher path preserves crafter matching semantics",
+    )
+
     smart_port = read(
         root,
         "src/main/java/com/xzavier0722/mc/plugin/slimefun4/autocrafter/CrafterSmartPortParser.java",
+    )
+    require(smart_port, "private final Inventory inventory;", "cached Smart Port inventory view")
+    require(smart_port, "this.inventory = inv.toInventory();", "single Smart Port inventory-view capture")
+    require(
+        smart_port,
+        ".fits(inventory, item, InventoryContext.MACHINE_OUTPUT, CrafterSmartPort.OUTPUT_SLOTS)",
+        "Smart Port output fit uses cached inventory view",
+    )
+    require(smart_port, "ItemStack[] contents = inventory.getContents();", "single Smart Port contents snapshot")
+    require(
+        smart_port,
+        "AutoCrafterInventoryMatcher.matchesAny(crafter, contents, itemQuantities, predicate)",
+        "Smart Port snapshot reuse for every ingredient predicate",
+    )
+    require_before(
+        smart_port,
+        "ItemStack[] contents = inventory.getContents();",
+        "for (Predicate<ItemStack> predicate : recipe)",
+        "Smart Port snapshot before recipe predicate loop",
+    )
+    forbid(
+        smart_port,
+        "crafter.matchesAny(inv.toInventory(), itemQuantities, predicate)",
+        "per-ingredient Smart Port inventory conversion",
     )
     require(
         smart_port,
@@ -110,6 +208,19 @@ def main() -> int:
         "inv.getBlock().getWorld().dropItemNaturally(inv.getLocation(), remainder);",
         "smart-port rejected remainder preservation",
     )
+
+    manager = read(
+        root,
+        "src/main/java/com/xzavier0722/mc/plugin/slimefun4/autocrafter/CrafterInteractorManager.java",
+    )
+    require(manager, "var blockData = StorageCacheUtils.getBlock(b.getLocation());", "direct interactor block-data lookup")
+    require(manager, "CrafterInteractorHandler handler = handlers.get(blockData.getSfId());", "direct interactor handler lookup")
+    require(
+        manager,
+        "return handler == null ? null : handler.getInteractor(blockData.getBlockMenu());",
+        "interactor null-safe construction",
+    )
+    forbid(manager, "if (hasInterator(b))", "duplicate has-interactor lookup inside getInteractor")
 
     contract = read(
         root,
@@ -135,6 +246,31 @@ def main() -> int:
     require(vanilla, "catch (IllegalArgumentException ignored)", "invalid vanilla namespace/key recovery")
     require(vanilla, "if (recipe != null)", "unsupported vanilla recipe wrapper guard")
     forbid(vanilla, "String[] values = CommonPatterns.COLON.split(value);", "unbounded vanilla recipe-key split")
+
+    vanilla_recipe = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/autocrafters/VanillaRecipe.java",
+    )
+    require(
+        vanilla_recipe,
+        "items[4] = choice.getItemStack();",
+        "single generic RecipeChoice preview representative",
+    )
+    require(
+        vanilla_recipe,
+        "items[i] = choice.getItemStack();",
+        "multi-slot generic RecipeChoice preview representative",
+    )
+    require(
+        vanilla_recipe,
+        "choice instanceof MaterialChoice materialChoice && materialChoice.getChoices().size() > 1",
+        "MaterialChoice cycling remains optional preview enhancement",
+    )
+    forbid(
+        vanilla_recipe,
+        "choices.length == 1 && choices[0] instanceof MaterialChoice",
+        "MaterialChoice-only single recipe preview",
+    )
 
     slimefun = read(
         root,

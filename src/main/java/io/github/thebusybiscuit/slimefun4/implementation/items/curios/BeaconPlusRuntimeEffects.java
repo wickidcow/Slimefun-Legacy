@@ -53,6 +53,26 @@ final class BeaconPlusRuntimeEffects {
     private static final NamespacedKey SCALE_KEY = new NamespacedKey(Slimefun.instance(), "beacon_plus_scale");
     private static final Map<UUID, Boolean> ORIGINAL_ALLOW_FLIGHT = new ConcurrentHashMap<>();
     private static final Map<TileEntityChunkKey, CachedTileEntities> TILE_ENTITY_CACHE = new ConcurrentHashMap<>();
+    private static final Set<BeaconPlusEffect> PLAYER_PULSE_EFFECTS = Set.of(
+            BeaconPlusEffect.STRENGTH,
+            BeaconPlusEffect.REGENERATION,
+            BeaconPlusEffect.RESISTANCE,
+            BeaconPlusEffect.FAST_DIGGING,
+            BeaconPlusEffect.CURE,
+            BeaconPlusEffect.SPEED,
+            BeaconPlusEffect.NIGHT_VISION,
+            BeaconPlusEffect.FLYING,
+            BeaconPlusEffect.LUCK,
+            BeaconPlusEffect.WATER_BREATHING,
+            BeaconPlusEffect.FIRE_EXTINGUISHER,
+            BeaconPlusEffect.JUMP,
+            BeaconPlusEffect.EXP_GAIN,
+            BeaconPlusEffect.AUTO_REPAIR);
+    private static final Set<BeaconPlusEffect> MONSTER_PULSE_EFFECTS = Set.of(
+            BeaconPlusEffect.SLOWDOWN,
+            BeaconPlusEffect.PEACEFUL,
+            BeaconPlusEffect.BURNER,
+            BeaconPlusEffect.POISON);
     private static final Set<PotionEffectType> HARMFUL_EFFECTS = Set.of(
             PotionEffectType.SLOWNESS,
             PotionEffectType.MINING_FATIGUE,
@@ -72,39 +92,76 @@ final class BeaconPlusRuntimeEffects {
     private BeaconPlusRuntimeEffects() {}
 
     static void applyPulse(Block block, Map<BeaconPlusEffect, Integer> tiers, double range, long gameTime) {
-        // Resolve the loaded field once per pulse. Entity, tile-entity and crop work all use the same
-        // snapshot instead of rebuilding the chunk footprint independently for every effect family.
+        int gravityTier = tiers.getOrDefault(BeaconPlusEffect.GRAVITY_WELL, 0);
+        int furnaceTier = tiers.getOrDefault(BeaconPlusEffect.FURNACE_BOOSTER, 0);
+        int spawnerTier = tiers.getOrDefault(BeaconPlusEffect.SPAWNERS, 0);
+        int cropTier = tiers.getOrDefault(BeaconPlusEffect.CROPS, 0);
+        boolean cropPulse = cropTier > 0 && gameTime % 40L < PULSE_INTERVAL_TICKS;
+        boolean playerPulse = hasAnyTier(tiers, PLAYER_PULSE_EFFECTS);
+        boolean monsterPulse = hasAnyTier(tiers, MONSTER_PULSE_EFFECTS);
+        boolean folia = Slimefun.getSchedulerService().isFolia();
+
+        // On Paper-family servers player-only powers do not need a scan of every entity in every loaded
+        // field chunk. The world player list is normally tiny by comparison and the same chunk-aligned
+        // field predicate preserves Resonance Beacon range semantics. Folia keeps the existing region-local
+        // chunk path so this optimization never reaches across region ownership boundaries.
+        if (playerPulse && !folia) {
+            BeaconPlusField.ChunkFootprint footprint =
+                    BeaconPlusField.footprint(block.getX(), block.getZ(), range);
+            World world = block.getWorld();
+            for (Player player : world.getPlayers()) {
+                Location playerLocation = player.getLocation();
+                if (footprint.containsChunk(playerLocation.getBlockX() >> 4, playerLocation.getBlockZ() >> 4)) {
+                    applyPlayerEffects(player, tiers, gameTime);
+                }
+            }
+        }
+
+        boolean scanChunkEntities = gravityTier > 0 || monsterPulse || (folia && playerPulse);
+        boolean needsLoadedChunks = scanChunkEntities || furnaceTier > 0 || spawnerTier > 0 || cropPulse;
+        if (!needsLoadedChunks) {
+            return;
+        }
+
+        // Resolve the loaded field once only when an enabled pulse effect actually needs chunk work.
         List<Chunk> loadedChunks = getLoadedChunksInField(block, range);
         if (loadedChunks.isEmpty()) {
             return;
         }
 
-        Location center = block.getLocation().add(0.5D, 0.5D, 0.5D);
-        int gravityTier = tiers.getOrDefault(BeaconPlusEffect.GRAVITY_WELL, 0);
-        for (Chunk chunk : loadedChunks) {
-            for (Entity entity : chunk.getEntities()) {
-                if (entity instanceof Player player) {
-                    applyPlayerEffects(player, tiers, gameTime);
-                } else if (entity instanceof Monster monster) {
-                    applyMonsterEffects(monster, tiers);
-                }
+        if (scanChunkEntities) {
+            Location center = block.getLocation().add(0.5D, 0.5D, 0.5D);
+            for (Chunk chunk : loadedChunks) {
+                for (Entity entity : chunk.getEntities()) {
+                    if (folia && playerPulse && entity instanceof Player player) {
+                        applyPlayerEffects(player, tiers, gameTime);
+                    } else if (monsterPulse && entity instanceof Monster monster) {
+                        applyMonsterEffects(monster, tiers);
+                    }
 
-                // Match the proven BeaconPlus behavior: every resolved once-per-second pulse may pull AI mobs and items.
-                if (gravityTier > 0 && (entity instanceof Mob || entity instanceof Item)) {
-                    pullEntity(entity, center, gravityTier);
+                    // Match the proven BeaconPlus behavior: every resolved once-per-second pulse may pull AI mobs and items.
+                    if (gravityTier > 0 && (entity instanceof Mob || entity instanceof Item)) {
+                        pullEntity(entity, center, gravityTier);
+                    }
                 }
             }
         }
 
-        int furnaceTier = tiers.getOrDefault(BeaconPlusEffect.FURNACE_BOOSTER, 0);
-        int spawnerTier = tiers.getOrDefault(BeaconPlusEffect.SPAWNERS, 0);
         if (furnaceTier > 0 || spawnerTier > 0) {
             applyTileEntityBoosts(loadedChunks, furnaceTier, spawnerTier, gameTime);
         }
-        int cropTier = tiers.getOrDefault(BeaconPlusEffect.CROPS, 0);
-        if (cropTier > 0 && gameTime % 40L < PULSE_INTERVAL_TICKS) {
+        if (cropPulse) {
             applyCropBoost(block, loadedChunks, cropTier);
         }
+    }
+
+    private static boolean hasAnyTier(Map<BeaconPlusEffect, Integer> tiers, Set<BeaconPlusEffect> effects) {
+        for (BeaconPlusEffect effect : effects) {
+            if (tiers.getOrDefault(effect, 0) > 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static void refreshPlayerState(Player player) {

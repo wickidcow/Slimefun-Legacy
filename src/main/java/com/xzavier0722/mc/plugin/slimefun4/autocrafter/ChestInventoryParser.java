@@ -3,6 +3,7 @@ package com.xzavier0722.mc.plugin.slimefun4.autocrafter;
 import io.github.thebusybiscuit.slimefun4.api.items.virtual.VirtualItemHandler.InventoryContext;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.autocrafters.AbstractAutoCrafter;
+import io.github.thebusybiscuit.slimefun4.implementation.items.autocrafters.AutoCrafterInventoryMatcher;
 import java.util.Collection;
 import java.util.Map;
 import java.util.function.Predicate;
@@ -34,9 +35,13 @@ public class ChestInventoryParser implements CrafterInteractable {
             AbstractAutoCrafter crafter,
             Collection<Predicate<ItemStack>> recipe,
             Map<Integer, Integer> itemQuantities) {
+        ItemStack[] contents = inv.getContents();
+        byte[] matchModes = AutoCrafterInventoryMatcher.createMatchModeCache(crafter, contents.length);
+
         for (Predicate<ItemStack> predicate : recipe) {
-            // Check if any Item matches the Predicate
-            if (!crafter.matchesAny(inv, itemQuantities, predicate)) {
+            // Reuse one synchronized inventory snapshot and one lazy per-slot virtual-item resolution cache
+            // for the complete recipe attempt.
+            if (!AutoCrafterInventoryMatcher.matchesAny(crafter, contents, itemQuantities, predicate, matchModes)) {
                 return false;
             }
         }

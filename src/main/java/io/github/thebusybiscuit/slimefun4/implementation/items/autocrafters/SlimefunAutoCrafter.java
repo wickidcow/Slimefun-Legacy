@@ -9,6 +9,8 @@ import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.tasks.AsyncRecipeChoiceTask;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
+import java.util.HashMap;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -42,6 +44,16 @@ public class SlimefunAutoCrafter extends AbstractAutoCrafter {
      */
     private final RecipeType targetRecipeType;
 
+    /**
+     * Cached recipe wrappers keyed by Slimefun item id.
+     *
+     * <p>The enabled state belongs to the individual Auto Crafter, so enabled and disabled
+     * wrappers are cached separately. This avoids rebuilding the ingredient predicates every
+     * machine tick while still reading the machine's current PDC state on every lookup.</p>
+     */
+    private final Map<String, AbstractRecipe> enabledRecipeCache = new HashMap<>();
+    private final Map<String, AbstractRecipe> disabledRecipeCache = new HashMap<>();
+
     @ParametersAreNonnullByDefault
     protected SlimefunAutoCrafter(
             ItemGroup itemGroup,
@@ -68,12 +80,20 @@ public class SlimefunAutoCrafter extends AbstractAutoCrafter {
                 return null;
             }
 
+            boolean enabled = !container.has(recipeEnabledKey, PersistentDataType.BYTE);
+            Map<String, AbstractRecipe> cache = enabled ? enabledRecipeCache : disabledRecipeCache;
+            AbstractRecipe cachedRecipe = cache.get(value);
+
+            if (cachedRecipe != null) {
+                return cachedRecipe;
+            }
+
             SlimefunItem item = SlimefunItem.getById(value);
             if (item != null) {
                 AbstractRecipe recipe = AbstractRecipe.of(item, targetRecipeType);
                 if (recipe != null) {
-                    boolean enabled = !container.has(recipeEnabledKey, PersistentDataType.BYTE);
                     recipe.setEnabled(enabled);
+                    cache.put(value, recipe);
                     return recipe;
                 }
             }

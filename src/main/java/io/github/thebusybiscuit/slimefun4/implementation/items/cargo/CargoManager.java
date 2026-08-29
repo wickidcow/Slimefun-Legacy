@@ -12,6 +12,7 @@ import io.github.thebusybiscuit.slimefun4.core.attributes.rotations.NotRotatable
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockBreakHandler;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockUseHandler;
 import io.github.thebusybiscuit.slimefun4.core.networks.cargo.CargoNet;
+import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.handlers.SimpleBlockBreakHandler;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -49,7 +50,11 @@ public class CargoManager extends SlimefunItem implements HologramOwner, NotRota
 
                     @Override
                     public void tick(Block b, SlimefunItem item, SlimefunBlockData data) {
-                        CargoNet.getNetworkFromLocationOrCreate(b.getLocation()).tick(b, data);
+                        var location = b.getLocation();
+                        CargoNet network = Slimefun.getNetworkManager()
+                                .getNetworkFromRegulator(location, CargoNet.class)
+                                .orElseGet(() -> CargoNet.getNetworkFromLocationOrCreate(location));
+                        network.tick(b, data);
                     }
 
                     @Override

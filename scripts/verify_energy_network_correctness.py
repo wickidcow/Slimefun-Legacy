@@ -126,6 +126,33 @@ def main() -> int:
     require_absent(source_compact, ".setCharge(loc, capacity);", "location-only capacity write")
     require_absent(source_compact, ".setCharge(loc, remainingEnergy);", "location-only remainder write")
 
+    # Stable vanilla player-head power states are a presentation mirror, not energy truth. Avoid
+    # re-reading Bukkit block data every energy tick. Periodic self-heal checks are distributed
+    # across a stable per-location phase so many networks do not all revalidate in the same tick.
+    bridge = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/core/networks/energy/VanillaPowerStateBridge.java",
+    )
+    bridge_compact = compact(bridge)
+    bridge_sync = compact(method_body(bridge, "sync"))
+    bridge_cache = compact(method_body(bridge, "cache"))
+
+    require(bridge_compact, "REVALIDATE_INTERVAL_TICKS = 20L", "20-tick power-state revalidation")
+    require(bridge_compact, "MAX_CACHED_LOCATIONS = 32_768", "bounded power-state cache")
+    require(bridge_compact, "Map<Location, CachedState> LAST_APPLIED_STATE = new ConcurrentHashMap<>()", "thread-safe power-state cache")
+    require(bridge_sync, "CachedState cached = LAST_APPLIED_STATE.get(location)", "cached desired-state lookup")
+    require(bridge_sync, "cached.powered == powered", "unchanged-state fast path")
+    require(bridge_sync, "gameTime < cached.nextValidationTick", "staggered periodic self-heal gate")
+    require_before(bridge_sync, "CachedState cached = LAST_APPLIED_STATE.get(location)", "Block block = location.getBlock()", "cache check before Bukkit block access")
+    require(bridge_sync, "powerable.isPowered() != powered", "write only on actual vanilla-state change")
+    require(bridge_sync, "cache(location, powered, gameTime)", "successful validation refresh")
+    require(bridge_cache, "phase = Math.floorMod(location.hashCode(), REVALIDATE_INTERVAL_TICKS)", "stable per-location validation phase")
+    require(bridge_cache, "nextValidationTick = gameTime + 1L", "future validation scheduling")
+    require(bridge_cache, "Math.floorMod(phase - Math.floorMod(nextValidationTick, REVALIDATE_INTERVAL_TICKS), REVALIDATE_INTERVAL_TICKS)", "phase-aligned validation offset")
+    require(bridge_cache, "LAST_APPLIED_STATE.size() >= MAX_CACHED_LOCATIONS", "cache size cap check")
+    require(bridge_cache, "LAST_APPLIED_STATE.clear()", "cache overflow recovery")
+    require(bridge_cache, "location.clone()", "stable cache key")
+
     print("Energy network correctness verification passed.")
     return 0
 

@@ -124,6 +124,36 @@ public final class BeaconPlusManager {
         }
     }
 
+    /**
+     * Returns whether another registered Resonance Beacon exists within the supplied chunk radius.
+     * Distance is chunk-aligned and uses a square/Chebyshev radius so a radius of three reserves
+     * a 7x7 chunk area centered on each existing beacon. Activator state is deliberately ignored:
+     * this is a placement-spacing rule for Resonance Beacons themselves.
+     */
+    public synchronized boolean isBeaconWithinChunkRadius(@Nonnull Location location, int radius) {
+        if (radius < 0) {
+            return false;
+        }
+
+        UUID worldId = location.getWorld().getUID();
+        int chunkX = location.getBlockX() >> 4;
+        int chunkZ = location.getBlockZ() >> 4;
+
+        for (BeaconRecord record : records.values()) {
+            LocationKey other = record.location();
+            if (!other.worldId().equals(worldId)) {
+                continue;
+            }
+
+            int otherChunkX = other.x() >> 4;
+            int otherChunkZ = other.z() >> 4;
+            if (Math.abs(otherChunkX - chunkX) <= radius && Math.abs(otherChunkZ - chunkZ) <= radius) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public synchronized boolean updateModes(
             @Nonnull Location location,
             @Nonnull UUID owner,
