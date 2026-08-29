@@ -49,7 +49,7 @@ final class BeaconPlusPyramid {
             for (int x = -radius; x <= radius && complete; x++) {
                 for (int z = -radius; z <= radius; z++) {
                     Material material = world.getBlockAt(beaconX + x, beaconY - layer, beaconZ + z).getType();
-                    double materialPower = settings.materialPower(material);
+                    double materialPower = getMaterialPower(settings, material);
                     if (materialPower <= 0.0D) {
                         complete = false;
                         break;
@@ -79,7 +79,7 @@ final class BeaconPlusPyramid {
         double averagePower = totalPower / totalBlocks;
         int naturalTier = 0;
         for (int tier = 1; tier <= settings.maxTier(); tier++) {
-            if (usableLayers >= settings.requiredPyramidTier(tier)
+            if (usableLayers >= getRequiredPyramidTier(settings, tier)
                     && averagePower >= settings.requiredAverageMaterialPower(tier)) {
                 naturalTier = tier;
             }
@@ -87,11 +87,19 @@ final class BeaconPlusPyramid {
 
         Material dominant = counts.entrySet().stream()
                 .max(Map.Entry.<Material, Integer>comparingByValue()
-                        .thenComparing(entry -> settings.materialPower(entry.getKey())))
+                        .thenComparing(entry -> getMaterialPower(settings, entry.getKey())))
                 .map(Map.Entry::getKey)
                 .orElse(Material.IRON_BLOCK);
 
         return new Profile(usableLayers, averagePower, naturalTier, dominant, totalBlocks);
+    }
+
+    private static double getMaterialPower(BeaconPlusConfig.PyramidSettings settings, Material material) {
+        return settings.materialPower(material);
+    }
+
+    private static int getRequiredPyramidTier(BeaconPlusConfig.PyramidSettings settings, int tier) {
+        return settings.requiredPyramidTier(tier);
     }
 
     record Profile(
