@@ -77,6 +77,26 @@ def main() -> int:
         "if (success) {\n                // Fixes #2926 - Push leftover items to the inventory.",
         "leftovers only after result commit",
     )
+    require(
+        crafter,
+        "return shapelessRecipe.getChoiceList().size();",
+        "generic shapeless RecipeChoice ingredient counting",
+    )
+    require(
+        crafter,
+        "RecipeChoice choice = shapedRecipe.getChoiceMap().get(each);",
+        "generic shaped RecipeChoice lookup",
+    )
+    require(
+        crafter,
+        "ItemStack itemInChoice = choice.getItemStack();",
+        "Paper RecipeChoice representative-stack ingredient counting",
+    )
+    forbid(
+        crafter,
+        "RecipeChoice.MaterialChoice materialChoice = (RecipeChoice.MaterialChoice)",
+        "MaterialChoice-only shaped recipe cast",
+    )
 
     chest = read(
         root,
@@ -226,6 +246,31 @@ def main() -> int:
     require(vanilla, "catch (IllegalArgumentException ignored)", "invalid vanilla namespace/key recovery")
     require(vanilla, "if (recipe != null)", "unsupported vanilla recipe wrapper guard")
     forbid(vanilla, "String[] values = CommonPatterns.COLON.split(value);", "unbounded vanilla recipe-key split")
+
+    vanilla_recipe = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/autocrafters/VanillaRecipe.java",
+    )
+    require(
+        vanilla_recipe,
+        "items[4] = choice.getItemStack();",
+        "single generic RecipeChoice preview representative",
+    )
+    require(
+        vanilla_recipe,
+        "items[i] = choice.getItemStack();",
+        "multi-slot generic RecipeChoice preview representative",
+    )
+    require(
+        vanilla_recipe,
+        "choice instanceof MaterialChoice materialChoice && materialChoice.getChoices().size() > 1",
+        "MaterialChoice cycling remains optional preview enhancement",
+    )
+    forbid(
+        vanilla_recipe,
+        "choices.length == 1 && choices[0] instanceof MaterialChoice",
+        "MaterialChoice-only single recipe preview",
+    )
 
     slimefun = read(
         root,

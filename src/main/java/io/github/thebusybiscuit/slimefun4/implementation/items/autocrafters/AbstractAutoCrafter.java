@@ -598,7 +598,7 @@ public abstract class AbstractAutoCrafter extends SlimefunItem implements Energy
      * and only before registering.
      *
      * @param capacity
-     *            The amount of energy this machine can store
+     *            The amount of electricity this machine can store
      *
      * @return This method will return the current instance of {@link AContainer}, so that it can be chained.
      */
@@ -698,20 +698,22 @@ public abstract class AbstractAutoCrafter extends SlimefunItem implements Energy
         // Recipe is for vanilla item
         Recipe vanillaRecipe = ((VanillaRecipe) recipe).getRecipe();
 
-        if (vanillaRecipe instanceof ShapelessRecipe) {
-            return ((ShapelessRecipe) vanillaRecipe).getIngredientList().size();
+        if (vanillaRecipe instanceof ShapelessRecipe shapelessRecipe) {
+            return shapelessRecipe.getChoiceList().size();
         }
 
-        // Not shape less recipe, do check the shape.
+        // Not shapeless recipe, do check the shape.
         Set<ItemStack> itemInRecipe = new HashSet<>();
-        // Loop to read each recipe shape char
-        for (String row : ((ShapedRecipe) vanillaRecipe).getShape()) {
+        ShapedRecipe shapedRecipe = (ShapedRecipe) vanillaRecipe;
+
+        // Every Paper RecipeChoice exposes a representative ItemStack. Using the generic
+        // contract keeps Smart Port ingredient counting compatible with MaterialChoice,
+        // ExactChoice, ItemTypeChoice and Paper 26.2 PredicateChoice.
+        for (String row : shapedRecipe.getShape()) {
             for (char each : row.toCharArray()) {
-                // Get MaterialChoice from char
-                RecipeChoice.MaterialChoice materialChoice = (RecipeChoice.MaterialChoice)
-                        ((ShapedRecipe) vanillaRecipe).getChoiceMap().get(each);
-                if (materialChoice != null) {
-                    ItemStack itemInChoice = materialChoice.getItemStack();
+                RecipeChoice choice = shapedRecipe.getChoiceMap().get(each);
+                if (choice != null) {
+                    ItemStack itemInChoice = choice.getItemStack();
                     boolean found = false;
                     for (ItemStack eachInRecipe : itemInRecipe) {
                         if (eachInRecipe.isSimilar(itemInChoice)) {

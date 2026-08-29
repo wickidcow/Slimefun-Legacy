@@ -81,18 +81,22 @@ class VanillaRecipe extends AbstractRecipe {
         RecipeChoice[] choices = Slimefun.getMinecraftRecipeService().getRecipeShape(recipe);
         ItemStack[] items = new ItemStack[9];
 
-        if (choices.length == 1 && choices[0] instanceof MaterialChoice materialChoice) {
-            items[4] = new ItemStack(materialChoice.getChoices().get(0));
+        if (choices.length == 1) {
+            RecipeChoice choice = choices[0];
+            if (choice != null) {
+                items[4] = choice.getItemStack();
 
-            if (materialChoice.getChoices().size() > 1) {
-                task.add(slots[4], materialChoice);
+                if (choice instanceof MaterialChoice materialChoice && materialChoice.getChoices().size() > 1) {
+                    task.add(slots[4], materialChoice);
+                }
             }
         } else {
             for (int i = 0; i < choices.length; i++) {
-                if (choices[i] instanceof MaterialChoice materialChoice) {
-                    items[i] = new ItemStack(materialChoice.getChoices().get(0));
+                RecipeChoice choice = choices[i];
+                if (choice != null) {
+                    items[i] = choice.getItemStack();
 
-                    if (materialChoice.getChoices().size() > 1) {
+                    if (choice instanceof MaterialChoice materialChoice && materialChoice.getChoices().size() > 1) {
                         task.add(slots[i], materialChoice);
                     }
                 }
