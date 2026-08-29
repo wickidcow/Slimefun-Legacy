@@ -33,8 +33,8 @@ final class VanillaPowerStateBridge {
 
         if (cached != null
                 && cached.powered == powered
-                && gameTime - cached.lastValidationTick >= 0
-                && gameTime - cached.lastValidationTick < REVALIDATE_INTERVAL_TICKS) {
+                && gameTime >= 0
+                && gameTime < cached.nextValidationTick) {
             return;
         }
 
@@ -63,16 +63,21 @@ final class VanillaPowerStateBridge {
             LAST_APPLIED_STATE.clear();
         }
 
-        LAST_APPLIED_STATE.put(location.clone(), new CachedState(powered, gameTime));
+        long phase = Math.floorMod(location.hashCode(), REVALIDATE_INTERVAL_TICKS);
+        long nextValidationTick = gameTime + 1L;
+        long offset = Math.floorMod(phase - Math.floorMod(nextValidationTick, REVALIDATE_INTERVAL_TICKS), REVALIDATE_INTERVAL_TICKS);
+        nextValidationTick += offset;
+
+        LAST_APPLIED_STATE.put(location.clone(), new CachedState(powered, nextValidationTick));
     }
 
     private static final class CachedState {
         private final boolean powered;
-        private final long lastValidationTick;
+        private final long nextValidationTick;
 
-        private CachedState(boolean powered, long lastValidationTick) {
+        private CachedState(boolean powered, long nextValidationTick) {
             this.powered = powered;
-            this.lastValidationTick = lastValidationTick;
+            this.nextValidationTick = nextValidationTick;
         }
     }
 }
