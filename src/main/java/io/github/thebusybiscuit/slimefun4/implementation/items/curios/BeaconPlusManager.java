@@ -124,6 +124,24 @@ public final class BeaconPlusManager {
         }
     }
 
+    /**
+     * Returns whether the chunk containing {@code location} is already covered by another
+     * Resonance Beacon whose Activator mode is active.
+     *
+     * <p>This intentionally checks configured Activator coverage instead of generic Bukkit
+     * chunk-loaded state. A player, spawn ticket or unrelated plugin loading a chunk must not
+     * prevent Resonance Beacon placement.</p>
+     */
+    public synchronized boolean isChunkCoveredByActiveBeacon(@Nonnull Location location) {
+        ChunkKey target = ChunkKey.from(location);
+        for (BeaconRecord record : records.values()) {
+            if (coversChunk(record, target)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public synchronized boolean updateModes(
             @Nonnull Location location,
             @Nonnull UUID owner,
@@ -180,6 +198,10 @@ public final class BeaconPlusManager {
             return true;
         }
 
+        if (introducesCoverageOverlap(previous, replacement)) {
+            return false;
+        }
+
         int activeAfter = getActiveBeaconCount() + (previous.chunkMode().isActive() ? 0 : 1);
         if (activeAfter > MAX_ACTIVE_BEACONS) {
             return false;
@@ -211,6 +233,44 @@ public final class BeaconPlusManager {
             }
         }
         return projected <= MAX_UNIQUE_CHUNKS;
+    }
+
+    /**
+     * Reject only overlap introduced by an activation or coverage expansion. Existing overlaps
+     * from older builds are left untouched, and reducing a 5x5/3x3 field is always allowed.
+     */
+    private boolean introducesCoverageOverlap(BeaconRecord previous, BeaconRecord replacement) {
+        Set<ChunkKey> newlyCovered = coverage(replacement);
+        newlyCovered.removeAll(coverage(previous));
+        if (newlyCovered.isEmpty()) {
+            return false;
+        }
+
+        for (BeaconRecord other : records.values()) {
+            if (other.location().equals(replacement.location()) || !other.chunkMode().isActive()) {
+                continue;
+            }
+            for (ChunkKey key : newlyCovered) {
+                if (coversChunk(other, key)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean coversChunk(BeaconRecord record, ChunkKey key) {
+        if (!record.chunkMode().isActive() || !record.location().worldId().equals(key.worldId())) {
+            return false;
+        }
+
+        int centerX = record.location().x() >> 4;
+        int centerZ = record.location().z() >> 4;
+        int radius = record.chunkMode().getRadius();
+        return key.x() >= centerX - radius
+                && key.x() <= centerX + radius
+                && key.z() >= centerZ - radius
+                && key.z() <= centerZ + radius;
     }
 
     private void restoreTickets() {
@@ -496,6 +556,10 @@ public final class BeaconPlusManager {
     }
 
     private record ChunkKey(UUID worldId, int x, int z) {
+        private static ChunkKey from(Location location) {
+            return new ChunkKey(location.getWorld().getUID(), location.getBlockX() >> 4, location.getBlockZ() >> 4);
+        }
+
         private String describe() {
             return worldId + " [" + x + ", " + z + "]";
         }
