@@ -1,6 +1,10 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
+import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -8,6 +12,7 @@ import org.bukkit.Particle;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.entity.Player;
 
 /** Renders the optional powered Resonance Beacon yellow beam without placing any world blocks. */
 final class BeaconPlusBeam {
@@ -21,6 +26,12 @@ final class BeaconPlusBeam {
     private static final Particle.DustOptions GOLD_AURA = new Particle.DustOptions(Color.fromRGB(255, 196, 32), 1.25F);
     private static final double BEAM_STEP = 1.75D;
     private static final int MAX_BEAM_SEGMENTS = 64;
+    // 36 chunks is deliberately more generous than normal server view distances. If nobody is this close on a
+    // Paper-family server, all of the particle dispatch below is invisible work. Folia keeps the old path because
+    // reading arbitrary player locations from another region is not ownership-safe.
+    private static final double VISUAL_VIEW_RANGE = 36.0D * 16.0D;
+    private static final double VISUAL_VIEW_RANGE_SQUARED = VISUAL_VIEW_RANGE * VISUAL_VIEW_RANGE;
+    private static final Set<BeamKey> LEGACY_FILTER_CHECKED = ConcurrentHashMap.newKeySet();
 
     private BeaconPlusBeam() {}
 
@@ -29,6 +40,9 @@ final class BeaconPlusBeam {
         cleanupLegacyFilter(location);
 
         if (!isVisualsEnabled(location)) {
+            return;
+        }
+        if (!Slimefun.getSchedulerService().isFolia() && !hasNearbyViewer(beaconBlock)) {
             return;
         }
 
@@ -50,6 +64,21 @@ final class BeaconPlusBeam {
         if (!enabled) {
             cleanupLegacyFilter(location);
         }
+    }
+
+    private static boolean hasNearbyViewer(Block beaconBlock) {
+        World world = beaconBlock.getWorld();
+        double x = beaconBlock.getX() + 0.5D;
+        double z = beaconBlock.getZ() + 0.5D;
+        for (Player player : world.getPlayers()) {
+            Location playerLocation = player.getLocation();
+            double dx = playerLocation.getX() - x;
+            double dz = playerLocation.getZ() - z;
+            if (dx * dx + dz * dz <= VISUAL_VIEW_RANGE_SQUARED) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void renderPoweredVisual(Block beaconBlock) {
@@ -94,8 +123,14 @@ final class BeaconPlusBeam {
     }
 
     private static void cleanupLegacyFilter(Location location) {
+        BeamKey key = BeamKey.from(location);
+        if (LEGACY_FILTER_CHECKED.contains(key)) {
+            return;
+        }
+
         boolean owned = Boolean.parseBoolean(StorageCacheUtils.getData(location, OWNED_FILTER_KEY));
         if (!owned) {
+            LEGACY_FILTER_CHECKED.add(key);
             return;
         }
 
@@ -109,5 +144,17 @@ final class BeaconPlusBeam {
             filterBlock.setType(Material.AIR, false);
         }
         StorageCacheUtils.setData(location, OWNED_FILTER_KEY, "false");
+        LEGACY_FILTER_CHECKED.add(key);
+    }
+
+    private record BeamKey(UUID worldId, int x, int y, int z) {
+        private static BeamKey from(Location location) {
+            World world = location.getWorld();
+            return new BeamKey(
+                    world == null ? new UUID(0L, 0L) : world.getUID(),
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ());
+        }
     }
 }
