@@ -195,10 +195,15 @@ jobs:
           fi
 
           if gh release view "$TAG" >/dev/null 2>&1; then
-            # Existing releases are treated as stable snapshots on normal master pushes.
-            # This lets us refresh release notes without silently moving the tag or
-            # replacing the published JAR with a later same-version development commit.
-            gh release edit "$TAG" --title "$RELEASE_TITLE" "${NOTES_ARGS[@]}"
+            # Existing releases are stable snapshots on normal master pushes. `gh release edit`
+            # does not accept `--generate-notes`, so preserve generated notes unless this
+            # version supplies an explicit notes file. Never move the tag or replace its JAR
+            # on a normal same-version master push.
+            if [[ "${NOTES_ARGS[0]}" == "--generate-notes" ]]; then
+              gh release edit "$TAG" --title "$RELEASE_TITLE"
+            else
+              gh release edit "$TAG" --title "$RELEASE_TITLE" "${NOTES_ARGS[@]}"
+            fi
 
             if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
               gh release upload "$TAG" "$JAR" --clobber
