@@ -20,7 +20,8 @@ final class BeaconPlusBeam {
     private static final Particle.DustOptions GOLD_BEAM = new Particle.DustOptions(Color.fromRGB(255, 215, 0), 1.65F);
     private static final Particle.DustOptions GOLD_AURA = new Particle.DustOptions(Color.fromRGB(255, 196, 32), 1.25F);
     private static final double BEAM_STEP = 1.75D;
-    private static final int MAX_BEAM_SEGMENTS = 64;
+    private static final int MAX_BEAM_SEGMENTS = 22;
+    private static final int MAX_DUST_PER_SEGMENT = 8;
 
     private BeaconPlusBeam() {}
 
@@ -64,11 +65,15 @@ final class BeaconPlusBeam {
             int naturalSegments = Math.max(1, (int) Math.ceil(height / BEAM_STEP));
             int segments = Math.min(MAX_BEAM_SEGMENTS, naturalSegments);
             double segmentHeight = height / segments;
-            double verticalSpread = Math.max(0.20D, segmentHeight * 0.30D);
-            int dustCount = naturalSegments <= MAX_BEAM_SEGMENTS ? 2 : 4;
+            double verticalSpread = Math.max(0.20D, segmentHeight * 0.45D);
+            int dustCount = naturalSegments <= MAX_BEAM_SEGMENTS
+                    ? 2
+                    : Math.min(MAX_DUST_PER_SEGMENT, Math.max(4, (int) Math.ceil(segmentHeight / BEAM_STEP)));
 
-            // Keep the effect full-height, but cap server-side particle dispatches. On tall/custom-height worlds the
-            // old fixed 1.75-block loop could issue thousands of spawnParticle calls per beacon every second.
+            // Keep the beam full-height while aggressively bounding Bukkit particle dispatches. A normal tall-world
+            // beam is now at most 22 dust calls + 6 spark calls + 2 core calls per powered pulse instead of roughly
+            // 82 calls. The wider per-call vertical spread and bounded dust count fill the skipped vertical samples
+            // without changing beacon power, range, energy consumption, pulse timing, or saved data.
             for (int segment = 0; segment < segments; segment++) {
                 double y = startY + (segment + 0.5D) * segmentHeight;
                 Location point = new Location(world, x, y, z);
