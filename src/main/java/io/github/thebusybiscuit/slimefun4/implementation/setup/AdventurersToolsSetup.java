@@ -159,7 +159,7 @@ final class AdventurersToolsSetup {
                 Material.NETHERITE_PICKAXE,
                 "&b&lDeepcore Tunnel Paxel &f3x3",
                 3,
-                "&7Mines both pickaxe and shovel terrain");
+                "&7Adapts as a pickaxe, axe, and shovel");
 
         ItemStack netheritePaxelPickaxe = netheritePaxel(paxel, Material.NETHERITE_PICKAXE);
         ItemStack[] paxel3Recipe = new ItemStack[] {
@@ -191,7 +191,7 @@ final class AdventurersToolsSetup {
                 Material.NETHERITE_PICKAXE,
                 "&b&lDeepcore Tunnel Paxel &f5x5",
                 5,
-                "&7Mines both pickaxe and shovel terrain");
+                "&7Adapts as a pickaxe, axe, and shovel");
         register(plugin, tools, paxel5, 5, ExcavationType.PAXEL, upgradeRecipe(paxel3));
 
         SlimefunItemStack paxel9 = tool(
@@ -199,7 +199,7 @@ final class AdventurersToolsSetup {
                 Material.NETHERITE_PICKAXE,
                 "&b&lDeepcore Tunnel Paxel &f9x9",
                 9,
-                "&7Mines both pickaxe and shovel terrain");
+                "&7Adapts as a pickaxe, axe, and shovel");
         register(plugin, tools, paxel9, 9, ExcavationType.PAXEL, heavyUpgradeRecipe(paxel5));
     }
 
