@@ -117,6 +117,7 @@ Test representative machines, backpacks, Cargo networks, recipes, protections, a
 
 ---
 ### Rebar/Pylon diagnostics
+
 When Rebar is installed and its runtime API matches a supported reflective shape, Slimefun Legacy can classify loaded Rebar/Pylon blocks without a compile-time dependency. Look at a block within 8 blocks and run:
 
 ```text
@@ -136,7 +137,7 @@ Phase 1K adds read-only plugin dependency diagnostics so operators can distingui
 /sf doctor compatibility SlimefunLuckyBlocks
 ```
 
-The report shows declared hard and soft dependencies, missing or disabled required dependencies, provider aliases, and reverse dependency consumers. Provider aliases are reported only as descriptor-level resolution: they do **not** prove that the provider contains every Java class or runtime API expected by a dependent addon.
+The report shows declared hard and soft dependencies, missing or disabled required plugins, reverse consumers, and Paper provider aliases. Provider aliases are reported only as descriptor-level resolution: they do **not** prove that the provider contains every Java class or runtime API expected by a dependent addon.
 
 Slimefun Legacy does not install, enable, replace, or emulate third-party plugin dependencies. If an addon requires an external library plugin such as GuizhanLibPlugin, use the real dependency required by that addon. Cross-fork Gugu API probes remain advisory compatibility evidence; Gugu is not a Slimefun Legacy runtime-core target.
 
