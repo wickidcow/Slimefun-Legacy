@@ -9,6 +9,7 @@ public enum AddonCompatibilitySource {
     EXPLICIT_REGISTRATION("Runtime registration"),
     PROVIDER_INTERFACE("Provider interface"),
     EMBEDDED_MANIFEST("Embedded manifest"),
+    LEGACY_MAINTAINED_CATALOG("Slimefun Legacy maintained addon catalog"),
     NONE("No declaration");
 
     private final String displayName;
