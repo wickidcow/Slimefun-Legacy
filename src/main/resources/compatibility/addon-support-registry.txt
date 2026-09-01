@@ -1,12 +1,13 @@
 # Slimefun Legacy runtime addon recognition registry.
-# Format: slug|tier|display name|comma-separated runtime plugin aliases
+# Format: slug|tier|display name|comma-separated runtime plugin aliases|optional maintenance flag
 # tier=required means the addon is a release-blocking compatibility target.
 # tier=advisory means the addon family is monitored but does not independently block release.
 # tier=recognized means Legacy knows the addon family/name, but it is not currently CI monitored.
-legacy-fastmachines|required|FastMachines Legacy|FastMachines,FastMachinesLegacy,SF_FastMachines
-legacy-networksexp|required|Networks Expansion Legacy|NetworksExpansion,NetworksExpansionLegacy,SF_NetworksExp
-legacy-slimetinker-ie2|required|SlimeTinker IE2 Legacy|SlimeTinker,SlimeTinkerIE2,SF_SlimeTinkerIE2
-legacy-betterchests|required|BetterChests Legacy|BetterChests,BetterChestsLegacy,SF_BetterChests
+# maintenance flag=maintained means the addon is maintained as part of the Slimefun Legacy fork collection.
+legacy-fastmachines|required|FastMachines Legacy|FastMachines,FastMachinesLegacy,SF_FastMachines|maintained
+legacy-networksexp|required|Networks Expansion Legacy|Networks,NetworksExpansion,NetworksExpansionLegacy,SF_NetworksExp|maintained
+legacy-slimetinker-ie2|required|SlimeTinker IE2 Legacy|SlimeTinker,SlimeTinkerIE2,SF_SlimeTinkerIE2|maintained
+legacy-betterchests|required|BetterChests Legacy|BetterChests,BetterChestsLegacy,SF_BetterChests|maintained
 upstream-networks|advisory|Networks|Networks
 infinity-expansion-2|advisory|Infinity Expansion 2|InfinityExpansion2,InfinityExpansion
 dynatech|advisory|DynaTech|DynaTech
@@ -22,6 +23,19 @@ gugu-gastronomicon|advisory|Gastronomicon|Gastronomicon
 gugu-bump|advisory|Bump|Bump
 gugu-slimecustomizer|advisory|SlimeCustomizer|SlimeCustomizer
 gugu-emctech|advisory|EMCTech|EMCTech
+
+# Legacy-maintained forks that retain an upstream runtime plugin name.
+# Equal-tier maintained entries intentionally win alias resolution over the upstream family above.
+legacy-infinity-expansion-2|advisory|Infinity Expansion 2 Legacy|InfinityExpansion2,SF_InfinityExpansion2,SF_IE2Legacy|maintained
+legacy-dynatech|advisory|DynaTech Legacy|DynaTech,SF_DynaTech|maintained
+legacy-supreme|advisory|Supreme Legacy|Supreme,SF_Supreme|maintained
+legacy-magic-expansion|advisory|Magic Expansion Legacy|MagicExpansion,MagicExpansionLegacy,SF_MagicExpansion|maintained
+legacy-fluffymachines|advisory|FluffyMachines Legacy|FluffyMachines,SF_FluffyMachines|maintained
+legacy-foxymachines|advisory|FoxyMachines Legacy|FoxyMachines,SF_FoxyMachines|maintained
+legacy-flowerpower|advisory|FlowerPower Legacy|FlowerPower,SF_FlowerPower|maintained
+legacy-idreamofeasy|advisory|IDreamOfEasy Legacy|IDreamOfEasy,SF_IDreamOfEasy|maintained
+legacy-gastronomicon|advisory|Gastronomicon Legacy|Gastronomicon,SF_Gastronomicon|maintained
+
 # Recognized addon families. These entries improve runtime identification only; they are not CI coverage claims.
 better-farming|recognized|Better Farming|BetterFarming,Better Farming
 danktech2|recognized|DankTech2|DankTech2,DankTech,Dank Tech 2
@@ -37,3 +51,25 @@ slimefun-advancements|recognized|SlimefunAdvancements|SlimefunAdvancements,Slime
 slimeglue|recognized|SlimeGlue|SlimeGlue,Slime Glue
 simple-material-generators|recognized|SimpleMaterialGenerators|SimpleMaterialGenerators,Simple Material Generators
 souljars|recognized|SoulJars|SoulJars,Soul Jars
+
+# Additional Slimefun Legacy-maintained forks. These are recognized as compatible fallbacks even when an older JAR
+# predates the embedded slimefun-compatibility.json declaration format.
+legacy-exoticgarden|recognized|ExoticGarden Legacy|ExoticGarden,SF_ExoticGarden|maintained
+legacy-cultivation|recognized|Cultivation Legacy|Cultivation,CultivationLegacy,SF_CultivationLegacy|maintained
+legacy-danktech2|recognized|DankTech2 Legacy|DankTech2,DankTech,SF_DankTech2|maintained
+legacy-litexpansion|recognized|LiteXpansion Legacy|LiteXpansion,LiteExpansion,SF_LiteXpansion|maintained
+legacy-slimefun-advancements|recognized|SlimefunAdvancements Legacy|SlimefunAdvancements,SF_SlimefunAdvancements|maintained
+legacy-electric-spawners|recognized|Electric Spawners Legacy|ElectricSpawners,SF_ElectricSpawners|maintained
+legacy-mobdrops|recognized|MobDrops Legacy|SFMobDrops,MobDrops,SF_MobDrops|maintained
+legacy-alchimia-vitae|recognized|AlchimiaVitae Legacy|AlchimiaVitae,Alchimia Vitae,SF_AlchimiaVitae|maintained
+legacy-luckyblocks|recognized|LuckyBlocks Legacy|LuckyBlocks,Lucky Blocks,SF_LuckyBlocks|maintained
+legacy-slimefunwarfare|recognized|SlimefunWarfare Legacy|SlimefunWarfare,Slimefun Warfare,SF_SlimefunWarfare|maintained
+legacy-militaryarsenal|recognized|MilitaryArsenal Legacy|MilitaryArsenal,Military Arsenal,SF_MilitaryArsenal|maintained
+legacy-slimeglue|recognized|SlimeGlue Legacy|SlimeGlue,SF_SlimeGlue|maintained
+legacy-worldedit-slimefun|recognized|WorldEditSlimefun Legacy|WorldEditSlimefun,WorldEdit Slimefun,SF_WorldEditSlimefun|maintained
+legacy-mobcapturer|recognized|MobCapturer Legacy|MobCapturer,SF_MobCapturer|maintained
+legacy-slimy-tree-taps|recognized|SlimyTreeTaps Legacy|SlimyTreeTaps,Slimy Tree Taps,SF_SlimyTreeTaps|maintained
+legacy-worldtaste|recognized|WorldTaste Legacy|WorldTaste,SF_WorldTaste|maintained
+legacy-ryken-slimecustomizer|recognized|RykenSlimeCustomizer Legacy|RykenSlimeCustomizer,Ryken Slime Customizer,SF_RykenSlimeCustomizer|maintained
+legacy-slimeeasy|recognized|SlimeEasy Legacy|SlimeEasy,SF_SlimeEasy|maintained
+legacy-extraheads|recognized|ExtraHeads Legacy|ExtraHeads,Extra Heads,SF_ExtraHeads|maintained
