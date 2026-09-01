@@ -209,11 +209,12 @@ public class CustomTextureService {
     }
 
     /**
-     * This method sets the custom model data for this {@link ItemMeta}
-     * to the value configured for the provided item id.
+     * This method applies the custom model data configured for the provided item id.
+     * A configured value of {@code 0} means Slimefun has no model override and therefore
+     * leaves any model data supplied by another plugin, such as ItemsAdder, untouched.
      *
      * @param im
-     *            The {@link ItemMeta} to set the custom model data for
+     *            The {@link ItemMeta} to set custom model data on
      * @param id
      *            The id for which to get the configured model data
      */
@@ -222,6 +223,8 @@ public class CustomTextureService {
         Validate.notNull(id, "Cannot store null on an ItemMeta!");
 
         int data = getModelData(id);
-        im.setCustomModelData(data == 0 ? null : data);
+        if (data != 0) {
+            im.setCustomModelData(data);
+        }
     }
 }

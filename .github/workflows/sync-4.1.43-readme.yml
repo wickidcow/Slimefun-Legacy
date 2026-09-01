@@ -1,0 +1,54 @@
+name: Sync 4.1.43 README
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/sync-4.1.43-readme.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Update README release references
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('README.md')
+          text = path.read_text(encoding='utf-8')
+          text, current_count = re.subn(
+              r'Current release candidate: \*\*4\.1\.42 — Beacon Performance\*\*\.',
+              'Current release candidate: **4.1.43 — External Model Compatibility**.',
+              text,
+          )
+          text, tested_count = re.subn(
+              r'Slimefun Legacy 4\.1\.42 is tested primarily',
+              'Slimefun Legacy 4.1.43 is tested primarily',
+              text,
+          )
+          if current_count != 1:
+              raise SystemExit(f'Expected exactly one current-release replacement, got {current_count}')
+          if tested_count != 1:
+              raise SystemExit(f'Expected exactly one tested-version replacement, got {tested_count}')
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit README metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md
+          git diff --cached --check
+          git commit -m 'Update README for Slimefun Legacy 4.1.43'
+          git push origin HEAD:master
