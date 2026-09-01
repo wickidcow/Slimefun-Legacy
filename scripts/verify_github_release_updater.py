@@ -27,10 +27,12 @@ def main() -> int:
 
     require("releaseUpdateService = new GitHubReleaseUpdateService(this, repository);" in github, "GitHubService must own the dedicated release updater")
     require("releaseUpdateService.start();" in github, "release updater must start during Slimefun GitHub service startup")
-    require("A newer published GitHub release of Slimefun Legacy is available." in github, "console notice must identify a published GitHub release")
-    require('recipient.sendMessage("Installed: "' in github, "notice must include installed version")
-    require('recipient.sendMessage("Latest:    "' in github, "notice must include latest release version")
-    require('recipient.sendMessage("Download:")' in github, "notice must include the release download destination")
+    require('recipient.sendMessage("§6[Slimefun Legacy] §eUpdate available: §f"' in github,
+            "notice must use the compact Slimefun Legacy update prefix")
+    require("displayVersion(Slimefun.getVersion())" in github, "notice must include installed version")
+    require('" §7→ §a" + displayVersion(latestTag)' in github, "notice must include latest release version")
+    require('recipient.sendMessage("§7https://github.com/" + repository + "/releases/latest");' in github,
+            "notice must include the latest-release destination")
 
     # The broad contributor/issues refresh must not become a second update source.
     load_connectors = github.split("private void loadConnectors(boolean logging)", 1)[1].split("protected @Nonnull Set<GitHubConnector>", 1)[0]
