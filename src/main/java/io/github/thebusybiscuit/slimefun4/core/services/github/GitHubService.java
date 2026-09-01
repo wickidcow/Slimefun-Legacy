@@ -29,7 +29,6 @@ import org.bukkit.entity.Player;
  */
 public class GitHubService {
 
-    private static final String UPDATE_SEPARATOR = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
     private static final String UPDATE_NOTIFICATION_PERMISSION = "slimefun.update-notifications";
 
     private final String repository;
@@ -238,16 +237,9 @@ public class GitHubService {
     }
 
     private void sendUpdateNotice(@Nonnull CommandSender recipient, @Nonnull String latestTag) {
-        recipient.sendMessage(UPDATE_SEPARATOR);
-        recipient.sendMessage("Slimefun Legacy Update Available");
-        recipient.sendMessage(UPDATE_SEPARATOR);
-        recipient.sendMessage("Installed: " + displayVersion(Slimefun.getVersion()));
-        recipient.sendMessage("Latest:    " + displayVersion(latestTag));
-        recipient.sendMessage("A newer published GitHub release of Slimefun Legacy is available.");
-        recipient.sendMessage("Update to receive the latest fixes and improvements.");
-        recipient.sendMessage("Download:");
-        recipient.sendMessage(latestReleaseUrl);
-        recipient.sendMessage(UPDATE_SEPARATOR);
+        recipient.sendMessage("§6[Slimefun Legacy] §eUpdate available: §f" + displayVersion(Slimefun.getVersion())
+                + " §7→ §a" + displayVersion(latestTag));
+        recipient.sendMessage("§7https://github.com/" + repository + "/releases/latest");
     }
 
     private static String displayVersion(String version) {
