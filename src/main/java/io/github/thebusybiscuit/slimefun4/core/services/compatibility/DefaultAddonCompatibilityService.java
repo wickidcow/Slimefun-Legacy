@@ -198,6 +198,13 @@ public final class DefaultAddonCompatibilityService implements AddonCompatibilit
             return new ResolvedDeclaration(
                     manifest.declaration(), AddonCompatibilitySource.EMBEDDED_MANIFEST, manifest.error());
         }
+
+        AddonCompatibilityDeclaration maintained = LegacyMaintainedAddonCatalog.find(plugin.getName());
+        if (maintained != null) {
+            return new ResolvedDeclaration(
+                    maintained, AddonCompatibilitySource.LEGACY_MAINTAINED_CATALOG, null);
+        }
+
         return new ResolvedDeclaration(null, AddonCompatibilitySource.NONE, null);
     }
 
