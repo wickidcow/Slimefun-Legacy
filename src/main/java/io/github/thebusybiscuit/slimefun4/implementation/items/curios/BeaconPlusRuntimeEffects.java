@@ -45,34 +45,38 @@ final class BeaconPlusRuntimeEffects {
     static final int MAX_CROP_SAMPLES_PER_PULSE = 512;
     private static final int CROP_VERTICAL_RADIUS = 8;
     private static final int PULSE_INTERVAL_TICKS = 20;
+    private static final int PLAYER_POTION_INTERVAL_TICKS = 200;
+    private static final int PLAYER_UTILITY_INTERVAL_TICKS = 40;
+    private static final int PLAYER_PASSIVE_INTERVAL_TICKS = 100;
+    private static final int MONSTER_INTERVAL_TICKS = 40;
+    private static final int TILE_BOOST_INTERVAL_TICKS = 40;
+    private static final int CROP_INTERVAL_TICKS = 40;
     private static final int PLAYER_EFFECT_DURATION_TICKS = 600;
-    private static final int PLAYER_EFFECT_REFRESH_THRESHOLD_TICKS = 300;
+    private static final int PLAYER_EFFECT_REFRESH_THRESHOLD_TICKS = 200;
     private static final int MOB_EFFECT_DURATION_TICKS = 70;
+    private static final int GRAVITY_SLICES = 4;
+    private static final long GRAVITY_SLICE_DELAY_TICKS = 5L;
     private static final long TILE_ENTITY_DISCOVERY_CACHE_TICKS = 300L;
     private static final int MAX_TILE_ENTITY_CACHE_CHUNKS = 4096;
     private static final NamespacedKey SCALE_KEY = new NamespacedKey(Slimefun.instance(), "beacon_plus_scale");
     private static final Map<UUID, Boolean> ORIGINAL_ALLOW_FLIGHT = new ConcurrentHashMap<>();
     private static final Map<TileEntityChunkKey, CachedTileEntities> TILE_ENTITY_CACHE = new ConcurrentHashMap<>();
-    private static final Set<BeaconPlusEffect> PLAYER_PULSE_EFFECTS = Set.of(
+    private static final Set<BeaconPlusEffect> PLAYER_POTION_EFFECTS = Set.of(
             BeaconPlusEffect.STRENGTH,
             BeaconPlusEffect.REGENERATION,
             BeaconPlusEffect.RESISTANCE,
             BeaconPlusEffect.FAST_DIGGING,
-            BeaconPlusEffect.CURE,
             BeaconPlusEffect.SPEED,
             BeaconPlusEffect.NIGHT_VISION,
-            BeaconPlusEffect.FLYING,
             BeaconPlusEffect.LUCK,
             BeaconPlusEffect.WATER_BREATHING,
-            BeaconPlusEffect.FIRE_EXTINGUISHER,
-            BeaconPlusEffect.JUMP,
-            BeaconPlusEffect.EXP_GAIN,
-            BeaconPlusEffect.AUTO_REPAIR);
-    private static final Set<BeaconPlusEffect> MONSTER_PULSE_EFFECTS = Set.of(
-            BeaconPlusEffect.SLOWDOWN,
-            BeaconPlusEffect.PEACEFUL,
-            BeaconPlusEffect.BURNER,
-            BeaconPlusEffect.POISON);
+            BeaconPlusEffect.JUMP);
+    private static final Set<BeaconPlusEffect> PLAYER_UTILITY_EFFECTS =
+            Set.of(BeaconPlusEffect.CURE, BeaconPlusEffect.FIRE_EXTINGUISHER);
+    private static final Set<BeaconPlusEffect> PLAYER_PASSIVE_EFFECTS =
+            Set.of(BeaconPlusEffect.EXP_GAIN, BeaconPlusEffect.AUTO_REPAIR);
+    private static final Set<BeaconPlusEffect> MONSTER_PERIODIC_EFFECTS =
+            Set.of(BeaconPlusEffect.SLOWDOWN, BeaconPlusEffect.BURNER, BeaconPlusEffect.POISON);
     private static final Set<PotionEffectType> HARMFUL_EFFECTS = Set.of(
             PotionEffectType.SLOWNESS,
             PotionEffectType.MINING_FATIGUE,
@@ -91,67 +95,92 @@ final class BeaconPlusRuntimeEffects {
 
     private BeaconPlusRuntimeEffects() {}
 
-    static void applyPulse(Block block, Map<BeaconPlusEffect, Integer> tiers, double range, long gameTime) {
+    static void applyPulse(
+            Block block, Map<BeaconPlusEffect, Integer> tiers, double range, long gameTime, boolean newlyPowered) {
         int gravityTier = tiers.getOrDefault(BeaconPlusEffect.GRAVITY_WELL, 0);
         int furnaceTier = tiers.getOrDefault(BeaconPlusEffect.FURNACE_BOOSTER, 0);
         int spawnerTier = tiers.getOrDefault(BeaconPlusEffect.SPAWNERS, 0);
         int cropTier = tiers.getOrDefault(BeaconPlusEffect.CROPS, 0);
-        boolean cropPulse = cropTier > 0 && gameTime % 40L < PULSE_INTERVAL_TICKS;
-        boolean playerPulse = hasAnyTier(tiers, PLAYER_PULSE_EFFECTS);
-        boolean monsterPulse = hasAnyTier(tiers, MONSTER_PULSE_EFFECTS);
         boolean folia = Slimefun.getSchedulerService().isFolia();
 
-        // On Paper-family servers player-only powers do not need a scan of every entity in every loaded
-        // field chunk. The world player list is normally tiny by comparison and the same chunk-aligned
-        // field predicate preserves Resonance Beacon range semantics. Folia keeps the existing region-local
-        // chunk path so this optimization never reaches across region ownership boundaries.
-        if (playerPulse && !folia) {
-            BeaconPlusField.ChunkFootprint footprint =
-                    BeaconPlusField.footprint(block.getX(), block.getZ(), range);
-            World world = block.getWorld();
-            for (Player player : world.getPlayers()) {
-                Location playerLocation = player.getLocation();
-                if (footprint.containsChunk(playerLocation.getBlockX() >> 4, playerLocation.getBlockZ() >> 4)) {
-                    applyPlayerEffects(player, tiers, gameTime);
-                }
-            }
+        boolean potionPulse = hasAnyTier(tiers, PLAYER_POTION_EFFECTS)
+                && (newlyPowered || isLaneDue(block, gameTime, PLAYER_POTION_INTERVAL_TICKS, 11));
+        boolean utilityPulse = hasAnyTier(tiers, PLAYER_UTILITY_EFFECTS)
+                && (newlyPowered || isLaneDue(block, gameTime, PLAYER_UTILITY_INTERVAL_TICKS, 23));
+        boolean passivePulse = hasAnyTier(tiers, PLAYER_PASSIVE_EFFECTS)
+                && (newlyPowered || isLaneDue(block, gameTime, PLAYER_PASSIVE_INTERVAL_TICKS, 37));
+        boolean flightPulse = newlyPowered && tiers.getOrDefault(BeaconPlusEffect.FLYING, 0) > 0;
+        boolean monsterPulse = hasAnyTier(tiers, MONSTER_PERIODIC_EFFECTS)
+                && (newlyPowered || isLaneDue(block, gameTime, MONSTER_INTERVAL_TICKS, 41));
+        boolean peacefulActivation = newlyPowered && tiers.getOrDefault(BeaconPlusEffect.PEACEFUL, 0) > 0;
+        boolean tilePulse = (furnaceTier > 0 || spawnerTier > 0)
+                && (newlyPowered || isLaneDue(block, gameTime, TILE_BOOST_INTERVAL_TICKS, 53));
+        boolean cropPulse = cropTier > 0 && (newlyPowered || isLaneDue(block, gameTime, CROP_INTERVAL_TICKS, 67));
+
+        if ((potionPulse || utilityPulse || passivePulse || flightPulse) && !folia) {
+            long started = System.nanoTime();
+            applyPlayerLanes(block, tiers, range, potionPulse, utilityPulse, passivePulse, flightPulse);
+            BeaconPlusPerformance.record(BeaconPlusPerformance.Section.PLAYERS, System.nanoTime() - started);
         }
 
-        boolean scanChunkEntities = gravityTier > 0 || monsterPulse || (folia && playerPulse);
-        boolean needsLoadedChunks = scanChunkEntities || furnaceTier > 0 || spawnerTier > 0 || cropPulse;
+        boolean needsLoadedChunks = gravityTier > 0
+                || monsterPulse
+                || peacefulActivation
+                || tilePulse
+                || cropPulse
+                || (folia && (potionPulse || utilityPulse || passivePulse || flightPulse));
         if (!needsLoadedChunks) {
             return;
         }
 
-        // Resolve the loaded field once only when an enabled pulse effect actually needs chunk work.
         List<Chunk> loadedChunks = getLoadedChunksInField(block, range);
         if (loadedChunks.isEmpty()) {
             return;
         }
 
-        if (scanChunkEntities) {
-            Location center = block.getLocation().add(0.5D, 0.5D, 0.5D);
+        if (folia && (potionPulse || utilityPulse || passivePulse || flightPulse)) {
+            long started = System.nanoTime();
+            for (Entity entity : loadedChunks.get(0).getEntities()) {
+                if (entity instanceof Player player) {
+                    applyPlayerLanes(
+                            player, tiers, potionPulse, utilityPulse, passivePulse, flightPulse);
+                }
+            }
+            BeaconPlusPerformance.record(BeaconPlusPerformance.Section.PLAYERS, System.nanoTime() - started);
+        }
+
+        if (monsterPulse || peacefulActivation) {
+            long started = System.nanoTime();
             for (Chunk chunk : loadedChunks) {
                 for (Entity entity : chunk.getEntities()) {
-                    if (folia && playerPulse && entity instanceof Player player) {
-                        applyPlayerEffects(player, tiers, gameTime);
-                    } else if (monsterPulse && entity instanceof Monster monster) {
+                    if (!(entity instanceof Monster monster)) {
+                        continue;
+                    }
+                    if (monsterPulse) {
                         applyMonsterEffects(monster, tiers);
                     }
-
-                    // Match the proven BeaconPlus behavior: every resolved once-per-second pulse may pull AI mobs and items.
-                    if (gravityTier > 0 && (entity instanceof Mob || entity instanceof Item)) {
-                        pullEntity(entity, center, gravityTier);
+                    if (peacefulActivation) {
+                        monster.setTarget(null);
                     }
                 }
             }
+            BeaconPlusPerformance.record(BeaconPlusPerformance.Section.MONSTERS, System.nanoTime() - started);
         }
 
-        if (furnaceTier > 0 || spawnerTier > 0) {
-            applyTileEntityBoosts(loadedChunks, furnaceTier, spawnerTier, gameTime);
+        if (gravityTier > 0) {
+            scheduleGravityWell(block, loadedChunks, gravityTier);
         }
+
+        if (tilePulse) {
+            long started = System.nanoTime();
+            applyTileEntityBoosts(loadedChunks, furnaceTier, spawnerTier, gameTime);
+            BeaconPlusPerformance.record(BeaconPlusPerformance.Section.TILES, System.nanoTime() - started);
+        }
+
         if (cropPulse) {
+            long started = System.nanoTime();
             applyCropBoost(block, loadedChunks, cropTier);
+            BeaconPlusPerformance.record(BeaconPlusPerformance.Section.CROPS, System.nanoTime() - started);
         }
     }
 
@@ -191,17 +220,79 @@ final class BeaconPlusRuntimeEffects {
     }
 
     static void refreshNearbyPlayerStates(Block block, double range) {
-        // This path is mostly used for power-loss cleanup. Avoid building an intermediate entity list.
-        for (Chunk chunk : getLoadedChunksInField(block, range)) {
-            for (Entity entity : chunk.getEntities()) {
+        if (Slimefun.getSchedulerService().isFolia()) {
+            for (Entity entity : block.getChunk().getEntities()) {
                 if (entity instanceof Player player) {
                     refreshPlayerState(player);
                 }
             }
+            return;
+        }
+
+        BeaconPlusField.ChunkFootprint footprint = BeaconPlusField.footprint(block.getX(), block.getZ(), range);
+        for (Player player : block.getWorld().getPlayers()) {
+            Location location = player.getLocation();
+            if (footprint.containsChunk(location.getBlockX() >> 4, location.getBlockZ() >> 4)) {
+                refreshPlayerState(player);
+            }
         }
     }
 
-    private static void applyPlayerEffects(Player player, Map<BeaconPlusEffect, Integer> tiers, long gameTime) {
+    static void reconcilePeacefulTargets(Block block, double range) {
+        if (range <= 0.0D) {
+            return;
+        }
+        long started = System.nanoTime();
+        for (Chunk chunk : getLoadedChunksInField(block, range)) {
+            for (Entity entity : chunk.getEntities()) {
+                if (entity instanceof Monster monster) {
+                    monster.setTarget(null);
+                }
+            }
+        }
+        BeaconPlusPerformance.record(BeaconPlusPerformance.Section.MONSTERS, System.nanoTime() - started);
+    }
+
+    private static void applyPlayerLanes(
+            Block block,
+            Map<BeaconPlusEffect, Integer> tiers,
+            double range,
+            boolean potionPulse,
+            boolean utilityPulse,
+            boolean passivePulse,
+            boolean flightPulse) {
+        BeaconPlusField.ChunkFootprint footprint = BeaconPlusField.footprint(block.getX(), block.getZ(), range);
+        for (Player player : block.getWorld().getPlayers()) {
+            Location playerLocation = player.getLocation();
+            if (!footprint.containsChunk(playerLocation.getBlockX() >> 4, playerLocation.getBlockZ() >> 4)) {
+                continue;
+            }
+            applyPlayerLanes(player, tiers, potionPulse, utilityPulse, passivePulse, flightPulse);
+        }
+    }
+
+    private static void applyPlayerLanes(
+            Player player,
+            Map<BeaconPlusEffect, Integer> tiers,
+            boolean potionPulse,
+            boolean utilityPulse,
+            boolean passivePulse,
+            boolean flightPulse) {
+        if (potionPulse) {
+            applyPlayerPotions(player, tiers);
+        }
+        if (utilityPulse) {
+            applyPlayerUtility(player, tiers);
+        }
+        if (passivePulse) {
+            applyPlayerPassive(player, tiers);
+        }
+        if (flightPulse) {
+            updateFlight(player, tiers.getOrDefault(BeaconPlusEffect.FLYING, 0) > 0);
+        }
+    }
+
+    private static void applyPlayerPotions(Player player, Map<BeaconPlusEffect, Integer> tiers) {
         applyPlayerPotionIfPresent(player, tiers, BeaconPlusEffect.STRENGTH, PotionEffectType.STRENGTH);
         applyPlayerPotionIfPresent(player, tiers, BeaconPlusEffect.REGENERATION, PotionEffectType.REGENERATION);
         applyPlayerPotionIfPresent(player, tiers, BeaconPlusEffect.RESISTANCE, PotionEffectType.RESISTANCE);
@@ -212,7 +303,9 @@ final class BeaconPlusRuntimeEffects {
         applyPlayerPotionIfPresent(
                 player, tiers, BeaconPlusEffect.WATER_BREATHING, PotionEffectType.WATER_BREATHING);
         applyPlayerPotionIfPresent(player, tiers, BeaconPlusEffect.JUMP, PotionEffectType.JUMP_BOOST);
+    }
 
+    private static void applyPlayerUtility(Player player, Map<BeaconPlusEffect, Integer> tiers) {
         if (tiers.getOrDefault(BeaconPlusEffect.CURE, 0) > 0) {
             for (PotionEffectType harmful : HARMFUL_EFFECTS) {
                 player.removePotionEffect(harmful);
@@ -221,15 +314,17 @@ final class BeaconPlusRuntimeEffects {
         if (tiers.getOrDefault(BeaconPlusEffect.FIRE_EXTINGUISHER, 0) > 0 && player.getFireTicks() > 0) {
             player.setFireTicks(0);
         }
+    }
+
+    private static void applyPlayerPassive(Player player, Map<BeaconPlusEffect, Integer> tiers) {
         int expGainTier = tiers.getOrDefault(BeaconPlusEffect.EXP_GAIN, 0);
-        if (expGainTier > 0 && gameTime % 100L < PULSE_INTERVAL_TICKS) {
+        if (expGainTier > 0) {
             player.giveExp(expGainTier);
         }
         int repairTier = tiers.getOrDefault(BeaconPlusEffect.AUTO_REPAIR, 0);
-        if (repairTier > 0 && gameTime % 100L < PULSE_INTERVAL_TICKS) {
+        if (repairTier > 0) {
             repairInventory(player.getInventory(), repairTier);
         }
-        updateFlight(player, tiers.getOrDefault(BeaconPlusEffect.FLYING, 0) > 0);
     }
 
     private static void applyPlayerPotionIfPresent(
@@ -245,9 +340,8 @@ final class BeaconPlusRuntimeEffects {
         int amplifier = tier - 1;
         PotionEffect current = player.getPotionEffect(type);
         if (current != null) {
-            // Never churn a stronger externally supplied effect. A matching Resonance Beacon effect is refreshed
-            // only when about 15 seconds remain, giving players a stable 30-second countdown without
-            // re-sending the same potion effect every one-second beacon pulse.
+            // Potions last 30 seconds but are checked only on a staggered 10-second lane. Refreshing at about
+            // 10 seconds remaining preserves a visible countdown while eliminating nine redundant checks out of ten.
             if (current.getAmplifier() > amplifier
                     || (current.getAmplifier() == amplifier
                             && current.getDuration() > PLAYER_EFFECT_REFRESH_THRESHOLD_TICKS)) {
@@ -267,9 +361,6 @@ final class BeaconPlusRuntimeEffects {
         if (burnerTier > 0 && isUndead(monster.getType())) {
             monster.setFireTicks(Math.max(monster.getFireTicks(), 40 + burnerTier * 40));
         }
-        if (tiers.getOrDefault(BeaconPlusEffect.PEACEFUL, 0) > 0) {
-            monster.setTarget(null);
-        }
     }
 
     private static void applyPotionIfPresent(
@@ -281,6 +372,85 @@ final class BeaconPlusRuntimeEffects {
         int tier = tiers.getOrDefault(effect, 0);
         if (tier > 0) {
             entity.addPotionEffect(new PotionEffect(type, duration, tier - 1, true, false, true));
+        }
+    }
+
+    private static void scheduleGravityWell(Block beaconBlock, List<Chunk> loadedChunks, int tier) {
+        if (loadedChunks.isEmpty()) {
+            return;
+        }
+
+        if (Slimefun.getSchedulerService().isFolia() || loadedChunks.size() == 1) {
+            long started = System.nanoTime();
+            processGravityChunks(
+                    beaconBlock.getWorld(),
+                    beaconBlock.getX(),
+                    beaconBlock.getY(),
+                    beaconBlock.getZ(),
+                    List.of(new ChunkCoordinate(loadedChunks.get(0).getX(), loadedChunks.get(0).getZ())),
+                    tier);
+            BeaconPlusPerformance.record(BeaconPlusPerformance.Section.GRAVITY, System.nanoTime() - started);
+            return;
+        }
+
+        int slices = Math.min(GRAVITY_SLICES, loadedChunks.size());
+        List<List<ChunkCoordinate>> work = new ArrayList<>(slices);
+        for (int i = 0; i < slices; i++) {
+            work.add(new ArrayList<>());
+        }
+        for (int index = 0; index < loadedChunks.size(); index++) {
+            Chunk chunk = loadedChunks.get(index);
+            work.get(index % slices).add(new ChunkCoordinate(chunk.getX(), chunk.getZ()));
+        }
+
+        World world = beaconBlock.getWorld();
+        int beaconX = beaconBlock.getX();
+        int beaconY = beaconBlock.getY();
+        int beaconZ = beaconBlock.getZ();
+        for (int slice = 0; slice < slices; slice++) {
+            List<ChunkCoordinate> coordinates = List.copyOf(work.get(slice));
+            long delay = slice * GRAVITY_SLICE_DELAY_TICKS;
+            if (delay == 0L) {
+                long started = System.nanoTime();
+                processGravityChunks(world, beaconX, beaconY, beaconZ, coordinates, tier);
+                BeaconPlusPerformance.record(BeaconPlusPerformance.Section.GRAVITY, System.nanoTime() - started);
+                continue;
+            }
+
+            Slimefun.getSchedulerService().runLater(() -> {
+                if (!world.isChunkLoaded(beaconX >> 4, beaconZ >> 4)) {
+                    return;
+                }
+                Block currentBeacon = world.getBlockAt(beaconX, beaconY, beaconZ);
+                int currentTier = BeaconPlusRuntime.getEffectiveTierAtBeacon(currentBeacon, BeaconPlusEffect.GRAVITY_WELL);
+                if (currentTier <= 0) {
+                    return;
+                }
+                long started = System.nanoTime();
+                processGravityChunks(world, beaconX, beaconY, beaconZ, coordinates, currentTier);
+                BeaconPlusPerformance.record(BeaconPlusPerformance.Section.GRAVITY, System.nanoTime() - started);
+            }, delay);
+        }
+    }
+
+    private static void processGravityChunks(
+            World world,
+            int beaconX,
+            int beaconY,
+            int beaconZ,
+            List<ChunkCoordinate> coordinates,
+            int tier) {
+        Location center = new Location(world, beaconX + 0.5D, beaconY + 0.5D, beaconZ + 0.5D);
+        for (ChunkCoordinate coordinate : coordinates) {
+            if (!world.isChunkLoaded(coordinate.x(), coordinate.z())) {
+                continue;
+            }
+            Chunk chunk = world.getChunkAt(coordinate.x(), coordinate.z());
+            for (Entity entity : chunk.getEntities()) {
+                if (entity instanceof Mob || entity instanceof Item) {
+                    pullEntity(entity, center, tier);
+                }
+            }
         }
     }
 
@@ -361,7 +531,8 @@ final class BeaconPlusRuntimeEffects {
         if (furnace.getBurnTime() <= 0 || furnace.getCookTimeTotal() <= 0) {
             return;
         }
-        int next = Math.min(furnace.getCookTimeTotal() - 1, furnace.getCookTime() + tier * 4);
+        int accumulatedBoost = tier * 4 * (TILE_BOOST_INTERVAL_TICKS / PULSE_INTERVAL_TICKS);
+        int next = Math.min(furnace.getCookTimeTotal() - 1, furnace.getCookTime() + accumulatedBoost);
         if (next > furnace.getCookTime()) {
             furnace.setCookTime((short) next);
             furnace.update(true, false);
@@ -369,7 +540,8 @@ final class BeaconPlusRuntimeEffects {
     }
 
     private static void boostSpawner(CreatureSpawner spawner, int tier) {
-        int next = Math.max(20, spawner.getDelay() - (10 + tier * 10));
+        int accumulatedBoost = (10 + tier * 10) * (TILE_BOOST_INTERVAL_TICKS / PULSE_INTERVAL_TICKS);
+        int next = Math.max(20, spawner.getDelay() - accumulatedBoost);
         if (next < spawner.getDelay()) {
             spawner.setDelay(next);
             spawner.update(true, false);
@@ -402,6 +574,16 @@ final class BeaconPlusRuntimeEffects {
                 target.setBlockData(ageable, false);
             }
         }
+    }
+
+    private static boolean isLaneDue(Block block, long gameTime, int intervalTicks, int salt) {
+        long locationHash = block.getWorld().getUID().getLeastSignificantBits()
+                ^ ((long) block.getX() * 73428767L)
+                ^ ((long) block.getY() * 912931L)
+                ^ ((long) block.getZ() * 438289L)
+                ^ salt;
+        long phase = Math.floorMod(locationHash, intervalTicks);
+        return Math.floorMod(gameTime - phase, intervalTicks) < PULSE_INTERVAL_TICKS;
     }
 
     private static List<Chunk> getLoadedChunksInField(Block beaconBlock, double range) {
@@ -519,4 +701,6 @@ final class BeaconPlusRuntimeEffects {
     private record TileEntityChunkKey(UUID worldId, int x, int z) {}
 
     private record CachedTileEntities(long scannedGameTime, List<TileEntityRef> entries) {}
+
+    private record ChunkCoordinate(int x, int z) {}
 }
