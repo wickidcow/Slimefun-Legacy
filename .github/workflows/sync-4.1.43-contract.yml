@@ -1,0 +1,47 @@
+name: Sync 4.1.43 Compatibility Contract
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/sync-4.1.43-contract.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Update release markers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          for raw in (
+              'compatibility/addon-compatibility-matrix.json',
+              'compatibility/support-contract.json',
+          ):
+              path = Path(raw)
+              data = json.loads(path.read_text(encoding='utf-8'))
+              if data.get('release') != '4.1.42':
+                  raise SystemExit(f'{raw}: expected release 4.1.42, found {data.get("release")!r}')
+              data['release'] = '4.1.43'
+              path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+          PY
+      - name: Commit compatibility release markers
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add compatibility/addon-compatibility-matrix.json compatibility/support-contract.json
+          git diff --cached --check
+          git commit -m 'Update compatibility contract for Slimefun Legacy 4.1.43'
+          git push origin HEAD:master
