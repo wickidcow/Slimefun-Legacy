@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class TestKnownAddonCompatibilityRegistry {
@@ -37,7 +38,53 @@ class TestKnownAddonCompatibilityRegistry {
     }
 
     @Test
-    void testRecognitionOnlyDoesNotClaimCiCoverage() {
+    void testLegacyMaintainedForksAreMarkedMaintained() {
+        KnownAddonCompatibilityRegistry registry =
+                KnownAddonCompatibilityRegistry.load(getClass().getClassLoader());
+
+        List<String> maintainedRuntimeNames = List.of(
+                "FastMachines",
+                "Networks",
+                "SlimeTinker",
+                "BetterChests",
+                "InfinityExpansion2",
+                "DynaTech",
+                "Supreme",
+                "MagicExpansion",
+                "FluffyMachines",
+                "FoxyMachines",
+                "FlowerPower",
+                "IDreamOfEasy",
+                "Gastronomicon",
+                "ExoticGarden",
+                "Cultivation",
+                "DankTech2",
+                "LiteXpansion",
+                "SlimefunAdvancements",
+                "ElectricSpawners",
+                "SFMobDrops",
+                "AlchimiaVitae",
+                "LuckyBlocks",
+                "SlimefunWarfare",
+                "MilitaryArsenal",
+                "SlimeGlue",
+                "WorldEditSlimefun",
+                "MobCapturer",
+                "SlimyTreeTaps",
+                "WorldTaste",
+                "RykenSlimeCustomizer",
+                "SlimeEasy",
+                "ExtraHeads");
+
+        for (String pluginName : maintainedRuntimeNames) {
+            KnownAddonCompatibilityRegistry.KnownAddonSupport support =
+                    registry.find(pluginName).orElseThrow(() -> new AssertionError("Missing maintained addon: " + pluginName));
+            assertTrue(support.isLegacyMaintained(), () -> pluginName + " should be marked Legacy-maintained");
+        }
+    }
+
+    @Test
+    void testMaintainedRecognitionDoesNotClaimCiCoverage() {
         KnownAddonCompatibilityRegistry registry =
                 KnownAddonCompatibilityRegistry.load(getClass().getClassLoader());
         KnownAddonCompatibilityRegistry.KnownAddonSupport dankTech =
@@ -45,7 +92,8 @@ class TestKnownAddonCompatibilityRegistry {
 
         assertTrue(dankTech.isRecognizedOnly());
         assertFalse(dankTech.isCiMonitored());
-        assertEquals("danktech2", dankTech.slug());
+        assertTrue(dankTech.isLegacyMaintained());
+        assertEquals("legacy-danktech2", dankTech.slug());
     }
 
     @Test
@@ -56,6 +104,17 @@ class TestKnownAddonCompatibilityRegistry {
                 registry.find("FastMachines").orElseThrow();
 
         assertTrue(fastMachines.isRequired());
+        assertTrue(fastMachines.isLegacyMaintained());
         assertEquals("legacy-fastmachines", fastMachines.slug());
+    }
+
+    @Test
+    void testUnknownAndUnmaintainedFamiliesStayUnmaintained() {
+        KnownAddonCompatibilityRegistry registry =
+                KnownAddonCompatibilityRegistry.load(getClass().getClassLoader());
+
+        assertFalse(registry.find("Bump").orElseThrow().isLegacyMaintained());
+        assertFalse(registry.find("ExtraTools").orElseThrow().isLegacyMaintained());
+        assertTrue(registry.find("CompletelyUnknownAddon").isEmpty());
     }
 }
