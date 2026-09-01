@@ -2,6 +2,7 @@ package io.github.thebusybiscuit.slimefun4.implementation.items.tools;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
+import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.handlers.ToolUseHandler;
@@ -14,6 +15,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Tag;
@@ -22,6 +24,9 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.TileState;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockDamageEvent;
 import org.bukkit.inventory.ItemStack;
 
 /**
@@ -32,7 +37,7 @@ import org.bukkit.inventory.ItemStack;
  * through Slimefun protection checks and never force-loads chunks. Slimefun blocks,
  * custom blocks and tile entities are deliberately left untouched.</p>
  */
-public final class DeepcoreTunnelTool extends ExplosiveTool {
+public final class DeepcoreTunnelTool extends ExplosiveTool implements Listener {
 
     private static final int TUNNEL_DEPTH = 3;
     private static final int EXTRA_BLOCKS_PER_DURABILITY = 12;
@@ -64,6 +69,32 @@ public final class DeepcoreTunnelTool extends ExplosiveTool {
             case 9 -> 800L;
             default -> throw new IllegalStateException("Unexpected Deepcore tunnel size: " + size);
         };
+    }
+
+    @Override
+    public void postRegister() {
+        if (!isDisabled() && excavationType == ExcavationType.PAXEL) {
+            Bukkit.getPluginManager().registerEvents(this, Slimefun.instance());
+        }
+    }
+
+    /**
+     * Keep the held Deepcore Paxel on the vanilla tool type that best matches the
+     * block the player is actively mining. The Slimefun identity is stored in item
+     * data, so changing the vanilla material does not turn it into a different item.
+     */
+    @EventHandler(ignoreCancelled = true)
+    public void onMine(BlockDamageEvent event) {
+        if (excavationType != ExcavationType.PAXEL) {
+            return;
+        }
+
+        ItemStack item = event.getPlayer().getInventory().getItemInMainHand();
+        if (SlimefunItem.getByItem(item) != this) {
+            return;
+        }
+
+        item.setType(effectivePaxelMaterial(event.getBlock().getType()));
     }
 
     @Override
@@ -179,15 +210,23 @@ public final class DeepcoreTunnelTool extends ExplosiveTool {
     }
 
     private ItemStack effectiveToolFor(Block block, ItemStack tool) {
-        if (excavationType == ExcavationType.PAXEL
-                && Tag.MINEABLE_SHOVEL.isTagged(block.getType())
-                && !Tag.MINEABLE_PICKAXE.isTagged(block.getType())) {
-            ItemStack shovel = tool.clone();
-            shovel.setType(Material.NETHERITE_SHOVEL);
-            return shovel;
+        if (excavationType != ExcavationType.PAXEL) {
+            return tool;
         }
 
-        return tool;
+        ItemStack effectiveTool = tool.clone();
+        effectiveTool.setType(effectivePaxelMaterial(block.getType()));
+        return effectiveTool;
+    }
+
+    private static Material effectivePaxelMaterial(Material blockType) {
+        if (Tag.MINEABLE_AXE.isTagged(blockType)) {
+            return Material.NETHERITE_AXE;
+        }
+        if (Tag.MINEABLE_SHOVEL.isTagged(blockType)) {
+            return Material.NETHERITE_SHOVEL;
+        }
+        return Material.NETHERITE_PICKAXE;
     }
 
     public enum ExcavationType {
@@ -202,7 +241,7 @@ public final class DeepcoreTunnelTool extends ExplosiveTool {
             return switch (this) {
                 case PICKAXE -> pickaxe;
                 case SHOVEL -> shovel;
-                case PAXEL -> pickaxe || shovel;
+                case PAXEL -> material != Material.BEDROCK;
             };
         }
     }
