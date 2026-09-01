@@ -18,9 +18,12 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  BASE_BUNDLE_TAG: v4.1.42
+  BASE_BUNDLE_TAG: v4.1.43
   MILITARY_VERSION: '1.1.5'
   WARFARE_VERSION: '1.0.3'
+  RSC_VERSION: '3.1.7-Legacy4'
+  MAGIC_VERSION: 'Legacy-1.1.21'
+  MAGIC_TAG: 'legacy-1.1.21'
 
 jobs:
   refresh:
@@ -30,14 +33,32 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Refresh fixed addon JARs in bundle
+      - name: Refresh fixed addon files in bundle
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf bundle work fixed
-          mkdir -p bundle work fixed
+          rm -rf bundle work fixed magic-fixed
+          mkdir -p bundle work fixed magic-fixed
+
+          download_with_retry() {
+            local repo="$1"
+            local tag="$2"
+            local pattern="$3"
+            local dest="$4"
+            local attempt
+            for attempt in $(seq 1 18); do
+              rm -f "$dest"/$(basename "$pattern") 2>/dev/null || true
+              if gh release download "$tag" --repo "$repo" --pattern "$pattern" --dir "$dest"; then
+                return 0
+              fi
+              echo "Waiting for $repo $tag asset $pattern (attempt $attempt/18)"
+              sleep 10
+            done
+            echo "Timed out waiting for $repo $tag asset $pattern" >&2
+            return 1
+          }
 
           gh release download "$BASE_BUNDLE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
@@ -47,45 +68,74 @@ jobs:
 
           MA_OLD="$(find bundle -type f -iname '*MilitaryArsenal*.jar' -print -quit || true)"
           WF_OLD="$(find bundle -type f -iname '*SlimefunWarfare*.jar' -print -quit || true)"
-          MA_DIR="${MA_OLD:+$(dirname "$MA_OLD")}"
-          WF_DIR="${WF_OLD:+$(dirname "$WF_OLD")}"
-          MA_DIR="${MA_DIR:-bundle}"
-          WF_DIR="${WF_DIR:-bundle}"
+          RSC_OLD="$(find bundle -type f -iname '*RykenSlime*Customizer*.jar' -print -quit || true)"
+          MAGIC_INFO="$(grep -rl --include='info.yml' '^id:[[:space:]]*Magic[[:space:]]*$' bundle 2>/dev/null | head -n 1 || true)"
+          MAGIC_ZIP_OLD="$(find bundle -type f -iname 'Magic-Legacy-*.zip' -print -quit || true)"
+
+          MA_DIR="${MA_OLD:+$(dirname "$MA_OLD")}"; MA_DIR="${MA_DIR:-bundle}"
+          WF_DIR="${WF_OLD:+$(dirname "$WF_OLD")}"; WF_DIR="${WF_DIR:-bundle}"
+          RSC_DIR="${RSC_OLD:+$(dirname "$RSC_OLD")}"; RSC_DIR="${RSC_DIR:-bundle}"
+          MAGIC_DIR="${MAGIC_INFO:+$(dirname "$MAGIC_INFO")}" 
+          MAGIC_ZIP_DIR="${MAGIC_ZIP_OLD:+$(dirname "$MAGIC_ZIP_OLD")}"; MAGIC_ZIP_DIR="${MAGIC_ZIP_DIR:-bundle}"
 
           echo "Military Arsenal destination: $MA_DIR"
           echo "SlimefunWarfare destination: $WF_DIR"
+          echo "RSC destination: $RSC_DIR"
+          echo "Magic extracted destination: ${MAGIC_DIR:-not present in base bundle}"
+          echo "Magic ZIP destination: $MAGIC_ZIP_DIR"
 
           find bundle -type f -iname '*MilitaryArsenal*.jar' -delete
           find bundle -type f -iname '*SlimefunWarfare*.jar' -delete
+          find bundle -type f -iname '*RykenSlime*Customizer*.jar' -delete
+          find bundle -type f -iname 'Magic-Legacy-*.zip' -delete
 
-          gh release download "v${MILITARY_VERSION}" \
-            --repo wickidcow/SF_MilitaryArsenal \
-            --pattern "SF_MilitaryArsenal${MILITARY_VERSION}.jar" \
-            --dir fixed
-          gh release download "v${WARFARE_VERSION}" \
-            --repo wickidcow/SF_SlimefunWarfare \
-            --pattern "SF_SlimefunWarfare${WARFARE_VERSION}.jar" \
-            --dir fixed
+          download_with_retry wickidcow/SF_MilitaryArsenal "v${MILITARY_VERSION}" "SF_MilitaryArsenal${MILITARY_VERSION}.jar" fixed
+          download_with_retry wickidcow/SF_SlimefunWarfare "v${WARFARE_VERSION}" "SF_SlimefunWarfare${WARFARE_VERSION}.jar" fixed
+          download_with_retry wickidcow/SF_RykenSlimeCustomizer "v${RSC_VERSION}" "SF_RykenSlimeCustomizer${RSC_VERSION}.jar" fixed
+          download_with_retry wickidcow/SF_Magic_RSC "$MAGIC_TAG" "Magic-${MAGIC_VERSION}.zip" fixed
 
-          mkdir -p "$MA_DIR" "$WF_DIR"
+          mkdir -p "$MA_DIR" "$WF_DIR" "$RSC_DIR" "$MAGIC_ZIP_DIR"
           cp "fixed/SF_MilitaryArsenal${MILITARY_VERSION}.jar" "$MA_DIR/"
           cp "fixed/SF_SlimefunWarfare${WARFARE_VERSION}.jar" "$WF_DIR/"
+          cp "fixed/SF_RykenSlimeCustomizer${RSC_VERSION}.jar" "$RSC_DIR/"
+          cp "fixed/Magic-${MAGIC_VERSION}.zip" "$MAGIC_ZIP_DIR/"
+
+          unzip -q "fixed/Magic-${MAGIC_VERSION}.zip" -d magic-fixed
+          test -f magic-fixed/Magic/info.yml
+          grep -q "^version:[[:space:]]*${MAGIC_VERSION}$" magic-fixed/Magic/info.yml
+
+          if [[ -n "$MAGIC_DIR" ]]; then
+            rm -rf "$MAGIC_DIR"
+            mkdir -p "$(dirname "$MAGIC_DIR")"
+            cp -a magic-fixed/Magic "$MAGIC_DIR"
+          fi
 
           test "$(find bundle -type f -name "SF_MilitaryArsenal${MILITARY_VERSION}.jar" | wc -l)" -eq 1
           test "$(find bundle -type f -name "SF_SlimefunWarfare${WARFARE_VERSION}.jar" | wc -l)" -eq 1
+          test "$(find bundle -type f -name "SF_RykenSlimeCustomizer${RSC_VERSION}.jar" | wc -l)" -eq 1
+          test "$(find bundle -type f -name "Magic-${MAGIC_VERSION}.zip" | wc -l)" -eq 1
+
           if find bundle -type f -iname '*MilitaryArsenal*.jar' ! -name "SF_MilitaryArsenal${MILITARY_VERSION}.jar" | grep -q .; then
-            echo 'Old Military Arsenal JAR remains in bundle.' >&2
-            exit 1
+            echo 'Old Military Arsenal JAR remains in bundle.' >&2; exit 1
           fi
           if find bundle -type f -iname '*SlimefunWarfare*.jar' ! -name "SF_SlimefunWarfare${WARFARE_VERSION}.jar" | grep -q .; then
-            echo 'Old SlimefunWarfare JAR remains in bundle.' >&2
-            exit 1
+            echo 'Old SlimefunWarfare JAR remains in bundle.' >&2; exit 1
+          fi
+          if find bundle -type f -iname '*RykenSlime*Customizer*.jar' ! -name "SF_RykenSlimeCustomizer${RSC_VERSION}.jar" | grep -q .; then
+            echo 'Old RykenSlimefunCustomizer JAR remains in bundle.' >&2; exit 1
+          fi
+          if find bundle -type f -iname 'Magic-Legacy-*.zip' ! -name "Magic-${MAGIC_VERSION}.zip" | grep -q .; then
+            echo 'Old Magic Legacy ZIP remains in bundle.' >&2; exit 1
+          fi
+
+          if [[ -n "$MAGIC_DIR" ]]; then
+            grep -q "^version:[[:space:]]*${MAGIC_VERSION}$" "$MAGIC_DIR/info.yml"
           fi
 
           rm -f SFL_AddonsNDependencies.zip
           (cd bundle && zip -qr ../SFL_AddonsNDependencies.zip .)
-          unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_MilitaryArsenal${MILITARY_VERSION}.jar"
-          unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_SlimefunWarfare${WARFARE_VERSION}.jar"
+          unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_RykenSlimeCustomizer${RSC_VERSION}.jar"
+          unzip -l SFL_AddonsNDependencies.zip | grep -F "Magic-${MAGIC_VERSION}.zip"
           sha256sum SFL_AddonsNDependencies.zip
 
       - name: Publish refreshed bundle
