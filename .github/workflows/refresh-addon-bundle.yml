@@ -1,0 +1,105 @@
+name: Refresh Slimefun Legacy Addon Bundle
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/refresh-addon-bundle.yml'
+  workflow_run:
+    workflows: ['Reproducible Release']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-slimefun-addon-bundle
+  cancel-in-progress: true
+
+env:
+  BASE_BUNDLE_TAG: v4.1.42
+  MILITARY_VERSION: '1.1.5'
+  WARFARE_VERSION: '1.0.3'
+
+jobs:
+  refresh:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Refresh fixed addon JARs in bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf bundle work fixed
+          mkdir -p bundle work fixed
+
+          gh release download "$BASE_BUNDLE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'SFL_AddonsNDependencies.zip' \
+            --dir work
+          unzip -q work/SFL_AddonsNDependencies.zip -d bundle
+
+          MA_OLD="$(find bundle -type f -iname '*MilitaryArsenal*.jar' -print -quit || true)"
+          WF_OLD="$(find bundle -type f -iname '*SlimefunWarfare*.jar' -print -quit || true)"
+          MA_DIR="${MA_OLD:+$(dirname "$MA_OLD")}"
+          WF_DIR="${WF_OLD:+$(dirname "$WF_OLD")}"
+          MA_DIR="${MA_DIR:-bundle}"
+          WF_DIR="${WF_DIR:-bundle}"
+
+          echo "Military Arsenal destination: $MA_DIR"
+          echo "SlimefunWarfare destination: $WF_DIR"
+
+          find bundle -type f -iname '*MilitaryArsenal*.jar' -delete
+          find bundle -type f -iname '*SlimefunWarfare*.jar' -delete
+
+          gh release download "v${MILITARY_VERSION}" \
+            --repo wickidcow/SF_MilitaryArsenal \
+            --pattern "SF_MilitaryArsenal${MILITARY_VERSION}.jar" \
+            --dir fixed
+          gh release download "v${WARFARE_VERSION}" \
+            --repo wickidcow/SF_SlimefunWarfare \
+            --pattern "SF_SlimefunWarfare${WARFARE_VERSION}.jar" \
+            --dir fixed
+
+          mkdir -p "$MA_DIR" "$WF_DIR"
+          cp "fixed/SF_MilitaryArsenal${MILITARY_VERSION}.jar" "$MA_DIR/"
+          cp "fixed/SF_SlimefunWarfare${WARFARE_VERSION}.jar" "$WF_DIR/"
+
+          test "$(find bundle -type f -name "SF_MilitaryArsenal${MILITARY_VERSION}.jar" | wc -l)" -eq 1
+          test "$(find bundle -type f -name "SF_SlimefunWarfare${WARFARE_VERSION}.jar" | wc -l)" -eq 1
+          if find bundle -type f -iname '*MilitaryArsenal*.jar' ! -name "SF_MilitaryArsenal${MILITARY_VERSION}.jar" | grep -q .; then
+            echo 'Old Military Arsenal JAR remains in bundle.' >&2
+            exit 1
+          fi
+          if find bundle -type f -iname '*SlimefunWarfare*.jar' ! -name "SF_SlimefunWarfare${WARFARE_VERSION}.jar" | grep -q .; then
+            echo 'Old SlimefunWarfare JAR remains in bundle.' >&2
+            exit 1
+          fi
+
+          rm -f SFL_AddonsNDependencies.zip
+          (cd bundle && zip -qr ../SFL_AddonsNDependencies.zip .)
+          unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_MilitaryArsenal${MILITARY_VERSION}.jar"
+          unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_SlimefunWarfare${WARFARE_VERSION}.jar"
+          sha256sum SFL_AddonsNDependencies.zip
+
+      - name: Publish refreshed bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "$BASE_BUNDLE_TAG" SFL_AddonsNDependencies.zip \
+            --repo "$GITHUB_REPOSITORY" --clobber
+
+          CURRENT_VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
+          CURRENT_TAG="v${CURRENT_VERSION}"
+          if [[ "$CURRENT_TAG" != "$BASE_BUNDLE_TAG" ]] && gh release view "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$CURRENT_TAG" SFL_AddonsNDependencies.zip \
+              --repo "$GITHUB_REPOSITORY" --clobber
+          fi
