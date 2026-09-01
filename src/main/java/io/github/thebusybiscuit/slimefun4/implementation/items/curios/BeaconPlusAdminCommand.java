@@ -12,7 +12,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.TabCompleter;
 
-/** Operator command for globally suspending or restoring Resonance Beacon Activator chunk loading. */
+/** Operator command for Resonance Beacon controls and focused performance diagnostics. */
 final class BeaconPlusAdminCommand implements CommandExecutor, TabCompleter {
 
     private static final String PERMISSION = "slimefun.command.beacon";
@@ -40,12 +40,21 @@ final class BeaconPlusAdminCommand implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!sender.hasPermission(PERMISSION)) {
-            sender.sendMessage(ChatColor.RED + "You do not have permission to control Resonance Beacon chunk loading.");
+            sender.sendMessage(ChatColor.RED + "You do not have permission to control Resonance Beacons.");
             return true;
         }
 
         if (args.length == 0 || args[0].equalsIgnoreCase("status")) {
             sendStatus(sender);
+            return true;
+        }
+
+        if (args[0].equalsIgnoreCase("perf")) {
+            if (args.length > 2 || (args.length == 2 && !args[1].equalsIgnoreCase("reset"))) {
+                sender.sendMessage(ChatColor.YELLOW + "Usage: /beacon perf [reset]");
+                return true;
+            }
+            sendPerformance(sender, args.length == 2);
             return true;
         }
 
@@ -55,7 +64,7 @@ final class BeaconPlusAdminCommand implements CommandExecutor, TabCompleter {
         } else if (args[0].equalsIgnoreCase("disable")) {
             desired = false;
         } else {
-            sender.sendMessage(ChatColor.YELLOW + "Usage: /beacon <enable|disable|status>");
+            sender.sendMessage(ChatColor.YELLOW + "Usage: /beacon <enable|disable|status|perf>");
             return true;
         }
 
@@ -104,15 +113,37 @@ final class BeaconPlusAdminCommand implements CommandExecutor, TabCompleter {
                 + manager.getLoadedChunkCount() + ChatColor.DARK_GRAY + "/256");
     }
 
+    private void sendPerformance(CommandSender sender, boolean reset) {
+        sender.sendMessage(ChatColor.GOLD + "Resonance Beacon performance buckets"
+                + (reset ? ChatColor.GRAY + " (snapshot reset)" : ""));
+        for (BeaconPlusPerformance.Entry entry : BeaconPlusPerformance.snapshot(reset)) {
+            if (entry.samples() <= 0L) {
+                continue;
+            }
+            sender.sendMessage(ChatColor.GRAY + entry.name() + ": " + ChatColor.AQUA
+                    + String.format(Locale.ROOT, "%.3fms", entry.totalMillis()) + ChatColor.DARK_GRAY + " / "
+                    + entry.samples() + " samples (avg "
+                    + String.format(Locale.ROOT, "%.4fms", entry.averageMillis()) + ")");
+        }
+        sender.sendMessage(ChatColor.DARK_GRAY + "Use /beacon perf reset before a fresh /sf tick top comparison.");
+    }
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!sender.hasPermission(PERMISSION) || args.length != 1) {
+        if (!sender.hasPermission(PERMISSION)) {
             return List.of();
         }
-        String prefix = args[0].toLowerCase(Locale.ROOT);
-        return Stream.of("enable", "disable", "status")
-                .filter(value -> value.startsWith(prefix))
-                .toList();
+        if (args.length == 1) {
+            String prefix = args[0].toLowerCase(Locale.ROOT);
+            return Stream.of("enable", "disable", "status", "perf")
+                    .filter(value -> value.startsWith(prefix))
+                    .toList();
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("perf")) {
+            String prefix = args[1].toLowerCase(Locale.ROOT);
+            return Stream.of("reset").filter(value -> value.startsWith(prefix)).toList();
+        }
+        return List.of();
     }
 
     private static ChatColor colorState(boolean enabled) {

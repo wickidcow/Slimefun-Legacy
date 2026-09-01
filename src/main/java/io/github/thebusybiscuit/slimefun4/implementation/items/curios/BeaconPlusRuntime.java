@@ -21,12 +21,14 @@ final class BeaconPlusRuntime {
 
     static final String EFFECTS_KEY = "beacon_plus_effects";
     private static final int PULSE_INTERVAL_TICKS = 20;
+    private static final long RESOLVED_STATE_CACHE_TICKS = 200L;
     // One tier must always add exactly one chunk ring to the chunk-aligned field.
     private static final int EXTRA_RANGE_PER_TIER = 16;
     private static final double PLAYER_STATE_RECONCILE_RANGE = 128.0D;
     private static final long OBSERVED_BEACON_TTL_MILLIS = 15_000L;
     private static final Map<BeaconKey, Long> OBSERVED_BEACONS = new ConcurrentHashMap<>();
     private static final Map<BeaconKey, Long> LAST_PULSE_GAME_TICKS = new ConcurrentHashMap<>();
+    private static final Map<BeaconKey, ResolvedBeaconState> RESOLVED_STATES = new ConcurrentHashMap<>();
     private static final Set<BeaconKey> POWERED_BEACONS = ConcurrentHashMap.newKeySet();
 
     private BeaconPlusRuntime() {}
@@ -39,6 +41,7 @@ final class BeaconPlusRuntime {
         BeaconKey key = BeaconKey.from(location);
         OBSERVED_BEACONS.remove(key);
         LAST_PULSE_GAME_TICKS.remove(key);
+        RESOLVED_STATES.remove(key);
         if (POWERED_BEACONS.remove(key)) {
             World world = location.getWorld();
             if (world != null && world.isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)) {
@@ -47,6 +50,7 @@ final class BeaconPlusRuntime {
             }
         }
         BeaconPlusBeam.markUnpowered(location);
+        BeaconPlusBeam.forget(location);
     }
 
     static EnumSet<BeaconPlusEffect> getConfiguredEffects(Location location) {
@@ -63,10 +67,24 @@ final class BeaconPlusRuntime {
         EnumSet<BeaconPlusEffect> stored =
                 effects.isEmpty() ? EnumSet.noneOf(BeaconPlusEffect.class) : EnumSet.copyOf(effects);
         StorageCacheUtils.setData(location, EFFECTS_KEY, BeaconPlusEffect.serialize(stored));
+        invalidateResolvedState(location);
+
         World world = location.getWorld();
         if (world != null && world.isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)) {
-            BeaconPlusLegacyDataStore.sync(location.getBlock());
+            Block block = location.getBlock();
+            BeaconPlusLegacyDataStore.sync(block);
+            ResolvedBeaconState state = getResolvedState(block);
+            BeaconPlusRuntimeEffects.refreshNearbyPlayerStates(
+                    block, Math.max(PLAYER_STATE_RECONCILE_RANGE, state.range()));
+            if (stored.contains(BeaconPlusEffect.PEACEFUL)
+                    && state.tiers().getOrDefault(BeaconPlusEffect.PEACEFUL, 0) > 0) {
+                BeaconPlusRuntimeEffects.reconcilePeacefulTargets(block, state.range());
+            }
         }
+    }
+
+    static void invalidateResolvedState(Location location) {
+        RESOLVED_STATES.remove(BeaconKey.from(location));
     }
 
     static boolean hasEffect(Location target, BeaconPlusEffect effect) {
@@ -100,16 +118,15 @@ final class BeaconPlusRuntime {
             }
 
             Block block = world.getBlockAt(key.x(), key.y(), key.z());
-            EnumMap<BeaconPlusEffect, Integer> tiers = getActiveTiers(block);
-            int tier = tiers.getOrDefault(effect, 0);
-            if (tier <= 0) {
+            ResolvedBeaconState state = getResolvedState(block);
+            int tier = state.tiers().getOrDefault(effect, 0);
+            if (tier <= 0 || !isOperational(block, state.tiers())) {
                 continue;
             }
 
-            double range = getRange(block, tiers);
-            if (range <= 0.0D
+            if (state.range() <= 0.0D
                     || !BeaconPlusField.contains(
-                            block.getX(), block.getZ(), range, target.getBlockX(), target.getBlockZ())) {
+                            block.getX(), block.getZ(), state.range(), target.getBlockX(), target.getBlockZ())) {
                 continue;
             }
 
@@ -132,7 +149,8 @@ final class BeaconPlusRuntime {
     }
 
     static double getEffectiveRange(Block block) {
-        return getRange(block, getActiveTiers(block));
+        ResolvedBeaconState state = getResolvedState(block);
+        return isOperational(block, state.tiers()) ? state.range() : getRange(block, Map.of());
     }
 
     static int getPotentialTierAtBeacon(Block block, BeaconPlusEffect effect) {
@@ -143,7 +161,7 @@ final class BeaconPlusRuntime {
             return 0;
         }
 
-        int naturalTier = BeaconPlusPyramid.inspect(block).naturalPowerTier();
+        int naturalTier = getResolvedState(block).profile().naturalPowerTier();
         if (naturalTier <= 0) {
             return 0;
         }
@@ -205,22 +223,30 @@ final class BeaconPlusRuntime {
             return;
         }
 
-        EnumMap<BeaconPlusEffect, Integer> tiers = getPotentialActiveTiers(block);
-        if (!BeaconPlusEnergy.consumePulse(block, data, tiers)) {
+        ResolvedBeaconState state = getResolvedState(block);
+        EnumMap<BeaconPlusEffect, Integer> tiers = copyTiers(state.tiers());
+        long energyStart = System.nanoTime();
+        boolean powered = BeaconPlusEnergy.consumePulse(block, data, tiers);
+        BeaconPlusPerformance.record(BeaconPlusPerformance.Section.ENERGY, System.nanoTime() - energyStart);
+        if (!powered) {
             markUnpoweredAndReconcile(block);
             reconcileActivator(block, 0);
             return;
         }
+
         reconcileActivator(block, tiers.getOrDefault(BeaconPlusEffect.ACTIVATOR, 0));
-        double range = getRange(block, tiers);
-        if (range <= 0.0D) {
+        if (state.range() <= 0.0D) {
             markUnpoweredAndReconcile(block);
             return;
         }
 
-        POWERED_BEACONS.add(BeaconKey.from(block.getLocation()));
+        BeaconKey key = BeaconKey.from(block.getLocation());
+        boolean newlyPowered = POWERED_BEACONS.add(key);
+
+        long visualStart = System.nanoTime();
         BeaconPlusBeam.markPowered(block);
-        BeaconPlusRuntimeEffects.applyPulse(block, tiers, range, gameTime);
+        BeaconPlusPerformance.record(BeaconPlusPerformance.Section.VISUALS, System.nanoTime() - visualStart);
+        BeaconPlusRuntimeEffects.applyPulse(block, tiers, state.range(), gameTime, newlyPowered);
     }
 
     static void refreshPlayerState(Player player) {
@@ -234,9 +260,12 @@ final class BeaconPlusRuntime {
     static void shutdown() {
         BeaconPlusRuntimeEffects.shutdown();
         BeaconPlusEnergy.shutdown();
+        BeaconPlusBeam.shutdown();
         OBSERVED_BEACONS.clear();
         LAST_PULSE_GAME_TICKS.clear();
+        RESOLVED_STATES.clear();
         POWERED_BEACONS.clear();
+        BeaconPlusPerformance.reset();
     }
 
     private static boolean shouldPulse(Location location, long gameTime) {
@@ -273,24 +302,48 @@ final class BeaconPlusRuntime {
     }
 
     private static EnumMap<BeaconPlusEffect, Integer> getActiveTiers(Block block) {
-        EnumMap<BeaconPlusEffect, Integer> tiers = getPotentialActiveTiers(block);
-        if (isOperational(block, tiers)) {
-            return tiers;
+        ResolvedBeaconState state = getResolvedState(block);
+        if (isOperational(block, state.tiers())) {
+            return copyTiers(state.tiers());
         }
         return new EnumMap<>(BeaconPlusEffect.class);
     }
 
     static EnumMap<BeaconPlusEffect, Integer> getPotentialActiveTiers(Block block) {
+        return copyTiers(getResolvedState(block).tiers());
+    }
+
+    private static ResolvedBeaconState getResolvedState(Block block) {
+        BeaconKey key = BeaconKey.from(block.getLocation());
+        long gameTime = block.getWorld().getGameTime();
+        ResolvedBeaconState cached = RESOLVED_STATES.get(key);
+        if (cached != null
+                && gameTime >= cached.resolvedGameTime()
+                && gameTime - cached.resolvedGameTime() < RESOLVED_STATE_CACHE_TICKS) {
+            return cached;
+        }
+
+        long started = System.nanoTime();
+        BeaconPlusPyramid.Profile profile = BeaconPlusPyramid.Profile.empty();
         EnumMap<BeaconPlusEffect, Integer> tiers = new EnumMap<>(BeaconPlusEffect.class);
-        if (!BeaconPlusConfig.isEnabled() || getOwner(block.getLocation()) == null) {
-            return tiers;
+        double range = 0.0D;
+
+        if (BeaconPlusConfig.isEnabled() && getOwner(block.getLocation()) != null) {
+            profile = BeaconPlusPyramid.inspect(block);
+            if (profile.naturalPowerTier() > 0) {
+                tiers = resolvePotentialActiveTiers(block, profile.naturalPowerTier());
+                range = getRange(block, tiers);
+            }
         }
 
-        int naturalTier = BeaconPlusPyramid.inspect(block).naturalPowerTier();
-        if (naturalTier <= 0) {
-            return tiers;
-        }
+        ResolvedBeaconState resolved = new ResolvedBeaconState(gameTime, profile, Map.copyOf(tiers), range);
+        RESOLVED_STATES.put(key, resolved);
+        BeaconPlusPerformance.record(BeaconPlusPerformance.Section.STATE, System.nanoTime() - started);
+        return resolved;
+    }
 
+    private static EnumMap<BeaconPlusEffect, Integer> resolvePotentialActiveTiers(Block block, int naturalTier) {
+        EnumMap<BeaconPlusEffect, Integer> tiers = new EnumMap<>(BeaconPlusEffect.class);
         EnumSet<BeaconPlusEffect> configured = getConfiguredEffects(block.getLocation());
         int extraPowerTier = 0;
         if (configured.contains(BeaconPlusEffect.EXTRA_POWER)
@@ -321,6 +374,12 @@ final class BeaconPlusRuntime {
             tiers.put(effect, tier);
         }
         return tiers;
+    }
+
+    private static EnumMap<BeaconPlusEffect, Integer> copyTiers(Map<BeaconPlusEffect, Integer> tiers) {
+        EnumMap<BeaconPlusEffect, Integer> copy = new EnumMap<>(BeaconPlusEffect.class);
+        copy.putAll(tiers);
+        return copy;
     }
 
     private static int recoverConfiguredTier(Location location, UUID owner, BeaconPlusEffect effect) {
@@ -415,10 +474,17 @@ final class BeaconPlusRuntime {
                 return false;
             }
             LAST_PULSE_GAME_TICKS.remove(entry.getKey());
+            RESOLVED_STATES.remove(entry.getKey());
             POWERED_BEACONS.remove(entry.getKey());
             return true;
         });
     }
+
+    private record ResolvedBeaconState(
+            long resolvedGameTime,
+            BeaconPlusPyramid.Profile profile,
+            Map<BeaconPlusEffect, Integer> tiers,
+            double range) {}
 
     private record BeaconKey(UUID worldId, int x, int y, int z) {
         private static BeaconKey from(Location location) {

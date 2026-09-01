@@ -161,14 +161,20 @@ final class BeaconPlusEffectListener implements Listener {
     public void onMove(PlayerMoveEvent event) {
         Location from = event.getFrom();
         Location to = event.getTo();
-        if (to == null
-                || (from.getWorld() == to.getWorld()
-                        && from.getBlockX() == to.getBlockX()
-                        && from.getBlockY() == to.getBlockY()
-                        && from.getBlockZ() == to.getBlockZ())) {
+        if (to == null) {
             return;
         }
 
+        boolean sameWorld = from.getWorld() == to.getWorld();
+        boolean sameChunk = sameWorld
+                && (from.getBlockX() >> 4) == (to.getBlockX() >> 4)
+                && (from.getBlockZ() >> 4) == (to.getBlockZ() >> 4);
+        if (sameChunk) {
+            return;
+        }
+
+        // Resonance Beacon fields are chunk-aligned, so block-by-block movement inside a chunk cannot change
+        // field membership. Reconcile flight only when the player can actually enter or leave a beacon field.
         BeaconPlusRuntime.refreshPlayerState(event.getPlayer());
     }
 
