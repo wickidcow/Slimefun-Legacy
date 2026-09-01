@@ -30,11 +30,18 @@ import org.bukkit.plugin.PluginDescriptionFile;
 @SlimefunInternal
 public final class DefaultAddonCompatibilityService implements AddonCompatibilityService {
 
+    private static final AddonCompatibilityDeclaration LEGACY_MAINTAINED_DECLARATION =
+            AddonCompatibilityDeclaration.builder()
+                    .testCore(SlimefunCoreVariant.LEGACY)
+                    .notes("Maintained and tested as part of the Slimefun Legacy addon collection")
+                    .build();
+
     private final Plugin owner;
     private final PlatformCompatibilityService platformCompatibilityService;
     private final OptionalDependencyService optionalDependencyService;
     private final AddonRuntimeHealthService runtimeHealthService;
     private final AddonCompatibilityManifestReader manifestReader = new AddonCompatibilityManifestReader();
+    private final KnownAddonCompatibilityRegistry knownAddonRegistry;
     private final Map<String, AddonCompatibilityDeclaration> explicitDeclarations = new ConcurrentHashMap<>();
     private volatile List<AddonCompatibilityResult> results = List.of();
 
@@ -55,6 +62,7 @@ public final class DefaultAddonCompatibilityService implements AddonCompatibilit
                 Objects.requireNonNull(platformCompatibilityService, "platformCompatibilityService");
         this.optionalDependencyService = Objects.requireNonNull(optionalDependencyService, "optionalDependencyService");
         this.runtimeHealthService = runtimeHealthService;
+        this.knownAddonRegistry = KnownAddonCompatibilityRegistry.load(owner.getClass().getClassLoader());
     }
 
     @Override
@@ -198,6 +206,18 @@ public final class DefaultAddonCompatibilityService implements AddonCompatibilit
             return new ResolvedDeclaration(
                     manifest.declaration(), AddonCompatibilitySource.EMBEDDED_MANIFEST, manifest.error());
         }
+
+        boolean legacyMaintained = knownAddonRegistry
+                .find(plugin.getName())
+                .map(KnownAddonCompatibilityRegistry.KnownAddonSupport::isLegacyMaintained)
+                .orElse(false);
+        if (legacyMaintained) {
+            return new ResolvedDeclaration(
+                    LEGACY_MAINTAINED_DECLARATION,
+                    AddonCompatibilitySource.LEGACY_MAINTAINED_CATALOG,
+                    null);
+        }
+
         return new ResolvedDeclaration(null, AddonCompatibilitySource.NONE, null);
     }
 

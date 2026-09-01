@@ -18,9 +18,10 @@ import javax.annotation.Nonnull;
 /**
  * Runtime recognition data for Slimefun addon families known to Slimefun Legacy.
  *
- * <p>Entries may be release-blocking CI targets, advisory CI targets, or recognition-only aliases. This registry
- * deliberately does not declare an installed addon compatible. Exact runtime compatibility still comes from an addon
- * declaration and the normal compatibility checks.
+ * <p>Entries may be release-blocking CI targets, advisory CI targets, or recognition-only aliases. A separate
+ * maintained flag identifies addon builds maintained as part of the Slimefun Legacy fork collection. The runtime
+ * compatibility service may use that flag as a fallback compatibility declaration when an older maintained addon JAR
+ * does not yet contain its own declaration.
  */
 @SlimefunInternal
 public final class KnownAddonCompatibilityRegistry {
@@ -61,7 +62,7 @@ public final class KnownAddonCompatibilityRegistry {
             }
 
             String[] columns = trimmed.split("\\|", -1);
-            if (columns.length != 4) {
+            if (columns.length < 4 || columns.length > 5) {
                 continue;
             }
 
@@ -72,7 +73,8 @@ public final class KnownAddonCompatibilityRegistry {
                 continue;
             }
 
-            KnownAddonSupport support = new KnownAddonSupport(slug, tier, displayName);
+            boolean legacyMaintained = columns.length == 5 && columns[4].trim().equalsIgnoreCase("maintained");
+            KnownAddonSupport support = new KnownAddonSupport(slug, tier, displayName, legacyMaintained);
             entries.add(support);
             registerAlias(aliases, displayName, support);
             for (String alias : columns[3].split(",")) {
@@ -86,9 +88,13 @@ public final class KnownAddonCompatibilityRegistry {
         String normalized = normalize(alias);
         if (!normalized.isEmpty()) {
             // Stronger evidence wins when multiple families share a runtime alias: required CI, advisory CI, then
-            // recognition-only. This keeps Legacy forks preferred over upstream aliases without promoting recognition.
+            // recognition-only. At equal tier, a maintained Legacy fork wins over a non-maintained alias.
             KnownAddonSupport existing = aliases.get(normalized);
-            if (existing == null || support.getTierPriority() > existing.getTierPriority()) {
+            if (existing == null
+                    || support.getTierPriority() > existing.getTierPriority()
+                    || (support.getTierPriority() == existing.getTierPriority()
+                            && support.isLegacyMaintained()
+                            && !existing.isLegacyMaintained())) {
                 aliases.put(normalized, support);
             }
         }
@@ -120,7 +126,8 @@ public final class KnownAddonCompatibilityRegistry {
     public record KnownAddonSupport(
             @Nonnull String slug,
             @Nonnull String tier,
-            @Nonnull String displayName) {
+            @Nonnull String displayName,
+            boolean legacyMaintained) {
         public KnownAddonSupport {
             Objects.requireNonNull(slug, "slug");
             Objects.requireNonNull(tier, "tier");
@@ -137,6 +144,10 @@ public final class KnownAddonCompatibilityRegistry {
 
         public boolean isRecognizedOnly() {
             return tier.equalsIgnoreCase("recognized");
+        }
+
+        public boolean isLegacyMaintained() {
+            return legacyMaintained;
         }
 
         int getTierPriority() {
