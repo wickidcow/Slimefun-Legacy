@@ -19,8 +19,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.LongConsumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.bukkit.Location;
@@ -143,27 +141,49 @@ public class EnergyNet extends Network implements HologramOwner {
     }
 
     public void tick(@Nonnull Block b, SlimefunBlockData blockData) {
-        AtomicLong timestamp = new AtomicLong(Slimefun.getProfiler().newEntry());
+        long profilerTimestamp = Slimefun.getProfiler().newEntry();
+        long totalStarted = System.nanoTime();
         try {
             if (!regulator.equals(b.getLocation())) {
+                long sectionStarted = System.nanoTime();
                 VanillaPowerStateBridge.sync(b.getLocation(), false);
-                updateHologram(b, "&4Another regulator detected nearby", blockData::isPendingRemove);
+                EnergyNetPerformance.record(
+                        EnergyNetPerformance.Section.TRANSPORT, System.nanoTime() - sectionStarted);
 
+                sectionStarted = System.nanoTime();
+                updateHologram(b, "&4Another regulator detected nearby", blockData::isPendingRemove);
+                EnergyNetPerformance.record(EnergyNetPerformance.Section.HOLOGRAM, System.nanoTime() - sectionStarted);
                 return;
             }
 
+            long sectionStarted = System.nanoTime();
             super.tick();
+            EnergyNetPerformance.record(EnergyNetPerformance.Section.DISCOVERY, System.nanoTime() - sectionStarted);
 
             if (connectorNodes.isEmpty() && terminusNodes.isEmpty()) {
+                sectionStarted = System.nanoTime();
                 syncNetworkTransportState(false);
+                EnergyNetPerformance.record(
+                        EnergyNetPerformance.Section.TRANSPORT, System.nanoTime() - sectionStarted);
+
+                sectionStarted = System.nanoTime();
                 updateHologram(b, "&4No energy network found", blockData::isPendingRemove);
+                EnergyNetPerformance.record(EnergyNetPerformance.Section.HOLOGRAM, System.nanoTime() - sectionStarted);
             } else {
-                long generatorsSupply = tickAllGenerators(timestamp::getAndAdd);
+                sectionStarted = System.nanoTime();
+                GeneratorTickResult generatorResult = tickAllGenerators();
+                EnergyNetPerformance.record(EnergyNetPerformance.Section.GENERATORS, System.nanoTime() - sectionStarted);
+                profilerTimestamp += generatorResult.profiledNanos();
+
+                sectionStarted = System.nanoTime();
                 long capacitorsSupply = tickAllCapacitors();
-                long supply = NumberUtils.flowSafeAddition(generatorsSupply, capacitorsSupply);
+                EnergyNetPerformance.record(EnergyNetPerformance.Section.CAPACITORS, System.nanoTime() - sectionStarted);
+
+                long supply = NumberUtils.flowSafeAddition(generatorResult.supply(), capacitorsSupply);
                 long remainingEnergy = supply;
                 long demand = 0;
 
+                sectionStarted = System.nanoTime();
                 for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet()) {
                     Location loc = entry.getKey();
                     if (!isEnergyLocationAccessible(loc)) {
@@ -218,15 +238,27 @@ public class EnergyNet extends Network implements HologramOwner {
 
                     VanillaPowerStateBridge.sync(loc, resultingCharge > 0);
                 }
+                EnergyNetPerformance.record(EnergyNetPerformance.Section.CONSUMERS, System.nanoTime() - sectionStarted);
 
+                sectionStarted = System.nanoTime();
                 storeRemainingEnergy(remainingEnergy);
+                EnergyNetPerformance.record(
+                        EnergyNetPerformance.Section.REDISTRIBUTION, System.nanoTime() - sectionStarted);
+
+                sectionStarted = System.nanoTime();
                 syncNetworkTransportState(supply > 0 && demand > 0);
+                EnergyNetPerformance.record(
+                        EnergyNetPerformance.Section.TRANSPORT, System.nanoTime() - sectionStarted);
+
+                sectionStarted = System.nanoTime();
                 updateHologram(blockData, supply, demand);
+                EnergyNetPerformance.record(EnergyNetPerformance.Section.HOLOGRAM, System.nanoTime() - sectionStarted);
             }
         } finally {
+            EnergyNetPerformance.record(EnergyNetPerformance.Section.TOTAL, System.nanoTime() - totalStarted);
             // We have subtracted the timings from Generators, so they do not show up twice.
             Slimefun.getProfiler()
-                    .closeEntry(b.getLocation(), SlimefunItems.ENERGY_REGULATOR.getItem(), timestamp.get());
+                    .closeEntry(b.getLocation(), SlimefunItems.ENERGY_REGULATOR.getItem(), profilerTimestamp);
         }
     }
 
@@ -296,9 +328,10 @@ public class EnergyNet extends Network implements HologramOwner {
         }
     }
 
-    private long tickAllGenerators(@Nonnull LongConsumer timings) {
+    private GeneratorTickResult tickAllGenerators() {
         Set<Location> explodedBlocks = new HashSet<>();
         long supply = 0;
+        long profiledNanos = 0;
 
         for (Map.Entry<Location, EnergyNetProvider> entry : generators.entrySet()) {
             Location loc = entry.getKey();
@@ -358,7 +391,7 @@ public class EnergyNet extends Network implements HologramOwner {
             }
 
             long time = Slimefun.getProfiler().closeEntry(loc, item, timestamp);
-            timings.accept(time);
+            profiledNanos += time;
         }
 
         // Remove all generators which have exploded or failed catastrophically.
@@ -366,7 +399,7 @@ public class EnergyNet extends Network implements HologramOwner {
             generators.keySet().removeAll(explodedBlocks);
         }
 
-        return supply;
+        return new GeneratorTickResult(supply, profiledNanos);
     }
 
     private long tickAllCapacitors() {
@@ -524,6 +557,8 @@ public class EnergyNet extends Network implements HologramOwner {
                     data.getLocation().getBlock(), "&2&l+ &a" + netGain + " &7J &e\u26A1", data::isPendingRemove);
         }
     }
+
+    private record GeneratorTickResult(long supply, long profiledNanos) {}
 
     @Nullable private static EnergyNetComponent getComponent(@Nonnull Location l) {
         SlimefunItem item = StorageCacheUtils.getSlimefunItem(l);
