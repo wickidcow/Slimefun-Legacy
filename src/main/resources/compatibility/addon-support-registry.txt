@@ -73,3 +73,4 @@ legacy-worldtaste|recognized|WorldTaste Legacy|WorldTaste,SF_WorldTaste|maintain
 legacy-ryken-slimecustomizer|recognized|RykenSlimeCustomizer Legacy|RykenSlimeCustomizer,Ryken Slime Customizer,SF_RykenSlimeCustomizer|maintained
 legacy-slimeeasy|recognized|SlimeEasy Legacy|SlimeEasy,SF_SlimeEasy|maintained
 legacy-extraheads|recognized|ExtraHeads Legacy|ExtraHeads,Extra Heads,SF_ExtraHeads|maintained
+legacy-genetic-chickengineering|recognized|GeneticChickengineering Legacy|GeneticChickengineering,GeneticChickengineeringReborn,GeneticChickengineering-Reborn,Genetic Chickengineering,SF_GeneticChickEngineering|maintained
