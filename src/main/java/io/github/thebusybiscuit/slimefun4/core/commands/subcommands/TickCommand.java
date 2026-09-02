@@ -4,6 +4,7 @@ import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
+import io.github.thebusybiscuit.slimefun4.core.networks.energy.EnergyNetPerformance;
 import io.github.thebusybiscuit.slimefun4.core.services.profiler.PerformanceInspector;
 import io.github.thebusybiscuit.slimefun4.core.services.profiler.SummaryOrderType;
 import io.github.thebusybiscuit.slimefun4.core.services.profiler.inspectors.ConsolePerformanceInspector;
@@ -51,6 +52,7 @@ final class TickCommand extends SubCommand {
             case "at" -> inspectTarget(sender);
             case "top" -> showTop(sender);
             case "rate" -> showRate(sender);
+            case "energy" -> showEnergy(sender, args);
             default -> inspectItem(sender, args[1]);
         }
     }
@@ -143,6 +145,36 @@ final class TickCommand extends SubCommand {
         send(sender, "Runtime rate mutation is intentionally not exposed; configure URID.custom-ticker-delay instead.");
     }
 
+    private void showEnergy(CommandSender sender, String[] args) {
+        boolean reset;
+        if (args.length == 2) {
+            reset = false;
+        } else if (args.length == 3 && args[2].equalsIgnoreCase("reset")) {
+            reset = true;
+        } else {
+            send(sender, "Usage: /sf tick energy [reset]");
+            return;
+        }
+
+        send(sender, "Energy Regulator performance buckets" + (reset ? " (snapshot reset)" : ""));
+        boolean hasSamples = false;
+        for (EnergyNetPerformance.Entry entry : EnergyNetPerformance.snapshot(reset)) {
+            if (entry.samples() <= 0L) {
+                continue;
+            }
+            hasSamples = true;
+            send(sender, entry.name() + ": " + String.format(Locale.ROOT, "%.3fms", entry.totalMillis()) + " / "
+                    + entry.samples() + " samples (avg "
+                    + String.format(Locale.ROOT, "%.4fms", entry.averageMillis()) + ")");
+        }
+
+        if (!hasSamples) {
+            send(sender, "No Energy Regulator samples have been recorded yet.");
+        }
+        send(sender, "Generators include provider work; /sf tick top attributes generator callbacks separately.");
+        send(sender, "Use /sf tick energy reset before a fresh /sf tick top comparison.");
+    }
+
     private void inspectItem(CommandSender sender, String itemId) {
         SlimefunItem item = SlimefunItem.getById(itemId.toUpperCase(Locale.ROOT));
         if (item == null) {
@@ -161,7 +193,7 @@ final class TickCommand extends SubCommand {
     }
 
     private void sendUsage(CommandSender sender) {
-        send(sender, "Usage: /sf tick [query|show|at|freeze|unfreeze|top|rate|<Slimefun item ID>]");
+        send(sender, "Usage: /sf tick [query|show|at|freeze|unfreeze|top|rate|energy|<Slimefun item ID>]");
     }
 
     private void send(CommandSender sender, String message) {
