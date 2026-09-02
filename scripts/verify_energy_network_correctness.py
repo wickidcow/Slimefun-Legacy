@@ -78,13 +78,19 @@ def main() -> int:
     resolve_generator = compact(method_body(source, "resolveLiveGenerator"))
 
     # Preserve the established network transaction order: collect supply, satisfy consumers,
-    # then place the leftover back into network storage.
-    require(tick, "tickAllGenerators(timestamp::getAndAdd)", "generator supply phase")
+    # then place the leftover back into network storage. Generator profiler accounting may be
+    # carried alongside the supply result, but it must not alter that transaction order.
+    generator_phase = "GeneratorTickResult generatorResult = tickAllGenerators()"
+    consumer_phase = "for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet())"
+    storage_phase = "storeRemainingEnergy(remainingEnergy)"
+    require(tick, generator_phase, "generator supply phase")
     require(tick, "tickAllCapacitors()", "capacitor supply phase")
-    require(tick, "for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet())", "consumer phase")
-    require(tick, "storeRemainingEnergy(remainingEnergy)", "leftover storage phase")
-    require_before(tick, "tickAllGenerators(timestamp::getAndAdd)", "for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet())", "supply before consumers")
-    require_before(tick, "for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet())", "storeRemainingEnergy(remainingEnergy)", "consumers before leftover storage")
+    require(tick, "NumberUtils.flowSafeAddition(generatorResult.supply(), capacitorsSupply)", "combined network supply")
+    require(tick, consumer_phase, "consumer phase")
+    require(tick, storage_phase, "leftover storage phase")
+    require_before(tick, generator_phase, consumer_phase, "supply before consumers")
+    require_before(tick, consumer_phase, storage_phase, "consumers before leftover storage")
+    require(tick, "profilerTimestamp += generatorResult.profiledNanos()", "generator profiler subtraction accounting")
 
     # Paper accessibility is not a chunk-loaded guarantee. Energy state must never force or
     # touch an unloaded component chunk.
