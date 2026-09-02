@@ -74,7 +74,8 @@ class TestKnownAddonCompatibilityRegistry {
                 "WorldTaste",
                 "RykenSlimeCustomizer",
                 "SlimeEasy",
-                "ExtraHeads");
+                "ExtraHeads",
+                "GeneticChickengineering");
 
         for (String pluginName : maintainedRuntimeNames) {
             KnownAddonCompatibilityRegistry.KnownAddonSupport support =
@@ -94,6 +95,19 @@ class TestKnownAddonCompatibilityRegistry {
         assertFalse(dankTech.isCiMonitored());
         assertTrue(dankTech.isLegacyMaintained());
         assertEquals("legacy-danktech2", dankTech.slug());
+    }
+
+    @Test
+    void testGeneticChickengineeringForkIsMaintainedCompatibleFallback() {
+        KnownAddonCompatibilityRegistry registry =
+                KnownAddonCompatibilityRegistry.load(getClass().getClassLoader());
+        KnownAddonCompatibilityRegistry.KnownAddonSupport genetic =
+                registry.find("GeneticChickengineering").orElseThrow();
+
+        assertTrue(genetic.isRecognizedOnly());
+        assertFalse(genetic.isCiMonitored());
+        assertTrue(genetic.isLegacyMaintained());
+        assertEquals("legacy-genetic-chickengineering", genetic.slug());
     }
 
     @Test
