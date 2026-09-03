@@ -76,13 +76,24 @@ jobs:
           cp "$RUNNER_TEMP/first.sha256" "$RUNNER_TEMP/second.sha256" "$RUNNER_TEMP/bytecode-first.txt" "$RUNNER_TEMP/bytecode-second.txt" build/release-verification/
           cp "$RUNNER_TEMP/release-artifact-first.json" "$RUNNER_TEMP/release-artifact-first.md" "$RUNNER_TEMP/release-artifact-second.json" "$RUNNER_TEMP/release-artifact-second.md" build/release-verification/
           printf '# Reproducible release verification\n\n- Source: `%s`\n- SHA-256: `%s`\n- Result: **PASS — byte-for-byte identical**\n' "$GITHUB_SHA" "$FIRST_SHA" | tee build/release-verification/reproducible-release.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Stage validated addon bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release download v4.1.44 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'SFL_AddonsNDependencies.zip' \
+            --dir dist
+          echo 'ec8c97faf4c103cea43d94fc96d5b2fa5c07983649fed59b7723e9edd7d4f32c  dist/SFL_AddonsNDependencies.zip' | sha256sum -c -
       - name: Upload raw reproducible JAR artifact
         uses: actions/upload-artifact@v7
         with:
           path: dist/${{ env.OUTPUT_NAME }}
           archive: false
           if-no-files-found: error
-      - name: Publish reproducible raw JAR release asset
+      - name: Publish reproducible release assets
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -90,6 +101,7 @@ jobs:
           set -euo pipefail
           TAG="v${LEGACY_ARTIFACT_VERSION}"
           JAR="dist/${OUTPUT_NAME}"
+          BUNDLE="dist/SFL_AddonsNDependencies.zip"
           NOTES_FILE="docs/releases/${LEGACY_ARTIFACT_VERSION}.md"
           TITLE="Slimefun Legacy ${LEGACY_ARTIFACT_VERSION}"
 
@@ -98,7 +110,7 @@ jobs:
               "repos/${GITHUB_REPOSITORY}/git/refs/tags/${TAG}" \
               -f sha="$GITHUB_SHA" \
               -F force=true >/dev/null
-            gh release upload "$TAG" "$JAR" --clobber
+            gh release upload "$TAG" "$JAR" "$BUNDLE" --clobber
             if [[ -f "$NOTES_FILE" ]]; then
               gh release edit "$TAG" --title "$TITLE" --notes-file "$NOTES_FILE"
             else
@@ -106,8 +118,8 @@ jobs:
             fi
           else
             if [[ -f "$NOTES_FILE" ]]; then
-              gh release create "$TAG" "$JAR" --target "$GITHUB_SHA" --notes-file "$NOTES_FILE" --title "$TITLE"
+              gh release create "$TAG" "$JAR" "$BUNDLE" --target "$GITHUB_SHA" --notes-file "$NOTES_FILE" --title "$TITLE"
             else
-              gh release create "$TAG" "$JAR" --target "$GITHUB_SHA" --generate-notes --title "$TITLE"
+              gh release create "$TAG" "$JAR" "$BUNDLE" --target "$GITHUB_SHA" --generate-notes --title "$TITLE"
             fi
           fi
