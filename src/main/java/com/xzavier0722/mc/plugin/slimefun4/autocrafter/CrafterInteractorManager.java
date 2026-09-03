@@ -24,9 +24,9 @@ public class CrafterInteractorManager {
      * Reuses the storage lookup when callers immediately follow {@link #hasInterator(Block)}
      * with {@link #getInteractor(Block)} for the same block.
      *
-     * <p>The cached value is consumed once and never survives a mismatched lookup. This keeps
-     * custom interactor registration and live block data as the source of truth while avoiding
-     * duplicate storage-cache reads in hot Auto Crafter tick paths.</p>
+     * <p>The cached value is consumed once and never survives a mismatched lookup. Only the
+     * live block-menu lookup is reused; the handler is resolved again when requested so addon
+     * registration remains authoritative.</p>
      */
     private static final ThreadLocal<PendingLookup> pendingLookup = new ThreadLocal<>();
 
@@ -50,7 +50,8 @@ public class CrafterInteractorManager {
         pendingLookup.remove();
 
         if (pending != null && pending.block == b) {
-            return pending.handler.getInteractor(pending.menu);
+            CrafterInteractorHandler handler = handlers.get(pending.slimefunId);
+            return handler == null ? null : handler.getInteractor(pending.menu);
         }
 
         var blockData = StorageCacheUtils.getBlock(b.getLocation());
@@ -70,23 +71,23 @@ public class CrafterInteractorManager {
             return false;
         }
 
-        CrafterInteractorHandler handler = handlers.get(blockData.getSfId());
-        if (handler == null) {
+        String slimefunId = blockData.getSfId();
+        if (!handlers.containsKey(slimefunId)) {
             return false;
         }
 
-        pendingLookup.set(new PendingLookup(b, handler, blockData.getBlockMenu()));
+        pendingLookup.set(new PendingLookup(b, slimefunId, blockData.getBlockMenu()));
         return true;
     }
 
     private static final class PendingLookup {
         private final Block block;
-        private final CrafterInteractorHandler handler;
+        private final String slimefunId;
         private final BlockMenu menu;
 
-        private PendingLookup(Block block, CrafterInteractorHandler handler, BlockMenu menu) {
+        private PendingLookup(Block block, String slimefunId, BlockMenu menu) {
             this.block = block;
-            this.handler = handler;
+            this.slimefunId = slimefunId;
             this.menu = menu;
         }
     }
