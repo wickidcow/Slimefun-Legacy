@@ -86,7 +86,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --pattern 'SFL_AddonsNDependencies.zip' \
             --dir dist
-          echo 'ec8c97faf4c103cea43d94fc96d5b2fa5c07983649fed59b7723e9edd7d4f32c  dist/SFL_AddonsNDependencies.zip' | sha256sum -c -
+          echo 'c7b6b7f7447eb295f11bd93f2a5d883f499914040b1e8424c2b4b2a7aa4b5d72  dist/SFL_AddonsNDependencies.zip' | sha256sum -c -
       - name: Upload raw reproducible JAR artifact
         uses: actions/upload-artifact@v7
         with:
