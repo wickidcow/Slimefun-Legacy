@@ -67,9 +67,11 @@ def main() -> int:
     source_compact = compact(source)
 
     tick = compact(method_body(source, "tick"))
+    classification = compact(method_body(source, "onClassificationChange"))
     generators = compact(method_body(source, "tickAllGenerators"))
     capacitors = compact(method_body(source, "tickAllCapacitors"))
     storage = compact(method_body(source, "storeRemainingEnergy"))
+    transport = compact(method_body(source, "syncNetworkTransportState"))
     accessible = compact(method_body(source, "isEnergyLocationAccessible"))
     safe_capacity = compact(method_body(source, "getSafeCapacity"))
     safe_charge = compact(method_body(source, "getSafeCharge"))
@@ -85,6 +87,24 @@ def main() -> int:
     require(tick, "storeRemainingEnergy(remainingEnergy)", "leftover storage phase")
     require_before(tick, "tickAllGenerators(timestamp::getAndAdd)", "for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet())", "supply before consumers")
     require_before(tick, "for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet())", "storeRemainingEnergy(remainingEnergy)", "consumers before leftover storage")
+
+    # Stable connector/player-head transport state is presentation state, not energy truth. Skip
+    # the full connector walk while the desired state is unchanged, but refresh immediately when
+    # topology changes and periodically self-heal externally modified vanilla block state.
+    require(source_compact, "TRANSPORT_STATE_REVALIDATE_INTERVAL = 20", "network transport revalidation interval")
+    require(classification, "transportStateDirty = true", "topology-change transport refresh")
+    require(transport, "long gameTime = regulator.getWorld().getGameTime()", "transport game-time revalidation clock")
+    require(transport, "gameTime + regulator.hashCode()", "staggered per-network transport phase")
+    require(transport, "transportPowered == powered", "unchanged transport-state comparison")
+    require(transport, "!periodicRevalidation", "periodic transport self-heal gate")
+    require(transport, "transportStateDirty = false", "transport dirty-state reset")
+    require(transport, "transportPowered = powered", "transport desired-state cache update")
+    require_before(
+        transport,
+        "if (!transportStateDirty && transportPowered == powered && !periodicRevalidation)",
+        "for (Location loc : connectorNodes)",
+        "stable-state fast path before connector walk",
+    )
 
     # Paper accessibility is not a chunk-loaded guarantee. Energy state must never force or
     # touch an unloaded component chunk.

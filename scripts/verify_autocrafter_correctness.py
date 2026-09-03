@@ -19,6 +19,14 @@ def require(text: str, needle: str, label: str) -> None:
         raise SystemExit(f"Auto-crafter correctness failed: missing {label}: {needle}")
 
 
+def require_count(text: str, needle: str, expected: int, label: str) -> None:
+    actual = text.count(needle)
+    if actual != expected:
+        raise SystemExit(
+            f"Auto-crafter correctness failed: unexpected {label}: expected {expected}, found {actual}: {needle}"
+        )
+
+
 def forbid(text: str, needle: str, label: str) -> None:
     if needle in text:
         raise SystemExit(f"Auto-crafter correctness failed: forbidden {label}: {needle}")
@@ -42,16 +50,35 @@ def main() -> int:
     )
     require(crafter, "public boolean isSynchronized()", "synchronized auto-crafter ticker declaration")
     require(crafter, "return true;", "synchronized auto-crafter ticker")
+    require(crafter, "Location location = b.getLocation();", "single auto-crafter machine-location capture")
+    require(crafter, "int energyConsumption = getEnergyConsumption();", "single auto-crafter energy-cost capture")
     require(
         crafter,
-        "if (recipe == null || !recipe.isEnabled() || getCharge(b.getLocation(), data) < getEnergyConsumption())",
+        "if (recipe == null || !recipe.isEnabled() || getCharge(location, data) < energyConsumption)",
         "recipe, enabled-state and energy preflight",
     )
-    require(crafter, "if (craft(interactor, recipe))", "craft success gate before energy charge")
+    require_count(
+        crafter,
+        "CrafterInteractorManager.hasInterator(targetBlock)",
+        1,
+        "custom interactor presence lookup per ticker source path",
+    )
+    require_count(
+        crafter,
+        "CrafterInteractorManager.getInteractor(targetBlock)",
+        1,
+        "custom interactor resolution per ticker source path",
+    )
+    require(
+        crafter,
+        "if (getCharge(location, data) < energyConsumption)",
+        "defensive energy re-check after addon interactor callback",
+    )
+    require(crafter, "if (interactor != null && craft(interactor, recipe))", "craft success gate before energy charge")
     require_before(
         crafter,
-        "if (craft(interactor, recipe))",
-        "removeCharge(b.getLocation(), getEnergyConsumption());",
+        "if (interactor != null && craft(interactor, recipe))",
+        "removeCharge(location, energyConsumption);",
         "auto-crafter craft-before-energy ordering",
     )
     require(

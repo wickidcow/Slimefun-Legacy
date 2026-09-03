@@ -143,9 +143,12 @@ public abstract class AbstractAutoCrafter extends SlimefunItem implements Energy
                 Block b = e.getBlock();
                 recipeCache.remove(b);
 
-                Block interactor = b.getRelative(BlockFace.DOWN);
-                if (CrafterInteractorManager.hasInterator(interactor)) {
-                    CrafterInteractorManager.getInteractor(interactor).setIngredientCount(interactor, 1);
+                Block interactorBlock = b.getRelative(BlockFace.DOWN);
+                if (CrafterInteractorManager.hasInterator(interactorBlock)) {
+                    CrafterInteractable interactor = CrafterInteractorManager.getInteractor(interactorBlock);
+                    if (interactor != null) {
+                        interactor.setIngredientCount(interactorBlock, 1);
+                    }
                 }
             }
         });
@@ -205,59 +208,56 @@ public abstract class AbstractAutoCrafter extends SlimefunItem implements Energy
      */
     protected void tick(@Nonnull Block b, @Nonnull SlimefunBlockData data) {
         AbstractRecipe recipe = getSelectedRecipe(b);
+        Location location = b.getLocation();
+        int energyConsumption = getEnergyConsumption();
 
-        if (recipe == null || !recipe.isEnabled() || getCharge(b.getLocation(), data) < getEnergyConsumption()) {
+        if (recipe == null || !recipe.isEnabled() || getCharge(location, data) < energyConsumption) {
             // No recipe / disabled recipe / no energy, abort...
             return;
         }
 
-        // The block below where we would expect our inventory holder.
+        // Resolve a custom interactor once for this tick. This avoids repeating storage lookups
+        // while keeping the registered handler and live block menu as the source of truth.
         Block targetBlock = b.getRelative(BlockFace.DOWN);
+        boolean hasCustomInteractor = CrafterInteractorManager.hasInterator(targetBlock);
+        CrafterInteractable interactor =
+                hasCustomInteractor ? CrafterInteractorManager.getInteractor(targetBlock) : null;
 
-        // Check if special interactor used. If so, check the recipe.
-        if (CrafterInteractorManager.hasInterator(targetBlock)) {
+        if (interactor != null) {
             // Check if recipe change. If so, update the count...
             ItemStack cachedRecipeResult = recipeCache.get(b);
 
             if (cachedRecipeResult == null
                     || !SlimefunUtils.isItemSimilar(recipe.getResult(), cachedRecipeResult, true, false)) {
                 recipeCache.put(b, recipe.getResult());
-                CrafterInteractorManager.getInteractor(targetBlock)
-                        .setIngredientCount(targetBlock, getIngredientCount(recipe));
+                interactor.setIngredientCount(targetBlock, getIngredientCount(recipe));
             }
         }
 
-        // If recipe noe enabled or no enough charge, return
-        if (!recipe.isEnabled() || getCharge(b.getLocation(), data) < getEnergyConsumption()) {
+        // Keep the defensive charge re-check after custom interactor callbacks.
+        if (getCharge(location, data) < energyConsumption) {
             return;
         }
 
-        // Make sure this is interactable
-        if (isValidInventory(targetBlock)) {
-            CrafterInteractable interactor = null;
-
-            if (CrafterInteractorManager.hasInterator(targetBlock)) {
-                // Has valid interactor
-                interactor = CrafterInteractorManager.getInteractor(targetBlock);
-            } else {
-                // No custom interactor, check if the vanilla inventory
-                BlockState state = targetBlock.getState(false);
-                if (state instanceof InventoryHolder) {
-                    interactor = new ChestInventoryParser(((InventoryHolder) state).getInventory());
-                }
+        if (!hasCustomInteractor) {
+            Material type = targetBlock.getType();
+            if (!SlimefunTag.AUTO_CRAFTER_SUPPORTED_STORAGE_BLOCKS.isTagged(type)) {
+                recipeCache.remove(b);
+                return;
             }
 
-            // While passing the #isValidInventory means that there should a valid interactor, double
-            // check it for sure.
-            if (interactor != null) {
-                if (craft(interactor, recipe)) {
-                    // We are done crafting!
-                    Location loc = b.getLocation().add(0.5, 0.8, 0.5);
-                    b.getWorld().spawnParticle(VersionedParticle.HAPPY_VILLAGER, loc, 6);
-                    removeCharge(b.getLocation(), getEnergyConsumption());
-                }
+            BlockState state = targetBlock.getState(false);
+            if (state instanceof InventoryHolder inventoryHolder) {
+                interactor = new ChestInventoryParser(inventoryHolder.getInventory());
             }
-        } else recipeCache.remove(b);
+        }
+
+        if (interactor != null && craft(interactor, recipe)) {
+            // We are done crafting!
+            Location particleLocation = location.clone().add(0.5, 0.8, 0.5);
+            b.getWorld().spawnParticle(VersionedParticle.HAPPY_VILLAGER, particleLocation, 6);
+            removeCharge(location, energyConsumption);
+        }
     }
 
     /**
