@@ -1,0 +1,67 @@
+name: Refresh Networks in Slimefun Legacy Addon Bundle
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/refresh-networks-in-addon-bundle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-networks-addon-bundle
+  cancel-in-progress: true
+
+env:
+  TARGET_TAG: v4.1.45
+  NETWORKS_TAG: v1.0.3
+  NETWORKS_VERSION: '1.0.3'
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refresh Networks JAR in bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf bundle work fixed
+          mkdir -p bundle work fixed
+
+          gh release download "$TARGET_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'SFL_AddonsNDependencies.zip' \
+            --dir work
+          unzip -q work/SFL_AddonsNDependencies.zip -d bundle
+
+          NETWORKS_OLD="$(find bundle -type f \( -iname 'SF_NetworksExp*.jar' -o -iname '*NetworksExpansion*.jar' -o -iname '*Networks-Legacy*.jar' \) -print -quit || true)"
+          NETWORKS_DIR="${NETWORKS_OLD:+$(dirname "$NETWORKS_OLD")}"; NETWORKS_DIR="${NETWORKS_DIR:-bundle}"
+          echo "Networks destination: $NETWORKS_DIR"
+
+          find bundle -type f \( -iname 'SF_NetworksExp*.jar' -o -iname '*NetworksExpansion*.jar' -o -iname '*Networks-Legacy*.jar' \) -delete
+
+          gh release download "$NETWORKS_TAG" \
+            --repo wickidcow/SF_NetworksExp \
+            --pattern "SF_NetworksExp${NETWORKS_VERSION}.jar" \
+            --dir fixed
+
+          mkdir -p "$NETWORKS_DIR"
+          cp "fixed/SF_NetworksExp${NETWORKS_VERSION}.jar" "$NETWORKS_DIR/"
+
+          test "$(find bundle -type f -name "SF_NetworksExp${NETWORKS_VERSION}.jar" | wc -l)" -eq 1
+          if find bundle -type f \( -iname 'SF_NetworksExp*.jar' -o -iname '*NetworksExpansion*.jar' -o -iname '*Networks-Legacy*.jar' \) ! -name "SF_NetworksExp${NETWORKS_VERSION}.jar" | grep -q .; then
+            echo 'An old Networks JAR remains in the bundle.' >&2
+            exit 1
+          fi
+
+          rm -f SFL_AddonsNDependencies.zip
+          (cd bundle && zip -qr ../SFL_AddonsNDependencies.zip .)
+          unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_NetworksExp${NETWORKS_VERSION}.jar"
+          sha256sum SFL_AddonsNDependencies.zip
+
+          gh release upload "$TARGET_TAG" SFL_AddonsNDependencies.zip \
+            --repo "$GITHUB_REPOSITORY" --clobber
