@@ -43,10 +43,14 @@ import org.bukkit.block.Block;
 public class EnergyNet extends Network implements HologramOwner {
 
     private static final int RANGE = 6;
+    private static final int TRANSPORT_STATE_REVALIDATE_INTERVAL = 20;
 
     private final Map<Location, EnergyNetProvider> generators = new ConcurrentHashMap<>();
     private final Map<Location, EnergyNetComponent> capacitors = new ConcurrentHashMap<>();
     private final Map<Location, EnergyNetComponent> consumers = new ConcurrentHashMap<>();
+
+    private boolean transportStateDirty = true;
+    private boolean transportPowered;
 
     protected EnergyNet(@Nonnull Location l) {
         super(Slimefun.getNetworkManager(), l);
@@ -110,6 +114,7 @@ public class EnergyNet extends Network implements HologramOwner {
 
     @Override
     public void onClassificationChange(Location l, NetworkComponent from, NetworkComponent to) {
+        transportStateDirty = true;
         generators.remove(l);
         capacitors.remove(l);
         consumers.remove(l);
@@ -407,6 +412,18 @@ public class EnergyNet extends Network implements HologramOwner {
     }
 
     private void syncNetworkTransportState(boolean powered) {
+        long gameTime = regulator.getWorld().getGameTime();
+        boolean periodicRevalidation = Math.floorMod(
+                        gameTime + regulator.hashCode(), TRANSPORT_STATE_REVALIDATE_INTERVAL)
+                == 0;
+
+        if (!transportStateDirty && transportPowered == powered && !periodicRevalidation) {
+            return;
+        }
+
+        transportStateDirty = false;
+        transportPowered = powered;
+
         if (isEnergyLocationAccessible(regulator)) {
             VanillaPowerStateBridge.sync(regulator, powered);
         }
