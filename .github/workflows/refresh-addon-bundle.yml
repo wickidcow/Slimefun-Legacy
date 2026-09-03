@@ -138,18 +138,18 @@ jobs:
           unzip -l SFL_AddonsNDependencies.zip | grep -F "Magic-${MAGIC_VERSION}.zip"
           sha256sum SFL_AddonsNDependencies.zip
 
-      - name: Publish refreshed bundle
+      - name: Publish refreshed bundle to current release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          gh release upload "$BASE_BUNDLE_TAG" SFL_AddonsNDependencies.zip \
-            --repo "$GITHUB_REPOSITORY" --clobber
-
           CURRENT_VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
           CURRENT_TAG="v${CURRENT_VERSION}"
-          if [[ "$CURRENT_TAG" != "$BASE_BUNDLE_TAG" ]] && gh release view "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+
+          if gh release view "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$CURRENT_TAG" SFL_AddonsNDependencies.zip \
               --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            echo "Release $CURRENT_TAG does not exist yet; reproducible release will publish the validated bundle first."
           fi
