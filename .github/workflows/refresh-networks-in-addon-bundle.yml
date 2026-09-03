@@ -37,7 +37,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --pattern 'SFL_AddonsNDependencies.zip' \
             --dir work
-          unzip -q work/SFL_AddonsNDependencies.zip -d bundle
+          unzip -q work/SFL_AddonsNDependencies.zip -d bundle || [[ $? -eq 1 ]]
 
           NETWORKS_OLD="$(find bundle -type f \( -iname 'SF_NetworksExp*.jar' -o -iname '*NetworksExpansion*.jar' -o -iname '*Networks-Legacy*.jar' \) -print -quit || true)"
           NETWORKS_DIR="${NETWORKS_OLD:+$(dirname "$NETWORKS_OLD")}"; NETWORKS_DIR="${NETWORKS_DIR:-bundle}"
