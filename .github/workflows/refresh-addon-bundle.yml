@@ -29,6 +29,7 @@ env:
   FAST_MACHINES_VERSION: '1.0.3'
   GENETIC_CHICK_VERSION: '1.0.1'
   NETWORKS_VERSION: '1.0.6'
+  SUPREME_VERSION: '1.0.1'
 
 jobs:
   refresh:
@@ -79,6 +80,7 @@ jobs:
           FAST_OLD="$(find bundle -type f -iname '*FastMachines*.jar' -print -quit || true)"
           GCE_OLD="$(find bundle -type f -iname '*Genetic*Chick*.jar' -print -quit || true)"
           NETWORKS_OLD="$(find bundle -type f \( -iname '*NetworksExp*.jar' -o -iname 'Networks-Legacy*.jar' \) -print -quit || true)"
+          SUPREME_OLD="$(find bundle -type f \( -iname 'SF_Supreme*.jar' -o -iname 'Supreme-Legacy*.jar' -o -iname 'Supreme-*.jar' \) -print -quit || true)"
           MAGIC_INFO="$(grep -rl --include='info.yml' '^id:[[:space:]]*Magic[[:space:]]*$' bundle 2>/dev/null | head -n 1 || true)"
           MAGIC_ZIP_OLD="$(find bundle -type f -iname 'Magic-Legacy-*.zip' -print -quit || true)"
 
@@ -90,6 +92,7 @@ jobs:
           FAST_DIR="${FAST_OLD:+$(dirname "$FAST_OLD")}"; FAST_DIR="${FAST_DIR:-bundle}"
           GCE_DIR="${GCE_OLD:+$(dirname "$GCE_OLD")}"; GCE_DIR="${GCE_DIR:-bundle}"
           NETWORKS_DIR="${NETWORKS_OLD:+$(dirname "$NETWORKS_OLD")}"; NETWORKS_DIR="${NETWORKS_DIR:-bundle}"
+          SUPREME_DIR="${SUPREME_OLD:+$(dirname "$SUPREME_OLD")}"; SUPREME_DIR="${SUPREME_DIR:-bundle}"
           MAGIC_DIR="${MAGIC_INFO:+$(dirname "$MAGIC_INFO")}" 
           MAGIC_ZIP_DIR="${MAGIC_ZIP_OLD:+$(dirname "$MAGIC_ZIP_OLD")}"; MAGIC_ZIP_DIR="${MAGIC_ZIP_DIR:-bundle}"
 
@@ -101,6 +104,7 @@ jobs:
           echo "FastMachines destination: $FAST_DIR"
           echo "Genetic ChickEngineering destination: $GCE_DIR"
           echo "Networks destination: $NETWORKS_DIR"
+          echo "Supreme destination: $SUPREME_DIR"
           echo "Magic extracted destination: ${MAGIC_DIR:-not present in base bundle}"
           echo "Magic ZIP destination: $MAGIC_ZIP_DIR"
 
@@ -112,6 +116,7 @@ jobs:
           find bundle -type f -iname '*FastMachines*.jar' -delete
           find bundle -type f -iname '*Genetic*Chick*.jar' -delete
           find bundle -type f \( -iname '*NetworksExp*.jar' -o -iname 'Networks-Legacy*.jar' \) -delete
+          find bundle -type f \( -iname 'SF_Supreme*.jar' -o -iname 'Supreme-Legacy*.jar' -o -iname 'Supreme-*.jar' \) -delete
           find bundle -type f -iname 'Magic-Legacy-*.zip' -delete
 
           download_with_retry wickidcow/SF_MilitaryArsenal "v${MILITARY_VERSION}" "SF_MilitaryArsenal${MILITARY_VERSION}.jar" fixed
@@ -123,8 +128,9 @@ jobs:
           download_with_retry wickidcow/SF_FastMachines "v${FAST_MACHINES_VERSION}" "SF_FastMachines${FAST_MACHINES_VERSION}.jar" fixed
           download_with_retry wickidcow/SF_GeneticChickEngineering "v${GENETIC_CHICK_VERSION}" "SF_GeneticChickEngineering${GENETIC_CHICK_VERSION}.jar" fixed
           download_with_retry wickidcow/SF_NetworksExp "v${NETWORKS_VERSION}" "SF_NetworksExp${NETWORKS_VERSION}.jar" fixed
+          download_with_retry wickidcow/SF_Supreme "v${SUPREME_VERSION}" "SF_Supreme${SUPREME_VERSION}.jar" fixed
 
-          mkdir -p "$MA_DIR" "$WF_DIR" "$RSC_DIR" "$MAGIC_ZIP_DIR" "$FLUFFY_DIR" "$MOB_DIR" "$FAST_DIR" "$GCE_DIR" "$NETWORKS_DIR"
+          mkdir -p "$MA_DIR" "$WF_DIR" "$RSC_DIR" "$MAGIC_ZIP_DIR" "$FLUFFY_DIR" "$MOB_DIR" "$FAST_DIR" "$GCE_DIR" "$NETWORKS_DIR" "$SUPREME_DIR"
           cp "fixed/SF_MilitaryArsenal${MILITARY_VERSION}.jar" "$MA_DIR/"
           cp "fixed/SF_SlimefunWarfare${WARFARE_VERSION}.jar" "$WF_DIR/"
           cp "fixed/SF_RykenSlimeCustomizer${RSC_VERSION}.jar" "$RSC_DIR/"
@@ -134,6 +140,7 @@ jobs:
           cp "fixed/SF_FastMachines${FAST_MACHINES_VERSION}.jar" "$FAST_DIR/"
           cp "fixed/SF_GeneticChickEngineering${GENETIC_CHICK_VERSION}.jar" "$GCE_DIR/"
           cp "fixed/SF_NetworksExp${NETWORKS_VERSION}.jar" "$NETWORKS_DIR/"
+          cp "fixed/SF_Supreme${SUPREME_VERSION}.jar" "$SUPREME_DIR/"
 
           unzip -q "fixed/Magic-${MAGIC_VERSION}.zip" -d magic-fixed
           test -f magic-fixed/Magic/info.yml
@@ -154,6 +161,7 @@ jobs:
           test "$(find bundle -type f -name "SF_FastMachines${FAST_MACHINES_VERSION}.jar" | wc -l)" -eq 1
           test "$(find bundle -type f -name "SF_GeneticChickEngineering${GENETIC_CHICK_VERSION}.jar" | wc -l)" -eq 1
           test "$(find bundle -type f -name "SF_NetworksExp${NETWORKS_VERSION}.jar" | wc -l)" -eq 1
+          test "$(find bundle -type f -name "SF_Supreme${SUPREME_VERSION}.jar" | wc -l)" -eq 1
 
           if find bundle -type f -iname '*MilitaryArsenal*.jar' ! -name "SF_MilitaryArsenal${MILITARY_VERSION}.jar" | grep -q .; then
             echo 'Old Military Arsenal JAR remains in bundle.' >&2; exit 1
@@ -179,6 +187,9 @@ jobs:
           if find bundle -type f \( -iname '*NetworksExp*.jar' -o -iname 'Networks-Legacy*.jar' \) ! -name "SF_NetworksExp${NETWORKS_VERSION}.jar" | grep -q .; then
             echo 'Old Networks JAR remains in bundle.' >&2; exit 1
           fi
+          if find bundle -type f \( -iname 'SF_Supreme*.jar' -o -iname 'Supreme-Legacy*.jar' -o -iname 'Supreme-*.jar' \) ! -name "SF_Supreme${SUPREME_VERSION}.jar" | grep -q .; then
+            echo 'Old Supreme JAR remains in bundle.' >&2; exit 1
+          fi
           if find bundle -type f -iname 'Magic-Legacy-*.zip' ! -name "Magic-${MAGIC_VERSION}.zip" | grep -q .; then
             echo 'Old Magic Legacy ZIP remains in bundle.' >&2; exit 1
           fi
@@ -196,6 +207,7 @@ jobs:
           unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_FastMachines${FAST_MACHINES_VERSION}.jar"
           unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_GeneticChickEngineering${GENETIC_CHICK_VERSION}.jar"
           unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_NetworksExp${NETWORKS_VERSION}.jar"
+          unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_Supreme${SUPREME_VERSION}.jar"
           sha256sum SFL_AddonsNDependencies.zip
 
       - name: Publish refreshed bundle to current release
