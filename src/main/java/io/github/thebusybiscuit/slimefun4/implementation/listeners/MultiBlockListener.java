@@ -4,6 +4,7 @@ import io.github.thebusybiscuit.slimefun4.api.events.MultiBlockInteractEvent;
 import io.github.thebusybiscuit.slimefun4.core.handlers.MultiBlockInteractionHandler;
 import io.github.thebusybiscuit.slimefun4.core.multiblocks.MultiBlock;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import java.util.LinkedList;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -44,7 +45,7 @@ public class MultiBlockListener implements Listener {
 
         Player p = e.getPlayer();
         Block b = e.getClickedBlock();
-        MultiBlock matchedMultiBlock = null;
+        LinkedList<MultiBlock> multiblocks = new LinkedList<>();
         int highestSpecificity = -1;
 
         for (MultiBlock mb : Slimefun.getRegistry().getMultiBlocks()) {
@@ -53,32 +54,38 @@ public class MultiBlockListener implements Listener {
             if (compareMaterials(center, mb.getStructure(), mb.isSymmetric())) {
                 int specificity = getSpecificity(mb.getStructure());
 
-                // Prefer the structure with the most explicitly required blocks. This prevents
+                // Prefer structures with the most explicitly required blocks. This prevents
                 // sparse legacy multiblocks (for example the Grind Stone) from also activating
                 // when their pattern is embedded inside a larger addon multiblock.
-                // On equal specificity, retain the historical reverse-registration preference.
-                if (specificity >= highestSpecificity) {
-                    matchedMultiBlock = mb;
+                if (specificity > highestSpecificity) {
+                    multiblocks.clear();
                     highestSpecificity = specificity;
+                }
+
+                // Keep equally specific matches. Some machines intentionally share a physical
+                // layout and rely on their handlers to validate different recipes/inputs.
+                if (specificity == highestSpecificity) {
+                    multiblocks.add(mb);
                 }
             }
         }
 
-        if (matchedMultiBlock != null) {
+        if (!multiblocks.isEmpty()) {
             e.setCancelled(true);
 
-            MultiBlock selectedMultiBlock = matchedMultiBlock;
-            MultiBlockInteractEvent event =
-                    new MultiBlockInteractEvent(p, selectedMultiBlock, b, e.getBlockFace());
-            Bukkit.getPluginManager().callEvent(event);
+            // Preserve reverse registration order for equally specific matches.
+            var iterator = multiblocks.descendingIterator();
+            while (iterator.hasNext()) {
+                MultiBlock mb = iterator.next();
+                MultiBlockInteractEvent event = new MultiBlockInteractEvent(p, mb, b, e.getBlockFace());
+                Bukkit.getPluginManager().callEvent(event);
 
-            // Fixes #2809
-            if (!event.isCancelled()) {
-                selectedMultiBlock
-                        .getSlimefunItem()
-                        .callItemHandler(
-                                MultiBlockInteractionHandler.class,
-                                handler -> handler.onInteract(p, selectedMultiBlock, b));
+                // Fixes #2809
+                if (!event.isCancelled()) {
+                    mb.getSlimefunItem()
+                            .callItemHandler(
+                                    MultiBlockInteractionHandler.class, handler -> handler.onInteract(p, mb, b));
+                }
             }
         }
     }
