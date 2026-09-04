@@ -4,7 +4,6 @@ import io.github.thebusybiscuit.slimefun4.api.events.MultiBlockInteractEvent;
 import io.github.thebusybiscuit.slimefun4.core.handlers.MultiBlockInteractionHandler;
 import io.github.thebusybiscuit.slimefun4.core.multiblocks.MultiBlock;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import java.util.LinkedList;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -45,40 +44,52 @@ public class MultiBlockListener implements Listener {
 
         Player p = e.getPlayer();
         Block b = e.getClickedBlock();
-        LinkedList<MultiBlock> multiblocks = new LinkedList<>();
+        MultiBlock bestMatch = null;
 
         for (MultiBlock mb : Slimefun.getRegistry().getMultiBlocks()) {
             Block center = b.getRelative(mb.getTriggerBlock());
 
-            if (compareMaterials(center, mb.getStructure(), mb.isSymmetric())) {
-                multiblocks.add(mb);
+            if (compareMaterials(center, mb.getStructure(), mb.isSymmetric())
+                    && (bestMatch == null || isAtLeastAsSpecific(mb.getStructure(), bestMatch.getStructure()))) {
+                bestMatch = mb;
             }
         }
 
-        if (!multiblocks.isEmpty()) {
+        if (bestMatch != null) {
             e.setCancelled(true);
 
             /*
-             * Multiple multiblocks can match the same physical structure, especially when
-             * legacy material mappings collapse formerly distinct blocks. Dispatch every
-             * match in reverse registration order. Each machine validates its own recipe
-             * and inputs, so the intended handler can act instead of a single unrelated
-             * last match swallowing the interaction.
+             * A larger addon multiblock can contain a complete smaller multiblock. Prefer
+             * the matching structure with the most explicitly required blocks so a generic
+             * machine cannot also process the same click. Equal-specificity matches retain
+             * the previous reverse-registration precedence by allowing the later match to win.
              */
-            var iterator = multiblocks.descendingIterator();
-            while (iterator.hasNext()) {
-                MultiBlock mb = iterator.next();
-                MultiBlockInteractEvent event = new MultiBlockInteractEvent(p, mb, b, e.getBlockFace());
-                Bukkit.getPluginManager().callEvent(event);
+            MultiBlock mb = bestMatch;
+            MultiBlockInteractEvent event = new MultiBlockInteractEvent(p, mb, b, e.getBlockFace());
+            Bukkit.getPluginManager().callEvent(event);
 
-                // Fixes #2809
-                if (!event.isCancelled()) {
-                    mb.getSlimefunItem()
-                            .callItemHandler(
-                                    MultiBlockInteractionHandler.class, handler -> handler.onInteract(p, mb, b));
-                }
+            // Fixes #2809
+            if (!event.isCancelled()) {
+                mb.getSlimefunItem()
+                        .callItemHandler(MultiBlockInteractionHandler.class, handler -> handler.onInteract(p, mb, b));
             }
         }
+    }
+
+    static boolean isAtLeastAsSpecific(@Nonnull Material[] candidate, @Nonnull Material[] current) {
+        return countRequiredBlocks(candidate) >= countRequiredBlocks(current);
+    }
+
+    private static int countRequiredBlocks(@Nonnull Material[] structure) {
+        int requiredBlocks = 0;
+
+        for (Material material : structure) {
+            if (material != null) {
+                requiredBlocks++;
+            }
+        }
+
+        return requiredBlocks;
     }
 
     @ParametersAreNonnullByDefault
