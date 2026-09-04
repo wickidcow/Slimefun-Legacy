@@ -7,6 +7,7 @@ on:
       - master
     paths:
       - gradle.properties
+      - docs/releases/**
 
 permissions:
   contents: write
@@ -76,17 +77,29 @@ jobs:
           cp "$RUNNER_TEMP/first.sha256" "$RUNNER_TEMP/second.sha256" "$RUNNER_TEMP/bytecode-first.txt" "$RUNNER_TEMP/bytecode-second.txt" build/release-verification/
           cp "$RUNNER_TEMP/release-artifact-first.json" "$RUNNER_TEMP/release-artifact-first.md" "$RUNNER_TEMP/release-artifact-second.json" "$RUNNER_TEMP/release-artifact-second.md" build/release-verification/
           printf '# Reproducible release verification\n\n- Source: `%s`\n- SHA-256: `%s`\n- Result: **PASS — byte-for-byte identical**\n' "$GITHUB_SHA" "$FIRST_SHA" | tee build/release-verification/reproducible-release.md >> "$GITHUB_STEP_SUMMARY"
-      - name: Stage validated addon bundle
+      - name: Preserve validated addon bundle
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          gh release download v4.1.44 \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern 'SFL_AddonsNDependencies.zip' \
-            --dir dist
-          echo 'c7b6b7f7447eb295f11bd93f2a5d883f499914040b1e8424c2b4b2a7aa4b5d72  dist/SFL_AddonsNDependencies.zip' | sha256sum -c -
+          TAG="v${LEGACY_ARTIFACT_VERSION}"
+          BUNDLE="dist/SFL_AddonsNDependencies.zip"
+
+          # A release refresh should never roll the addon bundle backwards. Reuse the
+          # bundle already published for this version when it exists, and only fall
+          # back to the validated 4.1.44 bundle when creating a release from scratch.
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            && gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'SFL_AddonsNDependencies.zip' --dir dist; then
+            echo "Preserved the existing $TAG addon bundle."
+          else
+            rm -f "$BUNDLE"
+            gh release download v4.1.44 \
+              --repo "$GITHUB_REPOSITORY" \
+              --pattern 'SFL_AddonsNDependencies.zip' \
+              --dir dist
+            echo 'c7b6b7f7447eb295f11bd93f2a5d883f499914040b1e8424c2b4b2a7aa4b5d72  dist/SFL_AddonsNDependencies.zip' | sha256sum -c -
+          fi
       - name: Upload raw reproducible JAR artifact
         uses: actions/upload-artifact@v7
         with:
