@@ -4,7 +4,6 @@ import io.github.thebusybiscuit.slimefun4.api.events.MultiBlockInteractEvent;
 import io.github.thebusybiscuit.slimefun4.core.handlers.MultiBlockInteractionHandler;
 import io.github.thebusybiscuit.slimefun4.core.multiblocks.MultiBlock;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import java.util.LinkedList;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -45,40 +44,54 @@ public class MultiBlockListener implements Listener {
 
         Player p = e.getPlayer();
         Block b = e.getClickedBlock();
-        LinkedList<MultiBlock> multiblocks = new LinkedList<>();
+        MultiBlock matchedMultiBlock = null;
+        int highestSpecificity = -1;
 
         for (MultiBlock mb : Slimefun.getRegistry().getMultiBlocks()) {
             Block center = b.getRelative(mb.getTriggerBlock());
 
             if (compareMaterials(center, mb.getStructure(), mb.isSymmetric())) {
-                multiblocks.add(mb);
-            }
-        }
+                int specificity = getSpecificity(mb.getStructure());
 
-        if (!multiblocks.isEmpty()) {
-            e.setCancelled(true);
-
-            /*
-             * Multiple multiblocks can match the same physical structure, especially when
-             * legacy material mappings collapse formerly distinct blocks. Dispatch every
-             * match in reverse registration order. Each machine validates its own recipe
-             * and inputs, so the intended handler can act instead of a single unrelated
-             * last match swallowing the interaction.
-             */
-            var iterator = multiblocks.descendingIterator();
-            while (iterator.hasNext()) {
-                MultiBlock mb = iterator.next();
-                MultiBlockInteractEvent event = new MultiBlockInteractEvent(p, mb, b, e.getBlockFace());
-                Bukkit.getPluginManager().callEvent(event);
-
-                // Fixes #2809
-                if (!event.isCancelled()) {
-                    mb.getSlimefunItem()
-                            .callItemHandler(
-                                    MultiBlockInteractionHandler.class, handler -> handler.onInteract(p, mb, b));
+                // Prefer the structure with the most explicitly required blocks. This prevents
+                // sparse legacy multiblocks (for example the Grind Stone) from also activating
+                // when their pattern is embedded inside a larger addon multiblock.
+                // On equal specificity, retain the historical reverse-registration preference.
+                if (specificity >= highestSpecificity) {
+                    matchedMultiBlock = mb;
+                    highestSpecificity = specificity;
                 }
             }
         }
+
+        if (matchedMultiBlock != null) {
+            e.setCancelled(true);
+
+            MultiBlockInteractEvent event =
+                    new MultiBlockInteractEvent(p, matchedMultiBlock, b, e.getBlockFace());
+            Bukkit.getPluginManager().callEvent(event);
+
+            // Fixes #2809
+            if (!event.isCancelled()) {
+                matchedMultiBlock
+                        .getSlimefunItem()
+                        .callItemHandler(
+                                MultiBlockInteractionHandler.class,
+                                handler -> handler.onInteract(p, matchedMultiBlock, b));
+            }
+        }
+    }
+
+    private int getSpecificity(@Nonnull Material[] blocks) {
+        int specificity = 0;
+
+        for (Material material : blocks) {
+            if (material != null) {
+                specificity++;
+            }
+        }
+
+        return specificity;
     }
 
     @ParametersAreNonnullByDefault
