@@ -156,8 +156,14 @@ def main() -> int:
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/MultiBlockListener.java",
     )
-    require(listener, "multiblocks.descendingIterator()", "all-match multiblock dispatch")
-    reject(listener, "MultiBlock mb = multiblocks.getLast();", "single-last multiblock dispatch")
+    require(listener, "MultiBlock bestMatch = null;", "specific multiblock match selection")
+    require(
+        listener,
+        "isAtLeastAsSpecific(mb.getStructure(), bestMatch.getStructure())",
+        "specific multiblock precedence",
+    )
+    require(listener, "MultiBlock mb = bestMatch;", "single best multiblock dispatch")
+    reject(listener, "multiblocks.descendingIterator()", "all-match multiblock dispatch")
 
     regulator = read(
         root,
