@@ -87,24 +87,6 @@ public class MultiBlock {
         return trigger;
     }
 
-    /**
-     * Returns how many positions in this multiblock are explicitly required.
-     * Null entries are wildcards and therefore do not increase specificity.
-     *
-     * @return the number of non-null structure entries
-     */
-    public int getSpecificity() {
-        int specificity = 0;
-
-        for (Material block : blocks) {
-            if (block != null) {
-                specificity++;
-            }
-        }
-
-        return specificity;
-    }
-
     @Override
     public boolean equals(Object obj) {
         if (!(obj instanceof MultiBlock)) {
