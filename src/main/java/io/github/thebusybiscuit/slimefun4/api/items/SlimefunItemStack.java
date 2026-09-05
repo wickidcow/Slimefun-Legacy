@@ -109,7 +109,6 @@ public class SlimefunItemStack extends ItemStack {
                 for (String line : lore) {
                     lines.add(ChatColor.translateAlternateColorCodes('&', line));
                 }
-
                 im.setLore(lines);
             }
         });
@@ -170,10 +169,10 @@ public class SlimefunItemStack extends ItemStack {
             if (im instanceof PotionMeta potionMeta) {
                 potionMeta.setColor(color);
                 potionMeta.addCustomEffect(effect, true);
-            }
 
-            if (effect.getType().equals(PotionEffectType.SATURATION)) {
-                im.addItemFlags(VersionedItemFlag.HIDE_ADDITIONAL_TOOLTIP);
+                if (effect.getType().equals(PotionEffectType.SATURATION)) {
+                    im.addItemFlags(VersionedItemFlag.HIDE_ADDITIONAL_TOOLTIP);
+                }
             }
         });
     }
