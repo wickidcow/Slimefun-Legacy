@@ -22,9 +22,6 @@ env:
   MILITARY_VERSION: '1.1.6'
   WARFARE_VERSION: '1.0.3'
   RSC_VERSION: '3.1.7-Legacy4'
-  MAGIC_VERSION: 'Legacy-1.1.21'
-  MAGIC_TAG: 'legacy-1.1.21'
-  MAGIC_EXPANSION_VERSION: '1.1.3'
   FLUFFY_VERSION: '26.2.11'
   MOB_CAPTURER_VERSION: '1.0.4'
   FAST_MACHINES_VERSION: '1.0.3'
@@ -46,8 +43,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf bundle work fixed magic-fixed
-          mkdir -p bundle work fixed magic-fixed
+          rm -rf bundle work fixed
+          mkdir -p bundle work fixed
 
           download_with_retry() {
             local repo="$1"
@@ -76,7 +73,6 @@ jobs:
           MA_OLD="$(find bundle -type f -iname '*MilitaryArsenal*.jar' -print -quit || true)"
           WF_OLD="$(find bundle -type f -iname '*SlimefunWarfare*.jar' -print -quit || true)"
           RSC_OLD="$(find bundle -type f -iname '*RykenSlime*Customizer*.jar' -print -quit || true)"
-          ME_OLD="$(find bundle -type f -iname '*MagicExpansion*.jar' -print -quit || true)"
           FLUFFY_OLD="$(find bundle -type f -iname '*FluffyMachines*.jar' -print -quit || true)"
           MOB_OLD="$(find bundle -type f -iname '*MobCapturer*.jar' -print -quit || true)"
           FAST_OLD="$(find bundle -type f -iname '*FastMachines*.jar' -print -quit || true)"
@@ -88,7 +84,6 @@ jobs:
           MA_DIR="${MA_OLD:+$(dirname "$MA_OLD")}"; MA_DIR="${MA_DIR:-bundle}"
           WF_DIR="${WF_OLD:+$(dirname "$WF_OLD")}"; WF_DIR="${WF_DIR:-bundle}"
           RSC_DIR="${RSC_OLD:+$(dirname "$RSC_OLD")}"; RSC_DIR="${RSC_DIR:-bundle}"
-          ME_DIR="${ME_OLD:+$(dirname "$ME_OLD")}"; ME_DIR="${ME_DIR:-bundle}"
           FLUFFY_DIR="${FLUFFY_OLD:+$(dirname "$FLUFFY_OLD")}"; FLUFFY_DIR="${FLUFFY_DIR:-bundle}"
           MOB_DIR="${MOB_OLD:+$(dirname "$MOB_OLD")}"; MOB_DIR="${MOB_DIR:-bundle}"
           FAST_DIR="${FAST_OLD:+$(dirname "$FAST_OLD")}"; FAST_DIR="${FAST_DIR:-bundle}"
@@ -100,14 +95,12 @@ jobs:
           echo "Military Arsenal destination: $MA_DIR"
           echo "SlimefunWarfare destination: $WF_DIR"
           echo "RSC destination: $RSC_DIR"
-          echo "MagicExpansion destination: $ME_DIR"
           echo "FluffyMachines destination: $FLUFFY_DIR"
           echo "MobCapturer destination: $MOB_DIR"
           echo "FastMachines destination: $FAST_DIR"
           echo "Genetic ChickEngineering destination: $GCE_DIR"
           echo "Networks destination: $NETWORKS_DIR"
           echo "Supreme destination: $SUPREME_DIR"
-          echo "Magic RSC drop-in destination: $MAGIC_ADDON_DIR"
 
           find bundle -type f -iname '*MilitaryArsenal*.jar' -delete
           find bundle -type f -iname '*SlimefunWarfare*.jar' -delete
@@ -129,8 +122,6 @@ jobs:
           download_with_retry wickidcow/SF_MilitaryArsenal "v${MILITARY_VERSION}" "SF_MilitaryArsenal${MILITARY_VERSION}.jar" fixed
           download_with_retry wickidcow/SF_SlimefunWarfare "v${WARFARE_VERSION}" "SF_SlimefunWarfare${WARFARE_VERSION}.jar" fixed
           download_with_retry wickidcow/SF_RykenSlimeCustomizer "v${RSC_VERSION}" "SF_RykenSlimeCustomizer${RSC_VERSION}.jar" fixed
-          download_with_retry wickidcow/SF_Magic_RSC "$MAGIC_TAG" "Magic-${MAGIC_VERSION}.zip" fixed
-          download_with_retry wickidcow/SF_MagicExpansion "v${MAGIC_EXPANSION_VERSION}" "SF_MagicExpansion${MAGIC_EXPANSION_VERSION}.jar" fixed
           download_with_retry wickidcow/SF_FluffyMachines "v${FLUFFY_VERSION}" "SF_FluffyMachines${FLUFFY_VERSION}.jar" fixed
           download_with_retry wickidcow/SF_MobCapturer "v${MOB_CAPTURER_VERSION}" "SF_MobCapturer${MOB_CAPTURER_VERSION}.jar" fixed
           download_with_retry wickidcow/SF_FastMachines "v${FAST_MACHINES_VERSION}" "SF_FastMachines${FAST_MACHINES_VERSION}.jar" fixed
@@ -138,11 +129,10 @@ jobs:
           download_with_retry wickidcow/SF_NetworksExp "v${NETWORKS_VERSION}" "SF_NetworksExp${NETWORKS_VERSION}.jar" fixed
           download_with_retry wickidcow/SF_Supreme "v${SUPREME_VERSION}" "SF_Supreme${SUPREME_VERSION}.jar" fixed
 
-          mkdir -p "$MA_DIR" "$WF_DIR" "$RSC_DIR" "$ME_DIR" "$FLUFFY_DIR" "$MOB_DIR" "$FAST_DIR" "$GCE_DIR" "$NETWORKS_DIR" "$SUPREME_DIR"
+          mkdir -p "$MA_DIR" "$WF_DIR" "$RSC_DIR" "$FLUFFY_DIR" "$MOB_DIR" "$FAST_DIR" "$GCE_DIR" "$NETWORKS_DIR" "$SUPREME_DIR"
           cp "fixed/SF_MilitaryArsenal${MILITARY_VERSION}.jar" "$MA_DIR/"
           cp "fixed/SF_SlimefunWarfare${WARFARE_VERSION}.jar" "$WF_DIR/"
           cp "fixed/SF_RykenSlimeCustomizer${RSC_VERSION}.jar" "$RSC_DIR/"
-          cp "fixed/SF_MagicExpansion${MAGIC_EXPANSION_VERSION}.jar" "$ME_DIR/"
           cp "fixed/SF_FluffyMachines${FLUFFY_VERSION}.jar" "$FLUFFY_DIR/"
           cp "fixed/SF_MobCapturer${MOB_CAPTURER_VERSION}.jar" "$MOB_DIR/"
           cp "fixed/SF_FastMachines${FAST_MACHINES_VERSION}.jar" "$FAST_DIR/"
@@ -150,24 +140,15 @@ jobs:
           cp "fixed/SF_NetworksExp${NETWORKS_VERSION}.jar" "$NETWORKS_DIR/"
           cp "fixed/SF_Supreme${SUPREME_VERSION}.jar" "$SUPREME_DIR/"
 
-          unzip -q "fixed/Magic-${MAGIC_VERSION}.zip" -d magic-fixed
-          test -f magic-fixed/Magic/info.yml
-          grep -q "^version:[[:space:]]*${MAGIC_VERSION}$" magic-fixed/Magic/info.yml
-          mkdir -p "$(dirname "$MAGIC_ADDON_DIR")"
-          cp -a magic-fixed/Magic "$MAGIC_ADDON_DIR"
-
           test "$(find bundle -type f -name "SF_MilitaryArsenal${MILITARY_VERSION}.jar" | wc -l)" -eq 1
           test "$(find bundle -type f -name "SF_SlimefunWarfare${WARFARE_VERSION}.jar" | wc -l)" -eq 1
           test "$(find bundle -type f -name "SF_RykenSlimeCustomizer${RSC_VERSION}.jar" | wc -l)" -eq 1
-          test "$(find bundle -type f -name "SF_MagicExpansion${MAGIC_EXPANSION_VERSION}.jar" | wc -l)" -eq 1
           test "$(find bundle -type f -name "SF_FluffyMachines${FLUFFY_VERSION}.jar" | wc -l)" -eq 1
           test "$(find bundle -type f -name "SF_MobCapturer${MOB_CAPTURER_VERSION}.jar" | wc -l)" -eq 1
           test "$(find bundle -type f -name "SF_FastMachines${FAST_MACHINES_VERSION}.jar" | wc -l)" -eq 1
           test "$(find bundle -type f -name "SF_GeneticChickEngineering${GENETIC_CHICK_VERSION}.jar" | wc -l)" -eq 1
           test "$(find bundle -type f -name "SF_NetworksExp${NETWORKS_VERSION}.jar" | wc -l)" -eq 1
           test "$(find bundle -type f -name "SF_Supreme${SUPREME_VERSION}.jar" | wc -l)" -eq 1
-          test -f "$MAGIC_ADDON_DIR/info.yml"
-          grep -q "^version:[[:space:]]*${MAGIC_VERSION}$" "$MAGIC_ADDON_DIR/info.yml"
 
           if find bundle -type f -iname '*MilitaryArsenal*.jar' ! -name "SF_MilitaryArsenal${MILITARY_VERSION}.jar" | grep -q .; then
             echo 'Old Military Arsenal JAR remains in bundle.' >&2; exit 1
@@ -178,8 +159,14 @@ jobs:
           if find bundle -type f -iname '*RykenSlime*Customizer*.jar' ! -name "SF_RykenSlimeCustomizer${RSC_VERSION}.jar" | grep -q .; then
             echo 'Old RykenSlimefunCustomizer JAR remains in bundle.' >&2; exit 1
           fi
-          if find bundle -type f -iname '*MagicExpansion*.jar' ! -name "SF_MagicExpansion${MAGIC_EXPANSION_VERSION}.jar" | grep -q .; then
-            echo 'Old MagicExpansion JAR remains in bundle.' >&2; exit 1
+          if find bundle -type f -iname '*MagicExpansion*.jar' | grep -q .; then
+            echo 'MagicExpansion must not be included in the addon bundle.' >&2; exit 1
+          fi
+          if grep -rl --include='info.yml' '^id:[[:space:]]*Magic[[:space:]]*$' bundle 2>/dev/null | grep -q .; then
+            echo 'The RykenSlimefunCustomizer Magic addon must not be included in the addon bundle.' >&2; exit 1
+          fi
+          if [[ -e "$MAGIC_ADDON_DIR" ]]; then
+            echo 'RykenSlimefunCustomizer/addons/Magic remains in the addon bundle.' >&2; exit 1
           fi
           if find bundle -type f -iname '*FluffyMachines*.jar' ! -name "SF_FluffyMachines${FLUFFY_VERSION}.jar" | grep -q .; then
             echo 'Old FluffyMachines JAR remains in bundle.' >&2; exit 1
@@ -200,22 +187,20 @@ jobs:
             echo 'Old Supreme JAR remains in bundle.' >&2; exit 1
           fi
           if find bundle -type f -iname 'Magic*.zip' | grep -q .; then
-            echo 'Nested Magic ZIP remains in bundle; Magic must be deployed as RykenSlimefunCustomizer/addons/Magic.' >&2; exit 1
+            echo 'Magic content must not be included in the addon bundle.' >&2; exit 1
           fi
 
           rm -f SFL_AddonsNDependencies.zip
           (cd bundle && zip -qr ../SFL_AddonsNDependencies.zip .)
           unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_RykenSlimeCustomizer${RSC_VERSION}.jar"
-          unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_MagicExpansion${MAGIC_EXPANSION_VERSION}.jar"
-          unzip -l SFL_AddonsNDependencies.zip | grep -F "RykenSlimefunCustomizer/addons/Magic/info.yml"
           unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_FluffyMachines${FLUFFY_VERSION}.jar"
           unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_MobCapturer${MOB_CAPTURER_VERSION}.jar"
           unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_FastMachines${FAST_MACHINES_VERSION}.jar"
           unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_GeneticChickEngineering${GENETIC_CHICK_VERSION}.jar"
           unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_NetworksExp${NETWORKS_VERSION}.jar"
           unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_Supreme${SUPREME_VERSION}.jar"
-          if unzip -l SFL_AddonsNDependencies.zip | grep -Ei 'Magic[^/]*\.zip'; then
-            echo 'Nested Magic ZIP found in final archive.' >&2; exit 1
+          if unzip -l SFL_AddonsNDependencies.zip | grep -Ei 'MagicExpansion.*\.jar|RykenSlimefunCustomizer/addons/Magic/|Magic[^/]*\.zip'; then
+            echo 'Magic Expansion or Magic addon content found in final archive.' >&2; exit 1
           fi
           sha256sum SFL_AddonsNDependencies.zip
 
