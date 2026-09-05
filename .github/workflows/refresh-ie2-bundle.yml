@@ -1,0 +1,89 @@
+name: Refresh IE2 in Slimefun Legacy Bundle
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/refresh-ie2-bundle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-ie2-slimefun-addon-bundle
+  cancel-in-progress: true
+
+env:
+  BASE_BUNDLE_TAG: v4.1.45
+  IE2_TAG: v2.0.4
+  IE2_ASSET: SF_InfinityExpansion2.0.4.jar
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Replace IE2 in current addon bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf bundle work fixed SFL_AddonsNDependencies.zip
+          mkdir -p bundle work fixed
+
+          gh release download "$BASE_BUNDLE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'SFL_AddonsNDependencies.zip' \
+            --dir work
+          unzip -q work/SFL_AddonsNDependencies.zip -d bundle
+
+          IE2_OLD="$(find bundle -type f \( -iname '*InfinityExpansion2*.jar' -o -iname '*IE2Legacy*.jar' \) -print -quit || true)"
+          IE2_DIR="${IE2_OLD:+$(dirname "$IE2_OLD")}"; IE2_DIR="${IE2_DIR:-bundle}"
+
+          for attempt in $(seq 1 90); do
+            rm -f "fixed/$IE2_ASSET"
+            if gh release download "$IE2_TAG" \
+              --repo wickidcow/SF_InfinityExpansion2 \
+              --pattern "$IE2_ASSET" \
+              --dir fixed; then
+              break
+            fi
+            if [[ "$attempt" == 90 ]]; then
+              echo "Timed out waiting for IE2 $IE2_TAG asset $IE2_ASSET" >&2
+              exit 1
+            fi
+            echo "Waiting for IE2 $IE2_TAG release asset (attempt $attempt/90)"
+            sleep 10
+          done
+
+          test -s "fixed/$IE2_ASSET"
+          find bundle -type f \( -iname '*InfinityExpansion2*.jar' -o -iname '*IE2Legacy*.jar' \) -delete
+          mkdir -p "$IE2_DIR"
+          cp "fixed/$IE2_ASSET" "$IE2_DIR/"
+
+          test "$(find bundle -type f -name "$IE2_ASSET" | wc -l)" -eq 1
+          if find bundle -type f \( -iname '*InfinityExpansion2*.jar' -o -iname '*IE2Legacy*.jar' \) ! -name "$IE2_ASSET" | grep -q .; then
+            echo 'An older IE2 JAR remains in the bundle.' >&2
+            exit 1
+          fi
+
+          (cd bundle && zip -qr ../SFL_AddonsNDependencies.zip .)
+          unzip -l SFL_AddonsNDependencies.zip | grep -F "$IE2_ASSET"
+          sha256sum SFL_AddonsNDependencies.zip
+
+      - name: Publish refreshed bundle to v4.1.45
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$BASE_BUNDLE_TAG" SFL_AddonsNDependencies.zip --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Upload refreshed bundle artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Slimefun-Legacy-IE2-Addons
+          path: SFL_AddonsNDependencies.zip
+          archive: false
+          if-no-files-found: error

@@ -6,10 +6,12 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.apache.commons.lang.Validate;
+import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -70,7 +72,13 @@ public class SlimefunCommand implements CommandExecutor, Listener {
             for (SubCommand command : commands) {
                 if (args[0].equalsIgnoreCase(command.getName())) {
                     command.recordUsage(commandUsage);
-                    command.onExecute(sender, args);
+                    if (command.getName().equalsIgnoreCase("doctor")
+                            && args.length > 1
+                            && args[1].equalsIgnoreCase("ie2")) {
+                        runInfinityExpansionDoctor(sender, args);
+                    } else {
+                        command.onExecute(sender, args);
+                    }
                     return true;
                 }
             }
@@ -85,6 +93,28 @@ public class SlimefunCommand implements CommandExecutor, Listener {
          * this always returning true...
          */
         return !commands.isEmpty();
+    }
+
+    private void runInfinityExpansionDoctor(@Nonnull CommandSender sender, @Nonnull String[] args) {
+        if (!sender.hasPermission("slimefun.command.doctor")) {
+            Slimefun.getLocalization().sendMessage(sender, "messages.no-permission", true);
+            return;
+        }
+
+        if (Bukkit.getPluginCommand("ie2") == null) {
+            sender.sendMessage(ChatColors.color("&cInfinityExpansion2 is not installed or its /ie2 command is unavailable."));
+            return;
+        }
+
+        String action = args.length > 2 ? args[2].toLowerCase(Locale.ROOT) : "status";
+        if (!List.of("status", "scan", "migrate", "refresh").contains(action)) {
+            sender.sendMessage(ChatColors.color("&eUsage: /sf doctor ie2 <status|scan|migrate|refresh>"));
+            return;
+        }
+
+        if (!Bukkit.dispatchCommand(sender, "ie2 doctor " + action)) {
+            sender.sendMessage(ChatColors.color("&cInfinityExpansion2 Doctor did not accept the migration command."));
+        }
     }
 
     public void sendHelp(@Nonnull CommandSender sender) {

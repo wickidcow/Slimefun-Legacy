@@ -49,6 +49,25 @@ class SlimefunTabCompleter implements TabCompleter {
                 List<String> list = new ArrayList<>(List.of("query", "show", "at", "freeze", "unfreeze", "top", "rate"));
                 list.addAll(getSlimefunItems());
                 return createReturnList(list, args[1]);
+            } else if (args[0].equalsIgnoreCase("doctor")) {
+                return createReturnList(
+                        List.of(
+                                "status",
+                                "upgrade",
+                                "core",
+                                "registry",
+                                "chunks",
+                                "hand",
+                                "inventory",
+                                "scan",
+                                "addons",
+                                "compatibility",
+                                "runtime",
+                                "integrations",
+                                "dependencies",
+                                "repair",
+                                "ie2"),
+                        args[1]);
             }
             return null;
         } else if (args.length == 3) {
@@ -68,6 +87,8 @@ class SlimefunTabCompleter implements TabCompleter {
                 return createReturnList(suggestions, args[2]);
             } else if (args[0].equalsIgnoreCase("cleardata")) {
                 return createReturnList(List.of("block", "oil", "*"), args[2]);
+            } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("ie2")) {
+                return createReturnList(List.of("status", "scan", "migrate", "refresh"), args[2]);
             } else {
                 // Returning null will make it fallback to the default arguments (all online players)
                 return null;
