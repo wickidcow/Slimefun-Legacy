@@ -109,6 +109,7 @@ public class SlimefunItemStack extends ItemStack {
                 for (String line : lore) {
                     lines.add(ChatColor.translateAlternateColorCodes('&', line));
                 }
+
                 im.setLore(lines);
             }
         });
@@ -169,10 +170,10 @@ public class SlimefunItemStack extends ItemStack {
             if (im instanceof PotionMeta potionMeta) {
                 potionMeta.setColor(color);
                 potionMeta.addCustomEffect(effect, true);
+            }
 
-                if (effect.getType().equals(PotionEffectType.SATURATION)) {
-                    im.addItemFlags(VersionedItemFlag.HIDE_ADDITIONAL_TOOLTIP);
-                }
+            if (effect.getType().equals(PotionEffectType.SATURATION)) {
+                im.addItemFlags(VersionedItemFlag.HIDE_ADDITIONAL_TOOLTIP);
             }
         });
     }
@@ -322,6 +323,18 @@ public class SlimefunItemStack extends ItemStack {
     @Override
     public ItemStack clone() {
         return new SlimefunItemStack(id, super.clone());
+    }
+
+    /**
+     * Compatibility accessor used by Slimefun United/Gugu-style addons.
+     *
+     * <p>The returned stack is a clone so callers can safely alter amount or metadata without mutating the
+     * registered definition.
+     *
+     * @return a cloned Bukkit item stack for this Slimefun item definition
+     */
+    public @Nonnull ItemStack item() {
+        return clone();
     }
 
     @Override
