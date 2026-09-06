@@ -88,12 +88,10 @@ final class ChunkInfoCommand extends SubCommand {
         // consumes immutable strings/booleans and never reaches back into Bukkit world state.
         for (TickLocation location : tickingLocations) {
             String id = resolveTickerId(location);
-            boolean synchronizedTicker = false;
-            SlimefunItem item = SlimefunItem.getById(id);
-            if (item != null && item.getBlockTicker() != null) {
-                synchronizedTicker = item.getBlockTicker().isSynchronized();
-            }
-            tickerSnapshot.add(new TickerSnapshot(id, location.isUniversal(), synchronizedTicker));
+            SlimefunItem item = id.isEmpty() ? null : SlimefunItem.getById(id);
+            boolean knownTicker = item != null && item.getBlockTicker() != null;
+            boolean synchronizedTicker = knownTicker && item.getBlockTicker().isSynchronized();
+            tickerSnapshot.add(new TickerSnapshot(location.isUniversal(), knownTicker, synchronizedTicker));
         }
 
         Slimefun.getDatabaseManager()
@@ -139,8 +137,15 @@ final class ChunkInfoCommand extends SubCommand {
         }
 
         int universalTickers = (int) tickerLocations.stream().filter(TickerSnapshot::universal).count();
-        int synchronizedTickers = (int) tickerLocations.stream().filter(TickerSnapshot::synchronizedTicker).count();
-        int asynchronousTickers = tickerLocations.size() - synchronizedTickers;
+        int unresolvedTickers = (int) tickerLocations.stream().filter(snapshot -> !snapshot.knownTicker()).count();
+        int synchronizedTickers = (int) tickerLocations.stream()
+                .filter(TickerSnapshot::knownTicker)
+                .filter(TickerSnapshot::synchronizedTicker)
+                .count();
+        int asynchronousTickers = (int) tickerLocations.stream()
+                .filter(TickerSnapshot::knownTicker)
+                .filter(snapshot -> !snapshot.synchronizedTicker())
+                .count();
 
         List<String> lines = new ArrayList<>();
         lines.add("&6&m----------------------------------------");
@@ -154,6 +159,9 @@ final class ChunkInfoCommand extends SubCommand {
         if (universalTickers > 0) {
             lines.add("&7Universal ticker registrations: &f" + universalTickers
                     + " &8(separate from normal chunk block storage)");
+        }
+        if (unresolvedTickers > 0) {
+            lines.add("&eTicker registrations with unresolved data: &f" + unresolvedTickers);
         }
         if (pendingRemoval > 0) {
             lines.add("&ePending removal records: &f" + pendingRemoval);
@@ -258,5 +266,5 @@ final class ChunkInfoCommand extends SubCommand {
 
     private record ChunkTarget(World world, int chunkX, int chunkZ) {}
 
-    private record TickerSnapshot(String itemId, boolean universal, boolean synchronizedTicker) {}
+    private record TickerSnapshot(boolean universal, boolean knownTicker, boolean synchronizedTicker) {}
 }
