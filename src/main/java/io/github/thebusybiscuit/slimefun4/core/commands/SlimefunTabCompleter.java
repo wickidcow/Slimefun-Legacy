@@ -78,6 +78,7 @@ class SlimefunTabCompleter implements TabCompleter {
                                 "runtime",
                                 "integrations",
                                 "dependencies",
+                                "storage",
                                 "repair",
                                 "ie2"),
                         args[1]);
@@ -118,6 +119,8 @@ class SlimefunTabCompleter implements TabCompleter {
                     return createReturnList(List.of(String.valueOf(player.getLocation().getChunk().getZ())), args[2]);
                 }
                 return null;
+            } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("storage")) {
+                return createReturnList(List.of("status", "scan"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("ie2")) {
                 return createReturnList(List.of("status", "scan", "migrate", "refresh"), args[2]);
             } else {
