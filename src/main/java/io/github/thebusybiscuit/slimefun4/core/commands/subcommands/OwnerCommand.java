@@ -70,6 +70,11 @@ final class OwnerCommand extends SubCommand {
         executeLoaded(player, target, data, args);
     }
 
+    @Override
+    public @Nonnull String getDescription(@Nonnull CommandSender sender) {
+        return "Shows or changes the recorded owner of the Slimefun block you are looking at";
+    }
+
     private void executeLoaded(Player player, Block block, ASlimefunDataContainer data, String[] args) {
         String action = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "query";
 
@@ -195,6 +200,12 @@ final class OwnerCommand extends SubCommand {
 
         @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
         public void onBlockPlace(BlockPlaceEvent event) {
+            // Fast-path ordinary block placements. Only a Slimefun item can have produced Slimefun block data in the
+            // core placement handler, so avoid a universal-block cache lookup for every vanilla placement on a server.
+            if (SlimefunItem.getByItem(event.getItemInHand()) == null) {
+                return;
+            }
+
             ASlimefunDataContainer data = StorageCacheUtils.getDataContainer(event.getBlock().getLocation());
             if (data == null) {
                 return;
