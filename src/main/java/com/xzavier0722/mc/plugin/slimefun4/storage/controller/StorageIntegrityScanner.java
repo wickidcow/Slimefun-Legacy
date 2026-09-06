@@ -3,6 +3,7 @@ package com.xzavier0722.mc.plugin.slimefun4.storage.controller;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataScope;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.FieldKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordKey;
+import io.github.thebusybiscuit.slimefun4.api.storage.StorageIntegrityConfirmationSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.storage.StorageIntegritySnapshot;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -24,6 +25,8 @@ public final class StorageIntegrityScanner {
     static final int SAMPLE_LIMIT = 10;
 
     private static final Object SCAN_LOCK = new Object();
+    private static final StorageIntegrityConfirmationTracker CONFIRMATION_TRACKER =
+            new StorageIntegrityConfirmationTracker();
     private static volatile CompletableFuture<StorageIntegritySnapshot> activeScan;
     private static volatile StorageIntegritySnapshot lastSnapshot;
 
@@ -49,6 +52,7 @@ public final class StorageIntegrityScanner {
         try {
             controller.scheduleReadTask(() -> runScan(controller, future));
         } catch (RuntimeException failure) {
+            CONFIRMATION_TRACKER.invalidate(System.currentTimeMillis());
             future.completeExceptionally(failure);
             clearActiveScan(future);
         }
@@ -64,10 +68,19 @@ public final class StorageIntegrityScanner {
         return lastSnapshot;
     }
 
+    public static @Nonnull StorageIntegrityConfirmationSnapshot getConfirmationSnapshot() {
+        return CONFIRMATION_TRACKER.getSnapshot();
+    }
+
     private static void runScan(BlockDataController controller, CompletableFuture<StorageIntegritySnapshot> future) {
         long startedAt = System.currentTimeMillis();
         int pendingWritesAtStart = controller.getPendingWriteTaskCount();
         boolean delayedSavingEnabled = controller.isDelayedSavingEnabled();
+
+        // BlockDataController does not currently expose its private delayed-mutation map. Treat that count as unknown
+        // while delayed saving is enabled rather than incorrectly declaring the backend quiet. This deliberately blocks
+        // two-pass confirmation until the scan can prove both active and deferred write queues are empty.
+        int pendingDelayedWritesAtStart = delayedSavingEnabled ? -1 : 0;
 
         try {
             Set<String> blockRecords = readOwners(controller, DataScope.BLOCK_RECORD, FieldKey.LOCATION);
@@ -87,6 +100,7 @@ public final class StorageIntegrityScanner {
 
             long completedAt = System.currentTimeMillis();
             int pendingWritesAtEnd = controller.getPendingWriteTaskCount();
+            int pendingDelayedWritesAtEnd = delayedSavingEnabled ? -1 : 0;
             StorageIntegritySnapshot snapshot = new StorageIntegritySnapshot(
                     startedAt,
                     completedAt,
@@ -102,14 +116,25 @@ public final class StorageIntegrityScanner {
                     orphanUniversalInventories.size(),
                     pendingWritesAtStart,
                     pendingWritesAtEnd,
+                    pendingDelayedWritesAtStart,
+                    pendingDelayedWritesAtEnd,
                     delayedSavingEnabled,
                     sample(orphanBlockData),
                     sample(orphanBlockInventories),
                     sample(orphanUniversalData),
                     sample(orphanUniversalInventories));
+
+            StorageIntegrityConfirmationTracker.CandidateSet candidates =
+                    new StorageIntegrityConfirmationTracker.CandidateSet(
+                            orphanBlockData,
+                            orphanBlockInventories,
+                            orphanUniversalData,
+                            orphanUniversalInventories);
+            CONFIRMATION_TRACKER.record(candidates, snapshot.wasStorageQuietAtBoundaries(), completedAt);
             lastSnapshot = snapshot;
             future.complete(snapshot);
         } catch (Throwable failure) {
+            CONFIRMATION_TRACKER.invalidate(System.currentTimeMillis());
             future.completeExceptionally(failure);
         } finally {
             clearActiveScan(future);
