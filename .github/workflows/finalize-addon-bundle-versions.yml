@@ -1,0 +1,112 @@
+name: Finalize Slimefun Legacy Addon Bundle Versions
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/finalize-addon-bundle-versions.yml'
+  workflow_run:
+    workflows: ['Refresh Slimefun Legacy Addon Bundle']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finalize-slimefun-addon-bundle-versions
+  cancel-in-progress: true
+
+env:
+  WARFARE_VERSION: '1.0.5'
+  SUPREME_VERSION: '1.0.3'
+  GALACTIFUN_VERSION: '1.0.5'
+
+jobs:
+  finalize:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Replace updated addon versions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
+          TAG="v${VERSION}"
+
+          rm -rf bundle work fixed
+          mkdir -p bundle work fixed
+
+          gh release download "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'SFL_AddonsNDependencies.zip' \
+            --dir work
+          unzip -q work/SFL_AddonsNDependencies.zip -d bundle
+
+          WARFARE_OLD="$(find bundle -type f -iname '*SlimefunWarfare*.jar' -print -quit || true)"
+          SUPREME_OLD="$(find bundle -type f \( -iname 'SF_Supreme*.jar' -o -iname 'Supreme-Legacy*.jar' -o -iname 'Supreme-*.jar' \) -print -quit || true)"
+          GALACTIFUN_OLD="$(find bundle -type f \( -iname '*Glactifun*.jar' -o -iname '*Galactifun*.jar' \) -print -quit || true)"
+
+          WARFARE_DIR="${WARFARE_OLD:+$(dirname "$WARFARE_OLD")}"; WARFARE_DIR="${WARFARE_DIR:-bundle}"
+          SUPREME_DIR="${SUPREME_OLD:+$(dirname "$SUPREME_OLD")}"; SUPREME_DIR="${SUPREME_DIR:-bundle}"
+          GALACTIFUN_DIR="${GALACTIFUN_OLD:+$(dirname "$GALACTIFUN_OLD")}"; GALACTIFUN_DIR="${GALACTIFUN_DIR:-bundle}"
+
+          find bundle -type f -iname '*SlimefunWarfare*.jar' -delete
+          find bundle -type f \( -iname 'SF_Supreme*.jar' -o -iname 'Supreme-Legacy*.jar' -o -iname 'Supreme-*.jar' \) -delete
+          find bundle -type f \( -iname '*Glactifun*.jar' -o -iname '*Galactifun*.jar' \) -delete
+
+          gh release download "v${WARFARE_VERSION}" \
+            --repo wickidcow/SF_SlimefunWarfare \
+            --pattern "SF_SlimefunWarfare${WARFARE_VERSION}.jar" \
+            --dir fixed
+          gh release download "v${SUPREME_VERSION}" \
+            --repo wickidcow/SF_Supreme \
+            --pattern "SF_Supreme${SUPREME_VERSION}.jar" \
+            --dir fixed
+          gh release download "v${GALACTIFUN_VERSION}" \
+            --repo wickidcow/SF_Galactifun \
+            --pattern "SF_Glactifun${GALACTIFUN_VERSION}.jar" \
+            --dir fixed
+
+          mkdir -p "$WARFARE_DIR" "$SUPREME_DIR" "$GALACTIFUN_DIR"
+          cp "fixed/SF_SlimefunWarfare${WARFARE_VERSION}.jar" "$WARFARE_DIR/"
+          cp "fixed/SF_Supreme${SUPREME_VERSION}.jar" "$SUPREME_DIR/"
+          cp "fixed/SF_Glactifun${GALACTIFUN_VERSION}.jar" "$GALACTIFUN_DIR/"
+
+          test "$(find bundle -type f -name "SF_SlimefunWarfare${WARFARE_VERSION}.jar" | wc -l)" -eq 1
+          test "$(find bundle -type f -name "SF_Supreme${SUPREME_VERSION}.jar" | wc -l)" -eq 1
+          test "$(find bundle -type f -name "SF_Glactifun${GALACTIFUN_VERSION}.jar" | wc -l)" -eq 1
+
+          if find bundle -type f -iname '*SlimefunWarfare*.jar' ! -name "SF_SlimefunWarfare${WARFARE_VERSION}.jar" | grep -q .; then
+            echo 'Old SlimefunWarfare JAR remains in bundle.' >&2; exit 1
+          fi
+          if find bundle -type f \( -iname 'SF_Supreme*.jar' -o -iname 'Supreme-Legacy*.jar' -o -iname 'Supreme-*.jar' \) ! -name "SF_Supreme${SUPREME_VERSION}.jar" | grep -q .; then
+            echo 'Old Supreme JAR remains in bundle.' >&2; exit 1
+          fi
+          if find bundle -type f \( -iname '*Glactifun*.jar' -o -iname '*Galactifun*.jar' \) ! -name "SF_Glactifun${GALACTIFUN_VERSION}.jar" | grep -q .; then
+            echo 'Old Galactifun JAR remains in bundle.' >&2; exit 1
+          fi
+
+          rm -f SFL_AddonsNDependencies.zip
+          (cd bundle && zip -qr ../SFL_AddonsNDependencies.zip .)
+
+          unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_SlimefunWarfare${WARFARE_VERSION}.jar"
+          unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_Supreme${SUPREME_VERSION}.jar"
+          unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_Glactifun${GALACTIFUN_VERSION}.jar"
+          sha256sum SFL_AddonsNDependencies.zip
+
+          gh release upload "$TAG" SFL_AddonsNDependencies.zip \
+            --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Upload finalized bundle artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Slimefun-Legacy-Addons-Finalized
+          path: SFL_AddonsNDependencies.zip
+          archive: false
+          if-no-files-found: error
