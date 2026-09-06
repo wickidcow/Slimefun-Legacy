@@ -2,7 +2,6 @@ package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.ASlimefunDataContainer;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
-import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
@@ -11,6 +10,7 @@ import java.util.Locale;
 import java.util.UUID;
 import javax.annotation.Nonnull;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.block.Block;
@@ -192,7 +192,7 @@ final class OwnerCommand extends SubCommand {
     }
 
     private void send(CommandSender sender, String message) {
-        sender.sendMessage(ChatColors.color(message));
+        sender.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
     }
 
     /** Records ownership after core Slimefun placement handling has created the block data. */
