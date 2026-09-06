@@ -120,7 +120,7 @@ class SlimefunTabCompleter implements TabCompleter {
                 }
                 return null;
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("storage")) {
-                return createReturnList(List.of("status", "scan"), args[2]);
+                return createReturnList(List.of("status", "scan", "plan"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("ie2")) {
                 return createReturnList(List.of("status", "scan", "migrate", "refresh"), args[2]);
             } else {
@@ -129,6 +129,11 @@ class SlimefunTabCompleter implements TabCompleter {
             }
         } else if (args.length == 4 && args[0].equalsIgnoreCase("give")) {
             return createReturnList(Arrays.asList("1", "2", "4", "8", "16", "32", "64"), args[3]);
+        } else if (args.length == 4
+                && args[0].equalsIgnoreCase("doctor")
+                && args[1].equalsIgnoreCase("storage")
+                && args[2].equalsIgnoreCase("plan")) {
+            return createReturnList(List.of("1"), args[3]);
         } else if (args.length == 4 && args[0].equalsIgnoreCase("chunkinfo")) {
             if (args[1].equalsIgnoreCase("top")) {
                 return Collections.emptyList();

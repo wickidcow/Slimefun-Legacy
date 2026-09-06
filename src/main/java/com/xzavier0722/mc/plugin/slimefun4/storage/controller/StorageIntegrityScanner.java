@@ -72,6 +72,21 @@ public final class StorageIntegrityScanner {
         return CONFIRMATION_TRACKER.getSnapshot();
     }
 
+    /**
+     * Returns a read-only plan for the exact candidate set that most recently reached two-pass confirmation.
+     *
+     * <p>No plan is returned while a new scan is active or when confirmation is not currently valid. Generating this
+     * object does not touch the database or mutate the confirmation state.
+     */
+    public static @Nullable StorageIntegrityRepairPlan getConfirmedRepairPlan() {
+        synchronized (SCAN_LOCK) {
+            if (activeScan != null && !activeScan.isDone()) {
+                return null;
+            }
+            return CONFIRMATION_TRACKER.createRepairPlan(System.currentTimeMillis());
+        }
+    }
+
     private static void runScan(BlockDataController controller, CompletableFuture<StorageIntegritySnapshot> future) {
         long startedAt = System.currentTimeMillis();
         int pendingWritesAtStart = controller.getPendingWriteTaskCount();

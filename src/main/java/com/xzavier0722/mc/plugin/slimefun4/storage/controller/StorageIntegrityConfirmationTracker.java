@@ -103,6 +103,20 @@ final class StorageIntegrityConfirmationTracker {
         return snapshot;
     }
 
+    /**
+     * Builds an immutable read-only plan from the exact candidate set that reached pass 2/2.
+     *
+     * @return a repair plan, or {@code null} when confirmation is not currently valid
+     */
+    synchronized StorageIntegrityRepairPlan createRepairPlan(long generatedAtMillis) {
+        if (!snapshot.isConfirmed() || baseline == null) {
+            return null;
+        }
+
+        return baseline.toRepairPlan(
+                generatedAtMillis, snapshot.getConfirmedAtMillis(), snapshot.getLastScanCompletedAtMillis());
+    }
+
     static final class CandidateSet {
 
         private final Set<String> blockData;
@@ -123,6 +137,18 @@ final class StorageIntegrityConfirmationTracker {
 
         int totalOwners() {
             return blockData.size() + blockInventory.size() + universalData.size() + universalInventory.size();
+        }
+
+        StorageIntegrityRepairPlan toRepairPlan(
+                long generatedAtMillis, long confirmedAtMillis, long sourceScanCompletedAtMillis) {
+            return new StorageIntegrityRepairPlan(
+                    generatedAtMillis,
+                    confirmedAtMillis,
+                    sourceScanCompletedAtMillis,
+                    blockData,
+                    blockInventory,
+                    universalData,
+                    universalInventory);
         }
 
         @Override
