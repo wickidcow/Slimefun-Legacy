@@ -27,12 +27,21 @@ public final class StorageIntegritySnapshot {
     private final int orphanUniversalInventoryOwners;
     private final int pendingWritesAtStart;
     private final int pendingWritesAtEnd;
+    private final int pendingDelayedWritesAtStart;
+    private final int pendingDelayedWritesAtEnd;
     private final boolean delayedSavingEnabled;
     private final List<String> orphanBlockDataOwnerSamples;
     private final List<String> orphanBlockInventoryOwnerSamples;
     private final List<String> orphanUniversalDataOwnerSamples;
     private final List<String> orphanUniversalInventoryOwnerSamples;
 
+    /**
+     * Creates a storage integrity snapshot using the original 4.1.46 constructor shape.
+     *
+     * <p>When delayed saving is enabled, this constructor cannot prove how many deferred mutations existed at the scan
+     * boundaries, so the delayed-write counts are recorded as unknown ({@code -1}). Callers that can observe those
+     * counts should use the extended constructor.
+     */
     public StorageIntegritySnapshot(
             long startedAtMillis,
             long completedAtMillis,
@@ -53,6 +62,52 @@ public final class StorageIntegritySnapshot {
             @Nonnull List<String> orphanBlockInventoryOwnerSamples,
             @Nonnull List<String> orphanUniversalDataOwnerSamples,
             @Nonnull List<String> orphanUniversalInventoryOwnerSamples) {
+        this(
+                startedAtMillis,
+                completedAtMillis,
+                blockRecords,
+                blockDataOwners,
+                blockInventoryOwners,
+                orphanBlockDataOwners,
+                orphanBlockInventoryOwners,
+                universalRecords,
+                universalDataOwners,
+                universalInventoryOwners,
+                orphanUniversalDataOwners,
+                orphanUniversalInventoryOwners,
+                pendingWritesAtStart,
+                pendingWritesAtEnd,
+                delayedSavingEnabled ? -1 : 0,
+                delayedSavingEnabled ? -1 : 0,
+                delayedSavingEnabled,
+                orphanBlockDataOwnerSamples,
+                orphanBlockInventoryOwnerSamples,
+                orphanUniversalDataOwnerSamples,
+                orphanUniversalInventoryOwnerSamples);
+    }
+
+    public StorageIntegritySnapshot(
+            long startedAtMillis,
+            long completedAtMillis,
+            int blockRecords,
+            int blockDataOwners,
+            int blockInventoryOwners,
+            int orphanBlockDataOwners,
+            int orphanBlockInventoryOwners,
+            int universalRecords,
+            int universalDataOwners,
+            int universalInventoryOwners,
+            int orphanUniversalDataOwners,
+            int orphanUniversalInventoryOwners,
+            int pendingWritesAtStart,
+            int pendingWritesAtEnd,
+            int pendingDelayedWritesAtStart,
+            int pendingDelayedWritesAtEnd,
+            boolean delayedSavingEnabled,
+            @Nonnull List<String> orphanBlockDataOwnerSamples,
+            @Nonnull List<String> orphanBlockInventoryOwnerSamples,
+            @Nonnull List<String> orphanUniversalDataOwnerSamples,
+            @Nonnull List<String> orphanUniversalInventoryOwnerSamples) {
         this.startedAtMillis = startedAtMillis;
         this.completedAtMillis = completedAtMillis;
         this.blockRecords = blockRecords;
@@ -67,6 +122,8 @@ public final class StorageIntegritySnapshot {
         this.orphanUniversalInventoryOwners = orphanUniversalInventoryOwners;
         this.pendingWritesAtStart = pendingWritesAtStart;
         this.pendingWritesAtEnd = pendingWritesAtEnd;
+        this.pendingDelayedWritesAtStart = pendingDelayedWritesAtStart;
+        this.pendingDelayedWritesAtEnd = pendingDelayedWritesAtEnd;
         this.delayedSavingEnabled = delayedSavingEnabled;
         this.orphanBlockDataOwnerSamples = List.copyOf(orphanBlockDataOwnerSamples);
         this.orphanBlockInventoryOwnerSamples = List.copyOf(orphanBlockInventoryOwnerSamples);
@@ -134,6 +191,24 @@ public final class StorageIntegritySnapshot {
         return pendingWritesAtEnd;
     }
 
+    /**
+     * Returns the number of deferred delayed-saving mutations observed when the scan started.
+     *
+     * @return delayed mutation count, or {@code -1} if it was not observable
+     */
+    public int getPendingDelayedWritesAtStart() {
+        return pendingDelayedWritesAtStart;
+    }
+
+    /**
+     * Returns the number of deferred delayed-saving mutations observed when the scan completed.
+     *
+     * @return delayed mutation count, or {@code -1} if it was not observable
+     */
+    public int getPendingDelayedWritesAtEnd() {
+        return pendingDelayedWritesAtEnd;
+    }
+
     public boolean isDelayedSavingEnabled() {
         return delayedSavingEnabled;
     }
@@ -167,12 +242,27 @@ public final class StorageIntegritySnapshot {
 
     /**
      * Returns whether queued writes were visible at either scan boundary.
-     *
-     * <p>A scan with writes at a boundary is still useful diagnostically, but orphan candidates should be rescanned
-     * during a quiet period before any future repair operation is considered. Delayed-saving mode is reported
-     * separately because delayed mutations may not yet have entered the controller's active write queue.
      */
     public boolean hadPendingWritesDuringScan() {
         return pendingWritesAtStart > 0 || pendingWritesAtEnd > 0;
+    }
+
+    /**
+     * Returns whether delayed-saving mutations were visible at either scan boundary.
+     *
+     * <p>An unknown delayed-write count is treated conservatively as pending work.
+     */
+    public boolean hadPendingDelayedWritesDuringScan() {
+        return pendingDelayedWritesAtStart != 0 || pendingDelayedWritesAtEnd != 0;
+    }
+
+    /**
+     * Returns whether both active and delayed write queues were observed empty at both scan boundaries.
+     *
+     * <p>This is intentionally stricter than checking only the normal write executor. A future repair workflow must not
+     * rely on a scan while deferred delayed-saving mutations are still outstanding or their count is unknown.
+     */
+    public boolean wasStorageQuietAtBoundaries() {
+        return !hadPendingWritesDuringScan() && !hadPendingDelayedWritesDuringScan();
     }
 }
