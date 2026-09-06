@@ -315,7 +315,7 @@ public class SlimefunCommand implements CommandExecutor, Listener {
     }
 
     @EventHandler
-    public void onCommand(PlayerCommandPreprocess(PlayerCommandPreprocessEvent e) {
+    public void onCommand(PlayerCommandPreprocessEvent e) {
         if (e.getMessage().equalsIgnoreCase("/help slimefun")) {
             sendHelp(e.getPlayer());
             e.setCancelled(true);
