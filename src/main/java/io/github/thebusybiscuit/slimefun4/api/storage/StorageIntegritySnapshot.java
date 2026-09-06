@@ -1,12 +1,14 @@
 package io.github.thebusybiscuit.slimefun4.api.storage;
 
 import io.github.thebusybiscuit.slimefun4.api.annotations.SlimefunAPI;
+import java.util.List;
+import javax.annotation.Nonnull;
 
 /**
  * Immutable result of an explicit Slimefun block-storage integrity scan.
  *
- * <p>The scan compares record owners against data and inventory owners in the active storage backend. It is
- * observational only and does not delete, migrate, repair, force-load, or otherwise mutate stored data.
+ * <p>The scan compares primary storage record owners against secondary data and inventory owners in the active storage
+ * backend. It is observational only and does not delete, migrate, repair, force-load, or otherwise mutate stored data.
  */
 @SlimefunAPI
 public final class StorageIntegritySnapshot {
@@ -24,7 +26,12 @@ public final class StorageIntegritySnapshot {
     private final int orphanUniversalDataOwners;
     private final int orphanUniversalInventoryOwners;
     private final int pendingWritesAtStart;
-    private final int delayedWritesAtStart;
+    private final int pendingWritesAtEnd;
+    private final boolean delayedSavingEnabled;
+    private final List<String> orphanBlockDataOwnerSamples;
+    private final List<String> orphanBlockInventoryOwnerSamples;
+    private final List<String> orphanUniversalDataOwnerSamples;
+    private final List<String> orphanUniversalInventoryOwnerSamples;
 
     public StorageIntegritySnapshot(
             long startedAtMillis,
@@ -40,7 +47,12 @@ public final class StorageIntegritySnapshot {
             int orphanUniversalDataOwners,
             int orphanUniversalInventoryOwners,
             int pendingWritesAtStart,
-            int delayedWritesAtStart) {
+            int pendingWritesAtEnd,
+            boolean delayedSavingEnabled,
+            @Nonnull List<String> orphanBlockDataOwnerSamples,
+            @Nonnull List<String> orphanBlockInventoryOwnerSamples,
+            @Nonnull List<String> orphanUniversalDataOwnerSamples,
+            @Nonnull List<String> orphanUniversalInventoryOwnerSamples) {
         this.startedAtMillis = startedAtMillis;
         this.completedAtMillis = completedAtMillis;
         this.blockRecords = blockRecords;
@@ -54,7 +66,12 @@ public final class StorageIntegritySnapshot {
         this.orphanUniversalDataOwners = orphanUniversalDataOwners;
         this.orphanUniversalInventoryOwners = orphanUniversalInventoryOwners;
         this.pendingWritesAtStart = pendingWritesAtStart;
-        this.delayedWritesAtStart = delayedWritesAtStart;
+        this.pendingWritesAtEnd = pendingWritesAtEnd;
+        this.delayedSavingEnabled = delayedSavingEnabled;
+        this.orphanBlockDataOwnerSamples = List.copyOf(orphanBlockDataOwnerSamples);
+        this.orphanBlockInventoryOwnerSamples = List.copyOf(orphanBlockInventoryOwnerSamples);
+        this.orphanUniversalDataOwnerSamples = List.copyOf(orphanUniversalDataOwnerSamples);
+        this.orphanUniversalInventoryOwnerSamples = List.copyOf(orphanUniversalInventoryOwnerSamples);
     }
 
     public long getStartedAtMillis() {
@@ -113,8 +130,28 @@ public final class StorageIntegritySnapshot {
         return pendingWritesAtStart;
     }
 
-    public int getDelayedWritesAtStart() {
-        return delayedWritesAtStart;
+    public int getPendingWritesAtEnd() {
+        return pendingWritesAtEnd;
+    }
+
+    public boolean isDelayedSavingEnabled() {
+        return delayedSavingEnabled;
+    }
+
+    public @Nonnull List<String> getOrphanBlockDataOwnerSamples() {
+        return orphanBlockDataOwnerSamples;
+    }
+
+    public @Nonnull List<String> getOrphanBlockInventoryOwnerSamples() {
+        return orphanBlockInventoryOwnerSamples;
+    }
+
+    public @Nonnull List<String> getOrphanUniversalDataOwnerSamples() {
+        return orphanUniversalDataOwnerSamples;
+    }
+
+    public @Nonnull List<String> getOrphanUniversalInventoryOwnerSamples() {
+        return orphanUniversalInventoryOwnerSamples;
     }
 
     public int getTotalOrphanOwners() {
@@ -129,12 +166,13 @@ public final class StorageIntegritySnapshot {
     }
 
     /**
-     * Returns whether writes were already queued when the scan began.
+     * Returns whether queued writes were visible at either scan boundary.
      *
-     * <p>A scan with concurrent writes is still useful diagnostically, but orphan candidates should be rescanned during
-     * a quiet period before any future repair operation is considered.
+     * <p>A scan with writes at a boundary is still useful diagnostically, but orphan candidates should be rescanned
+     * during a quiet period before any future repair operation is considered. Delayed-saving mode is reported
+     * separately because delayed mutations may not yet have entered the controller's active write queue.
      */
-    public boolean hadPendingWritesAtStart() {
-        return pendingWritesAtStart > 0 || delayedWritesAtStart > 0;
+    public boolean hadPendingWritesDuringScan() {
+        return pendingWritesAtStart > 0 || pendingWritesAtEnd > 0;
     }
 }
