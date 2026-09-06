@@ -2,6 +2,7 @@ package io.github.thebusybiscuit.slimefun4.core.commands;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.StorageIntegrityScanner;
 import io.github.bakedlibs.dough.common.ChatColors;
+import io.github.thebusybiscuit.slimefun4.api.storage.StorageIntegrityConfirmationSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.storage.StorageIntegritySnapshot;
 import io.github.thebusybiscuit.slimefun4.core.commands.subcommands.SlimefunSubCommands;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
@@ -140,6 +141,7 @@ public class SlimefunCommand implements CommandExecutor, Listener {
                 sender.sendMessage(ChatColors.color("&cStorage integrity scan failed: &f"
                         + failure.getClass().getSimpleName()
                         + (message == null || message.isBlank() ? "" : " &8- &7" + message)));
+                sender.sendMessage(ChatColors.color("&eAny previous two-pass confirmation was invalidated."));
                 return;
             }
             sender.sendMessage(ChatColors.color("&aStorage integrity scan completed."));
@@ -206,12 +208,67 @@ public class SlimefunCommand implements CommandExecutor, Listener {
 
         sender.sendMessage(ChatColors.color("&7Queued writes at scan boundaries: &e"
                 + snapshot.getPendingWritesAtStart() + " &8-> &e" + snapshot.getPendingWritesAtEnd()));
-        if (snapshot.hadPendingWritesDuringScan() || snapshot.isDelayedSavingEnabled()) {
-            sender.sendMessage(ChatColors.color(
-                    "&eStorage was not proven quiet. Re-scan during a quiet period before considering any repair."));
-        }
+        sender.sendMessage(ChatColors.color("&7Deferred delayed writes: &e"
+                + formatStorageWriteCount(snapshot.getPendingDelayedWritesAtStart())
+                + " &8-> &e"
+                + formatStorageWriteCount(snapshot.getPendingDelayedWritesAtEnd())
+                + " &8| &7delayed saving: "
+                + (snapshot.isDelayedSavingEnabled() ? "&eEnabled" : "&aDisabled")));
+
+        sendStorageConfirmationStatus(sender, snapshot, StorageIntegrityScanner.getConfirmationSnapshot());
         sender.sendMessage(ChatColors.color(
                 "&8This diagnostic is observational only. It does not delete, migrate, repair, or force-load data."));
+    }
+
+    private void sendStorageConfirmationStatus(
+            @Nonnull CommandSender sender,
+            @Nonnull StorageIntegritySnapshot snapshot,
+            @Nonnull StorageIntegrityConfirmationSnapshot confirmation) {
+        if (!snapshot.wasStorageQuietAtBoundaries()) {
+            sender.sendMessage(ChatColors.color("&cTwo-pass confirmation: 0/2. &eStorage was not proven quiet."));
+            if (snapshot.getPendingDelayedWritesAtStart() < 0 || snapshot.getPendingDelayedWritesAtEnd() < 0) {
+                sender.sendMessage(ChatColors.color(
+                        "&7Delayed-saving mutations are not currently enumerable, so confirmation fails closed."));
+            }
+            sender.sendMessage(ChatColors.color(
+                    "&7Repeat the scan only after both active and deferred storage writes can be proven quiet."));
+            return;
+        }
+
+        if (confirmation.isConfirmed()) {
+            if (snapshot.isClean()) {
+                sender.sendMessage(ChatColors.color(
+                        "&aTwo-pass confirmation: 2/2. Two matching quiet scans confirm a clean ownership snapshot."));
+            } else {
+                sender.sendMessage(ChatColors.color("&aTwo-pass confirmation: 2/2. &f"
+                        + confirmation.getCandidateOwners() + " &astable orphan owner reference(s) matched exactly."));
+            }
+            sender.sendMessage(ChatColors.color(
+                    "&7Confirmation is runtime-only evidence; no repair or deletion action is enabled."));
+            return;
+        }
+
+        if (confirmation.didCandidateSetChange()) {
+            sender.sendMessage(ChatColors.color(
+                    "&eTwo-pass confirmation: 1/2. The exact candidate set changed, so confirmation restarted."));
+        } else {
+            sender.sendMessage(ChatColors.color(
+                    "&eTwo-pass confirmation: 1/2. First quiet ownership snapshot recorded."));
+        }
+
+        long waitMillis = confirmation.getRemainingWaitMillis(System.currentTimeMillis());
+        if (waitMillis > 0L) {
+            long waitSeconds = (waitMillis + 999L) / 1000L;
+            sender.sendMessage(ChatColors.color("&7Wait at least &e" + waitSeconds
+                    + "s &7before another matching quiet scan can become pass 2/2."));
+        } else {
+            sender.sendMessage(ChatColors.color(
+                    "&7A second exact matching quiet scan can now advance confirmation to 2/2."));
+        }
+    }
+
+    private String formatStorageWriteCount(int count) {
+        return count < 0 ? "unknown" : Integer.toString(count);
     }
 
     private void sendStorageOwnerSamples(
@@ -258,7 +315,7 @@ public class SlimefunCommand implements CommandExecutor, Listener {
     }
 
     @EventHandler
-    public void onCommand(PlayerCommandPreprocessEvent e) {
+    public void onCommand(PlayerCommandPreprocess(PlayerCommandPreprocessEvent e) {
         if (e.getMessage().equalsIgnoreCase("/help slimefun")) {
             sendHelp(e.getPlayer());
             e.setCancelled(true);
