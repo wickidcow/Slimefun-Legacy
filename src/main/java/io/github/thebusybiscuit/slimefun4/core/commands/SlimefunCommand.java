@@ -1,11 +1,13 @@
 package io.github.thebusybiscuit.slimefun4.core.commands;
 
+import com.xzavier0722.mc.plugin.slimefun4.storage.controller.StorageIntegrityRepairPlan;
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.StorageIntegrityScanner;
 import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.thebusybiscuit.slimefun4.api.storage.StorageIntegrityConfirmationSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.storage.StorageIntegritySnapshot;
 import io.github.thebusybiscuit.slimefun4.core.commands.subcommands.SlimefunSubCommands;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -29,6 +31,8 @@ import org.bukkit.event.player.PlayerCommandPreprocessEvent;
  *
  */
 public class SlimefunCommand implements CommandExecutor, Listener {
+
+    private static final int STORAGE_PLAN_PAGE_SIZE = 20;
 
     private boolean registered = false;
     private final Slimefun plugin;
@@ -113,8 +117,12 @@ public class SlimefunCommand implements CommandExecutor, Listener {
             sendStorageIntegrityStatus(sender);
             return;
         }
+        if (action.equals("plan")) {
+            sendStorageRepairPlan(sender, args);
+            return;
+        }
         if (!action.equals("scan")) {
-            sender.sendMessage(ChatColors.color("&eUsage: /sf doctor storage <status|scan>"));
+            sender.sendMessage(ChatColors.color("&eUsage: /sf doctor storage <status|scan|plan> [page]"));
             return;
         }
 
@@ -244,7 +252,7 @@ public class SlimefunCommand implements CommandExecutor, Listener {
                         + confirmation.getCandidateOwners() + " &astable orphan owner reference(s) matched exactly."));
             }
             sender.sendMessage(ChatColors.color(
-                    "&7Confirmation is runtime-only evidence; no repair or deletion action is enabled."));
+                    "&7Use &e/sf doctor storage plan &7to render the confirmed read-only candidate plan."));
             return;
         }
 
@@ -264,6 +272,83 @@ public class SlimefunCommand implements CommandExecutor, Listener {
         } else {
             sender.sendMessage(ChatColors.color(
                     "&7A second exact matching quiet scan can now advance confirmation to 2/2."));
+        }
+    }
+
+    private void sendStorageRepairPlan(@Nonnull CommandSender sender, @Nonnull String[] args) {
+        if (StorageIntegrityScanner.isScanRunning()) {
+            sender.sendMessage(ChatColors.color(
+                    "&eA storage integrity scan is running. Wait for it to finish before rendering a plan."));
+            return;
+        }
+
+        int requestedPage = 1;
+        if (args.length > 3) {
+            try {
+                requestedPage = Integer.parseInt(args[3]);
+            } catch (NumberFormatException ignored) {
+                sender.sendMessage(ChatColors.color("&eUsage: /sf doctor storage plan [page]"));
+                return;
+            }
+        }
+
+        StorageIntegrityRepairPlan plan = StorageIntegrityScanner.getConfirmedRepairPlan();
+        if (plan == null) {
+            StorageIntegrityConfirmationSnapshot confirmation = StorageIntegrityScanner.getConfirmationSnapshot();
+            sender.sendMessage(ChatColors.color("&6Slimefun Storage Repair Plan"));
+            sender.sendMessage(ChatColors.color("&eNo confirmed plan is available."));
+            sender.sendMessage(ChatColors.color("&7Current confirmation: &e" + confirmation.getQuietPasses()
+                    + "/2&7. Two exact matching quiet scans are required before a plan can be rendered."));
+            sender.sendMessage(ChatColors.color(
+                    "&7Run &e/sf doctor storage scan &7and inspect &e/sf doctor storage status&7."));
+            return;
+        }
+
+        List<String> entries = new ArrayList<>(plan.getTotalCandidateReferences());
+        appendStoragePlanEntries(entries, "BLOCK_DATA", plan.getBlockDataOwners());
+        appendStoragePlanEntries(entries, "BLOCK_INVENTORY", plan.getBlockInventoryOwners());
+        appendStoragePlanEntries(entries, "UNIVERSAL_DATA", plan.getUniversalDataOwners());
+        appendStoragePlanEntries(entries, "UNIVERSAL_INVENTORY", plan.getUniversalInventoryOwners());
+
+        int pageCount = Math.max(1, (entries.size() + STORAGE_PLAN_PAGE_SIZE - 1) / STORAGE_PLAN_PAGE_SIZE);
+        if (requestedPage < 1 || requestedPage > pageCount) {
+            sender.sendMessage(ChatColors.color("&cPlan page must be between 1 and " + pageCount + "."));
+            return;
+        }
+
+        long ageSeconds = Math.max(0L, (System.currentTimeMillis() - plan.getSourceScanCompletedAtMillis()) / 1000L);
+        sender.sendMessage(ChatColors.color("&6Slimefun Storage Repair Plan &8[&aREAD ONLY&8]"));
+        sender.sendMessage(ChatColors.color("&7Fingerprint: &e" + plan.getShortFingerprint()
+                + " &8| &7source scan age: &e" + ageSeconds + "s"));
+        sender.sendMessage(ChatColors.color("&7Candidates: block data &e" + plan.getBlockDataOwnerCount()
+                + " &8| &7block inventory &e" + plan.getBlockInventoryOwnerCount()
+                + " &8| &7universal data &e" + plan.getUniversalDataOwnerCount()
+                + " &8| &7universal inventory &e" + plan.getUniversalInventoryOwnerCount()));
+
+        if (plan.isEmpty()) {
+            sender.sendMessage(ChatColors.color("&aThe confirmed plan is empty. There are no orphan owners to remove."));
+        } else {
+            sender.sendMessage(ChatColors.color("&7Plan entries: &e" + plan.getTotalCandidateReferences()
+                    + " &8| &7page &e" + requestedPage + "&7/&e" + pageCount));
+            int start = (requestedPage - 1) * STORAGE_PLAN_PAGE_SIZE;
+            int end = Math.min(entries.size(), start + STORAGE_PLAN_PAGE_SIZE);
+            for (int i = start; i < end; i++) {
+                sender.sendMessage(ChatColors.color(entries.get(i)));
+            }
+            if (pageCount > 1) {
+                sender.sendMessage(ChatColors.color("&7Use &e/sf doctor storage plan <page> &7to inspect every entry."));
+            }
+        }
+
+        sender.sendMessage(ChatColors.color(
+                "&8Each entry is a scope-qualified orphan owner whose secondary rows would be repair candidates."));
+        sender.sendMessage(ChatColors.color(
+                "&8Nothing was deleted, migrated, rewritten, force-loaded, or repaired. A future repair must revalidate storage."));
+    }
+
+    private void appendStoragePlanEntries(List<String> entries, String scope, List<String> owners) {
+        for (String owner : owners) {
+            entries.add("&8- &7[&e" + scope + "&7] &f" + owner);
         }
     }
 
