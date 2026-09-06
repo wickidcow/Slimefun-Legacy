@@ -44,6 +44,11 @@ final class ChunkInfoCommand extends SubCommand {
             return;
         }
 
+        if (args.length > 1 && args[1].equalsIgnoreCase("top")) {
+            showTopTickerChunks(sender, args);
+            return;
+        }
+
         ChunkTarget target = resolveTarget(sender, args);
         if (target == null) {
             sendUsage(sender);
@@ -64,7 +69,89 @@ final class ChunkInfoCommand extends SubCommand {
 
     @Override
     public @Nonnull String getDescription(@Nonnull CommandSender sender) {
-        return "Shows Slimefun blocks, addons and ticker registrations in a loaded chunk";
+        return "Shows Slimefun chunk diagnostics and registered ticker hotspots";
+    }
+
+    private void showTopTickerChunks(CommandSender sender, String[] args) {
+        if (args.length > 3) {
+            sendUsage(sender);
+            return;
+        }
+
+        World worldFilter = null;
+        if (args.length == 3) {
+            worldFilter = Bukkit.getWorld(args[2]);
+            if (worldFilter == null) {
+                send(sender, "&cUnknown world: &e" + args[2]);
+                return;
+            }
+        }
+
+        Map<ChunkKey, Integer> counts = new HashMap<>();
+        int totalRegistrations = 0;
+
+        // This is an on-demand snapshot over the concurrent ticker registry. It does not touch block state, inspect
+        // inventories or force-load chunks, so it remains safe as an operator diagnostic on Paper and Folia.
+        for (Set<TickLocation> registered : Slimefun.getTickerTask().getTickLocations().values()) {
+            if (registered.isEmpty()) {
+                continue;
+            }
+
+            for (TickLocation tickLocation : new HashSet<>(registered)) {
+                Location location = tickLocation.getLocation();
+                World world = location.getWorld();
+                if (world == null || (worldFilter != null && !worldFilter.equals(world))) {
+                    continue;
+                }
+
+                ChunkKey key = new ChunkKey(world.getName(), location.getBlockX() >> 4, location.getBlockZ() >> 4);
+                counts.merge(key, 1, Integer::sum);
+                totalRegistrations++;
+            }
+        }
+
+        List<Map.Entry<ChunkKey, Integer>> ranked = new ArrayList<>(counts.entrySet());
+        ranked.sort((left, right) -> {
+            int count = Integer.compare(right.getValue(), left.getValue());
+            if (count != 0) {
+                return count;
+            }
+
+            int world = left.getKey().worldName().compareToIgnoreCase(right.getKey().worldName());
+            if (world != 0) {
+                return world;
+            }
+
+            int x = Integer.compare(left.getKey().chunkX(), right.getKey().chunkX());
+            return x != 0 ? x : Integer.compare(left.getKey().chunkZ(), right.getKey().chunkZ());
+        });
+
+        List<String> lines = new ArrayList<>();
+        lines.add("&6&m----------------------------------------");
+        lines.add("&6&lSlimefun Ticker Hotspots");
+        lines.add("&7Scope: &f" + (worldFilter == null ? "all worlds" : worldFilter.getName()));
+        lines.add("&7Registered ticker locations: &f" + totalRegistrations);
+        lines.add("&7Chunks with ticker registrations: &f" + counts.size());
+
+        if (ranked.isEmpty()) {
+            lines.add("&7No ticker registrations matched this scope.");
+        } else {
+            int shown = Math.min(TOP_LIMIT, ranked.size());
+            for (int i = 0; i < shown; i++) {
+                Map.Entry<ChunkKey, Integer> entry = ranked.get(i);
+                ChunkKey key = entry.getKey();
+                lines.add("&e" + (i + 1) + ". &f" + key.worldName() + " &7" + key.chunkX() + ", " + key.chunkZ()
+                        + " &8— &f" + entry.getValue() + " &7ticker(s)");
+            }
+            if (ranked.size() > shown) {
+                lines.add("&8... and " + (ranked.size() - shown) + " more registered chunks");
+            }
+        }
+
+        lines.add("&8Registration count is not timing cost and includes unloaded registrations.");
+        lines.add("&8Use /sf tick top for live timing data, then /sf chunkinfo <world> <x> <z> for detail.");
+        lines.add("&6&m----------------------------------------");
+        deliver(sender, lines);
     }
 
     private void inspectChunk(CommandSender sender, ChunkTarget target) {
@@ -248,7 +335,7 @@ final class ChunkInfoCommand extends SubCommand {
     }
 
     private void sendUsage(CommandSender sender) {
-        send(sender, "&eUsage: /sf chunkinfo [<chunkX> <chunkZ> | <world> <chunkX> <chunkZ>]");
+        send(sender, "&eUsage: /sf chunkinfo [top [world] | <chunkX> <chunkZ> | <world> <chunkX> <chunkZ>]");
     }
 
     private void deliver(CommandSender sender, List<String> lines) {
@@ -269,6 +356,8 @@ final class ChunkInfoCommand extends SubCommand {
     }
 
     private record ChunkTarget(World world, int chunkX, int chunkZ) {}
+
+    private record ChunkKey(String worldName, int chunkX, int chunkZ) {}
 
     private record TickerSnapshot(boolean universal, boolean knownTicker, boolean synchronizedTicker) {}
 }

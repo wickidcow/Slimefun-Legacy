@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "release": "4.1.45",
+  "release": "4.1.46",
   "policy": {
     "required_failures_block_release": true,
     "advisory_failures_are_reported": true,

@@ -55,7 +55,9 @@ class SlimefunTabCompleter implements TabCompleter {
             } else if (args[0].equalsIgnoreCase("owner")) {
                 return createReturnList(List.of("query", "claim", "clear", "transfer"), args[1]);
             } else if (args[0].equalsIgnoreCase("chunkinfo")) {
-                List<String> list = new ArrayList<>(Bukkit.getWorlds().stream().map(WorldInfo::getName).toList());
+                List<String> list = new ArrayList<>();
+                list.add("top");
+                list.addAll(Bukkit.getWorlds().stream().map(WorldInfo::getName).toList());
                 if (sender instanceof Player player) {
                     list.add(String.valueOf(player.getLocation().getChunk().getX()));
                 }
@@ -104,6 +106,11 @@ class SlimefunTabCompleter implements TabCompleter {
                 list.addAll(getTickingSlimefunItems());
                 return createReturnList(list, args[2]);
             } else if (args[0].equalsIgnoreCase("chunkinfo")) {
+                if (args[1].equalsIgnoreCase("top")) {
+                    return createReturnList(
+                            Bukkit.getWorlds().stream().map(WorldInfo::getName).toList(), args[2]);
+                }
+
                 World explicitWorld = Bukkit.getWorld(args[1]);
                 if (explicitWorld != null) {
                     return createReturnList(List.of(currentChunkCoordinate(sender, explicitWorld, true)), args[2]);
@@ -120,6 +127,10 @@ class SlimefunTabCompleter implements TabCompleter {
         } else if (args.length == 4 && args[0].equalsIgnoreCase("give")) {
             return createReturnList(Arrays.asList("1", "2", "4", "8", "16", "32", "64"), args[3]);
         } else if (args.length == 4 && args[0].equalsIgnoreCase("chunkinfo")) {
+            if (args[1].equalsIgnoreCase("top")) {
+                return Collections.emptyList();
+            }
+
             World explicitWorld = Bukkit.getWorld(args[1]);
             return explicitWorld == null
                     ? null
