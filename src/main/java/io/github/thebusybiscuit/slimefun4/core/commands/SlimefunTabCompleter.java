@@ -122,7 +122,7 @@ class SlimefunTabCompleter implements TabCompleter {
                 }
                 return null;
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("storage")) {
-                return createReturnList(List.of("status", "scan", "plan", "verify"), args[2]);
+                return createReturnList(List.of("status", "scan", "plan", "verify", "repair"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("ie2")) {
                 return createReturnList(List.of("status", "scan", "migrate", "refresh"), args[2]);
             } else {
@@ -139,7 +139,7 @@ class SlimefunTabCompleter implements TabCompleter {
         } else if (args.length == 4
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("storage")
-                && args[2].equalsIgnoreCase("verify")) {
+                && (args[2].equalsIgnoreCase("verify") || args[2].equalsIgnoreCase("repair"))) {
             StorageIntegrityRepairPlan plan = StorageIntegrityScanner.getConfirmedRepairPlan();
             return plan == null
                     ? Collections.emptyList()
