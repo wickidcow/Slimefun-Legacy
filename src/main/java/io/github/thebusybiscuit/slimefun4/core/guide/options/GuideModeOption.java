@@ -73,14 +73,32 @@ class GuideModeOption implements SlimefunGuideOption<SlimefunGuideMode> {
 
     @Override
     public void onClick(@Nonnull Player p, @Nonnull ItemStack guide) {
-        Optional<SlimefunGuideMode> current = getSelectedOption(p, guide);
+        ItemStack targetGuide = getTargetGuide(p, guide);
+        Optional<SlimefunGuideMode> current = getSelectedOption(p, targetGuide);
 
         if (current.isPresent()) {
             SlimefunGuideMode next = getNextMode(p, current.get());
-            setSelectedOption(p, guide, next);
+            setSelectedOption(p, targetGuide, next);
         }
 
-        SlimefunGuideSettings.openSettings(p, guide);
+        SlimefunGuideSettings.openSettings(p, targetGuide);
+    }
+
+    @Nonnull
+    private ItemStack getTargetGuide(@Nonnull Player p, @Nonnull ItemStack guide) {
+        if (SlimefunGuide.isGuideItem(guide)) {
+            return guide;
+        }
+
+        ItemStack offHand = p.getInventory().getItemInOffHand();
+        if (SlimefunGuide.isGuideItem(offHand)) {
+            return offHand;
+        }
+
+        // /sf open_guide and similar command paths can open the menu without a physical guide.
+        // Never apply guide metadata to an arbitrary item in the player's hand. Use a temporary
+        // guide for this menu session instead so the setting remains functional and safe.
+        return SlimefunGuide.getItem(SlimefunGuideMode.SURVIVAL_MODE).clone();
     }
 
     @Nonnull
