@@ -64,6 +64,16 @@ public class TickerTask implements Runnable {
      */
     private final Set<BlockPosition> viewedInventories = ConcurrentHashMap.newKeySet();
 
+    /**
+     * Operator-selected machine locations whose callbacks are intentionally skipped without unregistering the ticker.
+     */
+    private final Set<BlockPosition> targetedPausedMachines = ConcurrentHashMap.newKeySet();
+
+    /**
+     * Operator-selected Slimefun item ids whose callbacks are intentionally skipped across every registered location.
+     */
+    private final Set<String> targetedPausedItemIds = ConcurrentHashMap.newKeySet();
+
     private final Set<BlockPosition> queuedSynchronousTicks = ConcurrentHashMap.newKeySet();
     private final Map<BlockTicker, Object> foliaTickerLocks = new ConcurrentHashMap<>();
     private final MachineCircuitBreaker<BlockPosition> circuitBreaker = new MachineCircuitBreaker<>();
@@ -243,7 +253,7 @@ public class TickerTask implements Runnable {
         if (item == null || item.getBlockTicker() == null || item.isDisabledIn(location.getWorld())) {
             return;
         }
-        if (!canAttemptTick(position)) {
+        if (isTargetedPaused(position, item.getId()) || !canAttemptTick(position)) {
             return;
         }
 
@@ -260,6 +270,10 @@ public class TickerTask implements Runnable {
                     // Addons commonly keep mutable state on a shared BlockTicker instance. Paper's historical
                     // coordinator effectively serialized those callbacks; retain that guarantee across Folia regions.
                     synchronized (foliaTickerLocks.computeIfAbsent(ticker, ignored -> new Object())) {
+                        if (isTargetedPaused(position, item.getId())) {
+                            return;
+                        }
+
                         ticker.update();
                         long timestamp = Slimefun.getProfiler().newEntry();
                         owedProfilerEntry = timestamp != 0;
@@ -293,6 +307,13 @@ public class TickerTask implements Runnable {
                             return;
                         }
 
+                        if (isTargetedPaused(position, item.getId())) {
+                            if (profilerScheduled) {
+                                Slimefun.getProfiler().cancelScheduledEntry();
+                            }
+                            return;
+                        }
+
                         long timestamp = profilerScheduled ? System.nanoTime() : 0L;
                         if (tickBlock(location, item, data, timestamp)) {
                             markTickSuccess(position);
@@ -308,6 +329,10 @@ public class TickerTask implements Runnable {
                 });
                 owedProfilerEntry = false;
             } else {
+                if (isTargetedPaused(position, item.getId())) {
+                    return;
+                }
+
                 long timestamp = Slimefun.getProfiler().newEntry();
                 owedProfilerEntry = timestamp != 0;
                 ticker.update();
@@ -325,6 +350,10 @@ public class TickerTask implements Runnable {
             }
             reportErrors(location, item, throwable);
         }
+    }
+
+    private boolean isTargetedPaused(BlockPosition position, String itemId) {
+        return targetedPausedMachines.contains(position) || targetedPausedItemIds.contains(itemId);
     }
 
     private void clearFailureState(BlockPosition position) {
@@ -515,6 +544,70 @@ public class TickerTask implements Runnable {
         return failureTracker.snapshot(limit);
     }
 
+    /**
+     * Pauses ticker callbacks for one machine location while preserving its registration and stored data.
+     */
+    public boolean pauseMachineTicker(@Nonnull Location location) {
+        Validate.notNull(location, "Location cannot be null!");
+        return targetedPausedMachines.add(new BlockPosition(location));
+    }
+
+    /**
+     * Resumes ticker callbacks for one machine location.
+     */
+    public boolean resumeMachineTicker(@Nonnull Location location) {
+        Validate.notNull(location, "Location cannot be null!");
+        return targetedPausedMachines.remove(new BlockPosition(location));
+    }
+
+    /**
+     * Returns whether one machine location has been explicitly paused by an operator.
+     */
+    public boolean isMachineTickerPaused(@Nonnull Location location) {
+        Validate.notNull(location, "Location cannot be null!");
+        return targetedPausedMachines.contains(new BlockPosition(location));
+    }
+
+    /**
+     * Pauses ticker callbacks for every machine registered under the given canonical Slimefun item id.
+     */
+    public boolean pauseItemTicker(@Nonnull String itemId) {
+        Validate.notNull(itemId, "Slimefun item id cannot be null!");
+        return targetedPausedItemIds.add(itemId);
+    }
+
+    /**
+     * Resumes ticker callbacks for the given Slimefun item id.
+     */
+    public boolean resumeItemTicker(@Nonnull String itemId) {
+        Validate.notNull(itemId, "Slimefun item id cannot be null!");
+        return targetedPausedItemIds.remove(itemId);
+    }
+
+    /**
+     * Returns whether the given Slimefun item id has been explicitly paused by an operator.
+     */
+    public boolean isItemTickerPaused(@Nonnull String itemId) {
+        Validate.notNull(itemId, "Slimefun item id cannot be null!");
+        return targetedPausedItemIds.contains(itemId);
+    }
+
+    public int getTargetedPausedMachineCount() {
+        return targetedPausedMachines.size();
+    }
+
+    @Nonnull
+    public Set<String> getTargetedPausedItemIds() {
+        return Set.copyOf(targetedPausedItemIds);
+    }
+
+    public int clearTargetedTickerPauses() {
+        int count = targetedPausedMachines.size() + targetedPausedItemIds.size();
+        targetedPausedMachines.clear();
+        targetedPausedItemIds.clear();
+        return count;
+    }
+
     public boolean isPaused() {
         return paused;
     }
@@ -525,6 +618,8 @@ public class TickerTask implements Runnable {
 
     public void halt() {
         halted = true;
+        targetedPausedMachines.clear();
+        targetedPausedItemIds.clear();
 
         if (scheduledTask != null) {
             scheduledTask.cancel();
@@ -662,6 +757,7 @@ public class TickerTask implements Runnable {
 
         BlockPosition position = new BlockPosition(l);
         viewedInventories.remove(position);
+        targetedPausedMachines.remove(position);
         queuedSynchronousTicks.remove(position);
         circuitBreaker.clear(position);
         bugs.remove(position);
@@ -694,7 +790,14 @@ public class TickerTask implements Runnable {
         Validate.notNull(uuid, "Universal Data ID cannot be null!");
 
         synchronized (tickingLocations) {
-            tickingLocations.values().forEach(loc -> loc.removeIf(tk -> uuid.equals(tk.getUuid())));
+            tickingLocations.values().forEach(loc -> loc.removeIf(tk -> {
+                if (!uuid.equals(tk.getUuid())) {
+                    return false;
+                }
+
+                targetedPausedMachines.remove(new BlockPosition(tk.getLocation()));
+                return true;
+            }));
         }
     }
 
