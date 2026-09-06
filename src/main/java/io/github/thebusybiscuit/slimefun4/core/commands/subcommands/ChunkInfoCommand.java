@@ -2,7 +2,6 @@ package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.SlimefunBlockData;
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.SlimefunChunkData;
-import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
@@ -17,6 +16,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -252,7 +252,7 @@ final class ChunkInfoCommand extends SubCommand {
     }
 
     private void deliver(CommandSender sender, List<String> lines) {
-        Runnable delivery = () -> lines.forEach(line -> sender.sendMessage(ChatColors.color(line)));
+        Runnable delivery = () -> lines.forEach(line -> sender.sendMessage(color(line)));
         if (sender instanceof Player player) {
             Slimefun.getSchedulerService().runFor(player, delivery, () -> {});
         } else {
@@ -261,7 +261,11 @@ final class ChunkInfoCommand extends SubCommand {
     }
 
     private void send(CommandSender sender, String message) {
-        sender.sendMessage(ChatColors.color(message));
+        sender.sendMessage(color(message));
+    }
+
+    private String color(String message) {
+        return ChatColor.translateAlternateColorCodes('&', message);
     }
 
     private record ChunkTarget(World world, int chunkX, int chunkZ) {}
