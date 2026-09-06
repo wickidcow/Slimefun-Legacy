@@ -1,0 +1,151 @@
+name: Dev Arachnid Ward Torch
+
+on:
+  push:
+    branches: [feature/4.1.46-arachnid-ward]
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: feature/4.1.46-arachnid-ward
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Wire item, defaults and release notes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          setup = Path('src/main/java/io/github/thebusybiscuit/slimefun4/implementation/setup/AdventurersCuriosSetup.java')
+          text = setup.read_text()
+
+          old = 'import io.github.thebusybiscuit.slimefun4.implementation.items.curios.BastionResonator;\n'
+          new = old + 'import io.github.thebusybiscuit.slimefun4.implementation.items.curios.ArachnidWardTorch;\n'
+          if 'items.curios.ArachnidWardTorch;' not in text:
+              if old not in text:
+                  raise SystemExit('Could not locate Curios import insertion point')
+              text = text.replace(old, new, 1)
+
+          marker = '''        SlimefunItemStack portableCampKit = new SlimefunItemStack(
+                  "ADVENTURERS_PORTABLE_CAMP_KIT",
+          '''
+          item = '''        SlimefunItemStack arachnidWardTorch = new SlimefunItemStack(
+                  "ADVENTURERS_ARACHNID_WARD_TORCH",
+                  Material.SOUL_TORCH,
+                  "&bArachnid Ward Torch",
+                  "&7A cave explorer's ward against spiders.",
+                  "&7Repels Spiders and Cave Spiders without harming them.",
+                  "",
+                  "&eHold in either hand &7for a mobile ward",
+                  "&ePlace it &7for a larger stationary ward",
+                  "&8Defaults: 8 blocks held / 12 blocks placed",
+                  "&8Radius is configurable in configSFLAddons.yml");
+
+          '''
+          if 'ADVENTURERS_ARACHNID_WARD_TORCH' not in text:
+              if marker not in text:
+                  raise SystemExit('Could not locate Curios item insertion point')
+              text = text.replace(marker, item + marker, 1)
+
+          registration_marker = '''        new SlimefunItem(fieldCuriosities, portableCampKit, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
+          '''
+          registration = '''        new ArachnidWardTorch(
+                          fieldCuriosities,
+                          arachnidWardTorch,
+                          RecipeType.ENHANCED_CRAFTING_TABLE,
+                          new ItemStack[] {
+                              new ItemStack(Material.AMETHYST_SHARD),
+                              new ItemStack(Material.STRING),
+                              new ItemStack(Material.AMETHYST_SHARD),
+                              new ItemStack(Material.FERMENTED_SPIDER_EYE),
+                              new ItemStack(Material.SOUL_TORCH),
+                              new ItemStack(Material.FERMENTED_SPIDER_EYE),
+                              new ItemStack(Material.COPPER_INGOT),
+                              new ItemStack(Material.REDSTONE),
+                              new ItemStack(Material.COPPER_INGOT)
+                          })
+                  .register(plugin);
+
+          '''
+          if 'new ArachnidWardTorch(' not in text:
+              if registration_marker not in text:
+                  raise SystemExit('Could not locate Curios registration insertion point')
+              text = text.replace(registration_marker, registration + registration_marker, 1)
+
+          setup.write_text(text)
+
+          config = Path('src/main/resources/configSFLAddons.yml')
+          cfg = config.read_text()
+          config_marker = '''SlimefunLegacyAddition:
+            PoweredBeacon:
+          '''
+          config_block = '''SlimefunLegacyAddition:
+            ArachnidWardTorch:
+              # Set either radius to 0 to disable that mode. Values above 32 are clamped for runtime safety.
+              held-radius: 8
+              placed-radius: 12
+
+            PoweredBeacon:
+          '''
+          if 'ArachnidWardTorch:' not in cfg:
+              if config_marker not in cfg:
+                  raise SystemExit('Could not locate Curios config insertion point')
+              cfg = cfg.replace(config_marker, config_block, 1)
+          config.write_text(cfg)
+
+          notes = Path('docs/releases/4.1.46.md')
+          release = notes.read_text()
+          section = '''
+          ## 🕷️ Arachnid Ward Torch
+
+          - Added the **Arachnid Ward Torch** to the built-in Adventurer's Curios collection.
+          - Hold it in either hand for an **8-block mobile ward** while exploring caves and mineshafts.
+          - Place it as a Soul Torch for a larger **12-block stationary ward** around tunnels, mines and work areas.
+          - Spiders and Cave Spiders inside the active ward drop protected-player targets and are pushed away instead of taking damage.
+          - Held and placed coverage does not stack; overlapping protection applies only one repel impulse, with the placed ward taking priority where both cover the same spider.
+          - Spider jockeys are displaced naturally through the spider mount.
+          - The implementation uses loaded Slimefun chunk data and bounded local entity checks only; it does not globally scan entities or force-load chunks.
+          - Held and placed radii can be configured in `configSFLAddons.yml`; setting either radius to `0` disables that mode.
+
+          '''
+          if '## 🕷️ Arachnid Ward Torch' not in release:
+              intro_end = "addon-facing compatibility goals.\n\n"
+              if intro_end not in release:
+                  raise SystemExit('Could not locate release note insertion point')
+              release = release.replace(intro_end, intro_end + section, 1)
+
+          old_bundle = 'The reproducible-release workflow builds the JAR twice from the exact source commit and requires byte-for-byte equality before publishing. The 4.1.46 release refresh also preserves the latest validated previous-stable addon bundle rather than rolling the bundle backward.'
+          new_bundle = 'The reproducible-release workflow builds the JAR twice from the exact source commit and requires byte-for-byte equality before publishing. The refreshed 4.1.46 addon bundle also carries the current validated Supreme 1.0.3, Slimefun Warfare 1.0.5 and Galactifun 1.0.5 builds while preserving the rest of the validated addon set.'
+          release = release.replace(old_bundle, new_bundle)
+          notes.write_text(release)
+          PY
+
+      - name: Compile and test
+        run: |
+          chmod +x gradlew
+          ./gradlew clean test shadowJar --no-daemon
+
+      - name: Commit wired feature
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/workflows/dev-arachnid-ward.yml
+          git add src/main/java/io/github/thebusybiscuit/slimefun4/implementation/setup/AdventurersCuriosSetup.java \
+                  src/main/resources/configSFLAddons.yml \
+                  docs/releases/4.1.46.md \
+                  .github/workflows/dev-arachnid-ward.yml
+          git commit -m 'Wire Arachnid Ward Torch into Adventurer Curios'
+          git push origin HEAD:feature/4.1.46-arachnid-ward
