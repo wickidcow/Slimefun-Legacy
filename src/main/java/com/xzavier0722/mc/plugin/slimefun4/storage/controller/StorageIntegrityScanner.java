@@ -75,12 +75,8 @@ public final class StorageIntegrityScanner {
     private static void runScan(BlockDataController controller, CompletableFuture<StorageIntegritySnapshot> future) {
         long startedAt = System.currentTimeMillis();
         int pendingWritesAtStart = controller.getPendingWriteTaskCount();
+        int pendingDelayedWritesAtStart = controller.getPendingDelayedWriteTaskCount();
         boolean delayedSavingEnabled = controller.isDelayedSavingEnabled();
-
-        // BlockDataController does not currently expose its private delayed-mutation map. Treat that count as unknown
-        // while delayed saving is enabled rather than incorrectly declaring the backend quiet. This deliberately blocks
-        // two-pass confirmation until the scan can prove both active and deferred write queues are empty.
-        int pendingDelayedWritesAtStart = delayedSavingEnabled ? -1 : 0;
 
         try {
             Set<String> blockRecords = readOwners(controller, DataScope.BLOCK_RECORD, FieldKey.LOCATION);
@@ -100,7 +96,7 @@ public final class StorageIntegrityScanner {
 
             long completedAt = System.currentTimeMillis();
             int pendingWritesAtEnd = controller.getPendingWriteTaskCount();
-            int pendingDelayedWritesAtEnd = delayedSavingEnabled ? -1 : 0;
+            int pendingDelayedWritesAtEnd = controller.getPendingDelayedWriteTaskCount();
             StorageIntegritySnapshot snapshot = new StorageIntegritySnapshot(
                     startedAt,
                     completedAt,
