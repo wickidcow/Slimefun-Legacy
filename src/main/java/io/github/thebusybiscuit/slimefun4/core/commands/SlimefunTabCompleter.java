@@ -48,7 +48,8 @@ class SlimefunTabCompleter implements TabCompleter {
                 list.add("*");
                 return createReturnList(list, args[1]);
             } else if (args[0].equalsIgnoreCase("tick")) {
-                List<String> list = new ArrayList<>(List.of("query", "show", "at", "freeze", "unfreeze", "top", "rate"));
+                List<String> list =
+                        new ArrayList<>(List.of("query", "show", "at", "freeze", "unfreeze", "frozen", "top", "rate"));
                 list.addAll(getSlimefunItems());
                 return createReturnList(list, args[1]);
             } else if (args[0].equalsIgnoreCase("owner")) {
@@ -97,6 +98,11 @@ class SlimefunTabCompleter implements TabCompleter {
                 return createReturnList(suggestions, args[2]);
             } else if (args[0].equalsIgnoreCase("cleardata")) {
                 return createReturnList(List.of("block", "oil", "*"), args[2]);
+            } else if (args[0].equalsIgnoreCase("tick")
+                    && (args[1].equalsIgnoreCase("freeze") || args[1].equalsIgnoreCase("unfreeze"))) {
+                List<String> list = new ArrayList<>(List.of("at"));
+                list.addAll(getTickingSlimefunItems());
+                return createReturnList(list, args[2]);
             } else if (args[0].equalsIgnoreCase("chunkinfo")) {
                 World explicitWorld = Bukkit.getWorld(args[1]);
                 if (explicitWorld != null) {
@@ -180,6 +186,17 @@ class SlimefunTabCompleter implements TabCompleter {
             list.add(item.getId());
         }
 
+        return list;
+    }
+
+    @Nonnull
+    private List<String> getTickingSlimefunItems() {
+        List<String> list = new ArrayList<>();
+        for (SlimefunItem item : Slimefun.getRegistry().getEnabledSlimefunItems()) {
+            if (item.getBlockTicker() != null) {
+                list.add(item.getId());
+            }
+        }
         return list;
     }
 }
