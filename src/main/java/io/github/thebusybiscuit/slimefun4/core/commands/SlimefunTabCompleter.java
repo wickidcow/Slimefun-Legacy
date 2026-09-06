@@ -1,5 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.core.commands;
 
+import com.xzavier0722.mc.plugin.slimefun4.storage.controller.StorageIntegrityRepairPlan;
+import com.xzavier0722.mc.plugin.slimefun4.storage.controller.StorageIntegrityScanner;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.researches.Research;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
@@ -120,7 +122,7 @@ class SlimefunTabCompleter implements TabCompleter {
                 }
                 return null;
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("storage")) {
-                return createReturnList(List.of("status", "scan", "plan"), args[2]);
+                return createReturnList(List.of("status", "scan", "plan", "verify"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("ie2")) {
                 return createReturnList(List.of("status", "scan", "migrate", "refresh"), args[2]);
             } else {
@@ -134,6 +136,14 @@ class SlimefunTabCompleter implements TabCompleter {
                 && args[1].equalsIgnoreCase("storage")
                 && args[2].equalsIgnoreCase("plan")) {
             return createReturnList(List.of("1"), args[3]);
+        } else if (args.length == 4
+                && args[0].equalsIgnoreCase("doctor")
+                && args[1].equalsIgnoreCase("storage")
+                && args[2].equalsIgnoreCase("verify")) {
+            StorageIntegrityRepairPlan plan = StorageIntegrityScanner.getConfirmedRepairPlan();
+            return plan == null
+                    ? Collections.emptyList()
+                    : createReturnList(List.of(plan.getFingerprint()), args[3]);
         } else if (args.length == 4 && args[0].equalsIgnoreCase("chunkinfo")) {
             if (args[1].equalsIgnoreCase("top")) {
                 return Collections.emptyList();
