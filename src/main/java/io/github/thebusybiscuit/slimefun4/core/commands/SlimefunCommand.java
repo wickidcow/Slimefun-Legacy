@@ -1,6 +1,8 @@
 package io.github.thebusybiscuit.slimefun4.core.commands;
 
+import com.xzavier0722.mc.plugin.slimefun4.storage.controller.StorageIntegrityScanner;
 import io.github.bakedlibs.dough.common.ChatColors;
+import io.github.thebusybiscuit.slimefun4.api.storage.StorageIntegritySnapshot;
 import io.github.thebusybiscuit.slimefun4.core.commands.subcommands.SlimefunSubCommands;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.HashMap;
@@ -74,6 +76,10 @@ public class SlimefunCommand implements CommandExecutor, Listener {
                     command.recordUsage(commandUsage);
                     if (command.getName().equalsIgnoreCase("doctor")
                             && args.length > 1
+                            && args[1].equalsIgnoreCase("storage")) {
+                        runStorageDoctor(sender, args);
+                    } else if (command.getName().equalsIgnoreCase("doctor")
+                            && args.length > 1
                             && args[1].equalsIgnoreCase("ie2")) {
                         runInfinityExpansionDoctor(sender, args);
                     } else {
@@ -93,6 +99,128 @@ public class SlimefunCommand implements CommandExecutor, Listener {
          * this always returning true...
          */
         return !commands.isEmpty();
+    }
+
+    private void runStorageDoctor(@Nonnull CommandSender sender, @Nonnull String[] args) {
+        if (!sender.hasPermission("slimefun.command.doctor")) {
+            Slimefun.getLocalization().sendMessage(sender, "messages.no-permission", true);
+            return;
+        }
+
+        String action = args.length > 2 ? args[2].toLowerCase(Locale.ROOT) : "status";
+        if (action.equals("status")) {
+            sendStorageIntegrityStatus(sender);
+            return;
+        }
+        if (!action.equals("scan")) {
+            sender.sendMessage(ChatColors.color("&eUsage: /sf doctor storage <status|scan>"));
+            return;
+        }
+
+        var databaseManager = Slimefun.getDatabaseManager();
+        if (databaseManager == null || databaseManager.getBlockDataController() == null) {
+            sender.sendMessage(ChatColors.color("&cSlimefun block storage is not ready yet."));
+            return;
+        }
+
+        var scan = StorageIntegrityScanner.startScan(databaseManager.getBlockDataController());
+        if (scan == null) {
+            sender.sendMessage(ChatColors.color("&eA storage integrity scan is already running."));
+            return;
+        }
+
+        sender.sendMessage(ChatColors.color("&6Slimefun Storage Integrity"));
+        sender.sendMessage(ChatColors.color("&aStarted a read-only backend ownership scan."));
+        sender.sendMessage(ChatColors.color(
+                "&7No world blocks are scanned or force-loaded, and no storage rows will be changed."));
+
+        scan.whenComplete((snapshot, failure) -> Slimefun.runSync(() -> {
+            if (failure != null) {
+                String message = failure.getMessage();
+                sender.sendMessage(ChatColors.color("&cStorage integrity scan failed: &f"
+                        + failure.getClass().getSimpleName()
+                        + (message == null || message.isBlank() ? "" : " &8- &7" + message)));
+                return;
+            }
+            sender.sendMessage(ChatColors.color("&aStorage integrity scan completed."));
+            sendStorageIntegritySnapshot(sender, snapshot);
+        }));
+    }
+
+    private void sendStorageIntegrityStatus(@Nonnull CommandSender sender) {
+        sender.sendMessage(ChatColors.color("&6Slimefun Storage Integrity"));
+        if (StorageIntegrityScanner.isScanRunning()) {
+            sender.sendMessage(ChatColors.color("&eA read-only storage integrity scan is currently running."));
+        }
+
+        StorageIntegritySnapshot snapshot = StorageIntegrityScanner.getLastSnapshot();
+        if (snapshot == null) {
+            sender.sendMessage(ChatColors.color("&7No completed storage integrity scan is available yet."));
+            sender.sendMessage(ChatColors.color("&7Run &e/sf doctor storage scan &7to inspect the active backend."));
+            return;
+        }
+        sendStorageIntegritySnapshot(sender, snapshot);
+    }
+
+    private void sendStorageIntegritySnapshot(
+            @Nonnull CommandSender sender, @Nonnull StorageIntegritySnapshot snapshot) {
+        sender.sendMessage(ChatColors.color("&7Duration: &e" + snapshot.getDurationMillis() + "ms"));
+        sender.sendMessage(ChatColors.color("&7Normal block roots: &e" + snapshot.getBlockRecords()
+                + " &8| &7data owners: &e" + snapshot.getBlockDataOwners()
+                + " &8| &7inventory owners: &e" + snapshot.getBlockInventoryOwners()));
+        sender.sendMessage(ChatColors.color("&7Normal orphan owners: data &e" + snapshot.getOrphanBlockDataOwners()
+                + " &8| &7inventory &e" + snapshot.getOrphanBlockInventoryOwners()));
+        sender.sendMessage(ChatColors.color("&7Universal roots: &e" + snapshot.getUniversalRecords()
+                + " &8| &7data owners: &e" + snapshot.getUniversalDataOwners()
+                + " &8| &7inventory owners: &e" + snapshot.getUniversalInventoryOwners()));
+        sender.sendMessage(ChatColors.color("&7Universal orphan owners: data &e"
+                + snapshot.getOrphanUniversalDataOwners() + " &8| &7inventory &e"
+                + snapshot.getOrphanUniversalInventoryOwners()));
+
+        if (snapshot.isClean()) {
+            sender.sendMessage(ChatColors.color("&aNo orphan secondary storage owners were found."));
+        } else {
+            sender.sendMessage(ChatColors.color("&eFound &6" + snapshot.getTotalOrphanOwners()
+                    + " &eorphan owner reference(s). These are candidates only; nothing was deleted."));
+            sendStorageOwnerSamples(
+                    sender,
+                    "Block data",
+                    snapshot.getOrphanBlockDataOwnerSamples(),
+                    snapshot.getOrphanBlockDataOwners());
+            sendStorageOwnerSamples(
+                    sender,
+                    "Block inventory",
+                    snapshot.getOrphanBlockInventoryOwnerSamples(),
+                    snapshot.getOrphanBlockInventoryOwners());
+            sendStorageOwnerSamples(
+                    sender,
+                    "Universal data",
+                    snapshot.getOrphanUniversalDataOwnerSamples(),
+                    snapshot.getOrphanUniversalDataOwners());
+            sendStorageOwnerSamples(
+                    sender,
+                    "Universal inventory",
+                    snapshot.getOrphanUniversalInventoryOwnerSamples(),
+                    snapshot.getOrphanUniversalInventoryOwners());
+        }
+
+        sender.sendMessage(ChatColors.color("&7Queued writes at scan boundaries: &e"
+                + snapshot.getPendingWritesAtStart() + " &8-> &e" + snapshot.getPendingWritesAtEnd()));
+        if (snapshot.hadPendingWritesDuringScan() || snapshot.isDelayedSavingEnabled()) {
+            sender.sendMessage(ChatColors.color(
+                    "&eStorage was not proven quiet. Re-scan during a quiet period before considering any repair."));
+        }
+        sender.sendMessage(ChatColors.color(
+                "&8This diagnostic is observational only. It does not delete, migrate, repair, or force-load data."));
+    }
+
+    private void sendStorageOwnerSamples(
+            @Nonnull CommandSender sender, @Nonnull String label, @Nonnull List<String> samples, int total) {
+        if (samples.isEmpty()) {
+            return;
+        }
+        sender.sendMessage(ChatColors.color("&8- &7" + label + " samples (&e" + samples.size() + "&7/&e" + total
+                + "&7): &f" + String.join("&8, &f", samples)));
     }
 
     private void runInfinityExpansionDoctor(@Nonnull CommandSender sender, @Nonnull String[] args) {
@@ -140,7 +268,7 @@ public class SlimefunCommand implements CommandExecutor, Listener {
     /**
      * This returns A {@link List} containing every possible {@link SubCommand} of this {@link Command}.
      *
-     * @return A {@link List} containing every {@link SubCommand}
+     * @return A {@link List} containing every possible {@link SubCommand}
      */
     public @Nonnull List<String> getSubCommandNames() {
         // @formatter:off
