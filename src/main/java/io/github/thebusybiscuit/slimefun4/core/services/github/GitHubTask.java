@@ -6,6 +6,7 @@ import io.github.bakedlibs.dough.skins.UUIDLookup;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.File;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,6 +32,12 @@ import org.bukkit.Bukkit;
 class GitHubTask implements Runnable {
 
     private static final int MAX_REQUESTS_PER_MINUTE = 16;
+    private static final int DEFAULT_LOOKUP_TIMEOUT_SECONDS = 8;
+    private static final int MAX_LOOKUP_TIMEOUT_SECONDS = 30;
+    private static final String RESOLVE_ONLINE_PATH = "guide.contributor-heads.resolve-online";
+    private static final String LOOKUP_TIMEOUT_PATH = "guide.contributor-heads.lookup-timeout-seconds";
+    private static final String BLOCKED_NAMES_PATH = "guide.contributor-heads.blocked-names";
+
     private final GitHubService gitHubService;
 
     GitHubTask(@Nonnull GitHubService github) {
@@ -99,6 +106,10 @@ class GitHubTask implements Runnable {
 
     private int requestTexture(@Nonnull Contributor contributor, @Nonnull Map<String, String> skins) {
         if (!contributor.hasTexture()) {
+            if (!shouldResolveOnline(contributor)) {
+                return 0;
+            }
+
             try {
                 if (skins.containsKey(contributor.getMinecraftName())) {
                     contributor.setTexture(skins.get(contributor.getMinecraftName()));
@@ -113,17 +124,13 @@ class GitHubTask implements Runnable {
                 Slimefun.logger().log(Level.WARNING, "The contributors thread was interrupted!");
                 Thread.currentThread().interrupt();
             } catch (Exception x) {
-                // Too many requests
+                // Too many requests or an unavailable profile service. Contributor heads are cosmetic,
+                // so never let this affect the server's main gameplay loop.
                 Slimefun.logger()
                         .log(
                                 Level.WARNING,
                                 "Attempted to refresh skin cache, got this response: {0}: {1}",
                                 new Object[] {x.getClass().getSimpleName(), x.getMessage()});
-                Slimefun.logger()
-                        .log(
-                                Level.WARNING,
-                                "This usually means mojang.com is temporarily down or started to rate-limit this"
-                                        + " connection, nothing to worry about!");
 
                 String msg = x.getMessage();
 
@@ -139,24 +146,50 @@ class GitHubTask implements Runnable {
         return 0;
     }
 
+    private boolean shouldResolveOnline(@Nonnull Contributor contributor) {
+        if (!Slimefun.getCfg().getBoolean(RESOLVE_ONLINE_PATH)) {
+            return false;
+        }
+
+        String githubName = contributor.getName().toLowerCase(Locale.ROOT);
+        String minecraftName = contributor.getMinecraftName().toLowerCase(Locale.ROOT);
+
+        for (String configuredName : Slimefun.getCfg().getStringList(BLOCKED_NAMES_PATH)) {
+            String blockedName = configuredName.trim().toLowerCase(Locale.ROOT);
+            if (!blockedName.isEmpty() && (blockedName.equals(githubName) || blockedName.equals(minecraftName))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private int getLookupTimeoutSeconds() {
+        int configured = Slimefun.getCfg().getInt(LOOKUP_TIMEOUT_PATH);
+        if (configured <= 0) {
+            return DEFAULT_LOOKUP_TIMEOUT_SECONDS;
+        }
+
+        return Math.min(configured, MAX_LOOKUP_TIMEOUT_SECONDS);
+    }
+
     private @Nullable String pullTexture(@Nonnull Contributor contributor, @Nonnull Map<String, String> skins)
             throws InterruptedException, ExecutionException, TimeoutException {
         Optional<UUID> uuid = contributor.getUniqueId();
+        int timeoutSeconds = getLookupTimeoutSeconds();
 
         if (!uuid.isPresent()) {
             CompletableFuture<UUID> future =
                     UUIDLookup.getUuidFromUsername(Slimefun.instance(), contributor.getMinecraftName());
 
-            // Fixes #3241 - Do not wait for more than 30 seconds
-            uuid = Optional.ofNullable(future.get(30, TimeUnit.SECONDS));
+            uuid = Optional.ofNullable(future.get(timeoutSeconds, TimeUnit.SECONDS));
             uuid.ifPresent(contributor::setUniqueId);
         }
 
         if (uuid.isPresent()) {
             CompletableFuture<PlayerSkin> future = PlayerSkin.fromPlayerUUID(Slimefun.instance(), uuid.get());
-            // fix: # 1128 1.21.9 compatibility
-            Optional<String> skin =
-                    Optional.of(CustomGameProfile.getBase64Texture(future.get().getProfile()));
+            Optional<String> skin = Optional.ofNullable(
+                    CustomGameProfile.getBase64Texture(future.get(timeoutSeconds, TimeUnit.SECONDS).getProfile()));
             skins.put(contributor.getMinecraftName(), skin.orElse(""));
             return skin.orElse(null);
         } else {

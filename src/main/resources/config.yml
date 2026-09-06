@@ -33,6 +33,17 @@ guide:
   receive-on-first-join: true
   # Include hidden groups in guide search results.
   show-hidden-item-groups-in-search: false
+  contributor-heads:
+    # Contributor/founder heads are cosmetic. Keep external Mojang profile/skin lookups
+    # disabled by default so opening the guide can never depend on a remote profile service.
+    # Cached textures can still be displayed safely.
+    resolve-online: false
+    # Applies to both username-to-UUID and UUID-to-skin requests when online resolution is enabled.
+    # Values above 30 seconds are capped at 30 by Slimefun Legacy.
+    lookup-timeout-seconds: 8
+    # GitHub or Minecraft usernames in this list never receive remote skin lookups and
+    # always use a generic player-head icon in the contributors/founders menu.
+    blocked-names: []
 
 # Optional external resource-pack delivery for Minecraft 1.21.11+ clients.
 # Slimefun Legacy does not host or upload a pack. This remains OFF unless a server owner

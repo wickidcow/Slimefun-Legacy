@@ -13,8 +13,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.logging.Level;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
@@ -26,6 +29,8 @@ import org.bukkit.inventory.meta.SkullMeta;
  *
  */
 final class ContributorsMenu {
+
+    private static final String BLOCKED_NAMES_PATH = "guide.contributor-heads.blocked-names";
 
     private ContributorsMenu() {}
 
@@ -88,7 +93,7 @@ final class ContributorsMenu {
     }
 
     private static ItemStack getContributorHead(Player p, Contributor contributor) {
-        ItemStack skull = SlimefunUtils.getCustomHead(contributor.getTexture());
+        ItemStack skull = createSafeContributorHead(contributor);
 
         SkullMeta meta = (SkullMeta) skull.getItemMeta();
         meta.setDisplayName(contributor.getDisplayName());
@@ -127,5 +132,38 @@ final class ContributorsMenu {
         meta.setLore(lore);
         skull.setItemMeta(meta);
         return skull;
+    }
+
+    private static ItemStack createSafeContributorHead(Contributor contributor) {
+        if (isBlocked(contributor)) {
+            return new ItemStack(Material.PLAYER_HEAD);
+        }
+
+        try {
+            return SlimefunUtils.getCustomHead(contributor.getTexture());
+        } catch (RuntimeException | LinkageError x) {
+            Slimefun.logger()
+                    .log(
+                            Level.WARNING,
+                            "Unable to render the contributor head for "
+                                    + contributor.getName()
+                                    + "; using a safe placeholder instead.",
+                            x);
+            return new ItemStack(Material.PLAYER_HEAD);
+        }
+    }
+
+    private static boolean isBlocked(Contributor contributor) {
+        String githubName = contributor.getName().toLowerCase(Locale.ROOT);
+        String minecraftName = contributor.getMinecraftName().toLowerCase(Locale.ROOT);
+
+        for (String configuredName : Slimefun.getCfg().getStringList(BLOCKED_NAMES_PATH)) {
+            String blockedName = configuredName.trim().toLowerCase(Locale.ROOT);
+            if (!blockedName.isEmpty() && (blockedName.equals(githubName) || blockedName.equals(minecraftName))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
