@@ -5,21 +5,26 @@ import com.xzavier0722.mc.plugin.slimefun4.storage.common.FieldKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordKey;
 import io.github.thebusybiscuit.slimefun4.api.storage.StorageIntegrityConfirmationSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.storage.StorageIntegritySnapshot;
+import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Performs an explicit, read-only integrity scan of Slimefun's block-storage backend.
+ * Performs explicit storage-integrity diagnostics and guarded orphan-secondary repair for Slimefun's block backend.
  *
- * <p>This scanner deliberately compares database ownership records only. It does not scan physical world blocks,
- * force-load chunks, mutate caches, delete rows, or attempt repair. This keeps the diagnostic useful on live servers
- * while avoiding another always-on storage task.
+ * <p>Normal scans and verification remain read-only. Destructive repair is available only after the complete two-pass
+ * confirmation, plan fingerprint and short-lived verification flow has succeeded. Repair never deletes primary block or
+ * universal records.
  */
 public final class StorageIntegrityScanner {
 
@@ -31,6 +36,7 @@ public final class StorageIntegrityScanner {
     private static volatile CompletableFuture<?> activeOperation;
     private static volatile StorageIntegritySnapshot lastSnapshot;
     private static volatile StorageIntegrityRepairVerification lastRepairVerification;
+    private static volatile StorageIntegrityRepairExecution lastRepairExecution;
 
     private StorageIntegrityScanner() {}
 
@@ -38,7 +44,7 @@ public final class StorageIntegrityScanner {
      * Starts a storage integrity scan on the controller's existing read executor.
      *
      * @param controller active block data controller
-     * @return the new scan future, or {@code null} if another scan or verification is already active
+     * @return the new scan future, or {@code null} if another scan, verification or repair is already active
      */
     public static @Nullable CompletableFuture<StorageIntegritySnapshot> startScan(@Nonnull BlockDataController controller) {
         CompletableFuture<StorageIntegritySnapshot> future;
@@ -77,8 +83,8 @@ public final class StorageIntegrityScanner {
     /**
      * Returns a read-only plan for the exact candidate set that most recently reached two-pass confirmation.
      *
-     * <p>No plan is returned while a new scan is active or when confirmation is not currently valid. Generating this
-     * object does not touch the database or mutate the confirmation state.
+     * <p>No plan is returned while another storage-integrity operation is active or when confirmation is not currently
+     * valid. Generating this object does not touch the database or mutate the confirmation state.
      */
     public static @Nullable StorageIntegrityRepairPlan getConfirmedRepairPlan() {
         synchronized (SCAN_LOCK) {
@@ -168,8 +174,8 @@ public final class StorageIntegrityScanner {
     /**
      * Returns a currently verified plan only when the short-lived final revalidation gate is still valid.
      *
-     * <p>This is the gate a future destructive repair must pass before it acquires its final read/write safety barriers.
-     * The returned plan is still not authority to delete rows without those immediate barriers.
+     * <p>The returned plan is not authority to mutate storage without the immediate read/write barriers used by
+     * {@link #startRepairExecution(BlockDataController, String, Path)}.
      */
     public static @Nullable StorageIntegrityRepairPlan getVerifiedRepairPlan(@Nonnull String fingerprint) {
         String normalizedFingerprint = fingerprint.trim().toLowerCase(Locale.ROOT);
@@ -192,6 +198,105 @@ public final class StorageIntegrityScanner {
             }
             return plan;
         }
+    }
+
+    /**
+     * Starts the destructive orphan-secondary repair after all earlier safety gates have passed.
+     *
+     * <p>The successful verification is single-use: once a repair execution is accepted, it is consumed before the
+     * critical section starts. The critical section requires the tracked read executor and every write executor to be
+     * idle, re-scans the exact candidate set, refuses cached/live candidates, writes a durable backup, deletes only
+     * secondary rows, and verifies the targeted owners are gone before releasing the gates.
+     *
+     * <p>For 4.1.46 this final destructive step deliberately requires delayed writing to be disabled at startup. This
+     * avoids allowing a deferred mutation to be created outside the normal write-submission barrier while rows are being
+     * deleted. Read-only scan, plan and verification continue to support delayed writing normally.
+     *
+     * @param controller active block data controller
+     * @param expectedFingerprint full verified SHA-256 fingerprint
+     * @param backupDirectory directory where the mandatory lossless backup will be written
+     * @return repair future, or {@code null} if another integrity operation is active
+     */
+    public static @Nullable CompletableFuture<StorageIntegrityRepairExecution> startRepairExecution(
+            @Nonnull BlockDataController controller,
+            @Nonnull String expectedFingerprint,
+            @Nonnull Path backupDirectory) {
+        String normalizedFingerprint = expectedFingerprint.trim().toLowerCase(Locale.ROOT);
+        CompletableFuture<StorageIntegrityRepairExecution> future;
+        StorageIntegrityRepairPlan plan;
+
+        synchronized (SCAN_LOCK) {
+            if (hasActiveOperation()) {
+                return null;
+            }
+
+            long now = System.currentTimeMillis();
+            StorageIntegrityRepairVerification verification = lastRepairVerification;
+            plan = CONFIRMATION_TRACKER.createRepairPlan(now);
+            if (verification == null
+                    || !verification.isCurrent(now)
+                    || !verification.getExpectedFingerprint().equals(normalizedFingerprint)
+                    || plan == null
+                    || !plan.getFingerprint().equals(normalizedFingerprint)) {
+                StorageIntegrityRepairExecution result = execution(
+                        StorageIntegrityRepairExecution.Status.VERIFICATION_REQUIRED,
+                        normalizedFingerprint,
+                        null,
+                        null,
+                        0,
+                        "Run the final fingerprint verification again before repair.");
+                lastRepairExecution = result;
+                return CompletableFuture.completedFuture(result);
+            }
+            if (plan.isEmpty()) {
+                StorageIntegrityRepairExecution result = execution(
+                        StorageIntegrityRepairExecution.Status.EMPTY_PLAN,
+                        normalizedFingerprint,
+                        null,
+                        null,
+                        0,
+                        "The verified repair plan is empty.");
+                lastRepairExecution = result;
+                return CompletableFuture.completedFuture(result);
+            }
+            if (controller.isDelayedSavingEnabled()) {
+                StorageIntegrityRepairExecution result = execution(
+                        StorageIntegrityRepairExecution.Status.DELAYED_SAVING_ENABLED,
+                        normalizedFingerprint,
+                        null,
+                        null,
+                        0,
+                        "Disable delayedWriting.enable in block-storage.yml and restart before destructive repair.");
+                lastRepairExecution = result;
+                return CompletableFuture.completedFuture(result);
+            }
+            if (controller.getPendingDelayedWriteTaskCount() != 0) {
+                StorageIntegrityRepairExecution result = execution(
+                        StorageIntegrityRepairExecution.Status.STORAGE_BUSY,
+                        normalizedFingerprint,
+                        null,
+                        null,
+                        0,
+                        "Deferred write tasks are still present.");
+                lastRepairExecution = result;
+                return CompletableFuture.completedFuture(result);
+            }
+
+            future = new CompletableFuture<>();
+            activeOperation = future;
+            lastRepairExecution = null;
+            // Successful final verification is intentionally single-use once a destructive attempt is accepted.
+            lastRepairVerification = null;
+        }
+
+        StorageIntegrityRepairPlan acceptedPlan = plan;
+        CompletableFuture.runAsync(
+                () -> runRepairExecution(controller, acceptedPlan, normalizedFingerprint, backupDirectory, future));
+        return future;
+    }
+
+    public static @Nullable StorageIntegrityRepairExecution getRepairExecutionSnapshot() {
+        return lastRepairExecution;
     }
 
     private static void runScan(BlockDataController controller, CompletableFuture<StorageIntegritySnapshot> future) {
@@ -254,6 +359,257 @@ public final class StorageIntegrityScanner {
         } finally {
             clearActiveOperation(future);
         }
+    }
+
+    private static void runRepairExecution(
+            BlockDataController controller,
+            StorageIntegrityRepairPlan plan,
+            String fingerprint,
+            Path backupDirectory,
+            CompletableFuture<StorageIntegrityRepairExecution> future) {
+        try {
+            StorageIntegrityRepairExecution result = attemptRepairWithBarriers(
+                    controller, plan, fingerprint, backupDirectory);
+            lastRepairExecution = result;
+            future.complete(result);
+        } catch (Throwable failure) {
+            CONFIRMATION_TRACKER.invalidate(System.currentTimeMillis());
+            Slimefun.logger().log(
+                    Level.SEVERE,
+                    "Storage integrity repair failed unexpectedly for fingerprint " + fingerprint,
+                    failure);
+            future.completeExceptionally(failure);
+        } finally {
+            clearActiveOperation(future);
+        }
+    }
+
+    private static StorageIntegrityRepairExecution attemptRepairWithBarriers(
+            BlockDataController controller, StorageIntegrityRepairPlan plan, String fingerprint, Path backupDirectory) {
+        AtomicReference<StorageIntegrityRepairExecution> result = new AtomicReference<>();
+
+        boolean readIdle = controller.runIfReadExecutorIdle(() -> {
+            boolean writesIdle = controller.runIfAllWriteWorkIdle(() -> result.set(
+                    executeRepairCriticalSection(controller, plan, fingerprint, backupDirectory)));
+            if (!writesIdle) {
+                result.set(execution(
+                        StorageIntegrityRepairExecution.Status.STORAGE_BUSY,
+                        fingerprint,
+                        null,
+                        null,
+                        0,
+                        "A database write was queued or executing when the final barrier was acquired."));
+            }
+        });
+
+        if (!readIdle) {
+            return execution(
+                    StorageIntegrityRepairExecution.Status.STORAGE_BUSY,
+                    fingerprint,
+                    null,
+                    null,
+                    0,
+                    "A database read was queued or executing when the final barrier was acquired.");
+        }
+        StorageIntegrityRepairExecution execution = result.get();
+        return execution == null
+                ? execution(
+                        StorageIntegrityRepairExecution.Status.STORAGE_BUSY,
+                        fingerprint,
+                        null,
+                        null,
+                        0,
+                        "The final storage barrier could not be acquired.")
+                : execution;
+    }
+
+    private static StorageIntegrityRepairExecution executeRepairCriticalSection(
+            BlockDataController controller, StorageIntegrityRepairPlan plan, String fingerprint, Path backupDirectory) {
+        if (controller.isDelayedSavingEnabled()) {
+            return execution(
+                    StorageIntegrityRepairExecution.Status.DELAYED_SAVING_ENABLED,
+                    fingerprint,
+                    null,
+                    null,
+                    0,
+                    "Delayed writing became enabled before the final repair barrier.");
+        }
+        if (controller.getPendingDelayedWriteTaskCount() != 0) {
+            return execution(
+                    StorageIntegrityRepairExecution.Status.STORAGE_BUSY,
+                    fingerprint,
+                    null,
+                    null,
+                    0,
+                    "Deferred writes appeared before the final repair barrier.");
+        }
+
+        ScanResult preDelete = scanBackend(controller);
+        lastSnapshot = preDelete.snapshot();
+        StorageIntegrityRepairPlan observedPlan = preDelete.candidates()
+                .toRepairPlan(
+                        preDelete.snapshot().getCompletedAtMillis(),
+                        plan.getConfirmedAtMillis(),
+                        preDelete.snapshot().getCompletedAtMillis());
+        if (!preDelete.snapshot().wasStorageQuietAtBoundaries()
+                || !observedPlan.getFingerprint().equals(fingerprint)) {
+            CONFIRMATION_TRACKER.invalidate(preDelete.snapshot().getCompletedAtMillis());
+            return execution(
+                    StorageIntegrityRepairExecution.Status.CANDIDATE_SET_CHANGED,
+                    fingerprint,
+                    null,
+                    null,
+                    0,
+                    "The exact orphan candidate set changed at the final mutation barrier.");
+        }
+
+        int cachedCandidates = countCachedCandidateOwners(controller, plan);
+        if (cachedCandidates > 0) {
+            CONFIRMATION_TRACKER.invalidate(preDelete.snapshot().getCompletedAtMillis());
+            return execution(
+                    StorageIntegrityRepairExecution.Status.CACHED_CANDIDATE,
+                    fingerprint,
+                    null,
+                    null,
+                    cachedCandidates,
+                    "One or more orphan owners are still represented by loaded Slimefun data. Repair was refused.");
+        }
+
+        StorageIntegrityRepairBackup.BackupSnapshot backup;
+        try {
+            backup = StorageIntegrityRepairBackup.create(controller, plan, backupDirectory);
+        } catch (IOException | RuntimeException failure) {
+            CONFIRMATION_TRACKER.invalidate(System.currentTimeMillis());
+            Slimefun.logger().log(
+                    Level.SEVERE,
+                    "Storage integrity repair backup failed for fingerprint " + fingerprint,
+                    failure);
+            return execution(
+                    StorageIntegrityRepairExecution.Status.BACKUP_FAILED,
+                    fingerprint,
+                    null,
+                    null,
+                    0,
+                    failure.getMessage());
+        }
+
+        try {
+            deleteOwnerRows(controller, DataScope.BLOCK_DATA, FieldKey.LOCATION, plan.getBlockDataOwners());
+            deleteOwnerRows(controller, DataScope.BLOCK_INVENTORY, FieldKey.LOCATION, plan.getBlockInventoryOwners());
+            deleteOwnerRows(controller, DataScope.UNIVERSAL_DATA, FieldKey.UNIVERSAL_UUID, plan.getUniversalDataOwners());
+            deleteOwnerRows(
+                    controller,
+                    DataScope.UNIVERSAL_INVENTORY,
+                    FieldKey.UNIVERSAL_UUID,
+                    plan.getUniversalInventoryOwners());
+
+            if (plannedOwnersRemain(controller, plan)) {
+                CONFIRMATION_TRACKER.invalidate(System.currentTimeMillis());
+                Slimefun.logger().severe("Storage integrity repair left one or more targeted rows behind. Backup: "
+                        + backup.path());
+                return execution(
+                        StorageIntegrityRepairExecution.Status.DELETE_FAILED,
+                        fingerprint,
+                        backup,
+                        "At least one targeted secondary owner still exists after deletion.",
+                        0);
+            }
+
+            ScanResult postDelete = scanBackend(controller);
+            lastSnapshot = postDelete.snapshot();
+            CONFIRMATION_TRACKER.invalidate(postDelete.snapshot().getCompletedAtMillis());
+
+            Slimefun.logger().info("Storage integrity repair completed for fingerprint " + fingerprint + ". Removed "
+                    + backup.totalRows() + " secondary row(s). Backup: " + backup.path());
+            return execution(
+                    StorageIntegrityRepairExecution.Status.REPAIRED,
+                    fingerprint,
+                    backup,
+                    null,
+                    0);
+        } catch (Throwable failure) {
+            CONFIRMATION_TRACKER.invalidate(System.currentTimeMillis());
+            Slimefun.logger().log(
+                    Level.SEVERE,
+                    "Storage integrity repair may have partially modified secondary rows. Mandatory backup: "
+                            + backup.path(),
+                    failure);
+            return execution(
+                    StorageIntegrityRepairExecution.Status.DELETE_FAILED,
+                    fingerprint,
+                    backup,
+                    failure.getMessage(),
+                    0);
+        }
+    }
+
+    private static int countCachedCandidateOwners(BlockDataController controller, StorageIntegrityRepairPlan plan) {
+        Set<String> blockOwners = new HashSet<>(plan.getBlockDataOwners());
+        blockOwners.addAll(plan.getBlockInventoryOwners());
+        Set<String> universalOwners = new HashSet<>(plan.getUniversalDataOwners());
+        universalOwners.addAll(plan.getUniversalInventoryOwners());
+        Set<String> cached = new HashSet<>();
+
+        controller.getAllLoadedChunkData().forEach(chunk -> chunk.getAllBlockData().forEach(data -> {
+            if (blockOwners.contains(data.getKey())) {
+                cached.add("block:" + data.getKey());
+            }
+        }));
+        controller.getAllLoadedUniversalData().forEach(data -> {
+            if (universalOwners.contains(data.getKey())) {
+                cached.add("universal:" + data.getKey());
+            }
+        });
+        return cached.size();
+    }
+
+    private static void deleteOwnerRows(
+            BlockDataController controller, DataScope scope, FieldKey ownerField, List<String> owners) {
+        for (String owner : owners) {
+            RecordKey key = new RecordKey(scope);
+            key.addCondition(ownerField, owner);
+            controller.deleteData(key);
+        }
+    }
+
+    private static boolean plannedOwnersRemain(BlockDataController controller, StorageIntegrityRepairPlan plan) {
+        return intersects(readOwners(controller, DataScope.BLOCK_DATA, FieldKey.LOCATION), plan.getBlockDataOwners())
+                || intersects(
+                        readOwners(controller, DataScope.BLOCK_INVENTORY, FieldKey.LOCATION),
+                        plan.getBlockInventoryOwners())
+                || intersects(
+                        readOwners(controller, DataScope.UNIVERSAL_DATA, FieldKey.UNIVERSAL_UUID),
+                        plan.getUniversalDataOwners())
+                || intersects(
+                        readOwners(controller, DataScope.UNIVERSAL_INVENTORY, FieldKey.UNIVERSAL_UUID),
+                        plan.getUniversalInventoryOwners());
+    }
+
+    private static boolean intersects(Set<String> storedOwners, List<String> plannedOwners) {
+        for (String owner : plannedOwners) {
+            if (storedOwners.contains(owner)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static StorageIntegrityRepairExecution execution(
+            StorageIntegrityRepairExecution.Status status,
+            String fingerprint,
+            @Nullable StorageIntegrityRepairBackup.BackupSnapshot backup,
+            @Nullable String detail,
+            int cachedCandidates) {
+        return new StorageIntegrityRepairExecution(
+                status,
+                fingerprint,
+                backup == null ? null : backup.path(),
+                backup == null ? 0 : backup.blockDataRows(),
+                backup == null ? 0 : backup.blockInventoryRows(),
+                backup == null ? 0 : backup.universalDataRows(),
+                backup == null ? 0 : backup.universalInventoryRows(),
+                cachedCandidates,
+                detail);
     }
 
     private static ScanResult scanBackend(BlockDataController controller) {
