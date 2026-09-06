@@ -62,6 +62,11 @@ final class ChunkInfoCommand extends SubCommand {
         }
     }
 
+    @Override
+    public @Nonnull String getDescription(@Nonnull CommandSender sender) {
+        return "Shows Slimefun blocks, addons and ticker registrations in a loaded chunk";
+    }
+
     private void inspectChunk(CommandSender sender, ChunkTarget target) {
         World world = target.world();
         int chunkX = target.chunkX();
@@ -76,7 +81,20 @@ final class ChunkInfoCommand extends SubCommand {
         }
 
         Chunk chunk = world.getChunkAt(chunkX, chunkZ);
-        Set<TickLocation> tickerSnapshot = new HashSet<>(Slimefun.getTickerTask().getTickLocations(chunk));
+        Set<TickLocation> tickingLocations = new HashSet<>(Slimefun.getTickerTask().getTickLocations(chunk));
+        List<TickerSnapshot> tickerSnapshot = new ArrayList<>(tickingLocations.size());
+
+        // Resolve ticker IDs while we still own the target region. The asynchronous storage completion below only
+        // consumes immutable strings/booleans and never reaches back into Bukkit world state.
+        for (TickLocation location : tickingLocations) {
+            String id = resolveTickerId(location);
+            boolean synchronizedTicker = false;
+            SlimefunItem item = SlimefunItem.getById(id);
+            if (item != null && item.getBlockTicker() != null) {
+                synchronizedTicker = item.getBlockTicker().isSynchronized();
+            }
+            tickerSnapshot.add(new TickerSnapshot(id, location.isUniversal(), synchronizedTicker));
+        }
 
         Slimefun.getDatabaseManager()
                 .getBlockDataController()
@@ -95,7 +113,7 @@ final class ChunkInfoCommand extends SubCommand {
     }
 
     private List<String> buildReport(
-            String worldName, int chunkX, int chunkZ, SlimefunChunkData chunkData, Set<TickLocation> tickerLocations) {
+            String worldName, int chunkX, int chunkZ, SlimefunChunkData chunkData, List<TickerSnapshot> tickerLocations) {
         Map<String, Integer> items = new HashMap<>();
         Map<String, Integer> addons = new HashMap<>();
         int pendingRemoval = 0;
@@ -120,22 +138,9 @@ final class ChunkInfoCommand extends SubCommand {
             addons.merge(addon == null ? "Slimefun" : addon.getName(), 1, Integer::sum);
         }
 
-        int universalTickers = (int) tickerLocations.stream().filter(TickLocation::isUniversal).count();
-        int synchronizedTickers = 0;
-        int asynchronousTickers = 0;
-
-        for (TickLocation tickLocation : tickerLocations) {
-            SlimefunItem item = SlimefunItem.getById(resolveTickerId(tickLocation));
-            if (item == null || item.getBlockTicker() == null) {
-                continue;
-            }
-
-            if (item.getBlockTicker().isSynchronized()) {
-                synchronizedTickers++;
-            } else {
-                asynchronousTickers++;
-            }
-        }
+        int universalTickers = (int) tickerLocations.stream().filter(TickerSnapshot::universal).count();
+        int synchronizedTickers = (int) tickerLocations.stream().filter(TickerSnapshot::synchronizedTicker).count();
+        int asynchronousTickers = tickerLocations.size() - synchronizedTickers;
 
         List<String> lines = new ArrayList<>();
         lines.add("&6&m----------------------------------------");
@@ -252,4 +257,6 @@ final class ChunkInfoCommand extends SubCommand {
     }
 
     private record ChunkTarget(World world, int chunkX, int chunkZ) {}
+
+    private record TickerSnapshot(String itemId, boolean universal, boolean synchronizedTicker) {}
 }
