@@ -58,6 +58,12 @@ permissions:
   slimefun.command.tick:
     description: Allows use of /sf tick machine ticker diagnostics and freeze controls
     default: op
+  slimefun.command.chunkinfo:
+    description: Allows use of /sf chunkinfo chunk-level Slimefun diagnostics
+    default: op
+  slimefun.command.owner:
+    description: Allows use of /sf owner block ownership diagnostics and management
+    default: op
   slimefun.command.teleporter:
     description: Allows you to do /sf teleporter
     default: op
