@@ -31,15 +31,12 @@ jobs:
           text = setup.read_text()
 
           old = 'import io.github.thebusybiscuit.slimefun4.implementation.items.curios.BastionResonator;\n'
-          new = old + 'import io.github.thebusybiscuit.slimefun4.implementation.items.curios.ArachnidWardTorch;\n'
           if 'items.curios.ArachnidWardTorch;' not in text:
               if old not in text:
                   raise SystemExit('Could not locate Curios import insertion point')
-              text = text.replace(old, new, 1)
+              text = text.replace(old, 'import io.github.thebusybiscuit.slimefun4.implementation.items.curios.ArachnidWardTorch;\n' + old, 1)
 
-          marker = '''        SlimefunItemStack portableCampKit = new SlimefunItemStack(
-                  "ADVENTURERS_PORTABLE_CAMP_KIT",
-          '''
+          marker = '        SlimefunItemStack portableCampKit = new SlimefunItemStack(\n'
           item = '''        SlimefunItemStack arachnidWardTorch = new SlimefunItemStack(
                   "ADVENTURERS_ARACHNID_WARD_TORCH",
                   Material.SOUL_TORCH,
@@ -52,32 +49,31 @@ jobs:
                   "&8Defaults: 8 blocks held / 12 blocks placed",
                   "&8Radius is configurable in configSFLAddons.yml");
 
-          '''
+'''
           if 'ADVENTURERS_ARACHNID_WARD_TORCH' not in text:
               if marker not in text:
                   raise SystemExit('Could not locate Curios item insertion point')
               text = text.replace(marker, item + marker, 1)
 
-          registration_marker = '''        new SlimefunItem(fieldCuriosities, portableCampKit, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
-          '''
+          registration_marker = '        new SlimefunItem(fieldCuriosities, portableCampKit, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {\n'
           registration = '''        new ArachnidWardTorch(
-                          fieldCuriosities,
-                          arachnidWardTorch,
-                          RecipeType.ENHANCED_CRAFTING_TABLE,
-                          new ItemStack[] {
-                              new ItemStack(Material.AMETHYST_SHARD),
-                              new ItemStack(Material.STRING),
-                              new ItemStack(Material.AMETHYST_SHARD),
-                              new ItemStack(Material.FERMENTED_SPIDER_EYE),
-                              new ItemStack(Material.SOUL_TORCH),
-                              new ItemStack(Material.FERMENTED_SPIDER_EYE),
-                              new ItemStack(Material.COPPER_INGOT),
-                              new ItemStack(Material.REDSTONE),
-                              new ItemStack(Material.COPPER_INGOT)
-                          })
-                  .register(plugin);
+                        fieldCuriosities,
+                        arachnidWardTorch,
+                        RecipeType.ENHANCED_CRAFTING_TABLE,
+                        new ItemStack[] {
+                            new ItemStack(Material.AMETHYST_SHARD),
+                            new ItemStack(Material.STRING),
+                            new ItemStack(Material.AMETHYST_SHARD),
+                            new ItemStack(Material.FERMENTED_SPIDER_EYE),
+                            new ItemStack(Material.SOUL_TORCH),
+                            new ItemStack(Material.FERMENTED_SPIDER_EYE),
+                            new ItemStack(Material.COPPER_INGOT),
+                            new ItemStack(Material.REDSTONE),
+                            new ItemStack(Material.COPPER_INGOT)
+                        })
+                .register(plugin);
 
-          '''
+'''
           if 'new ArachnidWardTorch(' not in text:
               if registration_marker not in text:
                   raise SystemExit('Could not locate Curios registration insertion point')
@@ -87,17 +83,14 @@ jobs:
 
           config = Path('src/main/resources/configSFLAddons.yml')
           cfg = config.read_text()
-          config_marker = '''SlimefunLegacyAddition:
-            PoweredBeacon:
-          '''
+          config_marker = 'SlimefunLegacyAddition:\n'
           config_block = '''SlimefunLegacyAddition:
-            ArachnidWardTorch:
-              # Set either radius to 0 to disable that mode. Values above 32 are clamped for runtime safety.
-              held-radius: 8
-              placed-radius: 12
+  ArachnidWardTorch:
+    # Set either radius to 0 to disable that mode. Values above 32 are clamped for runtime safety.
+    held-radius: 8
+    placed-radius: 12
 
-            PoweredBeacon:
-          '''
+'''
           if 'ArachnidWardTorch:' not in cfg:
               if config_marker not in cfg:
                   raise SystemExit('Could not locate Curios config insertion point')
@@ -106,19 +99,18 @@ jobs:
 
           notes = Path('docs/releases/4.1.46.md')
           release = notes.read_text()
-          section = '''
-          ## 🕷️ Arachnid Ward Torch
+          section = '''## 🕷️ Arachnid Ward Torch
 
-          - Added the **Arachnid Ward Torch** to the built-in Adventurer's Curios collection.
-          - Hold it in either hand for an **8-block mobile ward** while exploring caves and mineshafts.
-          - Place it as a Soul Torch for a larger **12-block stationary ward** around tunnels, mines and work areas.
-          - Spiders and Cave Spiders inside the active ward drop protected-player targets and are pushed away instead of taking damage.
-          - Held and placed coverage does not stack; overlapping protection applies only one repel impulse, with the placed ward taking priority where both cover the same spider.
-          - Spider jockeys are displaced naturally through the spider mount.
-          - The implementation uses loaded Slimefun chunk data and bounded local entity checks only; it does not globally scan entities or force-load chunks.
-          - Held and placed radii can be configured in `configSFLAddons.yml`; setting either radius to `0` disables that mode.
+- Added the **Arachnid Ward Torch** to the built-in Adventurer's Curios collection.
+- Hold it in either hand for an **8-block mobile ward** while exploring caves and mineshafts.
+- Place it as a Soul Torch for a larger **12-block stationary ward** around tunnels, mines and work areas.
+- Spiders and Cave Spiders inside the active ward drop protected-player targets and are pushed away instead of taking damage.
+- Held and placed coverage does not stack; overlapping protection applies only one repel impulse, with the placed ward taking priority where both cover the same spider.
+- Spider jockeys are displaced naturally through the spider mount.
+- The implementation uses loaded Slimefun chunk data and bounded local entity checks only; it does not globally scan entities or force-load chunks.
+- Held and placed radii can be configured in `configSFLAddons.yml`; setting either radius to `0` disables that mode.
 
-          '''
+'''
           if '## 🕷️ Arachnid Ward Torch' not in release:
               intro_end = "addon-facing compatibility goals.\n\n"
               if intro_end not in release:
