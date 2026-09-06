@@ -4,9 +4,10 @@ Slimefun Legacy 4.1.46 includes explicit, read-only storage integrity diagnostic
 
 ## Commands
 
-- `/sf doctor storage status` shows the last completed scan, write-boundary state, and current two-pass confirmation status.
+- `/sf doctor storage status` shows the last completed scan, write-boundary state, current two-pass confirmation status, and the latest repair-preflight state.
 - `/sf doctor storage scan` starts a backend ownership scan on Slimefun's existing storage read executor.
 - `/sf doctor storage plan [page]` renders the exact scope-qualified orphan-owner set that reached two-pass confirmation. The plan is paged to avoid flooding chat.
+- `/sf doctor storage verify <full-fingerprint>` performs the final read-only revalidation pass against the complete SHA-256 plan fingerprint.
 
 ## What the scan checks
 
@@ -24,10 +25,18 @@ A changed candidate set restarts confirmation at pass 1. A noisy or failed scan 
 
 After a valid 2/2 confirmation, `/sf doctor storage plan` can render the complete confirmed candidate set. Entries are grouped deterministically by storage scope and paged at 20 entries per page. The plan also has a stable SHA-256 fingerprint of the exact scope-qualified candidate set so administrators can tell whether two rendered plans describe the same candidates.
 
-The plan contains owner keys for secondary storage scopes. An owner can therefore appear once per affected scope. The command does not claim that an owner key represents only one physical database row; a future repair implementation would need to handle every secondary row belonging to that owner in that scope.
+The plan contains owner keys for secondary storage scopes. An owner can therefore appear once per affected scope. The command does not claim that an owner key represents only one physical database row; a future repair implementation must handle every secondary row belonging to that owner in that scope.
+
+## Final fingerprint preflight
+
+`/sf doctor storage verify <full-fingerprint>` only starts when the supplied 64-character SHA-256 fingerprint exactly matches the currently confirmed non-empty plan. It then performs another fresh backend ownership scan. The exact candidate set must still produce the same fingerprint and both the active write queue and deferred delayed-saving queue must be empty at both scan boundaries.
+
+A changed candidate set fails verification and restarts two-pass confirmation at 1/2. A noisy verification scan fails closed and resets confirmation. A wrong fingerprint is rejected before a backend scan starts.
+
+Successful verification is runtime-only and short-lived for 60 seconds. Starting any later integrity scan invalidates the previous successful preflight. Slimefun also exposes the verified-plan gate internally so a future destructive cleanup path cannot obtain a repair plan unless this final preflight is still current and the fingerprint still matches.
 
 ## Safety model
 
-The scan and plan do not inspect physical world blocks, force-load chunks, mutate caches, delete rows, migrate records, rewrite data, or repair anything. Rendering a plan does not authorize deletion and is not a transaction barrier. Any future repair command must perform fresh storage validation before changing data rather than trusting an old plan indefinitely.
+The scan, plan, and fingerprint preflight do not inspect physical world blocks, force-load chunks, mutate caches, delete rows, migrate records, rewrite data, or repair anything. The final preflight is deliberately not a transaction barrier: a future repair implementation must still acquire the storage read/write safety gates and re-check the exact plan immediately before changing rows.
 
-Actual repair remains intentionally excluded from this slice.
+Actual destructive repair remains intentionally excluded from this slice.
