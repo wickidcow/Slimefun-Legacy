@@ -232,6 +232,18 @@ public class BlockDataController extends ADataController {
         return enableDelayedSaving;
     }
 
+    /**
+     * Returns how many delayed-saving mutations are currently waiting to enter the normal write queue.
+     *
+     * <p>This is a read-only point-in-time diagnostic value. It is intended for storage health checks and must not be
+     * treated as a transaction barrier.
+     *
+     * @return the number of currently deferred write tasks
+     */
+    public int getPendingDelayedWriteTaskCount() {
+        return delayedWriteTasks.size();
+    }
+
     public void setDelayedSavingEnable(boolean isEnable) {
         enableDelayedSaving = isEnable;
     }
