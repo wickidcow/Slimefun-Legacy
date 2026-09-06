@@ -76,6 +76,7 @@ public class GitHubService {
     }
 
     private void addDefaultContributors() {
+        addContributor("wickidcow", "https://github.com/wickidcow", ContributorRole.DEVELOPER.getId(), 0);
         addContributor("Fuffles_", "&dArtist");
         addContributor("IMS_Art", "https://github.com/IAmSorryArt", "&dArtist", 0);
         addContributor("nahkd123", "&aWinner of the 2020 Addon Jam");
