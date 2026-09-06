@@ -18,6 +18,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.logging.Level;
@@ -329,6 +330,39 @@ public abstract class ADataController {
     }
 
     /**
+     * Runs a critical section only when every controller write queue and write executor is idle.
+     *
+     * <p>Both scoped and generic write submissions are held until the action returns. This is intended for rare
+     * administrative storage maintenance that must not race a database mutation. If an executor is not a
+     * {@link ThreadPoolExecutor}, the check fails closed.
+     *
+     * @param action maintenance work that must not schedule another write
+     * @return whether the action ran while all writes were gated and idle
+     */
+    protected boolean runIfAllWriteWorkIdle(Runnable action) {
+        checkDestroy();
+        synchronized (writeSubmissionLock) {
+            if (!scheduledWriteTasks.isEmpty()
+                    || !isExecutorIdle(writeExecutor)
+                    || !isExecutorIdle(serialWriteExecutor)) {
+                return false;
+            }
+            action.run();
+            return true;
+        }
+    }
+
+    private boolean isExecutorIdle(ExecutorService executor) {
+        if (executor == null) {
+            return true;
+        }
+        if (executor instanceof ThreadPoolExecutor pool) {
+            return pool.getActiveCount() == 0 && pool.getQueue().isEmpty();
+        }
+        return false;
+    }
+
+    /**
      * Returns a completion snapshot for every read currently queued or running on this controller's read executor.
      *
      * <p>This is a snapshot rather than a permanent barrier. Use {@link #runIfReadExecutorIdle(Runnable)} for the short
@@ -389,7 +423,10 @@ public abstract class ADataController {
 
     protected void scheduleWriteTask(Runnable run) {
         checkDestroy();
-        writeExecutor.submit(run);
+        synchronized (writeSubmissionLock) {
+            checkDestroy();
+            writeExecutor.submit(run);
+        }
     }
 
     protected List<RecordSet> getData(RecordKey key) {
