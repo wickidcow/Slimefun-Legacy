@@ -242,9 +242,8 @@ public final class StorageIntegrityScanner {
                         StorageIntegrityRepairExecution.Status.VERIFICATION_REQUIRED,
                         normalizedFingerprint,
                         null,
-                        null,
-                        0,
-                        "Run the final fingerprint verification again before repair.");
+                        "Run the final fingerprint verification again before repair.",
+                        0);
                 lastRepairExecution = result;
                 return CompletableFuture.completedFuture(result);
             }
@@ -253,9 +252,8 @@ public final class StorageIntegrityScanner {
                         StorageIntegrityRepairExecution.Status.EMPTY_PLAN,
                         normalizedFingerprint,
                         null,
-                        null,
-                        0,
-                        "The verified repair plan is empty.");
+                        "The verified repair plan is empty.",
+                        0);
                 lastRepairExecution = result;
                 return CompletableFuture.completedFuture(result);
             }
@@ -264,9 +262,8 @@ public final class StorageIntegrityScanner {
                         StorageIntegrityRepairExecution.Status.DELAYED_SAVING_ENABLED,
                         normalizedFingerprint,
                         null,
-                        null,
-                        0,
-                        "Disable delayedWriting.enable in block-storage.yml and restart before destructive repair.");
+                        "Disable delayedWriting.enable in block-storage.yml and restart before destructive repair.",
+                        0);
                 lastRepairExecution = result;
                 return CompletableFuture.completedFuture(result);
             }
@@ -275,9 +272,8 @@ public final class StorageIntegrityScanner {
                         StorageIntegrityRepairExecution.Status.STORAGE_BUSY,
                         normalizedFingerprint,
                         null,
-                        null,
-                        0,
-                        "Deferred write tasks are still present.");
+                        "Deferred write tasks are still present.",
+                        0);
                 lastRepairExecution = result;
                 return CompletableFuture.completedFuture(result);
             }
@@ -396,9 +392,8 @@ public final class StorageIntegrityScanner {
                         StorageIntegrityRepairExecution.Status.STORAGE_BUSY,
                         fingerprint,
                         null,
-                        null,
-                        0,
-                        "A database write was queued or executing when the final barrier was acquired."));
+                        "A database write was queued or executing when the final barrier was acquired.",
+                        0));
             }
         });
 
@@ -407,9 +402,8 @@ public final class StorageIntegrityScanner {
                     StorageIntegrityRepairExecution.Status.STORAGE_BUSY,
                     fingerprint,
                     null,
-                    null,
-                    0,
-                    "A database read was queued or executing when the final barrier was acquired.");
+                    "A database read was queued or executing when the final barrier was acquired.",
+                    0);
         }
         StorageIntegrityRepairExecution execution = result.get();
         return execution == null
@@ -417,9 +411,8 @@ public final class StorageIntegrityScanner {
                         StorageIntegrityRepairExecution.Status.STORAGE_BUSY,
                         fingerprint,
                         null,
-                        null,
-                        0,
-                        "The final storage barrier could not be acquired.")
+                        "The final storage barrier could not be acquired.",
+                        0)
                 : execution;
     }
 
@@ -430,18 +423,16 @@ public final class StorageIntegrityScanner {
                     StorageIntegrityRepairExecution.Status.DELAYED_SAVING_ENABLED,
                     fingerprint,
                     null,
-                    null,
-                    0,
-                    "Delayed writing became enabled before the final repair barrier.");
+                    "Delayed writing became enabled before the final repair barrier.",
+                    0);
         }
         if (controller.getPendingDelayedWriteTaskCount() != 0) {
             return execution(
                     StorageIntegrityRepairExecution.Status.STORAGE_BUSY,
                     fingerprint,
                     null,
-                    null,
-                    0,
-                    "Deferred writes appeared before the final repair barrier.");
+                    "Deferred writes appeared before the final repair barrier.",
+                    0);
         }
 
         ScanResult preDelete = scanBackend(controller);
@@ -458,9 +449,8 @@ public final class StorageIntegrityScanner {
                     StorageIntegrityRepairExecution.Status.CANDIDATE_SET_CHANGED,
                     fingerprint,
                     null,
-                    null,
-                    0,
-                    "The exact orphan candidate set changed at the final mutation barrier.");
+                    "The exact orphan candidate set changed at the final mutation barrier.",
+                    0);
         }
 
         int cachedCandidates = countCachedCandidateOwners(controller, plan);
@@ -470,9 +460,8 @@ public final class StorageIntegrityScanner {
                     StorageIntegrityRepairExecution.Status.CACHED_CANDIDATE,
                     fingerprint,
                     null,
-                    null,
-                    cachedCandidates,
-                    "One or more orphan owners are still represented by loaded Slimefun data. Repair was refused.");
+                    "One or more orphan owners are still represented by loaded Slimefun data. Repair was refused.",
+                    cachedCandidates);
         }
 
         StorageIntegrityRepairBackup.BackupSnapshot backup;
@@ -488,9 +477,8 @@ public final class StorageIntegrityScanner {
                     StorageIntegrityRepairExecution.Status.BACKUP_FAILED,
                     fingerprint,
                     null,
-                    null,
-                    0,
-                    failure.getMessage());
+                    failure.getMessage(),
+                    0);
         }
 
         try {
