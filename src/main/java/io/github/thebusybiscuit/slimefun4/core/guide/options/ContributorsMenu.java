@@ -31,6 +31,9 @@ import org.bukkit.inventory.meta.SkullMeta;
 final class ContributorsMenu {
 
     private static final String BLOCKED_NAMES_PATH = "guide.contributor-heads.blocked-names";
+    private static final String LEGACY_MAINTAINER = "wickidcow";
+    private static final String LEGACY_DISPLAY_NAME = "&aSlimefun Legacy";
+    private static final String LEGACY_BYLINE = "&7by &ewickidcow";
 
     private ContributorsMenu() {}
 
@@ -94,12 +97,18 @@ final class ContributorsMenu {
 
     private static ItemStack getContributorHead(Player p, Contributor contributor) {
         ItemStack skull = createSafeContributorHead(contributor);
+        boolean legacyMaintainer = contributor.getName().equalsIgnoreCase(LEGACY_MAINTAINER);
 
         SkullMeta meta = (SkullMeta) skull.getItemMeta();
-        meta.setDisplayName(contributor.getDisplayName());
+        meta.setDisplayName(legacyMaintainer ? ChatColors.color(LEGACY_DISPLAY_NAME) : contributor.getDisplayName());
 
         List<String> lore = new LinkedList<>();
         lore.add("");
+
+        if (legacyMaintainer) {
+            lore.add(ChatColors.color(LEGACY_BYLINE));
+            lore.add("");
+        }
 
         for (Map.Entry<String, Integer> entry : contributor.getContributions()) {
             String info = entry.getKey();
