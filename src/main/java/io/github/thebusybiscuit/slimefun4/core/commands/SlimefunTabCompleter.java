@@ -16,6 +16,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
 import org.bukkit.generator.WorldInfo;
 
 class SlimefunTabCompleter implements TabCompleter {
@@ -48,6 +49,14 @@ class SlimefunTabCompleter implements TabCompleter {
             } else if (args[0].equalsIgnoreCase("tick")) {
                 List<String> list = new ArrayList<>(List.of("query", "show", "at", "freeze", "unfreeze", "top", "rate"));
                 list.addAll(getSlimefunItems());
+                return createReturnList(list, args[1]);
+            } else if (args[0].equalsIgnoreCase("owner")) {
+                return createReturnList(List.of("query", "claim", "clear", "transfer"), args[1]);
+            } else if (args[0].equalsIgnoreCase("chunkinfo")) {
+                List<String> list = new ArrayList<>(Bukkit.getWorlds().stream().map(WorldInfo::getName).toList());
+                if (sender instanceof Player player) {
+                    list.add(String.valueOf(player.getLocation().getChunk().getX()));
+                }
                 return createReturnList(list, args[1]);
             } else if (args[0].equalsIgnoreCase("doctor")) {
                 return createReturnList(
@@ -87,6 +96,8 @@ class SlimefunTabCompleter implements TabCompleter {
                 return createReturnList(suggestions, args[2]);
             } else if (args[0].equalsIgnoreCase("cleardata")) {
                 return createReturnList(List.of("block", "oil", "*"), args[2]);
+            } else if (args[0].equalsIgnoreCase("chunkinfo") && sender instanceof Player player) {
+                return createReturnList(List.of(String.valueOf(player.getLocation().getChunk().getZ())), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("ie2")) {
                 return createReturnList(List.of("status", "scan", "migrate", "refresh"), args[2]);
             } else {
@@ -95,6 +106,8 @@ class SlimefunTabCompleter implements TabCompleter {
             }
         } else if (args.length == 4 && args[0].equalsIgnoreCase("give")) {
             return createReturnList(Arrays.asList("1", "2", "4", "8", "16", "32", "64"), args[3]);
+        } else if (args.length == 4 && args[0].equalsIgnoreCase("chunkinfo")) {
+            return createReturnList(List.of("0"), args[3]);
         } else {
             // Returning null will make it fallback to the default arguments (all online players)
             return null;
