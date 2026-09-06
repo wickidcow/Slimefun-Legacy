@@ -20,7 +20,6 @@ import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Spider;
 import org.bukkit.event.EventHandler;
@@ -63,9 +62,20 @@ public final class ArachnidWardTorch extends SlimefunItem implements Listener {
 
     @Override
     public void postRegister() {
-        if (!isDisabled()) {
-            registerListener(Slimefun.instance());
+        if (isDisabled()) {
+            return;
         }
+
+        installConfigDefaults();
+        registerListener(Slimefun.instance());
+    }
+
+    private void installConfigDefaults() {
+        CuriositiesConfig config = CuriositiesConfig.getConfig();
+        config.setDefaultValue(CONFIG_ROOT + ".radius", DEFAULT_RADIUS);
+        config.setDefaultValue(CONFIG_ROOT + ".pulse-interval-ticks", DEFAULT_PULSE_INTERVAL_TICKS);
+        config.setDefaultValue(CONFIG_ROOT + ".particles", true);
+        config.save();
     }
 
     private void registerListener(Plugin plugin) {
@@ -150,8 +160,8 @@ public final class ArachnidWardTorch extends SlimefunItem implements Listener {
                 continue;
             }
 
-            if (spider instanceof Mob mob && mob.getTarget() != null) {
-                mob.setTarget(null);
+            if (spider.getTarget() != null) {
+                spider.setTarget(null);
             }
 
             Vector away = location.toVector().subtract(center.toVector());
@@ -172,8 +182,7 @@ public final class ArachnidWardTorch extends SlimefunItem implements Listener {
             return;
         }
 
-        Location spiderLocation = spider.getLocation();
-        if (isInsideActiveWard(spiderLocation, System.currentTimeMillis())) {
+        if (isInsideActiveWard(spider.getLocation(), System.currentTimeMillis())) {
             event.setCancelled(true);
         }
     }
@@ -195,7 +204,13 @@ public final class ArachnidWardTorch extends SlimefunItem implements Listener {
             if (!ward.worldId.equals(worldId)) {
                 continue;
             }
-            if (distanceSquared(ward.x + 0.5D, ward.y + 0.45D, ward.z + 0.5D, location.getX(), location.getY(), location.getZ())
+            if (distanceSquared(
+                            ward.x + 0.5D,
+                            ward.y + 0.45D,
+                            ward.z + 0.5D,
+                            location.getX(),
+                            location.getY(),
+                            location.getZ())
                     <= radiusSquared) {
                 return true;
             }
@@ -212,22 +227,18 @@ public final class ArachnidWardTorch extends SlimefunItem implements Listener {
 
     private int getRadius() {
         CuriositiesConfig config = CuriositiesConfig.getConfig();
-        String path = CONFIG_ROOT + ".radius";
-        int configured = config.contains(path) ? config.getInt(path) : DEFAULT_RADIUS;
+        int configured = config.getInt(CONFIG_ROOT + ".radius");
         return Math.max(MIN_RADIUS, Math.min(MAX_RADIUS, configured));
     }
 
     private int getPulseIntervalTicks() {
         CuriositiesConfig config = CuriositiesConfig.getConfig();
-        String path = CONFIG_ROOT + ".pulse-interval-ticks";
-        int configured = config.contains(path) ? config.getInt(path) : DEFAULT_PULSE_INTERVAL_TICKS;
+        int configured = config.getInt(CONFIG_ROOT + ".pulse-interval-ticks");
         return Math.max(MIN_PULSE_INTERVAL_TICKS, Math.min(MAX_PULSE_INTERVAL_TICKS, configured));
     }
 
     private boolean showParticles() {
-        CuriositiesConfig config = CuriositiesConfig.getConfig();
-        String path = CONFIG_ROOT + ".particles";
-        return !config.contains(path) || config.getBoolean(path);
+        return CuriositiesConfig.getConfig().getBoolean(CONFIG_ROOT + ".particles");
     }
 
     private record WardKey(UUID worldId, int x, int y, int z) {
