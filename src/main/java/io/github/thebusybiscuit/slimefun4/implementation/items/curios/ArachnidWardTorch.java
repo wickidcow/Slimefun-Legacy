@@ -16,7 +16,6 @@ import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Spider;
 import org.bukkit.event.EventHandler;
@@ -124,9 +123,7 @@ public final class ArachnidWardTorch extends SlimefunItem implements Listener {
         }
 
         event.setCancelled(true);
-        if (spider instanceof Mob mob) {
-            mob.setTarget(null);
-        }
+        spider.setTarget(null);
         repel(spider, source.location());
     }
 
@@ -142,8 +139,8 @@ public final class ArachnidWardTorch extends SlimefunItem implements Listener {
         }
 
         event.setCancelled(true);
-        if (spider instanceof Mob mob && player.equals(mob.getTarget())) {
-            mob.setTarget(null);
+        if (player.equals(spider.getTarget())) {
+            spider.setTarget(null);
         }
         repel(spider, source.location());
     }
@@ -169,8 +166,8 @@ public final class ArachnidWardTorch extends SlimefunItem implements Listener {
                 continue;
             }
 
-            if (spider instanceof Mob mob && player.equals(mob.getTarget())) {
-                mob.setTarget(null);
+            if (player.equals(spider.getTarget())) {
+                spider.setTarget(null);
             }
             repel(spider, source);
         }
@@ -199,10 +196,9 @@ public final class ArachnidWardTorch extends SlimefunItem implements Listener {
                 continue;
             }
 
-            Mob mob = spider;
-            if (mob.getTarget() instanceof Player target
+            if (spider.getTarget() instanceof Player target
                     && distanceSquared(center, target.getLocation()) <= square(placedRadius)) {
-                mob.setTarget(null);
+                spider.setTarget(null);
             }
             repel(spider, center);
         }
