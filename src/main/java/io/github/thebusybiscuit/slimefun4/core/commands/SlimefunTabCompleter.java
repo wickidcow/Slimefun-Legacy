@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
@@ -96,8 +97,14 @@ class SlimefunTabCompleter implements TabCompleter {
                 return createReturnList(suggestions, args[2]);
             } else if (args[0].equalsIgnoreCase("cleardata")) {
                 return createReturnList(List.of("block", "oil", "*"), args[2]);
-            } else if (args[0].equalsIgnoreCase("chunkinfo") && sender instanceof Player player) {
-                return createReturnList(List.of(String.valueOf(player.getLocation().getChunk().getZ())), args[2]);
+            } else if (args[0].equalsIgnoreCase("chunkinfo")) {
+                World explicitWorld = Bukkit.getWorld(args[1]);
+                if (explicitWorld != null) {
+                    return createReturnList(List.of(currentChunkCoordinate(sender, explicitWorld, true)), args[2]);
+                } else if (sender instanceof Player player) {
+                    return createReturnList(List.of(String.valueOf(player.getLocation().getChunk().getZ())), args[2]);
+                }
+                return null;
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("ie2")) {
                 return createReturnList(List.of("status", "scan", "migrate", "refresh"), args[2]);
             } else {
@@ -107,11 +114,24 @@ class SlimefunTabCompleter implements TabCompleter {
         } else if (args.length == 4 && args[0].equalsIgnoreCase("give")) {
             return createReturnList(Arrays.asList("1", "2", "4", "8", "16", "32", "64"), args[3]);
         } else if (args.length == 4 && args[0].equalsIgnoreCase("chunkinfo")) {
-            return createReturnList(List.of("0"), args[3]);
+            World explicitWorld = Bukkit.getWorld(args[1]);
+            return explicitWorld == null
+                    ? null
+                    : createReturnList(List.of(currentChunkCoordinate(sender, explicitWorld, false)), args[3]);
         } else {
             // Returning null will make it fallback to the default arguments (all online players)
             return null;
         }
+    }
+
+    private String currentChunkCoordinate(CommandSender sender, World world, boolean xAxis) {
+        if (sender instanceof Player player && player.getWorld().equals(world)) {
+            return String.valueOf(xAxis
+                    ? player.getLocation().getChunk().getX()
+                    : player.getLocation().getChunk().getZ());
+        }
+
+        return "0";
     }
 
     /***
