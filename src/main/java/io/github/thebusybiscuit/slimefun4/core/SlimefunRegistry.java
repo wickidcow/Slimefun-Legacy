@@ -20,6 +20,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,6 +41,7 @@ import org.bukkit.inventory.ItemStack;
 public final class SlimefunRegistry {
 
     private final Map<String, SlimefunItem> slimefunIds = new HashMap<>();
+    private final Map<String, String> legacySlimefunItemIds = new ConcurrentHashMap<>();
     private final List<SlimefunItem> slimefunItems = new ArrayList<>();
     private final List<SlimefunItem> enabledItems = new ArrayList<>();
     private final List<ItemGroup> categories = new ArrayList<>();
@@ -149,6 +151,51 @@ public final class SlimefunRegistry {
     @Nonnull
     public Map<String, SlimefunItem> getSlimefunItemIds() {
         return slimefunIds;
+    }
+
+    /**
+     * Registers a legacy Slimefun item id and its current replacement for diagnostics and migration tooling.
+     *
+     * <p>This does not insert the legacy id into the live item registry and therefore does not make the old id
+     * resolve as a registered {@link SlimefunItem}. Addons remain responsible for any temporary runtime aliases
+     * they intentionally need while migrating persisted data.
+     *
+     * @param legacyId the historical id stored by an older addon/version
+     * @param currentId the current registered replacement id
+     */
+    public void registerLegacySlimefunItemId(@Nonnull String legacyId, @Nonnull String currentId) {
+        Validate.notNull(legacyId, "The legacy Slimefun item id cannot be null!");
+        Validate.notNull(currentId, "The current Slimefun item id cannot be null!");
+        Validate.isTrue(!legacyId.isBlank(), "The legacy Slimefun item id cannot be blank!");
+        Validate.isTrue(!currentId.isBlank(), "The current Slimefun item id cannot be blank!");
+        Validate.isTrue(!legacyId.equals(currentId), "A legacy Slimefun item id cannot map to itself!");
+
+        String existing = legacySlimefunItemIds.putIfAbsent(legacyId, currentId);
+        Validate.isTrue(
+                existing == null || existing.equals(currentId),
+                "Legacy Slimefun item id '" + legacyId + "' is already mapped to '" + existing + "'");
+    }
+
+    /**
+     * Returns the currently declared legacy item-id mappings.
+     *
+     * <p>The returned map is read-only and is intentionally separate from {@link #getSlimefunItemIds()}.
+     *
+     * @return an immutable view of legacy id to current id mappings
+     */
+    public @Nonnull Map<String, String> getLegacySlimefunItemIds() {
+        return Collections.unmodifiableMap(legacySlimefunItemIds);
+    }
+
+    /**
+     * Looks up the declared replacement for a historical Slimefun item id.
+     *
+     * @param legacyId the historical id
+     * @return the declared current id, when one has been registered
+     */
+    public @Nonnull Optional<String> getLegacySlimefunItemIdTarget(@Nonnull String legacyId) {
+        Validate.notNull(legacyId, "The legacy Slimefun item id cannot be null!");
+        return Optional.ofNullable(legacySlimefunItemIds.get(legacyId));
     }
 
     @Nonnull
