@@ -1,4 +1,4 @@
-name: Refresh IE2 in Slimefun Legacy Bundle
+name: Refresh IE2 and DynaTech in Slimefun Legacy Bundle
 
 on:
   push:
@@ -11,13 +11,15 @@ permissions:
   contents: write
 
 concurrency:
-  group: refresh-ie2-slimefun-addon-bundle
+  group: refresh-ie2-dynatech-slimefun-addon-bundle
   cancel-in-progress: true
 
 env:
   BASE_BUNDLE_TAG: v4.1.45
   IE2_TAG: v2.0.4
   IE2_ASSET: SF_InfinityExpansion2.0.4.jar
+  DYNATECH_TAG: v1.1.02
+  DYNATECH_ASSET: SF_DynaTech1.1.02.jar
 
 jobs:
   refresh:
@@ -26,7 +28,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Replace IE2 in current addon bundle
+      - name: Replace IE2 and DynaTech in current addon bundle
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -35,6 +37,25 @@ jobs:
           rm -rf bundle work fixed SFL_AddonsNDependencies.zip
           mkdir -p bundle work fixed
 
+          download_with_retry() {
+            local repo="$1"
+            local tag="$2"
+            local asset="$3"
+            for attempt in $(seq 1 90); do
+              rm -f "fixed/$asset"
+              if gh release download "$tag" --repo "$repo" --pattern "$asset" --dir fixed; then
+                test -s "fixed/$asset"
+                return 0
+              fi
+              if [[ "$attempt" == 90 ]]; then
+                echo "Timed out waiting for $repo $tag asset $asset" >&2
+                return 1
+              fi
+              echo "Waiting for $repo $tag asset $asset (attempt $attempt/90)"
+              sleep 10
+            done
+          }
+
           gh release download "$BASE_BUNDLE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --pattern 'SFL_AddonsNDependencies.zip' \
@@ -42,37 +63,37 @@ jobs:
           unzip -q work/SFL_AddonsNDependencies.zip -d bundle
 
           IE2_OLD="$(find bundle -type f \( -iname '*InfinityExpansion2*.jar' -o -iname '*IE2Legacy*.jar' \) -print -quit || true)"
+          DYNATECH_OLD="$(find bundle -type f -iname '*DynaTech*.jar' -print -quit || true)"
           IE2_DIR="${IE2_OLD:+$(dirname "$IE2_OLD")}"; IE2_DIR="${IE2_DIR:-bundle}"
+          DYNATECH_DIR="${DYNATECH_OLD:+$(dirname "$DYNATECH_OLD")}"; DYNATECH_DIR="${DYNATECH_DIR:-bundle}"
 
-          for attempt in $(seq 1 90); do
-            rm -f "fixed/$IE2_ASSET"
-            if gh release download "$IE2_TAG" \
-              --repo wickidcow/SF_InfinityExpansion2 \
-              --pattern "$IE2_ASSET" \
-              --dir fixed; then
-              break
-            fi
-            if [[ "$attempt" == 90 ]]; then
-              echo "Timed out waiting for IE2 $IE2_TAG asset $IE2_ASSET" >&2
-              exit 1
-            fi
-            echo "Waiting for IE2 $IE2_TAG release asset (attempt $attempt/90)"
-            sleep 10
-          done
+          echo "IE2 destination: $IE2_DIR"
+          echo "DynaTech destination: $DYNATECH_DIR"
 
-          test -s "fixed/$IE2_ASSET"
+          download_with_retry wickidcow/SF_InfinityExpansion2 "$IE2_TAG" "$IE2_ASSET"
+          download_with_retry wickidcow/SF_DynaTech "$DYNATECH_TAG" "$DYNATECH_ASSET"
+
           find bundle -type f \( -iname '*InfinityExpansion2*.jar' -o -iname '*IE2Legacy*.jar' \) -delete
-          mkdir -p "$IE2_DIR"
+          find bundle -type f -iname '*DynaTech*.jar' -delete
+          mkdir -p "$IE2_DIR" "$DYNATECH_DIR"
           cp "fixed/$IE2_ASSET" "$IE2_DIR/"
+          cp "fixed/$DYNATECH_ASSET" "$DYNATECH_DIR/"
 
           test "$(find bundle -type f -name "$IE2_ASSET" | wc -l)" -eq 1
+          test "$(find bundle -type f -name "$DYNATECH_ASSET" | wc -l)" -eq 1
+
           if find bundle -type f \( -iname '*InfinityExpansion2*.jar' -o -iname '*IE2Legacy*.jar' \) ! -name "$IE2_ASSET" | grep -q .; then
             echo 'An older IE2 JAR remains in the bundle.' >&2
+            exit 1
+          fi
+          if find bundle -type f -iname '*DynaTech*.jar' ! -name "$DYNATECH_ASSET" | grep -q .; then
+            echo 'An older DynaTech JAR remains in the bundle.' >&2
             exit 1
           fi
 
           (cd bundle && zip -qr ../SFL_AddonsNDependencies.zip .)
           unzip -l SFL_AddonsNDependencies.zip | grep -F "$IE2_ASSET"
+          unzip -l SFL_AddonsNDependencies.zip | grep -F "$DYNATECH_ASSET"
           sha256sum SFL_AddonsNDependencies.zip
 
       - name: Publish refreshed bundle to v4.1.45
@@ -83,7 +104,7 @@ jobs:
       - name: Upload refreshed bundle artifact
         uses: actions/upload-artifact@v7
         with:
-          name: Slimefun-Legacy-IE2-Addons
+          name: Slimefun-Legacy-IE2-DynaTech-Addons
           path: SFL_AddonsNDependencies.zip
           archive: false
           if-no-files-found: error
