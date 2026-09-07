@@ -1,6 +1,8 @@
 package io.github.thebusybiscuit.slimefun4.core.services.profiler;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -38,10 +40,58 @@ class SlimefunProfilerAverageTest {
     }
 
     @Test
+    void idleTickerCycleDoesNotStartProfiler() {
+        SlimefunProfiler profiler = new SlimefunProfiler();
+
+        assertFalse(profiler.startIfRequested());
+        assertFalse(profiler.isProfiling());
+        assertEquals(0L, profiler.newEntry());
+
+        profiler.kill();
+    }
+
+    @Test
+    void queuedSummaryStartsRequestedTickerCycle() {
+        SlimefunProfiler profiler = new SlimefunProfiler();
+        profiler.requestSummary(inspector(new AtomicInteger()));
+
+        assertTrue(profiler.startIfRequested());
+        assertTrue(profiler.isProfiling());
+        assertTrue(profiler.newEntry() > 0L);
+
+        profiler.kill();
+    }
+
+    @Test
+    void explicitStartRemainsUnconditional() {
+        SlimefunProfiler profiler = new SlimefunProfiler();
+
+        profiler.start();
+
+        assertTrue(profiler.isProfiling());
+        assertTrue(profiler.newEntry() > 0L);
+
+        profiler.kill();
+    }
+
+    @Test
     void suppressesSupersededCycleReport() throws ReflectiveOperationException {
         SlimefunProfiler profiler = new SlimefunProfiler();
         AtomicInteger messages = new AtomicInteger();
-        profiler.requestSummary(new PerformanceInspector() {
+        profiler.requestSummary(inspector(messages));
+
+        profiler.start();
+        Method finishReport = SlimefunProfiler.class.getDeclaredMethod("finishReport");
+        finishReport.setAccessible(true);
+        finishReport.invoke(profiler);
+
+        assertEquals(0, messages.get());
+        assertEquals(1, queue(profiler, "requests").size());
+        profiler.kill();
+    }
+
+    private PerformanceInspector inspector(AtomicInteger messages) {
+        return new PerformanceInspector() {
             @Override
             public boolean isValid() {
                 return true;
@@ -61,16 +111,7 @@ class SlimefunProfilerAverageTest {
             public SummaryOrderType getOrderType() {
                 return SummaryOrderType.HIGHEST;
             }
-        });
-
-        profiler.start();
-        Method finishReport = SlimefunProfiler.class.getDeclaredMethod("finishReport");
-        finishReport.setAccessible(true);
-        finishReport.invoke(profiler);
-
-        assertEquals(0, messages.get());
-        assertEquals(1, queue(profiler, "requests").size());
-        profiler.kill();
+        };
     }
 
     private AtomicLong atomicLong(SlimefunProfiler profiler, String name) throws ReflectiveOperationException {

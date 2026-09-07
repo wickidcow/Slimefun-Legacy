@@ -48,6 +48,9 @@ import org.bukkit.Location;
 @SlimefunInternal
 public class TickerTask implements Runnable {
 
+    private static final int DEFAULT_CIRCUIT_FAILURE_THRESHOLD = 4;
+    private static final int PROFILER_TELEMETRY_INTERVAL_SERVER_TICKS = 20 * 60;
+
     /**
      * This Map holds all currently actively ticking locations.
      * The value of this map (Set entries) MUST be thread-safe and mutable.
@@ -80,10 +83,10 @@ public class TickerTask implements Runnable {
     private final MachineFailureTracker<BlockPosition> failureTracker = new MachineFailureTracker<>();
     private final Map<BlockTicker, Long> tickerLifecycleLogTimes = new ConcurrentHashMap<>();
 
-    private static final int DEFAULT_CIRCUIT_FAILURE_THRESHOLD = 4;
-
     private final AtomicBoolean running = new AtomicBoolean();
     private int tickRate;
+    private int profilerTelemetryCycles = 1;
+    private int cyclesUntilProfilerTelemetry = 1;
     private TaskHandle scheduledTask;
     private volatile boolean halted;
 
@@ -97,6 +100,10 @@ public class TickerTask implements Runnable {
      */
     public void start(@Nonnull Slimefun plugin) {
         this.tickRate = Slimefun.getCfg().getInt("URID.custom-ticker-delay");
+        int safeTickRate = Math.max(1, tickRate);
+        profilerTelemetryCycles = Math.max(1, PROFILER_TELEMETRY_INTERVAL_SERVER_TICKS / safeTickRate);
+        // Take one startup sample, then fall back to the sparse telemetry cadence.
+        cyclesUntilProfilerTelemetry = 1;
 
         if (scheduledTask != null) {
             scheduledTask.cancel();
@@ -112,7 +119,15 @@ public class TickerTask implements Runnable {
         }
 
         try {
-            Slimefun.getProfiler().start();
+            boolean profiling = Slimefun.getProfiler().startIfRequested();
+            if (profiling) {
+                // A requested/manual sample also satisfies the periodic telemetry sample.
+                cyclesUntilProfilerTelemetry = profilerTelemetryCycles;
+            } else if (--cyclesUntilProfilerTelemetry <= 0) {
+                Slimefun.getProfiler().start();
+                cyclesUntilProfilerTelemetry = profilerTelemetryCycles;
+            }
+
             Set<Map.Entry<ChunkPosition, Set<TickLocation>>> snapshot = snapshotTickingLocations();
 
             if (Slimefun.getSchedulerService().isFolia()) {

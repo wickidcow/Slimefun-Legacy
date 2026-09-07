@@ -117,6 +117,25 @@ public class SlimefunProfiler {
     }
 
     /**
+     * Starts a ticker-cycle sample only when a summary is waiting to be produced.
+     * Explicit calls to {@link #start()} remain unconditional for compatibility.
+     *
+     * @return whether the current ticker cycle should collect profiler entries
+     */
+    public boolean startIfRequested() {
+        if (isProfiling) {
+            return true;
+        }
+
+        if (requests.isEmpty()) {
+            return false;
+        }
+
+        start();
+        return true;
+    }
+
+    /**
      * This method starts a new profiler entry.
      *
      * @return A timestamp, best fed back into {@link #closeEntry(Location, SlimefunItem, long)}
@@ -169,12 +188,12 @@ public class SlimefunProfiler {
      * @return The total timings of this entry
      */
     public long closeEntry(@Nonnull Location l, @Nonnull SlimefunItem item, long timestamp) {
-        Validate.notNull(l, "Location must not be null!");
-        Validate.notNull(item, "You need to specify a SlimefunItem!");
-
         if (timestamp == 0) {
             return 0;
         }
+
+        Validate.notNull(l, "Location must not be null!");
+        Validate.notNull(item, "You need to specify a SlimefunItem!");
 
         long elapsedTime = System.nanoTime() - timestamp;
 
