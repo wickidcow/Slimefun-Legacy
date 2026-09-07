@@ -69,8 +69,8 @@ final class DoctorRouterCommand extends SubCommand {
         } else {
             List<String> samples = report.getUnknownIdSamples();
             long recognized = samples.stream().filter(mappings::containsKey).count();
-            send(sender, "&7Last/current Doctor unknown IDs: &e" + report.getUnknownIds()
-                    + " &8| &7sampled: &e" + samples.size()
+            send(sender, "&7Last/current Doctor unknown stacks: &e" + report.getUnknownIds()
+                    + " &8| &7sampled IDs: &e" + samples.size()
                     + " &8| &7sampled legacy matches: &a" + recognized);
         }
 
