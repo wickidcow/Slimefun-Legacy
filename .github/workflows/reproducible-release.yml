@@ -87,19 +87,18 @@ jobs:
           BUNDLE="dist/SFL_AddonsNDependencies.zip"
 
           # A release refresh should never roll the addon bundle backwards. Reuse the
-          # bundle already published for this version when it exists, and only fall
-          # back to the validated previous-stable 4.1.45 bundle when creating a
-          # 4.1.46 release from scratch.
+          # bundle already published for this version when it exists, and otherwise
+          # fall back to the validated previous stable release bundle.
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
             && gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'SFL_AddonsNDependencies.zip' --dir dist; then
             echo "Preserved the existing $TAG addon bundle."
           else
             rm -f "$BUNDLE"
-            gh release download v4.1.45 \
+            gh release download v4.1.46 \
               --repo "$GITHUB_REPOSITORY" \
               --pattern 'SFL_AddonsNDependencies.zip' \
               --dir dist
-            echo 'ce6945ce02d6f5d8b3f7981ff5dbbda53554af3205faffd89a04c9ac9d526114  dist/SFL_AddonsNDependencies.zip' | sha256sum -c -
+            echo 'd859676dfc75bfabc283560d72b37f924a48980b1b47a5187bb6d339ad3bab10  dist/SFL_AddonsNDependencies.zip' | sha256sum -c -
           fi
       - name: Upload raw reproducible JAR artifact
         uses: actions/upload-artifact@v7
