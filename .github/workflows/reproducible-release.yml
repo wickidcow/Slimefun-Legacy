@@ -8,6 +8,7 @@ on:
     paths:
       - gradle.properties
       - docs/releases/**
+      - .github/workflows/reproducible-release.yml
 
 permissions:
   contents: write
@@ -124,12 +125,9 @@ jobs:
               "repos/${GITHUB_REPOSITORY}/git/refs/tags/${TAG}" \
               -f sha="$GITHUB_SHA" \
               -F force=true >/dev/null
-            gh release upload "$TAG" "$JAR" "$BUNDLE" --clobber
-            if [[ -f "$NOTES_FILE" ]]; then
-              gh release edit "$TAG" --title "$TITLE" --notes-file "$NOTES_FILE"
-            else
-              gh release edit "$TAG" --title "$TITLE"
-            fi
+            # Existing-release hotfix: replace only the Slimefun Legacy JAR.
+            # The addons bundle, title and release notes remain untouched.
+            gh release upload "$TAG" "$JAR" --clobber
           else
             if [[ -f "$NOTES_FILE" ]]; then
               gh release create "$TAG" "$JAR" "$BUNDLE" --target "$GITHUB_SHA" --notes-file "$NOTES_FILE" --title "$TITLE"
