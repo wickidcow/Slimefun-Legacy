@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.listeners;
 
+import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerBackpack;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
@@ -14,6 +15,8 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -50,6 +53,8 @@ import org.bukkit.inventory.ItemStack;
  *
  */
 public class BackpackListener implements Listener {
+    private static final Pattern HEX_COLOR_PATTERN = Pattern.compile("(?i)&#([0-9a-f]{6})");
+
     // Stores the player uuid maps to the opening backpack uuid
     private final BackpackOpenRegistry openRegistry = new BackpackOpenRegistry();
     private final Map<UUID, UUID> backpacks = new ConcurrentHashMap<>();
@@ -244,7 +249,11 @@ public class BackpackListener implements Listener {
                             item,
                             Slimefun.getDatabaseManager()
                                     .getProfileDataController()
-                                    .createBackpack(player, name, profile.nextBackpackNum(), backpackItem.getSize()));
+                                    .createBackpack(
+                                            player,
+                                            formatBackpackName(name),
+                                            profile.nextBackpackNum(),
+                                            backpackItem.getSize()));
                 });
             });
             return;
@@ -319,6 +328,24 @@ public class BackpackListener implements Listener {
             openRegistry.release(playerId, reservationKey);
             throw ex;
         }
+    }
+
+    @Nonnull
+    static String formatBackpackName(@Nonnull String name) {
+        Matcher matcher = HEX_COLOR_PATTERN.matcher(name);
+        StringBuilder formatted = new StringBuilder();
+
+        while (matcher.find()) {
+            String hex = matcher.group(1);
+            StringBuilder expanded = new StringBuilder("&x");
+            for (char digit : hex.toCharArray()) {
+                expanded.append('&').append(digit);
+            }
+            matcher.appendReplacement(formatted, Matcher.quoteReplacement(expanded.toString()));
+        }
+
+        matcher.appendTail(formatted);
+        return ChatColors.color(formatted.toString());
     }
 
     private String getReservationKey(@Nonnull org.bukkit.inventory.meta.ItemMeta meta) {
