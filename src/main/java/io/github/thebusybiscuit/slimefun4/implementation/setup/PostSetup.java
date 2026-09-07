@@ -40,6 +40,7 @@ public final class PostSetup {
 
     public static void loadItems() {
         AdventurersCuriosSetup.setup(Slimefun.instance());
+        ArachnidWardTorchSetup.setup(Slimefun.instance());
         IrradiatedArsenalSetup.setup(Slimefun.instance());
         AdventurersToolsSetup.setup(Slimefun.instance());
         ExtraGearSetup.setup(Slimefun.instance());
