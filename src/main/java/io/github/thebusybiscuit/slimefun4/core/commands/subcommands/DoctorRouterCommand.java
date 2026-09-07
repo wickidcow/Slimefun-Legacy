@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
-import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
@@ -163,6 +162,6 @@ final class DoctorRouterCommand extends SubCommand {
     }
 
     private void send(CommandSender sender, String message) {
-        sender.sendMessage(ChatColors.color(message));
+        sender.sendMessage(message.replace('&', '\u00A7'));
     }
 }
