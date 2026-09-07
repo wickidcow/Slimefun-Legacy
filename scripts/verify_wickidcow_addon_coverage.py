@@ -13,6 +13,7 @@ import urllib.request
 from pathlib import Path
 
 API = "https://api.github.com/search/repositories"
+DEFAULT_EXCLUSIONS = Path("compatibility/addon-compatibility-exclusions.json")
 
 
 def parse_args() -> argparse.Namespace:
@@ -23,25 +24,20 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("compatibility/addon-compatibility-matrix.json"),
     )
+    parser.add_argument("--exclusions", type=Path, default=DEFAULT_EXCLUSIONS)
     parser.add_argument("--owner", default="wickidcow")
     return parser.parse_args()
 
 
-def load_matrix(path: Path) -> tuple[dict[str, bool], str, set[str], set[str]]:
+def load_matrix(path: Path) -> tuple[dict[str, bool], str, set[str]]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     policy = payload.get("policy", {})
     prefix = policy.get("fork_discovery_prefix", "SF_")
     explicit = set(policy.get("fork_discovery_explicit", ["WorldEditSlimefun"]))
-    excluded = set(policy.get("fork_discovery_exclude", []))
     if not isinstance(prefix, str) or not prefix:
         raise ValueError("policy.fork_discovery_prefix must be a non-empty string")
     if not all(isinstance(name, str) and name for name in explicit):
         raise ValueError("policy.fork_discovery_explicit must contain repository names")
-    if not all(isinstance(name, str) and name for name in excluded):
-        raise ValueError("policy.fork_discovery_exclude must contain repository names")
-    if explicit & excluded:
-        overlap = ", ".join(sorted(explicit & excluded))
-        raise ValueError(f"fork discovery repositories cannot be both explicit and excluded: {overlap}")
 
     coverage: dict[str, bool] = {}
     for index, addon in enumerate(payload.get("addons", [])):
@@ -51,7 +47,34 @@ def load_matrix(path: Path) -> tuple[dict[str, bool], str, set[str], set[str]]:
         enabled = addon.get("enabled", True)
         if isinstance(repository, str):
             coverage[repository] = bool(enabled)
-    return coverage, prefix, explicit, excluded
+    return coverage, prefix, explicit
+
+
+def load_exclusions(path: Path, owner: str) -> dict[str, str]:
+    if not path.is_file():
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("schema") != 1:
+        raise ValueError("addon exclusion registry schema must be 1")
+    raw_exclusions = payload.get("exclusions")
+    if not isinstance(raw_exclusions, list):
+        raise ValueError("addon exclusion registry must contain an exclusions array")
+
+    exclusions: dict[str, str] = {}
+    prefix = f"{owner}/"
+    for index, raw in enumerate(raw_exclusions):
+        if not isinstance(raw, dict):
+            raise ValueError(f"exclusions[{index}] must be an object")
+        repository = raw.get("repository")
+        reason = raw.get("reason")
+        if not isinstance(repository, str) or not repository.startswith(prefix):
+            raise ValueError(f"exclusions[{index}].repository must target {owner}: {repository!r}")
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError(f"exclusions[{index}].reason must be a non-empty string")
+        if repository in exclusions:
+            raise ValueError(f"duplicate addon coverage exclusion: {repository}")
+        exclusions[repository] = reason.strip()
+    return exclusions
 
 
 def request_page(owner: str, page: int) -> list[dict[str, object]]:
@@ -98,13 +121,26 @@ def discover_repositories(owner: str, prefix: str, explicit: set[str]) -> list[d
 def main() -> int:
     args = parse_args()
     try:
-        coverage, prefix, explicit, excluded = load_matrix(args.matrix)
+        coverage, prefix, explicit = load_matrix(args.matrix)
+        exclusions = load_exclusions(args.exclusions, args.owner)
         discovered = discover_repositories(args.owner, prefix, explicit)
     except (OSError, ValueError, RuntimeError, json.JSONDecodeError, urllib.error.URLError) as error:
         print(f"Fork coverage verification failed: {error}", file=sys.stderr)
         return 2
 
-    eligible = [repo for repo in discovered if str(repo.get("name", "")) not in excluded]
+    discovered_names = {f"{args.owner}/{repo['name']}" for repo in discovered}
+    stale_exclusions = sorted(repository for repository in exclusions if repository not in discovered_names)
+    if stale_exclusions:
+        print("Addon coverage exclusions no longer match discovered repositories:", file=sys.stderr)
+        for repository in stale_exclusions:
+            print(f"  - {repository}", file=sys.stderr)
+        return 1
+
+    eligible = [
+        repo
+        for repo in discovered
+        if f"{args.owner}/{repo.get('name', '')}" not in exclusions
+    ]
     expected = {f"{args.owner}/{repo['name']}" for repo in eligible}
     missing = sorted(repository for repository in expected if repository not in coverage)
     disabled = sorted(repository for repository in expected if coverage.get(repository) is False)
@@ -122,10 +158,10 @@ def main() -> int:
         f"{active_count} active, {len(archived)} archived."
     )
 
-    if excluded:
+    if exclusions:
         print("Explicitly excluded from standalone addon compatibility coverage:")
-        for name in sorted(excluded):
-            print(f"  - {args.owner}/{name}")
+        for repository in sorted(exclusions):
+            print(f"  - {repository}: {exclusions[repository]}")
 
     if archived:
         print("Archived eligible forks still requiring advisory test coverage:")
