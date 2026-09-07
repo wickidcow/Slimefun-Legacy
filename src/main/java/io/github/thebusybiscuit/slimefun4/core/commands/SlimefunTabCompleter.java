@@ -130,6 +130,7 @@ class SlimefunTabCompleter implements TabCompleter {
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("ie2")) {
                 return createReturnList(List.of("status", "scan", "migrate", "refresh"), args[2]);
             } else {
+                // Returning null will make it fallback to the default arguments (all online players)
                 return null;
             }
         } else if (args.length == 4 && args[0].equalsIgnoreCase("give")) {
@@ -172,6 +173,7 @@ class SlimefunTabCompleter implements TabCompleter {
                 && args[2].equalsIgnoreCase("execute")) {
             return createReturnList(List.of("confirm"), args[4]);
         } else {
+            // Returning null will make it fallback to the default arguments (all online players)
             return null;
         }
     }
@@ -186,6 +188,15 @@ class SlimefunTabCompleter implements TabCompleter {
         return "0";
     }
 
+    /***
+     * Returns a sublist from a given list containing items that start with the given string if string is not empty
+     *
+     * @param list
+     *            The list to process
+     * @param string
+     *            The typed string
+     * @return Sublist if string is not empty
+     */
     @Nonnull
     private List<String> createReturnList(@Nonnull List<String> list, @Nonnull String string) {
         if (string.isEmpty()) {
@@ -222,6 +233,7 @@ class SlimefunTabCompleter implements TabCompleter {
         for (SlimefunItem item : items) {
             list.add(item.getId());
         }
+
         return list;
     }
 
