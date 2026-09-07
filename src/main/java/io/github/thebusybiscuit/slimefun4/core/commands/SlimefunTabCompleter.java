@@ -81,6 +81,7 @@ class SlimefunTabCompleter implements TabCompleter {
                                 "integrations",
                                 "dependencies",
                                 "storage",
+                                "migrations",
                                 "repair",
                                 "ie2"),
                         args[1]);
@@ -123,6 +124,8 @@ class SlimefunTabCompleter implements TabCompleter {
                 return null;
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("storage")) {
                 return createReturnList(List.of("status", "scan", "plan", "verify", "repair"), args[2]);
+            } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("migrations")) {
+                return createReturnList(List.of("status", "list", "unknown"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("ie2")) {
                 return createReturnList(List.of("status", "scan", "migrate", "refresh"), args[2]);
             } else {
@@ -144,6 +147,11 @@ class SlimefunTabCompleter implements TabCompleter {
             return plan == null
                     ? Collections.emptyList()
                     : createReturnList(List.of(plan.getFingerprint()), args[3]);
+        } else if (args.length == 4
+                && args[0].equalsIgnoreCase("doctor")
+                && args[1].equalsIgnoreCase("migrations")
+                && args[2].equalsIgnoreCase("list")) {
+            return createReturnList(List.of("1"), args[3]);
         } else if (args.length == 4 && args[0].equalsIgnoreCase("chunkinfo")) {
             if (args[1].equalsIgnoreCase("top")) {
                 return Collections.emptyList();
