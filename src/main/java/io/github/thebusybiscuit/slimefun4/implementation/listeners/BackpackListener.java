@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.implementation.listeners;
 
-import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerBackpack;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
@@ -345,7 +344,7 @@ public class BackpackListener implements Listener {
         }
 
         matcher.appendTail(formatted);
-        return ChatColors.color(formatted.toString());
+        return org.bukkit.ChatColor.translateAlternateColorCodes('&', formatted.toString());
     }
 
     private String getReservationKey(@Nonnull org.bukkit.inventory.meta.ItemMeta meta) {
