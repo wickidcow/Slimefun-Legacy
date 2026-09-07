@@ -389,6 +389,13 @@ public class TickerTask implements Runnable {
         failureTracker.clear(position);
     }
 
+    private void clearTickerRuntimeState(BlockPosition position) {
+        viewedInventories.remove(position);
+        targetedPausedMachines.remove(position);
+        queuedSynchronousTicks.remove(position);
+        clearFailureState(position);
+    }
+
     @ParametersAreNonnullByDefault
     private boolean tickBlock(Location location, SlimefunItem item, ASlimefunDataContainer data, long timestamp) {
         try {
@@ -792,11 +799,7 @@ public class TickerTask implements Runnable {
         Validate.notNull(l, "Location cannot be null!");
 
         BlockPosition position = new BlockPosition(l);
-        viewedInventories.remove(position);
-        targetedPausedMachines.remove(position);
-        queuedSynchronousTicks.remove(position);
-        circuitBreaker.clear(position);
-        bugs.remove(position);
+        clearTickerRuntimeState(position);
 
         synchronized (tickingLocations) {
             ChunkPosition chunk = new ChunkPosition(l.getWorld(), l.getBlockX() >> 4, l.getBlockZ() >> 4);
@@ -827,14 +830,25 @@ public class TickerTask implements Runnable {
         Validate.notNull(uuid, "Universal Data ID cannot be null!");
 
         synchronized (tickingLocations) {
-            tickingLocations.values().forEach(loc -> loc.removeIf(tk -> {
-                if (!uuid.equals(tk.getUuid())) {
-                    return false;
-                }
+            Set<ChunkPosition> emptyChunks = new HashSet<>();
+            for (Map.Entry<ChunkPosition, Set<TickLocation>> entry : tickingLocations.entrySet()) {
+                Set<TickLocation> locations = entry.getValue();
+                locations.removeIf(tk -> {
+                    if (!uuid.equals(tk.getUuid())) {
+                        return false;
+                    }
 
-                targetedPausedMachines.remove(new BlockPosition(tk.getLocation()));
-                return true;
-            }));
+                    clearTickerRuntimeState(new BlockPosition(tk.getLocation()));
+                    return true;
+                });
+
+                if (locations.isEmpty()) {
+                    emptyChunks.add(entry.getKey());
+                }
+            }
+            for (ChunkPosition emptyChunk : emptyChunks) {
+                tickingLocations.remove(emptyChunk);
+            }
             tickingLocationsSnapshotDirty = true;
         }
     }
