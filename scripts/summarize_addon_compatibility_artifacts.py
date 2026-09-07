@@ -20,6 +20,7 @@ KNOWN_STATUSES = {
     INSTRUMENTATION_ERROR,
 }
 ARTIFACT_PREFIX = "addon-compatibility-"
+DEFAULT_EXCLUSIONS = Path("compatibility/addon-compatibility-exclusions.json")
 
 
 def parse_args() -> argparse.Namespace:
@@ -27,10 +28,37 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("matrix", type=Path)
     parser.add_argument("artifact_root", type=Path)
     parser.add_argument("--summary", type=Path, required=True)
+    parser.add_argument("--exclusions", type=Path, default=DEFAULT_EXCLUSIONS)
     return parser.parse_args()
 
 
-def load_targets(matrix_path: Path) -> list[dict[str, object]]:
+def load_exclusions(path: Path) -> set[str]:
+    if not path.is_file():
+        return set()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("schema") != 1:
+        raise ValueError("addon exclusion registry schema must be 1")
+    raw_exclusions = payload.get("exclusions")
+    if not isinstance(raw_exclusions, list):
+        raise ValueError("addon exclusion registry must contain an exclusions array")
+
+    exclusions: set[str] = set()
+    for index, raw in enumerate(raw_exclusions):
+        if not isinstance(raw, dict):
+            raise ValueError(f"exclusions[{index}] must be an object")
+        repository = raw.get("repository")
+        reason = raw.get("reason")
+        if not isinstance(repository, str) or "/" not in repository:
+            raise ValueError(f"exclusions[{index}].repository is invalid: {repository!r}")
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError(f"exclusions[{index}].reason must be a non-empty string")
+        if repository in exclusions:
+            raise ValueError(f"duplicate addon compatibility exclusion: {repository}")
+        exclusions.add(repository)
+    return exclusions
+
+
+def load_targets(matrix_path: Path, exclusions: set[str]) -> list[dict[str, object]]:
     payload = json.loads(matrix_path.read_text(encoding="utf-8"))
     addons = payload.get("addons")
     if not isinstance(addons, list):
@@ -44,6 +72,8 @@ def load_targets(matrix_path: Path) -> list[dict[str, object]]:
         slug = str(entry.get("slug", "")).strip()
         repository = str(entry.get("repository", "")).strip()
         tier = str(entry.get("tier", "")).strip()
+        if repository in exclusions:
+            continue
         if not slug or not repository or not tier:
             raise ValueError(f"Enabled matrix entry is missing slug/repository/tier: {entry!r}")
         if slug in seen:
@@ -58,7 +88,7 @@ def load_targets(matrix_path: Path) -> list[dict[str, object]]:
             }
         )
     if not targets:
-        raise ValueError("Compatibility matrix has no enabled addon targets")
+        raise ValueError("Compatibility matrix has no eligible enabled addon targets")
     return targets
 
 
@@ -93,7 +123,7 @@ def render_summary(rows: list[dict[str, object]], counts: Counter[str]) -> str:
     lines = [
         "## Aggregate addon compatibility audit",
         "",
-        f"Audited **{total}** enabled addon targets.",
+        f"Audited **{total}** eligible enabled addon targets.",
         "",
         "| Classification | Count | Meaning |",
         "| --- | ---: | --- |",
@@ -141,7 +171,8 @@ def render_summary(rows: list[dict[str, object]], counts: Counter[str]) -> str:
 def main() -> int:
     args = parse_args()
     try:
-        targets = load_targets(args.matrix)
+        exclusions = load_exclusions(args.exclusions)
+        targets = load_targets(args.matrix, exclusions)
     except Exception as exc:  # noqa: BLE001 - command-line audit must fail closed
         print(f"Unable to load compatibility matrix: {exc}", file=sys.stderr)
         return 2
