@@ -36,6 +36,16 @@ class TestSlimefunRegistryLegacyItemIds {
     }
 
     @Test
+    void rejectsBlankLegacyMappings() {
+        SlimefunRegistry registry = new SlimefunRegistry();
+
+        assertThrows(IllegalArgumentException.class, () -> registry.registerLegacySlimefunItemId("", "NEW"));
+        assertThrows(IllegalArgumentException.class, () -> registry.registerLegacySlimefunItemId("OLD", ""));
+        assertThrows(IllegalArgumentException.class, () -> registry.registerLegacySlimefunItemId("   ", "NEW"));
+        assertThrows(IllegalArgumentException.class, () -> registry.registerLegacySlimefunItemId("OLD", "   "));
+    }
+
+    @Test
     void exposesLegacyMappingsAsReadOnly() {
         SlimefunRegistry registry = new SlimefunRegistry();
         registry.registerLegacySlimefunItemId("OLD", "NEW");
