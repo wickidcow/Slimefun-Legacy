@@ -38,6 +38,8 @@ require("getLegacySlimefunItemIds" in registry, "legacy-id read-only mapping vie
 require("Collections.unmodifiableMap(legacySlimefunItemIds)" in registry, "legacy-id mapping view must remain immutable")
 require("putIfAbsent(legacyId, currentId)" in registry, "legacy-id registration must remain collision-aware and idempotent")
 require("!legacyId.equals(currentId)" in registry, "legacy-id self-map rejection is missing")
+require("!legacyId.isBlank()" in registry, "blank legacy-id rejection is missing")
+require("!currentId.isBlank()" in registry, "blank current-id rejection is missing")
 
 require('super(plugin, cmd, "doctor", true);' in router, "Doctor migration router must retain the doctor command name")
 require('equalsIgnoreCase("migrations")' in router, "Doctor migrations command route is missing")
@@ -56,6 +58,7 @@ require('List.of("status", "list", "unknown")' in tabs, "Doctor migration action
 
 require("registersLegacyIdsWithoutPollutingLiveItemRegistry" in test, "live-registry isolation regression test is missing")
 require("allowsIdempotentRegistrationButRejectsConflictingTargets" in test, "legacy mapping collision regression test is missing")
+require("rejectsBlankLegacyMappings" in test, "blank legacy mapping regression test is missing")
 require("exposesLegacyMappingsAsReadOnly" in test, "legacy mapping immutability regression test is missing")
 
 if ERRORS:
