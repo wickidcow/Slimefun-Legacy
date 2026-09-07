@@ -1,5 +1,4 @@
 name: Reproducible Release
-# One-time 4.1.46 hotfix trigger after the backpack formatter dependency-boundary fix.
 
 on:
   workflow_dispatch:
@@ -9,7 +8,6 @@ on:
     paths:
       - gradle.properties
       - docs/releases/**
-      - .github/workflows/reproducible-release.yml
 
 permissions:
   contents: write
@@ -126,9 +124,12 @@ jobs:
               "repos/${GITHUB_REPOSITORY}/git/refs/tags/${TAG}" \
               -f sha="$GITHUB_SHA" \
               -F force=true >/dev/null
-            # Existing-release hotfix: replace only the Slimefun Legacy JAR.
-            # The addons bundle, title and release notes remain untouched.
-            gh release upload "$TAG" "$JAR" --clobber
+            gh release upload "$TAG" "$JAR" "$BUNDLE" --clobber
+            if [[ -f "$NOTES_FILE" ]]; then
+              gh release edit "$TAG" --title "$TITLE" --notes-file "$NOTES_FILE"
+            else
+              gh release edit "$TAG" --title "$TITLE"
+            fi
           else
             if [[ -f "$NOTES_FILE" ]]; then
               gh release create "$TAG" "$JAR" "$BUNDLE" --target "$GITHUB_SHA" --notes-file "$NOTES_FILE" --title "$TITLE"
