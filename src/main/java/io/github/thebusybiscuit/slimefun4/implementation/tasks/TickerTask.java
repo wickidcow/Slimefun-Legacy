@@ -515,6 +515,10 @@ public class TickerTask implements Runnable {
     }
 
     private boolean canAttemptTick(BlockPosition position) {
+        if (circuitBreaker.size() == 0) {
+            return true;
+        }
+
         return circuitBreaker.canAttempt(position, System.currentTimeMillis());
     }
 
