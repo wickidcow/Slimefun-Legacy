@@ -1,9 +1,12 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
+import io.github.thebusybiscuit.slimefun4.api.diagnostics.AddonDoctorReport;
+import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemMigrationProvider;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorReport;
+import io.github.thebusybiscuit.slimefun4.core.services.stability.LegacyItemMigrationService;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -12,17 +15,21 @@ import java.util.Locale;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import org.bukkit.command.CommandSender;
+import org.bukkit.plugin.RegisteredServiceProvider;
 
-/** Routes Slimefun Doctor while adding generic read-only legacy-id migration diagnostics. */
+/** Routes Slimefun Doctor while adding generic legacy-id migration diagnostics and safe addon delegation. */
 final class DoctorRouterCommand extends SubCommand {
 
     private static final int PAGE_SIZE = 20;
+    private static final int MAX_PROVIDER_DETAIL_LINES = 20;
 
     private final DoctorCommand delegate;
+    private final LegacyItemMigrationService migrationService;
 
     DoctorRouterCommand(@Nonnull Slimefun plugin, @Nonnull SlimefunCommand cmd) {
         super(plugin, cmd, "doctor", true);
         delegate = new DoctorCommand(plugin, cmd);
+        migrationService = new LegacyItemMigrationService(plugin);
     }
 
     @Override
@@ -47,7 +54,10 @@ final class DoctorRouterCommand extends SubCommand {
             case "list" -> sendMigrationList(sender, parsePage(args));
             case "unknown", "unknowns" -> sendUnknownIds(sender);
             case "plan", "dryrun", "dry-run" -> sendMigrationPlan(sender);
-            default -> send(sender, "&eUsage: /sf doctor migrations <status|list|unknown|plan> [page]");
+            case "providers", "provider" -> sendMigrationProviders(sender);
+            case "scan" -> runMigrationProvider(sender, args, false);
+            case "execute" -> runMigrationProvider(sender, args, true);
+            default -> send(sender, "&eUsage: /sf doctor migrations <status|list|unknown|plan|providers|scan|execute>");
         }
     }
 
@@ -62,6 +72,7 @@ final class DoctorRouterCommand extends SubCommand {
                 + (mappings.size() - validTargets));
         send(sender, "&7Legacy IDs currently live-resolvable: &e" + liveAliases
                 + " &8(&7temporary addon aliases may cause this&8)");
+        send(sender, "&7Addon migration providers: &e" + migrationService.getProviders().size());
 
         ItemDoctorReport report = latestReport();
         if (report == null) {
@@ -80,7 +91,7 @@ final class DoctorRouterCommand extends SubCommand {
         } else {
             send(sender, "&7Use &e/sf doctor migrations list &7to inspect the declared replacements.");
         }
-        send(sender, "&8Read-only diagnostics. This command never rewrites items, blocks or registry IDs.");
+        send(sender, "&8Core diagnostics never rewrite addon persistence directly.");
     }
 
     private void sendMigrationList(@Nonnull CommandSender sender, int requestedPage) {
@@ -142,7 +153,7 @@ final class DoctorRouterCommand extends SubCommand {
             send(sender, "&8- &e" + id + " &8-> " + (targetPresent ? "&a" : "&c") + target
                     + (targetPresent ? " &7(ready)" : " &7(target missing)"));
         }
-        send(sender, "&8Correlation only. Generic migration/repair remains disabled at this stage.");
+        send(sender, "&8Correlation only. Core does not migrate addon persistence itself.");
     }
 
     private void sendMigrationPlan(@Nonnull CommandSender sender) {
@@ -207,8 +218,118 @@ final class DoctorRouterCommand extends SubCommand {
         }
 
         send(sender, "&eThis plan is sample-based, not an exact count of migratable stacks.");
-        send(sender, "&7Actual migration remains addon-owned; use the addon Doctor/migration provider for repairs.");
+        send(sender, "&7Actual migration remains addon-owned through a registered migration provider.");
         send(sender, "&8Dry-run only. No items, blocks, storage, registry IDs, Cargo or Energy data were changed.");
+    }
+
+    private void sendMigrationProviders(@Nonnull CommandSender sender) {
+        List<RegisteredServiceProvider<LegacyItemMigrationProvider>> providers = migrationService.getProviders();
+        send(sender, "&6Slimefun Addon Migration Providers");
+        if (providers.isEmpty()) {
+            send(sender, "&7No enabled addon has registered a legacy migration provider.");
+            return;
+        }
+
+        for (RegisteredServiceProvider<LegacyItemMigrationProvider> provider : providers) {
+            Map<String, String> mappings = migrationService.getMappings(provider);
+            List<String> problems = validateProviderMappings(mappings);
+            send(sender, "&8- &f" + migrationService.getProviderId(provider) + " &8| &7"
+                    + migrationService.getProviderName(provider) + " &8| &7mappings &e" + mappings.size()
+                    + " &8| " + (problems.isEmpty() ? "&aREADY" : "&cBLOCKED"));
+            if (!problems.isEmpty()) {
+                send(sender, "&8  &7First problem: &c" + problems.getFirst());
+            }
+        }
+        send(sender, "&7Read-only scan: &e/sf doctor migrations scan <plugin>");
+        send(sender, "&7Repair requires explicit confirmation: &e/sf doctor migrations execute <plugin> confirm");
+    }
+
+    private void runMigrationProvider(@Nonnull CommandSender sender, @Nonnull String[] args, boolean repair) {
+        if (args.length < 4 || args[3].isBlank()) {
+            send(sender, "&eUsage: /sf doctor migrations " + (repair ? "execute" : "scan") + " <plugin>"
+                    + (repair ? " confirm" : ""));
+            sendMigrationProviders(sender);
+            return;
+        }
+
+        String providerId = args[3];
+        RegisteredServiceProvider<LegacyItemMigrationProvider> provider =
+                migrationService.findProvider(providerId).orElse(null);
+        if (provider == null) {
+            send(sender, "&cNo enabled migration provider is registered by plugin '&f" + providerId + "&c'.");
+            send(sender, "&7Use &e/sf doctor migrations providers &7to list available providers.");
+            return;
+        }
+
+        Map<String, String> mappings = migrationService.getMappings(provider);
+        List<String> problems = validateProviderMappings(mappings);
+        if (repair && !problems.isEmpty()) {
+            send(sender, "&cMigration blocked: provider mappings are not safe to execute.");
+            for (int i = 0; i < Math.min(problems.size(), MAX_PROVIDER_DETAIL_LINES); i++) {
+                send(sender, "&8- &c" + problems.get(i));
+            }
+            send(sender, "&7No provider repair method was called and no data was changed by Slimefun core.");
+            return;
+        }
+
+        if (repair && (args.length < 5 || !args[4].equalsIgnoreCase("confirm"))) {
+            send(sender, "&eThis delegates real migration to addon '&6" + migrationService.getProviderId(provider) + "&e'.");
+            send(sender, "&eMake an offline backup first. Then run:");
+            send(sender, "&6/sf doctor migrations execute " + migrationService.getProviderId(provider) + " confirm");
+            return;
+        }
+
+        if (!repair && !problems.isEmpty()) {
+            send(sender, "&eProvider mapping validation has " + problems.size() + " problem(s); scan is still read-only.");
+        }
+
+        AddonDoctorReport report = migrationService.run(provider, repair);
+        sendMigrationProviderReport(sender, provider, report, problems);
+    }
+
+    private List<String> validateProviderMappings(@Nonnull Map<String, String> providerMappings) {
+        List<String> problems = new ArrayList<>();
+        Map<String, String> declared = Slimefun.getRegistry().getLegacySlimefunItemIds();
+        if (providerMappings.isEmpty()) {
+            problems.add("Provider published no legacy ID mappings.");
+            return problems;
+        }
+
+        for (Map.Entry<String, String> entry : providerMappings.entrySet()) {
+            String declaredTarget = declared.get(entry.getKey());
+            if (declaredTarget == null) {
+                problems.add(entry.getKey() + " is not registered in Slimefun's legacy-ID registry.");
+            } else if (!declaredTarget.equals(entry.getValue())) {
+                problems.add(entry.getKey() + " disagrees with registry target " + declaredTarget + ".");
+            } else if (SlimefunItem.getById(entry.getValue()) == null) {
+                problems.add(entry.getKey() + " targets missing item " + entry.getValue() + ".");
+            }
+        }
+        return problems;
+    }
+
+    private void sendMigrationProviderReport(
+            @Nonnull CommandSender sender,
+            @Nonnull RegisteredServiceProvider<LegacyItemMigrationProvider> provider,
+            @Nonnull AddonDoctorReport report,
+            @Nonnull List<String> mappingProblems) {
+        send(sender, "&6Migration Provider " + (report.isRepairMode() ? "Repair" : "Scan") + " Report");
+        send(sender, "&7Provider: &e" + migrationService.getProviderId(provider) + " &8| &7" + report.getAddonName());
+        send(sender, "&7Scanned: &e" + report.getScannedEntries() + " &8| &7issues: &e" + report.getIssuesFound()
+                + " &8| &7repaired: &a" + report.getRepairedEntries() + " &8| &7failures: &c" + report.getFailures());
+        if (!mappingProblems.isEmpty()) {
+            send(sender, "&eMapping validation warnings: " + mappingProblems.size());
+        }
+        List<String> details = report.getDetails();
+        for (int i = 0; i < Math.min(details.size(), MAX_PROVIDER_DETAIL_LINES); i++) {
+            send(sender, "&8- &7" + details.get(i));
+        }
+        if (details.size() > MAX_PROVIDER_DETAIL_LINES) {
+            send(sender, "&8... " + (details.size() - MAX_PROVIDER_DETAIL_LINES) + " more provider detail line(s)");
+        }
+        send(sender, report.isRepairMode()
+                ? "&8Repair was performed only by the selected addon provider; Slimefun core did not rewrite addon persistence."
+                : "&8Read-only provider scan; no repair was requested.");
     }
 
     private ItemDoctorReport latestReport() {
