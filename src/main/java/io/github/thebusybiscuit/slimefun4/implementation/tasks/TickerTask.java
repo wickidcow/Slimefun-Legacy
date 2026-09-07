@@ -368,7 +368,8 @@ public class TickerTask implements Runnable {
     }
 
     private boolean isTargetedPaused(BlockPosition position, String itemId) {
-        return targetedPausedMachines.contains(position) || targetedPausedItemIds.contains(itemId);
+        return (!targetedPausedMachines.isEmpty() && targetedPausedMachines.contains(position))
+                || (!targetedPausedItemIds.isEmpty() && targetedPausedItemIds.contains(itemId));
     }
 
     private void clearFailureState(BlockPosition position) {
