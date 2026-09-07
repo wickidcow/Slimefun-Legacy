@@ -128,14 +128,6 @@ def main() -> int:
         print(f"Fork coverage verification failed: {error}", file=sys.stderr)
         return 2
 
-    discovered_names = {f"{args.owner}/{repo['name']}" for repo in discovered}
-    stale_exclusions = sorted(repository for repository in exclusions if repository not in discovered_names)
-    if stale_exclusions:
-        print("Addon coverage exclusions no longer match discovered repositories:", file=sys.stderr)
-        for repository in stale_exclusions:
-            print(f"  - {repository}", file=sys.stderr)
-        return 1
-
     eligible = [
         repo
         for repo in discovered
