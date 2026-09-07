@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify every maintained wickidcow Slimefun addon repository has an enabled CI target."""
+"""Verify every maintained/eligible wickidcow Slimefun addon repository has an enabled CI target."""
 
 from __future__ import annotations
 
@@ -27,15 +27,21 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_matrix(path: Path) -> tuple[dict[str, bool], str, set[str]]:
+def load_matrix(path: Path) -> tuple[dict[str, bool], str, set[str], set[str]]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     policy = payload.get("policy", {})
     prefix = policy.get("fork_discovery_prefix", "SF_")
     explicit = set(policy.get("fork_discovery_explicit", ["WorldEditSlimefun"]))
+    excluded = set(policy.get("fork_discovery_exclude", []))
     if not isinstance(prefix, str) or not prefix:
         raise ValueError("policy.fork_discovery_prefix must be a non-empty string")
     if not all(isinstance(name, str) and name for name in explicit):
         raise ValueError("policy.fork_discovery_explicit must contain repository names")
+    if not all(isinstance(name, str) and name for name in excluded):
+        raise ValueError("policy.fork_discovery_exclude must contain repository names")
+    if explicit & excluded:
+        overlap = ", ".join(sorted(explicit & excluded))
+        raise ValueError(f"fork discovery repositories cannot be both explicit and excluded: {overlap}")
 
     coverage: dict[str, bool] = {}
     for index, addon in enumerate(payload.get("addons", [])):
@@ -45,7 +51,7 @@ def load_matrix(path: Path) -> tuple[dict[str, bool], str, set[str]]:
         enabled = addon.get("enabled", True)
         if isinstance(repository, str):
             coverage[repository] = bool(enabled)
-    return coverage, prefix, explicit
+    return coverage, prefix, explicit, excluded
 
 
 def request_page(owner: str, page: int) -> list[dict[str, object]]:
@@ -92,30 +98,37 @@ def discover_repositories(owner: str, prefix: str, explicit: set[str]) -> list[d
 def main() -> int:
     args = parse_args()
     try:
-        coverage, prefix, explicit = load_matrix(args.matrix)
+        coverage, prefix, explicit, excluded = load_matrix(args.matrix)
         discovered = discover_repositories(args.owner, prefix, explicit)
     except (OSError, ValueError, RuntimeError, json.JSONDecodeError, urllib.error.URLError) as error:
         print(f"Fork coverage verification failed: {error}", file=sys.stderr)
         return 2
 
-    expected = {f"{args.owner}/{repo['name']}" for repo in discovered}
+    eligible = [repo for repo in discovered if str(repo.get("name", "")) not in excluded]
+    expected = {f"{args.owner}/{repo['name']}" for repo in eligible}
     missing = sorted(repository for repository in expected if repository not in coverage)
     disabled = sorted(repository for repository in expected if coverage.get(repository) is False)
 
     archived = sorted(
         f"{args.owner}/{repo['name']}"
-        for repo in discovered
+        for repo in eligible
         if bool(repo.get("archived"))
     )
     active_count = len(expected) - len(archived)
 
     print(
-        f"Discovered {len(expected)} Slimefun addon forks for {args.owner}: "
+        f"Discovered {len(discovered)} Slimefun-prefixed repositories for {args.owner}; "
+        f"{len(expected)} are eligible standalone addon targets: "
         f"{active_count} active, {len(archived)} archived."
     )
 
+    if excluded:
+        print("Explicitly excluded from standalone addon compatibility coverage:")
+        for name in sorted(excluded):
+            print(f"  - {args.owner}/{name}")
+
     if archived:
-        print("Archived forks still requiring advisory test coverage:")
+        print("Archived eligible forks still requiring advisory test coverage:")
         for repository in archived:
             print(f"  - {repository}")
 
@@ -125,12 +138,12 @@ def main() -> int:
             for repository in missing:
                 print(f"  - {repository}", file=sys.stderr)
         if disabled:
-            print("Disabled addon compatibility targets:", file=sys.stderr)
+            print("Disabled eligible addon compatibility targets:", file=sys.stderr)
             for repository in disabled:
                 print(f"  - {repository}", file=sys.stderr)
         return 1
 
-    print(f"All {len(expected)} discovered forks have enabled compatibility targets.")
+    print(f"All {len(expected)} eligible discovered forks have enabled compatibility targets.")
     return 0
 
 
