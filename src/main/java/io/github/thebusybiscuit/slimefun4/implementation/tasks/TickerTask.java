@@ -56,6 +56,8 @@ public class TickerTask implements Runnable {
      * The value of this map (Set entries) MUST be thread-safe and mutable.
      */
     private final Map<ChunkPosition, Set<TickLocation>> tickingLocations = new ConcurrentHashMap<>();
+    private volatile Set<Map.Entry<ChunkPosition, Set<TickLocation>>> tickingLocationsSnapshot = Collections.emptySet();
+    private volatile boolean tickingLocationsSnapshotDirty = true;
 
     /**
      * This Map tracks how many bugs have occurred in a given Location.
@@ -141,15 +143,24 @@ public class TickerTask implements Runnable {
     }
 
     private Set<Map.Entry<ChunkPosition, Set<TickLocation>>> snapshotTickingLocations() {
-        Set<Map.Entry<ChunkPosition, Set<TickLocation>>> snapshot = new HashSet<>();
+        if (!tickingLocationsSnapshotDirty) {
+            return tickingLocationsSnapshot;
+        }
 
         synchronized (tickingLocations) {
+            if (!tickingLocationsSnapshotDirty) {
+                return tickingLocationsSnapshot;
+            }
+
+            Set<Map.Entry<ChunkPosition, Set<TickLocation>>> snapshot = new HashSet<>(tickingLocations.size());
             for (Map.Entry<ChunkPosition, Set<TickLocation>> entry : tickingLocations.entrySet()) {
                 snapshot.add(Map.entry(entry.getKey(), new HashSet<>(entry.getValue())));
             }
-        }
 
-        return snapshot;
+            tickingLocationsSnapshot = snapshot;
+            tickingLocationsSnapshotDirty = false;
+            return snapshot;
+        }
     }
 
     private void runPaperCycle(Set<Map.Entry<ChunkPosition, Set<TickLocation>>> snapshot) {
@@ -766,6 +777,7 @@ public class TickerTask implements Runnable {
             } else {
                 newValue.add(tickPosition);
             }
+            tickingLocationsSnapshotDirty = true;
         }
     }
 
@@ -797,6 +809,7 @@ public class TickerTask implements Runnable {
                     tickingLocations.remove(chunk);
                 }
             }
+            tickingLocationsSnapshotDirty = true;
         }
     }
 
@@ -822,6 +835,7 @@ public class TickerTask implements Runnable {
                 targetedPausedMachines.remove(new BlockPosition(tk.getLocation()));
                 return true;
             }));
+            tickingLocationsSnapshotDirty = true;
         }
     }
 
