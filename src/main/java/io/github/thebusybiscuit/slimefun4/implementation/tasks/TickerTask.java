@@ -112,7 +112,7 @@ public class TickerTask implements Runnable {
         }
 
         try {
-            Slimefun.getProfiler().start();
+            Slimefun.getProfiler().startIfRequested();
             Set<Map.Entry<ChunkPosition, Set<TickLocation>>> snapshot = snapshotTickingLocations();
 
             if (Slimefun.getSchedulerService().isFolia()) {
