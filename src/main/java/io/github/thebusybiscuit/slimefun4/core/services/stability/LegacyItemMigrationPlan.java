@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -75,7 +76,7 @@ public final class LegacyItemMigrationPlan {
         for (Map.Entry<String, String> entry : entries) {
             sorted.put(entry.getKey(), entry.getValue());
         }
-        return Map.copyOf(sorted);
+        return Collections.unmodifiableMap(sorted);
     }
 
     private String createFingerprint() {
