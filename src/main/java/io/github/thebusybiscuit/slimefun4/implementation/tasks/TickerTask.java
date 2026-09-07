@@ -519,6 +519,10 @@ public class TickerTask implements Runnable {
     }
 
     private void markTickSuccess(BlockPosition position) {
+        if (bugs.isEmpty() && circuitBreaker.size() == 0 && failureTracker.getActiveFailureCount() == 0) {
+            return;
+        }
+
         bugs.remove(position);
         circuitBreaker.clear(position);
         failureTracker.clear(position);
