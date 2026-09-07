@@ -6,6 +6,7 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorReport;
+import io.github.thebusybiscuit.slimefun4.core.services.stability.LegacyItemMigrationPlan;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.LegacyItemMigrationService;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.ArrayList;
@@ -231,23 +232,26 @@ final class DoctorRouterCommand extends SubCommand {
         }
 
         for (RegisteredServiceProvider<LegacyItemMigrationProvider> provider : providers) {
+            String providerId = migrationService.getProviderId(provider);
             Map<String, String> mappings = migrationService.getMappings(provider);
             List<String> problems = validateProviderMappings(mappings);
-            send(sender, "&8- &f" + migrationService.getProviderId(provider) + " &8| &7"
+            boolean hasPlan = migrationService.getPreparedPlan(providerId).isPresent();
+            send(sender, "&8- &f" + providerId + " &8| &7"
                     + migrationService.getProviderName(provider) + " &8| &7mappings &e" + mappings.size()
-                    + " &8| " + (problems.isEmpty() ? "&aREADY" : "&cBLOCKED"));
+                    + " &8| " + (problems.isEmpty() ? "&aREADY" : "&cBLOCKED")
+                    + (hasPlan ? " &8| &bplan ready" : ""));
             if (!problems.isEmpty()) {
                 send(sender, "&8  &7First problem: &c" + problems.getFirst());
             }
         }
-        send(sender, "&7Read-only scan: &e/sf doctor migrations scan <plugin>");
-        send(sender, "&7Repair requires explicit confirmation: &e/sf doctor migrations execute <plugin> confirm");
+        send(sender, "&7Run &e/sf doctor migrations scan <plugin> &7to create a 10-minute execution fingerprint.");
+        send(sender, "&7Repair: &e/sf doctor migrations execute <plugin> <fingerprint>");
     }
 
     private void runMigrationProvider(@Nonnull CommandSender sender, @Nonnull String[] args, boolean repair) {
         if (args.length < 4 || args[3].isBlank()) {
             send(sender, "&eUsage: /sf doctor migrations " + (repair ? "execute" : "scan") + " <plugin>"
-                    + (repair ? " confirm" : ""));
+                    + (repair ? " <fingerprint>" : ""));
             sendMigrationProviders(sender);
             return;
         }
@@ -256,14 +260,39 @@ final class DoctorRouterCommand extends SubCommand {
         RegisteredServiceProvider<LegacyItemMigrationProvider> provider =
                 migrationService.findProvider(providerId).orElse(null);
         if (provider == null) {
+            migrationService.invalidatePreparedPlan(providerId);
             send(sender, "&cNo enabled migration provider is registered by plugin '&f" + providerId + "&c'.");
             send(sender, "&7Use &e/sf doctor migrations providers &7to list available providers.");
             return;
         }
 
+        providerId = migrationService.getProviderId(provider);
         Map<String, String> mappings = migrationService.getMappings(provider);
         List<String> problems = validateProviderMappings(mappings);
-        if (repair && !problems.isEmpty()) {
+
+        if (!repair) {
+            migrationService.invalidatePreparedPlan(providerId);
+            if (!problems.isEmpty()) {
+                send(sender, "&eProvider mapping validation has " + problems.size() + " problem(s); scan remains read-only.");
+            }
+
+            AddonDoctorReport report = migrationService.run(provider, false);
+            sendMigrationProviderReport(sender, provider, report, problems);
+            if (problems.isEmpty() && report.getFailures() == 0L) {
+                LegacyItemMigrationPlan plan = migrationService.preparePlan(provider, mappings);
+                long ttlMinutes = Math.max(1L, migrationService.getPlanTtlMillis() / 60_000L);
+                send(sender, "&aExecution plan prepared for " + ttlMinutes + " minute(s).");
+                send(sender, "&7Fingerprint: &b" + plan.getShortFingerprint());
+                send(sender, "&7After making an offline backup, execute with:");
+                send(sender, "&6/sf doctor migrations execute " + providerId + " " + plan.getShortFingerprint());
+            } else {
+                send(sender, "&eNo execution fingerprint was created because the scan or mapping validation was not clean.");
+            }
+            return;
+        }
+
+        if (!problems.isEmpty()) {
+            migrationService.invalidatePreparedPlan(providerId);
             send(sender, "&cMigration blocked: provider mappings are not safe to execute.");
             for (int i = 0; i < Math.min(problems.size(), MAX_PROVIDER_DETAIL_LINES); i++) {
                 send(sender, "&8- &c" + problems.get(i));
@@ -272,18 +301,29 @@ final class DoctorRouterCommand extends SubCommand {
             return;
         }
 
-        if (repair && (args.length < 5 || !args[4].equalsIgnoreCase("confirm"))) {
-            send(sender, "&eThis delegates real migration to addon '&6" + migrationService.getProviderId(provider) + "&e'.");
-            send(sender, "&eMake an offline backup first. Then run:");
-            send(sender, "&6/sf doctor migrations execute " + migrationService.getProviderId(provider) + " confirm");
+        LegacyItemMigrationPlan plan = migrationService.getPreparedPlan(providerId).orElse(null);
+        if (plan == null) {
+            send(sender, "&cNo active migration execution plan exists for this provider, or it expired.");
+            send(sender, "&7Run &e/sf doctor migrations scan " + providerId + " &7to generate a fresh fingerprint.");
             return;
         }
 
-        if (!repair && !problems.isEmpty()) {
-            send(sender, "&eProvider mapping validation has " + problems.size() + " problem(s); scan is still read-only.");
+        if (args.length < 5 || args[4].isBlank() || !plan.matchesFingerprint(args[4])) {
+            send(sender, "&cMigration fingerprint missing or incorrect.");
+            send(sender, "&7Run a fresh &e/sf doctor migrations scan " + providerId + " &7and use its fingerprint.");
+            return;
         }
 
-        AddonDoctorReport report = migrationService.run(provider, repair);
+        if (!plan.matchesMappings(mappings)) {
+            migrationService.invalidatePreparedPlan(providerId);
+            send(sender, "&cMigration blocked: provider mappings changed after the approved scan.");
+            send(sender, "&7Run &e/sf doctor migrations scan " + providerId + " &7again before executing.");
+            return;
+        }
+
+        migrationService.invalidatePreparedPlan(providerId);
+        send(sender, "&eUsing a single-use migration plan. The plan is now consumed.");
+        AddonDoctorReport report = migrationService.run(provider, true);
         sendMigrationProviderReport(sender, provider, report, problems);
     }
 

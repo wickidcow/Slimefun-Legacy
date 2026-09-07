@@ -7,8 +7,10 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import org.bukkit.Bukkit;
@@ -18,7 +20,10 @@ import org.bukkit.plugin.java.JavaPlugin;
 /** Discovers and safely invokes addon-owned legacy item migration providers. */
 public final class LegacyItemMigrationService {
 
+    private static final long PLAN_TTL_MILLIS = 10L * 60L * 1000L;
+
     private final JavaPlugin plugin;
+    private final Map<String, LegacyItemMigrationPlan> preparedPlans = new ConcurrentHashMap<>();
 
     public LegacyItemMigrationService(@Nonnull JavaPlugin plugin) {
         this.plugin = plugin;
@@ -91,6 +96,41 @@ public final class LegacyItemMigrationService {
         }
     }
 
+    /** Creates or replaces the short-lived execution plan for one clean provider scan. */
+    public @Nonnull LegacyItemMigrationPlan preparePlan(
+            @Nonnull RegisteredServiceProvider<LegacyItemMigrationProvider> registration,
+            @Nonnull Map<String, String> mappings) {
+        long now = System.currentTimeMillis();
+        String providerId = getProviderId(registration);
+        LegacyItemMigrationPlan plan =
+                new LegacyItemMigrationPlan(providerId, now, now + PLAN_TTL_MILLIS, mappings);
+        preparedPlans.put(normalizeProviderId(providerId), plan);
+        return plan;
+    }
+
+    /** Returns the active provider plan, automatically discarding it after expiry. */
+    public @Nonnull Optional<LegacyItemMigrationPlan> getPreparedPlan(@Nonnull String providerId) {
+        String key = normalizeProviderId(providerId);
+        LegacyItemMigrationPlan plan = preparedPlans.get(key);
+        if (plan == null) {
+            return Optional.empty();
+        }
+        if (plan.isExpired(System.currentTimeMillis())) {
+            preparedPlans.remove(key, plan);
+            return Optional.empty();
+        }
+        return Optional.of(plan);
+    }
+
+    /** Invalidates a provider plan. Execution plans are deliberately single-use. */
+    public void invalidatePreparedPlan(@Nonnull String providerId) {
+        preparedPlans.remove(normalizeProviderId(providerId));
+    }
+
+    public long getPlanTtlMillis() {
+        return PLAN_TTL_MILLIS;
+    }
+
     /** Safely invokes one provider and converts provider failures into a report. */
     @Nonnull
     public AddonDoctorReport run(
@@ -115,5 +155,9 @@ public final class LegacyItemMigrationService {
                     List.of("Provider threw " + throwable.getClass().getSimpleName() + ": "
                             + String.valueOf(throwable.getMessage())));
         }
+    }
+
+    private String normalizeProviderId(String providerId) {
+        return providerId.toLowerCase(Locale.ROOT);
     }
 }
