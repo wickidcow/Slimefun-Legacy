@@ -8,6 +8,9 @@ import sys
 from pathlib import Path
 
 
+CI_ONLY_TIERS = {"fork-advisory", "fork-archived-advisory"}
+
+
 def read(root: Path, rel: str) -> str:
     return (root / rel).read_text(encoding="utf-8")
 
@@ -58,16 +61,27 @@ def main() -> int:
 
         matrix = json.loads(read(root, "compatibility/addon-compatibility-matrix.json"))
         req(matrix.get("release") == current, "Addon matrix release must match projectVersion", failures)
-        enabled_slugs = {
-            entry.get("slug")
+        enabled_entries = [
+            entry
             for entry in matrix.get("addons", [])
             if isinstance(entry, dict) and entry.get("enabled", True) and entry.get("slug")
+        ]
+        runtime_backed_slugs = {
+            entry.get("slug")
+            for entry in enabled_entries
+            if entry.get("tier") not in CI_ONLY_TIERS
         }
+        ci_only_entries = [entry for entry in enabled_entries if entry.get("tier") in CI_ONLY_TIERS]
 
         runtime_registry = load_runtime_registry(root)
         req(
-            enabled_slugs <= set(runtime_registry),
-            "Runtime addon recognition registry is missing enabled CI addon targets",
+            runtime_backed_slugs <= set(runtime_registry),
+            "Runtime addon recognition registry is missing enabled runtime-backed CI addon targets",
+            failures,
+        )
+        req(
+            all(entry.get("advisory") is True for entry in ci_only_entries),
+            "CI-only fork coverage targets must remain advisory",
             failures,
         )
         req(len(runtime_registry) >= 33, "Runtime addon recognition registry must retain at least 33 addon families", failures)
@@ -227,7 +241,8 @@ def main() -> int:
 
     report.write_text(
         "Core Platform Phase 1F verification: PASS\n"
-        "- runtime addon recognition registry covers every enabled compatibility-matrix target\n"
+        "- runtime addon recognition registry covers every enabled runtime-backed compatibility target\n"
+        "- CI-only fork coverage may exceed runtime addon recognition and remains advisory\n"
         "- /sf versions uses compact single-word statuses with detailed hover evidence\n"
         "- CI coverage is explicitly not promoted to exact-build compatibility\n"
         "- addon loading and public compatibility status semantics remain unchanged\n"
