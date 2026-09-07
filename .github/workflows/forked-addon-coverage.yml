@@ -1,0 +1,38 @@
+name: Forked Slimefun Addon Coverage
+
+on:
+  pull_request:
+    paths:
+      - 'compatibility/addon-compatibility-matrix.json'
+      - 'scripts/verify_wickidcow_addon_coverage.py'
+      - '.github/workflows/forked-addon-coverage.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '17 7 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-fork-coverage:
+    name: Verify every wickidcow Slimefun fork has a tester
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify fork coverage
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/verify_wickidcow_addon_coverage.py \
+            compatibility/addon-compatibility-matrix.json \
+            --owner wickidcow
+      - name: Publish coverage policy
+        run: |
+          {
+            echo '## Slimefun fork tester coverage'
+            echo
+            echo 'Every public `wickidcow/SF_*` repository plus `wickidcow/WorldEditSlimefun` must have an enabled compatibility target.'
+            echo
+            echo 'Archived forks remain advisory targets so compatibility rot is visible without blocking releases.'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -62,7 +62,11 @@ def main() -> int:
             failures.append("previous-stable compatibility baseline build command is missing")
         if spotless >= 0 and build >= 0 and spotless > build:
             failures.append("previous-stable compatibility baseline runs Spotless after the build")
-    comparator = read("scripts/compare_addon_slimefun_compatibility.py")
+    comparator = (
+        read("scripts/compare_addon_slimefun_compatibility.py")
+        + "\n"
+        + read("scripts/compare_addon_slimefun_compatibility_base.py")
+    )
     legacy_builder = read("scripts/build_addon_against_local_slimefun.py")
     required_addons = {
         "wickidcow/SF_FastMachines",
