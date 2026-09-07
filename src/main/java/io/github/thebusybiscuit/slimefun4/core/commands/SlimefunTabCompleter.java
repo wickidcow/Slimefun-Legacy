@@ -171,7 +171,9 @@ class SlimefunTabCompleter implements TabCompleter {
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("migrations")
                 && args[2].equalsIgnoreCase("execute")) {
-            return createReturnList(List.of("confirm"), args[4]);
+            // Execution fingerprints are short-lived, single-use state owned by the command service.
+            // Do not suggest a stale/static token from the tab completer.
+            return Collections.emptyList();
         } else {
             // Returning null will make it fallback to the default arguments (all online players)
             return null;
