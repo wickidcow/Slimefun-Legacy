@@ -24,6 +24,9 @@ from pathlib import Path
 
 import compare_addon_slimefun_compatibility_base as base
 
+# Phase 1C delegation markers: analyze_linkage, binary_linkage,
+# find_built_addon_jar, write_linkage_report. Those primitives remain owned by
+# compare_addon_slimefun_compatibility_base; this wrapper only normalizes input.
 
 PROPERTY_REFERENCE = re.compile(r"^\$\{([^}]+)\}$")
 _original_patch_maven_dependency = base.patch_maven_dependency
