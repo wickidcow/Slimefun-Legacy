@@ -6,6 +6,10 @@ properties. The underlying comparator intentionally matches only the core
 Slimefun dependency, so resolve only property-backed groupId/artifactId values
 that prove to be a Slimefun core coordinate and then delegate to the unchanged
 comparison engine.
+
+The preserved comparison engine remains responsible for the Phase 1C linkage
+primitives: analyze_linkage, binary_linkage, find_built_addon_jar, and
+write_linkage_report.
 """
 from __future__ import annotations
 
