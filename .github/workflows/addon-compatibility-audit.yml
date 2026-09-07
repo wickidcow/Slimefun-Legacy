@@ -1,0 +1,102 @@
+name: Addon Compatibility Classification Audit
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/addon-compatibility-audit.yml'
+      - 'scripts/summarize_addon_compatibility_artifacts.py'
+      - 'scripts/test_summarize_addon_compatibility_artifacts.py'
+      - 'compatibility/addon-compatibility-matrix.json'
+  workflow_run:
+    workflows: ['Slimefun Compatibility']
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Slimefun Compatibility workflow run ID to audit'
+        required: true
+        type: string
+      source_ref:
+        description: 'Repository ref whose compatibility matrix should be used'
+        required: false
+        default: 'master'
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  self-test:
+    name: Audit classifier self-test
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run classifier tests
+        run: python3 scripts/test_summarize_addon_compatibility_artifacts.py
+
+  audit-completed-run:
+    name: Aggregate addon classifications
+    if: ${{ github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve source ref and workflow run
+        id: source
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+          WORKFLOW_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          DISPATCH_RUN_ID: ${{ inputs.run_id }}
+          DISPATCH_SOURCE_REF: ${{ inputs.source_ref }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            echo "run_id=$WORKFLOW_RUN_ID" >> "$GITHUB_OUTPUT"
+            echo "source_ref=$WORKFLOW_HEAD_SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_id=$DISPATCH_RUN_ID" >> "$GITHUB_OUTPUT"
+            echo "source_ref=${DISPATCH_SOURCE_REF:-master}" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.source.outputs.source_ref }}
+      - name: Download every addon compatibility artifact
+        uses: actions/download-artifact@v8
+        with:
+          pattern: addon-compatibility-*
+          path: build/addon-compatibility-artifacts
+          merge-multiple: false
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.source.outputs.run_id }}
+      - name: Classify complete addon matrix
+        id: audit
+        continue-on-error: true
+        run: |
+          python3 scripts/summarize_addon_compatibility_artifacts.py \
+            compatibility/addon-compatibility-matrix.json \
+            build/addon-compatibility-artifacts \
+            --summary build/reports/addon-compatibility-audit.md
+      - name: Publish aggregate audit
+        if: always()
+        run: |
+          if [[ -f build/reports/addon-compatibility-audit.md ]]; then
+            cat build/reports/addon-compatibility-audit.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo '## Aggregate addon compatibility audit' >> "$GITHUB_STEP_SUMMARY"
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo '**BLOCKED:** aggregate report was not produced.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: aggregate-addon-compatibility-audit
+          path: build/reports/addon-compatibility-audit.md
+          if-no-files-found: error
+      - name: Enforce aggregate result
+        if: always()
+        run: |
+          if [[ "${{ steps.audit.outcome }}" != "success" ]]; then
+            echo "::error title=Addon compatibility audit blocked::Review the aggregate classification report for Legacy regressions, required addon failures, or instrumentation errors."
+            exit 1
+          fi
