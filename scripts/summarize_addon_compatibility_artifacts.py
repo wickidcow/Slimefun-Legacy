@@ -80,22 +80,6 @@ def find_status(artifact_dir: Path) -> tuple[str, str | None]:
     status = candidates[0].read_text(encoding="utf-8", errors="replace").strip()
     if status not in KNOWN_STATUSES:
         return INSTRUMENTATION_ERROR, f"unknown status value: {status or '<blank>'}"
-
-    result_candidates = [
-        path
-        for path in artifact_dir.rglob("result.json")
-        if "binary-linkage" not in path.parts and "legacy-floor" not in path.parts
-    ]
-    if len(result_candidates) == 1:
-        try:
-            payload = json.loads(result_candidates[0].read_text(encoding="utf-8"))
-            if payload.get("validation_mode") == "content":
-                profile = str(payload.get("validation_profile") or "content").strip()
-                return status, f"content-only audit (`{profile}`); no JVM linkage applies"
-        except (OSError, json.JSONDecodeError):
-            # status.txt remains authoritative; malformed optional detail must not hide it.
-            pass
-
     return status, None
 
 
@@ -113,12 +97,10 @@ def render_summary(rows: list[dict[str, object]], counts: Counter[str]) -> str:
         "",
         "| Classification | Count | Meaning |",
         "| --- | ---: | --- |",
-        f"| `{PASS}` | {pass_count} | Declared target validation passed; JVM targets include baseline + candidate source builds and binary linkage |",
+        f"| `{PASS}` | {pass_count} | Baseline + candidate source builds and binary linkage passed |",
         f"| `{BASELINE_BUILD_FAILED}` | {baseline_count} | Addon also fails the known-good baseline; not evidence of a new Legacy regression |",
         f"| `{LEGACY_COMPATIBILITY_FAILED}` | {regression_count} | Baseline passes but candidate Legacy compatibility fails |",
         f"| `{INSTRUMENTATION_ERROR}` | {instrumentation_count} | Missing/invalid artifact or comparison harness failure |",
-        "",
-        "Content-only repositories use their maintained repository audit and are called out in the Detail column; they are not represented as JVM linkage tests.",
         "",
         "| Tier | Repository | Classification | Detail |",
         "| --- | --- | --- | --- |",
