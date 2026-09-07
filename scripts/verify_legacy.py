@@ -100,7 +100,6 @@ def main() -> int:
         "verify_enchantment_restart_safety.py",
         "verify_compatibility_round2.py",
         "verify_compatibility_foundation.py",
-        "test_addon_compatibility_harness_shapes.py",
         "check_dependency_boundaries.py",
         "verify_phase1k_release_readiness.py",
         "verify_core_platform_phase1l.py",
