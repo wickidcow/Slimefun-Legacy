@@ -1,0 +1,151 @@
+name: Refresh Fixed Foxy Alchimia MobDrops
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/refresh-fixed-foxymachines-alchimia-mobdrops.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-fixed-foxymachines-alchimia-mobdrops
+  cancel-in-progress: true
+
+env:
+  FOXY_VERSION: '1.0.0'
+  ALCHIMIA_VERSION: '1.0.2'
+  MOB_DROPS_VERSION: '1.0.1'
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Slimefun Legacy
+        uses: actions/checkout@v6
+
+      - name: Replace fixed addon JARs in current bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CURRENT_VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
+          CURRENT_TAG="v${CURRENT_VERSION}"
+
+          rm -rf bundle work fixed
+          mkdir -p bundle work fixed
+
+          echo "Downloading current addon bundle from ${CURRENT_TAG}"
+          gh release download "$CURRENT_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'SFL_AddonsNDependencies.zip' \
+            --dir work
+          unzip -q work/SFL_AddonsNDependencies.zip -d bundle
+
+          replace_addon() {
+            local label="$1"
+            local search_pattern="$2"
+            local repo="$3"
+            local tag="$4"
+            local asset="$5"
+
+            local old
+            local dest_dir
+            old="$(find bundle -type f -iname "$search_pattern" -print -quit || true)"
+            if [[ -z "$old" ]]; then
+              echo "Could not find existing ${label} JAR in current bundle." >&2
+              exit 1
+            fi
+
+            dest_dir="$(dirname "$old")"
+            echo "${label} destination: ${dest_dir}"
+            echo "Replacing: ${old}"
+
+            find bundle -type f -iname "$search_pattern" -delete
+            gh release download "$tag" \
+              --repo "$repo" \
+              --pattern "$asset" \
+              --dir fixed
+
+            test -f "fixed/$asset"
+            cp "fixed/$asset" "$dest_dir/"
+
+            if [[ "$(find bundle -type f -name "$asset" | wc -l)" -ne 1 ]]; then
+              echo "Expected exactly one ${asset} in bundle." >&2
+              exit 1
+            fi
+
+            if find bundle -type f -iname "$search_pattern" ! -name "$asset" | grep -q .; then
+              echo "A stale ${label} JAR remains in the bundle." >&2
+              find bundle -type f -iname "$search_pattern" -print
+              exit 1
+            fi
+          }
+
+          replace_addon \
+            "FoxyMachines" \
+            "*FoxyMachines*.jar" \
+            "wickidcow/SF_FoxyMachines" \
+            "v${FOXY_VERSION}" \
+            "SF_FoxyMachines${FOXY_VERSION}.jar"
+
+          replace_addon \
+            "AlchimiaVitae" \
+            "*AlchimiaVitae*.jar" \
+            "wickidcow/SF_AlchimiaVitae" \
+            "v${ALCHIMIA_VERSION}" \
+            "SF_AlchimiaVitae${ALCHIMIA_VERSION}.jar"
+
+          replace_addon \
+            "MobDrops" \
+            "*MobDrops*.jar" \
+            "wickidcow/SF_MobDrops" \
+            "v${MOB_DROPS_VERSION}" \
+            "SF_MobDrops${MOB_DROPS_VERSION}.jar"
+
+          rm -f SFL_AddonsNDependencies.zip
+          (cd bundle && zip -qr ../SFL_AddonsNDependencies.zip .)
+
+          echo "Verifying final archive"
+          unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_FoxyMachines${FOXY_VERSION}.jar"
+          unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_AlchimiaVitae${ALCHIMIA_VERSION}.jar"
+          unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_MobDrops${MOB_DROPS_VERSION}.jar"
+
+          if unzip -l SFL_AddonsNDependencies.zip | grep -Ei 'FoxyMachines.*\.jar' | grep -Fv "SF_FoxyMachines${FOXY_VERSION}.jar"; then
+            echo 'Stale FoxyMachines JAR found in final archive.' >&2
+            exit 1
+          fi
+          if unzip -l SFL_AddonsNDependencies.zip | grep -Ei 'AlchimiaVitae.*\.jar' | grep -Fv "SF_AlchimiaVitae${ALCHIMIA_VERSION}.jar"; then
+            echo 'Stale AlchimiaVitae JAR found in final archive.' >&2
+            exit 1
+          fi
+          if unzip -l SFL_AddonsNDependencies.zip | grep -Ei 'MobDrops.*\.jar' | grep -Fv "SF_MobDrops${MOB_DROPS_VERSION}.jar"; then
+            echo 'Stale MobDrops JAR found in final archive.' >&2
+            exit 1
+          fi
+
+          sha256sum SFL_AddonsNDependencies.zip
+
+      - name: Publish refreshed ZIP to current Slimefun Legacy release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          CURRENT_VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
+          CURRENT_TAG="v${CURRENT_VERSION}"
+          gh release upload "$CURRENT_TAG" SFL_AddonsNDependencies.zip \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
+      - name: Upload refreshed bundle artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Slimefun-Legacy-Addons-Fixed-Three
+          path: SFL_AddonsNDependencies.zip
+          archive: false
+          if-no-files-found: error
