@@ -8,7 +8,12 @@
     "precompiled_binary_linkage": true,
     "automatic_repository_writes": false,
     "previous_stable_regressions_block_release": true,
-    "legacy_floor_comparison_is_advisory": true
+    "legacy_floor_comparison_is_advisory": true,
+    "all_wickidcow_slimefun_forks_have_test_targets": true,
+    "fork_discovery_prefix": "SF_",
+    "fork_discovery_explicit": [
+      "WorldEditSlimefun"
+    ]
   },
   "addons": [
     {
@@ -18,9 +23,7 @@
       "tier": "required",
       "advisory": false,
       "enabled": true,
-      "tested_core_variants": [
-        "legacy"
-      ]
+      "tested_core_variants": ["legacy"]
     },
     {
       "name": "Networks Expansion Legacy",
@@ -29,9 +32,7 @@
       "tier": "required",
       "advisory": false,
       "enabled": true,
-      "tested_core_variants": [
-        "legacy"
-      ]
+      "tested_core_variants": ["legacy"]
     },
     {
       "name": "SlimeTinker IE2 Legacy",
@@ -40,9 +41,7 @@
       "tier": "required",
       "advisory": false,
       "enabled": true,
-      "tested_core_variants": [
-        "legacy"
-      ]
+      "tested_core_variants": ["legacy"]
     },
     {
       "name": "BetterChests Legacy",
@@ -51,9 +50,295 @@
       "tier": "required",
       "advisory": false,
       "enabled": true,
-      "tested_core_variants": [
-        "legacy"
-      ]
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "Supreme Legacy Fork",
+      "repository": "wickidcow/SF_Supreme",
+      "slug": "legacy-fork-supreme",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "Genetic ChickEngineering Legacy Fork",
+      "repository": "wickidcow/SF_GeneticChickEngineering",
+      "slug": "legacy-fork-genetic-chick-engineering",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "FoxyMachines Legacy Fork",
+      "repository": "wickidcow/SF_FoxyMachines",
+      "slug": "legacy-fork-foxymachines",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "DankTech2 Legacy Fork",
+      "repository": "wickidcow/SF_DankTech2",
+      "slug": "legacy-fork-danktech2",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "Gastronomicon Legacy Fork",
+      "repository": "wickidcow/SF_Gastronomicon",
+      "slug": "legacy-fork-gastronomicon",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "FluffyMachines Legacy Fork",
+      "repository": "wickidcow/SF_FluffyMachines",
+      "slug": "legacy-fork-fluffymachines",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "DynaTech Legacy Fork",
+      "repository": "wickidcow/SF_DynaTech",
+      "slug": "legacy-fork-dynatech",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "RykenSlimeCustomizer Legacy Fork",
+      "repository": "wickidcow/SF_RykenSlimeCustomizer",
+      "slug": "legacy-fork-ryken-slime-customizer",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "ExoticGarden Legacy Fork",
+      "repository": "wickidcow/SF_ExoticGarden",
+      "slug": "legacy-fork-exotic-garden",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "SlimyTreeTaps Legacy Fork",
+      "repository": "wickidcow/SF_SlimyTreeTaps",
+      "slug": "legacy-fork-slimy-tree-taps",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "FNAmplifications Legacy Fork",
+      "repository": "wickidcow/SF_FNAmplifications",
+      "slug": "legacy-fork-fn-amplifications",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "AlchimiaVitae Legacy Fork",
+      "repository": "wickidcow/SF_AlchimiaVitae",
+      "slug": "legacy-fork-alchimia-vitae",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "SlimefunAdvancements Legacy Fork",
+      "repository": "wickidcow/SF_SlimefunAdvancements",
+      "slug": "legacy-fork-slimefun-advancements",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "MobDrops Legacy Fork",
+      "repository": "wickidcow/SF_MobDrops",
+      "slug": "legacy-fork-mob-drops",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "SlimeGlue Legacy Fork",
+      "repository": "wickidcow/SF_SlimeGlue",
+      "slug": "legacy-fork-slime-glue",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "IDreamOfEasy Legacy Fork",
+      "repository": "wickidcow/SF_IDreamOfEasy",
+      "slug": "legacy-fork-idreamofeasy",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "ElectricSpawners Legacy Fork",
+      "repository": "wickidcow/SF_ElectricSpawners",
+      "slug": "legacy-fork-electric-spawners",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "MilitaryArsenal Legacy Fork",
+      "repository": "wickidcow/SF_MilitaryArsenal",
+      "slug": "legacy-fork-military-arsenal",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "LuckyBlocks Legacy Fork",
+      "repository": "wickidcow/SF_LuckyBlocks",
+      "slug": "legacy-fork-lucky-blocks",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "LiteXpansion Legacy Fork",
+      "repository": "wickidcow/SF_LiteXpansion",
+      "slug": "legacy-fork-lite-xpansion",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "InfinityExpansion2 Legacy Fork",
+      "repository": "wickidcow/SF_InfinityExpansion2",
+      "slug": "legacy-fork-infinity-expansion-2",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "MobCapturer Legacy Fork",
+      "repository": "wickidcow/SF_MobCapturer",
+      "slug": "legacy-fork-mob-capturer",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "SlimefunWarfare Legacy Fork",
+      "repository": "wickidcow/SF_SlimefunWarfare",
+      "slug": "legacy-fork-slimefun-warfare",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "Cultivation Legacy Fork",
+      "repository": "wickidcow/SF_CultivationLegacy",
+      "slug": "legacy-fork-cultivation",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "Galactifun Legacy Fork",
+      "repository": "wickidcow/SF_Galactifun",
+      "slug": "legacy-fork-galactifun",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "SlimeEasy Legacy Fork",
+      "repository": "wickidcow/SF_SlimeEasy",
+      "slug": "legacy-fork-slime-easy",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "ExtraHeads Legacy Fork",
+      "repository": "wickidcow/SF_ExtraHeads",
+      "slug": "legacy-fork-extra-heads",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "FlowerPower Legacy Fork",
+      "repository": "wickidcow/SF_FlowerPower",
+      "slug": "legacy-fork-flower-power",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "WorldEditSlimefun Legacy Fork",
+      "repository": "wickidcow/WorldEditSlimefun",
+      "slug": "legacy-fork-worldedit-slimefun",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "MagicExpansion Archived Fork",
+      "repository": "wickidcow/SF_MagicExpansion",
+      "slug": "legacy-archived-magic-expansion",
+      "tier": "fork-archived-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "Magic RSC Archived Fork",
+      "repository": "wickidcow/SF_Magic_RSC",
+      "slug": "legacy-archived-magic-rsc",
+      "tier": "fork-archived-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "WorldTaste Archived Fork",
+      "repository": "wickidcow/SF_WorldTaste",
+      "slug": "legacy-archived-world-taste",
+      "tier": "fork-archived-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
     },
     {
       "name": "Networks upstream",
@@ -62,11 +347,7 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": [
-        "original",
-        "gugu",
-        "legacy"
-      ]
+      "tested_core_variants": ["original", "gugu", "legacy"]
     },
     {
       "name": "Infinity Expansion 2",
@@ -75,10 +356,7 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": [
-        "gugu",
-        "legacy"
-      ]
+      "tested_core_variants": ["gugu", "legacy"]
     },
     {
       "name": "DynaTech",
@@ -87,10 +365,7 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": [
-        "original",
-        "legacy"
-      ]
+      "tested_core_variants": ["original", "legacy"]
     },
     {
       "name": "Supreme",
@@ -99,12 +374,7 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": [
-        "original",
-        "gugu",
-        "united",
-        "legacy"
-      ]
+      "tested_core_variants": ["original", "gugu", "united", "legacy"]
     },
     {
       "name": "Magic Expansion",
@@ -113,10 +383,7 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": [
-        "gugu",
-        "legacy"
-      ]
+      "tested_core_variants": ["gugu", "legacy"]
     },
     {
       "name": "FluffyMachines",
@@ -125,10 +392,7 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": [
-        "gugu",
-        "legacy"
-      ]
+      "tested_core_variants": ["gugu", "legacy"]
     },
     {
       "name": "FastMachines upstream",
@@ -137,10 +401,7 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": [
-        "gugu",
-        "legacy"
-      ]
+      "tested_core_variants": ["gugu", "legacy"]
     },
     {
       "name": "SlimeTinker upstream",
@@ -149,10 +410,7 @@
       "tier": "representative-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": [
-        "original",
-        "legacy"
-      ]
+      "tested_core_variants": ["original", "legacy"]
     },
     {
       "name": "FoxyMachines",
@@ -161,10 +419,7 @@
       "tier": "gugu-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": [
-        "gugu",
-        "legacy"
-      ]
+      "tested_core_variants": ["gugu", "legacy"]
     },
     {
       "name": "FlowerPower",
@@ -173,10 +428,7 @@
       "tier": "gugu-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": [
-        "gugu",
-        "legacy"
-      ]
+      "tested_core_variants": ["gugu", "legacy"]
     },
     {
       "name": "IDreamOfEasy",
@@ -185,10 +437,7 @@
       "tier": "gugu-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": [
-        "gugu",
-        "legacy"
-      ]
+      "tested_core_variants": ["gugu", "legacy"]
     },
     {
       "name": "Gastronomicon",
@@ -197,10 +446,7 @@
       "tier": "gugu-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": [
-        "gugu",
-        "legacy"
-      ]
+      "tested_core_variants": ["gugu", "legacy"]
     },
     {
       "name": "Bump",
@@ -209,10 +455,7 @@
       "tier": "gugu-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": [
-        "gugu",
-        "legacy"
-      ]
+      "tested_core_variants": ["gugu", "legacy"]
     },
     {
       "name": "SlimeCustomizer",
@@ -221,10 +464,7 @@
       "tier": "gugu-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": [
-        "gugu",
-        "legacy"
-      ]
+      "tested_core_variants": ["gugu", "legacy"]
     },
     {
       "name": "EMCTech",
@@ -233,10 +473,7 @@
       "tier": "gugu-advisory",
       "advisory": true,
       "enabled": true,
-      "tested_core_variants": [
-        "gugu",
-        "legacy"
-      ]
+      "tested_core_variants": ["gugu", "legacy"]
     }
   ],
   "baseline_registry": "compatibility/release-baselines.json"
