@@ -46,7 +46,8 @@ final class DoctorRouterCommand extends SubCommand {
             case "status" -> sendMigrationStatus(sender);
             case "list" -> sendMigrationList(sender, parsePage(args));
             case "unknown", "unknowns" -> sendUnknownIds(sender);
-            default -> send(sender, "&eUsage: /sf doctor migrations <status|list|unknown> [page]");
+            case "plan", "dryrun", "dry-run" -> sendMigrationPlan(sender);
+            default -> send(sender, "&eUsage: /sf doctor migrations <status|list|unknown|plan> [page]");
         }
     }
 
@@ -142,6 +143,72 @@ final class DoctorRouterCommand extends SubCommand {
                     + (targetPresent ? " &7(ready)" : " &7(target missing)"));
         }
         send(sender, "&8Correlation only. Generic migration/repair remains disabled at this stage.");
+    }
+
+    private void sendMigrationPlan(@Nonnull CommandSender sender) {
+        ItemDoctorReport report = latestReport();
+        send(sender, "&6Slimefun Doctor Migration Dry-Run Plan");
+        if (report == null) {
+            send(sender, "&7No server-wide Doctor scan is available. Run &e/sf doctor scan&7 first.");
+            send(sender, "&8No data was changed.");
+            return;
+        }
+
+        Map<String, String> mappings = Slimefun.getRegistry().getLegacySlimefunItemIds();
+        List<String> samples = report.getUnknownIdSamples();
+        long ready = 0;
+        long missingTargets = 0;
+        long unmapped = 0;
+        long liveAliases = 0;
+
+        for (String id : samples) {
+            String target = mappings.get(id);
+            if (target == null) {
+                unmapped++;
+                continue;
+            }
+
+            if (SlimefunItem.getById(target) == null) {
+                missingTargets++;
+                continue;
+            }
+
+            ready++;
+            if (SlimefunItem.getById(id) != null) {
+                liveAliases++;
+            }
+        }
+
+        send(sender, "&7Source scan: &e" + report.getModeName()
+                + (report.isComplete() ? " &a(complete)" : " &e(running)"));
+        send(sender, "&7Unknown stacks observed: &e" + report.getUnknownIds()
+                + " &8| &7sampled distinct IDs: &e" + samples.size());
+        send(sender, "&7Sample plan: ready &a" + ready + " &8| &7target missing &c" + missingTargets
+                + " &8| &7no mapping &c" + unmapped);
+        send(sender, "&7Ready sample IDs with temporary live aliases: &e" + liveAliases);
+
+        if (samples.isEmpty()) {
+            send(sender, "&aNo unknown Slimefun item IDs were sampled, so there is nothing to plan from this scan.");
+        } else {
+            for (String id : samples) {
+                String target = mappings.get(id);
+                if (target == null) {
+                    send(sender, "&8- &c[NO MAPPING] &f" + id);
+                    continue;
+                }
+
+                if (SlimefunItem.getById(target) == null) {
+                    send(sender, "&8- &c[TARGET MISSING] &f" + id + " &8-> &c" + target);
+                    continue;
+                }
+
+                send(sender, "&8- &a[READY] &f" + id + " &8-> &a" + target);
+            }
+        }
+
+        send(sender, "&eThis plan is sample-based, not an exact count of migratable stacks.");
+        send(sender, "&7Actual migration remains addon-owned; use the addon Doctor/migration provider for repairs.");
+        send(sender, "&8Dry-run only. No items, blocks, storage, registry IDs, Cargo or Energy data were changed.");
     }
 
     private ItemDoctorReport latestReport() {
