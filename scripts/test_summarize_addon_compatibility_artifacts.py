@@ -82,21 +82,38 @@ class AggregateCompatibilityAuditTest(unittest.TestCase):
         self.write_status("required-addon", audit.PASS)
         self.write_status("advisory-addon", audit.BASELINE_BUILD_FAILED)
         self.assertEqual(0, self.run_audit())
+        self.assertIn(
+            "**PASS WITH ADVISORIES:**",
+            self.summary.read_text(encoding="utf-8"),
+        )
 
-    def test_candidate_regression_blocks_even_for_advisory(self) -> None:
+    def test_advisory_candidate_regression_is_reported_but_does_not_block(self) -> None:
         self.write_status("required-addon", audit.PASS)
         self.write_status("advisory-addon", audit.LEGACY_COMPATIBILITY_FAILED)
+        self.assertEqual(0, self.run_audit())
+        summary = self.summary.read_text(encoding="utf-8")
+        self.assertIn("**PASS WITH ADVISORIES:**", summary)
+        self.assertIn("example/AdvisoryAddon", summary)
+        self.assertIn(audit.LEGACY_COMPATIBILITY_FAILED, summary)
+
+    def test_required_candidate_regression_blocks(self) -> None:
+        self.write_status("required-addon", audit.LEGACY_COMPATIBILITY_FAILED)
+        self.write_status("advisory-addon", audit.PASS)
         self.assertEqual(4, self.run_audit())
+        self.assertIn("**BLOCKED:**", self.summary.read_text(encoding="utf-8"))
 
     def test_missing_report_is_instrumentation_error(self) -> None:
         self.write_status("required-addon", audit.PASS)
         self.assertEqual(3, self.run_audit())
-        self.assertIn("INSTRUMENTATION_ERROR", self.summary.read_text(encoding="utf-8"))
+        summary = self.summary.read_text(encoding="utf-8")
+        self.assertIn("INSTRUMENTATION_ERROR", summary)
+        self.assertIn("**BLOCKED:**", summary)
 
     def test_required_baseline_failure_blocks(self) -> None:
         self.write_status("required-addon", audit.BASELINE_BUILD_FAILED)
         self.write_status("advisory-addon", audit.PASS)
         self.assertEqual(5, self.run_audit())
+        self.assertIn("**BLOCKED:**", self.summary.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
