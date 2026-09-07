@@ -419,6 +419,54 @@ jobs:
           echo "::error title=Required addon compatibility::$MESSAGE"
           exit 1
 
+  addon-aggregate-audit:
+    name: Aggregate addon compatibility audit
+    if: ${{ always() }}
+    needs: [prepare-addon-matrix, addons]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Download all addon compatibility reports
+        uses: actions/download-artifact@v8
+        with:
+          pattern: addon-compatibility-*
+          path: build/addon-compatibility-results
+      - name: Audit classified addon results
+        id: audit
+        continue-on-error: true
+        run: |
+          python3 scripts/audit_addon_compatibility_results.py \
+            compatibility/addon-compatibility-matrix.json \
+            build/addon-compatibility-results \
+            --report build/reports/addon-compatibility-audit.md \
+            --json-report build/reports/addon-compatibility-audit.json
+      - name: Publish aggregate compatibility summary
+        if: always()
+        run: |
+          if [[ -f build/reports/addon-compatibility-audit.md ]]; then
+            cat build/reports/addon-compatibility-audit.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo '## Aggregate addon compatibility audit' >> "$GITHUB_STEP_SUMMARY"
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo '`INSTRUMENTATION_ERROR`: aggregate report was not produced.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: addon-compatibility-aggregate-audit
+          path: |
+            build/reports/addon-compatibility-audit.md
+            build/reports/addon-compatibility-audit.json
+          if-no-files-found: warn
+      - name: Enforce aggregate audit integrity
+        if: always()
+        run: |
+          if [[ "${{ steps.audit.outcome }}" != "success" ]]; then
+            echo "::error title=Addon compatibility aggregate audit::One or more required addon results failed, or the compatibility harness produced an incomplete/malformed result."
+            exit 1
+          fi
+
   legacy-floor-addons:
     name: Legacy floor drift - ${{ matrix.repository }}
     if: ${{ github.event_name != 'pull_request' }}
