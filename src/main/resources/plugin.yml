@@ -70,6 +70,9 @@ permissions:
   slimefun.command.versions:
     description: Allows you to do /sf versions
     default: op
+  slimefun.command.update:
+    description: Allows checking and staging Slimefun Legacy and maintained addon updates
+    default: op
   slimefun.command.backpack:
     description: Allows you to do /sf backpack
     default: op
