@@ -111,18 +111,28 @@ class UpdateCommand extends SubCommand {
             Files.createDirectories(updateFolder.toPath());
             int staged = 0;
             for (UpdateCandidate update : updates) {
+                if (update.targetFileName() == null) {
+                    throw new IOException("Cannot safely determine the installed JAR filename for " + update.displayName());
+                }
+
                 byte[] jarBytes = update.core() ? download(release.coreJarUrl()) : update.jarBytes();
                 PluginDescriptor descriptor = readPluginDescriptor(jarBytes);
                 if (!normalize(descriptor.name()).equals(normalize(update.expectedPluginName()))) {
                     throw new IOException("Refusing " + update.displayName() + ": downloaded JAR declares plugin name '"
                             + descriptor.name() + "'");
                 }
-                stage(updateFolder.toPath(), update.fileName(), jarBytes);
+                if (compareVersions(descriptor.version(), update.latestVersion()) != 0) {
+                    throw new IOException("Refusing " + update.displayName() + ": downloaded JAR version '"
+                            + descriptor.version() + "' does not match expected '" + update.latestVersion() + "'");
+                }
+
+                stage(updateFolder.toPath(), update.targetFileName(), jarBytes);
                 staged++;
             }
 
             send(sender, "§aStaged §f" + staged + " §aupdate(s) in §f" + updateFolder.getPath() + "§a.");
             send(sender, "§eRestart the server normally to apply them. §cDo not /reload or hot-load the JARs.");
+            send(sender, "§7Keep a current backup of plugin JARs/configs before applying server updates.");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             send(sender, "§cUpdate check was interrupted.");
@@ -155,7 +165,6 @@ class UpdateCommand extends SubCommand {
         }
 
         String coreUrl = null;
-        String coreName = null;
         String bundleUrl = null;
         JsonArray assets = root.getAsJsonArray("assets");
         if (assets != null) {
@@ -168,16 +177,15 @@ class UpdateCommand extends SubCommand {
                 String url = string(asset, "browser_download_url");
                 if (name.equals(BUNDLE_ASSET)) {
                     bundleUrl = url;
-                } else if (name.startsWith("Slimefun-Legacy") && name.endsWith(".jar")) {
-                    coreName = name;
+                } else if (name.startsWith("Slimefun-Legacy") && name.endsWith(".jar") && !name.endsWith("-sources.jar")) {
                     coreUrl = url;
                 }
             }
         }
-        if (coreUrl == null || coreName == null || bundleUrl == null) {
+        if (coreUrl == null || bundleUrl == null) {
             throw new IOException("Latest release is missing the Slimefun Legacy JAR or addon bundle");
         }
-        return new Release(tag, coreName, checkedReleaseUrl(coreUrl), checkedReleaseUrl(bundleUrl));
+        return new Release(tag, checkedReleaseUrl(coreUrl), checkedReleaseUrl(bundleUrl));
     }
 
     private @Nonnull List<UpdateCandidate> findUpdates(
@@ -185,7 +193,13 @@ class UpdateCommand extends SubCommand {
         List<UpdateCandidate> updates = new ArrayList<>();
         if (compareVersions(release.tag(), Slimefun.getVersion()) > 0) {
             updates.add(new UpdateCandidate(
-                    "Slimefun Legacy", "Slimefun", Slimefun.getVersion(), release.tag(), release.coreFileName(), null, true));
+                    "Slimefun Legacy",
+                    "Slimefun",
+                    Slimefun.getVersion(),
+                    release.tag(),
+                    installedFileName(plugin),
+                    null,
+                    true));
         }
 
         for (Plugin addon : Slimefun.getInstalledAddons()) {
@@ -202,7 +216,7 @@ class UpdateCommand extends SubCommand {
                     addon.getName(),
                     addon.getDescription().getVersion(),
                     bundled.version(),
-                    bundled.fileName(),
+                    installedFileName(addon),
                     bundled.jarBytes(),
                     false));
         }
@@ -224,8 +238,7 @@ class UpdateCommand extends SubCommand {
                 } catch (IOException ignored) {
                     continue;
                 }
-                result.put(normalize(descriptor.name()), new BundlePlugin(
-                        Path.of(entry.getName()).getFileName().toString(), descriptor.name(), descriptor.version(), jar));
+                result.put(normalize(descriptor.name()), new BundlePlugin(descriptor.version(), jar));
             }
         }
         return result;
@@ -292,7 +305,7 @@ class UpdateCommand extends SubCommand {
     private static void stage(Path updateFolder, String fileName, byte[] jarBytes) throws IOException {
         String safeName = Path.of(fileName).getFileName().toString();
         if (!safeName.toLowerCase(Locale.ROOT).endsWith(".jar")) {
-            throw new IOException("Refusing non-JAR update asset");
+            throw new IOException("Refusing non-JAR update target");
         }
         Path target = updateFolder.resolve(safeName);
         Path temp = Files.createTempFile(updateFolder, ".slimefun-update-", ".part");
@@ -305,6 +318,20 @@ class UpdateCommand extends SubCommand {
             }
         } finally {
             Files.deleteIfExists(temp);
+        }
+    }
+
+    private static String installedFileName(Plugin installed) {
+        try {
+            if (installed.getClass().getProtectionDomain().getCodeSource() == null) {
+                return null;
+            }
+            URI uri = installed.getClass().getProtectionDomain().getCodeSource().getLocation().toURI();
+            Path path = Path.of(uri);
+            String name = path.getFileName() == null ? null : path.getFileName().toString();
+            return name != null && name.toLowerCase(Locale.ROOT).endsWith(".jar") ? name : null;
+        } catch (Exception ignored) {
+            return null;
         }
     }
 
@@ -326,50 +353,44 @@ class UpdateCommand extends SubCommand {
     }
 
     private static int[] parseVersion(String value) {
-        if (value == null) {
+        if (value == null || value.isBlank()) {
             return new int[0];
         }
-        String normalized = value.trim();
-        int start = 0;
-        while (start < normalized.length() && !Character.isDigit(normalized.charAt(start))) {
-            start++;
-        }
-        int end = start;
-        while (end < normalized.length()) {
-            char c = normalized.charAt(end);
-            if (!Character.isDigit(c) && c != '.') {
-                break;
+
+        List<Integer> numbers = new ArrayList<>();
+        int current = -1;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (Character.isDigit(c)) {
+                if (current < 0) {
+                    current = 0;
+                }
+                current = current * 10 + Character.digit(c, 10);
+            } else if (current >= 0) {
+                numbers.add(current);
+                current = -1;
             }
-            end++;
         }
-        if (start >= end) {
-            return new int[0];
+        if (current >= 0) {
+            numbers.add(current);
         }
-        String[] pieces = normalized.substring(start, end).split("\\.");
-        int[] result = new int[pieces.length];
-        try {
-            for (int i = 0; i < pieces.length; i++) {
-                result[i] = Integer.parseInt(pieces[i]);
-            }
-        } catch (NumberFormatException ignored) {
-            return new int[0];
+
+        int[] result = new int[numbers.size()];
+        for (int i = 0; i < numbers.size(); i++) {
+            result[i] = numbers.get(i);
         }
         return result;
     }
 
     private static String displayVersion(String version) {
-        int[] parsed = parseVersion(version);
-        if (parsed.length == 0) {
-            return version;
+        if (version == null) {
+            return "unknown";
         }
-        StringBuilder result = new StringBuilder();
-        for (int i = 0; i < parsed.length; i++) {
-            if (i > 0) {
-                result.append('.');
-            }
-            result.append(parsed[i]);
-        }
-        return result.toString();
+        String value = version.trim();
+        return value.length() > 1 && (value.charAt(0) == 'v' || value.charAt(0) == 'V')
+                        && Character.isDigit(value.charAt(1))
+                ? value.substring(1)
+                : value;
     }
 
     private static String normalize(String value) {
@@ -385,18 +406,18 @@ class UpdateCommand extends SubCommand {
         Slimefun.runSync(() -> sender.sendMessage(message));
     }
 
-    private record Release(String tag, String coreFileName, String coreJarUrl, String bundleUrl) {}
+    private record Release(String tag, String coreJarUrl, String bundleUrl) {}
 
     private record PluginDescriptor(String name, String version) {}
 
-    private record BundlePlugin(String fileName, String pluginName, String version, byte[] jarBytes) {}
+    private record BundlePlugin(String version, byte[] jarBytes) {}
 
     private record UpdateCandidate(
             String displayName,
             String expectedPluginName,
             String currentVersion,
             String latestVersion,
-            String fileName,
+            String targetFileName,
             byte[] jarBytes,
             boolean core) {}
 }
