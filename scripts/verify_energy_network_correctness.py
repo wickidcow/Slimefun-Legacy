@@ -81,12 +81,20 @@ def main() -> int:
 
     # Preserve the established network transaction order: collect supply, satisfy consumers,
     # then place the leftover back into network storage.
-    require(tick, "tickAllGenerators(timestamp::getAndAdd)", "generator supply phase")
+    require(tick, "tickAllGenerators(profiledTimestamp)", "generator supply phase")
     require(tick, "tickAllCapacitors()", "capacitor supply phase")
     require(tick, "for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet())", "consumer phase")
     require(tick, "storeRemainingEnergy(remainingEnergy)", "leftover storage phase")
-    require_before(tick, "tickAllGenerators(timestamp::getAndAdd)", "for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet())", "supply before consumers")
+    require_before(tick, "tickAllGenerators(profiledTimestamp)", "for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet())", "supply before consumers")
     require_before(tick, "for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet())", "storeRemainingEnergy(remainingEnergy)", "consumers before leftover storage")
+
+    # Profiling must remain absent from the normal hot path while requested samples still close
+    # generator entries across early-exit paths and exclude their elapsed time from the regulator.
+    require(tick, "AtomicLong profiledTimestamp = timestamp == 0L ? null : new AtomicLong(timestamp)", "lazy regulator profiler holder")
+    require(generators, "long timestamp = profiledTimestamp == null ? 0L : Slimefun.getProfiler().newEntry()", "generator profiler idle fast path")
+    require(generators, "finally { if (timestamp != 0L)", "generator profiler finally close guard")
+    require(generators, "Slimefun.getProfiler().closeEntry(loc, item, timestamp)", "generator profiler close")
+    require(generators, "profiledTimestamp.addAndGet(time)", "generator timing exclusion from regulator")
 
     # Stable connector/player-head transport state is presentation state, not energy truth. Skip
     # the full connector walk while the desired state is unchanged, but refresh immediately when
