@@ -4,6 +4,7 @@ import city.norain.slimefun4.utils.SlimefunPoolExecutor;
 import city.norain.slimefun4.utils.StringUtil;
 import com.google.common.util.concurrent.AtomicDouble;
 import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
+import io.github.thebusybiscuit.slimefun4.api.annotations.SlimefunInternal;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.tasks.TickerTask;
@@ -50,6 +51,7 @@ public class SlimefunProfiler {
      * across two ticks (sync and async blocks), so we use 100ms as a reference here
      */
     private static final int MAX_TICK_DURATION = 100;
+    private static final int MAX_FINISH_WAIT_ITERATIONS = 4000;
 
     /**
      * Our internal instance of {@link SlimefunThreadFactory}, it provides the naming
@@ -80,10 +82,26 @@ public class SlimefunProfiler {
     private volatile boolean isProfiling = false;
 
     /**
-     * This {@link AtomicInteger} holds the amount of blocks that still need to be
+     * True while the active sample only needs aggregate analytics telemetry.
+     */
+    private volatile boolean telemetryProfiling = false;
+
+    /**
+     * Prevents a new sample from reusing profiler state while delayed entries from the
+     * previous sample are still being finalized.
+     */
+    private volatile boolean finishing = false;
+    private volatile boolean pendingExplicitStart = false;
+
+    /**
+     * This {@link AtomicInteger} holds the amount of detailed blocks that still need to be
      * profiled.
      */
     private final AtomicInteger queued = new AtomicInteger(0);
+
+    private final AtomicInteger telemetryQueued = new AtomicInteger(0);
+    private final AtomicLong telemetryElapsedTime = new AtomicLong();
+    private final AtomicInteger telemetryEntries = new AtomicInteger();
 
     private final List<SlimefunPoolExecutor> threadPools = new CopyOnWriteArrayList<>();
 
@@ -108,31 +126,70 @@ public class SlimefunProfiler {
     }
 
     /**
-     * This method starts the profiling, data from previous runs will be cleared.
+     * This method starts detailed profiling, data from previous detailed runs will be cleared.
      */
-    public void start() {
+    public synchronized void start() {
+        if (finishing) {
+            // Preserve explicit start semantics without allowing two generations to share queues/maps.
+            pendingExplicitStart = true;
+            return;
+        }
+
+        startDetailed();
+    }
+
+    private void startDetailed() {
+        telemetryProfiling = false;
         isProfiling = true;
         queued.set(0);
         timings.clear();
     }
 
     /**
+     * Starts a lightweight aggregate-only sample for periodic analytics telemetry.
+     * This mode avoids creating {@link ProfiledBlock} instances and executor tasks for every entry.
+     * Existing detailed timing data remains untouched.
+     */
+    @SlimefunInternal
+    public synchronized void startTelemetry() {
+        if (isProfiling || finishing) {
+            return;
+        }
+
+        telemetryElapsedTime.set(0L);
+        telemetryEntries.set(0);
+        telemetryQueued.set(0);
+        telemetryProfiling = true;
+        isProfiling = true;
+    }
+
+    /**
      * Starts a ticker-cycle sample only when a summary is waiting to be produced.
      * Explicit calls to {@link #start()} remain unconditional for compatibility.
      *
-     * @return whether the current ticker cycle should collect profiler entries
+     * @return whether the current ticker cycle should collect detailed profiler entries
      */
     public boolean startIfRequested() {
         if (isProfiling) {
-            return true;
+            return !telemetryProfiling;
         }
 
-        if (requests.isEmpty()) {
+        if (finishing || requests.isEmpty()) {
             return false;
         }
 
-        start();
-        return true;
+        synchronized (this) {
+            if (isProfiling) {
+                return !telemetryProfiling;
+            }
+
+            if (finishing || requests.isEmpty()) {
+                return false;
+            }
+
+            startDetailed();
+            return true;
+        }
     }
 
     /**
@@ -145,7 +202,11 @@ public class SlimefunProfiler {
             return 0;
         }
 
-        queued.incrementAndGet();
+        if (telemetryProfiling) {
+            telemetryQueued.incrementAndGet();
+        } else {
+            queued.incrementAndGet();
+        }
         return System.nanoTime();
     }
 
@@ -160,7 +221,11 @@ public class SlimefunProfiler {
      */
     public void scheduleEntries(int amount) {
         if (isProfiling) {
-            queued.getAndAdd(amount);
+            if (telemetryProfiling) {
+                telemetryQueued.getAndAdd(amount);
+            } else {
+                queued.getAndAdd(amount);
+            }
         }
     }
 
@@ -171,11 +236,15 @@ public class SlimefunProfiler {
      * timeout for a sample that will never arrive.
      */
     public void cancelScheduledEntry() {
-        queued.updateAndGet(value -> Math.max(0, value - 1));
+        if (telemetryProfiling) {
+            telemetryQueued.updateAndGet(value -> Math.max(0, value - 1));
+        } else {
+            queued.updateAndGet(value -> Math.max(0, value - 1));
+        }
     }
 
     int getQueuedEntries() {
-        return queued.get();
+        return telemetryProfiling ? telemetryQueued.get() : queued.get();
     }
 
     /**
@@ -197,6 +266,13 @@ public class SlimefunProfiler {
 
         long elapsedTime = System.nanoTime() - timestamp;
 
+        if (telemetryProfiling) {
+            telemetryElapsedTime.addAndGet(elapsedTime);
+            telemetryEntries.incrementAndGet();
+            telemetryQueued.decrementAndGet();
+            return elapsedTime;
+        }
+
         executor.execute(() -> {
             ProfiledBlock block = new ProfiledBlock(l, item);
 
@@ -209,17 +285,24 @@ public class SlimefunProfiler {
     }
 
     /**
-     * This stops the profiling.
+     * This stops the active profiling sample.
      */
-    public void stop() {
-        isProfiling = false;
-
-        if (Slimefun.instance() == null || !Slimefun.instance().isEnabled()) {
-            // Slimefun has been disabled
+    public synchronized void stop() {
+        if (!isProfiling) {
             return;
         }
 
-        executor.execute(this::finishReport);
+        boolean telemetry = telemetryProfiling;
+        isProfiling = false;
+        finishing = true;
+
+        if (Slimefun.instance() == null || !Slimefun.instance().isEnabled()) {
+            // Slimefun has been disabled
+            completeProfileCycle();
+            return;
+        }
+
+        executor.execute(telemetry ? this::finishTelemetry : this::finishReport);
     }
 
     public void registerPool(SlimefunPoolExecutor executor) {
@@ -233,9 +316,36 @@ public class SlimefunProfiler {
         threadPools.add(executor);
     }
 
+    private void finishTelemetry() {
+        int iterations = MAX_FINISH_WAIT_ITERATIONS;
+        while (telemetryQueued.get() > 0 && iterations-- > 0) {
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException e) {
+                Slimefun.logger().log(Level.SEVERE, "A Profiler Thread was interrupted", e);
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+
+        if (telemetryQueued.get() > 0) {
+            Slimefun.logger()
+                    .log(
+                            Level.WARNING,
+                            "Aggregate profiler telemetry timed out while waiting for {0} entries.",
+                            telemetryQueued.get());
+        }
+
+        long elapsedTime = telemetryElapsedTime.get();
+        int entries = telemetryEntries.get();
+        averageTimingsPerMachine.getAndSet(entries == 0 ? 0 : (double) elapsedTime / entries);
+        recordAggregateSample(elapsedTime);
+        completeProfileCycle();
+    }
+
     private void finishReport() {
         // We will only wait for a maximum of this many 1ms sleeps
-        int iterations = 4000;
+        int iterations = MAX_FINISH_WAIT_ITERATIONS;
 
         // Wait for all timing results to come in
         while (!isProfiling && queued.get() > 0) {
@@ -258,6 +368,7 @@ public class SlimefunProfiler {
                         iterator.remove();
                     }
 
+                    completeProfileCycle();
                     return;
                 }
             } catch (InterruptedException e) {
@@ -278,14 +389,7 @@ public class SlimefunProfiler {
         averageTimingsPerMachine.getAndSet(
                 timings.values().stream().mapToLong(Long::longValue).average().orElse(0));
 
-        /*
-         * We log how many milliseconds have been ticked, and how many ticks have passed
-         * This is so when bStats requests the average timings, they're super quick to figure out
-         */
-        totalMsTicked.addAndGet(TimeUnit.NANOSECONDS.toMillis(totalElapsedTime));
-        millisecondSamples.incrementAndGet();
-        totalNsTicked.addAndGet(totalElapsedTime);
-        nanosecondSamples.incrementAndGet();
+        recordAggregateSample(totalElapsedTime);
 
         if (!requests.isEmpty()) {
             PerformanceSummary summary = new PerformanceSummary(this, totalElapsedTime, timings.size());
@@ -295,6 +399,29 @@ public class SlimefunProfiler {
                 summary.send(iterator.next());
                 iterator.remove();
             }
+        }
+
+        completeProfileCycle();
+    }
+
+    private void recordAggregateSample(long elapsedTime) {
+        /*
+         * We log how many milliseconds have been ticked, and how many ticks have passed
+         * so AnalyticsService can retrieve the averages without walking detailed timings.
+         */
+        totalMsTicked.addAndGet(TimeUnit.NANOSECONDS.toMillis(elapsedTime));
+        millisecondSamples.incrementAndGet();
+        totalNsTicked.addAndGet(elapsedTime);
+        nanosecondSamples.incrementAndGet();
+    }
+
+    private synchronized void completeProfileCycle() {
+        finishing = false;
+        telemetryProfiling = false;
+
+        if (pendingExplicitStart) {
+            pendingExplicitStart = false;
+            startDetailed();
         }
     }
 
