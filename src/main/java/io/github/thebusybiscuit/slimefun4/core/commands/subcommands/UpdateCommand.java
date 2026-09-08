@@ -4,7 +4,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.KnownAddonCompatibilityRegistry;
@@ -73,13 +72,13 @@ class UpdateCommand extends SubCommand {
 
         String action = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "check";
         if (!action.equals("check") && !action.equals("install")) {
-            sender.sendMessage(ChatColors.color("&eUsage: /sf update [check|install]"));
+            sender.sendMessage("§eUsage: /sf update [check|install]");
             return;
         }
 
-        sender.sendMessage(ChatColors.color(action.equals("install")
-                ? "&6[Slimefun Legacy] &eChecking and preparing updates..."
-                : "&6[Slimefun Legacy] &eChecking for updates..."));
+        sender.sendMessage(action.equals("install")
+                ? "§6[Slimefun Legacy] §eChecking and preparing updates..."
+                : "§6[Slimefun Legacy] §eChecking for updates...");
         boolean install = action.equals("install");
         Slimefun.getSchedulerService().runAsync(() -> runUpdate(sender, install));
     }
@@ -92,19 +91,19 @@ class UpdateCommand extends SubCommand {
             List<UpdateCandidate> updates = findUpdates(release, bundledPlugins);
 
             if (updates.isEmpty()) {
-                send(sender, "&aSlimefun Legacy and installed maintained addons are up to date. &7Latest release: &f"
+                send(sender, "§aSlimefun Legacy and installed maintained addons are up to date. §7Latest release: §f"
                         + displayVersion(release.tag()));
                 return;
             }
 
-            send(sender, "&6Available Slimefun Legacy updates &7(" + updates.size() + "):");
+            send(sender, "§6Available Slimefun Legacy updates §7(" + updates.size() + "):");
             for (UpdateCandidate update : updates) {
-                send(sender, "&e- &f" + update.displayName() + " &7" + displayVersion(update.currentVersion()) + " &8→ &a"
+                send(sender, "§e- §f" + update.displayName() + " §7" + displayVersion(update.currentVersion()) + " §8→ §a"
                         + displayVersion(update.latestVersion()));
             }
 
             if (!install) {
-                send(sender, "&7Run &e/sf update install &7to stage these updates for the next server restart.");
+                send(sender, "§7Run §e/sf update install §7to stage these updates for the next server restart.");
                 return;
             }
 
@@ -122,16 +121,16 @@ class UpdateCommand extends SubCommand {
                 staged++;
             }
 
-            send(sender, "&aStaged &f" + staged + " &aupdate(s) in &f" + updateFolder.getPath() + "&a.");
-            send(sender, "&eRestart the server normally to apply them. &cDo not /reload or hot-load the JARs.");
+            send(sender, "§aStaged §f" + staged + " §aupdate(s) in §f" + updateFolder.getPath() + "§a.");
+            send(sender, "§eRestart the server normally to apply them. §cDo not /reload or hot-load the JARs.");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            send(sender, "&cUpdate check was interrupted.");
+            send(sender, "§cUpdate check was interrupted.");
         } catch (Exception e) {
             plugin.getLogger().warning("Slimefun Legacy update check failed: " + e.getClass().getSimpleName() + ": "
                     + e.getMessage());
-            send(sender, "&cUpdate check failed: &f" + e.getClass().getSimpleName()
-                    + (e.getMessage() == null ? "" : " &8- &7" + e.getMessage()));
+            send(sender, "§cUpdate check failed: §f" + e.getClass().getSimpleName()
+                    + (e.getMessage() == null ? "" : " §8- §7" + e.getMessage()));
         }
     }
 
@@ -383,7 +382,7 @@ class UpdateCommand extends SubCommand {
     }
 
     private static void send(CommandSender sender, String message) {
-        Slimefun.runSync(() -> sender.sendMessage(ChatColors.color(message)));
+        Slimefun.runSync(() -> sender.sendMessage(message));
     }
 
     private record Release(String tag, String coreFileName, String coreJarUrl, String bundleUrl) {}
