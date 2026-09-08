@@ -49,6 +49,9 @@ jobs:
             --dir work
           unzip -q work/SFL_AddonsNDependencies.zip -d bundle
 
+          # SFL_AddonsNDependencies.zip contains addons/dependencies only, never Slimefun Legacy itself.
+          find bundle -type f -iname 'Slimefun-Legacy*.jar' -print -delete
+
           WARFARE_OLD="$(find bundle -type f -iname '*SlimefunWarfare*.jar' -print -quit || true)"
           SUPREME_OLD="$(find bundle -type f \( -iname 'SF_Supreme*.jar' -o -iname 'Supreme-Legacy*.jar' -o -iname 'Supreme-*.jar' \) -print -quit || true)"
           GALACTIFUN_OLD="$(find bundle -type f \( -iname '*Glactifun*.jar' -o -iname '*Galactifun*.jar' \) -print -quit || true)"
@@ -104,6 +107,10 @@ jobs:
           if find bundle -type f -iname '*ExoticGarden*.jar' ! -name "SF_ExoticGarden${EXOTIC_GARDEN_VERSION}.jar" | grep -q .; then
             echo 'Old ExoticGarden JAR remains in bundle.' >&2; exit 1
           fi
+          if find bundle -type f -iname 'Slimefun-Legacy*.jar' | grep -q .; then
+            echo 'Slimefun Legacy core JAR must not be included in SFL_AddonsNDependencies.zip.' >&2
+            exit 1
+          fi
 
           rm -f SFL_AddonsNDependencies.zip
           (cd bundle && zip -qr ../SFL_AddonsNDependencies.zip .)
@@ -112,6 +119,10 @@ jobs:
           unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_Supreme${SUPREME_VERSION}.jar"
           unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_Glactifun${GALACTIFUN_VERSION}.jar"
           unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_ExoticGarden${EXOTIC_GARDEN_VERSION}.jar"
+          if unzip -Z1 SFL_AddonsNDependencies.zip | grep -Ei '(^|/)Slimefun-Legacy[^/]*\.jar$'; then
+            echo 'Slimefun Legacy core JAR found in final addon/dependency archive.' >&2
+            exit 1
+          fi
           sha256sum SFL_AddonsNDependencies.zip
 
           gh release upload "$TAG" SFL_AddonsNDependencies.zip \
