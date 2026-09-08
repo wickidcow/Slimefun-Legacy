@@ -63,6 +63,24 @@ class SlimefunProfilerAverageTest {
     }
 
     @Test
+    void telemetrySampleStaysAggregateWhenSummaryIsQueued() {
+        SlimefunProfiler profiler = new SlimefunProfiler();
+
+        profiler.startTelemetry();
+        assertTrue(profiler.isProfiling());
+        assertTrue(profiler.newEntry() > 0L);
+        assertEquals(1, profiler.getQueuedEntries());
+
+        profiler.requestSummary(inspector(new AtomicInteger()));
+        assertFalse(profiler.startIfRequested());
+        assertEquals(1, profiler.getQueuedEntries());
+
+        profiler.cancelScheduledEntry();
+        assertEquals(0, profiler.getQueuedEntries());
+        profiler.kill();
+    }
+
+    @Test
     void explicitStartRemainsUnconditional() {
         SlimefunProfiler profiler = new SlimefunProfiler();
 
