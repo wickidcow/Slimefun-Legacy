@@ -129,7 +129,7 @@ public class SlimefunProfiler {
      * This method starts detailed profiling, data from previous detailed runs will be cleared.
      */
     public synchronized void start() {
-        if (finishing) {
+        if (finishing || (isProfiling && telemetryProfiling)) {
             // Preserve explicit start semantics without allowing two generations to share queues/maps.
             pendingExplicitStart = true;
             return;
