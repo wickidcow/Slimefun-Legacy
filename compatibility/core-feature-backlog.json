@@ -135,10 +135,10 @@
         "slimefun-gugu",
         "slimefun-united"
       ],
-      "status": "candidate-phase-3",
+      "status": "implemented-4.1.46",
       "priority": "high",
       "compatibility_risk": "high",
-      "notes": "Extend existing schema-v3 and Doctor work with dry-run integrity checks and explicit rollback plans."
+      "notes": "Delivered read-only ownership scans, exact two-pass quiet confirmation, fingerprinted repair planning and verification, mandatory lossless backups, final barriers, and guarded orphan-secondary repair without changing primary storage roots."
     },
     {
       "id": "staff-multitool-modes",
@@ -160,7 +160,7 @@
       "status": "implemented-phase-1d",
       "priority": "critical",
       "compatibility_risk": "low",
-      "notes": "Moves the release-blocking addon and API baseline to one machine-readable registry. Phase 1D compares 4.1.22 against 4.1.21 instead of leaving 4.1.15 hard-coded in workflow YAML."
+      "notes": "Moves the release-blocking addon and API baseline to one machine-readable registry. Phase 1D compares each active candidate against the last validated stable release instead of leaving 4.1.15 hard-coded in workflow YAML."
     },
     {
       "id": "historical-compatibility-floor",
@@ -179,10 +179,10 @@
       "sources": [
         "slimefun-legacy"
       ],
-      "status": "candidate-phase-1e",
+      "status": "implemented-phase-1e-foundation",
       "priority": "high",
       "compatibility_risk": "medium",
-      "notes": "Planned adapter boundary for Pylon, Rebar, and similar machine/storage ecosystems. Keep integrations optional and capability-driven rather than hard-coding plugin internals."
+      "notes": "Delivered optional capability/provider boundaries plus guarded Rebar/Pylon discovery and diagnostics without hard dependencies. Cross-network Cargo transfer and Energy exchange remain deliberately disabled until transactional interoperability is proven safe."
     },
     {
       "id": "runtime-failure-registry",
@@ -190,10 +190,10 @@
       "sources": [
         "slimefun-legacy"
       ],
-      "status": "candidate-phase-1e",
+      "status": "implemented-foundation-phase-1g",
       "priority": "high",
       "compatibility_risk": "medium",
-      "notes": "Extend existing machine circuit breakers and guide/addon isolation into a shared failure registry with rate-limited diagnostics and Doctor visibility."
+      "notes": "Delivered machine circuit-breaker health, external-integration failure isolation, guarded addon callback evidence, rate-limited diagnostics and administrator recovery paths. Legacy intentionally does not intercept arbitrary plugin startup failures or auto-disable addons."
     }
   ]
 }
