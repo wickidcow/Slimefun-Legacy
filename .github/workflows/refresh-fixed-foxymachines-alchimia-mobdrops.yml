@@ -16,8 +16,9 @@ concurrency:
 
 env:
   FOXY_VERSION: '1.0.0'
-  ALCHIMIA_VERSION: '1.0.2'
-  MOB_DROPS_VERSION: '1.0.1'
+  ALCHIMIA_VERSION: '1.0.3'
+  MOB_DROPS_VERSION: '1.0.2'
+  RSC_VERSION: '3.1.7-Legacy5'
 
 jobs:
   refresh:
@@ -46,6 +47,9 @@ jobs:
             --dir work
           unzip -q work/SFL_AddonsNDependencies.zip -d bundle
 
+          # The addon/dependency bundle must never contain the Slimefun Legacy core JAR.
+          find bundle -type f -iname 'Slimefun-Legacy*.jar' -print -delete
+
           replace_addon() {
             local label="$1"
             local search_pattern="$2"
@@ -66,6 +70,7 @@ jobs:
             echo "Replacing: ${old}"
 
             find bundle -type f -iname "$search_pattern" -delete
+            rm -f "fixed/$asset"
             gh release download "$tag" \
               --repo "$repo" \
               --pattern "$asset" \
@@ -107,6 +112,18 @@ jobs:
             "v${MOB_DROPS_VERSION}" \
             "SF_MobDrops${MOB_DROPS_VERSION}.jar"
 
+          # Preserve the already-validated RSC Legacy5 build and reject accidental rollback.
+          test "$(find bundle -type f -name "SF_RykenSlimeCustomizer${RSC_VERSION}.jar" | wc -l)" -eq 1
+          if find bundle -type f -iname '*RykenSlime*Customizer*.jar' ! -name "SF_RykenSlimeCustomizer${RSC_VERSION}.jar" | grep -q .; then
+            echo 'A stale RykenSlimeCustomizer JAR remains in the bundle.' >&2
+            exit 1
+          fi
+
+          if find bundle -type f -iname 'Slimefun-Legacy*.jar' | grep -q .; then
+            echo 'Slimefun Legacy core JAR must not be included in SFL_AddonsNDependencies.zip.' >&2
+            exit 1
+          fi
+
           rm -f SFL_AddonsNDependencies.zip
           (cd bundle && zip -qr ../SFL_AddonsNDependencies.zip .)
 
@@ -114,6 +131,7 @@ jobs:
           unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_FoxyMachines${FOXY_VERSION}.jar"
           unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_AlchimiaVitae${ALCHIMIA_VERSION}.jar"
           unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_MobDrops${MOB_DROPS_VERSION}.jar"
+          unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_RykenSlimeCustomizer${RSC_VERSION}.jar"
 
           if unzip -l SFL_AddonsNDependencies.zip | grep -Ei 'FoxyMachines.*\.jar' | grep -Fv "SF_FoxyMachines${FOXY_VERSION}.jar"; then
             echo 'Stale FoxyMachines JAR found in final archive.' >&2
@@ -125,6 +143,10 @@ jobs:
           fi
           if unzip -l SFL_AddonsNDependencies.zip | grep -Ei 'MobDrops.*\.jar' | grep -Fv "SF_MobDrops${MOB_DROPS_VERSION}.jar"; then
             echo 'Stale MobDrops JAR found in final archive.' >&2
+            exit 1
+          fi
+          if unzip -Z1 SFL_AddonsNDependencies.zip | grep -Ei '(^|/)Slimefun-Legacy[^/]*\.jar$'; then
+            echo 'Slimefun Legacy core JAR found in final addon/dependency archive.' >&2
             exit 1
           fi
 
