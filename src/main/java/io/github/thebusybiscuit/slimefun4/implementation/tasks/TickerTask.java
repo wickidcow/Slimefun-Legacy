@@ -126,7 +126,7 @@ public class TickerTask implements Runnable {
                 // A requested/manual sample also satisfies the periodic telemetry sample.
                 cyclesUntilProfilerTelemetry = profilerTelemetryCycles;
             } else if (--cyclesUntilProfilerTelemetry <= 0) {
-                Slimefun.getProfiler().start();
+                Slimefun.getProfiler().startTelemetry();
                 cyclesUntilProfilerTelemetry = profilerTelemetryCycles;
             }
 
