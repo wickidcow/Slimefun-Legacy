@@ -23,6 +23,11 @@ import compare_addon_slimefun_compatibility_base as base
 PROPERTY_REFERENCE = re.compile(r"^\$\{([^}]+)\}$")
 _original_patch_maven_dependency = base.patch_maven_dependency
 
+# Historical Gugu-era SlimeCustomizer uses com.github.StarWishsama:Slimefun4.
+# Artifact matching is still restricted to Slimefun/Slimefun4 by the base engine.
+if "starwishsama" not in base.CORE_GROUP_HINTS:
+    base.CORE_GROUP_HINTS = (*base.CORE_GROUP_HINTS, "starwishsama")
+
 
 def local_name(tag: str) -> str:
     return tag.split("}")[-1]

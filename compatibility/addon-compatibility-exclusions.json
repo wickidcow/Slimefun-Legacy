@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "exclusions": [
+    {
+      "repository": "wickidcow/SF_Magic_RSC",
+      "reason": "RykenSlimeCustomizer content pack; not a standalone Slimefun addon"
+    },
+    {
+      "repository": "wickidcow/SF_WorldTaste",
+      "reason": "Abandoned repository; no longer maintained or compatibility-tested"
+    }
+  ]
+}
