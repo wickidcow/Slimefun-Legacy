@@ -215,14 +215,16 @@ public class TickerTask implements Runnable {
                 return;
             }
 
-            Location anchor = locations.iterator().next().getLocation();
-            if (regionOwned && !Slimefun.getSchedulerService().isOwnedByCurrentRegion(anchor)) {
-                Slimefun.logger()
-                        .log(
-                                Level.SEVERE,
-                                "Skipped a machine chunk tick because Folia ownership was not held for {0}.",
-                                new BlockPosition(anchor));
-                return;
+            if (regionOwned) {
+                Location anchor = locations.iterator().next().getLocation();
+                if (!Slimefun.getSchedulerService().isOwnedByCurrentRegion(anchor)) {
+                    Slimefun.logger()
+                            .log(
+                                    Level.SEVERE,
+                                    "Skipped a machine chunk tick because Folia ownership was not held for {0}.",
+                                    new BlockPosition(anchor));
+                    return;
+                }
             }
 
             // On Folia this check executes on the owning region. Paper preserves the legacy asynchronous check.
@@ -311,7 +313,7 @@ public class TickerTask implements Runnable {
                 } finally {
                     queuedSynchronousTicks.remove(position);
                 }
-            } else if (ticker.isSynchronized() || isInventoryViewed(location)) {
+            } else if (ticker.isSynchronized() || isInventoryViewed(position)) {
                 if (!queuedSynchronousTicks.add(position)) {
                     return;
                 }
@@ -383,7 +385,15 @@ public class TickerTask implements Runnable {
                 || (!targetedPausedItemIds.isEmpty() && targetedPausedItemIds.contains(itemId));
     }
 
+    private boolean isInventoryViewed(BlockPosition position) {
+        return !viewedInventories.isEmpty() && viewedInventories.contains(position);
+    }
+
     private void clearFailureState(BlockPosition position) {
+        if (bugs.isEmpty() && circuitBreaker.size() == 0 && failureTracker.getActiveFailureCount() == 0) {
+            return;
+        }
+
         circuitBreaker.clear(position);
         bugs.remove(position);
         failureTracker.clear(position);
@@ -405,7 +415,9 @@ public class TickerTask implements Runnable {
             reportErrors(location, item, throwable);
             return false;
         } finally {
-            Slimefun.getProfiler().closeEntry(location, item, timestamp);
+            if (timestamp != 0L) {
+                Slimefun.getProfiler().closeEntry(location, item, timestamp);
+            }
         }
     }
 
@@ -878,6 +890,6 @@ public class TickerTask implements Runnable {
      */
     public boolean isInventoryViewed(@Nonnull Location location) {
         Validate.notNull(location, "Location cannot be null!");
-        return !viewedInventories.isEmpty() && viewedInventories.contains(new BlockPosition(location));
+        return isInventoryViewed(new BlockPosition(location));
     }
 }
