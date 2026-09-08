@@ -81,6 +81,27 @@ class SlimefunProfilerAverageTest {
     }
 
     @Test
+    void explicitStartWaitsForActiveTelemetrySample() throws ReflectiveOperationException {
+        SlimefunProfiler profiler = new SlimefunProfiler();
+
+        profiler.startTelemetry();
+        profiler.start();
+
+        assertTrue(profiler.isProfiling());
+        assertTrue(booleanField(profiler, "telemetryProfiling"));
+        assertTrue(booleanField(profiler, "pendingExplicitStart"));
+
+        Method completeProfileCycle = SlimefunProfiler.class.getDeclaredMethod("completeProfileCycle");
+        completeProfileCycle.setAccessible(true);
+        completeProfileCycle.invoke(profiler);
+
+        assertTrue(profiler.isProfiling());
+        assertFalse(booleanField(profiler, "telemetryProfiling"));
+        assertFalse(booleanField(profiler, "pendingExplicitStart"));
+        profiler.kill();
+    }
+
+    @Test
     void explicitStartRemainsUnconditional() {
         SlimefunProfiler profiler = new SlimefunProfiler();
 
@@ -130,6 +151,12 @@ class SlimefunProfilerAverageTest {
                 return SummaryOrderType.HIGHEST;
             }
         };
+    }
+
+    private boolean booleanField(SlimefunProfiler profiler, String name) throws ReflectiveOperationException {
+        Field field = SlimefunProfiler.class.getDeclaredField(name);
+        field.setAccessible(true);
+        return field.getBoolean(profiler);
     }
 
     private AtomicLong atomicLong(SlimefunProfiler profiler, String name) throws ReflectiveOperationException {
