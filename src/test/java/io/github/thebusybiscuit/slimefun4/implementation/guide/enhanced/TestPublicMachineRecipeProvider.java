@@ -68,6 +68,15 @@ class TestPublicMachineRecipeProvider {
         assertEquals(Material.GOLD_INGOT, recipes.get(0).getOutputs().get(0).getType());
     }
 
+    @Test
+    void rejectsMappedRecipesWithUnconvertibleInputKeys() {
+        IdMapRecipeMachine machine = new IdMapRecipeMachine();
+        List<MachineRecipeDisplay> recipes = provider.getRecipesFromObject(machine, world());
+
+        assertTrue(provider.supportsObject(machine));
+        assertEquals(0, recipes.size());
+    }
+
     private World world() {
         return server.addSimpleWorld("phase4_compatibility");
     }
@@ -126,6 +135,15 @@ class TestPublicMachineRecipeProvider {
 
         MapRecipeMachine() {
             recipeMap.put(new ItemStack(Material.IRON_INGOT), new ItemStack(Material.GOLD_INGOT));
+        }
+    }
+
+    public static final class IdMapRecipeMachine {
+
+        public final Map<List<String>, ItemStack> recipeMap = new LinkedHashMap<>();
+
+        IdMapRecipeMachine() {
+            recipeMap.put(List.of("IE2_INPUT_A", "IE2_INPUT_B"), new ItemStack(Material.DIAMOND));
         }
     }
 }

@@ -385,7 +385,7 @@ public final class LegacyMachineRecipeProviders {
             if (rawRecipe instanceof Map.Entry<?, ?> entry) {
                 List<ItemStack> inputs = itemStacks(entry.getKey());
                 List<ItemStack> outputs = itemStacks(entry.getValue());
-                if (!outputs.isEmpty()) {
+                if (!outputs.isEmpty() && (entry.getKey() == null || !inputs.isEmpty())) {
                     MachineRecipeDisplay.Builder builder = MachineRecipeDisplay.builder()
                             .layout(MachineRecipeLayout.SHAPELESS)
                             .label("Addon mapped machine recipe");
@@ -844,8 +844,7 @@ public final class LegacyMachineRecipeProviders {
         return item == null || item.getType() == Material.AIR || item.getAmount() <= 0;
     }
 
-    private record RecipeSourceAccessor(
-            @Nullable Method method, @Nullable Field field) {
+    private record RecipeSourceAccessor(@Nullable Method method, @Nullable Field field) {
 
         static @Nonnull RecipeSourceAccessor forMethod(@Nonnull Method method) {
             return new RecipeSourceAccessor(method, null);
