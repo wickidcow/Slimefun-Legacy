@@ -125,7 +125,7 @@ public final class SlimefunGuideSettings {
                         ChatColor.GREEN + locale.getMessage(p, "guide.title.versions"),
                         "&7&o" + locale.getMessage(p, "guide.tooltips.versions-notice"),
                         "",
-                        "&fEnglish-Albion Edition",
+                        "&fSlimefun Legacy by wickidcow/TanukiTomo",
                         "&cThis is an unofficial community build.",
                         "&cReport issues to this fork, not the upstream support server.",
                         "",
@@ -150,10 +150,10 @@ public final class SlimefunGuideSettings {
                         "&7Forks: &e" + github.getForks(),
                         "&7Stars: &e" + github.getStars(),
                         "",
-                        "&7&oThis English legacy build is maintained",
-                        "&7&ofor AlbionMC with player-facing text in English.",
+                        "&7&oSlimefun Legacy is maintained by",
+                        "&7&owickidcow/TanukiTomo for the wider Slimefun community.",
                         "&7&oSource, releases, and development history",
-                        "&7&oare available in the AlbionMC GitHub fork.",
+                        "&7&oare available in the Slimefun Legacy GitHub repository.",
                         "",
                         "&7\u21E8 &eClick to go to GitHub"));
         // @formatter:on
@@ -171,17 +171,16 @@ public final class SlimefunGuideSettings {
                         Material.KNOWLEDGE_BOOK,
                         "&3" + locale.getMessage(p, "guide.title.wiki"),
                         "",
-                        "&7Do you need help with an Item or machine?",
-                        "&7You cannot figure out what to do?",
-                        "&7Check out our community-maintained Wiki",
-                        "&7and become one of our Editors!",
+                        "&7Need help with an item, machine, or Legacy feature?",
+                        "&7Open the Slimefun Legacy GitHub Wiki for",
+                        "&7project-specific documentation and guides.",
                         "",
-                        "&7\u21E8 &eClick to go to the official Slimefun Wiki"));
+                        "&7\u21E8 &eClick to open the Slimefun Legacy GitHub Wiki"));
         // @formatter:on
 
         menu.addMenuClickHandler(8, (pl, slot, item, action) -> {
             pl.closeInventory();
-            ChatUtils.sendURL(pl, "https://slimefun-wiki.guizhanss.cn/");
+            ChatUtils.sendURL(pl, "https://github.com/wickidcow/Slimefun-Legacy/wiki");
             return false;
         });
 
@@ -192,19 +191,18 @@ public final class SlimefunGuideSettings {
                         Material.BOOKSHELF,
                         "&3" + locale.getMessage(p, "guide.title.addons"),
                         "",
-                        "&7Slimefun is huge. But its addons are what makes",
-                        "&7this plugin truly shine. Go check them out, some",
-                        "&7of them may be exactly what you were missing out on!",
+                        "&7Slimefun addons expand the Legacy experience with",
+                        "&7machines, automation, storage, magic, and more.",
                         "",
                         "&7Installed on this Server: &b"
                                 + Slimefun.getInstalledAddons().size(),
                         "",
-                        "&7\u21E8 &eClick to see all available addons for Slimefun4"));
+                        "&7\u21E8 &eClick to view Slimefun Legacy releases and addon bundles"));
         // @formatter:on
 
         menu.addMenuClickHandler(47, (pl, slot, item, action) -> {
             pl.closeInventory();
-            ChatUtils.sendURL(pl, "https://slimefun-wiki.guizhanss.cn/Addons");
+            ChatUtils.sendURL(pl, "https://github.com/wickidcow/Slimefun-Legacy/releases");
             return false;
         });
 
