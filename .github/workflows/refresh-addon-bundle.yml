@@ -27,6 +27,7 @@ env:
   FAST_MACHINES_VERSION: '1.0.3'
   GENETIC_CHICK_VERSION: '1.0.1'
   NETWORKS_VERSION: '1.0.14'
+  # v1.0.14 asset refreshed in place with modular Networks Expansion feature toggles.
   SUPREME_VERSION: '1.0.3'
 
 jobs:
