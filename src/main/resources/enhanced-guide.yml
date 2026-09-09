@@ -14,6 +14,17 @@ features:
   display-item-id: true
   display-addon: true
 
+  # Enhanced Guide 4.2: adds "Recipes Using This Item" without putting a
+  # reverse-recipe scan on normal guide opens. The first explicit click builds
+  # one per-world index in small scheduled batches; later clicks reuse the cache.
+  recipe-usages:
+    enabled: true
+
+    # Both limits apply to each scheduled batch. Whichever is reached first
+    # yields until the next tick. Keep these conservative on large addon stacks.
+    index-items-per-tick: 6
+    index-budget-micros: 1500
+
   # Adds a JEG-style "Machine Recipes" button through the Phase 4 provider API.
   # Core AContainer machines, RecipeDisplayItem implementations and FastMachines
   # are supported automatically. Addons can register structured providers without

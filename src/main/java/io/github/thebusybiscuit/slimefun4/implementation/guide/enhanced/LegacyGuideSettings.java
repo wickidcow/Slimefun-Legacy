@@ -31,6 +31,9 @@ public final class LegacyGuideSettings {
     private final boolean smartSearch;
     private final boolean displayItemId;
     private final boolean displayAddon;
+    private final boolean recipeUsages;
+    private final int recipeUsageIndexItemsPerTick;
+    private final int recipeUsageIndexBudgetMicros;
     private final boolean machineRecipeBrowser;
     private final boolean machineInputFill;
     private final boolean closeGuideAfterMachineInputFill;
@@ -62,6 +65,9 @@ public final class LegacyGuideSettings {
         smartSearch = config.getBoolean("features.smart-search", true);
         displayItemId = config.getBoolean("features.display-item-id", true);
         displayAddon = config.getBoolean("features.display-addon", true);
+        recipeUsages = config.getBoolean("features.recipe-usages.enabled", true);
+        recipeUsageIndexItemsPerTick = clamp(config.getInt("features.recipe-usages.index-items-per-tick", 6), 1, 16);
+        recipeUsageIndexBudgetMicros = clamp(config.getInt("features.recipe-usages.index-budget-micros", 1500), 250, 5000);
         machineRecipeBrowser = config.getBoolean("features.machine-recipes.enabled", true);
         machineInputFill = config.getBoolean("features.machine-input-fill.enabled", true);
         closeGuideAfterMachineInputFill = config.getBoolean("features.machine-input-fill.close-guide-on-success", true);
@@ -131,6 +137,18 @@ public final class LegacyGuideSettings {
 
     public boolean shouldDisplayAddon() {
         return displayAddon;
+    }
+
+    public boolean hasRecipeUsages() {
+        return recipeUsages;
+    }
+
+    public int getRecipeUsageIndexItemsPerTick() {
+        return recipeUsageIndexItemsPerTick;
+    }
+
+    public int getRecipeUsageIndexBudgetMicros() {
+        return recipeUsageIndexBudgetMicros;
     }
 
     public boolean hasMachineRecipeBrowser() {
