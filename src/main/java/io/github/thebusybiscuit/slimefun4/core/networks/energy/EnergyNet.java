@@ -20,7 +20,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.LongConsumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.bukkit.Location;
@@ -148,7 +147,9 @@ public class EnergyNet extends Network implements HologramOwner {
     }
 
     public void tick(@Nonnull Block b, SlimefunBlockData blockData) {
-        AtomicLong timestamp = new AtomicLong(Slimefun.getProfiler().newEntry());
+        long timestamp = Slimefun.getProfiler().newEntry();
+        AtomicLong profiledTimestamp = timestamp == 0L ? null : new AtomicLong(timestamp);
+
         try {
             if (!regulator.equals(b.getLocation())) {
                 VanillaPowerStateBridge.sync(b.getLocation(), false);
@@ -163,7 +164,7 @@ public class EnergyNet extends Network implements HologramOwner {
                 syncNetworkTransportState(false);
                 updateHologram(b, "&4No energy network found", blockData::isPendingRemove);
             } else {
-                long generatorsSupply = tickAllGenerators(timestamp::getAndAdd);
+                long generatorsSupply = tickAllGenerators(profiledTimestamp);
                 long capacitorsSupply = tickAllCapacitors();
                 long supply = NumberUtils.flowSafeAddition(generatorsSupply, capacitorsSupply);
                 long remainingEnergy = supply;
@@ -229,9 +230,11 @@ public class EnergyNet extends Network implements HologramOwner {
                 updateHologram(blockData, supply, demand);
             }
         } finally {
-            // We have subtracted the timings from Generators, so they do not show up twice.
-            Slimefun.getProfiler()
-                    .closeEntry(b.getLocation(), SlimefunItems.ENERGY_REGULATOR.getItem(), timestamp.get());
+            if (profiledTimestamp != null) {
+                // Generator timings are added to the start timestamp so they are not reported twice.
+                Slimefun.getProfiler()
+                        .closeEntry(b.getLocation(), SlimefunItems.ENERGY_REGULATOR.getItem(), profiledTimestamp.get());
+            }
         }
     }
 
@@ -301,7 +304,7 @@ public class EnergyNet extends Network implements HologramOwner {
         }
     }
 
-    private long tickAllGenerators(@Nonnull LongConsumer timings) {
+    private long tickAllGenerators(@Nullable AtomicLong profiledTimestamp) {
         Set<Location> explodedBlocks = new HashSet<>();
         long supply = 0;
 
@@ -311,9 +314,9 @@ public class EnergyNet extends Network implements HologramOwner {
                 continue;
             }
 
-            long timestamp = Slimefun.getProfiler().newEntry();
             EnergyNetProvider provider = entry.getValue();
             SlimefunItem item = (SlimefunItem) provider;
+            long timestamp = profiledTimestamp == null ? 0L : Slimefun.getProfiler().newEntry();
 
             try {
                 var data = StorageCacheUtils.getDataContainer(loc);
@@ -360,10 +363,12 @@ public class EnergyNet extends Network implements HologramOwner {
                 VanillaPowerStateBridge.sync(loc, false);
                 explodedBlocks.add(loc);
                 new ErrorReport<>(throwable, loc, item);
+            } finally {
+                if (timestamp != 0L) {
+                    long time = Slimefun.getProfiler().closeEntry(loc, item, timestamp);
+                    profiledTimestamp.addAndGet(time);
+                }
             }
-
-            long time = Slimefun.getProfiler().closeEntry(loc, item, timestamp);
-            timings.accept(time);
         }
 
         // Remove all generators which have exploded or failed catastrophically.
