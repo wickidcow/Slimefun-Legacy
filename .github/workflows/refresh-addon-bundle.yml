@@ -18,17 +18,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  BASE_BUNDLE_TAG: v4.1.45
-  MILITARY_VERSION: '1.1.6'
-  WARFARE_VERSION: '1.0.5'
-  RSC_VERSION: '3.1.7-Legacy5'
-  FLUFFY_VERSION: '26.2.11'
-  MOB_CAPTURER_VERSION: '1.0.4'
-  FAST_MACHINES_VERSION: '1.0.3'
-  GENETIC_CHICK_VERSION: '1.0.1'
-  NETWORKS_VERSION: '1.0.14'
-  # v1.0.14 asset refreshed in place with modular Networks Expansion feature toggles.
-  SUPREME_VERSION: '1.0.3'
+  BASE_BUNDLE_TAG: v4.1.48
+  FAWE_BUILD: '1385'
+  FAWE_ASSET: FastAsyncWorldEdit-Paper-2.15.5-SNAPSHOT.jar
+  FAWE_URL: https://ci.athion.net/job/FastAsyncWorldEdit/1385/artifact/artifacts/FastAsyncWorldEdit-Paper-2.15.5-SNAPSHOT.jar
 
 jobs:
   refresh:
@@ -38,7 +31,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Refresh validated addon files in bundle
+      - name: Refresh and verify addon bundle
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -48,35 +41,16 @@ jobs:
           CURRENT_VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
           CURRENT_TAG="v${CURRENT_VERSION}"
 
-          rm -rf bundle work fixed
-          mkdir -p bundle work fixed
-
-          download_with_retry() {
-            local repo="$1"
-            local tag="$2"
-            local asset="$3"
-            local dest="$4"
-            local attempt
-
-            for attempt in $(seq 1 90); do
-              rm -f "$dest/$asset" 2>/dev/null || true
-              if gh release download "$tag" --repo "$repo" --pattern "$asset" --dir "$dest"; then
-                return 0
-              fi
-              echo "Waiting for $repo $tag asset $asset (attempt $attempt/90)"
-              sleep 10
-            done
-
-            echo "Timed out waiting for $repo $tag asset $asset" >&2
-            return 1
-          }
+          rm -rf bundle work latest
+          mkdir -p bundle work latest
 
           # Reuse the current release bundle when it exists so maintenance refreshes never
-          # roll newer addon builds back to the older seed bundle. A brand-new release falls
-          # back to the last known-good seed until its own bundle exists.
+          # roll newer addon builds back to an older seed. A brand-new release falls back
+          # to the last known-good seed until its own bundle exists.
           SOURCE_TAG="$BASE_BUNDLE_TAG"
           if gh release view "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 && \
-             gh release view "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -Fxq 'SFL_AddonsNDependencies.zip'; then
+             gh release view "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY" --json assets \
+               --jq '.assets[].name' | grep -Fxq 'SFL_AddonsNDependencies.zip'; then
             SOURCE_TAG="$CURRENT_TAG"
           fi
 
@@ -87,73 +61,8 @@ jobs:
             --dir work
           unzip -q work/SFL_AddonsNDependencies.zip -d bundle
 
-          # Core Slimefun is a separate release asset and must NEVER be inside the addon bundle.
+          # Core Slimefun is a separate release asset and must NEVER be inside this bundle.
           find bundle -type f -iname 'Slimefun-Legacy*.jar' -print -delete
-
-          replace_simple() {
-            local label="$1"
-            local pattern="$2"
-            local repo="$3"
-            local tag="$4"
-            local asset="$5"
-            local old
-            local dest_dir
-
-            old="$(find bundle -type f -iname "$pattern" -print -quit || true)"
-            if [[ -z "$old" ]]; then
-              echo "Could not find existing ${label} JAR in bundle seed." >&2
-              exit 1
-            fi
-
-            dest_dir="$(dirname "$old")"
-            echo "${label}: ${old} -> ${dest_dir}/${asset}"
-            find bundle -type f -iname "$pattern" -delete
-            download_with_retry "$repo" "$tag" "$asset" fixed
-            mkdir -p "$dest_dir"
-            cp "fixed/$asset" "$dest_dir/"
-
-            test "$(find bundle -type f -name "$asset" | wc -l)" -eq 1
-            if find bundle -type f -iname "$pattern" ! -name "$asset" | grep -q .; then
-              echo "A stale ${label} JAR remains in the bundle." >&2
-              find bundle -type f -iname "$pattern" -print
-              exit 1
-            fi
-          }
-
-          replace_simple 'Military Arsenal' '*MilitaryArsenal*.jar' \
-            wickidcow/SF_MilitaryArsenal "v${MILITARY_VERSION}" "SF_MilitaryArsenal${MILITARY_VERSION}.jar"
-          replace_simple 'Slimefun Warfare' '*SlimefunWarfare*.jar' \
-            wickidcow/SF_SlimefunWarfare "v${WARFARE_VERSION}" "SF_SlimefunWarfare${WARFARE_VERSION}.jar"
-          replace_simple 'RykenSlimeCustomizer' '*RykenSlime*Customizer*.jar' \
-            wickidcow/SF_RykenSlimeCustomizer "v${RSC_VERSION}" "SF_RykenSlimeCustomizer${RSC_VERSION}.jar"
-          replace_simple 'FluffyMachines' '*FluffyMachines*.jar' \
-            wickidcow/SF_FluffyMachines "v${FLUFFY_VERSION}" "SF_FluffyMachines${FLUFFY_VERSION}.jar"
-          replace_simple 'MobCapturer' '*MobCapturer*.jar' \
-            wickidcow/SF_MobCapturer "v${MOB_CAPTURER_VERSION}" "SF_MobCapturer${MOB_CAPTURER_VERSION}.jar"
-          replace_simple 'FastMachines' '*FastMachines*.jar' \
-            wickidcow/SF_FastMachines "v${FAST_MACHINES_VERSION}" "SF_FastMachines${FAST_MACHINES_VERSION}.jar"
-          replace_simple 'Genetic ChickEngineering' '*Genetic*Chick*.jar' \
-            wickidcow/SF_GeneticChickEngineering "v${GENETIC_CHICK_VERSION}" "SF_GeneticChickEngineering${GENETIC_CHICK_VERSION}.jar"
-
-          NETWORKS_OLD="$(find bundle -type f \( -iname '*NetworksExp*.jar' -o -iname 'Networks-Legacy*.jar' \) -print -quit || true)"
-          if [[ -z "$NETWORKS_OLD" ]]; then
-            echo 'Could not find existing Networks Expansion JAR in bundle seed.' >&2
-            exit 1
-          fi
-          NETWORKS_DIR="$(dirname "$NETWORKS_OLD")"
-          find bundle -type f \( -iname '*NetworksExp*.jar' -o -iname 'Networks-Legacy*.jar' \) -delete
-          download_with_retry wickidcow/SF_NetworksExp "v${NETWORKS_VERSION}" "SF_NetworksExp${NETWORKS_VERSION}.jar" fixed
-          cp "fixed/SF_NetworksExp${NETWORKS_VERSION}.jar" "$NETWORKS_DIR/"
-
-          SUPREME_OLD="$(find bundle -type f \( -iname 'SF_Supreme*.jar' -o -iname 'Supreme-Legacy*.jar' -o -iname 'Supreme-*.jar' \) -print -quit || true)"
-          if [[ -z "$SUPREME_OLD" ]]; then
-            echo 'Could not find existing Supreme JAR in bundle seed.' >&2
-            exit 1
-          fi
-          SUPREME_DIR="$(dirname "$SUPREME_OLD")"
-          find bundle -type f \( -iname 'SF_Supreme*.jar' -o -iname 'Supreme-Legacy*.jar' -o -iname 'Supreme-*.jar' \) -delete
-          download_with_retry wickidcow/SF_Supreme "v${SUPREME_VERSION}" "SF_Supreme${SUPREME_VERSION}.jar" fixed
-          cp "fixed/SF_Supreme${SUPREME_VERSION}.jar" "$SUPREME_DIR/"
 
           # Magic Expansion is intentionally distributed separately from this bundle.
           find bundle -type f -iname '*MagicExpansion*.jar' -delete
@@ -164,22 +73,195 @@ jobs:
           fi
           rm -rf bundle/RykenSlimefunCustomizer/addons/Magic
 
-          # Exact-version and stale-copy validation.
-          test "$(find bundle -type f -name "SF_MilitaryArsenal${MILITARY_VERSION}.jar" | wc -l)" -eq 1
-          test "$(find bundle -type f -name "SF_SlimefunWarfare${WARFARE_VERSION}.jar" | wc -l)" -eq 1
-          test "$(find bundle -type f -name "SF_RykenSlimeCustomizer${RSC_VERSION}.jar" | wc -l)" -eq 1
-          test "$(find bundle -type f -name "SF_FluffyMachines${FLUFFY_VERSION}.jar" | wc -l)" -eq 1
-          test "$(find bundle -type f -name "SF_MobCapturer${MOB_CAPTURER_VERSION}.jar" | wc -l)" -eq 1
-          test "$(find bundle -type f -name "SF_FastMachines${FAST_MACHINES_VERSION}.jar" | wc -l)" -eq 1
-          test "$(find bundle -type f -name "SF_GeneticChickEngineering${GENETIC_CHICK_VERSION}.jar" | wc -l)" -eq 1
-          test "$(find bundle -type f -name "SF_NetworksExp${NETWORKS_VERSION}.jar" | wc -l)" -eq 1
-          test "$(find bundle -type f -name "SF_Supreme${SUPREME_VERSION}.jar" | wc -l)" -eq 1
+          # Load every active maintained SF_ fork. Existing bundle JARs are mapped back to
+          # their repository and replaced from that repo's latest stable GitHub Release.
+          mapfile -t SF_REPOS < <(
+            gh api --paginate 'users/wickidcow/repos?per_page=100&type=owner' \
+              --jq '.[] | select(.archived == false and (.name | startswith("SF_"))) | .name' \
+              | sort -u
+          )
 
-          if find bundle -type f \( -iname '*NetworksExp*.jar' -o -iname 'Networks-Legacy*.jar' \) ! -name "SF_NetworksExp${NETWORKS_VERSION}.jar" | grep -q .; then
-            echo 'Old Networks JAR remains in bundle.' >&2; exit 1
+          if [[ "${#SF_REPOS[@]}" -eq 0 ]]; then
+            echo 'No maintained wickidcow SF_ repositories were returned by GitHub.' >&2
+            exit 1
           fi
-          if find bundle -type f \( -iname 'SF_Supreme*.jar' -o -iname 'Supreme-Legacy*.jar' -o -iname 'Supreme-*.jar' \) ! -name "SF_Supreme${SUPREME_VERSION}.jar" | grep -q .; then
-            echo 'Old Supreme JAR remains in bundle.' >&2; exit 1
+
+          repo_for_jar() {
+            local base="$1"
+            local best=""
+            local candidate
+
+            # Historical naming exceptions.
+            case "$base" in
+              SF_Glactifun*.jar)
+                printf '%s\n' 'SF_Galactifun'
+                return 0
+                ;;
+              SF_SFLWorldEdit_*.jar)
+                printf '%s\n' 'WorldEditSlimefun'
+                return 0
+                ;;
+            esac
+
+            for candidate in "${SF_REPOS[@]}"; do
+              if [[ "$base" == "${candidate}"*.jar && ${#candidate} -gt ${#best} ]]; then
+                best="$candidate"
+              fi
+            done
+
+            printf '%s\n' "$best"
+          }
+
+          latest_jar_asset() {
+            local repo="$1"
+            local json="$2"
+            local asset_count
+            local asset
+
+            asset_count="$(jq '[.assets[] | select(.state == "uploaded") | select(.name | endswith(".jar")) | select((.name | ascii_downcase | contains("sources")) | not) | select((.name | ascii_downcase | contains("javadoc")) | not)] | length' "$json")"
+            if [[ "$asset_count" -eq 0 ]]; then
+              echo "Latest release for wickidcow/${repo} has no distributable JAR asset." >&2
+              return 1
+            fi
+
+            # Prefer the standardized repository-name prefix when multiple JARs exist.
+            asset="$(jq -r --arg prefix "$repo" '
+              [.assets[]
+                | select(.state == "uploaded")
+                | select(.name | endswith(".jar"))
+                | select((.name | ascii_downcase | contains("sources")) | not)
+                | select((.name | ascii_downcase | contains("javadoc")) | not)
+                | select(.name | startswith($prefix))]
+              | .[0].name // empty
+            ' "$json")"
+
+            if [[ -z "$asset" && "$repo" == 'SF_Galactifun' ]]; then
+              asset="$(jq -r '
+                [.assets[]
+                  | select(.state == "uploaded")
+                  | select(.name | startswith("SF_Glactifun"))
+                  | select(.name | endswith(".jar"))]
+                | .[0].name // empty
+              ' "$json")"
+            fi
+
+            if [[ -z "$asset" && "$repo" == 'WorldEditSlimefun' ]]; then
+              asset="$(jq -r '
+                [.assets[]
+                  | select(.state == "uploaded")
+                  | select(.name | startswith("SF_SFLWorldEdit_"))
+                  | select(.name | endswith(".jar"))]
+                | .[0].name // empty
+              ' "$json")"
+            fi
+
+            # If the release only has one distributable JAR, it is unambiguous.
+            if [[ -z "$asset" && "$asset_count" -eq 1 ]]; then
+              asset="$(jq -r '
+                [.assets[]
+                  | select(.state == "uploaded")
+                  | select(.name | endswith(".jar"))
+                  | select((.name | ascii_downcase | contains("sources")) | not)
+                  | select((.name | ascii_downcase | contains("javadoc")) | not)]
+                | .[0].name
+              ' "$json")"
+            fi
+
+            if [[ -z "$asset" ]]; then
+              echo "Could not choose an unambiguous latest JAR for wickidcow/${repo}." >&2
+              jq -r '.assets[].name' "$json" >&2
+              return 1
+            fi
+
+            printf '%s\n' "$asset"
+          }
+
+          declare -A SEEN_REPOS=()
+          UNMATCHED=0
+
+          while IFS= read -r -d '' jar; do
+            base="$(basename "$jar")"
+            [[ "$base" == SF_*.jar ]] || continue
+
+            repo="$(repo_for_jar "$base")"
+            if [[ -z "$repo" ]]; then
+              echo "UNVERIFIED maintained-style JAR: $jar" >&2
+              UNMATCHED=$((UNMATCHED + 1))
+              continue
+            fi
+
+            # A bundle should only carry one runtime JAR per maintained addon repository.
+            if [[ -n "${SEEN_REPOS[$repo]:-}" ]]; then
+              echo "Duplicate JARs map to wickidcow/${repo}: ${SEEN_REPOS[$repo]} and $jar" >&2
+              exit 1
+            fi
+            SEEN_REPOS[$repo]="$jar"
+
+            release_json="latest/${repo}.json"
+            gh api "repos/wickidcow/${repo}/releases/latest" > "$release_json"
+            tag="$(jq -r '.tag_name' "$release_json")"
+            asset="$(latest_jar_asset "$repo" "$release_json")"
+            expected_digest="$(jq -r --arg name "$asset" '.assets[] | select(.name == $name) | .digest // empty' "$release_json")"
+
+            dest_dir="$(dirname "$jar")"
+            rm -rf "latest/${repo}-download"
+            mkdir -p "latest/${repo}-download"
+
+            echo "${repo}: ${base} -> ${asset} (${tag})"
+            gh release download "$tag" \
+              --repo "wickidcow/${repo}" \
+              --pattern "$asset" \
+              --dir "latest/${repo}-download"
+
+            downloaded="latest/${repo}-download/${asset}"
+            test -s "$downloaded"
+            unzip -tqq "$downloaded"
+
+            if [[ "$expected_digest" == sha256:* ]]; then
+              expected_sha="${expected_digest#sha256:}"
+              actual_sha="$(sha256sum "$downloaded" | awk '{print $1}')"
+              if [[ "$actual_sha" != "$expected_sha" ]]; then
+                echo "GitHub digest mismatch for wickidcow/${repo} ${asset}" >&2
+                echo "expected ${expected_sha}" >&2
+                echo "actual   ${actual_sha}" >&2
+                exit 1
+              fi
+            fi
+
+            rm -f "$jar"
+            mkdir -p "$dest_dir"
+            cp "$downloaded" "$dest_dir/$asset"
+          done < <(find bundle -type f -name 'SF_*.jar' -print0)
+
+          if [[ "$UNMATCHED" -ne 0 ]]; then
+            echo "${UNMATCHED} SF_-named JAR(s) could not be mapped to a maintained wickidcow repository." >&2
+            exit 1
+          fi
+
+          # FAWE is the WorldEdit implementation required by SFLWorldEdit. Pin the exact
+          # latest successful Paper artifact requested for this bundle and replace stale copies.
+          FAWE_OLD="$(find bundle -type f -iname 'FastAsyncWorldEdit-Paper-*.jar' -print -quit || true)"
+          if [[ -z "$FAWE_OLD" ]]; then
+            echo 'FastAsyncWorldEdit Paper JAR is missing from the addon/dependency bundle.' >&2
+            exit 1
+          fi
+          FAWE_DIR="$(dirname "$FAWE_OLD")"
+          find bundle -type f -iname 'FastAsyncWorldEdit-Paper-*.jar' -delete
+
+          echo "FAWE: installing Jenkins #${FAWE_BUILD} ${FAWE_ASSET}"
+          curl --fail --location --retry 5 --retry-delay 2 \
+            --output "latest/${FAWE_ASSET}" \
+            "$FAWE_URL"
+          test -s "latest/${FAWE_ASSET}"
+          unzip -tqq "latest/${FAWE_ASSET}"
+          mkdir -p "$FAWE_DIR"
+          cp "latest/${FAWE_ASSET}" "$FAWE_DIR/"
+
+          # Final tree-level invariants.
+          test "$(find bundle -type f -name "$FAWE_ASSET" | wc -l)" -eq 1
+          if find bundle -type f -iname 'FastAsyncWorldEdit-Paper-*.jar' ! -name "$FAWE_ASSET" | grep -q .; then
+            echo 'A stale FastAsyncWorldEdit Paper JAR remains in the bundle.' >&2
+            exit 1
           fi
           if find bundle -type f -iname '*MagicExpansion*.jar' | grep -q . || \
              find bundle -type f -iname 'Magic*.zip' | grep -q . || \
@@ -193,13 +275,15 @@ jobs:
             exit 1
           fi
 
+          # Produce a concise audit trail in the workflow log without adding files to the bundle.
+          echo 'Final JAR inventory:'
+          find bundle -type f -name '*.jar' -printf '%P\n' | sort
+
           rm -f SFL_AddonsNDependencies.zip
           (cd bundle && zip -qr ../SFL_AddonsNDependencies.zip .)
 
-          # Final archive-level invariant checks.
-          unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_RykenSlimeCustomizer${RSC_VERSION}.jar"
-          unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_SlimefunWarfare${WARFARE_VERSION}.jar"
-          unzip -l SFL_AddonsNDependencies.zip | grep -F "SF_Supreme${SUPREME_VERSION}.jar"
+          # Archive-level invariants.
+          unzip -Z1 SFL_AddonsNDependencies.zip | grep -F "$FAWE_ASSET"
           if unzip -Z1 SFL_AddonsNDependencies.zip | grep -Ei '(^|/)Slimefun-Legacy[^/]*\.jar$'; then
             echo 'Slimefun Legacy core JAR found in final addon/dependency archive.' >&2
             exit 1
@@ -208,6 +292,7 @@ jobs:
             echo 'Magic Expansion or Magic addon content found in final archive.' >&2
             exit 1
           fi
+
           sha256sum SFL_AddonsNDependencies.zip
 
       - name: Publish refreshed bundle to current release
