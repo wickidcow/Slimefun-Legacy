@@ -75,7 +75,7 @@ A few classic community builds showing the kinds of technology, automation, and 
 | ![Reactors and energy systems](docs/images/showcase/showcase1.png) | ![Large automation factory](docs/images/showcase/showcase6.png) | ![Slimefun magic laboratory](docs/images/showcase/showcase5.png) |
 | *HamtaBot#0001* | *Piͭxͪeͤl (mnb)#5049* | *Kilaruna#4981* |
 | ![Slimefun industrial build](docs/images/showcase/showcase4.png) | ![Slimefun factory interior](docs/images/showcase/showcase3.png) | ![Slimefun laboratory build](docs/images/showcase/showcase2.png) |
-| *GalaxyKat11#3816* | *TamThan#7987* | *Kilaruna#4987* |
+| *GalaxyKat11#3816* | *TamThan#7987* | *Kilaruna#4981* |
 These are historical Slimefun community showcase images. Full image credits and source information are included in [`docs/images/README.md`](docs/images/README.md).
 
 ---
