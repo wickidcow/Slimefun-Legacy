@@ -221,7 +221,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
         LegacyGuideSettings settings = LegacyGuideSettings.get();
         IndexBuildState created = new IndexBuildState(
                 player.getWorld(),
-                new ArrayList<>(Slimefun.getRegistry().getEnabledSlimefunItems()),
+                Slimefun.getRegistry().getEnabledSlimefunItems(),
                 new ArrayList<>(MachineRecipeProviderRegistry.getProviders()),
                 settings.getRecipeUsageIndexItemsPerTick(),
                 settings.getRecipeUsageIndexBudgetMicros() * 1_000L);
@@ -263,7 +263,9 @@ public final class LegacyRecipeUsageBrowser implements Listener {
 
         long batchStarted = System.nanoTime();
         int processed = 0;
-        while (state.nextItem < state.items.size() && processed < state.maxItemsPerTick) {
+        while (state.nextItem < state.itemLimit
+                && state.nextItem < state.items.size()
+                && processed < state.maxItemsPerTick) {
             SlimefunItem item = state.items.get(state.nextItem++);
             processed++;
             indexOneItem(state, item);
@@ -274,7 +276,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
         }
         state.batches++;
 
-        if (state.nextItem < state.items.size()) {
+        if (state.nextItem < state.itemLimit && state.nextItem < state.items.size()) {
             scheduleNextBatch(state);
             return;
         }
@@ -585,7 +587,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
                         "",
                         ChatColor.GRAY + "Progress: " + ChatColor.WHITE + state.progressPercent() + "%",
                         ChatColor.GRAY + "Processed: " + ChatColor.WHITE + state.nextItem + ChatColor.GRAY + "/"
-                                + ChatColor.WHITE + state.items.size(),
+                                + ChatColor.WHITE + state.itemLimit,
                         "",
                         ChatColor.DARK_GRAY + "Work is split across ticks to protect TPS.",
                         ChatColor.YELLOW + "Click for current progress"));
@@ -772,6 +774,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
     private static final class IndexBuildState {
         private final World world;
         private final List<SlimefunItem> items;
+        private final int itemLimit;
         private final List<MachineRecipeProvider> providers;
         private final int maxItemsPerTick;
         private final long batchBudgetNanos;
@@ -790,16 +793,17 @@ public final class LegacyRecipeUsageBrowser implements Listener {
                 long batchBudgetNanos) {
             this.world = world;
             this.items = items;
+            this.itemLimit = items.size();
             this.providers = providers;
             this.maxItemsPerTick = maxItemsPerTick;
             this.batchBudgetNanos = batchBudgetNanos;
         }
 
         private int progressPercent() {
-            if (items.isEmpty()) {
+            if (itemLimit == 0) {
                 return 100;
             }
-            return Math.min(99, (int) ((long) nextItem * 100L / items.size()));
+            return Math.min(99, (int) ((long) nextItem * 100L / itemLimit));
         }
     }
 }
