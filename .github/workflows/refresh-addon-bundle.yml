@@ -80,8 +80,7 @@ jobs:
               'SF_SMG vMODIFIED v0.3.jar'|\
               'SF_betterfarming-Build 1 (git d8b712f).jar'|\
               'SF_Magic8Ball-Dev.jar'|\
-              'SF_SoulJars-MODIFIED.jar'|\
-              'SF_SlimyTreeTaps-1.0.0-SNAPSHOT.jar')
+              'SF_SoulJars-MODIFIED.jar')
                 return 0
                 ;;
               *)
