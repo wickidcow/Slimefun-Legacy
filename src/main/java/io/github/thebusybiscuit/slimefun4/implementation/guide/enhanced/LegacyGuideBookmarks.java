@@ -13,6 +13,10 @@ import java.util.UUID;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerQuitEvent;
 
 /**
  * Persistent per-player guide bookmarks. Item ids are stored instead of ItemStacks so addon updates do not corrupt
@@ -20,9 +24,10 @@ import org.bukkit.configuration.file.YamlConfiguration;
  *
  * <p>Bookmarks are loaded lazily into memory per player. Guide rendering performs frequent membership checks, so
  * retaining the ordered set avoids rebuilding it from the YAML list for every displayed item while keeping the same
- * on-disk format and ordering semantics.
+ * on-disk format and ordering semantics. Cached sets are discarded when a player leaves so long-running servers do
+ * not retain bookmark state for every UUID seen since startup.
  */
-public final class LegacyGuideBookmarks {
+public final class LegacyGuideBookmarks implements Listener {
 
     private static LegacyGuideBookmarks instance;
 
@@ -35,6 +40,7 @@ public final class LegacyGuideBookmarks {
         this.plugin = plugin;
         file = new File(plugin.getDataFolder(), "guide-bookmarks.yml");
         data = YamlConfiguration.loadConfiguration(file);
+        plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
     public static synchronized void initialize(@Nonnull Slimefun plugin) {
@@ -76,6 +82,11 @@ public final class LegacyGuideBookmarks {
         data.set(playerId.toString(), new ArrayList<>(ids));
         save();
         return added;
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public synchronized void onPlayerQuit(@Nonnull PlayerQuitEvent event) {
+        bookmarks.remove(event.getPlayer().getUniqueId());
     }
 
     private @Nonnull LinkedHashSet<String> read(@Nonnull UUID playerId) {
