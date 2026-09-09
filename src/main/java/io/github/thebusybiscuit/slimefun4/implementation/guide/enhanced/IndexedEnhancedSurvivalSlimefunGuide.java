@@ -94,14 +94,14 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
                             item,
                             LegacyGuideBookmarks.get().contains(player.getUniqueId(), item.getId())));
             menu.addMenuClickHandler(slot, (clickedPlayer, clickedSlot, clickedItem, action) -> {
-                if (action.isRightClicked() && LegacyGuideSettings.get().hasBookmarks()) {
+                if (action.isShiftClicked() && LegacyGuideSettings.get().hasBookmarks()) {
                     toggleIndexedBookmark(clickedPlayer, item);
                     runIndexedPage(
                             profile,
                             "refresh indexed enhanced search page " + safePage,
                             () -> openIndexedSearchPage(profile, input, safePage, false));
                 } else {
-                    openIndexedItem(profile, clickedPlayer, item, action.isShiftClicked());
+                    openIndexedItem(profile, clickedPlayer, item, action.isRightClicked());
                 }
                 return false;
             });
@@ -324,13 +324,18 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
         if (LegacyGuideSettings.get().shouldDisplayItemId()) {
             lore.add(ChatColor.DARK_GRAY + "ID: " + ChatColor.GRAY + item.getId());
         }
+        if (!isSurvivalMode()) {
+            lore.add("");
+            lore.add(ChatColor.GREEN + "Left-click: " + ChatColor.GRAY + "Give 1 item");
+            lore.add(ChatColor.YELLOW + "Right-click: " + ChatColor.GRAY + "Give a full stack");
+        }
         if (LegacyGuideSettings.get().hasBookmarks()) {
             lore.add("");
             lore.add(bookmarked
                     ? ChatColor.GOLD + "★ Bookmarked"
-                    : ChatColor.YELLOW + "Right-click to bookmark");
+                    : ChatColor.YELLOW + "Shift-click to bookmark");
             if (bookmarked) {
-                lore.add(ChatColor.GRAY + "Right-click to remove bookmark");
+                lore.add(ChatColor.GRAY + "Shift-click to remove bookmark");
             }
         }
         meta.setLore(lore);
@@ -340,7 +345,7 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
     }
 
     private void openIndexedItem(
-            PlayerProfile profile, Player player, SlimefunItem item, boolean shiftClicked) {
+            PlayerProfile profile, Player player, SlimefunItem item, boolean fullStack) {
         try {
             if (isSurvivalMode()) {
                 SlimefunGuide.displayItem(profile, item, true);
@@ -349,7 +354,7 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
                     Slimefun.getLocalization().sendMessage(player, "guide.cheat.no-multiblocks");
                 } else {
                     ItemStack cloned = item.getItem().clone();
-                    if (shiftClicked) {
+                    if (fullStack) {
                         cloned.setAmount(cloned.getMaxStackSize());
                     }
                     player.getInventory().addItem(cloned);
