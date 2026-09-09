@@ -88,18 +88,41 @@ jobs:
 
           # A release refresh should never roll the addon bundle backwards. Reuse the
           # bundle already published for this version when it exists, and otherwise
-          # fall back to the validated previous-stable 4.1.47 bundle.
+          # fall back to the previous-stable 4.1.47 bundle. In both cases, trust the
+          # digest recorded by GitHub for that exact release asset and verify the
+          # downloaded bytes before publication.
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
-            && gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'SFL_AddonsNDependencies.zip' --dir dist; then
-            echo "Preserved the existing $TAG addon bundle."
+            && gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" \
+              --jq '.assets[] | select(.name == "SFL_AddonsNDependencies.zip") | .digest' \
+              | grep -q '^sha256:'; then
+            SOURCE_TAG="$TAG"
           else
-            rm -f "$BUNDLE"
-            gh release download v4.1.47 \
-              --repo "$GITHUB_REPOSITORY" \
-              --pattern 'SFL_AddonsNDependencies.zip' \
-              --dir dist
-            echo '318f5c846416090041ba7d0f20dfa4696928f6061af0c45e1c9b07e8bd0c998e  dist/SFL_AddonsNDependencies.zip' | sha256sum -c -
+            SOURCE_TAG='v4.1.47'
           fi
+
+          ASSET_DIGEST="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${SOURCE_TAG}" \
+            --jq '.assets[] | select(.name == "SFL_AddonsNDependencies.zip") | .digest' \
+            | head -n 1)"
+          case "$ASSET_DIGEST" in
+            sha256:[0-9a-fA-F]*) ;;
+            *)
+              echo "Release ${SOURCE_TAG} does not expose a usable SHA-256 digest for SFL_AddonsNDependencies.zip." >&2
+              exit 1
+              ;;
+          esac
+          EXPECTED_SHA="${ASSET_DIGEST#sha256:}"
+          if [[ ! "$EXPECTED_SHA" =~ ^[0-9a-fA-F]{64}$ ]]; then
+            echo "Release ${SOURCE_TAG} returned an invalid SHA-256 digest: ${ASSET_DIGEST}" >&2
+            exit 1
+          fi
+
+          rm -f "$BUNDLE"
+          gh release download "$SOURCE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'SFL_AddonsNDependencies.zip' \
+            --dir dist
+          printf '%s  %s\n' "$EXPECTED_SHA" "$BUNDLE" | sha256sum -c -
+          echo "Validated addon bundle from ${SOURCE_TAG}: sha256:${EXPECTED_SHA}"
       - name: Upload raw reproducible JAR artifact
         uses: actions/upload-artifact@v7
         with:
