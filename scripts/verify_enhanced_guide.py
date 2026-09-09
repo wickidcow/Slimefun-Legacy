@@ -23,6 +23,8 @@ REQUIRED_FILES = [
     ENHANCED / "LegacyGuideBookmarks.java",
     ENHANCED / "EnhancedSurvivalSlimefunGuide.java",
     ENHANCED / "IndexedEnhancedSurvivalSlimefunGuide.java",
+    ENHANCED / "RecipeUsageIndexedEnhancedSurvivalSlimefunGuide.java",
+    ENHANCED / "LegacyRecipeUsageBrowser.java",
     ENHANCED / "EnhancedCheatSheetSlimefunGuide.java",
     ROOT / "src/main/resources/enhanced-guide.yml",
     ROOT / "EVERYTHING_THAT_CHANGED.md",
@@ -59,18 +61,29 @@ def main() -> int:
     validate_layout(config, "search", "i")
     validate_layout(config, "bookmarks", "i")
 
+    recipe_usages = config["features"]["recipe-usages"]
+    require(recipe_usages.get("enabled") is True, "Recipe-usage browser must be enabled by default")
+    require(recipe_usages.get("index-items-per-tick") == 6, "Recipe-usage item batch default changed")
+    require(recipe_usages.get("index-budget-micros") == 1500, "Recipe-usage time budget default changed")
+
     registry = sources[JAVA_ROOT / "core/SlimefunRegistry.java"]
     bootstrap = sources[ENHANCED / "LegacyGuideBootstrap.java"]
     search_index = sources[GUIDE / "GuideSearchIndex.java"]
     indexed_classic = sources[GUIDE / "IndexedSurvivalSlimefunGuide.java"]
     guide = sources[ENHANCED / "EnhancedSurvivalSlimefunGuide.java"]
     indexed_guide = sources[ENHANCED / "IndexedEnhancedSurvivalSlimefunGuide.java"]
+    usage_guide = sources[ENHANCED / "RecipeUsageIndexedEnhancedSurvivalSlimefunGuide.java"]
+    usage_browser = sources[ENHANCED / "LegacyRecipeUsageBrowser.java"]
     cheat_guide = sources[ENHANCED / "EnhancedCheatSheetSlimefunGuide.java"]
     bookmarks = sources[ENHANCED / "LegacyGuideBookmarks.java"]
 
     require("LegacyGuideBootstrap.register(plugin, guides);" in registry, "Registry does not use the native guide bootstrap")
-    require("new IndexedEnhancedSurvivalSlimefunGuide()" in bootstrap,
-            "Indexed enhanced survival guide is not registered")
+    require("new RecipeUsageIndexedEnhancedSurvivalSlimefunGuide()" in bootstrap,
+            "4.2 indexed enhanced survival guide is not registered")
+    require("extends IndexedEnhancedSurvivalSlimefunGuide" in usage_guide,
+            "4.2 guide wrapper no longer preserves indexed enhanced search")
+    require("LegacyRecipeUsageBrowser.initialize(plugin);" in bootstrap,
+            "4.2 recipe-usage browser is not initialized")
     require("new EnhancedCheatSheetSlimefunGuide()" in bootstrap, "Enhanced cheat guide is not registered")
     require("new IndexedSurvivalSlimefunGuide()" in bootstrap, "Indexed classic survival fallback is missing")
     require("new CheatSheetSlimefunGuide()" in bootstrap, "Classic cheat fallback is missing")
@@ -94,6 +107,17 @@ def main() -> int:
     require("CheatAddonItemGroup.createAddonFolders" not in cheat_guide,
             "Enhanced cheat guide still uses generated generic addon folders")
     require("guide-bookmarks.yml" in bookmarks and "itemId" in bookmarks, "Persistent item-ID bookmarks are missing")
+
+    require("runLater(() -> runBuildBatch(state), 1L)" in usage_browser,
+            "Recipe-usage indexing no longer yields between scheduled batches")
+    require("processed < state.maxItemsPerTick" in usage_browser,
+            "Recipe-usage item batch cap is missing")
+    require("System.nanoTime() - batchStarted >= state.batchBudgetNanos" in usage_browser,
+            "Recipe-usage elapsed-time budget is missing")
+    require("builds.putIfAbsent(worldId, created)" in usage_browser,
+            "Recipe-usage browser no longer coalesces one build per world")
+    require("getOrBuildIndex(" not in usage_browser,
+            "Synchronous reverse-index builder returned")
 
     forbidden = ["getDeclaredField", "setAccessible(", "java.lang.reflect", "pinyin", "auto-update"]
     for token in forbidden:
