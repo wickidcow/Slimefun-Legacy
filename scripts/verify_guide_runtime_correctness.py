@@ -11,7 +11,8 @@ Slimefun Legacy while incorporating the useful lessons from JustEnoughGuide's
 * public guide entry points must stay behind the runtime guard;
 * concurrent PlayerProfile requests must coalesce without dropping callbacks;
 * profile registration events remain controller-owned and fire only once;
-* reverse recipe lookup must stay off the normal guide-render hot path and yield across ticks.
+* reverse recipe lookup must stay off the normal guide-render hot path and yield across ticks;
+* optional addon classes referenced by public recipe signatures must fail closed during discovery.
 """
 
 from __future__ import annotations
@@ -224,6 +225,26 @@ def main() -> int:
     require(batch, "System.nanoTime() - batchStarted >= state.batchBudgetNanos", "per-tick elapsed-time budget")
     require(usage_browser, "runFor(", "entity-owned completion delivery")
     require(usage_browser, "Collections.unmodifiableMap(state.usages)", "published completed index")
+
+    providers = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/LegacyMachineRecipeProviders.java",
+    )
+    machine_source_discovery = method_body(providers, "findMachineSources")
+    require(
+        machine_source_discovery,
+        "NoSuchMethodException | SecurityException | LinkageError",
+        "linkage-safe public machine method discovery",
+    )
+    require(
+        machine_source_discovery,
+        "NoSuchFieldException | SecurityException | LinkageError",
+        "linkage-safe public machine field discovery",
+    )
+    if providers.count("NoSuchMethodException | SecurityException | LinkageError") < 4:
+        raise SystemExit(
+            "Guide runtime correctness failed: reflective recipe discovery does not consistently fail closed on optional linkage"
+        )
 
     settings = read(
         root,
