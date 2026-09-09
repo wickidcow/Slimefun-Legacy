@@ -1,7 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.implementation.guide.enhanced;
 
-import io.github.bakedlibs.dough.items.CustomItemStack;
-import io.github.bakedlibs.dough.items.ItemUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
 import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeDisplay;
@@ -129,7 +127,6 @@ public final class LegacyRecipeUsageBrowser implements Listener {
                 player.getUniqueId(),
                 new ButtonContext(inventory, profile, guide, target, buttonSlot, expiresAt));
         inventory.setItem(buttonSlot, build == null ? createButton(cachedCount) : createBuildingButton(build));
-        player.updateInventory();
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
@@ -445,7 +442,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
                 player.updateInventory();
             }
             player.sendMessage(ChatColor.GRAY + "No known Slimefun or machine recipes use "
-                    + ItemUtils.getItemName(context.target().getItem()) + ".");
+                    + readableName(context.target()) + ".");
             return;
         }
         openUsageList(player, context, usages, 1);
@@ -486,7 +483,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
             int requestedPage) {
         int pages = Math.max(1, (usages.size() - 1) / LIST_SLOTS.length + 1);
         int page = Math.max(1, Math.min(requestedPage, pages));
-        ChestMenu menu = createMenu(title("Used In: " + ItemUtils.getItemName(context.target().getItem())));
+        ChestMenu menu = createMenu(title("Used In: " + readableName(context.target())));
         fillBackground(menu);
 
         menu.replaceExistingItem(0, ChestMenuUtils.getBackButton(player, "", "&7Return to this item's recipe"));
@@ -533,10 +530,11 @@ public final class LegacyRecipeUsageBrowser implements Listener {
         });
         menu.replaceExistingItem(
                 49,
-                new CustomItemStack(
+                createMenuItem(
                         Material.PAPER,
-                        "&fPage &e" + page + " &7/ &e" + pages,
-                        "&7" + usages.size() + " known recipe usages"));
+                        ChatColor.WHITE + "Page " + ChatColor.YELLOW + page + ChatColor.GRAY + " / "
+                                + ChatColor.YELLOW + pages,
+                        List.of(ChatColor.GRAY + "" + usages.size() + " known recipe usages")));
         menu.addMenuClickHandler(49, ChestMenuUtils.getEmptyClickHandler());
         menu.replaceExistingItem(52, ChestMenuUtils.getNextButton(player, page, pages));
         menu.addMenuClickHandler(52, (pl, slot, item, action) -> {
@@ -561,36 +559,48 @@ public final class LegacyRecipeUsageBrowser implements Listener {
     private @Nonnull ItemStack createButton(@Nullable Integer cachedCount) {
         List<String> lore = new ArrayList<>();
         lore.add("");
-        lore.add("&7Find Slimefun crafting and machine recipes");
-        lore.add("&7that consume this item as an ingredient.");
+        lore.add(ChatColor.GRAY + "Find Slimefun crafting and machine recipes");
+        lore.add(ChatColor.GRAY + "that consume this item as an ingredient.");
         if (cachedCount == null) {
             lore.add("");
-            lore.add("&8Indexing starts only when you click this button.");
+            lore.add(ChatColor.DARK_GRAY + "Indexing starts only when you click this button.");
         } else {
             lore.add("");
-            lore.add("&7Known usages: &f" + cachedCount);
+            lore.add(ChatColor.GRAY + "Known usages: " + ChatColor.WHITE + cachedCount);
         }
         lore.add("");
-        lore.add("&eClick to browse usages");
+        lore.add(ChatColor.YELLOW + "Click to browse usages");
 
-        ItemStack button = new CustomItemStack(
-                Material.HOPPER, "&6&lRecipes Using This Item", lore.toArray(new String[0]));
+        ItemStack button = createMenuItem(
+                Material.HOPPER, ChatColor.GOLD + "" + ChatColor.BOLD + "Recipes Using This Item", lore);
         markButton(button);
         return button;
     }
 
     private @Nonnull ItemStack createBuildingButton(@Nonnull IndexBuildState state) {
-        ItemStack button = new CustomItemStack(
+        ItemStack button = createMenuItem(
                 Material.CLOCK,
-                "&e&lBuilding Recipe Usages",
-                "",
-                "&7Progress: &f" + state.progressPercent() + "%",
-                "&7Processed: &f" + state.nextItem + "&7/&f" + state.items.size(),
-                "",
-                "&8Work is split across ticks to protect TPS.",
-                "&eClick for current progress");
+                ChatColor.YELLOW + "" + ChatColor.BOLD + "Building Recipe Usages",
+                List.of(
+                        "",
+                        ChatColor.GRAY + "Progress: " + ChatColor.WHITE + state.progressPercent() + "%",
+                        ChatColor.GRAY + "Processed: " + ChatColor.WHITE + state.nextItem + ChatColor.GRAY + "/"
+                                + ChatColor.WHITE + state.items.size(),
+                        "",
+                        ChatColor.DARK_GRAY + "Work is split across ticks to protect TPS.",
+                        ChatColor.YELLOW + "Click for current progress"));
         markButton(button);
         return button;
+    }
+
+    private @Nonnull ItemStack createMenuItem(
+            @Nonnull Material material, @Nonnull String displayName, @Nonnull List<String> lore) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(displayName);
+        meta.setLore(lore);
+        item.setItemMeta(meta);
+        return item;
     }
 
     private void markButton(@Nonnull ItemStack button) {
@@ -675,7 +685,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
     }
 
     private static @Nonnull String readableName(@Nonnull SlimefunItem item) {
-        String name = ChatColor.stripColor(ItemUtils.getItemName(item.getItem()));
+        String name = ChatColor.stripColor(item.getItemName());
         return name == null || name.isBlank() ? item.getId() : name;
     }
 
