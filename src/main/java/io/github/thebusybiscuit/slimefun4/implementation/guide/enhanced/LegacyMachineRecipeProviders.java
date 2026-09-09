@@ -337,32 +337,42 @@ public final class LegacyMachineRecipeProviders {
                     return List.of();
                 }
 
-                List<RecipeSourceAccessor> sources = new ArrayList<>();
-                for (String name : MACHINE_METHOD_NAMES) {
-                    try {
-                        Method method = type.getMethod(name);
-                        if (method.getParameterCount() != 0) {
-                            continue;
+                try {
+                    List<RecipeSourceAccessor> sources = new ArrayList<>();
+                    for (String name : MACHINE_METHOD_NAMES) {
+                        try {
+                            Method method = type.getMethod(name);
+                            if (method.getParameterCount() != 0) {
+                                continue;
+                            }
+                            // The AContainer provider already reads this inherited list. Continue looking for addon-owned
+                            // sources, which is how Supreme and several older addons store their real recipes.
+                            if ("getMachineRecipes".equals(name) && method.getDeclaringClass() == AContainer.class) {
+                                continue;
+                            }
+                            sources.add(RecipeSourceAccessor.forMethod(method));
+                        } catch (NoSuchMethodException | SecurityException ignoredException) {
+                            // Try the next supported public method.
                         }
-                        // The AContainer provider already reads this inherited list. Continue looking for addon-owned
-                        // sources, which is how Supreme and several older addons store their real recipes.
-                        if ("getMachineRecipes".equals(name) && method.getDeclaringClass() == AContainer.class) {
-                            continue;
-                        }
-                        sources.add(RecipeSourceAccessor.forMethod(method));
-                    } catch (NoSuchMethodException | SecurityException ignoredException) {
-                        // Try the next supported public method.
                     }
-                }
 
-                for (String name : MACHINE_FIELD_NAMES) {
-                    try {
-                        sources.add(RecipeSourceAccessor.forField(type.getField(name)));
-                    } catch (NoSuchFieldException | SecurityException ignoredException) {
-                        // Try the next supported public field.
+                    for (String name : MACHINE_FIELD_NAMES) {
+                        try {
+                            sources.add(RecipeSourceAccessor.forField(type.getField(name)));
+                        } catch (NoSuchFieldException | SecurityException ignoredException) {
+                            // Try the next supported public field.
+                        }
                     }
+                    return List.copyOf(sources);
+                } catch (LinkageError exception) {
+                    plugin().getLogger()
+                            .log(
+                                    Level.FINE,
+                                    "Skipping public machine recipe reflection for " + type.getName()
+                                            + " because one of its optional API classes is unavailable.",
+                                    exception);
+                    return List.of();
                 }
-                return List.copyOf(sources);
             });
         }
 
@@ -541,7 +551,7 @@ public final class LegacyMachineRecipeProviders {
             return machineMethods.computeIfAbsent(type, ignored -> {
                 try {
                     return Optional.of(type.getMethod("getRecipes"));
-                } catch (NoSuchMethodException | SecurityException exception) {
+                } catch (NoSuchMethodException | SecurityException | LinkageError exception) {
                     return Optional.empty();
                 }
             });
@@ -602,7 +612,7 @@ public final class LegacyMachineRecipeProviders {
             Optional<Method> choiceMethod = choiceMethods.computeIfAbsent(rawChoice.getClass(), type -> {
                 try {
                     return Optional.of(type.getMethod("getChoices"));
-                } catch (NoSuchMethodException | SecurityException exception) {
+                } catch (NoSuchMethodException | SecurityException | LinkageError exception) {
                     return Optional.empty();
                 }
             });
@@ -626,7 +636,7 @@ public final class LegacyMachineRecipeProviders {
                     Optional<Method> baseItemMethod = wrapperMethods.computeIfAbsent(wrapper.getClass(), type -> {
                         try {
                             return Optional.of(type.getMethod("getBaseItem"));
-                        } catch (NoSuchMethodException | SecurityException exception) {
+                        } catch (NoSuchMethodException | SecurityException | LinkageError exception) {
                             return Optional.empty();
                         }
                     });
@@ -814,7 +824,7 @@ public final class LegacyMachineRecipeProviders {
                 if (method.getParameterCount() == 0) {
                     return method;
                 }
-            } catch (NoSuchMethodException | SecurityException ignored) {
+            } catch (NoSuchMethodException | SecurityException | LinkageError ignored) {
                 // Try the next supported getter name.
             }
         }
@@ -825,7 +835,7 @@ public final class LegacyMachineRecipeProviders {
             @Nonnull Class<?> type, @Nonnull String name, @Nonnull Class<?> parameter) {
         try {
             return type.getMethod(name, parameter);
-        } catch (NoSuchMethodException | SecurityException exception) {
+        } catch (NoSuchMethodException | SecurityException | LinkageError exception) {
             return null;
         }
     }
