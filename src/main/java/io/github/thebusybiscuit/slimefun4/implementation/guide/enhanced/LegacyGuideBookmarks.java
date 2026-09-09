@@ -4,8 +4,10 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -15,6 +17,10 @@ import org.bukkit.configuration.file.YamlConfiguration;
 /**
  * Persistent per-player guide bookmarks. Item ids are stored instead of ItemStacks so addon updates do not corrupt
  * saved entries.
+ *
+ * <p>Bookmarks are loaded lazily into memory per player. Guide rendering performs frequent membership checks, so
+ * retaining the ordered set avoids rebuilding it from the YAML list for every displayed item while keeping the same
+ * on-disk format and ordering semantics.
  */
 public final class LegacyGuideBookmarks {
 
@@ -23,6 +29,7 @@ public final class LegacyGuideBookmarks {
     private final Slimefun plugin;
     private final File file;
     private final YamlConfiguration data;
+    private final Map<UUID, LinkedHashSet<String>> bookmarks = new HashMap<>();
 
     private LegacyGuideBookmarks(@Nonnull Slimefun plugin) {
         this.plugin = plugin;
@@ -71,8 +78,9 @@ public final class LegacyGuideBookmarks {
         return added;
     }
 
-    private @Nonnull Set<String> read(@Nonnull UUID playerId) {
-        return new LinkedHashSet<>(data.getStringList(playerId.toString()));
+    private @Nonnull LinkedHashSet<String> read(@Nonnull UUID playerId) {
+        return bookmarks.computeIfAbsent(
+                playerId, id -> new LinkedHashSet<>(data.getStringList(id.toString())));
     }
 
     private void save() {
