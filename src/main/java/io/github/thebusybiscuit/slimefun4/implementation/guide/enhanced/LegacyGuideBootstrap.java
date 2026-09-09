@@ -26,11 +26,12 @@ public final class LegacyGuideBootstrap {
             LegacyMachineRecipeBrowser.initialize(plugin);
             LegacyMachineInputFillManager.initialize(plugin);
             LegacyRecipeFillManager.initialize(plugin);
-            guides.put(SlimefunGuideMode.SURVIVAL_MODE, new IndexedEnhancedSurvivalSlimefunGuide());
+            LegacyRecipeUsageBrowser.initialize(plugin);
+            guides.put(SlimefunGuideMode.SURVIVAL_MODE, new RecipeUsageIndexedEnhancedSurvivalSlimefunGuide());
             guides.put(SlimefunGuideMode.CHEAT_MODE, new EnhancedCheatSheetSlimefunGuide());
             plugin.getLogger()
                     .info(
-                            "Native enhanced guide enabled (indexed smart search, JEG-style menus, bookmarks, machine recipe browsing, standard and custom-addon GUI machine input fill, unordered machine fill and Ancient Altar preparation).");
+                            "Native enhanced guide enabled (indexed smart search, JEG-style menus, bookmarks, machine recipe browsing, budgeted recipe-usage lookup, standard and custom-addon GUI machine input fill, unordered machine fill and Ancient Altar preparation).");
 
             if (plugin.getServer().getPluginManager().getPlugin("JustEnoughGuide") != null) {
                 plugin.getLogger()
