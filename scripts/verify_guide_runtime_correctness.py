@@ -10,11 +10,13 @@ Slimefun Legacy while incorporating the useful lessons from JustEnoughGuide's
 * core must not depend on addon-style reflective GuideHistory replacement;
 * public guide entry points must stay behind the runtime guard;
 * concurrent PlayerProfile requests must coalesce without dropping callbacks;
-* profile registration events remain controller-owned and fire only once.
+* profile registration events remain controller-owned and fire only once;
+* reverse recipe lookup must stay off the normal guide-render hot path and yield across ticks.
 """
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -43,6 +45,25 @@ def require_before(text: str, first: str, second: str, label: str) -> None:
         raise SystemExit(
             f"Guide runtime correctness failed: ordering violation for {label}: expected {first!r} before {second!r}"
         )
+
+
+def method_body(text: str, method_name: str) -> str:
+    match = re.search(rf"\b{re.escape(method_name)}\s*\([^)]*\)\s*\{{", text)
+    if not match:
+        raise SystemExit(f"Guide runtime correctness failed: missing method {method_name}")
+
+    start = match.end() - 1
+    depth = 0
+    for index in range(start, len(text)):
+        char = text[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start + 1 : index]
+
+    raise SystemExit(f"Guide runtime correctness failed: unterminated method {method_name}")
 
 
 def main() -> int:
@@ -146,6 +167,65 @@ def main() -> int:
     require(enhanced, "GuideRuntimeGuard.run(", "enhanced guide page guard")
     require(enhanced, "catch (Exception | LinkageError exception)", "enhanced item-open failure boundary")
     require(enhanced, "item.error(", "enhanced item-open exception reporting")
+
+    bootstrap = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/LegacyGuideBootstrap.java",
+    )
+    require(bootstrap, "LegacyRecipeUsageBrowser.initialize(plugin);", "recipe-usage browser initialization")
+    require(
+        bootstrap,
+        "new RecipeUsageIndexedEnhancedSurvivalSlimefunGuide()",
+        "recipe-usage enhanced guide registration",
+    )
+
+    usage_guide = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/RecipeUsageIndexedEnhancedSurvivalSlimefunGuide.java",
+    )
+    require(
+        usage_guide,
+        "extends IndexedEnhancedSurvivalSlimefunGuide",
+        "cached indexed guide inheritance",
+    )
+    require_before(
+        usage_guide,
+        "super.displayItem(profile, item, addToHistory);",
+        "LegacyRecipeUsageBrowser.get().decorateItemPage(player, profile, this, item);",
+        "existing guide render before constant-time usage decoration",
+    )
+
+    usage_browser = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/LegacyRecipeUsageBrowser.java",
+    )
+    decorate = method_body(usage_browser, "decorateItemPage")
+    click = method_body(usage_browser, "onInventoryClick")
+    batch = method_body(usage_browser, "runBuildBatch")
+    request = method_body(usage_browser, "requestIndex")
+
+    require(usage_browser, "private final Map<UUID, UsageIndex> indexes = new ConcurrentHashMap<>()", "per-world recipe-usage cache")
+    require(usage_browser, "private final Map<UUID, IndexBuildState> builds = new ConcurrentHashMap<>()", "single in-flight build registry")
+    require(decorate, "UsageIndex cached = indexes.get(worldId)", "constant-time cached usage count")
+    reject(decorate, "getEnabledSlimefunItems", "registry scan during ordinary item-page decoration")
+    reject(decorate, "MachineRecipeProviderRegistry.getProviders", "provider scan during ordinary item-page decoration")
+    require(click, "requestIndex(player, context, targetKey)", "explicit-click index start")
+    reject(click, "for (SlimefunItem", "synchronous item scan in usage click handler")
+    reject(usage_browser, "getOrBuildIndex(", "legacy synchronous reverse-index builder")
+    require(request, "builds.putIfAbsent(worldId, created)", "one shared in-flight build per world")
+    require(request, "new ArrayList<>(Slimefun.getRegistry().getEnabledSlimefunItems())", "explicit-click item snapshot")
+    require(usage_browser, "runLater(() -> runBuildBatch(state), 1L)", "next-tick incremental indexing")
+    require(batch, "processed < state.maxItemsPerTick", "per-tick item budget")
+    require(batch, "System.nanoTime() - batchStarted >= state.batchBudgetNanos", "per-tick elapsed-time budget")
+    require(usage_browser, "runFor(", "entity-owned completion delivery")
+    require(usage_browser, "Collections.unmodifiableMap(state.usages)", "published completed index")
+
+    settings = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/LegacyGuideSettings.java",
+    )
+    require(settings, 'config.getInt("features.recipe-usages.index-items-per-tick", 6)', "conservative item batch default")
+    require(settings, 'config.getInt("features.recipe-usages.index-budget-micros", 1500)', "conservative time budget default")
 
     print("Guide/profile runtime correctness verification passed.")
     return 0
