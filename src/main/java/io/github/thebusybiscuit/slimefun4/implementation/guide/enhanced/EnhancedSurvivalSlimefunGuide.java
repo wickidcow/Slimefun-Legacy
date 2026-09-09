@@ -212,14 +212,14 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
             int slot = contentSlots.get(index);
             menu.addItem(slot, decorateItem(player, item, true));
             menu.addMenuClickHandler(slot, (pl, clickedSlot, clickedItem, action) -> {
-                if (action.isRightClicked()) {
+                if (action.isShiftClicked() && LegacyGuideSettings.get().hasBookmarks()) {
                     toggleBookmark(pl, item);
                     runEnhancedPage(
                             profile,
                             "refresh enhanced bookmarks page " + safePage,
                             () -> openBookmarks(profile, safePage));
                 } else {
-                    openItem(profile, pl, item, action.isShiftClicked());
+                    openItem(profile, pl, item, action.isRightClicked());
                 }
                 return false;
             });
@@ -279,14 +279,14 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
                     decorateItem(
                             player, item, LegacyGuideBookmarks.get().contains(player.getUniqueId(), item.getId())));
             menu.addMenuClickHandler(slot, (pl, clickedSlot, clickedItem, action) -> {
-                if (action.isRightClicked() && LegacyGuideSettings.get().hasBookmarks()) {
+                if (action.isShiftClicked() && LegacyGuideSettings.get().hasBookmarks()) {
                     toggleBookmark(pl, item);
                     runEnhancedPage(
                             profile,
                             "refresh enhanced search page " + safePage,
                             () -> openSearchPage(profile, input, safePage, false));
                 } else {
-                    openItem(profile, pl, item, action.isShiftClicked());
+                    openItem(profile, pl, item, action.isRightClicked());
                 }
                 return false;
             });
@@ -369,17 +369,17 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
         boolean bookmarked = LegacyGuideBookmarks.get().contains(player.getUniqueId(), item.getId());
         menu.addItem(slot, decorateItem(player, item, bookmarked));
         menu.addMenuClickHandler(slot, (pl, clickedSlot, clickedItem, action) -> {
-            if (action.isRightClicked() && LegacyGuideSettings.get().hasBookmarks()) {
+            if (action.isShiftClicked() && LegacyGuideSettings.get().hasBookmarks()) {
                 toggleBookmark(pl, item);
                 SlimefunGuide.openItemGroup(profile, itemGroup, getMode(), page);
             } else {
-                openItem(profile, pl, item, action.isShiftClicked());
+                openItem(profile, pl, item, action.isRightClicked());
             }
             return false;
         });
     }
 
-    private void openItem(PlayerProfile profile, Player player, SlimefunItem item, boolean shiftClicked) {
+    private void openItem(PlayerProfile profile, Player player, SlimefunItem item, boolean fullStack) {
         try {
             if (isSurvivalMode()) {
                 SlimefunGuide.displayItem(profile, item, true);
@@ -388,7 +388,7 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
                     Slimefun.getLocalization().sendMessage(player, "guide.cheat.no-multiblocks");
                 } else {
                     ItemStack cloned = item.getItem().clone();
-                    if (shiftClicked) {
+                    if (fullStack) {
                         cloned.setAmount(cloned.getMaxStackSize());
                     }
                     player.getInventory().addItem(cloned);
@@ -415,11 +415,18 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
             if (LegacyGuideSettings.get().shouldDisplayItemId()) {
                 lore.add(ChatColor.DARK_GRAY + "ID: " + ChatColor.GRAY + item.getId());
             }
+            if (!isSurvivalMode()) {
+                lore.add("");
+                lore.add(ChatColor.GREEN + "Left-click: " + ChatColor.GRAY + "Give 1 item");
+                lore.add(ChatColor.YELLOW + "Right-click: " + ChatColor.GRAY + "Give a full stack");
+            }
             if (LegacyGuideSettings.get().hasBookmarks()) {
                 lore.add("");
-                lore.add((bookmarked ? ChatColor.GOLD + "★ Bookmarked" : ChatColor.YELLOW + "Right-click to bookmark"));
+                lore.add(bookmarked
+                        ? ChatColor.GOLD + "★ Bookmarked"
+                        : ChatColor.YELLOW + "Shift-click to bookmark");
                 if (bookmarked) {
-                    lore.add(ChatColor.GRAY + "Right-click to remove bookmark");
+                    lore.add(ChatColor.GRAY + "Shift-click to remove bookmark");
                 }
             }
             meta.setLore(lore);
