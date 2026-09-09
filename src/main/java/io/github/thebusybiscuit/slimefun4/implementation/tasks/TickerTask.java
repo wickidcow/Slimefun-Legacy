@@ -216,13 +216,14 @@ public class TickerTask implements Runnable {
             }
 
             if (regionOwned) {
-                Location anchor = locations.iterator().next().getLocation();
+                TickLocation anchorTickLocation = locations.iterator().next();
+                Location anchor = anchorTickLocation.getLocation();
                 if (!Slimefun.getSchedulerService().isOwnedByCurrentRegion(anchor)) {
                     Slimefun.logger()
                             .log(
                                     Level.SEVERE,
                                     "Skipped a machine chunk tick because Folia ownership was not held for {0}.",
-                                    new BlockPosition(anchor));
+                                    anchorTickLocation.getPosition());
                     return;
                 }
             }
@@ -230,11 +231,12 @@ public class TickerTask implements Runnable {
             // On Folia this check executes on the owning region. Paper preserves the legacy asynchronous check.
             if (chunk.isLoaded()) {
                 for (TickLocation tickLocation : locations) {
-                    Location location = tickLocation.getLocation();
+                    BlockPosition position = tickLocation.getPosition();
+                    Location location = position.toLocation();
                     if (tickLocation.isUniversal()) {
-                        tickUniversalLocation(tickLocation.getUuid(), location, tickers, regionOwned);
+                        tickUniversalLocation(tickLocation.getUuid(), location, position, tickers, regionOwned);
                     } else {
-                        tickLocation(tickers, location, regionOwned);
+                        tickLocation(tickers, location, position, regionOwned);
                     }
                 }
             }
@@ -247,8 +249,8 @@ public class TickerTask implements Runnable {
         }
     }
 
-    private void tickLocation(@Nonnull Set<BlockTicker> tickers, @Nonnull Location location, boolean regionOwned) {
-        BlockPosition position = new BlockPosition(location);
+    @ParametersAreNonnullByDefault
+    private void tickLocation(Set<BlockTicker> tickers, Location location, BlockPosition position, boolean regionOwned) {
         var data = StorageCacheUtils.getBlock(location);
         if (data == null || !data.isDataLoaded() || data.isPendingRemove()) {
             clearFailureState(position);
@@ -259,8 +261,8 @@ public class TickerTask implements Runnable {
     }
 
     @ParametersAreNonnullByDefault
-    private void tickUniversalLocation(UUID uuid, Location location, Set<BlockTicker> tickers, boolean regionOwned) {
-        BlockPosition position = new BlockPosition(location);
+    private void tickUniversalLocation(
+            UUID uuid, Location location, BlockPosition position, Set<BlockTicker> tickers, boolean regionOwned) {
         var data = StorageCacheUtils.getUniversalBlock(uuid);
         if (data == null || !data.isDataLoaded() || data.isPendingRemove()) {
             clearFailureState(position);
@@ -850,7 +852,7 @@ public class TickerTask implements Runnable {
                         return false;
                     }
 
-                    clearTickerRuntimeState(new BlockPosition(tk.getLocation()));
+                    clearTickerRuntimeState(tk.getPosition());
                     return true;
                 });
 

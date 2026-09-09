@@ -107,30 +107,15 @@ class UpdateCommand extends SubCommand {
                 return;
             }
 
+            List<PreparedUpdate> preparedUpdates = prepareUpdates(release, updates);
             File updateFolder = plugin.getServer().getUpdateFolderFile();
             Files.createDirectories(updateFolder.toPath());
-            int staged = 0;
-            for (UpdateCandidate update : updates) {
-                if (update.targetFileName() == null) {
-                    throw new IOException("Cannot safely determine the installed JAR filename for " + update.displayName());
-                }
 
-                byte[] jarBytes = update.core() ? download(release.coreJarUrl()) : update.jarBytes();
-                PluginDescriptor descriptor = readPluginDescriptor(jarBytes);
-                if (!normalize(descriptor.name()).equals(normalize(update.expectedPluginName()))) {
-                    throw new IOException("Refusing " + update.displayName() + ": downloaded JAR declares plugin name '"
-                            + descriptor.name() + "'");
-                }
-                if (compareVersions(descriptor.version(), update.latestVersion()) != 0) {
-                    throw new IOException("Refusing " + update.displayName() + ": downloaded JAR version '"
-                            + descriptor.version() + "' does not match expected '" + update.latestVersion() + "'");
-                }
-
-                stage(updateFolder.toPath(), update.targetFileName(), jarBytes);
-                staged++;
+            for (PreparedUpdate update : preparedUpdates) {
+                stage(updateFolder.toPath(), update.targetFileName(), update.jarBytes());
             }
 
-            send(sender, "§aStaged §f" + staged + " §aupdate(s) in §f" + updateFolder.getPath() + "§a.");
+            send(sender, "§aStaged §f" + preparedUpdates.size() + " §aupdate(s) in §f" + updateFolder.getPath() + "§a.");
             send(sender, "§eRestart the server normally to apply them. §cDo not /reload or hot-load the JARs.");
             send(sender, "§7Keep a current backup of plugin JARs/configs before applying server updates.");
         } catch (InterruptedException e) {
@@ -142,6 +127,36 @@ class UpdateCommand extends SubCommand {
             send(sender, "§cUpdate check failed: §f" + e.getClass().getSimpleName()
                     + (e.getMessage() == null ? "" : " §8- §7" + e.getMessage()));
         }
+    }
+
+    private @Nonnull List<PreparedUpdate> prepareUpdates(
+            @Nonnull Release release, @Nonnull List<UpdateCandidate> updates) throws IOException, InterruptedException {
+        List<PreparedUpdate> preparedUpdates = new ArrayList<>(updates.size());
+
+        for (UpdateCandidate update : updates) {
+            if (update.targetFileName() == null) {
+                throw new IOException("Cannot safely determine the installed JAR filename for " + update.displayName());
+            }
+
+            byte[] jarBytes = update.core() ? download(release.coreJarUrl()) : update.jarBytes();
+            if (jarBytes == null) {
+                throw new IOException("No update JAR was available for " + update.displayName());
+            }
+
+            PluginDescriptor descriptor = readPluginDescriptor(jarBytes);
+            if (!normalize(descriptor.name()).equals(normalize(update.expectedPluginName()))) {
+                throw new IOException("Refusing " + update.displayName() + ": downloaded JAR declares plugin name '"
+                        + descriptor.name() + "'");
+            }
+            if (compareVersions(descriptor.version(), update.latestVersion()) != 0) {
+                throw new IOException("Refusing " + update.displayName() + ": downloaded JAR version '"
+                        + descriptor.version() + "' does not match expected '" + update.latestVersion() + "'");
+            }
+
+            preparedUpdates.add(new PreparedUpdate(update.displayName(), update.targetFileName(), jarBytes));
+        }
+
+        return preparedUpdates;
     }
 
     private @Nonnull Release fetchRelease() throws IOException, InterruptedException {
@@ -420,4 +435,6 @@ class UpdateCommand extends SubCommand {
             String targetFileName,
             byte[] jarBytes,
             boolean core) {}
+
+    private record PreparedUpdate(String displayName, String targetFileName, byte[] jarBytes) {}
 }
