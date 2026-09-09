@@ -1,0 +1,103 @@
+name: Paper 26.3 Advisory
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/paper-26.3-advisory.yml'
+      - 'build.gradle.kts'
+      - 'gradle/libs.versions.toml'
+  workflow_dispatch:
+  schedule:
+    - cron: '17 7 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: paper-26-3-advisory
+  cancel-in-progress: true
+
+jobs:
+  paper-26-3-api:
+    name: Discover and compile against Paper 26.3
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out Slimefun Legacy
+        uses: actions/checkout@v6
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Discover latest published Paper 26.3 API
+        id: paper
+        shell: bash
+        run: |
+          set -euo pipefail
+          METADATA='https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/maven-metadata.xml'
+          XML="$(curl --fail --silent --show-error --location --retry 3 "$METADATA")"
+          VERSION="$(printf '%s' "$XML" \
+            | grep -oE '<version>26\.3\.build\.[^<]+</version>' \
+            | sed -E 's#</?version>##g' \
+            | tail -n 1 || true)"
+
+          if [[ -z "$VERSION" ]]; then
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+            {
+              echo '## Paper 26.3 advisory'
+              echo
+              echo 'Paper 26.3 API is not published in the official Paper Maven repository yet.'
+              echo 'Slimefun Legacy remains on the Paper 26.2 production baseline. No compatibility failure is recorded.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo 'available=true' >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          {
+            echo '## Paper 26.3 advisory'
+            echo
+            echo "Detected official Paper API: \`$VERSION\`"
+            echo 'This lane is advisory only and does not promote 26.3 to the production baseline.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Compile Slimefun Legacy against Paper 26.3
+        if: steps.paper.outputs.available == 'true'
+        shell: bash
+        env:
+          PAPER_26_3_API: ${{ steps.paper.outputs.version }}
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          echo "Compiling Slimefun Legacy against Paper API ${PAPER_26_3_API}"
+          ./gradlew clean compileJava \
+            -PpaperApiVersion="${PAPER_26_3_API}" \
+            --warning-mode all \
+            --no-daemon 2>&1 | tee paper-26.3-compile.log
+
+      - name: Publish compile result
+        if: steps.paper.outputs.available == 'true' && always()
+        shell: bash
+        env:
+          PAPER_26_3_API: ${{ steps.paper.outputs.version }}
+        run: |
+          {
+            echo
+            echo "Candidate API checked: \`${PAPER_26_3_API}\`"
+            echo 'Review warnings and failures before changing the supported Paper baseline.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Paper 26.3 compile log
+        if: steps.paper.outputs.available == 'true' && always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: paper-26.3-advisory-compile
+          path: paper-26.3-compile.log
+          if-no-files-found: warn
