@@ -56,6 +56,8 @@ jobs:
           grep -Fxq 'io/github/thebusybiscuit/slimefun4/implementation/tasks/AsyncRecipeChoiceTask.class' build/reports/release-jar-entries.txt
           grep -Fxq 'io/github/thebusybiscuit/slimefun4/libraries/dough/blocks/Vein.class' build/reports/release-jar-entries.txt
           grep -Fxq 'io/github/thebusybiscuit/slimefun4/libraries/dough/collections/LoopIterator.class' build/reports/release-jar-entries.txt
+          grep -Fxq 'io/github/thebusybiscuit/slimefun4/libraries/dough/recipes/MinecraftRecipe.class' build/reports/release-jar-entries.txt
+          grep -Fxq 'io/github/thebusybiscuit/slimefun4/libraries/bstats/charts/CustomChart.class' build/reports/release-jar-entries.txt
       - name: Verify Java 21 bytecode target
         shell: bash
         run: |

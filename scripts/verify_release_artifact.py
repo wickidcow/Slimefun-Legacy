@@ -44,6 +44,19 @@ FORBIDDEN_UNRELOCATED_PREFIXES = {
     "bStats": "org/bstats/",
 }
 RELOCATED_LIBRARY_PREFIX = "io/github/thebusybiscuit/slimefun4/libraries/"
+
+# These classes are directly exercised by normal production code and must be present
+# in every distributable Shadow JAR. Checking concrete entry points catches partial or
+# otherwise damaged dependency packaging that a generic relocated-class count cannot.
+REQUIRED_RUNTIME_CLASSES = {
+    "Backpack listener": "io/github/thebusybiscuit/slimefun4/implementation/listeners/BackpackListener.class",
+    "Thread utilities": "io/github/thebusybiscuit/slimefun4/utils/ThreadUtils.class",
+    "Async recipe choices": "io/github/thebusybiscuit/slimefun4/implementation/tasks/AsyncRecipeChoiceTask.class",
+    "Dough vein utility": "io/github/thebusybiscuit/slimefun4/libraries/dough/blocks/Vein.class",
+    "Dough loop iterator": "io/github/thebusybiscuit/slimefun4/libraries/dough/collections/LoopIterator.class",
+    "Dough Minecraft recipe adapter": "io/github/thebusybiscuit/slimefun4/libraries/dough/recipes/MinecraftRecipe.class",
+    "bStats custom chart": "io/github/thebusybiscuit/slimefun4/libraries/bstats/charts/CustomChart.class",
+}
 FULL_SHA = re.compile(r"[0-9a-fA-F]{40}")
 
 
@@ -141,6 +154,7 @@ def main() -> int:
     external_hits: dict[str, list[str]] = {}
     unrelocated_hits: dict[str, list[str]] = {}
     relocated_library_entries = 0
+    required_runtime_classes_present = 0
 
     if jar.is_file():
         try:
@@ -149,6 +163,12 @@ def main() -> int:
                 name_set = set(names)
                 if len(names) != len(name_set):
                     failures.append("Release JAR contains duplicate ZIP entries")
+
+                for label, class_path in REQUIRED_RUNTIME_CLASSES.items():
+                    if class_path in name_set:
+                        required_runtime_classes_present += 1
+                    else:
+                        failures.append(f"Release JAR is missing required runtime class ({label}): {class_path}")
 
                 if "plugin.yml" not in name_set:
                     failures.append("Release JAR is missing plugin.yml")
@@ -287,6 +307,8 @@ def main() -> int:
         "previous_stable": previous_version,
         "previous_stable_ref": previous.get("source", {}).get("ref"),
         "relocated_library_class_count": relocated_library_entries,
+        "required_runtime_classes_present": required_runtime_classes_present,
+        "required_runtime_classes_expected": len(REQUIRED_RUNTIME_CLASSES),
         "failures": failures,
     }
 
@@ -307,6 +329,7 @@ def main() -> int:
         f"- SHA-256: `{report['jar_sha256']}`",
         f"- Size: `{report['jar_size']}` bytes",
         f"- Slimefun-owned classes: `{class_count}`",
+        f"- Required runtime classes: `{required_runtime_classes_present}/{len(REQUIRED_RUNTIME_CLASSES)}`",
         f"- Java bytecode target: `{expected_java}`",
         f"- Previous stable baseline: `{report['previous_stable']}`",
     ]
@@ -317,7 +340,7 @@ def main() -> int:
         summary_lines.extend(
             [
                 "",
-                "The embedded plugin metadata, source identity, bytecode ceiling, dependency packaging boundary, and release baseline are aligned.",
+                "The embedded plugin metadata, source identity, bytecode ceiling, required runtime classes, dependency packaging boundary, and release baseline are aligned.",
             ]
         )
     args.summary.write_text("\n".join(summary_lines) + "\n", encoding="utf-8")
@@ -330,7 +353,7 @@ def main() -> int:
 
     print(
         f"Release artifact verification passed: {jar.name} {report['jar_sha256']} "
-        f"({class_count} Slimefun-owned classes, Java {expected_java})."
+        f"({class_count} Slimefun-owned classes, {required_runtime_classes_present} critical runtime classes, Java {expected_java})."
     )
     return 0
 
