@@ -1,0 +1,118 @@
+name: Publish Addon Bundle Checksums
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/addon-bundle-checksums.yml'
+  workflow_run:
+    workflows: ['Refresh Slimefun Legacy Addon Bundle']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-slimefun-addon-bundle-checksums
+  cancel-in-progress: true
+
+jobs:
+  checksums:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Download and verify current release bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
+          TAG="v${VERSION}"
+          ASSET='SFL_AddonsNDependencies.zip'
+
+          rm -rf bundle work
+          mkdir -p bundle work
+
+          EXPECTED_DIGEST="$(gh release view "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json assets \
+            --jq ".assets[] | select(.name == \"${ASSET}\") | .digest")"
+
+          if [[ "$EXPECTED_DIGEST" != sha256:* ]]; then
+            echo "Release ${TAG} does not expose a SHA-256 digest for ${ASSET}." >&2
+            exit 1
+          fi
+
+          gh release download "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "$ASSET" \
+            --dir work
+
+          ACTUAL_SHA="$(sha256sum "work/${ASSET}" | awk '{print $1}')"
+          EXPECTED_SHA="${EXPECTED_DIGEST#sha256:}"
+          if [[ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]]; then
+            echo "Bundle digest mismatch." >&2
+            echo "expected ${EXPECTED_SHA}" >&2
+            echo "actual   ${ACTUAL_SHA}" >&2
+            exit 1
+          fi
+
+          unzip -q "work/${ASSET}" -d bundle
+          JAR_COUNT="$(find bundle -type f -name '*.jar' | wc -l)"
+          if [[ "$JAR_COUNT" -ne 41 ]]; then
+            echo "Expected 41 JARs in ${ASSET}, found ${JAR_COUNT}." >&2
+            exit 1
+          fi
+
+          while IFS= read -r -d '' jar; do
+            unzip -tqq "$jar"
+          done < <(find bundle -type f -name '*.jar' -print0)
+
+          find bundle -type f -name '*.jar' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | sed 's#  bundle/#  #' \
+            > SFL_AddonsNDependencies.sha256
+
+          test "$(wc -l < SFL_AddonsNDependencies.sha256)" -eq 41
+
+          {
+            echo '## Slimefun Legacy addon bundle checksums'
+            echo
+            echo "Release: **${TAG}**"
+            echo "Bundle SHA-256: \`${ACTUAL_SHA}\`"
+            echo "JARs checksummed: **${JAR_COUNT}**"
+            echo
+            echo 'The manifest uses standard `sha256sum` format and includes every JAR in the release bundle.'
+            echo 'Release-backed addons remain independently verified by the authoritative bundle refresh workflow; manual pins are checksummed here while their source migrations are completed.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          cat SFL_AddonsNDependencies.sha256
+
+      - name: Publish checksum manifest to current release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
+          TAG="v${VERSION}"
+          gh release upload "$TAG" SFL_AddonsNDependencies.sha256 \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
+      - name: Upload checksum manifest artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: SFL_AddonsNDependencies-checksums
+          path: SFL_AddonsNDependencies.sha256
+          archive: false
+          if-no-files-found: error
