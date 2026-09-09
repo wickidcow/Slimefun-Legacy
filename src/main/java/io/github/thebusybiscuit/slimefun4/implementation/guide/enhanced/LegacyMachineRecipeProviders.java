@@ -350,16 +350,16 @@ public final class LegacyMachineRecipeProviders {
                             continue;
                         }
                         sources.add(RecipeSourceAccessor.forMethod(method));
-                    } catch (NoSuchMethodException | SecurityException ignoredException) {
-                        // Try the next supported public method.
+                    } catch (NoSuchMethodException | SecurityException | LinkageError ignoredException) {
+                        // Missing optional signature types are treated as an unsupported accessor.
                     }
                 }
 
                 for (String name : MACHINE_FIELD_NAMES) {
                     try {
                         sources.add(RecipeSourceAccessor.forField(type.getField(name)));
-                    } catch (NoSuchFieldException | SecurityException ignoredException) {
-                        // Try the next supported public field.
+                    } catch (NoSuchFieldException | SecurityException | LinkageError ignoredException) {
+                        // Missing optional field types are treated as an unsupported accessor.
                     }
                 }
                 return List.copyOf(sources);
@@ -541,7 +541,7 @@ public final class LegacyMachineRecipeProviders {
             return machineMethods.computeIfAbsent(type, ignored -> {
                 try {
                     return Optional.of(type.getMethod("getRecipes"));
-                } catch (NoSuchMethodException | SecurityException exception) {
+                } catch (NoSuchMethodException | SecurityException | LinkageError exception) {
                     return Optional.empty();
                 }
             });
@@ -602,7 +602,7 @@ public final class LegacyMachineRecipeProviders {
             Optional<Method> choiceMethod = choiceMethods.computeIfAbsent(rawChoice.getClass(), type -> {
                 try {
                     return Optional.of(type.getMethod("getChoices"));
-                } catch (NoSuchMethodException | SecurityException exception) {
+                } catch (NoSuchMethodException | SecurityException | LinkageError exception) {
                     return Optional.empty();
                 }
             });
@@ -626,7 +626,7 @@ public final class LegacyMachineRecipeProviders {
                     Optional<Method> baseItemMethod = wrapperMethods.computeIfAbsent(wrapper.getClass(), type -> {
                         try {
                             return Optional.of(type.getMethod("getBaseItem"));
-                        } catch (NoSuchMethodException | SecurityException exception) {
+                        } catch (NoSuchMethodException | SecurityException | LinkageError exception) {
                             return Optional.empty();
                         }
                     });
@@ -814,8 +814,8 @@ public final class LegacyMachineRecipeProviders {
                 if (method.getParameterCount() == 0) {
                     return method;
                 }
-            } catch (NoSuchMethodException | SecurityException ignored) {
-                // Try the next supported getter name.
+            } catch (NoSuchMethodException | SecurityException | LinkageError ignored) {
+                // Try the next supported getter name; optional signature types may be absent.
             }
         }
         return null;
@@ -825,7 +825,7 @@ public final class LegacyMachineRecipeProviders {
             @Nonnull Class<?> type, @Nonnull String name, @Nonnull Class<?> parameter) {
         try {
             return type.getMethod(name, parameter);
-        } catch (NoSuchMethodException | SecurityException exception) {
+        } catch (NoSuchMethodException | SecurityException | LinkageError exception) {
             return null;
         }
     }
