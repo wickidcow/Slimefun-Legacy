@@ -47,10 +47,15 @@ import org.bukkit.persistence.PersistentDataType;
 /**
  * Provides the Enhanced Guide 4.2 reverse recipe browser.
  *
- * <p>The item-detail page stays cheap: decorating it only installs a protected button. The reverse index is built on
- * the first explicit usage-browser click for a world and is then reused while the Slimefun item/provider registry
- * signature is unchanged. Both ordinary Slimefun recipes and the normalized {@link MachineRecipeProviderRegistry}
- * feed the same index, so addon machine adapters automatically participate without another compatibility layer.
+ * <p>Normal item pages remain intentionally cheap. Decorating a page only installs a protected button and checks an
+ * already-built per-world cache. The first explicit click starts a bounded, incremental reverse-index build. Only a
+ * small number of registered items are inspected per scheduled tick and a time budget can end a batch even earlier.
+ * Concurrent requests for the same world join that one build instead of repeating provider scans.
+ *
+ * <p>Both ordinary Slimefun recipes and the normalized {@link MachineRecipeProviderRegistry} feed the same index, so
+ * existing addon machine adapters participate without another compatibility layer. Completed indexes live for the
+ * server lifetime unless {@link #invalidate()} is called; this deliberately avoids re-hashing the entire registry on
+ * every guide click.
  */
 public final class LegacyRecipeUsageBrowser implements Listener {
 
@@ -68,6 +73,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
     private final NamespacedKey buttonKey;
     private final Map<UUID, ButtonContext> contexts = new ConcurrentHashMap<>();
     private final Map<UUID, UsageIndex> indexes = new ConcurrentHashMap<>();
+    private final Map<UUID, IndexBuildState> builds = new ConcurrentHashMap<>();
 
     private LegacyRecipeUsageBrowser(@Nonnull Slimefun plugin) {
         this.plugin = plugin;
@@ -84,6 +90,12 @@ public final class LegacyRecipeUsageBrowser implements Listener {
             throw new IllegalStateException("Enhanced guide recipe usages were accessed before initialization");
         }
         return instance;
+    }
+
+    /** Clears completed and in-flight indexes. No automatic registry scan is triggered. */
+    public void invalidate() {
+        indexes.clear();
+        builds.clear();
     }
 
     public void decorateItemPage(
@@ -108,13 +120,15 @@ public final class LegacyRecipeUsageBrowser implements Listener {
             return;
         }
 
-        UsageIndex cached = indexes.get(player.getWorld().getUID());
+        UUID worldId = player.getWorld().getUID();
+        UsageIndex cached = indexes.get(worldId);
         Integer cachedCount = cached == null ? null : cached.usages().getOrDefault(targetKey, List.of()).size();
+        IndexBuildState build = builds.get(worldId);
         long expiresAt = System.currentTimeMillis() + LegacyGuideSettings.get().getRecipeFillSessionSeconds() * 1000L;
         contexts.put(
                 player.getUniqueId(),
                 new ButtonContext(inventory, profile, guide, target, buttonSlot, expiresAt));
-        inventory.setItem(buttonSlot, createButton(cachedCount));
+        inventory.setItem(buttonSlot, build == null ? createButton(cachedCount) : createBuildingButton(build));
         player.updateInventory();
     }
 
@@ -152,16 +166,19 @@ public final class LegacyRecipeUsageBrowser implements Listener {
             return;
         }
 
-        UsageIndex index = getOrBuildIndex(player.getWorld());
         IngredientKey targetKey = ingredientKey(context.target().getItem());
-        List<UsageEntry> usages = targetKey == null ? List.of() : index.usages().getOrDefault(targetKey, List.of());
-        if (usages.isEmpty()) {
-            player.sendMessage(ChatColor.GRAY + "No known Slimefun or machine recipes use "
-                    + ItemUtils.getItemName(context.target().getItem()) + ".");
+        if (targetKey == null) {
             return;
         }
 
-        openUsageList(player, context, usages, 1);
+        UUID worldId = player.getWorld().getUID();
+        UsageIndex cached = indexes.get(worldId);
+        if (cached != null) {
+            openCachedUsages(player, context, targetKey, cached);
+            return;
+        }
+
+        requestIndex(player, context, targetKey);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
@@ -176,88 +193,132 @@ public final class LegacyRecipeUsageBrowser implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
     public void onInventoryClose(@Nonnull InventoryCloseEvent event) {
-        ButtonContext context = contexts.get(event.getPlayer().getUniqueId());
+        UUID playerId = event.getPlayer().getUniqueId();
+        ButtonContext context = contexts.get(playerId);
         if (context != null && context.guideInventory() == event.getInventory()) {
-            contexts.remove(event.getPlayer().getUniqueId(), context);
+            contexts.remove(playerId, context);
+            removeWaitingRequest(playerId);
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(@Nonnull PlayerQuitEvent event) {
-        contexts.remove(event.getPlayer().getUniqueId());
+        UUID playerId = event.getPlayer().getUniqueId();
+        contexts.remove(playerId);
+        removeWaitingRequest(playerId);
     }
 
-    private @Nonnull UsageIndex getOrBuildIndex(@Nonnull World world) {
-        List<SlimefunItem> items = new ArrayList<>(Slimefun.getRegistry().getEnabledSlimefunItems());
-        List<MachineRecipeProvider> providers = MachineRecipeProviderRegistry.getProviders();
-        IndexSignature signature = signature(items, providers);
-
-        UsageIndex cached = indexes.get(world.getUID());
-        if (cached != null && cached.signature().equals(signature)) {
-            return cached;
+    private void requestIndex(
+            @Nonnull Player player, @Nonnull ButtonContext context, @Nonnull IngredientKey targetKey) {
+        UUID worldId = player.getWorld().getUID();
+        IndexRequest request = new IndexRequest(player, context, targetKey);
+        IndexBuildState existing = builds.get(worldId);
+        if (existing != null) {
+            existing.waiters.put(player.getUniqueId(), request);
+            refreshBuildingButton(player, context, existing);
+            player.sendMessage(ChatColor.GRAY + "Recipe usage index is still building ("
+                    + existing.progressPercent() + "%).");
+            return;
         }
 
-        return indexes.compute(world.getUID(), (ignored, current) -> {
-            if (current != null && current.signature().equals(signature)) {
-                return current;
-            }
-            return buildIndex(world, items, providers, signature);
-        });
+        LegacyGuideSettings settings = LegacyGuideSettings.get();
+        IndexBuildState created = new IndexBuildState(
+                player.getWorld(),
+                new ArrayList<>(Slimefun.getRegistry().getEnabledSlimefunItems()),
+                new ArrayList<>(MachineRecipeProviderRegistry.getProviders()),
+                settings.getRecipeUsageIndexItemsPerTick(),
+                settings.getRecipeUsageIndexBudgetMicros() * 1_000L);
+        IndexBuildState state = builds.putIfAbsent(worldId, created);
+        if (state == null) {
+            state = created;
+            state.waiters.put(player.getUniqueId(), request);
+            refreshBuildingButton(player, context, state);
+            player.sendMessage(ChatColor.GRAY
+                    + "Building recipe usages gradually to protect server tick time. You can keep using the guide.");
+            scheduleNextBatch(state);
+        } else {
+            state.waiters.put(player.getUniqueId(), request);
+            refreshBuildingButton(player, context, state);
+            player.sendMessage(ChatColor.GRAY + "Recipe usage index is already building ("
+                    + state.progressPercent() + "%).");
+        }
     }
 
-    private @Nonnull UsageIndex buildIndex(
-            @Nonnull World world,
-            @Nonnull List<SlimefunItem> items,
-            @Nonnull List<MachineRecipeProvider> providers,
-            @Nonnull IndexSignature signature) {
-        long started = System.nanoTime();
-        Map<IngredientKey, List<UsageEntry>> mutable = new HashMap<>();
-        Set<String> warnedProviders = new HashSet<>();
+    private void scheduleNextBatch(@Nonnull IndexBuildState state) {
+        if (builds.get(state.world.getUID()) != state || !Slimefun.getSchedulerService().isAcceptingTasks()) {
+            builds.remove(state.world.getUID(), state);
+            return;
+        }
 
-        for (SlimefunItem item : items) {
-            try {
-                if (item.isDisabledIn(world)) {
-                    continue;
-                }
+        try {
+            Slimefun.getSchedulerService().runLater(() -> runBuildBatch(state), 1L);
+        } catch (RuntimeException exception) {
+            builds.remove(state.world.getUID(), state);
+            plugin.getLogger().log(Level.WARNING, "Could not schedule Enhanced Guide recipe-usage indexing", exception);
+        }
+    }
 
-                indexSlimefunRecipe(mutable, item);
-                ResolvedMachineRecipes resolved = resolveMachineRecipes(item, world, providers, warnedProviders);
-                if (resolved != null) {
-                    indexMachineRecipes(mutable, item, resolved);
-                }
-            } catch (RuntimeException | LinkageError exception) {
-                plugin.getLogger()
-                        .log(
-                                Level.WARNING,
-                                "Could not index recipe usages for Slimefun item " + item.getId(),
-                                exception);
+    private void runBuildBatch(@Nonnull IndexBuildState state) {
+        UUID worldId = state.world.getUID();
+        if (builds.get(worldId) != state) {
+            return;
+        }
+
+        long batchStarted = System.nanoTime();
+        int processed = 0;
+        while (state.nextItem < state.items.size() && processed < state.maxItemsPerTick) {
+            SlimefunItem item = state.items.get(state.nextItem++);
+            processed++;
+            indexOneItem(state, item);
+
+            if (processed > 0 && System.nanoTime() - batchStarted >= state.batchBudgetNanos) {
+                break;
             }
         }
+        state.batches++;
 
-        int usageCount = 0;
-        Map<IngredientKey, List<UsageEntry>> frozen = new HashMap<>(mutable.size());
-        for (Map.Entry<IngredientKey, List<UsageEntry>> entry : mutable.entrySet()) {
-            List<UsageEntry> usages = new ArrayList<>(entry.getValue());
-            usages.sort(Comparator.comparingInt((UsageEntry usage) -> usage.kind().ordinal())
-                    .thenComparing(usage -> readableName(usage.owner()), String.CASE_INSENSITIVE_ORDER)
-                    .thenComparingInt(UsageEntry::recipeIndex));
-            usageCount += usages.size();
-            frozen.put(entry.getKey(), List.copyOf(usages));
+        if (state.nextItem < state.items.size()) {
+            scheduleNextBatch(state);
+            return;
         }
 
-        long elapsedMillis = (System.nanoTime() - started) / 1_000_000L;
+        UsageIndex completed = new UsageIndex(Collections.unmodifiableMap(state.usages));
+        indexes.put(worldId, completed);
+        builds.remove(worldId, state);
         plugin.getLogger()
-                .info("Built Enhanced Guide recipe-usage index for world '" + world.getName() + "': "
-                        + usageCount + " usages across " + frozen.size() + " ingredient keys in " + elapsedMillis
-                        + "ms.");
-        return new UsageIndex(Map.copyOf(frozen), signature);
+                .info("Built Enhanced Guide recipe-usage index for world '" + state.world.getName() + "': "
+                        + state.usageCount + " usages across " + state.usages.size() + " ingredient keys over "
+                        + state.batches + " scheduled batches.");
+
+        for (IndexRequest request : new ArrayList<>(state.waiters.values())) {
+            deliverCompletedIndex(request, completed);
+        }
+        state.waiters.clear();
     }
 
-    private void indexSlimefunRecipe(
+    private void indexOneItem(@Nonnull IndexBuildState state, @Nonnull SlimefunItem item) {
+        try {
+            if (item.isDisabledIn(state.world)) {
+                return;
+            }
+
+            state.usageCount += indexSlimefunRecipe(state.usages, item);
+            ResolvedMachineRecipes resolved =
+                    resolveMachineRecipes(item, state.world, state.providers, state.warnedProviders);
+            if (resolved != null) {
+                state.usageCount += indexMachineRecipes(state.usages, item, resolved);
+            }
+        } catch (RuntimeException | LinkageError exception) {
+            plugin.getLogger()
+                    .log(Level.WARNING, "Could not index recipe usages for Slimefun item " + item.getId(), exception);
+        }
+    }
+
+    private int indexSlimefunRecipe(
             @Nonnull Map<IngredientKey, List<UsageEntry>> index, @Nonnull SlimefunItem resultItem) {
         ItemStack[] recipe = resultItem.getRecipe();
         if (recipe == null || recipe.length == 0) {
-            return;
+            return 0;
         }
 
         Map<IngredientKey, Integer> required = new HashMap<>();
@@ -271,12 +332,14 @@ public final class LegacyRecipeUsageBrowser implements Listener {
         for (Map.Entry<IngredientKey, Integer> entry : required.entrySet()) {
             addUsage(index, entry.getKey(), UsageEntry.slimefunRecipe(resultItem, entry.getValue()));
         }
+        return required.size();
     }
 
-    private void indexMachineRecipes(
+    private int indexMachineRecipes(
             @Nonnull Map<IngredientKey, List<UsageEntry>> index,
             @Nonnull SlimefunItem machine,
             @Nonnull ResolvedMachineRecipes resolved) {
+        int additions = 0;
         for (int recipeIndex = 0; recipeIndex < resolved.recipes().size(); recipeIndex++) {
             MachineRecipeDisplay recipe = resolved.recipes().get(recipeIndex);
             Map<IngredientKey, Integer> required = new HashMap<>();
@@ -304,8 +367,10 @@ public final class LegacyRecipeUsageBrowser implements Listener {
                                 recipe,
                                 recipeIndex,
                                 entry.getValue()));
+                additions++;
             }
         }
+        return additions;
     }
 
     private @Nullable ResolvedMachineRecipes resolveMachineRecipes(
@@ -348,6 +413,72 @@ public final class LegacyRecipeUsageBrowser implements Listener {
         return null;
     }
 
+    private void deliverCompletedIndex(@Nonnull IndexRequest request, @Nonnull UsageIndex index) {
+        try {
+            Slimefun.getSchedulerService().runFor(
+                    request.player,
+                    () -> {
+                        Player player = request.player;
+                        ButtonContext current = contexts.get(player.getUniqueId());
+                        if (current != request.context
+                                || current.expiresAt() < System.currentTimeMillis()
+                                || player.getOpenInventory().getTopInventory() != current.guideInventory()) {
+                            return;
+                        }
+                        openCachedUsages(player, current, request.targetKey, index);
+                    },
+                    () -> contexts.remove(request.player.getUniqueId(), request.context));
+        } catch (RuntimeException exception) {
+            plugin.getLogger().log(Level.FINE, "Could not deliver completed recipe-usage index", exception);
+        }
+    }
+
+    private void openCachedUsages(
+            @Nonnull Player player,
+            @Nonnull ButtonContext context,
+            @Nonnull IngredientKey targetKey,
+            @Nonnull UsageIndex index) {
+        List<UsageEntry> usages = sortedUsages(index, targetKey);
+        if (usages.isEmpty()) {
+            if (player.getOpenInventory().getTopInventory() == context.guideInventory()) {
+                context.guideInventory().setItem(context.buttonSlot(), createButton(0));
+                player.updateInventory();
+            }
+            player.sendMessage(ChatColor.GRAY + "No known Slimefun or machine recipes use "
+                    + ItemUtils.getItemName(context.target().getItem()) + ".");
+            return;
+        }
+        openUsageList(player, context, usages, 1);
+    }
+
+    private @Nonnull List<UsageEntry> sortedUsages(
+            @Nonnull UsageIndex index, @Nonnull IngredientKey targetKey) {
+        List<UsageEntry> usages = index.usages().get(targetKey);
+        if (usages == null || usages.isEmpty()) {
+            return List.of();
+        }
+
+        List<UsageEntry> sorted = new ArrayList<>(usages);
+        sorted.sort(Comparator.comparingInt((UsageEntry usage) -> usage.kind().ordinal())
+                .thenComparing(usage -> readableName(usage.owner()), String.CASE_INSENSITIVE_ORDER)
+                .thenComparingInt(UsageEntry::recipeIndex));
+        return List.copyOf(sorted);
+    }
+
+    private void refreshBuildingButton(
+            @Nonnull Player player, @Nonnull ButtonContext context, @Nonnull IndexBuildState state) {
+        if (player.getOpenInventory().getTopInventory() == context.guideInventory()) {
+            context.guideInventory().setItem(context.buttonSlot(), createBuildingButton(state));
+            player.updateInventory();
+        }
+    }
+
+    private void removeWaitingRequest(@Nonnull UUID playerId) {
+        for (IndexBuildState state : builds.values()) {
+            state.waiters.remove(playerId);
+        }
+    }
+
     private void openUsageList(
             @Nonnull Player player,
             @Nonnull ButtonContext context,
@@ -377,7 +508,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
             }
 
             UsageEntry usage = usages.get(usageIndex);
-            menu.replaceExistingItem(slot, createUsageIcon(context.target(), usage));
+            menu.replaceExistingItem(slot, createUsageIcon(usage));
             menu.addMenuClickHandler(slot, (pl, clickedSlot, clickedItem, action) -> {
                 if (usage.kind() == UsageKind.SLIMEFUN_RECIPE) {
                     context.guide().displayItem(context.profile(), usage.owner(), true);
@@ -434,7 +565,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
         lore.add("&7that consume this item as an ingredient.");
         if (cachedCount == null) {
             lore.add("");
-            lore.add("&8The reverse index is built only when opened.");
+            lore.add("&8Indexing starts only when you click this button.");
         } else {
             lore.add("");
             lore.add("&7Known usages: &f" + cachedCount);
@@ -444,10 +575,28 @@ public final class LegacyRecipeUsageBrowser implements Listener {
 
         ItemStack button = new CustomItemStack(
                 Material.HOPPER, "&6&lRecipes Using This Item", lore.toArray(new String[0]));
+        markButton(button);
+        return button;
+    }
+
+    private @Nonnull ItemStack createBuildingButton(@Nonnull IndexBuildState state) {
+        ItemStack button = new CustomItemStack(
+                Material.CLOCK,
+                "&e&lBuilding Recipe Usages",
+                "",
+                "&7Progress: &f" + state.progressPercent() + "%",
+                "&7Processed: &f" + state.nextItem + "&7/&f" + state.items.size(),
+                "",
+                "&8Work is split across ticks to protect TPS.",
+                "&eClick for current progress");
+        markButton(button);
+        return button;
+    }
+
+    private void markButton(@Nonnull ItemStack button) {
         ItemMeta meta = button.getItemMeta();
         meta.getPersistentDataContainer().set(buttonKey, PersistentDataType.BYTE, (byte) 1);
         button.setItemMeta(meta);
-        return button;
     }
 
     private boolean isUsageButton(@Nullable ItemStack item) {
@@ -458,7 +607,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
         return value != null && value == (byte) 1;
     }
 
-    private @Nonnull ItemStack createUsageIcon(@Nonnull SlimefunItem target, @Nonnull UsageEntry usage) {
+    private @Nonnull ItemStack createUsageIcon(@Nonnull UsageEntry usage) {
         if (usage.kind() == UsageKind.SLIMEFUN_RECIPE) {
             return addLore(
                     usage.owner().getItem(),
@@ -525,22 +674,6 @@ public final class LegacyRecipeUsageBrowser implements Listener {
         return result > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) result;
     }
 
-    private static @Nonnull IndexSignature signature(
-            @Nonnull List<SlimefunItem> items, @Nonnull List<MachineRecipeProvider> providers) {
-        int itemHash = 1;
-        for (SlimefunItem item : items) {
-            itemHash = 31 * itemHash + item.getId().hashCode();
-        }
-
-        int providerHash = 1;
-        for (MachineRecipeProvider provider : providers) {
-            providerHash = 31 * providerHash + provider.getKey().hashCode();
-            providerHash = 31 * providerHash + provider.getClass().getName().hashCode();
-            providerHash = 31 * providerHash + provider.getPriority();
-        }
-        return new IndexSignature(items.size(), itemHash, providers.size(), providerHash);
-    }
-
     private static @Nonnull String readableName(@Nonnull SlimefunItem item) {
         String name = ChatColor.stripColor(ItemUtils.getItemName(item.getItem()));
         return name == null || name.isBlank() ? item.getId() : name;
@@ -589,9 +722,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
 
     private record IngredientKey(@Nullable String slimefunId, @Nullable ItemStack normalizedItem) {}
 
-    private record IndexSignature(int itemCount, int itemHash, int providerCount, int providerHash) {}
-
-    private record UsageIndex(Map<IngredientKey, List<UsageEntry>> usages, IndexSignature signature) {}
+    private record UsageIndex(Map<IngredientKey, List<UsageEntry>> usages) {}
 
     private record ResolvedMachineRecipes(MachineRecipeProvider provider, List<MachineRecipeDisplay> recipes) {}
 
@@ -625,4 +756,40 @@ public final class LegacyRecipeUsageBrowser implements Listener {
             SlimefunItem target,
             int buttonSlot,
             long expiresAt) {}
+
+    private record IndexRequest(Player player, ButtonContext context, IngredientKey targetKey) {}
+
+    private static final class IndexBuildState {
+        private final World world;
+        private final List<SlimefunItem> items;
+        private final List<MachineRecipeProvider> providers;
+        private final int maxItemsPerTick;
+        private final long batchBudgetNanos;
+        private final Map<IngredientKey, List<UsageEntry>> usages = new HashMap<>();
+        private final Set<String> warnedProviders = new HashSet<>();
+        private final Map<UUID, IndexRequest> waiters = new ConcurrentHashMap<>();
+        private volatile int nextItem;
+        private int batches;
+        private int usageCount;
+
+        private IndexBuildState(
+                World world,
+                List<SlimefunItem> items,
+                List<MachineRecipeProvider> providers,
+                int maxItemsPerTick,
+                long batchBudgetNanos) {
+            this.world = world;
+            this.items = items;
+            this.providers = providers;
+            this.maxItemsPerTick = maxItemsPerTick;
+            this.batchBudgetNanos = batchBudgetNanos;
+        }
+
+        private int progressPercent() {
+            if (items.isEmpty()) {
+                return 100;
+            }
+            return Math.min(99, (int) ((long) nextItem * 100L / items.size()));
+        }
+    }
 }
