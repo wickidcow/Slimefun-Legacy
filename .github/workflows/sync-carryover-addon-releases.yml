@@ -1,0 +1,140 @@
+name: Sync Carryover Addon Releases
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/sync-carryover-addon-releases.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-carryover-addon-releases
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Download current Slimefun Legacy addon bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p base bundle authoritative
+          gh release download v4.1.48 \
+            --repo wickidcow/Slimefun-Legacy \
+            --pattern 'SFL_AddonsNDependencies.zip' \
+            --dir base
+          unzip -q base/SFL_AddonsNDependencies.zip -d bundle
+
+      - name: Download and verify four authoritative addon releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          fetch() {
+            local repo="$1" tag="$2" asset="$3" expected="$4"
+            local out="authoritative/${repo##*/}"
+            rm -rf "$out"
+            mkdir -p "$out"
+            gh release download "$tag" --repo "$repo" --pattern "$asset" --dir "$out"
+            local jar="$out/$asset"
+            test -s "$jar"
+            unzip -tqq "$jar"
+            echo "${expected}  ${jar}" | sha256sum --check --strict
+          }
+
+          fetch wickidcow/SF_SMG v1.0.2 SF_SMG1.0.2.jar df78d065932741d962dc67e434625b57cd4ff98e88670e1487b084c4f625e996
+          fetch wickidcow/SF_SlimyTreeTaps v1.0.3 SF_SlimyTreeTaps1.0.3.jar 73263d592fa10cc543fb01a7c9600479612a1b39f951856f0d0ca9127560ca2c
+          fetch wickidcow/SF_SoulJars v1.0.1 SF_SoulJars1.0.1.jar 39cbe0c8fada87e4a104c68ec8b33bf9281c8c52b83349e8504da62abc8362ec
+          fetch wickidcow/SF_BetterFarming v1.0.1 SF_BetterFarming1.0.1.jar 8d29297bbb2017d9e59b3e507a907b2efe43f2572279bda710e1f056565bd6db
+
+      - name: Replace previous versions and validate 41-JAR inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          find bundle -maxdepth 1 -type f -name 'SF_SMG*.jar' -delete
+          find bundle -maxdepth 1 -type f -name 'SF_SlimyTreeTaps*.jar' -delete
+          find bundle -maxdepth 1 -type f -name 'SF_SoulJars*.jar' -delete
+          find bundle -maxdepth 1 -type f \( -name 'SF_BetterFarming*.jar' -o -name 'SF_betterfarming*.jar' \) -delete
+
+          cp authoritative/SF_SMG/SF_SMG1.0.2.jar bundle/
+          cp authoritative/SF_SlimyTreeTaps/SF_SlimyTreeTaps1.0.3.jar bundle/
+          cp authoritative/SF_SoulJars/SF_SoulJars1.0.1.jar bundle/
+          cp authoritative/SF_BetterFarming/SF_BetterFarming1.0.1.jar bundle/
+
+          mapfile -t jars < <(find bundle -maxdepth 1 -type f -name '*.jar' | sort)
+          if [[ "${#jars[@]}" -ne 41 ]]; then
+            echo "Expected exactly 41 JARs, found ${#jars[@]}" >&2
+            printf '%s\n' "${jars[@]}" >&2
+            exit 1
+          fi
+          for jar in "${jars[@]}"; do unzip -tqq "$jar"; done
+
+          test -s bundle/SF_SMG1.0.2.jar
+          test -s bundle/SF_SlimyTreeTaps1.0.3.jar
+          test -s bundle/SF_SoulJars1.0.1.jar
+          test -s bundle/SF_BetterFarming1.0.1.jar
+
+          if find bundle -maxdepth 1 -type f \( \
+              -name 'SF_SMG1.0.1.jar' -o \
+              -name 'SF_SlimyTreeTaps1.0.2.jar' -o \
+              -name 'SF_SoulJars1.0.0.jar' -o \
+              -name 'SF_BetterFarming1.0.0.jar' \
+            \) | grep -q .; then
+            echo 'A superseded carryover addon JAR remains in the bundle.' >&2
+            exit 1
+          fi
+
+      - name: Rebuild bundle and checksum manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f SFL_AddonsNDependencies.zip SFL_AddonsNDependencies.sha256
+          (cd bundle && zip -q -9 ../SFL_AddonsNDependencies.zip *.jar)
+          while IFS= read -r file; do
+            sha256sum "bundle/$file" | sed 's#  bundle/#  #'
+          done < <(find bundle -maxdepth 1 -type f -name '*.jar' -printf '%f\n' | sort) > SFL_AddonsNDependencies.sha256
+          test "$(wc -l < SFL_AddonsNDependencies.sha256)" -eq 41
+          unzip -tqq SFL_AddonsNDependencies.zip
+          (
+            cd bundle
+            sha256sum --check --strict ../SFL_AddonsNDependencies.sha256
+          )
+          sha256sum SFL_AddonsNDependencies.zip
+
+      - name: Publish refreshed v4.1.48 bundle assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload v4.1.48 \
+            SFL_AddonsNDependencies.zip \
+            SFL_AddonsNDependencies.sha256 \
+            --repo wickidcow/Slimefun-Legacy \
+            --clobber
+
+      - name: Upload AlbionMC carryover JAR set
+        uses: actions/upload-artifact@v7
+        with:
+          name: AlbionMC-carryover-addon-jars
+          path: authoritative/*/*.jar
+          if-no-files-found: error
+
+      - name: Upload refreshed Slimefun Legacy addon bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: SFL-Addons-Carryover-Bundle
+          path: |
+            SFL_AddonsNDependencies.zip
+            SFL_AddonsNDependencies.sha256
+          if-no-files-found: error
