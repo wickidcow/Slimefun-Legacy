@@ -42,14 +42,6 @@ jobs:
               text = text.replace(old, new, 1)
           readme.write_text(text, encoding='utf-8')
 
-          workflow = Path('.github/workflows/reproducible-release.yml')
-          text = workflow.read_text(encoding='utf-8')
-          text = text.replace('fall back to the previous-stable 4.1.47 bundle', 'fall back to the previous-stable 4.1.48 bundle', 1)
-          if "SOURCE_TAG='v4.1.47'" not in text:
-              raise SystemExit('Missing expected v4.1.47 addon fallback')
-          text = text.replace("SOURCE_TAG='v4.1.47'", "SOURCE_TAG='v4.1.48'", 1)
-          workflow.write_text(text, encoding='utf-8')
-
           gradle = Path('gradle.properties')
           text = gradle.read_text(encoding='utf-8')
           old = '# Slimefun Legacy 4.1.49 release - Enhanced Guide polish and Paper 26.3 readiness'
@@ -61,6 +53,6 @@ jobs:
           git diff --check
           git config user.name 'wickidcow'
           git config user.email 'jaywago@gmail.com'
-          git add README.md gradle.properties .github/workflows/reproducible-release.yml
+          git add README.md gradle.properties
           git commit -m 'release: finalize Slimefun Legacy 4.1.49 metadata'
           git push origin HEAD:master
