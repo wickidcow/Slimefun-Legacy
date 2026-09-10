@@ -1,0 +1,181 @@
+name: Finalize Slimefun Addon External Dependencies
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/finalize-addon-external-dependencies.yml'
+  workflow_run:
+    workflows: ['Refresh Slimefun Legacy Addon Bundle']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finalize-slimefun-addon-external-dependencies
+  cancel-in-progress: true
+
+env:
+  FALLBACK_BUNDLE_TAG: v4.1.48
+  FAWE_BUILD: '1387'
+  FAWE_ASSET: FastAsyncWorldEdit-Paper-2.15.5-SNAPSHOT.jar
+  FAWE_URL: https://ci.athion.net/job/FastAsyncWorldEdit/1387/artifact/artifacts/FastAsyncWorldEdit-Paper-2.15.5-SNAPSHOT.jar
+  PACKETEVENTS_REPO: retrooper/packetevents
+  PACKETEVENTS_TAG: v2.13.0
+  PACKETEVENTS_ASSET: packetevents-spigot-2.13.0.jar
+
+jobs:
+  finalize:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Refresh FAWE and PacketEvents in addon bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
+          CURRENT_TAG="v${VERSION}"
+          SOURCE_TAG="$CURRENT_TAG"
+
+          if ! gh release view "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            SOURCE_TAG="$FALLBACK_BUNDLE_TAG"
+          fi
+
+          rm -rf bundle work latest
+          mkdir -p bundle work latest
+
+          echo "Using addon bundle seed: ${SOURCE_TAG}"
+          gh release download "$SOURCE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'SFL_AddonsNDependencies.zip' \
+            --dir work
+          unzip -q work/SFL_AddonsNDependencies.zip -d bundle
+
+          FAWE_OLD="$(find bundle -type f -iname 'FastAsyncWorldEdit-Paper-*.jar' -print -quit || true)"
+          if [[ -z "$FAWE_OLD" ]]; then
+            echo 'FastAsyncWorldEdit Paper JAR is missing from the addon/dependency bundle.' >&2
+            exit 1
+          fi
+          FAWE_DIR="$(dirname "$FAWE_OLD")"
+
+          WED_JAR="$(find bundle -type f -iname 'WorldEditDisplay-*-paper.jar' -print -quit || true)"
+          if [[ -z "$WED_JAR" ]]; then
+            echo 'WorldEditDisplay Paper JAR is missing from the addon/dependency bundle.' >&2
+            exit 1
+          fi
+          DEP_DIR="$(dirname "$WED_JAR")"
+
+          find bundle -type f -iname 'FastAsyncWorldEdit-Paper-*.jar' -delete
+          find bundle -type f \( -iname 'packetevents-spigot-*.jar' -o -iname 'packetevents-bukkit-*.jar' \) -delete
+
+          echo "FAWE: installing Jenkins #${FAWE_BUILD} ${FAWE_ASSET}"
+          curl --fail --location --retry 5 --retry-delay 2 \
+            --output "latest/${FAWE_ASSET}" \
+            "$FAWE_URL"
+          test -s "latest/${FAWE_ASSET}"
+          unzip -tqq "latest/${FAWE_ASSET}"
+          mkdir -p "$FAWE_DIR"
+          cp "latest/${FAWE_ASSET}" "$FAWE_DIR/"
+
+          echo "PacketEvents: installing ${PACKETEVENTS_TAG} ${PACKETEVENTS_ASSET}"
+          gh release download "$PACKETEVENTS_TAG" \
+            --repo "$PACKETEVENTS_REPO" \
+            --pattern "$PACKETEVENTS_ASSET" \
+            --dir latest
+          test -s "latest/${PACKETEVENTS_ASSET}"
+          unzip -tqq "latest/${PACKETEVENTS_ASSET}"
+          mkdir -p "$DEP_DIR"
+          cp "latest/${PACKETEVENTS_ASSET}" "$DEP_DIR/"
+
+          while IFS= read -r -d '' jar; do
+            unzip -tqq "$jar"
+          done < <(find bundle -type f -name '*.jar' -print0)
+
+          test "$(find bundle -type f -name "$FAWE_ASSET" | wc -l)" -eq 1
+          test "$(find bundle -type f -name "$PACKETEVENTS_ASSET" | wc -l)" -eq 1
+
+          if find bundle -type f -iname 'FastAsyncWorldEdit-Paper-*.jar' ! -name "$FAWE_ASSET" | grep -q .; then
+            echo 'A stale FastAsyncWorldEdit Paper JAR remains in the bundle.' >&2
+            exit 1
+          fi
+          if find bundle -type f \( -iname 'packetevents-spigot-*.jar' -o -iname 'packetevents-bukkit-*.jar' \) ! -name "$PACKETEVENTS_ASSET" | grep -q .; then
+            echo 'A stale PacketEvents server JAR remains in the bundle.' >&2
+            exit 1
+          fi
+
+          JAR_COUNT="$(find bundle -type f -name '*.jar' | wc -l)"
+          if [[ "$JAR_COUNT" -ne 42 ]]; then
+            echo "Expected 42 JARs after adding PacketEvents, found ${JAR_COUNT}." >&2
+            find bundle -type f -name '*.jar' -printf '%P\n' | sort >&2
+            exit 1
+          fi
+
+          rm -f SFL_AddonsNDependencies.zip SFL_AddonsNDependencies.sha256
+          (cd bundle && zip -qr ../SFL_AddonsNDependencies.zip .)
+
+          find bundle -type f -name '*.jar' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | sed 's#  bundle/#  #' \
+            > SFL_AddonsNDependencies.sha256
+
+          test "$(wc -l < SFL_AddonsNDependencies.sha256)" -eq 42
+          unzip -Z1 SFL_AddonsNDependencies.zip | grep -F "$FAWE_ASSET"
+          unzip -Z1 SFL_AddonsNDependencies.zip | grep -F "$PACKETEVENTS_ASSET"
+          sha256sum SFL_AddonsNDependencies.zip
+
+          if gh release view "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$CURRENT_TAG" \
+              SFL_AddonsNDependencies.zip \
+              SFL_AddonsNDependencies.sha256 \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+          else
+            echo "Release ${CURRENT_TAG} does not exist yet; validated artifacts remain available from this workflow run."
+          fi
+
+      - name: Refresh release audit wording
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
+          CURRENT_TAG="v${VERSION}"
+
+          if ! gh release view "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            exit 0
+          fi
+
+          gh release view "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY" --json body --jq '.body' > release-body.md
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('release-body.md')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace('exactly **41 structurally valid JARs**', 'exactly **42 structurally valid JARs**')
+          text = text.replace('validated Jenkins build **#1385**.', 'validated Jenkins build **#1387**, and `packetevents-spigot-2.13.0.jar`.')
+          text = text.replace('validated Jenkins build **#1385**', 'validated Jenkins build **#1387**')
+          path.write_text(text, encoding='utf-8')
+          PY
+          gh release edit "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY" --notes-file release-body.md
+
+      - name: Upload finalized bundle artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Slimefun-Legacy-Addons-External-Dependencies
+          path: |
+            SFL_AddonsNDependencies.zip
+            SFL_AddonsNDependencies.sha256
+          archive: false
+          if-no-files-found: error
