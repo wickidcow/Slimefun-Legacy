@@ -53,7 +53,8 @@ import org.bukkit.persistence.PersistentDataType;
  * <p>Both ordinary Slimefun recipes and the normalized {@link MachineRecipeProviderRegistry} feed the same index, so
  * existing addon machine adapters participate without another compatibility layer. Completed indexes live for the
  * server lifetime unless {@link #invalidate()} is called; this deliberately avoids re-hashing the entire registry on
- * every guide click.
+ * every guide click. Their usage lists are sorted and frozen once at publication so reopening an already-built result
+ * is a direct cached lookup instead of another copy-and-sort pass.
  */
 public final class LegacyRecipeUsageBrowser implements Listener {
 
@@ -64,6 +65,10 @@ public final class LegacyRecipeUsageBrowser implements Listener {
         27, 28, 29, 30, 31, 32, 33, 34, 35,
         36, 37, 38, 39, 40, 41, 42, 43, 44
     };
+    private static final Comparator<UsageEntry> USAGE_ORDER = Comparator.comparingInt(
+                    (UsageEntry usage) -> usage.kind().ordinal())
+            .thenComparing(usage -> readableName(usage.owner()), String.CASE_INSENSITIVE_ORDER)
+            .thenComparingInt(UsageEntry::recipeIndex);
 
     private static LegacyRecipeUsageBrowser instance;
 
@@ -281,7 +286,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
             return;
         }
 
-        UsageIndex completed = new UsageIndex(Collections.unmodifiableMap(state.usages));
+        UsageIndex completed = freezeUsageIndex(state.usages);
         indexes.put(worldId, completed);
         builds.remove(worldId, state);
         plugin.getLogger()
@@ -437,7 +442,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
             @Nonnull ButtonContext context,
             @Nonnull IngredientKey targetKey,
             @Nonnull UsageIndex index) {
-        List<UsageEntry> usages = sortedUsages(index, targetKey);
+        List<UsageEntry> usages = index.usages().getOrDefault(targetKey, List.of());
         if (usages.isEmpty()) {
             if (player.getOpenInventory().getTopInventory() == context.guideInventory()) {
                 context.guideInventory().setItem(context.buttonSlot(), createButton(0));
@@ -450,18 +455,15 @@ public final class LegacyRecipeUsageBrowser implements Listener {
         openUsageList(player, context, usages, 1);
     }
 
-    private @Nonnull List<UsageEntry> sortedUsages(
-            @Nonnull UsageIndex index, @Nonnull IngredientKey targetKey) {
-        List<UsageEntry> usages = index.usages().get(targetKey);
-        if (usages == null || usages.isEmpty()) {
-            return List.of();
+    private static @Nonnull UsageIndex freezeUsageIndex(
+            @Nonnull Map<IngredientKey, List<UsageEntry>> usages) {
+        Map<IngredientKey, List<UsageEntry>> frozen = new HashMap<>(usages.size());
+        for (Map.Entry<IngredientKey, List<UsageEntry>> entry : usages.entrySet()) {
+            List<UsageEntry> sorted = entry.getValue();
+            sorted.sort(USAGE_ORDER);
+            frozen.put(entry.getKey(), List.copyOf(sorted));
         }
-
-        List<UsageEntry> sorted = new ArrayList<>(usages);
-        sorted.sort(Comparator.comparingInt((UsageEntry usage) -> usage.kind().ordinal())
-                .thenComparing(usage -> readableName(usage.owner()), String.CASE_INSENSITIVE_ORDER)
-                .thenComparingInt(UsageEntry::recipeIndex));
-        return List.copyOf(sorted);
+        return new UsageIndex(Collections.unmodifiableMap(frozen));
     }
 
     private void refreshBuildingButton(

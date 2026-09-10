@@ -11,7 +11,8 @@ Slimefun Legacy while incorporating the useful lessons from JustEnoughGuide's
 * public guide entry points must stay behind the runtime guard;
 * concurrent PlayerProfile requests must coalesce without dropping callbacks;
 * profile registration events remain controller-owned and fire only once;
-* reverse recipe lookup must stay off the normal guide-render hot path and yield across ticks.
+* reverse recipe lookup must stay off the normal guide-render hot path and yield across ticks;
+* published reverse-usage lists must be sorted/frozen once and reused on cached reopens.
 """
 
 from __future__ import annotations
@@ -203,6 +204,8 @@ def main() -> int:
     click = method_body(usage_browser, "onInventoryClick")
     batch = method_body(usage_browser, "runBuildBatch")
     request = method_body(usage_browser, "requestIndex")
+    cached_open = method_body(usage_browser, "openCachedUsages")
+    freeze = method_body(usage_browser, "freezeUsageIndex")
 
     require(usage_browser, "private final Map<UUID, UsageIndex> indexes = new ConcurrentHashMap<>()", "per-world recipe-usage cache")
     require(usage_browser, "private final Map<UUID, IndexBuildState> builds = new ConcurrentHashMap<>()", "single in-flight build registry")
@@ -222,8 +225,14 @@ def main() -> int:
     require(batch, "state.nextItem < state.itemLimit", "fixed item-count batch boundary")
     require(batch, "processed < state.maxItemsPerTick", "per-tick item budget")
     require(batch, "System.nanoTime() - batchStarted >= state.batchBudgetNanos", "per-tick elapsed-time budget")
+    require(batch, "UsageIndex completed = freezeUsageIndex(state.usages);", "one-time usage-index publication")
     require(usage_browser, "runFor(", "entity-owned completion delivery")
-    require(usage_browser, "Collections.unmodifiableMap(state.usages)", "published completed index")
+    require(cached_open, "index.usages().getOrDefault(targetKey, List.of())", "direct cached usage-list lookup")
+    reject(cached_open, "new ArrayList<>(", "cached usage-list copy")
+    reject(usage_browser, "sortedUsages(", "per-open usage-list sorting")
+    require(freeze, "sorted.sort(USAGE_ORDER)", "one-time usage-list sorting")
+    require(freeze, "List.copyOf(sorted)", "frozen usage lists")
+    require(freeze, "Collections.unmodifiableMap(frozen)", "published completed index")
 
     settings = read(
         root,
