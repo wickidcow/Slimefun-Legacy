@@ -448,15 +448,11 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
         }
 
         for (int slot : LegacyGuideSettings.get().findSlots(format, 'T')) {
-            if (isSurvivalMode()) {
-                menu.addItem(slot, ChestMenuUtils.getMenuButton(player));
-                menu.addMenuClickHandler(slot, (pl, s, item, action) -> {
-                    SlimefunGuideSettings.openSettings(pl, pl.getInventory().getItemInMainHand());
-                    return false;
-                });
-            } else {
-                addBackgroundSlot(menu, slot);
-            }
+            menu.addItem(slot, ChestMenuUtils.getMenuButton(player));
+            menu.addMenuClickHandler(slot, (pl, s, item, action) -> {
+                SlimefunGuideSettings.openSettings(pl, pl.getInventory().getItemInMainHand());
+                return false;
+            });
         }
 
         for (int slot : LegacyGuideSettings.get().findSlots(format, 'S')) {
