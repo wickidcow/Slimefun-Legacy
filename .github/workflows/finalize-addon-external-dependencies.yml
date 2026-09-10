@@ -46,15 +46,18 @@ jobs:
           VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
           CURRENT_TAG="v${VERSION}"
           SOURCE_TAG="$CURRENT_TAG"
+          PUBLISH_TAG="$CURRENT_TAG"
 
           if ! gh release view "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             SOURCE_TAG="$FALLBACK_BUNDLE_TAG"
+            PUBLISH_TAG="$FALLBACK_BUNDLE_TAG"
           fi
 
           rm -rf bundle work latest
           mkdir -p bundle work latest
 
           echo "Using addon bundle seed: ${SOURCE_TAG}"
+          echo "Publishing finalized bundle to: ${PUBLISH_TAG}"
           gh release download "$SOURCE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --pattern 'SFL_AddonsNDependencies.zip' \
@@ -134,15 +137,13 @@ jobs:
           unzip -Z1 SFL_AddonsNDependencies.zip | grep -F "$PACKETEVENTS_ASSET"
           sha256sum SFL_AddonsNDependencies.zip
 
-          if gh release view "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$CURRENT_TAG" \
-              SFL_AddonsNDependencies.zip \
-              SFL_AddonsNDependencies.sha256 \
-              --repo "$GITHUB_REPOSITORY" \
-              --clobber
-          else
-            echo "Release ${CURRENT_TAG} does not exist yet; validated artifacts remain available from this workflow run."
-          fi
+          gh release upload "$PUBLISH_TAG" \
+            SFL_AddonsNDependencies.zip \
+            SFL_AddonsNDependencies.sha256 \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
+          printf '%s\n' "$PUBLISH_TAG" > published-tag.txt
 
       - name: Refresh release audit wording
         env:
@@ -150,14 +151,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
-          CURRENT_TAG="v${VERSION}"
+          PUBLISH_TAG="$(cat published-tag.txt)"
 
-          if ! gh release view "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            exit 0
-          fi
-
-          gh release view "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY" --json body --jq '.body' > release-body.md
+          gh release view "$PUBLISH_TAG" --repo "$GITHUB_REPOSITORY" --json body --jq '.body' > release-body.md
           python3 - <<'PY'
           from pathlib import Path
 
@@ -168,7 +164,7 @@ jobs:
           text = text.replace('validated Jenkins build **#1385**', 'validated Jenkins build **#1387**')
           path.write_text(text, encoding='utf-8')
           PY
-          gh release edit "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY" --notes-file release-body.md
+          gh release edit "$PUBLISH_TAG" --repo "$GITHUB_REPOSITORY" --notes-file release-body.md
 
       - name: Upload finalized bundle artifact
         uses: actions/upload-artifact@v7
