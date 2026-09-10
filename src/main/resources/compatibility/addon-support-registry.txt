@@ -64,7 +64,7 @@ legacy-mobdrops|recognized|MobDrops Legacy|SFMobDrops,MobDrops,SF_MobDrops|maint
 legacy-alchimia-vitae|recognized|AlchimiaVitae Legacy|AlchimiaVitae,Alchimia Vitae,SF_AlchimiaVitae|maintained
 legacy-luckyblocks|recognized|LuckyBlocks Legacy|LuckyBlocks,Lucky Blocks,SlimefunLuckyBlocks,SF_LuckyBlocks|maintained
 legacy-slimefunwarfare|recognized|SlimefunWarfare Legacy|SlimefunWarfare,Slimefun Warfare,SF_SlimefunWarfare|maintained
-legacy-militaryarsenal|recognized|MilitaryArsenal Legacy|MilitaryArsenal,Military Arsenal,SF_MilitaryArsenal|maintained
+legacy-militaryarsenal|recognized|MilitaryArsenal Legacy|MilitaryArsenal,Military Arsenal,WeaponsAddon,SF_MilitaryArsenal|maintained
 legacy-slimeglue|recognized|SlimeGlue Legacy|SlimeGlue,SF_SlimeGlue|maintained
 legacy-worldedit-slimefun|recognized|WorldEditSlimefun Legacy|WorldEditSlimefun,WorldEdit Slimefun,SF_WorldEditSlimefun|maintained
 legacy-mobcapturer|recognized|MobCapturer Legacy|MobCapturer,SF_MobCapturer|maintained
