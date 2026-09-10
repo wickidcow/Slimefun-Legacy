@@ -1,4 +1,4 @@
-name: Finalize v4.1.49 Addon Bundle
+name: Finalize v4.1.49 Dependency Bundle
 
 on:
   push:
@@ -15,9 +15,13 @@ jobs:
   finalize:
     runs-on: ubuntu-latest
     steps:
-      - name: Replace inherited BetterFarming snapshot with latest release
+      - name: Normalize final 42-JAR release bundle
         env:
           GH_TOKEN: ${{ github.token }}
+          FAWE_BUILD: '1387'
+          FAWE_ASSET: FastAsyncWorldEdit-Paper-2.15.5-SNAPSHOT.jar
+          PACKETEVENTS_TAG: v2.13.0
+          PACKETEVENTS_ASSET: packetevents-spigot-2.13.0.jar
         shell: bash
         run: |
           set -euo pipefail
@@ -30,41 +34,82 @@ jobs:
             --dir work
           unzip -q work/SFL_AddonsNDependencies.zip -d bundle
 
-          OLD="$(find bundle -type f -iname 'SF_betterfarming*.jar' -print -quit)"
-          test -n "$OLD"
-          DEST_DIR="$(dirname "$OLD")"
+          # Normalize BetterFarming to the maintained latest GitHub Release JAR.
+          BF_OLD="$(find bundle -type f -iname 'SF_betterfarming*.jar' -print -quit)"
+          test -n "$BF_OLD"
+          BF_DIR="$(dirname "$BF_OLD")"
           find bundle -type f -iname 'SF_betterfarming*.jar' -delete
-
-          RELEASE_JSON=latest/betterfarming.json
-          gh api repos/wickidcow/SF_BetterFarming/releases/latest > "$RELEASE_JSON"
-          TAG="$(jq -r '.tag_name' "$RELEASE_JSON")"
-          ASSET="$(jq -r '[.assets[] | select(.state == "uploaded") | select(.name | startswith("SF_BetterFarming")) | select(.name | endswith(".jar"))] | .[0].name // empty' "$RELEASE_JSON")"
-          DIGEST="$(jq -r --arg name "$ASSET" '.assets[] | select(.name == $name) | .digest // empty' "$RELEASE_JSON")"
-          test -n "$TAG"
-          test -n "$ASSET"
-
-          gh release download "$TAG" \
-            --repo wickidcow/SF_BetterFarming \
-            --pattern "$ASSET" \
-            --dir latest
-          test -s "latest/$ASSET"
-          unzip -tqq "latest/$ASSET"
-          if [[ "$DIGEST" == sha256:* ]]; then
-            EXPECTED="${DIGEST#sha256:}"
-            ACTUAL="$(sha256sum "latest/$ASSET" | awk '{print $1}')"
-            test "$ACTUAL" = "$EXPECTED"
+          gh api repos/wickidcow/SF_BetterFarming/releases/latest > latest/betterfarming.json
+          BF_TAG="$(jq -r '.tag_name' latest/betterfarming.json)"
+          BF_ASSET="$(jq -r '[.assets[] | select(.state == "uploaded") | select(.name | startswith("SF_BetterFarming")) | select(.name | endswith(".jar"))] | .[0].name // empty' latest/betterfarming.json)"
+          BF_DIGEST="$(jq -r --arg name "$BF_ASSET" '.assets[] | select(.name == $name) | .digest // empty' latest/betterfarming.json)"
+          test -n "$BF_TAG"
+          test -n "$BF_ASSET"
+          gh release download "$BF_TAG" --repo wickidcow/SF_BetterFarming --pattern "$BF_ASSET" --dir latest
+          test -s "latest/$BF_ASSET"
+          unzip -tqq "latest/$BF_ASSET"
+          if [[ "$BF_DIGEST" == sha256:* ]]; then
+            test "$(sha256sum "latest/$BF_ASSET" | awk '{print $1}')" = "${BF_DIGEST#sha256:}"
           fi
-          cp "latest/$ASSET" "$DEST_DIR/$ASSET"
+          cp "latest/$BF_ASSET" "$BF_DIR/$BF_ASSET"
 
-          test "$(find bundle -type f -iname 'SF_betterfarming*.jar' | wc -l)" -eq 1
-          test "$(find bundle -type f -name '*.jar' | wc -l)" -eq 41
+          # Normalize FAWE to the exact requested/current Jenkins build.
+          FAWE_OLD="$(find bundle -type f -iname 'FastAsyncWorldEdit-Paper-*.jar' -print -quit)"
+          if [[ -n "$FAWE_OLD" ]]; then
+            FAWE_DIR="$(dirname "$FAWE_OLD")"
+          else
+            FAWE_DIR='.'
+          fi
+          find bundle -type f -iname 'FastAsyncWorldEdit-Paper-*.jar' -delete
+          curl --fail --location --retry 5 --retry-delay 2 \
+            --output "latest/$FAWE_ASSET" \
+            "https://ci.athion.net/job/FastAsyncWorldEdit/${FAWE_BUILD}/artifact/artifacts/${FAWE_ASSET}"
+          test -s "latest/$FAWE_ASSET"
+          unzip -tqq "latest/$FAWE_ASSET"
+          mkdir -p "bundle/$FAWE_DIR"
+          cp "latest/$FAWE_ASSET" "bundle/$FAWE_DIR/$FAWE_ASSET"
+
+          # Add/normalize PacketEvents for the current external-dependency contract.
+          PE_OLD="$(find bundle -type f -iname 'packetevents-*.jar' -print -quit || true)"
+          if [[ -n "$PE_OLD" ]]; then
+            PE_DIR="$(dirname "$PE_OLD")"
+          else
+            PE_DIR='.'
+          fi
+          find bundle -type f -iname 'packetevents-*.jar' -delete
+          gh api repos/retrooper/packetevents/releases/tags/$PACKETEVENTS_TAG > latest/packetevents.json
+          PE_DIGEST="$(jq -r --arg name "$PACKETEVENTS_ASSET" '.assets[] | select(.name == $name) | .digest // empty' latest/packetevents.json)"
+          test "$PE_DIGEST" = 'sha256:6d9ece0d87ee727a79a20b7ffbd432021609c6f52bafcb654fc2d3e9b6f064c5'
+          gh release download "$PACKETEVENTS_TAG" --repo retrooper/packetevents --pattern "$PACKETEVENTS_ASSET" --dir latest
+          test -s "latest/$PACKETEVENTS_ASSET"
+          unzip -tqq "latest/$PACKETEVENTS_ASSET"
+          test "$(sha256sum "latest/$PACKETEVENTS_ASSET" | awk '{print $1}')" = "${PE_DIGEST#sha256:}"
+          mkdir -p "bundle/$PE_DIR"
+          cp "latest/$PACKETEVENTS_ASSET" "bundle/$PE_DIR/$PACKETEVENTS_ASSET"
+
+          # Final release-contract checks.
+          test "$(find bundle -type f -name '*.jar' | wc -l)" -eq 42
+          test "$(find bundle -type f -name 'SF_BetterFarming1.0.2.jar' | wc -l)" -eq 1
+          test "$(find bundle -type f -name "$FAWE_ASSET" | wc -l)" -eq 1
+          test "$(find bundle -type f -name "$PACKETEVENTS_ASSET" | wc -l)" -eq 1
           if find bundle -type f -iname 'SF_betterfarming-Build 1 (git d8b712f).jar' | grep -q .; then
             echo 'Legacy BetterFarming snapshot still present.' >&2
+            exit 1
+          fi
+          if find bundle -type f -iname 'Slimefun-Legacy*.jar' | grep -q .; then
+            echo 'Slimefun Legacy core must not be bundled.' >&2
+            exit 1
+          fi
+          if find bundle -type f -iname '*MagicExpansion*.jar' | grep -q .; then
+            echo 'Magic Expansion must not be bundled.' >&2
             exit 1
           fi
           while IFS= read -r -d '' jar; do
             unzip -tqq "$jar"
           done < <(find bundle -type f -name '*.jar' -print0)
+
+          echo 'Final 4.1.49 JAR inventory:'
+          find bundle -type f -name '*.jar' -printf '%P\n' | sort
 
           rm -f SFL_AddonsNDependencies.zip
           (cd bundle && zip -qr ../SFL_AddonsNDependencies.zip .)
