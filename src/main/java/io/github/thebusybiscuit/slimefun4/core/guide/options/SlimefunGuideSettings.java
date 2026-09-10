@@ -231,14 +231,94 @@ public final class SlimefunGuideSettings {
             menu.addItem(49, ChestMenuUtils.getBackground(), ChestMenuUtils.getEmptyClickHandler());
         }
 
+        addPlayerResources(menu);
+        addAdminTools(p, menu);
+    }
+
+    private static void addPlayerResources(@Nonnull ChestMenu menu) {
         menu.addItem(
                 51,
                 new CustomItemStack(
-                        Material.TOTEM_OF_UNDYING, ChatColor.RED + locale.getMessage(p, "guide.work-in-progress")),
-                (pl, slot, item, action) -> {
-                    // Add something here
-                    return false;
-                });
+                        Material.LECTERN,
+                        "&bWhat's New?",
+                        "",
+                        "&7See the latest Slimefun Legacy release notes,",
+                        "&7fixes, performance changes, and guide improvements.",
+                        "",
+                        "&fInstalled version: &a" + Slimefun.getVersion(),
+                        "",
+                        "&7\u21E8 &eClick to view the latest release"));
+
+        menu.addMenuClickHandler(51, (pl, slot, item, action) -> {
+            pl.closeInventory();
+            ChatUtils.sendURL(pl, "https://github.com/wickidcow/Slimefun-Legacy/releases/latest");
+            return false;
+        });
+    }
+
+    private static void addAdminTools(@Nonnull Player p, @Nonnull ChestMenu menu) {
+        if (p.hasPermission("slimefun.command.versions")) {
+            menu.addItem(
+                    48,
+                    new CustomItemStack(
+                            Material.MAP,
+                            "&6Server Compatibility",
+                            "",
+                            "&7Show the Slimefun server environment,",
+                            "&7platform support and addon compatibility report.",
+                            "",
+                            "&8Server owner tool",
+                            "&7\u21E8 &eClick to run /sf versions"));
+
+            menu.addMenuClickHandler(48, (pl, slot, item, action) -> {
+                pl.closeInventory();
+                pl.performCommand("slimefun versions");
+                return false;
+            });
+        }
+
+        if (p.hasPermission("slimefun.command.update")) {
+            menu.addItem(
+                    50,
+                    new CustomItemStack(
+                            Material.CLOCK,
+                            "&eCheck for Updates",
+                            "",
+                            "&7Check Slimefun Legacy and installed maintained",
+                            "&7addons against the latest stable release.",
+                            "",
+                            "&fInstalled version: &a" + Slimefun.getVersion(),
+                            "&aCheck only - nothing will be installed.",
+                            "",
+                            "&8Server owner tool",
+                            "&7\u21E8 &eClick to run /sf update check"));
+
+            menu.addMenuClickHandler(50, (pl, slot, item, action) -> {
+                pl.closeInventory();
+                pl.performCommand("slimefun update check");
+                return false;
+            });
+        }
+
+        if (p.hasPermission("slimefun.command.stability")) {
+            menu.addItem(
+                    52,
+                    new CustomItemStack(
+                            Material.REDSTONE,
+                            "&cSlimefun Health",
+                            "",
+                            "&7Show database writes, paused/failing machines,",
+                            "&7ticker state and circuit-breaker health.",
+                            "",
+                            "&8Server owner tool",
+                            "&7\u21E8 &eClick to run /sf stability status"));
+
+            menu.addMenuClickHandler(52, (pl, slot, item, action) -> {
+                pl.closeInventory();
+                pl.performCommand("slimefun stability status");
+                return false;
+            });
+        }
     }
 
     @ParametersAreNonnullByDefault
