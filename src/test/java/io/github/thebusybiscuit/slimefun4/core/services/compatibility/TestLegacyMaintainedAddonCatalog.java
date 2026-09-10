@@ -26,8 +26,8 @@ class TestLegacyMaintainedAddonCatalog {
                 "SoulJars");
 
         for (String pluginName : maintainedRuntimeNames) {
-            KnownAddonCompatibilityRegistry.KnownAddonSupport support =
-                    registry.find(pluginName).orElseThrow(() -> new AssertionError("Missing maintained addon: " + pluginName));
+            KnownAddonCompatibilityRegistry.KnownAddonSupport support = registry.find(pluginName)
+                    .orElseThrow(() -> new AssertionError("Missing maintained addon: " + pluginName));
             assertTrue(support.isLegacyMaintained(), () -> pluginName + " should be marked Legacy-maintained");
         }
     }
@@ -46,13 +46,14 @@ class TestLegacyMaintainedAddonCatalog {
                 "SF_Magic8Ball",
                 "SF_RykenSlimeCustomizer",
                 "SF_SMG",
-                "SF_SlimefunLuckyBlocks",
+                "SF_LuckyBlocks",
                 "SF_SoulJars");
 
         for (String pluginName : maintainedRepositoryAliases) {
-            KnownAddonCompatibilityRegistry.KnownAddonSupport support =
-                    registry.find(pluginName).orElseThrow(() -> new AssertionError("Missing maintained alias: " + pluginName));
-            assertTrue(support.isLegacyMaintained(), () -> pluginName + " should resolve to a Legacy-maintained fork");
+            KnownAddonCompatibilityRegistry.KnownAddonSupport support = registry.find(pluginName)
+                    .orElseThrow(() -> new AssertionError("Missing maintained alias: " + pluginName));
+            assertTrue(
+                    support.isLegacyMaintained(), () -> pluginName + " should resolve to a Legacy-maintained fork");
         }
     }
 
@@ -61,9 +62,12 @@ class TestLegacyMaintainedAddonCatalog {
         KnownAddonCompatibilityRegistry registry =
                 KnownAddonCompatibilityRegistry.load(getClass().getClassLoader());
 
-        for (String pluginName : List.of("ItemsAdder", "ShopGUIPlus", "BetterStructures", "ODailyQuests", "Brewery", "zMenu")) {
+        for (String pluginName :
+                List.of("ItemsAdder", "ShopGUIPlus", "BetterStructures", "ODailyQuests", "Brewery", "zMenu", "WeaponsAddon")) {
             assertFalse(
-                    registry.find(pluginName).map(KnownAddonCompatibilityRegistry.KnownAddonSupport::isLegacyMaintained).orElse(false),
+                    registry.find(pluginName)
+                            .map(KnownAddonCompatibilityRegistry.KnownAddonSupport::isLegacyMaintained)
+                            .orElse(false),
                     () -> pluginName + " must not be treated as a Slimefun Legacy-maintained addon");
         }
     }
