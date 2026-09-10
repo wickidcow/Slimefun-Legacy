@@ -1,0 +1,319 @@
+name: Paper 26.3 Maintained Addon Compile
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/paper-26.3-addon-compile.yml'
+      - 'compatibility/addon-compatibility-matrix.json'
+      - 'scripts/compile_addon_paper_26_3.py'
+      - 'scripts/test_compile_addon_paper_26_3.py'
+      - 'build.gradle.kts'
+      - 'gradle/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '37 10 * * 4'
+
+permissions:
+  contents: read
+
+env:
+  PAPER_26_3_VERSION: '26.3'
+  PAPER_PRODUCTION_VERSION: '26.2'
+
+jobs:
+  self-test:
+    name: Addon compiler self-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify Maven and Gradle normalization
+        run: python3 scripts/test_compile_addon_paper_26_3.py
+
+  detect-paper-api:
+    name: Resolve Paper candidate API
+    runs-on: ubuntu-latest
+    outputs:
+      paper_26_3_available: ${{ steps.detect.outputs.paper_26_3_available }}
+      paper_26_3_version: ${{ steps.detect.outputs.paper_26_3_version }}
+      probe_available: ${{ steps.detect.outputs.probe_available }}
+      probe_version: ${{ steps.detect.outputs.probe_version }}
+      probe_label: ${{ steps.detect.outputs.probe_label }}
+      probe_mode: ${{ steps.detect.outputs.probe_mode }}
+    steps:
+      - name: Discover real 26.3 or PR plumbing candidate
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import re
+          import urllib.error
+          import urllib.request
+          import xml.etree.ElementTree as ET
+
+          target = os.environ['PAPER_26_3_VERSION']
+          production = os.environ['PAPER_PRODUCTION_VERSION']
+          event_name = os.environ.get('EVENT_NAME', '')
+          output = os.environ['GITHUB_OUTPUT']
+          request = urllib.request.Request(
+              'https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/maven-metadata.xml',
+              headers={'User-Agent': 'Slimefun-Legacy-26.3-Addon-Compile/1.1'},
+          )
+
+          def latest(versions, prefix):
+              candidates = [value for value in versions if value.startswith(prefix + '.build.')]
+              if not candidates:
+                  return ''
+              def key(value: str):
+                  match = re.search(r'\.build\.(\d+)', value)
+                  return (int(match.group(1)) if match else -1, value)
+              return max(candidates, key=key)
+
+          versions = []
+          try:
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  root = ET.fromstring(response.read())
+              versions = [
+                  node.text.strip()
+                  for node in root.findall('./versioning/versions/version')
+                  if node.text and node.text.strip()
+              ]
+          except (OSError, urllib.error.URLError, ET.ParseError) as exc:
+              print(f'Paper API probe unavailable: {exc}')
+
+          paper_26_3_version = latest(versions, target)
+          paper_26_3_available = bool(paper_26_3_version)
+          probe_version = paper_26_3_version
+          probe_label = 'Paper 26.3'
+          probe_mode = 'paper-26.3'
+
+          if not probe_version and event_name == 'pull_request':
+              probe_version = latest(versions, production)
+              if probe_version:
+                  probe_label = 'Paper 26.2 plumbing smoke'
+                  probe_mode = 'paper-26.2-plumbing'
+
+          probe_available = bool(probe_version)
+          with open(output, 'a', encoding='utf-8') as stream:
+              stream.write(f'paper_26_3_available={str(paper_26_3_available).lower()}\n')
+              stream.write(f'paper_26_3_version={paper_26_3_version}\n')
+              stream.write(f'probe_available={str(probe_available).lower()}\n')
+              stream.write(f'probe_version={probe_version}\n')
+              stream.write(f'probe_label={probe_label}\n')
+              stream.write(f'probe_mode={probe_mode}\n')
+          PY
+
+      - name: Publish API status
+        run: |
+          {
+            echo '## Paper 26.3 maintained-addon compile lane'
+            echo
+            echo '- Production baseline remains Paper 26.2.'
+            echo '- This workflow is advisory and does not block releases.'
+            echo '- Paper 26.3 API available: `${{ steps.detect.outputs.paper_26_3_available }}`'
+            if [[ '${{ steps.detect.outputs.paper_26_3_available }}' == 'true' ]]; then
+              echo '- Real 26.3 candidate API: `${{ steps.detect.outputs.paper_26_3_version }}`'
+            elif [[ '${{ steps.detect.outputs.probe_mode }}' == 'paper-26.2-plumbing' ]]; then
+              echo '- Paper 26.3 is not published yet.'
+              echo '- This pull request will use `${{ steps.detect.outputs.probe_version }}` only to exercise the compiler plumbing end-to-end.'
+              echo '- A 26.2 plumbing pass is **not** evidence of 26.3 compatibility.'
+            else
+              echo '- No compile candidate is available; addon builds will remain skipped until 26.3 is published.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build-core-candidate:
+    name: Build Slimefun Legacy candidate stack
+    needs: [self-test, detect-paper-api]
+    if: ${{ needs.detect-paper-api.outputs.probe_available == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Build exact core candidate
+        env:
+          PAPER_API_VERSION: ${{ needs.detect-paper-api.outputs.probe_version }}
+          PROBE_LABEL: ${{ needs.detect-paper-api.outputs.probe_label }}
+        run: |
+          set -euo pipefail
+          echo "Building Slimefun Legacy against $PROBE_LABEL API $PAPER_API_VERSION"
+          chmod +x gradlew
+          ./gradlew clean shadowJar -PpaperApiVersion="$PAPER_API_VERSION" --no-daemon
+      - name: Verify candidate JAR
+        run: |
+          set -euo pipefail
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -n "$JAR"
+          test -s "$JAR"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+      - uses: actions/upload-artifact@v7
+        with:
+          name: paper-candidate-slimefun-core
+          path: |
+            build/libs/Slimefun-*.jar
+            !build/libs/*-sources.jar
+            !build/libs/*-javadoc.jar
+          if-no-files-found: error
+
+  prepare-addon-matrix:
+    name: Prepare maintained SF_ compile matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      count: ${{ steps.matrix.outputs.count }}
+      mode: ${{ steps.matrix.outputs.mode }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Generate compile targets
+        id: matrix
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+
+          with open('compatibility/addon-compatibility-matrix.json', encoding='utf-8') as stream:
+              data = json.load(stream)
+
+          event_name = os.environ.get('EVENT_NAME', '')
+          pull_request_mode = event_name == 'pull_request'
+          seen = set()
+          include = []
+
+          for addon in data.get('addons', []):
+              repository = addon.get('repository', '')
+              tier = addon.get('tier', 'unknown')
+              if not addon.get('enabled', False) or not repository.startswith('wickidcow/SF_'):
+                  continue
+              if pull_request_mode and tier != 'required':
+                  continue
+              if repository in seen:
+                  continue
+              seen.add(repository)
+              include.append({
+                  'repository': repository,
+                  'slug': addon.get('slug') or repository.split('/', 1)[1].lower(),
+                  'tier': tier,
+              })
+
+          include.sort(key=lambda item: item['repository'].lower())
+          matrix = json.dumps({'include': include}, separators=(',', ':'))
+          mode = 'required-smoke' if pull_request_mode else 'full-maintained-matrix'
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write(f'matrix={matrix}\n')
+              output.write(f'count={len(include)}\n')
+              output.write(f'mode={mode}\n')
+          PY
+
+      - name: Publish matrix scope
+        run: |
+          {
+            echo '## Maintained addon compile scope'
+            echo
+            echo '- Mode: `${{ steps.matrix.outputs.mode }}`'
+            echo '- Targets: **${{ steps.matrix.outputs.count }}**'
+            if [[ '${{ github.event_name }}' == 'pull_request' ]]; then
+              echo '- Pull requests compile the release-blocking `required` tier only to keep validation bounded.'
+              echo '- Scheduled/manual runs compile every enabled `wickidcow/SF_*` target.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  compile-addons:
+    name: Candidate compile - ${{ matrix.repository }}
+    needs: [detect-paper-api, build-core-candidate, prepare-addon-matrix]
+    if: ${{ needs.detect-paper-api.outputs.probe_available == 'true' && needs.prepare-addon-matrix.outputs.count != '0' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.prepare-addon-matrix.outputs.matrix) }}
+    steps:
+      - name: Check out preflight tooling
+        uses: actions/checkout@v6
+        with:
+          path: preflight-tools
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/download-artifact@v8
+        with:
+          name: paper-candidate-slimefun-core
+          path: build/core
+      - name: Clone maintained addon
+        env:
+          ADDON_REPOSITORY: ${{ matrix.repository }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 "https://github.com/${ADDON_REPOSITORY}.git" addon
+      - name: Compile addon against candidate stack
+        id: probe
+        continue-on-error: true
+        env:
+          PAPER_API_VERSION: ${{ needs.detect-paper-api.outputs.probe_version }}
+          PROBE_LABEL: ${{ needs.detect-paper-api.outputs.probe_label }}
+          PROBE_MODE: ${{ needs.detect-paper-api.outputs.probe_mode }}
+          REPORT_DIR: build/paper-26.3-addon-compile/${{ matrix.slug }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Compile probe mode: $PROBE_MODE"
+          echo "Compile API: $PROBE_LABEL / $PAPER_API_VERSION"
+          JAR="$(find build/core -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -n "$JAR"
+          test -s "$JAR"
+          python3 preflight-tools/scripts/compile_addon_paper_26_3.py \
+            addon \
+            "$JAR" \
+            "$PAPER_API_VERSION" \
+            --report-dir "$REPORT_DIR"
+      - name: Publish addon result
+        if: always()
+        env:
+          PROBE_LABEL: ${{ needs.detect-paper-api.outputs.probe_label }}
+          PROBE_MODE: ${{ needs.detect-paper-api.outputs.probe_mode }}
+          REPORT_DIR: build/paper-26.3-addon-compile/${{ matrix.slug }}
+        run: |
+          if [[ -f "$REPORT_DIR/summary.md" ]]; then
+            if [[ "$PROBE_MODE" == 'paper-26.2-plumbing' ]]; then
+              sed "s/Paper 26\.3/$PROBE_LABEL/g" "$REPORT_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
+              {
+                echo
+                echo '> Plumbing validation only. This result does not claim Paper 26.3 compatibility.'
+              } >> "$GITHUB_STEP_SUMMARY"
+            else
+              cat "$REPORT_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            {
+              echo "## $PROBE_LABEL addon compile probe"
+              echo
+              echo '**Result:** `INSTRUMENTATION_ERROR`'
+              echo
+              echo 'The compile probe did not produce its report.'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Mark advisory incompatibility
+        if: steps.probe.outcome == 'failure'
+        env:
+          PROBE_LABEL: ${{ needs.detect-paper-api.outputs.probe_label }}
+        run: |
+          echo "::warning title=${PROBE_LABEL} addon preflight::${{ matrix.repository }} did not pass the candidate compile probe. Paper 26.2 remains the production baseline."
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: paper-candidate-addon-compile-${{ matrix.slug }}
+          path: build/paper-26.3-addon-compile/${{ matrix.slug }}/
+          if-no-files-found: warn
