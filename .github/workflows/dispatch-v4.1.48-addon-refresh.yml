@@ -1,4 +1,4 @@
-name: Dispatch v4.1.48 Addon Refresh
+name: Dispatch v4.1.48 Addon Checksums
 
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
   dispatch:
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch authoritative addon bundle refresh
+      - name: Dispatch addon bundle checksum validation
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run refresh-addon-bundle.yml --repo wickidcow/Slimefun-Legacy --ref master
+        run: gh workflow run addon-bundle-checksums.yml --repo wickidcow/Slimefun-Legacy --ref master
