@@ -62,7 +62,7 @@ legacy-slimefun-advancements|recognized|SlimefunAdvancements Legacy|SlimefunAdva
 legacy-electric-spawners|recognized|Electric Spawners Legacy|ElectricSpawners,SF_ElectricSpawners|maintained
 legacy-mobdrops|recognized|MobDrops Legacy|SFMobDrops,MobDrops,SF_MobDrops|maintained
 legacy-alchimia-vitae|recognized|AlchimiaVitae Legacy|AlchimiaVitae,Alchimia Vitae,SF_AlchimiaVitae|maintained
-legacy-luckyblocks|recognized|LuckyBlocks Legacy|LuckyBlocks,Lucky Blocks,SlimefunLuckyBlocks,SF_LuckyBlocks,SF_SlimefunLuckyBlocks|maintained
+legacy-luckyblocks|recognized|LuckyBlocks Legacy|LuckyBlocks,Lucky Blocks,SlimefunLuckyBlocks,SF_LuckyBlocks|maintained
 legacy-slimefunwarfare|recognized|SlimefunWarfare Legacy|SlimefunWarfare,Slimefun Warfare,SF_SlimefunWarfare|maintained
 legacy-militaryarsenal|recognized|MilitaryArsenal Legacy|MilitaryArsenal,Military Arsenal,SF_MilitaryArsenal|maintained
 legacy-slimeglue|recognized|SlimeGlue Legacy|SlimeGlue,SF_SlimeGlue|maintained
