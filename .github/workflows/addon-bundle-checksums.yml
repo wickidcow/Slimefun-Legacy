@@ -5,9 +5,6 @@ on:
     branches: [master]
     paths:
       - '.github/workflows/addon-bundle-checksums.yml'
-  workflow_run:
-    workflows: ['Refresh Slimefun Legacy Addon Bundle']
-    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -19,7 +16,6 @@ concurrency:
 
 jobs:
   checksums:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -67,8 +63,8 @@ jobs:
 
           unzip -q "work/${ASSET}" -d bundle
           JAR_COUNT="$(find bundle -type f -name '*.jar' | wc -l)"
-          if [[ "$JAR_COUNT" -ne 41 ]]; then
-            echo "Expected 41 JARs in ${ASSET}, found ${JAR_COUNT}." >&2
+          if [[ "$JAR_COUNT" -ne 42 ]]; then
+            echo "Expected 42 JARs in ${ASSET}, found ${JAR_COUNT}." >&2
             exit 1
           fi
 
@@ -82,7 +78,7 @@ jobs:
             | sed 's#  bundle/#  #' \
             > SFL_AddonsNDependencies.sha256
 
-          test "$(wc -l < SFL_AddonsNDependencies.sha256)" -eq 41
+          test "$(wc -l < SFL_AddonsNDependencies.sha256)" -eq 42
 
           {
             echo '## Slimefun Legacy addon bundle checksums'
@@ -92,7 +88,7 @@ jobs:
             echo "JARs checksummed: **${JAR_COUNT}**"
             echo
             echo 'The manifest uses standard `sha256sum` format and includes every JAR in the release bundle.'
-            echo 'Release-backed addons remain independently verified by the authoritative bundle refresh workflow; manual pins are checksummed here while their source migrations are completed.'
+            echo 'Release-backed addons remain independently verified by the authoritative bundle refresh workflow; external runtime dependencies are finalized by the external-dependency workflow.'
           } >> "$GITHUB_STEP_SUMMARY"
 
           cat SFL_AddonsNDependencies.sha256
