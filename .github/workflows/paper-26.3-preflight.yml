@@ -1,0 +1,348 @@
+name: Paper 26.3 Pre-release Preflight
+
+on:
+  workflow_call:
+    inputs:
+      compile_command:
+        description: Optional addon-specific command that compiles against $PAPER_API_VERSION.
+        required: false
+        type: string
+        default: ''
+  workflow_dispatch:
+    inputs:
+      compile_command:
+        description: Optional addon-specific command that compiles against $PAPER_API_VERSION.
+        required: false
+        type: string
+        default: ''
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'gradle.properties'
+      - 'compatibility/addon-compatibility-matrix.json'
+      - 'scripts/paper_26_3_preflight.py'
+      - 'scripts/paper_26_3_runtime_smoke.sh'
+      - '.github/workflows/paper-26.3-preflight.yml'
+  schedule:
+    - cron: '23 9 * * 4'
+
+permissions:
+  contents: read
+
+env:
+  PAPER_26_3_VERSION: '26.3'
+  PAPER_DOWNLOAD_USER_AGENT: 'Slimefun-Legacy-26.3-Preflight/1.0 (https://github.com/wickidcow/Slimefun-Legacy)'
+
+jobs:
+  detect-paper-26-3:
+    name: Detect usable Paper 26.3 artifacts
+    runs-on: ubuntu-latest
+    outputs:
+      api_available: ${{ steps.detect.outputs.api_available }}
+      api_version: ${{ steps.detect.outputs.api_version }}
+      server_available: ${{ steps.detect.outputs.server_available }}
+      server_build: ${{ steps.detect.outputs.server_build }}
+      server_channel: ${{ steps.detect.outputs.server_channel }}
+    steps:
+      - name: Probe Paper API and server downloads
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import urllib.error
+          import urllib.request
+          import xml.etree.ElementTree as ET
+
+          version = os.environ['PAPER_26_3_VERSION']
+          user_agent = os.environ['PAPER_DOWNLOAD_USER_AGENT']
+          output = os.environ['GITHUB_OUTPUT']
+
+          def fetch(url: str) -> bytes:
+              request = urllib.request.Request(url, headers={'User-Agent': user_agent})
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return response.read()
+
+          api_available = False
+          api_version = ''
+          try:
+              metadata = fetch('https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/maven-metadata.xml')
+              root = ET.fromstring(metadata)
+              candidates = [
+                  node.text.strip()
+                  for node in root.findall('./versioning/versions/version')
+                  if node.text and node.text.strip().startswith(version + '.build.')
+              ]
+              if candidates:
+                  def build_key(value: str):
+                      match = re.match(r'.*?\.build\.(\d+)(?:-([A-Za-z]+))?$', value)
+                      return (int(match.group(1)) if match else -1, value)
+                  api_version = max(candidates, key=build_key)
+                  api_available = True
+          except (OSError, urllib.error.URLError, ET.ParseError) as exc:
+              print(f'Paper API probe unavailable: {exc}')
+
+          server_available = False
+          server_build = ''
+          server_channel = ''
+          try:
+              payload = json.loads(fetch(f'https://fill.papermc.io/v3/projects/paper/versions/{version}/builds'))
+              if isinstance(payload, list) and payload:
+                  build = max(payload, key=lambda item: int(item.get('id', -1)))
+                  download = (build.get('downloads') or {}).get('server:default') or {}
+                  if download.get('url'):
+                      server_available = True
+                      server_build = str(build.get('id', ''))
+                      server_channel = str(build.get('channel', 'unknown'))
+          except (OSError, urllib.error.URLError, json.JSONDecodeError, TypeError, ValueError) as exc:
+              print(f'Paper server probe unavailable: {exc}')
+
+          with open(output, 'a', encoding='utf-8') as stream:
+              stream.write(f'api_available={str(api_available).lower()}\n')
+              stream.write(f'api_version={api_version}\n')
+              stream.write(f'server_available={str(server_available).lower()}\n')
+              stream.write(f'server_build={server_build}\n')
+              stream.write(f'server_channel={server_channel}\n')
+          PY
+
+      - name: Publish detection status
+        run: |
+          {
+            echo '## Paper 26.3 pre-release availability'
+            echo
+            echo '- Paper 26.2 remains the production/runtime baseline.'
+            echo '- This lane is advisory and does not replace any 26.2 gate.'
+            echo '- API available: `${{ steps.detect.outputs.api_available }}`'
+            if [[ '${{ steps.detect.outputs.api_available }}' == 'true' ]]; then
+              echo '- API artifact: `${{ steps.detect.outputs.api_version }}`'
+            fi
+            echo '- Server build available: `${{ steps.detect.outputs.server_available }}`'
+            if [[ '${{ steps.detect.outputs.server_available }}' == 'true' ]]; then
+              echo '- Server build: `${{ steps.detect.outputs.server_build }}` (`${{ steps.detect.outputs.server_channel }}`)'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  scan-target:
+    name: Scan current repository for 26.3 breakpoints
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out target repository
+        uses: actions/checkout@v6
+        with:
+          path: target
+
+      - name: Check out shared preflight tooling for addon callers
+        if: ${{ github.repository != 'wickidcow/Slimefun-Legacy' }}
+        uses: actions/checkout@v6
+        with:
+          repository: wickidcow/Slimefun-Legacy
+          ref: master
+          path: preflight-tools
+
+      - name: Run advisory source scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ '${{ github.repository }}' == 'wickidcow/Slimefun-Legacy' ]]; then
+            SCANNER='target/scripts/paper_26_3_preflight.py'
+          else
+            SCANNER='preflight-tools/scripts/paper_26_3_preflight.py'
+          fi
+          python3 "$SCANNER" target \
+            --json build/paper-26.3-preflight/target.json \
+            --markdown build/paper-26.3-preflight/target.md
+          cat build/paper-26.3-preflight/target.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload target preflight scan
+        uses: actions/upload-artifact@v7
+        with:
+          name: paper-26.3-target-source-scan
+          path: build/paper-26.3-preflight/
+          if-no-files-found: error
+
+  compile-target:
+    name: Compile current repository against Paper 26.3 API
+    needs: detect-paper-26-3
+    if: ${{ needs.detect-paper-26-3.outputs.api_available == 'true' && (github.repository == 'wickidcow/Slimefun-Legacy' || inputs.compile_command != '') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Compile against detected 26.3 API
+        env:
+          PAPER_API_VERSION: ${{ needs.detect-paper-26-3.outputs.api_version }}
+          ADDON_COMPILE_COMMAND: ${{ inputs.compile_command }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew 2>/dev/null || true
+          echo "Paper 26.3 API candidate: $PAPER_API_VERSION"
+          if [[ '${{ github.repository }}' == 'wickidcow/Slimefun-Legacy' ]]; then
+            ./gradlew clean compileJava -PpaperApiVersion="$PAPER_API_VERSION" --no-daemon
+          else
+            bash -lc "$ADDON_COMPILE_COMMAND"
+          fi
+
+  prepare-addon-scan:
+    name: Prepare maintained SF_ preflight matrix
+    if: ${{ github.repository == 'wickidcow/Slimefun-Legacy' }}
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      count: ${{ steps.matrix.outputs.count }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Generate SF_ fork matrix
+        id: matrix
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+
+          with open('compatibility/addon-compatibility-matrix.json', encoding='utf-8') as stream:
+              data = json.load(stream)
+
+          seen = set()
+          include = []
+          for addon in data.get('addons', []):
+              repository = addon.get('repository', '')
+              if not addon.get('enabled', False) or not repository.startswith('wickidcow/SF_'):
+                  continue
+              if repository in seen:
+                  continue
+              seen.add(repository)
+              include.append({
+                  'repository': repository,
+                  'slug': addon.get('slug') or repository.split('/', 1)[1].lower(),
+                  'tier': addon.get('tier', 'unknown'),
+              })
+
+          include.sort(key=lambda item: item['repository'].lower())
+          matrix = json.dumps({'include': include}, separators=(',', ':'))
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write(f'matrix={matrix}\n')
+              output.write(f'count={len(include)}\n')
+          PY
+
+      - name: Publish addon scan scope
+        run: |
+          echo "Maintained/configured SF_ preflight targets: **${{ steps.matrix.outputs.count }}**" >> "$GITHUB_STEP_SUMMARY"
+
+  scan-addons:
+    name: 26.3 source scan - ${{ matrix.repository }}
+    needs: prepare-addon-scan
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix: ${{ fromJSON(needs.prepare-addon-scan.outputs.matrix) }}
+    steps:
+      - name: Check out preflight tooling
+        uses: actions/checkout@v6
+        with:
+          path: preflight-tools
+
+      - name: Clone addon fork
+        env:
+          ADDON_REPOSITORY: ${{ matrix.repository }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 "https://github.com/${ADDON_REPOSITORY}.git" addon
+
+      - name: Scan addon for likely 26.3 breakpoints
+        run: |
+          mkdir -p build/paper-26.3-preflight
+          python3 preflight-tools/scripts/paper_26_3_preflight.py addon \
+            --json "build/paper-26.3-preflight/${{ matrix.slug }}.json" \
+            --markdown "build/paper-26.3-preflight/${{ matrix.slug }}.md"
+          cat "build/paper-26.3-preflight/${{ matrix.slug }}.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload addon source scan
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: paper-26.3-scan-${{ matrix.slug }}
+          path: build/paper-26.3-preflight/
+          if-no-files-found: warn
+
+  paper-runtime-smoke:
+    name: Paper 26.3 pre-release runtime smoke
+    needs: detect-paper-26-3
+    if: ${{ github.repository == 'wickidcow/Slimefun-Legacy' && needs.detect-paper-26-3.outputs.api_available == 'true' && needs.detect-paper-26-3.outputs.server_available == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Pin source identity
+        run: |
+          echo "SOURCE_COMMIT=$GITHUB_SHA" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
+
+      - name: Build universal candidate against Paper 26.3 API
+        env:
+          PAPER_API_VERSION: ${{ needs.detect-paper-26-3.outputs.api_version }}
+        run: |
+          chmod +x gradlew scripts/paper_26_3_runtime_smoke.sh
+          ./gradlew spotlessApply --no-daemon
+          ./gradlew clean shadowJar -PpaperApiVersion="$PAPER_API_VERSION" --no-daemon
+
+      - name: Locate candidate JAR
+        id: candidate
+        run: |
+          set -euo pipefail
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -n "$JAR"
+          test -s "$JAR"
+          echo "jar=$JAR" >> "$GITHUB_OUTPUT"
+
+      - name: Boot Paper 26.3 twice
+        env:
+          SERVER_MINECRAFT_VERSION: '26.3'
+          SERVER_DOWNLOAD_USER_AGENT: ${{ env.PAPER_DOWNLOAD_USER_AGENT }}
+        run: bash scripts/paper_26_3_runtime_smoke.sh "${{ steps.candidate.outputs.jar }}"
+
+      - name: Publish runtime summary
+        if: always()
+        run: |
+          if [[ -f build/paper-26.3-runtime-smoke/smoke-result.txt ]]; then
+            cat build/paper-26.3-runtime-smoke/smoke-result.txt >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -f build/paper-26.3-runtime-smoke/runtime-build.txt ]]; then
+            {
+              echo
+              echo '```text'
+              cat build/paper-26.3-runtime-smoke/runtime-build.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload Paper 26.3 runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: paper-26.3-runtime-smoke
+          path: |
+            build/paper-26.3-runtime-smoke/*.console.log
+            build/paper-26.3-runtime-smoke/runtime-build.txt
+            build/paper-26.3-runtime-smoke/smoke-result.txt
+          if-no-files-found: warn
