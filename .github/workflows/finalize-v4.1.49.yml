@@ -1,4 +1,4 @@
-name: Refresh v4.1.49 Addon Bundle
+name: Finalize v4.1.49 Addon Bundle
 
 on:
   push:
@@ -9,13 +9,71 @@ on:
 
 permissions:
   actions: write
-  contents: read
+  contents: write
 
 jobs:
-  dispatch:
+  finalize:
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch authoritative addon bundle refresh
+      - name: Replace inherited BetterFarming snapshot with latest release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run refresh-addon-bundle.yml --repo wickidcow/Slimefun-Legacy --ref master
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf bundle work latest
+          mkdir -p bundle work latest
+
+          gh release download v4.1.49 \
+            --repo wickidcow/Slimefun-Legacy \
+            --pattern SFL_AddonsNDependencies.zip \
+            --dir work
+          unzip -q work/SFL_AddonsNDependencies.zip -d bundle
+
+          OLD="$(find bundle -type f -iname 'SF_betterfarming*.jar' -print -quit)"
+          test -n "$OLD"
+          DEST_DIR="$(dirname "$OLD")"
+          find bundle -type f -iname 'SF_betterfarming*.jar' -delete
+
+          RELEASE_JSON=latest/betterfarming.json
+          gh api repos/wickidcow/SF_BetterFarming/releases/latest > "$RELEASE_JSON"
+          TAG="$(jq -r '.tag_name' "$RELEASE_JSON")"
+          ASSET="$(jq -r '[.assets[] | select(.state == "uploaded") | select(.name | startswith("SF_BetterFarming")) | select(.name | endswith(".jar"))] | .[0].name // empty' "$RELEASE_JSON")"
+          DIGEST="$(jq -r --arg name "$ASSET" '.assets[] | select(.name == $name) | .digest // empty' "$RELEASE_JSON")"
+          test -n "$TAG"
+          test -n "$ASSET"
+
+          gh release download "$TAG" \
+            --repo wickidcow/SF_BetterFarming \
+            --pattern "$ASSET" \
+            --dir latest
+          test -s "latest/$ASSET"
+          unzip -tqq "latest/$ASSET"
+          if [[ "$DIGEST" == sha256:* ]]; then
+            EXPECTED="${DIGEST#sha256:}"
+            ACTUAL="$(sha256sum "latest/$ASSET" | awk '{print $1}')"
+            test "$ACTUAL" = "$EXPECTED"
+          fi
+          cp "latest/$ASSET" "$DEST_DIR/$ASSET"
+
+          test "$(find bundle -type f -iname 'SF_betterfarming*.jar' | wc -l)" -eq 1
+          test "$(find bundle -type f -name '*.jar' | wc -l)" -eq 41
+          if find bundle -type f -iname 'SF_betterfarming-Build 1 (git d8b712f).jar' | grep -q .; then
+            echo 'Legacy BetterFarming snapshot still present.' >&2
+            exit 1
+          fi
+          while IFS= read -r -d '' jar; do
+            unzip -tqq "$jar"
+          done < <(find bundle -type f -name '*.jar' -print0)
+
+          rm -f SFL_AddonsNDependencies.zip
+          (cd bundle && zip -qr ../SFL_AddonsNDependencies.zip .)
+          sha256sum SFL_AddonsNDependencies.zip
+          gh release upload v4.1.49 SFL_AddonsNDependencies.zip \
+            --repo wickidcow/Slimefun-Legacy \
+            --clobber
+
+      - name: Dispatch checksum verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run addon-bundle-checksums.yml --repo wickidcow/Slimefun-Legacy --ref master
