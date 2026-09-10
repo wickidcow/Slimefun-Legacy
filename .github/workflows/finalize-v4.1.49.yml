@@ -1,4 +1,4 @@
-name: Dispatch v4.1.49 Reproducible Release
+name: Finalize v4.1.49 Compatibility Contracts
 
 on:
   push:
@@ -9,13 +9,42 @@ on:
 
 permissions:
   actions: write
-  contents: read
+  contents: write
 
 jobs:
-  dispatch:
+  finalize:
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch reproducible release from master
+      - name: Check out master
+        uses: actions/checkout@v6
+        with:
+          ref: master
+          fetch-depth: 0
+      - name: Align versioned compatibility contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          for relative in (
+              'compatibility/addon-compatibility-matrix.json',
+              'compatibility/support-contract.json',
+          ):
+              path = Path(relative)
+              text = path.read_text(encoding='utf-8')
+              old = '"release": "4.1.48"'
+              if text.count(old) != 1:
+                  raise SystemExit(f'{relative}: expected exactly one 4.1.48 release marker')
+              path.write_text(text.replace(old, '"release": "4.1.49"', 1), encoding='utf-8')
+          PY
+          git diff --check
+          git config user.name 'wickidcow'
+          git config user.email 'jaywago@gmail.com'
+          git add compatibility/addon-compatibility-matrix.json compatibility/support-contract.json
+          git commit -m 'release: align 4.1.49 compatibility contracts'
+          git push origin HEAD:master
+      - name: Dispatch reproducible release from corrected master
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run reproducible-release.yml --repo wickidcow/Slimefun-Legacy --ref master
