@@ -62,7 +62,7 @@ legacy-slimefun-advancements|recognized|SlimefunAdvancements Legacy|SlimefunAdva
 legacy-electric-spawners|recognized|Electric Spawners Legacy|ElectricSpawners,SF_ElectricSpawners|maintained
 legacy-mobdrops|recognized|MobDrops Legacy|SFMobDrops,MobDrops,SF_MobDrops|maintained
 legacy-alchimia-vitae|recognized|AlchimiaVitae Legacy|AlchimiaVitae,Alchimia Vitae,SF_AlchimiaVitae|maintained
-legacy-luckyblocks|recognized|LuckyBlocks Legacy|LuckyBlocks,Lucky Blocks,SF_LuckyBlocks|maintained
+legacy-luckyblocks|recognized|LuckyBlocks Legacy|LuckyBlocks,Lucky Blocks,SlimefunLuckyBlocks,SF_LuckyBlocks,SF_SlimefunLuckyBlocks|maintained
 legacy-slimefunwarfare|recognized|SlimefunWarfare Legacy|SlimefunWarfare,Slimefun Warfare,SF_SlimefunWarfare|maintained
 legacy-militaryarsenal|recognized|MilitaryArsenal Legacy|MilitaryArsenal,Military Arsenal,SF_MilitaryArsenal|maintained
 legacy-slimeglue|recognized|SlimeGlue Legacy|SlimeGlue,SF_SlimeGlue|maintained
@@ -70,7 +70,15 @@ legacy-worldedit-slimefun|recognized|WorldEditSlimefun Legacy|WorldEditSlimefun,
 legacy-mobcapturer|recognized|MobCapturer Legacy|MobCapturer,SF_MobCapturer|maintained
 legacy-slimy-tree-taps|recognized|SlimyTreeTaps Legacy|SlimyTreeTaps,Slimy Tree Taps,SF_SlimyTreeTaps|maintained
 legacy-worldtaste|recognized|WorldTaste Legacy|WorldTaste,SF_WorldTaste|maintained
-legacy-ryken-slimecustomizer|recognized|RykenSlimeCustomizer Legacy|RykenSlimeCustomizer,Ryken Slime Customizer,SF_RykenSlimeCustomizer|maintained
+legacy-ryken-slimecustomizer|recognized|RykenSlimeCustomizer Legacy|RykenSlimeCustomizer,RykenSlimefunCustomizer,Ryken Slime Customizer,Ryken Slimefun Customizer,SF_RykenSlimeCustomizer|maintained
 legacy-slimeeasy|recognized|SlimeEasy Legacy|SlimeEasy,SF_SlimeEasy|maintained
 legacy-extraheads|recognized|ExtraHeads Legacy|ExtraHeads,Extra Heads,SF_ExtraHeads|maintained
 legacy-genetic-chickengineering|recognized|GeneticChickengineering Legacy|GeneticChickengineering,GeneticChickengineeringReborn,GeneticChickengineering-Reborn,Genetic Chickengineering,SF_GeneticChickEngineering|maintained
+legacy-better-farming|recognized|BetterFarming Legacy|BetterFarming,Better Farming,SF_BetterFarming|maintained
+legacy-extra-tools|recognized|ExtraTools Legacy|ExtraTools,Extra Tools,SF_ExtraTools|maintained
+legacy-fn-amplifications|recognized|FNAmplifications Legacy|FNAmplifications,FN Amplifications,SF_FNAmplifications|maintained
+legacy-galactifun|recognized|Galactifun Legacy|Galactifun,SF_Galactifun|maintained
+legacy-hotbar-pets|recognized|HotbarPets Legacy|HotbarPets,Hotbar Pets,SF_HotbarPets|maintained
+legacy-magic-8-ball|recognized|Magic8Ball Legacy|Magic8Ball,Magic 8 Ball,MagicBall8,MagicBall 8,SF_Magic8Ball|maintained
+legacy-simple-material-generators|recognized|SimpleMaterialGenerators Legacy|SimpleMaterialGenerators,Simple Material Generators,SF_SMG|maintained
+legacy-souljars|recognized|SoulJars Legacy|SoulJars,Soul Jars,SF_SoulJars|maintained
