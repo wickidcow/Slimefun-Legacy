@@ -1,0 +1,139 @@
+name: Verify Carryover Addon Compatibility
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/verify-carryover-addon-compatibility.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  portable:
+    name: ${{ matrix.target }} - ${{ matrix.addon }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        addon: [SMG, SlimyTreeTaps, SoulJars, BetterFarming]
+        target: [Legacy, Gugu, Slimefun4]
+    steps:
+      - name: Resolve addon
+        id: addon
+        shell: bash
+        run: |
+          case '${{ matrix.addon }}' in
+            SMG) echo 'repo=wickidcow/SF_SMG' >> "$GITHUB_OUTPUT"; echo 'ref=master' >> "$GITHUB_OUTPUT" ;;
+            SlimyTreeTaps) echo 'repo=wickidcow/SF_SlimyTreeTaps' >> "$GITHUB_OUTPUT"; echo 'ref=master' >> "$GITHUB_OUTPUT" ;;
+            SoulJars) echo 'repo=wickidcow/SF_SoulJars' >> "$GITHUB_OUTPUT"; echo 'ref=master' >> "$GITHUB_OUTPUT" ;;
+            BetterFarming) echo 'repo=wickidcow/SF_BetterFarming' >> "$GITHUB_OUTPUT"; echo 'ref=main' >> "$GITHUB_OUTPUT" ;;
+          esac
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ steps.addon.outputs.repo }}
+          ref: ${{ steps.addon.outputs.ref }}
+          path: addon
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Validate maintained source policy
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re, sys
+          bad=[]
+          for root in (Path('addon/src'), Path('addon/pom.xml')):
+              paths=[root] if root.is_file() else [p for p in root.rglob('*') if p.is_file()]
+              for p in paths:
+                  t=p.read_text(encoding='utf-8', errors='ignore')
+                  if re.search(r'[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]', t): bad.append(f'CJK: {p}')
+                  if re.search(r'guizhan', t, re.I): bad.append(f'forbidden utility dependency: {p}')
+          if bad:
+              print('\n'.join(bad)); sys.exit(1)
+          PY
+      - name: Install current Slimefun Legacy
+        if: matrix.target == 'Legacy'
+        shell: bash
+        run: |
+          git clone --depth 1 https://github.com/wickidcow/Slimefun-Legacy.git legacy
+          cd legacy
+          chmod +x gradlew
+          ./gradlew publishToMavenLocal -PprojectVersion=CARRYOVER-CI --no-daemon
+      - name: Install exact Gugu 2026.1
+        if: matrix.target == 'Gugu'
+        shell: bash
+        run: |
+          curl --fail --location --retry 3 -o /tmp/Slimefun-2026.1.jar https://github.com/SlimefunGuguProject/Slimefun4/releases/download/2026.1/Slimefun-2026.1.jar
+          echo '32e33503b48af48eb672bf9d2738323bde53b59dda21e45a294a4ac34f7a2368  /tmp/Slimefun-2026.1.jar' | sha256sum --check --strict
+          mvn -B install:install-file -Dfile=/tmp/Slimefun-2026.1.jar -DgroupId=com.github.SlimefunGuguProject -DartifactId=Slimefun4 -Dversion=2026.1 -Dpackaging=jar -DgeneratePom=true
+      - name: Build addon against target
+        working-directory: addon
+        shell: bash
+        run: |
+          case '${{ matrix.target }}' in
+            Legacy)
+              mvn -B clean verify -Dpaper.version='[26.2.build,)' -Dslimefun.groupId=com.github.slimefun -Dslimefun.artifactId=Slimefun -Dslimefun.version=CARRYOVER-CI
+              ;;
+            Gugu)
+              mvn -B clean verify -Dpaper.version='[26.2.build,)' -Dslimefun.groupId=com.github.SlimefunGuguProject -Dslimefun.artifactId=Slimefun4 -Dslimefun.version=2026.1
+              ;;
+            Slimefun4)
+              mvn -B clean verify -Dpaper.version='[26.2.build,)' -Dslimefun.groupId=com.github.Slimefun -Dslimefun.artifactId=Slimefun4 -Dslimefun.version=RC-37
+              ;;
+          esac
+
+  united:
+    name: United - ${{ matrix.addon }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        addon: [SMG, SlimyTreeTaps, SoulJars, BetterFarming]
+    steps:
+      - name: Resolve addon
+        id: addon
+        shell: bash
+        run: |
+          case '${{ matrix.addon }}' in
+            SMG) echo 'repo=wickidcow/SF_SMG' >> "$GITHUB_OUTPUT"; echo 'ref=master' >> "$GITHUB_OUTPUT" ;;
+            SlimyTreeTaps) echo 'repo=wickidcow/SF_SlimyTreeTaps' >> "$GITHUB_OUTPUT"; echo 'ref=master' >> "$GITHUB_OUTPUT" ;;
+            SoulJars) echo 'repo=wickidcow/SF_SoulJars' >> "$GITHUB_OUTPUT"; echo 'ref=master' >> "$GITHUB_OUTPUT" ;;
+            BetterFarming) echo 'repo=wickidcow/SF_BetterFarming' >> "$GITHUB_OUTPUT"; echo 'ref=main' >> "$GITHUB_OUTPUT" ;;
+          esac
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ steps.addon.outputs.repo }}
+          ref: ${{ steps.addon.outputs.ref }}
+          path: addon
+      - uses: actions/checkout@v6
+        with:
+          repository: Slimefun-United/Slimefun-United
+          ref: dev
+          path: united
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Publish Slimefun United locally
+        working-directory: united
+        shell: bash
+        run: |
+          mvn -B -DskipTests install
+          UNITED_VERSION="$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout | tail -n 1)"
+          test -n "$UNITED_VERSION"
+          echo "UNITED_VERSION=$UNITED_VERSION" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Build addon against United
+        working-directory: addon
+        run: mvn -B clean verify -Dpaper.version='[26.2.build,)' -Dslimefun.groupId=io.github.slimefun_united -Dslimefun.artifactId=slimefun-united -Dslimefun.version="${UNITED_VERSION}"
