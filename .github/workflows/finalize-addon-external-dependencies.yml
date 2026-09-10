@@ -96,12 +96,32 @@ jobs:
             --pattern "$PACKETEVENTS_ASSET" \
             --dir latest
           test -s "latest/${PACKETEVENTS_ASSET}"
-          unzip -tqq "latest/${PACKETEVENTS_ASSET}"
+
+          # PacketEvents' published Spigot JAR contains intentionally overlapping ZIP
+          # regions that Info-ZIP rejects as a possible zip bomb. Validate it with the
+          # Java JAR reader instead, and also require the exact GitHub release digest.
+          jar tf "latest/${PACKETEVENTS_ASSET}" >/dev/null
+          PE_EXPECTED_DIGEST="$(gh api "repos/${PACKETEVENTS_REPO}/releases/tags/${PACKETEVENTS_TAG}" \
+            --jq ".assets[] | select(.name == \"${PACKETEVENTS_ASSET}\") | .digest")"
+          if [[ "$PE_EXPECTED_DIGEST" != sha256:* ]]; then
+            echo "PacketEvents release does not expose a SHA-256 digest for ${PACKETEVENTS_ASSET}." >&2
+            exit 1
+          fi
+          PE_ACTUAL_SHA="$(sha256sum "latest/${PACKETEVENTS_ASSET}" | awk '{print $1}')"
+          if [[ "$PE_ACTUAL_SHA" != "${PE_EXPECTED_DIGEST#sha256:}" ]]; then
+            echo 'PacketEvents GitHub release digest mismatch.' >&2
+            exit 1
+          fi
+
           mkdir -p "$DEP_DIR"
           cp "latest/${PACKETEVENTS_ASSET}" "$DEP_DIR/"
 
           while IFS= read -r -d '' jar; do
-            unzip -tqq "$jar"
+            if [[ "$(basename "$jar")" == "$PACKETEVENTS_ASSET" ]]; then
+              jar tf "$jar" >/dev/null
+            else
+              unzip -tqq "$jar"
+            fi
           done < <(find bundle -type f -name '*.jar' -print0)
 
           test "$(find bundle -type f -name "$FAWE_ASSET" | wc -l)" -eq 1
