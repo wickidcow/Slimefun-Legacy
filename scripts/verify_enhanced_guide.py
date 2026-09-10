@@ -98,7 +98,16 @@ def main() -> int:
         require(marker in search_index, f"Smart-search filter missing: {marker}")
     require("openIndexedSearchPage" in indexed_guide and "pageCount" in indexed_guide,
             "Paged indexed search implementation is missing")
-    require("action.isRightClicked()" in indexed_guide, "Right-click bookmark control is missing")
+    require(
+        "action.isShiftClicked() && LegacyGuideSettings.get().hasBookmarks()" in guide
+        and "action.isShiftClicked() && LegacyGuideSettings.get().hasBookmarks()" in indexed_guide,
+        "Shift-click bookmark control is missing",
+    )
+    require(
+        "openItem(profile, pl, item, action.isRightClicked())" in guide
+        and "openIndexedItem(profile, clickedPlayer, item, action.isRightClicked())" in indexed_guide,
+        "Right-click full-stack cheat control is missing",
+    )
     require("research.unlockFromGuide" in guide, "Research unlock behavior is missing")
     require('hasPermission("slimefun.cheat.items")' in indexed_guide, "Cheat-item permission guard is missing")
     require("displayItem(profile, item, true)" in guide, "Classic recipe rendering bridge is missing")
@@ -107,6 +116,20 @@ def main() -> int:
     require("CheatAddonItemGroup.createAddonFolders" not in cheat_guide,
             "Enhanced cheat guide still uses generated generic addon folders")
     require("guide-bookmarks.yml" in bookmarks and "itemId" in bookmarks, "Persistent item-ID bookmarks are missing")
+    require(
+        "private final Map<UUID, LinkedHashSet<String>> bookmarks = new HashMap<>();" in bookmarks,
+        "Per-player in-memory bookmark cache is missing",
+    )
+    require(
+        "bookmarks.computeIfAbsent(" in bookmarks,
+        "Bookmark membership checks no longer reuse the in-memory cache",
+    )
+    require(
+        "implements Listener" in bookmarks
+        and "registerEvents(this, plugin)" in bookmarks
+        and "bookmarks.remove(event.getPlayer().getUniqueId())" in bookmarks,
+        "Bookmark cache eviction on player quit is missing",
+    )
 
     require("runLater(() -> runBuildBatch(state), 1L)" in usage_browser,
             "Recipe-usage indexing no longer yields between scheduled batches")
