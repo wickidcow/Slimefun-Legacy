@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -13,6 +14,7 @@ SPEC = importlib.util.spec_from_file_location("paper_probe", SCRIPT)
 if SPEC is None or SPEC.loader is None:
     raise SystemExit("Could not load compile_addon_paper_26_3.py")
 probe = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = probe
 SPEC.loader.exec_module(probe)
 
 
