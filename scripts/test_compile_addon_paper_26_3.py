@@ -117,6 +117,11 @@ def test_gradle_init_script_guards_both_stacks() -> None:
         assert "org.bukkit" in text
         assert "org.purpurmc.purpur" in text
         assert "SLIMEFUN_COMPATIBILITY_JAR" in text
+        assert "TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE" in text
+        assert "probeRuntimeJvm = 25" in text
+        assert "options.release" not in text
+        assert "targetCompatibility" not in text
+        assert "jvmTarget" not in text
         assert probe.PAPER_REPOSITORY in text
 
 
