@@ -1,0 +1,21 @@
+name: Dispatch v4.1.48 Addon Refresh
+
+on:
+  push:
+    branches:
+      - ops/refresh-v4.1.48-20260910
+    paths:
+      - '.github/workflows/dispatch-v4.1.48-addon-refresh.yml'
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch authoritative addon bundle refresh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run refresh-addon-bundle.yml --repo wickidcow/Slimefun-Legacy --ref master
