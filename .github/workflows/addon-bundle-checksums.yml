@@ -33,6 +33,7 @@ jobs:
           VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
           TAG="v${VERSION}"
           ASSET='SFL_AddonsNDependencies.zip'
+          PACKETEVENTS_ASSET='packetevents-spigot-2.13.0.jar'
 
           rm -rf bundle work
           mkdir -p bundle work
@@ -69,7 +70,11 @@ jobs:
           fi
 
           while IFS= read -r -d '' jar; do
-            unzip -tqq "$jar"
+            if [[ "$(basename "$jar")" == "$PACKETEVENTS_ASSET" ]]; then
+              jar tf "$jar" >/dev/null
+            else
+              unzip -tqq "$jar"
+            fi
           done < <(find bundle -type f -name '*.jar' -print0)
 
           find bundle -type f -name '*.jar' -print0 \
