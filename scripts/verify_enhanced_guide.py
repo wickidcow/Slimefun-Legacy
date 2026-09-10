@@ -14,10 +14,12 @@ ROOT = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
 JAVA_ROOT = ROOT / "src/main/java/io/github/thebusybiscuit/slimefun4"
 GUIDE = JAVA_ROOT / "implementation/guide"
 ENHANCED = GUIDE / "enhanced"
+LANGUAGE_OPTION = JAVA_ROOT / "core/guide/options/PlayerLanguageOption.java"
 REQUIRED_FILES = [
     JAVA_ROOT / "core/SlimefunRegistry.java",
     GUIDE / "GuideSearchIndex.java",
     GUIDE / "IndexedSurvivalSlimefunGuide.java",
+    LANGUAGE_OPTION,
     ENHANCED / "LegacyGuideBootstrap.java",
     ENHANCED / "LegacyGuideSettings.java",
     ENHANCED / "LegacyGuideBookmarks.java",
@@ -70,6 +72,7 @@ def main() -> int:
     bootstrap = sources[ENHANCED / "LegacyGuideBootstrap.java"]
     search_index = sources[GUIDE / "GuideSearchIndex.java"]
     indexed_classic = sources[GUIDE / "IndexedSurvivalSlimefunGuide.java"]
+    language_option = sources[LANGUAGE_OPTION]
     guide = sources[ENHANCED / "EnhancedSurvivalSlimefunGuide.java"]
     indexed_guide = sources[ENHANCED / "IndexedEnhancedSurvivalSlimefunGuide.java"]
     usage_guide = sources[ENHANCED / "RecipeUsageIndexedEnhancedSurvivalSlimefunGuide.java"]
@@ -115,6 +118,24 @@ def main() -> int:
             "Enhanced cheat guide does not mirror the normal guide category hierarchy")
     require("CheatAddonItemGroup.createAddonFolders" not in cheat_guide,
             "Enhanced cheat guide still uses generated generic addon folders")
+
+    settings_controls = guide.split("findSlots(format, 'T')) {", 1)[1].split(
+        "findSlots(format, 'S')) {", 1
+    )[0]
+    require("SlimefunGuideSettings.openSettings" in settings_controls,
+            "Enhanced guide Settings & Info control is missing")
+    require("if (isSurvivalMode())" not in settings_controls,
+            "Enhanced guide Settings & Info must remain available in cheat mode")
+    require("Language language = Slimefun.getLocalization().getLanguage(p);" in language_option,
+            "Language option no longer renders from the active/default language")
+    display_language = language_option.split("public Optional<ItemStack> getDisplayItem", 1)[1].split(
+        "public void onClick", 1
+    )[0]
+    require("return Optional.empty()" not in display_language,
+            "English-only mode must not hide the language option")
+    require("if (Slimefun.getLocalization().isEnabled())" in language_option,
+            "Language selector must only enumerate additional languages when translations are enabled")
+
     require("guide-bookmarks.yml" in bookmarks and "itemId" in bookmarks, "Persistent item-ID bookmarks are missing")
     require(
         "private final Map<UUID, LinkedHashSet<String>> bookmarks = new HashMap<>();" in bookmarks,
