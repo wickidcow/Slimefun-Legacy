@@ -1,4 +1,4 @@
-name: Dispatch v4.1.49 After API Registry Rollover
+name: Refresh v4.1.49 Addon Bundle
 
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
   dispatch:
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch reproducible release from master
+      - name: Dispatch authoritative addon bundle refresh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run reproducible-release.yml --repo wickidcow/Slimefun-Legacy --ref master
+        run: gh workflow run refresh-addon-bundle.yml --repo wickidcow/Slimefun-Legacy --ref master
