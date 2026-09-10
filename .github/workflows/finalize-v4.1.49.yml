@@ -15,6 +15,11 @@ jobs:
   finalize:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
       - name: Normalize final 42-JAR release bundle
         env:
           GH_TOKEN: ${{ github.token }}
@@ -53,39 +58,32 @@ jobs:
           fi
           cp "latest/$BF_ASSET" "$BF_DIR/$BF_ASSET"
 
-          # Normalize FAWE to the exact requested/current Jenkins build.
+          # Normalize FAWE to the exact Jenkins build. Its shaded ZIP layout can
+          # trip Info-ZIP overlap checks, so validate it with Java's JAR reader.
           FAWE_OLD="$(find bundle -type f -iname 'FastAsyncWorldEdit-Paper-*.jar' -print -quit)"
-          if [[ -n "$FAWE_OLD" ]]; then
-            FAWE_DIR="$(dirname "$FAWE_OLD")"
-          else
-            FAWE_DIR='.'
-          fi
+          test -n "$FAWE_OLD"
+          FAWE_DIR="$(dirname "$FAWE_OLD")"
           find bundle -type f -iname 'FastAsyncWorldEdit-Paper-*.jar' -delete
           curl --fail --location --retry 5 --retry-delay 2 \
             --output "latest/$FAWE_ASSET" \
             "https://ci.athion.net/job/FastAsyncWorldEdit/${FAWE_BUILD}/artifact/artifacts/${FAWE_ASSET}"
           test -s "latest/$FAWE_ASSET"
-          unzip -tqq "latest/$FAWE_ASSET"
-          mkdir -p "bundle/$FAWE_DIR"
-          cp "latest/$FAWE_ASSET" "bundle/$FAWE_DIR/$FAWE_ASSET"
+          jar tf "latest/$FAWE_ASSET" >/dev/null
+          cp "latest/$FAWE_ASSET" "$FAWE_DIR/$FAWE_ASSET"
 
-          # Add/normalize PacketEvents for the current external-dependency contract.
-          PE_OLD="$(find bundle -type f -iname 'packetevents-*.jar' -print -quit || true)"
-          if [[ -n "$PE_OLD" ]]; then
-            PE_DIR="$(dirname "$PE_OLD")"
-          else
-            PE_DIR='.'
-          fi
-          find bundle -type f -iname 'packetevents-*.jar' -delete
+          # PacketEvents 2.13.0 is required by the current dependency contract.
+          WED_JAR="$(find bundle -type f -iname 'WorldEditDisplay-*-paper.jar' -print -quit)"
+          test -n "$WED_JAR"
+          DEP_DIR="$(dirname "$WED_JAR")"
+          find bundle -type f \( -iname 'packetevents-spigot-*.jar' -o -iname 'packetevents-bukkit-*.jar' \) -delete
           gh api repos/retrooper/packetevents/releases/tags/$PACKETEVENTS_TAG > latest/packetevents.json
           PE_DIGEST="$(jq -r --arg name "$PACKETEVENTS_ASSET" '.assets[] | select(.name == $name) | .digest // empty' latest/packetevents.json)"
           test "$PE_DIGEST" = 'sha256:6d9ece0d87ee727a79a20b7ffbd432021609c6f52bafcb654fc2d3e9b6f064c5'
           gh release download "$PACKETEVENTS_TAG" --repo retrooper/packetevents --pattern "$PACKETEVENTS_ASSET" --dir latest
           test -s "latest/$PACKETEVENTS_ASSET"
-          unzip -tqq "latest/$PACKETEVENTS_ASSET"
+          jar tf "latest/$PACKETEVENTS_ASSET" >/dev/null
           test "$(sha256sum "latest/$PACKETEVENTS_ASSET" | awk '{print $1}')" = "${PE_DIGEST#sha256:}"
-          mkdir -p "bundle/$PE_DIR"
-          cp "latest/$PACKETEVENTS_ASSET" "bundle/$PE_DIR/$PACKETEVENTS_ASSET"
+          cp "latest/$PACKETEVENTS_ASSET" "$DEP_DIR/$PACKETEVENTS_ASSET"
 
           # Final release-contract checks.
           test "$(find bundle -type f -name '*.jar' | wc -l)" -eq 42
@@ -105,7 +103,12 @@ jobs:
             exit 1
           fi
           while IFS= read -r -d '' jar; do
-            unzip -tqq "$jar"
+            base="$(basename "$jar")"
+            if [[ "$base" == "$FAWE_ASSET" || "$base" == "$PACKETEVENTS_ASSET" ]]; then
+              jar tf "$jar" >/dev/null
+            else
+              unzip -tqq "$jar"
+            fi
           done < <(find bundle -type f -name '*.jar' -print0)
 
           echo 'Final 4.1.49 JAR inventory:'
