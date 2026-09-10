@@ -14,41 +14,29 @@ jobs:
   update-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Update v4.1.48 release notes with verified addon state
+      - name: Update release notes
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          REPO='wickidcow/Slimefun-Legacy'
-          TAG='v4.1.48'
-          gh release view "$TAG" --repo "$REPO" --json body --jq '.body' > release-body.md
+          gh release view v4.1.48 --repo wickidcow/Slimefun-Legacy --json body --jq '.body' > release-body.md
+          if ! grep -Fq '<!-- SFL_ADDON_AUDIT_START -->' release-body.md; then
+            cat >> release-body.md <<'EOF'
 
-          python - <<'PY'
-          from pathlib import Path
-          import re
+          <!-- SFL_ADDON_AUDIT_START -->
+          ## Addon bundle audit — September 10, 2026
 
-          path = Path('release-body.md')
-          body = path.read_text(encoding='utf-8').rstrip()
-          start = '<!-- SFL_ADDON_AUDIT_START -->'
-          end = '<!-- SFL_ADDON_AUDIT_END -->'
-          body = re.sub(r'\n*' + re.escape(start) + r'.*?' + re.escape(end) + r'\n*', '\n', body, flags=re.S).rstrip()
-
-          audit = '''<!-- SFL_ADDON_AUDIT_START -->
-## Addon bundle audit — September 10, 2026
-
-- `SFL_AddonsNDependencies.zip` was fully refreshed from the current maintained addon releases after the latest compatibility fixes.
-- All **38 non-archived `wickidcow/SF_*` repositories** are represented in the bundle by their latest published GitHub Release JAR; the refresh completed with **0 manual/pinned legacy JARs** remaining.
-- The bundle contains exactly **41 structurally valid JARs**: the 38 maintained `SF_*` addon releases, `SF_SFLWorldEdit_1.0.5.jar`, `WorldEditDisplay-2.5.1-paper.jar`, and `FastAsyncWorldEdit-Paper-2.15.5-SNAPSHOT.jar` from validated Jenkins build **#1385**.
-- This refresh advanced `SF_Magic8Ball` to **1.0.1**, `SF_SoulJars` to **1.0.3**, `SF_ExtraTools` to **1.2.2**, `SF_SMG` to **1.0.3**, `SF_BetterFarming` to **1.0.2**, and `SF_HotbarPets` to **1.0.1**; every other release-backed addon was re-resolved and verified against its current latest release as well.
-- `SF_SlimeTinkerIE2-2.0.5.jar` was rebuilt and republished after its Paper 26.2/JDK 25 API migration, then re-ingested by the bundle refresh.
-- The maintained-addon candidate compile is green for **BetterChests, FastMachines, NetworksExp, and SlimeTinkerIE2** from their current repository heads.
-- Slimefun Legacy core and Magic Expansion content are intentionally excluded from this addon/dependency archive.
-- Refreshed bundle SHA-256: `0899354e564f2dd08dbe897900062c788f9a353a9f965b0e60787a3d940d249e`.
-- `SFL_AddonsNDependencies.sha256` was regenerated from the refreshed archive and verifies all 41 bundled JARs.
-<!-- SFL_ADDON_AUDIT_END -->'''
-
-          path.write_text(body + '\n\n' + audit + '\n', encoding='utf-8')
-          PY
-
-          gh release edit "$TAG" --repo "$REPO" --notes-file release-body.md
+          - `SFL_AddonsNDependencies.zip` was fully refreshed from the current maintained addon releases after the latest compatibility fixes.
+          - All **38 non-archived `wickidcow/SF_*` repositories** are represented in the bundle by their latest published GitHub Release JAR; the refresh completed with **0 manual/pinned legacy JARs** remaining.
+          - The bundle contains exactly **41 structurally valid JARs**: the 38 maintained `SF_*` addon releases, `SF_SFLWorldEdit_1.0.5.jar`, `WorldEditDisplay-2.5.1-paper.jar`, and `FastAsyncWorldEdit-Paper-2.15.5-SNAPSHOT.jar` from validated Jenkins build **#1385**.
+          - This refresh advanced `SF_Magic8Ball` to **1.0.1**, `SF_SoulJars` to **1.0.3**, `SF_ExtraTools` to **1.2.2**, `SF_SMG` to **1.0.3**, `SF_BetterFarming` to **1.0.2**, and `SF_HotbarPets` to **1.0.1**; every other release-backed addon was re-resolved and verified against its current latest release as well.
+          - `SF_SlimeTinkerIE2-2.0.5.jar` was rebuilt and republished after its Paper 26.2/JDK 25 API migration, then re-ingested by the bundle refresh.
+          - The maintained-addon candidate compile is green for **BetterChests, FastMachines, NetworksExp, and SlimeTinkerIE2** from their current repository heads.
+          - Slimefun Legacy core and Magic Expansion content are intentionally excluded from this addon/dependency archive.
+          - Refreshed bundle SHA-256: `0899354e564f2dd08dbe897900062c788f9a353a9f965b0e60787a3d940d249e`.
+          - `SFL_AddonsNDependencies.sha256` was regenerated from the refreshed archive and verifies all 41 bundled JARs.
+          <!-- SFL_ADDON_AUDIT_END -->
+          EOF
+          fi
+          gh release edit v4.1.48 --repo wickidcow/Slimefun-Legacy --notes-file release-body.md
