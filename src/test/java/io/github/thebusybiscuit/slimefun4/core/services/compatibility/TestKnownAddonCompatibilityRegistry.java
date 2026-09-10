@@ -34,6 +34,10 @@ class TestKnownAddonCompatibilityRegistry {
         assertTrue(registry.find("SimpleMaterialGenerators").isPresent());
         assertTrue(registry.find("SoulJars").isPresent());
         assertTrue(registry.find("BetterFarming").isPresent());
+        assertTrue(registry.find("FNAmplifications").isPresent());
+        assertTrue(registry.find("Galactifun").isPresent());
+        assertTrue(registry.find("RykenSlimefunCustomizer").isPresent());
+        assertTrue(registry.find("SlimefunLuckyBlocks").isPresent());
         assertFalse(registry.find("CompletelyUnknownAddon").isPresent());
     }
 
@@ -65,6 +69,7 @@ class TestKnownAddonCompatibilityRegistry {
                 "SFMobDrops",
                 "AlchimiaVitae",
                 "LuckyBlocks",
+                "SlimefunLuckyBlocks",
                 "SlimefunWarfare",
                 "MilitaryArsenal",
                 "SlimeGlue",
@@ -73,9 +78,18 @@ class TestKnownAddonCompatibilityRegistry {
                 "SlimyTreeTaps",
                 "WorldTaste",
                 "RykenSlimeCustomizer",
+                "RykenSlimefunCustomizer",
                 "SlimeEasy",
                 "ExtraHeads",
-                "GeneticChickengineering");
+                "GeneticChickengineering",
+                "BetterFarming",
+                "ExtraTools",
+                "FNAmplifications",
+                "Galactifun",
+                "HotbarPets",
+                "Magic8Ball",
+                "SimpleMaterialGenerators",
+                "SoulJars");
 
         for (String pluginName : maintainedRuntimeNames) {
             KnownAddonCompatibilityRegistry.KnownAddonSupport support =
@@ -128,7 +142,6 @@ class TestKnownAddonCompatibilityRegistry {
                 KnownAddonCompatibilityRegistry.load(getClass().getClassLoader());
 
         assertFalse(registry.find("Bump").orElseThrow().isLegacyMaintained());
-        assertFalse(registry.find("ExtraTools").orElseThrow().isLegacyMaintained());
         assertTrue(registry.find("CompletelyUnknownAddon").isEmpty());
     }
 }
