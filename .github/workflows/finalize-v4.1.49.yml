@@ -1,4 +1,4 @@
-name: Finalize v4.1.49 Release Metadata
+name: Dispatch v4.1.49 Reproducible Release
 
 on:
   push:
@@ -8,51 +8,14 @@ on:
       - '.github/workflows/finalize-v4.1.49.yml'
 
 permissions:
-  contents: write
+  actions: write
+  contents: read
 
 jobs:
-  finalize:
+  dispatch:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out master
-        uses: actions/checkout@v6
-        with:
-          ref: master
-          fetch-depth: 0
-      - name: Update 4.1.49 release metadata
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          readme = Path('README.md')
-          text = readme.read_text(encoding='utf-8')
-          replacements = {
-              'Current release: **4.1.48 — Performance, Safe Updating & Enhanced Guide 4.2**.':
-                  'Current release: **4.1.49 — Enhanced Guide polish & Paper 26.3 readiness**.',
-              'Slimefun Legacy 4.1.48 uses the exact released 4.1.47 tag commit as its release-blocking previous-stable compatibility baseline. Required addons that work against 4.1.47 but regress against the 4.1.48 candidate block release.':
-                  'Slimefun Legacy 4.1.49 uses the exact released 4.1.48 tag commit as its release-blocking previous-stable compatibility baseline. Required addons that work against 4.1.48 but regress against the 4.1.49 candidate block release.',
-              'Slimefun Legacy 4.1.48 is tested primarily against':
-                  'Slimefun Legacy 4.1.49 is tested primarily against',
-          }
-          for old, new in replacements.items():
-              if old not in text:
-                  raise SystemExit(f'Missing expected README text: {old}')
-              text = text.replace(old, new, 1)
-          readme.write_text(text, encoding='utf-8')
-
-          gradle = Path('gradle.properties')
-          text = gradle.read_text(encoding='utf-8')
-          old = '# Slimefun Legacy 4.1.49 release - Enhanced Guide polish and Paper 26.3 readiness'
-          new = '# Slimefun Legacy 4.1.49 - Enhanced Guide polish and Paper 26.3 readiness'
-          if old not in text:
-              raise SystemExit('Missing expected 4.1.49 Gradle release marker')
-          gradle.write_text(text.replace(old, new, 1), encoding='utf-8')
-          PY
-          git diff --check
-          git config user.name 'wickidcow'
-          git config user.email 'jaywago@gmail.com'
-          git add README.md gradle.properties
-          git commit -m 'release: finalize Slimefun Legacy 4.1.49 metadata'
-          git push origin HEAD:master
+      - name: Dispatch reproducible release from master
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run reproducible-release.yml --repo wickidcow/Slimefun-Legacy --ref master
