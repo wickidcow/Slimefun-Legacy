@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
-"""Compile a maintained Slimefun addon against a Paper 26.3 candidate stack.
+"""Compile a maintained Slimefun addon against a Paper candidate stack.
 
-The probe is advisory and intentionally works with both Maven and Gradle projects.
-It installs the exact Slimefun Legacy candidate into Maven Local, redirects normal
-Slimefun core coordinates to that candidate, and redirects Bukkit/Spigot/Paper API
-coordinates to the detected Paper 26.3 API before running the addon's normal
+The probe is advisory and works with Maven and Gradle projects. It installs the
+exact Slimefun Legacy candidate into Maven Local, redirects core Slimefun
+coordinates to that candidate, and redirects Bukkit/Spigot/Paper/Purpur API
+coordinates to the selected Paper API before running the addon's normal
 assemble/package path without tests.
 
-This does not edit the source repository: CI runs it against an ephemeral clone.
+Gradle projects may intentionally emit Java 21 bytecode while current Paper API
+artifacts are published as Java 25 variants. The probe therefore selects
+resolvable dependency variants as a Java 25 consumer without changing the
+addon's own compiler release, targetCompatibility, or Kotlin jvmTarget.
+
+CI runs this against an ephemeral clone; the addon repository is never edited.
 """
 
 from __future__ import annotations
@@ -120,10 +125,9 @@ def stream_command(command: list[str], *, cwd: Path, env: dict[str, str], log: T
 def maven_properties(root: ET.Element) -> dict[str, str]:
     properties: dict[str, str] = {}
     for child in root:
-        if local_name(child.tag) != "properties":
-            continue
-        for prop in child:
-            properties[local_name(prop.tag)] = (prop.text or "").strip()
+        if local_name(child.tag) == "properties":
+            for prop in child:
+                properties[local_name(prop.tag)] = (prop.text or "").strip()
     return properties
 
 
@@ -178,11 +182,10 @@ def direct_dependencies(root: ET.Element, namespace: str) -> ET.Element:
 
 
 def ensure_paper_repository(root: ET.Element, namespace: str) -> None:
-    repositories = None
-    for child in root:
-        if local_name(child.tag) == "repositories":
-            repositories = child
-            break
+    repositories = next(
+        (child for child in root if local_name(child.tag) == "repositories"),
+        None,
+    )
     if repositories is None:
         repositories = ET.SubElement(root, namespaced(namespace, "repositories"))
 
@@ -195,7 +198,7 @@ def ensure_paper_repository(root: ET.Element, namespace: str) -> None:
 
     repository = ET.SubElement(repositories, namespaced(namespace, "repository"))
     repository_id = ET.SubElement(repository, namespaced(namespace, "id"))
-    repository_id.text = "papermc-paper-26-3-probe"
+    repository_id.text = "papermc-paper-candidate-probe"
     url = ET.SubElement(repository, namespaced(namespace, "url"))
     url.text = PAPER_REPOSITORY
 
@@ -232,7 +235,9 @@ def patch_maven_project(project: Path, paper_api_version: str) -> tuple[int, int
     direct_core_found = False
     direct_paper_found = False
     root_dependencies = direct_dependencies(root, namespace)
-    root_dependency_ids = {id(node) for node in root_dependencies if local_name(node.tag) == "dependency"}
+    root_dependency_ids = {
+        id(node) for node in root_dependencies if local_name(node.tag) == "dependency"
+    }
 
     for dependency in root.iter():
         if local_name(dependency.tag) != "dependency":
@@ -299,6 +304,7 @@ def write_gradle_init_script(project: Path) -> Path:
         r'''
 def probePaperVersion = System.getenv('PAPER_API_VERSION')
 def probeSlimefunVersion = 'Paper-26.3-CI'
+def probeRuntimeJvm = 25
 
 def isCoreSlimefunDependency(groupValue, artifactValue) {
     def group = (groupValue ?: '').toLowerCase()
@@ -327,10 +333,10 @@ allprojects { p ->
         configuration.resolutionStrategy.eachDependency { details ->
             if (isCoreSlimefunDependency(details.requested.group, details.requested.name)) {
                 details.useTarget("com.github.slimefun:Slimefun:${probeSlimefunVersion}")
-                details.because('Paper 26.3 preflight must compile against the exact Slimefun Legacy candidate')
+                details.because('Paper candidate preflight must compile against the exact Slimefun Legacy candidate')
             } else if (isServerApiDependency(details.requested.group, details.requested.name)) {
                 details.useTarget("io.papermc.paper:paper-api:${probePaperVersion}")
-                details.because('Paper 26.3 preflight must not resolve an older Bukkit/Spigot/Paper API')
+                details.because('Paper candidate preflight must not resolve an older Bukkit/Spigot/Paper API')
             }
         }
     }
@@ -346,6 +352,18 @@ allprojects { p ->
 
 gradle.projectsEvaluated {
     allprojects { p ->
+        // Paper 26.2+ API variants require Java 25. Some maintained addons still
+        // intentionally emit Java 21 bytecode. Override only the consumer variant
+        // attribute used for dependency selection; do not touch compiler targets.
+        p.configurations.configureEach { configuration ->
+            if (configuration.canBeResolved) {
+                configuration.attributes.attribute(
+                    org.gradle.api.attributes.java.TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE,
+                    probeRuntimeJvm
+                )
+            }
+        }
+
         p.tasks.withType(org.gradle.api.tasks.compile.JavaCompile).configureEach { task ->
             task.classpath = p.files(System.getenv('SLIMEFUN_COMPATIBILITY_JAR')) + task.classpath
         }
@@ -377,7 +395,12 @@ def install_slimefun_candidate(project: Path, jar: Path, env: dict[str, str], lo
     )
 
 
-def build_project(project: Path, slimefun_jar: Path, paper_api_version: str, report_dir: Path) -> BuildResult:
+def build_project(
+    project: Path,
+    slimefun_jar: Path,
+    paper_api_version: str,
+    report_dir: Path,
+) -> BuildResult:
     build_system = detect_build_system(project)
     report_dir.mkdir(parents=True, exist_ok=True)
     log_path = report_dir / "compile.log"
@@ -500,18 +523,30 @@ def write_reports(
         "error": error,
     }
     report_dir.mkdir(parents=True, exist_ok=True)
-    (report_dir / "result.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    (report_dir / "result.json").write_text(
+        json.dumps(payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
     (report_dir / "status.txt").write_text(status + "\n", encoding="utf-8")
 
     if status == PASS:
-        explanation = "Addon source compiled successfully against the detected Paper 26.3 API and exact Slimefun Legacy candidate."
+        explanation = (
+            "Addon source compiled successfully against the selected Paper API "
+            "and exact Slimefun Legacy candidate."
+        )
     elif status == COMPILE_FAILED:
-        explanation = "Addon compilation failed under the Paper 26.3 candidate stack. Review compile.log before changing the production baseline."
+        explanation = (
+            "Addon compilation failed under the Paper candidate stack. Review "
+            "compile.log before changing the production baseline."
+        )
     else:
-        explanation = "The probe could not establish a valid Maven/Gradle candidate build. This is instrumentation, not confirmed addon incompatibility."
+        explanation = (
+            "The probe could not establish a valid Maven/Gradle candidate build. "
+            "This is instrumentation, not confirmed addon incompatibility."
+        )
 
     lines = [
-        "## Paper 26.3 addon compile probe",
+        "## Paper candidate addon compile probe",
         "",
         f"**Result:** `{status}`",
         "",
@@ -549,9 +584,9 @@ def main() -> int:
     report_dir = Path(args.report_dir).resolve()
 
     if not project.is_dir():
-        raise SystemExit(f"Paper 26.3 addon compile probe failed: not a directory: {project}")
+        raise SystemExit(f"Paper addon compile probe failed: not a directory: {project}")
     if not slimefun_jar.is_file():
-        raise SystemExit(f"Paper 26.3 addon compile probe failed: Slimefun JAR not found: {slimefun_jar}")
+        raise SystemExit(f"Paper addon compile probe failed: Slimefun JAR not found: {slimefun_jar}")
 
     result: BuildResult | None = None
     error: str | None = None
@@ -561,7 +596,14 @@ def main() -> int:
         error = f"{type(exc).__name__}: {exc}"
         print(error, file=sys.stderr)
 
-    status = write_reports(report_dir, project, slimefun_jar, args.paper_api_version, result, error)
+    status = write_reports(
+        report_dir,
+        project,
+        slimefun_jar,
+        args.paper_api_version,
+        result,
+        error,
+    )
     return EXIT_CODES[status]
 
 
