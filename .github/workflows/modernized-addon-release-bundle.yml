@@ -19,34 +19,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - addon: ExtraTools
-            repo: wickidcow/SF_ExtraTools
-            ref: master
-            jar: SF_ExtraTools1.2.1.jar
-          - addon: HotbarPets
-            repo: wickidcow/SF_HotbarPets
-            ref: master
-            jar: SF_HotbarPets1.0.0.jar
-          - addon: SoulJars
-            repo: wickidcow/SF_SoulJars
-            ref: master
-            jar: SF_SoulJars1.0.0.jar
-          - addon: SMG
-            repo: wickidcow/SF_SMG
-            ref: master
-            jar: SF_SMG1.0.1.jar
-          - addon: BetterFarming
-            repo: wickidcow/SF_BetterFarming
-            ref: main
-            jar: SF_BetterFarming1.0.0.jar
-          - addon: Magic8Ball
-            repo: wickidcow/SF_Magic8Ball
-            ref: master
-            jar: SF_Magic8Ball1.0.0.jar
-          - addon: SlimyTreeTaps
-            repo: wickidcow/SF_SlimyTreeTaps
-            ref: master
-            jar: SF_SlimyTreeTaps1.0.2.jar
+          - { addon: ExtraTools, repo: wickidcow/SF_ExtraTools, ref: master, jar: SF_ExtraTools1.2.1.jar }
+          - { addon: HotbarPets, repo: wickidcow/SF_HotbarPets, ref: master, jar: SF_HotbarPets1.0.0.jar }
+          - { addon: SoulJars, repo: wickidcow/SF_SoulJars, ref: master, jar: SF_SoulJars1.0.0.jar }
+          - { addon: SMG, repo: wickidcow/SF_SMG, ref: master, jar: SF_SMG1.0.1.jar }
+          - { addon: BetterFarming, repo: wickidcow/SF_BetterFarming, ref: main, jar: SF_BetterFarming1.0.0.jar }
+          - { addon: Magic8Ball, repo: wickidcow/SF_Magic8Ball, ref: master, jar: SF_Magic8Ball1.0.0.jar }
+          - { addon: SlimyTreeTaps, repo: wickidcow/SF_SlimyTreeTaps, ref: master, jar: SF_SlimyTreeTaps1.0.2.jar }
     steps:
       - name: Checkout Slimefun Legacy
         uses: actions/checkout@v6
@@ -73,13 +52,13 @@ jobs:
           from pathlib import Path
           import re, sys
           roots = [Path('addon/src'), Path('addon/README.md'), Path('addon/pom.xml')]
-          bad=[]
+          bad = []
           for root in roots:
               if not root.exists():
                   continue
-              paths=[root] if root.is_file() else [p for p in root.rglob('*') if p.is_file()]
+              paths = [root] if root.is_file() else [p for p in root.rglob('*') if p.is_file()]
               for path in paths:
-                  text=path.read_text(encoding='utf-8', errors='ignore')
+                  text = path.read_text(encoding='utf-8', errors='ignore')
                   if re.search(r'[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]', text):
                       bad.append(f'CJK text: {path}')
                   if re.search(r'guizhan', text, re.I):
@@ -122,8 +101,8 @@ jobs:
           path: dist/${{ matrix.jar }}
           if-no-files-found: error
 
-  portable-api:
-    name: ${{ matrix.target.name }} - ${{ matrix.addon.name }}
+  slimefun4:
+    name: Slimefun4 RC-37 - ${{ matrix.addon.name }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -137,9 +116,6 @@ jobs:
           - { name: BetterFarming, repo: wickidcow/SF_BetterFarming, ref: main }
           - { name: Magic8Ball, repo: wickidcow/SF_Magic8Ball, ref: master }
           - { name: SlimyTreeTaps, repo: wickidcow/SF_SlimyTreeTaps, ref: master }
-        target:
-          - { name: Gugu-2026.1, group: com.github.SlimefunGuguProject, artifact: Slimefun4, version: '2026.1' }
-          - { name: Slimefun4-RC37, group: com.github.Slimefun, artifact: Slimefun4, version: RC-37 }
     steps:
       - uses: actions/checkout@v6
         with:
@@ -150,18 +126,67 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: maven
-      - name: Build compatibility target
+      - name: Build against original Slimefun4 RC-37
         run: >-
           mvn -B clean verify
           -Dpaper.version='[26.2.build,)'
-          -Dslimefun.groupId='${{ matrix.target.group }}'
-          -Dslimefun.artifactId='${{ matrix.target.artifact }}'
-          -Dslimefun.version='${{ matrix.target.version }}'
+          -Dslimefun.groupId='com.github.Slimefun'
+          -Dslimefun.artifactId='Slimefun4'
+          -Dslimefun.version='RC-37'
+
+  gugu:
+    name: Gugu 2026.1 - ${{ matrix.addon.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        addon:
+          - { name: ExtraTools, repo: wickidcow/SF_ExtraTools, ref: master }
+          - { name: HotbarPets, repo: wickidcow/SF_HotbarPets, ref: master }
+          - { name: SoulJars, repo: wickidcow/SF_SoulJars, ref: master }
+          - { name: SMG, repo: wickidcow/SF_SMG, ref: master }
+          - { name: BetterFarming, repo: wickidcow/SF_BetterFarming, ref: main }
+          - { name: Magic8Ball, repo: wickidcow/SF_Magic8Ball, ref: master }
+          - { name: SlimyTreeTaps, repo: wickidcow/SF_SlimyTreeTaps, ref: master }
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ matrix.addon.repo }}
+          ref: ${{ matrix.addon.ref }}
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Install exact official Gugu 2026.1 release API
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            --output /tmp/Slimefun-2026.1.jar \
+            'https://github.com/SlimefunGuguProject/Slimefun4/releases/download/2026.1/Slimefun-2026.1.jar'
+          echo '32e33503b48af48eb672bf9d2738323bde53b59dda21e45a294a4ac34f7a2368  /tmp/Slimefun-2026.1.jar' | sha256sum --check --strict
+          unzip -tqq /tmp/Slimefun-2026.1.jar
+          mvn -B install:install-file \
+            -Dfile=/tmp/Slimefun-2026.1.jar \
+            -DgroupId=com.github.SlimefunGuguProject \
+            -DartifactId=Slimefun4 \
+            -Dversion=2026.1 \
+            -Dpackaging=jar \
+            -DgeneratePom=true
+      - name: Build against exact Gugu 2026.1 release
+        run: >-
+          mvn -B clean verify
+          -Dpaper.version='[26.2.build,)'
+          -Dslimefun.groupId='com.github.SlimefunGuguProject'
+          -Dslimefun.artifactId='Slimefun4'
+          -Dslimefun.version='2026.1'
 
   united:
     name: United - ${{ matrix.addon.name }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
@@ -179,30 +204,44 @@ jobs:
           repository: ${{ matrix.addon.repo }}
           ref: ${{ matrix.addon.ref }}
           path: addon
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '25'
-          cache: maven
       - uses: actions/checkout@v6
         with:
           repository: Slimefun-United/Slimefun-United
+          ref: dev
           path: united
-      - name: Publish Slimefun United locally
+      - name: Set up Java 21 for Slimefun United
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Publish current Slimefun United locally
         working-directory: united
-        run: mvn -B -DskipTests install
-      - name: Build addon against Slimefun United
+        shell: bash
+        run: |
+          set -euo pipefail
+          mvn -B -DskipTests install
+          UNITED_VERSION="$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout | tail -n 1)"
+          test -n "$UNITED_VERSION"
+          echo "UNITED_VERSION=$UNITED_VERSION" >> "$GITHUB_ENV"
+          echo "Using Slimefun United $UNITED_VERSION"
+      - name: Set up Java 25 for addon
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Build addon against current Slimefun United
         working-directory: addon
         run: >-
           mvn -B clean verify
           -Dpaper.version='[26.2.build,)'
           -Dslimefun.groupId='io.github.slimefun_united'
           -Dslimefun.artifactId='slimefun-united'
-          -Dslimefun.version='4.10-SNAPSHOT'
+          -Dslimefun.version='${{ env.UNITED_VERSION }}'
 
   bundle:
     name: Build AlbionMC addon set and refresh release bundle
-    needs: [build-legacy, portable-api, united]
+    needs: [build-legacy, slimefun4, gugu, united]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v7
@@ -250,7 +289,6 @@ jobs:
         run: |
           set -euo pipefail
           (cd bundle && zip -q -9 ../SFL_AddonsNDependencies.zip *.jar)
-          : > SFL_AddonsNDependencies.sha256
           while IFS= read -r file; do
             sha256sum "bundle/$file" | sed 's#  bundle/#  #'
           done < <(find bundle -maxdepth 1 -type f -name '*.jar' -printf '%f\n' | sort) > SFL_AddonsNDependencies.sha256
@@ -260,8 +298,7 @@ jobs:
       - name: Publish refreshed v4.1.48 bundle assets
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release upload v4.1.48 SFL_AddonsNDependencies.zip SFL_AddonsNDependencies.sha256 --clobber
+        run: gh release upload v4.1.48 SFL_AddonsNDependencies.zip SFL_AddonsNDependencies.sha256 --clobber
       - name: Upload changed JAR set
         uses: actions/upload-artifact@v6
         with:
