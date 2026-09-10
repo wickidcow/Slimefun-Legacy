@@ -23,7 +23,8 @@ class TestLegacyMaintainedAddonCatalog {
                 "RykenSlimefunCustomizer",
                 "SimpleMaterialGenerators",
                 "SlimefunLuckyBlocks",
-                "SoulJars");
+                "SoulJars",
+                "WeaponsAddon");
 
         for (String pluginName : maintainedRuntimeNames) {
             KnownAddonCompatibilityRegistry.KnownAddonSupport support = registry.find(pluginName)
@@ -44,6 +45,7 @@ class TestLegacyMaintainedAddonCatalog {
                 "SF_Galactifun",
                 "SF_HotbarPets",
                 "SF_Magic8Ball",
+                "SF_MilitaryArsenal",
                 "SF_RykenSlimeCustomizer",
                 "SF_SMG",
                 "SF_LuckyBlocks",
@@ -63,7 +65,7 @@ class TestLegacyMaintainedAddonCatalog {
                 KnownAddonCompatibilityRegistry.load(getClass().getClassLoader());
 
         for (String pluginName :
-                List.of("ItemsAdder", "ShopGUIPlus", "BetterStructures", "ODailyQuests", "Brewery", "zMenu", "WeaponsAddon")) {
+                List.of("ItemsAdder", "ShopGUIPlus", "BetterStructures", "ODailyQuests", "Brewery", "zMenu")) {
             assertFalse(
                     registry.find(pluginName)
                             .map(KnownAddonCompatibilityRegistry.KnownAddonSupport::isLegacyMaintained)
