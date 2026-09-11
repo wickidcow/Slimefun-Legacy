@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.implementation.setup;
 
-import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.groups.NestedItemGroup;
@@ -11,9 +10,13 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.curios.starter.Re
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.starter.StoneHammer;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.starter.UniversalLeash;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.starter.WoodenKama;
+import java.util.List;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 /** Registers lightweight starter and field-utility tools beneath Adventurer's Curios. */
 final class StarterCuriosSetup {
@@ -35,14 +38,7 @@ final class StarterCuriosSetup {
         registered = true;
 
         SubItemGroup starterUtilities = new SubItemGroup(
-                new NamespacedKey(plugin, "adventurers_curios_starter"),
-                curios,
-                new CustomItemStack(
-                        Material.WOODEN_HOE,
-                        "&6Starter Utilities",
-                        "&7Simple expedition tools and",
-                        "&7early Slimefun resource helpers."),
-                1);
+                new NamespacedKey(plugin, "adventurers_curios_starter"), curios, createStarterUtilitiesIcon(), 1);
 
         SlimefunItemStack universalLeash = new SlimefunItemStack(
                 "ADVENTURERS_UNIVERSAL_LEASH",
@@ -149,6 +145,17 @@ final class StarterCuriosSetup {
                 });
         kama.register(plugin);
         kama.registerListener(plugin);
+    }
+
+    private static ItemStack createStarterUtilitiesIcon() {
+        ItemStack icon = new ItemStack(Material.WOODEN_HOE);
+        ItemMeta meta = icon.getItemMeta();
+        meta.displayName(Component.text("Starter Utilities", NamedTextColor.GOLD));
+        meta.lore(List.of(
+                Component.text("Simple expedition tools and", NamedTextColor.GRAY),
+                Component.text("early Slimefun resource helpers.", NamedTextColor.GRAY)));
+        icon.setItemMeta(meta);
+        return icon;
     }
 
     private static NestedItemGroup findCuriosGroup(Slimefun plugin) {
