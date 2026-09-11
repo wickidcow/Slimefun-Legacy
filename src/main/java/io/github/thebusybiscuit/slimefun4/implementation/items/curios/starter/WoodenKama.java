@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.curios.starter;
 
+import io.github.bakedlibs.dough.protection.Interaction;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
@@ -36,7 +37,9 @@ public final class WoodenKama extends SlimefunItem implements Listener {
     public void onLeafBreak(BlockBreakEvent event) {
         if (event.getPlayer().getGameMode() == GameMode.CREATIVE
                 || !Tag.LEAVES.isTagged(event.getBlock().getType())
-                || !isItem(event.getPlayer().getInventory().getItemInMainHand())) {
+                || !isItem(event.getPlayer().getInventory().getItemInMainHand())
+                || !Slimefun.getProtectionManager()
+                        .hasPermission(event.getPlayer(), event.getBlock(), Interaction.BREAK_BLOCK)) {
             return;
         }
 
