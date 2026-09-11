@@ -280,13 +280,19 @@ jobs:
             --output "latest/${FAWE_ASSET}" \
             "$FAWE_URL"
           test -s "latest/${FAWE_ASSET}"
-          unzip -tqq "latest/${FAWE_ASSET}"
+          # FAWE's shaded JAR intentionally contains overlapping ZIP components; Java can read it normally,
+          # while modern Info-ZIP rejects it as a possible zip bomb. Validate with the JDK instead.
+          jar tf "latest/${FAWE_ASSET}" >/dev/null
           mkdir -p "$FAWE_DIR"
           cp "latest/${FAWE_ASSET}" "$FAWE_DIR/"
 
-          # Every bundled JAR must at least be a structurally valid ZIP/JAR, including manual pins.
+          # Every bundled JAR must at least be structurally readable, including manual pins.
           while IFS= read -r -d '' jar; do
-            unzip -tqq "$jar"
+            if [[ "$(basename "$jar")" == "$FAWE_ASSET" ]]; then
+              jar tf "$jar" >/dev/null
+            else
+              unzip -tqq "$jar"
+            fi
           done < <(find bundle -type f -name '*.jar' -print0)
 
           test "$(find bundle -type f -name "$FAWE_ASSET" | wc -l)" -eq 1
