@@ -1,0 +1,136 @@
+name: Refresh Networks Expansion in Addon Bundle
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/refresh-networksexp-bundle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-networksexp-addon-bundle
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Replace Networks Expansion with latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
+          TAG="v${VERSION}"
+          BUNDLE='SFL_AddonsNDependencies.zip'
+
+          rm -rf bundle work latest
+          mkdir -p bundle work latest
+
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$BUNDLE" --dir work
+          unzip -q "work/$BUNDLE" -d bundle
+
+          mapfile -t OLD_NETWORKS < <(find bundle -type f -name 'SF_NetworksExp*.jar' -print)
+          if [[ "${#OLD_NETWORKS[@]}" -ne 1 ]]; then
+            echo "Expected exactly one SF_NetworksExp JAR in the bundle; found ${#OLD_NETWORKS[@]}." >&2
+            printf '%s\n' "${OLD_NETWORKS[@]:-}" >&2
+            exit 1
+          fi
+          NETWORKS_DIR="$(dirname "${OLD_NETWORKS[0]}")"
+
+          gh api repos/wickidcow/SF_NetworksExp/releases/latest > latest/networks.json
+          NETWORKS_TAG="$(jq -r '.tag_name' latest/networks.json)"
+          NETWORKS_ASSET="$(jq -r '[.assets[] | select(.state == "uploaded") | select(.name | startswith("SF_NetworksExp")) | select(.name | endswith(".jar"))] | .[0].name // empty' latest/networks.json)"
+          if [[ -z "$NETWORKS_ASSET" ]]; then
+            echo 'Latest SF_NetworksExp release has no matching JAR asset.' >&2
+            exit 1
+          fi
+
+          gh release download "$NETWORKS_TAG" --repo wickidcow/SF_NetworksExp --pattern "$NETWORKS_ASSET" --dir latest
+          NETWORKS_JAR="latest/$NETWORKS_ASSET"
+          test -s "$NETWORKS_JAR"
+          unzip -tqq "$NETWORKS_JAR"
+
+          EXPECTED_DIGEST="$(jq -r --arg name "$NETWORKS_ASSET" '.assets[] | select(.name == $name) | .digest // empty' latest/networks.json)"
+          if [[ "$EXPECTED_DIGEST" == sha256:* ]]; then
+            EXPECTED_SHA="${EXPECTED_DIGEST#sha256:}"
+            ACTUAL_SHA="$(sha256sum "$NETWORKS_JAR" | awk '{print $1}')"
+            if [[ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]]; then
+              echo "Networks Expansion digest mismatch: expected ${EXPECTED_SHA}, got ${ACTUAL_SHA}." >&2
+              exit 1
+            fi
+          fi
+
+          rm -f "${OLD_NETWORKS[0]}"
+          cp "$NETWORKS_JAR" "$NETWORKS_DIR/$NETWORKS_ASSET"
+
+          if [[ "$(find bundle -type f -name 'SF_NetworksExp*.jar' | wc -l)" -ne 1 ]]; then
+            echo 'Networks Expansion replacement produced an invalid bundle inventory.' >&2
+            exit 1
+          fi
+          test -s "$NETWORKS_DIR/$NETWORKS_ASSET"
+
+          JAR_COUNT="$(find bundle -type f -name '*.jar' | wc -l)"
+          if [[ "$JAR_COUNT" -ne 42 ]]; then
+            echo "Expected 42 JARs after replacement, found ${JAR_COUNT}." >&2
+            exit 1
+          fi
+
+          rm -f "$BUNDLE"
+          (cd bundle && zip -qr "../$BUNDLE" .)
+          unzip -Z1 "$BUNDLE" | grep -F "$NETWORKS_ASSET"
+
+          echo "NETWORKS_ASSET=$NETWORKS_ASSET" >> "$GITHUB_ENV"
+          echo "BUNDLE_SHA=$(sha256sum "$BUNDLE" | awk '{print $1}')" >> "$GITHUB_ENV"
+
+      - name: Publish refreshed bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
+          gh release upload "v${VERSION}" SFL_AddonsNDependencies.zip --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Rebuild checksum manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          find bundle -type f -name '*.jar' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | sed 's#  bundle/#  #' \
+            > SFL_AddonsNDependencies.sha256
+          test "$(wc -l < SFL_AddonsNDependencies.sha256)" -eq 42
+
+          VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
+          gh release upload "v${VERSION}" SFL_AddonsNDependencies.sha256 --repo "$GITHUB_REPOSITORY" --clobber
+
+          {
+            echo '## Targeted Networks Expansion bundle refresh'
+            echo
+            echo "Networks asset: **${NETWORKS_ASSET}**"
+            echo "Bundle SHA-256: \`${BUNDLE_SHA}\`"
+            echo 'Updated the current Slimefun Legacy release bundle without rebuilding unrelated addon JARs.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload refreshed bundle artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: Slimefun-Legacy-Networks-Refresh
+          path: |
+            SFL_AddonsNDependencies.zip
+            SFL_AddonsNDependencies.sha256
+          archive: false
+          if-no-files-found: error
