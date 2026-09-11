@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Refresh marker: Supreme Legacy 1.0.6 rollback backpressure safety.
+  # Refresh marker: Networks Expansion 1.0.15 pusher scheduling performance.
   BASE_BUNDLE_TAG: v4.1.48
   FAWE_BUILD: '1385'
   FAWE_ASSET: FastAsyncWorldEdit-Paper-2.15.5-SNAPSHOT.jar
