@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.curios.starter;
 
-import io.github.bakedlibs.dough.protection.Interaction;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
@@ -52,7 +51,7 @@ public final class UniversalLeash extends SlimefunItem {
 
         event.setCancelled(true);
 
-        if (!Slimefun.getProtectionManager().hasPermission(player, target.getLocation(), Interaction.INTERACT_ENTITY)) {
+        if (!Slimefun.getIntegrations().canInteractEntity(player, target)) {
             player.sendMessage(ChatColor.RED + "You cannot leash that entity here.");
             return;
         }
