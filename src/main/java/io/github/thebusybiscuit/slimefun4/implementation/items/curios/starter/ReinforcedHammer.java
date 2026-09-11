@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.curios.starter;
 
-import io.github.bakedlibs.dough.protection.Interaction;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
@@ -39,12 +38,11 @@ public final class ReinforcedHammer extends SimpleSlimefunItem<ItemUseHandler> {
             }
 
             Player player = event.getPlayer();
-            if (!Slimefun.getProtectionManager().hasPermission(player, block, Interaction.BREAK_BLOCK)) {
+            if (!Slimefun.getIntegrations().canBreakBlockAndLog(player, block)) {
                 return;
             }
 
             event.cancel();
-            Slimefun.getProtectionManager().logAction(player, block, Interaction.BREAK_BLOCK);
             block.getWorld().dropItemNaturally(block.getLocation().add(0.5D, 0.4D, 0.5D), output);
             block.setType(Material.AIR, false);
             StoneHammer.damageTool(event.getItem());
