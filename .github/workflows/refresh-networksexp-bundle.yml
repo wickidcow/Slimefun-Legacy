@@ -134,12 +134,18 @@ jobs:
             echo 'Updated the current Slimefun Legacy release bundle without rebuilding unrelated addon JARs.'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload refreshed bundle artifacts
+      - name: Upload refreshed bundle artifact
         uses: actions/upload-artifact@v7
         with:
-          name: Slimefun-Legacy-Networks-Refresh
-          path: |
-            SFL_AddonsNDependencies.zip
-            SFL_AddonsNDependencies.sha256
+          name: SFL_AddonsNDependencies.zip
+          path: SFL_AddonsNDependencies.zip
+          archive: false
+          if-no-files-found: error
+
+      - name: Upload checksum artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: SFL_AddonsNDependencies.sha256
+          path: SFL_AddonsNDependencies.sha256
           archive: false
           if-no-files-found: error
