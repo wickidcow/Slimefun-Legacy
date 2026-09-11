@@ -1,0 +1,163 @@
+name: Update Relics in Slimefun Addon Bundle
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/update-relics-addon-bundle.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-relics-addon-bundle
+  cancel-in-progress: true
+
+jobs:
+  update-relics:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Slimefun Legacy
+        uses: actions/checkout@v6
+
+      - name: Resolve current Slimefun Legacy release
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
+          test -n "$VERSION"
+          echo "sfl_version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sfl_tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Download current addon bundle and latest Relics release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SFL_TAG: ${{ steps.meta.outputs.sfl_tag }}
+          RELICS_REPO: wickidcow/SF_RelicsOfCthonia
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work bundle relics
+
+          gh release download "$SFL_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'SFL_AddonsNDependencies.zip' \
+            --dir work
+          test -s work/SFL_AddonsNDependencies.zip
+          unzip -q work/SFL_AddonsNDependencies.zip -d bundle
+
+          gh api "repos/${RELICS_REPO}/releases/latest" > work/relics-release.json
+          RELICS_TAG="$(jq -r '.tag_name' work/relics-release.json)"
+          RELICS_ASSET="$(jq -r '[.assets[] | select(.state == "uploaded") | select(.name | startswith("SF_RelicsOfCthonia")) | select(.name | endswith(".jar"))] | .[0].name // empty' work/relics-release.json)"
+
+          if [[ -z "$RELICS_TAG" || "$RELICS_TAG" == 'null' || -z "$RELICS_ASSET" ]]; then
+            echo 'Could not resolve the latest maintained Relics of Cthonia release JAR.' >&2
+            exit 1
+          fi
+
+          gh release download "$RELICS_TAG" \
+            --repo "$RELICS_REPO" \
+            --pattern "$RELICS_ASSET" \
+            --dir relics
+
+          test -s "relics/$RELICS_ASSET"
+          unzip -tqq "relics/$RELICS_ASSET"
+
+          EXPECTED_DIGEST="$(jq -r --arg name "$RELICS_ASSET" '.assets[] | select(.name == $name) | .digest // empty' work/relics-release.json)"
+          if [[ "$EXPECTED_DIGEST" == sha256:* ]]; then
+            EXPECTED_SHA="${EXPECTED_DIGEST#sha256:}"
+            ACTUAL_SHA="$(sha256sum "relics/$RELICS_ASSET" | awk '{print $1}')"
+            if [[ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]]; then
+              echo 'Relics release digest mismatch.' >&2
+              echo "expected: $EXPECTED_SHA" >&2
+              echo "actual:   $ACTUAL_SHA" >&2
+              exit 1
+            fi
+          fi
+
+          echo "RELICS_TAG=$RELICS_TAG" >> "$GITHUB_ENV"
+          echo "RELICS_ASSET=$RELICS_ASSET" >> "$GITHUB_ENV"
+
+      - name: Replace or add Relics without changing other bundle selections
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t OLD_RELICS < <(find bundle -type f -iname '*RelicsOfCthonia*.jar' -print | sort)
+
+          if [[ "${#OLD_RELICS[@]}" -gt 0 ]]; then
+            DEST_DIR="$(dirname "${OLD_RELICS[0]}")"
+            echo 'Existing Relics entries:'
+            printf '  %s\n' "${OLD_RELICS[@]}"
+          else
+            FIRST_SF_JAR="$(find bundle -type f -name 'SF_*.jar' -print -quit)"
+            if [[ -z "$FIRST_SF_JAR" ]]; then
+              echo 'Could not determine the addon JAR directory in the existing bundle.' >&2
+              exit 1
+            fi
+            DEST_DIR="$(dirname "$FIRST_SF_JAR")"
+            echo "Relics was not present in the current bundle; adding it beside the existing SF_ addon JARs in ${DEST_DIR#bundle/}."
+          fi
+
+          find bundle -type f -iname '*RelicsOfCthonia*.jar' -delete
+          cp "relics/$RELICS_ASSET" "$DEST_DIR/$RELICS_ASSET"
+
+          mapfile -t FINAL_RELICS < <(find bundle -type f -iname '*RelicsOfCthonia*.jar' -print | sort)
+          if [[ "${#FINAL_RELICS[@]}" -ne 1 ]]; then
+            echo "Expected exactly one Relics JAR after replacement; found ${#FINAL_RELICS[@]}." >&2
+            printf '%s\n' "${FINAL_RELICS[@]}" >&2
+            exit 1
+          fi
+
+          if [[ "$(basename "${FINAL_RELICS[0]}")" != "$RELICS_ASSET" ]]; then
+            echo 'The final Relics filename does not match the maintained release asset.' >&2
+            exit 1
+          fi
+
+          unzip -tqq "${FINAL_RELICS[0]}"
+          echo "Installed bundle entry: ${FINAL_RELICS[0]#bundle/}"
+
+      - name: Rebuild bundle and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f SFL_AddonsNDependencies.zip SFL_AddonsNDependencies.sha256
+          (cd bundle && zip -qr ../SFL_AddonsNDependencies.zip .)
+
+          test -s SFL_AddonsNDependencies.zip
+          MATCH_COUNT="$(unzip -Z1 SFL_AddonsNDependencies.zip | grep -Ec '(^|/)[^/]*RelicsOfCthonia[^/]*\.jar$')"
+          if [[ "$MATCH_COUNT" -ne 1 ]]; then
+            echo "Expected one Relics JAR in the rebuilt bundle; found $MATCH_COUNT." >&2
+            exit 1
+          fi
+
+          unzip -Z1 SFL_AddonsNDependencies.zip | grep -F "$RELICS_ASSET"
+          sha256sum SFL_AddonsNDependencies.zip > SFL_AddonsNDependencies.sha256
+          cat SFL_AddonsNDependencies.sha256
+
+      - name: Publish updated bundle to current Slimefun Legacy release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SFL_TAG: ${{ steps.meta.outputs.sfl_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "$SFL_TAG" \
+            SFL_AddonsNDependencies.zip \
+            SFL_AddonsNDependencies.sha256 \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
+          echo "Updated ${SFL_TAG} addon bundle with ${RELICS_ASSET} (${RELICS_TAG})." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload verification artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: SFL-Addon-Bundle-${{ steps.meta.outputs.sfl_version }}-Relics
+          path: |
+            SFL_AddonsNDependencies.zip
+            SFL_AddonsNDependencies.sha256
+          if-no-files-found: error
