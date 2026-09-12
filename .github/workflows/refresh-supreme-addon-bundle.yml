@@ -41,6 +41,9 @@ jobs:
             --dir work
           unzip -q work/SFL_AddonsNDependencies.zip -d bundle
 
+          ORIGINAL_JAR_COUNT="$(find bundle -type f -name '*.jar' | wc -l)"
+          echo "Preserving existing bundle size: ${ORIGINAL_JAR_COUNT} JARs"
+
           mapfile -t OLD_SUPREME < <(find bundle -type f -iname 'SF_Supreme*.jar' | sort)
           if [[ "${#OLD_SUPREME[@]}" -ne 1 ]]; then
             echo "Expected exactly one Supreme JAR in the bundle, found ${#OLD_SUPREME[@]}." >&2
@@ -81,8 +84,8 @@ jobs:
           fi
 
           JAR_COUNT="$(find bundle -type f -name '*.jar' | wc -l)"
-          if [[ "$JAR_COUNT" -ne 42 ]]; then
-            echo "Expected 42 JARs after Supreme replacement, found ${JAR_COUNT}." >&2
+          if [[ "$JAR_COUNT" -ne "$ORIGINAL_JAR_COUNT" ]]; then
+            echo "Bundle JAR count changed unexpectedly: ${ORIGINAL_JAR_COUNT} -> ${JAR_COUNT}." >&2
             find bundle -type f -name '*.jar' -printf '%P\n' | sort >&2
             exit 1
           fi
@@ -95,7 +98,7 @@ jobs:
             | sed 's#  bundle/#  #' \
             > SFL_AddonsNDependencies.sha256
 
-          test "$(wc -l < SFL_AddonsNDependencies.sha256)" -eq 42
+          test "$(wc -l < SFL_AddonsNDependencies.sha256)" -eq "$ORIGINAL_JAR_COUNT"
           grep -F "  ${SUPREME_DIR#bundle/}/${SUPREME_ASSET}" SFL_AddonsNDependencies.sha256
           SUPREME_MANIFEST_SHA="$(grep -F "  ${SUPREME_DIR#bundle/}/${SUPREME_ASSET}" SFL_AddonsNDependencies.sha256 | awk '{print $1}')"
           test "$SUPREME_MANIFEST_SHA" = "$SUPREME_SHA256"
