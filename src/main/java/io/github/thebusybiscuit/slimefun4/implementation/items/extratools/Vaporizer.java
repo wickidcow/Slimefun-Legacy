@@ -1,7 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.extratools;
 
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
-import io.github.thebusybiscuit.slimefun4.libraries.dough.items.CustomItemStack;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
@@ -23,12 +22,18 @@ public final class Vaporizer extends ExtraToolsContainer {
         registerRecipe(
                 8,
                 new ItemStack[] {new ItemStack(Material.WATER_BUCKET)},
-                new ItemStack[] {new ItemStack(Material.BUCKET), new CustomItemStack(SlimefunItems.SALT, 4)});
+                new ItemStack[] {new ItemStack(Material.BUCKET), withAmount(SlimefunItems.SALT, 4)});
         registerRecipe(
                 8,
                 new ItemStack[] {new ItemStack(Material.LAVA_BUCKET)},
-                new ItemStack[] {new ItemStack(Material.BUCKET), new CustomItemStack(SlimefunItems.SULFATE, 16)});
+                new ItemStack[] {new ItemStack(Material.BUCKET), withAmount(SlimefunItems.SULFATE, 16)});
         registerRecipe(3, new ItemStack[] {new ItemStack(Material.MAGMA_BLOCK)}, new ItemStack[] {SlimefunItems.SULFATE});
+    }
+
+    private static ItemStack withAmount(ItemStack template, int amount) {
+        ItemStack item = template.clone();
+        item.setAmount(amount);
+        return item;
     }
 
     @Override
