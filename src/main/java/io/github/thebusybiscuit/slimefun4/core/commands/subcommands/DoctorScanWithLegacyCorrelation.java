@@ -27,8 +27,8 @@ final class DoctorScanWithLegacyCorrelation {
             send(sender, "&aSlimefun item doctor " + report.getModeName() + " completed.");
             sendProgress(sender, report);
             DoctorLegacyIdCorrelation.send(sender, report);
-            if (report.getUnknownIds() > 0 || report.getUnresolvedTemplates() > 0) {
-                send(sender, "&eSome lore remains protected because Doctor cannot prove a full English rewrite is safe.");
+            if (report.getUnknownIds() > 0 || report.getUnresolvedTemplates() > 0 || report.getUnknownBlockIds() > 0) {
+                send(sender, "&eSome old or unknown data remains protected because Doctor cannot prove a safe migration.");
             }
         });
 
@@ -37,22 +37,32 @@ final class DoctorScanWithLegacyCorrelation {
             return;
         }
 
-        send(sender, "&aStarted a batched server-wide item doctor scan.");
-        send(sender, "&7This is a dry run. It will report changes without modifying any item.");
-        send(sender, "&7It covers online inventories, loaded chests/machines, nested containers, and all backpacks.");
-        send(sender, "&7Offline player inventories and unloaded chests are repaired automatically when loaded.");
+        send(sender, "&aStarted a batched server-wide Slimefun Doctor scan.");
+        send(sender, "&7This is a dry run. It reports item, presentation and world-migration findings without changing data.");
+        send(sender, "&7It covers online inventories, loaded Slimefun blocks/machines, nested containers, and all backpacks.");
+        send(sender, "&7The scan does not force-load the world. Unloaded block data is handled through normal chunk loads.");
     }
 
     private static void sendProgress(CommandSender sender, ItemDoctorReport report) {
         send(sender, "&7Inventories: &e" + report.getInventories() + " &8| &7Backpacks: &e" + report.getBackpacks());
         send(sender, "&7Stacks scanned: &e" + report.getScannedStacks() + " &8| &7Slimefun: &e"
                 + report.getSlimefunStacks());
-        send(sender, "&7Chinese presentation: &e" + report.getCjkStacks() + " &8| &7Repaired: &a"
+        send(sender, "&7Chinese item presentation: &e" + report.getCjkStacks() + " &8| &7Item repairs: &a"
                 + report.getRepairedStacks());
-        send(sender, "&7Unknown IDs: &e" + report.getUnknownIds() + " &8| &7No English template: &e"
+        send(sender, "&7Placed Slimefun blocks: &e" + report.getScannedBlocks() + " &8| &7Chinese names: &e"
+                + report.getCjkBlocks() + " &8| &7Block-name repairs: &a" + report.getRepairedBlocks());
+        send(sender, "&7Stored block IDs: legacy &e" + report.getLegacyBlockIds() + " &8| &7unknown &c"
+                + report.getUnknownBlockIds());
+        send(sender, "&7Unknown item IDs: &e" + report.getUnknownIds() + " &8| &7No English template: &e"
                 + report.getUnresolvedTemplates() + " &8| &7Failures: &c" + report.getFailures());
         if (!report.getUnknownIdSamples().isEmpty()) {
-            send(sender, "&7Unknown ID samples: &e" + String.join(", ", report.getUnknownIdSamples()));
+            send(sender, "&7Unknown item-ID samples: &e" + String.join(", ", report.getUnknownIdSamples()));
+        }
+        if (!report.getLegacyBlockIdSamples().isEmpty()) {
+            send(sender, "&7Legacy block-ID samples: &e" + String.join(", ", report.getLegacyBlockIdSamples()));
+        }
+        if (!report.getUnknownBlockIdSamples().isEmpty()) {
+            send(sender, "&7Unknown block-ID samples: &e" + String.join(", ", report.getUnknownBlockIdSamples()));
         }
         if (!report.getUnresolvedTemplateSamples().isEmpty()) {
             send(sender, "&7Unresolved template samples: &e" + String.join(", ", report.getUnresolvedTemplateSamples()));

@@ -85,7 +85,7 @@ final class DoctorCommand extends SubCommand {
             case "dependencies", "dependency", "deps" -> sendPluginDependencies(sender, args);
             case "repair", "fix" -> {
                 if (args.length < 3 || !args[2].equalsIgnoreCase("confirm")) {
-                    send(sender, "&eThis safely changes visible names and lore across stored items.");
+                    send(sender, "&eThis safely changes visible names and lore across stored items and placed blocks.");
                     send(sender, "&eBack up the server first, then run &6/slimefun doctor repair confirm&e.");
                     return;
                 }
@@ -111,14 +111,17 @@ final class DoctorCommand extends SubCommand {
                         + Slimefun.getExternalIntegrationService().getActiveFailureCount()
                         + " &8| &7Observed: &e"
                         + Slimefun.getExternalIntegrationService().getObservedFailureCount());
-        send(sender, "&7Automatic item repair: " + (service.isEnabled() ? "&aEnabled" : "&cDisabled"));
+        send(sender, "&7Automatic presentation repair: " + (service.isEnabled() ? "&aEnabled" : "&cDisabled"));
         AddonDoctorService addonDoctors = new AddonDoctorService(plugin);
         send(
                 sender,
                 "&7Registered addon doctors: &e" + addonDoctors.getProviders().size());
 
         ItemDoctorReport automatic = service.getAutomaticReport();
-        send(sender, "&7Automatic repairs completed: &e" + automatic.getRepairedStacks());
+        send(
+                sender,
+                "&7Automatic repairs completed: items &e" + automatic.getRepairedStacks()
+                        + " &8| &7block names &e" + automatic.getRepairedBlocks());
 
         ItemDoctorReport current = service.getCurrentReport();
         if (current != null) {
@@ -341,10 +344,10 @@ final class DoctorCommand extends SubCommand {
         boolean started = service.startServerRun(repair, report -> {
             send(sender, "&aSlimefun item doctor " + report.getModeName() + " completed.");
             sendProgress(sender, report);
-            if (report.getUnknownIds() > 0 || report.getUnresolvedTemplates() > 0) {
+            if (report.getUnknownIds() > 0 || report.getUnresolvedTemplates() > 0 || report.getUnknownBlockIds() > 0) {
                 send(
                         sender,
-                        "&eSome lore remains protected because Doctor cannot prove a full English rewrite is safe.");
+                        "&eSome old/unknown data remains protected because Doctor cannot prove a safe presentation or migration rewrite.");
             }
             if (report.isRepairMode()) {
                 send(sender, "&eBackpack database changes are queued. Keep the server running until");
@@ -359,10 +362,10 @@ final class DoctorCommand extends SubCommand {
 
         send(sender, "&aStarted a batched server-wide item doctor " + (repair ? "repair" : "scan") + '.');
         if (!repair) {
-            send(sender, "&7This is a dry run. It will report changes without modifying any item.");
+            send(sender, "&7This is a dry run. It reports findings without modifying items or blocks.");
         }
-        send(sender, "&7It covers online inventories, loaded chests/machines, nested containers, and all backpacks.");
-        send(sender, "&7Offline player inventories and unloaded chests are repaired automatically when loaded.");
+        send(sender, "&7It covers online inventories, loaded Slimefun blocks/machines, nested containers, and all backpacks.");
+        send(sender, "&7Unloaded data is handled through normal player/chunk loads; Doctor does not force-load the world.");
     }
 
     private void sendRuntimeFailures(CommandSender sender, String[] args) {
@@ -1144,14 +1147,28 @@ final class DoctorCommand extends SubCommand {
                         + report.getSlimefunStacks());
         send(
                 sender,
-                "&7Chinese presentation: &e" + report.getCjkStacks() + " &8| &7Repaired: &a"
+                "&7Chinese item presentation: &e" + report.getCjkStacks() + " &8| &7Item repairs: &a"
                         + report.getRepairedStacks());
         send(
                 sender,
-                "&7Unknown IDs: &e" + report.getUnknownIds() + " &8| &7No English template: &e"
+                "&7Placed Slimefun blocks: &e" + report.getScannedBlocks() + " &8| &7Chinese names: &e"
+                        + report.getCjkBlocks() + " &8| &7Block-name repairs: &a" + report.getRepairedBlocks());
+        send(
+                sender,
+                "&7Stored block IDs: legacy &e" + report.getLegacyBlockIds() + " &8| &7unknown &c"
+                        + report.getUnknownBlockIds());
+        send(
+                sender,
+                "&7Unknown item IDs: &e" + report.getUnknownIds() + " &8| &7No English template: &e"
                         + report.getUnresolvedTemplates() + " &8| &7Failures: &c" + report.getFailures());
         if (!report.getUnknownIdSamples().isEmpty()) {
-            send(sender, "&7Unknown ID samples: &e" + String.join(", ", report.getUnknownIdSamples()));
+            send(sender, "&7Unknown item-ID samples: &e" + String.join(", ", report.getUnknownIdSamples()));
+        }
+        if (!report.getLegacyBlockIdSamples().isEmpty()) {
+            send(sender, "&7Legacy block-ID samples: &e" + String.join(", ", report.getLegacyBlockIdSamples()));
+        }
+        if (!report.getUnknownBlockIdSamples().isEmpty()) {
+            send(sender, "&7Unknown block-ID samples: &e" + String.join(", ", report.getUnknownBlockIdSamples()));
         }
         if (!report.getUnresolvedTemplateSamples().isEmpty()) {
             send(

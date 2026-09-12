@@ -88,6 +88,7 @@ def main() -> int:
         "verify_phase1k_dependency_contract.py",
         "verify_item_doctor_translation_recovery.py",
         "verify_doctor_migrations.py",
+        "verify_doctor_world_migration.py",
         "verify_documentation_consolidation.py",
         "verify_upstream_health_gate.py",
         "verify_paper_purpur_compat.py",
