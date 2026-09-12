@@ -56,8 +56,8 @@ public final class ExtraToolsItems {
             "&cCobblestone Generator",
             "",
             LoreBuilder.machine(MachineTier.ADVANCED, MachineType.MACHINE),
-            LoreBuilder.powerBuffer(256),
-            LoreBuilder.powerPerSecond(36));
+            LoreBuilder.powerBuffer(512),
+            LoreBuilder.powerPerSecond(32));
 
     public static final SlimefunItemStack VAPORIZER = new SlimefunItemStack(
             "VAPORIZER",
