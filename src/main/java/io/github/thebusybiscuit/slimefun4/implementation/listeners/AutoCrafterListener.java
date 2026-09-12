@@ -10,6 +10,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.electric.gadgets.
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import org.bukkit.ChatColor;
 import org.bukkit.GameRules;
 import org.bukkit.Keyed;
 import org.bukkit.World;
@@ -70,6 +71,12 @@ public class AutoCrafterListener implements Listener {
 
                 // Prevent blocks from being placed, food from being eaten, etc...
                 e.cancel();
+
+                if (e.getPlayer().isSneaking()
+                        && crafter.getChargeLong(clickedBlock.get().getLocation()) < crafter.getEnergyConsumption()) {
+                    e.getPlayer().sendMessage(ChatColor.RED + "You need power to set a recipe.");
+                    return;
+                }
 
                 // Check for the "doLimitedCrafting" gamerule when using a Vanilla Auto-Crafter
                 if (block instanceof VanillaAutoCrafter) {
