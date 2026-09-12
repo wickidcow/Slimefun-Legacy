@@ -6,6 +6,7 @@ import dev.lone.itemsadder.api.CustomBlock;
 import dev.lone.itemsadder.api.ItemsAdder;
 import io.github.bakedlibs.dough.protection.ProtectionManager;
 import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
+import io.github.thebusybiscuit.slimefun4.core.services.protection.ProtectionCompatibility;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.electric.machines.enchanting.AutoDisenchanter;
 import java.util.function.Consumer;
@@ -17,6 +18,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Server;
 import org.bukkit.block.Block;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
@@ -234,6 +237,66 @@ public class IntegrationsManager {
      */
     public @Nonnull ProtectionManager getProtectionManager() {
         return protectionManager;
+    }
+
+    /**
+     * Checks whether a player may break a block through Slimefun's protection integrations.
+     *
+     * <p>Protection-provider runtime and linkage failures fail closed.
+     *
+     * @param player the player attempting the break
+     * @param block the block being checked
+     * @return whether the break is allowed
+     */
+    @ParametersAreNonnullByDefault
+    public boolean canBreakBlock(Player player, Block block) {
+        return ProtectionCompatibility.isAllowed(
+                false,
+                true,
+                () -> protectionManager.hasPermission(
+                        player, block, io.github.bakedlibs.dough.protection.Interaction.BREAK_BLOCK));
+    }
+
+    /**
+     * Checks a block break and records the action through Slimefun's protection integrations.
+     *
+     * <p>The action is denied when either the permission check or action logging fails.
+     *
+     * @param player the player attempting the break
+     * @param block the block being checked
+     * @return whether the break is allowed and was recorded successfully
+     */
+    @ParametersAreNonnullByDefault
+    public boolean canBreakBlockAndLog(Player player, Block block) {
+        if (!canBreakBlock(player, block)) {
+            return false;
+        }
+
+        return ProtectionCompatibility.isAllowed(false, true, () -> {
+            protectionManager.logAction(
+                    player, block, io.github.bakedlibs.dough.protection.Interaction.BREAK_BLOCK);
+            return true;
+        });
+    }
+
+    /**
+     * Checks whether a player may interact with an entity through Slimefun's protection integrations.
+     *
+     * <p>Protection-provider runtime and linkage failures fail closed.
+     *
+     * @param player the player attempting the interaction
+     * @param entity the entity being checked
+     * @return whether the interaction is allowed
+     */
+    @ParametersAreNonnullByDefault
+    public boolean canInteractEntity(Player player, Entity entity) {
+        return ProtectionCompatibility.isAllowed(
+                false,
+                true,
+                () -> protectionManager.hasPermission(
+                        player,
+                        entity.getLocation(),
+                        io.github.bakedlibs.dough.protection.Interaction.INTERACT_ENTITY));
     }
 
     /**
