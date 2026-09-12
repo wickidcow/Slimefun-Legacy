@@ -4,18 +4,19 @@ import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.core.attributes.MachineTier;
 import io.github.thebusybiscuit.slimefun4.core.attributes.MachineType;
-import io.github.thebusybiscuit.slimefun4.libraries.dough.items.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.utils.LoreBuilder;
 import java.util.Objects;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 /** Legacy-compatible item definitions for the built-in ExtraTools module. */
 public final class ExtraToolsItems {
 
     public static final ItemGroup ITEM_GROUP = new ItemGroup(
-            Objects.requireNonNull(NamespacedKey.fromString("extratools:extra_tools")),
-            new CustomItemStack(Material.DIAMOND_AXE, "&4Extra Tools"));
+            Objects.requireNonNull(NamespacedKey.fromString("extratools:extra_tools")), createItemGroupIcon());
 
     public static final SlimefunItemStack HAMMER =
             new SlimefunItemStack("HAMMER", Material.IRON_PICKAXE, "&cHammer", "", "&9Pulverizes blocks");
@@ -87,4 +88,13 @@ public final class ExtraToolsItems {
             LoreBuilder.powerPerSecond(50));
 
     private ExtraToolsItems() {}
+
+    @SuppressWarnings("deprecation")
+    private static ItemStack createItemGroupIcon() {
+        ItemStack icon = new ItemStack(Material.DIAMOND_AXE);
+        ItemMeta meta = icon.getItemMeta();
+        meta.setDisplayName(ChatColor.DARK_RED + "Extra Tools");
+        icon.setItemMeta(meta);
+        return icon;
+    }
 }
