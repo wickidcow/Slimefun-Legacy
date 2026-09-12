@@ -74,7 +74,7 @@ public class IntegrationsManager {
     /**
      * This method returns whether the {@link IntegrationsManager} was enabled yet.
      *
-     * @return Whether this {@link IntegrationsManager} has been enabled already.
+     * @return Whether the {@link IntegrationsManager} has been enabled already.
      */
     public boolean isEnabled() {
         return isEnabled;
@@ -85,16 +85,12 @@ public class IntegrationsManager {
      */
     public final void start() {
         if (isEnabled) {
-            // Prevent double-registration
             throw new UnsupportedOperationException("All integrations have already been loaded.");
         } else {
             isEnabled = true;
         }
 
-        // Load any soft dependencies
         onServerLoad();
-
-        // Load any integrations which aren't dependencies (loadBefore)
         Slimefun.getSchedulerService().run(this::onServerStart);
     }
 
@@ -104,31 +100,26 @@ public class IntegrationsManager {
      * to be enabled at this point.
      */
     private void onServerLoad() {
-        // PlaceholderAPI hook to provide playerholders from Slimefun.
         load("PlaceholderAPI", integration -> {
             new PlaceholderAPIIntegration(plugin).register();
             isPlaceholderAPIInstalled = true;
         });
 
-        // WorldEdit Hook to clear Slimefun Data upon //set 0 //cut or any other equivalent
         load("WorldEdit", integration -> {
             new WorldEditIntegration().register();
             isWorldEditInstalled = true;
         });
 
-        // mcMMO Integration
         load("mcMMO", integration -> {
             new McMMOIntegration(plugin).register();
             isMcMMOInstalled = true;
         });
 
-        // ClearLag integration (to prevent display items from getting deleted)
         load("ClearLag", integration -> {
             new ClearLagIntegration(plugin).register();
             isClearLagInstalled = true;
         });
 
-        // ItemsAdder Integration (custom blocks)
         load("ItemsAdder", integration -> isItemsAdderInstalled = true);
     }
 
@@ -137,7 +128,6 @@ public class IntegrationsManager {
      */
     private void onServerStart() {
         try {
-            // Load Protection plugin integrations
             protectionManager = new ProtectionManager(plugin);
         } catch (Exception | LinkageError x) {
             Slimefun.logger()
@@ -148,14 +138,11 @@ public class IntegrationsManager {
                                     + Slimefun.getVersion());
         }
 
-        // Orebfuscator Integration
         load("Orebfuscator", integration -> {
             new OrebfuscatorIntegration(plugin).register();
             isOrebfuscatorInstalled = true;
         });
 
-        // Runtime-only integration avoids making either plugin a required dependency or creating a soft-dependency
-        // cycle when AdvancedEnchantments also detects Slimefun.
         load(
                 "AdvancedEnchantments",
                 integration -> advancedEnchantments = new AdvancedEnchantmentsIntegration(integration));
@@ -280,6 +267,24 @@ public class IntegrationsManager {
     }
 
     /**
+     * Checks whether a player may interact with a block through Slimefun's protection integrations.
+     *
+     * <p>Protection-provider runtime and linkage failures fail closed.
+     *
+     * @param player the player attempting the interaction
+     * @param block the block being checked
+     * @return whether the interaction is allowed
+     */
+    @ParametersAreNonnullByDefault
+    public boolean canInteractBlock(Player player, Block block) {
+        return ProtectionCompatibility.isAllowed(
+                false,
+                true,
+                () -> protectionManager.hasPermission(
+                        player, block, io.github.bakedlibs.dough.protection.Interaction.INTERACT_BLOCK));
+    }
+
+    /**
      * Checks whether a player may interact with an entity through Slimefun's protection integrations.
      *
      * <p>Protection-provider runtime and linkage failures fail closed.
@@ -309,13 +314,11 @@ public class IntegrationsManager {
      * @return Whether this is a fake event
      */
     public boolean isEventFaked(@Nonnull Event event) {
-        // This can be changed to "FakeEvent" in a later version
         if (isMcMMOInstalled) {
             if (event instanceof FakeBlockBreakEvent) {
                 return true;
             }
         }
-        // Fix #1071
         if (event.getClass().getName().startsWith("com.ghostchu.quickshop.util.PermissionChecker")) {
             return true;
         }
@@ -349,7 +352,7 @@ public class IntegrationsManager {
      * {@link ItemStack} as custom.
      *
      * @param item
-     *            The {@link ItemStack} to check
+     *            The {@link ItemStack}
      *
      * @return Whether this {@link ItemStack} is a custom item
      */
