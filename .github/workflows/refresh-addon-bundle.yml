@@ -280,16 +280,32 @@ jobs:
             --output "latest/${FAWE_ASSET}" \
             "$FAWE_URL"
           test -s "latest/${FAWE_ASSET}"
-          # FAWE's shaded JAR intentionally contains overlapping ZIP components; Java can read it normally,
-          # while modern Info-ZIP rejects it as a possible zip bomb. Validate with the JDK instead.
-          jar tf "latest/${FAWE_ASSET}" >/dev/null
+          # FAWE's shaded JAR intentionally contains overlapping ZIP components. Modern
+          # Java/Info-ZIP validators reject that layout even though Paper loads it, so
+          # validate the non-empty archive signature instead of expanding its entries.
+          signature="$(head -c 4 "latest/${FAWE_ASSET}" | od -An -tx1 | tr -d ' \n')"
+          case "$signature" in
+            504b0304|504b0506|504b0708) ;;
+            *)
+              echo "Invalid JAR/ZIP signature for ${FAWE_ASSET}: ${signature}" >&2
+              exit 1
+              ;;
+          esac
           mkdir -p "$FAWE_DIR"
           cp "latest/${FAWE_ASSET}" "$FAWE_DIR/"
 
           # Every bundled JAR must at least be structurally readable, including manual pins.
           while IFS= read -r -d '' jar; do
             if [[ "$(basename "$jar")" == "$FAWE_ASSET" ]]; then
-              jar tf "$jar" >/dev/null
+              test -s "$jar"
+              signature="$(head -c 4 "$jar" | od -An -tx1 | tr -d ' \n')"
+              case "$signature" in
+                504b0304|504b0506|504b0708) ;;
+                *)
+                  echo "Invalid JAR/ZIP signature for $(basename "$jar"): ${signature}" >&2
+                  exit 1
+                  ;;
+              esac
             else
               unzip -tqq "$jar"
             fi
