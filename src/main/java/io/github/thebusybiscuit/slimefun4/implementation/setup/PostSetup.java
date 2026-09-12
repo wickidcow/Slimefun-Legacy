@@ -44,7 +44,7 @@ public final class PostSetup {
         ArachnidWardTorchSetup.setup(Slimefun.instance());
         IrradiatedArsenalSetup.setup(Slimefun.instance());
         AdventurersToolsSetup.setup(Slimefun.instance());
-        ExtraGearSetup.setup(Slimefun.instance());
+        LegacyAddonSetup.setup(Slimefun.instance());
 
         Iterator<SlimefunItem> iterator =
                 Slimefun.getRegistry().getEnabledSlimefunItems().iterator();

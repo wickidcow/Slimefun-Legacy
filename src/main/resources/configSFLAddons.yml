@@ -7,6 +7,13 @@
 enabled: false
 
 SlimefunLegacyAddition:
+  # Built-in ports of the historical addons. Disable either module here if you do not want its
+  # items registered. If the matching standalone plugin is installed, Legacy skips its built-in copy.
+  ExtraGear:
+    enabled: true
+  ExtraTools:
+    enabled: true
+
   PoweredBeacon:
     # Master switch for the Resonance Beacon runtime. The item remains registered for data safety.
     enabled: true

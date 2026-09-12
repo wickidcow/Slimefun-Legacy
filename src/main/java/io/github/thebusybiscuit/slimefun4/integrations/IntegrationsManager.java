@@ -280,6 +280,24 @@ public class IntegrationsManager {
     }
 
     /**
+     * Checks whether a player may interact with a block through Slimefun's protection integrations.
+     *
+     * <p>Protection-provider runtime and linkage failures fail closed.
+     *
+     * @param player the player attempting the interaction
+     * @param block the block being checked
+     * @return whether the interaction is allowed
+     */
+    @ParametersAreNonnullByDefault
+    public boolean canInteractBlock(Player player, Block block) {
+        return ProtectionCompatibility.isAllowed(
+                false,
+                true,
+                () -> protectionManager.hasPermission(
+                        player, block, io.github.bakedlibs.dough.protection.Interaction.INTERACT_BLOCK));
+    }
+
+    /**
      * Checks whether a player may interact with an entity through Slimefun's protection integrations.
      *
      * <p>Protection-provider runtime and linkage failures fail closed.
