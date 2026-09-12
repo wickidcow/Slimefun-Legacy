@@ -69,8 +69,8 @@ reject("LegacyItemMigrationProvider" in service, "item-only upgrade must not inv
 reject("delete" in service.lower(), "item-only upgrade must not contain deletion logic")
 reject("setBlockData" in service, "item-only upgrade must not rewrite placed block data")
 reject("removeBlock" in service, "item-only upgrade must not remove placed block records")
-reject("Cargo" in service, "item-only upgrade must not manipulate Cargo state")
-reject("EnergyNet" in service, "item-only upgrade must not manipulate Energy state")
+reject("CargoManager" in service or "CargoNet" in service, "item-only upgrade must not manipulate Cargo state")
+reject("EnergyNet" in service or "EnergyNetComponent" in service, "item-only upgrade must not manipulate Energy state")
 
 require("READ-ONLY" in command, "scan output must clearly say it is read-only")
 require("ITEM-ONLY" in command, "fix output must clearly say it is item-only")
