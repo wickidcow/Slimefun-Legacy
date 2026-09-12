@@ -35,6 +35,16 @@ final class DoctorRouterCommand extends SubCommand {
 
     @Override
     public void onExecute(@Nonnull CommandSender sender, @Nonnull String[] args) {
+        if (args.length > 1 && (args[1].equalsIgnoreCase("report") || args[1].equalsIgnoreCase("support"))) {
+            if (!sender.hasPermission("slimefun.command.doctor")) {
+                Slimefun.getLocalization().sendMessage(sender, "messages.no-permission", true);
+                return;
+            }
+
+            DoctorSupportReport.send(plugin, sender);
+            return;
+        }
+
         if (args.length > 1 && (args[1].equalsIgnoreCase("migrations") || args[1].equalsIgnoreCase("migration"))) {
             runMigrations(sender, args);
             return;
