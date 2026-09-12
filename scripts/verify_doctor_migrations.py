@@ -28,6 +28,9 @@ def read(relative: str) -> str:
 
 registry = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/SlimefunRegistry.java")
 router = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorRouterCommand.java")
+item_upgrade_router = read(
+    "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorItemUpgradeRouterCommand.java"
+)
 subcommands = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/SlimefunSubCommands.java")
 tabs = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/SlimefunTabCompleter.java")
 provider_api = read("src/main/java/io/github/thebusybiscuit/slimefun4/api/diagnostics/LegacyItemMigrationProvider.java")
@@ -98,7 +101,17 @@ reject("registerLegacySlimefunItemId(" in router, "Doctor command must not regis
 reject("setItemData(" in router, "Doctor router must not directly rewrite Slimefun item IDs")
 reject("ChatColors" in router, "Doctor migration router must not expand the Dough dependency boundary")
 
-require("new DoctorRouterCommand(plugin, cmd)" in subcommands, "Doctor migration router is not registered")
+router_registered_directly = "new DoctorRouterCommand(plugin, cmd)" in subcommands
+router_registered_through_wrapper = "new DoctorItemUpgradeRouterCommand(plugin, cmd)" in subcommands
+require(
+    router_registered_directly or router_registered_through_wrapper,
+    "Doctor migration router is not registered",
+)
+if router_registered_through_wrapper:
+    require(
+        "new DoctorRouterCommand(plugin, cmd)" in item_upgrade_router,
+        "Doctor item-upgrade wrapper must delegate all existing migration routes to DoctorRouterCommand",
+    )
 require('"migrations"' in tabs, "Doctor migrations tab completion is missing")
 require('"providers", "scan", "execute"' in tabs, "migration provider actions are missing from tab completion")
 require("getRegistrations(LegacyItemMigrationProvider.class)" in tabs, "provider plugin tab completion must use live service registrations")
