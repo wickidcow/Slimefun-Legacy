@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.autocrafters;
 
+import io.github.bakedlibs.dough.data.persistent.PersistentDataAPI;
 import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
@@ -100,6 +101,32 @@ public class SlimefunAutoCrafter extends AbstractAutoCrafter {
         }
 
         return null;
+    }
+
+    /**
+     * Persists the selected Slimefun recipe on the Auto Crafter's skull block entity.
+     *
+     * <p>Paper's TileState PDC is only committed to the underlying block entity by
+     * {@link BlockState#update(boolean, boolean)}. The base implementation historically skipped
+     * that update for live block states, which made Enhanced Auto Crafters appear to accept a
+     * recipe in the GUI and then immediately forget it.</p>
+     */
+    @Override
+    protected void setSelectedRecipe(@Nonnull Block b, @Nullable AbstractRecipe recipe) {
+        Validate.notNull(b, "The Block cannot be null!");
+
+        BlockState state = b.getState(false);
+        if (state instanceof Skull skull) {
+            if (recipe == null) {
+                PersistentDataAPI.remove(skull, recipeStorageKey);
+                PersistentDataAPI.remove(skull, recipeEnabledKey);
+            } else {
+                PersistentDataAPI.setString(skull, recipeStorageKey, recipe.toString());
+            }
+
+            // TileState PDC mutations must be explicitly committed for both live and snapshot states.
+            skull.update(true, false);
+        }
     }
 
     @Override
