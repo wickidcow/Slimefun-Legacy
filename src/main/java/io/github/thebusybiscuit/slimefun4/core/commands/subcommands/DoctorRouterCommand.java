@@ -50,6 +50,11 @@ final class DoctorRouterCommand extends SubCommand {
             return;
         }
 
+        if (args.length > 1 && args[1].equalsIgnoreCase("scan")) {
+            DoctorScanWithLegacyCorrelation.run(plugin, sender);
+            return;
+        }
+
         delegate.onExecute(sender, args);
     }
 
