@@ -88,7 +88,7 @@ jobs:
 
           # A release refresh should never roll the addon bundle backwards. Reuse the
           # bundle already published for this version when it exists, and otherwise
-          # fall back to the previous-stable 4.1.47 bundle. In both cases, trust the
+          # fall back to the previous-stable 4.1.49 bundle. In both cases, trust the
           # digest recorded by GitHub for that exact release asset and verify the
           # downloaded bytes before publication.
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
@@ -97,7 +97,7 @@ jobs:
               | grep -q '^sha256:'; then
             SOURCE_TAG="$TAG"
           else
-            SOURCE_TAG='v4.1.47'
+            SOURCE_TAG='v4.1.49'
           fi
 
           ASSET_DIGEST="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${SOURCE_TAG}" \
