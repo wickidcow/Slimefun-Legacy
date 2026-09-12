@@ -53,6 +53,44 @@ Useful commands:
 
 Never treat “0 repaired” as proof that a scan failed; a clean server may simply have nothing eligible to change.
 
+## Upgrading old addon items
+
+Use the separate Item Upgrade Doctor when the **Slimefun item ID itself may have changed**, for example after moving from an older addon generation to a maintained replacement. This is different from the normal presentation repair above.
+
+```text
+/sf doctor item-upgrade scan
+/sf doctor item-upgrade status
+/sf doctor item-upgrade fix <scan-fingerprint>
+```
+
+The workflow is intentionally guided:
+
+1. Run `/sf doctor item-upgrade scan`. This is read-only.
+2. Review every `READY`, `BLOCKED` and `NO MAPPING` result.
+3. Make sure you have a current backup. If making that backup requires stopping/restarting the server, run the scan again afterward and use the new fingerprint.
+4. Run the exact `fix <fingerprint>` command printed by Doctor. The fingerprint expires after 10 minutes and is single-use.
+5. After the fix completes, use `/sf doctor status` and wait for pending database writes to reach `0` before a normal shutdown.
+
+### What Item Upgrade Doctor can fix
+
+- Old addon item IDs when the addon has explicitly declared a trusted old-ID → current-ID mapping.
+- IE1 → InfinityExpansion2 item mappings published by IE2.
+- Historical DynaTech item IDs when the maintained DynaTech build publishes its verified mapping table.
+- Safely recoverable translated/Chinese visible item names and lore using the existing Item Doctor presentation safeguards.
+- Nested item stacks inside supported bundles/containers and Slimefun backpacks encountered by the scan.
+
+### What the result labels mean
+
+- `READY` — Doctor has a declared mapping, the current target item exists, and the item can be handled by the generic item-only upgrader.
+- `BLOCKED` — Doctor knows the proposed target but refuses the generic rewrite, for example because the target is missing or the underlying Minecraft material changed.
+- `NO MAPPING` — the old ID is unknown to the installed addons. Doctor will not guess what it should become.
+
+A `BLOCKED` or `NO MAPPING` item is deliberately left unchanged. Addon maintainers can publish additional verified mappings later, after which the server owner can scan again.
+
+### Item-only safety boundary
+
+`/sf doctor item-upgrade fix` changes **item stacks only**. It does not rewrite placed Slimefun block IDs, Cargo networks, Energy networks, machine block records or addon database schemas. Broader addon-owned persistence migrations remain under `/sf doctor migrations ...` and their own provider/fingerprint safeguards.
+
 ## Dependency diagnostics
 
 For a specific plugin:
