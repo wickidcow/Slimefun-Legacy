@@ -193,5 +193,4 @@ jobs:
           path: |
             SFL_AddonsNDependencies.zip
             SFL_AddonsNDependencies.sha256
-          archive: false
           if-no-files-found: error
