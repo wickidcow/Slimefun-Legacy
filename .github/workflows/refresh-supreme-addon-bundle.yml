@@ -15,9 +15,9 @@ concurrency:
 
 env:
   TARGET_TAG: v4.1.49
-  SUPREME_REPO: wickidcow/SF_Supreme
   SUPREME_TAG: v1.0.11
   SUPREME_ASSET: SF_Supreme1.0.11.jar
+  SUPREME_URL: https://github.com/wickidcow/SF_Supreme/releases/download/v1.0.11/SF_Supreme1.0.11.jar
   SUPREME_SHA256: f5ec51fe47093f73a852a6f2a950ce02d85613b74adc1539a2ad6adbb2c95068
 
 jobs:
@@ -54,14 +54,9 @@ jobs:
           echo "Replacing $(basename "${OLD_SUPREME[0]}") with ${SUPREME_ASSET}"
           rm -f "${OLD_SUPREME[@]}"
 
-          gh release view "$SUPREME_TAG" --repo "$SUPREME_REPO" --json assets,tagName > latest/supreme-release.json
-          test "$(jq -r '.tagName' latest/supreme-release.json)" = "$SUPREME_TAG"
-          test "$(jq -r --arg name "$SUPREME_ASSET" '[.assets[] | select(.name == $name)] | length' latest/supreme-release.json)" -eq 1
-
-          gh release download "$SUPREME_TAG" \
-            --repo "$SUPREME_REPO" \
-            --pattern "$SUPREME_ASSET" \
-            --dir latest
+          curl --fail --location --retry 5 --retry-delay 2 \
+            --output "latest/$SUPREME_ASSET" \
+            "$SUPREME_URL"
           test -s "latest/$SUPREME_ASSET"
           unzip -tqq "latest/$SUPREME_ASSET"
 
@@ -99,8 +94,8 @@ jobs:
             > SFL_AddonsNDependencies.sha256
 
           test "$(wc -l < SFL_AddonsNDependencies.sha256)" -eq "$ORIGINAL_JAR_COUNT"
-          grep -F "  ${SUPREME_DIR#bundle/}/${SUPREME_ASSET}" SFL_AddonsNDependencies.sha256
-          SUPREME_MANIFEST_SHA="$(grep -F "  ${SUPREME_DIR#bundle/}/${SUPREME_ASSET}" SFL_AddonsNDependencies.sha256 | awk '{print $1}')"
+          grep -F "${SUPREME_ASSET}" SFL_AddonsNDependencies.sha256
+          SUPREME_MANIFEST_SHA="$(grep -F "${SUPREME_ASSET}" SFL_AddonsNDependencies.sha256 | awk '{print $1}')"
           test "$SUPREME_MANIFEST_SHA" = "$SUPREME_SHA256"
 
           ZIP_SHA="$(sha256sum SFL_AddonsNDependencies.zip | awk '{print $1}')"
