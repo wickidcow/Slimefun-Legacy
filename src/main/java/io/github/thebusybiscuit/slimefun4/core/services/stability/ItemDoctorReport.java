@@ -61,11 +61,13 @@ public final class ItemDoctorReport {
         repairedBlocks.incrementAndGet();
     }
 
+    /** Records a persisted block ID that is declared legacy or currently resolves through an alias. */
     void legacyBlockIdFound(@Nonnull String itemId) {
         legacyBlockIds.incrementAndGet();
         addSample(legacyBlockIdSamples, itemId);
     }
 
+    /** Records a persisted block ID that has neither a registered item nor a declared migration mapping. */
     void unknownBlockIdFound(@Nonnull String itemId) {
         unknownBlockIds.incrementAndGet();
         addSample(unknownBlockIdSamples, itemId);
