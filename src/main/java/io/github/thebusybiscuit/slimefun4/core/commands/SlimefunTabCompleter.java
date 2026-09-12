@@ -76,6 +76,7 @@ class SlimefunTabCompleter implements TabCompleter {
                                 "hand",
                                 "inventory",
                                 "scan",
+                                "item-upgrade",
                                 "addons",
                                 "compatibility",
                                 "runtime",
@@ -127,6 +128,12 @@ class SlimefunTabCompleter implements TabCompleter {
                 return createReturnList(List.of("status", "scan", "plan", "verify", "repair"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("migrations")) {
                 return createReturnList(List.of("status", "list", "unknown", "plan", "providers", "scan", "execute"), args[2]);
+            } else if (args[0].equalsIgnoreCase("doctor")
+                    && (args[1].equalsIgnoreCase("item-upgrade")
+                            || args[1].equalsIgnoreCase("item-upgrades")
+                            || args[1].equalsIgnoreCase("upgrade-items")
+                            || args[1].equalsIgnoreCase("itemupgrade"))) {
+                return createReturnList(List.of("status", "scan", "fix"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("ie2")) {
                 return createReturnList(List.of("status", "scan", "migrate", "refresh"), args[2]);
             } else {
@@ -158,6 +165,15 @@ class SlimefunTabCompleter implements TabCompleter {
                 && args[1].equalsIgnoreCase("migrations")
                 && (args[2].equalsIgnoreCase("scan") || args[2].equalsIgnoreCase("execute"))) {
             return createReturnList(getLegacyMigrationProviders(), args[3]);
+        } else if (args.length == 4
+                && args[0].equalsIgnoreCase("doctor")
+                && (args[1].equalsIgnoreCase("item-upgrade")
+                        || args[1].equalsIgnoreCase("item-upgrades")
+                        || args[1].equalsIgnoreCase("upgrade-items")
+                        || args[1].equalsIgnoreCase("itemupgrade"))
+                && args[2].equalsIgnoreCase("fix")) {
+            // Item-upgrade fingerprints are short-lived, single-use state owned by the Doctor command.
+            return Collections.emptyList();
         } else if (args.length == 4 && args[0].equalsIgnoreCase("chunkinfo")) {
             if (args[1].equalsIgnoreCase("top")) {
                 return Collections.emptyList();
