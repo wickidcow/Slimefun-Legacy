@@ -1,0 +1,113 @@
+name: Refresh Supreme In Latest Addon Bundle
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/refresh-supreme-addon-bundle.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-supreme-addon-bundle
+  cancel-in-progress: true
+
+env:
+  TARGET_TAG: v4.1.49
+  SUPREME_REPO: wickidcow/SF_Supreme
+  SUPREME_TAG: v1.0.11
+  SUPREME_ASSET: SF_Supreme1.0.11.jar
+  SUPREME_SHA256: f5ec51fe47093f73a852a6f2a950ce02d85613b74adc1539a2ad6adbb2c95068
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Refresh Supreme in release bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf bundle work latest
+          mkdir -p bundle work latest
+
+          gh release download "$TARGET_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'SFL_AddonsNDependencies.zip' \
+            --dir work
+          unzip -q work/SFL_AddonsNDependencies.zip -d bundle
+
+          mapfile -t OLD_SUPREME < <(find bundle -type f -iname 'SF_Supreme*.jar' | sort)
+          if [[ "${#OLD_SUPREME[@]}" -ne 1 ]]; then
+            echo "Expected exactly one Supreme JAR in the bundle, found ${#OLD_SUPREME[@]}." >&2
+            printf '%s\n' "${OLD_SUPREME[@]:-}" >&2
+            exit 1
+          fi
+          SUPREME_DIR="$(dirname "${OLD_SUPREME[0]}")"
+          echo "Replacing $(basename "${OLD_SUPREME[0]}") with ${SUPREME_ASSET}"
+          rm -f "${OLD_SUPREME[@]}"
+
+          gh release view "$SUPREME_TAG" --repo "$SUPREME_REPO" --json assets,tagName > latest/supreme-release.json
+          test "$(jq -r '.tagName' latest/supreme-release.json)" = "$SUPREME_TAG"
+          test "$(jq -r --arg name "$SUPREME_ASSET" '[.assets[] | select(.name == $name)] | length' latest/supreme-release.json)" -eq 1
+
+          gh release download "$SUPREME_TAG" \
+            --repo "$SUPREME_REPO" \
+            --pattern "$SUPREME_ASSET" \
+            --dir latest
+          test -s "latest/$SUPREME_ASSET"
+          unzip -tqq "latest/$SUPREME_ASSET"
+
+          ACTUAL_SUPREME_SHA="$(sha256sum "latest/$SUPREME_ASSET" | awk '{print $1}')"
+          if [[ "$ACTUAL_SUPREME_SHA" != "$SUPREME_SHA256" ]]; then
+            echo "Supreme JAR digest mismatch." >&2
+            echo "expected $SUPREME_SHA256" >&2
+            echo "actual   $ACTUAL_SUPREME_SHA" >&2
+            exit 1
+          fi
+
+          mkdir -p "$SUPREME_DIR"
+          cp "latest/$SUPREME_ASSET" "$SUPREME_DIR/$SUPREME_ASSET"
+
+          mapfile -t NEW_SUPREME < <(find bundle -type f -iname 'SF_Supreme*.jar' | sort)
+          if [[ "${#NEW_SUPREME[@]}" -ne 1 || "$(basename "${NEW_SUPREME[0]}")" != "$SUPREME_ASSET" ]]; then
+            echo 'Supreme replacement verification failed.' >&2
+            printf '%s\n' "${NEW_SUPREME[@]:-}" >&2
+            exit 1
+          fi
+
+          JAR_COUNT="$(find bundle -type f -name '*.jar' | wc -l)"
+          if [[ "$JAR_COUNT" -ne 42 ]]; then
+            echo "Expected 42 JARs after Supreme replacement, found ${JAR_COUNT}." >&2
+            find bundle -type f -name '*.jar' -printf '%P\n' | sort >&2
+            exit 1
+          fi
+
+          rm -f SFL_AddonsNDependencies.zip SFL_AddonsNDependencies.sha256
+          (cd bundle && zip -qr ../SFL_AddonsNDependencies.zip .)
+          find bundle -type f -name '*.jar' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | sed 's#  bundle/#  #' \
+            > SFL_AddonsNDependencies.sha256
+
+          test "$(wc -l < SFL_AddonsNDependencies.sha256)" -eq 42
+          grep -F "  ${SUPREME_DIR#bundle/}/${SUPREME_ASSET}" SFL_AddonsNDependencies.sha256
+          SUPREME_MANIFEST_SHA="$(grep -F "  ${SUPREME_DIR#bundle/}/${SUPREME_ASSET}" SFL_AddonsNDependencies.sha256 | awk '{print $1}')"
+          test "$SUPREME_MANIFEST_SHA" = "$SUPREME_SHA256"
+
+          ZIP_SHA="$(sha256sum SFL_AddonsNDependencies.zip | awk '{print $1}')"
+          echo "Bundle SHA-256: ${ZIP_SHA}"
+
+          gh release upload "$TARGET_TAG" \
+            SFL_AddonsNDependencies.zip \
+            SFL_AddonsNDependencies.sha256 \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
+          gh release view "$TARGET_TAG" --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq '.assets[] | select(.name == "SFL_AddonsNDependencies.zip" or .name == "SFL_AddonsNDependencies.sha256") | [.name, .size, .digest] | @tsv'
