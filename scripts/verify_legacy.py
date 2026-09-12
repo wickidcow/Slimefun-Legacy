@@ -95,6 +95,7 @@ def main() -> int:
         "verify_github_release_updater.py",
         "verify_adventurers_curios.py",
         "verify_builtin_addon_imports.py",
+        "verify_builtin_addon_guide_pages.py",
         "verify_resonance_beacon_effect_recovery.py",
         "verify_resonance_beacon_functionality.py",
         "verify_beacon_plus_area_preview.py",
