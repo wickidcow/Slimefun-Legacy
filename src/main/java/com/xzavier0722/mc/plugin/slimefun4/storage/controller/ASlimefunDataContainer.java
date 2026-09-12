@@ -18,7 +18,7 @@ import lombok.Getter;
  */
 public abstract class ASlimefunDataContainer extends ADataContainer {
     @Getter
-    private final String sfId;
+    private volatile String sfId;
 
     @Getter
     private volatile boolean pendingRemove = false;
@@ -88,6 +88,21 @@ public abstract class ASlimefunDataContainer extends ADataContainer {
 
     @ParametersAreNonnullByDefault
     public abstract void scheduleUpdateData(String key);
+
+    /**
+     * Replaces only the cached Slimefun identity while legacy storage is being reconciled.
+     *
+     * <p>This is intentionally package-private. Persisting the matching identity update remains the responsibility of
+     * {@link BlockDataController}; ordinary callers must not mutate an existing container's identity.
+     *
+     * @param sfId the canonical registered Slimefun id
+     */
+    void reconcileSfId(String sfId) {
+        if (sfId == null || sfId.isBlank()) {
+            throw new IllegalArgumentException("The reconciled Slimefun id cannot be null or blank");
+        }
+        this.sfId = sfId;
+    }
 
     public ASlimefunDataContainer(String key, String sfId) {
         super(key);
