@@ -45,12 +45,12 @@ public class SlimefunDatabaseManager {
             plugin.saveResource(PROFILE_CONFIG_FILE_NAME, true);
         }
 
-        if (!new File(plugin.getDataFolder(), BLOCK_STORAGE_CONFIG_FILE_NAME).exists()) {
-            plugin.saveResource(BLOCK_STORAGE_CONFIG_FILE_NAME, true);
+        if (!new File(plugin.getDataFolder(), BLOCK_STORAGE_FILE_NAME).exists()) {
+            plugin.saveResource(BLOCK_STORAGE_FILE_NAME, true);
         }
 
         profileConfig = new Config(plugin, PROFILE_CONFIG_FILE_NAME);
-        blockStorageConfig = new Config(plugin, BLOCK_STORAGE_CONFIG_FILE_NAME);
+        blockStorageConfig = new Config(plugin, BLOCK_STORAGE_FILE_NAME);
         cleanShutdownMarker = new File("data-storage/Slimefun", ".clean-shutdown");
         storageInitializedMarker = new File("data-storage/Slimefun", ".storage-initialized");
     }
