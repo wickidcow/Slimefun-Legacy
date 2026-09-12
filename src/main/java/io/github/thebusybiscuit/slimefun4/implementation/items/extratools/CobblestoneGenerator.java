@@ -8,8 +8,6 @@ import io.github.thebusybiscuit.slimefun4.core.networks.energy.EnergyNetComponen
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
-import io.github.thebusybiscuit.slimefun4.libraries.dough.items.CustomItemStack;
-import io.github.thebusybiscuit.slimefun4.libraries.dough.protection.Interaction;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import java.util.List;
 import me.mrCookieSlime.CSCoreLibPlugin.Configuration.Config;
@@ -26,6 +24,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 /** Historical ExtraTools powered cobblestone generator. */
 public final class CobblestoneGenerator extends SimpleSlimefunItem<BlockTicker> implements EnergyNetComponent {
@@ -65,16 +64,10 @@ public final class CobblestoneGenerator extends SimpleSlimefunItem<BlockTicker> 
             @Override
             public void init() {
                 for (int slot : BORDER) {
-                    addItem(
-                            slot,
-                            new CustomItemStack(new ItemStack(Material.GRAY_STAINED_GLASS_PANE), " "),
-                            ChestMenuUtils.getEmptyClickHandler());
+                    addItem(slot, createMenuPane(Material.GRAY_STAINED_GLASS_PANE), ChestMenuUtils.getEmptyClickHandler());
                 }
                 for (int slot : OUTPUT_BORDER) {
-                    addItem(
-                            slot,
-                            new CustomItemStack(new ItemStack(Material.ORANGE_STAINED_GLASS_PANE), " "),
-                            ChestMenuUtils.getEmptyClickHandler());
+                    addItem(slot, createMenuPane(Material.ORANGE_STAINED_GLASS_PANE), ChestMenuUtils.getEmptyClickHandler());
                 }
                 for (int slot : getOutputSlots()) {
                     addMenuClickHandler(slot, new ChestMenu.AdvancedMenuClickHandler() {
@@ -104,11 +97,19 @@ public final class CobblestoneGenerator extends SimpleSlimefunItem<BlockTicker> 
             @Override
             public boolean canOpen(Block block, Player player) {
                 return player.hasPermission("slimefun.inventory.bypass")
-                        || Slimefun.getProtectionManager()
-                                        .hasPermission(player, block.getLocation(), Interaction.INTERACT_BLOCK)
+                        || Slimefun.getIntegrations().canInteractBlock(player, block)
                                 && Slimefun.getPermissionsService().hasPermission(player, CobblestoneGenerator.this);
             }
         };
+    }
+
+    @SuppressWarnings("deprecation")
+    private static ItemStack createMenuPane(Material material) {
+        ItemStack pane = new ItemStack(material);
+        ItemMeta meta = pane.getItemMeta();
+        meta.setDisplayName(" ");
+        pane.setItemMeta(meta);
+        return pane;
     }
 
     public int[] getInputSlots() {
