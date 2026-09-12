@@ -19,6 +19,9 @@ public final class ItemDoctorReport {
     private final AtomicBoolean complete = new AtomicBoolean();
     private final AtomicLong inventories = new AtomicLong();
     private final AtomicLong backpacks = new AtomicLong();
+    private final AtomicLong scannedBlocks = new AtomicLong();
+    private final AtomicLong cjkBlocks = new AtomicLong();
+    private final AtomicLong repairedBlocks = new AtomicLong();
     private final AtomicLong scannedStacks = new AtomicLong();
     private final AtomicLong slimefunStacks = new AtomicLong();
     private final AtomicLong cjkStacks = new AtomicLong();
@@ -40,6 +43,18 @@ public final class ItemDoctorReport {
 
     void backpackScanned() {
         backpacks.incrementAndGet();
+    }
+
+    void blockScanned() {
+        scannedBlocks.incrementAndGet();
+    }
+
+    void cjkBlockFound() {
+        cjkBlocks.incrementAndGet();
+    }
+
+    void blockRepaired() {
+        repairedBlocks.incrementAndGet();
     }
 
     void stackScanned() {
@@ -96,6 +111,18 @@ public final class ItemDoctorReport {
 
     public long getBackpacks() {
         return backpacks.get();
+    }
+
+    public long getScannedBlocks() {
+        return scannedBlocks.get();
+    }
+
+    public long getCjkBlocks() {
+        return cjkBlocks.get();
+    }
+
+    public long getRepairedBlocks() {
+        return repairedBlocks.get();
     }
 
     public long getScannedStacks() {
