@@ -1,6 +1,6 @@
 name: Publish Addon Bundle Checksums
 
-# Refresh marker: Galactifun 1.0.6 and SlimeEasy 1.0.2 bundle update.
+# Refresh marker: Networks 1.0.18 blueprint recipe collision fix.
 
 on:
   push:
@@ -101,7 +101,7 @@ jobs:
             > SFL_AddonsNDependencies.sha256
 
           test "$(wc -l < SFL_AddonsNDependencies.sha256)" -eq "$JAR_COUNT"
-          grep -F 'SF_NetworksExp1.0.16.jar' SFL_AddonsNDependencies.sha256
+          grep -F 'SF_NetworksExp1.0.18.jar' SFL_AddonsNDependencies.sha256
 
           {
             echo '## Slimefun Legacy addon bundle checksums'
