@@ -12,10 +12,12 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.logging.Level;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 
 /**
@@ -25,6 +27,8 @@ import org.bukkit.plugin.Plugin;
 final class ExtraGearSetup {
 
     private static final String LEGACY_RESEARCH_NAMESPACE = "extragear";
+    private static final ItemGroup ITEM_GROUP = new ItemGroup(
+            Objects.requireNonNull(NamespacedKey.fromString("extragear:items")), createItemGroupIcon(), 1);
 
     private ExtraGearSetup() {}
 
@@ -38,8 +42,9 @@ final class ExtraGearSetup {
             return;
         }
 
-        ItemGroup weapons = findCoreGroup(plugin, "weapons");
-        ItemGroup armor = findCoreGroup(plugin, "armor");
+        ITEM_GROUP.register(plugin);
+        ItemGroup weapons = ITEM_GROUP;
+        ItemGroup armor = ITEM_GROUP;
 
         int itemCountBefore = Slimefun.getRegistry().getAllSlimefunItems().size();
         int researchCountBefore = Slimefun.getRegistry().getResearches().size();
@@ -343,14 +348,6 @@ final class ExtraGearSetup {
                         new Object[] {itemsAdded, researchesAdded});
     }
 
-    private static ItemGroup findCoreGroup(Slimefun plugin, String key) {
-        NamespacedKey namespacedKey = new NamespacedKey(plugin, key);
-        return Slimefun.getRegistry().getAllItemGroups().stream()
-                .filter(group -> group.getKey().equals(namespacedKey))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Missing core Slimefun item group: " + namespacedKey));
-    }
-
     private static int registerSword(
             Slimefun plugin,
             ItemGroup itemGroup,
@@ -519,6 +516,15 @@ final class ExtraGearSetup {
     private static NamespacedKey legacyResearchKey(String component, String suffix) {
         String key = component.toLowerCase(Locale.ROOT) + '_' + suffix;
         return Objects.requireNonNull(NamespacedKey.fromString(LEGACY_RESEARCH_NAMESPACE + ':' + key));
+    }
+
+    @SuppressWarnings("deprecation")
+    private static ItemStack createItemGroupIcon() {
+        ItemStack icon = new ItemStack(Material.DIAMOND_SWORD);
+        ItemMeta meta = icon.getItemMeta();
+        meta.setDisplayName(ChatColor.GOLD + "ExtraGear");
+        icon.setItemMeta(meta);
+        return icon;
     }
 
     private record GearEnchantment(Enchantment type, int level) {}

@@ -6,6 +6,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.extratools.CobblestoneGenerator;
 import io.github.thebusybiscuit.slimefun4.implementation.items.extratools.ConcreteFactory;
 import io.github.thebusybiscuit.slimefun4.implementation.items.extratools.ElectricComposter;
+import io.github.thebusybiscuit.slimefun4.implementation.items.extratools.ExtraToolsItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.extratools.GoldTransmuter;
 import io.github.thebusybiscuit.slimefun4.implementation.items.extratools.Hammer;
 import io.github.thebusybiscuit.slimefun4.implementation.items.extratools.Pulverizer;
@@ -52,6 +53,9 @@ final class ExtraToolsSetup {
                             + String.join(", ", collisions));
             return;
         }
+
+        // Preserve the standalone addon's dedicated top-level guide page.
+        ExtraToolsItems.ITEM_GROUP.register(plugin);
 
         int itemCountBefore = Slimefun.getRegistry().getAllSlimefunItems().size();
         int researchCountBefore = Slimefun.getRegistry().getResearches().size();
