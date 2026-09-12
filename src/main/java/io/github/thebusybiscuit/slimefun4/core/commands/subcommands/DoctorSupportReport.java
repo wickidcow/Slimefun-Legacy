@@ -1,7 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
 import city.norain.slimefun4.utils.EnvUtil;
-import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityResult;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityStatus;
 import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilitySummary;
@@ -205,6 +204,6 @@ final class DoctorSupportReport {
     }
 
     private static void sendLine(@Nonnull CommandSender sender, @Nonnull String message) {
-        sender.sendMessage(ChatColors.color(message));
+        sender.sendMessage(message.replace('&', '\u00A7'));
     }
 }
