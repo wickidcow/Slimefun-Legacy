@@ -16,6 +16,7 @@ import javax.annotation.Nonnull;
  */
 public final class KnownLegacyItemIdCatalog {
 
+    private static final String SLIMEFUN4_MINER_SOURCE = "Slimefun4 Digital Miner -> Industrial Miner replacement";
     private static final String IE1_SOURCE = "InfinityExpansion v1 -> InfinityExpansion2";
     private static final Map<String, Hint> EXACT_HINTS = createExactHints();
 
@@ -79,66 +80,83 @@ public final class KnownLegacyItemIdCatalog {
     private static Map<String, Hint> createExactHints() {
         Map<String, Hint> hints = new LinkedHashMap<>();
 
+        // Slimefun4 explicitly removed the long-deprecated Digital Miners when the Industrial Miner family replaced
+        // them. This is useful historical identification only: the machine designs/semantics are not treated as a
+        // safe automatic block migration.
+        add(hints, "DIGITAL_MINER", "INDUSTRIAL_MINER", SLIMEFUN4_MINER_SOURCE, Evidence.DOCUMENTED_REPLACEMENT);
+        add(
+                hints,
+                "ADVANCED_DIGITAL_MINER",
+                "ADVANCED_INDUSTRIAL_MINER",
+                SLIMEFUN4_MINER_SOURCE,
+                Evidence.DOCUMENTED_REPLACEMENT);
+
         // InfinityExpansion v1 -> InfinityExpansion2 explicit mappings, mirrored from IE2's LegacyIdMapper.
-        add(hints, "INFINITE_INGOT", "IE_INFINITY_INGOT");
-        add(hints, "INFINITE_MACHINE_CIRCUIT", "IE_INFINITY_MACHINE_CIRCUIT");
-        add(hints, "INFINITE_MACHINE_CORE", "IE_INFINITY_MACHINE_CORE");
-        add(hints, "END_ESSENCE", "IE_ENDER_ESSENCE");
-        add(hints, "INFINITY_FORGE", "IE_INFINITY_WORKBENCH");
+        addIe(hints, "INFINITE_INGOT", "IE_INFINITY_INGOT");
+        addIe(hints, "INFINITE_MACHINE_CIRCUIT", "IE_INFINITY_MACHINE_CIRCUIT");
+        addIe(hints, "INFINITE_MACHINE_CORE", "IE_INFINITY_MACHINE_CORE");
+        addIe(hints, "END_ESSENCE", "IE_ENDER_ESSENCE");
+        addIe(hints, "INFINITY_FORGE", "IE_INFINITY_WORKBENCH");
 
-        add(hints, "BASIC_STRAINER", "IE_STRAINER_1");
-        add(hints, "ADVANCED_STRAINER", "IE_STRAINER_2");
-        add(hints, "REINFORCED_STRAINER", "IE_STRAINER_3");
+        addIe(hints, "BASIC_STRAINER", "IE_STRAINER_1");
+        addIe(hints, "ADVANCED_STRAINER", "IE_STRAINER_2");
+        addIe(hints, "REINFORCED_STRAINER", "IE_STRAINER_3");
 
-        add(hints, "BASIC_COBBLE_GEN", "IE_COBBLESTONE_GENERATOR");
-        add(hints, "ADVANCED_COBBLE_GEN", "IE_COBBLESTONE_GENERATOR_2");
-        add(hints, "INFINITY_COBBLE_GEN", "IE_COBBLESTONE_GENERATOR_4");
-        add(hints, "BASIC_VIRTUAL_FARM", "IE_VIRTUAL_FARM");
-        add(hints, "ADVANCED_VIRTUAL_FARM", "IE_VIRTUAL_FARM_2");
-        add(hints, "INFINITY_VIRTUAL_FARM", "IE_VIRTUAL_FARM_4");
-        add(hints, "BASIC_TREE_GROWER", "IE_TREE_GROWER");
-        add(hints, "ADVANCED_TREE_GROWER", "IE_TREE_GROWER_2");
-        add(hints, "INFINITY_TREE_GROWER", "IE_TREE_GROWER_4");
+        addIe(hints, "BASIC_COBBLE_GEN", "IE_COBBLESTONE_GENERATOR");
+        addIe(hints, "ADVANCED_COBBLE_GEN", "IE_COBBLESTONE_GENERATOR_2");
+        addIe(hints, "INFINITY_COBBLE_GEN", "IE_COBBLESTONE_GENERATOR_4");
+        addIe(hints, "BASIC_VIRTUAL_FARM", "IE_VIRTUAL_FARM");
+        addIe(hints, "ADVANCED_VIRTUAL_FARM", "IE_VIRTUAL_FARM_2");
+        addIe(hints, "INFINITY_VIRTUAL_FARM", "IE_VIRTUAL_FARM_4");
+        addIe(hints, "BASIC_TREE_GROWER", "IE_TREE_GROWER");
+        addIe(hints, "ADVANCED_TREE_GROWER", "IE_TREE_GROWER_2");
+        addIe(hints, "INFINITY_TREE_GROWER", "IE_TREE_GROWER_4");
 
-        add(hints, "BASIC_QUARRY", "IE_QUARRY");
-        add(hints, "ADVANCED_QUARRY", "IE_QUARRY_2");
-        add(hints, "VOID_QUARRY", "IE_QUARRY_3");
-        add(hints, "INFINITY_QUARRY", "IE_QUARRY_4");
+        addIe(hints, "BASIC_QUARRY", "IE_QUARRY");
+        addIe(hints, "ADVANCED_QUARRY", "IE_QUARRY_2");
+        addIe(hints, "VOID_QUARRY", "IE_QUARRY_3");
+        addIe(hints, "INFINITY_QUARRY", "IE_QUARRY_4");
 
-        add(hints, "INFINITE_VOID_HARVESTER", "IE_VOID_HARVESTER_3");
-        add(hints, "INFINITY_CONSTRUCTOR", "IE_SINGULARITY_CONSTRUCTOR_2");
-        add(hints, "INFINITY_DUST_EXTRACTOR", "IE_DUST_EXTRACTOR_4");
-        add(hints, "INFINITY_INGOT_FORMER", "IE_INGOT_FORMER_4");
-        add(hints, "BASIC_OBSIDIAN_GEN", "IE_OBSIDIAN_GENERATOR");
-        add(hints, "POWERED_BEDROCK", "IE_POWERED_BEDROCK");
+        addIe(hints, "INFINITE_VOID_HARVESTER", "IE_VOID_HARVESTER_3");
+        addIe(hints, "INFINITY_CONSTRUCTOR", "IE_SINGULARITY_CONSTRUCTOR_2");
+        addIe(hints, "INFINITY_DUST_EXTRACTOR", "IE_DUST_EXTRACTOR_4");
+        addIe(hints, "INFINITY_INGOT_FORMER", "IE_INGOT_FORMER_4");
+        addIe(hints, "BASIC_OBSIDIAN_GEN", "IE_OBSIDIAN_GENERATOR");
+        addIe(hints, "POWERED_BEDROCK", "IE_POWERED_BEDROCK");
 
-        add(hints, "HYDRO_GENERATOR", "IE_HYDRO_GENERATOR");
-        add(hints, "REINFORCED_HYDRO_GENERATOR", "IE_HYDRO_GENERATOR_2");
-        add(hints, "GEOTHERMAL_GENERATOR", "IE_GEOTHERMAL_GENERATOR");
-        add(hints, "REINFORCED_GEOTHERMAL_GENERATOR", "IE_GEOTHERMAL_GENERATOR_2");
-        add(hints, "BASIC_PANEL", "IE_SOLAR_PANEL");
-        add(hints, "ADVANCED_PANEL", "IE_SOLAR_PANEL_2");
-        add(hints, "CELESTIAL_PANEL", "IE_SOLAR_PANEL_3");
-        add(hints, "VOID_PANEL", "IE_VOID_PANEL");
-        add(hints, "INFINITE_PANEL", "IE_INFINITY_PANEL");
+        addIe(hints, "HYDRO_GENERATOR", "IE_HYDRO_GENERATOR");
+        addIe(hints, "REINFORCED_HYDRO_GENERATOR", "IE_HYDRO_GENERATOR_2");
+        addIe(hints, "GEOTHERMAL_GENERATOR", "IE_GEOTHERMAL_GENERATOR");
+        addIe(hints, "REINFORCED_GEOTHERMAL_GENERATOR", "IE_GEOTHERMAL_GENERATOR_2");
+        addIe(hints, "BASIC_PANEL", "IE_SOLAR_PANEL");
+        addIe(hints, "ADVANCED_PANEL", "IE_SOLAR_PANEL_2");
+        addIe(hints, "CELESTIAL_PANEL", "IE_SOLAR_PANEL_3");
+        addIe(hints, "VOID_PANEL", "IE_VOID_PANEL");
+        addIe(hints, "INFINITE_PANEL", "IE_INFINITY_PANEL");
 
-        add(hints, "EMPTY_DATA_CARD", "IE_MOB_DATA_CARD_EMPTY");
-        add(hints, "DATA_INFUSER", "IE_MOB_DATA_INFUSER");
+        addIe(hints, "EMPTY_DATA_CARD", "IE_MOB_DATA_CARD_EMPTY");
+        addIe(hints, "DATA_INFUSER", "IE_MOB_DATA_INFUSER");
 
-        add(hints, "BASIC_STORAGE", "IE_STORAGE_UNIT_2");
-        add(hints, "ADVANCED_STORAGE", "IE_STORAGE_UNIT_3");
-        add(hints, "REINFORCED_STORAGE", "IE_STORAGE_UNIT_4");
-        add(hints, "VOID_STORAGE", "IE_STORAGE_UNIT_5");
-        add(hints, "INFINITY_STORAGE", "IE_STORAGE_UNIT_6");
+        addIe(hints, "BASIC_STORAGE", "IE_STORAGE_UNIT_2");
+        addIe(hints, "ADVANCED_STORAGE", "IE_STORAGE_UNIT_3");
+        addIe(hints, "REINFORCED_STORAGE", "IE_STORAGE_UNIT_4");
+        addIe(hints, "VOID_STORAGE", "IE_STORAGE_UNIT_5");
+        addIe(hints, "INFINITY_STORAGE", "IE_STORAGE_UNIT_6");
 
         return Collections.unmodifiableMap(hints);
     }
 
-    private static void add(Map<String, Hint> hints, String legacyId, String targetId) {
-        hints.put(legacyId, new Hint(legacyId, targetId, IE1_SOURCE, Evidence.VERIFIED_EXPLICIT_MAPPING));
+    private static void addIe(Map<String, Hint> hints, String legacyId, String targetId) {
+        add(hints, legacyId, targetId, IE1_SOURCE, Evidence.VERIFIED_EXPLICIT_MAPPING);
+    }
+
+    private static void add(
+            Map<String, Hint> hints, String legacyId, String targetId, String source, Evidence evidence) {
+        hints.put(legacyId, new Hint(legacyId, targetId, source, evidence));
     }
 
     public enum Evidence {
+        DOCUMENTED_REPLACEMENT("documented replacement"),
         VERIFIED_EXPLICIT_MAPPING("verified explicit mapping"),
         VERIFIED_COMPATIBILITY_PATTERN("verified compatibility pattern"),
         RUNTIME_VERIFIED_COMPATIBILITY_RULE("runtime-verified compatibility rule");
