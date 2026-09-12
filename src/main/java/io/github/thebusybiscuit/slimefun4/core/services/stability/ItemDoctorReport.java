@@ -22,6 +22,8 @@ public final class ItemDoctorReport {
     private final AtomicLong scannedBlocks = new AtomicLong();
     private final AtomicLong cjkBlocks = new AtomicLong();
     private final AtomicLong repairedBlocks = new AtomicLong();
+    private final AtomicLong legacyBlockIds = new AtomicLong();
+    private final AtomicLong unknownBlockIds = new AtomicLong();
     private final AtomicLong scannedStacks = new AtomicLong();
     private final AtomicLong slimefunStacks = new AtomicLong();
     private final AtomicLong cjkStacks = new AtomicLong();
@@ -29,6 +31,8 @@ public final class ItemDoctorReport {
     private final AtomicLong unknownIds = new AtomicLong();
     private final AtomicLong unresolvedTemplates = new AtomicLong();
     private final AtomicLong failures = new AtomicLong();
+    private final Set<String> legacyBlockIdSamples = Collections.synchronizedSet(new LinkedHashSet<>());
+    private final Set<String> unknownBlockIdSamples = Collections.synchronizedSet(new LinkedHashSet<>());
     private final Set<String> unknownIdSamples = Collections.synchronizedSet(new LinkedHashSet<>());
     private final Set<String> unresolvedTemplateSamples = Collections.synchronizedSet(new LinkedHashSet<>());
     private volatile long completedAtNanos;
@@ -55,6 +59,16 @@ public final class ItemDoctorReport {
 
     void blockRepaired() {
         repairedBlocks.incrementAndGet();
+    }
+
+    void legacyBlockIdFound(@Nonnull String itemId) {
+        legacyBlockIds.incrementAndGet();
+        addSample(legacyBlockIdSamples, itemId);
+    }
+
+    void unknownBlockIdFound(@Nonnull String itemId) {
+        unknownBlockIds.incrementAndGet();
+        addSample(unknownBlockIdSamples, itemId);
     }
 
     void stackScanned() {
@@ -125,6 +139,14 @@ public final class ItemDoctorReport {
         return repairedBlocks.get();
     }
 
+    public long getLegacyBlockIds() {
+        return legacyBlockIds.get();
+    }
+
+    public long getUnknownBlockIds() {
+        return unknownBlockIds.get();
+    }
+
     public long getScannedStacks() {
         return scannedStacks.get();
     }
@@ -156,6 +178,14 @@ public final class ItemDoctorReport {
     public long getDurationMillis() {
         long end = isComplete() ? completedAtNanos : System.nanoTime();
         return Math.max(0L, (end - startedAtNanos) / 1_000_000L);
+    }
+
+    public @Nonnull List<String> getLegacyBlockIdSamples() {
+        return snapshot(legacyBlockIdSamples);
+    }
+
+    public @Nonnull List<String> getUnknownBlockIdSamples() {
+        return snapshot(unknownBlockIdSamples);
     }
 
     public @Nonnull List<String> getUnknownIdSamples() {
