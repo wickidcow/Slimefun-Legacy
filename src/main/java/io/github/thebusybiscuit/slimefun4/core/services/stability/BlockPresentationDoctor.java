@@ -84,12 +84,12 @@ final class BlockPresentationDoctor {
             return;
         }
 
-        String declaredTarget = Slimefun.getRegistry()
+        boolean declaredLegacy = Slimefun.getRegistry()
                 .getLegacySlimefunItemIdTarget(storedId)
-                .orElse(null);
+                .isPresent();
         SlimefunItem resolved = SlimefunItem.getById(storedId);
 
-        if (declaredTarget != null || (resolved != null && !storedId.equals(resolved.getId()))) {
+        if (declaredLegacy || (resolved != null && !storedId.equals(resolved.getId()))) {
             report.legacyBlockIdFound(storedId);
         } else if (resolved == null) {
             report.unknownBlockIdFound(storedId);
