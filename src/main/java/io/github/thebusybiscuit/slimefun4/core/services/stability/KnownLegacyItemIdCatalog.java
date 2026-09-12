@@ -10,9 +10,10 @@ import javax.annotation.Nonnull;
 /**
  * Read-only historical Slimefun item-ID knowledge used by Doctor diagnostics.
  *
- * <p>This catalog is deliberately separate from Slimefun's live legacy-ID registry. A catalog hit is diagnostic
- * evidence only and never authorizes a migration or makes an old ID resolve as a live Slimefun item. Executable
- * migrations must still be declared by the owning addon through the normal legacy-ID registry/provider workflow.
+ * <p>Historical hints are diagnostic evidence only. This catalog is deliberately separate from Slimefun's live
+ * legacy-ID registry. A catalog hit never authorizes a migration or makes an old ID resolve as a live Slimefun item.
+ * Executable migrations must still be declared by the owning addon through the normal legacy-ID registry/provider
+ * workflow.
  */
 public final class KnownLegacyItemIdCatalog {
 
