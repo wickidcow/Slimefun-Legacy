@@ -27,7 +27,7 @@ Current release: **4.1.50 — Built-in addon guide parity & bundle hardening**. 
 </div>
 
 > [!IMPORTANT]
-> **Slimefun Legacy is an unofficial, independently maintained downstream fork of Slimefun 4.**
+> **Slimefun Legacy is an unofficial, independently maintained updated version of Slimefun 4.**
 > It exists to preserve and maintain the classic Slimefun experience for modern Paper servers and is maintained for the [AlbionMC.com](https://albionmc.com) server and the wider Slimefun community. It is not an official release of the original Slimefun project, Slimefun United, or the SlimefunGuguProject.
 >
 > **NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.**
