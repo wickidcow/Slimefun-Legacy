@@ -28,6 +28,9 @@ def read(relative: str) -> str:
 
 registry = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/SlimefunRegistry.java")
 router = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorRouterCommand.java")
+scan = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorScanWithLegacyCorrelation.java")
+correlation = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorLegacyIdCorrelation.java")
+catalog = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/KnownLegacyItemIdCatalog.java")
 subcommands = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/SlimefunSubCommands.java")
 tabs = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/SlimefunTabCompleter.java")
 provider_api = read("src/main/java/io/github/thebusybiscuit/slimefun4/api/diagnostics/LegacyItemMigrationProvider.java")
@@ -97,6 +100,41 @@ reject('List.of("confirm")' in tabs, "tab completion must not suggest the retire
 reject("registerLegacySlimefunItemId(" in router, "Doctor command must not register or rewrite migration mappings")
 reject("setItemData(" in router, "Doctor router must not directly rewrite Slimefun item IDs")
 reject("ChatColors" in router, "Doctor migration router must not expand the Dough dependency boundary")
+
+require('args[1].equalsIgnoreCase("scan")' in router, "normal Doctor scan must be intercepted for legacy correlation")
+require("DoctorScanWithLegacyCorrelation.run(plugin, sender)" in router, "normal Doctor scan must use legacy-aware scan output")
+require("service.startServerRun(false" in scan, "legacy-aware normal scan must remain a read-only Item Doctor run")
+require("DoctorLegacyIdCorrelation.send(sender, report)" in scan, "normal Doctor scan completion must include legacy-ID correlation")
+require("Slimefun Legacy-ID Correlation" in correlation, "normal scan legacy correlation heading is missing")
+require("[READY]" in correlation and "[TARGET MISSING]" in correlation,
+        "declared mapping classifications are missing from normal scan output")
+require("[KNOWN LEGACY]" in correlation and "[NO MAPPING]" in correlation,
+        "historical/no-mapping classifications are missing from normal scan output")
+require("KNOWN LEGACY entries are historical diagnostics only" in correlation,
+        "historical hints must explicitly remain non-authoritative")
+require("Read-only diagnostic" in correlation, "normal scan legacy correlation must disclose its read-only boundary")
+reject("registerLegacySlimefunItemId(" in correlation, "normal scan correlation must not register migration mappings")
+reject("setItemData(" in correlation, "normal scan correlation must not rewrite item IDs")
+
+require("KnownLegacyItemIdCatalog" in catalog, "historical legacy-ID catalog is missing")
+require("diagnostic evidence only" in catalog, "historical catalog must document its non-authoritative boundary")
+require('add(hints, "DIGITAL_MINER", "INDUSTRIAL_MINER", SLIMEFUN4_MINER_SOURCE, Evidence.DOCUMENTED_REPLACEMENT)' in catalog,
+        "documented Slimefun4 Digital Miner replacement is missing from the historical catalog")
+require('"ADVANCED_DIGITAL_MINER"' in catalog and '"ADVANCED_INDUSTRIAL_MINER"' in catalog,
+        "documented Slimefun4 Advanced Digital Miner replacement is missing from the historical catalog")
+require('addIe(hints, "INFINITY_FORGE", "IE_INFINITY_WORKBENCH")' in catalog,
+        "verified IE1 Infinity Forge rename is missing from the historical catalog")
+require('addIe(hints, "BASIC_STORAGE", "IE_STORAGE_UNIT_2")' in catalog,
+        "verified IE1 storage-tier mapping is missing from the historical catalog")
+require('addIe(hints, "POWERED_BEDROCK", "IE_POWERED_BEDROCK")' in catalog,
+        "verified IE1 Powered Bedrock mapping is missing from the historical catalog")
+require('legacyId.endsWith("_DATA_CARD")' in catalog,
+        "verified IE1 dynamic mob-card compatibility pattern is missing")
+require('legacyId.startsWith("QUARRY_OSCILLATOR_")' in catalog,
+        "verified IE1 oscillator compatibility pattern is missing")
+reject("registerLegacySlimefunItemId(" in catalog,
+       "historical diagnostic catalog must never publish executable migration mappings")
+reject("setItemData(" in catalog, "historical diagnostic catalog must never rewrite persisted IDs")
 
 require("new DoctorRouterCommand(plugin, cmd)" in subcommands, "Doctor migration router is not registered")
 require('"migrations"' in tabs, "Doctor migrations tab completion is missing")
