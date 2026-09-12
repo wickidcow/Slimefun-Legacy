@@ -1,0 +1,65 @@
+name: Exclude Integrated ExtraTools From Addon Bundle
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/maintenance-integrated-extratools.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ github.token }}
+
+      - name: Make ExtraTools exclusion permanent
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/refresh-addon-bundle.yml')
+          text = path.read_text(encoding='utf-8')
+
+          old_marker = '# Refresh marker: Galactifun 1.0.6 and SlimeEasy 1.0.2 nested guide categories.'
+          text = text.replace(old_marker, '# Refresh marker: ExtraTools is integrated into Slimefun Legacy core; refresh all maintained SF_* addons.')
+
+          anchor = "          find bundle -type f -iname 'Slimefun-Legacy*.jar' -print -delete\n"
+          insert = anchor + "\n          # ExtraTools is integrated into Slimefun Legacy core and must not ship separately.\n          find bundle -type f -iname 'SF_ExtraTools*.jar' -print -delete\n"
+          if "ExtraTools is integrated into Slimefun Legacy core and must not ship separately." not in text:
+              if anchor not in text:
+                  raise SystemExit('Could not find core Slimefun exclusion anchor')
+              text = text.replace(anchor, insert, 1)
+
+          text = text.replace("              'SF_ExtraTools vMODIFIED v0.1.jar'|\\\n", "")
+
+          core_check = "          if find bundle -type f -iname 'Slimefun-Legacy*.jar' | grep -q .; then\n            echo 'Slimefun Legacy core JAR must not be included in SFL_AddonsNDependencies.zip.' >&2\n            exit 1\n          fi\n"
+          extra_check = core_check + "          if find bundle -type f -iname 'SF_ExtraTools*.jar' | grep -q .; then\n            echo 'ExtraTools is integrated into Slimefun Legacy core and must not be bundled separately.' >&2\n            exit 1\n          fi\n"
+          if "must not be bundled separately." not in text:
+              if core_check not in text:
+                  raise SystemExit('Could not find final core JAR validation anchor')
+              text = text.replace(core_check, extra_check, 1)
+
+          archive_check = "          if unzip -Z1 SFL_AddonsNDependencies.zip | grep -Ei '(^|/)Slimefun-Legacy[^/]*\\.jar$'; then\n            echo 'Slimefun Legacy core JAR found in final addon/dependency archive.' >&2\n            exit 1\n          fi\n"
+          archive_extra = archive_check + "          if unzip -Z1 SFL_AddonsNDependencies.zip | grep -Ei '(^|/)SF_ExtraTools[^/]*\\.jar$'; then\n            echo 'ExtraTools JAR found in final addon/dependency archive even though it is integrated into core.' >&2\n            exit 1\n          fi\n"
+          if "ExtraTools JAR found in final addon/dependency archive" not in text:
+              if archive_check not in text:
+                  raise SystemExit('Could not find final archive validation anchor')
+              text = text.replace(archive_check, archive_extra, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/refresh-addon-bundle.yml
+          git diff --cached --check
+          git diff --cached
+          git commit -m 'Bundle: exclude ExtraTools now integrated into core'
+          git push
