@@ -18,8 +18,8 @@ final class BlockPresentationDoctor {
      * name with the currently registered English Slimefun item name.
      *
      * <p>The stored Slimefun ID is also classified for migration diagnostics. Identity findings
-     * are read-only here: actual addon block-ID/storage migrations remain owned by a registered
-     * {@code LegacyItemMigrationProvider}.
+     * are read-only here: actual addon block-ID/storage migrations remain owned by an addon
+     * migration provider.
      *
      * <p>This intentionally changes only the block entity's visible custom name. Inventory
      * contents, Slimefun block data, PDC, ownership, machine progress and other functional state
