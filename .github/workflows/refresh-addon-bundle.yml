@@ -24,6 +24,7 @@ env:
   FAWE_ASSET: FastAsyncWorldEdit-Paper-2.15.5-SNAPSHOT.jar
   FAWE_URL: https://ci.athion.net/job/FastAsyncWorldEdit/1385/artifact/artifacts/FastAsyncWorldEdit-Paper-2.15.5-SNAPSHOT.jar
   WED_REPO: TWME-TW/WorldEditDisplay
+  PACKETEVENTS_ASSET: packetevents-spigot-2.13.0.jar
 
 jobs:
   refresh:
@@ -295,14 +296,19 @@ jobs:
           cp "latest/${FAWE_ASSET}" "$FAWE_DIR/"
 
           # Every bundled JAR must at least be structurally readable, including manual pins.
+          # PacketEvents and FAWE require the same special handling used by the checksum workflow.
           while IFS= read -r -d '' jar; do
-            if [[ "$(basename "$jar")" == "$FAWE_ASSET" ]]; then
+            base="$(basename "$jar")"
+            echo "Validating ${base}"
+            if [[ "$base" == "$PACKETEVENTS_ASSET" ]]; then
+              jar tf "$jar" >/dev/null
+            elif [[ "$base" == "$FAWE_ASSET" ]]; then
               test -s "$jar"
               signature="$(head -c 4 "$jar" | od -An -tx1 | tr -d ' \n')"
               case "$signature" in
                 504b0304|504b0506|504b0708) ;;
                 *)
-                  echo "Invalid JAR/ZIP signature for $(basename "$jar"): ${signature}" >&2
+                  echo "Invalid JAR/ZIP signature for ${base}: ${signature}" >&2
                   exit 1
                   ;;
               esac
