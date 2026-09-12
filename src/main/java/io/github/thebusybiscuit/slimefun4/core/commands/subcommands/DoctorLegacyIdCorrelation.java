@@ -58,8 +58,8 @@ final class DoctorLegacyIdCorrelation {
             if (declaredTarget != null) {
                 if (SlimefunItem.getById(declaredTarget) != null) {
                     ready++;
-                    send(sender, "&8- &a[PROVIDER READY] &f" + id + " &8-> &a" + declaredTarget
-                            + " &7(addon-declared)");
+                    send(sender, "&8- &a[READY] &f" + id + " &8-> &a" + declaredTarget
+                            + " &7(addon-declared; provider migration eligible)");
                 } else {
                     missingTargets++;
                     send(sender, "&8- &c[TARGET MISSING] &f" + id + " &8-> &c" + declaredTarget
@@ -91,14 +91,17 @@ final class DoctorLegacyIdCorrelation {
             send(sender, "&8- &c[NO MAPPING] &f" + id);
         }
 
-        send(sender, "&7Sample classification: provider-ready &a" + ready
+        send(sender, "&7Sample classification: ready &a" + ready
                 + " &8| &7live alias only &e" + liveAlias
                 + " &8| &7target missing &c" + missingTargets
                 + " &8| &7known historical &e" + knownHistorical
                 + " &8| &7no mapping &c" + noMapping);
 
-        if (knownHistorical > 0 || liveAlias > 0) {
-            send(sender, "&eHistorical hints and live aliases diagnose old data; neither alone authorizes a migration.");
+        if (knownHistorical > 0) {
+            send(sender, "&eKNOWN LEGACY entries are historical diagnostics only; they do not authorize a migration.");
+        }
+        if (liveAlias > 0) {
+            send(sender, "&eLIVE ALIAS entries prove compatibility resolution only; they do not authorize a migration.");
         }
         if (ready > 0 || missingTargets > 0) {
             send(sender, "&7Declared mappings can be inspected with &e/sf doctor migrations plan&7.");
