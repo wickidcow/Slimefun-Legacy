@@ -1,7 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.setup;
 
 import io.github.thebusybiscuit.slimefun4.api.researches.Research;
-import io.github.thebusybiscuit.slimefun4.core.config.CuriositiesConfig;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.extratools.CobblestoneGenerator;
 import io.github.thebusybiscuit.slimefun4.implementation.items.extratools.ConcreteFactory;
@@ -21,7 +20,6 @@ import org.bukkit.plugin.Plugin;
 /** Integrates the historical ExtraTools addon as optional Slimefun Legacy content. */
 final class ExtraToolsSetup {
 
-    private static final String CONFIG_PATH = "SlimefunLegacyAddition.ExtraTools.enabled";
     private static final String LEGACY_RESEARCH_NAMESPACE = "extratools";
     private static final List<String> ITEM_IDS = List.of(
             "HAMMER",
@@ -36,15 +34,6 @@ final class ExtraToolsSetup {
     private ExtraToolsSetup() {}
 
     static void setup(Slimefun plugin) {
-        CuriositiesConfig config = CuriositiesConfig.getConfig();
-        config.setDefaultValue(CONFIG_PATH, true);
-        config.save();
-
-        if (!config.getBoolean(CONFIG_PATH)) {
-            Slimefun.logger().info("Built-in ExtraTools is disabled in configSFLAddons.yml.");
-            return;
-        }
-
         Plugin standaloneExtraTools = Bukkit.getPluginManager().getPlugin("ExtraTools");
         if (standaloneExtraTools != null) {
             Slimefun.logger()
