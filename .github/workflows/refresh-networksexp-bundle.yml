@@ -1,6 +1,6 @@
 name: Refresh Networks Expansion in Addon Bundle
 
-# Refresh marker: SF_NetworksExp 1.0.17 line-transfer pusher review.
+# Refresh marker: SF_NetworksExp 1.0.18 blueprint recipe collision fix.
 
 on:
   push:
