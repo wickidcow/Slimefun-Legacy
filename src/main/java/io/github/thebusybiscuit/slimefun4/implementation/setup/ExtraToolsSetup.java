@@ -1,11 +1,11 @@
 package io.github.thebusybiscuit.slimefun4.implementation.setup;
 
+import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.researches.Research;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.extratools.CobblestoneGenerator;
 import io.github.thebusybiscuit.slimefun4.implementation.items.extratools.ConcreteFactory;
 import io.github.thebusybiscuit.slimefun4.implementation.items.extratools.ElectricComposter;
-import io.github.thebusybiscuit.slimefun4.implementation.items.extratools.ExtraToolsItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.extratools.GoldTransmuter;
 import io.github.thebusybiscuit.slimefun4.implementation.items.extratools.Hammer;
 import io.github.thebusybiscuit.slimefun4.implementation.items.extratools.Pulverizer;
@@ -57,13 +57,15 @@ final class ExtraToolsSetup {
         int researchCountBefore = Slimefun.getRegistry().getResearches().size();
         int researchId = 4100;
 
-        new Hammer().register(plugin);
-        registerResearch(++researchId, "hammer", "Hammer", 3, ExtraToolsItems.HAMMER);
+        Hammer hammer = new Hammer();
+        hammer.register(plugin);
+        registerResearch(++researchId, "hammer", "Hammer", 3, hammer);
 
-        new GoldTransmuter().register(plugin);
-        registerResearch(++researchId, "gold_transmuter", "Gold Transmuter", 12, ExtraToolsItems.GOLD_TRANSMUTER);
+        GoldTransmuter goldTransmuter = new GoldTransmuter();
+        goldTransmuter.register(plugin);
+        registerResearch(++researchId, "gold_transmuter", "Gold Transmuter", 12, goldTransmuter);
 
-        new ElectricComposter(ElectricComposter.Tier.ONE) {
+        ElectricComposter electricComposter = new ElectricComposter(ElectricComposter.Tier.ONE) {
             @Override
             public int getEnergyConsumption() {
                 return 9;
@@ -73,15 +75,11 @@ final class ExtraToolsSetup {
             public int getSpeed() {
                 return 1;
             }
-        }.register(plugin);
-        registerResearch(
-                ++researchId,
-                "electric_composter",
-                "Electric Composter",
-                18,
-                ExtraToolsItems.ELECTRIC_COMPOSTER);
+        };
+        electricComposter.register(plugin);
+        registerResearch(++researchId, "electric_composter", "Electric Composter", 18, electricComposter);
 
-        new ElectricComposter(ElectricComposter.Tier.TWO) {
+        ElectricComposter electricComposter2 = new ElectricComposter(ElectricComposter.Tier.TWO) {
             @Override
             public int getEnergyConsumption() {
                 return 25;
@@ -91,35 +89,25 @@ final class ExtraToolsSetup {
             public int getSpeed() {
                 return 4;
             }
-        }.register(plugin);
-        registerResearch(
-                ++researchId,
-                "electric_composter_2",
-                "Electric Composter II",
-                18,
-                ExtraToolsItems.ELECTRIC_COMPOSTER_2);
+        };
+        electricComposter2.register(plugin);
+        registerResearch(++researchId, "electric_composter_2", "Electric Composter II", 18, electricComposter2);
 
-        new CobblestoneGenerator().register(plugin);
-        registerResearch(
-                ++researchId,
-                "cobblestone_generator",
-                "Cobblestone Generator",
-                40,
-                ExtraToolsItems.COBBLESTONE_GENERATOR);
+        CobblestoneGenerator cobblestoneGenerator = new CobblestoneGenerator();
+        cobblestoneGenerator.register(plugin);
+        registerResearch(++researchId, "cobblestone_generator", "Cobblestone Generator", 40, cobblestoneGenerator);
 
-        new Vaporizer().register(plugin);
-        registerResearch(++researchId, "vaporizer", "Vaporizer", 18, ExtraToolsItems.VAPORIZER);
+        Vaporizer vaporizer = new Vaporizer();
+        vaporizer.register(plugin);
+        registerResearch(++researchId, "vaporizer", "Vaporizer", 18, vaporizer);
 
-        new ConcreteFactory().register(plugin);
-        registerResearch(
-                ++researchId,
-                "concrete_factory",
-                "Concrete Factory",
-                12,
-                ExtraToolsItems.CONCRETE_FACTORY);
+        ConcreteFactory concreteFactory = new ConcreteFactory();
+        concreteFactory.register(plugin);
+        registerResearch(++researchId, "concrete_factory", "Concrete Factory", 12, concreteFactory);
 
-        new Pulverizer().register(plugin);
-        registerResearch(++researchId, "pulverizer", "Pulverizer", 18, ExtraToolsItems.PULVERIZER);
+        Pulverizer pulverizer = new Pulverizer();
+        pulverizer.register(plugin);
+        registerResearch(++researchId, "pulverizer", "Pulverizer", 18, pulverizer);
 
         int itemsAdded = Slimefun.getRegistry().getAllSlimefunItems().size() - itemCountBefore;
         int researchesAdded = Slimefun.getRegistry().getResearches().size() - researchCountBefore;
@@ -130,14 +118,11 @@ final class ExtraToolsSetup {
                         new Object[] {itemsAdded, researchesAdded});
     }
 
-    private static void registerResearch(
-            int id,
-            String key,
-            String name,
-            int cost,
-            io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack item) {
+    private static void registerResearch(int id, String key, String name, int cost, SlimefunItem item) {
         NamespacedKey namespacedKey =
                 Objects.requireNonNull(NamespacedKey.fromString(LEGACY_RESEARCH_NAMESPACE + ':' + key));
-        new Research(namespacedKey, id, name, cost).addItems(item).register();
+        Research research = new Research(namespacedKey, id, name, cost);
+        research.addItems(item);
+        research.register();
     }
 }
