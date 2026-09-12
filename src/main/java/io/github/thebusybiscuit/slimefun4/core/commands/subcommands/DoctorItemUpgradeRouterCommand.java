@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
+import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
@@ -27,6 +28,12 @@ final class DoctorItemUpgradeRouterCommand extends SubCommand {
                         || args[1].equalsIgnoreCase("itemupgrade"))) {
             itemUpgrade.onExecute(sender, args);
             return;
+        }
+
+        if (args.length > 1 && args[1].equalsIgnoreCase("scan")) {
+            sender.sendMessage(ChatColors.color(
+                    "&7Looking specifically for old addon item IDs (IE1, DynaTech, renamed/translated items)? "
+                            + "Use &e/sf doctor item-upgrade scan &7for the guided upgrade-only scan."));
         }
         delegate.onExecute(sender, args);
     }
