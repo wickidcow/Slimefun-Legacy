@@ -1,5 +1,7 @@
 name: Publish Addon Bundle Checksums
 
+# Refresh marker: Galactifun 1.0.6 and SlimeEasy 1.0.2 bundle update.
+
 on:
   push:
     branches: [master]
