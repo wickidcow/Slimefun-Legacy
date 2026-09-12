@@ -118,11 +118,15 @@ reject("setItemData(" in correlation, "normal scan correlation must not rewrite 
 
 require("KnownLegacyItemIdCatalog" in catalog, "historical legacy-ID catalog is missing")
 require("diagnostic evidence only" in catalog, "historical catalog must document its non-authoritative boundary")
-require('add(hints, "INFINITY_FORGE", "IE_INFINITY_WORKBENCH")' in catalog,
+require('add(hints, "DIGITAL_MINER", "INDUSTRIAL_MINER", SLIMEFUN4_MINER_SOURCE, Evidence.DOCUMENTED_REPLACEMENT)' in catalog,
+        "documented Slimefun4 Digital Miner replacement is missing from the historical catalog")
+require('"ADVANCED_DIGITAL_MINER"' in catalog and '"ADVANCED_INDUSTRIAL_MINER"' in catalog,
+        "documented Slimefun4 Advanced Digital Miner replacement is missing from the historical catalog")
+require('addIe(hints, "INFINITY_FORGE", "IE_INFINITY_WORKBENCH")' in catalog,
         "verified IE1 Infinity Forge rename is missing from the historical catalog")
-require('add(hints, "BASIC_STORAGE", "IE_STORAGE_UNIT_2")' in catalog,
+require('addIe(hints, "BASIC_STORAGE", "IE_STORAGE_UNIT_2")' in catalog,
         "verified IE1 storage-tier mapping is missing from the historical catalog")
-require('add(hints, "POWERED_BEDROCK", "IE_POWERED_BEDROCK")' in catalog,
+require('addIe(hints, "POWERED_BEDROCK", "IE_POWERED_BEDROCK")' in catalog,
         "verified IE1 Powered Bedrock mapping is missing from the historical catalog")
 require('legacyId.endsWith("_DATA_CARD")' in catalog,
         "verified IE1 dynamic mob-card compatibility pattern is missing")
