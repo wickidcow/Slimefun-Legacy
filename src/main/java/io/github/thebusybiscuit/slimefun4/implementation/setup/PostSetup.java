@@ -44,7 +44,7 @@ public final class PostSetup {
         ArachnidWardTorchSetup.setup(Slimefun.instance());
         IrradiatedArsenalSetup.setup(Slimefun.instance());
         AdventurersToolsSetup.setup(Slimefun.instance());
-        ExtraGearSetup.setup(Slimefun.instance());
+        LegacyAddonSetup.setup(Slimefun.instance());
 
         Iterator<SlimefunItem> iterator =
                 Slimefun.getRegistry().getEnabledSlimefunItems().iterator();
@@ -136,18 +136,10 @@ public final class PostSetup {
         }
     }
 
-    /**
-     * This method counts the amount of {@link SlimefunItem SlimefunItems} registered
-     * by Slimefun itself and not by any addons.
-     *
-     * @return The amount of {@link SlimefunItem SlimefunItems} added by Slimefun itself
-     */
     private static int countNonAddonItems() {
-        // @formatter:off
         return (int) Slimefun.getRegistry().getEnabledSlimefunItems().stream()
                 .filter(item -> item.getAddon() instanceof Slimefun)
                 .count();
-        // @formatter:on
     }
 
     private static void loadOreGrinderRecipes() {
@@ -187,7 +179,6 @@ public final class PostSetup {
             }
         }
 
-        // Favour 8 Cobblestone -> 1 Sand Recipe over 1 Cobblestone -> 1 Gravel Recipe
         Stream<ItemStack[]> stream = grinderRecipes.stream();
 
         if (!Slimefun.getCfg().getBoolean("options.legacy-ore-grinder")) {
@@ -233,14 +224,12 @@ public final class PostSetup {
     private static void addSmelteryRecipe(ItemStack[] input, ItemStack[] output, MakeshiftSmeltery makeshiftSmeltery) {
         List<ItemStack> ingredients = new ArrayList<>();
 
-        // Filter out 'null' items
         for (ItemStack item : input) {
             if (item != null) {
                 ingredients.add(item);
             }
         }
 
-        // We want to redirect Dust to Ingot Recipes
         if (ingredients.size() == 1 && isDust(ingredients.get(0))) {
             makeshiftSmeltery.addRecipe(new ItemStack[] {ingredients.get(0)}, output[0]);
 
