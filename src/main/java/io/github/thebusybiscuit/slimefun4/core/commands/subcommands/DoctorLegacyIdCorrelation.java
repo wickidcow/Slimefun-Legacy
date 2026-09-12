@@ -102,7 +102,7 @@ final class DoctorLegacyIdCorrelation {
         }
         if (ready > 0 || missingTargets > 0) {
             send(sender, "&7Declared mappings can be inspected with &e/sf doctor migrations plan&7.");
-            send(sender, "&7Addon-owned repair uses &e/sf doctor migrations scan <plugin>&7, then its fingerprinted execute command.");
+            send(sender, "&7Addon-owned repair starts with &e/sf doctor migrations providers&7.");
         }
         send(sender, "&8Read-only diagnostic; no items, blocks, storage, registry IDs, Cargo or Energy data were modified.");
     }
