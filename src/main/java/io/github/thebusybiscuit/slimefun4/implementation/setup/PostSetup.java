@@ -45,6 +45,7 @@ public final class PostSetup {
         IrradiatedArsenalSetup.setup(Slimefun.instance());
         AdventurersToolsSetup.setup(Slimefun.instance());
         ExtraGearSetup.setup(Slimefun.instance());
+        ExtraToolsSetup.setup(Slimefun.instance());
 
         Iterator<SlimefunItem> iterator =
                 Slimefun.getRegistry().getEnabledSlimefunItems().iterator();
