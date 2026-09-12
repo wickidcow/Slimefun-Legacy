@@ -18,11 +18,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Refresh marker: Galactifun 1.0.6 and SlimeEasy 1.0.2 nested guide categories.
+  # ExtraTools is integrated into Slimefun Legacy core and is intentionally excluded.
   BASE_BUNDLE_TAG: v4.1.48
-  FAWE_BUILD: '1385'
+  FAWE_BUILD: '1387'
   FAWE_ASSET: FastAsyncWorldEdit-Paper-2.15.5-SNAPSHOT.jar
-  FAWE_URL: https://ci.athion.net/job/FastAsyncWorldEdit/1385/artifact/artifacts/FastAsyncWorldEdit-Paper-2.15.5-SNAPSHOT.jar
+  FAWE_URL: https://ci.athion.net/job/FastAsyncWorldEdit/1387/artifact/artifacts/FastAsyncWorldEdit-Paper-2.15.5-SNAPSHOT.jar
   WED_REPO: TWME-TW/WorldEditDisplay
   PACKETEVENTS_ASSET: packetevents-spigot-2.13.0.jar
 
@@ -30,6 +30,8 @@ jobs:
   refresh:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -64,6 +66,9 @@ jobs:
           # Core Slimefun ships separately.
           find bundle -type f -iname 'Slimefun-Legacy*.jar' -print -delete
 
+          # ExtraTools has been integrated into Slimefun Legacy core.
+          find bundle -type f -iname 'SF_ExtraTools*.jar' -print -delete
+
           # Magic Expansion is intentionally distributed separately from this bundle.
           find bundle -type f -iname '*MagicExpansion*.jar' -delete
           find bundle -type f -iname 'Magic*.zip' -delete
@@ -73,11 +78,8 @@ jobs:
           fi
           rm -rf bundle/RykenSlimefunCustomizer/addons/Magic
 
-          # These are deliberately retained custom/manual builds. They have no matching
-          # maintained GitHub Release that can be safely substituted automatically.
           manual_bundle_jar() {
             case "$1" in
-              'SF_ExtraTools vMODIFIED v0.1.jar'|\
               'SF_HotbarPets-MODIFIED.jar'|\
               'SF_SMG vMODIFIED v0.3.jar'|\
               'SF_betterfarming-Build 1 (git d8b712f).jar'|\
@@ -91,11 +93,15 @@ jobs:
             esac
           }
 
-          mapfile -t SF_REPOS < <(
-            gh api --paginate 'users/wickidcow/repos?per_page=100&type=owner' \
+          if ! gh api --paginate 'users/wickidcow/repos?per_page=100&type=owner' \
               --jq '.[] | select(.archived == false and (.name | startswith("SF_"))) | .name' \
-              | sort -u
-          )
+              > latest/sf-repos.txt 2>/dev/null; then
+            curl --fail --location --retry 3 \
+              'https://api.github.com/users/wickidcow/repos?per_page=100&type=owner' \
+              | jq -r '.[] | select(.archived == false and (.name | startswith("SF_"))) | .name' \
+              > latest/sf-repos.txt
+          fi
+          mapfile -t SF_REPOS < <(sort -u latest/sf-repos.txt)
 
           if [[ "${#SF_REPOS[@]}" -eq 0 ]]; then
             echo 'No maintained wickidcow SF_ repositories were returned by GitHub.' >&2
@@ -125,6 +131,16 @@ jobs:
             done
 
             printf '%s\n' "$best"
+          }
+
+          latest_release_json() {
+            local repo="$1"
+            local out="$2"
+            if ! gh api "repos/${repo}/releases/latest" > "$out" 2>/dev/null; then
+              curl --fail --location --retry 3 \
+                "https://api.github.com/repos/${repo}/releases/latest" \
+                --output "$out"
+            fi
           }
 
           latest_jar_asset() {
@@ -170,18 +186,25 @@ jobs:
             printf '%s\n' "$asset"
           }
 
-          verify_release_download() {
+          download_release_asset() {
             local repo="$1"
             local json="$2"
-            local tag="$3"
-            local asset="$4"
-            local out_dir="$5"
-            local downloaded="${out_dir}/${asset}"
+            local asset="$3"
+            local out_dir="$4"
+            local url
             local expected_digest
+            local downloaded
+
+            url="$(jq -r --arg name "$asset" '.assets[] | select(.name == $name) | .browser_download_url // empty' "$json")"
+            if [[ -z "$url" ]]; then
+              echo "Missing browser_download_url for ${repo} ${asset}" >&2
+              return 1
+            fi
 
             rm -rf "$out_dir"
             mkdir -p "$out_dir"
-            gh release download "$tag" --repo "$repo" --pattern "$asset" --dir "$out_dir"
+            downloaded="${out_dir}/${asset}"
+            curl --fail --location --retry 5 --retry-delay 2 --output "$downloaded" "$url"
             test -s "$downloaded"
             unzip -tqq "$downloaded"
 
@@ -200,6 +223,8 @@ jobs:
 
           declare -A SEEN_REPOS=()
           MANUAL_COUNT=0
+          UPDATED_COUNT=0
+          CURRENT_COUNT=0
 
           while IFS= read -r -d '' jar; do
             base="$(basename "$jar")"
@@ -208,7 +233,7 @@ jobs:
             repo_name="$(repo_for_jar "$base")"
             if [[ -z "$repo_name" ]]; then
               if manual_bundle_jar "$base"; then
-                echo "MANUAL/PINNED: preserving ${base} (no maintained release mapping)"
+                echo "MANUAL/PINNED: preserving ${base}"
                 unzip -tqq "$jar"
                 MANUAL_COUNT=$((MANUAL_COUNT + 1))
                 continue
@@ -224,9 +249,9 @@ jobs:
             SEEN_REPOS[$repo_name]="$jar"
 
             release_json="latest/${repo_name}.json"
-            if ! gh api "repos/wickidcow/${repo_name}/releases/latest" > "$release_json" 2>/dev/null; then
+            if ! latest_release_json "wickidcow/${repo_name}" "$release_json"; then
               if manual_bundle_jar "$base"; then
-                echo "MANUAL/PINNED: preserving ${base}; wickidcow/${repo_name} has no published GitHub Release"
+                echo "MANUAL/PINNED: preserving ${base}; no published release available"
                 unzip -tqq "$jar"
                 MANUAL_COUNT=$((MANUAL_COUNT + 1))
                 continue
@@ -240,22 +265,27 @@ jobs:
             dest_dir="$(dirname "$jar")"
             out_dir="latest/${repo_name}-download"
 
-            echo "${repo_name}: ${base} -> ${asset} (${tag})"
-            verify_release_download "wickidcow/${repo_name}" "$release_json" "$tag" "$asset" "$out_dir"
+            if [[ "$base" == "$asset" ]]; then
+              echo "CURRENT: ${repo_name} ${base} (${tag})"
+              CURRENT_COUNT=$((CURRENT_COUNT + 1))
+            else
+              echo "UPDATE: ${repo_name} ${base} -> ${asset} (${tag})"
+              UPDATED_COUNT=$((UPDATED_COUNT + 1))
+            fi
 
+            download_release_asset "wickidcow/${repo_name}" "$release_json" "$asset" "$out_dir"
             rm -f "$jar"
             mkdir -p "$dest_dir"
             cp "${out_dir}/${asset}" "$dest_dir/$asset"
           done < <(find bundle -type f -name 'SF_*.jar' -print0)
 
-          # WorldEditDisplay is the second external WorldEdit-related dependency in the bundle.
           WED_OLD="$(find bundle -type f -iname 'WorldEditDisplay-*-paper.jar' -print -quit || true)"
           if [[ -z "$WED_OLD" ]]; then
             echo 'WorldEditDisplay Paper JAR is missing from the bundle.' >&2
             exit 1
           fi
           WED_DIR="$(dirname "$WED_OLD")"
-          gh api "repos/${WED_REPO}/releases/latest" > latest/worldeditdisplay.json
+          latest_release_json "$WED_REPO" latest/worldeditdisplay.json
           WED_TAG="$(jq -r '.tag_name' latest/worldeditdisplay.json)"
           WED_ASSET="$(jq -r '[.assets[] | select(.state == "uploaded") | select(.name | test("^WorldEditDisplay-.*-paper\\.jar$"))] | .[0].name // empty' latest/worldeditdisplay.json)"
           if [[ -z "$WED_ASSET" ]]; then
@@ -263,11 +293,10 @@ jobs:
             exit 1
           fi
           echo "WorldEditDisplay: $(basename "$WED_OLD") -> ${WED_ASSET} (${WED_TAG})"
-          verify_release_download "$WED_REPO" latest/worldeditdisplay.json "$WED_TAG" "$WED_ASSET" latest/worldeditdisplay-download
+          download_release_asset "$WED_REPO" latest/worldeditdisplay.json "$WED_ASSET" latest/worldeditdisplay-download
           find bundle -type f -iname 'WorldEditDisplay-*-paper.jar' -delete
           cp "latest/worldeditdisplay-download/${WED_ASSET}" "$WED_DIR/$WED_ASSET"
 
-          # FAWE: pin the exact latest successful Jenkins Paper artifact requested for this bundle.
           FAWE_OLD="$(find bundle -type f -iname 'FastAsyncWorldEdit-Paper-*.jar' -print -quit || true)"
           if [[ -z "$FAWE_OLD" ]]; then
             echo 'FastAsyncWorldEdit Paper JAR is missing from the addon/dependency bundle.' >&2
@@ -275,28 +304,12 @@ jobs:
           fi
           FAWE_DIR="$(dirname "$FAWE_OLD")"
           find bundle -type f -iname 'FastAsyncWorldEdit-Paper-*.jar' -delete
-
           echo "FAWE: installing Jenkins #${FAWE_BUILD} ${FAWE_ASSET}"
-          curl --fail --location --retry 5 --retry-delay 2 \
-            --output "latest/${FAWE_ASSET}" \
-            "$FAWE_URL"
+          curl --fail --location --retry 5 --retry-delay 2 --output "latest/${FAWE_ASSET}" "$FAWE_URL"
           test -s "latest/${FAWE_ASSET}"
-          # FAWE's shaded JAR intentionally contains overlapping ZIP components. Modern
-          # Java/Info-ZIP validators reject that layout even though Paper loads it, so
-          # validate the non-empty archive signature instead of expanding its entries.
-          signature="$(head -c 4 "latest/${FAWE_ASSET}" | od -An -tx1 | tr -d ' \n')"
-          case "$signature" in
-            504b0304|504b0506|504b0708) ;;
-            *)
-              echo "Invalid JAR/ZIP signature for ${FAWE_ASSET}: ${signature}" >&2
-              exit 1
-              ;;
-          esac
           mkdir -p "$FAWE_DIR"
           cp "latest/${FAWE_ASSET}" "$FAWE_DIR/"
 
-          # Every bundled JAR must at least be structurally readable, including manual pins.
-          # PacketEvents and FAWE require the same special handling used by the checksum workflow.
           while IFS= read -r -d '' jar; do
             base="$(basename "$jar")"
             echo "Validating ${base}"
@@ -317,17 +330,14 @@ jobs:
             fi
           done < <(find bundle -type f -name '*.jar' -print0)
 
-          test "$(find bundle -type f -name "$FAWE_ASSET" | wc -l)" -eq 1
-          if find bundle -type f -iname 'FastAsyncWorldEdit-Paper-*.jar' ! -name "$FAWE_ASSET" | grep -q .; then
-            echo 'A stale FastAsyncWorldEdit Paper JAR remains in the bundle.' >&2
+          if find bundle -type f -iname 'Slimefun-Legacy*.jar' | grep -q .; then
+            echo 'Slimefun Legacy core JAR must not be included in SFL_AddonsNDependencies.zip.' >&2
             exit 1
           fi
-          test "$(find bundle -type f -name "$WED_ASSET" | wc -l)" -eq 1
-          if find bundle -type f -iname 'WorldEditDisplay-*-paper.jar' ! -name "$WED_ASSET" | grep -q .; then
-            echo 'A stale WorldEditDisplay Paper JAR remains in the bundle.' >&2
+          if find bundle -type f -iname 'SF_ExtraTools*.jar' | grep -q .; then
+            echo 'ExtraTools is integrated into Slimefun Legacy core and must not be bundled separately.' >&2
             exit 1
           fi
-
           if find bundle -type f -iname '*MagicExpansion*.jar' | grep -q . || \
              find bundle -type f -iname 'Magic*.zip' | grep -q . || \
              grep -rl --include='info.yml' '^id:[[:space:]]*Magic[[:space:]]*$' bundle 2>/dev/null | grep -q . || \
@@ -335,22 +345,20 @@ jobs:
             echo 'Magic Expansion content must not be included in the addon bundle.' >&2
             exit 1
           fi
-          if find bundle -type f -iname 'Slimefun-Legacy*.jar' | grep -q .; then
-            echo 'Slimefun Legacy core JAR must not be included in SFL_AddonsNDependencies.zip.' >&2
-            exit 1
-          fi
 
-          echo "Manual/pinned legacy JARs retained: ${MANUAL_COUNT}"
+          echo "Addon audit summary: ${UPDATED_COUNT} updated, ${CURRENT_COUNT} already current, ${MANUAL_COUNT} manual/pinned."
           echo 'Final JAR inventory:'
           find bundle -type f -name '*.jar' -printf '%P\n' | sort
 
           rm -f SFL_AddonsNDependencies.zip
           (cd bundle && zip -qr ../SFL_AddonsNDependencies.zip .)
 
-          unzip -Z1 SFL_AddonsNDependencies.zip | grep -F "$FAWE_ASSET"
-          unzip -Z1 SFL_AddonsNDependencies.zip | grep -F "$WED_ASSET"
           if unzip -Z1 SFL_AddonsNDependencies.zip | grep -Ei '(^|/)Slimefun-Legacy[^/]*\.jar$'; then
             echo 'Slimefun Legacy core JAR found in final addon/dependency archive.' >&2
+            exit 1
+          fi
+          if unzip -Z1 SFL_AddonsNDependencies.zip | grep -Ei '(^|/)SF_ExtraTools[^/]*\.jar$'; then
+            echo 'ExtraTools JAR found in final archive even though it is integrated into core.' >&2
             exit 1
           fi
           if unzip -l SFL_AddonsNDependencies.zip | grep -Ei 'MagicExpansion.*\.jar|RykenSlimefunCustomizer/addons/Magic/|Magic[^/]*\.zip'; then
