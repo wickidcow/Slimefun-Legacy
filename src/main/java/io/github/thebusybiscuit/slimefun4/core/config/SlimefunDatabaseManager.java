@@ -1,6 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.core.config;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.adapter.IDataSourceAdapter;
+import com.xzavier0722.mc.plugin.slimefun4.storage.adapter.LegacyIdReconciliationAdapter;
 import com.xzavier0722.mc.plugin.slimefun4.storage.adapter.mysql.MysqlAdapter;
 import com.xzavier0722.mc.plugin.slimefun4.storage.adapter.mysql.MysqlConfig;
 import com.xzavier0722.mc.plugin.slimefun4.storage.adapter.postgresql.PostgreSqlAdapter;
@@ -168,6 +169,10 @@ public class SlimefunDatabaseManager {
                     case PLAYER_PROFILE -> profileAdapter = adapter;
                 }
             }
+        }
+
+        if (dataType == DataType.BLOCK_STORAGE) {
+            blockStorageAdapter = new LegacyIdReconciliationAdapter<>(blockStorageAdapter);
         }
     }
 
