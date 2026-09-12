@@ -72,11 +72,18 @@ public final class LegacyIdReconciliationAdapter<T> implements IDataSourceAdapte
             return records;
         }
 
-        var reconciled = new ArrayList<RecordSet>(records.size());
-        for (RecordSet record : records) {
-            reconciled.add(reconcileBlockRecord(key, record));
+        ArrayList<RecordSet> reconciled = null;
+        for (int i = 0; i < records.size(); i++) {
+            RecordSet record = records.get(i);
+            RecordSet resolved = reconcileBlockRecord(key, record);
+            if (resolved != record) {
+                if (reconciled == null) {
+                    reconciled = new ArrayList<>(records);
+                }
+                reconciled.set(i, resolved);
+            }
         }
-        return reconciled;
+        return reconciled == null ? records : reconciled;
     }
 
     @Override
