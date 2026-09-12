@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  FALLBACK_BUNDLE_TAG: v4.1.48
+  FALLBACK_BUNDLE_TAG: v4.1.49
   FAWE_BUILD: '1387'
   FAWE_ASSET: FastAsyncWorldEdit-Paper-2.15.5-SNAPSHOT.jar
   FAWE_URL: https://ci.athion.net/job/FastAsyncWorldEdit/1387/artifact/artifacts/FastAsyncWorldEdit-Paper-2.15.5-SNAPSHOT.jar
