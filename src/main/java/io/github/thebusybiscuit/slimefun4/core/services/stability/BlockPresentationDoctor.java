@@ -89,6 +89,9 @@ final class BlockPresentationDoctor {
                 .isPresent();
         SlimefunItem resolved = SlimefunItem.getById(storedId);
 
+        // A declared legacy ID is authoritative migration evidence. A live alias where the
+        // requested ID differs from the canonical item's ID is also worth reporting, but remains
+        // diagnostic-only until an addon publishes a migration mapping/provider.
         if (declaredLegacy || (resolved != null && !storedId.equals(resolved.getId()))) {
             report.legacyBlockIdFound(storedId);
         } else if (resolved == null) {
