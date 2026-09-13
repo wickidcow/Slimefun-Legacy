@@ -96,6 +96,7 @@ final class DoctorSchemaMigrationCommand {
                     + plan.getProviderId() + " " + plan.getShortFingerprint());
         }
         send(sender, "&7Plans expire after &e" + ttlMinutes + " minute(s)&7 and are single-use.");
+        send(sender, "&eExecuting one provider invalidates sibling schema plans; re-scan between addon migrations.");
         send(sender, "&eMake an offline backup before executing a schema migration plan.");
     }
 
@@ -149,8 +150,8 @@ final class DoctorSchemaMigrationCommand {
             return;
         }
 
-        migrationService.invalidatePreparedPlan(plan.getProviderId());
-        send(sender, "&eUsing a single-use schema migration plan. The fingerprint is now consumed.");
+        migrationService.invalidateAllPreparedPlans();
+        send(sender, "&eUsing a single-use schema migration plan. This fingerprint and sibling schema plans are now consumed.");
         send(sender, "&7Revalidating addon-owned backing state before any live item mutation...");
         migrationService.revalidatePlan(plan).whenComplete((verified, error) ->
                 Slimefun.getSchedulerService().run(() -> finishExecutionRevalidation(sender, doctor, plan, verified, error)));
