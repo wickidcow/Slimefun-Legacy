@@ -31,6 +31,7 @@ block_doctor = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/servi
 service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemDoctorService.java")
 scan = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorScanWithLegacyCorrelation.java")
 correlation = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorLegacyIdCorrelation.java")
+upgrade = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorUpgradeWorkflow.java")
 output_chest = read("src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/blocks/OutputChest.java")
 
 require("legacyBlockIds" in report and "unknownBlockIds" in report,
@@ -89,6 +90,17 @@ require("report.getLegacyMigrationCandidateCounts()" in correlation,
 require("this scan never rewrites stored block IDs" in correlation,
         "placed-block findings must retain an explicit non-authoritative migration boundary")
 
+require("Placed block IDs: legacy/alias" in upgrade,
+        "upgrade status must expose placed-block identity findings")
+require("placedBlockIdentitySignals = report.getLegacyBlockIds() + report.getUnknownBlockIds()" in upgrade,
+        "upgrade planning must aggregate all placed-block identity signals")
+require("+ placedBlockIdentitySignals" in upgrade,
+        "placed-block identity signals must contribute to MANUAL/BLOCKED planning totals")
+require("Doctor has no block-ID migration executor" in upgrade,
+        "upgrade plan must state why placed-block identity findings remain manual-only")
+require("block-ID rewrite" in upgrade,
+        "upgrade plan safety footer must explicitly reject block-ID rewriting")
+
 require("class OutputChest extends SlimefunItem" in output_chest,
         "Output Chest fixture changed unexpectedly")
 reject("BlockMenu" in output_chest,
@@ -105,4 +117,5 @@ print("- menu-less placed Slimefun blocks remain included")
 print("- CJK block-name recovery stays presentation-only")
 print("- persisted legacy/live-alias/unknown IDs are diagnosed separately")
 print("- schema migration execution remains isolated from presentation repair")
+print("- placed-block identities remain MANUAL/BLOCKED in upgrade planning")
 print("- exact item/schema migration accounting remains intact")
