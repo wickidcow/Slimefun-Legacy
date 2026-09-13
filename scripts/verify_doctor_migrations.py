@@ -110,8 +110,8 @@ require('args[1].equalsIgnoreCase("scan")' in router, "normal Doctor scan must b
 require("DoctorScanWithLegacyCorrelation.run(plugin, sender)" in router, "normal Doctor scan must use legacy-aware scan output")
 require("service.startMigrationAwareServerRun(" in scan,
         "normal Doctor scan must use the dedicated migration-aware read-only traversal")
-require("return startServerRun(false, true, completion);" in item_doctor_service,
-        "migration-aware Item Doctor traversal must remain hard-wired to read-only mode")
+require("return startServerRun(false, true, null, completion);" in item_doctor_service,
+        "migration-aware Item Doctor traversal must remain hard-wired to read-only mode with no schema executor")
 require("DoctorLegacyIdCorrelation.send(sender, report)" in scan, "normal Doctor scan completion must include legacy-ID correlation")
 require("Slimefun Legacy-ID Correlation" in correlation, "normal scan legacy correlation heading is missing")
 require("[READY]" in correlation and "[TARGET MISSING]" in correlation,
