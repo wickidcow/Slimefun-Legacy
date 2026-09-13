@@ -130,7 +130,14 @@ final class DoctorUpgradeWorkflow {
             }
         }
 
-        long uncoveredLegacyStacks = Math.max(0L, readyLegacyStacks - providerCoveredStacks);
+        long uncoveredLegacyStacks = 0L;
+        for (Map.Entry<String, Long> entry : legacyCandidates.entrySet()) {
+            String target = declaredMappings.get(entry.getKey());
+            if (target != null && SlimefunItem.getById(target) != null && !providerCoveredIds.contains(entry.getKey())) {
+                uncoveredLegacyStacks += entry.getValue();
+            }
+        }
+
         send(sender, "&eLane 1 - Legacy item IDs");
         send(sender, "&7Candidates: &e" + report.getLegacyMigrationCandidates()
                 + " &8| &7registered target ready: &a" + readyLegacyStacks
