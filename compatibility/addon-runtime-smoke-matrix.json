@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "minecraft": "26.2",
+  "addons": [
+    {
+      "repository": "wickidcow/SF_FastMachines",
+      "slug": "legacy-fastmachines",
+      "runtime_plugin": "FastMachines",
+      "enabled": true
+    },
+    {
+      "repository": "wickidcow/SF_NetworksExp",
+      "slug": "legacy-networksexp",
+      "runtime_plugin": "Networks",
+      "enabled": true
+    },
+    {
+      "repository": "wickidcow/SF_SlimeTinkerIE2",
+      "slug": "legacy-slimetinker-ie2",
+      "runtime_plugin": "SlimeTinker",
+      "enabled": true
+    },
+    {
+      "repository": "wickidcow/SF_BetterChests",
+      "slug": "legacy-betterchests",
+      "runtime_plugin": "BetterChests",
+      "enabled": true
+    }
+  ]
+}
