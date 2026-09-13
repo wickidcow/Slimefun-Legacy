@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.core.services.stability;
 
-import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaMigrationProvider;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaMigrator;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaProbe;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaValidation;
