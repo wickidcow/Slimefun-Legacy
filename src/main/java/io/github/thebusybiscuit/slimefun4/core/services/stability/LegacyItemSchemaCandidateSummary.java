@@ -14,6 +14,7 @@ public final class LegacyItemSchemaCandidateSummary {
     private final String candidateType;
     private final Readiness readiness;
     private final String detail;
+    private final boolean itemLocalClaimPresent;
     private final long count;
 
     LegacyItemSchemaCandidateSummary(
@@ -23,6 +24,7 @@ public final class LegacyItemSchemaCandidateSummary {
             @Nonnull String candidateType,
             @Nonnull Readiness readiness,
             @Nonnull String detail,
+            boolean itemLocalClaimPresent,
             @Nonnegative long count) {
         this.providerId = Objects.requireNonNull(providerId, "providerId");
         this.migrationName = Objects.requireNonNull(migrationName, "migrationName");
@@ -30,6 +32,7 @@ public final class LegacyItemSchemaCandidateSummary {
         this.candidateType = Objects.requireNonNull(candidateType, "candidateType");
         this.readiness = Objects.requireNonNull(readiness, "readiness");
         this.detail = Objects.requireNonNull(detail, "detail");
+        this.itemLocalClaimPresent = itemLocalClaimPresent;
         if (count < 0L) {
             throw new IllegalArgumentException("count cannot be negative");
         }
@@ -42,5 +45,6 @@ public final class LegacyItemSchemaCandidateSummary {
     public @Nonnull String getCandidateType() { return candidateType; }
     public @Nonnull Readiness getReadiness() { return readiness; }
     public @Nonnull String getDetail() { return detail; }
+    public boolean hasItemLocalClaim() { return itemLocalClaimPresent; }
     public long getCount() { return count; }
 }
