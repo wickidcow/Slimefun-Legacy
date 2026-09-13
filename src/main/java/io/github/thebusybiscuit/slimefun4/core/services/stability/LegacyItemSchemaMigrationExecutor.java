@@ -73,18 +73,36 @@ public final class LegacyItemSchemaMigrationExecutor {
         }
 
         authorizedCandidates.incrementAndGet();
-        boolean changed = migrator.migrateItem(
-                item,
-                slimefunId,
-                candidate.getCandidateType(),
-                candidate.getValidationClaim(),
-                authorization.migrationPayload());
-        if (changed) {
-            migrated.incrementAndGet();
-            report.stackRepaired();
-        } else {
-            skipped.incrementAndGet();
+        ItemStack original = item.clone();
+        try {
+            boolean changed = migrator.migrateItem(
+                    item,
+                    slimefunId,
+                    candidate.getCandidateType(),
+                    candidate.getValidationClaim(),
+                    authorization.migrationPayload());
+            if (changed) {
+                migrated.incrementAndGet();
+                report.stackRepaired();
+            } else {
+                skipped.incrementAndGet();
+            }
+            return changed;
+        } catch (RuntimeException | LinkageError exception) {
+            restore(item, original);
+            failures.incrementAndGet();
+            report.failure();
+            Slimefun.logger().log(
+                    Level.WARNING,
+                    "Addon schema migrator failed; the original live ItemStack was restored.",
+                    exception);
+            return false;
         }
-        return changed;
+    }
+
+    private static void restore(ItemStack target, ItemStack original) {
+        target.setType(original.getType());
+        target.setAmount(original.getAmount());
+        target.setItemMeta(original.getItemMeta());
     }
 }
