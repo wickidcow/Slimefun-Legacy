@@ -190,12 +190,7 @@ public final class LegacyItemSchemaMigrationService {
         }
         for (String type : ambiguousTypes) migrators.remove(type);
 
-        for (LegacyItemSchemaMigrationPlan.Authorization authorization : plan.authorizations()) {
-            if (!probes.containsKey(authorization.slimefunId())
-                    || !migrators.containsKey(authorization.candidateType())) {
-                return Optional.empty();
-            }
-        }
+        if (probes.isEmpty() || migrators.isEmpty()) return Optional.empty();
         return Optional.of(new LegacyItemSchemaMigrationExecutor(plan, probes, migrators));
     }
 
