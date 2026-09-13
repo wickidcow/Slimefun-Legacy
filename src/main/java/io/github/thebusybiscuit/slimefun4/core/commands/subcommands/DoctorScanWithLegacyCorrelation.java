@@ -6,7 +6,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import javax.annotation.Nonnull;
 import org.bukkit.command.CommandSender;
 
-/** Runs the normal read-only Item Doctor scan and appends legacy-ID correlation to its completion report. */
+/** Runs the read-only Item Doctor scan with legacy ID and same-ID schema correlation enabled. */
 final class DoctorScanWithLegacyCorrelation {
 
     private DoctorScanWithLegacyCorrelation() {}
@@ -23,10 +23,11 @@ final class DoctorScanWithLegacyCorrelation {
             return;
         }
 
-        boolean started = service.startServerRun(false, report -> {
+        boolean started = service.startMigrationAwareServerRun(report -> {
             send(sender, "&aSlimefun item doctor " + report.getModeName() + " completed.");
             sendProgress(sender, report);
             DoctorLegacyIdCorrelation.send(sender, report);
+            DoctorSchemaMigrationCorrelation.send(sender, report);
             if (report.getUnknownIds() > 0 || report.getUnresolvedTemplates() > 0) {
                 send(sender, "&eSome lore remains protected because Doctor cannot prove a full English rewrite is safe.");
             }
@@ -37,10 +38,11 @@ final class DoctorScanWithLegacyCorrelation {
             return;
         }
 
-        send(sender, "&aStarted a batched server-wide item doctor scan.");
-        send(sender, "&7This is a dry run. It will report changes without modifying any item.");
+        send(sender, "&aStarted a batched server-wide item doctor migration scan.");
+        send(sender, "&7This is a dry run. It reports legacy IDs and addon-owned schema candidates without modifying items.");
         send(sender, "&7It covers online inventories, loaded chests/machines, nested containers, and all backpacks.");
-        send(sender, "&7Offline player inventories and unloaded chests are repaired automatically when loaded.");
+        send(sender, "&7Schema probes receive cloned items and cannot mutate the live stack through this scan path.");
+        send(sender, "&7Offline player inventories and unloaded chests are still handled only when loaded normally.");
     }
 
     private static void sendProgress(CommandSender sender, ItemDoctorReport report) {
@@ -51,6 +53,8 @@ final class DoctorScanWithLegacyCorrelation {
                 + report.getRepairedStacks());
         send(sender, "&7Declared legacy-ID candidates: &e" + report.getLegacyMigrationCandidates()
                 + " &8| &7Distinct IDs: &e" + report.getLegacyMigrationCandidateCounts().size());
+        send(sender, "&7Same-ID schema candidates: &e" + report.getSchemaMigrationCandidates()
+                + " &8| &7Candidate groups: &e" + report.getSchemaMigrationCandidateSummaries().size());
         send(sender, "&7Unknown IDs: &e" + report.getUnknownIds() + " &8| &7No English template: &e"
                 + report.getUnresolvedTemplates() + " &8| &7Failures: &c" + report.getFailures());
         if (!report.getUnknownIdSamples().isEmpty()) {

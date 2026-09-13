@@ -127,11 +127,33 @@ public final class ItemDoctorService implements Listener {
      * @return {@code false} when another server-wide run is already active
      */
     public boolean startServerRun(boolean repair, @Nonnull Consumer<ItemDoctorReport> completion) {
+        return startServerRun(repair, false, completion);
+    }
+
+    /**
+     * Starts the normal read-only server-wide Doctor scan with addon-owned legacy schema probes enabled.
+     *
+     * <p>Schema probes are deliberately limited to this operator-triggered path. Automatic presentation repair
+     * never creates a probe session and therefore never invokes addon migration probes.</p>
+     *
+     * @return {@code false} when another server-wide run is already active
+     */
+    public boolean startMigrationAwareServerRun(@Nonnull Consumer<ItemDoctorReport> completion) {
+        return startServerRun(false, true, completion);
+    }
+
+    private boolean startServerRun(
+            boolean repair, boolean enableSchemaProbes, @Nonnull Consumer<ItemDoctorReport> completion) {
         if (shuttingDown || !isEnabled() || !serverRunActive.compareAndSet(false, true)) {
             return false;
         }
 
         ItemDoctorReport report = new ItemDoctorReport(repair);
+        if (enableSchemaProbes) {
+            LegacyItemSchemaProbeService.Session probes =
+                    new LegacyItemSchemaProbeService(plugin).createSession(report);
+            report.enableSchemaProbeSession(probes);
+        }
         currentReport = report;
         ServerRun run = new ServerRun(report, completion);
         activeRun = run;
