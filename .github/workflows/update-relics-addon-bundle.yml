@@ -1,4 +1,4 @@
-name: Update BetterChests and Relics in Slimefun Addon Bundle
+name: Update Selected Addons in Slimefun Addon Bundle
 
 on:
   workflow_dispatch:
@@ -38,10 +38,11 @@ jobs:
           SFL_TAG: ${{ steps.meta.outputs.sfl_tag }}
           BETTERCHESTS_REPO: wickidcow/SF_BetterChests
           RELICS_REPO: wickidcow/SF_RelicsOfCthonia
+          FINALTECH_REPO: wickidcow/SF_FinalTECH
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p work bundle betterchests relics
+          mkdir -p work bundle betterchests relics finaltech
 
           gh release download "$SFL_TAG" \
             --repo "$GITHUB_REPOSITORY" \
@@ -96,8 +97,9 @@ jobs:
 
           resolve_addon "$BETTERCHESTS_REPO" 'SF_BetterChests' betterchests work/betterchests-release.json BETTERCHESTS
           resolve_addon "$RELICS_REPO" 'SF_RelicsOfCthonia' relics work/relics-release.json RELICS
+          resolve_addon "$FINALTECH_REPO" 'SF_FinalTECH' finaltech work/finaltech-release.json FINALTECH
 
-      - name: Replace BetterChests and Relics without changing other bundle selections
+      - name: Update selected addons without changing other bundle selections
         shell: bash
         run: |
           set -euo pipefail
@@ -147,6 +149,7 @@ jobs:
 
           replace_addon '*BetterChests*.jar' "betterchests/$BETTERCHESTS_ASSET" "$BETTERCHESTS_ASSET" BetterChests
           replace_addon '*RelicsOfCthonia*.jar' "relics/$RELICS_ASSET" "$RELICS_ASSET" 'Relics of Cthonia'
+          replace_addon 'SF_FinalTECH*.jar' "finaltech/$FINALTECH_ASSET" "$FINALTECH_ASSET" FinalTECH
 
       - name: Rebuild bundle and full checksum manifest
         shell: bash
@@ -160,13 +163,15 @@ jobs:
 
           BETTERCHESTS_COUNT="$(unzip -Z1 SFL_AddonsNDependencies.zip | grep -Ec '(^|/)[^/]*BetterChests[^/]*\.jar$')"
           RELICS_COUNT="$(unzip -Z1 SFL_AddonsNDependencies.zip | grep -Ec '(^|/)[^/]*RelicsOfCthonia[^/]*\.jar$')"
-          if [[ "$BETTERCHESTS_COUNT" -ne 1 || "$RELICS_COUNT" -ne 1 ]]; then
-            echo "Unexpected addon counts after rebuild: BetterChests=${BETTERCHESTS_COUNT}, Relics=${RELICS_COUNT}." >&2
+          FINALTECH_COUNT="$(unzip -Z1 SFL_AddonsNDependencies.zip | grep -Ec '(^|/)SF_FinalTECH[^/]*\.jar$')"
+          if [[ "$BETTERCHESTS_COUNT" -ne 1 || "$RELICS_COUNT" -ne 1 || "$FINALTECH_COUNT" -ne 1 ]]; then
+            echo "Unexpected addon counts after rebuild: BetterChests=${BETTERCHESTS_COUNT}, Relics=${RELICS_COUNT}, FinalTECH=${FINALTECH_COUNT}." >&2
             exit 1
           fi
 
           unzip -Z1 SFL_AddonsNDependencies.zip | grep -F "$BETTERCHESTS_ASSET"
           unzip -Z1 SFL_AddonsNDependencies.zip | grep -F "$RELICS_ASSET"
+          unzip -Z1 SFL_AddonsNDependencies.zip | grep -F "$FINALTECH_ASSET"
 
           find bundle -type f -name '*.jar' -print0 \
             | sort -z \
@@ -178,6 +183,7 @@ jobs:
           test "$(wc -l < SFL_AddonsNDependencies.sha256)" -eq "$JAR_COUNT"
           grep -F "$BETTERCHESTS_ASSET" SFL_AddonsNDependencies.sha256
           grep -F "$RELICS_ASSET" SFL_AddonsNDependencies.sha256
+          grep -F "$FINALTECH_ASSET" SFL_AddonsNDependencies.sha256
 
           echo "Bundle SHA-256: $(sha256sum SFL_AddonsNDependencies.zip | awk '{print $1}')"
           echo "JARs checksummed: ${JAR_COUNT}"
@@ -199,12 +205,13 @@ jobs:
             echo "Updated ${SFL_TAG} addon bundle."
             echo "BetterChests: ${BETTERCHESTS_ASSET} (${BETTERCHESTS_TAG})"
             echo "Relics of Cthonia: ${RELICS_ASSET} (${RELICS_TAG})"
+            echo "FinalTECH: ${FINALTECH_ASSET} (${FINALTECH_TAG})"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload verification artifact
         uses: actions/upload-artifact@v7
         with:
-          name: SFL-Addon-Bundle-${{ steps.meta.outputs.sfl_version }}-BetterChests-Relics
+          name: SFL-Addon-Bundle-${{ steps.meta.outputs.sfl_version }}-Selected-Addons
           path: |
             SFL_AddonsNDependencies.zip
             SFL_AddonsNDependencies.sha256
