@@ -8,7 +8,7 @@ class TestDoctorUpgradePlanModel {
 
     @Test
     void classifiesCompleteProviderCapabilities() {
-        DoctorUpgradeSchemaCounts counts = new DoctorUpgradeSchemaCounts(3L, 4L, 2L);
+        DoctorUpgradeSchemaCounts counts = new DoctorUpgradeSchemaCounts(3L, 0L, 4L, 2L);
         DoctorUpgradeSchemaCapabilities capabilities = new DoctorUpgradeSchemaCapabilities(true, true, true);
 
         DoctorUpgradeSchemaActionability result = DoctorUpgradePlanModel.classify(counts, capabilities);
@@ -21,7 +21,7 @@ class TestDoctorUpgradePlanModel {
 
     @Test
     void readyCandidatesNeedProbeAndMigrator() {
-        DoctorUpgradeSchemaCounts counts = new DoctorUpgradeSchemaCounts(5L, 0L, 0L);
+        DoctorUpgradeSchemaCounts counts = new DoctorUpgradeSchemaCounts(5L, 0L, 0L, 0L);
 
         DoctorUpgradeSchemaActionability noMigrator = DoctorUpgradePlanModel.classify(
                 counts, new DoctorUpgradeSchemaCapabilities(true, true, false));
@@ -35,8 +35,20 @@ class TestDoctorUpgradePlanModel {
     }
 
     @Test
+    void claimlessReadyCandidatesRemainManual() {
+        DoctorUpgradeSchemaCounts counts = new DoctorUpgradeSchemaCounts(0L, 6L, 0L, 0L);
+        DoctorUpgradeSchemaCapabilities capabilities = new DoctorUpgradeSchemaCapabilities(true, true, true);
+
+        DoctorUpgradeSchemaActionability result = DoctorUpgradePlanModel.classify(counts, capabilities);
+
+        assertEquals(0L, result.readyNow());
+        assertEquals(0L, result.needsProvider());
+        assertEquals(6L, result.manualOnly());
+    }
+
+    @Test
     void validationCandidatesRequireValidatorAndMigrator() {
-        DoctorUpgradeSchemaCounts counts = new DoctorUpgradeSchemaCounts(0L, 7L, 0L);
+        DoctorUpgradeSchemaCounts counts = new DoctorUpgradeSchemaCounts(0L, 0L, 7L, 0L);
 
         DoctorUpgradeSchemaActionability noValidator = DoctorUpgradePlanModel.classify(
                 counts, new DoctorUpgradeSchemaCapabilities(true, false, true));
@@ -51,7 +63,7 @@ class TestDoctorUpgradePlanModel {
 
     @Test
     void manualOnlyCandidatesNeverBecomeActionable() {
-        DoctorUpgradeSchemaCounts counts = new DoctorUpgradeSchemaCounts(0L, 0L, 9L);
+        DoctorUpgradeSchemaCounts counts = new DoctorUpgradeSchemaCounts(0L, 0L, 0L, 9L);
         DoctorUpgradeSchemaCapabilities capabilities = new DoctorUpgradeSchemaCapabilities(true, true, true);
 
         DoctorUpgradeSchemaActionability result = DoctorUpgradePlanModel.classify(counts, capabilities);
