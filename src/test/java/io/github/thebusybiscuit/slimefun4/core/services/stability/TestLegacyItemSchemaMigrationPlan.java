@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -34,6 +35,14 @@ class TestLegacyItemSchemaMigrationPlan {
         assertEquals(1, plan.getAuthorizedClaimCount());
         assertEquals(5L, plan.getAuthorizedStackCount());
         assertEquals(5L, plan.authorizations().getFirst().candidateCount());
+    }
+
+    @Test
+    void conflictingPayloadsForOnePrivateClaimAreRejected() {
+        var first = authorization("DOLLY", "legacy-dolly", "owner#1", "uuid-a", 1L);
+        var conflict = authorization("DOLLY", "legacy-dolly", "owner#1", "uuid-b", 1L);
+
+        assertThrows(IllegalArgumentException.class, () -> plan("1.2.3", 9L, List.of(first, conflict)));
     }
 
     @Test
