@@ -20,6 +20,7 @@ concurrency:
 env:
   # ExtraTools and ExtraGear are integrated into Slimefun Legacy core and are intentionally excluded.
   BASE_BUNDLE_TAG: v4.1.49
+  MAGIC_REPO: wickidcow/SF_MagicExpansion
   FAWE_BUILD: '1387'
   FAWE_ASSET: FastAsyncWorldEdit-Paper-2.15.5-SNAPSHOT.jar
   FAWE_URL: https://ci.athion.net/job/FastAsyncWorldEdit/1387/artifact/artifacts/FastAsyncWorldEdit-Paper-2.15.5-SNAPSHOT.jar
@@ -70,9 +71,11 @@ jobs:
           find bundle -type f -iname 'SF_ExtraTools*.jar' -print -delete
           find bundle -type f \( -iname 'ExtraGear*.jar' -o -iname 'SF_ExtraGear*.jar' \) -print -delete
 
-          # Magic Expansion is intentionally distributed separately from this bundle.
-          find bundle -type f -iname '*MagicExpansion*.jar' -delete
-          find bundle -type f -iname 'Magic*.zip' -delete
+          # MagicExpansion is once again part of the maintained bundle. Remove any stale
+          # MagicExpansion JAR and the older duplicate RSC/zip-style Magic packages first;
+          # the current maintained MagicExpansion release is installed explicitly below.
+          find bundle -type f -iname '*MagicExpansion*.jar' -print -delete
+          find bundle -type f -iname 'Magic*.zip' -print -delete
           MAGIC_INFO="$(grep -rl --include='info.yml' '^id:[[:space:]]*Magic[[:space:]]*$' bundle 2>/dev/null | head -n 1 || true)"
           if [[ -n "$MAGIC_INFO" ]]; then
             rm -rf "$(dirname "$MAGIC_INFO")"
@@ -280,6 +283,20 @@ jobs:
             cp "${out_dir}/${asset}" "$dest_dir/$asset"
           done < <(find bundle -type f -name 'SF_*.jar' -print0)
 
+          # MagicExpansion is deliberately installed even when the seed bundle does not
+          # already contain it, so future refreshes keep the maintained release in sync.
+          latest_release_json "$MAGIC_REPO" latest/magicexpansion.json
+          MAGIC_TAG="$(jq -r '.tag_name' latest/magicexpansion.json)"
+          MAGIC_ASSET="$(latest_jar_asset "$MAGIC_REPO" latest/magicexpansion.json)"
+          if [[ "$MAGIC_ASSET" != SF_MagicExpansion*.jar ]]; then
+            echo "Unexpected MagicExpansion release asset: ${MAGIC_ASSET}" >&2
+            exit 1
+          fi
+          echo "MagicExpansion: installing ${MAGIC_ASSET} (${MAGIC_TAG})"
+          download_release_asset "$MAGIC_REPO" latest/magicexpansion.json "$MAGIC_ASSET" latest/magicexpansion-download
+          find bundle -type f -iname '*MagicExpansion*.jar' -delete
+          cp "latest/magicexpansion-download/${MAGIC_ASSET}" "bundle/${MAGIC_ASSET}"
+
           WED_OLD="$(find bundle -type f -iname 'WorldEditDisplay-*-paper.jar' -print -quit || true)"
           if [[ -z "$WED_OLD" ]]; then
             echo 'WorldEditDisplay Paper JAR is missing from the bundle.' >&2
@@ -343,15 +360,25 @@ jobs:
             echo 'ExtraGear is integrated into Slimefun Legacy core and must not be bundled separately.' >&2
             exit 1
           fi
-          if find bundle -type f -iname '*MagicExpansion*.jar' | grep -q . || \
-             find bundle -type f -iname 'Magic*.zip' | grep -q . || \
+
+          MAGIC_COUNT="$(find bundle -type f -name 'SF_MagicExpansion*.jar' | wc -l | tr -d ' ')"
+          if [[ "$MAGIC_COUNT" -ne 1 ]]; then
+            echo "Expected exactly one MagicExpansion JAR in the bundle, found ${MAGIC_COUNT}." >&2
+            exit 1
+          fi
+          if ! find bundle -type f -name "$MAGIC_ASSET" | grep -q .; then
+            echo "Current MagicExpansion release ${MAGIC_ASSET} is missing from the bundle." >&2
+            exit 1
+          fi
+          if find bundle -type f -iname 'Magic*.zip' | grep -q . || \
              grep -rl --include='info.yml' '^id:[[:space:]]*Magic[[:space:]]*$' bundle 2>/dev/null | grep -q . || \
              [[ -e bundle/RykenSlimefunCustomizer/addons/Magic ]]; then
-            echo 'Magic Expansion content must not be included in the addon bundle.' >&2
+            echo 'Legacy duplicate Magic package content must not be included alongside SF_MagicExpansion.' >&2
             exit 1
           fi
 
           echo "Addon audit summary: ${UPDATED_COUNT} updated, ${CURRENT_COUNT} already current, ${MANUAL_COUNT} manual/pinned."
+          echo "MagicExpansion bundled: ${MAGIC_ASSET} (${MAGIC_TAG})."
           echo 'Final JAR inventory:'
           find bundle -type f -name '*.jar' -printf '%P\n' | sort
 
@@ -370,8 +397,12 @@ jobs:
             echo 'ExtraGear JAR found in final archive even though it is integrated into core.' >&2
             exit 1
           fi
-          if unzip -l SFL_AddonsNDependencies.zip | grep -Ei 'MagicExpansion.*\.jar|RykenSlimefunCustomizer/addons/Magic/|Magic[^/]*\.zip'; then
-            echo 'Magic Expansion or Magic addon content found in final archive.' >&2
+          if ! unzip -Z1 SFL_AddonsNDependencies.zip | grep -Fxq "$MAGIC_ASSET"; then
+            echo "MagicExpansion release ${MAGIC_ASSET} is missing from final archive." >&2
+            exit 1
+          fi
+          if unzip -l SFL_AddonsNDependencies.zip | grep -Ei 'RykenSlimefunCustomizer/addons/Magic/|(^|/)Magic[^/]*\.zip'; then
+            echo 'Legacy duplicate Magic package content found in final archive.' >&2
             exit 1
           fi
 
