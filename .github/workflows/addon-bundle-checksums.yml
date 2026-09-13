@@ -1,6 +1,6 @@
 name: Publish Addon Bundle Checksums
 
-# Refresh marker: Networks 1.0.19 upstream transport and matching fixes.
+# Refresh marker: MagicExpansion 1.1.4 restored to the maintained addon bundle.
 
 on:
   push:
@@ -102,6 +102,7 @@ jobs:
 
           test "$(wc -l < SFL_AddonsNDependencies.sha256)" -eq "$JAR_COUNT"
           grep -F 'SF_NetworksExp1.0.19.jar' SFL_AddonsNDependencies.sha256
+          grep -F 'SF_MagicExpansion1.1.4.jar' SFL_AddonsNDependencies.sha256
 
           {
             echo '## Slimefun Legacy addon bundle checksums'
