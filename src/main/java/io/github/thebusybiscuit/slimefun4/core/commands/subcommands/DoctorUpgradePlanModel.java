@@ -9,24 +9,34 @@ final class DoctorUpgradePlanModel {
 
     static DoctorUpgradeSchemaActionability classify(
             DoctorUpgradeSchemaCounts counts, DoctorUpgradeSchemaCapabilities capabilities) {
-        long readyNow = capabilities.canExecuteReady() ? counts.ready() : 0L;
+        long readyNow = capabilities.canExecuteReady() ? counts.readyClaimed() : 0L;
         long needsValidation = capabilities.canExecuteValidated() ? counts.validationRequired() : 0L;
-        long needsProvider = counts.ready() - readyNow + counts.validationRequired() - needsValidation;
-        return new DoctorUpgradeSchemaActionability(readyNow, needsValidation, needsProvider, counts.manualOnly());
+        long needsProvider = counts.readyClaimed() - readyNow + counts.validationRequired() - needsValidation;
+        long manualOnly = counts.manualOnly() + counts.readyDiagnosticOnly();
+        return new DoctorUpgradeSchemaActionability(readyNow, needsValidation, needsProvider, manualOnly);
     }
 }
 
-record DoctorUpgradeSchemaCounts(long ready, long validationRequired, long manualOnly) {
+record DoctorUpgradeSchemaCounts(long readyClaimed, long readyDiagnosticOnly, long validationRequired, long manualOnly) {
 
     static DoctorUpgradeSchemaCounts empty() {
-        return new DoctorUpgradeSchemaCounts(0L, 0L, 0L);
+        return new DoctorUpgradeSchemaCounts(0L, 0L, 0L, 0L);
     }
 
-    DoctorUpgradeSchemaCounts add(LegacyItemSchemaCandidate.Readiness readiness, long count) {
+    long ready() {
+        return readyClaimed + readyDiagnosticOnly;
+    }
+
+    DoctorUpgradeSchemaCounts add(
+            LegacyItemSchemaCandidate.Readiness readiness, boolean itemLocalClaimPresent, long count) {
         return switch (readiness) {
-            case READY -> new DoctorUpgradeSchemaCounts(ready + count, validationRequired, manualOnly);
-            case VALIDATION_REQUIRED -> new DoctorUpgradeSchemaCounts(ready, validationRequired + count, manualOnly);
-            case MANUAL_ONLY -> new DoctorUpgradeSchemaCounts(ready, validationRequired, manualOnly + count);
+            case READY -> itemLocalClaimPresent
+                    ? new DoctorUpgradeSchemaCounts(readyClaimed + count, readyDiagnosticOnly, validationRequired, manualOnly)
+                    : new DoctorUpgradeSchemaCounts(readyClaimed, readyDiagnosticOnly + count, validationRequired, manualOnly);
+            case VALIDATION_REQUIRED ->
+                new DoctorUpgradeSchemaCounts(readyClaimed, readyDiagnosticOnly, validationRequired + count, manualOnly);
+            case MANUAL_ONLY ->
+                new DoctorUpgradeSchemaCounts(readyClaimed, readyDiagnosticOnly, validationRequired, manualOnly + count);
         };
     }
 }
