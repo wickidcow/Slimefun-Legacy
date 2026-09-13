@@ -91,6 +91,14 @@ require("migrator.migrateItem(" in executor,
         "core must delegate schema mutation to the owning addon migrator")
 require("ItemStack original = item.clone()" in executor and "restore(item, original)" in executor,
         "failed addon schema mutation must roll back the live ItemStack")
+require("!slimefunId.equals(resultingId.get())" in executor,
+        "same-ID schema execution must reject addon attempts to rewrite the Slimefun item ID")
+require("item.getAmount() != original.getAmount()" in executor,
+        "schema execution must reject addon attempts to change stack amount")
+require("!changed && !item.equals(original)" in executor,
+        "schema execution must reject mutation when an addon reports no change")
+require("violated the same-ID ItemStack contract" in executor,
+        "schema postcondition failures must restore and report the original item")
 reject("getValidationClaim()" in router,
        "Doctor operator commands must not expose private validation claims")
 reject("getMigrationPayload()" in router,
