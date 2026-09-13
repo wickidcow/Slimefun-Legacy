@@ -10,8 +10,9 @@ import javax.annotation.Nonnull;
  *
  * <p>Validators are invoked only after an operator-triggered migration-aware Doctor traversal has completed its
  * item discovery phase. A validator is only allowed to consume claims produced by a schema probe registered by
- * the same Bukkit plugin. Validation may perform asynchronous database reads, but must remain read-only: it must
- * not mutate ItemStacks, databases, worlds, chunks or player state.</p>
+ * the same Bukkit plugin. Validation may perform asynchronous database reads, but must remain read-only.</p>
+ *
+ * <p>Read-only contract: validators must not mutate ItemStacks, databases, worlds, chunks or player state.</p>
  */
 @SlimefunAPI
 public interface LegacyItemSchemaValidator {
