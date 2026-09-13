@@ -93,13 +93,13 @@ final class DoctorRouterCommand extends SubCommand {
         ItemDoctorReport report = latestReport();
         if (report == null) {
             send(sender, "&7Item Doctor correlation: &fNo server-wide scan has run yet.");
-            send(sender, "&7Run &e/sf doctor scan &7then &e/sf doctor migrations unknown&7.");
+            send(sender, "&7Run &e/sf doctor scan &7then &e/sf doctor migrations plan&7.");
         } else {
-            List<String> samples = report.getUnknownIdSamples();
-            long recognized = samples.stream().filter(mappings::containsKey).count();
-            send(sender, "&7Last/current Doctor unknown stacks: &e" + report.getUnknownIds()
-                    + " &8| &7sampled IDs: &e" + samples.size()
-                    + " &8| &7sampled legacy matches: &a" + recognized);
+            send(sender, "&7Last/current exact unresolved legacy candidates: &e"
+                    + report.getLegacyMigrationCandidates() + " &8| &7distinct IDs: &e"
+                    + report.getLegacyMigrationCandidateCounts().size());
+            send(sender, "&7Unknown CJK-presentation stacks: &e" + report.getUnknownIds()
+                    + " &8| &7sampled IDs: &e" + report.getUnknownIdSamples().size());
         }
 
         if (mappings.isEmpty()) {
@@ -151,10 +151,22 @@ final class DoctorRouterCommand extends SubCommand {
         }
 
         Map<String, String> mappings = Slimefun.getRegistry().getLegacySlimefunItemIds();
+        Map<String, Long> candidates = report.getLegacyMigrationCandidateCounts();
         List<String> samples = report.getUnknownIdSamples();
-        send(sender, "&7Unknown stacks observed: &e" + report.getUnknownIds() + " &8| &7sampled IDs: &e" + samples.size());
+        send(sender, "&7Exact unresolved declared candidates: &e" + report.getLegacyMigrationCandidates()
+                + " &8| &7distinct declared IDs: &e" + candidates.size());
+        for (Map.Entry<String, Long> entry : candidates.entrySet()) {
+            String target = mappings.get(entry.getKey());
+            boolean targetPresent = target != null && SlimefunItem.getById(target) != null;
+            send(sender, "&8- " + (targetPresent ? "&a" : "&c") + entry.getKey() + " &8-> "
+                    + (targetPresent ? "&a" : "&c") + (target == null ? "<mapping removed>" : target)
+                    + " &8x&e" + entry.getValue());
+        }
+
+        send(sender, "&7Unknown CJK-presentation stacks: &e" + report.getUnknownIds()
+                + " &8| &7sampled IDs: &e" + samples.size());
         if (samples.isEmpty()) {
-            send(sender, "&aNo unknown Slimefun item IDs were sampled by the latest/current run.");
+            send(sender, "&aNo additional unknown CJK-presentation Slimefun IDs were sampled.");
             return;
         }
 
@@ -182,58 +194,62 @@ final class DoctorRouterCommand extends SubCommand {
         }
 
         Map<String, String> mappings = Slimefun.getRegistry().getLegacySlimefunItemIds();
+        Map<String, Long> candidates = report.getLegacyMigrationCandidateCounts();
         List<String> samples = report.getUnknownIdSamples();
-        long ready = 0;
-        long missingTargets = 0;
-        long unmapped = 0;
-        long liveAliases = 0;
+        long readyStacks = 0L;
+        long missingTargetStacks = 0L;
+        long changedMappingStacks = 0L;
+        int shown = 0;
 
-        for (String id : samples) {
-            String target = mappings.get(id);
+        for (Map.Entry<String, Long> entry : candidates.entrySet()) {
+            String target = mappings.get(entry.getKey());
             if (target == null) {
-                unmapped++;
-                continue;
-            }
-
-            if (SlimefunItem.getById(target) == null) {
-                missingTargets++;
-                continue;
-            }
-
-            ready++;
-            if (SlimefunItem.getById(id) != null) {
-                liveAliases++;
+                changedMappingStacks += entry.getValue();
+            } else if (SlimefunItem.getById(target) == null) {
+                missingTargetStacks += entry.getValue();
+            } else {
+                readyStacks += entry.getValue();
             }
         }
 
         send(sender, "&7Source scan: &e" + report.getModeName()
                 + (report.isComplete() ? " &a(complete)" : " &e(running)"));
-        send(sender, "&7Unknown stacks observed: &e" + report.getUnknownIds()
-                + " &8| &7sampled distinct IDs: &e" + samples.size());
-        send(sender, "&7Sample plan: ready &a" + ready + " &8| &7target missing &c" + missingTargets
-                + " &8| &7no mapping &c" + unmapped);
-        send(sender, "&7Ready sample IDs with temporary live aliases: &e" + liveAliases);
+        send(sender, "&7Exact unresolved declared candidates: &e" + report.getLegacyMigrationCandidates()
+                + " &8| &7distinct IDs: &e" + candidates.size());
+        send(sender, "&7Exact stack plan: ready &a" + readyStacks + " &8| &7target missing &c"
+                + missingTargetStacks + " &8| &7mapping changed/removed &c" + changedMappingStacks);
 
-        if (samples.isEmpty()) {
-            send(sender, "&aNo unknown Slimefun item IDs were sampled, so there is nothing to plan from this scan.");
+        if (candidates.isEmpty()) {
+            send(sender, "&aNo unresolved addon-declared legacy IDs were encountered by the full Doctor scan.");
         } else {
-            for (String id : samples) {
-                String target = mappings.get(id);
+            for (Map.Entry<String, Long> entry : candidates.entrySet()) {
+                if (shown >= MAX_PROVIDER_DETAIL_LINES) {
+                    break;
+                }
+                String target = mappings.get(entry.getKey());
                 if (target == null) {
-                    send(sender, "&8- &c[NO MAPPING] &f" + id);
-                    continue;
+                    send(sender, "&8- &c[MAPPING CHANGED] &f" + entry.getKey() + " &8x&e" + entry.getValue());
+                } else if (SlimefunItem.getById(target) == null) {
+                    send(sender, "&8- &c[TARGET MISSING] &f" + entry.getKey() + " &8-> &c" + target
+                            + " &8x&e" + entry.getValue());
+                } else {
+                    send(sender, "&8- &a[READY] &f" + entry.getKey() + " &8-> &a" + target
+                            + " &8x&e" + entry.getValue());
                 }
-
-                if (SlimefunItem.getById(target) == null) {
-                    send(sender, "&8- &c[TARGET MISSING] &f" + id + " &8-> &c" + target);
-                    continue;
-                }
-
-                send(sender, "&8- &a[READY] &f" + id + " &8-> &a" + target);
+                shown++;
+            }
+            if (candidates.size() > shown) {
+                send(sender, "&8... " + (candidates.size() - shown) + " more declared candidate ID(s)");
             }
         }
 
-        send(sender, "&eThis plan is sample-based, not an exact count of migratable stacks.");
+        long sampledUnmapped = samples.stream().filter(id -> !mappings.containsKey(id)).count();
+        if (sampledUnmapped > 0) {
+            send(sender, "&7Additional unmapped unknown IDs remain sample-only: &c" + sampledUnmapped
+                    + " &8(of " + samples.size() + " sampled IDs)");
+        }
+
+        send(sender, "&7Declared-candidate counts are exact for the completed Doctor traversal, not sample estimates.");
         send(sender, "&7Actual migration remains addon-owned through a registered migration provider.");
         send(sender, "&8Dry-run only. No items, blocks, storage, registry IDs, Cargo or Energy data were changed.");
     }
