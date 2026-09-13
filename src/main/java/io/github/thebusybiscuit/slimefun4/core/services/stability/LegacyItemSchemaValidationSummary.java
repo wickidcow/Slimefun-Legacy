@@ -10,6 +10,7 @@ public final class LegacyItemSchemaValidationSummary {
 
     private final String providerId;
     private final String migrationName;
+    private final String slimefunId;
     private final String candidateType;
     private final Status status;
     private final String detail;
@@ -18,12 +19,14 @@ public final class LegacyItemSchemaValidationSummary {
     LegacyItemSchemaValidationSummary(
             @Nonnull String providerId,
             @Nonnull String migrationName,
+            @Nonnull String slimefunId,
             @Nonnull String candidateType,
             @Nonnull Status status,
             @Nonnull String detail,
             @Nonnegative long count) {
         this.providerId = Objects.requireNonNull(providerId, "providerId");
         this.migrationName = Objects.requireNonNull(migrationName, "migrationName");
+        this.slimefunId = Objects.requireNonNull(slimefunId, "slimefunId");
         this.candidateType = Objects.requireNonNull(candidateType, "candidateType");
         this.status = Objects.requireNonNull(status, "status");
         this.detail = Objects.requireNonNull(detail, "detail");
@@ -35,6 +38,7 @@ public final class LegacyItemSchemaValidationSummary {
 
     public @Nonnull String getProviderId() { return providerId; }
     public @Nonnull String getMigrationName() { return migrationName; }
+    public @Nonnull String getSlimefunId() { return slimefunId; }
     public @Nonnull String getCandidateType() { return candidateType; }
     public @Nonnull Status getStatus() { return status; }
     public @Nonnull String getDetail() { return detail; }
