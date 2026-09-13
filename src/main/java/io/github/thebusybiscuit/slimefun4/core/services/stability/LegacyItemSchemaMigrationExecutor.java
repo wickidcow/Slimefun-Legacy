@@ -5,6 +5,7 @@ import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaMigrat
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaProbe;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -29,6 +30,7 @@ public final class LegacyItemSchemaMigrationExecutor {
     private final LegacyItemSchemaMigrationPlan plan;
     private final Map<String, LegacyItemSchemaProbe> probesByItemId;
     private final Map<String, LegacyItemSchemaMigrator> migratorsByType;
+    private final Map<LegacyItemSchemaMigrationPlan.Authorization, AtomicLong> remainingAuthorizations = new HashMap<>();
     private final AtomicLong authorizedCandidates = new AtomicLong();
     private final AtomicLong migrated = new AtomicLong();
     private final AtomicLong skipped = new AtomicLong();
@@ -41,6 +43,9 @@ public final class LegacyItemSchemaMigrationExecutor {
         this.plan = plan;
         this.probesByItemId = Map.copyOf(probesByItemId);
         this.migratorsByType = Map.copyOf(migratorsByType);
+        for (LegacyItemSchemaMigrationPlan.Authorization authorization : plan.authorizations()) {
+            remainingAuthorizations.put(authorization, new AtomicLong(authorization.candidateCount()));
+        }
     }
 
     public @Nonnull LegacyItemSchemaMigrationPlan getPlan() { return plan; }
@@ -130,7 +135,10 @@ public final class LegacyItemSchemaMigrationExecutor {
 
         LegacyItemSchemaMigrationPlan.Authorization authorization = plan.findAuthorization(
                 slimefunId, candidate.getCandidateType(), candidate.getValidationClaim());
-        if (authorization == null) return false;
+        if (authorization == null || !consumeAuthorization(authorization)) {
+            skipped.incrementAndGet();
+            return false;
+        }
 
         LegacyItemSchemaMigrator migrator = migratorsByType.get(candidate.getCandidateType());
         if (migrator == null) {
@@ -180,6 +188,16 @@ public final class LegacyItemSchemaMigrationExecutor {
                     "Addon schema migrator failed; the original live ItemStack was restored.",
                     exception);
             return false;
+        }
+    }
+
+    private boolean consumeAuthorization(LegacyItemSchemaMigrationPlan.Authorization authorization) {
+        AtomicLong remaining = remainingAuthorizations.get(authorization);
+        if (remaining == null) return false;
+        while (true) {
+            long value = remaining.get();
+            if (value <= 0L) return false;
+            if (remaining.compareAndSet(value, value - 1L)) return true;
         }
     }
 
