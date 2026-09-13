@@ -21,6 +21,19 @@ class TestSlimefunRegistryLegacyItemIds {
     }
 
     @Test
+    void resolvesLegacyIdChainsToFinalTarget() {
+        SlimefunRegistry registry = new SlimefunRegistry();
+
+        registry.registerLegacySlimefunItemId("VERY_OLD_MACHINE", "OLD_MACHINE");
+        registry.registerLegacySlimefunItemId("OLD_MACHINE", "CURRENT_MACHINE");
+
+        assertEquals("OLD_MACHINE", registry.getLegacySlimefunItemIdTarget("VERY_OLD_MACHINE").orElseThrow());
+        assertEquals("CURRENT_MACHINE", registry.resolveLegacySlimefunItemId("VERY_OLD_MACHINE").orElseThrow());
+        assertEquals("CURRENT_MACHINE", registry.resolveLegacySlimefunItemId("OLD_MACHINE").orElseThrow());
+        assertFalse(registry.resolveLegacySlimefunItemId("UNKNOWN_MACHINE").isPresent());
+    }
+
+    @Test
     void allowsIdempotentRegistrationButRejectsConflictingTargets() {
         SlimefunRegistry registry = new SlimefunRegistry();
 
@@ -33,6 +46,22 @@ class TestSlimefunRegistryLegacyItemIds {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> registry.registerLegacySlimefunItemId("SAME_ID", "SAME_ID"));
+    }
+
+    @Test
+    void rejectsDirectAndTransitiveAliasCycles() {
+        SlimefunRegistry registry = new SlimefunRegistry();
+        registry.registerLegacySlimefunItemId("OLD_A", "OLD_B");
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> registry.registerLegacySlimefunItemId("OLD_B", "OLD_A"));
+
+        registry.registerLegacySlimefunItemId("OLD_B", "OLD_C");
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> registry.registerLegacySlimefunItemId("OLD_C", "OLD_A"));
+        assertFalse(registry.getLegacySlimefunItemIdTarget("OLD_C").isPresent());
     }
 
     @Test
