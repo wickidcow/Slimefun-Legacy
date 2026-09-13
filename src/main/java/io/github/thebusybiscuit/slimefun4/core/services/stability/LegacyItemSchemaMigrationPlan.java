@@ -86,6 +86,11 @@ public final class LegacyItemSchemaMigrationPlan {
         return providerVersion.equals(version);
     }
 
+    @Nonnull
+    List<Authorization> authorizations() {
+        return authorizations;
+    }
+
     @Nullable
     Authorization findAuthorization(
             @Nonnull String slimefunId, @Nonnull String candidateType, @Nonnull String validationClaim) {
