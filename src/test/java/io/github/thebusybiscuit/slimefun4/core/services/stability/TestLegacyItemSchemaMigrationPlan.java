@@ -35,6 +35,7 @@ class TestLegacyItemSchemaMigrationPlan {
         assertEquals(1, plan.getAuthorizedClaimCount());
         assertEquals(5L, plan.getAuthorizedStackCount());
         assertEquals(5L, plan.authorizations().getFirst().candidateCount());
+        assertTrue(plan.authorizations().getFirst().requiresExternalValidation());
     }
 
     @Test
@@ -43,6 +44,38 @@ class TestLegacyItemSchemaMigrationPlan {
         var conflict = authorization("DOLLY", "legacy-dolly", "owner#1", "uuid-b", 1L);
 
         assertThrows(IllegalArgumentException.class, () -> plan("1.2.3", 9L, List.of(first, conflict)));
+    }
+
+    @Test
+    void readyAuthorizationUsesOnlyCoreMarkerAndBindsMode() {
+        var ready = readyAuthorization("CARGO_CONFIGURATOR", "legacy-properties", "sha256-claim", 2L);
+        var validated = authorization(
+                "CARGO_CONFIGURATOR",
+                "legacy-properties",
+                "sha256-claim",
+                LegacyItemSchemaMigrationPlan.READY_ITEM_LOCAL_PAYLOAD,
+                2L);
+
+        LegacyItemSchemaMigrationPlan readyPlan = plan("1.0", 10L, List.of(ready));
+        LegacyItemSchemaMigrationPlan validatedPlan = plan("1.0", 10L, List.of(validated));
+
+        assertFalse(readyPlan.authorizations().getFirst().requiresExternalValidation());
+        assertFalse(readyPlan.getFingerprint().equals(validatedPlan.getFingerprint()));
+        assertThrows(IllegalArgumentException.class, () -> new LegacyItemSchemaMigrationPlan.Authorization(
+                "CARGO_CONFIGURATOR", "legacy-properties", "claim", "addon-payload", 1L, false));
+    }
+
+    @Test
+    void mixedReadyAndValidatedEvidenceForSameClaimIsRejected() {
+        var ready = readyAuthorization("CARGO_CONFIGURATOR", "legacy-properties", "same-claim", 1L);
+        var validated = authorization(
+                "CARGO_CONFIGURATOR",
+                "legacy-properties",
+                "same-claim",
+                LegacyItemSchemaMigrationPlan.READY_ITEM_LOCAL_PAYLOAD,
+                1L);
+
+        assertThrows(IllegalArgumentException.class, () -> plan("1.0", 11L, List.of(ready, validated)));
     }
 
     @Test
@@ -102,17 +135,17 @@ class TestLegacyItemSchemaMigrationPlan {
     private static LegacyItemSchemaMigrationPlan plan(
             String version, long generation, List<LegacyItemSchemaMigrationPlan.Authorization> authorizations) {
         return new LegacyItemSchemaMigrationPlan(
-                "FluffyMachines",
-                "Dolly migration",
-                version,
-                generation,
-                10_000L,
-                600_000L,
-                authorizations);
+                "FluffyMachines", "Dolly migration", version, generation, 10_000L, 600_000L, authorizations);
     }
 
     private static LegacyItemSchemaMigrationPlan.Authorization authorization(
             String itemId, String type, String claim, String payload, long count) {
-        return new LegacyItemSchemaMigrationPlan.Authorization(itemId, type, claim, payload, count);
+        return new LegacyItemSchemaMigrationPlan.Authorization(itemId, type, claim, payload, count, true);
+    }
+
+    private static LegacyItemSchemaMigrationPlan.Authorization readyAuthorization(
+            String itemId, String type, String claim, long count) {
+        return new LegacyItemSchemaMigrationPlan.Authorization(
+                itemId, type, claim, LegacyItemSchemaMigrationPlan.READY_ITEM_LOCAL_PAYLOAD, count, false);
     }
 }
