@@ -37,6 +37,7 @@ command = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/s
 validation_test = read("src/test/java/io/github/thebusybiscuit/slimefun4/api/diagnostics/TestLegacyItemSchemaValidation.java")
 plan_test = read("src/test/java/io/github/thebusybiscuit/slimefun4/core/services/stability/TestLegacyItemSchemaMigrationPlan.java")
 router = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorRouterCommand.java")
+tabs = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/SlimefunTabCompleter.java")
 
 require("MAX_MIGRATION_PAYLOAD_LENGTH = 2048" in validation,
         "schema migration payloads must remain bounded")
@@ -73,6 +74,10 @@ require("findAuthorization(" in plan,
         "schema migration plan must support exact live authorization matching")
 require("List<Authorization> authorizations()" in plan,
         "schema executor must receive the private bounded authorization set without exposing it publicly")
+require("sameAuthorization(previous, authorization)" in plan,
+        "equivalent private authorizations must be canonicalized before fingerprinting")
+require("Math.addExact(previous.candidateCount(), authorization.candidateCount())" in plan,
+        "duplicate authorization scan counts must be merged with overflow protection")
 
 require("PLAN_TTL_MILLIS = 10L * 60L * 1000L" in service,
         "schema migration plans must expire after ten minutes")
@@ -94,6 +99,10 @@ require("result.getStatus() == LegacyItemSchemaValidation.Status.VERIFIED" in se
         "execution revalidation must require VERIFIED backing state")
 require("Objects.equals(result.getMigrationPayload(), authorization.migrationPayload())" in service,
         "execution revalidation must reproduce the exact private migration payload")
+require("!probes.containsKey(authorization.slimefunId())" in service,
+        "executor creation must preflight every authorized item ID against a live addon probe")
+require("!migrators.containsKey(authorization.candidateType())" in service,
+        "executor creation must preflight every authorized candidate type against a live addon migrator")
 
 require("probe.probeItem(item.clone(), slimefunId)" in executor,
         "schema execution must re-run the addon probe against a clone of the live item")
@@ -173,6 +182,15 @@ reject("getValidationClaim()" in command or "getMigrationPayload()" in command,
 reject("PlayerJoinEvent" in service or "ChunkLoadEvent" in service or "InventoryOpenEvent" in service,
        "schema migration plan service must not gain background event execution")
 
+require('"execute", "schemas"' in tabs,
+        "Doctor migration tab completion must expose the same-ID schema command group")
+require('List.of("status", "scan", "execute")' in tabs,
+        "same-ID schema action tab completion is missing")
+require("getRegistrations(LegacyItemSchemaMigrator.class)" in tabs,
+        "schema execute provider suggestions must come from live addon migrator registrations")
+require("Same-ID schema fingerprints are private short-lived command state" in tabs,
+        "schema tab completion must never suggest cached execution fingerprints")
+
 require("nonVerifiedValidationCannotCarryMigrationPayload" in validation_test,
         "schema validation payload authorization regression test is missing")
 require("fingerprintDoesNotExposePrivateClaimOrPayload" in plan_test,
@@ -181,6 +199,8 @@ require("providerVersionAndGenerationBindFingerprint" in plan_test,
         "schema plan provider/generation binding regression test is missing")
 require("authorizationRequiresExactItemTypeAndClaim" in plan_test,
         "schema exact-authorization regression test is missing")
+require("duplicateEquivalentAuthorizationsAreCanonicalized" in plan_test,
+        "duplicate schema authorization canonicalization regression test is missing")
 require("expiryBoundaryIsStrict" in plan_test,
         "schema plan expiry regression test is missing")
 
