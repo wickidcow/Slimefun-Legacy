@@ -25,6 +25,18 @@ class TestLegacyItemSchemaMigrationPlan {
     }
 
     @Test
+    void duplicateEquivalentAuthorizationsAreCanonicalized() {
+        var first = authorization("DOLLY", "legacy-dolly", "owner#1", "uuid-a", 2L);
+        var duplicate = authorization("DOLLY", "legacy-dolly", "owner#1", "uuid-a", 3L);
+
+        LegacyItemSchemaMigrationPlan plan = plan("1.2.3", 8L, List.of(first, duplicate));
+
+        assertEquals(1, plan.getAuthorizedClaimCount());
+        assertEquals(5L, plan.getAuthorizedStackCount());
+        assertEquals(5L, plan.authorizations().getFirst().candidateCount());
+    }
+
+    @Test
     void fingerprintDoesNotExposePrivateClaimOrPayload() {
         String claim = "private-owner#42";
         String payload = "private-backpack-uuid";
