@@ -9,8 +9,7 @@ import org.bukkit.inventory.ItemStack;
  * Optional addon-owned mutator for a previously validated same-ID legacy item schema.
  *
  * <p>Slimefun invokes this only from an explicit, fingerprint-authorized Doctor execution pass. Before this method
- * is called, core re-runs the owning addon's schema probe against a clone of the live item and requires the current
- * Slimefun item ID, candidate type and opaque validation claim to match the short-lived approved plan.</p>
+ * is called, core re-runs the owning addon's schema probe against a clone of the live item. The current Slimefun item ID, candidate type and opaque validation claim must match the short-lived approved plan.</p>
  *
  * <p>The migrator may mutate only the supplied {@link ItemStack}. Database, world, chunk and player-state changes
  * belong in a dedicated addon migration provider, not this item-schema API. Slimefun core persists the mutated stack
