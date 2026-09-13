@@ -124,6 +124,11 @@ public final class ItemPresentationDoctor {
             report.legacyMigrationCandidateFound(itemId);
         }
 
+        LegacyItemSchemaProbeService.Session schemaProbes = report.getSchemaProbeSession();
+        if (schemaProbes != null) {
+            schemaProbes.inspect(item, itemId, report);
+        }
+
         ItemMeta currentMeta = item.getItemMeta();
         boolean hasCjkName = currentMeta.hasDisplayName() && ItemDoctorText.containsCjk(currentMeta.getDisplayName());
         boolean hasCjkLore = currentMeta.hasLore() && ItemDoctorText.containsCjk(currentMeta.getLore());
