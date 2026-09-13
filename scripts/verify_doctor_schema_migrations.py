@@ -33,6 +33,8 @@ validation = read("src/main/java/io/github/thebusybiscuit/slimefun4/api/diagnost
 service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyItemSchemaProbeService.java")
 runner = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyItemSchemaValidationRunner.java")
 report = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemDoctorReport.java")
+candidate_summary = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyItemSchemaCandidateSummary.java")
+validation_summary = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyItemSchemaValidationSummary.java")
 item_doctor = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemPresentationDoctor.java")
 doctor_service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemDoctorService.java")
 scan = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorScanWithLegacyCorrelation.java")
@@ -64,6 +66,8 @@ require("getRegistrations(LegacyItemSchemaValidator.class)" in service, "schema 
 require("new ValidatorKey(providerId" in service, "validator ownership must remain bound to provider plugin")
 require("ValidationRequestKey" in service and "ConcurrentHashMap" in service,
         "schema validation claims must be deduplicated in a concurrency-safe request map")
+require("slimefunId" in service and "request.slimefunId()" in service,
+        "schema validation evidence must remain bound to the current Slimefun item ID")
 require("Claim contents were not logged" in service, "schema validation failure logging must protect claim contents")
 require("validatePending" in service, "post-traversal schema validation phase is missing")
 require("LegacyItemSchemaValidation.Status.MANUAL_ONLY" in service,
@@ -77,6 +81,10 @@ require("schemaMigrationCandidateFound" in report, "schema candidate aggregation
 require("schemaValidationFound" in report, "schema validation aggregation is missing")
 require("getSchemaValidationSummaries" in report, "schema validation summaries are missing")
 require("getSchemaValidatedCandidates" in report, "validated candidate stack count is missing")
+require("String slimefunId" in report and "key.slimefunId" in report,
+        "schema report aggregation must retain the current Slimefun item ID")
+require("getSlimefunId()" in candidate_summary and "getSlimefunId()" in validation_summary,
+        "schema summary objects must expose their current Slimefun item ID")
 
 require("schemaProbes.inspect(item, itemId, report)" in item_doctor,
         "schema probes must run through the authoritative recursive Item Doctor traversal")
@@ -90,6 +98,8 @@ require("LegacyItemSchemaValidationRunner.validate(report)" in scan,
         "normal migration-aware Doctor scan must run persistent-state validation after traversal")
 require("Schema probes receive cloned items; persistent-state validators are read-only" in scan,
         "operator output must disclose the schema validation safety boundary")
+require("getSlimefunId()" in correlation,
+        "operator schema output must identify the current Slimefun item family for every candidate/validation group")
 require("Opaque validation claims are never displayed" in correlation,
         "schema correlation must explicitly protect opaque validation claims")
 require("Read-only probe/validation pass" in correlation,
