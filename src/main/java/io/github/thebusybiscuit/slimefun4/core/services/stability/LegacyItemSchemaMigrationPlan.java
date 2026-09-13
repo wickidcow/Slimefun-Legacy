@@ -52,10 +52,30 @@ public final class LegacyItemSchemaMigrationPlan {
         if (copy.isEmpty()) throw new IllegalArgumentException("authorizations cannot be empty");
         copy.sort(Comparator.comparing(Authorization::slimefunId)
                 .thenComparing(Authorization::candidateType)
-                .thenComparing(a -> digest(a.validationClaim()))
-                .thenComparing(a -> digest(a.migrationPayload())));
-        this.authorizations = List.copyOf(copy);
-        this.authorizedStackCount = copy.stream().mapToLong(Authorization::candidateCount).sum();
+                .thenComparing(Authorization::validationClaim)
+                .thenComparing(Authorization::migrationPayload));
+
+        List<Authorization> canonical = new ArrayList<>();
+        for (Authorization authorization : copy) {
+            if (!canonical.isEmpty()) {
+                Authorization previous = canonical.getLast();
+                if (sameAuthorization(previous, authorization)) {
+                    canonical.set(
+                            canonical.size() - 1,
+                            new Authorization(
+                                    previous.slimefunId(),
+                                    previous.candidateType(),
+                                    previous.validationClaim(),
+                                    previous.migrationPayload(),
+                                    Math.addExact(previous.candidateCount(), authorization.candidateCount())));
+                    continue;
+                }
+            }
+            canonical.add(authorization);
+        }
+
+        this.authorizations = List.copyOf(canonical);
+        this.authorizedStackCount = canonical.stream().mapToLong(Authorization::candidateCount).sum();
         this.fingerprint = calculateFingerprint();
     }
 
@@ -117,6 +137,13 @@ public final class LegacyItemSchemaMigrationPlan {
             update(digest, "count", Long.toString(authorization.candidateCount()));
         }
         return toHex(digest.digest());
+    }
+
+    private static boolean sameAuthorization(Authorization left, Authorization right) {
+        return left.slimefunId().equals(right.slimefunId())
+                && left.candidateType().equals(right.candidateType())
+                && left.validationClaim().equals(right.validationClaim())
+                && left.migrationPayload().equals(right.migrationPayload());
     }
 
     private static String digest(String value) {
