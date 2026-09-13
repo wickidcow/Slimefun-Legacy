@@ -26,11 +26,13 @@ final class DoctorRouterCommand extends SubCommand {
 
     private final DoctorCommand delegate;
     private final LegacyItemMigrationService migrationService;
+    private final DoctorSchemaMigrationCommand schemaMigrations;
 
     DoctorRouterCommand(@Nonnull Slimefun plugin, @Nonnull SlimefunCommand cmd) {
         super(plugin, cmd, "doctor", true);
         delegate = new DoctorCommand(plugin, cmd);
         migrationService = new LegacyItemMigrationService(plugin);
+        schemaMigrations = new DoctorSchemaMigrationCommand(plugin);
     }
 
     @Override
@@ -73,7 +75,9 @@ final class DoctorRouterCommand extends SubCommand {
             case "providers", "provider" -> sendMigrationProviders(sender);
             case "scan" -> runMigrationProvider(sender, args, false);
             case "execute" -> runMigrationProvider(sender, args, true);
-            default -> send(sender, "&eUsage: /sf doctor migrations <status|list|unknown|plan|providers|scan|execute>");
+            case "schemas", "schema" -> schemaMigrations.execute(sender, args);
+            default -> send(sender,
+                    "&eUsage: /sf doctor migrations <status|list|unknown|plan|providers|scan|execute|schemas>");
         }
     }
 
@@ -277,6 +281,7 @@ final class DoctorRouterCommand extends SubCommand {
         }
         send(sender, "&7Run &e/sf doctor migrations scan <plugin> &7to create a 10-minute execution fingerprint.");
         send(sender, "&7Repair: &e/sf doctor migrations execute <plugin> <fingerprint>");
+        send(sender, "&7Same-ID item schemas: &e/sf doctor migrations schemas scan");
     }
 
     private void runMigrationProvider(@Nonnull CommandSender sender, @Nonnull String[] args, boolean repair) {
