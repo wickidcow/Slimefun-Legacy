@@ -186,12 +186,15 @@ class SlimefunTabCompleter implements TabCompleter {
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("migrations")
                 && args[2].equalsIgnoreCase("execute")) {
+            // Execution fingerprints are short-lived, single-use state owned by the command service.
+            // Do not suggest a stale/static token from the tab completer.
             return Collections.emptyList();
         } else if (args.length == 6
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("migrations")
                 && args[2].equalsIgnoreCase("schemas")
                 && args[3].equalsIgnoreCase("execute")) {
+            // Same-ID schema fingerprints are private short-lived command state; never suggest cached tokens here.
             return Collections.emptyList();
         } else {
             return null;
