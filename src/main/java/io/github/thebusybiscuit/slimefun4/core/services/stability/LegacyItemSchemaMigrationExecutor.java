@@ -81,13 +81,29 @@ public final class LegacyItemSchemaMigrationExecutor {
                     candidate.getCandidateType(),
                     candidate.getValidationClaim(),
                     authorization.migrationPayload());
-            if (changed) {
+
+            Optional<String> resultingId = Slimefun.getItemDataService().getItemData(item);
+            boolean invalidMutation = resultingId.isEmpty()
+                    || !slimefunId.equals(resultingId.get())
+                    || item.getAmount() != original.getAmount()
+                    || (!changed && !item.equals(original));
+            if (invalidMutation) {
+                restore(item, original);
+                failures.incrementAndGet();
+                report.failure();
+                Slimefun.logger().warning(
+                        "Addon schema migrator violated the same-ID ItemStack contract; the original item was restored.");
+                return false;
+            }
+
+            if (changed && !item.equals(original)) {
                 migrated.incrementAndGet();
                 report.stackRepaired();
-            } else {
-                skipped.incrementAndGet();
+                return true;
             }
-            return changed;
+
+            skipped.incrementAndGet();
+            return false;
         } catch (RuntimeException | LinkageError exception) {
             restore(item, original);
             failures.incrementAndGet();
