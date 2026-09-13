@@ -78,6 +78,8 @@ Plain `/sf doctor upgrade` remains the existing core/runtime readiness snapshot.
 7. For same-ID schema candidates, run `/sf doctor migrations schemas scan` and follow only the exact fingerprinted execution command it prints.
 8. Re-run the upgrade scan after migrations to confirm what remains.
 
+If the server restarts, an addon is updated/reloaded, or migration providers change after discovery, run a fresh upgrade scan and create new fingerprints instead of reusing earlier assumptions.
+
 ### Plan categories
 
 | Category | Meaning |
