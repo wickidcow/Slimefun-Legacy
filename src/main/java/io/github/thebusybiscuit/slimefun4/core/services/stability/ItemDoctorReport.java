@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.services.stability;
 
+import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaCandidate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -11,6 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /** Thread-safe progress and result counters for an item doctor run. */
 public final class ItemDoctorReport {
@@ -29,10 +31,13 @@ public final class ItemDoctorReport {
     private final AtomicLong unknownIds = new AtomicLong();
     private final AtomicLong unresolvedTemplates = new AtomicLong();
     private final AtomicLong legacyMigrationCandidates = new AtomicLong();
+    private final AtomicLong schemaMigrationCandidates = new AtomicLong();
     private final AtomicLong failures = new AtomicLong();
     private final Map<String, AtomicLong> legacyMigrationCandidateCounts = new ConcurrentHashMap<>();
+    private final Map<SchemaMigrationKey, AtomicLong> schemaMigrationCandidateCounts = new ConcurrentHashMap<>();
     private final Set<String> unknownIdSamples = Collections.synchronizedSet(new LinkedHashSet<>());
     private final Set<String> unresolvedTemplateSamples = Collections.synchronizedSet(new LinkedHashSet<>());
+    private volatile LegacyItemSchemaProbeService.Session schemaProbeSession;
     private volatile long completedAtNanos;
 
     public ItemDoctorReport(boolean repairMode) {
@@ -79,6 +84,29 @@ public final class ItemDoctorReport {
         legacyMigrationCandidateCounts
                 .computeIfAbsent(legacyId, ignored -> new AtomicLong())
                 .incrementAndGet();
+    }
+
+    void enableSchemaProbeSession(@Nonnull LegacyItemSchemaProbeService.Session session) {
+        schemaProbeSession = session;
+    }
+
+    @Nullable
+    LegacyItemSchemaProbeService.Session getSchemaProbeSession() {
+        return schemaProbeSession;
+    }
+
+    void schemaMigrationCandidateFound(
+            @Nonnull String providerId,
+            @Nonnull String migrationName,
+            @Nonnull LegacyItemSchemaCandidate candidate) {
+        schemaMigrationCandidates.incrementAndGet();
+        SchemaMigrationKey key = new SchemaMigrationKey(
+                providerId,
+                migrationName,
+                candidate.getCandidateType(),
+                candidate.getReadiness(),
+                candidate.getDetail());
+        schemaMigrationCandidateCounts.computeIfAbsent(key, ignored -> new AtomicLong()).incrementAndGet();
     }
 
     void failure() {
@@ -156,6 +184,41 @@ public final class ItemDoctorReport {
         return Collections.unmodifiableMap(snapshot);
     }
 
+    /** Returns the number of current-ID items whose addon reported an older metadata/schema format. */
+    public long getSchemaMigrationCandidates() {
+        return schemaMigrationCandidates.get();
+    }
+
+    /** Returns immutable exact aggregates for addon-owned same-ID schema migration candidates. */
+    public @Nonnull List<LegacyItemSchemaCandidateSummary> getSchemaMigrationCandidateSummaries() {
+        List<Map.Entry<SchemaMigrationKey, AtomicLong>> entries =
+                new ArrayList<>(schemaMigrationCandidateCounts.entrySet());
+        entries.sort((left, right) -> {
+            int provider = left.getKey().providerId.compareToIgnoreCase(right.getKey().providerId);
+            if (provider != 0) {
+                return provider;
+            }
+            int type = left.getKey().candidateType.compareToIgnoreCase(right.getKey().candidateType);
+            if (type != 0) {
+                return type;
+            }
+            return left.getKey().readiness.compareTo(right.getKey().readiness);
+        });
+
+        List<LegacyItemSchemaCandidateSummary> summaries = new ArrayList<>(entries.size());
+        for (Map.Entry<SchemaMigrationKey, AtomicLong> entry : entries) {
+            SchemaMigrationKey key = entry.getKey();
+            summaries.add(new LegacyItemSchemaCandidateSummary(
+                    key.providerId,
+                    key.migrationName,
+                    key.candidateType,
+                    key.readiness,
+                    key.detail,
+                    entry.getValue().get()));
+        }
+        return Collections.unmodifiableList(summaries);
+    }
+
     public long getFailures() {
         return failures.get();
     }
@@ -186,4 +249,11 @@ public final class ItemDoctorReport {
             return Collections.unmodifiableList(new ArrayList<>(samples));
         }
     }
+
+    private record SchemaMigrationKey(
+            String providerId,
+            String migrationName,
+            String candidateType,
+            LegacyItemSchemaCandidate.Readiness readiness,
+            String detail) {}
 }
