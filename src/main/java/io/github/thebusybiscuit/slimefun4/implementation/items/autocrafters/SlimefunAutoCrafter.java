@@ -102,6 +102,32 @@ public class SlimefunAutoCrafter extends AbstractAutoCrafter {
         return null;
     }
 
+    /**
+     * Persists the selected Slimefun recipe on the Auto Crafter's skull block entity.
+     *
+     * <p>Paper's TileState PDC is committed to the underlying block entity by
+     * {@link BlockState#update(boolean, boolean)}. This class reads the skull through
+     * {@link Block#getState(boolean)} with snapshots disabled, so the inherited snapshot-only update is not enough.
+     */
+    @Override
+    protected void setSelectedRecipe(@Nonnull Block b, @Nullable AbstractRecipe recipe) {
+        Validate.notNull(b, "The Block cannot be null!");
+
+        BlockState state = b.getState(false);
+        if (state instanceof Skull skull) {
+            PersistentDataContainer container = skull.getPersistentDataContainer();
+            if (recipe == null) {
+                container.remove(recipeStorageKey);
+                container.remove(recipeEnabledKey);
+            } else {
+                container.set(recipeStorageKey, PersistentDataType.STRING, recipe.toString());
+            }
+
+            // Commit TileState PDC mutations for this live-state path.
+            skull.update(true, false);
+        }
+    }
+
     @Override
     protected void updateRecipe(@Nonnull Block b, @Nonnull Player p) {
         ItemStack itemInHand = p.getInventory().getItemInMainHand();
