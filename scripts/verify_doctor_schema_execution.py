@@ -40,7 +40,7 @@ plan_test = read("src/test/java/io/github/thebusybiscuit/slimefun4/core/services
 router = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorRouterCommand.java")
 tabs = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/SlimefunTabCompleter.java")
 
-require("READY candidates may also supply a deterministic claim" in candidate,
+require("candidates may also supply a deterministic claim" in candidate,
         "READY item-local candidates must document deterministic private claims")
 require("READY candidate without a claim remains" in candidate,
         "claim-less READY candidates must remain diagnostic-only")
