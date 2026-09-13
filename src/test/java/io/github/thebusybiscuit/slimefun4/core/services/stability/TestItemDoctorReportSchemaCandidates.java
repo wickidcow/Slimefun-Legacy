@@ -17,16 +17,32 @@ class TestItemDoctorReportSchemaCandidates {
         LegacyItemSchemaCandidate candidate = new LegacyItemSchemaCandidate(
                 "legacy-dolly-binding", Readiness.VALIDATION_REQUIRED, "Database verification required", "opaque");
 
-        report.schemaMigrationCandidateFound("FluffyMachines", "Dolly migration", candidate);
-        report.schemaMigrationCandidateFound("FluffyMachines", "Dolly migration", candidate);
+        report.schemaMigrationCandidateFound("FluffyMachines", "Dolly migration", "DOLLY", candidate);
+        report.schemaMigrationCandidateFound("FluffyMachines", "Dolly migration", "DOLLY", candidate);
 
         assertEquals(2L, report.getSchemaMigrationCandidates());
         List<LegacyItemSchemaCandidateSummary> summaries = report.getSchemaMigrationCandidateSummaries();
         assertEquals(1, summaries.size());
         assertEquals("FluffyMachines", summaries.getFirst().getProviderId());
+        assertEquals("DOLLY", summaries.getFirst().getSlimefunId());
         assertEquals("legacy-dolly-binding", summaries.getFirst().getCandidateType());
         assertEquals(Readiness.VALIDATION_REQUIRED, summaries.getFirst().getReadiness());
         assertEquals(2L, summaries.getFirst().getCount());
+    }
+
+    @Test
+    void keepsSameCandidateTypeSeparateAcrossCurrentItemIds() {
+        ItemDoctorReport report = new ItemDoctorReport(false);
+        LegacyItemSchemaCandidate candidate =
+                new LegacyItemSchemaCandidate("legacy-storage", Readiness.READY, "Old metadata");
+
+        report.schemaMigrationCandidateFound("Addon", "Migration", "CURRENT_A", candidate);
+        report.schemaMigrationCandidateFound("Addon", "Migration", "CURRENT_B", candidate);
+
+        List<LegacyItemSchemaCandidateSummary> summaries = report.getSchemaMigrationCandidateSummaries();
+        assertEquals(2, summaries.size());
+        assertEquals("CURRENT_A", summaries.get(0).getSlimefunId());
+        assertEquals("CURRENT_B", summaries.get(1).getSlimefunId());
     }
 
     @Test
@@ -35,6 +51,7 @@ class TestItemDoctorReportSchemaCandidates {
         report.schemaValidationFound(
                 "FluffyMachines",
                 "Dolly migration",
+                "DOLLY",
                 "legacy-dolly-binding",
                 new LegacyItemSchemaValidation(
                         LegacyItemSchemaValidation.Status.VERIFIED,
@@ -44,6 +61,7 @@ class TestItemDoctorReportSchemaCandidates {
         assertEquals(3L, report.getSchemaValidatedCandidates());
         List<LegacyItemSchemaValidationSummary> summaries = report.getSchemaValidationSummaries();
         assertEquals(1, summaries.size());
+        assertEquals("DOLLY", summaries.getFirst().getSlimefunId());
         assertEquals(LegacyItemSchemaValidation.Status.VERIFIED, summaries.getFirst().getStatus());
         assertEquals(3L, summaries.getFirst().getCount());
     }
@@ -54,6 +72,7 @@ class TestItemDoctorReportSchemaCandidates {
         report.schemaMigrationCandidateFound(
                 "Addon",
                 "Migration",
+                "CURRENT_ITEM",
                 new LegacyItemSchemaCandidate("legacy-item", Readiness.READY, "Recognized old metadata"));
 
         List<LegacyItemSchemaCandidateSummary> snapshot = report.getSchemaMigrationCandidateSummaries();
@@ -62,6 +81,7 @@ class TestItemDoctorReportSchemaCandidates {
         report.schemaMigrationCandidateFound(
                 "Addon",
                 "Migration",
+                "CURRENT_ITEM",
                 new LegacyItemSchemaCandidate("legacy-item", Readiness.READY, "Recognized old metadata"));
         assertEquals(1L, snapshot.getFirst().getCount());
         assertEquals(2L, report.getSchemaMigrationCandidateSummaries().getFirst().getCount());
