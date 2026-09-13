@@ -10,6 +10,7 @@ public final class LegacyItemSchemaCandidateSummary {
 
     private final String providerId;
     private final String migrationName;
+    private final String slimefunId;
     private final String candidateType;
     private final Readiness readiness;
     private final String detail;
@@ -18,12 +19,14 @@ public final class LegacyItemSchemaCandidateSummary {
     LegacyItemSchemaCandidateSummary(
             @Nonnull String providerId,
             @Nonnull String migrationName,
+            @Nonnull String slimefunId,
             @Nonnull String candidateType,
             @Nonnull Readiness readiness,
             @Nonnull String detail,
             @Nonnegative long count) {
         this.providerId = Objects.requireNonNull(providerId, "providerId");
         this.migrationName = Objects.requireNonNull(migrationName, "migrationName");
+        this.slimefunId = Objects.requireNonNull(slimefunId, "slimefunId");
         this.candidateType = Objects.requireNonNull(candidateType, "candidateType");
         this.readiness = Objects.requireNonNull(readiness, "readiness");
         this.detail = Objects.requireNonNull(detail, "detail");
@@ -33,27 +36,11 @@ public final class LegacyItemSchemaCandidateSummary {
         this.count = count;
     }
 
-    public @Nonnull String getProviderId() {
-        return providerId;
-    }
-
-    public @Nonnull String getMigrationName() {
-        return migrationName;
-    }
-
-    public @Nonnull String getCandidateType() {
-        return candidateType;
-    }
-
-    public @Nonnull Readiness getReadiness() {
-        return readiness;
-    }
-
-    public @Nonnull String getDetail() {
-        return detail;
-    }
-
-    public long getCount() {
-        return count;
-    }
+    public @Nonnull String getProviderId() { return providerId; }
+    public @Nonnull String getMigrationName() { return migrationName; }
+    public @Nonnull String getSlimefunId() { return slimefunId; }
+    public @Nonnull String getCandidateType() { return candidateType; }
+    public @Nonnull Readiness getReadiness() { return readiness; }
+    public @Nonnull String getDetail() { return detail; }
+    public long getCount() { return count; }
 }
