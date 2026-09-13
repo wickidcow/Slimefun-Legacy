@@ -89,14 +89,21 @@ public final class LegacyItemSchemaMigrationService {
             String version = versions.get(entry.getKey());
             if (providerId == null || migrationName == null || version == null) continue;
 
-            LegacyItemSchemaMigrationPlan plan = new LegacyItemSchemaMigrationPlan(
-                    providerId,
-                    migrationName,
-                    version,
-                    generation.incrementAndGet(),
-                    now,
-                    PLAN_TTL_MILLIS,
-                    entry.getValue());
+            LegacyItemSchemaMigrationPlan plan;
+            try {
+                plan = new LegacyItemSchemaMigrationPlan(
+                        providerId,
+                        migrationName,
+                        version,
+                        generation.incrementAndGet(),
+                        now,
+                        PLAN_TTL_MILLIS,
+                        entry.getValue());
+            } catch (IllegalArgumentException exception) {
+                plugin.getLogger().warning("Skipping same-ID schema migration plan for " + providerId
+                        + " because verified authorization evidence was inconsistent.");
+                continue;
+            }
             preparedPlans.put(entry.getKey(), plan);
             plans.add(plan);
         }
