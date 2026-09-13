@@ -11,15 +11,11 @@ import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-/**
- * Short-lived authorization for addon-owned same-ID item-schema migration.
- *
- * <p>Opaque validation claims and migration payloads remain private in memory. The public fingerprint is derived
- * from SHA-256 digests of those values, never from their plaintext representation.</p>
- */
+/** Short-lived authorization for addon-owned same-ID item-schema migration. */
 public final class LegacyItemSchemaMigrationPlan {
 
     private static final int SHORT_FINGERPRINT_LENGTH = 12;
+    static final String READY_ITEM_LOCAL_PAYLOAD = "doctor:item-local-ready";
 
     private final String providerId;
     private final String migrationName;
@@ -53,16 +49,18 @@ public final class LegacyItemSchemaMigrationPlan {
         copy.sort(Comparator.comparing(Authorization::slimefunId)
                 .thenComparing(Authorization::candidateType)
                 .thenComparing(Authorization::validationClaim)
-                .thenComparing(Authorization::migrationPayload));
+                .thenComparing(Authorization::migrationPayload)
+                .thenComparing(Authorization::requiresExternalValidation));
 
         List<Authorization> canonical = new ArrayList<>();
         for (Authorization authorization : copy) {
             if (!canonical.isEmpty()) {
                 Authorization previous = canonical.getLast();
                 if (sameAuthorizationClaim(previous, authorization)) {
-                    if (!previous.migrationPayload().equals(authorization.migrationPayload())) {
+                    if (!previous.migrationPayload().equals(authorization.migrationPayload())
+                            || previous.requiresExternalValidation() != authorization.requiresExternalValidation()) {
                         throw new IllegalArgumentException(
-                                "one schema authorization claim produced conflicting migration payloads");
+                                "one schema authorization claim produced conflicting migration evidence");
                     }
                     canonical.set(
                             canonical.size() - 1,
@@ -71,7 +69,8 @@ public final class LegacyItemSchemaMigrationPlan {
                                     previous.candidateType(),
                                     previous.validationClaim(),
                                     previous.migrationPayload(),
-                                    Math.addExact(previous.candidateCount(), authorization.candidateCount())));
+                                    Math.addExact(previous.candidateCount(), authorization.candidateCount()),
+                                    previous.requiresExternalValidation()));
                     continue;
                 }
             }
@@ -96,9 +95,7 @@ public final class LegacyItemSchemaMigrationPlan {
         return fingerprint.substring(0, Math.min(SHORT_FINGERPRINT_LENGTH, fingerprint.length()));
     }
 
-    public boolean isExpired(long nowMillis) {
-        return nowMillis >= expiresAtMillis;
-    }
+    public boolean isExpired(long nowMillis) { return nowMillis >= expiresAtMillis; }
 
     public boolean matchesFingerprint(@Nullable String supplied) {
         if (supplied == null) return false;
@@ -106,14 +103,10 @@ public final class LegacyItemSchemaMigrationPlan {
         return normalized.equals(fingerprint) || normalized.equals(getShortFingerprint());
     }
 
-    boolean matchesProviderVersion(@Nonnull String version) {
-        return providerVersion.equals(version);
-    }
+    boolean matchesProviderVersion(@Nonnull String version) { return providerVersion.equals(version); }
 
     @Nonnull
-    List<Authorization> authorizations() {
-        return authorizations;
-    }
+    List<Authorization> authorizations() { return authorizations; }
 
     @Nullable
     Authorization findAuthorization(
@@ -139,6 +132,7 @@ public final class LegacyItemSchemaMigrationPlan {
             update(digest, "claim", digest(authorization.validationClaim()));
             update(digest, "payload", digest(authorization.migrationPayload()));
             update(digest, "count", Long.toString(authorization.candidateCount()));
+            update(digest, "external-validation", Boolean.toString(authorization.requiresExternalValidation()));
         }
         return toHex(digest.digest());
     }
@@ -190,13 +184,17 @@ public final class LegacyItemSchemaMigrationPlan {
             String candidateType,
             String validationClaim,
             String migrationPayload,
-            long candidateCount) {
+            long candidateCount,
+            boolean requiresExternalValidation) {
         Authorization {
             slimefunId = requireText(slimefunId, "slimefunId");
             candidateType = requireText(candidateType, "candidateType");
             validationClaim = requireText(validationClaim, "validationClaim");
             migrationPayload = requireText(migrationPayload, "migrationPayload");
             if (candidateCount < 1L) throw new IllegalArgumentException("candidateCount must be positive");
+            if (!requiresExternalValidation && !READY_ITEM_LOCAL_PAYLOAD.equals(migrationPayload)) {
+                throw new IllegalArgumentException("READY item-local authorizations must use the core marker payload");
+            }
         }
     }
 }
