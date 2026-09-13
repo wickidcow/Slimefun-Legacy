@@ -40,22 +40,15 @@ public final class LegacyItemSchemaProbeService {
 
         for (RegisteredServiceProvider<LegacyItemSchemaProbe> registration :
                 Bukkit.getServicesManager().getRegistrations(LegacyItemSchemaProbe.class)) {
-            if (registration.getPlugin() == null || !registration.getPlugin().isEnabled()) {
-                continue;
-            }
+            if (registration.getPlugin() == null || !registration.getPlugin().isEnabled()) continue;
             String providerId = registration.getPlugin().getName();
             LegacyItemSchemaProbe provider = registration.getProvider();
             try {
                 String migrationName = provider.getMigrationName();
-                if (migrationName == null || migrationName.isBlank()) {
-                    migrationName = providerId;
-                } else {
-                    migrationName = migrationName.trim();
-                }
+                if (migrationName == null || migrationName.isBlank()) migrationName = providerId;
+                else migrationName = migrationName.trim();
                 Set<String> supportedIds = provider.getSupportedItemIds();
-                if (supportedIds == null) {
-                    throw new IllegalStateException("Schema probe returned null supported item IDs");
-                }
+                if (supportedIds == null) throw new IllegalStateException("Schema probe returned null supported item IDs");
                 ProbeRegistration probe = new ProbeRegistration(providerId, migrationName, provider);
                 boolean registeredAny = false;
                 for (String supportedId : supportedIds) {
@@ -78,9 +71,7 @@ public final class LegacyItemSchemaProbeService {
             LegacyItemSchemaValidator provider = registration.getProvider();
             try {
                 Set<String> candidateTypes = provider.getSupportedCandidateTypes();
-                if (candidateTypes == null) {
-                    throw new IllegalStateException("Schema validator returned null supported candidate types");
-                }
+                if (candidateTypes == null) throw new IllegalStateException("Schema validator returned null supported candidate types");
                 for (String candidateType : candidateTypes) {
                     if (candidateType == null || candidateType.isBlank()) continue;
                     ValidatorKey key = new ValidatorKey(providerId, candidateType.trim());
@@ -111,14 +102,12 @@ public final class LegacyItemSchemaProbeService {
         private final Map<String, List<ProbeRegistration>> byItemId;
         private final Map<ValidatorKey, ValidatorRegistration> validators;
         private final Map<ValidationRequestKey, AtomicLong> validationRequests = new ConcurrentHashMap<>();
+        private final Map<ValidationRequestKey, AtomicLong> readyRequests = new ConcurrentHashMap<>();
         private final Map<ValidationRequestKey, VerifiedAuthorization> verifiedAuthorizations = new ConcurrentHashMap<>();
         private final int providerCount;
 
-        private Session(
-                JavaPlugin plugin,
-                Map<String, List<ProbeRegistration>> byItemId,
-                Map<ValidatorKey, ValidatorRegistration> validators,
-                int providerCount) {
+        private Session(JavaPlugin plugin, Map<String, List<ProbeRegistration>> byItemId,
+                        Map<ValidatorKey, ValidatorRegistration> validators, int providerCount) {
             this.plugin = plugin;
             this.byItemId = byItemId;
             this.validators = validators;
@@ -137,19 +126,17 @@ public final class LegacyItemSchemaProbeService {
                     if (candidate == null) continue;
                     report.schemaMigrationCandidateFound(
                             registration.providerId(), registration.migrationName(), slimefunId, candidate);
+                    String claim = candidate.getValidationClaim();
                     if (candidate.getReadiness() == LegacyItemSchemaCandidate.Readiness.VALIDATION_REQUIRED) {
-                        String claim = candidate.getValidationClaim();
                         if (claim == null) {
                             report.failure();
                             continue;
                         }
-                        ValidationRequestKey key = new ValidationRequestKey(
-                                registration.providerId(),
-                                registration.migrationName(),
-                                slimefunId,
-                                candidate.getCandidateType(),
-                                claim);
+                        ValidationRequestKey key = key(registration, slimefunId, candidate, claim);
                         validationRequests.computeIfAbsent(key, ignored -> new AtomicLong()).incrementAndGet();
+                    } else if (candidate.getReadiness() == LegacyItemSchemaCandidate.Readiness.READY && claim != null) {
+                        ValidationRequestKey key = key(registration, slimefunId, candidate, claim);
+                        readyRequests.computeIfAbsent(key, ignored -> new AtomicLong()).incrementAndGet();
                     }
                 } catch (Throwable throwable) {
                     report.failure();
@@ -158,6 +145,13 @@ public final class LegacyItemSchemaProbeService {
                                     + " on Slimefun item " + slimefunId + '.', throwable);
                 }
             }
+        }
+
+        private ValidationRequestKey key(
+                ProbeRegistration registration, String slimefunId, LegacyItemSchemaCandidate candidate, String claim) {
+            return new ValidationRequestKey(
+                    registration.providerId(), registration.migrationName(), slimefunId,
+                    candidate.getCandidateType(), claim);
         }
 
         /** Runs deduplicated read-only persistent-state validation after item discovery has finished. */
@@ -173,10 +167,8 @@ public final class LegacyItemSchemaProbeService {
                 if (registration == null) {
                     report.schemaValidationFound(
                             request.providerId(), request.migrationName(), request.slimefunId(), request.candidateType(),
-                            new LegacyItemSchemaValidation(
-                                    LegacyItemSchemaValidation.Status.MANUAL_ONLY,
-                                    "The addon did not register a persistent-state validator for this legacy format."),
-                            count);
+                            new LegacyItemSchemaValidation(LegacyItemSchemaValidation.Status.MANUAL_ONLY,
+                                    "The addon did not register a persistent-state validator for this legacy format."), count);
                     continue;
                 }
 
@@ -189,26 +181,17 @@ public final class LegacyItemSchemaProbeService {
                             report.failure();
                             report.schemaValidationFound(
                                     request.providerId(), request.migrationName(), request.slimefunId(), request.candidateType(),
-                                    new LegacyItemSchemaValidation(
-                                            LegacyItemSchemaValidation.Status.MANUAL_ONLY,
-                                            "Addon validation failed safely; no migration was authorized."),
-                                    count);
+                                    new LegacyItemSchemaValidation(LegacyItemSchemaValidation.Status.MANUAL_ONLY,
+                                            "Addon validation failed safely; no migration was authorized."), count);
                         } else {
                             report.schemaValidationFound(
                                     request.providerId(), request.migrationName(), request.slimefunId(), request.candidateType(),
                                     validation, count);
                             String payload = validation.getMigrationPayload();
                             if (validation.getStatus() == LegacyItemSchemaValidation.Status.VERIFIED && payload != null) {
-                                verifiedAuthorizations.put(
-                                        request,
-                                        new VerifiedAuthorization(
-                                                request.providerId(),
-                                                request.migrationName(),
-                                                request.slimefunId(),
-                                                request.candidateType(),
-                                                request.validationClaim(),
-                                                payload,
-                                                count));
+                                verifiedAuthorizations.put(request, new VerifiedAuthorization(
+                                        request.providerId(), request.migrationName(), request.slimefunId(),
+                                        request.candidateType(), request.validationClaim(), payload, count));
                             }
                         }
                         return (Void) null;
@@ -218,18 +201,14 @@ public final class LegacyItemSchemaProbeService {
                     report.failure();
                     plugin.getLogger().log(Level.WARNING,
                             "Legacy item schema validation failed to start for " + request.providerId()
-                                    + " candidate " + request.candidateType() + ". Claim contents were not logged.",
-                            throwable);
+                                    + " candidate " + request.candidateType() + ". Claim contents were not logged.", throwable);
                     report.schemaValidationFound(
                             request.providerId(), request.migrationName(), request.slimefunId(), request.candidateType(),
-                            new LegacyItemSchemaValidation(
-                                    LegacyItemSchemaValidation.Status.MANUAL_ONLY,
-                                    "Addon validation failed safely; no migration was authorized."),
-                            count);
+                            new LegacyItemSchemaValidation(LegacyItemSchemaValidation.Status.MANUAL_ONLY,
+                                    "Addon validation failed safely; no migration was authorized."), count);
                 }
             }
-            return pending.isEmpty()
-                    ? CompletableFuture.completedFuture(null)
+            return pending.isEmpty() ? CompletableFuture.completedFuture(null)
                     : CompletableFuture.allOf(pending.toArray(CompletableFuture[]::new));
         }
 
@@ -241,24 +220,34 @@ public final class LegacyItemSchemaProbeService {
                     .thenComparing(VerifiedAuthorization::candidateType));
             return List.copyOf(snapshot);
         }
+
+        @Nonnull
+        List<ReadyAuthorization> getReadyAuthorizations() {
+            List<ReadyAuthorization> snapshot = new ArrayList<>();
+            for (Map.Entry<ValidationRequestKey, AtomicLong> entry : readyRequests.entrySet()) {
+                ValidationRequestKey request = entry.getKey();
+                snapshot.add(new ReadyAuthorization(
+                        request.providerId(), request.migrationName(), request.slimefunId(), request.candidateType(),
+                        request.validationClaim(), entry.getValue().get()));
+            }
+            snapshot.sort(Comparator.comparing(ReadyAuthorization::providerId)
+                    .thenComparing(ReadyAuthorization::slimefunId)
+                    .thenComparing(ReadyAuthorization::candidateType));
+            return List.copyOf(snapshot);
+        }
     }
 
     private record ProbeRegistration(String providerId, String migrationName, LegacyItemSchemaProbe provider) {}
     private record ValidatorKey(String providerId, String candidateType) {}
     private record ValidatorRegistration(LegacyItemSchemaValidator provider) {}
     private record ValidationRequestKey(
-            String providerId,
-            String migrationName,
-            String slimefunId,
-            String candidateType,
-            String validationClaim) {}
+            String providerId, String migrationName, String slimefunId, String candidateType, String validationClaim) {}
 
     static record VerifiedAuthorization(
-            String providerId,
-            String migrationName,
-            String slimefunId,
-            String candidateType,
-            String validationClaim,
-            String migrationPayload,
-            long candidateCount) {}
+            String providerId, String migrationName, String slimefunId, String candidateType,
+            String validationClaim, String migrationPayload, long candidateCount) {}
+
+    static record ReadyAuthorization(
+            String providerId, String migrationName, String slimefunId, String candidateType,
+            String validationClaim, long candidateCount) {}
 }
