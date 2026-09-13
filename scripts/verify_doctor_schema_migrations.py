@@ -89,8 +89,8 @@ require("getSlimefunId()" in candidate_summary and "getSlimefunId()" in validati
 require("schemaProbes.inspect(item, itemId, report)" in item_doctor,
         "schema probes must run through the authoritative recursive Item Doctor traversal")
 require("startMigrationAwareServerRun" in doctor_service, "dedicated migration-aware scan entry point is missing")
-require("return startServerRun(false, true, completion)" in doctor_service,
-        "migration-aware scan must remain read-only")
+require("return startServerRun(false, true, null, completion);" in doctor_service,
+        "migration-aware scan must remain read-only and isolated from schema execution")
 require("new LegacyItemSchemaProbeService(plugin).createSession(report)" in doctor_service,
         "schema probe session must be created only for the explicit migration-aware run")
 
