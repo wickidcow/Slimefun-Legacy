@@ -149,26 +149,56 @@ final class DoctorSchemaMigrationCommand {
             return;
         }
 
+        migrationService.invalidatePreparedPlan(plan.getProviderId());
+        send(sender, "&eUsing a single-use schema migration plan. The fingerprint is now consumed.");
+        send(sender, "&7Revalidating addon-owned backing state before any live item mutation...");
+        migrationService.revalidatePlan(plan).whenComplete((verified, error) ->
+                Slimefun.getSchedulerService().run(() -> finishExecutionRevalidation(sender, doctor, plan, verified, error)));
+    }
+
+    private void finishExecutionRevalidation(
+            @Nonnull CommandSender sender,
+            @Nonnull ItemDoctorService doctor,
+            @Nonnull LegacyItemSchemaMigrationPlan plan,
+            Boolean verified,
+            Throwable error) {
+        if (error != null) {
+            plugin.getLogger().log(
+                    Level.WARNING,
+                    "Same-ID schema execution revalidation ended unexpectedly; no live mutation was started.",
+                    error);
+            send(sender, "&cBacking-state revalidation failed unexpectedly. No items were changed.");
+            send(sender, "&7The plan remains consumed; run a fresh schema scan before trying again.");
+            return;
+        }
+        if (!Boolean.TRUE.equals(verified)) {
+            send(sender, "&cSchema migration blocked because validated backing state changed or no longer matches.");
+            send(sender, "&7No live mutation was started. The consumed plan cannot be reused; run a fresh schema scan.");
+            return;
+        }
+        if (doctor.isServerRunActive()) {
+            send(sender, "&cAnother Doctor run started during backing-state revalidation. No schema mutation was started.");
+            send(sender, "&7The consumed plan cannot be reused; run a fresh schema scan.");
+            return;
+        }
+
         Optional<LegacyItemSchemaMigrationExecutor> executorResult = migrationService.createExecutor(plan);
         if (executorResult.isEmpty()) {
-            migrationService.invalidatePreparedPlan(plan.getProviderId());
             send(sender, "&cSchema migration blocked because the addon version or probe/migrator registrations changed.");
-            send(sender, "&7The stale plan was invalidated. Run a fresh schema scan.");
+            send(sender, "&7No live mutation was started. Run a fresh schema scan.");
             return;
         }
 
         LegacyItemSchemaMigrationExecutor executor = executorResult.get();
-        migrationService.invalidatePreparedPlan(plan.getProviderId());
-        send(sender, "&eUsing a single-use schema migration plan. The fingerprint is now consumed.");
-
         boolean started = doctor.startSchemaMigrationRun(executor, report -> sendExecutionReport(sender, executor, report));
         if (!started) {
-            send(sender, "&cThe schema migration run could not start. The consumed plan will not be reused.");
-            send(sender, "&7Run a fresh schema scan before trying again.");
+            send(sender, "&cThe schema migration run could not start. No items were changed by this execution request.");
+            send(sender, "&7The consumed plan will not be reused; run a fresh schema scan before trying again.");
             return;
         }
 
         send(sender, "&aStarted fingerprint-authorized same-ID schema migration for &f" + plan.getProviderId() + "&a.");
+        send(sender, "&7Backing state was revalidated immediately before traversal.");
         send(sender, "&7Only exact live candidates from the approved plan may be mutated by that addon's migrator.");
         send(sender, "&7Automatic Doctor listeners do not participate in this execution pass.");
     }
