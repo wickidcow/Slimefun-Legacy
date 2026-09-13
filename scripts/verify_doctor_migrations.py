@@ -36,6 +36,7 @@ tabs = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/Slim
 provider_api = read("src/main/java/io/github/thebusybiscuit/slimefun4/api/diagnostics/LegacyItemMigrationProvider.java")
 provider_service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyItemMigrationService.java")
 provider_plan = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyItemMigrationPlan.java")
+item_doctor_service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemDoctorService.java")
 plan_test = read("src/test/java/io/github/thebusybiscuit/slimefun4/core/services/stability/TestLegacyItemMigrationPlan.java")
 registry_test = read("src/test/java/io/github/thebusybiscuit/slimefun4/core/TestSlimefunRegistryLegacyItemIds.java")
 
@@ -107,7 +108,10 @@ reject("ChatColors" in router, "Doctor migration router must not expand the Doug
 
 require('args[1].equalsIgnoreCase("scan")' in router, "normal Doctor scan must be intercepted for legacy correlation")
 require("DoctorScanWithLegacyCorrelation.run(plugin, sender)" in router, "normal Doctor scan must use legacy-aware scan output")
-require("service.startServerRun(false" in scan, "legacy-aware normal scan must remain a read-only Item Doctor run")
+require("service.startMigrationAwareServerRun(" in scan,
+        "normal Doctor scan must use the dedicated migration-aware read-only traversal")
+require("return startServerRun(false, true, completion);" in item_doctor_service,
+        "migration-aware Item Doctor traversal must remain hard-wired to read-only mode")
 require("DoctorLegacyIdCorrelation.send(sender, report)" in scan, "normal Doctor scan completion must include legacy-ID correlation")
 require("Slimefun Legacy-ID Correlation" in correlation, "normal scan legacy correlation heading is missing")
 require("[READY]" in correlation and "[TARGET MISSING]" in correlation,
