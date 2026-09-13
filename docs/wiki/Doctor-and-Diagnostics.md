@@ -53,6 +53,46 @@ Useful commands:
 
 Never treat “0 repaired” as proof that a scan failed; a clean server may simply have nothing eligible to change.
 
+## Legacy upgrade workflow
+
+The unified upgrade view helps server owners understand old-world migration work without bypassing the guarded migration systems owned by Slimefun and its addons.
+
+```text
+/sf doctor upgrade
+/sf doctor upgrade status
+/sf doctor upgrade scan
+/sf doctor upgrade plan
+/sf doctor upgrade providers
+```
+
+Plain `/sf doctor upgrade` remains the existing core/runtime readiness snapshot. The subcommands above add migration discovery and planning around that snapshot.
+
+### Recommended sequence
+
+1. Make or verify a current full backup.
+2. Run `/sf doctor upgrade status`.
+3. Run `/sf doctor upgrade scan` and wait for the read-only traversal to finish.
+4. Run `/sf doctor upgrade plan`.
+5. Resolve anything shown as `NEEDS PROVIDER`, `MANUAL/BLOCKED` or a traversal failure before executing migrations.
+6. For legacy-ID candidates, run the exact `/sf doctor migrations scan <plugin>` command shown by Doctor.
+7. For same-ID schema candidates, run `/sf doctor migrations schemas scan` and follow only the exact fingerprinted execution command it prints.
+8. Re-run the upgrade scan after migrations to confirm what remains.
+
+If the server restarts, an addon is updated/reloaded, or migration providers change after discovery, run a fresh upgrade scan and create new fingerprints instead of reusing earlier assumptions.
+
+### Plan categories
+
+| Category | Meaning |
+| --- | --- |
+| `READY NOW` | Doctor found a candidate whose current target/provider capabilities are available. It still requires the native fingerprint scan and explicit execution command. |
+| `NEEDS VALIDATION` | The addon has the probe, validator and migrator needed, but persistent backing state must be revalidated before authorization. |
+| `NEEDS PROVIDER` | The candidate is recognized but the required migration provider, probe, validator or migrator capability is missing or unsafe. |
+| `MANUAL/BLOCKED` | The target is missing, the schema is manual-only, the ID/template is unresolved or the evidence is otherwise insufficient for guarded migration. |
+
+A candidate marked `READY` by an addon probe is **not** treated as executable merely because the probe recognized it. Item-local same-ID migration requires both the probe and migrator to be present. Validation-backed migration requires the probe, validator and migrator.
+
+The unified upgrade workflow never creates a combined execution token. Legacy-ID fingerprints and same-ID schema fingerprints remain separate, short-lived and single-use. The plan itself is read-only and never calls an addon migrator or provider repair method.
+
 ## Dependency diagnostics
 
 For a specific plugin:

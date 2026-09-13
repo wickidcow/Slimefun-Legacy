@@ -118,6 +118,17 @@ public final class ItemPresentationDoctor {
         }
 
         report.slimefunStackFound();
+        String itemId = storedId.get();
+        SlimefunItem sfItem = SlimefunItem.getById(itemId);
+        if (sfItem == null && Slimefun.getRegistry().getLegacySlimefunItemIdTarget(itemId).isPresent()) {
+            report.legacyMigrationCandidateFound(itemId);
+        }
+
+        LegacyItemSchemaProbeService.Session schemaProbes = report.getSchemaProbeSession();
+        if (schemaProbes != null) {
+            schemaProbes.inspect(item, itemId, report);
+        }
+
         ItemMeta currentMeta = item.getItemMeta();
         boolean hasCjkName = currentMeta.hasDisplayName() && ItemDoctorText.containsCjk(currentMeta.getDisplayName());
         boolean hasCjkLore = currentMeta.hasLore() && ItemDoctorText.containsCjk(currentMeta.getLore());
@@ -126,8 +137,6 @@ public final class ItemPresentationDoctor {
         }
 
         report.cjkStackFound();
-        String itemId = storedId.get();
-        SlimefunItem sfItem = SlimefunItem.getById(itemId);
         if (sfItem == null) {
             report.unknownIdFound(itemId);
             return repairOrphanedPresentation(item, currentMeta, itemId, hasCjkName, hasCjkLore, repair, report);
@@ -609,7 +618,8 @@ public final class ItemPresentationDoctor {
                     continue;
                 }
                 String normalized = plain.trim();
-                if (normalized.equals("\u7075\u9B42\u7ED1\u5B9A") || normalized.equals("\u9748\u9B42\u7D81\u5B9A")) {
+                if (normalized.equals("\u7075\u9B42\u7ED1\u5B9A")
+                        || normalized.equals("\u9748\u9B42\u7D81\u5B9A")) {
                     return true;
                 }
             }

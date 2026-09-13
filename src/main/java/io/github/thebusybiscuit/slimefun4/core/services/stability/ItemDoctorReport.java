@@ -1,13 +1,19 @@
 package io.github.thebusybiscuit.slimefun4.core.services.stability;
 
+import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaCandidate;
+import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaValidation;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /** Thread-safe progress and result counters for an item doctor run. */
 public final class ItemDoctorReport {
@@ -25,38 +31,28 @@ public final class ItemDoctorReport {
     private final AtomicLong repairedStacks = new AtomicLong();
     private final AtomicLong unknownIds = new AtomicLong();
     private final AtomicLong unresolvedTemplates = new AtomicLong();
+    private final AtomicLong legacyMigrationCandidates = new AtomicLong();
+    private final AtomicLong schemaMigrationCandidates = new AtomicLong();
+    private final AtomicLong schemaValidatedCandidates = new AtomicLong();
     private final AtomicLong failures = new AtomicLong();
+    private final Map<String, AtomicLong> legacyMigrationCandidateCounts = new ConcurrentHashMap<>();
+    private final Map<SchemaMigrationKey, AtomicLong> schemaMigrationCandidateCounts = new ConcurrentHashMap<>();
+    private final Map<SchemaValidationKey, AtomicLong> schemaValidationCounts = new ConcurrentHashMap<>();
     private final Set<String> unknownIdSamples = Collections.synchronizedSet(new LinkedHashSet<>());
     private final Set<String> unresolvedTemplateSamples = Collections.synchronizedSet(new LinkedHashSet<>());
+    private volatile LegacyItemSchemaProbeService.Session schemaProbeSession;
     private volatile long completedAtNanos;
 
     public ItemDoctorReport(boolean repairMode) {
         this.repairMode = repairMode;
     }
 
-    void inventoryScanned() {
-        inventories.incrementAndGet();
-    }
-
-    void backpackScanned() {
-        backpacks.incrementAndGet();
-    }
-
-    void stackScanned() {
-        scannedStacks.incrementAndGet();
-    }
-
-    void slimefunStackFound() {
-        slimefunStacks.incrementAndGet();
-    }
-
-    void cjkStackFound() {
-        cjkStacks.incrementAndGet();
-    }
-
-    void stackRepaired() {
-        repairedStacks.incrementAndGet();
-    }
+    void inventoryScanned() { inventories.incrementAndGet(); }
+    void backpackScanned() { backpacks.incrementAndGet(); }
+    void stackScanned() { scannedStacks.incrementAndGet(); }
+    void slimefunStackFound() { slimefunStacks.incrementAndGet(); }
+    void cjkStackFound() { cjkStacks.incrementAndGet(); }
+    void stackRepaired() { repairedStacks.incrementAndGet(); }
 
     void unknownIdFound(@Nonnull String itemId) {
         unknownIds.incrementAndGet();
@@ -68,9 +64,60 @@ public final class ItemDoctorReport {
         addSample(unresolvedTemplateSamples, itemId);
     }
 
-    void failure() {
-        failures.incrementAndGet();
+    /** Records an executable legacy-ID candidate encountered during the full Doctor traversal. */
+    void legacyMigrationCandidateFound(@Nonnull String legacyId) {
+        legacyMigrationCandidates.incrementAndGet();
+        legacyMigrationCandidateCounts.computeIfAbsent(legacyId, ignored -> new AtomicLong()).incrementAndGet();
     }
+
+    void enableSchemaProbeSession(@Nonnull LegacyItemSchemaProbeService.Session session) {
+        schemaProbeSession = session;
+    }
+
+    @Nullable
+    LegacyItemSchemaProbeService.Session getSchemaProbeSession() {
+        return schemaProbeSession;
+    }
+
+    void schemaMigrationCandidateFound(
+            @Nonnull String providerId,
+            @Nonnull String migrationName,
+            @Nonnull String slimefunId,
+            @Nonnull LegacyItemSchemaCandidate candidate) {
+        schemaMigrationCandidates.incrementAndGet();
+        SchemaMigrationKey key = new SchemaMigrationKey(
+                providerId,
+                migrationName,
+                slimefunId,
+                candidate.getCandidateType(),
+                candidate.getReadiness(),
+                candidate.getDetail(),
+                candidate.getValidationClaim() != null);
+        schemaMigrationCandidateCounts.computeIfAbsent(key, ignored -> new AtomicLong()).incrementAndGet();
+    }
+
+    void schemaValidationFound(
+            @Nonnull String providerId,
+            @Nonnull String migrationName,
+            @Nonnull String slimefunId,
+            @Nonnull String candidateType,
+            @Nonnull LegacyItemSchemaValidation validation,
+            long candidateCount) {
+        if (candidateCount < 1L) {
+            throw new IllegalArgumentException("candidateCount must be positive");
+        }
+        schemaValidatedCandidates.addAndGet(candidateCount);
+        SchemaValidationKey key = new SchemaValidationKey(
+                providerId,
+                migrationName,
+                slimefunId,
+                candidateType,
+                validation.getStatus(),
+                validation.getDetail());
+        schemaValidationCounts.computeIfAbsent(key, ignored -> new AtomicLong()).addAndGet(candidateCount);
+    }
+
+    void failure() { failures.incrementAndGet(); }
 
     void markComplete() {
         if (complete.compareAndSet(false, true)) {
@@ -78,72 +125,108 @@ public final class ItemDoctorReport {
         }
     }
 
-    public boolean isRepairMode() {
-        return repairMode;
+    public boolean isRepairMode() { return repairMode; }
+    public @Nonnull String getModeName() { return repairMode ? "repair" : "scan"; }
+    public boolean isComplete() { return complete.get(); }
+    public long getInventories() { return inventories.get(); }
+    public long getBackpacks() { return backpacks.get(); }
+    public long getScannedStacks() { return scannedStacks.get(); }
+    public long getSlimefunStacks() { return slimefunStacks.get(); }
+    public long getCjkStacks() { return cjkStacks.get(); }
+    public long getRepairedStacks() { return repairedStacks.get(); }
+    public long getUnknownIds() { return unknownIds.get(); }
+    public long getUnresolvedTemplates() { return unresolvedTemplates.get(); }
+
+    /** Returns the exact number of stacks whose stored ID matched a declared legacy-ID mapping. */
+    public long getLegacyMigrationCandidates() { return legacyMigrationCandidates.get(); }
+
+    /** Exact per-ID counts for declared legacy migration candidates encountered by this run. */
+    public @Nonnull Map<String, Long> getLegacyMigrationCandidateCounts() {
+        List<Map.Entry<String, AtomicLong>> entries = new ArrayList<>(legacyMigrationCandidateCounts.entrySet());
+        entries.sort(Map.Entry.comparingByKey());
+        Map<String, Long> snapshot = new LinkedHashMap<>();
+        for (Map.Entry<String, AtomicLong> entry : entries) {
+            snapshot.put(entry.getKey(), entry.getValue().get());
+        }
+        return Collections.unmodifiableMap(snapshot);
     }
 
-    public @Nonnull String getModeName() {
-        return repairMode ? "repair" : "scan";
+    /** Returns the number of current-ID items whose addon reported an older metadata/schema format. */
+    public long getSchemaMigrationCandidates() { return schemaMigrationCandidates.get(); }
+
+    /** Returns immutable exact aggregates for addon-owned same-ID schema migration candidates. */
+    public @Nonnull List<LegacyItemSchemaCandidateSummary> getSchemaMigrationCandidateSummaries() {
+        List<Map.Entry<SchemaMigrationKey, AtomicLong>> entries = new ArrayList<>(schemaMigrationCandidateCounts.entrySet());
+        entries.sort((left, right) -> {
+            int provider = left.getKey().providerId.compareToIgnoreCase(right.getKey().providerId);
+            if (provider != 0) return provider;
+            int item = left.getKey().slimefunId.compareToIgnoreCase(right.getKey().slimefunId);
+            if (item != 0) return item;
+            int type = left.getKey().candidateType.compareToIgnoreCase(right.getKey().candidateType);
+            if (type != 0) return type;
+            int readiness = left.getKey().readiness.compareTo(right.getKey().readiness);
+            if (readiness != 0) return readiness;
+            return Boolean.compare(left.getKey().itemLocalClaimPresent, right.getKey().itemLocalClaimPresent);
+        });
+        List<LegacyItemSchemaCandidateSummary> summaries = new ArrayList<>(entries.size());
+        for (Map.Entry<SchemaMigrationKey, AtomicLong> entry : entries) {
+            SchemaMigrationKey key = entry.getKey();
+            summaries.add(new LegacyItemSchemaCandidateSummary(
+                    key.providerId,
+                    key.migrationName,
+                    key.slimefunId,
+                    key.candidateType,
+                    key.readiness,
+                    key.detail,
+                    key.itemLocalClaimPresent,
+                    entry.getValue().get()));
+        }
+        return Collections.unmodifiableList(summaries);
     }
 
-    public boolean isComplete() {
-        return complete.get();
+    /** Number of candidate stacks represented by completed persistent-state validation results. */
+    public long getSchemaValidatedCandidates() { return schemaValidatedCandidates.get(); }
+
+    /** Exact, non-sensitive aggregates of persistent-state validation results. */
+    public @Nonnull List<LegacyItemSchemaValidationSummary> getSchemaValidationSummaries() {
+        List<Map.Entry<SchemaValidationKey, AtomicLong>> entries = new ArrayList<>(schemaValidationCounts.entrySet());
+        entries.sort((left, right) -> {
+            int provider = left.getKey().providerId.compareToIgnoreCase(right.getKey().providerId);
+            if (provider != 0) return provider;
+            int item = left.getKey().slimefunId.compareToIgnoreCase(right.getKey().slimefunId);
+            if (item != 0) return item;
+            int type = left.getKey().candidateType.compareToIgnoreCase(right.getKey().candidateType);
+            if (type != 0) return type;
+            return left.getKey().status.compareTo(right.getKey().status);
+        });
+        List<LegacyItemSchemaValidationSummary> summaries = new ArrayList<>(entries.size());
+        for (Map.Entry<SchemaValidationKey, AtomicLong> entry : entries) {
+            SchemaValidationKey key = entry.getKey();
+            summaries.add(new LegacyItemSchemaValidationSummary(
+                    key.providerId,
+                    key.migrationName,
+                    key.slimefunId,
+                    key.candidateType,
+                    key.status,
+                    key.detail,
+                    entry.getValue().get()));
+        }
+        return Collections.unmodifiableList(summaries);
     }
 
-    public long getInventories() {
-        return inventories.get();
-    }
-
-    public long getBackpacks() {
-        return backpacks.get();
-    }
-
-    public long getScannedStacks() {
-        return scannedStacks.get();
-    }
-
-    public long getSlimefunStacks() {
-        return slimefunStacks.get();
-    }
-
-    public long getCjkStacks() {
-        return cjkStacks.get();
-    }
-
-    public long getRepairedStacks() {
-        return repairedStacks.get();
-    }
-
-    public long getUnknownIds() {
-        return unknownIds.get();
-    }
-
-    public long getUnresolvedTemplates() {
-        return unresolvedTemplates.get();
-    }
-
-    public long getFailures() {
-        return failures.get();
-    }
+    public long getFailures() { return failures.get(); }
 
     public long getDurationMillis() {
         long end = isComplete() ? completedAtNanos : System.nanoTime();
         return Math.max(0L, (end - startedAtNanos) / 1_000_000L);
     }
 
-    public @Nonnull List<String> getUnknownIdSamples() {
-        return snapshot(unknownIdSamples);
-    }
-
-    public @Nonnull List<String> getUnresolvedTemplateSamples() {
-        return snapshot(unresolvedTemplateSamples);
-    }
+    public @Nonnull List<String> getUnknownIdSamples() { return snapshot(unknownIdSamples); }
+    public @Nonnull List<String> getUnresolvedTemplateSamples() { return snapshot(unresolvedTemplateSamples); }
 
     private static void addSample(Set<String> samples, String value) {
         synchronized (samples) {
-            if (samples.size() < SAMPLE_LIMIT) {
-                samples.add(value);
-            }
+            if (samples.size() < SAMPLE_LIMIT) samples.add(value);
         }
     }
 
@@ -152,4 +235,21 @@ public final class ItemDoctorReport {
             return Collections.unmodifiableList(new ArrayList<>(samples));
         }
     }
+
+    private record SchemaMigrationKey(
+            String providerId,
+            String migrationName,
+            String slimefunId,
+            String candidateType,
+            LegacyItemSchemaCandidate.Readiness readiness,
+            String detail,
+            boolean itemLocalClaimPresent) {}
+
+    private record SchemaValidationKey(
+            String providerId,
+            String migrationName,
+            String slimefunId,
+            String candidateType,
+            LegacyItemSchemaValidation.Status status,
+            String detail) {}
 }

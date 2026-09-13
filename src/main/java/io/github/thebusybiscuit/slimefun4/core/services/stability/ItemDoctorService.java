@@ -127,13 +127,52 @@ public final class ItemDoctorService implements Listener {
      * @return {@code false} when another server-wide run is already active
      */
     public boolean startServerRun(boolean repair, @Nonnull Consumer<ItemDoctorReport> completion) {
+        return startServerRun(repair, false, null, completion);
+    }
+
+    /**
+     * Starts the normal read-only server-wide Doctor scan with addon-owned legacy schema probes enabled.
+     *
+     * <p>Schema probes are deliberately limited to this operator-triggered path. Automatic presentation repair
+     * never creates a probe session and therefore never invokes addon migration probes.</p>
+     *
+     * @return {@code false} when another server-wide run is already active
+     */
+    public boolean startMigrationAwareServerRun(@Nonnull Consumer<ItemDoctorReport> completion) {
+        return startServerRun(false, true, null, completion);
+    }
+
+    /**
+     * Starts an explicit fingerprint-authorized same-ID schema migration pass using the normal Doctor traversal.
+     *
+     * <p>No presentation repair or schema-validation phase runs here. The supplied executor re-probes and mutates
+     * only candidates authorized by its already-consumed plan. Automatic Doctor listeners never call this path.</p>
+     *
+     * @return {@code false} when another server-wide run is already active or Doctor is unavailable
+     */
+    public boolean startSchemaMigrationRun(
+            @Nonnull LegacyItemSchemaMigrationExecutor executor,
+            @Nonnull Consumer<ItemDoctorReport> completion) {
+        return startServerRun(true, false, executor, completion);
+    }
+
+    private boolean startServerRun(
+            boolean repair,
+            boolean enableSchemaProbes,
+            @Nullable LegacyItemSchemaMigrationExecutor schemaExecutor,
+            @Nonnull Consumer<ItemDoctorReport> completion) {
         if (shuttingDown || !isEnabled() || !serverRunActive.compareAndSet(false, true)) {
             return false;
         }
 
         ItemDoctorReport report = new ItemDoctorReport(repair);
+        if (enableSchemaProbes) {
+            LegacyItemSchemaProbeService.Session probes =
+                    new LegacyItemSchemaProbeService(plugin).createSession(report);
+            report.enableSchemaProbeSession(probes);
+        }
         currentReport = report;
-        ServerRun run = new ServerRun(report, completion);
+        ServerRun run = new ServerRun(report, completion, schemaExecutor);
         activeRun = run;
         try {
             run.collectLoadedInventories();
@@ -331,6 +370,7 @@ public final class ItemDoctorService implements Listener {
     private final class ServerRun {
         private final ItemDoctorReport report;
         private final Consumer<ItemDoctorReport> completion;
+        private final @Nullable LegacyItemSchemaMigrationExecutor schemaExecutor;
         private final Queue<Player> players = new ConcurrentLinkedQueue<>();
         private final Queue<InventoryTarget> inventories = new ConcurrentLinkedQueue<>();
         private final Queue<Item> droppedItems = new ConcurrentLinkedQueue<>();
@@ -345,9 +385,13 @@ public final class ItemDoctorService implements Listener {
         private volatile TaskHandle inventoryTask;
         private Iterator<String> backpackIds = Collections.emptyIterator();
 
-        private ServerRun(ItemDoctorReport report, Consumer<ItemDoctorReport> completion) {
+        private ServerRun(
+                ItemDoctorReport report,
+                Consumer<ItemDoctorReport> completion,
+                @Nullable LegacyItemSchemaMigrationExecutor schemaExecutor) {
             this.report = report;
             this.completion = completion;
+            this.schemaExecutor = schemaExecutor;
         }
 
         private void collectLoadedInventories() {
@@ -576,7 +620,9 @@ public final class ItemDoctorService implements Listener {
                 inventoryTargets.remove(target.inventory());
             }
             try {
-                boolean changed = doctor.repairInventory(target.inventory(), report.isRepairMode(), report);
+                boolean changed = schemaExecutor == null
+                        ? doctor.repairInventory(target.inventory(), report.isRepairMode(), report)
+                        : schemaExecutor.inspectInventory(target.inventory(), report);
                 if (changed && target.saveAction() != null) {
                     target.saveAction().run();
                 }
@@ -592,7 +638,10 @@ public final class ItemDoctorService implements Listener {
                     return;
                 }
                 ItemStack item = itemEntity.getItemStack();
-                if (doctor.inspectItem(item, report.isRepairMode(), report)) {
+                boolean changed = schemaExecutor == null
+                        ? doctor.inspectItem(item, report.isRepairMode(), report)
+                        : schemaExecutor.inspectItem(item, report);
+                if (changed) {
                     itemEntity.setItemStack(item);
                 }
             } catch (RuntimeException ex) {
@@ -676,7 +725,9 @@ public final class ItemDoctorService implements Listener {
                     return;
                 }
                 report.backpackScanned();
-                boolean changed = doctor.repairInventory(backpack.getInventory(), report.isRepairMode(), report);
+                boolean changed = schemaExecutor == null
+                        ? doctor.repairInventory(backpack.getInventory(), report.isRepairMode(), report)
+                        : schemaExecutor.inspectInventory(backpack.getInventory(), report);
                 if (changed) {
                     controller.saveBackpackInventory(backpack);
                 }

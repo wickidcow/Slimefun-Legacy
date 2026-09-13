@@ -36,6 +36,7 @@ tabs = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/Slim
 provider_api = read("src/main/java/io/github/thebusybiscuit/slimefun4/api/diagnostics/LegacyItemMigrationProvider.java")
 provider_service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyItemMigrationService.java")
 provider_plan = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyItemMigrationPlan.java")
+item_doctor_service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemDoctorService.java")
 plan_test = read("src/test/java/io/github/thebusybiscuit/slimefun4/core/services/stability/TestLegacyItemMigrationPlan.java")
 registry_test = read("src/test/java/io/github/thebusybiscuit/slimefun4/core/TestSlimefunRegistryLegacyItemIds.java")
 
@@ -82,7 +83,11 @@ require('case "scan" -> runMigrationProvider(sender, args, false);' in router, "
 require('case "execute" -> runMigrationProvider(sender, args, true);' in router, "provider-owned migration execution route is missing")
 require("getUnknownIdSamples()" in router, "Doctor migration correlation must use Item Doctor unknown-ID samples")
 require("getLegacySlimefunItemIds()" in router, "Doctor migration command must use addon-declared mappings")
-require("This plan is sample-based" in router, "Doctor migration dry-run must disclose sample-based limits")
+require("getLegacyMigrationCandidateCounts()" in router, "Doctor migration dry-run must use exact declared-candidate counts")
+require("Additional unmapped unknown IDs remain sample-only" in router,
+        "Doctor migration dry-run must disclose sample-based limits for unmapped unknown IDs")
+require("Declared-candidate counts are exact" in router,
+        "Doctor migration dry-run must distinguish exact declared counts from sampled diagnostics")
 require("Actual migration remains addon-owned" in router, "Doctor migration dry-run must preserve addon-owned repair boundary")
 require("validateProviderMappings" in router, "provider mappings must be validated before execution")
 require("report.getFailures() == 0L" in router, "provider scan failures must prevent execution-plan creation")
@@ -103,14 +108,17 @@ reject("ChatColors" in router, "Doctor migration router must not expand the Doug
 
 require('args[1].equalsIgnoreCase("scan")' in router, "normal Doctor scan must be intercepted for legacy correlation")
 require("DoctorScanWithLegacyCorrelation.run(plugin, sender)" in router, "normal Doctor scan must use legacy-aware scan output")
-require("service.startServerRun(false" in scan, "legacy-aware normal scan must remain a read-only Item Doctor run")
+require("service.startMigrationAwareServerRun(" in scan,
+        "normal Doctor scan must use the dedicated migration-aware read-only traversal")
+require("return startServerRun(false, true, null, completion);" in item_doctor_service,
+        "migration-aware Item Doctor traversal must remain hard-wired to read-only mode with no schema executor")
 require("DoctorLegacyIdCorrelation.send(sender, report)" in scan, "normal Doctor scan completion must include legacy-ID correlation")
 require("Slimefun Legacy-ID Correlation" in correlation, "normal scan legacy correlation heading is missing")
 require("[READY]" in correlation and "[TARGET MISSING]" in correlation,
         "declared mapping classifications are missing from normal scan output")
-require("[KNOWN LEGACY]" in correlation and "[NO MAPPING]" in correlation,
+require("[KNOWN LEGACY / DIAGNOSTIC ONLY]" in correlation and "[NO DECLARED MAPPING]" in correlation,
         "historical/no-mapping classifications are missing from normal scan output")
-require("KNOWN LEGACY entries are historical diagnostics only" in correlation,
+require("Historical catalog matches are identification evidence only; they never authorize repair." in correlation,
         "historical hints must explicitly remain non-authoritative")
 require("Read-only diagnostic" in correlation, "normal scan legacy correlation must disclose its read-only boundary")
 reject("registerLegacySlimefunItemId(" in correlation, "normal scan correlation must not register migration mappings")
