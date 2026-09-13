@@ -1,7 +1,10 @@
 package io.github.thebusybiscuit.slimefun4.core.services.stability;
 
+import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaMigrationProvider;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaMigrator;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaProbe;
+import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaValidation;
+import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaValidator;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -9,8 +12,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
@@ -133,6 +139,74 @@ public final class LegacyItemSchemaMigrationService {
     }
 
     public long getPlanTtlMillis() { return PLAN_TTL_MILLIS; }
+
+    /**
+     * Re-runs addon-owned backing-state validation after a plan has been consumed and before live mutation begins.
+     * Every authorization must still be VERIFIED and reproduce the same private migration payload.
+     */
+    public @Nonnull CompletionStage<Boolean> revalidatePlan(@Nonnull LegacyItemSchemaMigrationPlan plan) {
+        if (plan.isExpired(System.currentTimeMillis())) {
+            return CompletableFuture.completedFuture(false);
+        }
+
+        Plugin owner = Bukkit.getPluginManager().getPlugin(plan.getProviderId());
+        if (owner == null || !owner.isEnabled() || !plan.matchesProviderVersion(owner.getDescription().getVersion())) {
+            return CompletableFuture.completedFuture(false);
+        }
+
+        Map<String, LegacyItemSchemaValidator> validators = new HashMap<>();
+        Set<String> ambiguousTypes = new HashSet<>();
+        for (RegisteredServiceProvider<LegacyItemSchemaValidator> registration :
+                Bukkit.getServicesManager().getRegistrations(LegacyItemSchemaValidator.class)) {
+            if (registration.getPlugin() != owner) continue;
+            try {
+                Set<String> types = registration.getProvider().getSupportedCandidateTypes();
+                if (types == null) continue;
+                for (String type : types) {
+                    if (type == null || type.isBlank()) continue;
+                    String normalized = type.trim();
+                    if (validators.putIfAbsent(normalized, registration.getProvider()) != null) {
+                        ambiguousTypes.add(normalized);
+                    }
+                }
+            } catch (Throwable throwable) {
+                plugin.getLogger().log(Level.WARNING,
+                        "Could not inspect schema validator registration for " + plan.getProviderId() + '.', throwable);
+                return CompletableFuture.completedFuture(false);
+            }
+        }
+        for (String type : ambiguousTypes) validators.remove(type);
+
+        List<CompletableFuture<Boolean>> checks = new ArrayList<>();
+        for (LegacyItemSchemaMigrationPlan.Authorization authorization : plan.authorizations()) {
+            LegacyItemSchemaValidator validator = validators.get(authorization.candidateType());
+            if (validator == null) {
+                return CompletableFuture.completedFuture(false);
+            }
+
+            try {
+                CompletionStage<LegacyItemSchemaValidation> stage = validator.validateCandidate(
+                        authorization.candidateType(), authorization.validationClaim());
+                if (stage == null) {
+                    return CompletableFuture.completedFuture(false);
+                }
+                CompletableFuture<Boolean> check = stage.handle((result, error) -> error == null
+                                && result != null
+                                && result.getStatus() == LegacyItemSchemaValidation.Status.VERIFIED
+                                && Objects.equals(result.getMigrationPayload(), authorization.migrationPayload()))
+                        .toCompletableFuture();
+                checks.add(check);
+            } catch (Throwable throwable) {
+                plugin.getLogger().log(Level.WARNING,
+                        "Could not revalidate schema backing state for " + plan.getProviderId() + '.', throwable);
+                return CompletableFuture.completedFuture(false);
+            }
+        }
+
+        CompletableFuture<?>[] all = checks.toArray(CompletableFuture[]::new);
+        return CompletableFuture.allOf(all)
+                .thenApply(ignored -> checks.stream().allMatch(check -> Boolean.TRUE.equals(check.getNow(false))));
+    }
 
     /** Builds an executor only if the same addon version still owns unambiguous probe and migrator registrations. */
     public @Nonnull Optional<LegacyItemSchemaMigrationExecutor> createExecutor(
