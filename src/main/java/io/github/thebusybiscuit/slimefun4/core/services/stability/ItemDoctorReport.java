@@ -91,7 +91,8 @@ public final class ItemDoctorReport {
                 slimefunId,
                 candidate.getCandidateType(),
                 candidate.getReadiness(),
-                candidate.getDetail());
+                candidate.getDetail(),
+                candidate.getValidationClaim() != null);
         schemaMigrationCandidateCounts.computeIfAbsent(key, ignored -> new AtomicLong()).incrementAndGet();
     }
 
@@ -163,7 +164,9 @@ public final class ItemDoctorReport {
             if (item != 0) return item;
             int type = left.getKey().candidateType.compareToIgnoreCase(right.getKey().candidateType);
             if (type != 0) return type;
-            return left.getKey().readiness.compareTo(right.getKey().readiness);
+            int readiness = left.getKey().readiness.compareTo(right.getKey().readiness);
+            if (readiness != 0) return readiness;
+            return Boolean.compare(left.getKey().itemLocalClaimPresent, right.getKey().itemLocalClaimPresent);
         });
         List<LegacyItemSchemaCandidateSummary> summaries = new ArrayList<>(entries.size());
         for (Map.Entry<SchemaMigrationKey, AtomicLong> entry : entries) {
@@ -175,6 +178,7 @@ public final class ItemDoctorReport {
                     key.candidateType,
                     key.readiness,
                     key.detail,
+                    key.itemLocalClaimPresent,
                     entry.getValue().get()));
         }
         return Collections.unmodifiableList(summaries);
@@ -238,7 +242,8 @@ public final class ItemDoctorReport {
             String slimefunId,
             String candidateType,
             LegacyItemSchemaCandidate.Readiness readiness,
-            String detail) {}
+            String detail,
+            boolean itemLocalClaimPresent) {}
 
     private record SchemaValidationKey(
             String providerId,
