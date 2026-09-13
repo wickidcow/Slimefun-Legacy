@@ -59,7 +59,11 @@ public final class LegacyItemSchemaMigrationPlan {
         for (Authorization authorization : copy) {
             if (!canonical.isEmpty()) {
                 Authorization previous = canonical.getLast();
-                if (sameAuthorization(previous, authorization)) {
+                if (sameAuthorizationClaim(previous, authorization)) {
+                    if (!previous.migrationPayload().equals(authorization.migrationPayload())) {
+                        throw new IllegalArgumentException(
+                                "one schema authorization claim produced conflicting migration payloads");
+                    }
                     canonical.set(
                             canonical.size() - 1,
                             new Authorization(
@@ -139,11 +143,10 @@ public final class LegacyItemSchemaMigrationPlan {
         return toHex(digest.digest());
     }
 
-    private static boolean sameAuthorization(Authorization left, Authorization right) {
+    private static boolean sameAuthorizationClaim(Authorization left, Authorization right) {
         return left.slimefunId().equals(right.slimefunId())
                 && left.candidateType().equals(right.candidateType())
-                && left.validationClaim().equals(right.validationClaim())
-                && left.migrationPayload().equals(right.migrationPayload());
+                && left.validationClaim().equals(right.validationClaim());
     }
 
     private static String digest(String value) {
