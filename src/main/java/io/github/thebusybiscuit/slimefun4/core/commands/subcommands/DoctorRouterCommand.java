@@ -27,12 +27,14 @@ final class DoctorRouterCommand extends SubCommand {
     private final DoctorCommand delegate;
     private final LegacyItemMigrationService migrationService;
     private final DoctorSchemaMigrationCommand schemaMigrations;
+    private final DoctorUpgradeWorkflow upgradeWorkflow;
 
     DoctorRouterCommand(@Nonnull Slimefun plugin, @Nonnull SlimefunCommand cmd) {
         super(plugin, cmd, "doctor", true);
         delegate = new DoctorCommand(plugin, cmd);
         migrationService = new LegacyItemMigrationService(plugin);
         schemaMigrations = new DoctorSchemaMigrationCommand(plugin);
+        upgradeWorkflow = new DoctorUpgradeWorkflow(plugin, migrationService);
     }
 
     @Override
@@ -44,6 +46,11 @@ final class DoctorRouterCommand extends SubCommand {
             }
 
             DoctorSupportReport.send(plugin, sender);
+            return;
+        }
+
+        if (args.length > 2 && args[1].equalsIgnoreCase("upgrade")) {
+            upgradeWorkflow.execute(sender, args);
             return;
         }
 
