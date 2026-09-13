@@ -32,6 +32,8 @@ probe_service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/serv
 plan = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyItemSchemaMigrationPlan.java")
 service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyItemSchemaMigrationService.java")
 executor = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyItemSchemaMigrationExecutor.java")
+item_doctor = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemDoctorService.java")
+command = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorSchemaMigrationCommand.java")
 validation_test = read("src/test/java/io/github/thebusybiscuit/slimefun4/api/diagnostics/TestLegacyItemSchemaValidation.java")
 plan_test = read("src/test/java/io/github/thebusybiscuit/slimefun4/core/services/stability/TestLegacyItemSchemaMigrationPlan.java")
 router = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorRouterCommand.java")
@@ -69,6 +71,8 @@ require('update(digest, "payload", digest(authorization.migrationPayload()))' in
         "schema migration fingerprint must hash private migration payloads")
 require("findAuthorization(" in plan,
         "schema migration plan must support exact live authorization matching")
+require("List<Authorization> authorizations()" in plan,
+        "schema executor must receive the private bounded authorization set without exposing it publicly")
 
 require("PLAN_TTL_MILLIS = 10L * 60L * 1000L" in service,
         "schema migration plans must expire after ten minutes")
@@ -107,16 +111,49 @@ require("meta instanceof BlockStateMeta" in executor and "blockStateMeta.setBloc
         "schema execution must preserve recursive container-item migration support")
 require("inspectInventory(@Nonnull Inventory inventory" in executor,
         "schema executor inventory traversal entry point is missing")
-reject("getValidationClaim()" in router,
-       "Doctor operator commands must not expose private validation claims")
-reject("getMigrationPayload()" in router,
-       "Doctor operator commands must not expose private migration payloads")
+require("remainingAuthorizations" in executor and "consumeAuthorization(authorization)" in executor,
+        "schema execution must enforce the exact scanned count for every private authorization")
+require("new AtomicLong(authorization.candidateCount())" in executor,
+        "schema execution count limits must originate from the fingerprinted scan count")
 
-# This slice deliberately stops before command/traversal activation. A later PR must add its own explicit execution gate.
-reject("startSchemaMigrationRun" in router,
-       "schema-plan foundation must not silently expose an execution command")
+require("startSchemaMigrationRun(" in item_doctor,
+        "Item Doctor must expose the explicit schema execution traversal entry point")
+require("return startServerRun(true, false, executor, completion);" in item_doctor,
+        "schema execution must reuse ServerRun without enabling schema discovery probes")
+require(item_doctor.count("schemaExecutor == null") >= 3,
+        "schema execution must switch all inventory, dropped-item and backpack mutation points")
+require(item_doctor.count("schemaExecutor.inspectInventory") >= 2,
+        "schema execution must cover queued inventories and maintenance backpacks")
+require("schemaExecutor.inspectItem(item, report)" in item_doctor,
+        "schema execution must cover dropped ItemStacks")
+reject("startSchemaMigrationRun(" in item_doctor[item_doctor.find("@EventHandler"):item_doctor.find("private final class ServerRun")],
+       "automatic Doctor listeners must never invoke schema execution")
+
+require('case "schemas", "schema" -> schemaMigrations.execute(sender, args);' in router,
+        "Doctor migrations router must expose the explicit same-ID schema command group")
+reject("getValidationClaim()" in router or "getMigrationPayload()" in router,
+       "Doctor router must not expose private schema claims or payloads")
+require("LegacyItemSchemaValidationRunner.validate(report)" in command,
+        "schema plan creation must complete addon-owned read-only validation")
+require("migrationService.preparePlans(report)" in command,
+        "schema scan must create plans only after validation")
+require("plan.matchesFingerprint(args[5])" in command,
+        "schema execution must require the operator-supplied plan fingerprint")
+require("migrationService.createExecutor(plan)" in command,
+        "schema execution must re-check live addon ownership/version/registrations")
+require("migrationService.invalidatePreparedPlan(plan.getProviderId())" in command,
+        "schema execution must consume its plan before traversal")
+require("doctor.startSchemaMigrationRun(executor" in command,
+        "schema execution command must use the existing Doctor traversal")
+require(command.find("migrationService.invalidatePreparedPlan(plan.getProviderId())")
+        < command.find("doctor.startSchemaMigrationRun(executor"),
+        "schema plan must be consumed before any live mutation traversal begins")
+require("Automatic Doctor listeners do not participate" in command,
+        "operator output must state that automatic listeners are outside schema execution")
+reject("getValidationClaim()" in command or "getMigrationPayload()" in command,
+       "schema operator command must never expose private claims or payloads")
 reject("PlayerJoinEvent" in service or "ChunkLoadEvent" in service or "InventoryOpenEvent" in service,
-       "schema migration plans must not gain background event execution")
+       "schema migration plan service must not gain background event execution")
 
 require("nonVerifiedValidationCannotCarryMigrationPayload" in validation_test,
         "schema validation payload authorization regression test is missing")
