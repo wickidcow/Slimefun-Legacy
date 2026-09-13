@@ -1,7 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemMigrationProvider;
-import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaCandidate;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaMigrator;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaProbe;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaValidator;
@@ -52,7 +51,7 @@ final class DoctorUpgradeWorkflow {
 
     private void sendStatus(@Nonnull CommandSender sender) {
         ItemDoctorReport report = latestReport();
-        SchemaCounts schemas = report == null ? SchemaCounts.empty() : schemaCounts(report);
+        DoctorUpgradeSchemaCounts schemas = report == null ? DoctorUpgradeSchemaCounts.empty() : schemaCounts(report);
 
         send(sender, "&6Slimefun Legacy Upgrade Workflow");
         send(sender, "&7Legacy-ID migration providers: &e" + migrationService.getProviders().size());
@@ -98,14 +97,14 @@ final class DoctorUpgradeWorkflow {
         Map<String, String> declaredMappings = Slimefun.getRegistry().getLegacySlimefunItemIds();
         Map<String, Long> legacyCandidates = report.getLegacyMigrationCandidateCounts();
         Set<String> providerCoveredIds = new HashSet<>();
-        long readyLegacyStacks = 0L;
+        Set<String> safeProviderCoveredIds = new HashSet<>();
+        long targetReadyLegacyStacks = 0L;
         long blockedLegacyStacks = 0L;
-        long providerCoveredStacks = 0L;
 
         for (Map.Entry<String, Long> entry : legacyCandidates.entrySet()) {
             String target = declaredMappings.get(entry.getKey());
             if (target != null && SlimefunItem.getById(target) != null) {
-                readyLegacyStacks += entry.getValue();
+                targetReadyLegacyStacks += entry.getValue();
             } else {
                 blockedLegacyStacks += entry.getValue();
             }
@@ -115,44 +114,59 @@ final class DoctorUpgradeWorkflow {
         for (RegisteredServiceProvider<LegacyItemMigrationProvider> registration : migrationService.getProviders()) {
             String providerId = migrationService.getProviderId(registration);
             Map<String, String> mappings = migrationService.getMappings(registration);
+            List<String> problems = providerProblems(mappings);
+            boolean safe = problems.isEmpty();
             long candidateStacks = 0L;
             for (String legacyId : mappings.keySet()) {
                 Long count = legacyCandidates.get(legacyId);
-                if (count != null && providerCoveredIds.add(legacyId)) {
-                    providerCoveredStacks += count;
-                }
                 if (count != null) {
+                    providerCoveredIds.add(legacyId);
+                    if (safe) {
+                        safeProviderCoveredIds.add(legacyId);
+                    }
                     candidateStacks += count;
                 }
             }
             if (candidateStacks > 0L) {
-                legacyProviders.add(new ProviderLane(providerId, candidateStacks, providerProblems(mappings).isEmpty()));
+                legacyProviders.add(new ProviderLane(providerId, candidateStacks, safe));
             }
         }
 
-        long uncoveredLegacyStacks = 0L;
+        long actionableLegacyStacks = 0L;
+        long needsProviderLegacyStacks = 0L;
+        long providerCoveredStacks = 0L;
         for (Map.Entry<String, Long> entry : legacyCandidates.entrySet()) {
             String target = declaredMappings.get(entry.getKey());
-            if (target != null && SlimefunItem.getById(target) != null && !providerCoveredIds.contains(entry.getKey())) {
-                uncoveredLegacyStacks += entry.getValue();
+            if (providerCoveredIds.contains(entry.getKey())) {
+                providerCoveredStacks += entry.getValue();
+            }
+            if (target != null && SlimefunItem.getById(target) != null) {
+                if (safeProviderCoveredIds.contains(entry.getKey())) {
+                    actionableLegacyStacks += entry.getValue();
+                } else {
+                    needsProviderLegacyStacks += entry.getValue();
+                }
             }
         }
 
         send(sender, "&eLane 1 - Legacy item IDs");
         send(sender, "&7Candidates: &e" + report.getLegacyMigrationCandidates()
-                + " &8| &7registered target ready: &a" + readyLegacyStacks
+                + " &8| &7target registered: &a" + targetReadyLegacyStacks
                 + " &8| &7blocked target/mapping: &c" + blockedLegacyStacks);
-        send(sender, "&7Provider-covered stacks: &e" + providerCoveredStacks
-                + " &8| &7ready but no migration provider: &c" + uncoveredLegacyStacks);
+        send(sender, "&7READY NOW: &a" + actionableLegacyStacks
+                + " &8| &7NEEDS PROVIDER: &e" + needsProviderLegacyStacks
+                + " &8| &7provider-owned: &f" + providerCoveredStacks);
         if (legacyProviders.isEmpty()) {
             send(sender, "&7No enabled legacy-ID provider currently owns a candidate found by the scan.");
         } else {
             int shown = 0;
             for (ProviderLane provider : legacyProviders) {
-                if (shown++ >= MAX_PROVIDER_LINES) break;
+                if (shown++ >= MAX_PROVIDER_LINES) {
+                    break;
+                }
                 send(sender, "&8- " + (provider.safe() ? "&a" : "&c") + provider.providerId()
                         + " &8| &7candidate stacks &e" + provider.candidateStacks()
-                        + " &8| " + (provider.safe() ? "&aREADY" : "&cBLOCKED"));
+                        + " &8| " + (provider.safe() ? "&aREADY NOW" : "&cBLOCKED PROVIDER"));
                 if (provider.safe()) {
                     send(sender, "&8  &7Create its fresh fingerprint: &e/sf doctor migrations scan "
                             + provider.providerId());
@@ -161,20 +175,35 @@ final class DoctorUpgradeWorkflow {
         }
         send(sender, "&7Execute only the plugin-specific command printed by that native provider scan.");
 
-        SchemaCounts schemas = schemaCounts(report);
-        Map<String, SchemaCounts> schemaByProvider = schemaCountsByProvider(report);
+        DoctorUpgradeSchemaCounts schemas = schemaCounts(report);
+        Map<String, DoctorUpgradeSchemaCounts> schemaByProvider = schemaCountsByProvider(report);
+        Map<String, DoctorUpgradeSchemaCapabilities> schemaCapabilities = schemaProviderCapabilities();
+        DoctorUpgradeSchemaActionability schemaActionability = DoctorUpgradeSchemaActionability.empty();
+
         send(sender, "&eLane 2 - Same-ID item schemas");
         send(sender, "&7Candidates: &e" + report.getSchemaMigrationCandidates()
-                + " &8| &7READY: &a" + schemas.ready()
+                + " &8| &7raw READY: &a" + schemas.ready()
                 + " &8| &7validation required: &e" + schemas.validationRequired()
                 + " &8| &7manual-only: &c" + schemas.manualOnly());
         int shownSchemas = 0;
-        for (Map.Entry<String, SchemaCounts> entry : schemaByProvider.entrySet()) {
-            if (shownSchemas++ >= MAX_PROVIDER_LINES) break;
-            SchemaCounts counts = entry.getValue();
-            send(sender, "&8- &f" + entry.getKey() + " &8| &7READY &a" + counts.ready()
-                    + " &8| &7validate &e" + counts.validationRequired()
-                    + " &8| &7manual &c" + counts.manualOnly());
+        for (Map.Entry<String, DoctorUpgradeSchemaCounts> entry : schemaByProvider.entrySet()) {
+            DoctorUpgradeSchemaCapabilities capabilities =
+                    schemaCapabilities.getOrDefault(entry.getKey(), DoctorUpgradeSchemaCapabilities.empty());
+            DoctorUpgradeSchemaActionability actionability = DoctorUpgradePlanModel.classify(entry.getValue(), capabilities);
+            schemaActionability = schemaActionability.add(actionability);
+
+            if (shownSchemas++ >= MAX_PROVIDER_LINES) {
+                continue;
+            }
+            send(sender, "&8- &f" + entry.getKey()
+                    + " &8| &aREADY NOW " + actionability.readyNow()
+                    + " &8| &eNEEDS VALIDATION " + actionability.needsValidation()
+                    + " &8| &6NEEDS PROVIDER " + actionability.needsProvider()
+                    + " &8| &cMANUAL " + actionability.manualOnly());
+            String capabilityGap = schemaCapabilityGap(entry.getValue(), capabilities);
+            if (!capabilityGap.isEmpty()) {
+                send(sender, "&8  &7Missing execution capability: &e" + capabilityGap);
+            }
         }
         if (report.getSchemaMigrationCandidates() > 0L) {
             send(sender, "&7Create fresh schema fingerprints with: &e/sf doctor migrations schemas scan");
@@ -182,20 +211,32 @@ final class DoctorUpgradeWorkflow {
                     + " &7command printed by that scan.");
         }
 
-        long unresolved = report.getUnknownIds()
+        long manualBlocked = report.getUnknownIds()
                 + report.getUnresolvedTemplates()
                 + blockedLegacyStacks
-                + uncoveredLegacyStacks
-                + schemas.manualOnly();
+                + schemaActionability.manualOnly();
+        long readyNow = actionableLegacyStacks + schemaActionability.readyNow();
+        long needsValidation = schemaActionability.needsValidation();
+        long needsProvider = needsProviderLegacyStacks + schemaActionability.needsProvider();
+
         send(sender, "&eLane 3 - Manual/unresolved evidence");
-        send(sender, "&7Manual/unresolved signals: &c" + unresolved
+        send(sender, "&7Manual/blocked candidate signals: &c" + manualBlocked
                 + " &8| &7Doctor traversal failures: &c" + report.getFailures());
-        if (unresolved > 0L || report.getFailures() > 0L) {
+        if (manualBlocked > 0L || report.getFailures() > 0L) {
             send(sender, "&eDo not guess-convert these entries. Resolve addon ownership/schema evidence first.");
         } else {
             send(sender, "&aNo manual/unresolved evidence was counted by this completed scan.");
         }
 
+        send(sender, "&6Upgrade candidate summary");
+        send(sender, "&aREADY NOW: " + readyNow
+                + " &8| &eNEEDS VALIDATION: " + needsValidation
+                + " &8| &6NEEDS PROVIDER: " + needsProvider
+                + " &8| &cMANUAL/BLOCKED: " + manualBlocked);
+        if (report.getFailures() > 0L) {
+            send(sender, "&cTraversal failures must be resolved before treating this scan as a complete upgrade picture.");
+        }
+        send(sender, "&8READY NOW still requires the native fingerprint scan and explicit execution command.");
         send(sender, "&8Read-only plan only: no provider repair, schema migrator, registry rewrite, or storage mutation ran.");
         send(sender, "&8Legacy-ID and same-ID schema fingerprints remain separate, short-lived and single-use.");
     }
@@ -217,12 +258,14 @@ final class DoctorUpgradeWorkflow {
             }
         }
 
-        Map<String, SchemaCapabilities> schemas = schemaProviderCapabilities();
+        Map<String, DoctorUpgradeSchemaCapabilities> schemas = schemaProviderCapabilities();
         send(sender, "&7Same-ID schema plugins: &e" + schemas.size());
         int shown = 0;
-        for (Map.Entry<String, SchemaCapabilities> entry : schemas.entrySet()) {
-            if (shown++ >= MAX_PROVIDER_LINES) break;
-            SchemaCapabilities capabilities = entry.getValue();
+        for (Map.Entry<String, DoctorUpgradeSchemaCapabilities> entry : schemas.entrySet()) {
+            if (shown++ >= MAX_PROVIDER_LINES) {
+                break;
+            }
+            DoctorUpgradeSchemaCapabilities capabilities = entry.getValue();
             send(sender, "&8- &f" + entry.getKey()
                     + " &8| &7probe " + yesNo(capabilities.probe())
                     + " &8| &7validator " + yesNo(capabilities.validator())
@@ -253,47 +296,67 @@ final class DoctorUpgradeWorkflow {
         return problems;
     }
 
-    private Map<String, SchemaCapabilities> schemaProviderCapabilities() {
-        Map<String, SchemaCapabilities> providers = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+    private Map<String, DoctorUpgradeSchemaCapabilities> schemaProviderCapabilities() {
+        Map<String, DoctorUpgradeSchemaCapabilities> providers = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         for (RegisteredServiceProvider<LegacyItemSchemaProbe> registration :
                 plugin.getServer().getServicesManager().getRegistrations(LegacyItemSchemaProbe.class)) {
             providers.compute(registration.getPlugin().getName(), (ignored, value) ->
-                    (value == null ? SchemaCapabilities.empty() : value).withProbe());
+                    (value == null ? DoctorUpgradeSchemaCapabilities.empty() : value).withProbe());
         }
         for (RegisteredServiceProvider<LegacyItemSchemaValidator> registration :
                 plugin.getServer().getServicesManager().getRegistrations(LegacyItemSchemaValidator.class)) {
             providers.compute(registration.getPlugin().getName(), (ignored, value) ->
-                    (value == null ? SchemaCapabilities.empty() : value).withValidator());
+                    (value == null ? DoctorUpgradeSchemaCapabilities.empty() : value).withValidator());
         }
         for (RegisteredServiceProvider<LegacyItemSchemaMigrator> registration :
                 plugin.getServer().getServicesManager().getRegistrations(LegacyItemSchemaMigrator.class)) {
             providers.compute(registration.getPlugin().getName(), (ignored, value) ->
-                    (value == null ? SchemaCapabilities.empty() : value).withMigrator());
+                    (value == null ? DoctorUpgradeSchemaCapabilities.empty() : value).withMigrator());
         }
         return providers;
     }
 
-    private SchemaCounts schemaCounts(@Nonnull ItemDoctorReport report) {
-        long ready = 0L;
-        long validationRequired = 0L;
-        long manualOnly = 0L;
+    private DoctorUpgradeSchemaCounts schemaCounts(@Nonnull ItemDoctorReport report) {
+        DoctorUpgradeSchemaCounts counts = DoctorUpgradeSchemaCounts.empty();
         for (LegacyItemSchemaCandidateSummary summary : report.getSchemaMigrationCandidateSummaries()) {
-            switch (summary.getReadiness()) {
-                case READY -> ready += summary.getCount();
-                case VALIDATION_REQUIRED -> validationRequired += summary.getCount();
-                case MANUAL_ONLY -> manualOnly += summary.getCount();
-            }
+            counts = counts.add(summary.getReadiness(), summary.getCount());
         }
-        return new SchemaCounts(ready, validationRequired, manualOnly);
+        return counts;
     }
 
-    private Map<String, SchemaCounts> schemaCountsByProvider(@Nonnull ItemDoctorReport report) {
-        Map<String, SchemaCounts> counts = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+    private Map<String, DoctorUpgradeSchemaCounts> schemaCountsByProvider(@Nonnull ItemDoctorReport report) {
+        Map<String, DoctorUpgradeSchemaCounts> counts = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         for (LegacyItemSchemaCandidateSummary summary : report.getSchemaMigrationCandidateSummaries()) {
-            SchemaCounts current = counts.getOrDefault(summary.getProviderId(), SchemaCounts.empty());
+            DoctorUpgradeSchemaCounts current =
+                    counts.getOrDefault(summary.getProviderId(), DoctorUpgradeSchemaCounts.empty());
             counts.put(summary.getProviderId(), current.add(summary.getReadiness(), summary.getCount()));
         }
         return counts;
+    }
+
+    private String schemaCapabilityGap(
+            DoctorUpgradeSchemaCounts counts, DoctorUpgradeSchemaCapabilities capabilities) {
+        Set<String> missing = new HashSet<>();
+        if (counts.ready() > 0L) {
+            if (!capabilities.probe()) {
+                missing.add("probe");
+            }
+            if (!capabilities.migrator()) {
+                missing.add("migrator");
+            }
+        }
+        if (counts.validationRequired() > 0L) {
+            if (!capabilities.probe()) {
+                missing.add("probe");
+            }
+            if (!capabilities.validator()) {
+                missing.add("validator");
+            }
+            if (!capabilities.migrator()) {
+                missing.add("migrator");
+            }
+        }
+        return String.join(", ", missing.stream().sorted().toList());
     }
 
     private ItemDoctorReport latestReport() {
@@ -315,36 +378,4 @@ final class DoctorUpgradeWorkflow {
     }
 
     private record ProviderLane(String providerId, long candidateStacks, boolean safe) {}
-
-    private record SchemaCounts(long ready, long validationRequired, long manualOnly) {
-        static SchemaCounts empty() {
-            return new SchemaCounts(0L, 0L, 0L);
-        }
-
-        SchemaCounts add(LegacyItemSchemaCandidate.Readiness readiness, long count) {
-            return switch (readiness) {
-                case READY -> new SchemaCounts(ready + count, validationRequired, manualOnly);
-                case VALIDATION_REQUIRED -> new SchemaCounts(ready, validationRequired + count, manualOnly);
-                case MANUAL_ONLY -> new SchemaCounts(ready, validationRequired, manualOnly + count);
-            };
-        }
-    }
-
-    private record SchemaCapabilities(boolean probe, boolean validator, boolean migrator) {
-        static SchemaCapabilities empty() {
-            return new SchemaCapabilities(false, false, false);
-        }
-
-        SchemaCapabilities withProbe() {
-            return new SchemaCapabilities(true, validator, migrator);
-        }
-
-        SchemaCapabilities withValidator() {
-            return new SchemaCapabilities(probe, true, migrator);
-        }
-
-        SchemaCapabilities withMigrator() {
-            return new SchemaCapabilities(probe, validator, true);
-        }
-    }
 }
