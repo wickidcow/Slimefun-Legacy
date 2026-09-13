@@ -25,6 +25,11 @@ public final class ItemDoctorReport {
     private final AtomicBoolean complete = new AtomicBoolean();
     private final AtomicLong inventories = new AtomicLong();
     private final AtomicLong backpacks = new AtomicLong();
+    private final AtomicLong scannedBlocks = new AtomicLong();
+    private final AtomicLong cjkBlocks = new AtomicLong();
+    private final AtomicLong repairedBlocks = new AtomicLong();
+    private final AtomicLong legacyBlockIds = new AtomicLong();
+    private final AtomicLong unknownBlockIds = new AtomicLong();
     private final AtomicLong scannedStacks = new AtomicLong();
     private final AtomicLong slimefunStacks = new AtomicLong();
     private final AtomicLong cjkStacks = new AtomicLong();
@@ -38,6 +43,8 @@ public final class ItemDoctorReport {
     private final Map<String, AtomicLong> legacyMigrationCandidateCounts = new ConcurrentHashMap<>();
     private final Map<SchemaMigrationKey, AtomicLong> schemaMigrationCandidateCounts = new ConcurrentHashMap<>();
     private final Map<SchemaValidationKey, AtomicLong> schemaValidationCounts = new ConcurrentHashMap<>();
+    private final Set<String> legacyBlockIdSamples = Collections.synchronizedSet(new LinkedHashSet<>());
+    private final Set<String> unknownBlockIdSamples = Collections.synchronizedSet(new LinkedHashSet<>());
     private final Set<String> unknownIdSamples = Collections.synchronizedSet(new LinkedHashSet<>());
     private final Set<String> unresolvedTemplateSamples = Collections.synchronizedSet(new LinkedHashSet<>());
     private volatile LegacyItemSchemaProbeService.Session schemaProbeSession;
@@ -49,6 +56,22 @@ public final class ItemDoctorReport {
 
     void inventoryScanned() { inventories.incrementAndGet(); }
     void backpackScanned() { backpacks.incrementAndGet(); }
+    void blockScanned() { scannedBlocks.incrementAndGet(); }
+    void cjkBlockFound() { cjkBlocks.incrementAndGet(); }
+    void blockRepaired() { repairedBlocks.incrementAndGet(); }
+
+    /** Records a persisted block ID that is declared legacy or currently resolves through an alias. */
+    void legacyBlockIdFound(@Nonnull String itemId) {
+        legacyBlockIds.incrementAndGet();
+        addSample(legacyBlockIdSamples, itemId);
+    }
+
+    /** Records a persisted block ID that has neither a registered item nor a declared migration mapping. */
+    void unknownBlockIdFound(@Nonnull String itemId) {
+        unknownBlockIds.incrementAndGet();
+        addSample(unknownBlockIdSamples, itemId);
+    }
+
     void stackScanned() { scannedStacks.incrementAndGet(); }
     void slimefunStackFound() { slimefunStacks.incrementAndGet(); }
     void cjkStackFound() { cjkStacks.incrementAndGet(); }
@@ -130,6 +153,11 @@ public final class ItemDoctorReport {
     public boolean isComplete() { return complete.get(); }
     public long getInventories() { return inventories.get(); }
     public long getBackpacks() { return backpacks.get(); }
+    public long getScannedBlocks() { return scannedBlocks.get(); }
+    public long getCjkBlocks() { return cjkBlocks.get(); }
+    public long getRepairedBlocks() { return repairedBlocks.get(); }
+    public long getLegacyBlockIds() { return legacyBlockIds.get(); }
+    public long getUnknownBlockIds() { return unknownBlockIds.get(); }
     public long getScannedStacks() { return scannedStacks.get(); }
     public long getSlimefunStacks() { return slimefunStacks.get(); }
     public long getCjkStacks() { return cjkStacks.get(); }
@@ -221,6 +249,8 @@ public final class ItemDoctorReport {
         return Math.max(0L, (end - startedAtNanos) / 1_000_000L);
     }
 
+    public @Nonnull List<String> getLegacyBlockIdSamples() { return snapshot(legacyBlockIdSamples); }
+    public @Nonnull List<String> getUnknownBlockIdSamples() { return snapshot(unknownBlockIdSamples); }
     public @Nonnull List<String> getUnknownIdSamples() { return snapshot(unknownIdSamples); }
     public @Nonnull List<String> getUnresolvedTemplateSamples() { return snapshot(unresolvedTemplateSamples); }
 

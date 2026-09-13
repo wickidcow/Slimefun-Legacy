@@ -68,7 +68,9 @@ final class DoctorUpgradeWorkflow {
                     + " &8| &7READY: &a" + schemas.ready()
                     + " &8| &7validation required: &e" + schemas.validationRequired()
                     + " &8| &7manual-only: &c" + schemas.manualOnly());
-            send(sender, "&7Unknown IDs: &e" + report.getUnknownIds()
+            send(sender, "&7Placed block IDs: legacy/alias &e" + report.getLegacyBlockIds()
+                    + " &8| &7unknown &c" + report.getUnknownBlockIds());
+            send(sender, "&7Unknown item IDs: &e" + report.getUnknownIds()
                     + " &8| &7unresolved templates: &e" + report.getUnresolvedTemplates()
                     + " &8| &7failures: &c" + report.getFailures());
         }
@@ -216,15 +218,22 @@ final class DoctorUpgradeWorkflow {
                     + " &7command printed by that scan.");
         }
 
+        long placedBlockIdentitySignals = report.getLegacyBlockIds() + report.getUnknownBlockIds();
         long manualBlocked = report.getUnknownIds()
                 + report.getUnresolvedTemplates()
                 + blockedLegacyStacks
-                + schemaActionability.manualOnly();
+                + schemaActionability.manualOnly()
+                + placedBlockIdentitySignals;
         long readyNow = actionableLegacyStacks + schemaActionability.readyNow();
         long needsValidation = schemaActionability.needsValidation();
         long needsProvider = needsProviderLegacyStacks + schemaActionability.needsProvider();
 
         send(sender, "&eLane 3 - Manual/unresolved evidence");
+        send(sender, "&7Placed block identity signals: legacy/alias &e" + report.getLegacyBlockIds()
+                + " &8| &7unknown &c" + report.getUnknownBlockIds());
+        if (placedBlockIdentitySignals > 0L) {
+            send(sender, "&7Placed block identity findings remain manual-only; Doctor has no block-ID migration executor.");
+        }
         send(sender, "&7Manual/blocked candidate signals: &c" + manualBlocked
                 + " &8| &7Doctor traversal failures: &c" + report.getFailures());
         if (manualBlocked > 0L || report.getFailures() > 0L) {
@@ -242,7 +251,7 @@ final class DoctorUpgradeWorkflow {
             send(sender, "&cTraversal failures must be resolved before treating this scan as a complete upgrade picture.");
         }
         send(sender, "&8READY NOW still requires the native fingerprint scan and explicit execution command.");
-        send(sender, "&8Read-only plan only: no provider repair, schema migrator, registry rewrite, or storage mutation ran.");
+        send(sender, "&8Read-only plan only: no provider repair, schema migrator, block-ID rewrite, registry rewrite, or storage mutation ran.");
         send(sender, "&8Legacy-ID and same-ID schema fingerprints remain separate, short-lived and single-use.");
     }
 

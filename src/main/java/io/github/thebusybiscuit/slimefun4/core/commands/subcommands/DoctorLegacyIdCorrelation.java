@@ -18,10 +18,12 @@ final class DoctorLegacyIdCorrelation {
     static void send(@Nonnull CommandSender sender, @Nonnull ItemDoctorReport report) {
         Map<String, String> declared = Slimefun.getRegistry().getLegacySlimefunItemIds();
         Map<String, Long> exactCandidates = report.getLegacyMigrationCandidateCounts();
-        List<String> samples = report.getUnknownIdSamples();
+        List<String> itemSamples = report.getUnknownIdSamples();
+        List<String> legacyBlockSamples = report.getLegacyBlockIdSamples();
+        List<String> unknownBlockSamples = report.getUnknownBlockIdSamples();
 
         send(sender, "&6Slimefun Legacy-ID Correlation");
-        send(sender, "&7Declared legacy candidates: &e" + report.getLegacyMigrationCandidates()
+        send(sender, "&7Declared legacy item candidates: &e" + report.getLegacyMigrationCandidates()
                 + " &8| &7distinct declared IDs: &e" + exactCandidates.size());
 
         long readyStacks = 0L;
@@ -43,17 +45,44 @@ final class DoctorLegacyIdCorrelation {
         if (exactCandidates.isEmpty()) {
             send(sender, "&7No addon-declared legacy item IDs were encountered by the full scan.");
         } else {
-            send(sender, "&7Exact declared stack classification: ready &a" + readyStacks
+            send(sender, "&7Exact declared item-stack classification: ready &a" + readyStacks
                     + " &8| &7target missing/changed &c" + missingTargetStacks);
             send(sender, "&7These counts include normal inventories, loaded storage/machines, nested containers and backpacks.");
         }
 
-        send(sender, "&7Unknown CJK-presentation stacks: &e" + report.getUnknownIds()
-                + " &8| &7sampled distinct IDs: &e" + samples.size());
-        if (!samples.isEmpty()) {
+        send(sender, "&7Placed block identity: legacy/alias &e" + report.getLegacyBlockIds()
+                + " &8| &7unknown &c" + report.getUnknownBlockIds());
+        for (String id : legacyBlockSamples) {
+            String target = declared.get(id);
+            if (target != null) {
+                boolean targetPresent = SlimefunItem.getById(target) != null;
+                send(sender, "&8- " + (targetPresent ? "&a[BLOCK LEGACY] " : "&c[BLOCK TARGET MISSING] ")
+                        + "&f" + id + " &8-> " + (targetPresent ? "&a" : "&c") + target
+                        + " &7(addon-declared; diagnosis only here)");
+                continue;
+            }
+
+            SlimefunItem resolved = SlimefunItem.getById(id);
+            if (resolved != null && !id.equals(resolved.getId())) {
+                send(sender, "&8- &e[BLOCK LIVE ALIAS] &f" + id + " &8-> &e" + resolved.getId()
+                        + " &7(compatibility resolution only; no migration authority)");
+            } else {
+                send(sender, "&8- &e[BLOCK LEGACY/ALIAS] &f" + id + " &7(diagnostic only)");
+            }
+        }
+        for (String id : unknownBlockSamples) {
+            send(sender, "&8- &c[UNKNOWN BLOCK ID] &f" + id + " &7(no identity rewrite attempted)");
+        }
+        if (!legacyBlockSamples.isEmpty() || !unknownBlockSamples.isEmpty()) {
+            send(sender, "&ePlaced-block identity findings are diagnostic evidence only; this scan never rewrites stored block IDs.");
+        }
+
+        send(sender, "&7Unknown CJK-presentation item stacks: &e" + report.getUnknownIds()
+                + " &8| &7sampled distinct IDs: &e" + itemSamples.size());
+        if (!itemSamples.isEmpty()) {
             int knownHistorical = 0;
             int noMapping = 0;
-            for (String id : samples) {
+            for (String id : itemSamples) {
                 if (declared.containsKey(id)) {
                     // Already represented above by the exact candidate accounting.
                     continue;

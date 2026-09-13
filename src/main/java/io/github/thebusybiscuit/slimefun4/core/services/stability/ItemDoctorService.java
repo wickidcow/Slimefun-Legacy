@@ -43,7 +43,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
-/** Automatic and operator-triggered repair service for localized item metadata. */
+/** Automatic and operator-triggered repair service for localized item and placed-block metadata. */
 public final class ItemDoctorService implements Listener {
 
     private static final int CHUNK_MENU_LOAD_ATTEMPTS = 20;
@@ -51,6 +51,7 @@ public final class ItemDoctorService implements Listener {
 
     private final Slimefun plugin;
     private final ItemPresentationDoctor doctor = new ItemPresentationDoctor();
+    private final BlockPresentationDoctor blockDoctor = new BlockPresentationDoctor();
     private final ItemDoctorReport automaticReport = new ItemDoctorReport(true);
     private final AtomicBoolean serverRunActive = new AtomicBoolean();
     private volatile ItemDoctorReport currentReport;
@@ -324,6 +325,15 @@ public final class ItemDoctorService implements Listener {
         }
     }
 
+    private void inspectSlimefunBlock(Location location, boolean repair, ItemDoctorReport report) {
+        try {
+            blockDoctor.inspectBlock(location, repair, report);
+        } catch (RuntimeException | LinkageError ex) {
+            report.failure();
+            plugin.getLogger().log(Level.WARNING, "Item doctor could not inspect a Slimefun block presentation.", ex);
+        }
+    }
+
     private void repairChunk(Chunk chunk, ItemDoctorReport report) {
         Set<Inventory> seen = Collections.newSetFromMap(new IdentityHashMap<>());
         for (BlockState state : chunk.getTileEntities()) {
@@ -351,6 +361,10 @@ public final class ItemDoctorService implements Listener {
     private void repairSlimefunChunkMenus(
             BlockDataController controller, SlimefunChunkData chunkData, ItemDoctorReport report) {
         for (SlimefunBlockData blockData : chunkData.getAllBlockData()) {
+            // Block presentation is independent of BlockMenu availability. Inspect first so
+            // menu-less blocks such as Output Chest are included in automatic chunk repair.
+            inspectSlimefunBlock(blockData.getLocation(), true, report);
+
             BlockMenu menu = blockData.getBlockMenu();
             if (menu == null) {
                 continue;
@@ -426,6 +440,11 @@ public final class ItemDoctorService implements Listener {
         private void collectSlimefunChunk(SlimefunChunkData chunkData) {
             BlockDataController controller = Slimefun.getDatabaseManager().getBlockDataController();
             for (SlimefunBlockData blockData : chunkData.getAllBlockData()) {
+                // Explicit schema migration runs must not perform presentation repair as a side effect.
+                if (schemaExecutor == null) {
+                    inspectSlimefunBlock(blockData.getLocation(), report.isRepairMode(), report);
+                }
+
                 BlockMenu menu = blockData.getBlockMenu();
                 if (menu != null) {
                     addInventory(
@@ -785,7 +804,10 @@ public final class ItemDoctorService implements Listener {
                 .info("Slimefun item doctor " + report.getModeName() + " completed: "
                         + report.getScannedStacks() + " stacks scanned, "
                         + report.getCjkStacks() + " with Chinese presentation, "
-                        + report.getRepairedStacks() + " repaired, "
+                        + report.getRepairedStacks() + " stacks repaired; "
+                        + report.getScannedBlocks() + " Slimefun blocks scanned, "
+                        + report.getCjkBlocks() + " with Chinese names, "
+                        + report.getRepairedBlocks() + " block names repaired; "
                         + report.getFailures() + " failures.");
 
         if (!report.getUnknownIdSamples().isEmpty()) {
@@ -798,6 +820,11 @@ public final class ItemDoctorService implements Listener {
             plugin.getLogger()
                     .warning("Item doctor left protected or unresolved CJK lore on these Slimefun IDs: "
                             + String.join(", ", report.getUnresolvedTemplateSamples()));
+        }
+        if (!report.getUnknownBlockIdSamples().isEmpty()) {
+            plugin.getLogger()
+                    .warning("Item doctor found unknown persisted Slimefun block IDs; no block identity was rewritten: "
+                            + String.join(", ", report.getUnknownBlockIdSamples()));
         }
     }
 
