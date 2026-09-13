@@ -147,21 +147,23 @@ require("migrationService.preparePlans(report)" in command,
         "schema scan must create plans only after validation")
 require("plan.matchesFingerprint(args[5])" in command,
         "schema execution must require the operator-supplied plan fingerprint")
-require("migrationService.invalidatePreparedPlan(plan.getProviderId())" in command,
-        "schema execution must consume its plan before final backing-state revalidation")
+require("migrationService.invalidateAllPreparedPlans()" in command,
+        "schema execution must invalidate the selected fingerprint and sibling plans before mutation")
 require("migrationService.revalidatePlan(plan)" in command,
         "schema execution must revalidate backing state after consuming the fingerprint")
 require("migrationService.createExecutor(plan)" in command,
         "schema execution must re-check live addon ownership/version/registrations after revalidation")
 require("doctor.startSchemaMigrationRun(executor" in command,
         "schema execution command must use the existing Doctor traversal")
-consume_pos = command.find("migrationService.invalidatePreparedPlan(plan.getProviderId())")
+consume_pos = command.rfind("migrationService.invalidateAllPreparedPlans()")
 revalidate_pos = command.find("migrationService.revalidatePlan(plan)")
 executor_pos = command.find("migrationService.createExecutor(plan)")
 start_pos = command.find("doctor.startSchemaMigrationRun(executor")
 require(-1 not in (consume_pos, revalidate_pos, executor_pos, start_pos)
         and consume_pos < revalidate_pos < executor_pos < start_pos,
-        "schema execution order must be consume -> revalidate backing state -> refresh executor -> mutate")
+        "schema execution order must be consume all plans -> revalidate backing state -> refresh executor -> mutate")
+require("sibling schema plans are now consumed" in command,
+        "operator output must state that sibling plans are invalidated by execution")
 require("Backing state was revalidated immediately before traversal" in command,
         "operator output must confirm the final backing-state validation gate")
 require("Automatic Doctor listeners do not participate" in command,
