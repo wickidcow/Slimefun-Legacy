@@ -124,6 +124,8 @@ class SlimefunTabCompleter implements TabCompleter {
                     return createReturnList(List.of(String.valueOf(player.getLocation().getChunk().getZ())), args[2]);
                 }
                 return null;
+            } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("upgrade")) {
+                return createReturnList(List.of("status", "scan", "plan", "providers"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("storage")) {
                 return createReturnList(List.of("status", "scan", "plan", "verify", "repair"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("migrations")) {
@@ -133,7 +135,6 @@ class SlimefunTabCompleter implements TabCompleter {
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("ie2")) {
                 return createReturnList(List.of("status", "scan", "migrate", "refresh"), args[2]);
             } else {
-                // Returning null will make it fallback to the default arguments (all online players)
                 return null;
             }
         } else if (args.length == 4 && args[0].equalsIgnoreCase("give")) {
@@ -185,18 +186,14 @@ class SlimefunTabCompleter implements TabCompleter {
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("migrations")
                 && args[2].equalsIgnoreCase("execute")) {
-            // Execution fingerprints are short-lived, single-use state owned by the command service.
-            // Do not suggest a stale/static token from the tab completer.
             return Collections.emptyList();
         } else if (args.length == 6
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("migrations")
                 && args[2].equalsIgnoreCase("schemas")
                 && args[3].equalsIgnoreCase("execute")) {
-            // Same-ID schema fingerprints are private short-lived command state; never suggest cached tokens here.
             return Collections.emptyList();
         } else {
-            // Returning null will make it fallback to the default arguments (all online players)
             return null;
         }
     }
@@ -211,15 +208,6 @@ class SlimefunTabCompleter implements TabCompleter {
         return "0";
     }
 
-    /***
-     * Returns a sublist from a given list containing items that start with the given string if string is not empty
-     *
-     * @param list
-     *            The list to process
-     * @param string
-     *            The typed string
-     * @return Sublist if string is not empty
-     */
     @Nonnull
     private List<String> createReturnList(@Nonnull List<String> list, @Nonnull String string) {
         if (string.isEmpty()) {
