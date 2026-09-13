@@ -74,10 +74,12 @@ require("findAuthorization(" in plan,
         "schema migration plan must support exact live authorization matching")
 require("List<Authorization> authorizations()" in plan,
         "schema executor must receive the private bounded authorization set without exposing it publicly")
-require("sameAuthorization(previous, authorization)" in plan,
-        "equivalent private authorizations must be canonicalized before fingerprinting")
+require("sameAuthorizationClaim(previous, authorization)" in plan,
+        "equivalent private authorization claims must be canonicalized before fingerprinting")
 require("Math.addExact(previous.candidateCount(), authorization.candidateCount())" in plan,
         "duplicate authorization scan counts must be merged with overflow protection")
+require("one schema authorization claim produced conflicting migration payloads" in plan,
+        "one private claim must never authorize conflicting migration payloads")
 
 require("PLAN_TTL_MILLIS = 10L * 60L * 1000L" in service,
         "schema migration plans must expire after ten minutes")
@@ -91,6 +93,8 @@ require("matchesProviderVersion" in service,
         "addon version drift must invalidate schema execution")
 require("ambiguous" in service.lower(),
         "ambiguous duplicate schema providers must remain non-executable")
+require("Skipping same-ID schema migration plan" in service,
+        "inconsistent verified authorization evidence must fail closed without a fingerprint")
 require("CompletionStage<Boolean> revalidatePlan" in service,
         "schema plans must revalidate backing state immediately before execution")
 require("getRegistrations(LegacyItemSchemaValidator.class)" in service,
@@ -201,6 +205,8 @@ require("authorizationRequiresExactItemTypeAndClaim" in plan_test,
         "schema exact-authorization regression test is missing")
 require("duplicateEquivalentAuthorizationsAreCanonicalized" in plan_test,
         "duplicate schema authorization canonicalization regression test is missing")
+require("conflictingPayloadsForOnePrivateClaimAreRejected" in plan_test,
+        "conflicting schema migration payload regression test is missing")
 require("expiryBoundaryIsStrict" in plan_test,
         "schema plan expiry regression test is missing")
 
