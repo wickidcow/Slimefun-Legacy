@@ -82,11 +82,13 @@ public final class ItemDoctorReport {
     void schemaMigrationCandidateFound(
             @Nonnull String providerId,
             @Nonnull String migrationName,
+            @Nonnull String slimefunId,
             @Nonnull LegacyItemSchemaCandidate candidate) {
         schemaMigrationCandidates.incrementAndGet();
         SchemaMigrationKey key = new SchemaMigrationKey(
                 providerId,
                 migrationName,
+                slimefunId,
                 candidate.getCandidateType(),
                 candidate.getReadiness(),
                 candidate.getDetail());
@@ -96,6 +98,7 @@ public final class ItemDoctorReport {
     void schemaValidationFound(
             @Nonnull String providerId,
             @Nonnull String migrationName,
+            @Nonnull String slimefunId,
             @Nonnull String candidateType,
             @Nonnull LegacyItemSchemaValidation validation,
             long candidateCount) {
@@ -106,6 +109,7 @@ public final class ItemDoctorReport {
         SchemaValidationKey key = new SchemaValidationKey(
                 providerId,
                 migrationName,
+                slimefunId,
                 candidateType,
                 validation.getStatus(),
                 validation.getDetail());
@@ -155,6 +159,8 @@ public final class ItemDoctorReport {
         entries.sort((left, right) -> {
             int provider = left.getKey().providerId.compareToIgnoreCase(right.getKey().providerId);
             if (provider != 0) return provider;
+            int item = left.getKey().slimefunId.compareToIgnoreCase(right.getKey().slimefunId);
+            if (item != 0) return item;
             int type = left.getKey().candidateType.compareToIgnoreCase(right.getKey().candidateType);
             if (type != 0) return type;
             return left.getKey().readiness.compareTo(right.getKey().readiness);
@@ -163,7 +169,13 @@ public final class ItemDoctorReport {
         for (Map.Entry<SchemaMigrationKey, AtomicLong> entry : entries) {
             SchemaMigrationKey key = entry.getKey();
             summaries.add(new LegacyItemSchemaCandidateSummary(
-                    key.providerId, key.migrationName, key.candidateType, key.readiness, key.detail, entry.getValue().get()));
+                    key.providerId,
+                    key.migrationName,
+                    key.slimefunId,
+                    key.candidateType,
+                    key.readiness,
+                    key.detail,
+                    entry.getValue().get()));
         }
         return Collections.unmodifiableList(summaries);
     }
@@ -177,6 +189,8 @@ public final class ItemDoctorReport {
         entries.sort((left, right) -> {
             int provider = left.getKey().providerId.compareToIgnoreCase(right.getKey().providerId);
             if (provider != 0) return provider;
+            int item = left.getKey().slimefunId.compareToIgnoreCase(right.getKey().slimefunId);
+            if (item != 0) return item;
             int type = left.getKey().candidateType.compareToIgnoreCase(right.getKey().candidateType);
             if (type != 0) return type;
             return left.getKey().status.compareTo(right.getKey().status);
@@ -185,7 +199,13 @@ public final class ItemDoctorReport {
         for (Map.Entry<SchemaValidationKey, AtomicLong> entry : entries) {
             SchemaValidationKey key = entry.getKey();
             summaries.add(new LegacyItemSchemaValidationSummary(
-                    key.providerId, key.migrationName, key.candidateType, key.status, key.detail, entry.getValue().get()));
+                    key.providerId,
+                    key.migrationName,
+                    key.slimefunId,
+                    key.candidateType,
+                    key.status,
+                    key.detail,
+                    entry.getValue().get()));
         }
         return Collections.unmodifiableList(summaries);
     }
@@ -215,6 +235,7 @@ public final class ItemDoctorReport {
     private record SchemaMigrationKey(
             String providerId,
             String migrationName,
+            String slimefunId,
             String candidateType,
             LegacyItemSchemaCandidate.Readiness readiness,
             String detail) {}
@@ -222,6 +243,7 @@ public final class ItemDoctorReport {
     private record SchemaValidationKey(
             String providerId,
             String migrationName,
+            String slimefunId,
             String candidateType,
             LegacyItemSchemaValidation.Status status,
             String detail) {}
