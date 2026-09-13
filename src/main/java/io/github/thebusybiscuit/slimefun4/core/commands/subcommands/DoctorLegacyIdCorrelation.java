@@ -17,62 +17,73 @@ final class DoctorLegacyIdCorrelation {
 
     static void send(@Nonnull CommandSender sender, @Nonnull ItemDoctorReport report) {
         Map<String, String> declared = Slimefun.getRegistry().getLegacySlimefunItemIds();
+        Map<String, Long> exactCandidates = report.getLegacyMigrationCandidateCounts();
         List<String> samples = report.getUnknownIdSamples();
 
         send(sender, "&6Slimefun Legacy-ID Correlation");
-        send(sender, "&7Unknown stacks observed: &e" + report.getUnknownIds()
+        send(sender, "&7Declared legacy candidates: &e" + report.getLegacyMigrationCandidates()
+                + " &8| &7distinct declared IDs: &e" + exactCandidates.size());
+
+        long readyStacks = 0L;
+        long missingTargetStacks = 0L;
+        for (Map.Entry<String, Long> entry : exactCandidates.entrySet()) {
+            String target = declared.get(entry.getKey());
+            boolean targetPresent = target != null && SlimefunItem.getById(target) != null;
+            if (targetPresent) {
+                readyStacks += entry.getValue();
+            } else {
+                missingTargetStacks += entry.getValue();
+            }
+            send(sender, "&8- " + (targetPresent ? "&a[READY] " : "&c[TARGET MISSING] ")
+                    + "&f" + entry.getKey() + " &8-> "
+                    + (targetPresent ? "&a" : "&c") + (target == null ? "<mapping removed>" : target)
+                    + " &8x&e" + entry.getValue());
+        }
+
+        if (exactCandidates.isEmpty()) {
+            send(sender, "&7No addon-declared legacy item IDs were encountered by the full scan.");
+        } else {
+            send(sender, "&7Exact declared stack classification: ready &a" + readyStacks
+                    + " &8| &7target missing/changed &c" + missingTargetStacks);
+            send(sender, "&7These counts include normal inventories, loaded storage/machines, nested containers and backpacks.");
+        }
+
+        send(sender, "&7Unknown CJK-presentation stacks: &e" + report.getUnknownIds()
                 + " &8| &7sampled distinct IDs: &e" + samples.size());
-
-        if (samples.isEmpty()) {
-            send(sender, "&aNo unknown Slimefun item IDs were sampled by this scan.");
-            send(sender, "&8Read-only diagnostic; no items, blocks, storage, Cargo or Energy data were modified.");
-            return;
-        }
-
-        int ready = 0;
-        int missingTargets = 0;
-        int knownHistorical = 0;
-        int noMapping = 0;
-
-        for (String id : samples) {
-            String declaredTarget = declared.get(id);
-            if (declaredTarget != null) {
-                if (SlimefunItem.getById(declaredTarget) != null) {
-                    ready++;
-                    send(sender, "&8- &a[READY] &f" + id + " &8-> &a" + declaredTarget + " &7(addon-declared)");
-                } else {
-                    missingTargets++;
-                    send(sender, "&8- &c[TARGET MISSING] &f" + id + " &8-> &c" + declaredTarget
-                            + " &7(addon-declared)");
+        if (!samples.isEmpty()) {
+            int knownHistorical = 0;
+            int noMapping = 0;
+            for (String id : samples) {
+                if (declared.containsKey(id)) {
+                    // Already represented above by the exact candidate accounting.
+                    continue;
                 }
-                continue;
+
+                Hint hint = KnownLegacyItemIdCatalog.find(id).orElse(null);
+                if (hint != null) {
+                    knownHistorical++;
+                    boolean targetPresent = SlimefunItem.getById(hint.targetId()) != null;
+                    send(sender, "&8- &e[KNOWN LEGACY / DIAGNOSTIC ONLY] &f" + id + " &8-> "
+                            + (targetPresent ? "&a" : "&c") + hint.targetId()
+                            + " &8[&7" + hint.source() + "; " + hint.evidence().getDisplayName()
+                            + (targetPresent ? "; target registered" : "; target missing") + "&8]");
+                    continue;
+                }
+
+                noMapping++;
+                send(sender, "&8- &c[NO DECLARED MAPPING] &f" + id);
             }
 
-            Hint hint = KnownLegacyItemIdCatalog.find(id).orElse(null);
-            if (hint != null) {
-                knownHistorical++;
-                boolean targetPresent = SlimefunItem.getById(hint.targetId()) != null;
-                send(sender, "&8- &e[KNOWN LEGACY] &f" + id + " &8-> "
-                        + (targetPresent ? "&a" : "&c") + hint.targetId()
-                        + " &8[&7" + hint.source() + "; " + hint.evidence().getDisplayName()
-                        + (targetPresent ? "; target registered" : "; target missing") + "&8]");
-                continue;
+            if (knownHistorical > 0) {
+                send(sender, "&eHistorical catalog matches are identification evidence only; they never authorize repair.");
             }
-
-            noMapping++;
-            send(sender, "&8- &c[NO MAPPING] &f" + id);
+            if (noMapping > 0) {
+                send(sender, "&7Unmapped sample IDs: &c" + noMapping + "&7. Addon ownership must be established before migration.");
+            }
         }
 
-        send(sender, "&7Sample classification: ready &a" + ready
-                + " &8| &7target missing &c" + missingTargets
-                + " &8| &7known historical &e" + knownHistorical
-                + " &8| &7no mapping &c" + noMapping);
-
-        if (knownHistorical > 0) {
-            send(sender, "&eKNOWN LEGACY entries are historical diagnostics only; they do not authorize a migration.");
-        }
-        if (ready > 0 || missingTargets > 0) {
-            send(sender, "&7Declared mappings can be inspected with &e/sf doctor migrations plan&7.");
+        if (!exactCandidates.isEmpty()) {
+            send(sender, "&7Declared mappings can be inspected and provider-validated with &e/sf doctor migrations plan&7.");
         }
         send(sender, "&8Read-only diagnostic; no items, blocks, storage, registry IDs, Cargo or Energy data were modified.");
     }

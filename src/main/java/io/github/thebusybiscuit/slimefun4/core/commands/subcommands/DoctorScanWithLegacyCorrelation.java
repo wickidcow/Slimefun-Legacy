@@ -49,6 +49,8 @@ final class DoctorScanWithLegacyCorrelation {
                 + report.getSlimefunStacks());
         send(sender, "&7Chinese presentation: &e" + report.getCjkStacks() + " &8| &7Repaired: &a"
                 + report.getRepairedStacks());
+        send(sender, "&7Declared legacy-ID candidates: &e" + report.getLegacyMigrationCandidates()
+                + " &8| &7Distinct IDs: &e" + report.getLegacyMigrationCandidateCounts().size());
         send(sender, "&7Unknown IDs: &e" + report.getUnknownIds() + " &8| &7No English template: &e"
                 + report.getUnresolvedTemplates() + " &8| &7Failures: &c" + report.getFailures());
         if (!report.getUnknownIdSamples().isEmpty()) {
