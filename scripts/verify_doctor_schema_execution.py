@@ -86,6 +86,14 @@ require("matchesProviderVersion" in service,
         "addon version drift must invalidate schema execution")
 require("ambiguous" in service.lower(),
         "ambiguous duplicate schema providers must remain non-executable")
+require("CompletionStage<Boolean> revalidatePlan" in service,
+        "schema plans must revalidate backing state immediately before execution")
+require("getRegistrations(LegacyItemSchemaValidator.class)" in service,
+        "execution revalidation must use the owning addon's current validator registration")
+require("result.getStatus() == LegacyItemSchemaValidation.Status.VERIFIED" in service,
+        "execution revalidation must require VERIFIED backing state")
+require("Objects.equals(result.getMigrationPayload(), authorization.migrationPayload())" in service,
+        "execution revalidation must reproduce the exact private migration payload")
 
 require("probe.probeItem(item.clone(), slimefunId)" in executor,
         "schema execution must re-run the addon probe against a clone of the live item")
@@ -139,15 +147,23 @@ require("migrationService.preparePlans(report)" in command,
         "schema scan must create plans only after validation")
 require("plan.matchesFingerprint(args[5])" in command,
         "schema execution must require the operator-supplied plan fingerprint")
-require("migrationService.createExecutor(plan)" in command,
-        "schema execution must re-check live addon ownership/version/registrations")
 require("migrationService.invalidatePreparedPlan(plan.getProviderId())" in command,
-        "schema execution must consume its plan before traversal")
+        "schema execution must consume its plan before final backing-state revalidation")
+require("migrationService.revalidatePlan(plan)" in command,
+        "schema execution must revalidate backing state after consuming the fingerprint")
+require("migrationService.createExecutor(plan)" in command,
+        "schema execution must re-check live addon ownership/version/registrations after revalidation")
 require("doctor.startSchemaMigrationRun(executor" in command,
         "schema execution command must use the existing Doctor traversal")
-require(command.find("migrationService.invalidatePreparedPlan(plan.getProviderId())")
-        < command.find("doctor.startSchemaMigrationRun(executor"),
-        "schema plan must be consumed before any live mutation traversal begins")
+consume_pos = command.find("migrationService.invalidatePreparedPlan(plan.getProviderId())")
+revalidate_pos = command.find("migrationService.revalidatePlan(plan)")
+executor_pos = command.find("migrationService.createExecutor(plan)")
+start_pos = command.find("doctor.startSchemaMigrationRun(executor")
+require(-1 not in (consume_pos, revalidate_pos, executor_pos, start_pos)
+        and consume_pos < revalidate_pos < executor_pos < start_pos,
+        "schema execution order must be consume -> revalidate backing state -> refresh executor -> mutate")
+require("Backing state was revalidated immediately before traversal" in command,
+        "operator output must confirm the final backing-state validation gate")
 require("Automatic Doctor listeners do not participate" in command,
         "operator output must state that automatic listeners are outside schema execution")
 reject("getValidationClaim()" in command or "getMigrationPayload()" in command,
