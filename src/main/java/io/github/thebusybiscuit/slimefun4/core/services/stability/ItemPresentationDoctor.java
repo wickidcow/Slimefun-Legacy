@@ -613,7 +613,8 @@ public final class ItemPresentationDoctor {
                     continue;
                 }
                 String normalized = plain.trim();
-                if (normalized.equals("灵魂绑定") || normalized.equals("靈魂綁定")) {
+                if (normalized.equals("\u7075\u9B42\u7ED1\u5B9A")
+                        || normalized.equals("\u9748\u9B42\u7D81\u5B9A")) {
                     return true;
                 }
             }
