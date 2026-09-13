@@ -45,69 +45,90 @@ public final class LegacyItemSchemaMigrationService {
     public @Nonnull List<LegacyItemSchemaMigrationPlan> preparePlans(@Nonnull ItemDoctorReport report) {
         preparedPlans.clear();
         LegacyItemSchemaProbeService.Session session = report.getSchemaProbeSession();
-        if (!report.isComplete() || report.getFailures() != 0L || session == null) {
-            return List.of();
-        }
+        if (!report.isComplete() || report.getFailures() != 0L || session == null) return List.of();
 
         List<LegacyItemSchemaProbeService.VerifiedAuthorization> verified = session.getVerifiedAuthorizations();
-        if (verified.isEmpty()) return List.of();
+        List<LegacyItemSchemaProbeService.ReadyAuthorization> ready = session.getReadyAuthorizations();
+        if (verified.isEmpty() && ready.isEmpty()) return List.of();
 
         Map<MigratorKey, RegisteredServiceProvider<LegacyItemSchemaMigrator>> migrators = snapshotMigrators();
         Set<MigratorKey> ambiguous = findAmbiguousMigrators();
         Map<String, List<LegacyItemSchemaMigrationPlan.Authorization>> byProvider = new LinkedHashMap<>();
+        Map<String, String> providerIds = new HashMap<>();
         Map<String, String> migrationNames = new HashMap<>();
         Map<String, String> versions = new HashMap<>();
 
         for (LegacyItemSchemaProbeService.VerifiedAuthorization authorization : verified) {
-            MigratorKey key = new MigratorKey(authorization.providerId(), authorization.candidateType());
-            RegisteredServiceProvider<LegacyItemSchemaMigrator> registration = migrators.get(key);
-            if (registration == null || ambiguous.contains(key)) continue;
-
-            Plugin owner = registration.getPlugin();
-            if (owner == null || !owner.isEnabled() || !owner.getName().equals(authorization.providerId())) continue;
-
-            String providerKey = normalizeProviderId(authorization.providerId());
-            String version = owner.getDescription().getVersion();
-            String previousVersion = versions.putIfAbsent(providerKey, version);
-            if (previousVersion != null && !previousVersion.equals(version)) continue;
-            migrationNames.putIfAbsent(providerKey, authorization.migrationName());
-            byProvider.computeIfAbsent(providerKey, ignored -> new ArrayList<>())
-                    .add(new LegacyItemSchemaMigrationPlan.Authorization(
-                            authorization.slimefunId(),
-                            authorization.candidateType(),
-                            authorization.validationClaim(),
-                            authorization.migrationPayload(),
-                            authorization.candidateCount()));
+            addAuthorization(
+                    authorization.providerId(), authorization.migrationName(), authorization.slimefunId(),
+                    authorization.candidateType(), authorization.validationClaim(), authorization.migrationPayload(),
+                    authorization.candidateCount(), true,
+                    migrators, ambiguous, byProvider, providerIds, migrationNames, versions);
+        }
+        for (LegacyItemSchemaProbeService.ReadyAuthorization authorization : ready) {
+            addAuthorization(
+                    authorization.providerId(), authorization.migrationName(), authorization.slimefunId(),
+                    authorization.candidateType(), authorization.validationClaim(),
+                    LegacyItemSchemaMigrationPlan.READY_ITEM_LOCAL_PAYLOAD,
+                    authorization.candidateCount(), false,
+                    migrators, ambiguous, byProvider, providerIds, migrationNames, versions);
         }
 
         List<LegacyItemSchemaMigrationPlan> plans = new ArrayList<>();
         long now = System.currentTimeMillis();
         for (Map.Entry<String, List<LegacyItemSchemaMigrationPlan.Authorization>> entry : byProvider.entrySet()) {
             if (entry.getValue().isEmpty()) continue;
-            String providerId = findCanonicalProviderId(verified, entry.getKey());
+            String providerId = providerIds.get(entry.getKey());
             String migrationName = migrationNames.get(entry.getKey());
             String version = versions.get(entry.getKey());
             if (providerId == null || migrationName == null || version == null) continue;
 
-            LegacyItemSchemaMigrationPlan plan;
             try {
-                plan = new LegacyItemSchemaMigrationPlan(
-                        providerId,
-                        migrationName,
-                        version,
-                        generation.incrementAndGet(),
-                        now,
-                        PLAN_TTL_MILLIS,
-                        entry.getValue());
+                LegacyItemSchemaMigrationPlan plan = new LegacyItemSchemaMigrationPlan(
+                        providerId, migrationName, version, generation.incrementAndGet(), now,
+                        PLAN_TTL_MILLIS, entry.getValue());
+                preparedPlans.put(entry.getKey(), plan);
+                plans.add(plan);
             } catch (IllegalArgumentException exception) {
                 plugin.getLogger().warning("Skipping same-ID schema migration plan for " + providerId
-                        + " because verified authorization evidence was inconsistent.");
-                continue;
+                        + " because executable authorization evidence was inconsistent.");
             }
-            preparedPlans.put(entry.getKey(), plan);
-            plans.add(plan);
         }
         return List.copyOf(plans);
+    }
+
+    private void addAuthorization(
+            String providerId,
+            String migrationName,
+            String slimefunId,
+            String candidateType,
+            String validationClaim,
+            String migrationPayload,
+            long candidateCount,
+            boolean requiresExternalValidation,
+            Map<MigratorKey, RegisteredServiceProvider<LegacyItemSchemaMigrator>> migrators,
+            Set<MigratorKey> ambiguous,
+            Map<String, List<LegacyItemSchemaMigrationPlan.Authorization>> byProvider,
+            Map<String, String> providerIds,
+            Map<String, String> migrationNames,
+            Map<String, String> versions) {
+        MigratorKey key = new MigratorKey(providerId, candidateType);
+        RegisteredServiceProvider<LegacyItemSchemaMigrator> registration = migrators.get(key);
+        if (registration == null || ambiguous.contains(key)) return;
+
+        Plugin owner = registration.getPlugin();
+        if (owner == null || !owner.isEnabled() || !owner.getName().equals(providerId)) return;
+
+        String providerKey = normalizeProviderId(providerId);
+        String version = owner.getDescription().getVersion();
+        String previousVersion = versions.putIfAbsent(providerKey, version);
+        if (previousVersion != null && !previousVersion.equals(version)) return;
+        providerIds.putIfAbsent(providerKey, providerId);
+        migrationNames.putIfAbsent(providerKey, migrationName);
+        byProvider.computeIfAbsent(providerKey, ignored -> new ArrayList<>())
+                .add(new LegacyItemSchemaMigrationPlan.Authorization(
+                        slimefunId, candidateType, validationClaim, migrationPayload,
+                        candidateCount, requiresExternalValidation));
     }
 
     public @Nonnull List<LegacyItemSchemaMigrationPlan> getPreparedPlans() {
@@ -115,11 +136,8 @@ public final class LegacyItemSchemaMigrationService {
         List<LegacyItemSchemaMigrationPlan> plans = new ArrayList<>();
         for (Map.Entry<String, LegacyItemSchemaMigrationPlan> entry : preparedPlans.entrySet()) {
             LegacyItemSchemaMigrationPlan plan = entry.getValue();
-            if (plan.isExpired(now)) {
-                preparedPlans.remove(entry.getKey(), plan);
-            } else {
-                plans.add(plan);
-            }
+            if (plan.isExpired(now)) preparedPlans.remove(entry.getKey(), plan);
+            else plans.add(plan);
         }
         plans.sort((left, right) -> left.getProviderId().compareToIgnoreCase(right.getProviderId()));
         return List.copyOf(plans);
@@ -136,24 +154,17 @@ public final class LegacyItemSchemaMigrationService {
         return Optional.of(plan);
     }
 
-    public void invalidatePreparedPlan(@Nonnull String providerId) {
-        preparedPlans.remove(normalizeProviderId(providerId));
-    }
-
-    public void invalidateAllPreparedPlans() {
-        preparedPlans.clear();
-    }
-
+    public void invalidatePreparedPlan(@Nonnull String providerId) { preparedPlans.remove(normalizeProviderId(providerId)); }
+    public void invalidateAllPreparedPlans() { preparedPlans.clear(); }
     public long getPlanTtlMillis() { return PLAN_TTL_MILLIS; }
 
     /**
      * Re-runs addon-owned backing-state validation after a plan has been consumed and before live mutation begins.
-     * Every authorization must still be VERIFIED and reproduce the same private migration payload.
+     * READY item-local authorizations intentionally skip this external phase because their exact live claim is
+     * reproduced by the probe again inside the executor immediately before mutation.
      */
     public @Nonnull CompletionStage<Boolean> revalidatePlan(@Nonnull LegacyItemSchemaMigrationPlan plan) {
-        if (plan.isExpired(System.currentTimeMillis())) {
-            return CompletableFuture.completedFuture(false);
-        }
+        if (plan.isExpired(System.currentTimeMillis())) return CompletableFuture.completedFuture(false);
 
         Plugin owner = Bukkit.getPluginManager().getPlugin(plan.getProviderId());
         if (owner == null || !owner.isEnabled() || !plan.matchesProviderVersion(owner.getDescription().getVersion())) {
@@ -171,9 +182,7 @@ public final class LegacyItemSchemaMigrationService {
                 for (String type : types) {
                     if (type == null || type.isBlank()) continue;
                     String normalized = type.trim();
-                    if (validators.putIfAbsent(normalized, registration.getProvider()) != null) {
-                        ambiguousTypes.add(normalized);
-                    }
+                    if (validators.putIfAbsent(normalized, registration.getProvider()) != null) ambiguousTypes.add(normalized);
                 }
             } catch (Throwable throwable) {
                 plugin.getLogger().log(Level.WARNING,
@@ -185,17 +194,14 @@ public final class LegacyItemSchemaMigrationService {
 
         List<CompletableFuture<Boolean>> checks = new ArrayList<>();
         for (LegacyItemSchemaMigrationPlan.Authorization authorization : plan.authorizations()) {
+            if (!authorization.requiresExternalValidation()) continue;
             LegacyItemSchemaValidator validator = validators.get(authorization.candidateType());
-            if (validator == null) {
-                return CompletableFuture.completedFuture(false);
-            }
+            if (validator == null) return CompletableFuture.completedFuture(false);
 
             try {
                 CompletionStage<LegacyItemSchemaValidation> stage = validator.validateCandidate(
                         authorization.candidateType(), authorization.validationClaim());
-                if (stage == null) {
-                    return CompletableFuture.completedFuture(false);
-                }
+                if (stage == null) return CompletableFuture.completedFuture(false);
                 CompletableFuture<Boolean> check = stage.handle((result, error) -> error == null
                                 && result != null
                                 && result.getStatus() == LegacyItemSchemaValidation.Status.VERIFIED
@@ -209,16 +215,15 @@ public final class LegacyItemSchemaMigrationService {
             }
         }
 
+        if (checks.isEmpty()) return CompletableFuture.completedFuture(true);
         CompletableFuture<?>[] all = checks.toArray(CompletableFuture[]::new);
         return CompletableFuture.allOf(all)
                 .thenApply(ignored -> checks.stream().allMatch(check -> Boolean.TRUE.equals(check.getNow(false))));
     }
 
     /** Builds an executor only if the same addon version still owns unambiguous probe and migrator registrations. */
-    public @Nonnull Optional<LegacyItemSchemaMigrationExecutor> createExecutor(
-            @Nonnull LegacyItemSchemaMigrationPlan plan) {
+    public @Nonnull Optional<LegacyItemSchemaMigrationExecutor> createExecutor(@Nonnull LegacyItemSchemaMigrationPlan plan) {
         if (plan.isExpired(System.currentTimeMillis())) return Optional.empty();
-
         Plugin owner = Bukkit.getPluginManager().getPlugin(plan.getProviderId());
         if (owner == null || !owner.isEnabled() || !plan.matchesProviderVersion(owner.getDescription().getVersion())) {
             return Optional.empty();
@@ -235,9 +240,7 @@ public final class LegacyItemSchemaMigrationService {
                 for (String id : ids) {
                     if (id == null || id.isBlank()) continue;
                     String normalized = id.trim();
-                    if (probes.putIfAbsent(normalized, registration.getProvider()) != null) {
-                        ambiguousProbeIds.add(normalized);
-                    }
+                    if (probes.putIfAbsent(normalized, registration.getProvider()) != null) ambiguousProbeIds.add(normalized);
                 }
             } catch (Throwable throwable) {
                 plugin.getLogger().log(Level.WARNING,
@@ -258,9 +261,7 @@ public final class LegacyItemSchemaMigrationService {
                 for (String type : types) {
                     if (type == null || type.isBlank()) continue;
                     String normalized = type.trim();
-                    if (migrators.putIfAbsent(normalized, registration.getProvider()) != null) {
-                        ambiguousTypes.add(normalized);
-                    }
+                    if (migrators.putIfAbsent(normalized, registration.getProvider()) != null) ambiguousTypes.add(normalized);
                 }
             } catch (Throwable throwable) {
                 plugin.getLogger().log(Level.WARNING,
@@ -272,9 +273,7 @@ public final class LegacyItemSchemaMigrationService {
 
         for (LegacyItemSchemaMigrationPlan.Authorization authorization : plan.authorizations()) {
             if (!probes.containsKey(authorization.slimefunId())
-                    || !migrators.containsKey(authorization.candidateType())) {
-                return Optional.empty();
-            }
+                    || !migrators.containsKey(authorization.candidateType())) return Optional.empty();
         }
         return Optional.of(new LegacyItemSchemaMigrationExecutor(plan, probes, migrators));
     }
@@ -313,7 +312,7 @@ public final class LegacyItemSchemaMigrationService {
                     counts.merge(new MigratorKey(registration.getPlugin().getName(), type.trim()), 1, Integer::sum);
                 }
             } catch (Throwable ignored) {
-                // snapshotMigrators logs provider initialization problems and those registrations are not executable.
+                // snapshotMigrators logs initialization failures; failed registrations are not executable.
             }
         }
         Set<MigratorKey> ambiguous = new HashSet<>();
@@ -321,16 +320,6 @@ public final class LegacyItemSchemaMigrationService {
             if (entry.getValue() > 1) ambiguous.add(entry.getKey());
         }
         return ambiguous;
-    }
-
-    private static String findCanonicalProviderId(
-            List<LegacyItemSchemaProbeService.VerifiedAuthorization> authorizations, String normalizedProviderId) {
-        for (LegacyItemSchemaProbeService.VerifiedAuthorization authorization : authorizations) {
-            if (normalizeProviderId(authorization.providerId()).equals(normalizedProviderId)) {
-                return authorization.providerId();
-            }
-        }
-        return null;
     }
 
     private static String normalizeProviderId(String providerId) {
