@@ -134,7 +134,7 @@ public final class LegacyItemSchemaProbeService {
                     LegacyItemSchemaCandidate candidate = registration.provider().probeItem(item.clone(), slimefunId);
                     if (candidate == null) continue;
                     report.schemaMigrationCandidateFound(
-                            registration.providerId(), registration.migrationName(), candidate);
+                            registration.providerId(), registration.migrationName(), slimefunId, candidate);
                     if (candidate.getReadiness() == LegacyItemSchemaCandidate.Readiness.VALIDATION_REQUIRED) {
                         String claim = candidate.getValidationClaim();
                         if (claim == null) {
@@ -142,7 +142,11 @@ public final class LegacyItemSchemaProbeService {
                             continue;
                         }
                         ValidationRequestKey key = new ValidationRequestKey(
-                                registration.providerId(), registration.migrationName(), candidate.getCandidateType(), claim);
+                                registration.providerId(),
+                                registration.migrationName(),
+                                slimefunId,
+                                candidate.getCandidateType(),
+                                claim);
                         validationRequests.computeIfAbsent(key, ignored -> new AtomicLong()).incrementAndGet();
                     }
                 } catch (Throwable throwable) {
@@ -165,7 +169,7 @@ public final class LegacyItemSchemaProbeService {
                 ValidatorRegistration registration = validators.get(new ValidatorKey(request.providerId(), request.candidateType()));
                 if (registration == null) {
                     report.schemaValidationFound(
-                            request.providerId(), request.migrationName(), request.candidateType(),
+                            request.providerId(), request.migrationName(), request.slimefunId(), request.candidateType(),
                             new LegacyItemSchemaValidation(
                                     LegacyItemSchemaValidation.Status.MANUAL_ONLY,
                                     "The addon did not register a persistent-state validator for this legacy format."),
@@ -181,14 +185,15 @@ public final class LegacyItemSchemaProbeService {
                         if (error != null || validation == null) {
                             report.failure();
                             report.schemaValidationFound(
-                                    request.providerId(), request.migrationName(), request.candidateType(),
+                                    request.providerId(), request.migrationName(), request.slimefunId(), request.candidateType(),
                                     new LegacyItemSchemaValidation(
                                             LegacyItemSchemaValidation.Status.MANUAL_ONLY,
                                             "Addon validation failed safely; no migration was authorized."),
                                     count);
                         } else {
                             report.schemaValidationFound(
-                                    request.providerId(), request.migrationName(), request.candidateType(), validation, count);
+                                    request.providerId(), request.migrationName(), request.slimefunId(), request.candidateType(),
+                                    validation, count);
                         }
                         return (Void) null;
                     }).toCompletableFuture();
@@ -200,7 +205,7 @@ public final class LegacyItemSchemaProbeService {
                                     + " candidate " + request.candidateType() + ". Claim contents were not logged.",
                             throwable);
                     report.schemaValidationFound(
-                            request.providerId(), request.migrationName(), request.candidateType(),
+                            request.providerId(), request.migrationName(), request.slimefunId(), request.candidateType(),
                             new LegacyItemSchemaValidation(
                                     LegacyItemSchemaValidation.Status.MANUAL_ONLY,
                                     "Addon validation failed safely; no migration was authorized."),
@@ -217,5 +222,9 @@ public final class LegacyItemSchemaProbeService {
     private record ValidatorKey(String providerId, String candidateType) {}
     private record ValidatorRegistration(LegacyItemSchemaValidator provider) {}
     private record ValidationRequestKey(
-            String providerId, String migrationName, String candidateType, String validationClaim) {}
+            String providerId,
+            String migrationName,
+            String slimefunId,
+            String candidateType,
+            String validationClaim) {}
 }
