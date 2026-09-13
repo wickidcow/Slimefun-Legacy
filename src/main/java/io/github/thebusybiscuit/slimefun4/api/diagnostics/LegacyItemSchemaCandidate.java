@@ -27,6 +27,16 @@ public final class LegacyItemSchemaCandidate {
         this(candidateType, readiness, detail, null);
     }
 
+    /**
+     * Creates a schema candidate with an optional opaque evidence claim.
+     *
+     * <p>{@link Readiness#VALIDATION_REQUIRED} candidates must supply a claim because the owning addon's validator
+     * uses it to verify backing state. {@link Readiness#READY} candidates may also supply a deterministic claim when
+     * all migration evidence is already contained in the ItemStack. A READY candidate without a claim remains
+     * diagnostic-only and cannot receive a fingerprinted execution authorization.</p>
+     *
+     * <p>Claims are private in-memory evidence. Slimefun core never displays or logs their contents.</p>
+     */
     public LegacyItemSchemaCandidate(
             @Nonnull String candidateType,
             @Nonnull Readiness readiness,
@@ -57,9 +67,11 @@ public final class LegacyItemSchemaCandidate {
     }
 
     /**
-     * Returns an opaque addon-owned validation claim when persistent-state verification is required.
+     * Returns the private addon-owned evidence claim, when supplied.
      *
-     * <p>Slimefun core treats this only as an in-memory token and never displays or logs its contents.</p>
+     * <p>For VALIDATION_REQUIRED candidates this claim is consumed by the addon validator. For READY candidates it
+     * may bind a future fingerprinted plan directly to the exact item-local legacy state. Slimefun core treats the
+     * value only as an in-memory token and never displays or logs its contents.</p>
      */
     public @Nullable String getValidationClaim() {
         return validationClaim;
@@ -99,7 +111,7 @@ public final class LegacyItemSchemaCandidate {
     }
 
     public enum Readiness {
-        /** The addon can recognize the legacy format without external lookups. */
+        /** The addon can recognize the legacy format from ItemStack-local evidence without external lookups. */
         READY,
 
         /** The candidate requires database or other persistent-state verification before migration. */
