@@ -154,26 +154,38 @@ public final class SlimefunRegistry {
     }
 
     /**
-     * Registers a legacy Slimefun item id and its current replacement for diagnostics and migration tooling.
+     * Registers a historical Slimefun item id and its replacement.
      *
-     * <p>This does not insert the legacy id into the live item registry and therefore does not make the old id
-     * resolve as a registered {@link SlimefunItem}. Addons remain responsible for any temporary runtime aliases
-     * they intentionally need while migrating persisted data.
+     * <p>Legacy ids remain separate from the live item registry. This preserves exact-id registration semantics while
+     * allowing storage and migration code to resolve old persisted ids without registering duplicate items. Mappings
+     * may form forward chains (for example OLD -> NEW -> CURRENT), but cycles are rejected.
      *
      * @param legacyId the historical id stored by an older addon/version
-     * @param currentId the current registered replacement id
+     * @param currentId the replacement id, which may itself be another registered legacy id
      */
-    public void registerLegacySlimefunItemId(@Nonnull String legacyId, @Nonnull String currentId) {
+    public synchronized void registerLegacySlimefunItemId(@Nonnull String legacyId, @Nonnull String currentId) {
         Validate.notNull(legacyId, "The legacy Slimefun item id cannot be null!");
         Validate.notNull(currentId, "The current Slimefun item id cannot be null!");
         Validate.isTrue(!legacyId.isBlank(), "The legacy Slimefun item id cannot be blank!");
         Validate.isTrue(!currentId.isBlank(), "The current Slimefun item id cannot be blank!");
         Validate.isTrue(!legacyId.equals(currentId), "A legacy Slimefun item id cannot map to itself!");
 
-        String existing = legacySlimefunItemIds.putIfAbsent(legacyId, currentId);
+        String existing = legacySlimefunItemIds.get(legacyId);
         Validate.isTrue(
                 existing == null || existing.equals(currentId),
                 "Legacy Slimefun item id '" + legacyId + "' is already mapped to '" + existing + "'");
+
+        var visited = new HashSet<String>();
+        visited.add(legacyId);
+        String cursor = currentId;
+        while (cursor != null) {
+            Validate.isTrue(
+                    visited.add(cursor),
+                    "Legacy Slimefun item id mapping would create a cycle involving '" + cursor + "'");
+            cursor = legacySlimefunItemIds.get(cursor);
+        }
+
+        legacySlimefunItemIds.putIfAbsent(legacyId, currentId);
     }
 
     /**
@@ -181,21 +193,56 @@ public final class SlimefunRegistry {
      *
      * <p>The returned map is read-only and is intentionally separate from {@link #getSlimefunItemIds()}.
      *
-     * @return an immutable view of legacy id to current id mappings
+     * @return an immutable view of legacy id to replacement id mappings
      */
     public @Nonnull Map<String, String> getLegacySlimefunItemIds() {
         return Collections.unmodifiableMap(legacySlimefunItemIds);
     }
 
     /**
-     * Looks up the declared replacement for a historical Slimefun item id.
+     * Looks up the directly declared replacement for a historical Slimefun item id.
      *
      * @param legacyId the historical id
-     * @return the declared current id, when one has been registered
+     * @return the directly declared replacement id, when one has been registered
      */
     public @Nonnull Optional<String> getLegacySlimefunItemIdTarget(@Nonnull String legacyId) {
         Validate.notNull(legacyId, "The legacy Slimefun item id cannot be null!");
         return Optional.ofNullable(legacySlimefunItemIds.get(legacyId));
+    }
+
+    /**
+     * Resolves a historical Slimefun id through every declared alias in its chain.
+     *
+     * <p>This method does not consult or mutate the live item registry. Callers that intend to rewrite persisted data
+     * must additionally verify that the returned canonical id is currently registered. Unknown ids are returned as an
+     * empty result so storage can preserve them unchanged.
+     *
+     * @param legacyId the id to resolve
+     * @return the final declared replacement, or empty when the supplied id has no legacy mapping
+     */
+    public @Nonnull Optional<String> resolveLegacySlimefunItemId(@Nonnull String legacyId) {
+        Validate.notNull(legacyId, "The legacy Slimefun item id cannot be null!");
+
+        String cursor = legacySlimefunItemIds.get(legacyId);
+        if (cursor == null) {
+            return Optional.empty();
+        }
+
+        var visited = new HashSet<String>();
+        visited.add(legacyId);
+        while (cursor != null) {
+            if (!visited.add(cursor)) {
+                return Optional.empty();
+            }
+
+            String next = legacySlimefunItemIds.get(cursor);
+            if (next == null) {
+                return Optional.of(cursor);
+            }
+            cursor = next;
+        }
+
+        return Optional.empty();
     }
 
     @Nonnull
