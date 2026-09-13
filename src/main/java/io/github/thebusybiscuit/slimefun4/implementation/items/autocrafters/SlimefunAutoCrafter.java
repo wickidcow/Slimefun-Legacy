@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.autocrafters;
 
-import io.github.bakedlibs.dough.data.persistent.PersistentDataAPI;
 import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
@@ -116,11 +115,12 @@ public class SlimefunAutoCrafter extends AbstractAutoCrafter {
 
         BlockState state = b.getState(false);
         if (state instanceof Skull skull) {
+            PersistentDataContainer container = skull.getPersistentDataContainer();
             if (recipe == null) {
-                PersistentDataAPI.remove(skull, recipeStorageKey);
-                PersistentDataAPI.remove(skull, recipeEnabledKey);
+                container.remove(recipeStorageKey);
+                container.remove(recipeEnabledKey);
             } else {
-                PersistentDataAPI.setString(skull, recipeStorageKey, recipe.toString());
+                container.set(recipeStorageKey, PersistentDataType.STRING, recipe.toString());
             }
 
             // Commit TileState PDC mutations for this live-state path.
