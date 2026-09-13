@@ -183,7 +183,9 @@ final class DoctorUpgradeWorkflow {
         send(sender, "&eLane 2 - Same-ID item schemas");
         send(sender, "&7Candidates: &e" + report.getSchemaMigrationCandidates()
                 + " &8| &7raw READY: &a" + schemas.ready()
-                + " &8| &7validation required: &e" + schemas.validationRequired()
+                + " &8| &7claim-backed READY: &a" + schemas.readyClaimed()
+                + " &8| &7diagnostic-only READY: &c" + schemas.readyDiagnosticOnly());
+        send(sender, "&7Validation required: &e" + schemas.validationRequired()
                 + " &8| &7manual-only: &c" + schemas.manualOnly());
         int shownSchemas = 0;
         for (Map.Entry<String, DoctorUpgradeSchemaCounts> entry : schemaByProvider.entrySet()) {
@@ -203,6 +205,9 @@ final class DoctorUpgradeWorkflow {
             String capabilityGap = schemaCapabilityGap(entry.getValue(), capabilities);
             if (!capabilityGap.isEmpty()) {
                 send(sender, "&8  &7Missing execution capability: &e" + capabilityGap);
+            }
+            if (entry.getValue().readyDiagnosticOnly() > 0L) {
+                send(sender, "&8  &7Claim-less READY candidates remain diagnostic-only and cannot be fingerprinted.");
             }
         }
         if (report.getSchemaMigrationCandidates() > 0L) {
@@ -319,7 +324,7 @@ final class DoctorUpgradeWorkflow {
     private DoctorUpgradeSchemaCounts schemaCounts(@Nonnull ItemDoctorReport report) {
         DoctorUpgradeSchemaCounts counts = DoctorUpgradeSchemaCounts.empty();
         for (LegacyItemSchemaCandidateSummary summary : report.getSchemaMigrationCandidateSummaries()) {
-            counts = counts.add(summary.getReadiness(), summary.getCount());
+            counts = counts.add(summary.getReadiness(), summary.hasItemLocalClaim(), summary.getCount());
         }
         return counts;
     }
@@ -329,7 +334,9 @@ final class DoctorUpgradeWorkflow {
         for (LegacyItemSchemaCandidateSummary summary : report.getSchemaMigrationCandidateSummaries()) {
             DoctorUpgradeSchemaCounts current =
                     counts.getOrDefault(summary.getProviderId(), DoctorUpgradeSchemaCounts.empty());
-            counts.put(summary.getProviderId(), current.add(summary.getReadiness(), summary.getCount()));
+            counts.put(
+                    summary.getProviderId(),
+                    current.add(summary.getReadiness(), summary.hasItemLocalClaim(), summary.getCount()));
         }
         return counts;
     }
@@ -337,7 +344,7 @@ final class DoctorUpgradeWorkflow {
     private String schemaCapabilityGap(
             DoctorUpgradeSchemaCounts counts, DoctorUpgradeSchemaCapabilities capabilities) {
         Set<String> missing = new HashSet<>();
-        if (counts.ready() > 0L) {
+        if (counts.readyClaimed() > 0L) {
             if (!capabilities.probe()) {
                 missing.add("probe");
             }
