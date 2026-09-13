@@ -41,7 +41,8 @@ final class DoctorSchemaMigrationCorrelation {
             }
             if (shown < MAX_DETAIL_LINES) {
                 send(sender, "&8- " + readinessColor(summary.getReadiness()) + '[' + summary.getReadiness().name() + "] &f"
-                        + summary.getProviderId() + "&8/" + summary.getCandidateType() + " &8x&e" + summary.getCount());
+                        + summary.getProviderId() + "&8/" + summary.getSlimefunId() + "&8/"
+                        + summary.getCandidateType() + " &8x&e" + summary.getCount());
                 send(sender, "&8  &7" + summary.getMigrationName() + ": " + summary.getDetail());
                 shown++;
             }
@@ -70,7 +71,8 @@ final class DoctorSchemaMigrationCorrelation {
                 if (validationShown < MAX_DETAIL_LINES) {
                     send(sender, "&8- " + statusColor(validation.getStatus()) + "[VALIDATION "
                             + validation.getStatus().name() + "] &f" + validation.getProviderId() + "&8/"
-                            + validation.getCandidateType() + " &8x&e" + validation.getCount());
+                            + validation.getSlimefunId() + "&8/" + validation.getCandidateType()
+                            + " &8x&e" + validation.getCount());
                     send(sender, "&8  &7" + validation.getDetail());
                     validationShown++;
                 }
