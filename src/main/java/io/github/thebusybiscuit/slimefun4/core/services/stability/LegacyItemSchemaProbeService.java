@@ -6,6 +6,7 @@ import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaValida
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaValidator;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -110,6 +111,7 @@ public final class LegacyItemSchemaProbeService {
         private final Map<String, List<ProbeRegistration>> byItemId;
         private final Map<ValidatorKey, ValidatorRegistration> validators;
         private final Map<ValidationRequestKey, AtomicLong> validationRequests = new ConcurrentHashMap<>();
+        private final Map<ValidationRequestKey, VerifiedAuthorization> verifiedAuthorizations = new ConcurrentHashMap<>();
         private final int providerCount;
 
         private Session(
@@ -161,6 +163,7 @@ public final class LegacyItemSchemaProbeService {
         /** Runs deduplicated read-only persistent-state validation after item discovery has finished. */
         @Nonnull
         CompletionStage<Void> validatePending(@Nonnull ItemDoctorReport report) {
+            verifiedAuthorizations.clear();
             if (validationRequests.isEmpty()) return CompletableFuture.completedFuture(null);
             List<CompletableFuture<Void>> pending = new ArrayList<>();
             for (Map.Entry<ValidationRequestKey, AtomicLong> entry : validationRequests.entrySet()) {
@@ -194,6 +197,19 @@ public final class LegacyItemSchemaProbeService {
                             report.schemaValidationFound(
                                     request.providerId(), request.migrationName(), request.slimefunId(), request.candidateType(),
                                     validation, count);
+                            String payload = validation.getMigrationPayload();
+                            if (validation.getStatus() == LegacyItemSchemaValidation.Status.VERIFIED && payload != null) {
+                                verifiedAuthorizations.put(
+                                        request,
+                                        new VerifiedAuthorization(
+                                                request.providerId(),
+                                                request.migrationName(),
+                                                request.slimefunId(),
+                                                request.candidateType(),
+                                                request.validationClaim(),
+                                                payload,
+                                                count));
+                            }
                         }
                         return (Void) null;
                     }).toCompletableFuture();
@@ -216,6 +232,15 @@ public final class LegacyItemSchemaProbeService {
                     ? CompletableFuture.completedFuture(null)
                     : CompletableFuture.allOf(pending.toArray(CompletableFuture[]::new));
         }
+
+        @Nonnull
+        List<VerifiedAuthorization> getVerifiedAuthorizations() {
+            List<VerifiedAuthorization> snapshot = new ArrayList<>(verifiedAuthorizations.values());
+            snapshot.sort(Comparator.comparing(VerifiedAuthorization::providerId)
+                    .thenComparing(VerifiedAuthorization::slimefunId)
+                    .thenComparing(VerifiedAuthorization::candidateType));
+            return List.copyOf(snapshot);
+        }
     }
 
     private record ProbeRegistration(String providerId, String migrationName, LegacyItemSchemaProbe provider) {}
@@ -227,4 +252,13 @@ public final class LegacyItemSchemaProbeService {
             String slimefunId,
             String candidateType,
             String validationClaim) {}
+
+    static record VerifiedAuthorization(
+            String providerId,
+            String migrationName,
+            String slimefunId,
+            String candidateType,
+            String validationClaim,
+            String migrationPayload,
+            long candidateCount) {}
 }
