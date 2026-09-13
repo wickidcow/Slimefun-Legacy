@@ -99,6 +99,14 @@ require("!changed && !item.equals(original)" in executor,
         "schema execution must reject mutation when an addon reports no change")
 require("violated the same-ID ItemStack contract" in executor,
         "schema postcondition failures must restore and report the original item")
+require("MAX_CONTAINER_DEPTH = 4" in executor,
+        "schema execution nested-container recursion must remain bounded")
+require("meta instanceof BundleMeta" in executor and "bundleMeta.setItems(contents)" in executor,
+        "schema execution must preserve recursive Bundle migration support")
+require("meta instanceof BlockStateMeta" in executor and "blockStateMeta.setBlockState(container)" in executor,
+        "schema execution must preserve recursive container-item migration support")
+require("inspectInventory(@Nonnull Inventory inventory" in executor,
+        "schema executor inventory traversal entry point is missing")
 reject("getValidationClaim()" in router,
        "Doctor operator commands must not expose private validation claims")
 reject("getMigrationPayload()" in router,
