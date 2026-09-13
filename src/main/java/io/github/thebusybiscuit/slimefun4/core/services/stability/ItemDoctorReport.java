@@ -2,9 +2,12 @@ package io.github.thebusybiscuit.slimefun4.core.services.stability;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nonnull;
@@ -25,7 +28,9 @@ public final class ItemDoctorReport {
     private final AtomicLong repairedStacks = new AtomicLong();
     private final AtomicLong unknownIds = new AtomicLong();
     private final AtomicLong unresolvedTemplates = new AtomicLong();
+    private final AtomicLong legacyMigrationCandidates = new AtomicLong();
     private final AtomicLong failures = new AtomicLong();
+    private final Map<String, AtomicLong> legacyMigrationCandidateCounts = new ConcurrentHashMap<>();
     private final Set<String> unknownIdSamples = Collections.synchronizedSet(new LinkedHashSet<>());
     private final Set<String> unresolvedTemplateSamples = Collections.synchronizedSet(new LinkedHashSet<>());
     private volatile long completedAtNanos;
@@ -66,6 +71,14 @@ public final class ItemDoctorReport {
     void unresolvedTemplateFound(@Nonnull String itemId) {
         unresolvedTemplates.incrementAndGet();
         addSample(unresolvedTemplateSamples, itemId);
+    }
+
+    /** Records an executable legacy-ID candidate encountered during the full Doctor traversal. */
+    void legacyMigrationCandidateFound(@Nonnull String legacyId) {
+        legacyMigrationCandidates.incrementAndGet();
+        legacyMigrationCandidateCounts
+                .computeIfAbsent(legacyId, ignored -> new AtomicLong())
+                .incrementAndGet();
     }
 
     void failure() {
@@ -120,6 +133,27 @@ public final class ItemDoctorReport {
 
     public long getUnresolvedTemplates() {
         return unresolvedTemplates.get();
+    }
+
+    /** Returns the exact number of stacks whose stored ID matched a declared legacy-ID mapping. */
+    public long getLegacyMigrationCandidates() {
+        return legacyMigrationCandidates.get();
+    }
+
+    /**
+     * Returns exact per-ID counts for declared legacy migration candidates encountered by this run.
+     *
+     * <p>Unlike the bounded unknown-ID samples, this map is not sample-based. It only contains IDs
+     * that were explicitly registered in Slimefun's legacy-ID registry at inspection time.</p>
+     */
+    public @Nonnull Map<String, Long> getLegacyMigrationCandidateCounts() {
+        List<Map.Entry<String, AtomicLong>> entries = new ArrayList<>(legacyMigrationCandidateCounts.entrySet());
+        entries.sort(Map.Entry.comparingByKey());
+        Map<String, Long> snapshot = new LinkedHashMap<>();
+        for (Map.Entry<String, AtomicLong> entry : entries) {
+            snapshot.put(entry.getKey(), entry.getValue().get());
+        }
+        return Collections.unmodifiableMap(snapshot);
     }
 
     public long getFailures() {
