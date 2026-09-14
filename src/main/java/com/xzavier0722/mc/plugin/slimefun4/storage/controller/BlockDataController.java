@@ -649,7 +649,7 @@ public class BlockDataController extends ADataController {
     /**
      * Get slimefun universal data asynchronous
      *
-     * @param uuid     universal data uuid {@link UUID}
+     * @param uuid     universal data uuid
      * @param callback operation when block data fetched {@link IAsyncReadCallback}
      */
     public void getUniversalBlockData(@Nonnull UUID uuid, IAsyncReadCallback<SlimefunUniversalBlockData> callback) {
@@ -671,7 +671,7 @@ public class BlockDataController extends ADataController {
     /**
      * Get slimefun universal data from cache
      *
-     * @param uuid universal data uuid {@link UUID}
+     * @param uuid universal data uuid
      */
     @Nullable public SlimefunUniversalBlockData getUniversalBlockDataFromCache(@Nonnull UUID uuid) {
         var cache = getUniversalDataFromCache(uuid);
@@ -686,7 +686,7 @@ public class BlockDataController extends ADataController {
     /**
      * Get slimefun universal data from cache by location
      *
-     * @param l Slimefun block location {@link Location}
+     * @param l Slimefun block location
      */
     public Optional<SlimefunUniversalBlockData> getUniversalBlockDataFromCache(@Nonnull Location l) {
         checkDestroy();
@@ -834,8 +834,7 @@ public class BlockDataController extends ADataController {
             uniData.setLastPresent(target);
 
             Slimefun.getBlockDataService()
-                    .updateUniversalDataUUID(
-                            target.getBlock(), uniData.getUUID().toString());
+                    .updateUniversalDataUUID(target.getBlock(), uniData.getUUID().toString());
 
             if (menu != null) {
                 menu.update(target);
@@ -932,8 +931,6 @@ public class BlockDataController extends ADataController {
         getData(key, true).forEach(data -> chunkKeys.add(data.get(FieldKey.CHUNK)));
 
         if (Slimefun.getSchedulerService().isFolia()) {
-            // Folia's global region must not directly touch chunk state. Resolve each stored chunk on the
-            // scheduler for the region that owns its coordinates, while Paper keeps the legacy synchronous path.
             chunkKeys.forEach(cKey -> scheduleWorldChunkLoad(world, cKey));
             logger.log(Level.INFO, "World {0} Slimefun data scheduled across owning regions in {1}ms", new Object[] {
                 worldName, (System.currentTimeMillis() - start)
@@ -996,7 +993,6 @@ public class BlockDataController extends ADataController {
             var traitsData = data.get(FieldKey.UNIVERSAL_TRAITS);
             var traits = new HashSet<UniversalDataTrait>();
 
-            // Read trait(s) of universal data
             if (traitsData != null && !traitsData.isBlank()) {
                 for (String traitStr : traitsData.split(",")) {
                     try {
@@ -1153,7 +1149,6 @@ public class BlockDataController extends ADataController {
             return;
         }
 
-        // 构建 通用数据 kv 存储 查询条件
         var key = new RecordKey(DataScope.UNIVERSAL_DATA);
         key.addCondition(FieldKey.UNIVERSAL_UUID, uniData.getKey());
         key.addField(FieldKey.DATA_KEY);
@@ -1178,7 +1173,6 @@ public class BlockDataController extends ADataController {
 
             if (uniData instanceof SlimefunUniversalBlockData ubd) {
                 if (ubd.hasTrait(UniversalDataTrait.BLOCK)) {
-                    // Resolve the persisted position lazily. Missing worlds must not erase the stored value.
                     var sfItem = SlimefunItem.getById(ubd.getSfId());
 
                     if (sfItem != null && sfItem.isTicking() && ubd.getLastPresent() != null) {
@@ -1189,7 +1183,6 @@ public class BlockDataController extends ADataController {
             }
 
             if (uniData.hasTrait(UniversalDataTrait.INVENTORY)) {
-                // 加载菜单
                 var menuPreset = UniversalMenuPreset.getPreset(uniData.getSfId());
                 if (menuPreset != null) {
                     var menuKey = new RecordKey(DataScope.UNIVERSAL_INVENTORY);
@@ -1255,13 +1248,15 @@ public class BlockDataController extends ADataController {
 
     public CompletableFuture<SlimefunChunkData> getChunkDataAsync(Chunk chunk) {
         checkDestroy();
-        SlimefunChunkData chunkData = getChunkDataCache(chunk, true);
+        if (chunkDataLoadMode.readCacheOnly()) {
+            return CompletableFuture.completedFuture(getChunkDataFromCache(chunk));
+        }
+
+        var chunkData = getChunkDataCache(chunk, true);
         if (chunkData.isDataLoaded()) {
             return CompletableFuture.completedFuture(chunkData);
         }
 
-        // loadChunk fires SlimefunChunkDataLoadEvent and touches Bukkit chunk state. Route the load through the
-        // scheduler that owns this chunk without reading a block from an arbitrary caller thread first.
         CompletableFuture<SlimefunChunkData> future = new CompletableFuture<>();
         var task = Slimefun.runSyncAt(chunkSchedulerAnchor(chunk), () -> {
             try {
@@ -1271,8 +1266,6 @@ public class BlockDataController extends ADataController {
             }
         });
 
-        // Unit tests execute runSync immediately and return null. A null task with an incomplete
-        // future means the plugin was disabled before the load could be scheduled.
         if (task == null && !future.isDone()) {
             future.completeExceptionally(
                     new IllegalStateException("Cannot load Slimefun chunk data because the plugin is disabled."));
@@ -1374,21 +1367,17 @@ public class BlockDataController extends ADataController {
     }
 
     public void removeAllDataInWorld(World world) {
-        // 1. remove block cache
         var loadedBlockData = new HashSet<SlimefunBlockData>();
         for (var chunkData : getAllLoadedChunkData(world)) {
             loadedBlockData.addAll(chunkData.getAllBlockData());
             chunkData.removeAllCacheInternal();
         }
 
-        // 2. remove ticker and delayed tasks
         loadedBlockData.forEach(this::clearBlockCacheAndTasks);
 
-        // 3. remove from database
         var prefix = world.getName() + ";";
         deleteChunkAndBlockDataDirectly(prefix + "%");
 
-        // 4. remove chunk cache
         loadedChunk.entrySet().removeIf(entry -> entry.getKey().startsWith(prefix));
     }
 
@@ -1468,7 +1457,7 @@ public class BlockDataController extends ADataController {
     private void scheduleBlockInvUpdate(ScopeKey scopeKey, RecordKey reqKey, String lKey, ItemStack[] inv, int slot) {
         var item = inv != null && slot < inv.length ? inv[slot] : null;
 
-        if (item == null) {
+        if (item == null || item.getType().isAir() || item.getAmount() <= 0) {
             scheduleDeleteTask(scopeKey, reqKey, true);
         } else {
             try {
@@ -1483,12 +1472,6 @@ public class BlockDataController extends ADataController {
         }
     }
 
-    /**
-     * Save universal inventory by async way
-     *
-     * @param ubd  {@link SlimefunUniversalBlockData}
-     * @param slot updated item slot
-     */
     private void scheduleDelayedUniversalInvUpdate(SlimefunUniversalData ubd, int slot) {
         var scopeKey = new UUIDKey(DataScope.NONE, ubd.getKey());
         var reqKey = new RecordKey(DataScope.UNIVERSAL_INVENTORY);
@@ -1509,7 +1492,7 @@ public class BlockDataController extends ADataController {
             ScopeKey scopeKey, RecordKey reqKey, String uuid, ItemStack[] inv, int slot) {
         var item = inv != null && slot < inv.length ? inv[slot] : null;
 
-        if (item == null) {
+        if (item == null || item.getType().isAir() || item.getAmount() <= 0) {
             scheduleDeleteTask(scopeKey, reqKey, true);
         } else {
             try {
@@ -1567,9 +1550,7 @@ public class BlockDataController extends ADataController {
 
     private void removeDelayedDataUpdates(ScopeKey scopeKey) {
         synchronized (delayedWriteTasks) {
-            delayedWriteTasks
-                    .entrySet()
-                    .removeIf(each -> scopeKey.equals(each.getKey().getParent()));
+            delayedWriteTasks.entrySet().removeIf(each -> scopeKey.equals(each.getKey().getParent()));
         }
     }
 
@@ -1667,13 +1648,11 @@ public class BlockDataController extends ADataController {
                 : loadedChunk.get(LocationUtils.getChunkKey(chunk));
     }
 
-    // Fixed #935: use cache chunk data to generate chunkKey by location first.
     private SlimefunChunkData getChunkDataCache(Location loc, boolean createOnNotExists) {
         var re = loadedChunk.get(LocationUtils.getChunkKey(loc));
         if (re != null) {
             return re;
         } else {
-            // If cache not exists, use `getChunkDataCache` and trigger chunk loading
             return getChunkDataCache(loc.getChunk(), createOnNotExists);
         }
     }
@@ -1700,9 +1679,6 @@ public class BlockDataController extends ADataController {
         abortScopeTask(scopeKey);
     }
 
-    /**
-     * 迁移旧 Slimefun 机器数据至通用数据
-     */
     private void migrateUniversalData(
             @Nonnull Location l,
             @Nonnull String sfId,
@@ -1718,8 +1694,7 @@ public class BlockDataController extends ADataController {
             Slimefun.runSyncAt(
                     l,
                     () -> {
-                        if (Slimefun.getBlockDataService()
-                                .isTileEntity(l.getBlock().getType())) {
+                        if (Slimefun.getBlockDataService().isTileEntity(l.getBlock().getType())) {
                             Slimefun.getBlockDataService()
                                     .updateUniversalDataUUID(l.getBlock(), String.valueOf(universalData.getUUID()));
                         }
