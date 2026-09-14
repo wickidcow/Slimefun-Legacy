@@ -19,10 +19,12 @@ final class DoctorSchemaMigrationCommand {
 
     private final Slimefun plugin;
     private final LegacyItemSchemaMigrationService migrationService;
+    private final DoctorBlockIdMigrationCommand blockIdMigrations;
 
     DoctorSchemaMigrationCommand(@Nonnull Slimefun plugin) {
         this.plugin = plugin;
         migrationService = new LegacyItemSchemaMigrationService(plugin);
+        blockIdMigrations = new DoctorBlockIdMigrationCommand();
     }
 
     void execute(@Nonnull CommandSender sender, @Nonnull String[] args) {
@@ -31,6 +33,7 @@ final class DoctorSchemaMigrationCommand {
             case "status", "plans", "list" -> sendPlans(sender);
             case "scan", "plan" -> runPlanScan(sender);
             case "execute", "repair" -> executePlan(sender, args);
+            case "blocks", "block-ids", "blockids" -> blockIdMigrations.execute(sender, args);
             default -> sendUsage(sender);
         }
     }
@@ -106,6 +109,7 @@ final class DoctorSchemaMigrationCommand {
         if (plans.isEmpty()) {
             send(sender, "&7No active same-ID schema migration plans exist.");
             send(sender, "&7Create one with &e/sf doctor migrations schemas scan&7.");
+            send(sender, "&7Persisted block IDs: &e/sf doctor migrations schemas blocks scan");
             return;
         }
 
@@ -118,6 +122,7 @@ final class DoctorSchemaMigrationCommand {
                     + " &8| &b" + plan.getShortFingerprint());
         }
         send(sender, "&8Opaque validation claims and migration payloads are never shown in operator output.");
+        send(sender, "&7Persisted block IDs: &e/sf doctor migrations schemas blocks scan");
     }
 
     private void executePlan(@Nonnull CommandSender sender, @Nonnull String[] args) {
@@ -224,8 +229,9 @@ final class DoctorSchemaMigrationCommand {
     }
 
     private void sendUsage(@Nonnull CommandSender sender) {
-        send(sender, "&eUsage: /sf doctor migrations schemas <status|scan|execute>");
+        send(sender, "&eUsage: /sf doctor migrations schemas <status|scan|execute|blocks>");
         send(sender, "&7Scan is read-only. Execute requires a fresh plugin-specific fingerprint.");
+        send(sender, "&7Persisted block IDs: &e/sf doctor migrations schemas blocks <status|scan|execute>");
     }
 
     private void send(CommandSender sender, String message) {
