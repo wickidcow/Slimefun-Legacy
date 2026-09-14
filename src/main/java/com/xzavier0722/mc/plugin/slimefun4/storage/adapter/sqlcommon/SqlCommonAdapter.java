@@ -10,6 +10,7 @@ import city.norain.slimefun4.timings.entry.SQLEntry;
 import com.xzavier0722.mc.plugin.slimefun4.storage.adapter.IDataSourceAdapter;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataScope;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.FieldKey;
+import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordSet;
 import com.xzavier0722.mc.plugin.slimefun4.storage.patch.DatabasePatch;
 import com.xzavier0722.mc.plugin.slimefun4.storage.patch.DatabasePatchV1;
@@ -20,6 +21,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Objects;
 import java.util.logging.Level;
 
 public abstract class SqlCommonAdapter<T extends ISqlCommonConfig> implements IDataSourceAdapter<T> {
@@ -48,6 +50,18 @@ public abstract class SqlCommonAdapter<T extends ISqlCommonConfig> implements ID
             SqlUtils.execSql(conn, sql);
         } catch (SQLException e) {
             throw new IllegalStateException("An exception thrown while executing sql: " + sql, e);
+        } finally {
+            Slimefun.getSQLProfiler().finishEntry(entry);
+        }
+    }
+
+    protected int executeConditionalUpdate(String sql) {
+        var entry = new SQLEntry(sql);
+        Slimefun.getSQLProfiler().recordEntry(entry);
+        try (var conn = ds.getConnection()) {
+            return SqlUtils.execUpdate(conn, sql);
+        } catch (SQLException e) {
+            throw new IllegalStateException("An exception thrown while executing conditional sql: " + sql, e);
         } finally {
             Slimefun.getSQLProfiler().finishEntry(entry);
         }
@@ -82,6 +96,29 @@ public abstract class SqlCommonAdapter<T extends ISqlCommonConfig> implements ID
             case TABLE_METADATA -> tableMetadataTable;
             case NONE -> throw new IllegalArgumentException("NONE cannot be a storage data scope!");
         };
+    }
+
+    @Override
+    public int conditionalSetString(RecordKey key, FieldKey field, String value) {
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(field, "field");
+        Objects.requireNonNull(value, "value");
+        if (key.getConditions().isEmpty()) {
+            throw new IllegalArgumentException("At least one condition is required for a conditional update.");
+        }
+
+        String table = mapTable(key.getScope());
+        // SQLite intentionally does not populate the prefixed table fields used by the network SQL adapters.
+        if (table == null) {
+            table = SqlUtils.mapTable(key.getScope());
+        }
+
+        return executeConditionalUpdate("UPDATE "
+                + table
+                + " SET "
+                + SqlUtils.buildKvStr(field, value)
+                + SqlUtils.buildConditionStr(key.getConditions())
+                + ";");
     }
 
     @Override
