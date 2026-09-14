@@ -1,11 +1,13 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
+import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyBlockMigrationProvider;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemMigrationProvider;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaMigrator;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaProbe;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaValidator;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorReport;
+import io.github.thebusybiscuit.slimefun4.core.services.stability.LegacyBlockMigrationService;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.LegacyItemMigrationService;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.LegacyItemSchemaCandidateSummary;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
@@ -27,10 +29,12 @@ final class DoctorUpgradeWorkflow {
 
     private final Slimefun plugin;
     private final LegacyItemMigrationService migrationService;
+    private final LegacyBlockMigrationService blockMigrationService;
 
     DoctorUpgradeWorkflow(@Nonnull Slimefun plugin, @Nonnull LegacyItemMigrationService migrationService) {
         this.plugin = plugin;
         this.migrationService = migrationService;
+        this.blockMigrationService = new LegacyBlockMigrationService(plugin);
     }
 
     void execute(@Nonnull CommandSender sender, @Nonnull String[] args) {
@@ -54,7 +58,8 @@ final class DoctorUpgradeWorkflow {
         DoctorUpgradeSchemaCounts schemas = report == null ? DoctorUpgradeSchemaCounts.empty() : schemaCounts(report);
 
         send(sender, "&6Slimefun Legacy Upgrade Workflow");
-        send(sender, "&7Legacy-ID migration providers: &e" + migrationService.getProviders().size());
+        send(sender, "&7Legacy-ID item migration providers: &e" + migrationService.getProviders().size());
+        send(sender, "&7Legacy machine migration providers: &e" + blockMigrationService.getProviders().size());
         send(sender, "&7Same-ID schema providers: &e" + schemaProviderCapabilities().size());
         if (report == null) {
             send(sender, "&7Migration-aware server scan: &fNot run yet");
@@ -62,13 +67,14 @@ final class DoctorUpgradeWorkflow {
         } else {
             send(sender, "&7Last/current server run: &e" + report.getModeName()
                     + (report.isComplete() ? " &a(complete)" : " &e(running)"));
-            send(sender, "&7Declared legacy-ID candidates: &e" + report.getLegacyMigrationCandidates()
+            send(sender, "&7Declared legacy-ID item candidates: &e" + report.getLegacyMigrationCandidates()
                     + " &8| &7distinct IDs: &e" + report.getLegacyMigrationCandidateCounts().size());
             send(sender, "&7Same-ID schema candidates: &e" + report.getSchemaMigrationCandidates()
                     + " &8| &7READY: &a" + schemas.ready()
                     + " &8| &7validation required: &e" + schemas.validationRequired()
                     + " &8| &7manual-only: &c" + schemas.manualOnly());
             send(sender, "&7Placed block IDs: legacy/alias &e" + report.getLegacyBlockIds()
+                    + " &8| &7distinct legacy IDs &e" + report.getLegacyBlockIdCounts().size()
                     + " &8| &7unknown &c" + report.getUnknownBlockIds());
             send(sender, "&7Unknown item IDs: &e" + report.getUnknownIds()
                     + " &8| &7unresolved templates: &e" + report.getUnresolvedTemplates()
@@ -159,7 +165,7 @@ final class DoctorUpgradeWorkflow {
                 + " &8| &7NEEDS PROVIDER: &e" + needsProviderLegacyStacks
                 + " &8| &7provider-owned: &f" + providerCoveredStacks);
         if (legacyProviders.isEmpty()) {
-            send(sender, "&7No enabled legacy-ID provider currently owns a candidate found by the scan.");
+            send(sender, "&7No enabled legacy-ID provider currently owns an item candidate found by the scan.");
         } else {
             int shown = 0;
             for (ProviderLane provider : legacyProviders) {
@@ -167,7 +173,7 @@ final class DoctorUpgradeWorkflow {
                     break;
                 }
                 send(sender, "&8- " + (provider.safe() ? "&a" : "&c") + provider.providerId()
-                        + " &8| &7candidate stacks &e" + provider.candidateStacks()
+                        + " &8| &7candidate stacks &e" + provider.candidates()
                         + " &8| " + (provider.safe() ? "&aREADY NOW" : "&cBLOCKED PROVIDER"));
                 if (provider.safe()) {
                     send(sender, "&8  &7Create its fresh fingerprint: &e/sf doctor migrations scan "
@@ -218,22 +224,97 @@ final class DoctorUpgradeWorkflow {
                     + " &7command printed by that scan.");
         }
 
-        long placedBlockIdentitySignals = report.getLegacyBlockIds() + report.getUnknownBlockIds();
+        Map<String, Long> legacyBlocks = report.getLegacyBlockIdCounts();
+        Set<String> blockProviderCoveredIds = new HashSet<>();
+        Set<String> safeBlockProviderCoveredIds = new HashSet<>();
+        List<ProviderLane> blockProviders = new ArrayList<>();
+        for (RegisteredServiceProvider<LegacyBlockMigrationProvider> registration : blockMigrationService.getProviders()) {
+            String providerId = blockMigrationService.getProviderId(registration);
+            Map<String, String> mappings = blockMigrationService.getMappings(registration);
+            List<String> problems = providerProblems(mappings);
+            boolean safe = problems.isEmpty();
+            long candidateBlocks = 0L;
+            for (String legacyId : mappings.keySet()) {
+                Long count = legacyBlocks.get(legacyId);
+                if (count != null) {
+                    blockProviderCoveredIds.add(legacyId);
+                    if (safe) {
+                        safeBlockProviderCoveredIds.add(legacyId);
+                    }
+                    candidateBlocks += count;
+                }
+            }
+            if (candidateBlocks > 0L) {
+                blockProviders.add(new ProviderLane(providerId, candidateBlocks, safe));
+            }
+        }
+
+        long actionableLegacyBlocks = 0L;
+        long needsProviderLegacyBlocks = 0L;
+        long blockedLegacyBlocks = 0L;
+        long providerCoveredBlocks = 0L;
+        for (Map.Entry<String, Long> entry : legacyBlocks.entrySet()) {
+            long count = entry.getValue();
+            String target = declaredMappings.get(entry.getKey());
+            if (blockProviderCoveredIds.contains(entry.getKey())) {
+                providerCoveredBlocks += count;
+            }
+            if (target == null || SlimefunItem.getById(target) == null) {
+                blockedLegacyBlocks += count;
+            } else if (safeBlockProviderCoveredIds.contains(entry.getKey())) {
+                actionableLegacyBlocks += count;
+            } else {
+                needsProviderLegacyBlocks += count;
+            }
+        }
+
+        send(sender, "&eLane 3 - Legacy placed machines");
+        send(sender, "&7Legacy/alias block candidates: &e" + report.getLegacyBlockIds()
+                + " &8| &7distinct IDs: &e" + legacyBlocks.size()
+                + " &8| &7unknown blocks: &c" + report.getUnknownBlockIds());
+        send(sender, "&7READY NOW: &a" + actionableLegacyBlocks
+                + " &8| &7NEEDS PROVIDER: &e" + needsProviderLegacyBlocks
+                + " &8| &7BLOCKED TARGET/MAPPING: &c" + blockedLegacyBlocks
+                + " &8| &7provider-owned: &f" + providerCoveredBlocks);
+        if (blockProviders.isEmpty()) {
+            if (!legacyBlocks.isEmpty()) {
+                send(sender, "&7No enabled exact machine provider owns a legacy placed block found by this scan.");
+            }
+        } else {
+            int shown = 0;
+            for (ProviderLane provider : blockProviders) {
+                if (shown++ >= MAX_PROVIDER_LINES) {
+                    break;
+                }
+                send(sender, "&8- " + (provider.safe() ? "&a" : "&c") + provider.providerId()
+                        + " &8| &7candidate blocks &e" + provider.candidates()
+                        + " &8| " + (provider.safe() ? "&aREADY NOW" : "&cBLOCKED PROVIDER"));
+                if (provider.safe()) {
+                    send(sender, "&8  &7Create its exact machine fingerprint: &e/sf doctor migrations blocks scan "
+                            + provider.providerId());
+                }
+            }
+        }
+        if (report.getUnknownBlockIds() > 0L) {
+            send(sender, "&eUnknown placed block IDs stay manual. Doctor will not guess their addon or replacement.");
+        }
+
         long manualBlocked = report.getUnknownIds()
                 + report.getUnresolvedTemplates()
                 + blockedLegacyStacks
                 + schemaActionability.manualOnly()
-                + placedBlockIdentitySignals;
-        long readyNow = actionableLegacyStacks + schemaActionability.readyNow();
+                + blockedLegacyBlocks
+                + report.getUnknownBlockIds();
+        long readyNow = actionableLegacyStacks + schemaActionability.readyNow() + actionableLegacyBlocks;
         long needsValidation = schemaActionability.needsValidation();
-        long needsProvider = needsProviderLegacyStacks + schemaActionability.needsProvider();
+        long needsProvider = needsProviderLegacyStacks
+                + schemaActionability.needsProvider()
+                + needsProviderLegacyBlocks;
 
-        send(sender, "&eLane 3 - Manual/unresolved evidence");
-        send(sender, "&7Placed block identity signals: legacy/alias &e" + report.getLegacyBlockIds()
-                + " &8| &7unknown &c" + report.getUnknownBlockIds());
-        if (placedBlockIdentitySignals > 0L) {
-            send(sender, "&7Placed block identity findings remain manual-only; Doctor has no block-ID migration executor.");
-        }
+        send(sender, "&eLane 4 - Manual/unresolved evidence");
+        send(sender, "&7Unknown placed block IDs: &c" + report.getUnknownBlockIds()
+                + " &8| &7unknown item IDs: &c" + report.getUnknownIds()
+                + " &8| &7unresolved templates: &e" + report.getUnresolvedTemplates());
         send(sender, "&7Manual/blocked candidate signals: &c" + manualBlocked
                 + " &8| &7Doctor traversal failures: &c" + report.getFailures());
         if (manualBlocked > 0L || report.getFailures() > 0L) {
@@ -252,19 +333,34 @@ final class DoctorUpgradeWorkflow {
         }
         send(sender, "&8READY NOW still requires the native fingerprint scan and explicit execution command.");
         send(sender, "&8Read-only plan only: no provider repair, schema migrator, block-ID rewrite, registry rewrite, or storage mutation ran.");
-        send(sender, "&8Legacy-ID and same-ID schema fingerprints remain separate, short-lived and single-use.");
+        send(sender, "&8Item-ID, machine-ID and same-ID schema fingerprints remain separate, short-lived and single-use.");
     }
 
     private void sendProviders(@Nonnull CommandSender sender) {
         send(sender, "&6Slimefun Legacy Upgrade Providers");
         List<RegisteredServiceProvider<LegacyItemMigrationProvider>> legacyProviders = migrationService.getProviders();
-        send(sender, "&7Legacy-ID providers: &e" + legacyProviders.size());
+        send(sender, "&7Legacy-ID item providers: &e" + legacyProviders.size());
         for (int i = 0; i < Math.min(legacyProviders.size(), MAX_PROVIDER_LINES); i++) {
             RegisteredServiceProvider<LegacyItemMigrationProvider> registration = legacyProviders.get(i);
             Map<String, String> mappings = migrationService.getMappings(registration);
             List<String> problems = providerProblems(mappings);
             send(sender, "&8- &f" + migrationService.getProviderId(registration)
                     + " &8| &7" + migrationService.getProviderName(registration)
+                    + " &8| &7mappings &e" + mappings.size()
+                    + " &8| " + (problems.isEmpty() ? "&aREADY" : "&cBLOCKED"));
+            if (!problems.isEmpty()) {
+                send(sender, "&8  &7First problem: &c" + problems.getFirst());
+            }
+        }
+
+        List<RegisteredServiceProvider<LegacyBlockMigrationProvider>> blockProviders = blockMigrationService.getProviders();
+        send(sender, "&7Exact placed-machine providers: &e" + blockProviders.size());
+        for (int i = 0; i < Math.min(blockProviders.size(), MAX_PROVIDER_LINES); i++) {
+            RegisteredServiceProvider<LegacyBlockMigrationProvider> registration = blockProviders.get(i);
+            Map<String, String> mappings = blockMigrationService.getMappings(registration);
+            List<String> problems = providerProblems(mappings);
+            send(sender, "&8- &f" + blockMigrationService.getProviderId(registration)
+                    + " &8| &7" + blockMigrationService.getProviderName(registration)
                     + " &8| &7mappings &e" + mappings.size()
                     + " &8| " + (problems.isEmpty() ? "&aREADY" : "&cBLOCKED"));
             if (!problems.isEmpty()) {
@@ -285,7 +381,8 @@ final class DoctorUpgradeWorkflow {
                     + " &8| &7validator " + yesNo(capabilities.validator())
                     + " &8| &7migrator " + yesNo(capabilities.migrator()));
         }
-        send(sender, "&7Legacy-ID native gate: &e/sf doctor migrations scan <plugin>");
+        send(sender, "&7Legacy-ID item gate: &e/sf doctor migrations scan <plugin>");
+        send(sender, "&7Legacy machine gate: &e/sf doctor migrations blocks scan <plugin>");
         send(sender, "&7Same-ID native gate: &e/sf doctor migrations schemas scan");
         send(sender, "&8Provider discovery is read-only; no execution fingerprint was created.");
     }
@@ -393,5 +490,5 @@ final class DoctorUpgradeWorkflow {
         sender.sendMessage(message.replace('&', '\u00A7'));
     }
 
-    private record ProviderLane(String providerId, long candidateStacks, boolean safe) {}
+    private record ProviderLane(String providerId, long candidates, boolean safe) {}
 }
