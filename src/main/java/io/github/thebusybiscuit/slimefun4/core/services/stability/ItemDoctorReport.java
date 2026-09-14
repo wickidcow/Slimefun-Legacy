@@ -40,6 +40,8 @@ public final class ItemDoctorReport {
     private final AtomicLong schemaMigrationCandidates = new AtomicLong();
     private final AtomicLong schemaValidatedCandidates = new AtomicLong();
     private final AtomicLong failures = new AtomicLong();
+    private final Map<String, AtomicLong> legacyBlockIdCounts = new ConcurrentHashMap<>();
+    private final Map<String, AtomicLong> unknownBlockIdCounts = new ConcurrentHashMap<>();
     private final Map<String, AtomicLong> legacyMigrationCandidateCounts = new ConcurrentHashMap<>();
     private final Map<SchemaMigrationKey, AtomicLong> schemaMigrationCandidateCounts = new ConcurrentHashMap<>();
     private final Map<SchemaValidationKey, AtomicLong> schemaValidationCounts = new ConcurrentHashMap<>();
@@ -63,12 +65,14 @@ public final class ItemDoctorReport {
     /** Records a persisted block ID that is declared legacy or currently resolves through an alias. */
     void legacyBlockIdFound(@Nonnull String itemId) {
         legacyBlockIds.incrementAndGet();
+        legacyBlockIdCounts.computeIfAbsent(itemId, ignored -> new AtomicLong()).incrementAndGet();
         addSample(legacyBlockIdSamples, itemId);
     }
 
     /** Records a persisted block ID that has neither a registered item nor a declared migration mapping. */
     void unknownBlockIdFound(@Nonnull String itemId) {
         unknownBlockIds.incrementAndGet();
+        unknownBlockIdCounts.computeIfAbsent(itemId, ignored -> new AtomicLong()).incrementAndGet();
         addSample(unknownBlockIdSamples, itemId);
     }
 
@@ -165,18 +169,22 @@ public final class ItemDoctorReport {
     public long getUnknownIds() { return unknownIds.get(); }
     public long getUnresolvedTemplates() { return unresolvedTemplates.get(); }
 
+    /** Exact per-ID counts for persisted block records declared legacy or currently resolved through aliases. */
+    public @Nonnull Map<String, Long> getLegacyBlockIdCounts() {
+        return snapshotCounts(legacyBlockIdCounts);
+    }
+
+    /** Exact per-ID counts for persisted block records that remain unknown to the current registry. */
+    public @Nonnull Map<String, Long> getUnknownBlockIdCounts() {
+        return snapshotCounts(unknownBlockIdCounts);
+    }
+
     /** Returns the exact number of stacks whose stored ID matched a declared legacy-ID mapping. */
     public long getLegacyMigrationCandidates() { return legacyMigrationCandidates.get(); }
 
     /** Exact per-ID counts for declared legacy migration candidates encountered by this run. */
     public @Nonnull Map<String, Long> getLegacyMigrationCandidateCounts() {
-        List<Map.Entry<String, AtomicLong>> entries = new ArrayList<>(legacyMigrationCandidateCounts.entrySet());
-        entries.sort(Map.Entry.comparingByKey());
-        Map<String, Long> snapshot = new LinkedHashMap<>();
-        for (Map.Entry<String, AtomicLong> entry : entries) {
-            snapshot.put(entry.getKey(), entry.getValue().get());
-        }
-        return Collections.unmodifiableMap(snapshot);
+        return snapshotCounts(legacyMigrationCandidateCounts);
     }
 
     /** Returns the number of current-ID items whose addon reported an older metadata/schema format. */
@@ -258,6 +266,16 @@ public final class ItemDoctorReport {
         synchronized (samples) {
             if (samples.size() < SAMPLE_LIMIT) samples.add(value);
         }
+    }
+
+    private static Map<String, Long> snapshotCounts(Map<String, AtomicLong> counts) {
+        List<Map.Entry<String, AtomicLong>> entries = new ArrayList<>(counts.entrySet());
+        entries.sort(Map.Entry.comparingByKey());
+        Map<String, Long> snapshot = new LinkedHashMap<>();
+        for (Map.Entry<String, AtomicLong> entry : entries) {
+            snapshot.put(entry.getKey(), entry.getValue().get());
+        }
+        return Collections.unmodifiableMap(snapshot);
     }
 
     private static List<String> snapshot(Set<String> samples) {
