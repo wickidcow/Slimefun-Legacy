@@ -35,12 +35,15 @@ public class DataUtils {
      * Serializes an item into Slimefun's versioned binary database format.
      *
      * @param itemStack item to serialize
-     * @return versioned binary data, or an empty array for null/failed items
+     * @return versioned binary data, or an empty array for null, empty, or failed items
      */
     public static byte[] serializeItemStackBytes(ItemStack itemStack) {
         Debug.log(TestCase.BACKPACK, "Serializing itemstack: " + itemStack);
 
-        if (itemStack == null) {
+        // Paper/Purpur can expose a non-null ItemStack that represents an empty slot. Paper's
+        // ItemStack#serializeAsBytes deliberately rejects those values, so normalize them before
+        // they ever reach the codec. The storage controllers also delete these slot records.
+        if (itemStack == null || itemStack.getType().isAir() || itemStack.getAmount() <= 0) {
             return new byte[0];
         }
 
