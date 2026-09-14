@@ -5,6 +5,7 @@ import city.norain.slimefun4.utils.TaskTimer;
 import com.xzavier0722.mc.plugin.slimefun4.storage.adapter.IDataSourceAdapter;
 import com.xzavier0722.mc.plugin.slimefun4.storage.callback.IAsyncReadCallback;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataType;
+import com.xzavier0722.mc.plugin.slimefun4.storage.common.FieldKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordSet;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.ScopeKey;
@@ -439,6 +440,15 @@ public abstract class ADataController {
 
     protected void setData(RecordKey key, RecordSet data) {
         dataAdapter.setData(key, data);
+    }
+
+    /**
+     * Atomically updates one String field if all conditions in the supplied key still match.
+     *
+     * <p>Adapters that do not explicitly support conditional updates fail closed through the interface default.
+     */
+    protected int conditionalSetString(RecordKey key, FieldKey field, String value) {
+        return dataAdapter.conditionalSetString(key, field, value);
     }
 
     protected void deleteData(RecordKey key) {
