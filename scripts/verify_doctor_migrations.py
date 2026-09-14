@@ -28,6 +28,8 @@ def read(relative: str) -> str:
 
 registry = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/SlimefunRegistry.java")
 router = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorRouterCommand.java")
+machine_router = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorMachineRouterCommand.java")
+machine_command = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorBlockMigrationCommand.java")
 scan = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorScanWithLegacyCorrelation.java")
 correlation = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorLegacyIdCorrelation.java")
 catalog = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/KnownLegacyItemIdCatalog.java")
@@ -36,6 +38,10 @@ tabs = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/Slim
 provider_api = read("src/main/java/io/github/thebusybiscuit/slimefun4/api/diagnostics/LegacyItemMigrationProvider.java")
 provider_service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyItemMigrationService.java")
 provider_plan = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyItemMigrationPlan.java")
+block_provider_api = read("src/main/java/io/github/thebusybiscuit/slimefun4/api/diagnostics/LegacyBlockMigrationProvider.java")
+block_candidate = read("src/main/java/io/github/thebusybiscuit/slimefun4/api/diagnostics/LegacyBlockMigrationCandidate.java")
+block_service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyBlockMigrationService.java")
+block_plan = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyBlockMigrationPlan.java")
 item_doctor_service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemDoctorService.java")
 plan_test = read("src/test/java/io/github/thebusybiscuit/slimefun4/core/services/stability/TestLegacyItemMigrationPlan.java")
 registry_test = read("src/test/java/io/github/thebusybiscuit/slimefun4/core/TestSlimefunRegistryLegacyItemIds.java")
@@ -71,6 +77,45 @@ require("matchesMappings" in provider_plan, "migration plan mapping drift detect
 require("matchesFingerprint" in provider_plan, "migration plan fingerprint validation is missing")
 require("isExpired" in provider_plan, "migration plan expiry check is missing")
 require("getShortFingerprint" in provider_plan, "migration plan short fingerprint is missing")
+
+# Exact placed-machine migration lane.
+require("interface LegacyBlockMigrationProvider" in block_provider_api, "legacy block migration provider API is missing")
+require("scanLoadedCandidates()" in block_provider_api, "block providers must expose a read-only exact candidate scan")
+require("isCandidateStillValid" in block_provider_api, "block providers must revalidate exact candidates")
+require("LegacyBlockMigrationResult migrate" in block_provider_api, "block providers must migrate one exact candidate at a time")
+require("must never force-load chunks" in block_provider_api, "block migration API must forbid migration-only chunk loads")
+require("stateClaim" in block_candidate and "worldId" in block_candidate and "sourceId" in block_candidate,
+        "block migration candidates must bind exact location, identity and opaque state")
+require("getRegistrations(LegacyBlockMigrationProvider.class)" in block_service,
+        "exact block migration provider discovery is missing")
+require("scanLoadedCandidates()" in block_service, "block service must use provider read-only candidate scans")
+require("validateCandidates" in block_service and "duplicate candidate location" in block_service,
+        "block service must fail closed on invalid or duplicate exact candidates")
+require("world.isChunkLoaded" in block_service, "block plans/execution must stay within already-loaded chunk scope")
+require("isCandidateStillValid(candidate)" in block_service,
+        "block execution must revalidate addon-owned state immediately before mutation")
+require("invalidatePreparedPlan(providerId);" in block_service,
+        "block execution plans must be explicitly invalidated/consumed")
+require("matchesProviderSnapshot" in block_service,
+        "block execution must reject provider version or mapping drift")
+require("PLAN_TTL_MILLIS = 10L * 60L * 1000L" in block_service,
+        "block execution plans must expire after ten minutes")
+require("MessageDigest.getInstance(\"SHA-256\")" in block_plan,
+        "block plan fingerprint must use SHA-256")
+require("candidate.stateClaim()" in block_plan,
+        "block plan fingerprint must bind the provider's opaque machine-state claim")
+require("candidate.worldId().toString()" in block_plan and "candidate.x()" in block_plan,
+        "block plan fingerprint must bind exact placed-machine location")
+require("matchesProviderSnapshot" in block_plan,
+        "block plan must bind addon version and mapping snapshot")
+require("migrationService.preparePlan(registration)" in machine_command,
+        "machine scan command must create its plan through the guarded block service")
+require("plan.matchesFingerprint(args[5])" in machine_command,
+        "machine execution must require the fresh exact fingerprint")
+require("migrationService.execute(registration, plan)" in machine_command,
+        "machine execution must go through core revalidation rather than calling the addon directly")
+require("offline backup" in machine_command and "loaded" in machine_command,
+        "machine command must disclose backup and loaded-scope boundaries")
 
 require('super(plugin, cmd, "doctor", true);' in router, "Doctor migration router must retain the doctor command name")
 require('equalsIgnoreCase("migrations")' in router, "Doctor migrations command route is missing")
@@ -144,7 +189,16 @@ reject("registerLegacySlimefunItemId(" in catalog,
        "historical diagnostic catalog must never publish executable migration mappings")
 reject("setItemData(" in catalog, "historical diagnostic catalog must never rewrite persisted IDs")
 
-require("new DoctorRouterCommand(plugin, cmd)" in subcommands, "Doctor migration router is not registered")
+require("new DoctorMachineRouterCommand(plugin, cmd)" in subcommands,
+        "Doctor machine-aware router is not registered")
+require("new DoctorRouterCommand(plugin, cmd)" in machine_router,
+        "machine-aware Doctor router must delegate all existing Doctor behavior")
+require("machines.execute(sender, args)" in machine_router,
+        "machine-aware Doctor router must dispatch the exact placed-machine lane")
+require('hasPermission("slimefun.command.doctor")' in machine_router,
+        "machine-aware Doctor route must enforce the existing Doctor permission")
+require('equalsIgnoreCase("blocks")' in machine_router and 'equalsIgnoreCase("machines")' in machine_router,
+        "machine-aware Doctor route aliases are missing")
 require('"migrations"' in tabs, "Doctor migrations tab completion is missing")
 require('"providers", "scan", "execute"' in tabs, "migration provider actions are missing from tab completion")
 require("getRegistrations(LegacyItemMigrationProvider.class)" in tabs, "provider plugin tab completion must use live service registrations")
