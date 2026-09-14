@@ -5,9 +5,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockbukkit.mockbukkit.MockBukkit;
 
 class DataUtilsEmptyItemStackTest {
+    @BeforeEach
+    void setUp() {
+        MockBukkit.mock();
+    }
+
+    @AfterEach
+    void tearDown() {
+        MockBukkit.unmock();
+    }
+
     @Test
     void detectsNullAndAirAsEmpty() {
         assertTrue(DataUtils.isEmptyItemStack(null));
@@ -16,7 +29,9 @@ class DataUtilsEmptyItemStackTest {
 
     @Test
     void detectsZeroAmountAsEmpty() {
-        assertTrue(DataUtils.isEmptyItemStack(new ItemStack(Material.STONE, 0)));
+        var item = new ItemStack(Material.STONE);
+        item.setAmount(0);
+        assertTrue(DataUtils.isEmptyItemStack(item));
     }
 
     @Test
