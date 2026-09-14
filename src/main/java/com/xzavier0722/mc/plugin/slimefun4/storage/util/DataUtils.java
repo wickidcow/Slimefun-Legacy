@@ -34,15 +34,20 @@ public class DataUtils {
     /**
      * Serializes an item into Slimefun's versioned binary database format.
      *
+     * <p>Bukkit/Paper may represent an empty inventory slot as either {@code null}, an AIR stack,
+     * or an ItemStack whose amount reached zero. Paper rejects all of those non-item states in
+     * {@link ItemStack#serializeAsBytes()}, so normalize them to Slimefun's existing empty payload
+     * before invoking the native serializer.
+     *
      * @param itemStack item to serialize
-     * @return versioned binary data, or an empty array for null/failed items
+     * @return versioned binary data, or an empty array for null/empty/failed items
      */
     public static byte[] serializeItemStackBytes(ItemStack itemStack) {
-        Debug.log(TestCase.BACKPACK, "Serializing itemstack: " + itemStack);
-
-        if (itemStack == null) {
+        if (isEmptyItemStack(itemStack)) {
             return new byte[0];
         }
+
+        Debug.log(TestCase.BACKPACK, "Serializing itemstack: " + itemStack);
 
         try {
             var itemData = ItemStackDataCodec.serialize(itemStack);
@@ -66,6 +71,10 @@ public class DataUtils {
                             e);
             return new byte[0];
         }
+    }
+
+    static boolean isEmptyItemStack(@Nullable ItemStack itemStack) {
+        return itemStack == null || itemStack.getType().isAir() || itemStack.getAmount() <= 0;
     }
 
     /**
