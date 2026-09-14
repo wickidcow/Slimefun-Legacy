@@ -1468,7 +1468,7 @@ public class BlockDataController extends ADataController {
     private void scheduleBlockInvUpdate(ScopeKey scopeKey, RecordKey reqKey, String lKey, ItemStack[] inv, int slot) {
         var item = inv != null && slot < inv.length ? inv[slot] : null;
 
-        if (item == null) {
+        if (item == null || item.getType().isAir() || item.getAmount() <= 0) {
             scheduleDeleteTask(scopeKey, reqKey, true);
         } else {
             try {
@@ -1509,7 +1509,7 @@ public class BlockDataController extends ADataController {
             ScopeKey scopeKey, RecordKey reqKey, String uuid, ItemStack[] inv, int slot) {
         var item = inv != null && slot < inv.length ? inv[slot] : null;
 
-        if (item == null) {
+        if (item == null || item.getType().isAir() || item.getAmount() <= 0) {
             scheduleDeleteTask(scopeKey, reqKey, true);
         } else {
             try {
