@@ -40,7 +40,7 @@ final class DoctorBlockIdMigrationCommand {
         if (plan == null) {
             send(sender, "&7Active fingerprint: &fNone");
             if (scan.ready() > 0L) {
-                send(sender, "&7Create one with &e/sf doctor migrations blocks scan&7.");
+                send(sender, "&7Create one with &e/sf blockmigrate scan&7.");
             }
         } else {
             long secondsLeft = Math.max(0L, (plan.getExpiresAtMillis() - System.currentTimeMillis()) / 1000L);
@@ -66,7 +66,7 @@ final class DoctorBlockIdMigrationCommand {
         LegacyBlockIdMigrationPlan plan = migrationService.preparePlan().orElse(null);
         if (plan == null) {
             send(sender, "&eCandidates changed while the plan was being prepared; no execution fingerprint was retained.");
-            send(sender, "&7Run the block scan again.");
+            send(sender, "&7Run &e/sf blockmigrate scan &7again.");
             return;
         }
 
@@ -85,21 +85,21 @@ final class DoctorBlockIdMigrationCommand {
         }
 
         long ttlMinutes = Math.max(1L, migrationService.getPlanTtlMillis() / 60_000L);
-        send(sender, "&7Execute: &6/sf doctor migrations blocks execute " + plan.getShortFingerprint());
+        send(sender, "&7Execute: &6/sf blockmigrate execute " + plan.getShortFingerprint());
         send(sender, "&7The plan expires after &e" + ttlMinutes + " minute(s)&7 and is single-use.");
         send(sender, "&eMake an offline backup before executing any persisted-data rewrite.");
     }
 
     private void executePlan(@Nonnull CommandSender sender, @Nonnull String[] args) {
         if (args.length < 5 || args[4].isBlank()) {
-            send(sender, "&eUsage: /sf doctor migrations blocks execute <fingerprint>");
+            send(sender, "&eUsage: /sf blockmigrate execute <fingerprint>");
             return;
         }
 
         LegacyBlockIdMigrationPlan plan = migrationService.getPreparedPlan().orElse(null);
         if (plan == null) {
             send(sender, "&cNo active persisted block-ID plan exists, or it expired.");
-            send(sender, "&7Run &e/sf doctor migrations blocks scan &7to create a fresh plan.");
+            send(sender, "&7Run &e/sf blockmigrate scan &7to create a fresh plan.");
             return;
         }
         if (!plan.matchesFingerprint(args[4])) {
@@ -111,7 +111,7 @@ final class DoctorBlockIdMigrationCommand {
         ExecutionOutcome outcome = migrationService.execute(plan, args[4]);
         if (!outcome.attempted()) {
             send(sender, "&cNo persisted IDs were changed: &7" + outcome.detail());
-            send(sender, "&7The plan is consumed. Run a fresh block scan before trying again.");
+            send(sender, "&7The plan is consumed. Run &e/sf blockmigrate scan &7before trying again.");
             return;
         }
 
@@ -148,7 +148,7 @@ final class DoctorBlockIdMigrationCommand {
     }
 
     private void sendUsage(CommandSender sender) {
-        send(sender, "&eUsage: /sf doctor migrations blocks <status|scan|execute>");
+        send(sender, "&eUsage: /sf blockmigrate <status|scan|execute>");
         send(sender, "&7Scan is read-only. Execute requires a fresh fingerprint and quiescent storage.");
     }
 
