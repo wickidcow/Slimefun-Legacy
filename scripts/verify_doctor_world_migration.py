@@ -32,14 +32,17 @@ service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/s
 scan = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorScanWithLegacyCorrelation.java")
 correlation = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorLegacyIdCorrelation.java")
 upgrade = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorUpgradeWorkflow.java")
+block_migration = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyBlockMigrationService.java")
 output_chest = read("src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/blocks/OutputChest.java")
 
 require("legacyBlockIds" in report and "unknownBlockIds" in report,
         "Doctor report must retain separate legacy/unknown placed-block ID counters")
+require("legacyBlockIdCounts" in report and "getLegacyBlockIdCounts()" in report,
+        "Doctor report must expose exact per-ID legacy placed-block counts")
 require("getLegacyBlockIdSamples()" in report and "getUnknownBlockIdSamples()" in report,
-        "Doctor report must expose sampled placed-block identity findings")
+        "Doctor report must retain sampled placed-block identity findings")
 require("legacyMigrationCandidateCounts" in report and "schemaMigrationCandidateCounts" in report,
-        "placed-block reporting must not replace the consolidated item/schema migration accounting")
+        "placed-block reporting must not replace consolidated item/schema migration accounting")
 require("itemLocalClaimPresent" in report,
         "placed-block reporting must preserve claim-aware same-ID schema accounting")
 
@@ -92,14 +95,31 @@ require("this scan never rewrites stored block IDs" in correlation,
 
 require("Placed block IDs: legacy/alias" in upgrade,
         "upgrade status must expose placed-block identity findings")
-require("placedBlockIdentitySignals = report.getLegacyBlockIds() + report.getUnknownBlockIds()" in upgrade,
-        "upgrade planning must aggregate all placed-block identity signals")
-require("+ placedBlockIdentitySignals" in upgrade,
-        "placed-block identity signals must contribute to MANUAL/BLOCKED planning totals")
-require("Doctor has no block-ID migration executor" in upgrade,
-        "upgrade plan must state why placed-block identity findings remain manual-only")
+require("report.getLegacyBlockIdCounts()" in upgrade,
+        "upgrade planning must use exact per-ID legacy placed-block counts")
+require("Lane 3 - Legacy placed machines" in upgrade,
+        "upgrade planning must expose a dedicated placed-machine migration lane")
+require("safeBlockProviderCoveredIds" in upgrade and "actionableLegacyBlocks" in upgrade,
+        "provider-owned placed machines must be classified as actionable only through safe exact providers")
+require("needsProviderLegacyBlocks" in upgrade,
+        "mapped legacy machines without an exact provider must remain NEEDS PROVIDER")
+require("blockedLegacyBlocks" in upgrade and "+ report.getUnknownBlockIds()" in upgrade,
+        "missing-target and unknown placed blocks must contribute to MANUAL/BLOCKED totals")
+require("Unknown placed block IDs stay manual" in upgrade,
+        "unknown placed-block identities must remain manual and never be guessed")
+require("/sf doctor migrations blocks scan " in upgrade,
+        "actionable placed machines must direct operators through exact fingerprint planning")
 require("block-ID rewrite" in upgrade,
-        "upgrade plan safety footer must explicitly reject block-ID rewriting")
+        "upgrade plan safety footer must explicitly reject unapproved direct block-ID rewriting")
+
+require("getRegistrations(LegacyBlockMigrationProvider.class)" in block_migration,
+        "exact placed-machine provider discovery is missing")
+require("isCandidateStillValid(candidate)" in block_migration,
+        "placed-machine execution must revalidate exact candidate state before mutation")
+require("isStillLoaded(candidate)" in block_migration,
+        "placed-machine migration must stay within loaded scope")
+reject("getChunkAt(" in block_migration or "loadChunk(" in block_migration,
+       "placed-machine migration service must not force-load chunks")
 
 require("class OutputChest extends SlimefunItem" in output_chest,
         "Output Chest fixture changed unexpectedly")
@@ -117,5 +137,5 @@ print("- menu-less placed Slimefun blocks remain included")
 print("- CJK block-name recovery stays presentation-only")
 print("- persisted legacy/live-alias/unknown IDs are diagnosed separately")
 print("- schema migration execution remains isolated from presentation repair")
-print("- placed-block identities remain MANUAL/BLOCKED in upgrade planning")
+print("- exact provider-owned machines can be READY; unknown/unowned blocks remain fail-closed")
 print("- exact item/schema migration accounting remains intact")
