@@ -22,9 +22,13 @@ final class DoctorMachineRouterCommand extends SubCommand {
                 && (args[1].equalsIgnoreCase("migrations") || args[1].equalsIgnoreCase("migration"))
                 && (args[2].equalsIgnoreCase("blocks") || args[2].equalsIgnoreCase("block")
                         || args[2].equalsIgnoreCase("machines") || args[2].equalsIgnoreCase("machine"))) {
+            if (!sender.hasPermission("slimefun.command.doctor")) {
+                Slimefun.getLocalization().sendMessage(sender, "messages.no-permission", true);
+                return;
+            }
             machines.execute(sender, args);
-        } else {
-            delegate.onExecute(sender, args);
+            return;
         }
+        delegate.onExecute(sender, args);
     }
 }
