@@ -59,15 +59,23 @@ def main() -> int:
     )
     require(
         "/sf doctor migrations scan " in workflow,
-        "legacy-ID lane must direct operators through the native provider fingerprint scan",
+        "legacy-ID item lane must direct operators through the native provider fingerprint scan",
     )
     require(
         "/sf doctor migrations schemas scan" in workflow,
         "same-ID lane must direct operators through the native schema fingerprint scan",
     )
     require(
-        "Legacy-ID and same-ID schema fingerprints remain separate" in workflow,
-        "operator output must explicitly preserve separate migration authorization lanes",
+        "/sf doctor migrations blocks scan " in workflow,
+        "legacy machine lane must direct operators through the exact block-provider fingerprint scan",
+    )
+    require(
+        "Item-ID, machine-ID and same-ID schema fingerprints remain separate" in workflow,
+        "operator output must explicitly preserve all three migration authorization lanes",
+    )
+    require(
+        "Unknown placed block IDs stay manual" in workflow,
+        "unknown placed block identities must remain fail-closed",
     )
     require(
         "Do not guess-convert these entries" in workflow,
