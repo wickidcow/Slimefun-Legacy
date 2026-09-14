@@ -48,6 +48,11 @@ require(
     "public static byte[] serializeItemStackBytes(ItemStack itemStack)",
     "Binary serializer is missing",
 )
+require(
+    "src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/DataUtils.java",
+    "itemStack == null || itemStack.getType().isAir() || itemStack.getAmount() <= 0",
+    "Binary serializer must reject null/AIR/zero-amount ItemStacks before Paper serialization",
+)
 forbid(
     "src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/DataUtils.java",
     "public final class DataUtils",
@@ -132,6 +137,9 @@ controller = read(
 )
 if "ubd.setLastPresent(LocationUtils.toLocation(lStr));" in controller:
     errors.append("Universal block locations are still resolved eagerly during data load")
+empty_slot_guard = "item == null || item.getType().isAir() || item.getAmount() <= 0"
+if controller.count(empty_slot_guard) < 2:
+    errors.append("Block and universal inventory writers must both delete null/AIR/zero-amount slots")
 require(
     "src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/SlimefunUniversalBlockData.java",
     "Keep the stored location string intact until the world becomes available.",
@@ -145,6 +153,7 @@ for test in (
     "src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/adapter/sqlcommon/SqlCommonAdapterTransactionTest.java",
     "src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/LegacySkullProfileDataFixerTest.java",
     "src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/MissingWorldLocationTest.java",
+    "src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/DataUtilsEmptyItemStackTest.java",
 ):
     read(test)
 
