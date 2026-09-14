@@ -161,7 +161,7 @@ class SlimefunTabCompleter implements TabCompleter {
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("migrations")
                 && args[2].equalsIgnoreCase("schemas")) {
-            return createReturnList(List.of("status", "scan", "execute"), args[3]);
+            return createReturnList(List.of("status", "scan", "execute", "blocks"), args[3]);
         } else if (args.length == 4
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("migrations")
@@ -180,6 +180,12 @@ class SlimefunTabCompleter implements TabCompleter {
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("migrations")
                 && args[2].equalsIgnoreCase("schemas")
+                && args[3].equalsIgnoreCase("blocks")) {
+            return createReturnList(List.of("status", "scan", "execute"), args[4]);
+        } else if (args.length == 5
+                && args[0].equalsIgnoreCase("doctor")
+                && args[1].equalsIgnoreCase("migrations")
+                && args[2].equalsIgnoreCase("schemas")
                 && args[3].equalsIgnoreCase("execute")) {
             return createReturnList(getSchemaMigrationProviders(), args[4]);
         } else if (args.length == 5
@@ -188,6 +194,14 @@ class SlimefunTabCompleter implements TabCompleter {
                 && args[2].equalsIgnoreCase("execute")) {
             // Execution fingerprints are short-lived, single-use state owned by the command service.
             // Do not suggest a stale/static token from the tab completer.
+            return Collections.emptyList();
+        } else if (args.length == 6
+                && args[0].equalsIgnoreCase("doctor")
+                && args[1].equalsIgnoreCase("migrations")
+                && args[2].equalsIgnoreCase("schemas")
+                && args[3].equalsIgnoreCase("blocks")
+                && args[4].equalsIgnoreCase("execute")) {
+            // Persisted block-ID fingerprints are short-lived, single-use state; never suggest cached tokens here.
             return Collections.emptyList();
         } else if (args.length == 6
                 && args[0].equalsIgnoreCase("doctor")
