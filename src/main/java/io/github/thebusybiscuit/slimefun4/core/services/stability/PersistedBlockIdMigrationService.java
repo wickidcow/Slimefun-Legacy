@@ -17,20 +17,15 @@ public final class PersistedBlockIdMigrationService {
 
     static final long PLAN_TTL_MILLIS = 10L * 60L * 1000L;
 
-    private final BlockIdStorageMaintenance maintenance;
     private final AtomicLong generation = new AtomicLong();
     private volatile PersistedBlockIdMigrationPlan preparedPlan;
-
-    public PersistedBlockIdMigrationService() {
-        maintenance = new BlockIdStorageMaintenance(Slimefun.getDatabaseManager().getBlockDataController());
-    }
 
     /**
      * Reads every normal BLOCK_RECORD directly from storage. No Bukkit block or chunk is resolved.
      */
     public @Nonnull ScanResult preparePlan() {
         preparedPlan = null;
-        var snapshot = maintenance.snapshot();
+        var snapshot = maintenance().snapshot();
         if (!snapshot.available()) {
             return ScanResult.busyResult();
         }
@@ -107,7 +102,7 @@ public final class PersistedBlockIdMigrationService {
         List<RewriteRequest> requests = plan.entries().stream()
                 .map(entry -> new RewriteRequest(entry.locationKey(), entry.legacyId(), entry.canonicalId()))
                 .toList();
-        RewriteSummary summary = maintenance.rewrite(requests);
+        RewriteSummary summary = maintenance().rewrite(requests);
         if (summary.busy()) {
             return new ExecutionResult(ExecutionStatus.STORAGE_BUSY, plan, summary);
         }
@@ -115,6 +110,10 @@ public final class PersistedBlockIdMigrationService {
             return new ExecutionResult(ExecutionStatus.FAILED, plan, summary);
         }
         return new ExecutionResult(ExecutionStatus.COMPLETE, plan, summary);
+    }
+
+    private BlockIdStorageMaintenance maintenance() {
+        return new BlockIdStorageMaintenance(Slimefun.getDatabaseManager().getBlockDataController());
     }
 
     public enum ExecutionStatus {
