@@ -6,9 +6,11 @@ import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordSet;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nonnull;
@@ -80,13 +82,15 @@ public final class BlockIdStorageMaintenance {
         key.addField(FieldKey.CHUNK);
         key.addField(FieldKey.SLIMEFUN_ID);
 
+        Set<String> loadedLocations = loadedLocationKeys();
         List<PersistedBlockIdentity> result = new ArrayList<>();
         for (RecordSet record : controller.getData(key)) {
             String location = stringValue(record, FieldKey.LOCATION);
             String chunk = stringValue(record, FieldKey.CHUNK);
             String slimefunId = stringValue(record, FieldKey.SLIMEFUN_ID);
             if (location != null && !location.isBlank() && slimefunId != null && !slimefunId.isBlank()) {
-                result.add(new PersistedBlockIdentity(location, chunk, slimefunId, isLoaded(location)));
+                result.add(new PersistedBlockIdentity(
+                        location, chunk, slimefunId, loadedLocations.contains(location)));
             }
         }
         result.sort((left, right) -> left.locationKey().compareTo(right.locationKey()));
@@ -115,7 +119,7 @@ public final class BlockIdStorageMaintenance {
                     stale++;
                     continue;
                 }
-                if (current.loaded() || isLoaded(current.locationKey())) {
+                if (current.loaded()) {
                     loaded++;
                     continue;
                 }
@@ -149,15 +153,14 @@ public final class BlockIdStorageMaintenance {
         controller.setData(key, data);
     }
 
-    private boolean isLoaded(String locationKey) {
+    private Set<String> loadedLocationKeys() {
+        Set<String> loaded = new HashSet<>();
         for (SlimefunChunkData chunkData : controller.getAllLoadedChunkData()) {
             for (SlimefunBlockData blockData : chunkData.getAllBlockData()) {
-                if (locationKey.equals(blockData.getKey())) {
-                    return true;
-                }
+                loaded.add(blockData.getKey());
             }
         }
-        return false;
+        return loaded;
     }
 
     @Nullable
