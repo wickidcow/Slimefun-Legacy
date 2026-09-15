@@ -50,7 +50,6 @@ import org.bukkit.inventory.ItemStack;
  *
  * @see SlimefunBackpack
  * @see PlayerBackpack
- *
  */
 public class BackpackListener implements Listener {
     private static final Pattern HEX_COLOR_PATTERN = Pattern.compile("(?i)&#([0-9a-f]{6})");
@@ -292,87 +291,147 @@ public class BackpackListener implements Listener {
         return item != null && item.getType() != Material.AIR && SlimefunItem.getByItem(item) instanceof SlimefunBackpack;
     }
 
-    @ParametersAreNonnullByDefault
-    public void openBackpack(Player p, ItemStack item, SlimefunBackpack backpack) {
-        if (backpack.canUse(p, true) && !PlayerProfile.get(p, profile -> openBackpackInternal(p, item, backpack))) {
-            Slimefun.getLocalization().sendMessage(p, "messages.opening-backpack");
-        }
+    private boolean isStillHeld(@Nonnull Player player, @Nonnull ItemStack item) {
+        return item.equals(player.getInventory().getItemInMainHand())
+                || item.equals(player.getInventory().getItemInOffHand());
     }
 
     @ParametersAreNonnullByDefault
-    private void openBackpackInternal(Player p, ItemStack item, SlimefunBackpack backpackItem) {
+    public void openBackpack(Player p, ItemStack item, SlimefunBackpack backpack) {
+        if (!backpack.canUse(p, true)) {
+            return;
+        }
+
         if (item.getAmount() != 1) {
             Slimefun.getLocalization().sendMessage(p, "backpack.no-stack", true);
             return;
         }
+
         var meta = item.getItemMeta();
-        // Check if the backpack owner is online
         if (!PlayerBackpack.isOwnerOnline(meta)) {
             Slimefun.getLocalization().sendMessage(p, "backpack.not-backpack-owner");
             return;
         }
 
-        if (PlayerBackpack.getBackpackUUID(meta).isEmpty()
-                && PlayerBackpack.getBackpackID(meta).isEmpty()) {
-            // Create backpack
-            Slimefun.getLocalization().sendMessage(p, "backpack.set-name", true);
-            UUID puuid = p.getUniqueId();
-            ItemStack itemCopy = item.clone();
-            Slimefun.getChatCatcher().scheduleCatcher(puuid, name -> {
-                Player player = Bukkit.getPlayer(puuid);
-                // Don't let player quit server during the input
-                if (player == null) return;
-                var pInv = player.getInventory();
-                // Check if the player change the amount of item
-                if (item.getAmount() != 1) {
-                    Slimefun.getLocalization().sendMessage(player, "backpack.no-stack", true);
-                    return;
-                }
-                // Check if the item is modified during the chat input
-                if (!Objects.equals(itemCopy, item)) {
-                    Slimefun.getLocalization().sendMessage(player, "backpack.not-original-item", true);
-                    return;
-                }
-                // Check if the player moves the item
-                if (!item.equals(pInv.getItemInMainHand()) && !item.equals(pInv.getItemInOffHand())) {
-                    Slimefun.getLocalization().sendMessage(player, "backpack.not-original-item", true);
-                    return;
-                }
-                // Create the backpack, and bind
-                PlayerProfile.get(player, profile -> {
-                    PlayerBackpack.bindItem(
-                            item,
-                            Slimefun.getDatabaseManager()
-                                    .getProfileDataController()
-                                    .createBackpack(
-                                            player,
-                                            formatBackpackName(name),
-                                            profile.nextBackpackNum(),
-                                            backpackItem.getSize()));
-                });
-            });
-            return;
-        }
+        UUID playerId = p.getUniqueId();
+        boolean hasStoredIdentity = PlayerBackpack.getBackpackUUID(meta).isPresent()
+                || PlayerBackpack.getBackpackID(meta).isPresent();
+        String reservationKey = hasStoredIdentity ? getReservationKey(meta) : "new:" + playerId;
 
         /*
-         * Reject the request if the Player is already viewing a backpack or has
-         * a pending backpack load. The reservation remains attached to the
-         * canonical backing UUID after loading and is held until close/quit.
+         * Reserve before PlayerProfile.get(...), not inside its callback. A slow
+         * profile load creates a real interaction window; historically a player
+         * could drop or transfer the backpack while the open request was still
+         * waiting and then receive a stale/second view when loading completed.
          */
-        UUID playerId = p.getUniqueId();
-        String reservationKey = getReservationKey(meta);
         if (backpacks.containsKey(playerId) || !openRegistry.reserve(playerId, reservationKey)) {
             Slimefun.getLocalization().sendMessage(p, "backpack.already-open", true);
             return;
         }
 
         try {
+            boolean profileReady = PlayerProfile.get(
+                    p, profile -> openBackpackInternal(p, item, backpack, reservationKey, hasStoredIdentity));
+            if (!profileReady) {
+                Slimefun.getLocalization().sendMessage(p, "messages.opening-backpack");
+            }
+        } catch (RuntimeException | Error ex) {
+            openRegistry.release(playerId, reservationKey);
+            throw ex;
+        }
+    }
+
+    @ParametersAreNonnullByDefault
+    private void openBackpackInternal(
+            Player p,
+            ItemStack item,
+            SlimefunBackpack backpackItem,
+            String reservationKey,
+            boolean hadStoredIdentity) {
+        UUID playerId = p.getUniqueId();
+        boolean keepSession = false;
+
+        try {
+            if (!p.isOnline()) {
+                return;
+            }
+            if (item.getAmount() != 1) {
+                Slimefun.getLocalization().sendMessage(p, "backpack.no-stack", true);
+                return;
+            }
+            if (!isStillHeld(p, item)) {
+                Slimefun.getLocalization().sendMessage(p, "backpack.not-original-item", true);
+                return;
+            }
+
+            var meta = item.getItemMeta();
+            if (!PlayerBackpack.isOwnerOnline(meta)) {
+                Slimefun.getLocalization().sendMessage(p, "backpack.not-backpack-owner");
+                return;
+            }
+
+            boolean hasStoredIdentity = PlayerBackpack.getBackpackUUID(meta).isPresent()
+                    || PlayerBackpack.getBackpackID(meta).isPresent();
+            if (hasStoredIdentity != hadStoredIdentity
+                    || (hasStoredIdentity && !reservationKey.equals(getReservationKey(meta)))) {
+                Slimefun.getLocalization().sendMessage(p, "backpack.not-original-item", true);
+                return;
+            }
+
+            if (!hasStoredIdentity) {
+                // A fresh backpack only needed the pending reservation while its
+                // profile was loading. Naming/binding already has its own exact-item
+                // validation and does not open a storage inventory yet.
+                openRegistry.release(playerId, reservationKey);
+                Slimefun.getLocalization().sendMessage(p, "backpack.set-name", true);
+                UUID puuid = p.getUniqueId();
+                ItemStack itemCopy = item.clone();
+                Slimefun.getChatCatcher().scheduleCatcher(puuid, name -> {
+                    Player player = Bukkit.getPlayer(puuid);
+                    // Don't let player quit server during the input
+                    if (player == null) return;
+                    var pInv = player.getInventory();
+                    // Check if the player changed the amount of item
+                    if (item.getAmount() != 1) {
+                        Slimefun.getLocalization().sendMessage(player, "backpack.no-stack", true);
+                        return;
+                    }
+                    // Check if the item is modified during the chat input
+                    if (!Objects.equals(itemCopy, item)) {
+                        Slimefun.getLocalization().sendMessage(player, "backpack.not-original-item", true);
+                        return;
+                    }
+                    // Check if the player moves the item
+                    if (!item.equals(pInv.getItemInMainHand()) && !item.equals(pInv.getItemInOffHand())) {
+                        Slimefun.getLocalization().sendMessage(player, "backpack.not-original-item", true);
+                        return;
+                    }
+                    // Create the backpack, and bind
+                    PlayerProfile.get(player, profile -> {
+                        PlayerBackpack.bindItem(
+                                item,
+                                Slimefun.getDatabaseManager()
+                                        .getProfileDataController()
+                                        .createBackpack(
+                                                player,
+                                                formatBackpackName(name),
+                                                profile.nextBackpackNum(),
+                                                backpackItem.getSize()));
+                    });
+                });
+                return;
+            }
+
             PlayerBackpack.getAsync(item)
                     .whenCompleteAsync(
                             (bp, ex) -> {
-                                boolean keepSession = false;
+                                boolean keepResolvedSession = false;
                                 try {
                                     if (!p.isOnline()) {
+                                        return;
+                                    }
+                                    if (!isStillHeld(p, item)) {
+                                        Slimefun.getLocalization().sendMessage(p, "backpack.not-original-item", true);
                                         return;
                                     }
                                     if (ex != null) {
@@ -431,9 +490,9 @@ public class BackpackListener implements Listener {
 
                                     // The canonical reservation intentionally stays active until
                                     // InventoryCloseEvent or PlayerQuitEvent releases it.
-                                    keepSession = true;
+                                    keepResolvedSession = true;
                                 } finally {
-                                    if (!keepSession) {
+                                    if (!keepResolvedSession) {
                                         backpacks.remove(playerId);
                                         backpackInstances.remove(playerId);
                                         openRegistry.release(playerId);
@@ -441,9 +500,14 @@ public class BackpackListener implements Listener {
                                 }
                             },
                             ThreadUtils.getEntityThreadExecutor(p));
-        } catch (RuntimeException | Error ex) {
-            openRegistry.release(playerId);
-            throw ex;
+
+            // Ownership of the reservation has moved to the asynchronous backpack
+            // resolution callback. Do not release it from this outer scope.
+            keepSession = true;
+        } finally {
+            if (!keepSession) {
+                openRegistry.release(playerId, reservationKey);
+            }
         }
     }
 
