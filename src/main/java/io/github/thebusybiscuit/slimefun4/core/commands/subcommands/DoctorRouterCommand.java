@@ -27,6 +27,7 @@ final class DoctorRouterCommand extends SubCommand {
     private final DoctorCommand delegate;
     private final LegacyItemMigrationService migrationService;
     private final DoctorSchemaMigrationCommand schemaMigrations;
+    private final DoctorMachineMigrationCommand machineMigrations;
     private final DoctorUpgradeWorkflow upgradeWorkflow;
 
     DoctorRouterCommand(@Nonnull Slimefun plugin, @Nonnull SlimefunCommand cmd) {
@@ -34,6 +35,7 @@ final class DoctorRouterCommand extends SubCommand {
         delegate = new DoctorCommand(plugin, cmd);
         migrationService = new LegacyItemMigrationService(plugin);
         schemaMigrations = new DoctorSchemaMigrationCommand(plugin);
+        machineMigrations = new DoctorMachineMigrationCommand(plugin);
         upgradeWorkflow = new DoctorUpgradeWorkflow(plugin, migrationService);
     }
 
@@ -83,8 +85,9 @@ final class DoctorRouterCommand extends SubCommand {
             case "scan" -> runMigrationProvider(sender, args, false);
             case "execute" -> runMigrationProvider(sender, args, true);
             case "schemas", "schema" -> schemaMigrations.execute(sender, args);
+            case "machines", "machine" -> machineMigrations.execute(sender, args);
             default -> send(sender,
-                    "&eUsage: /sf doctor migrations <status|list|unknown|plan|providers|scan|execute|schemas>");
+                    "&eUsage: /sf doctor migrations <status|list|unknown|plan|providers|scan|execute|schemas|machines>");
         }
     }
 
