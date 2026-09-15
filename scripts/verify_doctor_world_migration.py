@@ -92,14 +92,26 @@ require("this scan never rewrites stored block IDs" in correlation,
 
 require("Placed block IDs: legacy/alias" in upgrade,
         "upgrade status must expose placed-block identity findings")
-require("placedBlockIdentitySignals = report.getLegacyBlockIds() + report.getUnknownBlockIds()" in upgrade,
-        "upgrade planning must aggregate all placed-block identity signals")
-require("+ placedBlockIdentitySignals" in upgrade,
-        "placed-block identity signals must contribute to MANUAL/BLOCKED planning totals")
-require("Doctor has no block-ID migration executor" in upgrade,
-        "upgrade plan must state why placed-block identity findings remain manual-only")
+require("Lane 3 - Exact placed-machine migrations" in upgrade,
+        "upgrade planning must expose the provider-owned loaded machine lane")
+require("Lane 4 - Persisted storage" in upgrade,
+        "upgrade planning must expose the persisted storage lane")
+require("Legacy/alias placed-block IDs are migration signals, not automatically manual-only" in upgrade,
+        "upgrade plan must distinguish migratable placed-block signals from unresolved evidence")
+require("report.getUnknownBlockIds()" in upgrade,
+        "unknown placed-block identities must remain part of manual/blocked planning evidence")
+require("new PersistedBlockIdMigrationService().audit()" in upgrade,
+        "upgrade plan must audit persisted block/universal identities without creating a fingerprint")
+require("/sf doctor migrations blocks scan " in upgrade,
+        "upgrade plan must route loaded addon-owned machines through exact-machine native scans")
+require("/sf doctor migrations schemas blocks scan" in upgrade,
+        "upgrade plan must route persisted block IDs through the native storage scan")
 require("block-ID rewrite" in upgrade,
-        "upgrade plan safety footer must explicitly reject block-ID rewriting")
+        "upgrade plan safety footer must explicitly reject direct block-ID rewriting")
+reject("Doctor has no block-ID migration executor" in upgrade,
+       "upgrade plan must not claim the persisted block-ID executor is absent")
+reject("placedBlockIdentitySignals = report.getLegacyBlockIds() + report.getUnknownBlockIds()" in upgrade,
+       "legacy and unknown placed-block signals must no longer be collapsed into one manual-only total")
 
 require("class OutputChest extends SlimefunItem" in output_chest,
         "Output Chest fixture changed unexpectedly")
@@ -117,5 +129,6 @@ print("- menu-less placed Slimefun blocks remain included")
 print("- CJK block-name recovery stays presentation-only")
 print("- persisted legacy/live-alias/unknown IDs are diagnosed separately")
 print("- schema migration execution remains isolated from presentation repair")
-print("- placed-block identities remain MANUAL/BLOCKED in upgrade planning")
+print("- provider-owned loaded machines and persisted IDs use separate guarded migration lanes")
+print("- only unresolved placed-block evidence remains manual/blocked")
 print("- exact item/schema migration accounting remains intact")
