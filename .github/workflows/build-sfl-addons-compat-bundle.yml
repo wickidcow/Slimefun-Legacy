@@ -67,7 +67,7 @@ jobs:
           if not candidates:
               raise SystemExit('Paper 26.3 API is not published yet')
           def key(v):
-              m=re.search(r'\\.build\\.(\\d+)',v)
+              m=re.search(r'\.build\.(\d+)',v)
               return (int(m.group(1)) if m else -1,v)
           selected=max(candidates,key=key)
           with open(os.environ['GITHUB_OUTPUT'],'a',encoding='utf-8') as out:
@@ -135,6 +135,7 @@ jobs:
       - name: Compile against Paper 26.3 candidate
         env:
           PAPER_API_VERSION: ${{ needs.prepare.outputs.paper_api }}
+          ORG_GRADLE_PROJECT_paperDevBundleVersion: ${{ needs.prepare.outputs.paper_api }}
         shell: bash
         run: |
           set -euo pipefail
