@@ -4,6 +4,7 @@ import com.xzavier0722.mc.plugin.slimefun4.storage.controller.StorageIntegrityRe
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.StorageIntegrityScanner;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemMigrationProvider;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaMigrator;
+import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyMachineMigrationProvider;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.researches.Research;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
@@ -130,7 +131,7 @@ class SlimefunTabCompleter implements TabCompleter {
                 return createReturnList(List.of("status", "scan", "plan", "verify", "repair"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("migrations")) {
                 return createReturnList(
-                        List.of("status", "list", "unknown", "plan", "providers", "scan", "execute", "schemas"),
+                        List.of("status", "list", "unknown", "plan", "providers", "scan", "execute", "schemas", "machines"),
                         args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("ie2")) {
                 return createReturnList(List.of("status", "scan", "migrate", "refresh"), args[2]);
@@ -165,6 +166,11 @@ class SlimefunTabCompleter implements TabCompleter {
         } else if (args.length == 4
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("migrations")
+                && args[2].equalsIgnoreCase("machines")) {
+            return createReturnList(List.of("status", "providers", "scan", "execute"), args[3]);
+        } else if (args.length == 4
+                && args[0].equalsIgnoreCase("doctor")
+                && args[1].equalsIgnoreCase("migrations")
                 && (args[2].equalsIgnoreCase("scan") || args[2].equalsIgnoreCase("execute"))) {
             return createReturnList(getLegacyMigrationProviders(), args[3]);
         } else if (args.length == 4 && args[0].equalsIgnoreCase("chunkinfo")) {
@@ -185,6 +191,12 @@ class SlimefunTabCompleter implements TabCompleter {
         } else if (args.length == 5
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("migrations")
+                && args[2].equalsIgnoreCase("machines")
+                && (args[3].equalsIgnoreCase("scan") || args[3].equalsIgnoreCase("execute"))) {
+            return createReturnList(getMachineMigrationProviders(), args[4]);
+        } else if (args.length == 5
+                && args[0].equalsIgnoreCase("doctor")
+                && args[1].equalsIgnoreCase("migrations")
                 && args[2].equalsIgnoreCase("schemas")
                 && args[3].equalsIgnoreCase("execute")) {
             return createReturnList(getSchemaMigrationProviders(), args[4]);
@@ -194,6 +206,13 @@ class SlimefunTabCompleter implements TabCompleter {
                 && args[2].equalsIgnoreCase("execute")) {
             // Execution fingerprints are short-lived, single-use state owned by the command service.
             // Do not suggest a stale/static token from the tab completer.
+            return Collections.emptyList();
+        } else if (args.length == 6
+                && args[0].equalsIgnoreCase("doctor")
+                && args[1].equalsIgnoreCase("migrations")
+                && args[2].equalsIgnoreCase("machines")
+                && args[3].equalsIgnoreCase("execute")) {
+            // Live-machine fingerprints are short-lived, single-use state; never suggest cached tokens here.
             return Collections.emptyList();
         } else if (args.length == 6
                 && args[0].equalsIgnoreCase("doctor")
@@ -278,6 +297,16 @@ class SlimefunTabCompleter implements TabCompleter {
     @Nonnull
     private List<String> getLegacyMigrationProviders() {
         return Bukkit.getServicesManager().getRegistrations(LegacyItemMigrationProvider.class).stream()
+                .filter(registration -> registration.getPlugin() != null && registration.getPlugin().isEnabled())
+                .map(registration -> registration.getPlugin().getName())
+                .distinct()
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .toList();
+    }
+
+    @Nonnull
+    private List<String> getMachineMigrationProviders() {
+        return Bukkit.getServicesManager().getRegistrations(LegacyMachineMigrationProvider.class).stream()
                 .filter(registration -> registration.getPlugin() != null && registration.getPlugin().isEnabled())
                 .map(registration -> registration.getPlugin().getName())
                 .distinct()
