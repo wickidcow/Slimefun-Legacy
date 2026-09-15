@@ -161,7 +161,7 @@ class SlimefunTabCompleter implements TabCompleter {
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("migrations")
                 && args[2].equalsIgnoreCase("schemas")) {
-            return createReturnList(List.of("status", "scan", "execute", "blocks"), args[3]);
+            return createReturnList(List.of("status", "scan", "execute", "blocks", "storage"), args[3]);
         } else if (args.length == 4
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("migrations")
@@ -180,7 +180,7 @@ class SlimefunTabCompleter implements TabCompleter {
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("migrations")
                 && args[2].equalsIgnoreCase("schemas")
-                && args[3].equalsIgnoreCase("blocks")) {
+                && (args[3].equalsIgnoreCase("blocks") || args[3].equalsIgnoreCase("storage"))) {
             return createReturnList(List.of("status", "scan", "execute"), args[4]);
         } else if (args.length == 5
                 && args[0].equalsIgnoreCase("doctor")
@@ -199,9 +199,9 @@ class SlimefunTabCompleter implements TabCompleter {
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("migrations")
                 && args[2].equalsIgnoreCase("schemas")
-                && args[3].equalsIgnoreCase("blocks")
+                && (args[3].equalsIgnoreCase("blocks") || args[3].equalsIgnoreCase("storage"))
                 && args[4].equalsIgnoreCase("execute")) {
-            // Persisted block-ID fingerprints are short-lived, single-use state; never suggest cached tokens here.
+            // Persisted storage fingerprints are short-lived, single-use state; never suggest cached tokens here.
             return Collections.emptyList();
         } else if (args.length == 6
                 && args[0].equalsIgnoreCase("doctor")
@@ -255,13 +255,13 @@ class SlimefunTabCompleter implements TabCompleter {
 
     @Nonnull
     private List<String> getSlimefunItems() {
-        List<SlimefunItem> items = Slimefun.getRegistry().getEnabledSlimefunItems();
-        List<String> list = new ArrayList<>(items.size());
+        List<SlimefunItem> list = Slimefun.getRegistry().getEnabledSlimefunItems();
+        List<String> names = new ArrayList<>(list.size());
 
-        for (SlimefunItem item : items) {
-            list.add(item.getId());
+        for (SlimefunItem item : list) {
+            names.add(item.getId());
         }
-        return list;
+        return names;
     }
 
     @Nonnull
