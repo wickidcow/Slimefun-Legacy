@@ -28,6 +28,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
@@ -68,19 +69,39 @@ public class BackpackListener implements Listener {
         Player p = (Player) e.getPlayer();
 
         if (e.getInventory().getHolder(false) instanceof PlayerBackpack backpack) {
-            openRegistry.release(p.getUniqueId());
-            backpacks.remove(p.getUniqueId());
-            backpackInstances.remove(p.getUniqueId());
-            // The changedSlot computation and refreshSnapshot is moved to the
-            // ProfileDataController#saveBackpackInventory
-            Slimefun.getDatabaseManager().getProfileDataController().saveBackpackInventory(backpack);
+            UUID playerId = p.getUniqueId();
+            try {
+                // Snapshot and enqueue the changed slots before releasing the session reservation.
+                // A second copy of the same backpack must not be allowed to start opening in
+                // the small close/save hand-off window.
+                Slimefun.getDatabaseManager().getProfileDataController().saveBackpackInventory(backpack);
+            } catch (RuntimeException ex) {
+                Slimefun.logger().log(Level.SEVERE, "An Exception occurred while saving a backpack on close", ex);
+            } finally {
+                backpacks.remove(playerId, backpack.getUniqueId());
+                backpackInstances.remove(playerId);
+                openRegistry.release(playerId);
+            }
             SoundEffect.BACKPACK_CLOSE_SOUND.playFor(p);
         }
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
-        UUID playerId = e.getPlayer().getUniqueId();
+        Player player = e.getPlayer();
+        UUID playerId = player.getUniqueId();
+
+        // InventoryCloseEvent normally performs this save first, but explicitly
+        // snapshot an open backpack here as well so a disconnect cannot become a
+        // stale-storage path if the platform changes event ordering.
+        if (player.getOpenInventory().getTopInventory().getHolder(false) instanceof PlayerBackpack backpack) {
+            try {
+                Slimefun.getDatabaseManager().getProfileDataController().saveBackpackInventory(backpack);
+            } catch (RuntimeException ex) {
+                Slimefun.logger().log(Level.SEVERE, "An Exception occurred while saving a backpack on quit", ex);
+            }
+        }
+
         openRegistry.release(playerId);
         backpacks.remove(playerId);
         backpackInstances.remove(playerId);
@@ -152,38 +173,109 @@ public class BackpackListener implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onClick(InventoryClickEvent e) {
-        if (openRegistry.isOpening(e.getWhoClicked().getUniqueId())) {
+        UUID playerId = e.getWhoClicked().getUniqueId();
+        if (openRegistry.isOpening(playerId)) {
             e.setCancelled(true);
             return;
         }
-        SlimefunBackpack slimefunBackpack =
-                backpackInstances.get(e.getWhoClicked().getUniqueId());
-        if (slimefunBackpack != null) {
-            if (e.getClick() == ClickType.NUMBER_KEY) {
-                // Prevent disallowed items from being moved using number keys.
-                if (e.getClickedInventory().getType() != InventoryType.PLAYER) {
-                    ItemStack hotbarItem = e.getWhoClicked().getInventory().getItem(e.getHotbarButton());
 
-                    if (!isAllowed(slimefunBackpack, hotbarItem)) {
-                        e.setCancelled(true);
-                    }
+        if (!(e.getView().getTopInventory().getHolder(false) instanceof PlayerBackpack openedBackpack)) {
+            return;
+        }
+
+        SlimefunBackpack slimefunBackpack = backpackInstances.get(playerId);
+        UUID expectedBackpack = backpacks.get(playerId);
+        if (slimefunBackpack == null || !openedBackpack.getUniqueId().equals(expectedBackpack)) {
+            // A backpack inventory without matching listener/session state is not a
+            // normal gameplay state. Fail closed instead of allowing a stale view
+            // to mutate storage.
+            e.setCancelled(true);
+            return;
+        }
+
+        if (e.getClickedInventory() == null) {
+            return;
+        }
+
+        boolean clickedBackpack = e.getClickedInventory().equals(e.getView().getTopInventory());
+        if (clickedBackpack) {
+            if (e.getClick() == ClickType.NUMBER_KEY) {
+                // An item from the hotbar would enter the backpack.
+                ItemStack hotbarItem = e.getWhoClicked().getInventory().getItem(e.getHotbarButton());
+                if (!isAllowed(slimefunBackpack, hotbarItem)) {
+                    e.setCancelled(true);
                 }
             } else if (e.getClick() == ClickType.SWAP_OFFHAND) {
-                if (e.getClickedInventory().getType() != InventoryType.PLAYER) {
-                    // Fixes #3265 - Don't move disallowed items using the off hand.
-                    ItemStack offHandItem = e.getWhoClicked().getInventory().getItemInOffHand();
-
-                    if (!isAllowed(slimefunBackpack, offHandItem)) {
-                        e.setCancelled(true);
-                    }
-                } else {
-                    // Fixes #3664 - Do not swap any of these backpacks to your off hand.
-                    if (e.getCurrentItem() != null && SlimefunItem.getByItem(e.getCurrentItem()) == slimefunBackpack) {
-                        e.setCancelled(true);
-                    }
+                // An item from the off hand would enter the backpack.
+                ItemStack offHandItem = e.getWhoClicked().getInventory().getItemInOffHand();
+                if (!isAllowed(slimefunBackpack, offHandItem)) {
+                    e.setCancelled(true);
                 }
-            } else if (!isAllowed(slimefunBackpack, e.getCurrentItem())) {
+            } else if (!isAllowed(slimefunBackpack, e.getCursor())) {
+                // Validate the item entering the slot, not the item already in it.
+                // The old current-item check allowed a forbidden backpack/shulker
+                // to be placed onto an empty slot from the cursor.
                 e.setCancelled(true);
+            }
+            return;
+        }
+
+        if (e.getClickedInventory().getType() == InventoryType.PLAYER) {
+            // Preserve the historical protection that keeps physical backpack
+            // items stationary while a backpack GUI is open. This prevents the
+            // item representing an open container from being moved, swapped or
+            // otherwise transformed mid-session.
+            if (isBackpackItem(e.getCurrentItem())) {
+                e.setCancelled(true);
+                return;
+            }
+
+            // Shift-click is the only ordinary player-inventory click that sends
+            // the current item directly into the top inventory.
+            if (e.isShiftClick() && !isAllowed(slimefunBackpack, e.getCurrentItem())) {
+                e.setCancelled(true);
+            }
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onDrag(InventoryDragEvent e) {
+        UUID playerId = e.getWhoClicked().getUniqueId();
+        if (openRegistry.isOpening(playerId)) {
+            e.setCancelled(true);
+            return;
+        }
+
+        if (!(e.getView().getTopInventory().getHolder(false) instanceof PlayerBackpack openedBackpack)) {
+            return;
+        }
+
+        SlimefunBackpack slimefunBackpack = backpackInstances.get(playerId);
+        UUID expectedBackpack = backpacks.get(playerId);
+        if (slimefunBackpack == null || !openedBackpack.getUniqueId().equals(expectedBackpack)) {
+            e.setCancelled(true);
+            return;
+        }
+
+        int topSize = e.getView().getTopInventory().getSize();
+        for (Map.Entry<Integer, ItemStack> entry : e.getNewItems().entrySet()) {
+            int rawSlot = entry.getKey();
+            ItemStack newItem = entry.getValue();
+
+            if (rawSlot < topSize) {
+                if (!isAllowed(slimefunBackpack, newItem)) {
+                    e.setCancelled(true);
+                    return;
+                }
+            } else if (rawSlot < e.getView().countSlots()) {
+                // Do not let drag mechanics alter a backpack item in the player's
+                // inventory while another backpack is open. This mirrors the click
+                // protection and closes the drag-event bypass.
+                ItemStack currentItem = e.getView().getItem(rawSlot);
+                if (isBackpackItem(currentItem) || isBackpackItem(newItem)) {
+                    e.setCancelled(true);
+                    return;
+                }
             }
         }
     }
@@ -194,6 +286,10 @@ public class BackpackListener implements Listener {
         }
 
         return backpack.isItemAllowed(item, SlimefunItem.getByItem(item));
+    }
+
+    private boolean isBackpackItem(@Nullable ItemStack item) {
+        return item != null && item.getType() != Material.AIR && SlimefunItem.getByItem(item) instanceof SlimefunBackpack;
     }
 
     @ParametersAreNonnullByDefault
@@ -260,10 +356,8 @@ public class BackpackListener implements Listener {
 
         /*
          * Reject the request if the Player is already viewing a backpack or has
-         * a pending backpack load. Repeated open requests (e.g. sent in quick
-         * succession by modded clients) must never close the current view nor
-         * trigger parallel loads, as that can open a duplicate backpack instance
-         * with a stale snapshot and allow item duplication.
+         * a pending backpack load. The reservation remains attached to the
+         * canonical backing UUID after loading and is held until close/quit.
          */
         UUID playerId = p.getUniqueId();
         String reservationKey = getReservationKey(meta);
@@ -276,6 +370,7 @@ public class BackpackListener implements Listener {
             PlayerBackpack.getAsync(item)
                     .whenCompleteAsync(
                             (bp, ex) -> {
+                                boolean keepSession = false;
                                 try {
                                     if (!p.isOnline()) {
                                         return;
@@ -306,8 +401,16 @@ public class BackpackListener implements Listener {
                                         return;
                                     }
 
+                                    String canonicalKey = "uuid:" + bp.getUniqueId();
+                                    if (!openRegistry.activate(playerId, reservationKey, canonicalKey)) {
+                                        Slimefun.getLocalization().sendMessage(p, "backpack.already-open", true);
+                                        return;
+                                    }
+
                                     PlayerBackpack.migrateLegacyItem(item, bp);
 
+                                    // Defense in depth for inventories opened outside the normal
+                                    // reservation path or stale state left by another plugin.
                                     if (backpacks.containsValue(bp.getUniqueId())
                                             || !bp.getInventory().getViewers().isEmpty()) {
                                         Slimefun.getLocalization().sendMessage(p, "backpack.already-open", true);
@@ -318,13 +421,28 @@ public class BackpackListener implements Listener {
                                     backpacks.put(playerId, bp.getUniqueId());
                                     backpackInstances.put(playerId, backpackItem);
                                     bp.open(p);
+
+                                    if (p.getOpenInventory().getTopInventory().getHolder(false) != bp) {
+                                        Slimefun.logger()
+                                                .warning(() -> "Backpack " + bp.getUniqueId()
+                                                        + " did not become the active inventory for player " + playerId);
+                                        return;
+                                    }
+
+                                    // The canonical reservation intentionally stays active until
+                                    // InventoryCloseEvent or PlayerQuitEvent releases it.
+                                    keepSession = true;
                                 } finally {
-                                    openRegistry.release(playerId, reservationKey);
+                                    if (!keepSession) {
+                                        backpacks.remove(playerId);
+                                        backpackInstances.remove(playerId);
+                                        openRegistry.release(playerId);
+                                    }
                                 }
                             },
                             ThreadUtils.getEntityThreadExecutor(p));
         } catch (RuntimeException | Error ex) {
-            openRegistry.release(playerId, reservationKey);
+            openRegistry.release(playerId);
             throw ex;
         }
     }
