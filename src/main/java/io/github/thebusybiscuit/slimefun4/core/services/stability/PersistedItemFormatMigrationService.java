@@ -31,12 +31,50 @@ public final class PersistedItemFormatMigrationService {
     private final AtomicLong generation = new AtomicLong();
     private volatile PersistedItemFormatMigrationPlan preparedPlan;
 
+    /**
+     * Performs the same unloaded-storage classification used for planning without creating or replacing an
+     * execution fingerprint. This is intended for aggregate Doctor/upgrade reporting.
+     */
+    public @Nonnull AuditResult audit() {
+        ScanComputation computation = scanStorage();
+        if (computation.busy()) {
+            return AuditResult.busyResult();
+        }
+        return new AuditResult(
+                false,
+                computation.scannedRecords(),
+                computation.currentRecords(),
+                computation.entries().size(),
+                computation.unreadableLegacyRecords(),
+                computation.unreadableSamples());
+    }
+
     public @Nonnull ScanResult preparePlan() {
+        preparedPlan = null;
+        ScanComputation computation = scanStorage();
+        if (computation.busy()) {
+            return new ScanResult(true, null);
+        }
+
+        long now = System.currentTimeMillis();
+        PersistedItemFormatMigrationPlan plan = new PersistedItemFormatMigrationPlan(
+                generation.incrementAndGet(),
+                now,
+                PLAN_TTL_MILLIS,
+                computation.entries(),
+                computation.scannedRecords(),
+                computation.currentRecords(),
+                computation.unreadableLegacyRecords(),
+                computation.unreadableSamples());
+        preparedPlan = plan;
+        return new ScanResult(false, plan);
+    }
+
+    private @Nonnull ScanComputation scanStorage() {
         PersistedItemStorageMaintenance maintenance = maintenance();
         var snapshot = maintenance.snapshot();
         if (!snapshot.available()) {
-            preparedPlan = null;
-            return new ScanResult(true, null);
+            return ScanComputation.busyResult();
         }
 
         long scanned = 0L;
@@ -67,18 +105,13 @@ public final class PersistedItemFormatMigrationService {
                     hash(record.storedValue())));
         }
 
-        long now = System.currentTimeMillis();
-        PersistedItemFormatMigrationPlan plan = new PersistedItemFormatMigrationPlan(
-                generation.incrementAndGet(),
-                now,
-                PLAN_TTL_MILLIS,
-                entries,
+        return new ScanComputation(
+                false,
+                List.copyOf(entries),
                 scanned,
                 current,
                 unreadable,
-                unreadableSamples);
-        preparedPlan = plan;
-        return new ScanResult(false, plan);
+                List.copyOf(unreadableSamples));
     }
 
     public @Nonnull Optional<PersistedItemFormatMigrationPlan> getPreparedPlan() {
@@ -191,6 +224,22 @@ public final class PersistedItemFormatMigrationService {
         return new PersistedItemStorageMaintenance(Slimefun.getDatabaseManager().getBlockDataController());
     }
 
+    public record AuditResult(
+            boolean busy,
+            long scannedRecords,
+            long currentRecords,
+            long rewriteCandidates,
+            long unreadableLegacyRecords,
+            List<String> unreadableSamples) {
+        public AuditResult {
+            unreadableSamples = List.copyOf(unreadableSamples);
+        }
+
+        static AuditResult busyResult() {
+            return new AuditResult(true, 0L, 0L, 0L, 0L, List.of());
+        }
+    }
+
     public record ScanResult(boolean busy, PersistedItemFormatMigrationPlan plan) {}
 
     public record ExecutionResult(ExecutionStatus status, RewriteSummary summary) {}
@@ -203,5 +252,17 @@ public final class PersistedItemFormatMigrationService {
         STORAGE_BUSY,
         STALE,
         FAILED
+    }
+
+    private record ScanComputation(
+            boolean busy,
+            List<PersistedItemFormatMigrationPlan.Entry> entries,
+            long scannedRecords,
+            long currentRecords,
+            long unreadableLegacyRecords,
+            List<String> unreadableSamples) {
+        static ScanComputation busyResult() {
+            return new ScanComputation(true, List.of(), 0L, 0L, 0L, List.of());
+        }
     }
 }
