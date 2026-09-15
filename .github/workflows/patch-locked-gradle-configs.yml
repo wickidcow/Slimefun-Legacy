@@ -22,31 +22,33 @@ jobs:
 
           path = Path('scripts/compile_addon_paper_26_3.py')
           text = path.read_text(encoding='utf-8')
-          old = '''        p.configurations.configureEach { configuration ->
-            if (configuration.canBeResolved) {
-                configuration.attributes.attribute(
-                    org.gradle.api.attributes.java.TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE,
-                    probeRuntimeJvm
-                )
-            }
-        }
-'''
-          new = '''        p.configurations.configureEach { configuration ->
-            if (configuration.canBeResolved) {
-                try {
-                    configuration.attributes.attribute(
-                        org.gradle.api.attributes.java.TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE,
-                        probeRuntimeJvm
-                    )
-                } catch (RuntimeException ignored) {
-                    // Tooling configurations such as Paperweight/Mache may already
-                    // be locked by projectsEvaluated. They are not the addon's Java
-                    // compile classpath, so leave them untouched and continue.
-                    p.logger.info("Paper 26.3 probe left locked configuration '${configuration.name}' unchanged")
-                }
-            }
-        }
-'''
+          old = (
+              "        p.configurations.configureEach { configuration ->\n"
+              "            if (configuration.canBeResolved) {\n"
+              "                configuration.attributes.attribute(\n"
+              "                    org.gradle.api.attributes.java.TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE,\n"
+              "                    probeRuntimeJvm\n"
+              "                )\n"
+              "            }\n"
+              "        }\n"
+          )
+          new = (
+              "        p.configurations.configureEach { configuration ->\n"
+              "            if (configuration.canBeResolved) {\n"
+              "                try {\n"
+              "                    configuration.attributes.attribute(\n"
+              "                        org.gradle.api.attributes.java.TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE,\n"
+              "                        probeRuntimeJvm\n"
+              "                    )\n"
+              "                } catch (RuntimeException ignored) {\n"
+              "                    // Tooling configurations such as Paperweight/Mache may already\n"
+              "                    // be locked by projectsEvaluated. They are not the addon's Java\n"
+              "                    // compile classpath, so leave them untouched and continue.\n"
+              "                    p.logger.info(\"Paper 26.3 probe left locked configuration '${configuration.name}' unchanged\")\n"
+              "                }\n"
+              "            }\n"
+              "        }\n"
+          )
           if old not in text:
               raise SystemExit('expected Gradle candidate-probe block was not found')
           path.write_text(text.replace(old, new), encoding='utf-8')
