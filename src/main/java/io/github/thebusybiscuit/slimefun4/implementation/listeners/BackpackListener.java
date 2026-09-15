@@ -63,6 +63,19 @@ public class BackpackListener implements Listener {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
+    /**
+     * Returns whether this player currently has a backpack request waiting for its
+     * asynchronous profile/backpack lookup to finish.
+     *
+     * <p>This is intentionally different from an already-open backpack session. It
+     * exists so the central interaction dispatcher can reject a second hand/item
+     * interaction during the short pending window instead of allowing another GUI
+     * to race the delayed backpack open callback.</p>
+     */
+    public boolean isOpening(@Nonnull UUID playerId) {
+        return openRegistry.isOpening(playerId);
+    }
+
     @EventHandler
     public void onClose(InventoryCloseEvent e) {
         Player p = (Player) e.getPlayer();
