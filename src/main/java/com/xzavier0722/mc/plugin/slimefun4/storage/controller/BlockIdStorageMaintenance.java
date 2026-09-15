@@ -117,9 +117,25 @@ public final class BlockIdStorageMaintenance {
         for (RecordSet record : controller.getData(key)) {
             String uuid = stringValue(record, FieldKey.UNIVERSAL_UUID);
             String slimefunId = stringValue(record, FieldKey.SLIMEFUN_ID);
-            if (uuid != null && !uuid.isBlank() && slimefunId != null && !slimefunId.isBlank()) {
-                result.add(new PersistedBlockIdentity(UNIVERSAL_SCOPE, uuid, null, slimefunId, isUniversalLoaded(uuid)));
+            if (uuid == null || uuid.isBlank() || slimefunId == null || slimefunId.isBlank()) {
+                continue;
             }
+
+            UUID parsedUuid;
+            try {
+                parsedUuid = UUID.fromString(uuid);
+            } catch (IllegalArgumentException malformedKey) {
+                // A malformed primary key is unrelated storage corruption. Preserve it untouched rather than
+                // authorizing an ID rewrite against a record Slimefun cannot safely address at runtime.
+                continue;
+            }
+
+            result.add(new PersistedBlockIdentity(
+                    UNIVERSAL_SCOPE,
+                    uuid,
+                    null,
+                    slimefunId,
+                    controller.getUniversalDataFromCache(parsedUuid) != null));
         }
     }
 
@@ -192,14 +208,6 @@ public final class BlockIdStorageMaintenance {
             }
         }
         return loaded;
-    }
-
-    private boolean isUniversalLoaded(String uuid) {
-        try {
-            return controller.getUniversalDataFromCache(UUID.fromString(uuid)) != null;
-        } catch (IllegalArgumentException ignored) {
-            return false;
-        }
     }
 
     private static DataScope parseScope(String storageScope) {
