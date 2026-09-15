@@ -52,7 +52,8 @@ public final class SlimefunSubCommands {
         commands.add(new UnbanItemCommand(plugin, cmd));
         commands.add(new ClearDataCommand(plugin, cmd));
         commands.add(new StabilityCommand(plugin, cmd));
-        commands.add(new DoctorMachineRouterCommand(plugin, cmd));
+        DoctorRouterCommand doctor = new DoctorRouterCommand(plugin, cmd);
+        commands.add(new DoctorMachineRouterCommand(plugin, cmd, doctor));
         return commands;
     }
 }
