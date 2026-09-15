@@ -1,0 +1,1 @@
+Test-only regression coverage for the loaded-machine migration execution boundary.
