@@ -14,6 +14,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
 import java.util.Optional;
+import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
@@ -25,12 +26,14 @@ import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event.Result;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.RegisteredListener;
 
 /**
  * This {@link Listener} listens to the {@link PlayerInteractEvent}.
@@ -45,7 +48,11 @@ import org.bukkit.inventory.ItemStack;
  */
 public class SlimefunItemInteractListener implements Listener {
 
+    private final Slimefun plugin;
+    private volatile BackpackListener backpackListener;
+
     public SlimefunItemInteractListener(@Nonnull Slimefun plugin) {
+        this.plugin = plugin;
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
@@ -83,6 +90,22 @@ public class SlimefunItemInteractListener implements Listener {
     @EventHandler
     public void onRightClick(PlayerInteractEvent e) {
         if (e.getAction() == Action.RIGHT_CLICK_AIR || e.getAction() == Action.RIGHT_CLICK_BLOCK) {
+            /*
+             * A backpack open can pause while profile/backpack data resolves asynchronously.
+             * During that window Bukkit may deliver the paired interaction for the player's
+             * other hand from the same physical click. Dispatching that second event can open
+             * the Guide or another GUI before the delayed backpack callback runs, recreating
+             * the stale/competing-inventory window that the backpack reservation is meant to
+             * close. Reject the whole interaction before firing PlayerRightClickEvent.
+             *
+             * BackpackListener is registered later during startup, so resolve it lazily from
+             * Bukkit's registered listeners and cache it after the first lookup.
+             */
+            if (isBackpackOpenPending(e.getPlayer().getUniqueId())) {
+                e.setCancelled(true);
+                return;
+            }
+
             // Exclude the Debug Fish here because it is handled in a seperate Listener
             if (SlimefunUtils.isItemSimilar(e.getItem(), SlimefunItems.DEBUG_FISH, true)) {
                 return;
@@ -124,6 +147,21 @@ public class SlimefunItemInteractListener implements Listener {
                 e.setUseItemInHand(event.useItem());
             }
         }
+    }
+
+    private boolean isBackpackOpenPending(@Nonnull UUID playerId) {
+        BackpackListener listener = backpackListener;
+        if (listener == null) {
+            for (RegisteredListener registeredListener : HandlerList.getRegisteredListeners(plugin)) {
+                if (registeredListener.getListener() instanceof BackpackListener found) {
+                    backpackListener = found;
+                    listener = found;
+                    break;
+                }
+            }
+        }
+
+        return listener != null && listener.isOpening(playerId);
     }
 
     @ParametersAreNonnullByDefault
