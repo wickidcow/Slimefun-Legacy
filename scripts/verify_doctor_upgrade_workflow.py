@@ -33,6 +33,14 @@ def main() -> int:
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorUpgradeWorkflow.java",
     )
+    block_service = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/PersistedBlockIdMigrationService.java",
+    )
+    item_service = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/PersistedItemFormatMigrationService.java",
+    )
     router = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorRouterCommand.java",
@@ -66,12 +74,44 @@ def main() -> int:
         "same-ID lane must direct operators through the native schema fingerprint scan",
     )
     require(
-        "Legacy-ID and same-ID schema fingerprints remain separate" in workflow,
+        "/sf doctor migrations blocks scan " in workflow,
+        "exact-machine lane must direct operators through the native placed-machine fingerprint scan",
+    )
+    require(
+        "/sf doctor migrations schemas blocks scan" in workflow,
+        "persisted block-ID lane must direct operators through the native storage fingerprint scan",
+    )
+    require(
+        "/sf doctor migrations schemas storage scan" in workflow,
+        "persisted item-payload lane must direct operators through the native storage fingerprint scan",
+    )
+    require(
+        "new PersistedBlockIdMigrationService().audit()" in workflow,
+        "upgrade planning must use the read-only persisted block-ID audit",
+    )
+    require(
+        "new PersistedItemFormatMigrationService().audit()" in workflow,
+        "upgrade planning must use the read-only persisted item-payload audit",
+    )
+    require(
+        "public @Nonnull AuditResult audit()" in block_service,
+        "persisted block-ID service must expose a read-only audit path",
+    )
+    require(
+        "public @Nonnull AuditResult audit()" in item_service,
+        "persisted item-payload service must expose a read-only audit path",
+    )
+    require(
+        "fingerprints remain separate and single-use" in workflow,
         "operator output must explicitly preserve separate migration authorization lanes",
     )
     require(
         "Do not guess-convert these entries" in workflow,
         "manual/unresolved evidence must remain fail-closed",
+    )
+    reject(
+        "Doctor has no block-ID migration executor" in workflow,
+        "upgrade workflow must not claim the persisted block-ID executor is missing",
     )
     require(
         "Core diagnostics never rewrite addon persistence directly." in router,
@@ -91,6 +131,8 @@ def main() -> int:
         "migrationService.preparePlan(",
         "migrationService.invalidatePreparedPlan(",
         "migrationService.invalidateAllPreparedPlans(",
+        "PersistedBlockIdMigrationService().preparePlan(",
+        "PersistedItemFormatMigrationService().preparePlan(",
         "startSchemaMigrationRun(",
         ".migrateItem(",
         "LegacyItemSchemaMigrationService",
