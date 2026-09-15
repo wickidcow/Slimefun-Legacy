@@ -13,14 +13,21 @@ class TestMinecraftVersion {
         Assertions.assertTrue(MinecraftVersion.MINECRAFT_1_16.isMinecraftVersion(1, 16, 0));
         Assertions.assertTrue(MinecraftVersion.MINECRAFT_1_21.isMinecraftVersion(1, 21, 3));
         Assertions.assertTrue(MinecraftVersion.MINECRAFT_26_1.isMinecraftVersion(26, 1, 0));
+        Assertions.assertTrue(MinecraftVersion.MINECRAFT_26_2.isMinecraftVersion(26, 2, 0));
+        Assertions.assertTrue(MinecraftVersion.MINECRAFT_26_3.isMinecraftVersion(26, 3, 0));
     }
 
     @Test
-    @DisplayName("Three-arg API should support 26.1.x series")
+    @DisplayName("Three-arg API should support 26.x patch series without crossing minor versions")
     void testThreeArgMatchesNewVersioning() {
         Assertions.assertTrue(MinecraftVersion.MINECRAFT_26_1.isMinecraftVersion(26, 1, 0));
-        Assertions.assertTrue(MinecraftVersion.MINECRAFT_26_1.isMinecraftVersion(26, 1, 1));
         Assertions.assertTrue(MinecraftVersion.MINECRAFT_26_1.isMinecraftVersion(26, 1, 99));
+        Assertions.assertTrue(MinecraftVersion.MINECRAFT_26_2.isMinecraftVersion(26, 2, 99));
+        Assertions.assertTrue(MinecraftVersion.MINECRAFT_26_3.isMinecraftVersion(26, 3, 99));
+
+        Assertions.assertFalse(MinecraftVersion.MINECRAFT_26_1.isMinecraftVersion(26, 2, 0));
+        Assertions.assertFalse(MinecraftVersion.MINECRAFT_26_2.isMinecraftVersion(26, 3, 0));
+        Assertions.assertFalse(MinecraftVersion.MINECRAFT_26_3.isMinecraftVersion(26, 2, 99));
     }
 
     @Test
@@ -40,35 +47,44 @@ class TestMinecraftVersion {
     void testThreeArgRejectsWrongMajorOrMinor() {
         Assertions.assertFalse(MinecraftVersion.MINECRAFT_26_1.isMinecraftVersion(1, 26, 1));
         Assertions.assertFalse(MinecraftVersion.MINECRAFT_26_1.isMinecraftVersion(26, 2, 1));
+        Assertions.assertFalse(MinecraftVersion.MINECRAFT_26_3.isMinecraftVersion(26, 2, 1));
         Assertions.assertFalse(MinecraftVersion.MINECRAFT_1_21.isMinecraftVersion(26, 1, 1));
     }
 
     @Test
     @DisplayName("Three-arg API should return false for virtual versions")
     void testThreeArgVirtualVersionHandling() {
-        Assertions.assertFalse(MinecraftVersion.UNKNOWN.isMinecraftVersion(26, 1, 1));
+        Assertions.assertFalse(MinecraftVersion.UNKNOWN.isMinecraftVersion(26, 3, 1));
         Assertions.assertFalse(MinecraftVersion.UNIT_TEST.isMinecraftVersion(1, 21, 1));
     }
 
     @Test
-    @DisplayName("Legacy two-arg API should still identify 26.1.x correctly")
+    @DisplayName("Legacy two-arg API should preserve 26.x minor boundaries")
     void testTwoArgRegression() {
         Assertions.assertTrue(MinecraftVersion.MINECRAFT_26_1.isMinecraftVersion(26, 1));
-        Assertions.assertFalse(MinecraftVersion.MINECRAFT_26_1.isMinecraftVersion(26, 0));
+        Assertions.assertTrue(MinecraftVersion.MINECRAFT_26_2.isMinecraftVersion(26, 2));
+        Assertions.assertTrue(MinecraftVersion.MINECRAFT_26_3.isMinecraftVersion(26, 3));
+        Assertions.assertFalse(MinecraftVersion.MINECRAFT_26_1.isMinecraftVersion(26, 2));
+        Assertions.assertFalse(MinecraftVersion.MINECRAFT_26_2.isMinecraftVersion(26, 3));
         Assertions.assertFalse(MinecraftVersion.MINECRAFT_26_1.isMinecraftVersion(1, 26));
     }
 
     @Test
-    @DisplayName("Enum order should keep 26.1 newer than 1.21")
+    @DisplayName("Enum order should preserve the supported version progression")
     void testAtLeastOrderingForNewVersion() {
         Assertions.assertTrue(MinecraftVersion.MINECRAFT_26_1.isAtLeast(MinecraftVersion.MINECRAFT_1_21));
+        Assertions.assertTrue(MinecraftVersion.MINECRAFT_26_2.isAtLeast(MinecraftVersion.MINECRAFT_26_1));
+        Assertions.assertTrue(MinecraftVersion.MINECRAFT_26_3.isAtLeast(MinecraftVersion.MINECRAFT_26_2));
+        Assertions.assertFalse(MinecraftVersion.MINECRAFT_26_2.isAtLeast(MinecraftVersion.MINECRAFT_26_3));
         Assertions.assertFalse(MinecraftVersion.MINECRAFT_1_21.isAtLeast(MinecraftVersion.MINECRAFT_26_1));
     }
 
     @Test
-    @DisplayName("isBefore should be symmetric for 1.21 and 26.1")
+    @DisplayName("isBefore should remain symmetric across the 26.2 to 26.3 boundary")
     void testIsBeforeForNewVersion() {
         Assertions.assertTrue(MinecraftVersion.MINECRAFT_1_21.isBefore(MinecraftVersion.MINECRAFT_26_1));
+        Assertions.assertTrue(MinecraftVersion.MINECRAFT_26_2.isBefore(MinecraftVersion.MINECRAFT_26_3));
+        Assertions.assertFalse(MinecraftVersion.MINECRAFT_26_3.isBefore(MinecraftVersion.MINECRAFT_26_2));
         Assertions.assertFalse(MinecraftVersion.MINECRAFT_26_1.isBefore(MinecraftVersion.MINECRAFT_1_21));
     }
 }
