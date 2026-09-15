@@ -67,18 +67,36 @@ The unified upgrade view helps server owners understand old-world migration work
 
 Plain `/sf doctor upgrade` remains the existing core/runtime readiness snapshot. The subcommands above add migration discovery and planning around that snapshot.
 
+`/sf doctor upgrade plan` also performs read-only persisted-storage audits. Those audits **do not create an execution fingerprint**. Every mutation lane still requires its own fresh native scan and explicit fingerprinted execute command.
+
 ### Recommended sequence
 
 1. Make or verify a current full backup.
 2. Run `/sf doctor upgrade status`.
 3. Run `/sf doctor upgrade scan` and wait for the read-only traversal to finish.
-4. Run `/sf doctor upgrade plan`.
-5. Resolve anything shown as `NEEDS PROVIDER`, `MANUAL/BLOCKED` or a traversal failure before executing migrations.
-6. For legacy-ID candidates, run the exact `/sf doctor migrations scan <plugin>` command shown by Doctor.
-7. For same-ID schema candidates, run `/sf doctor migrations schemas scan` and follow only the exact fingerprinted execution command it prints.
-8. Re-run the upgrade scan after migrations to confirm what remains.
+4. Run `/sf doctor upgrade plan` and review every lane, including the persisted-storage summary.
+5. Resolve anything shown as `NEEDS PROVIDER`, `MANUAL/BLOCKED`, unreadable storage, unknown IDs, missing targets or a traversal failure before treating the migration picture as clean.
+6. For legacy item-ID candidates, run the exact `/sf doctor migrations scan <plugin>` command shown by Doctor.
+7. For same-ID item-schema candidates, run `/sf doctor migrations schemas scan` and follow only the exact fingerprinted execution command it prints.
+8. For addon-owned placed machines, run `/sf doctor migrations blocks scan <plugin>` for each relevant provider. This lane covers only currently loaded supported scope and never force-loads chunks.
+9. For persisted block/universal legacy IDs, run `/sf doctor migrations schemas blocks scan`, then use only the fingerprinted execute command printed by that scan. Loaded/cached records remain protected and may require unloading/restarting before a later scan can rewrite them.
+10. For legacy persisted inventory payloads, run `/sf doctor migrations schemas storage scan`, then use only the fingerprinted execute command printed by that scan. Unreadable legacy payloads block execution rather than being guessed or discarded.
+11. Re-run `/sf doctor upgrade scan` and `/sf doctor upgrade plan` after migrations. A clean persisted-storage summary should show no ready, loaded/deferred or manual/blocked storage work.
+12. Load representative old-server regions and re-run exact-machine scans before declaring world migration complete, because exact-machine providers intentionally do not force-load old chunks.
 
-If the server restarts, an addon is updated/reloaded, or migration providers change after discovery, run a fresh upgrade scan and create new fingerprints instead of reusing earlier assumptions.
+If the server restarts, an addon is updated/reloaded, storage changes, or migration providers change after discovery, run a fresh upgrade scan and create new fingerprints instead of reusing earlier assumptions.
+
+### Migration lanes
+
+| Lane | Native authorization command | Scope |
+| --- | --- | --- |
+| Legacy item IDs | `/sf doctor migrations scan <plugin>` | Traversed live/player/backpack item candidates owned by an addon provider |
+| Same-ID item schemas | `/sf doctor migrations schemas scan` | Traversed item candidates with guarded schema probes/validation/migrators |
+| Exact placed machines | `/sf doctor migrations blocks scan <plugin>` | Addon-owned machines in currently loaded supported scope |
+| Persisted block IDs | `/sf doctor migrations schemas blocks scan` | Stored `BLOCK_RECORD` and `UNIVERSAL_RECORD` identities without loading chunks |
+| Persisted item payloads | `/sf doctor migrations schemas storage scan` | Unloaded `BLOCK_INVENTORY` and `UNIVERSAL_INVENTORY` item payload formats |
+
+The aggregate upgrade plan is deliberately not an authorization token. These lanes remain separate because they protect different storage/live-state invariants and have different revalidation requirements.
 
 ### Plan categories
 
@@ -87,11 +105,12 @@ If the server restarts, an addon is updated/reloaded, or migration providers cha
 | `READY NOW` | Doctor found a candidate whose current target/provider capabilities are available. It still requires the native fingerprint scan and explicit execution command. |
 | `NEEDS VALIDATION` | The addon has the probe, validator and migrator needed, but persistent backing state must be revalidated before authorization. |
 | `NEEDS PROVIDER` | The candidate is recognized but the required migration provider, probe, validator or migrator capability is missing or unsafe. |
-| `MANUAL/BLOCKED` | The target is missing, the schema is manual-only, the ID/template is unresolved or the evidence is otherwise insufficient for guarded migration. |
+| `LOADED/DEFERRED` | A persisted block-ID candidate is valid but currently cached/loaded, so storage-level rewrite is intentionally deferred. |
+| `MANUAL/BLOCKED` | The target is missing, the schema is manual-only, stored data is unreadable, the ID/template is unresolved or the evidence is otherwise insufficient for guarded migration. |
 
 A candidate marked `READY` by an addon probe is **not** treated as executable merely because the probe recognized it. Item-local same-ID migration requires both the probe and migrator to be present. Validation-backed migration requires the probe, validator and migrator.
 
-The unified upgrade workflow never creates a combined execution token. Legacy-ID fingerprints and same-ID schema fingerprints remain separate, short-lived and single-use. The plan itself is read-only and never calls an addon migrator or provider repair method.
+The unified upgrade workflow never creates a combined execution token. Legacy-ID, same-ID schema, exact-machine, persisted block-ID and persisted item-payload fingerprints remain separate, short-lived and single-use. The plan itself is read-only and never calls an addon migrator or provider repair method.
 
 ## Dependency diagnostics
 
