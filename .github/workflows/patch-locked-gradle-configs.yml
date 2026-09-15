@@ -1,0 +1,65 @@
+name: Patch locked Gradle configurations
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/patch-locked-gradle-configs.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Harden candidate probe for locked tooling configurations
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/compile_addon_paper_26_3.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''        p.configurations.configureEach { configuration ->
+            if (configuration.canBeResolved) {
+                configuration.attributes.attribute(
+                    org.gradle.api.attributes.java.TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE,
+                    probeRuntimeJvm
+                )
+            }
+        }
+'''
+          new = '''        p.configurations.configureEach { configuration ->
+            if (configuration.canBeResolved) {
+                try {
+                    configuration.attributes.attribute(
+                        org.gradle.api.attributes.java.TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE,
+                        probeRuntimeJvm
+                    )
+                } catch (RuntimeException ignored) {
+                    // Tooling configurations such as Paperweight/Mache may already
+                    // be locked by projectsEvaluated. They are not the addon's Java
+                    // compile classpath, so leave them untouched and continue.
+                    p.logger.info("Paper 26.3 probe left locked configuration '${configuration.name}' unchanged")
+                }
+            }
+        }
+'''
+          if old not in text:
+              raise SystemExit('expected Gradle candidate-probe block was not found')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+          python3 scripts/test_compile_addon_paper_26_3.py
+          git diff --check
+      - name: Commit probe fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'wickidcow'
+          git config user.email '185013218+wickidcow@users.noreply.github.com'
+          git add scripts/compile_addon_paper_26_3.py
+          git diff --cached --stat
+          git commit -m 'ci: tolerate locked Gradle tooling configurations'
+          git push
