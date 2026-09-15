@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "bundle_name": "SFL_Addons_1.21.11-26.3.zip",
+  "compatibility": {
+    "minecraft_versions": {
+      "minimum": "1.21.11",
+      "supported": ["1.21.11", "26.1.x", "26.2", "26.3"],
+      "primary": "26.2",
+      "candidate": "26.3",
+      "candidate_status": "compatible-until-stable"
+    },
+    "server_platforms": {
+      "primary": ["Paper", "Purpur"],
+      "secondary": ["Folia", "Leaf"]
+    },
+    "policy": {
+      "preserve_oldest_supported_api_floor": true,
+      "do_not_raise_plugin_api_version_for_26_3_only": true,
+      "paper_26_3_compile_required_for_bundle": true,
+      "paper_26_2_remains_production_baseline": true,
+      "promote_26_3_only_after_stable_server_build": true
+    }
+  },
+  "addons": [
+    {"repository":"wickidcow/SF_AlchimiaVitae","slug":"alchimiavitae"},
+    {"repository":"wickidcow/SF_BetterChests","slug":"betterchests"},
+    {"repository":"wickidcow/SF_BetterFarming","slug":"betterfarming"},
+    {"repository":"wickidcow/SF_BuildingStaff","slug":"buildingstaff"},
+    {"repository":"wickidcow/SF_CultivationLegacy","slug":"cultivationlegacy"},
+    {"repository":"wickidcow/SF_DankTech2","slug":"danktech2"},
+    {"repository":"wickidcow/SF_DynaTech","slug":"dynatech"},
+    {"repository":"wickidcow/SF_ElectricSpawners","slug":"electricspawners"},
+    {"repository":"wickidcow/SF_ExoticGarden","slug":"exoticgarden"},
+    {"repository":"wickidcow/SF_ExtraHeads","slug":"extraheads"},
+    {"repository":"wickidcow/SF_FastMachines","slug":"fastmachines"},
+    {"repository":"wickidcow/SF_FinalTECH","slug":"finaltech"},
+    {"repository":"wickidcow/SF_FlowerPower","slug":"flowerpower"},
+    {"repository":"wickidcow/SF_FluffyMachines","slug":"fluffymachines"},
+    {"repository":"wickidcow/SF_FNAmplifications","slug":"fnamplifications"},
+    {"repository":"wickidcow/SF_FoxyMachines","slug":"foxymachines"},
+    {"repository":"wickidcow/SF_Galactifun","slug":"galactifun"},
+    {"repository":"wickidcow/SF_Gastronomicon","slug":"gastronomicon"},
+    {"repository":"wickidcow/SF_GeneticChickEngineering","slug":"geneticchickengineering"},
+    {"repository":"wickidcow/SF_HotbarPets","slug":"hotbarpets"},
+    {"repository":"wickidcow/SF_IDreamOfEasy","slug":"idreamofeasy"},
+    {"repository":"wickidcow/SF_InfinityExpansion2","slug":"infinityexpansion2"},
+    {"repository":"wickidcow/SF_LiteXpansion","slug":"litexpansion"},
+    {"repository":"wickidcow/SF_LuckyBlocks","slug":"luckyblocks"},
+    {"repository":"wickidcow/SF_Magic8Ball","slug":"magic8ball"},
+    {"repository":"wickidcow/SF_MagicExpansion","slug":"magicexpansion"},
+    {"repository":"wickidcow/SF_MilitaryArsenal","slug":"militaryarsenal"},
+    {"repository":"wickidcow/SF_MobCapturer","slug":"mobcapturer"},
+    {"repository":"wickidcow/SF_MobDrops","slug":"mobdrops"},
+    {"repository":"wickidcow/SF_NetworksExp","slug":"networksexp"},
+    {"repository":"wickidcow/SF_RelicsOfCthonia","slug":"relicsofcthonia"},
+    {"repository":"wickidcow/SF_RykenSlimeCustomizer","slug":"rykenslimecustomizer"},
+    {"repository":"wickidcow/SF_SlimeEasy","slug":"slimeeasy"},
+    {"repository":"wickidcow/SF_SlimefunAdvancements","slug":"slimefunadvancements"},
+    {"repository":"wickidcow/SF_SlimefunWarfare","slug":"slimefunwarfare"},
+    {"repository":"wickidcow/SF_SlimeGlue","slug":"slimeglue"},
+    {"repository":"wickidcow/SF_SlimeTinkerIE2","slug":"slimetinkerie2"},
+    {"repository":"wickidcow/SF_SlimyTreeTaps","slug":"slimytreetaps"},
+    {"repository":"wickidcow/SF_SMG","slug":"smg"},
+    {"repository":"wickidcow/SF_SoulJars","slug":"souljars"},
+    {"repository":"wickidcow/SF_Supreme","slug":"supreme"}
+  ],
+  "excluded_archived": [
+    "wickidcow/SF_ExtraTools",
+    "wickidcow/SF_Magic_RSC",
+    "wickidcow/SF_WorldTaste"
+  ]
+}
