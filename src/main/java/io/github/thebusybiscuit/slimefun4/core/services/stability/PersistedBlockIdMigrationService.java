@@ -21,13 +21,51 @@ public final class PersistedBlockIdMigrationService {
     private volatile PersistedBlockIdMigrationPlan preparedPlan;
 
     /**
+     * Performs the same storage-level classification used for planning without creating or replacing an execution
+     * fingerprint. This is intended for aggregate Doctor/upgrade reporting.
+     */
+    public @Nonnull AuditResult audit() {
+        ScanComputation computation = scanStorage();
+        if (computation.busy()) {
+            return AuditResult.busyResult();
+        }
+        return new AuditResult(
+                false,
+                computation.scannedRecords(),
+                computation.canonicalRecords(),
+                computation.entries().size(),
+                computation.unknownRecords(),
+                computation.missingTargetRecords(),
+                computation.loadedCandidates());
+    }
+
+    /**
      * Reads BLOCK_RECORD and UNIVERSAL_RECORD identities directly from storage. No Bukkit block or chunk is resolved.
      */
     public @Nonnull ScanResult preparePlan() {
         preparedPlan = null;
+        ScanComputation computation = scanStorage();
+        if (computation.busy()) {
+            return ScanResult.busyResult();
+        }
+
+        PersistedBlockIdMigrationPlan plan = new PersistedBlockIdMigrationPlan(
+                generation.incrementAndGet(),
+                System.currentTimeMillis(),
+                PLAN_TTL_MILLIS,
+                computation.entries(),
+                computation.scannedRecords(),
+                computation.canonicalRecords(),
+                computation.unknownRecords(),
+                computation.missingTargetRecords());
+        preparedPlan = plan;
+        return new ScanResult(false, plan, computation.loadedCandidates());
+    }
+
+    private @Nonnull ScanComputation scanStorage() {
         var snapshot = maintenance().snapshot();
         if (!snapshot.available()) {
-            return ScanResult.busyResult();
+            return ScanComputation.busyResult();
         }
 
         var registry = Slimefun.getRegistry();
@@ -61,17 +99,14 @@ public final class PersistedBlockIdMigrationService {
             }
         }
 
-        PersistedBlockIdMigrationPlan plan = new PersistedBlockIdMigrationPlan(
-                generation.incrementAndGet(),
-                System.currentTimeMillis(),
-                PLAN_TTL_MILLIS,
-                entries,
+        return new ScanComputation(
+                false,
+                List.copyOf(entries),
                 snapshot.identities().size(),
                 canonical,
                 unknown,
-                missingTarget);
-        preparedPlan = plan;
-        return new ScanResult(false, plan, loadedCandidates);
+                missingTarget,
+                loadedCandidates);
     }
 
     public @Nonnull Optional<PersistedBlockIdMigrationPlan> getPreparedPlan() {
@@ -125,6 +160,23 @@ public final class PersistedBlockIdMigrationService {
         FAILED
     }
 
+    public record AuditResult(
+            boolean busy,
+            long scannedRecords,
+            long canonicalRecords,
+            long rewriteCandidates,
+            long unknownRecords,
+            long missingTargetRecords,
+            long loadedCandidates) {
+        static AuditResult busyResult() {
+            return new AuditResult(true, 0L, 0L, 0L, 0L, 0L, 0L);
+        }
+
+        public long immediatelyRewritableCandidates() {
+            return Math.max(0L, rewriteCandidates - loadedCandidates);
+        }
+    }
+
     public record ScanResult(boolean busy, @Nullable PersistedBlockIdMigrationPlan plan, long loadedCandidates) {
         static ScanResult busyResult() {
             return new ScanResult(true, null, 0L);
@@ -135,4 +187,17 @@ public final class PersistedBlockIdMigrationService {
             ExecutionStatus status,
             @Nullable PersistedBlockIdMigrationPlan plan,
             @Nullable RewriteSummary summary) {}
+
+    private record ScanComputation(
+            boolean busy,
+            List<PersistedBlockIdMigrationPlan.Entry> entries,
+            long scannedRecords,
+            long canonicalRecords,
+            long unknownRecords,
+            long missingTargetRecords,
+            long loadedCandidates) {
+        static ScanComputation busyResult() {
+            return new ScanComputation(true, List.of(), 0L, 0L, 0L, 0L, 0L);
+        }
+    }
 }
