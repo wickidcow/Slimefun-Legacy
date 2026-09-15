@@ -2,6 +2,7 @@ package io.github.thebusybiscuit.slimefun4.core.commands;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.StorageIntegrityRepairPlan;
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.StorageIntegrityScanner;
+import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyBlockMigrationProvider;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemMigrationProvider;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaMigrator;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
@@ -130,7 +131,17 @@ class SlimefunTabCompleter implements TabCompleter {
                 return createReturnList(List.of("status", "scan", "plan", "verify", "repair"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("migrations")) {
                 return createReturnList(
-                        List.of("status", "list", "unknown", "plan", "providers", "scan", "execute", "schemas"),
+                        List.of(
+                                "status",
+                                "list",
+                                "unknown",
+                                "plan",
+                                "providers",
+                                "scan",
+                                "execute",
+                                "schemas",
+                                "blocks",
+                                "machines"),
                         args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("ie2")) {
                 return createReturnList(List.of("status", "scan", "migrate", "refresh"), args[2]);
@@ -160,6 +171,11 @@ class SlimefunTabCompleter implements TabCompleter {
         } else if (args.length == 4
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("migrations")
+                && (args[2].equalsIgnoreCase("blocks") || args[2].equalsIgnoreCase("machines"))) {
+            return createReturnList(List.of("status", "scan", "execute"), args[3]);
+        } else if (args.length == 4
+                && args[0].equalsIgnoreCase("doctor")
+                && args[1].equalsIgnoreCase("migrations")
                 && args[2].equalsIgnoreCase("schemas")) {
             return createReturnList(List.of("status", "scan", "execute", "blocks", "storage"), args[3]);
         } else if (args.length == 4
@@ -179,6 +195,12 @@ class SlimefunTabCompleter implements TabCompleter {
         } else if (args.length == 5
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("migrations")
+                && (args[2].equalsIgnoreCase("blocks") || args[2].equalsIgnoreCase("machines"))
+                && (args[3].equalsIgnoreCase("scan") || args[3].equalsIgnoreCase("execute"))) {
+            return createReturnList(getLegacyBlockMigrationProviders(), args[4]);
+        } else if (args.length == 5
+                && args[0].equalsIgnoreCase("doctor")
+                && args[1].equalsIgnoreCase("migrations")
                 && args[2].equalsIgnoreCase("schemas")
                 && (args[3].equalsIgnoreCase("blocks") || args[3].equalsIgnoreCase("storage"))) {
             return createReturnList(List.of("status", "scan", "execute"), args[4]);
@@ -194,6 +216,13 @@ class SlimefunTabCompleter implements TabCompleter {
                 && args[2].equalsIgnoreCase("execute")) {
             // Execution fingerprints are short-lived, single-use state owned by the command service.
             // Do not suggest a stale/static token from the tab completer.
+            return Collections.emptyList();
+        } else if (args.length == 6
+                && args[0].equalsIgnoreCase("doctor")
+                && args[1].equalsIgnoreCase("migrations")
+                && (args[2].equalsIgnoreCase("blocks") || args[2].equalsIgnoreCase("machines"))
+                && args[3].equalsIgnoreCase("execute")) {
+            // Exact-machine fingerprints are short-lived, single-use state; never suggest cached tokens here.
             return Collections.emptyList();
         } else if (args.length == 6
                 && args[0].equalsIgnoreCase("doctor")
@@ -278,6 +307,16 @@ class SlimefunTabCompleter implements TabCompleter {
     @Nonnull
     private List<String> getLegacyMigrationProviders() {
         return Bukkit.getServicesManager().getRegistrations(LegacyItemMigrationProvider.class).stream()
+                .filter(registration -> registration.getPlugin() != null && registration.getPlugin().isEnabled())
+                .map(registration -> registration.getPlugin().getName())
+                .distinct()
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .toList();
+    }
+
+    @Nonnull
+    private List<String> getLegacyBlockMigrationProviders() {
+        return Bukkit.getServicesManager().getRegistrations(LegacyBlockMigrationProvider.class).stream()
                 .filter(registration -> registration.getPlugin() != null && registration.getPlugin().isEnabled())
                 .map(registration -> registration.getPlugin().getName())
                 .distinct()
