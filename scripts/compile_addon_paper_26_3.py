@@ -357,10 +357,17 @@ gradle.projectsEvaluated {
         // attribute used for dependency selection; do not touch compiler targets.
         p.configurations.configureEach { configuration ->
             if (configuration.canBeResolved) {
-                configuration.attributes.attribute(
-                    org.gradle.api.attributes.java.TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE,
-                    probeRuntimeJvm
-                )
+                try {
+                    configuration.attributes.attribute(
+                        org.gradle.api.attributes.java.TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE,
+                        probeRuntimeJvm
+                    )
+                } catch (RuntimeException ignored) {
+                    // Tooling configurations such as Paperweight/Mache may already
+                    // be locked by projectsEvaluated. They are not the addon's Java
+                    // compile classpath, so leave them untouched and continue.
+                    p.logger.info("Paper 26.3 probe left locked configuration '${configuration.name}' unchanged")
+                }
             }
         }
 
