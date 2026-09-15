@@ -1,13 +1,17 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
+import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyBlockMigrationProvider;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemMigrationProvider;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaMigrator;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaProbe;
 import io.github.thebusybiscuit.slimefun4.api.diagnostics.LegacyItemSchemaValidator;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorReport;
+import io.github.thebusybiscuit.slimefun4.core.services.stability.LegacyBlockMigrationService;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.LegacyItemMigrationService;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.LegacyItemSchemaCandidateSummary;
+import io.github.thebusybiscuit.slimefun4.core.services.stability.PersistedBlockIdMigrationService;
+import io.github.thebusybiscuit.slimefun4.core.services.stability.PersistedItemFormatMigrationService;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -27,10 +31,12 @@ final class DoctorUpgradeWorkflow {
 
     private final Slimefun plugin;
     private final LegacyItemMigrationService migrationService;
+    private final LegacyBlockMigrationService blockMigrationService;
 
     DoctorUpgradeWorkflow(@Nonnull Slimefun plugin, @Nonnull LegacyItemMigrationService migrationService) {
         this.plugin = plugin;
         this.migrationService = migrationService;
+        blockMigrationService = new LegacyBlockMigrationService(plugin);
     }
 
     void execute(@Nonnull CommandSender sender, @Nonnull String[] args) {
@@ -56,6 +62,7 @@ final class DoctorUpgradeWorkflow {
         send(sender, "&6Slimefun Legacy Upgrade Workflow");
         send(sender, "&7Legacy-ID migration providers: &e" + migrationService.getProviders().size());
         send(sender, "&7Same-ID schema providers: &e" + schemaProviderCapabilities().size());
+        send(sender, "&7Exact placed-machine providers: &e" + blockMigrationService.getProviders().size());
         if (report == null) {
             send(sender, "&7Migration-aware server scan: &fNot run yet");
             send(sender, "&7Start with &e/sf doctor upgrade scan&7.");
@@ -75,8 +82,8 @@ final class DoctorUpgradeWorkflow {
                     + " &8| &7failures: &c" + report.getFailures());
         }
         send(sender, "&7Readiness snapshot: &e/sf doctor upgrade");
-        send(sender, "&7Upgrade plan: &e/sf doctor upgrade plan");
-        send(sender, "&8This workflow never creates a combined authorization or execution fingerprint.");
+        send(sender, "&7Upgrade plan, including persisted storage audit: &e/sf doctor upgrade plan");
+        send(sender, "&8The aggregate workflow never creates an execution fingerprint.");
     }
 
     private void runScan(@Nonnull CommandSender sender) {
@@ -218,41 +225,113 @@ final class DoctorUpgradeWorkflow {
                     + " &7command printed by that scan.");
         }
 
-        long placedBlockIdentitySignals = report.getLegacyBlockIds() + report.getUnknownBlockIds();
+        send(sender, "&eLane 3 - Exact placed-machine migrations");
+        List<RegisteredServiceProvider<LegacyBlockMigrationProvider>> blockProviders = blockMigrationService.getProviders();
+        if (blockProviders.isEmpty()) {
+            send(sender, "&7No enabled addon has registered an exact placed-machine migration provider.");
+        } else {
+            int shownBlocks = 0;
+            for (RegisteredServiceProvider<LegacyBlockMigrationProvider> registration : blockProviders) {
+                if (shownBlocks++ >= MAX_PROVIDER_LINES) {
+                    break;
+                }
+                String providerId = blockMigrationService.getProviderId(registration);
+                Map<String, String> mappings = blockMigrationService.getMappings(registration);
+                send(sender, "&8- &f" + providerId
+                        + " &8| &7" + blockMigrationService.getProviderName(registration)
+                        + " &8| &7declared mappings &e" + mappings.size());
+                send(sender, "&8  &7Read-only loaded-scope authorization scan: &e/sf doctor migrations blocks scan "
+                        + providerId);
+            }
+            send(sender, "&8Exact-machine scans do not force-load chunks; load old regions and re-scan when needed.");
+        }
+
+        PersistedBlockIdMigrationService.AuditResult blockAudit = new PersistedBlockIdMigrationService().audit();
+        PersistedItemFormatMigrationService.AuditResult itemAudit = new PersistedItemFormatMigrationService().audit();
+        boolean storageAuditIncomplete = blockAudit.busy() || itemAudit.busy();
+        long storageReady = 0L;
+        long storageDeferred = 0L;
+        long storageManual = 0L;
+
+        send(sender, "&eLane 4 - Persisted storage");
+        if (blockAudit.busy()) {
+            send(sender, "&ePersisted block-ID audit unavailable because storage is busy; this upgrade picture is incomplete.");
+        } else {
+            storageReady += blockAudit.immediatelyRewritableCandidates();
+            storageDeferred += blockAudit.loadedCandidates();
+            storageManual += blockAudit.unknownRecords() + blockAudit.missingTargetRecords();
+            send(sender, "&7Block/universal identities scanned: &e" + blockAudit.scannedRecords()
+                    + " &8| &7canonical &a" + blockAudit.canonicalRecords()
+                    + " &8| &7rewrite candidates &e" + blockAudit.rewriteCandidates());
+            send(sender, "&7Immediately rewritable: &a" + blockAudit.immediatelyRewritableCandidates()
+                    + " &8| &7loaded/protected: &e" + blockAudit.loadedCandidates()
+                    + " &8| &7unknown: &c" + blockAudit.unknownRecords()
+                    + " &8| &7missing targets: &c" + blockAudit.missingTargetRecords());
+            if (blockAudit.rewriteCandidates() > 0L) {
+                send(sender, "&7Create the native persisted-ID fingerprint: &e/sf doctor migrations schemas blocks scan");
+            }
+        }
+
+        if (itemAudit.busy()) {
+            send(sender, "&ePersisted item-payload audit unavailable because storage is busy; this upgrade picture is incomplete.");
+        } else {
+            storageReady += itemAudit.rewriteCandidates();
+            storageManual += itemAudit.unreadableLegacyRecords();
+            send(sender, "&7Stored inventory payloads scanned: &e" + itemAudit.scannedRecords()
+                    + " &8| &7current &a" + itemAudit.currentRecords()
+                    + " &8| &7legacy rewrites &e" + itemAudit.rewriteCandidates()
+                    + " &8| &7unreadable legacy &c" + itemAudit.unreadableLegacyRecords());
+            if (itemAudit.rewriteCandidates() > 0L || itemAudit.unreadableLegacyRecords() > 0L) {
+                send(sender, "&7Create the native stored-item fingerprint: &e/sf doctor migrations schemas storage scan");
+            }
+        }
+        send(sender, "&8Storage audit is read-only and creates no execution fingerprint.");
+
         long manualBlocked = report.getUnknownIds()
                 + report.getUnresolvedTemplates()
                 + blockedLegacyStacks
                 + schemaActionability.manualOnly()
-                + placedBlockIdentitySignals;
+                + report.getUnknownBlockIds();
         long readyNow = actionableLegacyStacks + schemaActionability.readyNow();
         long needsValidation = schemaActionability.needsValidation();
         long needsProvider = needsProviderLegacyStacks + schemaActionability.needsProvider();
 
-        send(sender, "&eLane 3 - Manual/unresolved evidence");
+        send(sender, "&eLane 5 - Manual/unresolved evidence");
         send(sender, "&7Placed block identity signals: legacy/alias &e" + report.getLegacyBlockIds()
                 + " &8| &7unknown &c" + report.getUnknownBlockIds());
-        if (placedBlockIdentitySignals > 0L) {
-            send(sender, "&7Placed block identity findings remain manual-only; Doctor has no block-ID migration executor.");
+        if (report.getLegacyBlockIds() > 0L) {
+            send(sender, "&7Legacy/alias placed-block IDs are migration signals, not automatically manual-only; use Lane 3/4 native scans.");
         }
-        send(sender, "&7Manual/blocked candidate signals: &c" + manualBlocked
+        send(sender, "&7Traversal manual/blocked signals: &c" + manualBlocked
                 + " &8| &7Doctor traversal failures: &c" + report.getFailures());
         if (manualBlocked > 0L || report.getFailures() > 0L) {
             send(sender, "&eDo not guess-convert these entries. Resolve addon ownership/schema evidence first.");
         } else {
-            send(sender, "&aNo manual/unresolved evidence was counted by this completed scan.");
+            send(sender, "&aNo manual/unresolved evidence was counted by the completed traversal.");
         }
 
-        send(sender, "&6Upgrade candidate summary");
+        send(sender, "&6Upgrade candidate summary - live/item traversal");
         send(sender, "&aREADY NOW: " + readyNow
                 + " &8| &eNEEDS VALIDATION: " + needsValidation
                 + " &8| &6NEEDS PROVIDER: " + needsProvider
                 + " &8| &cMANUAL/BLOCKED: " + manualBlocked);
+        send(sender, "&6Persisted storage summary - reported separately to avoid double-counting loaded records");
+        if (storageAuditIncomplete) {
+            send(sender, "&eStorage audit incomplete: run the plan again after pending storage work drains.");
+        } else {
+            send(sender, "&aREADY NOW: " + storageReady
+                    + " &8| &eLOADED/DEFERRED: " + storageDeferred
+                    + " &8| &cMANUAL/BLOCKED: " + storageManual);
+            if (storageReady == 0L && storageDeferred == 0L && storageManual == 0L) {
+                send(sender, "&aNo persisted block-ID or stored-item format migration work is currently detected.");
+            }
+        }
         if (report.getFailures() > 0L) {
             send(sender, "&cTraversal failures must be resolved before treating this scan as a complete upgrade picture.");
         }
         send(sender, "&8READY NOW still requires the native fingerprint scan and explicit execution command.");
         send(sender, "&8Read-only plan only: no provider repair, schema migrator, block-ID rewrite, registry rewrite, or storage mutation ran.");
-        send(sender, "&8Legacy-ID and same-ID schema fingerprints remain separate, short-lived and single-use.");
+        send(sender, "&8Legacy-ID, same-ID schema, exact-machine and persisted-storage fingerprints remain separate and single-use.");
     }
 
     private void sendProviders(@Nonnull CommandSender sender) {
@@ -285,9 +364,22 @@ final class DoctorUpgradeWorkflow {
                     + " &8| &7validator " + yesNo(capabilities.validator())
                     + " &8| &7migrator " + yesNo(capabilities.migrator()));
         }
+
+        List<RegisteredServiceProvider<LegacyBlockMigrationProvider>> blockProviders = blockMigrationService.getProviders();
+        send(sender, "&7Exact placed-machine providers: &e" + blockProviders.size());
+        for (int i = 0; i < Math.min(blockProviders.size(), MAX_PROVIDER_LINES); i++) {
+            RegisteredServiceProvider<LegacyBlockMigrationProvider> registration = blockProviders.get(i);
+            send(sender, "&8- &f" + blockMigrationService.getProviderId(registration)
+                    + " &8| &7" + blockMigrationService.getProviderName(registration)
+                    + " &8| &7mappings &e" + blockMigrationService.getMappings(registration).size());
+        }
+
         send(sender, "&7Legacy-ID native gate: &e/sf doctor migrations scan <plugin>");
         send(sender, "&7Same-ID native gate: &e/sf doctor migrations schemas scan");
-        send(sender, "&8Provider discovery is read-only; no execution fingerprint was created.");
+        send(sender, "&7Exact-machine native gate: &e/sf doctor migrations blocks scan <plugin>");
+        send(sender, "&7Persisted block-ID native gate: &e/sf doctor migrations schemas blocks scan");
+        send(sender, "&7Persisted item-payload native gate: &e/sf doctor migrations schemas storage scan");
+        send(sender, "&8Provider discovery and storage audit are read-only; no execution fingerprint was created.");
     }
 
     private List<String> providerProblems(@Nonnull Map<String, String> providerMappings) {
