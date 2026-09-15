@@ -1,0 +1,275 @@
+name: Build SFL Addons 1.21.11-26.3 Bundle
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/build-sfl-addons-compat-bundle.yml'
+      - 'compatibility/sfl-addon-release-matrix.json'
+      - 'scripts/compile_addon_paper_26_3.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sfl-addons-1.21.11-26.3-bundle
+  cancel-in-progress: true
+
+env:
+  BUNDLE_NAME: SFL_Addons_1.21.11-26.3.zip
+
+jobs:
+  prepare:
+    name: Prepare maintained addon matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      count: ${{ steps.matrix.outputs.count }}
+      paper_api: ${{ steps.paper.outputs.paper_api }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate manifest and create matrix
+        id: matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          p = Path('compatibility/sfl-addon-release-matrix.json')
+          data = json.loads(p.read_text(encoding='utf-8'))
+          addons = data['addons']
+          repos = [row['repository'] for row in addons]
+          if len(repos) != len(set(repos)):
+              raise SystemExit('duplicate repositories in addon release matrix')
+          if not all(repo.startswith('wickidcow/SF_') for repo in repos):
+              raise SystemExit('release matrix must contain only maintained wickidcow/SF_ repositories')
+          matrix = {'include': addons}
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as out:
+              out.write('matrix=' + json.dumps(matrix, separators=(',', ':')) + '\n')
+              out.write(f'count={len(addons)}\n')
+          print(f'Prepared {len(addons)} maintained addons')
+          PY
+      - name: Resolve latest Paper 26.3 API
+        id: paper
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re, urllib.request, xml.etree.ElementTree as ET
+          url='https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/maven-metadata.xml'
+          req=urllib.request.Request(url, headers={'User-Agent':'SFL-Addon-Bundle/1.0'})
+          with urllib.request.urlopen(req, timeout=30) as response:
+              root=ET.fromstring(response.read())
+          versions=[n.text.strip() for n in root.findall('./versioning/versions/version') if n.text]
+          candidates=[v for v in versions if v.startswith('26.3.build.')]
+          if not candidates:
+              raise SystemExit('Paper 26.3 API is not published yet')
+          def key(v):
+              m=re.search(r'\\.build\\.(\\d+)',v)
+              return (int(m.group(1)) if m else -1,v)
+          selected=max(candidates,key=key)
+          with open(os.environ['GITHUB_OUTPUT'],'a',encoding='utf-8') as out:
+              out.write(f'paper_api={selected}\n')
+          print(f'Paper candidate API: {selected}')
+          PY
+
+  core:
+    name: Build Slimefun Legacy 26.3 candidate core
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Build exact candidate core
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew clean shadowJar -PpaperApiVersion='${{ needs.prepare.outputs.paper_api }}' --no-daemon
+          JAR="$(find build/libs -maxdepth 1 -type f -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -n "$JAR"
+          test -s "$JAR"
+          mkdir -p candidate-core
+          cp "$JAR" candidate-core/Slimefun-Legacy-candidate.jar
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sfl-26.3-candidate-core
+          path: candidate-core/Slimefun-Legacy-candidate.jar
+          if-no-files-found: error
+
+  compile-addons:
+    name: Verify ${{ matrix.repository }}
+    needs: [prepare, core]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    steps:
+      - name: Check out compatibility tooling
+        uses: actions/checkout@v6
+        with:
+          path: tools
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/download-artifact@v8
+        with:
+          name: sfl-26.3-candidate-core
+          path: candidate-core
+      - name: Clone maintained addon
+        env:
+          ADDON_REPOSITORY: ${{ matrix.repository }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 "https://github.com/${ADDON_REPOSITORY}.git" addon
+          git -C addon rev-parse HEAD
+      - name: Compile against Paper 26.3 candidate
+        env:
+          PAPER_API_VERSION: ${{ needs.prepare.outputs.paper_api }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/scripts/compile_addon_paper_26_3.py \
+            addon \
+            "$PWD/candidate-core/Slimefun-Legacy-candidate.jar" \
+            "$PAPER_API_VERSION" \
+            --report-dir "$PWD/report"
+      - name: Collect distributable plugin JAR
+        env:
+          ADDON_REPOSITORY: ${{ matrix.repository }}
+          ADDON_SLUG: ${{ matrix.slug }}
+          PAPER_API_VERSION: ${{ needs.prepare.outputs.paper_api }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p staged/jars staged/metadata
+          mapfile -t CANDIDATES < <(find addon/build/libs addon/target -maxdepth 2 -type f -name '*.jar' 2>/dev/null \
+            ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name 'original-*.jar' | sort)
+          SELECTED=''
+          for jar in "${CANDIDATES[@]}"; do
+            if jar tf "$jar" | grep -Eq '(^|/)(plugin.yml|paper-plugin.yml|paper-plugin.yaml)$'; then
+              SELECTED="$jar"
+              break
+            fi
+          done
+          if [[ -z "$SELECTED" ]]; then
+            echo "No distributable Bukkit/Paper plugin JAR found for ${ADDON_REPOSITORY}" >&2
+            printf '%s\n' "${CANDIDATES[@]}" >&2
+            exit 1
+          fi
+          NAME="$(basename "$SELECTED")"
+          cp "$SELECTED" "staged/jars/$NAME"
+          SHA="$(git -C addon rev-parse HEAD)"
+          SHA256="$(sha256sum "$SELECTED" | awk '{print $1}')"
+          python3 - <<PY
+          import json
+          from pathlib import Path
+          data={
+            'repository':'${ADDON_REPOSITORY}',
+            'slug':'${ADDON_SLUG}',
+            'commit':'${SHA}',
+            'jar':'${NAME}',
+            'sha256':'${SHA256}',
+            'paper_26_3_api':'${PAPER_API_VERSION}',
+            'production_baseline':'26.2',
+            'minimum_supported':'1.21.11',
+            'primary_platforms':['Paper','Purpur'],
+            'secondary_platforms':['Folia','Leaf']
+          }
+          Path('staged/metadata/${ADDON_SLUG}.json').write_text(json.dumps(data,indent=2)+'\n',encoding='utf-8')
+          PY
+          jar tf "staged/jars/$NAME" >/dev/null
+          echo "Collected $NAME from $SHA"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sfl-addon-${{ matrix.slug }}
+          path: staged/
+          if-no-files-found: error
+
+  package:
+    name: Package and publish verified addon bundle
+    needs: [prepare, compile-addons]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: sfl-addon-*
+          path: collected
+          merge-multiple: true
+      - name: Verify complete maintained set
+        env:
+          EXPECTED: ${{ needs.prepare.outputs.count }}
+          PAPER_API_VERSION: ${{ needs.prepare.outputs.paper_api }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p bundle
+          mapfile -t JARS < <(find collected/jars -maxdepth 1 -type f -name '*.jar' | sort)
+          mapfile -t META < <(find collected/metadata -maxdepth 1 -type f -name '*.json' | sort)
+          if [[ "${#JARS[@]}" -ne "$EXPECTED" || "${#META[@]}" -ne "$EXPECTED" ]]; then
+            echo "Expected ${EXPECTED} verified addons; found ${#JARS[@]} jars and ${#META[@]} metadata files" >&2
+            exit 1
+          fi
+          cp collected/jars/*.jar bundle/
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          source=json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text(encoding='utf-8'))
+          records=[]
+          for path in sorted(Path('collected/metadata').glob('*.json')):
+              records.append(json.loads(path.read_text(encoding='utf-8')))
+          out={
+            'bundle':source['bundle_name'],
+            'compatibility':source['compatibility'],
+            'addons':records
+          }
+          Path('bundle/SFL_ADDON_MANIFEST.json').write_text(json.dumps(out,indent=2)+'\n',encoding='utf-8')
+          PY
+          cat > bundle/COMPATIBILITY.txt <<EOF
+          Slimefun Legacy maintained addon bundle
+
+          Supported Minecraft/Paper generations:
+          - 1.21.11: minimum/base compatibility
+          - 26.1.x: supported
+          - 26.2: PRIMARY production baseline
+          - 26.3: compatible candidate; becomes primary after a stable server build is validated
+
+          Server platforms:
+          - PRIMARY: Paper, Purpur
+          - SECONDARY: Folia, Leaf
+
+          Every JAR in this archive was compiled from its maintained SF_ repository against
+          the Paper ${PAPER_API_VERSION} / Slimefun Legacy candidate stack without raising
+          the addon's own compiler target solely for 26.3.
+          EOF
+          (cd bundle && sha256sum *.jar | sort > SHA256SUMS.txt)
+          (cd bundle && zip -9 -q "../${BUNDLE_NAME}" ./*)
+          unzip -tqq "$BUNDLE_NAME"
+          test -s "$BUNDLE_NAME"
+          echo "Created $BUNDLE_NAME with ${#JARS[@]} verified addons"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: SFL_Addons_1.21.11-26.3
+          path: SFL_Addons_1.21.11-26.3.zip
+          if-no-files-found: error
+      - name: Attach bundle to latest Slimefun Legacy release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --json tagName,isDraft --jq '[.[] | select(.isDraft == false)][0].tagName')"
+          test -n "$TAG"
+          echo "Uploading ${BUNDLE_NAME} to ${TAG}"
+          gh release upload "$TAG" "$BUNDLE_NAME" --repo "$GITHUB_REPOSITORY" --clobber
