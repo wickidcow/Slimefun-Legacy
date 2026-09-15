@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.services.stability;
 
+import com.xzavier0722.mc.plugin.slimefun4.storage.controller.BlockIdStorageMaintenance;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -11,7 +12,7 @@ import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-/** Short-lived authorization for exact persisted Slimefun block-id replacements. */
+/** Short-lived authorization for exact persisted Slimefun identity replacements. */
 public final class PersistedBlockIdMigrationPlan {
 
     private static final int SHORT_FINGERPRINT_LENGTH = 12;
@@ -41,7 +42,8 @@ public final class PersistedBlockIdMigrationPlan {
         this.createdAtMillis = createdAtMillis;
         this.expiresAtMillis = Math.addExact(createdAtMillis, ttlMillis);
         List<Entry> copy = new ArrayList<>(Objects.requireNonNull(entries, "entries"));
-        copy.sort(Comparator.comparing(Entry::locationKey)
+        copy.sort(Comparator.comparing(Entry::storageScope)
+                .thenComparing(Entry::recordKey)
                 .thenComparing(Entry::legacyId)
                 .thenComparing(Entry::canonicalId));
         this.entries = List.copyOf(copy);
@@ -81,7 +83,8 @@ public final class PersistedBlockIdMigrationPlan {
         update(digest, "generation", Long.toString(generation));
         update(digest, "scanned", Long.toString(scannedRecords));
         for (Entry entry : entries) {
-            update(digest, "location", entry.locationKey());
+            update(digest, "scope", entry.storageScope());
+            update(digest, "record", entry.recordKey());
             update(digest, "legacy", entry.legacyId());
             update(digest, "canonical", entry.canonicalId());
         }
@@ -112,14 +115,28 @@ public final class PersistedBlockIdMigrationPlan {
         return builder.toString();
     }
 
-    public record Entry(String locationKey, String legacyId, String canonicalId) {
+    public record Entry(String storageScope, String recordKey, String legacyId, String canonicalId) {
         public Entry {
-            locationKey = requireText(locationKey, "locationKey");
+            storageScope = requireText(storageScope, "storageScope");
+            recordKey = requireText(recordKey, "recordKey");
             legacyId = requireText(legacyId, "legacyId");
             canonicalId = requireText(canonicalId, "canonicalId");
+            if (!storageScope.equals(BlockIdStorageMaintenance.BLOCK_SCOPE)
+                    && !storageScope.equals(BlockIdStorageMaintenance.UNIVERSAL_SCOPE)) {
+                throw new IllegalArgumentException("unsupported storageScope: " + storageScope);
+            }
             if (legacyId.equals(canonicalId)) {
                 throw new IllegalArgumentException("legacyId and canonicalId must differ");
             }
+        }
+
+        public Entry(String locationKey, String legacyId, String canonicalId) {
+            this(BlockIdStorageMaintenance.BLOCK_SCOPE, locationKey, legacyId, canonicalId);
+        }
+
+        /** Backwards-compatible name for normal BLOCK_RECORD plans. */
+        public String locationKey() {
+            return recordKey;
         }
     }
 

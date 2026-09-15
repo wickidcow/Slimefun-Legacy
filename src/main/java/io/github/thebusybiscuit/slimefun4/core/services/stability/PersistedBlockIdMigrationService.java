@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-/** Prepares and executes conservative persisted block-id rewrites from declared legacy aliases. */
+/** Prepares and executes conservative persisted identity rewrites from declared legacy aliases. */
 public final class PersistedBlockIdMigrationService {
 
     static final long PLAN_TTL_MILLIS = 10L * 60L * 1000L;
@@ -21,7 +21,7 @@ public final class PersistedBlockIdMigrationService {
     private volatile PersistedBlockIdMigrationPlan preparedPlan;
 
     /**
-     * Reads every normal BLOCK_RECORD directly from storage. No Bukkit block or chunk is resolved.
+     * Reads BLOCK_RECORD and UNIVERSAL_RECORD identities directly from storage. No Bukkit block or chunk is resolved.
      */
     public @Nonnull ScanResult preparePlan() {
         preparedPlan = null;
@@ -48,7 +48,7 @@ public final class PersistedBlockIdMigrationService {
                 }
                 if (!storedId.equals(canonicalId)) {
                     entries.add(new PersistedBlockIdMigrationPlan.Entry(
-                            identity.locationKey(), storedId, canonicalId));
+                            identity.storageScope(), identity.recordKey(), storedId, canonicalId));
                     if (identity.loaded()) loadedCandidates++;
                     continue;
                 }
@@ -100,7 +100,8 @@ public final class PersistedBlockIdMigrationService {
         preparedPlan = null;
 
         List<RewriteRequest> requests = plan.entries().stream()
-                .map(entry -> new RewriteRequest(entry.locationKey(), entry.legacyId(), entry.canonicalId()))
+                .map(entry -> new RewriteRequest(
+                        entry.storageScope(), entry.recordKey(), entry.legacyId(), entry.canonicalId()))
                 .toList();
         RewriteSummary summary = maintenance().rewrite(requests);
         if (summary.busy()) {

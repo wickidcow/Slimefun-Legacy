@@ -11,20 +11,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Narrow administrative access to persisted normal-block identities.
+ * Narrow administrative access to persisted Slimefun identities.
  *
  * <p>This helper deliberately lives beside {@link ADataController} so it can use the controller's protected
  * read/write maintenance gates without widening the normal storage API. It never resolves Bukkit locations or
- * loads chunks. Loaded block records are not rewritten because {@link SlimefunBlockData} keeps its Slimefun id
- * immutable for the lifetime of the cached object.</p>
+ * loads chunks. Loaded records are not rewritten because cached data containers keep their Slimefun id immutable
+ * for their lifetime.</p>
  */
 public final class BlockIdStorageMaintenance {
+
+    public static final String BLOCK_SCOPE = DataScope.BLOCK_RECORD.name();
+    public static final String UNIVERSAL_SCOPE = DataScope.UNIVERSAL_RECORD.name();
 
     private final BlockDataController controller;
 
@@ -77,30 +81,68 @@ public final class BlockIdStorageMaintenance {
     }
 
     private List<PersistedBlockIdentity> readAllIdentities() {
+        List<PersistedBlockIdentity> result = new ArrayList<>();
+        readBlockIdentities(result);
+        readUniversalIdentities(result);
+        result.sort((left, right) -> {
+            int scope = left.storageScope().compareTo(right.storageScope());
+            return scope != 0 ? scope : left.recordKey().compareTo(right.recordKey());
+        });
+        return List.copyOf(result);
+    }
+
+    private void readBlockIdentities(List<PersistedBlockIdentity> result) {
         RecordKey key = new RecordKey(DataScope.BLOCK_RECORD);
         key.addField(FieldKey.LOCATION);
         key.addField(FieldKey.CHUNK);
         key.addField(FieldKey.SLIMEFUN_ID);
 
         Set<String> loadedLocations = loadedLocationKeys();
-        List<PersistedBlockIdentity> result = new ArrayList<>();
         for (RecordSet record : controller.getData(key)) {
             String location = stringValue(record, FieldKey.LOCATION);
             String chunk = stringValue(record, FieldKey.CHUNK);
             String slimefunId = stringValue(record, FieldKey.SLIMEFUN_ID);
             if (location != null && !location.isBlank() && slimefunId != null && !slimefunId.isBlank()) {
                 result.add(new PersistedBlockIdentity(
-                        location, chunk, slimefunId, loadedLocations.contains(location)));
+                        BLOCK_SCOPE, location, chunk, slimefunId, loadedLocations.contains(location)));
             }
         }
-        result.sort((left, right) -> left.locationKey().compareTo(right.locationKey()));
-        return List.copyOf(result);
+    }
+
+    private void readUniversalIdentities(List<PersistedBlockIdentity> result) {
+        RecordKey key = new RecordKey(DataScope.UNIVERSAL_RECORD);
+        key.addField(FieldKey.UNIVERSAL_UUID);
+        key.addField(FieldKey.SLIMEFUN_ID);
+
+        for (RecordSet record : controller.getData(key)) {
+            String uuid = stringValue(record, FieldKey.UNIVERSAL_UUID);
+            String slimefunId = stringValue(record, FieldKey.SLIMEFUN_ID);
+            if (uuid == null || uuid.isBlank() || slimefunId == null || slimefunId.isBlank()) {
+                continue;
+            }
+
+            UUID parsedUuid;
+            try {
+                parsedUuid = UUID.fromString(uuid);
+            } catch (IllegalArgumentException malformedKey) {
+                // A malformed primary key is unrelated storage corruption. Preserve it untouched rather than
+                // authorizing an ID rewrite against a record Slimefun cannot safely address at runtime.
+                continue;
+            }
+
+            result.add(new PersistedBlockIdentity(
+                    UNIVERSAL_SCOPE,
+                    uuid,
+                    null,
+                    slimefunId,
+                    controller.getUniversalDataFromCache(parsedUuid) != null));
+        }
     }
 
     private RewriteSummary rewriteWhileGated(List<RewriteRequest> requests) {
         Map<String, PersistedBlockIdentity> live = new HashMap<>();
         for (PersistedBlockIdentity identity : readAllIdentities()) {
-            live.put(identity.locationKey(), identity);
+            live.put(identityKey(identity.storageScope(), identity.recordKey()), identity);
         }
 
         int stale = 0;
@@ -110,7 +152,7 @@ public final class BlockIdStorageMaintenance {
 
         try {
             for (RewriteRequest request : requests) {
-                PersistedBlockIdentity current = live.get(request.locationKey());
+                PersistedBlockIdentity current = live.get(identityKey(request.storageScope(), request.recordKey()));
                 if (current == null) {
                     missing++;
                     continue;
@@ -143,11 +185,16 @@ public final class BlockIdStorageMaintenance {
     }
 
     private void writeIdentity(PersistedBlockIdentity current, String replacementId) {
-        RecordKey key = new RecordKey(DataScope.BLOCK_RECORD);
+        DataScope scope = parseScope(current.storageScope());
+        RecordKey key = new RecordKey(scope);
         RecordSet data = new RecordSet();
-        data.put(FieldKey.LOCATION, current.locationKey());
-        if (current.chunkKey() != null) {
-            data.put(FieldKey.CHUNK, current.chunkKey());
+        if (scope == DataScope.BLOCK_RECORD) {
+            data.put(FieldKey.LOCATION, current.recordKey());
+            if (current.chunkKey() != null) {
+                data.put(FieldKey.CHUNK, current.chunkKey());
+            }
+        } else {
+            data.put(FieldKey.UNIVERSAL_UUID, current.recordKey());
         }
         data.put(FieldKey.SLIMEFUN_ID, replacementId);
         controller.setData(key, data);
@@ -163,24 +210,62 @@ public final class BlockIdStorageMaintenance {
         return loaded;
     }
 
+    private static DataScope parseScope(String storageScope) {
+        if (BLOCK_SCOPE.equals(storageScope)) return DataScope.BLOCK_RECORD;
+        if (UNIVERSAL_SCOPE.equals(storageScope)) return DataScope.UNIVERSAL_RECORD;
+        throw new IllegalArgumentException("Unsupported persisted identity scope: " + storageScope);
+    }
+
+    private static String identityKey(String storageScope, String recordKey) {
+        return storageScope + '\u0000' + recordKey;
+    }
+
     @Nullable
     private static String stringValue(RecordSet record, FieldKey key) {
         Object value = record.getValue(key);
         return value == null ? null : String.valueOf(value);
     }
 
-    public record PersistedBlockIdentity(String locationKey, @Nullable String chunkKey, String slimefunId, boolean loaded) {
+    public record PersistedBlockIdentity(
+            String storageScope,
+            String recordKey,
+            @Nullable String chunkKey,
+            String slimefunId,
+            boolean loaded) {
         public PersistedBlockIdentity {
-            Objects.requireNonNull(locationKey, "locationKey");
-            Objects.requireNonNull(slimefunId, "slimefunId");
+            storageScope = Objects.requireNonNull(storageScope, "storageScope");
+            recordKey = Objects.requireNonNull(recordKey, "recordKey");
+            slimefunId = Objects.requireNonNull(slimefunId, "slimefunId");
+            parseScope(storageScope);
+        }
+
+        public PersistedBlockIdentity(
+                String locationKey, @Nullable String chunkKey, String slimefunId, boolean loaded) {
+            this(BLOCK_SCOPE, locationKey, chunkKey, slimefunId, loaded);
+        }
+
+        /** Backwards-compatible name for normal BLOCK_RECORD callers. */
+        public String locationKey() {
+            return recordKey;
         }
     }
 
-    public record RewriteRequest(String locationKey, String expectedId, String replacementId) {
+    public record RewriteRequest(String storageScope, String recordKey, String expectedId, String replacementId) {
         public RewriteRequest {
-            Objects.requireNonNull(locationKey, "locationKey");
-            Objects.requireNonNull(expectedId, "expectedId");
-            Objects.requireNonNull(replacementId, "replacementId");
+            storageScope = Objects.requireNonNull(storageScope, "storageScope");
+            recordKey = Objects.requireNonNull(recordKey, "recordKey");
+            expectedId = Objects.requireNonNull(expectedId, "expectedId");
+            replacementId = Objects.requireNonNull(replacementId, "replacementId");
+            parseScope(storageScope);
+        }
+
+        public RewriteRequest(String locationKey, String expectedId, String replacementId) {
+            this(BLOCK_SCOPE, locationKey, expectedId, replacementId);
+        }
+
+        /** Backwards-compatible name for normal BLOCK_RECORD callers. */
+        public String locationKey() {
+            return recordKey;
         }
     }
 

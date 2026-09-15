@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.xzavier0722.mc.plugin.slimefun4.storage.controller.BlockIdStorageMaintenance;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -55,5 +56,31 @@ class PersistedBlockIdMigrationPlanTest {
         assertTrue(left.matchesFingerprint(right.getFingerprint()));
         assertFalse(left.isExpired(5_499L));
         assertTrue(left.isExpired(5_500L));
+    }
+
+    @Test
+    void fingerprintSeparatesNormalAndUniversalStorageScopes() {
+        var normal = new PersistedBlockIdMigrationPlan(
+                3L,
+                9_000L,
+                1_000L,
+                List.of(new PersistedBlockIdMigrationPlan.Entry(
+                        BlockIdStorageMaintenance.BLOCK_SCOPE, "same-key", "OLD_ID", "NEW_ID")),
+                1L,
+                0L,
+                0L,
+                0L);
+        var universal = new PersistedBlockIdMigrationPlan(
+                3L,
+                9_000L,
+                1_000L,
+                List.of(new PersistedBlockIdMigrationPlan.Entry(
+                        BlockIdStorageMaintenance.UNIVERSAL_SCOPE, "same-key", "OLD_ID", "NEW_ID")),
+                1L,
+                0L,
+                0L,
+                0L);
+
+        assertNotEquals(normal.getFingerprint(), universal.getFingerprint());
     }
 }
