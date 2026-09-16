@@ -55,9 +55,13 @@ require("activeCache = null" in cache,
         "the authoritative backpack cache guard must clear during cache cleanup")
 require("runIfAllUncached(Collection<String> uuids" in cache,
         "backpack cache must expose an atomic all-UUID maintenance guard")
+require("ReentrantReadWriteLock" in cache
+        and "maintenanceLock.readLock()" in cache
+        and "maintenanceLock.writeLock()" in cache,
+        "backpack cache must use a shared/exclusive maintenance gate so normal cache misses stay concurrent")
 require("getOrLoad(String pUuid, int num, Supplier<PlayerBackpack> loader)" in cache
         and "getOrLoad(String uuid, Supplier<PlayerBackpack> loader)" in cache,
-        "normal cache misses must keep database load + cache install under the same maintenance monitor")
+        "normal cache misses must keep database load + cache install under the shared maintenance gate")
 require("backpackCache.getOrLoad(uuid, num" in profile and "backpackCache.getOrLoad(uuid, () -> loadBackpackByUuid(uuid))" in profile,
         "both synchronous backpack load paths must use the cache-miss maintenance guard")
 
@@ -104,6 +108,8 @@ require("executesUncachedBatchExactlyOnce" in cache_test,
         "backpack cache batch-guard regression test is missing")
 require("cacheMissLoadBlocksMaintenanceUntilLoadCompletes" in cache_test,
         "backpack cache must regression-test in-flight synchronous loads against maintenance")
+require("independentCacheMissLoadsMayOverlap" in cache_test,
+        "backpack cache must regression-test that unrelated gameplay loads are not serialized by Doctor safety")
 
 if ERRORS:
     print("Doctor persisted backpack Item-ID verification failed:")
