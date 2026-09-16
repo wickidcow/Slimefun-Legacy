@@ -45,6 +45,11 @@ require("stale != 0 || missing != 0" in storage,
         "all stale/missing rows must be rejected before backpack mutation starts")
 require("rollbackComplete" in storage and "for (int i = applied.size() - 1; i >= 0; i--)" in storage,
         "backpack batch write failures must retain reverse rollback")
+apply_batch = storage.find("private RewriteSummary applyBatch")
+applied_mark = storage.find("applied.add(current);", apply_batch)
+write_mark = storage.find("writeValue(current, request.replacement());", apply_batch)
+require(apply_batch >= 0 and 0 <= applied_mark < write_mark,
+        "backpack rollback must conservatively include the current row before a potentially commit-then-throw write")
 require("activeCache = null" in cache,
         "the authoritative backpack cache guard must clear during cache cleanup")
 require("runIfAllUncached(Collection<String> uuids" in cache,
