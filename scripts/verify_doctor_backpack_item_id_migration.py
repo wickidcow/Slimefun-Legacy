@@ -24,6 +24,7 @@ def require(condition: bool, message: str) -> None:
 
 
 cache = read("src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/BackpackCache.java")
+profile = read("src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/ProfileDataController.java")
 storage = read("src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/PersistedBackpackItemStorageMaintenance.java")
 service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/PersistedBackpackItemIdMigrationService.java")
 plan = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/PersistedBackpackItemIdMigrationPlan.java")
@@ -54,6 +55,11 @@ require("activeCache = null" in cache,
         "the authoritative backpack cache guard must clear during cache cleanup")
 require("runIfAllUncached(Collection<String> uuids" in cache,
         "backpack cache must expose an atomic all-UUID maintenance guard")
+require("getOrLoad(String pUuid, int num, Supplier<PlayerBackpack> loader)" in cache
+        and "getOrLoad(String uuid, Supplier<PlayerBackpack> loader)" in cache,
+        "normal cache misses must keep database load + cache install under the same maintenance monitor")
+require("backpackCache.getOrLoad(uuid, num" in profile and "backpackCache.getOrLoad(uuid, () -> loadBackpackByUuid(uuid))" in profile,
+        "both synchronous backpack load paths must use the cache-miss maintenance guard")
 
 require("resolveLegacySlimefunItemId" in service,
         "backpack migration must use the live registered legacy-ID resolver")
@@ -96,6 +102,8 @@ require("cachedDeferredRowsAreBoundIntoFingerprint" in plan_test,
         "backpack fingerprint regression test must bind deferred-cache count")
 require("executesUncachedBatchExactlyOnce" in cache_test,
         "backpack cache batch-guard regression test is missing")
+require("cacheMissLoadBlocksMaintenanceUntilLoadCompletes" in cache_test,
+        "backpack cache must regression-test in-flight synchronous loads against maintenance")
 
 if ERRORS:
     print("Doctor persisted backpack Item-ID verification failed:")
