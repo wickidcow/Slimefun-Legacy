@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class BackpackCache {
+    private static volatile BackpackCache activeCache;
+
     private final Map<String, Map<Integer, PlayerBackpack>> numCache;
     private final Map<String, PlayerBackpack> uuidCache;
     private final Map<String, PlayerBackpack> maintenanceOwned;
@@ -13,6 +15,7 @@ public class BackpackCache {
         numCache = new HashMap<>();
         uuidCache = new HashMap<>();
         maintenanceOwned = new HashMap<>();
+        activeCache = this;
     }
 
     /**
@@ -83,6 +86,27 @@ public class BackpackCache {
         if (uuidCache.containsKey(uuid)) {
             return false;
         }
+        action.run();
+        return true;
+    }
+
+    /** Read-only cache check used by raw profile-storage maintenance. */
+    static boolean isCachedInActiveController(String uuid) {
+        BackpackCache cache = activeCache;
+        return cache != null && cache.isCached(uuid);
+    }
+
+    /**
+     * Executes a raw profile-storage mutation while the active backpack cache proves the UUID is uncached.
+     * The active profile controller owns exactly one cache; replacing it only occurs during controller lifecycle
+     * replacement, when storage maintenance is not allowed to run.
+     */
+    static boolean runIfUncachedInActiveController(String uuid, Runnable action) {
+        BackpackCache cache = activeCache;
+        return cache == null ? runWithoutCache(action) : cache.runIfUncached(uuid, action);
+    }
+
+    private static boolean runWithoutCache(Runnable action) {
         action.run();
         return true;
     }
