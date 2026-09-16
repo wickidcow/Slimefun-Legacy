@@ -31,7 +31,7 @@ class TestBackpackCacheMaintenanceGuard {
     }
 
     @Test
-    void cacheMissLoadBlocksMaintenanceUntilLoadCompletes() throws Exception {
+    void inFlightCacheMissDefersMaintenanceWithoutBlocking() throws Exception {
         BackpackCache cache = new BackpackCache();
         CountDownLatch loaderEntered = new CountDownLatch(1);
         CountDownLatch releaseLoader = new CountDownLatch(1);
@@ -50,12 +50,11 @@ class TestBackpackCacheMaintenanceGuard {
             Future<Boolean> maintenance = executor.submit(
                     () -> cache.runIfAllUncached(List.of("backpack-a"), batchRan::countDown));
 
-            Assertions.assertFalse(batchRan.await(150, TimeUnit.MILLISECONDS));
-            releaseLoader.countDown();
+            Assertions.assertFalse(maintenance.get(500, TimeUnit.MILLISECONDS));
+            Assertions.assertEquals(1L, batchRan.getCount());
 
+            releaseLoader.countDown();
             loader.get(2, TimeUnit.SECONDS);
-            Assertions.assertTrue(maintenance.get(2, TimeUnit.SECONDS));
-            Assertions.assertTrue(batchRan.await(2, TimeUnit.SECONDS));
         } finally {
             releaseLoader.countDown();
             executor.shutdownNow();
