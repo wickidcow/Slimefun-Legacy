@@ -59,6 +59,8 @@ require("ReentrantReadWriteLock" in cache
         and "maintenanceLock.readLock()" in cache
         and "maintenanceLock.writeLock()" in cache,
         "backpack cache must use a shared/exclusive maintenance gate so normal cache misses stay concurrent")
+require(cache.count("maintenanceLock.readLock()") >= 4,
+        "normal and maintenance cache-install paths must share the read side of the Doctor maintenance gate")
 require("getOrLoad(String pUuid, int num, Supplier<PlayerBackpack> loader)" in cache
         and "getOrLoad(String uuid, Supplier<PlayerBackpack> loader)" in cache,
         "normal cache misses must keep database load + cache install under the shared maintenance gate")
@@ -110,6 +112,8 @@ require("cacheMissLoadBlocksMaintenanceUntilLoadCompletes" in cache_test,
         "backpack cache must regression-test in-flight synchronous loads against maintenance")
 require("independentCacheMissLoadsMayOverlap" in cache_test,
         "backpack cache must regression-test that unrelated gameplay loads are not serialized by Doctor safety")
+require("maintenanceDoesNotBlockUnrelatedCacheReads" in cache_test,
+        "Doctor storage rewrites must regression-test that unrelated cache reads remain responsive")
 
 if ERRORS:
     print("Doctor persisted backpack Item-ID verification failed:")
