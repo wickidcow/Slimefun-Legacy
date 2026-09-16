@@ -145,12 +145,15 @@ public class BackpackCache {
 
     /**
      * Runs a complete direct-storage maintenance batch only while every referenced backpack remains uncached.
-     * The exclusive maintenance side blocks in-flight cache-miss loads and all cache installs for the whole
-     * mutation/rollback batch. Ordinary reads of unrelated already-cached backpacks remain available.
+     * If any cache-miss load is already in flight, this fails closed immediately instead of blocking a command/tick
+     * thread waiting for database I/O. Once acquired, the exclusive maintenance side blocks new cache installs for
+     * the whole mutation/rollback batch. Ordinary reads of unrelated already-cached backpacks remain available.
      */
     boolean runIfAllUncached(Collection<String> uuids, Runnable action) {
         Lock maintenance = maintenanceLock.writeLock();
-        maintenance.lock();
+        if (!maintenance.tryLock()) {
+            return false;
+        }
         try {
             synchronized (this) {
                 for (String uuid : uuids) {
@@ -179,7 +182,8 @@ public class BackpackCache {
 
     /**
      * Executes a raw profile-storage batch only while the authoritative cache proves all UUIDs are uncached.
-     * If the active cache is unavailable, maintenance fails closed and the action is not run.
+     * If the active cache is unavailable or a load already owns the shared gate, maintenance fails closed and the
+     * action is not run.
      */
     static boolean runIfAllUncachedInActiveController(Collection<String> uuids, Runnable action) {
         BackpackCache cache = activeCache;
