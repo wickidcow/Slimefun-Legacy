@@ -83,6 +83,7 @@ class SlimefunTabCompleter implements TabCompleter {
                                 "integrations",
                                 "dependencies",
                                 "storage",
+                                "migrate",
                                 "migrations",
                                 "repair",
                                 "ie2"),
@@ -128,7 +129,7 @@ class SlimefunTabCompleter implements TabCompleter {
                 return createReturnList(List.of("status", "scan", "plan", "providers"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("storage")) {
                 return createReturnList(List.of("status", "scan", "plan", "verify", "repair"), args[2]);
-            } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("migrations")) {
+            } else if (args[0].equalsIgnoreCase("doctor") && isDoctorMigrationRoute(args[1])) {
                 return createReturnList(
                         List.of("status", "list", "unknown", "plan", "providers", "scan", "execute", "schemas"),
                         args[2]);
@@ -154,17 +155,17 @@ class SlimefunTabCompleter implements TabCompleter {
                     : createReturnList(List.of(plan.getFingerprint()), args[3]);
         } else if (args.length == 4
                 && args[0].equalsIgnoreCase("doctor")
-                && args[1].equalsIgnoreCase("migrations")
+                && isDoctorMigrationRoute(args[1])
                 && args[2].equalsIgnoreCase("list")) {
             return createReturnList(List.of("1"), args[3]);
         } else if (args.length == 4
                 && args[0].equalsIgnoreCase("doctor")
-                && args[1].equalsIgnoreCase("migrations")
+                && isDoctorMigrationRoute(args[1])
                 && args[2].equalsIgnoreCase("schemas")) {
             return createReturnList(List.of("status", "scan", "execute", "blocks", "storage"), args[3]);
         } else if (args.length == 4
                 && args[0].equalsIgnoreCase("doctor")
-                && args[1].equalsIgnoreCase("migrations")
+                && isDoctorMigrationRoute(args[1])
                 && (args[2].equalsIgnoreCase("scan") || args[2].equalsIgnoreCase("execute"))) {
             return createReturnList(getLegacyMigrationProviders(), args[3]);
         } else if (args.length == 4 && args[0].equalsIgnoreCase("chunkinfo")) {
@@ -178,26 +179,26 @@ class SlimefunTabCompleter implements TabCompleter {
                     : createReturnList(List.of(currentChunkCoordinate(sender, explicitWorld, false)), args[3]);
         } else if (args.length == 5
                 && args[0].equalsIgnoreCase("doctor")
-                && args[1].equalsIgnoreCase("migrations")
+                && isDoctorMigrationRoute(args[1])
                 && args[2].equalsIgnoreCase("schemas")
                 && (args[3].equalsIgnoreCase("blocks") || args[3].equalsIgnoreCase("storage"))) {
             return createReturnList(List.of("status", "scan", "execute"), args[4]);
         } else if (args.length == 5
                 && args[0].equalsIgnoreCase("doctor")
-                && args[1].equalsIgnoreCase("migrations")
+                && isDoctorMigrationRoute(args[1])
                 && args[2].equalsIgnoreCase("schemas")
                 && args[3].equalsIgnoreCase("execute")) {
             return createReturnList(getSchemaMigrationProviders(), args[4]);
         } else if (args.length == 5
                 && args[0].equalsIgnoreCase("doctor")
-                && args[1].equalsIgnoreCase("migrations")
+                && isDoctorMigrationRoute(args[1])
                 && args[2].equalsIgnoreCase("execute")) {
             // Execution fingerprints are short-lived, single-use state owned by the command service.
             // Do not suggest a stale/static token from the tab completer.
             return Collections.emptyList();
         } else if (args.length == 6
                 && args[0].equalsIgnoreCase("doctor")
-                && args[1].equalsIgnoreCase("migrations")
+                && isDoctorMigrationRoute(args[1])
                 && args[2].equalsIgnoreCase("schemas")
                 && (args[3].equalsIgnoreCase("blocks") || args[3].equalsIgnoreCase("storage"))
                 && args[4].equalsIgnoreCase("execute")) {
@@ -205,7 +206,7 @@ class SlimefunTabCompleter implements TabCompleter {
             return Collections.emptyList();
         } else if (args.length == 6
                 && args[0].equalsIgnoreCase("doctor")
-                && args[1].equalsIgnoreCase("migrations")
+                && isDoctorMigrationRoute(args[1])
                 && args[2].equalsIgnoreCase("schemas")
                 && args[3].equalsIgnoreCase("execute")) {
             // Same-ID schema fingerprints are private short-lived command state; never suggest cached tokens here.
@@ -213,6 +214,12 @@ class SlimefunTabCompleter implements TabCompleter {
         } else {
             return null;
         }
+    }
+
+    static boolean isDoctorMigrationRoute(@Nonnull String action) {
+        return action.equalsIgnoreCase("migrate")
+                || action.equalsIgnoreCase("migration")
+                || action.equalsIgnoreCase("migrations");
     }
 
     private String currentChunkCoordinate(CommandSender sender, World world, boolean xAxis) {
