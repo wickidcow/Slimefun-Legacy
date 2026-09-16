@@ -72,6 +72,14 @@ public enum MinecraftVersion {
     MINECRAFT_26_2(26, 2, "26.2.x"),
 
     /**
+     * This constant represents Minecraft (Java Edition) Version 26.3.
+     *
+     * <p>26.3 is admitted through the pre-release compatibility lane while 26.2 remains the production/runtime
+     * baseline until the full 26.3 validation track is complete.
+     */
+    MINECRAFT_26_3(26, 3, "26.3.x"),
+
+    /**
      * This constant represents an exceptional state in which we were unable
      * to identify the Minecraft Version we are using
      */
