@@ -29,31 +29,47 @@ public class BackpackCache {
      * Access through this method promotes a maintenance-loaded backpack so a maintenance scan
      * cannot evict it while a player is using it.
      */
-    synchronized PlayerBackpack put(PlayerBackpack backpack) {
-        String uuid = backpack.getUniqueId().toString();
-        PlayerBackpack canonical = uuidCache.get(uuid);
-        if (canonical == null) {
-            canonical = backpack;
-            uuidCache.put(uuid, canonical);
-        }
+    PlayerBackpack put(PlayerBackpack backpack) {
+        Lock loadLock = maintenanceLock.readLock();
+        loadLock.lock();
+        try {
+            synchronized (this) {
+                String uuid = backpack.getUniqueId().toString();
+                PlayerBackpack canonical = uuidCache.get(uuid);
+                if (canonical == null) {
+                    canonical = backpack;
+                    uuidCache.put(uuid, canonical);
+                }
 
-        maintenanceOwned.remove(uuid);
-        putNumberReference(canonical);
-        return canonical;
+                maintenanceOwned.remove(uuid);
+                putNumberReference(canonical);
+                return canonical;
+            }
+        } finally {
+            loadLock.unlock();
+        }
     }
 
     /** Adds a backpack only for a maintenance scan without replacing a gameplay instance. */
-    synchronized MaintenanceResult putForMaintenance(PlayerBackpack backpack) {
-        String uuid = backpack.getUniqueId().toString();
-        PlayerBackpack existing = uuidCache.get(uuid);
-        if (existing != null) {
-            return new MaintenanceResult(existing, false);
-        }
+    MaintenanceResult putForMaintenance(PlayerBackpack backpack) {
+        Lock loadLock = maintenanceLock.readLock();
+        loadLock.lock();
+        try {
+            synchronized (this) {
+                String uuid = backpack.getUniqueId().toString();
+                PlayerBackpack existing = uuidCache.get(uuid);
+                if (existing != null) {
+                    return new MaintenanceResult(existing, false);
+                }
 
-        uuidCache.put(uuid, backpack);
-        putNumberReference(backpack);
-        maintenanceOwned.put(uuid, backpack);
-        return new MaintenanceResult(backpack, true);
+                uuidCache.put(uuid, backpack);
+                putNumberReference(backpack);
+                maintenanceOwned.put(uuid, backpack);
+                return new MaintenanceResult(backpack, true);
+            }
+        } finally {
+            loadLock.unlock();
+        }
     }
 
     public synchronized PlayerBackpack get(String pUuid, int num) {
@@ -129,8 +145,8 @@ public class BackpackCache {
 
     /**
      * Runs a complete direct-storage maintenance batch only while every referenced backpack remains uncached.
-     * The exclusive maintenance side blocks in-flight cache-miss loads. The cache monitor is then held for the whole
-     * mutation/rollback batch so direct cache installs and promotions cannot interleave either.
+     * The exclusive maintenance side blocks in-flight cache-miss loads and all cache installs for the whole
+     * mutation/rollback batch. Ordinary reads of unrelated already-cached backpacks remain available.
      */
     boolean runIfAllUncached(Collection<String> uuids, Runnable action) {
         Lock maintenance = maintenanceLock.writeLock();
@@ -142,9 +158,9 @@ public class BackpackCache {
                         return false;
                     }
                 }
-                action.run();
-                return true;
             }
+            action.run();
+            return true;
         } finally {
             maintenance.unlock();
         }
