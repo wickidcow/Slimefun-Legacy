@@ -83,7 +83,7 @@ public final class LegacyItemMetaDeserializer implements ConfigurationSerializab
                 restoreTextures(profile, property.value());
             }
         }
-        skullMeta.setPlayerProfile((com.destroystokyo.paper.profile.PlayerProfile) profile);
+        skullMeta.setPlayerProfile(profile);
     }
 
     private static void restoreTextures(org.bukkit.profile.PlayerProfile profile, String encodedTextures) {
