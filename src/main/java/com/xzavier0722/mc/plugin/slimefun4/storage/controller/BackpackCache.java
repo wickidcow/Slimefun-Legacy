@@ -1,6 +1,7 @@
 package com.xzavier0722.mc.plugin.slimefun4.storage.controller;
 
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerBackpack;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -74,17 +75,15 @@ public class BackpackCache {
     }
 
     /**
-     * Runs direct persisted maintenance only while the backpack has no cached instance.
-     *
-     * <p>The cache monitor remains held for the short action, so normal gameplay cannot load, promote or install
-     * a backpack between the safety check and its direct database rewrite. Callers must also hold the profile
-     * controller read/write maintenance gates before entering this method.</p>
-     *
-     * @return {@code true} when the action ran, {@code false} when the backpack was already cached
+     * Runs a complete direct-storage maintenance batch only while every referenced backpack remains uncached.
+     * The cache monitor is held for the whole batch so gameplay cannot install or promote one of these backpacks
+     * between validation, mutation and rollback.
      */
-    synchronized boolean runIfUncached(String uuid, Runnable action) {
-        if (uuidCache.containsKey(uuid)) {
-            return false;
+    synchronized boolean runIfAllUncached(Collection<String> uuids, Runnable action) {
+        for (String uuid : uuids) {
+            if (uuidCache.containsKey(uuid)) {
+                return false;
+            }
         }
         action.run();
         return true;
@@ -102,12 +101,12 @@ public class BackpackCache {
     }
 
     /**
-     * Executes a raw profile-storage mutation only while the authoritative backpack cache proves the UUID is uncached.
+     * Executes a raw profile-storage batch only while the authoritative cache proves all UUIDs are uncached.
      * If the active cache is unavailable, maintenance fails closed and the action is not run.
      */
-    static boolean runIfUncachedInActiveController(String uuid, Runnable action) {
+    static boolean runIfAllUncachedInActiveController(Collection<String> uuids, Runnable action) {
         BackpackCache cache = activeCache;
-        return cache != null && cache.runIfUncached(uuid, action);
+        return cache != null && cache.runIfAllUncached(uuids, action);
     }
 
     /**
