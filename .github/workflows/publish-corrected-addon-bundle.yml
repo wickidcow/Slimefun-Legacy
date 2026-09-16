@@ -1,0 +1,108 @@
+name: Publish corrected SF addon bundle
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/publish-corrected-addon-bundle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Rebuild release bundle with verified shaded addons
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/bundle replacements
+
+          gh release download v4.1.50 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'SF_Addons_1.21.11-26.3.zip' \
+            --dir work
+          unzip -q work/SF_Addons_1.21.11-26.3.zip -d work/bundle
+
+          gh release download v1.0.7 \
+            --repo wickidcow/SF_Galactifun \
+            --pattern 'SF_Galactifun1.0.7.jar' \
+            --dir replacements
+          gh release download v1.0.4 \
+            --repo wickidcow/SF_FastMachines \
+            --pattern 'SF_FastMachines1.0.4.jar' \
+            --dir replacements
+          gh release download v2.0.7 \
+            --repo wickidcow/SF_InfinityExpansion2 \
+            --pattern 'SF_InfinityExpansion2.0.7.jar' \
+            --dir replacements
+
+          cp replacements/SF_Galactifun1.0.7.jar work/bundle/
+          cp replacements/SF_FastMachines1.0.4.jar work/bundle/
+          cp replacements/SF_InfinityExpansion2.0.7.jar work/bundle/
+
+          test "$(find work/bundle -maxdepth 1 -type f -name 'SF_*.jar' | wc -l)" -eq 43
+
+          jar tf work/bundle/SF_Galactifun1.0.7.jar | grep -q '^io/github/addoncommunity/galactifun/infinitylib/core/AbstractAddon.class$'
+          ! jar tf work/bundle/SF_Galactifun1.0.7.jar | grep -q '^io/github/mooy1/infinitylib/core/AbstractAddon.class$'
+
+          jar tf work/bundle/SF_FastMachines1.0.4.jar | grep -q '^net/guizhanss/fastmachines/libs/guizhanlib/slimefun/addon/AbstractAddon.class$'
+          ! jar tf work/bundle/SF_FastMachines1.0.4.jar | grep -q '^net/guizhanss/guizhanlib/slimefun/addon/AbstractAddon.class$'
+
+          jar tf work/bundle/SF_InfinityExpansion2.0.7.jar | grep -q '^net/guizhanss/infinityexpansion2/libs/guizhanlib/slimefun/addon/AbstractAddon.class$'
+          ! jar tf work/bundle/SF_InfinityExpansion2.0.7.jar | grep -q '^net/guizhanss/guizhanlib/slimefun/addon/AbstractAddon.class$'
+
+          python3 - <<'PY'
+          import hashlib, json, subprocess
+          from pathlib import Path
+
+          bundle = Path('work/bundle')
+          manifest_path = bundle / 'SF_ADDON_MANIFEST.json'
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          replacements = {
+              'wickidcow/SF_Galactifun': 'SF_Galactifun1.0.7.jar',
+              'wickidcow/SF_FastMachines': 'SF_FastMachines1.0.4.jar',
+              'wickidcow/SF_InfinityExpansion2': 'SF_InfinityExpansion2.0.7.jar',
+          }
+          records = {row['repository']: row for row in manifest['addons']}
+          for repo, jar_name in replacements.items():
+              jar = bundle / jar_name
+              row = records[repo]
+              row['jar'] = jar_name
+              row['source_jar'] = jar_name
+              row['sha256'] = hashlib.sha256(jar.read_bytes()).hexdigest()
+              row['commit'] = subprocess.check_output(
+                  ['gh', 'api', f'repos/{repo}/commits/master', '--jq', '.sha'],
+                  text=True,
+              ).strip()
+          manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+          PY
+
+          (cd work/bundle && sha256sum SF_*.jar | sort > SHA256SUMS.txt)
+          rm -f work/SF_Addons_1.21.11-26.3.zip
+          (cd work/bundle && zip -9 -q ../SF_Addons_1.21.11-26.3.zip ./*)
+          unzip -tqq work/SF_Addons_1.21.11-26.3.zip
+          sha256sum work/SF_Addons_1.21.11-26.3.zip
+
+          gh release upload v4.1.50 \
+            work/SF_Addons_1.21.11-26.3.zip \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
+      - name: Verify published release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view v4.1.50 --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq '.assets[] | select(.name == "SF_Addons_1.21.11-26.3.zip") | [.name, .size, .digest] | @tsv'
