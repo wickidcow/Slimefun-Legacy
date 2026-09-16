@@ -4,6 +4,7 @@ import io.github.thebusybiscuit.slimefun4.api.player.PlayerBackpack;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 public class BackpackCache {
     private static volatile BackpackCache activeCache;
@@ -62,6 +63,38 @@ public class BackpackCache {
         PlayerBackpack backpack = uuidCache.get(uuid);
         promote(backpack);
         return backpack;
+    }
+
+    /**
+     * Resolves a normal owner/number lookup atomically against raw backpack-storage maintenance.
+     * The cache monitor remains held across a miss, database load and canonical cache install, preventing Doctor from
+     * rewriting a persisted backpack while a synchronous loader is constructing an instance from the old row.
+     */
+    synchronized PlayerBackpack getOrLoad(String pUuid, int num, Supplier<PlayerBackpack> loader) {
+        Map<Integer, PlayerBackpack> map = numCache.get(pUuid);
+        PlayerBackpack backpack = map == null ? null : map.get(num);
+        if (backpack != null) {
+            promote(backpack);
+            return backpack;
+        }
+
+        PlayerBackpack loaded = loader.get();
+        return loaded == null ? null : put(loaded);
+    }
+
+    /**
+     * Resolves a normal UUID lookup atomically against raw backpack-storage maintenance.
+     * See {@link #getOrLoad(String, int, Supplier)} for the cache-miss safety boundary.
+     */
+    synchronized PlayerBackpack getOrLoad(String uuid, Supplier<PlayerBackpack> loader) {
+        PlayerBackpack backpack = uuidCache.get(uuid);
+        if (backpack != null) {
+            promote(backpack);
+            return backpack;
+        }
+
+        PlayerBackpack loaded = loader.get();
+        return loaded == null ? null : put(loaded);
     }
 
     /** Looks up a cached backpack without promoting maintenance ownership. */
