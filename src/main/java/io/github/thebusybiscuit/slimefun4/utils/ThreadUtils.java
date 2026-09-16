@@ -125,7 +125,7 @@ public class ThreadUtils {
             // Folia has no universal main thread. Generic legacy callbacks are placed on the global region.
             MAIN_THREAD_EXECUTOR = task -> Slimefun.getSchedulerService().run(task);
         } else {
-            // Paper's internal MCUtil.MAIN_EXECUTOR is not API and may move between releases.
+            // Paper's internal main executor is not API and may move between releases.
             // Preserve the long-standing fallback behavior using Slimefun's scheduler abstraction instead.
             MAIN_THREAD_EXECUTOR = task -> {
                 if (Bukkit.isPrimaryThread()) {
