@@ -27,7 +27,8 @@ import org.bukkit.generator.WorldInfo;
 class SlimefunTabCompleter implements TabCompleter {
 
     private static final int MAX_SUGGESTIONS = 80;
-    // Same-ID schema fingerprints are private short-lived command state; execution fingerprints are never exposed or cached by tab completion.
+    // Same-ID schema fingerprints are private short-lived command state.
+    // Execution fingerprints are short-lived, single-use state; tab completion must never expose or cache them.
 
     private final SlimefunCommand command;
 
