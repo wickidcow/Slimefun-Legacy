@@ -65,6 +65,28 @@ public class BackpackCache {
         return uuidCache.get(uuid);
     }
 
+    /** Returns whether any gameplay or maintenance instance is currently cached for this backpack UUID. */
+    synchronized boolean isCached(String uuid) {
+        return uuidCache.containsKey(uuid);
+    }
+
+    /**
+     * Runs direct persisted maintenance only while the backpack has no cached instance.
+     *
+     * <p>The cache monitor remains held for the short action, so normal gameplay cannot load, promote or install
+     * a backpack between the safety check and its direct database rewrite. Callers must also hold the profile
+     * controller read/write maintenance gates before entering this method.</p>
+     *
+     * @return {@code true} when the action ran, {@code false} when the backpack was already cached
+     */
+    synchronized boolean runIfUncached(String uuid, Runnable action) {
+        if (uuidCache.containsKey(uuid)) {
+            return false;
+        }
+        action.run();
+        return true;
+    }
+
     /**
      * Releases a backpack loaded only for maintenance. If normal gameplay accessed the instance
      * in the meantime, it was promoted and this method intentionally leaves it cached.
