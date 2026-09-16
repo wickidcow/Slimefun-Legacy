@@ -96,6 +96,31 @@ class TestBackpackCacheMaintenanceGuard {
         }
     }
 
+    @Test
+    void maintenanceDoesNotBlockUnrelatedCacheReads() throws Exception {
+        BackpackCache cache = new BackpackCache();
+        CountDownLatch maintenanceEntered = new CountDownLatch(1);
+        CountDownLatch releaseMaintenance = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<Boolean> maintenance = executor.submit(() -> cache.runIfAllUncached(List.of("backpack-a"), () -> {
+                maintenanceEntered.countDown();
+                await(releaseMaintenance);
+            }));
+
+            Assertions.assertTrue(maintenanceEntered.await(2, TimeUnit.SECONDS));
+            Future<Boolean> unrelatedRead = executor.submit(() -> cache.isCached("backpack-b"));
+            Assertions.assertFalse(unrelatedRead.get(500, TimeUnit.MILLISECONDS));
+
+            releaseMaintenance.countDown();
+            Assertions.assertTrue(maintenance.get(2, TimeUnit.SECONDS));
+        } finally {
+            releaseMaintenance.countDown();
+            executor.shutdownNow();
+            cache.clean();
+        }
+    }
+
     private static void await(CountDownLatch latch) {
         try {
             if (!latch.await(5, TimeUnit.SECONDS)) {
