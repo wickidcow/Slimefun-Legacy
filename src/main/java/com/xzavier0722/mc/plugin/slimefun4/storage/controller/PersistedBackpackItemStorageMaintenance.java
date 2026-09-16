@@ -34,10 +34,18 @@ public final class PersistedBackpackItemStorageMaintenance {
 
     /** Takes a read-only snapshot of persisted backpack rows whose backpack UUID is not currently cached. */
     public @Nonnull SnapshotResult snapshot() {
+        if (!BackpackCache.hasActiveControllerCache()) {
+            return SnapshotResult.busyResult();
+        }
+
         AtomicReference<SnapshotResult> snapshot = new AtomicReference<>();
         AtomicBoolean readGateAcquired = new AtomicBoolean();
         boolean writeGateAcquired = controller.runIfAllWriteWorkIdle(() -> readGateAcquired.set(
-                controller.runIfReadExecutorIdle(() -> snapshot.set(readUncachedItems()))));
+                controller.runIfReadExecutorIdle(() -> {
+                    if (BackpackCache.hasActiveControllerCache()) {
+                        snapshot.set(readUncachedItems());
+                    }
+                })));
         if (!writeGateAcquired || !readGateAcquired.get()) {
             return SnapshotResult.busyResult();
         }
@@ -56,11 +64,18 @@ public final class PersistedBackpackItemStorageMaintenance {
         if (requests.isEmpty()) {
             return new RewriteSummary(false, 0, 0, 0, 0, 0, true);
         }
+        if (!BackpackCache.hasActiveControllerCache()) {
+            return RewriteSummary.busyResult();
+        }
 
         AtomicReference<RewriteSummary> result = new AtomicReference<>();
         AtomicBoolean readGateAcquired = new AtomicBoolean();
         boolean writeGateAcquired = controller.runIfAllWriteWorkIdle(() -> readGateAcquired.set(
-                controller.runIfReadExecutorIdle(() -> result.set(rewriteWhileGated(requests)))));
+                controller.runIfReadExecutorIdle(() -> {
+                    if (BackpackCache.hasActiveControllerCache()) {
+                        result.set(rewriteWhileGated(requests));
+                    }
+                })));
         if (!writeGateAcquired || !readGateAcquired.get()) {
             return RewriteSummary.busyResult();
         }
