@@ -41,14 +41,7 @@ class TestBackpackCacheMaintenanceGuard {
             Future<?> loader = executor.submit(() -> {
                 cache.getOrLoad("backpack-a", () -> {
                     loaderEntered.countDown();
-                    try {
-                        if (!releaseLoader.await(5, TimeUnit.SECONDS)) {
-                            throw new IllegalStateException("test loader timed out");
-                        }
-                    } catch (InterruptedException exception) {
-                        Thread.currentThread().interrupt();
-                        throw new IllegalStateException(exception);
-                    }
+                    await(releaseLoader);
                     return null;
                 });
             });
@@ -67,6 +60,50 @@ class TestBackpackCacheMaintenanceGuard {
             releaseLoader.countDown();
             executor.shutdownNow();
             cache.clean();
+        }
+    }
+
+    @Test
+    void independentCacheMissLoadsMayOverlap() throws Exception {
+        BackpackCache cache = new BackpackCache();
+        CountDownLatch bothEntered = new CountDownLatch(2);
+        CountDownLatch releaseLoads = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> first = executor.submit(() -> {
+                cache.getOrLoad("backpack-a", () -> {
+                    bothEntered.countDown();
+                    await(releaseLoads);
+                    return null;
+                });
+            });
+            Future<?> second = executor.submit(() -> {
+                cache.getOrLoad("backpack-b", () -> {
+                    bothEntered.countDown();
+                    await(releaseLoads);
+                    return null;
+                });
+            });
+
+            Assertions.assertTrue(bothEntered.await(2, TimeUnit.SECONDS));
+            releaseLoads.countDown();
+            first.get(2, TimeUnit.SECONDS);
+            second.get(2, TimeUnit.SECONDS);
+        } finally {
+            releaseLoads.countDown();
+            executor.shutdownNow();
+            cache.clean();
+        }
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            if (!latch.await(5, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("test latch timed out");
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(exception);
         }
     }
 }
