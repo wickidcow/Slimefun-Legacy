@@ -74,7 +74,7 @@ public final class PersistedBackpackItemIdMigrationService {
         long nonSlimefun = 0L;
         long unknown = 0L;
         long missingTarget = 0L;
-        long unreadable = 0L;
+        long unreadable = snapshot.unreadableRecords();
 
         for (BackpackItemRecord record : snapshot.records()) {
             ItemStack item = deserializeUsable(record);
@@ -120,7 +120,7 @@ public final class PersistedBackpackItemIdMigrationService {
         return new ScanComputation(
                 false,
                 List.copyOf(entries),
-                snapshot.records().size() + snapshot.cachedRecords(),
+                snapshot.records().size() + snapshot.cachedRecords() + snapshot.unreadableRecords(),
                 snapshot.cachedRecords(),
                 canonical,
                 nonSlimefun,
