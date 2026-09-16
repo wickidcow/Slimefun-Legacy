@@ -54,7 +54,7 @@ final class DoctorRouterCommand extends SubCommand {
             return;
         }
 
-        if (args.length > 1 && (args[1].equalsIgnoreCase("migrations") || args[1].equalsIgnoreCase("migration"))) {
+        if (args.length > 1 && isMigrationRoute(args[1])) {
             runMigrations(sender, args);
             return;
         }
@@ -65,6 +65,12 @@ final class DoctorRouterCommand extends SubCommand {
         }
 
         delegate.onExecute(sender, args);
+    }
+
+    static boolean isMigrationRoute(@Nonnull String action) {
+        return action.equalsIgnoreCase("migrate")
+                || action.equalsIgnoreCase("migration")
+                || action.equalsIgnoreCase("migrations");
     }
 
     private void runMigrations(@Nonnull CommandSender sender, @Nonnull String[] args) {
