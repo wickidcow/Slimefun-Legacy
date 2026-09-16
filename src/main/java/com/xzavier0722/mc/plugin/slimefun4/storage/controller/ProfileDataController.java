@@ -129,35 +129,31 @@ public class ProfileDataController extends ADataController {
     @Nullable public PlayerBackpack getBackpack(OfflinePlayer owner, int num) {
         checkDestroy();
         var uuid = owner.getUniqueId().toString();
-        var re = backpackCache.get(uuid, num);
-        if (re != null) {
-            return re;
-        }
+        return backpackCache.getOrLoad(uuid, num, () -> {
+            var key = new RecordKey(DataScope.BACKPACK_PROFILE);
+            key.addField(FieldKey.BACKPACK_ID);
+            key.addField(FieldKey.BACKPACK_SIZE);
+            key.addField(FieldKey.BACKPACK_NAME);
+            key.addCondition(FieldKey.PLAYER_UUID, uuid);
+            key.addCondition(FieldKey.BACKPACK_NUMBER, num + "");
 
-        var key = new RecordKey(DataScope.BACKPACK_PROFILE);
-        key.addField(FieldKey.BACKPACK_ID);
-        key.addField(FieldKey.BACKPACK_SIZE);
-        key.addField(FieldKey.BACKPACK_NAME);
-        key.addCondition(FieldKey.PLAYER_UUID, uuid);
-        key.addCondition(FieldKey.BACKPACK_NUMBER, num + "");
+            var bResult = getData(key);
+            if (bResult.isEmpty()) {
+                return null;
+            }
 
-        var bResult = getData(key);
-        if (bResult.isEmpty()) {
-            return null;
-        }
+            var result = bResult.get(0);
+            var size = Integer.parseInt(bResult.get(0).get(FieldKey.BACKPACK_SIZE));
+            var idStr = result.get(FieldKey.BACKPACK_ID);
 
-        var result = bResult.get(0);
-        var size = Integer.parseInt(bResult.get(0).get(FieldKey.BACKPACK_SIZE));
-        var idStr = result.get(FieldKey.BACKPACK_ID);
-
-        re = new PlayerBackpack(
-                owner,
-                UUID.fromString(idStr),
-                DataUtils.profileDataDebase64(result.getOrDef(FieldKey.BACKPACK_NAME, "")),
-                num,
-                size,
-                getBackpackInv(idStr, size));
-        return backpackCache.put(re);
+            return new PlayerBackpack(
+                    owner,
+                    UUID.fromString(idStr),
+                    DataUtils.profileDataDebase64(result.getOrDef(FieldKey.BACKPACK_NAME, "")),
+                    num,
+                    size,
+                    getBackpackInv(idStr, size));
+        });
     }
 
     public CompletableFuture<PlayerBackpack> getBackpackAsync(String uuid) {
@@ -217,13 +213,7 @@ public class ProfileDataController extends ADataController {
 
     @Nullable public PlayerBackpack getBackpack(String uuid) {
         checkDestroy();
-        PlayerBackpack cached = backpackCache.get(uuid);
-        if (cached != null) {
-            return cached;
-        }
-
-        PlayerBackpack loaded = loadBackpackByUuid(uuid);
-        return loaded == null ? null : backpackCache.put(loaded);
+        return backpackCache.getOrLoad(uuid, () -> loadBackpackByUuid(uuid));
     }
 
     @Nullable private PlayerBackpack loadBackpackByUuid(String uuid) {
