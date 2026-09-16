@@ -11,13 +11,17 @@ class TestBackpackCacheMaintenanceGuard {
     void executesUncachedBatchExactlyOnce() {
         BackpackCache cache = new BackpackCache();
         AtomicInteger executions = new AtomicInteger();
+        try {
+            boolean executed = cache.runIfAllUncached(
+                    List.of("backpack-a", "backpack-b", "backpack-a"), executions::incrementAndGet);
 
-        boolean executed = cache.runIfAllUncached(
-                List.of("backpack-a", "backpack-b", "backpack-a"), executions::incrementAndGet);
-
-        Assertions.assertTrue(executed);
-        Assertions.assertEquals(1, executions.get());
-        Assertions.assertTrue(BackpackCache.hasActiveControllerCache());
-        Assertions.assertFalse(BackpackCache.isCachedInActiveController("backpack-a"));
+            Assertions.assertTrue(executed);
+            Assertions.assertEquals(1, executions.get());
+            Assertions.assertTrue(BackpackCache.hasActiveControllerCache());
+            Assertions.assertFalse(BackpackCache.isCachedInActiveController("backpack-a"));
+        } finally {
+            cache.clean();
+        }
+        Assertions.assertFalse(BackpackCache.hasActiveControllerCache());
     }
 }
