@@ -14,7 +14,7 @@ final class DoctorBackpackItemIdMigrationCommand {
     private final PersistedBackpackItemIdMigrationService service = new PersistedBackpackItemIdMigrationService();
 
     void execute(@Nonnull CommandSender sender, @Nonnull String[] args) {
-        String action = args.length > 4 ? args[4].toLowerCase(Locale.ROOT) : "status";
+        String action = args.length > 5 ? args[5].toLowerCase(Locale.ROOT) : "status";
         switch (action) {
             case "status", "plan", "list" -> sendStatus(sender);
             case "scan" -> scan(sender);
@@ -53,7 +53,7 @@ final class DoctorBackpackItemIdMigrationCommand {
         }
 
         send(sender, "&7Fingerprint: &b" + plan.getShortFingerprint());
-        send(sender, "&7Execute: &6/sf doctor migrate schemas backpacks execute " + plan.getShortFingerprint());
+        send(sender, "&7Execute: &6/sf doctor migrate schemas storage backpacks execute " + plan.getShortFingerprint());
         send(sender, "&7Plan expires after &e" + Math.max(1L, service.getPlanTtlMillis() / 60_000L) + " minute(s)&7 and is single-use.");
         send(sender, "&eMake an offline backup before executing persisted backpack Item-ID migration.");
     }
@@ -63,7 +63,7 @@ final class DoctorBackpackItemIdMigrationCommand {
         send(sender, "&6Slimefun Doctor Backpack Item-ID Migration");
         if (plan == null) {
             send(sender, "&7No active backpack Item-ID plan exists.");
-            send(sender, "&7Create one with &e/sf doctor migrate schemas backpacks scan&7.");
+            send(sender, "&7Create one with &e/sf doctor migrate schemas storage backpacks scan&7.");
             return;
         }
         long secondsLeft = Math.max(0L, (plan.getExpiresAtMillis() - System.currentTimeMillis()) / 1000L);
@@ -77,12 +77,12 @@ final class DoctorBackpackItemIdMigrationCommand {
     }
 
     private void executePlan(CommandSender sender, String[] args) {
-        if (args.length < 6 || args[5].isBlank()) {
-            send(sender, "&eUsage: /sf doctor migrate schemas backpacks execute <fingerprint>");
+        if (args.length < 7 || args[6].isBlank()) {
+            send(sender, "&eUsage: /sf doctor migrate schemas storage backpacks execute <fingerprint>");
             return;
         }
 
-        ExecutionResult result = service.execute(args[5]);
+        ExecutionResult result = service.execute(args[6]);
         if (result.status() == ExecutionStatus.NO_PLAN) {
             send(sender, "&cNo active backpack Item-ID plan exists, or it expired. Run a fresh scan.");
             return;
@@ -117,7 +117,7 @@ final class DoctorBackpackItemIdMigrationCommand {
     }
 
     private void sendUsage(CommandSender sender) {
-        send(sender, "&eUsage: /sf doctor migrate schemas backpacks <status|scan|execute>");
+        send(sender, "&eUsage: /sf doctor migrate schemas storage backpacks <status|scan|execute>");
         send(sender, "&7Scan is read-only. Cached/live backpacks are deferred. Execute requires the fresh scan fingerprint.");
     }
 
