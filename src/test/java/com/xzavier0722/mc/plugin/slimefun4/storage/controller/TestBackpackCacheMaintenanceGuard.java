@@ -38,18 +38,20 @@ class TestBackpackCacheMaintenanceGuard {
         CountDownLatch batchRan = new CountDownLatch(1);
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
-            Future<?> loader = executor.submit(() -> cache.getOrLoad("backpack-a", () -> {
-                loaderEntered.countDown();
-                try {
-                    if (!releaseLoader.await(5, TimeUnit.SECONDS)) {
-                        throw new IllegalStateException("test loader timed out");
+            Future<?> loader = executor.submit(() -> {
+                cache.getOrLoad("backpack-a", () -> {
+                    loaderEntered.countDown();
+                    try {
+                        if (!releaseLoader.await(5, TimeUnit.SECONDS)) {
+                            throw new IllegalStateException("test loader timed out");
+                        }
+                    } catch (InterruptedException exception) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException(exception);
                     }
-                } catch (InterruptedException exception) {
-                    Thread.currentThread().interrupt();
-                    throw new IllegalStateException(exception);
-                }
-                return null;
-            }));
+                    return null;
+                });
+            });
 
             Assertions.assertTrue(loaderEntered.await(2, TimeUnit.SECONDS));
             Future<Boolean> maintenance = executor.submit(
