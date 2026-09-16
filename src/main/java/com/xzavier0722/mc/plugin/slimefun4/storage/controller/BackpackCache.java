@@ -149,6 +149,9 @@ public class BackpackCache {
         maintenanceOwned.clear();
         numCache.clear();
         uuidCache.clear();
+        if (activeCache == this) {
+            activeCache = null;
+        }
     }
 
     private void putNumberReference(PlayerBackpack backpack) {
