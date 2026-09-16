@@ -2,7 +2,6 @@ package io.github.thebusybiscuit.slimefun4.utils;
 
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.RuntimePlatformDetector;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import java.lang.reflect.Field;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -122,30 +121,20 @@ public class ThreadUtils {
     }
 
     static {
-        Executor executor;
         if (RuntimePlatformDetector.isRegionOwnedExecution()) {
             // Folia has no universal main thread. Generic legacy callbacks are placed on the global region.
-            executor = task -> Slimefun.getSchedulerService().run(task);
+            MAIN_THREAD_EXECUTOR = task -> Slimefun.getSchedulerService().run(task);
         } else {
-            try {
-                Class<?> mcUtils = RuntimePlatformDetector.findClass("io.papermc.paper.util.MCUtil");
-                if (mcUtils == null) {
-                    throw new ClassNotFoundException("Paper MCUtil is unavailable");
+            // Paper's internal main executor is not API and may move between releases.
+            // Preserve the long-standing fallback behavior using Slimefun's scheduler abstraction instead.
+            MAIN_THREAD_EXECUTOR = task -> {
+                if (Bukkit.isPrimaryThread()) {
+                    task.run();
+                } else {
+                    Slimefun.runSync(task);
                 }
-                Field field = mcUtils.getDeclaredField("MAIN_EXECUTOR");
-                field.setAccessible(true);
-                executor = (Executor) field.get(null);
-            } catch (Throwable ignored) {
-                executor = task -> {
-                    if (Bukkit.isPrimaryThread()) {
-                        task.run();
-                    } else {
-                        Slimefun.runSync(task);
-                    }
-                };
-            }
+            };
         }
-        MAIN_THREAD_EXECUTOR = executor;
         MAIN_DELAYED_EXECUTOR = task -> Slimefun.getSchedulerService().runLater(task, 1L);
     }
 }

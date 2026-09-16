@@ -57,6 +57,7 @@ def main() -> int:
         "verify_english.py",
         "verify_localization_keys.py",
         "verify_chunk_load_threading.py",
+        "verify_thread_utils_dispatcher.py",
         "check_api_annotations.py",
         "verify_api_compatibility.py",
         "verify_part2.py",
