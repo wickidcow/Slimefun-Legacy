@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 8,
+  "bundle_revision": 10,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
