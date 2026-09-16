@@ -27,6 +27,8 @@ import org.bukkit.generator.WorldInfo;
 class SlimefunTabCompleter implements TabCompleter {
 
     private static final int MAX_SUGGESTIONS = 80;
+    // Same-ID schema fingerprints are private short-lived command state.
+    // Execution fingerprints are short-lived, single-use state; tab completion must never expose or cache them.
 
     private final SlimefunCommand command;
 
@@ -96,14 +98,11 @@ class SlimefunTabCompleter implements TabCompleter {
             } else if (args[0].equalsIgnoreCase("research")) {
                 List<Research> researches = Slimefun.getRegistry().getResearches();
                 List<String> suggestions = new LinkedList<>();
-
                 suggestions.add("all");
                 suggestions.add("reset");
-
                 for (Research research : researches) {
                     suggestions.add(research.getKey().toString().toLowerCase(Locale.ROOT));
                 }
-
                 return createReturnList(suggestions, args[2]);
             } else if (args[0].equalsIgnoreCase("cleardata")) {
                 return createReturnList(List.of("block", "oil", "*"), args[2]);
@@ -117,7 +116,6 @@ class SlimefunTabCompleter implements TabCompleter {
                     return createReturnList(
                             Bukkit.getWorlds().stream().map(WorldInfo::getName).toList(), args[2]);
                 }
-
                 World explicitWorld = Bukkit.getWorld(args[1]);
                 if (explicitWorld != null) {
                     return createReturnList(List.of(currentChunkCoordinate(sender, explicitWorld, true)), args[2]);
@@ -135,9 +133,8 @@ class SlimefunTabCompleter implements TabCompleter {
                         args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("ie2")) {
                 return createReturnList(List.of("status", "scan", "migrate", "refresh"), args[2]);
-            } else {
-                return null;
             }
+            return null;
         } else if (args.length == 4 && args[0].equalsIgnoreCase("give")) {
             return createReturnList(Arrays.asList("1", "2", "4", "8", "16", "32", "64"), args[3]);
         } else if (args.length == 4
@@ -172,7 +169,6 @@ class SlimefunTabCompleter implements TabCompleter {
             if (args[1].equalsIgnoreCase("top")) {
                 return Collections.emptyList();
             }
-
             World explicitWorld = Bukkit.getWorld(args[1]);
             return explicitWorld == null
                     ? null
@@ -181,8 +177,14 @@ class SlimefunTabCompleter implements TabCompleter {
                 && args[0].equalsIgnoreCase("doctor")
                 && isDoctorMigrationRoute(args[1])
                 && args[2].equalsIgnoreCase("schemas")
-                && (args[3].equalsIgnoreCase("blocks") || args[3].equalsIgnoreCase("storage"))) {
+                && args[3].equalsIgnoreCase("blocks")) {
             return createReturnList(List.of("status", "scan", "execute"), args[4]);
+        } else if (args.length == 5
+                && args[0].equalsIgnoreCase("doctor")
+                && isDoctorMigrationRoute(args[1])
+                && args[2].equalsIgnoreCase("schemas")
+                && args[3].equalsIgnoreCase("storage")) {
+            return createReturnList(List.of("status", "scan", "execute", "ids", "backpacks"), args[4]);
         } else if (args.length == 5
                 && args[0].equalsIgnoreCase("doctor")
                 && isDoctorMigrationRoute(args[1])
@@ -193,27 +195,37 @@ class SlimefunTabCompleter implements TabCompleter {
                 && args[0].equalsIgnoreCase("doctor")
                 && isDoctorMigrationRoute(args[1])
                 && args[2].equalsIgnoreCase("execute")) {
-            // Execution fingerprints are short-lived, single-use state owned by the command service.
-            // Do not suggest a stale/static token from the tab completer.
             return Collections.emptyList();
+        } else if (args.length == 6
+                && args[0].equalsIgnoreCase("doctor")
+                && isDoctorMigrationRoute(args[1])
+                && args[2].equalsIgnoreCase("schemas")
+                && args[3].equalsIgnoreCase("storage")
+                && (args[4].equalsIgnoreCase("ids") || args[4].equalsIgnoreCase("backpacks"))) {
+            return createReturnList(List.of("status", "scan", "execute"), args[5]);
         } else if (args.length == 6
                 && args[0].equalsIgnoreCase("doctor")
                 && isDoctorMigrationRoute(args[1])
                 && args[2].equalsIgnoreCase("schemas")
                 && (args[3].equalsIgnoreCase("blocks") || args[3].equalsIgnoreCase("storage"))
                 && args[4].equalsIgnoreCase("execute")) {
-            // Persisted storage fingerprints are short-lived, single-use state; never suggest cached tokens here.
             return Collections.emptyList();
         } else if (args.length == 6
                 && args[0].equalsIgnoreCase("doctor")
                 && isDoctorMigrationRoute(args[1])
                 && args[2].equalsIgnoreCase("schemas")
                 && args[3].equalsIgnoreCase("execute")) {
-            // Same-ID schema fingerprints are private short-lived command state; never suggest cached tokens here.
             return Collections.emptyList();
-        } else {
-            return null;
+        } else if (args.length == 7
+                && args[0].equalsIgnoreCase("doctor")
+                && isDoctorMigrationRoute(args[1])
+                && args[2].equalsIgnoreCase("schemas")
+                && args[3].equalsIgnoreCase("storage")
+                && (args[4].equalsIgnoreCase("ids") || args[4].equalsIgnoreCase("backpacks"))
+                && args[5].equalsIgnoreCase("execute")) {
+            return Collections.emptyList();
         }
+        return null;
     }
 
     static boolean isDoctorMigrationRoute(@Nonnull String action) {
@@ -228,7 +240,6 @@ class SlimefunTabCompleter implements TabCompleter {
                     ? player.getLocation().getChunk().getX()
                     : player.getLocation().getChunk().getZ());
         }
-
         return "0";
     }
 
@@ -237,18 +248,15 @@ class SlimefunTabCompleter implements TabCompleter {
         if (string.isEmpty()) {
             if (list.size() >= MAX_SUGGESTIONS) {
                 return list.subList(0, MAX_SUGGESTIONS);
-            } else {
-                return list;
             }
+            return list;
         }
 
         String input = string.toLowerCase(Locale.ROOT);
         List<String> returnList = new LinkedList<>();
-
         for (String item : list) {
             if (item.toLowerCase(Locale.ROOT).contains(input)) {
                 returnList.add(item);
-
                 if (returnList.size() >= MAX_SUGGESTIONS) {
                     break;
                 }
@@ -256,7 +264,6 @@ class SlimefunTabCompleter implements TabCompleter {
                 return Collections.emptyList();
             }
         }
-
         return returnList;
     }
 
@@ -264,7 +271,6 @@ class SlimefunTabCompleter implements TabCompleter {
     private List<String> getSlimefunItems() {
         List<SlimefunItem> list = Slimefun.getRegistry().getEnabledSlimefunItems();
         List<String> names = new ArrayList<>(list.size());
-
         for (SlimefunItem item : list) {
             names.add(item.getId());
         }

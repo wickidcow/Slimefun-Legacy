@@ -10,6 +10,7 @@ import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorRepo
 import io.github.thebusybiscuit.slimefun4.core.services.stability.LegacyBlockMigrationService;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.LegacyItemMigrationService;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.LegacyItemSchemaCandidateSummary;
+import io.github.thebusybiscuit.slimefun4.core.services.stability.PersistedBackpackItemIdMigrationService;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.PersistedBlockIdMigrationService;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.PersistedItemFormatMigrationService;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.PersistedItemIdMigrationService;
@@ -232,12 +233,18 @@ final class DoctorUpgradeWorkflow {
         PersistedBlockIdMigrationService.AuditResult blockAudit = new PersistedBlockIdMigrationService().audit();
         PersistedItemFormatMigrationService.AuditResult itemAudit = new PersistedItemFormatMigrationService().audit();
         PersistedItemIdMigrationService.AuditResult itemIdAudit = new PersistedItemIdMigrationService().audit();
-        boolean storageAuditIncomplete = blockAudit.busy() || itemAudit.busy() || itemIdAudit.busy();
+        PersistedBackpackItemIdMigrationService.AuditResult backpackItemIdAudit =
+                new PersistedBackpackItemIdMigrationService().audit();
+        boolean storageAuditIncomplete =
+                blockAudit.busy() || itemAudit.busy() || itemIdAudit.busy() || backpackItemIdAudit.busy();
         long storageReady = 0L;
         long storageDeferred = 0L;
         long storageManual = 0L;
         long storedItemIdReady = 0L;
         long storedItemIdManual = 0L;
+        long backpackItemIdReady = 0L;
+        long backpackItemIdDeferred = 0L;
+        long backpackItemIdManual = 0L;
 
         send(sender, "&eLane 4 - Persisted storage");
         if (blockAudit.busy()) {
@@ -290,6 +297,27 @@ final class DoctorUpgradeWorkflow {
                 send(sender, "&7Create the persisted Item-ID fingerprint: &e/sf doctor migrations schemas storage ids scan");
             }
         }
+
+        if (backpackItemIdAudit.busy()) {
+            send(sender, "&ePersisted backpack Item-ID audit unavailable because profile storage/cache is busy; this upgrade picture is incomplete.");
+        } else {
+            backpackItemIdReady = backpackItemIdAudit.rewriteCandidates();
+            backpackItemIdDeferred = backpackItemIdAudit.cachedRecords();
+            backpackItemIdManual = backpackItemIdAudit.unknownIdRecords()
+                    + backpackItemIdAudit.missingTargetRecords()
+                    + backpackItemIdAudit.unreadableRecords();
+            send(sender, "&7Backpack Item IDs scanned: &e" + backpackItemIdAudit.scannedRecords()
+                    + " &8| &7canonical &a" + backpackItemIdAudit.canonicalRecords()
+                    + " &8| &7legacy rewrites &e" + backpackItemIdAudit.rewriteCandidates()
+                    + " &8| &7cached/deferred &e" + backpackItemIdAudit.cachedRecords());
+            send(sender, "&7Backpack non-Slimefun rows: &f" + backpackItemIdAudit.nonSlimefunRecords()
+                    + " &8| &7unknown/unmapped &c" + backpackItemIdAudit.unknownIdRecords()
+                    + " &8| &7missing targets &c" + backpackItemIdAudit.missingTargetRecords()
+                    + " &8| &7unreadable/unsafe &c" + backpackItemIdAudit.unreadableRecords());
+            if (backpackItemIdReady > 0L || backpackItemIdDeferred > 0L || backpackItemIdManual > 0L) {
+                send(sender, "&7Create the backpack Item-ID fingerprint after cached backpacks drain: &e/sf doctor migrate schemas storage backpacks scan");
+            }
+        }
         send(sender, "&8Storage audits are read-only and create no execution fingerprint.");
 
         long manualBlocked = report.getUnknownIds()
@@ -329,9 +357,13 @@ final class DoctorUpgradeWorkflow {
                     + " &8| &cMANUAL/BLOCKED " + storageManual);
             send(sender, "&7Stored Item-ID lane: &aREADY " + storedItemIdReady
                     + " &8| &cMANUAL/BLOCKED " + storedItemIdManual);
+            send(sender, "&7Backpack Item-ID lane: &aREADY " + backpackItemIdReady
+                    + " &8| &eCACHED/DEFERRED " + backpackItemIdDeferred
+                    + " &8| &cMANUAL/BLOCKED " + backpackItemIdManual);
             if (storageReady == 0L && storageDeferred == 0L && storageManual == 0L
-                    && storedItemIdReady == 0L && storedItemIdManual == 0L) {
-                send(sender, "&aNo persisted block-ID, stored-item format or stored Item-ID migration work is currently detected.");
+                    && storedItemIdReady == 0L && storedItemIdManual == 0L
+                    && backpackItemIdReady == 0L && backpackItemIdDeferred == 0L && backpackItemIdManual == 0L) {
+                send(sender, "&aNo persisted block-ID, stored-item format, stored Item-ID or backpack Item-ID migration work is currently detected.");
             }
         }
         if (report.getFailures() > 0L) {
@@ -384,6 +416,7 @@ final class DoctorUpgradeWorkflow {
         send(sender, "&7Persisted block-ID native gate: &e/sf doctor migrations schemas blocks scan");
         send(sender, "&7Persisted item-payload native gate: &e/sf doctor migrations schemas storage scan");
         send(sender, "&7Persisted Item-ID native gate: &e/sf doctor migrations schemas storage ids scan");
+        send(sender, "&7Persisted backpack Item-ID native gate: &e/sf doctor migrate schemas storage backpacks scan");
         send(sender, "&8Provider discovery and storage audit are read-only; no execution fingerprint was created.");
     }
 
