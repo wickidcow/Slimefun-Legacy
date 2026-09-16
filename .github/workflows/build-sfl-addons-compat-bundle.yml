@@ -29,40 +29,28 @@ jobs:
       paper_api: ${{ steps.paper.outputs.paper_api }}
     steps:
       - uses: actions/checkout@v6
-
       - name: Validate manifest and create matrix
         id: matrix
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json, os, re
+          import json, os
           from pathlib import Path
-
           p = Path('compatibility/sfl-addon-release-matrix.json')
           data = json.loads(p.read_text(encoding='utf-8'))
-          if data.get('bundle_name') != 'SF_Addons_1.21.11-26.3.zip':
-              raise SystemExit('bundle_name must be SF_Addons_1.21.11-26.3.zip')
-
           addons = data['addons']
           repos = [row['repository'] for row in addons]
           if len(repos) != len(set(repos)):
               raise SystemExit('duplicate repositories in addon release matrix')
           if not all(repo.startswith('wickidcow/SF_') for repo in repos):
               raise SystemExit('release matrix must contain only maintained wickidcow/SF_ repositories')
-
-          for row in addons:
-              base = row.get('artifact_base') or row['repository'].split('/')[-1].removeprefix('SF_')
-              if not re.fullmatch(r'[A-Za-z0-9]+', base):
-                  raise SystemExit(f'invalid canonical artifact base {base!r} for {row["repository"]}')
-
           matrix = {'include': addons}
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as out:
               out.write('matrix=' + json.dumps(matrix, separators=(',', ':')) + '\n')
               out.write(f'count={len(addons)}\n')
           print(f'Prepared {len(addons)} maintained addons')
           PY
-
       - name: Resolve latest Paper 26.3 API
         id: paper
         shell: bash
@@ -70,30 +58,20 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           import os, re, urllib.request, xml.etree.ElementTree as ET
-
-          url = 'https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/maven-metadata.xml'
-          req = urllib.request.Request(url, headers={'User-Agent': 'SF-Addon-Bundle/1.0'})
+          url='https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/maven-metadata.xml'
+          req=urllib.request.Request(url, headers={'User-Agent':'SF-Addon-Bundle/1.0'})
           with urllib.request.urlopen(req, timeout=30) as response:
-              root = ET.fromstring(response.read())
-
-          versions = [n.text.strip() for n in root.findall('./versioning/versions/version') if n.text]
-          candidates = [v for v in versions if v.startswith('26.3') and '.build.' in v]
+              root=ET.fromstring(response.read())
+          versions=[n.text.strip() for n in root.findall('./versioning/versions/version') if n.text]
+          candidates=[v for v in versions if v.startswith('26.3') and ('build.' in v or '-alpha' in v or '-beta' in v or '-rc-' in v)]
           if not candidates:
               raise SystemExit('Paper 26.3 API is not published yet')
-
           def key(v):
-              rc = re.search(r'-rc-(\d+)', v)
-              build = re.search(r'\.build\.(\d+)', v)
-              prerelease = 0 if re.search(r'(alpha|beta|rc)', v, re.I) else 1
-              return (
-                  prerelease,
-                  int(rc.group(1)) if rc else (999999 if prerelease else -1),
-                  int(build.group(1)) if build else -1,
-                  v,
-              )
-
-          selected = max(candidates, key=key)
-          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as out:
+              build=re.search(r'build\.(\d+)',v)
+              rc=re.search(r'26\.3-rc-(\d+)',v)
+              return (int(rc.group(1)) if rc else -1, int(build.group(1)) if build else -1, v)
+          selected=max(candidates,key=key)
+          with open(os.environ['GITHUB_OUTPUT'],'a',encoding='utf-8') as out:
               out.write(f'paper_api={selected}\n')
           print(f'Paper candidate API: {selected}')
           PY
@@ -148,7 +126,6 @@ jobs:
         with:
           name: sfl-26.3-candidate-core
           path: candidate-core
-
       - name: Clone maintained addon
         env:
           ADDON_REPOSITORY: ${{ matrix.repository }}
@@ -156,7 +133,6 @@ jobs:
           set -euo pipefail
           git clone --depth 1 "https://github.com/${ADDON_REPOSITORY}.git" addon
           git -C addon rev-parse HEAD
-
       - name: Compile against Paper 26.3 candidate
         env:
           PAPER_API_VERSION: ${{ needs.prepare.outputs.paper_api }}
@@ -169,7 +145,6 @@ jobs:
             "$PWD/candidate-core/Slimefun-Legacy-candidate.jar" \
             "$PAPER_API_VERSION" \
             --report-dir "$PWD/report"
-
       - name: Collect and canonicalize distributable plugin JAR
         env:
           ADDON_REPOSITORY: ${{ matrix.repository }}
@@ -182,7 +157,6 @@ jobs:
           mkdir -p staged/jars staged/metadata
           mapfile -t CANDIDATES < <(find addon/build/libs addon/target -maxdepth 2 -type f -name '*.jar' 2>/dev/null \
             ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name 'original-*.jar' | sort)
-
           SELECTED=''
           for jar in "${CANDIDATES[@]}"; do
             if jar tf "$jar" | grep -Eq '(^|/)(plugin.yml|paper-plugin.yml|paper-plugin.yaml)$'; then
@@ -195,23 +169,18 @@ jobs:
             printf '%s\n' "${CANDIDATES[@]}" >&2
             exit 1
           fi
-
           export SELECTED
           export ADDON_REPOSITORY ADDON_SLUG ARTIFACT_BASE PAPER_API_VERSION
           export ADDON_COMMIT="$(git -C addon rev-parse HEAD)"
-
           python3 - <<'PY'
           import hashlib, json, os, re, shutil, zipfile
           from pathlib import Path
-
           source = Path(os.environ['SELECTED'])
           repo = os.environ['ADDON_REPOSITORY']
           slug = os.environ['ADDON_SLUG']
           base = os.environ.get('ARTIFACT_BASE', '').strip() or repo.split('/')[-1].removeprefix('SF_')
-
           if not re.fullmatch(r'[A-Za-z0-9]+', base):
               raise SystemExit(f'Invalid canonical addon name {base!r} for {repo}')
-
           with zipfile.ZipFile(source) as zf:
               descriptor = None
               for candidate in ('plugin.yml', 'paper-plugin.yml', 'paper-plugin.yaml'):
@@ -220,23 +189,18 @@ jobs:
                       break
               if descriptor is None:
                   raise SystemExit(f'No plugin descriptor inside {source}')
-
           match = re.search(r'(?mi)^\s*version\s*:\s*["\']?([^"\'\r\n#]+)', descriptor)
           if not match:
               raise SystemExit(f'No version in plugin descriptor for {repo}')
           version = match.group(1).strip()
-
           if not re.fullmatch(r'\d+(?:\.\d+)+', version):
               raise SystemExit(f'Public addon version must be numeric only for {repo}; got {version!r}')
-
           canonical = f'SF_{base}{version}.jar'
           if re.search(r'(legacy|english|snapshot)', canonical, re.I):
               raise SystemExit(f'Forbidden public qualifier in {canonical}')
-
           destination = Path('staged/jars') / canonical
           shutil.copy2(source, destination)
           sha256 = hashlib.sha256(destination.read_bytes()).hexdigest()
-
           record = {
               'repository': repo,
               'slug': slug,
@@ -255,12 +219,10 @@ jobs:
           Path(f'staged/metadata/{slug}.json').write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')
           print(f'Collected {source.name} as canonical {canonical}')
           PY
-
           CANONICAL="$(python3 -c "import json; print(json.load(open('staged/metadata/${ADDON_SLUG}.json'))['jar'])")"
           test -s "staged/jars/$CANONICAL"
           jar tf "staged/jars/$CANONICAL" >/dev/null
           sha256sum "staged/jars/$CANONICAL"
-
       - uses: actions/upload-artifact@v7
         with:
           name: sf-addon-${{ matrix.slug }}
@@ -279,7 +241,6 @@ jobs:
           pattern: sf-addon-*
           path: collected
           merge-multiple: true
-
       - name: Verify complete maintained set and canonical names
         env:
           EXPECTED: ${{ needs.prepare.outputs.count }}
@@ -294,11 +255,9 @@ jobs:
             echo "Expected ${EXPECTED} verified addons; found ${#JARS[@]} jars and ${#META[@]} metadata files" >&2
             exit 1
           fi
-
           python3 - <<'PY'
           import json, re
           from pathlib import Path
-
           records = [json.loads(p.read_text(encoding='utf-8')) for p in sorted(Path('collected/metadata').glob('*.json'))]
           actual = sorted(p.name for p in Path('collected/jars').glob('*.jar'))
           expected = sorted(r['jar'] for r in records)
@@ -306,17 +265,16 @@ jobs:
               raise SystemExit(f'Canonical JAR set mismatch:\nactual={actual}\nexpected={expected}')
           if len(expected) != len(set(expected)):
               raise SystemExit('Duplicate canonical JAR names detected')
-
           for name in expected:
               if not name.startswith('SF_') or not name.endswith('.jar'):
                   raise SystemExit(f'Invalid addon JAR name: {name}')
               if re.search(r'(legacy|english|snapshot)', name, re.I):
                   raise SystemExit(f'Forbidden public qualifier in addon JAR name: {name}')
-
           required = {
               'SF_BetterChests1.0.2.jar',
               'SF_BuildingStaff1.0.33.jar',
               'SF_Cultivation1.1.23.jar',
+              'SF_DracFun1.0.2.jar',
               'SF_ExoticGarden1.0.3.jar',
               'SF_FastMachines1.0.4.jar',
               'SF_Galactifun1.0.7.jar',
@@ -326,6 +284,7 @@ jobs:
               'SF_MobCapturer1.0.5.jar',
               'SF_Networks1.0.20.jar',
               'SF_SlimeEasy1.0.3.jar',
+              'SF_SlimeHUD2.0.1.jar',
               'SF_SlimeTinker2.0.6.jar',
               'SF_Supreme1.0.12.jar',
           }
@@ -334,9 +293,7 @@ jobs:
               raise SystemExit(f'Missing required canonical addon names: {missing}')
           print(f'Canonical naming verified for {len(actual)} addon JARs.')
           PY
-
           cp collected/jars/*.jar bundle/
-
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -350,7 +307,6 @@ jobs:
           }
           Path('bundle/SF_ADDON_MANIFEST.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
           PY
-
           cat > bundle/COMPATIBILITY.txt <<EOF
           Slimefun maintained addon bundle
 
@@ -369,21 +325,19 @@ jobs:
           - SECONDARY: Folia, Leaf
 
           Every JAR in this archive was compiled from its maintained SF_ repository against
-          the Paper ${PAPER_API_VERSION} / Slimefun Legacy candidate stack.
+          the Paper ${PAPER_API_VERSION} / Slimefun Legacy candidate stack without raising
+          the addon's own compiler target solely for 26.3.
           EOF
-
           (cd bundle && sha256sum *.jar | sort > SHA256SUMS.txt)
           (cd bundle && zip -9 -q "../${BUNDLE_NAME}" ./*)
           unzip -tqq "$BUNDLE_NAME"
           test -s "$BUNDLE_NAME"
-          echo "Created $BUNDLE_NAME with ${#JARS[@]} verified canonical addons"
-
+          echo "Created $BUNDLE_NAME with ${#JARS[@]} verified addons"
       - uses: actions/upload-artifact@v7
         with:
           name: SF_Addons_1.21.11-26.3
           path: SF_Addons_1.21.11-26.3.zip
           if-no-files-found: error
-
       - name: Attach canonical bundle to latest Slimefun Legacy release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -393,5 +347,8 @@ jobs:
           TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --json tagName,isDraft --jq '[.[] | select(.isDraft == false)][0].tagName')"
           test -n "$TAG"
           echo "Uploading ${BUNDLE_NAME} to ${TAG}"
-          gh release delete-asset "$TAG" "SFL_Addons_1.21.11-26.3.zip" --repo "$GITHUB_REPOSITORY" -y >/dev/null 2>&1 || true
+          OLD='SFL_Addons_1.21.11-26.3.zip'
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -Fxq "$OLD"; then
+            gh release delete-asset "$TAG" "$OLD" --repo "$GITHUB_REPOSITORY" -y
+          fi
           gh release upload "$TAG" "$BUNDLE_NAME" --repo "$GITHUB_REPOSITORY" --clobber
