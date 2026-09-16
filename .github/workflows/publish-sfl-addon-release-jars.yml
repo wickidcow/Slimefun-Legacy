@@ -1,0 +1,166 @@
+name: Publish verified SF addon JARs
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/publish-sfl-addon-release-jars.yml'
+  workflow_run:
+    workflows: ['Build SF Addons 1.21.11-26.3 Bundle']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-sf-addon-release-jars
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Publish 1.21.11-26.3 addon JARs
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Resolve latest Slimefun Legacy release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 20 --json tagName,isDraft --jq '[.[] | select(.isDraft == false)][0].tagName')"
+          test -n "$TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Publishing verified addon JARs to $TAG"
+
+      - name: Download verified 1.21.11-26.3 addon bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p download verified
+          gh release download "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'SF_Addons_1.21.11-26.3.zip' \
+            --dir download \
+            --clobber
+          test -s download/SF_Addons_1.21.11-26.3.zip
+          unzip -q download/SF_Addons_1.21.11-26.3.zip -d verified
+
+      - name: Verify exact matrix-approved JAR set
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('verified')
+          manifest_path = root / 'SF_ADDON_MANIFEST.json'
+          if not manifest_path.is_file():
+              raise SystemExit('Verified addon bundle is missing SF_ADDON_MANIFEST.json')
+
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          records = manifest.get('addons', [])
+          expected = sorted(record['jar'] for record in records)
+          actual = sorted(path.name for path in root.glob('SF_*.jar'))
+
+          if not expected:
+              raise SystemExit('Verified addon manifest contains no addon JARs')
+          if len(expected) != len(set(expected)):
+              raise SystemExit('Verified addon manifest contains duplicate JAR names')
+          if actual != expected:
+              raise SystemExit(f'Verified addon JAR set mismatch:\nexpected={expected}\nactual={actual}')
+
+          versions = manifest.get('compatibility', {}).get('minecraft_versions', {})
+          supported = versions.get('supported', [])
+          if versions.get('minimum') != '1.21.11' or '26.3' not in supported:
+              raise SystemExit(f'Unexpected compatibility range in verified manifest: {versions}')
+
+          invalid = [name for name in expected if not name.startswith('SF_') or not name.endswith('.jar')]
+          if invalid:
+              raise SystemExit(f'Invalid public addon JAR names: {invalid}')
+
+          (root / 'expected-jars.txt').write_text('\n'.join(expected) + '\n', encoding='utf-8')
+          print(f'Verified {len(expected)} matrix-approved addon JARs for 1.21.11-26.3')
+          PY
+
+      - name: Remove stale addon assets from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' > release-assets-before.txt
+
+          while IFS= read -r asset; do
+            case "$asset" in
+              SF_*.jar)
+                if ! grep -Fxq "$asset" verified/expected-jars.txt; then
+                  echo "Removing stale addon JAR: $asset"
+                  gh release delete-asset "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" -y
+                fi
+                ;;
+              SFL_AddonsNDependencies.zip|SFL_Addons_1.21.11-26.3.zip)
+                echo "Removing obsolete addon bundle: $asset"
+                gh release delete-asset "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" -y
+                ;;
+            esac
+          done < release-assets-before.txt
+
+      - name: Upload only verified raw addon JARs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t JARS < <(find verified -maxdepth 1 -type f -name 'SF_*.jar' -print | sort)
+          test "${#JARS[@]}" -gt 0
+          gh release upload "$TAG" "${JARS[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          echo "Uploaded ${#JARS[@]} verified raw addon JARs"
+
+      - name: Verify release addon assets exactly match manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' > release-assets-after.txt
+          python3 - <<'PY'
+          from pathlib import Path
+
+          expected = sorted(line.strip() for line in Path('verified/expected-jars.txt').read_text(encoding='utf-8').splitlines() if line.strip())
+          assets = [line.strip() for line in Path('release-assets-after.txt').read_text(encoding='utf-8').splitlines() if line.strip()]
+          actual = sorted(name for name in assets if name.startswith('SF_') and name.endswith('.jar'))
+
+          if actual != expected:
+              raise SystemExit(f'Release addon assets do not match verified manifest:\nexpected={expected}\nactual={actual}')
+          if 'SFL_AddonsNDependencies.zip' in assets or 'SFL_Addons_1.21.11-26.3.zip' in assets:
+              raise SystemExit('Obsolete addon bundle asset is still present')
+
+          print(f'Release now contains exactly {len(actual)} verified 1.21.11-26.3 addon JARs')
+          PY
+
+      - name: Publish summary
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        shell: bash
+        run: |
+          COUNT="$(wc -l < verified/expected-jars.txt | tr -d ' ')"
+          {
+            echo '## Verified Slimefun addon release assets'
+            echo
+            echo "- Release: $TAG"
+            echo "- Raw addon JARs: $COUNT"
+            echo '- Source: SF_Addons_1.21.11-26.3.zip manifest'
+            echo '- Compatibility: Minecraft 1.21.11 through 26.3'
+            echo '- Stale SF_*.jar assets removed before upload'
+          } >> "$GITHUB_STEP_SUMMARY"
