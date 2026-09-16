@@ -92,6 +92,7 @@ def main() -> int:
         "verify_doctor_schema_execution.py",
         "verify_doctor_upgrade_workflow.py",
         "verify_doctor_world_migration.py",
+        "verify_doctor_backpack_item_id_migration.py",
         "verify_documentation_consolidation.py",
         "verify_upstream_health_gate.py",
         "verify_paper_purpur_compat.py",
