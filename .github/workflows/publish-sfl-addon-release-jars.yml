@@ -5,6 +5,9 @@ on:
     branches: [master]
     paths:
       - '.github/workflows/publish-sfl-addon-release-jars.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/publish-sfl-addon-release-jars.yml'
   workflow_run:
     workflows: ['Build SF Addons 1.21.11-26.3 Bundle']
     types: [completed]
@@ -14,7 +17,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: publish-sf-addon-release-jars
+  group: publish-sf-addon-release-jars-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'release' }}
   cancel-in-progress: true
 
 jobs:
@@ -91,6 +94,7 @@ jobs:
           PY
 
       - name: Remove stale addon assets from release
+        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.release.outputs.tag }}
@@ -115,6 +119,7 @@ jobs:
           done < release-assets-before.txt
 
       - name: Upload only verified raw addon JARs
+        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.release.outputs.tag }}
@@ -127,6 +132,7 @@ jobs:
           echo "Uploaded ${#JARS[@]} verified raw addon JARs"
 
       - name: Verify release addon assets exactly match manifest
+        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.release.outputs.tag }}
@@ -150,6 +156,7 @@ jobs:
           PY
 
       - name: Publish summary
+        if: github.event_name != 'pull_request'
         env:
           TAG: ${{ steps.release.outputs.tag }}
         shell: bash
@@ -163,4 +170,17 @@ jobs:
             echo '- Source: SF_Addons_1.21.11-26.3.zip manifest'
             echo '- Compatibility: Minecraft 1.21.11 through 26.3'
             echo '- Stale SF_*.jar assets removed before upload'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish pull request validation summary
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          COUNT="$(wc -l < verified/expected-jars.txt | tr -d ' ')"
+          {
+            echo '## Addon release publisher validation'
+            echo
+            echo "- Verified raw addon JARs: $COUNT"
+            echo '- Source bundle: SF_Addons_1.21.11-26.3.zip'
+            echo '- Release mutations: disabled for pull requests'
           } >> "$GITHUB_STEP_SUMMARY"
