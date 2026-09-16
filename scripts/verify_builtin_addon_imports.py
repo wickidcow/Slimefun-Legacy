@@ -233,13 +233,28 @@ def verify_extra_tools(root: Path) -> None:
     require(source, "int researchId = 4100;", "ExtraTools legacy research id base changed")
     require(
         source,
-        ".filter(Slimefun.getRegistry().getSlimefunItemIds()::containsKey)",
-        "ExtraTools item-id collision protection is missing",
+        "Slimefun.getRegistry().getSlimefunItemIds().containsKey(itemId)",
+        "ExtraTools per-item id collision protection is missing",
+    )
+    require(
+        source,
+        "Skipping built-in ExtraTools item because its id is already registered",
+        "ExtraTools collision diagnostics are missing",
+    )
+    require(
+        source,
+        "int researchId = previousResearchId + 1;",
+        "ExtraTools sequential legacy research ids are no longer preserved",
     )
     require(
         source,
         "NamespacedKey.fromString(LEGACY_RESEARCH_NAMESPACE + ':' + key)",
         "ExtraTools legacy research key construction changed",
+    )
+    require(
+        source,
+        "itemsAdded < ITEM_IDS.size()",
+        "ExtraTools partial-registration diagnostics are missing",
     )
 
     ids_match = re.search(
@@ -256,16 +271,23 @@ def verify_extra_tools(root: Path) -> None:
             f"expected {EXPECTED_TOOLS_IDS}, found {item_ids}"
         )
 
-    research_keys = tuple(
+    registrations = tuple(
         re.findall(
-            r'registerResearch\(\+\+researchId,\s*"([a-z0-9_]+)"',
+            r'registerItem\(\s*plugin,\s*researchId,\s*"([A-Z0-9_]+)",\s*"([a-z0-9_]+)"',
             source,
             re.MULTILINE,
         )
     )
+    registered_ids = tuple(item_id for item_id, _ in registrations)
+    research_keys = tuple(key for _, key in registrations)
+    if registered_ids != EXPECTED_TOOLS_IDS:
+        raise AssertionError(
+            "ExtraTools registration order changed: "
+            f"expected {EXPECTED_TOOLS_IDS}, found {registered_ids}"
+        )
     if research_keys != EXPECTED_TOOLS_RESEARCH_KEYS:
         raise AssertionError(
-            "ExtraTools research contract changed: "
+            "ExtraTools research key contract changed: "
             f"expected {EXPECTED_TOOLS_RESEARCH_KEYS}, found {research_keys}"
         )
 
