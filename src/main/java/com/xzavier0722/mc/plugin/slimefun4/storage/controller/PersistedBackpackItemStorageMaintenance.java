@@ -167,8 +167,10 @@ public final class PersistedBackpackItemStorageMaintenance {
         try {
             for (RewriteRequest request : requests) {
                 BackpackItemRecord current = live.get(request.expected().identity());
-                writeValue(current, request.replacement());
+                // Treat the current row as potentially applied before entering the adapter. A database driver may
+                // commit the mutation and still throw while returning, so rollback must conservatively include it.
                 applied.add(current);
+                writeValue(current, request.replacement());
             }
             return new RewriteSummary(false, applied.size(), 0, 0, 0, 0, true);
         } catch (RuntimeException | LinkageError failure) {
