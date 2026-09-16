@@ -12,8 +12,16 @@ import org.bukkit.command.CommandSender;
 final class DoctorStoredItemMigrationCommand {
 
     private final PersistedItemFormatMigrationService service = new PersistedItemFormatMigrationService();
+    private final DoctorPersistedItemIdMigrationCommand itemIdMigrations = new DoctorPersistedItemIdMigrationCommand();
 
     void execute(@Nonnull CommandSender sender, @Nonnull String[] args) {
+        if (args.length > 4 && (args[4].equalsIgnoreCase("ids")
+                || args[4].equalsIgnoreCase("item-ids")
+                || args[4].equalsIgnoreCase("itemids"))) {
+            itemIdMigrations.execute(sender, args);
+            return;
+        }
+
         String action = args.length > 4 ? args[4].toLowerCase(Locale.ROOT) : "status";
         switch (action) {
             case "status", "plan", "list" -> sendStatus(sender);
@@ -47,6 +55,7 @@ final class DoctorStoredItemMigrationCommand {
         }
         if (plan.getRewriteCount() == 0) {
             send(sender, "&aNo legacy serialized items require conversion in currently unloaded machine storage.");
+            send(sender, "&7Persisted legacy Item IDs are a separate lane: &e/sf doctor migrations schemas storage ids scan");
             return;
         }
 
@@ -55,6 +64,7 @@ final class DoctorStoredItemMigrationCommand {
         send(sender, "&7Plan expires after &e" + Math.max(1L, service.getPlanTtlMillis() / 60_000L) + " minute(s)&7 and is single-use.");
         send(sender, "&eLoaded machines are intentionally excluded. Unload their chunks and re-scan to sweep their persisted rows.");
         send(sender, "&eMake an offline backup before executing persisted item-format migration.");
+        send(sender, "&7Persisted legacy Item IDs are separate: &e/sf doctor migrations schemas storage ids scan");
     }
 
     private void sendStatus(CommandSender sender) {
@@ -63,6 +73,7 @@ final class DoctorStoredItemMigrationCommand {
         if (plan == null) {
             send(sender, "&7No active persisted item-format plan exists.");
             send(sender, "&7Create one with &e/sf doctor migrations schemas storage scan&7.");
+            send(sender, "&7Persisted legacy Item IDs: &e/sf doctor migrations schemas storage ids scan");
             return;
         }
         long secondsLeft = Math.max(0L, (plan.getExpiresAtMillis() - System.currentTimeMillis()) / 1000L);
@@ -70,6 +81,7 @@ final class DoctorStoredItemMigrationCommand {
                 + " &8| &7unreadable: &c" + plan.getUnreadableLegacyRecords()
                 + " &8| &7expires: &e" + secondsLeft + "s"
                 + " &8| &7fingerprint: &b" + plan.getShortFingerprint());
+        send(sender, "&7Persisted legacy Item IDs: &e/sf doctor migrations schemas storage ids scan");
     }
 
     private void executePlan(CommandSender sender, String[] args) {
@@ -115,11 +127,13 @@ final class DoctorStoredItemMigrationCommand {
         send(sender, "&7Converted to current SF2/Paper format: &a" + summary.rewritten());
         send(sender, "&7No Slimefun item IDs or metadata are intentionally rewritten by this migration; it is serialization-format only.");
         send(sender, "&7The execution fingerprint is consumed. Re-scan after unloading other machine chunks to continue the sweep.");
+        send(sender, "&7Persisted legacy Item IDs are separate: &e/sf doctor migrations schemas storage ids scan");
     }
 
     private void sendUsage(CommandSender sender) {
-        send(sender, "&eUsage: /sf doctor migrations schemas storage <status|scan|execute>");
+        send(sender, "&eUsage: /sf doctor migrations schemas storage <status|scan|execute|ids>");
         send(sender, "&7Scan is read-only and never loads chunks. Execute requires the fresh scan fingerprint.");
+        send(sender, "&7Legacy Item IDs in unloaded storage: &e/sf doctor migrations schemas storage ids <status|scan|execute>");
     }
 
     private void send(CommandSender sender, String message) {
