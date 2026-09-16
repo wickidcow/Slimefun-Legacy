@@ -16,7 +16,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 public final class ExtraToolsItems {
 
     public static final ItemGroup ITEM_GROUP = new ItemGroup(
-            Objects.requireNonNull(NamespacedKey.fromString("extratools:extra_tools")), createItemGroupIcon());
+            Objects.requireNonNull(NamespacedKey.fromString("extratools:extra_tools")), createItemGroupIcon(), 1);
 
     public static final SlimefunItemStack HAMMER =
             new SlimefunItemStack("HAMMER", Material.IRON_PICKAXE, "&cHammer", "", "&9Pulverizes blocks");

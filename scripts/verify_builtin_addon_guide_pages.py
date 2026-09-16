@@ -88,16 +88,31 @@ def main() -> int:
             "ExtraTools guide page must keep its original Extra Tools label",
         )
         require(
+            tools_items,
+            "createItemGroupIcon(), 1",
+            "ExtraTools guide page must stay at tier 1 alongside ExtraGear",
+        )
+        require(
             tools_setup,
             "ExtraToolsItems.ITEM_GROUP.register(plugin);",
             "ExtraTools guide page must be explicitly registered before its items",
+        )
+        require(
+            tools_setup,
+            "Skipping built-in ExtraTools item because its id is already registered",
+            "ExtraTools must skip individual id collisions instead of dropping the whole guide page",
+        )
+        forbid(
+            tools_setup,
+            "Built-in ExtraTools was not registered because these item ids already exist",
+            "ExtraTools must not disable the whole module because one legacy item id collides",
         )
 
     except AssertionError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
-    print("Built-in addon guide pages verified: ExtraGear and ExtraTools remain dedicated top-level pages.")
+    print("Built-in addon guide pages verified: ExtraGear and ExtraTools remain dedicated tier-1 pages.")
     return 0
 
 
