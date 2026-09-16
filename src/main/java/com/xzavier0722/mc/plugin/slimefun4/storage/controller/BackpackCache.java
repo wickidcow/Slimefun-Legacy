@@ -90,25 +90,24 @@ public class BackpackCache {
         return true;
     }
 
+    /** Returns whether raw profile-storage maintenance has an authoritative cache guard available. */
+    static boolean hasActiveControllerCache() {
+        return activeCache != null;
+    }
+
     /** Read-only cache check used by raw profile-storage maintenance. */
     static boolean isCachedInActiveController(String uuid) {
         BackpackCache cache = activeCache;
-        return cache != null && cache.isCached(uuid);
+        return cache == null || cache.isCached(uuid);
     }
 
     /**
-     * Executes a raw profile-storage mutation while the active backpack cache proves the UUID is uncached.
-     * The active profile controller owns exactly one cache; replacing it only occurs during controller lifecycle
-     * replacement, when storage maintenance is not allowed to run.
+     * Executes a raw profile-storage mutation only while the authoritative backpack cache proves the UUID is uncached.
+     * If the active cache is unavailable, maintenance fails closed and the action is not run.
      */
     static boolean runIfUncachedInActiveController(String uuid, Runnable action) {
         BackpackCache cache = activeCache;
-        return cache == null ? runWithoutCache(action) : cache.runIfUncached(uuid, action);
-    }
-
-    private static boolean runWithoutCache(Runnable action) {
-        action.run();
-        return true;
+        return cache != null && cache.runIfUncached(uuid, action);
     }
 
     /**
