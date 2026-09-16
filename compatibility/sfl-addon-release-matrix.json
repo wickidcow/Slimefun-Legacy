@@ -1,7 +1,13 @@
 {
   "schema": 1,
-  "bundle_revision": 1,
-  "bundle_name": "SFL_Addons_1.21.11-26.3.zip",
+  "bundle_revision": 2,
+  "bundle_name": "SF_Addons_1.21.11-26.3.zip",
+  "artifact_naming": {
+    "format": "SF_<PluginName><Version>.jar",
+    "plugin_name_source": "plugin descriptor name",
+    "version_policy": "numeric only",
+    "forbidden_public_qualifiers": ["legacy", "english", "snapshot"]
+  },
   "compatibility": {
     "minecraft_versions": {
       "minimum": "1.21.11",
