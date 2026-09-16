@@ -27,6 +27,7 @@ import org.bukkit.generator.WorldInfo;
 class SlimefunTabCompleter implements TabCompleter {
 
     private static final int MAX_SUGGESTIONS = 80;
+    // Execution fingerprints are short-lived, single-use state; tab completion must never expose or cache them.
 
     private final SlimefunCommand command;
 
