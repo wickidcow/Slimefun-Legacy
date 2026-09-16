@@ -51,30 +51,39 @@ def method_bodies(source: str) -> list[tuple[str, str]]:
     return methods
 
 
-def primary_table_scope(body: str) -> str | None:
+def table_variable_scopes(source: str) -> dict[str, str]:
+    """Resolve MySQL/PostgreSQL cached table-name variables back to their DataScope."""
+    return {
+        variable: scope
+        for variable, scope in re.findall(
+            r"\b([A-Za-z][A-Za-z0-9_]*)\s*=\s*SqlUtils\.mapTable\(DataScope\.([A-Z_]+)", source
+        )
+    }
+
+
+def primary_table_scope(body: str, table_variables: dict[str, str]) -> str | None:
     local = re.search(r"\bvar\s+table\s*=\s*SqlUtils\.mapTable\(DataScope\.([A-Z_]+)\)", body)
     if local:
         return local.group(1)
 
-    direct = re.search(
-        r"CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s*[\"']?\s*\+?\s*SqlUtils\.mapTable\(DataScope\.([A-Z_]+)\)",
-        body,
-        re.IGNORECASE | re.DOTALL,
-    )
+    direct = re.search(r"SqlUtils\.mapTable\(DataScope\.([A-Z_]+)\)", body)
     if direct:
         return direct.group(1)
 
-    # Current adapters concatenate the table mapper directly after the CREATE TABLE prefix.
-    fallback = re.search(r"SqlUtils\.mapTable\(DataScope\.([A-Z_]+)\)", body)
-    return fallback.group(1) if fallback else None
+    # Prefix-capable adapters cache mapped table names in fields during initStorage(). The primary table name is
+    # the first such variable used by a create*Table method; later occurrences may be foreign-key references.
+    matches = [(body.find(variable), scope) for variable, scope in table_variables.items() if variable in body]
+    matches = [match for match in matches if match[0] >= 0]
+    return min(matches, default=(0, None), key=lambda match: match[0])[1]
 
 
 def scopes_using_field(source: str, field_constant: str, adapter: str) -> set[str]:
     result: set[str] = set()
+    table_variables = table_variable_scopes(source)
     for method, body in method_bodies(source):
         if field_constant not in body:
             continue
-        scope = primary_table_scope(body)
+        scope = primary_table_scope(body, table_variables)
         require(scope is not None, f"{adapter}: could not resolve table scope for {method} using {field_constant}")
         if scope is not None:
             result.add(scope)
