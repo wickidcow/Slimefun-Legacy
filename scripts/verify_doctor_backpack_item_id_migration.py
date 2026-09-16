@@ -59,6 +59,8 @@ require("ReentrantReadWriteLock" in cache
         and "maintenanceLock.readLock()" in cache
         and "maintenanceLock.writeLock()" in cache,
         "backpack cache must use a shared/exclusive maintenance gate so normal cache misses stay concurrent")
+require("maintenance.tryLock()" in cache,
+        "backpack storage maintenance must fail fast instead of blocking on in-flight gameplay loads")
 require(cache.count("maintenanceLock.readLock()") >= 4,
         "normal and maintenance cache-install paths must share the read side of the Doctor maintenance gate")
 require("getOrLoad(String pUuid, int num, Supplier<PlayerBackpack> loader)" in cache
@@ -108,8 +110,8 @@ require("cachedDeferredRowsAreBoundIntoFingerprint" in plan_test,
         "backpack fingerprint regression test must bind deferred-cache count")
 require("executesUncachedBatchExactlyOnce" in cache_test,
         "backpack cache batch-guard regression test is missing")
-require("cacheMissLoadBlocksMaintenanceUntilLoadCompletes" in cache_test,
-        "backpack cache must regression-test in-flight synchronous loads against maintenance")
+require("inFlightCacheMissDefersMaintenanceWithoutBlocking" in cache_test,
+        "backpack cache must regression-test fail-fast deferral for in-flight synchronous loads")
 require("independentCacheMissLoadsMayOverlap" in cache_test,
         "backpack cache must regression-test that unrelated gameplay loads are not serialized by Doctor safety")
 require("maintenanceDoesNotBlockUnrelatedCacheReads" in cache_test,
