@@ -87,10 +87,20 @@ public class BackpackCache {
 
     /**
      * Resolves a normal owner/number lookup atomically against raw backpack-storage maintenance.
-     * Cache misses hold the shared maintenance side across database load and canonical cache install. Different
-     * gameplay loads can still proceed concurrently, while Doctor's exclusive maintenance side cannot interleave.
+     * Already-cached backpacks keep the ordinary monitor-only fast path. Cache misses acquire the shared maintenance
+     * side across database load and canonical cache install. Different gameplay loads can still proceed concurrently,
+     * while Doctor's exclusive maintenance side cannot interleave.
      */
     PlayerBackpack getOrLoad(String pUuid, int num, Supplier<PlayerBackpack> loader) {
+        synchronized (this) {
+            Map<Integer, PlayerBackpack> map = numCache.get(pUuid);
+            PlayerBackpack backpack = map == null ? null : map.get(num);
+            if (backpack != null) {
+                promote(backpack);
+                return backpack;
+            }
+        }
+
         Lock loadLock = maintenanceLock.readLock();
         loadLock.lock();
         try {
@@ -115,6 +125,14 @@ public class BackpackCache {
      * See {@link #getOrLoad(String, int, Supplier)} for the cache-miss safety boundary.
      */
     PlayerBackpack getOrLoad(String uuid, Supplier<PlayerBackpack> loader) {
+        synchronized (this) {
+            PlayerBackpack backpack = uuidCache.get(uuid);
+            if (backpack != null) {
+                promote(backpack);
+                return backpack;
+            }
+        }
+
         Lock loadLock = maintenanceLock.readLock();
         loadLock.lock();
         try {
