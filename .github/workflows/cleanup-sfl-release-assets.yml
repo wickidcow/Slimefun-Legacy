@@ -74,7 +74,15 @@ jobs:
             exit 1
           fi
 
+          ASSET_COUNT="$(wc -l < assets-after.txt | tr -d ' ')"
+          if [[ "$ASSET_COUNT" -ne 2 ]]; then
+            echo "Expected exactly two Slimefun Legacy release assets; found ${ASSET_COUNT}." >&2
+            cat assets-after.txt >&2
+            exit 1
+          fi
+
           echo "Removed ${REMOVED} obsolete/non-core assets from ${TAG}"
+          echo 'Verified exact release layout: one core JAR + canonical addon bundle.'
           cat assets-after.txt
 
       - name: Publish summary
@@ -87,5 +95,6 @@ jobs:
             echo '- `SF_Addons_1.21.11-26.3.zip` is retained'
             echo '- Raw `SF_*.jar` addon assets are removed'
             echo '- Obsolete `SFL_Addons*` bundle assets are removed'
+            echo '- Total release assets must equal exactly two'
             echo '- Individual addon releases remain the responsibility of their own repositories'
           } >> "$GITHUB_STEP_SUMMARY"
