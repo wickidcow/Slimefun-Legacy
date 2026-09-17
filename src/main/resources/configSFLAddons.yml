@@ -13,6 +13,10 @@ SlimefunLegacyAddition:
     enabled: true
   ExtraTools:
     enabled: true
+  Magic8Ball:
+    # Registers the historical Magic 8 Ball addon inside Slimefun Legacy.
+    # This built-in copy is skipped automatically when a standalone Magic 8 Ball plugin is present.
+    enabled: true
 
   PoweredBeacon:
     # Master switch for the Resonance Beacon runtime. The item remains registered for data safety.
