@@ -170,7 +170,8 @@ public class SlimefunItemStack extends ItemStack {
                 potionMeta.setColor(color);
                 potionMeta.addCustomEffect(effect, true);
 
-                if (effect.getType().equals(PotionEffectType.SATURATION)) {
+                if (effect.getType().equals(PotionEffectType.SATURATION)
+                        && VersionedItemFlag.HIDE_ADDITIONAL_TOOLTIP != null) {
                     im.addItemFlags(VersionedItemFlag.HIDE_ADDITIONAL_TOOLTIP);
                 }
             }
