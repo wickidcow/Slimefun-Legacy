@@ -18,7 +18,7 @@ import javax.annotation.Nonnull;
 public final class MinecraftVersionNumber implements Comparable<MinecraftVersionNumber> {
 
     private static final Pattern VERSION_PATTERN =
-            Pattern.compile("^\\s*(\\d+)\\.(\\d+)(?:\\.(\\d+))?(?:[-+].*)?\\s*$");
+            Pattern.compile("^\\s*(\\d+)\\.(\\d+)(?:\\.(\\d+))?(?:(?:[-+]|\\s+).*)?\\s*$");
 
     private final int major;
     private final int minor;
