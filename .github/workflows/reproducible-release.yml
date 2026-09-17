@@ -178,7 +178,7 @@ jobs:
       - name: Upload raw reproducible JAR artifact
         uses: actions/upload-artifact@v7
         with:
-          name: Slimefun-Legacy-${{ env.LEGACY_ARTIFACT_VERSION }}
+          name: Slimefun-Legacy
           path: dist/${{ env.OUTPUT_NAME }}
           archive: false
           if-no-files-found: error
