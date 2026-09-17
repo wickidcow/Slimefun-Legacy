@@ -7,13 +7,16 @@ on:
       - master
     paths:
       - gradle.properties
-      - docs/releases/**
 
 permissions:
   contents: write
 
 env:
   CANONICAL_ADDON_BUNDLE: SF_Addons_1.21.11-26.3.zip
+
+concurrency:
+  group: reproducible-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   release-artifact:
@@ -250,6 +253,13 @@ jobs:
             exit 1
           fi
 
+          ASSET_COUNT="$(wc -l < assets-after.txt | tr -d ' ')"
+          if [[ "$ASSET_COUNT" -ne 2 ]]; then
+            echo "Expected exactly two release assets (core + canonical addon bundle); found ${ASSET_COUNT}." >&2
+            cat assets-after.txt >&2
+            exit 1
+          fi
+
           {
             echo '## Release asset layout'
             echo
@@ -257,4 +267,5 @@ jobs:
             echo "- Addon bundle: ${BUNDLE}"
             echo '- Individual addon JARs: not published here'
             echo '- Obsolete SFL_Addons* bundles: removed'
+            echo '- Release assets: exactly two'
           } >> "$GITHUB_STEP_SUMMARY"
