@@ -12,6 +12,9 @@ on:
 permissions:
   contents: write
 
+env:
+  CANONICAL_ADDON_BUNDLE: SF_Addons_1.21.11-26.3.zip
+
 jobs:
   release-artifact:
     runs-on: ubuntu-latest
@@ -21,12 +24,14 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
       - name: Set up Java 25
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '25'
           cache: gradle
+
       - name: Resolve Slimefun Legacy version
         shell: bash
         run: |
@@ -35,12 +40,15 @@ jobs:
           test -n "$VERSION"
           echo "LEGACY_ARTIFACT_VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "OUTPUT_NAME=Slimefun-Legacy${VERSION}.jar" >> "$GITHUB_ENV"
+
       - name: Pin reproducible source identity
         run: |
           echo "SOURCE_COMMIT=$GITHUB_SHA" >> "$GITHUB_ENV"
           echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
+
       - name: Verify Slimefun Legacy invariants
         run: python3 scripts/verify_legacy.py .
+
       - name: First clean release build
         shell: bash
         run: |
@@ -53,6 +61,7 @@ jobs:
           sha256sum "$RUNNER_TEMP/Slimefun-first.jar" | tee "$RUNNER_TEMP/first.sha256"
           python3 scripts/check_bytecode_target.py "$RUNNER_TEMP/Slimefun-first.jar" --expected-java 21 --report "$RUNNER_TEMP/bytecode-first.txt"
           python3 scripts/verify_release_artifact.py "$RUNNER_TEMP/Slimefun-first.jar" --root . --json-report "$RUNNER_TEMP/release-artifact-first.json" --summary "$RUNNER_TEMP/release-artifact-first.md"
+
       - name: Second clean release build
         shell: bash
         run: |
@@ -64,6 +73,7 @@ jobs:
           sha256sum "$RUNNER_TEMP/Slimefun-second.jar" | tee "$RUNNER_TEMP/second.sha256"
           python3 scripts/check_bytecode_target.py "$RUNNER_TEMP/Slimefun-second.jar" --expected-java 21 --report "$RUNNER_TEMP/bytecode-second.txt"
           python3 scripts/verify_release_artifact.py "$RUNNER_TEMP/Slimefun-second.jar" --root . --json-report "$RUNNER_TEMP/release-artifact-second.json" --summary "$RUNNER_TEMP/release-artifact-second.md"
+
       - name: Require byte-for-byte reproducibility
         shell: bash
         run: |
@@ -77,58 +87,102 @@ jobs:
           cp "$RUNNER_TEMP/first.sha256" "$RUNNER_TEMP/second.sha256" "$RUNNER_TEMP/bytecode-first.txt" "$RUNNER_TEMP/bytecode-second.txt" build/release-verification/
           cp "$RUNNER_TEMP/release-artifact-first.json" "$RUNNER_TEMP/release-artifact-first.md" "$RUNNER_TEMP/release-artifact-second.json" "$RUNNER_TEMP/release-artifact-second.md" build/release-verification/
           printf '# Reproducible release verification\n\n- Source: `%s`\n- SHA-256: `%s`\n- Result: **PASS — byte-for-byte identical**\n' "$GITHUB_SHA" "$FIRST_SHA" | tee build/release-verification/reproducible-release.md >> "$GITHUB_STEP_SUMMARY"
-      - name: Preserve validated addon bundle
+
+      - name: Preserve latest validated canonical addon bundle
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           TAG="v${LEGACY_ARTIFACT_VERSION}"
-          BUNDLE="dist/SFL_AddonsNDependencies.zip"
+          BUNDLE_NAME="$CANONICAL_ADDON_BUNDLE"
+          BUNDLE="dist/${BUNDLE_NAME}"
+          SOURCE_TAG=''
 
-          # A release refresh should never roll the addon bundle backwards. Reuse the
-          # bundle already published for this version when it exists, and otherwise
-          # fall back to the previous-stable 4.1.49 bundle. In both cases, trust the
-          # digest recorded by GitHub for that exact release asset and verify the
-          # downloaded bytes before publication.
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
-            && gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" \
-              --jq '.assets[] | select(.name == "SFL_AddonsNDependencies.zip") | .digest' \
-              | grep -q '^sha256:'; then
-            SOURCE_TAG="$TAG"
-          else
-            SOURCE_TAG='v4.1.49'
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            CURRENT_DIGEST="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" \
+              --jq ".assets[] | select(.name == \"${BUNDLE_NAME}\") | .digest" \
+              | head -n 1)"
+            if [[ "$CURRENT_DIGEST" == sha256:* ]]; then
+              SOURCE_TAG="$TAG"
+            fi
+          fi
+
+          if [[ -z "$SOURCE_TAG" ]]; then
+            while IFS= read -r candidate; do
+              [[ -n "$candidate" ]] || continue
+              DIGEST="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${candidate}" \
+                --jq ".assets[] | select(.name == \"${BUNDLE_NAME}\") | .digest" \
+                | head -n 1 || true)"
+              if [[ "$DIGEST" == sha256:* ]]; then
+                SOURCE_TAG="$candidate"
+                break
+              fi
+            done < <(gh release list --repo "$GITHUB_REPOSITORY" --limit 50 --json tagName,isDraft \
+              --jq '.[] | select(.isDraft == false) | .tagName')
+          fi
+
+          if [[ -z "$SOURCE_TAG" ]]; then
+            echo "No published Slimefun Legacy release contains ${BUNDLE_NAME}." >&2
+            exit 1
           fi
 
           ASSET_DIGEST="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${SOURCE_TAG}" \
-            --jq '.assets[] | select(.name == "SFL_AddonsNDependencies.zip") | .digest' \
+            --jq ".assets[] | select(.name == \"${BUNDLE_NAME}\") | .digest" \
             | head -n 1)"
           case "$ASSET_DIGEST" in
             sha256:[0-9a-fA-F]*) ;;
             *)
-              echo "Release ${SOURCE_TAG} does not expose a usable SHA-256 digest for SFL_AddonsNDependencies.zip." >&2
+              echo "Release ${SOURCE_TAG} does not expose a usable SHA-256 digest for ${BUNDLE_NAME}." >&2
               exit 1
               ;;
           esac
-          EXPECTED_SHA="${ASSET_DIGEST#sha256:}"
-          if [[ ! "$EXPECTED_SHA" =~ ^[0-9a-fA-F]{64}$ ]]; then
-            echo "Release ${SOURCE_TAG} returned an invalid SHA-256 digest: ${ASSET_DIGEST}" >&2
-            exit 1
-          fi
 
+          EXPECTED_SHA="${ASSET_DIGEST#sha256:}"
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-fA-F]{64}$ ]]
+
+          mkdir -p dist bundle-check
           rm -f "$BUNDLE"
           gh release download "$SOURCE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
-            --pattern 'SFL_AddonsNDependencies.zip' \
+            --pattern "$BUNDLE_NAME" \
             --dir dist
           printf '%s  %s\n' "$EXPECTED_SHA" "$BUNDLE" | sha256sum -c -
-          echo "Validated addon bundle from ${SOURCE_TAG}: sha256:${EXPECTED_SHA}"
+          unzip -tqq "$BUNDLE"
+          unzip -q "$BUNDLE" -d bundle-check
+          test -s bundle-check/SF_ADDON_MANIFEST.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('bundle-check')
+          manifest = json.loads((root / 'SF_ADDON_MANIFEST.json').read_text(encoding='utf-8'))
+          records = manifest.get('addons', [])
+          expected = sorted(row['jar'] for row in records)
+          actual = sorted(path.name for path in root.glob('SF_*.jar'))
+          versions = manifest.get('compatibility', {}).get('minecraft_versions', {})
+
+          if not expected or actual != expected:
+              raise SystemExit(f'Canonical addon bundle manifest mismatch: expected={expected}, actual={actual}')
+          if versions.get('minimum') != '1.21.11' or '26.3' not in versions.get('supported', []):
+              raise SystemExit(f'Unexpected addon compatibility range: {versions}')
+          if any(not name.startswith('SF_') or not name.endswith('.jar') for name in expected):
+              raise SystemExit('Canonical addon bundle contains an invalid public addon filename')
+
+          print(f'Validated canonical addon bundle with {len(expected)} addon JARs')
+          PY
+
+          echo "Canonical addon bundle source: ${SOURCE_TAG} (${ASSET_DIGEST})" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload raw reproducible JAR artifact
         uses: actions/upload-artifact@v7
         with:
+          name: Slimefun-Legacy-${{ env.LEGACY_ARTIFACT_VERSION }}
           path: dist/${{ env.OUTPUT_NAME }}
           archive: false
           if-no-files-found: error
+
       - name: Publish reproducible release assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -137,25 +191,70 @@ jobs:
           set -euo pipefail
           TAG="v${LEGACY_ARTIFACT_VERSION}"
           JAR="dist/${OUTPUT_NAME}"
-          BUNDLE="dist/SFL_AddonsNDependencies.zip"
+          BUNDLE="dist/${CANONICAL_ADDON_BUNDLE}"
           NOTES_FILE="docs/releases/${LEGACY_ARTIFACT_VERSION}.md"
           TITLE="Slimefun Legacy ${LEGACY_ARTIFACT_VERSION}"
 
-          if gh release view "$TAG" >/dev/null 2>&1; then
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh api --method PATCH \
               "repos/${GITHUB_REPOSITORY}/git/refs/tags/${TAG}" \
               -f sha="$GITHUB_SHA" \
               -F force=true >/dev/null
-            gh release upload "$TAG" "$JAR" "$BUNDLE" --clobber
+            gh release upload "$TAG" "$JAR" "$BUNDLE" --repo "$GITHUB_REPOSITORY" --clobber
             if [[ -f "$NOTES_FILE" ]]; then
-              gh release edit "$TAG" --title "$TITLE" --notes-file "$NOTES_FILE"
+              gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TITLE" --notes-file "$NOTES_FILE"
             else
-              gh release edit "$TAG" --title "$TITLE"
+              gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TITLE"
             fi
           else
             if [[ -f "$NOTES_FILE" ]]; then
-              gh release create "$TAG" "$JAR" "$BUNDLE" --target "$GITHUB_SHA" --notes-file "$NOTES_FILE" --title "$TITLE"
+              gh release create "$TAG" "$JAR" "$BUNDLE" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --notes-file "$NOTES_FILE" --title "$TITLE"
             else
-              gh release create "$TAG" "$JAR" "$BUNDLE" --target "$GITHUB_SHA" --generate-notes --title "$TITLE"
+              gh release create "$TAG" "$JAR" "$BUNDLE" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --generate-notes --title "$TITLE"
             fi
           fi
+
+      - name: Normalize and verify release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="v${LEGACY_ARTIFACT_VERSION}"
+          CORE_JAR="${OUTPUT_NAME}"
+          BUNDLE="$CANONICAL_ADDON_BUNDLE"
+
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' > assets-before.txt
+
+          while IFS= read -r asset; do
+            case "$asset" in
+              SF_*.jar|SFL_AddonsNDependencies.zip|SFL_AddonsNDependencies.sha256|SFL_Addons_1.21.11-26.3.zip)
+                echo "Removing obsolete/non-core release asset: $asset"
+                gh release delete-asset "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" -y
+                ;;
+            esac
+          done < assets-before.txt
+
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | sort > assets-after.txt
+          grep -Fxq "$CORE_JAR" assets-after.txt
+          grep -Fxq "$BUNDLE" assets-after.txt
+
+          if grep -Eq '^SF_.*\.jar$' assets-after.txt; then
+            echo 'Raw addon JARs remain on the Slimefun Legacy release.' >&2
+            cat assets-after.txt >&2
+            exit 1
+          fi
+          if grep -Eq '^SFL_Addons' assets-after.txt; then
+            echo 'An obsolete Slimefun addon bundle remains on the release.' >&2
+            cat assets-after.txt >&2
+            exit 1
+          fi
+
+          {
+            echo '## Release asset layout'
+            echo
+            echo "- Core: ${CORE_JAR}"
+            echo "- Addon bundle: ${BUNDLE}"
+            echo '- Individual addon JARs: not published here'
+            echo '- Obsolete SFL_Addons* bundles: removed'
+          } >> "$GITHUB_STEP_SUMMARY"
