@@ -164,7 +164,7 @@ jobs:
           if-no-files-found: error
 
   prepare-addon-matrix:
-    name: Prepare maintained SF_ compile matrix
+    name: Prepare maintained addon compile matrix
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
@@ -188,13 +188,21 @@ jobs:
 
           event_name = os.environ.get('EVENT_NAME', '')
           pull_request_mode = event_name == 'pull_request'
+          policy = data.get('policy', {})
+          prefix = policy.get('fork_discovery_prefix', 'SF_')
+          explicit = set(policy.get('fork_discovery_explicit', []))
+          owner_prefix = 'wickidcow/'
           seen = set()
           include = []
 
           for addon in data.get('addons', []):
               repository = addon.get('repository', '')
               tier = addon.get('tier', 'unknown')
-              if not addon.get('enabled', False) or not repository.startswith('wickidcow/SF_'):
+              repository_name = repository.split('/', 1)[1] if repository.startswith(owner_prefix) else ''
+              maintained = bool(repository_name) and (
+                  repository_name.startswith(prefix) or repository_name in explicit
+              )
+              if not addon.get('enabled', False) or not maintained:
                   continue
               if pull_request_mode and tier != 'required':
                   continue
@@ -203,7 +211,7 @@ jobs:
               seen.add(repository)
               include.append({
                   'repository': repository,
-                  'slug': addon.get('slug') or repository.split('/', 1)[1].lower(),
+                  'slug': addon.get('slug') or repository_name.lower(),
                   'tier': tier,
               })
 
@@ -225,7 +233,7 @@ jobs:
             echo '- Targets: **${{ steps.matrix.outputs.count }}**'
             if [[ '${{ github.event_name }}' == 'pull_request' ]]; then
               echo '- Pull requests compile the release-blocking `required` tier only to keep validation bounded.'
-              echo '- Scheduled/manual runs compile every enabled `wickidcow/SF_*` target.'
+              echo '- Scheduled/manual runs compile every enabled maintained `wickidcow` fork selected by the compatibility policy (`SF_*` plus explicit entries).'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
