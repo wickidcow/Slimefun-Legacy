@@ -325,7 +325,7 @@ This repository does not grant rights to Minecraft, Mojang, Microsoft, or other 
 
 Slimefun Legacy is distributed under the [GNU General Public License v3.0](LICENSE), consistent with the upstream Slimefun 4 licensing. Modifications distributed from this repository remain subject to the GPLv3 and its source-availability requirements.
 
-Copyright and authorship of upstream work remain with the original Slimefun authors and contributors. Copyright in later modifications remains with the contributors who authored those changes. Nothing in the Slimefun Legacy name, branding, or distribution is intended to transfer, erase, or claim ownership of upstream authorship.
+Copyright and authorship of upstream work remain with the original Slimefun authors and contributors. Copyright in later modifications remains with the contributors who authored those changes. Nothing in the Slimefun Legacy name, branding, README, or distribution is intended to transfer, erase, or claim ownership of upstream authorship.
 
 For the complete license terms, see [`LICENSE`](LICENSE).
 
