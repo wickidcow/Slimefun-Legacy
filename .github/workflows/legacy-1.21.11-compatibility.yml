@@ -1,4 +1,4 @@
-name: Paper/Purpur 1.21.11 Compatibility
+name: Paper/Purpur/Folia/Leaf 1.21.11 Compatibility
 
 on:
   pull_request:
@@ -23,7 +23,7 @@ permissions:
 env:
   LEGACY_MINECRAFT_VERSION: "1.21.11"
   LEGACY_PAPER_API_VERSION: "1.21.11-R0.1-SNAPSHOT"
-  LEGACY_DOWNLOAD_USER_AGENT: "Slimefun-Legacy-CI/4.1.35 (https://github.com/wickidcow/Slimefun-Legacy)"
+  LEGACY_DOWNLOAD_USER_AGENT: "Slimefun-Legacy-CI/4.1.51 (https://github.com/wickidcow/Slimefun-Legacy)"
 
 jobs:
   paper-api-compile:
@@ -52,11 +52,11 @@ jobs:
   legacy-runtime-smoke:
     name: Boot twice on ${{ matrix.software }} 1.21.11
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        software: [paper, purpur]
+        software: [paper, purpur, folia, leaf]
     steps:
       - name: Check out source
         uses: actions/checkout@v6
