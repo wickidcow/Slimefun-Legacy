@@ -1,0 +1,185 @@
+name: Purpur/Folia/Leaf 26.3 Runtime Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'gradle.properties'
+      - 'compatibility/**'
+      - 'scripts/paper_family_runtime_smoke.sh'
+      - '.github/workflows/paper-family-26.3-runtime-smoke.yml'
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'src/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'gradle.properties'
+      - 'compatibility/**'
+      - 'scripts/paper_family_runtime_smoke.sh'
+      - '.github/workflows/paper-family-26.3-runtime-smoke.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '29 10 * * 4'
+
+permissions:
+  contents: read
+
+env:
+  SERVER_MINECRAFT_VERSION: '26.3'
+  SERVER_DOWNLOAD_USER_AGENT: 'Slimefun-Legacy-26.3-Paper-Family/1.0 (https://github.com/wickidcow/Slimefun-Legacy)'
+
+jobs:
+  detect-paper-api:
+    name: Resolve Paper 26.3 API
+    runs-on: ubuntu-latest
+    outputs:
+      available: ${{ steps.detect.outputs.available }}
+      version: ${{ steps.detect.outputs.version }}
+    steps:
+      - name: Detect latest Paper 26.3 API
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import re
+          import urllib.error
+          import urllib.request
+          import xml.etree.ElementTree as ET
+
+          output = os.environ['GITHUB_OUTPUT']
+          request = urllib.request.Request(
+              'https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/maven-metadata.xml',
+              headers={'User-Agent': 'Slimefun-Legacy-26.3-Paper-Family/1.0'},
+          )
+
+          version = ''
+          try:
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  root = ET.fromstring(response.read())
+              candidates = [
+                  node.text.strip()
+                  for node in root.findall('./versioning/versions/version')
+                  if node.text and node.text.strip().startswith('26.3.build.')
+              ]
+              if candidates:
+                  def key(value: str):
+                      match = re.search(r'\.build\.(\d+)', value)
+                      return (int(match.group(1)) if match else -1, value)
+                  version = max(candidates, key=key)
+          except (OSError, urllib.error.URLError, ET.ParseError) as exc:
+              print(f'Paper 26.3 API probe unavailable: {exc}')
+
+          with open(output, 'a', encoding='utf-8') as stream:
+              stream.write(f'available={str(bool(version)).lower()}\n')
+              stream.write(f'version={version}\n')
+          PY
+
+      - name: Publish candidate status
+        run: |
+          {
+            echo '## Paper-family 26.3 runtime matrix'
+            echo
+            echo '- Paper 26.2 remains the production baseline.'
+            echo '- Paper itself is covered by the existing 26.3 pre-release runtime smoke.'
+            echo '- This workflow adds Purpur, Folia, and Leaf as availability-aware advisory runtime targets.'
+            echo '- Paper 26.3 API available: `${{ steps.detect.outputs.available }}`'
+            if [[ '${{ steps.detect.outputs.available }}' == 'true' ]]; then
+              echo '- Candidate API: `${{ steps.detect.outputs.version }}`'
+            else
+              echo '- No runtime compatibility pass is claimed until a Paper 26.3 API is available.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  runtime-smoke:
+    name: ${{ matrix.software }} 26.3 two-boot smoke
+    needs: detect-paper-api
+    if: ${{ needs.detect-paper-api.outputs.available == 'true' }}
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        software: [purpur, folia, leaf]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Pin source identity
+        run: |
+          echo "SOURCE_COMMIT=$GITHUB_SHA" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
+
+      - name: Verify Slimefun Legacy invariants
+        run: python3 scripts/verify_legacy.py .
+
+      - name: Build universal candidate against Paper 26.3 API
+        env:
+          PAPER_API_VERSION: ${{ needs.detect-paper-api.outputs.version }}
+        run: |
+          set -euo pipefail
+          chmod +x gradlew scripts/paper_family_runtime_smoke.sh
+          ./gradlew spotlessApply --no-daemon
+          ./gradlew clean shadowJar -PpaperApiVersion="$PAPER_API_VERSION" --no-daemon
+
+      - name: Locate candidate JAR
+        id: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -n "$JAR"
+          test -s "$JAR"
+          echo "jar=$JAR" >> "$GITHUB_OUTPUT"
+
+      - name: Probe and boot ${{ matrix.software }} 26.3 twice when available
+        env:
+          SERVER_SOFTWARE: ${{ matrix.software }}
+          SERVER_ALLOW_UNAVAILABLE: 'true'
+        run: bash scripts/paper_family_runtime_smoke.sh "${{ steps.candidate.outputs.jar }}"
+
+      - name: Publish runtime smoke summary
+        if: always()
+        run: |
+          if [[ -f build/paper-family-26.3-runtime-smoke/smoke-result.txt ]]; then
+            {
+              echo "## ${{ matrix.software }} 26.3 runtime smoke"
+              echo
+              echo '```text'
+              cat build/paper-family-26.3-runtime-smoke/smoke-result.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -f build/paper-family-26.3-runtime-smoke/runtime-build.txt ]]; then
+            {
+              echo
+              echo '### Runtime build'
+              echo
+              echo '```text'
+              cat build/paper-family-26.3-runtime-smoke/runtime-build.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload runtime smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.software }}-26.3-runtime-smoke
+          path: |
+            build/paper-family-26.3-runtime-smoke/*.console.log
+            build/paper-family-26.3-runtime-smoke/runtime-build.txt
+            build/paper-family-26.3-runtime-smoke/smoke-result.txt
+          if-no-files-found: warn
