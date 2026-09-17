@@ -1,6 +1,17 @@
 name: Paper 26.3 Maintained Addon Compile
 
 on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/paper-26.3-addon-compile.yml'
+      - 'compatibility/addon-compatibility-matrix.json'
+      - 'scripts/compile_addon_paper_26_3.py'
+      - 'scripts/test_compile_addon_paper_26_3.py'
+      - 'scripts/paper_candidate_versions.py'
+      - 'scripts/test_paper_candidate_versions.py'
+      - 'build.gradle.kts'
+      - 'gradle/**'
   pull_request:
     paths:
       - '.github/workflows/paper-26.3-addon-compile.yml'
@@ -193,6 +204,8 @@ jobs:
               tier = addon.get('tier', 'unknown')
               if not addon.get('enabled', False) or not repository.startswith('wickidcow/SF_'):
                   continue
+              if not addon.get('compile_enabled', True):
+                  continue
               if pull_request_mode and tier != 'required':
                   continue
               if repository in seen:
@@ -257,7 +270,6 @@ jobs:
           git clone --depth 1 "https://github.com/${ADDON_REPOSITORY}.git" addon
       - name: Compile addon against candidate stack
         id: probe
-        continue-on-error: true
         env:
           PAPER_API_VERSION: ${{ needs.detect-paper-api.outputs.probe_version }}
           PROBE_LABEL: ${{ needs.detect-paper-api.outputs.probe_label }}
@@ -303,7 +315,7 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Mark advisory incompatibility
-        if: steps.probe.outcome == 'failure'
+        if: ${{ failure() && steps.probe.outcome == 'failure' }}
         env:
           PROBE_LABEL: ${{ needs.detect-paper-api.outputs.probe_label }}
         run: |
