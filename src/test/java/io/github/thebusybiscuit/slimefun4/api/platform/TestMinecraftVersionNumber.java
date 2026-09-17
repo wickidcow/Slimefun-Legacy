@@ -20,6 +20,9 @@ class TestMinecraftVersionNumber {
         assertEquals(
                 new MinecraftVersionNumber(1, 21, 2),
                 MinecraftVersionNumber.parse("1.21.2-pre2").orElseThrow());
+        assertEquals(
+                new MinecraftVersionNumber(26, 3, 0),
+                MinecraftVersionNumber.parse("26.3 Release Candidate 3").orElseThrow());
     }
 
     @Test
