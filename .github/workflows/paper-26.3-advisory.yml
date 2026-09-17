@@ -7,6 +7,8 @@ on:
       - '.github/workflows/paper-26.3-advisory.yml'
       - 'build.gradle.kts'
       - 'gradle/libs.versions.toml'
+      - 'scripts/paper_candidate_versions.py'
+      - 'scripts/test_paper_candidate_versions.py'
   workflow_dispatch:
   schedule:
     - cron: '17 7 * * *'
@@ -36,6 +38,9 @@ jobs:
           java-version: '25'
           cache: gradle
 
+      - name: Verify Paper candidate resolver
+        run: python3 scripts/test_paper_candidate_versions.py
+
       - name: Discover latest published Paper 26.3 API
         id: paper
         shell: bash
@@ -43,10 +48,7 @@ jobs:
           set -euo pipefail
           METADATA='https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/maven-metadata.xml'
           XML="$(curl --fail --silent --show-error --location --retry 3 "$METADATA")"
-          VERSION="$(printf '%s' "$XML" \
-            | grep -oE '<version>26\.3\.build\.[^<]+</version>' \
-            | sed -E 's#</?version>##g' \
-            | tail -n 1 || true)"
+          VERSION="$(printf '%s' "$XML" | python3 scripts/paper_candidate_versions.py --target 26.3)"
 
           if [[ -z "$VERSION" ]]; then
             echo 'available=false' >> "$GITHUB_OUTPUT"
