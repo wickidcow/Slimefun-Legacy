@@ -14,6 +14,7 @@ final class LegacyAddonSetup {
     static void setup(Slimefun plugin) {
         register(plugin, "ExtraGear", () -> ExtraGearSetup.setup(plugin));
         register(plugin, "ExtraTools", () -> ExtraToolsSetup.setup(plugin));
+        register(plugin, "Magic8Ball", () -> Magic8BallSetup.setup(plugin));
     }
 
     private static void register(Slimefun plugin, String module, Runnable registration) {
