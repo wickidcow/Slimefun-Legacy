@@ -9,7 +9,8 @@ import org.bukkit.inventory.ItemFlag;
 
 public class VersionedItemFlag {
 
-    @Nullable public static final ItemFlag HIDE_ADDITIONAL_TOOLTIP;
+    @Nullable
+    public static final ItemFlag HIDE_ADDITIONAL_TOOLTIP;
 
     static {
         MinecraftVersion version = Slimefun.getMinecraftVersion();
