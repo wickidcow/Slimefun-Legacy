@@ -14,6 +14,8 @@ SHUTDOWN_TIMEOUT_SECONDS="${SERVER_SMOKE_SHUTDOWN_TIMEOUT:-60}"
 case "$SOFTWARE" in
     paper) SOFTWARE_NAME="Paper" ;;
     purpur) SOFTWARE_NAME="Purpur" ;;
+    folia) SOFTWARE_NAME="Folia" ;;
+    leaf) SOFTWARE_NAME="Leaf" ;;
     *)
         echo "Unsupported runtime software: $SOFTWARE" >&2
         exit 1
@@ -61,6 +63,7 @@ PROPERTIES
 
 SERVER_BUILD=""
 SERVER_URL=""
+SERVER_CHANNEL=""
 
 if [[ "$SOFTWARE" == "paper" ]]; then
     BUILDS_URL="https://fill.papermc.io/v3/projects/paper/versions/${MC_VERSION}/builds"
@@ -73,11 +76,12 @@ if [[ "$SOFTWARE" == "paper" ]]; then
 
     SERVER_URL="$(jq -r 'first(.[] | select(.channel == "STABLE") | .downloads."server:default".url) // empty' <<<"$BUILDS_RESPONSE")"
     SERVER_BUILD="$(jq -r 'first(.[] | select(.channel == "STABLE") | .id) // empty' <<<"$BUILDS_RESPONSE")"
+    SERVER_CHANNEL="STABLE"
     if [[ -z "$SERVER_URL" || -z "$SERVER_BUILD" ]]; then
         echo "No stable Paper build is available for Minecraft ${MC_VERSION}." >&2
         exit 1
     fi
-else
+elif [[ "$SOFTWARE" == "purpur" ]]; then
     PURPUR_META_URL="https://api.purpurmc.org/v2/purpur/${MC_VERSION}"
     PURPUR_META="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "$PURPUR_META_URL")"
     SERVER_BUILD="$(jq -r '.builds.latest // empty' <<<"$PURPUR_META")"
@@ -86,10 +90,45 @@ else
         exit 1
     fi
     SERVER_URL="https://api.purpurmc.org/v2/purpur/${MC_VERSION}/${SERVER_BUILD}/download"
+    SERVER_CHANNEL="latest"
+elif [[ "$SOFTWARE" == "leaf" ]]; then
+    LEAF_VERSION_URL="https://api.leafmc.one/v2/projects/leaf/versions/${MC_VERSION}"
+    LEAF_VERSION="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "$LEAF_VERSION_URL")"
+    SERVER_BUILD="$(jq -r '(.builds // []) | max // empty' <<<"$LEAF_VERSION")"
+    if [[ -z "$SERVER_BUILD" ]]; then
+        echo "Leaf downloads service did not report a build for Minecraft ${MC_VERSION}." >&2
+        exit 1
+    fi
+
+    LEAF_BUILD_URL="https://api.leafmc.one/v2/projects/leaf/versions/${MC_VERSION}/builds/${SERVER_BUILD}"
+    LEAF_BUILD="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "$LEAF_BUILD_URL")"
+    LEAF_FILENAME="$(jq -r '.downloads.application.name // ([.downloads[]? | .name] | first) // empty' <<<"$LEAF_BUILD")"
+    SERVER_CHANNEL="$(jq -r '.channel // "unknown"' <<<"$LEAF_BUILD")"
+    if [[ -z "$LEAF_FILENAME" ]]; then
+        echo "Leaf downloads service did not report a server JAR for Minecraft ${MC_VERSION} build ${SERVER_BUILD}." >&2
+        exit 1
+    fi
+    SERVER_URL="https://api.leafmc.one/v2/projects/leaf/versions/${MC_VERSION}/builds/${SERVER_BUILD}/downloads/${LEAF_FILENAME}"
+else
+    BUILDS_URL="https://fill.papermc.io/v3/projects/folia/versions/${MC_VERSION}/builds"
+    BUILDS_RESPONSE="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "$BUILDS_URL")"
+
+    if jq -e '.ok == false' >/dev/null 2>&1 <<<"$BUILDS_RESPONSE"; then
+        jq -r '.message // "PaperMC downloads service returned an unknown error"' <<<"$BUILDS_RESPONSE" >&2
+        exit 1
+    fi
+
+    SERVER_URL="$(jq -r 'max_by(.id) | .downloads."server:default".url // empty' <<<"$BUILDS_RESPONSE")"
+    SERVER_BUILD="$(jq -r 'max_by(.id) | .id // empty' <<<"$BUILDS_RESPONSE")"
+    SERVER_CHANNEL="$(jq -r 'max_by(.id) | .channel // "unknown"' <<<"$BUILDS_RESPONSE")"
+    if [[ -z "$SERVER_URL" || -z "$SERVER_BUILD" ]]; then
+        echo "No Folia build is available for Minecraft ${MC_VERSION}." >&2
+        exit 1
+    fi
 fi
 
-printf 'Software: %s\nMinecraft: %s\nBuild: %s\nDownload: %s\nJava: %s\n' \
-    "$SOFTWARE_NAME" "$MC_VERSION" "$SERVER_BUILD" "$SERVER_URL" "$(java -version 2>&1 | head -n 1)" \
+printf 'Software: %s\nMinecraft: %s\nBuild: %s\nChannel: %s\nDownload: %s\nJava: %s\n' \
+    "$SOFTWARE_NAME" "$MC_VERSION" "$SERVER_BUILD" "$SERVER_CHANNEL" "$SERVER_URL" "$(java -version 2>&1 | head -n 1)" \
     > "$WORK_DIR/runtime-build.txt"
 
 curl --fail-with-body -L -sS -H "User-Agent: ${USER_AGENT}" -o "$WORK_DIR/server.jar" "$SERVER_URL"
@@ -226,6 +265,7 @@ Slimefun Legacy ${SOFTWARE_NAME} 1.21.11 runtime smoke: PASS
 Slimefun Legacy: ${EXPECTED_PLUGIN_VERSION}
 Minecraft: ${MC_VERSION}
 ${SOFTWARE_NAME} build: ${SERVER_BUILD}
+Channel: ${SERVER_CHANNEL}
 Runtime Java: $(java -version 2>&1 | head -n 1)
 Cycles: 2
 Upgrade diagnostics: executed on both boots without BLOCKED status
