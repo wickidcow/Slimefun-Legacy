@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Remove raw addon JARs from latest Slimefun Legacy release
+      - name: Normalize latest Slimefun Legacy release assets
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -33,22 +33,22 @@ jobs:
 
           TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 20 --json tagName,isDraft --jq '[.[] | select(.isDraft == false)][0].tagName')"
           test -n "$TAG"
-          echo "Cleaning raw addon JARs from Slimefun Legacy release $TAG"
+          echo "Normalizing Slimefun Legacy release $TAG"
 
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' > assets-before.txt
 
           REMOVED=0
           while IFS= read -r asset; do
             case "$asset" in
-              SF_*.jar)
-                echo "Removing addon asset: $asset"
+              SF_*.jar|SFL_AddonsNDependencies.zip|SFL_AddonsNDependencies.sha256|SFL_Addons_1.21.11-26.3.zip)
+                echo "Removing obsolete/non-core release asset: $asset"
                 gh release delete-asset "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" -y
                 REMOVED=$((REMOVED + 1))
                 ;;
             esac
           done < assets-before.txt
 
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' > assets-after.txt
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | sort > assets-after.txt
 
           if grep -Eq '^SF_.*\.jar$' assets-after.txt; then
             echo 'Raw SF addon JARs remain on the Slimefun Legacy release:' >&2
@@ -56,12 +56,26 @@ jobs:
             exit 1
           fi
 
-          if ! grep -Fxq 'SF_Addons_1.21.11-26.3.zip' assets-after.txt; then
-            echo 'Expected compatibility bundle is missing from the latest Slimefun Legacy release' >&2
+          if grep -Eq '^SFL_Addons' assets-after.txt; then
+            echo 'An obsolete SFL_Addons* bundle remains on the Slimefun Legacy release:' >&2
+            grep -E '^SFL_Addons' assets-after.txt >&2
             exit 1
           fi
 
-          echo "Removed $REMOVED raw addon JAR assets from $TAG"
+          if ! grep -Fxq 'SF_Addons_1.21.11-26.3.zip' assets-after.txt; then
+            echo 'Expected canonical compatibility bundle is missing from the latest Slimefun Legacy release.' >&2
+            exit 1
+          fi
+
+          CORE_COUNT="$(grep -Ec '^Slimefun-Legacy[^/]*\.jar$' assets-after.txt || true)"
+          if [[ "$CORE_COUNT" -ne 1 ]]; then
+            echo "Expected exactly one Slimefun Legacy core JAR; found ${CORE_COUNT}." >&2
+            cat assets-after.txt >&2
+            exit 1
+          fi
+
+          echo "Removed ${REMOVED} obsolete/non-core assets from ${TAG}"
+          cat assets-after.txt
 
       - name: Publish summary
         shell: bash
@@ -69,8 +83,9 @@ jobs:
           {
             echo '## Slimefun Legacy release cleanup'
             echo
-            echo '- Raw `SF_*.jar` addon assets: removed'
-            echo '- `SF_Addons_1.21.11-26.3.zip`: retained'
-            echo '- Slimefun Legacy core release assets: retained'
+            echo '- Exactly one `Slimefun-Legacy*.jar` core asset is required'
+            echo '- `SF_Addons_1.21.11-26.3.zip` is retained'
+            echo '- Raw `SF_*.jar` addon assets are removed'
+            echo '- Obsolete `SFL_Addons*` bundle assets are removed'
             echo '- Individual addon releases remain the responsibility of their own repositories'
           } >> "$GITHUB_STEP_SUMMARY"
