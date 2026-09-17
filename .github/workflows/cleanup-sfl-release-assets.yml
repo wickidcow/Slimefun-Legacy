@@ -1,0 +1,76 @@
+name: Clean Slimefun Legacy release assets
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/cleanup-sfl-release-assets.yml'
+  workflow_run:
+    workflows: ['Build SF Addons 1.21.11-26.3 Bundle']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: clean-slimefun-legacy-release-assets
+  cancel-in-progress: true
+
+jobs:
+  clean:
+    name: Keep Slimefun Legacy release core-focused
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Remove raw addon JARs from latest Slimefun Legacy release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 20 --json tagName,isDraft --jq '[.[] | select(.isDraft == false)][0].tagName')"
+          test -n "$TAG"
+          echo "Cleaning raw addon JARs from Slimefun Legacy release $TAG"
+
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' > assets-before.txt
+
+          REMOVED=0
+          while IFS= read -r asset; do
+            case "$asset" in
+              SF_*.jar)
+                echo "Removing addon asset: $asset"
+                gh release delete-asset "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" -y
+                REMOVED=$((REMOVED + 1))
+                ;;
+            esac
+          done < assets-before.txt
+
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' > assets-after.txt
+
+          if grep -Eq '^SF_.*\.jar$' assets-after.txt; then
+            echo 'Raw SF addon JARs remain on the Slimefun Legacy release:' >&2
+            grep -E '^SF_.*\.jar$' assets-after.txt >&2
+            exit 1
+          fi
+
+          if ! grep -Fxq 'SF_Addons_1.21.11-26.3.zip' assets-after.txt; then
+            echo 'Expected compatibility bundle is missing from the latest Slimefun Legacy release' >&2
+            exit 1
+          fi
+
+          echo "Removed $REMOVED raw addon JAR assets from $TAG"
+
+      - name: Publish summary
+        shell: bash
+        run: |
+          {
+            echo '## Slimefun Legacy release cleanup'
+            echo
+            echo '- Raw `SF_*.jar` addon assets: removed'
+            echo '- `SF_Addons_1.21.11-26.3.zip`: retained'
+            echo '- Slimefun Legacy core release assets: retained'
+            echo '- Individual addon releases remain the responsibility of their own repositories'
+          } >> "$GITHUB_STEP_SUMMARY"
