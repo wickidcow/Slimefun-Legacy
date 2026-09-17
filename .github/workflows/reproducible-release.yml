@@ -8,6 +8,7 @@ on:
     paths:
       - gradle.properties
       - docs/releases/**
+      - .github/workflows/reproducible-release.yml
 
 permissions:
   contents: write
@@ -77,36 +78,63 @@ jobs:
           cp "$RUNNER_TEMP/first.sha256" "$RUNNER_TEMP/second.sha256" "$RUNNER_TEMP/bytecode-first.txt" "$RUNNER_TEMP/bytecode-second.txt" build/release-verification/
           cp "$RUNNER_TEMP/release-artifact-first.json" "$RUNNER_TEMP/release-artifact-first.md" "$RUNNER_TEMP/release-artifact-second.json" "$RUNNER_TEMP/release-artifact-second.md" build/release-verification/
           printf '# Reproducible release verification\n\n- Source: `%s`\n- SHA-256: `%s`\n- Result: **PASS — byte-for-byte identical**\n' "$GITHUB_SHA" "$FIRST_SHA" | tee build/release-verification/reproducible-release.md >> "$GITHUB_STEP_SUMMARY"
-      - name: Preserve validated addon bundle
+      - name: Preserve verified 1.21.11-26.3 addon bundle
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           TAG="v${LEGACY_ARTIFACT_VERSION}"
-          BUNDLE="dist/SFL_AddonsNDependencies.zip"
+          SOURCE_ASSET="SF_Addons_1.21.11-26.3.zip"
+          BUNDLE="dist/SFL_Addon1.21.11-26.3.zip"
+          mkdir -p dist "$RUNNER_TEMP/addon-bundle"
 
-          # A release refresh should never roll the addon bundle backwards. Reuse the
-          # bundle already published for this version when it exists, and otherwise
-          # fall back to the previous-stable 4.1.49 bundle. In both cases, trust the
-          # digest recorded by GitHub for that exact release asset and verify the
-          # downloaded bytes before publication.
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
-            && gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" \
-              --jq '.assets[] | select(.name == "SFL_AddonsNDependencies.zip") | .digest' \
-              | grep -q '^sha256:'; then
-            SOURCE_TAG="$TAG"
-          else
-            SOURCE_TAG='v4.1.49'
+          # Prefer the verified bundle already attached to this release when refreshing it.
+          # For a new core release, carry forward the newest prior verified 1.21.11-26.3
+          # bundle. The core version bump does not rebuild or mutate addon sources.
+          SOURCE_TAG=""
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            DIGEST="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" \
+              --jq ".assets[] | select(.name == \"${SOURCE_ASSET}\" or .name == \"SFL_Addon1.21.11-26.3.zip\") | .digest" \
+              | head -n 1)"
+            if [[ "$DIGEST" == sha256:* ]]; then
+              SOURCE_TAG="$TAG"
+            fi
           fi
 
+          if [[ -z "$SOURCE_TAG" ]]; then
+            while IFS= read -r CANDIDATE; do
+              [[ -n "$CANDIDATE" && "$CANDIDATE" != "$TAG" ]] || continue
+              DIGEST="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${CANDIDATE}" \
+                --jq ".assets[] | select(.name == \"${SOURCE_ASSET}\") | .digest" \
+                | head -n 1)"
+              if [[ "$DIGEST" == sha256:* ]]; then
+                SOURCE_TAG="$CANDIDATE"
+                break
+              fi
+            done < <(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 20 --json tagName --jq '.[].tagName')
+          fi
+
+          if [[ -z "$SOURCE_TAG" ]]; then
+            echo "No prior verified ${SOURCE_ASSET} release asset was found." >&2
+            exit 1
+          fi
+
+          SOURCE_NAME="$SOURCE_ASSET"
           ASSET_DIGEST="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${SOURCE_TAG}" \
-            --jq '.assets[] | select(.name == "SFL_AddonsNDependencies.zip") | .digest' \
+            --jq ".assets[] | select(.name == \"${SOURCE_ASSET}\") | .digest" \
             | head -n 1)"
+          if [[ -z "$ASSET_DIGEST" && "$SOURCE_TAG" == "$TAG" ]]; then
+            SOURCE_NAME="SFL_Addon1.21.11-26.3.zip"
+            ASSET_DIGEST="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${SOURCE_TAG}" \
+              --jq '.assets[] | select(.name == "SFL_Addon1.21.11-26.3.zip") | .digest' \
+              | head -n 1)"
+          fi
+
           case "$ASSET_DIGEST" in
             sha256:[0-9a-fA-F]*) ;;
             *)
-              echo "Release ${SOURCE_TAG} does not expose a usable SHA-256 digest for SFL_AddonsNDependencies.zip." >&2
+              echo "Release ${SOURCE_TAG} does not expose a usable SHA-256 digest for ${SOURCE_NAME}." >&2
               exit 1
               ;;
           esac
@@ -116,13 +144,17 @@ jobs:
             exit 1
           fi
 
-          rm -f "$BUNDLE"
+          rm -rf "$RUNNER_TEMP/addon-bundle"/*
           gh release download "$SOURCE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
-            --pattern 'SFL_AddonsNDependencies.zip' \
-            --dir dist
-          printf '%s  %s\n' "$EXPECTED_SHA" "$BUNDLE" | sha256sum -c -
-          echo "Validated addon bundle from ${SOURCE_TAG}: sha256:${EXPECTED_SHA}"
+            --pattern "$SOURCE_NAME" \
+            --dir "$RUNNER_TEMP/addon-bundle"
+          DOWNLOADED="$RUNNER_TEMP/addon-bundle/$SOURCE_NAME"
+          test -s "$DOWNLOADED"
+          printf '%s  %s\n' "$EXPECTED_SHA" "$DOWNLOADED" | sha256sum -c -
+          cp "$DOWNLOADED" "$BUNDLE"
+          test -s "$BUNDLE"
+          echo "Validated addon bundle from ${SOURCE_TAG}/${SOURCE_NAME}: sha256:${EXPECTED_SHA}"
       - name: Upload raw reproducible JAR artifact
         uses: actions/upload-artifact@v7
         with:
@@ -137,7 +169,7 @@ jobs:
           set -euo pipefail
           TAG="v${LEGACY_ARTIFACT_VERSION}"
           JAR="dist/${OUTPUT_NAME}"
-          BUNDLE="dist/SFL_AddonsNDependencies.zip"
+          BUNDLE="dist/SFL_Addon1.21.11-26.3.zip"
           NOTES_FILE="docs/releases/${LEGACY_ARTIFACT_VERSION}.md"
           TITLE="Slimefun Legacy ${LEGACY_ARTIFACT_VERSION}"
 
