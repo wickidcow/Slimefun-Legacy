@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/paper-26.3-addon-compile.yml'
       - 'compatibility/addon-compatibility-matrix.json'
+      - 'compatibility/sfl-addon-release-matrix.json'
       - 'scripts/compile_addon_paper_26_3.py'
       - 'scripts/test_compile_addon_paper_26_3.py'
       - 'scripts/paper_candidate_versions.py'
@@ -16,6 +17,7 @@ on:
     paths:
       - '.github/workflows/paper-26.3-addon-compile.yml'
       - 'compatibility/addon-compatibility-matrix.json'
+      - 'compatibility/sfl-addon-release-matrix.json'
       - 'scripts/compile_addon_paper_26_3.py'
       - 'scripts/test_compile_addon_paper_26_3.py'
       - 'scripts/paper_candidate_versions.py'
@@ -192,29 +194,37 @@ jobs:
           import os
 
           with open('compatibility/addon-compatibility-matrix.json', encoding='utf-8') as stream:
-              data = json.load(stream)
+              compatibility = json.load(stream)
+          with open('compatibility/sfl-addon-release-matrix.json', encoding='utf-8') as stream:
+              release = json.load(stream)
 
           event_name = os.environ.get('EVENT_NAME', '')
           pull_request_mode = event_name == 'pull_request'
           seen = set()
           include = []
 
-          for addon in data.get('addons', []):
+          if pull_request_mode:
+              source = [
+                  addon
+                  for addon in compatibility.get('addons', [])
+                  if addon.get('enabled', False)
+                  and addon.get('tier') == 'required'
+                  and addon.get('compile_enabled', True)
+              ]
+          else:
+              source = release.get('addons', [])
+
+          for addon in source:
               repository = addon.get('repository', '')
-              tier = addon.get('tier', 'unknown')
-              if not addon.get('enabled', False) or not repository.startswith('wickidcow/SF_'):
-                  continue
-              if not addon.get('compile_enabled', True):
-                  continue
-              if pull_request_mode and tier != 'required':
-                  continue
+              if not repository.startswith('wickidcow/SF_'):
+                  raise SystemExit(f'Invalid maintained addon repository: {repository}')
               if repository in seen:
-                  continue
+                  raise SystemExit(f'Duplicate maintained addon repository: {repository}')
               seen.add(repository)
               include.append({
                   'repository': repository,
                   'slug': addon.get('slug') or repository.split('/', 1)[1].lower(),
-                  'tier': tier,
+                  'tier': addon.get('tier', 'required') if pull_request_mode else 'maintained-release',
               })
 
           include.sort(key=lambda item: item['repository'].lower())
@@ -235,7 +245,7 @@ jobs:
             echo '- Targets: **${{ steps.matrix.outputs.count }}**'
             if [[ '${{ github.event_name }}' == 'pull_request' ]]; then
               echo '- Pull requests compile the release-blocking `required` tier only to keep validation bounded.'
-              echo '- Scheduled/manual runs compile every enabled `wickidcow/SF_*` target.'
+              echo '- Scheduled/manual runs compile every addon in the canonical release-bundle matrix.'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
