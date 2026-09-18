@@ -132,6 +132,27 @@ def main() -> int:
         "uncertainInventoryBaselines.contains(snapshotKey) ? new HashSet<>(stagedWrites.keySet())",
         "failed inventory baseline forces every staged slot to reconcile",
     )
+    require(storage, "int size = 54", "full legal chest inventory staging range")
+    require(
+        storage,
+        "contents == null || slot >= contents.length ? null : contents[slot]",
+        "higher slots staged as explicit deletes after menu shrink",
+    )
+    require(
+        storage,
+        "if (slot < 0 || slot >= inv.length)",
+        "stored inventory slot bounds guards",
+    )
+    require(
+        storage,
+        "uncertainInventoryBaselines.add(blockData.getKey())",
+        "block load corruption forces reconciliation",
+    )
+    require(
+        storage,
+        "uncertainInventoryBaselines.add(uniData.getKey())",
+        "universal load corruption forces reconciliation",
+    )
     require(
         storage,
         "invSnapshots.remove(snapshotKey)",
