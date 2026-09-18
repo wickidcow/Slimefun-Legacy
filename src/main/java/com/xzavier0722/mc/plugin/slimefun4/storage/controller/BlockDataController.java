@@ -1346,8 +1346,8 @@ public class BlockDataController extends ADataController {
      */
     public CompletableFuture<Void> saveBlockInventoryAsync(@Nonnull SlimefunBlockData blockData) {
         BlockMenu menu = blockData.getBlockMenu();
-        ItemStack[] contents = copyInventoryContents(blockData.getMenuContents());
         long changeSequence = menu == null ? 0L : menu.captureChangeSequence();
+        ItemStack[] contents = copyInventoryContents(blockData.getMenuContents());
         String snapshotKey = blockData.getKey();
         String chainKey = "block:" + snapshotKey;
         InvSnapshot stagedSnapshot = contents == null ? null : new InvSnapshot(contents);
@@ -1439,8 +1439,8 @@ public class BlockDataController extends ADataController {
      */
     public CompletableFuture<Void> saveUniversalInventoryAsync(@Nonnull SlimefunUniversalData universalData) {
         UniversalMenu menu = universalData.getMenu();
-        ItemStack[] contents = copyInventoryContents(universalData.getMenuContents());
         long changeSequence = menu == null ? 0L : menu.captureChangeSequence();
+        ItemStack[] contents = copyInventoryContents(universalData.getMenuContents());
         String snapshotKey = universalData.getKey();
         String chainKey = "universal:" + snapshotKey;
         InvSnapshot stagedSnapshot = contents == null ? null : new InvSnapshot(contents);
