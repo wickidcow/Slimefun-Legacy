@@ -1,3 +1,10 @@
+# Resource-pack model IDs are intentionally not guessed.
+# A resource pack only works when these numbers match the mapping shipped for that exact pack.
+# Leave 0 for vanilla appearance, or merge the chosen pack's item-models.yml values here.
+#
+# Guide and UI entries matter too: a pack that expects custom guide textures needs matching
+# SLIMEFUN_GUIDE and _UI_* values or the guide will render with the wrong/vanilla item models.
+#
 # Slimefun items that are not registered.
 SLIMEFUN_GUIDE: 0
 ENDER_TALISMAN: 0
