@@ -37,6 +37,8 @@ public class CustomTextureService {
     private static final int SHARED_PAXEL_MODEL_DATA = 2201302;
     private static final String DEEPCORE_PAXEL_VISUAL_MIGRATION =
             "_SLIMEFUN_LEGACY_MIGRATIONS.DEEPCORE_PAXEL_VISUAL_SEPARATION";
+    private static final String HOSTED_PACK_MODEL_MIGRATION =
+            "_SLIMEFUN_LEGACY_MIGRATIONS.HOSTED_PACK_MODEL_MAP_2026_09";
     private static final String[] DEEPCORE_PAXEL_IDS = {
         "ADVENTURERS_DEEPCORE_PAXEL_3X3",
         "ADVENTURERS_DEEPCORE_PAXEL_5X5",
@@ -128,8 +130,34 @@ public class CustomTextureService {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
             FileConfiguration cfg = YamlConfiguration.loadConfiguration(reader);
 
+            boolean migrateHostedPackModels =
+                    !config.getConfiguration().getBoolean(HOSTED_PACK_MODEL_MIGRATION, false);
+            int migratedModels = 0;
+
             for (String key : cfg.getKeys(false)) {
-                config.setDefaultValue(key, cfg.getInt(key));
+                int bundledModel = cfg.getInt(key);
+
+                if (!config.contains(key)) {
+                    config.setValue(key, bundledModel);
+                } else if (migrateHostedPackModels && bundledModel != 0 && config.getInt(key) == 0) {
+                    // Older Slimefun Legacy builds auto-populated registered item IDs with 0.
+                    // Upgrade only those zero placeholders to the canonical hosted-pack mapping.
+                    // Existing non-zero server customizations are never overwritten.
+                    config.setValue(key, bundledModel);
+                    migratedModels++;
+                }
+            }
+
+            if (migrateHostedPackModels) {
+                config.setValue(HOSTED_PACK_MODEL_MIGRATION, true);
+
+                if (migratedModels > 0) {
+                    Logger logger = Slimefun.instance() == null
+                            ? Logger.getLogger(CustomTextureService.class.getName())
+                            : Slimefun.logger();
+                    logger.info("Updated " + migratedModels
+                            + " zero item-model entries to the Slimefun Legacy hosted-pack mapping.");
+                }
             }
 
             defaultsLoaded = true;
