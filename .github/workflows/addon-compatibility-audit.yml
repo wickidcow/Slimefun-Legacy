@@ -47,16 +47,27 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
           WORKFLOW_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          WORKFLOW_RUN_EVENT: ${{ github.event.workflow_run.event }}
           DISPATCH_RUN_ID: ${{ inputs.run_id }}
           DISPATCH_SOURCE_REF: ${{ inputs.source_ref }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [[ "$EVENT_NAME" == "workflow_run" ]]; then
-            echo "run_id=$WORKFLOW_RUN_ID" >> "$GITHUB_OUTPUT"
-            echo "source_ref=$WORKFLOW_HEAD_SHA" >> "$GITHUB_OUTPUT"
+            RUN_ID="$WORKFLOW_RUN_ID"
+            SOURCE_REF="$WORKFLOW_HEAD_SHA"
+            SOURCE_EVENT="$WORKFLOW_RUN_EVENT"
           else
-            echo "run_id=$DISPATCH_RUN_ID" >> "$GITHUB_OUTPUT"
-            echo "source_ref=${DISPATCH_SOURCE_REF:-master}" >> "$GITHUB_OUTPUT"
+            RUN_ID="$DISPATCH_RUN_ID"
+            SOURCE_REF="$DISPATCH_SOURCE_REF"
+            if [[ -z "$SOURCE_REF" ]]; then
+              SOURCE_REF="master"
+            fi
+            SOURCE_EVENT="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq '.event')"
           fi
+
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "source_ref=$SOURCE_REF" >> "$GITHUB_OUTPUT"
+          echo "source_event=$SOURCE_EVENT" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v6
         with:
           ref: ${{ steps.source.outputs.source_ref }}
@@ -69,14 +80,25 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
           run-id: ${{ steps.source.outputs.run_id }}
-      - name: Classify complete addon matrix
+      - name: Classify source addon matrix
         id: audit
         continue-on-error: true
+        env:
+          SOURCE_EVENT: ${{ steps.source.outputs.source_event }}
         run: |
-          python3 scripts/summarize_addon_compatibility_artifacts.py \
-            compatibility/addon-compatibility-matrix.json \
-            build/addon-compatibility-artifacts \
-            --summary build/reports/addon-compatibility-audit.md
+          set -euo pipefail
+          if [[ "$SOURCE_EVENT" == "pull_request" ]]; then
+            python3 scripts/summarize_addon_compatibility_artifacts.py \
+              compatibility/addon-compatibility-matrix.json \
+              build/addon-compatibility-artifacts \
+              --summary build/reports/addon-compatibility-audit.md \
+              --required-only
+          else
+            python3 scripts/summarize_addon_compatibility_artifacts.py \
+              compatibility/addon-compatibility-matrix.json \
+              build/addon-compatibility-artifacts \
+              --summary build/reports/addon-compatibility-audit.md
+          fi
       - name: Publish aggregate audit
         if: always()
         run: |
