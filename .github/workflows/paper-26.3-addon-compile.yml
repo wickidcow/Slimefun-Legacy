@@ -207,6 +207,15 @@ jobs:
                   for addon in compatibility.get('addons', [])
                   if addon.get('enabled', False) and addon.get('tier') == 'required'
               ]
+              # Keep PR validation bounded, but always include explicitly pinned
+              # release exceptions such as wrapperless DracFun Reborn when this
+              # workflow is exercised by release-matrix/tooling changes.
+              existing = {addon.get('repository') for addon in source}
+              source.extend(
+                  addon
+                  for addon in release.get('addons', [])
+                  if addon.get('source_commit') and addon.get('repository') not in existing
+              )
           else:
               source = release.get('addons', [])
 
@@ -221,6 +230,7 @@ jobs:
                   'repository': repository,
                   'slug': addon.get('slug') or repository.split('/', 1)[1].lower(),
                   'tier': addon.get('tier', 'required') if pull_request_mode else 'maintained-release',
+                  'source_commit': addon.get('source_commit', ''),
               })
 
           include.sort(key=lambda item: item['repository'].lower())
@@ -264,6 +274,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        if: matrix.slug == 'dracfunreborn'
+        with:
+          gradle-version: '9.4.1'
       - uses: actions/download-artifact@v8
         with:
           name: paper-candidate-slimefun-core
@@ -271,9 +285,15 @@ jobs:
       - name: Clone maintained addon
         env:
           ADDON_REPOSITORY: ${{ matrix.repository }}
+          SOURCE_COMMIT: ${{ matrix.source_commit }}
         run: |
           set -euo pipefail
           git clone --depth 1 "https://github.com/${ADDON_REPOSITORY}.git" addon
+          if [[ -n "$SOURCE_COMMIT" ]]; then
+            [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+            git -C addon fetch --depth 1 origin "$SOURCE_COMMIT"
+            git -C addon checkout --detach "$SOURCE_COMMIT"
+          fi
       - name: Compile addon against candidate stack
         id: probe
         continue-on-error: true
