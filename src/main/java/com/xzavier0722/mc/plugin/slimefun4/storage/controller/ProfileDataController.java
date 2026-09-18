@@ -260,12 +260,16 @@ public class ProfileDataController extends ADataController {
 
         var invResult = getData(key);
         var re = new ItemStack[size];
+        boolean repairRequired = false;
+
         for (RecordSet each : invResult) {
             var slot = each.getInt(FieldKey.INVENTORY_SLOT);
             if (slot < 0 || slot >= re.length) {
+                repairRequired = true;
                 logger.log(
                         Level.WARNING,
-                        "Ignoring out-of-range stored backpack slot [{0}:{1}] for inventory size {2}",
+                        "Ignoring out-of-range stored backpack slot [{0}:{1}] for inventory size {2}; "
+                                + "the next save will reconcile the full backpack storage.",
                         new Object[] {uuid, slot, size});
                 continue;
             }
@@ -273,13 +277,18 @@ public class ProfileDataController extends ADataController {
             try {
                 re[slot] = each.getItemStack(FieldKey.INVENTORY_ITEM);
             } catch (Exception e) {
+                repairRequired = true;
                 re[slot] = null;
                 logger.log(
                         Level.SEVERE,
                         "Could not deserialize a player backpack item; replaced it with air [" + uuid + ":" + slot
-                                + "]",
+                                + "]. The next save will reconcile the full backpack storage.",
                         e);
             }
+        }
+
+        if (repairRequired) {
+            uncertainBackpackBaselines.add(uuid);
         }
 
         return re;
