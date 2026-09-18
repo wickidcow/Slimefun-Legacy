@@ -7,11 +7,13 @@ import com.xzavier0722.mc.plugin.slimefun4.storage.common.FieldKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordSet;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.DataUtils;
+import com.xzavier0722.mc.plugin.slimefun4.storage.util.InvSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.events.AsyncProfileLoadEvent;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerBackpack;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
 import io.github.thebusybiscuit.slimefun4.api.researches.Research;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
@@ -397,46 +399,99 @@ public class ProfileDataController extends ADataController {
     }
 
     public void saveBackpackInventory(@Nonnull PlayerBackpack bp) {
-        // Avoid advancing the snapshot until every changed slot has been serialized
-        // and accepted by the write queue. Otherwise a failed slot would look clean
-        // on the next save even though no persistence task exists for that change.
+        // Preserve the long-standing void API for binary compatibility. New
+        // lifecycle code should use saveBackpackInventoryAsync so reservations
+        // can remain held until persistence actually finishes.
+        saveBackpackInventoryAsync(bp).whenComplete((ignored, failure) -> {
+            if (failure != null) {
+                Slimefun.logger().log(Level.SEVERE, "An Exception occurred while saving a backpack", failure);
+            }
+        });
+    }
+
+    /**
+     * Saves all changed backpack slots and completes only after the exact queued
+     * database writes represented by this save attempt have finished.
+     *
+     * <p>The previous snapshot is kept until every staged write succeeds. On
+     * success, the exact immutable staged snapshot is acknowledged. On failure,
+     * the old snapshot stays in place so the changes remain dirty and retryable.
+     *
+     * @param bp backpack to persist
+     * @return completion for this exact backpack save attempt
+     */
+    public CompletableFuture<Void> saveBackpackInventoryAsync(@Nonnull PlayerBackpack bp) {
+        final InvSnapshot stagedSnapshot;
+        final ArrayList<CompletableFuture<Void>> writes = new ArrayList<>();
+
         synchronized (bp) {
             Set<Integer> slots = bp.getSnapshot().getChangedSlots(bp.getInventory());
             var id = bp.getUniqueId().toString();
             var inv = bp.getInventory();
-            boolean allChangesStaged = true;
+            stagedSnapshot = new InvSnapshot(inv);
 
             for (int slot : slots) {
                 var key = new RecordKey(DataScope.BACKPACK_INVENTORY);
                 key.addCondition(FieldKey.BACKPACK_ID, id);
                 key.addCondition(FieldKey.INVENTORY_SLOT, slot + "");
                 key.addField(FieldKey.INVENTORY_ITEM);
-                var is = inv.getItem(slot);
-                if (is == null) {
-                    scheduleDeleteTask(new UUIDKey(DataScope.NONE, bp.getOwner().getUniqueId()), key, false);
-                } else {
-                    try {
+
+                try {
+                    var is = inv.getItem(slot);
+                    if (is == null) {
+                        writes.add(scheduleBackpackWrite(bp, key, null));
+                    } else {
                         var data = new RecordSet();
                         data.put(FieldKey.BACKPACK_ID, id);
                         data.put(FieldKey.INVENTORY_SLOT, slot + "");
                         data.put(FieldKey.INVENTORY_ITEM, is);
-                        scheduleWriteTask(
-                                new UUIDKey(DataScope.NONE, bp.getOwner().getUniqueId()), key, data, false);
-                    } catch (IllegalArgumentException e) {
-                        allChangesStaged = false;
-                        Slimefun.logger()
-                                .log(
-                                        Level.WARNING,
-                                        "Could not stage backpack slot " + id + ':' + slot + " for persistence",
-                                        e);
+                        writes.add(scheduleBackpackWrite(bp, key, data));
                     }
+                } catch (RuntimeException | LinkageError failure) {
+                    Slimefun.logger()
+                            .log(
+                                    Level.WARNING,
+                                    "Could not stage backpack slot " + id + ':' + slot + " for persistence",
+                                    failure);
+                    writes.add(CompletableFuture.failedFuture(failure));
                 }
             }
-
-            if (allChangesStaged) {
-                bp.refreshSnapshot();
-            }
         }
+
+        CompletableFuture<Void> completion = CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new));
+        return completion.thenRun(() -> {
+            synchronized (bp) {
+                bp.acknowledgeSnapshot(stagedSnapshot);
+            }
+        });
+    }
+
+    private CompletableFuture<Void> scheduleBackpackWrite(
+            @Nonnull PlayerBackpack backpack, @Nonnull RecordKey key, @Nullable RecordSet data) {
+        CompletableFuture<Void> completion = new CompletableFuture<>();
+        UUIDKey ownerScope = new UUIDKey(DataScope.NONE, backpack.getOwner().getUniqueId());
+
+        Runnable write = () -> {
+            try {
+                if (data == null) {
+                    deleteData(key);
+                } else {
+                    setData(key, data);
+                }
+                completion.complete(null);
+            } catch (RuntimeException | LinkageError failure) {
+                completion.completeExceptionally(failure);
+                throw failure;
+            }
+        };
+
+        try {
+            scheduleWriteTask(ownerScope, key, write, false);
+        } catch (RuntimeException | LinkageError failure) {
+            completion.completeExceptionally(failure);
+        }
+
+        return completion;
     }
 
     @Deprecated(forRemoval = true)
