@@ -245,6 +245,22 @@ def main() -> int:
     )
     require(woodcutter, "ItemStack remainder = menu.pushItem(drop, getOutputSlots());", "Woodcutter Android overflow capture")
     require(woodcutter, "dropItemNaturally(log.getLocation(), remainder)", "Woodcutter Android overflow preservation")
+    require(
+        woodcutter,
+        "if (saplingType == null || soilRequirement == null)",
+        "Woodcutter Android unknown-log fail-safe",
+    )
+    require(
+        woodcutter,
+        "block.setType(Material.AIR);\n            return;",
+        "Woodcutter Android consumes unmapped future logs",
+    )
+    require_before(
+        woodcutter,
+        "if (log.getY() == android.getRelative(face).getY())",
+        "ItemStack remainder = menu.pushItem(drop, getOutputSlots());",
+        "Woodcutter Android world mutation before harvested output",
+    )
     require_before(
         woodcutter,
         "ItemStack remainder = menu.pushItem(drop, getOutputSlots());",
