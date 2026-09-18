@@ -181,16 +181,30 @@ jobs:
       - uses: actions/checkout@v6
       - name: Validate and generate matrix
         id: matrix
+        env:
+          EVENT_NAME: ${{ github.event_name }}
         run: |
+          set -euo pipefail
+          EXTRA_ARGS=()
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            EXTRA_ARGS+=(--required-only)
+          fi
           python3 scripts/generate_addon_compatibility_matrix.py \
             compatibility/addon-compatibility-matrix.json \
-            --github-output "$GITHUB_OUTPUT"
+            --github-output "$GITHUB_OUTPUT" \
+            "${EXTRA_ARGS[@]}"
       - name: Publish matrix summary
         run: |
           {
             echo "## Addon compatibility matrix"
             echo
             echo "Enabled targets: **${{ steps.matrix.outputs.enabled_count }}**"
+            if [[ '${{ github.event_name }}' == 'pull_request' ]]; then
+              echo "Mode: **required/release-blocking targets only**"
+              echo "Full advisory ecosystem remains on scheduled/manual runs."
+            else
+              echo "Mode: **full required + advisory ecosystem**"
+            fi
             echo
             echo 'Source: `compatibility/addon-compatibility-matrix.json`'
           } >> "$GITHUB_STEP_SUMMARY"
