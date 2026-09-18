@@ -1,0 +1,129 @@
+name: Publish Slimefun Legacy Resource Pack
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/publish-slimefun-resource-pack.yml'
+      - 'resource-pack/publish.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: slimefun-legacy-resource-pack
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Publish GitHub-hosted resource pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Read publication manifest
+        id: pack
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          data = json.loads(Path("resource-pack/publish.json").read_text(encoding="utf-8"))
+          required = ("release_tag", "asset_name", "source_url", "sha1", "size_bytes")
+          missing = [key for key in required if not data.get(key)]
+          if missing:
+              raise SystemExit(f"Missing resource-pack manifest fields: {missing}")
+
+          sha1 = str(data["sha1"]).lower()
+          if len(sha1) != 40 or any(ch not in "0123456789abcdef" for ch in sha1):
+              raise SystemExit("resource-pack sha1 must be exactly 40 hexadecimal characters")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              for key in required:
+                  output.write(f"{key}={data[key]}\n")
+          PY
+
+      - name: Download exact resource pack
+        env:
+          SOURCE_URL: ${{ steps.pack.outputs.source_url }}
+          ASSET_NAME: ${{ steps.pack.outputs.asset_name }}
+        run: |
+          set -euo pipefail
+          curl --fail-with-body -L --retry 4 --retry-all-errors \
+            --connect-timeout 20 --max-time 300 \
+            -A 'Slimefun-Legacy-Resource-Pack-Publisher/1.0' \
+            -o "$ASSET_NAME" "$SOURCE_URL"
+          test -s "$ASSET_NAME"
+
+      - name: Verify ZIP, size and SHA-1
+        env:
+          ASSET_NAME: ${{ steps.pack.outputs.asset_name }}
+          EXPECTED_SHA1: ${{ steps.pack.outputs.sha1 }}
+          EXPECTED_SIZE: ${{ steps.pack.outputs.size_bytes }}
+        run: |
+          set -euo pipefail
+          unzip -t "$ASSET_NAME"
+          ACTUAL_SIZE="$(stat -c '%s' "$ASSET_NAME")"
+          ACTUAL_SHA1="$(sha1sum "$ASSET_NAME" | awk '{print $1}')"
+          echo "Expected bytes: $EXPECTED_SIZE"
+          echo "Actual bytes:   $ACTUAL_SIZE"
+          echo "Expected SHA-1: $EXPECTED_SHA1"
+          echo "Actual SHA-1:   $ACTUAL_SHA1"
+          test "$ACTUAL_SIZE" = "$EXPECTED_SIZE"
+          test "$ACTUAL_SHA1" = "$EXPECTED_SHA1"
+          printf '%s  %s\n' "$ACTUAL_SHA1" "$ASSET_NAME" > SlimefunLegacyRP.sha1.txt
+
+      - name: Create or update dedicated resource-pack release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.pack.outputs.release_tag }}
+          ASSET_NAME: ${{ steps.pack.outputs.asset_name }}
+        run: |
+          set -euo pipefail
+          cat > resource-pack-release-notes.md <<'EOF'
+          # Slimefun Legacy Resource Pack
+
+          Canonical optional resource pack for Slimefun Legacy.
+
+          The download URL is intentionally stable:
+          `https://github.com/wickidcow/Slimefun-Legacy/releases/download/resource-pack/SlimefunLegacyRP.zip`
+
+          Resource-pack delivery remains disabled by default in Slimefun Legacy and can be enabled in `config.yml`.
+          EOF
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" \
+              --title "Slimefun Legacy Resource Pack" \
+              --notes-file resource-pack-release-notes.md \
+              --latest=false
+          else
+            gh release create "$RELEASE_TAG" \
+              --target master \
+              --title "Slimefun Legacy Resource Pack" \
+              --notes-file resource-pack-release-notes.md \
+              --latest=false
+          fi
+
+          gh release upload "$RELEASE_TAG" \
+            "$ASSET_NAME" \
+            SlimefunLegacyRP.sha1.txt \
+            --clobber
+
+      - name: Publish summary
+        env:
+          ASSET_NAME: ${{ steps.pack.outputs.asset_name }}
+          EXPECTED_SHA1: ${{ steps.pack.outputs.sha1 }}
+          RELEASE_TAG: ${{ steps.pack.outputs.release_tag }}
+        run: |
+          {
+            echo '## Slimefun Legacy resource pack'
+            echo
+            echo "- Asset: \`$ASSET_NAME\`"
+            echo "- SHA-1: \`$EXPECTED_SHA1\`"
+            echo "- Release tag: \`$RELEASE_TAG\`"
+            echo "- Stable URL: https://github.com/wickidcow/Slimefun-Legacy/releases/download/$RELEASE_TAG/$ASSET_NAME"
+          } >> "$GITHUB_STEP_SUMMARY"
