@@ -72,20 +72,22 @@ public class WoodcutterAndroid extends ProgrammableAndroid {
     private void breakLog(Block log, Block android, UniversalMenu menu, BlockFace face) {
         ItemStack drop = new ItemStack(log.getType());
 
+        VisualEffectUtils.playBlockBreakEffect(log);
+
+        // Commit the world-state change before emitting the harvested log. This
+        // prevents an interruption from paying out a log while leaving the same
+        // source block available to harvest again.
+        if (log.getY() == android.getRelative(face).getY()) {
+            replant(log);
+        } else {
+            log.setType(Material.AIR);
+        }
+
         // Keep overflow lossless: if the Android's output is full, drop the remainder
         // at the chopped log instead of silently deleting it.
         ItemStack remainder = menu.pushItem(drop, getOutputSlots());
         if (remainder != null && !remainder.getType().isAir() && remainder.getAmount() > 0) {
             log.getWorld().dropItemNaturally(log.getLocation(), remainder);
-        }
-
-        VisualEffectUtils.playBlockBreakEffect(log);
-
-        // If the android just chopped the bottom log, we replant the appropriate sapling
-        if (log.getY() == android.getRelative(face).getY()) {
-            replant(log);
-        } else {
-            log.setType(Material.AIR);
         }
     }
 
@@ -160,15 +162,20 @@ public class WoodcutterAndroid extends ProgrammableAndroid {
             }
         }
 
-        if (saplingType != null && soilRequirement != null) {
-            if (soilRequirement.test(block.getRelative(BlockFace.DOWN).getType())) {
-                // Replant the block
-                block.setType(saplingType);
-            } else {
-                // Simply drop the sapling if the soil does not fit
-                block.getWorld().dropItemNaturally(block.getLocation(), new ItemStack(saplingType));
-                block.setType(Material.AIR);
-            }
+        if (saplingType == null || soilRequirement == null) {
+            // Future log materials must still be consumed even if Slimefun does
+            // not yet know which sapling/fungus should replace them.
+            block.setType(Material.AIR);
+            return;
+        }
+
+        if (soilRequirement.test(block.getRelative(BlockFace.DOWN).getType())) {
+            // Replant the block
+            block.setType(saplingType);
+        } else {
+            // Simply drop the sapling if the soil does not fit
+            block.getWorld().dropItemNaturally(block.getLocation(), new ItemStack(saplingType));
+            block.setType(Material.AIR);
         }
     }
 }
