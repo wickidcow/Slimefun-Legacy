@@ -225,18 +225,22 @@ def main() -> int:
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/androids/FarmerAndroid.java",
     )
     require(farmer, "menu.fits(drop, getOutputSlots())", "Farmer Android full-output preflight")
-    require(farmer, "ItemStack remainder = menu.pushItem(drop, getOutputSlots());", "Farmer Android transactional output push")
+    require(farmer, "BlockData originalCrop = data.clone();", "Farmer Android crop snapshot")
+    require(farmer, "ItemStack[] originalOutputs = snapshotSlots(menu, outputSlots);", "Farmer Android output snapshot")
+    require(farmer, "ItemStack remainder = menu.pushItem(drop, outputSlots);", "Farmer Android transactional output push")
+    require(farmer, "restoreSlots(menu, outputSlots, originalOutputs);", "Farmer Android output rollback")
+    require(farmer, "block.setBlockData(originalCrop);", "Farmer Android crop rollback")
     require_before(
         farmer,
         "menu.fits(drop, getOutputSlots())",
-        "menu.pushItem(drop, getOutputSlots())",
-        "Farmer Android fit-before-push transaction",
+        "ageable.setAge(0);",
+        "Farmer Android fit preflight before crop mutation",
     )
     require_before(
         farmer,
-        "if (remainder == null)",
         "ageable.setAge(0);",
-        "Farmer Android harvest completion before crop reset",
+        "ItemStack remainder = menu.pushItem(drop, outputSlots);",
+        "Farmer Android crop consumption before harvest output",
     )
 
     woodcutter = read(
