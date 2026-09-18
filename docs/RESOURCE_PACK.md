@@ -11,26 +11,28 @@ This is intentional for servers that already use ItemsAdder, Oraxen, a proxy-lev
 ```yaml
 resource-pack:
   enabled: false
-  url: 'https://cdn.modrinth.com/data/TznkVJky/versions/nwij66MR/Slimefun-ResourcePack.zip'
+  url: ''
   sha1: ''
   required: false
   prompt: 'Slimefun Legacy resource pack'
 ```
 
-When `enabled` is `false`, Slimefun Legacy sends no pack request at all. The pre-filled URL matches AdvanceTexture's public `official_pack_1211` option and can be replaced with any direct HTTP(S) resource-pack ZIP URL.
+When `enabled` is `false`, Slimefun Legacy sends no pack request at all. Slimefun Legacy intentionally does **not** pre-fill a third-party pack URL.
 
-The sender itself targets Minecraft 1.21.11+ / current Paper server APIs. The pre-filled third-party Modrinth pack is maintained separately and should be replaced by the server owner if their client version or custom assets require a newer pack build.
+Minecraft changed the item-model resource-pack format substantially in the modern 1.21.x line. A pack built for an older item-model layout can load successfully while still showing vanilla, missing, or misplaced guide/item visuals. Always choose a pack that explicitly supports the Minecraft client generation used by your players.
 
 ## External pack delivery
 
 To let Slimefun Legacy add an externally hosted pack on player join:
 
-1. Use the pre-filled pack URL or host a completed resource-pack ZIP on an HTTP(S) endpoint reachable by players. HTTPS is recommended.
-2. Set `resource-pack.enabled` to `true`.
-3. Set `resource-pack.url` to the direct ZIP URL if you want to override the pre-filled pack.
-4. Set `resource-pack.sha1` to the 40-character SHA-1 of that exact ZIP when possible.
-5. Leave `required: false` unless the server should reject players who decline the pack.
-6. Restart the server or reload the Slimefun configuration through the supported server workflow.
+1. Choose or build a resource-pack ZIP that supports the Minecraft client generation used by your players.
+2. Make sure the pack's Slimefun model IDs match `plugins/Slimefun/item-models.yml`. If the pack ships its own `item-models.yml`, merge those exact values into Slimefun's file and restart the server.
+3. Host the completed ZIP on an HTTP(S) endpoint reachable by players. HTTPS is recommended.
+4. Set `resource-pack.enabled` to `true`.
+5. Set `resource-pack.url` to the direct ZIP URL.
+6. Set `resource-pack.sha1` to the 40-character SHA-1 of that exact ZIP when possible.
+7. Leave `required: false` unless the server should reject players who decline the pack.
+8. Restart the server or reload the Slimefun configuration through the supported server workflow.
 
 Slimefun Legacy uses Minecraft's additive resource-pack API so an explicitly enabled Slimefun pack can coexist with another server pack rather than replacing it. The implementation targets the modern API available on Minecraft 1.21.11+ / current Paper server lines.
 
@@ -43,7 +45,28 @@ resource-pack:
   enabled: false
 ```
 
-The Slimefun item-model mappings can still be used. ItemsAdder can include the matching models/textures in its generated pack while Slimefun Legacy supplies the configured `CustomModelData` values on the items.
+The Slimefun item-model mappings can still be used. ItemsAdder can include the matching models/textures in its generated pack while Slimefun Legacy supplies the configured model value on the item's modern custom-model-data component.
+
+## Modern CustomModelData compatibility
+
+Slimefun's existing `item-models.yml` format intentionally remains numeric for addon compatibility. On modern Paper/Minecraft, Slimefun Legacy stores that number as the **first float** in the custom-model-data component, which is the platform-defined equivalent of the old integer CustomModelData value.
+
+This preserves existing Slimefun/addon numeric mappings while avoiding the deprecated integer item-meta API. Additional component floats, flags, strings, and colors supplied by other integrations are preserved.
+
+## Guide and UI textures
+
+The guide is not a separate rendering engine. Guide buttons are ordinary item stacks with Slimefun IDs such as:
+
+- `SLIMEFUN_GUIDE`
+- `_UI_BACKGROUND`
+- `_UI_BACK`
+- `_UI_MENU`
+- `_UI_SEARCH`
+- `_UI_WIKI`
+- `_UI_PREVIOUS_ACTIVE` / `_UI_PREVIOUS_INACTIVE`
+- `_UI_NEXT_ACTIVE` / `_UI_NEXT_INACTIVE`
+
+If the selected resource pack expects custom models for these IDs but Slimefun's `item-models.yml` leaves them at `0`, the pack cannot apply those guide textures. Likewise, copying model IDs from a different pack can make the wrong model appear in a guide slot. Use the mapping supplied for the exact pack you deploy.
 
 ## Paxel model compatibility
 
