@@ -4,28 +4,28 @@ Slimefun Legacy supports custom item model IDs independently from resource-pack 
 
 ## Default behavior
 
-Resource-pack delivery is **disabled by default**. Slimefun Legacy does not upload, host, download or force a resource pack unless a server owner explicitly enables the external sender in `plugins/Slimefun/config.yml`.
+Resource-pack delivery is **disabled by default**. Slimefun Legacy provides a maintained optional resource pack on GitHub Releases, but it does not send or force that pack unless a server owner explicitly enables the sender in `plugins/Slimefun/config.yml`.
 
 This is intentional for servers that already use ItemsAdder, Oraxen, a proxy-level pack, or their own server resource-pack workflow.
 
 ```yaml
 resource-pack:
   enabled: false
-  url: 'https://cdn.modrinth.com/data/TznkVJky/versions/nwij66MR/Slimefun-ResourcePack.zip'
-  sha1: ''
+  url: 'https://github.com/wickidcow/Slimefun-Legacy/releases/download/resource-pack/SlimefunLegacyRP.zip'
+  sha1: '703f434ce527458cbfab5e9087a64b899375b11d'
   required: false
   prompt: 'Slimefun Legacy resource pack'
 ```
 
-When `enabled` is `false`, Slimefun Legacy sends no pack request at all. The pre-filled URL matches AdvanceTexture's public `official_pack_1211` option and can be replaced with any direct HTTP(S) resource-pack ZIP URL.
+When `enabled` is `false`, Slimefun Legacy sends no pack request at all. The pre-filled URL points to the project's dedicated `resource-pack` GitHub release and can be replaced with any direct HTTP(S) resource-pack ZIP URL.
 
-The sender itself targets Minecraft 1.21.11+ / current Paper server APIs. The pre-filled third-party Modrinth pack is maintained separately and should be replaced by the server owner if their client version or custom assets require a newer pack build.
+The maintained asset name is `SlimefunLegacyRP.zip`. Its release URL is intentionally stable so the ZIP can be replaced without requiring server owners to edit `config.yml` every time the pack is updated. The sender targets Minecraft 1.21.11+ / current Paper server APIs.
 
 ## External pack delivery
 
 To let Slimefun Legacy add an externally hosted pack on player join:
 
-1. Use the pre-filled pack URL or host a completed resource-pack ZIP on an HTTP(S) endpoint reachable by players. HTTPS is recommended.
+1. Use the pre-filled GitHub-hosted pack URL, or host a completed resource-pack ZIP on another HTTP(S) endpoint reachable by players. HTTPS is recommended.
 2. Set `resource-pack.enabled` to `true`.
 3. Set `resource-pack.url` to the direct ZIP URL if you want to override the pre-filled pack.
 4. Set `resource-pack.sha1` to the 40-character SHA-1 of that exact ZIP when possible.
@@ -59,3 +59,15 @@ The IDs remain distinct to avoid a Slimefun registration collision when FluffyMa
 ## AdvanceTexture
 
 The optional sender and model-mapping workflow were designed with the same server-owner use case addressed by the community AdvanceTexture project (`m1919810/AdvanceTexture`), but Slimefun Legacy does not bundle or require that plugin. The Legacy implementation uses its own existing custom-texture service and current Paper APIs so the feature can remain optional and dependency-free.
+
+## Project-hosted pack maintenance
+
+The canonical Slimefun Legacy pack is published under the dedicated GitHub release tag `resource-pack` as:
+
+`SlimefunLegacyRP.zip`
+
+Permanent download URL:
+
+`https://github.com/wickidcow/Slimefun-Legacy/releases/download/resource-pack/SlimefunLegacyRP.zip`
+
+The publication metadata is stored in `resource-pack/publish.json`. Updating that manifest and merging it to `master` runs the resource-pack publication workflow, validates the ZIP and SHA-1, then replaces the existing GitHub Release asset in place. The dedicated resource-pack release is marked as non-latest so it does not replace the current Slimefun Legacy plugin release in GitHub's release ordering.
