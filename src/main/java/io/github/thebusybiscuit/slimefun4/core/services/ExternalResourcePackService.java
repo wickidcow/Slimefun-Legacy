@@ -20,6 +20,8 @@ import org.bukkit.entity.Player;
 public final class ExternalResourcePackService {
 
     private static final String CONFIG_ROOT = "resource-pack.";
+    private static final String RETIRED_DEFAULT_PACK_URL =
+            "https://cdn.modrinth.com/data/TznkVJky/versions/nwij66MR/Slimefun-ResourcePack.zip";
     private static final UUID PACK_ID = UUID.nameUUIDFromBytes(
             "slimefun-legacy:external-resource-pack".getBytes(StandardCharsets.UTF_8));
 
@@ -42,6 +44,14 @@ public final class ExternalResourcePackService {
         }
 
         String url = trim(config.getString(CONFIG_ROOT + "url"));
+        if (RETIRED_DEFAULT_PACK_URL.equals(url)) {
+            warnOnce(
+                    "The previously bundled Slimefun resource-pack URL is no longer sent automatically because its "
+                            + "item-model mapping is not suitable as a 26.x default. Choose a pack compatible with your "
+                            + "client version, merge its matching item-models.yml values, and update resource-pack.url.");
+            return;
+        }
+
         if (!isValidResourcePackUrl(url)) {
             warnOnce("External resource-pack delivery is enabled, but resource-pack.url is not a valid HTTP(S) URL.");
             return;
