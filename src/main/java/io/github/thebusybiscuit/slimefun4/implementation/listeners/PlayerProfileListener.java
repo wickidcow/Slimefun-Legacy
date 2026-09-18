@@ -25,7 +25,7 @@ public class PlayerProfileListener implements Listener {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onDisconnect(PlayerQuitEvent e) {
         Optional<PlayerProfile> profile = PlayerProfile.find(e.getPlayer());
 
@@ -33,6 +33,6 @@ public class PlayerProfileListener implements Listener {
         profile.ifPresent(PlayerProfile::markForDeletion);
         Slimefun.getDatabaseManager()
                 .getProfileDataController()
-                .invalidateCache(e.getPlayer().getUniqueId().toString());
+                .invalidateCacheAfterBackpackPersistence(e.getPlayer().getUniqueId().toString());
     }
 }

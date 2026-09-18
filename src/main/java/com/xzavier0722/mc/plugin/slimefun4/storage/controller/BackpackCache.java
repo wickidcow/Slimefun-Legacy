@@ -3,7 +3,9 @@ package com.xzavier0722.mc.plugin.slimefun4.storage.controller;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerBackpack;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
@@ -241,6 +243,38 @@ public class BackpackCache {
             uuidCache.remove(uuid, backpack);
             maintenanceOwned.remove(uuid, backpack);
             backpack.markInvalid();
+        });
+    }
+
+    /** Returns a stable snapshot of backpack UUIDs currently cached for one owner. */
+    synchronized Set<String> getOwnerBackpackIds(String pUuid) {
+        Map<Integer, PlayerBackpack> cache = numCache.get(pUuid);
+        if (cache == null || cache.isEmpty()) {
+            return Set.of();
+        }
+
+        Set<String> ids = new HashSet<>(cache.size());
+        cache.values().forEach(backpack -> ids.add(backpack.getUniqueId().toString()));
+        return ids;
+    }
+
+    /**
+     * Evicts an owner's cached backpacks after their persistence barriers have
+     * succeeded. Unlike {@link #invalidate(String)}, this does not close Bukkit
+     * inventories or schedule another save from an asynchronous completion
+     * thread.
+     */
+    synchronized void invalidateAfterPersistence(String pUuid) {
+        Map<Integer, PlayerBackpack> cache = numCache.remove(pUuid);
+        if (cache == null) {
+            return;
+        }
+
+        cache.values().forEach(backpack -> {
+            String uuid = backpack.getUniqueId().toString();
+            uuidCache.remove(uuid, backpack);
+            maintenanceOwned.remove(uuid, backpack);
+            backpack.markInvalidAfterPersistence();
         });
     }
 
