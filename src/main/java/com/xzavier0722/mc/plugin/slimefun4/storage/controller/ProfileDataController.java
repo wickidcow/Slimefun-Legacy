@@ -632,10 +632,7 @@ public class ProfileDataController extends ADataController {
     }
 
     public void invalidateCache(String pUuid) {
-        var removed = profileCache.remove(pUuid);
-        if (removed != null) {
-            removed.markForDeletion();
-        }
+        invalidateProfileCache(pUuid);
 
         var task = new Runnable() {
             @Override
@@ -649,6 +646,77 @@ public class ProfileDataController extends ADataController {
         };
         invalidingBackpackTasks.put(pUuid, task);
         scheduleWriteTask(task);
+    }
+
+    /**
+     * Removes a disconnected player's profile immediately but evicts their
+     * cached backpacks only after every currently registered backpack persistence
+     * chain has completed successfully.
+     *
+     * <p>If a save failed or left the persisted baseline uncertain, the canonical
+     * in-memory backpack stays cached for the rest of the server uptime. This
+     * prevents another physical copy from reloading partially persisted storage.
+     */
+    public void invalidateCacheAfterBackpackPersistence(@Nonnull String pUuid) {
+        invalidateProfileCache(pUuid);
+
+        Set<String> backpackIds = backpackCache.getOwnerBackpackIds(pUuid);
+        if (backpackIds.isEmpty()) {
+            return;
+        }
+
+        var pending = new ArrayList<CompletableFuture<Void>>();
+        synchronized (backpackSaveChains) {
+            for (String backpackId : backpackIds) {
+                CompletableFuture<Void> future = backpackSaveChains.get(backpackId);
+                if (future != null) {
+                    pending.add(future);
+                }
+            }
+        }
+
+        if (hasUncertainBackpackBaseline(backpackIds)) {
+            logger.log(
+                    Level.WARNING,
+                    "Keeping {0} backpack cache entry/entries for disconnected owner {1} because persistence is uncertain.",
+                    new Object[] {backpackIds.size(), pUuid});
+            return;
+        }
+
+        if (pending.isEmpty()) {
+            backpackCache.invalidateAfterPersistence(pUuid);
+            return;
+        }
+
+        CompletableFuture.allOf(pending.toArray(CompletableFuture[]::new))
+                .whenComplete((ignored, failure) -> {
+                    if (failure != null || hasUncertainBackpackBaseline(backpackIds)) {
+                        logger.log(
+                                Level.WARNING,
+                                "Keeping backpack cache for disconnected owner " + pUuid
+                                        + " because a persistence barrier failed.",
+                                failure);
+                        return;
+                    }
+
+                    backpackCache.invalidateAfterPersistence(pUuid);
+                });
+    }
+
+    private boolean hasUncertainBackpackBaseline(@Nonnull Set<String> backpackIds) {
+        for (String backpackId : backpackIds) {
+            if (uncertainBackpackBaselines.contains(backpackId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void invalidateProfileCache(@Nonnull String pUuid) {
+        var removed = profileCache.remove(pUuid);
+        if (removed != null) {
+            removed.markForDeletion();
+        }
     }
 
     @Override
