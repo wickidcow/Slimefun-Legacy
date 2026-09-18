@@ -81,6 +81,7 @@ def main() -> int:
         read(root, "src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/BlockDataController.java")
     )
     require(storage, "private final Map<String, CompletableFuture<Void>> inventorySaveChains", "per-inventory save chains")
+    require(storage, "private final Set<String> uncertainInventoryBaselines", "failed inventory baseline marker")
     require(storage, "public CompletableFuture<Void> saveBlockInventoryAsync", "async block inventory save")
     require(storage, "public CompletableFuture<Void> saveUniversalInventoryAsync", "async universal inventory save")
     require(storage, "ItemStack[] contents = copyInventoryContents(", "immutable inventory content copy")
@@ -122,8 +123,23 @@ def main() -> int:
     )
     require(
         storage,
+        "uncertainInventoryBaselines.contains(snapshotKey) ? new HashSet<>(stagedWrites.keySet())",
+        "failed inventory baseline forces every staged slot to reconcile",
+    )
+    require(
+        storage,
         "invSnapshots.remove(snapshotKey)",
-        "failed inventory batch invalidates acknowledged baseline",
+        "failed inventory batch invalidates acknowledged snapshot",
+    )
+    require(
+        storage,
+        "uncertainInventoryBaselines.add(snapshotKey)",
+        "failed inventory batch marks persisted baseline uncertain",
+    )
+    require(
+        storage,
+        "uncertainInventoryBaselines.remove(snapshotKey)",
+        "successful inventory batch clears uncertain baseline",
     )
     require(
         storage,
