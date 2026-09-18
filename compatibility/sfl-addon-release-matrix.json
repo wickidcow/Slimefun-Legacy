@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 19,
+  "bundle_revision": 20,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -36,7 +36,7 @@
     {"repository":"wickidcow/SF_BuildingStaff","slug":"buildingstaff"},
     {"repository":"wickidcow/SF_CultivationLegacy","slug":"cultivationlegacy","artifact_base":"Cultivation"},
     {"repository":"wickidcow/SF_DankTech2","slug":"danktech2"},
-    {"repository":"wickidcow/SF_DracFun2","slug":"dracfunreborn","artifact_base":"DracFunReborn","source_commit":"7a0abcafe5c30df27103074b2504e181a84bce03"},
+    {"repository":"wickidcow/SF_DracFun2","slug":"dracfunreborn","artifact_base":"DracFunReborn","source_commit":"cb5b86ba09416b3d998816abced3b912f8b0cc0e"},
     {"repository":"wickidcow/SF_DynaTech","slug":"dynatech"},
     {"repository":"wickidcow/SF_ElectricSpawners","slug":"electricspawners"},
     {"repository":"wickidcow/SF_ExoticGarden","slug":"exoticgarden"},
