@@ -216,7 +216,8 @@ jobs:
 
           for addon in source:
               repository = addon.get('repository', '')
-              if not repository.startswith('wickidcow/SF_'):
+              allowed_non_sf = {'wickidcow/WorldEditSlimefun'}
+              if not repository.startswith('wickidcow/SF_') and repository not in allowed_non_sf:
                   raise SystemExit(f'Invalid maintained addon repository: {repository}')
               if repository in seen:
                   raise SystemExit(f'Duplicate maintained addon repository: {repository}')
