@@ -100,11 +100,15 @@ def main() -> int:
         "return completion.thenRun(() -> { synchronized (bp) { bp.acknowledgeSnapshot(stagedSnapshot); } });",
         "snapshot acknowledgement after successful write barrier",
     )
-    require_before(
+    require(
         profile,
         "scheduleWriteTask(ownerScope, key, write, false)",
-        "return completion",
-        "backpack completion future captured at write submission",
+        "backpack completion wrapper submitted with the queued write",
+    )
+    require(
+        profile,
+        "completion.complete(null)",
+        "successful backpack write completion signal",
     )
     require_before(
         profile,
@@ -157,9 +161,19 @@ def main() -> int:
     )
     require_before(
         listener,
-        "save.whenComplete",
+        "pendingSaves.remove(playerId, save)",
+        "finishBackpackSession(playerId, backpack.getUniqueId())",
+        "pending save cleared before session reservation release",
+    )
+    require(
+        listener,
+        "private void finishBackpackSession(@Nonnull UUID playerId, @Nullable UUID backpackId)",
+        "central backpack session release helper",
+    )
+    require(
+        listener,
         "openRegistry.release(playerId)",
-        "canonical reservation released only from save completion path",
+        "canonical reservation release in session cleanup helper",
     )
 
     print("Container and backpack storage correctness verification passed.")
