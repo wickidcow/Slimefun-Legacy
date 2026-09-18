@@ -209,15 +209,30 @@ def main() -> int:
     require(exp_collector, "private static final int EXPERIENCE_PER_FLASK = 10;", "EXP flask conversion unit")
     require(
         exp_collector,
-        "while (experiencePoints - withdrawn >= EXPERIENCE_PER_FLASK",
-        "EXP Collector new-total conversion loop",
+        "StorageCacheUtils.setData(location, DATA_KEY, String.valueOf(remainingExperience));",
+        "EXP Collector accounts collected experience before output",
+    )
+    require(
+        exp_collector,
+        "int nextBalance = remainingExperience - EXPERIENCE_PER_FLASK;",
+        "EXP Collector per-flask source debit",
+    )
+    require(
+        exp_collector,
+        "ItemStack[] outputSnapshot = snapshotSlots(menu, outputSlots);",
+        "EXP Collector output rollback snapshot",
     )
     require(exp_collector, "int storedExperience = Math.max(0, Integer.parseInt(value));", "negative EXP repair")
     require_before(
         exp_collector,
-        "withdrawn += EXPERIENCE_PER_FLASK;",
-        "StorageCacheUtils.setData(location, DATA_KEY, String.valueOf(experiencePoints - withdrawn));",
-        "EXP withdrawal before persisted remainder",
+        "StorageCacheUtils.setData(location, DATA_KEY, String.valueOf(nextBalance));",
+        "menu.pushItem(SlimefunItems.FILLED_FLASK_OF_KNOWLEDGE.clone(), outputSlots);",
+        "EXP balance debit before flask output",
+    )
+    require(
+        exp_collector,
+        "restoreSlots(menu, outputSlots, outputSnapshot);",
+        "EXP Collector output rollback",
     )
 
     farmer = read(
