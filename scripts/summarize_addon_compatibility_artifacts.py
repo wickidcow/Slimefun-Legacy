@@ -29,6 +29,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("artifact_root", type=Path)
     parser.add_argument("--summary", type=Path, required=True)
     parser.add_argument("--exclusions", type=Path, default=DEFAULT_EXCLUSIONS)
+    parser.add_argument(
+        "--required-only",
+        action="store_true",
+        help="Audit only non-advisory release-blocking targets, matching pull-request compatibility runs.",
+    )
     return parser.parse_args()
 
 
@@ -58,7 +63,11 @@ def load_exclusions(path: Path) -> set[str]:
     return exclusions
 
 
-def load_targets(matrix_path: Path, exclusions: set[str]) -> list[dict[str, object]]:
+def load_targets(
+    matrix_path: Path,
+    exclusions: set[str],
+    required_only: bool = False,
+) -> list[dict[str, object]]:
     payload = json.loads(matrix_path.read_text(encoding="utf-8"))
     addons = payload.get("addons")
     if not isinstance(addons, list):
@@ -74,6 +83,9 @@ def load_targets(matrix_path: Path, exclusions: set[str]) -> list[dict[str, obje
         tier = str(entry.get("tier", "")).strip()
         if repository in exclusions:
             continue
+        advisory = bool(entry.get("advisory", False))
+        if required_only and advisory:
+            continue
         if not slug or not repository or not tier:
             raise ValueError(f"Enabled matrix entry is missing slug/repository/tier: {entry!r}")
         if slug in seen:
@@ -84,7 +96,7 @@ def load_targets(matrix_path: Path, exclusions: set[str]) -> list[dict[str, obje
                 "slug": slug,
                 "repository": repository,
                 "tier": tier,
-                "advisory": bool(entry.get("advisory", False)),
+                "advisory": advisory,
             }
         )
     if not targets:
@@ -172,7 +184,7 @@ def main() -> int:
     args = parse_args()
     try:
         exclusions = load_exclusions(args.exclusions)
-        targets = load_targets(args.matrix, exclusions)
+        targets = load_targets(args.matrix, exclusions, args.required_only)
     except Exception as exc:  # noqa: BLE001 - command-line audit must fail closed
         print(f"Unable to load compatibility matrix: {exc}", file=sys.stderr)
         return 2
