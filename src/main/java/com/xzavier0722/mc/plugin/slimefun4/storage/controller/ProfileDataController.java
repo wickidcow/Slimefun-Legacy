@@ -397,13 +397,16 @@ public class ProfileDataController extends ADataController {
     }
 
     public void saveBackpackInventory(@Nonnull PlayerBackpack bp) {
-        // avoid asynchronous save
+        // Avoid advancing the snapshot until every changed slot has been serialized
+        // and accepted by the write queue. Otherwise a failed slot would look clean
+        // on the next save even though no persistence task exists for that change.
         synchronized (bp) {
             Set<Integer> slots = bp.getSnapshot().getChangedSlots(bp.getInventory());
-            bp.refreshSnapshot();
             var id = bp.getUniqueId().toString();
             var inv = bp.getInventory();
-            slots.forEach(slot -> {
+            boolean allChangesStaged = true;
+
+            for (int slot : slots) {
                 var key = new RecordKey(DataScope.BACKPACK_INVENTORY);
                 key.addCondition(FieldKey.BACKPACK_ID, id);
                 key.addCondition(FieldKey.INVENTORY_SLOT, slot + "");
@@ -420,10 +423,19 @@ public class ProfileDataController extends ADataController {
                         scheduleWriteTask(
                                 new UUIDKey(DataScope.NONE, bp.getOwner().getUniqueId()), key, data, false);
                     } catch (IllegalArgumentException e) {
-                        Slimefun.logger().log(Level.WARNING, e.getMessage());
+                        allChangesStaged = false;
+                        Slimefun.logger()
+                                .log(
+                                        Level.WARNING,
+                                        "Could not stage backpack slot " + id + ':' + slot + " for persistence",
+                                        e);
                     }
                 }
-            });
+            }
+
+            if (allChangesStaged) {
+                bp.refreshSnapshot();
+            }
         }
     }
 
