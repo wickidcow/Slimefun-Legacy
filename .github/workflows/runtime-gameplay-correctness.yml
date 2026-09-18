@@ -157,6 +157,7 @@ jobs:
           ./gradlew test \
             --tests io.github.thebusybiscuit.slimefun4.implementation.items.electric.machines.enchanting.EnchantmentMachineRuntimeTest \
             --tests io.github.thebusybiscuit.slimefun4.implementation.operations.MachineOperationSnapshotTest \
+            --tests com.xzavier0722.mc.plugin.slimefun4.storage.controller.ADataControllerWriteQueueTest \
             --no-daemon
 
       - name: Publish correctness summary
