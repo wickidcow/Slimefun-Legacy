@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "release_tag": "resource-pack",
+  "asset_name": "SlimefunLegacyRP.zip",
+  "source_url": "http://overlord.kicks-ass.org:8163/SlimefunLegacyRP.zip",
+  "sha1": "703f434ce527458cbfab5e9087a64b899375b11d",
+  "size_bytes": 7428700,
+  "minecraft": "1.21.11-26.3",
+  "description": "Trimmed Slimefun Legacy resource pack containing Slimefun, maintained addon, Pylon, Rebar, RebarMobs and IAWeapons assets."
+}
