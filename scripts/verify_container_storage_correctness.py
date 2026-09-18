@@ -176,6 +176,66 @@ def main() -> int:
         "if (allChangesStaged) { bp.refreshSnapshot(); }",
         "queue-acceptance snapshot acknowledgement",
     )
+    require(
+        profile,
+        "public void invalidateCacheAfterBackpackPersistence(@Nonnull String pUuid)",
+        "persistence-aware logout cache invalidation",
+    )
+    require(
+        profile,
+        "Set<String> backpackIds = backpackCache.getOwnerBackpackIds(pUuid)",
+        "owner backpack snapshot before logout eviction",
+    )
+    require(
+        profile,
+        "CompletableFuture.allOf(pending.toArray(CompletableFuture[]::new))",
+        "logout eviction waits for registered backpack persistence",
+    )
+    require(
+        profile,
+        "failure != null || hasUncertainBackpackBaseline(backpackIds)",
+        "failed or uncertain persistence retains canonical cache",
+    )
+    require(
+        profile,
+        "backpackCache.invalidateAfterPersistence(pUuid)",
+        "successful persistence-only cache eviction",
+    )
+
+    cache = compact(
+        read(
+            root,
+            "src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/BackpackCache.java",
+        )
+    )
+    require(cache, "synchronized Set<String> getOwnerBackpackIds(String pUuid)", "owner backpack cache snapshot")
+    require(
+        cache,
+        "synchronized void invalidateAfterPersistence(String pUuid)",
+        "persistence-safe backpack cache eviction",
+    )
+    require(
+        cache,
+        "backpack.markInvalidAfterPersistence()",
+        "cache eviction without off-thread Bukkit inventory access",
+    )
+
+    profile_listener = compact(
+        read(
+            root,
+            "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/PlayerProfileListener.java",
+        )
+    )
+    require(
+        profile_listener,
+        "@EventHandler(priority = EventPriority.HIGHEST)",
+        "profile cache cleanup ordered after normal-priority backpack quit save",
+    )
+    require(
+        profile_listener,
+        ".invalidateCacheAfterBackpackPersistence(e.getPlayer().getUniqueId().toString())",
+        "quit path uses persistence-aware cache invalidation",
+    )
 
     backpack = compact(
         read(
@@ -184,6 +244,12 @@ def main() -> int:
         )
     )
     require(backpack, "private volatile InvSnapshot snapshot", "cross-thread snapshot visibility")
+    require(backpack, "private volatile boolean isInvalid", "cross-thread invalidation visibility")
+    require(
+        backpack,
+        "public void markInvalidAfterPersistence()",
+        "no-Bukkit persistence-complete invalidation marker",
+    )
     require(
         backpack,
         "public void acknowledgeSnapshot(@Nonnull InvSnapshot persistedSnapshot)",
