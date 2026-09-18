@@ -39,6 +39,7 @@ jobs:
       available: ${{ steps.paper.outputs.available }}
       api: ${{ steps.paper.outputs.api }}
     steps:
+      - uses: actions/checkout@v6
       - name: Resolve latest Paper 26.3 API
         id: paper
         shell: bash
