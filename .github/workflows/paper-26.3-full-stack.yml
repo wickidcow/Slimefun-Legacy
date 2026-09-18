@@ -1,6 +1,15 @@
 name: Paper 26.2 / 26.3 Full Stack Smoke
 
 on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/paper-26.3-full-stack.yml'
+      - 'scripts/full_stack_runtime_smoke.sh'
+      - 'compatibility/sfl-addon-release-matrix.json'
+      - 'build.gradle.kts'
+      - 'gradle/**'
+      - 'src/**'
   workflow_dispatch:
   schedule:
     - cron: '53 11 * * 4'
