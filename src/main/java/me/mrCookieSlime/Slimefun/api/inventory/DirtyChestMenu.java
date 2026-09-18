@@ -46,19 +46,25 @@ public class DirtyChestMenu extends ChestMenu {
         return inv != null && !inv.getViewers().isEmpty();
     }
 
-    public synchronized void markDirty() {
-        if (changes < Integer.MAX_VALUE) {
-            changes++;
+    public void markDirty() {
+        synchronized (this) {
+            if (changes < Integer.MAX_VALUE) {
+                changes++;
+            }
+            changeSequence++;
         }
-        changeSequence++;
     }
 
-    public synchronized boolean isDirty() {
-        return changes > 0;
+    public boolean isDirty() {
+        synchronized (this) {
+            return changes > 0;
+        }
     }
 
-    public synchronized int getUnsavedChanges() {
-        return changes;
+    public int getUnsavedChanges() {
+        synchronized (this) {
+            return changes;
+        }
     }
 
     /**
