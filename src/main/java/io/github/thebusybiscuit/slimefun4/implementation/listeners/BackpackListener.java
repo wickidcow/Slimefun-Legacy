@@ -146,13 +146,10 @@ public class BackpackListener implements Listener {
             return;
         }
 
-        ItemStack item = player.getInventory().getItemInOffHand();
-        if (item == null || item.getType().isAir()) {
-            return;
-        }
-
-        SlimefunItem backpack = SlimefunItem.getByItem(item);
-        if (backpack instanceof SlimefunBackpack) {
+        // Both event items participate in the swap. Checking only the current
+        // off-hand leaves a bypass when the physical backpack is in the main hand
+        // and the off-hand is empty or contains a non-backpack item.
+        if (isBackpackItem(e.getMainHandItem()) || isBackpackItem(e.getOffHandItem())) {
             e.setCancelled(true);
         }
     }
@@ -237,7 +234,19 @@ public class BackpackListener implements Listener {
             // items stationary while a backpack GUI is open. This prevents the
             // item representing an open container from being moved, swapped or
             // otherwise transformed mid-session.
-            if (isBackpackItem(e.getCurrentItem())) {
+            if (isBackpackItem(e.getCurrentItem()) || isBackpackItem(e.getCursor())) {
+                e.setCancelled(true);
+                return;
+            }
+
+            if (e.getClick() == ClickType.NUMBER_KEY) {
+                ItemStack hotbarItem = e.getWhoClicked().getInventory().getItem(e.getHotbarButton());
+                if (isBackpackItem(hotbarItem)) {
+                    e.setCancelled(true);
+                    return;
+                }
+            } else if (e.getClick() == ClickType.SWAP_OFFHAND
+                    && isBackpackItem(e.getWhoClicked().getInventory().getItemInOffHand())) {
                 e.setCancelled(true);
                 return;
             }
