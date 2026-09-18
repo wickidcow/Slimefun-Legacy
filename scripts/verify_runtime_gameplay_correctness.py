@@ -239,6 +239,28 @@ def main() -> int:
         "Farmer Android harvest completion before crop reset",
     )
 
+    miner = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/androids/MinerAndroid.java",
+    )
+    require(miner, "InfiniteBlockGenerator generator = null;", "Miner Android explicit generator transaction branch")
+    require(
+        miner,
+        "if (generator == null) {\n                block.setType(Material.AIR);",
+        "Miner Android ordinary-source consumption",
+    )
+    require_before(
+        miner,
+        "block.setType(Material.AIR);",
+        "for (ItemStack drop : drops)",
+        "Miner Android ordinary block consumption before drop commit",
+    )
+    require(
+        miner,
+        "if (generator != null) {",
+        "Miner Android renewable generator exemption",
+    )
+
     woodcutter = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/androids/WoodcutterAndroid.java",
