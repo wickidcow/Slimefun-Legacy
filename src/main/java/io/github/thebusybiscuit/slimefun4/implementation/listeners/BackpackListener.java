@@ -12,6 +12,7 @@ import io.github.thebusybiscuit.slimefun4.utils.ThreadUtils;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.regex.Matcher;
@@ -58,6 +59,7 @@ public class BackpackListener implements Listener {
     private final BackpackOpenRegistry openRegistry = new BackpackOpenRegistry();
     private final Map<UUID, UUID> backpacks = new ConcurrentHashMap<>();
     private final Map<UUID, SlimefunBackpack> backpackInstances = new ConcurrentHashMap<>();
+    private final Map<UUID, CompletableFuture<Void>> pendingSaves = new ConcurrentHashMap<>();
 
     public void register(@Nonnull Slimefun plugin) {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
@@ -81,19 +83,7 @@ public class BackpackListener implements Listener {
         Player p = (Player) e.getPlayer();
 
         if (e.getInventory().getHolder(false) instanceof PlayerBackpack backpack) {
-            UUID playerId = p.getUniqueId();
-            try {
-                // Snapshot and enqueue the changed slots before releasing the session reservation.
-                // A second copy of the same backpack must not be allowed to start opening in
-                // the small close/save hand-off window.
-                Slimefun.getDatabaseManager().getProfileDataController().saveBackpackInventory(backpack);
-            } catch (RuntimeException ex) {
-                Slimefun.logger().log(Level.SEVERE, "An Exception occurred while saving a backpack on close", ex);
-            } finally {
-                backpacks.remove(playerId, backpack.getUniqueId());
-                backpackInstances.remove(playerId);
-                openRegistry.release(playerId);
-            }
+            beginBackpackSave(p.getUniqueId(), backpack, "close");
             SoundEffect.BACKPACK_CLOSE_SOUND.playFor(p);
         }
     }
@@ -103,20 +93,67 @@ public class BackpackListener implements Listener {
         Player player = e.getPlayer();
         UUID playerId = player.getUniqueId();
 
-        // InventoryCloseEvent normally performs this save first, but explicitly
-        // snapshot an open backpack here as well so a disconnect cannot become a
-        // stale-storage path if the platform changes event ordering.
+        // InventoryCloseEvent normally starts this save first, but explicitly
+        // start it here as well so a disconnect cannot release the canonical
+        // reservation before persistence when platform event ordering changes.
         if (player.getOpenInventory().getTopInventory().getHolder(false) instanceof PlayerBackpack backpack) {
-            try {
-                Slimefun.getDatabaseManager().getProfileDataController().saveBackpackInventory(backpack);
-            } catch (RuntimeException ex) {
-                Slimefun.logger().log(Level.SEVERE, "An Exception occurred while saving a backpack on quit", ex);
-            }
+            beginBackpackSave(playerId, backpack, "quit");
         }
 
-        openRegistry.release(playerId);
-        backpacks.remove(playerId);
+        if (!pendingSaves.containsKey(playerId)) {
+            finishBackpackSession(playerId, null);
+        }
+    }
+
+    private void beginBackpackSave(
+            @Nonnull UUID playerId, @Nonnull PlayerBackpack backpack, @Nonnull String context) {
+        final CompletableFuture<Void> save;
+
+        synchronized (pendingSaves) {
+            if (pendingSaves.containsKey(playerId)) {
+                return;
+            }
+
+            try {
+                save = Slimefun.getDatabaseManager()
+                        .getProfileDataController()
+                        .saveBackpackInventoryAsync(backpack);
+            } catch (RuntimeException | LinkageError failure) {
+                Slimefun.logger()
+                        .log(Level.SEVERE, "An Exception occurred while starting a backpack save on " + context, failure);
+                finishBackpackSession(playerId, backpack.getUniqueId());
+                return;
+            }
+
+            pendingSaves.put(playerId, save);
+
+            // The GUI is no longer active, so stop applying the broad "open
+            // backpack" interaction guards immediately. The canonical UUID
+            // reservation intentionally remains held until the save future
+            // completes, which is the protection needed against stale overlap.
+            backpacks.remove(playerId, backpack.getUniqueId());
+            backpackInstances.remove(playerId);
+        }
+
+        save.whenComplete((ignored, failure) -> {
+            if (failure != null) {
+                Slimefun.logger()
+                        .log(Level.SEVERE, "An Exception occurred while saving a backpack on " + context, failure);
+            }
+
+            pendingSaves.remove(playerId, save);
+            finishBackpackSession(playerId, backpack.getUniqueId());
+        });
+    }
+
+    private void finishBackpackSession(@Nonnull UUID playerId, @Nullable UUID backpackId) {
+        if (backpackId == null) {
+            backpacks.remove(playerId);
+        } else {
+            backpacks.remove(playerId, backpackId);
+        }
         backpackInstances.remove(playerId);
+        openRegistry.release(playerId);
     }
 
     @EventHandler
@@ -146,13 +183,10 @@ public class BackpackListener implements Listener {
             return;
         }
 
-        ItemStack item = player.getInventory().getItemInOffHand();
-        if (item == null || item.getType().isAir()) {
-            return;
-        }
-
-        SlimefunItem backpack = SlimefunItem.getByItem(item);
-        if (backpack instanceof SlimefunBackpack) {
+        // Both event items participate in the swap. Checking only the current
+        // off-hand leaves a bypass when the physical backpack is in the main hand
+        // and the off-hand is empty or contains a non-backpack item.
+        if (isBackpackItem(e.getMainHandItem()) || isBackpackItem(e.getOffHandItem())) {
             e.setCancelled(true);
         }
     }
@@ -237,7 +271,19 @@ public class BackpackListener implements Listener {
             // items stationary while a backpack GUI is open. This prevents the
             // item representing an open container from being moved, swapped or
             // otherwise transformed mid-session.
-            if (isBackpackItem(e.getCurrentItem())) {
+            if (isBackpackItem(e.getCurrentItem()) || isBackpackItem(e.getCursor())) {
+                e.setCancelled(true);
+                return;
+            }
+
+            if (e.getClick() == ClickType.NUMBER_KEY) {
+                ItemStack hotbarItem = e.getWhoClicked().getInventory().getItem(e.getHotbarButton());
+                if (isBackpackItem(hotbarItem)) {
+                    e.setCancelled(true);
+                    return;
+                }
+            } else if (e.getClick() == ClickType.SWAP_OFFHAND
+                    && isBackpackItem(e.getWhoClicked().getInventory().getItemInOffHand())) {
                 e.setCancelled(true);
                 return;
             }
@@ -545,9 +591,6 @@ public class BackpackListener implements Listener {
     private String getReservationKey(@Nonnull org.bukkit.inventory.meta.ItemMeta meta) {
         return PlayerBackpack.getBackpackUUID(meta)
                 .map(uuid -> "uuid:" + uuid)
-                .orElseGet(() -> "legacy:"
-                        + PlayerBackpack.getOwnerUUID(meta).orElse("unknown")
-                        + ':'
-                        + PlayerBackpack.getBackpackID(meta).orElse(-1));
+                .orElseGet(() -> "legacy:" + PlayerBackpack.getLegacyBackpackIdentity(meta).orElse("unknown:-1"));
     }
 }

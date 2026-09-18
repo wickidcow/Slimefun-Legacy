@@ -83,8 +83,6 @@ public class BlockMenu extends DirtyChestMenu {
         this.getContents();
         SlimefunBlockData blockData = StorageCacheUtils.getBlock(location);
         Slimefun.getDatabaseManager().getBlockDataController().saveBlockInventory(blockData);
-
-        changes = 0;
     }
 
     /**

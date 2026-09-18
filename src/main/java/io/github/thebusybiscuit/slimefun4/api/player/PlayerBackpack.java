@@ -56,12 +56,12 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
     private final int id;
     private String name;
     private int size;
-    private boolean isInvalid = false;
+    private volatile boolean isInvalid = false;
     // This snapshot holds the inventory's last save content , it should be recreated after each save by using
     // PlayerBackpack#refreshSnapshot
     @Nonnull
     @Getter
-    private InvSnapshot snapshot;
+    private volatile InvSnapshot snapshot;
 
     /**
      * Loads a backpack and executes the callback using the legacy global/main-thread behavior.
@@ -174,6 +174,24 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
         return getLegacyBackpackReference(meta)
                 .map(reference -> OptionalInt.of(reference.id()))
                 .orElseGet(OptionalInt::empty);
+    }
+
+    /**
+     * Returns the stable owner/id identity encoded by a legacy backpack lore line.
+     *
+     * <p>This is used while reserving backpack access before the legacy item can be migrated to its canonical UUID.
+     * Including the owner UUID is important because backpack ids are only unique per owner.
+     */
+    public static Optional<String> getLegacyBackpackIdentity(@Nullable ItemMeta meta) {
+        if (meta == null || !meta.hasLore()) {
+            return Optional.empty();
+        }
+
+        return getLegacyBackpackIdentity(meta.getLore());
+    }
+
+    static Optional<String> getLegacyBackpackIdentity(@Nullable List<String> lore) {
+        return getLegacyBackpackReference(lore).map(reference -> reference.owner() + ":" + reference.id());
     }
 
     /**
@@ -298,7 +316,15 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
             return Optional.empty();
         }
 
-        for (String line : meta.getLore()) {
+        return getLegacyBackpackReference(meta.getLore());
+    }
+
+    private static Optional<LegacyBackpackReference> getLegacyBackpackReference(@Nullable List<String> lore) {
+        if (lore == null) {
+            return Optional.empty();
+        }
+
+        for (String line : lore) {
             if (line == null || !line.startsWith(COLORED_LORE_ID) || line.indexOf('#') == -1) {
                 continue;
             }
@@ -364,6 +390,21 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
      */
     public void refreshSnapshot() {
         this.snapshot = new InvSnapshot(inventory);
+    }
+
+    /**
+     * Acknowledges the exact inventory snapshot that completed persistence.
+     *
+     * <p>This overload is used by the asynchronous backpack save path. Assigning
+     * the staged immutable snapshot instead of re-reading the Bukkit inventory
+     * allows database completion callbacks to acknowledge persistence without
+     * touching Bukkit inventory state from a database thread. Any later inventory
+     * mutation remains dirty relative to this persisted snapshot.
+     *
+     * @param persistedSnapshot the exact snapshot represented by the completed write batch
+     */
+    public void acknowledgeSnapshot(@Nonnull InvSnapshot persistedSnapshot) {
+        this.snapshot = persistedSnapshot;
     }
 
     /**
@@ -454,6 +495,18 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
         isInvalid = true;
         InventoryUtil.closeInventory(this.inventory);
         Slimefun.getDatabaseManager().getProfileDataController().saveBackpackInventory(this);
+    }
+
+    /**
+     * Marks a cached backpack instance stale after its persistence barrier has
+     * already completed.
+     *
+     * <p>This deliberately performs no Bukkit inventory access and schedules no
+     * second save, so cache cleanup may invoke it from an asynchronous database
+     * completion callback without touching Bukkit inventory state off-thread.
+     */
+    public void markInvalidAfterPersistence() {
+        isInvalid = true;
     }
 
     public boolean isInvalid() {

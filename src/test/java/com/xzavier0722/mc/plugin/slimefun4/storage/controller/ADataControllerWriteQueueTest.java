@@ -2,6 +2,7 @@ package com.xzavier0722.mc.plugin.slimefun4.storage.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataScope;
@@ -50,6 +51,63 @@ class ADataControllerWriteQueueTest {
     }
 
     @Test
+    void submissionCompletionTracksCompactedQueue() throws Exception {
+        var controller = new TestController(1);
+        var releaseWriter = new CountDownLatch(1);
+
+        try {
+            var writerStarted = new CountDownLatch(1);
+            controller.blockWriter(writerStarted, releaseWriter);
+            assertTrue(writerStarted.await(5, TimeUnit.SECONDS));
+
+            var scope = new LocationKey(DataScope.NONE, "world;0:64:0");
+            var key = record("compacted");
+            var firstRan = new AtomicBoolean();
+            var secondRan = new AtomicBoolean();
+
+            CompletableFuture<Void> first =
+                    controller.scheduleWithCompletion(scope, key, () -> firstRan.set(true));
+            CompletableFuture<Void> second =
+                    controller.scheduleWithCompletion(scope, key, () -> secondRan.set(true));
+
+            assertFalse(first.isDone());
+            assertFalse(second.isDone());
+
+            releaseWriter.countDown();
+            first.get(5, TimeUnit.SECONDS);
+            second.get(5, TimeUnit.SECONDS);
+
+            // QueuedWriteTask deliberately compacts the older runnable for an
+            // identical RecordKey. Both callers still observe the accepting
+            // queue's completion instead of leaving the first future stranded.
+            assertFalse(firstRan.get());
+            assertTrue(secondRan.get());
+            assertEquals(0, controller.getPendingWriteTaskCount());
+        } finally {
+            releaseWriter.countDown();
+            controller.closeExecutors();
+        }
+    }
+
+    @Test
+    void submissionCompletionReportsQueueFailure() {
+        var controller = new TestController(1);
+
+        try {
+            var scope = new LocationKey(DataScope.NONE, "world;0:64:0");
+            CompletableFuture<Void> completion =
+                    controller.scheduleWithCompletion(scope, record("failure-future"), () -> {
+                        throw new IllegalStateException("expected failure");
+                    });
+
+            assertThrows(Exception.class, () -> completion.get(5, TimeUnit.SECONDS));
+            assertTrue(completion.isCompletedExceptionally());
+        } finally {
+            controller.closeExecutors();
+        }
+    }
+
+    @Test
     void filteredCompletionWaitsOnlyForMatchingWriteScopes() throws Exception {
         var controller = new TestController(2);
         var releaseFirst = new CountDownLatch(1);
@@ -88,6 +146,39 @@ class ADataControllerWriteQueueTest {
         } finally {
             releaseFirst.countDown();
             releaseSecond.countDown();
+            controller.closeExecutors();
+        }
+    }
+
+    @Test
+    void failedWriteRemainsVisibleToShutdownAccounting() throws Exception {
+        var controller = new TestController(1);
+        var scope = new LocationKey(DataScope.NONE, "world;0:64:0");
+        var completion = new CompletableFuture<Void>();
+
+        try {
+            controller.schedule(scope, record("failure"), () -> {
+                completion.complete(null);
+                throw new IllegalStateException("expected database write failure");
+            });
+
+            completion.get(5, TimeUnit.SECONDS);
+
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (!controller.hasObservedWriteFailure() && System.nanoTime() < deadline) {
+                Thread.sleep(10L);
+            }
+
+            assertTrue(controller.hasObservedWriteFailure());
+
+            while (controller.getPendingWriteTaskCount() != 0 && System.nanoTime() < deadline) {
+                Thread.sleep(10L);
+            }
+            assertEquals(0, controller.getPendingWriteTaskCount());
+
+            controller.shutdown();
+            assertFalse(controller.wasLastShutdownClean());
+        } finally {
             controller.closeExecutors();
         }
     }
@@ -148,6 +239,17 @@ class ADataControllerWriteQueueTest {
 
         private void schedule(ScopeKey scope, RecordKey key, Runnable task) {
             scheduleWriteTask(scope, key, task, true);
+        }
+
+        private CompletableFuture<Void> scheduleWithCompletion(ScopeKey scope, RecordKey key, Runnable task) {
+            return scheduleWriteTaskWithCompletion(scope, key, task, true);
+        }
+
+        private void blockWriter(CountDownLatch started, CountDownLatch release) {
+            writeExecutor.submit(() -> {
+                started.countDown();
+                awaitRelease(release);
+            });
         }
 
         private CompletableFuture<Void> currentCompletion(ScopeKey scope) {

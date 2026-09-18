@@ -12,7 +12,7 @@ import javax.annotation.Nonnull;
  *
  * <p>A reservation starts in a pending state while the backpack is loading and is then promoted to the canonical
  * resolved UUID before the inventory is opened. The canonical reservation remains held for the entire open session and
- * is released only when the backpack is closed or the player leaves. This prevents two physical item representations,
+ * through the close/quit persistence hand-off. It is released only after that save attempt finishes. This prevents two physical item representations,
  * including mixed legacy and UUID-backed items, from opening the same backing storage at the same time.
  */
 public final class BackpackOpenRegistry {
