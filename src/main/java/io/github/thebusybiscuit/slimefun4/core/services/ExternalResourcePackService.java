@@ -11,11 +11,11 @@ import javax.annotation.Nonnull;
 import org.bukkit.entity.Player;
 
 /**
- * Sends an externally hosted resource pack to players when a server owner explicitly enables it.
+ * Sends the configured Slimefun resource pack to players when a server owner explicitly enables it.
  *
- * <p>Slimefun Legacy does not host, upload or download a resource pack itself. The service is disabled by default and
- * only adds the configured external pack to the player's existing resource-pack stack. This allows servers using
- * ItemsAdder or another pack manager to remain fully in control unless they opt in.
+ * <p>Slimefun Legacy provides a project-hosted default pack URL, but delivery is disabled by default. Server owners
+ * may override the URL and hash or leave this service disabled when ItemsAdder or another pack manager controls the
+ * server's combined resource-pack stack.
  */
 public final class ExternalResourcePackService {
 
