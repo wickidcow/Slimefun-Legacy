@@ -15,7 +15,7 @@
       "supported": ["1.21.11", "26.1.x", "26.2", "26.3"],
       "primary": "26.2",
       "candidate": "26.3",
-      "candidate_status": "stable-released-awaiting-production-promotion"
+      "candidate_status": "release-candidate-awaiting-stable"
     },
     "server_platforms": {
       "primary": ["Paper", "Purpur"],
