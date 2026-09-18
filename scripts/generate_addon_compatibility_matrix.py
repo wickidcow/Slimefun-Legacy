@@ -26,6 +26,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--exclusions", type=Path, default=DEFAULT_EXCLUSIONS)
     parser.add_argument("--github-output", type=Path)
     parser.add_argument("--include-disabled", action="store_true")
+    parser.add_argument(
+        "--required-only",
+        action="store_true",
+        help="Emit only non-advisory release-blocking targets.",
+    )
     return parser.parse_args()
 
 
@@ -63,6 +68,7 @@ def load_entries(
     path: Path,
     include_disabled: bool,
     exclusions: set[str],
+    required_only: bool = False,
 ) -> list[dict[str, object]]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if payload.get("schema") != 1:
@@ -105,6 +111,8 @@ def load_entries(
             continue
         if not enabled and not include_disabled:
             continue
+        if required_only and advisory:
+            continue
 
         if advisory:
             advisory_count += 1
@@ -127,7 +135,7 @@ def load_entries(
 
     if required_count == 0:
         fail("addon matrix must include at least one eligible required target")
-    if advisory_count == 0:
+    if advisory_count == 0 and not required_only:
         fail("addon matrix must include at least one eligible advisory target")
     return entries
 
@@ -141,7 +149,7 @@ def main() -> int:
         return 1
     try:
         exclusions = load_exclusions(exclusions_path)
-        entries = load_entries(path, args.include_disabled, exclusions)
+        entries = load_entries(path, args.include_disabled, exclusions, args.required_only)
     except (OSError, json.JSONDecodeError, ValueError) as error:
         print(f"Invalid addon compatibility matrix: {error}", file=sys.stderr)
         return 1
@@ -156,7 +164,8 @@ def main() -> int:
         print(matrix)
     print(
         f"Validated {len(entries)} enabled addon compatibility targets "
-        f"after {len(exclusions)} explicit exclusion(s).",
+        f"after {len(exclusions)} explicit exclusion(s)"
+        + (" (required-only mode)." if args.required_only else "."),
         file=sys.stderr,
     )
     return 0
