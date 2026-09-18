@@ -15,13 +15,16 @@ import io.github.thebusybiscuit.slimefun4.api.researches.Research;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -35,12 +38,16 @@ public class ProfileDataController extends ADataController {
     private final BackpackCache backpackCache;
     private final Map<String, PlayerProfile> profileCache;
     private final Map<String, Runnable> invalidingBackpackTasks;
+    private final Map<String, CompletableFuture<Void>> backpackSaveChains;
+    private final Set<String> uncertainBackpackBaselines;
 
     ProfileDataController() {
         super(DataType.PLAYER_PROFILE);
         backpackCache = new BackpackCache();
         profileCache = new ConcurrentHashMap<>();
         invalidingBackpackTasks = new ConcurrentHashMap<>();
+        backpackSaveChains = new ConcurrentHashMap<>();
+        uncertainBackpackBaselines = ConcurrentHashMap.newKeySet();
     }
 
     public PlayerProfile getProfileFromCache(OfflinePlayer p) {
@@ -410,89 +417,157 @@ public class ProfileDataController extends ADataController {
     }
 
     /**
-     * Saves all changed backpack slots and completes only after the exact queued
-     * database writes represented by this save attempt have finished.
+     * Saves a fully staged backpack state and completes only after the database
+     * queues carrying that state have drained successfully.
      *
-     * <p>The previous snapshot is kept until every staged write succeeds. On
-     * success, the exact immutable staged snapshot is acknowledged. On failure,
-     * the old snapshot stays in place so the changes remain dirty and retryable.
+     * <p>Save attempts for one backing UUID are serialized. This prevents two
+     * callers from acknowledging snapshots out of order and makes queue
+     * compaction safe: completion is tied to the accepting queue, not to an
+     * individual runnable that may be replaced by a newer write for the same key.
+     *
+     * <p>If a batch fails after some slots were already written, the persisted
+     * baseline becomes uncertain. The next save therefore rewrites all 54
+     * possible backpack slots before acknowledging a new snapshot.
      *
      * @param bp backpack to persist
-     * @return completion for this exact backpack save attempt
+     * @return completion for this exact staged backpack state
      */
     public CompletableFuture<Void> saveBackpackInventoryAsync(@Nonnull PlayerBackpack bp) {
+        final String backpackId = bp.getUniqueId().toString();
+        final ItemStack[] contents;
         final InvSnapshot stagedSnapshot;
-        final ArrayList<CompletableFuture<Void>> writes = new ArrayList<>();
+        final Map<Integer, BackpackWrite> stagedWrites;
 
-        synchronized (bp) {
-            Set<Integer> slots = bp.getSnapshot().getChangedSlots(bp.getInventory());
-            var id = bp.getUniqueId().toString();
-            var inv = bp.getInventory();
-            stagedSnapshot = new InvSnapshot(inv);
+        try {
+            synchronized (bp) {
+                contents = copyBackpackContents(bp.getInventory().getContents());
+                stagedSnapshot = new InvSnapshot(contents);
+                stagedWrites = stageBackpackWrites(backpackId, contents);
+            }
+        } catch (RuntimeException | LinkageError failure) {
+            Slimefun.logger()
+                    .log(Level.WARNING, "Could not stage backpack " + backpackId + " for persistence", failure);
+            return CompletableFuture.failedFuture(failure);
+        }
 
-            for (int slot : slots) {
-                var key = new RecordKey(DataScope.BACKPACK_INVENTORY);
-                key.addCondition(FieldKey.BACKPACK_ID, id);
-                key.addCondition(FieldKey.INVENTORY_SLOT, slot + "");
-                key.addField(FieldKey.INVENTORY_ITEM);
+        return chainBackpackSave(
+                backpackId, () -> persistBackpackStage(bp, backpackId, contents, stagedSnapshot, stagedWrites));
+    }
 
-                try {
-                    var is = inv.getItem(slot);
-                    if (is == null) {
-                        writes.add(scheduleBackpackWrite(bp, key, null));
-                    } else {
-                        var data = new RecordSet();
-                        data.put(FieldKey.BACKPACK_ID, id);
-                        data.put(FieldKey.INVENTORY_SLOT, slot + "");
-                        data.put(FieldKey.INVENTORY_ITEM, is);
-                        writes.add(scheduleBackpackWrite(bp, key, data));
-                    }
-                } catch (RuntimeException | LinkageError failure) {
-                    Slimefun.logger()
-                            .log(
-                                    Level.WARNING,
-                                    "Could not stage backpack slot " + id + ':' + slot + " for persistence",
-                                    failure);
-                    writes.add(CompletableFuture.failedFuture(failure));
+    private CompletableFuture<Void> chainBackpackSave(
+            @Nonnull String backpackId, @Nonnull Supplier<CompletableFuture<Void>> saveAttempt) {
+        synchronized (backpackSaveChains) {
+            CompletableFuture<Void> previous = backpackSaveChains.get(backpackId);
+            CompletableFuture<Void> start = previous == null
+                    ? CompletableFuture.completedFuture(null)
+                    : previous.handle((ignored, failure) -> null);
+            CompletableFuture<Void> next = start.thenCompose(ignored -> saveAttempt.get());
+            backpackSaveChains.put(backpackId, next);
+            next.whenComplete((ignored, failure) -> {
+                synchronized (backpackSaveChains) {
+                    backpackSaveChains.remove(backpackId, next);
                 }
+            });
+            return next;
+        }
+    }
+
+    private CompletableFuture<Void> persistBackpackStage(
+            @Nonnull PlayerBackpack backpack,
+            @Nonnull String backpackId,
+            @Nonnull ItemStack[] contents,
+            @Nonnull InvSnapshot stagedSnapshot,
+            @Nonnull Map<Integer, BackpackWrite> stagedWrites) {
+        final Set<Integer> changed;
+
+        if (uncertainBackpackBaselines.contains(backpackId)) {
+            changed = new HashSet<>(stagedWrites.keySet());
+        } else {
+            synchronized (backpack) {
+                changed = backpack.getSnapshot().getChangedSlots(contents);
             }
         }
 
-        CompletableFuture<Void> completion = CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new));
-        return completion.thenRun(() -> {
-            synchronized (bp) {
-                bp.acknowledgeSnapshot(stagedSnapshot);
+        if (changed.isEmpty()) {
+            synchronized (backpack) {
+                backpack.acknowledgeSnapshot(stagedSnapshot);
+            }
+            uncertainBackpackBaselines.remove(backpackId);
+            return CompletableFuture.completedFuture(null);
+        }
+
+        UUIDKey ownerScope = new UUIDKey(DataScope.NONE, backpack.getOwner().getUniqueId());
+        var completions = new ArrayList<CompletableFuture<Void>>(changed.size());
+
+        try {
+            for (int slot : changed) {
+                BackpackWrite write = stagedWrites.get(slot);
+                if (write == null) {
+                    throw new IllegalStateException("Missing staged backpack write for slot " + slot);
+                }
+
+                CompletableFuture<Void> completion = write.data() == null
+                        ? scheduleDeleteTaskWithCompletion(ownerScope, write.key(), false)
+                        : scheduleWriteTaskWithCompletion(ownerScope, write.key(), write.data(), false);
+                completions.add(completion);
+            }
+        } catch (RuntimeException | LinkageError failure) {
+            completions.add(CompletableFuture.failedFuture(failure));
+        }
+
+        CompletableFuture<Void> batch =
+                CompletableFuture.allOf(completions.toArray(CompletableFuture[]::new));
+        return batch.whenComplete((ignored, failure) -> {
+            if (failure == null) {
+                synchronized (backpack) {
+                    backpack.acknowledgeSnapshot(stagedSnapshot);
+                }
+                uncertainBackpackBaselines.remove(backpackId);
+            } else {
+                uncertainBackpackBaselines.add(backpackId);
             }
         });
     }
 
-    private CompletableFuture<Void> scheduleBackpackWrite(
-            @Nonnull PlayerBackpack backpack, @Nonnull RecordKey key, @Nullable RecordSet data) {
-        CompletableFuture<Void> completion = new CompletableFuture<>();
-        UUIDKey ownerScope = new UUIDKey(DataScope.NONE, backpack.getOwner().getUniqueId());
+    private Map<Integer, BackpackWrite> stageBackpackWrites(
+            @Nonnull String backpackId, @Nonnull ItemStack[] contents) {
+        Map<Integer, BackpackWrite> staged = new HashMap<>(54);
 
-        Runnable write = () -> {
-            try {
-                if (data == null) {
-                    deleteData(key);
-                } else {
-                    setData(key, data);
-                }
-                completion.complete(null);
-            } catch (RuntimeException | LinkageError failure) {
-                completion.completeExceptionally(failure);
-                throw failure;
+        // Stage the full legal backpack slot range. Normal saves submit only the
+        // changed subset, while a recovery after a partial database failure can
+        // safely rewrite/delete every slot, including slots removed by a resize.
+        for (int slot = 0; slot < 54; slot++) {
+            var key = new RecordKey(DataScope.BACKPACK_INVENTORY);
+            key.addCondition(FieldKey.BACKPACK_ID, backpackId);
+            key.addCondition(FieldKey.INVENTORY_SLOT, slot + "");
+            key.addField(FieldKey.INVENTORY_ITEM);
+
+            ItemStack item = slot < contents.length ? contents[slot] : null;
+            if (item == null) {
+                staged.put(slot, new BackpackWrite(key, null));
+            } else {
+                var data = new RecordSet();
+                data.put(FieldKey.BACKPACK_ID, backpackId);
+                data.put(FieldKey.INVENTORY_SLOT, slot + "");
+                // RecordSet serializes the ItemStack immediately on the caller
+                // thread, before the database hand-off.
+                data.put(FieldKey.INVENTORY_ITEM, item);
+                staged.put(slot, new BackpackWrite(key, data));
             }
-        };
-
-        try {
-            scheduleWriteTask(ownerScope, key, write, false);
-        } catch (RuntimeException | LinkageError failure) {
-            completion.completeExceptionally(failure);
         }
 
-        return completion;
+        return staged;
     }
+
+    private ItemStack[] copyBackpackContents(@Nonnull ItemStack[] contents) {
+        ItemStack[] copy = new ItemStack[contents.length];
+        for (int slot = 0; slot < contents.length; slot++) {
+            copy[slot] = contents[slot] == null ? null : contents[slot].clone();
+        }
+        return copy;
+    }
+
+    private record BackpackWrite(@Nonnull RecordKey key, @Nullable RecordSet data) {}
 
     @Deprecated(forRemoval = true)
     public void saveBackpackInventory(PlayerBackpack bp, Integer... slots) {
@@ -570,8 +645,47 @@ public class ProfileDataController extends ADataController {
 
     @Override
     public void shutdown() {
+        awaitBackpackSaveChains();
         super.shutdown();
         backpackCache.clean();
         profileCache.clear();
+    }
+
+    private void awaitBackpackSaveChains() {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(120);
+
+        while (System.nanoTime() < deadline) {
+            CompletableFuture<?>[] snapshot;
+            synchronized (backpackSaveChains) {
+                if (backpackSaveChains.isEmpty()) {
+                    return;
+                }
+
+                snapshot = backpackSaveChains.values().stream()
+                        .map(future -> future.handle((ignored, failure) -> null))
+                        .toArray(CompletableFuture<?>[]::new);
+            }
+
+            try {
+                long remainingNanos = deadline - System.nanoTime();
+                if (remainingNanos <= 0) {
+                    break;
+                }
+                CompletableFuture.allOf(snapshot).get(remainingNanos, TimeUnit.NANOSECONDS);
+            } catch (Exception failure) {
+                logger.log(Level.WARNING, "Interrupted while waiting for backpack persistence chains", failure);
+                if (failure instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                }
+                break;
+            }
+        }
+
+        if (!backpackSaveChains.isEmpty()) {
+            logger.log(
+                    Level.SEVERE,
+                    "Timed out with {0} acknowledgement-aware backpack save chain(s) still pending.",
+                    backpackSaveChains.size());
+        }
     }
 }
