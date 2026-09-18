@@ -234,7 +234,19 @@ public class BackpackListener implements Listener {
             // items stationary while a backpack GUI is open. This prevents the
             // item representing an open container from being moved, swapped or
             // otherwise transformed mid-session.
-            if (isBackpackItem(e.getCurrentItem())) {
+            if (isBackpackItem(e.getCurrentItem()) || isBackpackItem(e.getCursor())) {
+                e.setCancelled(true);
+                return;
+            }
+
+            if (e.getClick() == ClickType.NUMBER_KEY) {
+                ItemStack hotbarItem = e.getWhoClicked().getInventory().getItem(e.getHotbarButton());
+                if (isBackpackItem(hotbarItem)) {
+                    e.setCancelled(true);
+                    return;
+                }
+            } else if (e.getClick() == ClickType.SWAP_OFFHAND
+                    && isBackpackItem(e.getWhoClicked().getInventory().getItemInOffHand())) {
                 e.setCancelled(true);
                 return;
             }
