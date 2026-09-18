@@ -60,7 +60,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json
+          import json, re
           from pathlib import Path
 
           root = Path('verified')
@@ -71,7 +71,7 @@ jobs:
           manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
           records = manifest.get('addons', [])
           expected = sorted(record['jar'] for record in records)
-          actual = sorted(path.name for path in root.glob('SF_*.jar'))
+          actual = sorted(path.name for path in root.glob('*.jar'))
 
           if not expected:
               raise SystemExit('Verified addon manifest contains no addon JARs')
@@ -85,7 +85,7 @@ jobs:
           if versions.get('minimum') != '1.21.11' or '26.3' not in supported:
               raise SystemExit(f'Unexpected compatibility range in verified manifest: {versions}')
 
-          invalid = [name for name in expected if not name.startswith('SF_') or not name.endswith('.jar')]
+          invalid = [name for name in expected if not re.fullmatch(r'(?:SF_[A-Za-z0-9]+|SFL_DracFun-Reborn)\d+(?:\.\d+)+\.jar', name)]
           if invalid:
               raise SystemExit(f'Invalid public addon JAR names: {invalid}')
 
@@ -95,7 +95,7 @@ jobs:
       - name: Publish summary
         shell: bash
         run: |
-          COUNT="$(find verified -maxdepth 1 -type f -name 'SF_*.jar' | wc -l | tr -d ' ')"
+          COUNT="$(find verified -maxdepth 1 -type f -name '*.jar' | wc -l | tr -d ' ')"
           {
             echo '## Verified Slimefun addon bundle'
             echo
