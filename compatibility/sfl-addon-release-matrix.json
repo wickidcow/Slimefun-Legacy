@@ -1,11 +1,12 @@
 {
   "schema": 1,
-  "bundle_revision": 18,
+  "bundle_revision": 19,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
     "addon_name_source": "SF_ repository name by default with explicit artifact_base overrides",
     "version_policy": "numeric only",
+    "exceptions": {"wickidcow/SF_DracFun2": "SFL_DracFun-Reborn<Version>.jar"},
     "forbidden_public_qualifiers": ["legacy", "english", "snapshot"]
   },
   "compatibility": {
@@ -35,6 +36,7 @@
     {"repository":"wickidcow/SF_BuildingStaff","slug":"buildingstaff"},
     {"repository":"wickidcow/SF_CultivationLegacy","slug":"cultivationlegacy","artifact_base":"Cultivation"},
     {"repository":"wickidcow/SF_DankTech2","slug":"danktech2"},
+    {"repository":"wickidcow/SF_DracFun2","slug":"dracfunreborn","artifact_base":"DracFunReborn","source_commit":"7a0abcafe5c30df27103074b2504e181a84bce03"},
     {"repository":"wickidcow/SF_DynaTech","slug":"dynatech"},
     {"repository":"wickidcow/SF_ElectricSpawners","slug":"electricspawners"},
     {"repository":"wickidcow/SF_ExoticGarden","slug":"exoticgarden"},
@@ -73,7 +75,7 @@
   ],
   "excluded_from_bundle": {
     "wickidcow/SF_Magic8Ball": "Integrated into Slimefun Legacy; do not ship a duplicate standalone plugin.",
-    "wickidcow/SF_DracFun": "Incorrect historical addon; replacement DracFun Reborn must be verified separately."
+    "wickidcow/SF_DracFun": "Incorrect historical addon; replaced by SF_DracFun2 (DracFun Reborn)."
   },
   "excluded_archived": [
     "wickidcow/SF_ExtraTools",
