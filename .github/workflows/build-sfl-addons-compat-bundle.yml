@@ -55,8 +55,9 @@ jobs:
           excluded = set(data.get('excluded_from_bundle', {})) | set(data.get('excluded_archived', []))
           if excluded.intersection(repos):
               raise SystemExit(f'Excluded addons in release matrix: {sorted(excluded.intersection(repos))}')
-          if not all(repo.startswith('wickidcow/SF_') for repo in repos):
-              raise SystemExit('release matrix must contain only maintained wickidcow/SF_ repositories')
+          allowed_non_sf = {'wickidcow/WorldEditSlimefun'}
+          if not all(repo.startswith('wickidcow/SF_') or repo in allowed_non_sf for repo in repos):
+              raise SystemExit('release matrix must contain only maintained wickidcow/SF_ repositories or approved naming exceptions')
           matrix = {'include': addons}
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as out:
               out.write('matrix=' + json.dumps(matrix, separators=(',', ':')) + '\n')
@@ -253,6 +254,8 @@ jobs:
           canonical = f'SF_{base}{version}.jar'
           if repo == 'wickidcow/SF_DracFun2':
               canonical = f'SFL_DracFun-Reborn{version}.jar'
+          if repo == 'wickidcow/WorldEditSlimefun':
+              canonical = f'SF_SFWorldEdit{version}_(1.21.11-26.2).jar'
           if re.search(r'(legacy|english|snapshot)', canonical, re.I):
               raise SystemExit(f'Forbidden public qualifier in {canonical}')
           destination = Path('staged/jars') / canonical
@@ -361,6 +364,7 @@ jobs:
               'SF_SlimeHUD2.0.1.jar',
               'SF_SlimeTinker2.0.6.jar',
               'SF_Supreme1.0.12.jar',
+              'SF_SFWorldEdit1.0.5_(1.21.11-26.2).jar',
           }
           missing = sorted(required - set(actual))
           if missing:
@@ -387,7 +391,9 @@ jobs:
           Canonical addon filename format:
           - SF_<AddonName><numeric version>.jar
           - DracFun Reborn exception: SFL_DracFun-Reborn<version>.jar
-          - No Legacy, Legacy-English, SNAPSHOT, compatibility suffixes, or repo-only suffixes
+          - WorldEditSlimefun exception: SF_SFWorldEdit<version>_(1.21.11-26.2).jar
+          - WorldEditSlimefun requires WorldEdit or FAWE and is explicitly labeled for 1.21.11 through 26.2
+          - No Legacy, Legacy-English, SNAPSHOT, compatibility suffixes, or repo-only suffixes except the approved WorldEdit support-range suffix
 
           Supported Minecraft/Paper generations:
           - 1.21.11: minimum/base compatibility
