@@ -56,7 +56,7 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
     private final int id;
     private String name;
     private int size;
-    private boolean isInvalid = false;
+    private volatile boolean isInvalid = false;
     // This snapshot holds the inventory's last save content , it should be recreated after each save by using
     // PlayerBackpack#refreshSnapshot
     @Nonnull
@@ -495,6 +495,18 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
         isInvalid = true;
         InventoryUtil.closeInventory(this.inventory);
         Slimefun.getDatabaseManager().getProfileDataController().saveBackpackInventory(this);
+    }
+
+    /**
+     * Marks a cached backpack instance stale after its persistence barrier has
+     * already completed.
+     *
+     * <p>This deliberately performs no Bukkit inventory access and schedules no
+     * second save, so cache cleanup may invoke it from an asynchronous database
+     * completion callback without touching Bukkit inventory state off-thread.
+     */
+    public void markInvalidAfterPersistence() {
+        isInvalid = true;
     }
 
     public boolean isInvalid() {
