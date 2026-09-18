@@ -112,6 +112,13 @@ class ADataControllerWriteQueueTest {
             }
 
             assertTrue(controller.hasObservedWriteFailure());
+
+            while (controller.getPendingWriteTaskCount() != 0 && System.nanoTime() < deadline) {
+                Thread.sleep(10L);
+            }
+            assertEquals(0, controller.getPendingWriteTaskCount());
+
+            controller.shutdown();
             assertFalse(controller.wasLastShutdownClean());
         } finally {
             controller.closeExecutors();
