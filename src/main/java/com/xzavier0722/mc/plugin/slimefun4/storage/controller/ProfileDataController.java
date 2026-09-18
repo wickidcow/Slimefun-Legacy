@@ -262,6 +262,14 @@ public class ProfileDataController extends ADataController {
         var re = new ItemStack[size];
         for (RecordSet each : invResult) {
             var slot = each.getInt(FieldKey.INVENTORY_SLOT);
+            if (slot < 0 || slot >= re.length) {
+                logger.log(
+                        Level.WARNING,
+                        "Ignoring out-of-range stored backpack slot [{0}:{1}] for inventory size {2}",
+                        new Object[] {uuid, slot, size});
+                continue;
+            }
+
             try {
                 re[slot] = each.getItemStack(FieldKey.INVENTORY_ITEM);
             } catch (Exception e) {
