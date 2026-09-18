@@ -305,6 +305,96 @@
       "tested_core_variants": ["legacy"]
     },
     {
+      "name": "HotbarPets Legacy Fork",
+      "repository": "wickidcow/SF_HotbarPets",
+      "slug": "legacy-fork-hotbar-pets",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "SoulJars Legacy Fork",
+      "repository": "wickidcow/SF_SoulJars",
+      "slug": "legacy-fork-soul-jars",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "SMG Legacy Fork",
+      "repository": "wickidcow/SF_SMG",
+      "slug": "legacy-fork-smg",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "BetterFarming Legacy Fork",
+      "repository": "wickidcow/SF_BetterFarming",
+      "slug": "legacy-fork-better-farming",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "RelicsOfCthonia Legacy Fork",
+      "repository": "wickidcow/SF_RelicsOfCthonia",
+      "slug": "legacy-fork-relics-of-cthonia",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "BuildingStaff Legacy Fork",
+      "repository": "wickidcow/SF_BuildingStaff",
+      "slug": "legacy-fork-building-staff",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "FinalTECH Legacy Fork",
+      "repository": "wickidcow/SF_FinalTECH",
+      "slug": "legacy-fork-final-tech",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "SlimeHUD Legacy Fork",
+      "repository": "wickidcow/SF_SlimeHUD",
+      "slug": "legacy-fork-slime-hud",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "DracFun Reborn Legacy Fork",
+      "repository": "wickidcow/SF_DracFun2",
+      "slug": "legacy-fork-dracfun-reborn",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
+      "name": "ExtraTools Archived Fork",
+      "repository": "wickidcow/SF_ExtraTools",
+      "slug": "legacy-archived-extra-tools",
+      "tier": "fork-archived-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": ["legacy"]
+    },
+    {
       "name": "WorldEditSlimefun Legacy Fork",
       "repository": "wickidcow/WorldEditSlimefun",
       "slug": "legacy-fork-worldedit-slimefun",
