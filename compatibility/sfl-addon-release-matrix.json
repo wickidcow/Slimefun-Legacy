@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "bundle_revision": 22,
+  "bundle_revision": 23,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
     "addon_name_source": "SF_ repository name by default with explicit artifact_base overrides",
     "version_policy": "numeric only",
-    "exceptions": {"wickidcow/SF_DracFun2": "SFL_DracFun-Reborn<Version>.jar"},
+    "exceptions": {"wickidcow/SF_DracFun2": "SFL_DracFun-Reborn<Version>.jar", "wickidcow/WorldEditSlimefun": "SF_SFWorldEdit<Version>_(1.21.11-26.2).jar"},
     "forbidden_public_qualifiers": ["legacy", "english", "snapshot"]
   },
   "compatibility": {
@@ -72,7 +72,8 @@
     {"repository":"wickidcow/SF_SlimyTreeTaps","slug":"slimytreetaps"},
     {"repository":"wickidcow/SF_SMG","slug":"smg"},
     {"repository":"wickidcow/SF_SoulJars","slug":"souljars"},
-    {"repository":"wickidcow/SF_Supreme","slug":"supreme"}
+    {"repository":"wickidcow/SF_Supreme","slug":"supreme"},
+    {"repository":"wickidcow/WorldEditSlimefun","slug":"worldeditslimefun","artifact_base":"SFWorldEdit"}
   ],
   "excluded_from_bundle": {
     "wickidcow/SF_Magic8Ball": "Integrated into Slimefun Legacy; do not ship a duplicate standalone plugin.",
