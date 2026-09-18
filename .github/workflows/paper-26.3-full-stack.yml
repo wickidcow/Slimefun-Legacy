@@ -10,6 +10,9 @@ on:
       - 'build.gradle.kts'
       - 'gradle/**'
       - 'src/**'
+  workflow_run:
+    workflows: ['Build SF Addons 1.21.11-26.3 Bundle']
+    types: [completed]
   workflow_dispatch:
   schedule:
     - cron: '53 11 * * 4'
@@ -26,12 +29,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: paper-full-stack-${{ github.ref }}
+  group: paper-full-stack-${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || github.ref }}
   cancel-in-progress: true
 
 jobs:
   resolve-paper-26-3:
     name: Resolve real Paper 26.3 API
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     outputs:
       available: ${{ steps.paper.outputs.available }}
@@ -93,6 +97,7 @@ jobs:
 
   fetch-bundle:
     name: Fetch canonical shipped addon bundle
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
