@@ -150,10 +150,7 @@ public class FluidPump extends SimpleSlimefunItem<BlockTicker> implements Invent
                     Block nextFluid = findNextFluid(fluid);
 
                     if (nextFluid != null) {
-                        removeCharge(b.getLocation(), ENERGY_CONSUMPTION);
-                        menu.consumeItem(slot);
-                        menu.pushItem(bucket, getOutputSlots());
-                        nextFluid.setType(Material.AIR);
+                        commitBucketPump(b, menu, slot, itemInSlot, bucket, nextFluid);
                     }
 
                     return;
@@ -180,6 +177,68 @@ public class FluidPump extends SimpleSlimefunItem<BlockTicker> implements Invent
                     return;
                 }
             }
+        }
+    }
+
+    private boolean commitBucketPump(
+            @Nonnull Block machine,
+            @Nonnull BlockMenu menu,
+            int inputSlot,
+            @Nonnull ItemStack input,
+            @Nonnull ItemStack output,
+            @Nonnull Block source) {
+        BlockData originalFluid = source.getBlockData().clone();
+        ItemStack originalInput = input.clone();
+        boolean energyRemoved = false;
+        boolean inputConsumed = false;
+
+        source.setType(Material.AIR, false);
+        if (!source.getType().isAir()) {
+            return false;
+        }
+
+        try {
+            removeCharge(machine.getLocation(), ENERGY_CONSUMPTION);
+            energyRemoved = true;
+
+            menu.consumeItem(inputSlot);
+            inputConsumed = true;
+
+            ItemStack remainder = menu.pushItem(output, getOutputSlots());
+            if (remainder == null) {
+                return true;
+            }
+
+            rollbackBucketPump(machine, menu, inputSlot, originalInput, source, originalFluid, energyRemoved, inputConsumed);
+            return false;
+        } catch (RuntimeException | LinkageError ex) {
+            try {
+                rollbackBucketPump(
+                        machine, menu, inputSlot, originalInput, source, originalFluid, energyRemoved, inputConsumed);
+            } catch (RuntimeException | LinkageError rollbackFailure) {
+                ex.addSuppressed(rollbackFailure);
+            }
+            throw ex;
+        }
+    }
+
+    private void rollbackBucketPump(
+            @Nonnull Block machine,
+            @Nonnull BlockMenu menu,
+            int inputSlot,
+            @Nonnull ItemStack originalInput,
+            @Nonnull Block source,
+            @Nonnull BlockData originalFluid,
+            boolean energyRemoved,
+            boolean inputConsumed) {
+        source.setBlockData(originalFluid, false);
+
+        if (inputConsumed) {
+            menu.replaceExistingItem(inputSlot, originalInput);
+        }
+
+        if (energyRemoved) {
+            addCharge(machine.getLocation(), ENERGY_CONSUMPTION);
         }
     }
 
