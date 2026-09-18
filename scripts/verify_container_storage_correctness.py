@@ -127,6 +127,13 @@ def main() -> int:
     )
     require(profile, "stagedSnapshot = new InvSnapshot(contents)", "immutable staged backpack snapshot")
     require(profile, "if (slot < 0 || slot >= re.length)", "stale resized-slot load guard")
+    require(profile, "boolean repairRequired = false", "backpack load repair tracking")
+    require(profile, "repairRequired = true", "stale/corrupt row repair marker")
+    require(
+        profile,
+        "uncertainBackpackBaselines.add(uuid)",
+        "recovered stale rows force a full reconciliation on next save",
+    )
     require(profile, "stageBackpackWrites(backpackId, contents)", "fully staged backpack writes")
     require(profile, "for (int slot = 0; slot < 54; slot++)", "full legal backpack recovery range")
     require(
