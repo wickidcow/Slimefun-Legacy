@@ -347,7 +347,7 @@ jobs:
           required = {
               'SFL_DracFun-Reborn2.0.1.jar',
               'SF_BetterChests1.0.2.jar',
-              'SF_BuildingStaff1.0.33.jar',
+              'SF_BuildingStaff1.0.34.jar',
               'SF_Cultivation1.1.23.jar',
               'SF_ExoticGarden1.0.3.jar',
               'SF_FastMachines1.0.4.jar',
