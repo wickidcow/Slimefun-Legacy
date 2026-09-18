@@ -1096,17 +1096,28 @@ public class BlockDataController extends ADataController {
 
                     for (RecordSet record : invData) {
                         var slot = record.getInt(FieldKey.INVENTORY_SLOT);
+                        if (slot < 0 || slot >= inv.length) {
+                            uncertainInventoryBaselines.add(blockData.getKey());
+                            Slimefun.logger()
+                                    .log(
+                                            Level.WARNING,
+                                            "Ignoring out-of-range stored block inventory slot [{0}:{1}]. "
+                                                    + "The next save will reconcile the legal slot range.",
+                                            new Object[] {blockData.getKey(), slot});
+                            continue;
+                        }
 
                         try {
                             inv[slot] = record.getItemStack(FieldKey.INVENTORY_ITEM);
                         } catch (Exception ex) {
+                            uncertainInventoryBaselines.add(blockData.getKey());
                             inv[slot] = null;
                             Slimefun.logger()
                                     .log(
                                             Level.SEVERE,
                                             "Failed to load the target item; check the stored data ["
                                                     + LocationUtils.locationToString(blockData.getLocation()) + ":"
-                                                    + slot + "]",
+                                                    + slot + "]. The next save will reconcile the inventory.",
                                             ex);
                         }
                     }
@@ -1209,15 +1220,27 @@ public class BlockDataController extends ADataController {
 
                     for (RecordSet recordSet : getData(menuKey)) {
                         var slot = recordSet.getInt(FieldKey.INVENTORY_SLOT);
+                        if (slot < 0 || slot >= inv.length) {
+                            uncertainInventoryBaselines.add(uniData.getKey());
+                            Slimefun.logger()
+                                    .log(
+                                            Level.WARNING,
+                                            "Ignoring out-of-range stored universal inventory slot [{0}:{1}]. "
+                                                    + "The next save will reconcile the legal slot range.",
+                                            new Object[] {uniData.getKey(), slot});
+                            continue;
+                        }
+
                         try {
                             inv[slot] = recordSet.getItemStack(FieldKey.INVENTORY_ITEM);
                         } catch (Exception ex) {
+                            uncertainInventoryBaselines.add(uniData.getKey());
                             inv[slot] = null;
                             Slimefun.logger()
                                     .log(
                                             Level.SEVERE,
                                             "Failed to load the target item; check the stored data [" + uniData.getKey()
-                                                    + ":" + slot + "]",
+                                                    + ":" + slot + "]. The next save will reconcile the inventory.",
                                             ex);
                         }
                     }
@@ -1549,7 +1572,11 @@ public class BlockDataController extends ADataController {
             @Nonnull FieldKey ownerField,
             @Nonnull String ownerValue,
             @Nullable ItemStack[] contents) {
-        int size = contents == null ? 54 : contents.length;
+        // Block and universal menus are chest-style inventories with a
+        // maximum persisted slot range of 0..53. Always stage that complete
+        // range so menu-size shrinkage and failed deletion retries can remove
+        // stale higher slots deterministically.
+        int size = 54;
         Map<Integer, InventoryWrite> staged = new HashMap<>(size);
 
         for (int slot = 0; slot < size; slot++) {
@@ -1558,7 +1585,7 @@ public class BlockDataController extends ADataController {
             key.addCondition(FieldKey.INVENTORY_SLOT, slot + "");
             key.addField(FieldKey.INVENTORY_ITEM);
 
-            ItemStack item = contents == null ? null : contents[slot];
+            ItemStack item = contents == null || slot >= contents.length ? null : contents[slot];
             if (item == null) {
                 staged.put(slot, new InventoryWrite(key, null));
             } else {
@@ -1941,15 +1968,27 @@ public class BlockDataController extends ADataController {
 
                 for (RecordSet record : invData) {
                     var slot = record.getInt(FieldKey.INVENTORY_SLOT);
+                    if (slot < 0 || slot >= inv.length) {
+                        uncertainInventoryBaselines.add(universalData.getKey());
+                        Slimefun.logger()
+                                .log(
+                                        Level.WARNING,
+                                        "Ignoring out-of-range stored inventory slot during universal migration [{0}:{1}].",
+                                        new Object[] {universalData.getKey(), slot});
+                        continue;
+                    }
+
                     try {
                         inv[slot] = record.getItemStack(FieldKey.INVENTORY_ITEM);
                     } catch (Exception ex) {
+                        uncertainInventoryBaselines.add(universalData.getKey());
                         inv[slot] = null;
                         Slimefun.logger()
                                 .log(
                                         Level.SEVERE,
                                         "Failed to load the target item; check the stored data ["
-                                                + universalData.getKey() + ":" + slot + "]",
+                                                + universalData.getKey() + ":" + slot
+                                                + "]. The next save will reconcile the inventory.",
                                         ex);
                     }
                 }
