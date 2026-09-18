@@ -21,6 +21,17 @@ When `enabled` is `false`, Slimefun Legacy sends no pack request at all. The def
 
 Minecraft changed the item-model resource-pack format substantially in the modern 1.21.x line. A pack built for an older item-model layout can load successfully while still showing vanilla, missing, or misplaced guide/item visuals, so this hosted pack must remain synchronized with Slimefun Legacy's `item-models.yml`.
 
+## Client pack vs. server model map
+
+These are two separate files that must stay synchronized:
+
+- **Player/client download:** `http://overlord.kicks-ass.org:8163/SlimefunLegacyRP.zip`
+- **Server mapping:** `plugins/Slimefun/item-models.yml`
+
+Minecraft clients receive only the ZIP. The YAML is never sent as the resource pack; Slimefun reads it on the server and applies the matching model IDs to item stacks.
+
+Slimefun Legacy bundles the verified non-zero mapping for the hosted pack. On a clean install those values are written into `plugins/Slimefun/item-models.yml`, while registered IDs without a texture mapping are added as `0`. On upgrade, a one-time migration replaces old saved `0` placeholders with the bundled hosted-pack value, but preserves every existing non-zero server customization.
+
 ## External pack delivery
 
 To let Slimefun Legacy add an externally hosted pack on player join:
