@@ -43,6 +43,9 @@ jobs:
           repos = [row['repository'] for row in addons]
           if len(repos) != len(set(repos)):
               raise SystemExit('duplicate repositories in addon release matrix')
+          excluded = set(data.get('excluded_from_bundle', {})) | set(data.get('excluded_archived', []))
+          if excluded.intersection(repos):
+              raise SystemExit(f'Excluded addons in release matrix: {sorted(excluded.intersection(repos))}')
           if not all(repo.startswith('wickidcow/SF_') for repo in repos):
               raise SystemExit('release matrix must contain only maintained wickidcow/SF_ repositories')
           matrix = {'include': addons}
@@ -256,15 +259,27 @@ jobs:
             exit 1
           fi
           python3 - <<'PY'
-          import json, re
+          import hashlib, json, re
           from pathlib import Path
           records = [json.loads(p.read_text(encoding='utf-8')) for p in sorted(Path('collected/metadata').glob('*.json'))]
           actual = sorted(p.name for p in Path('collected/jars').glob('*.jar'))
           expected = sorted(r['jar'] for r in records)
+          source = json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text(encoding='utf-8'))
+          approved = sorted((r['repository'], r['slug']) for r in source['addons'])
+          received = sorted((r['repository'], r['slug']) for r in records)
+          if received != approved:
+              raise SystemExit('Collected addon identities do not match the approved release matrix')
           if actual != expected:
               raise SystemExit(f'Canonical JAR set mismatch:\nactual={actual}\nexpected={expected}')
           if len(expected) != len(set(expected)):
               raise SystemExit('Duplicate canonical JAR names detected')
+          for record in records:
+              name = record['jar']
+              if Path(name).name != name:
+                  raise SystemExit(f'Unsafe JAR name: {name}')
+              digest = hashlib.sha256((Path('collected/jars') / name).read_bytes()).hexdigest()
+              if digest != record['sha256']:
+                  raise SystemExit(f'Manifest SHA-256 mismatch: {name}')
           for name in expected:
               if not name.startswith('SF_') or not name.endswith('.jar'):
                   raise SystemExit(f'Invalid addon JAR name: {name}')
@@ -274,7 +289,6 @@ jobs:
               'SF_BetterChests1.0.2.jar',
               'SF_BuildingStaff1.0.33.jar',
               'SF_Cultivation1.1.23.jar',
-              'SF_DracFun1.0.2.jar',
               'SF_ExoticGarden1.0.3.jar',
               'SF_FastMachines1.0.4.jar',
               'SF_Galactifun1.0.7.jar',
