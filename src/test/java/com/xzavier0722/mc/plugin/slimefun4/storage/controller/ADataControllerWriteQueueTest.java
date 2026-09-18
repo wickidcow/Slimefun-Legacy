@@ -2,6 +2,7 @@ package com.xzavier0722.mc.plugin.slimefun4.storage.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataScope;
@@ -45,6 +46,48 @@ class ADataControllerWriteQueueTest {
             assertTrue(controller.currentCompletion(scope).isDone());
         } finally {
             release.countDown();
+            controller.closeExecutors();
+        }
+    }
+
+    @Test
+    void submissionCompletionTracksExactAcceptedQueue() throws Exception {
+        var controller = new TestController(1);
+        var release = new CountDownLatch(1);
+
+        try {
+            var started = new CountDownLatch(1);
+            var scope = new LocationKey(DataScope.NONE, "world;0:64:0");
+            CompletableFuture<Void> completion = controller.scheduleWithCompletion(scope, record("exact"), () -> {
+                started.countDown();
+                awaitRelease(release);
+            });
+
+            assertTrue(started.await(5, TimeUnit.SECONDS));
+            assertFalse(completion.isDone());
+
+            release.countDown();
+            completion.get(5, TimeUnit.SECONDS);
+            assertEquals(0, controller.getPendingWriteTaskCount());
+        } finally {
+            release.countDown();
+            controller.closeExecutors();
+        }
+    }
+
+    @Test
+    void submissionCompletionReportsWriteFailure() {
+        var controller = new TestController(1);
+
+        try {
+            var scope = new LocationKey(DataScope.NONE, "world;0:64:0");
+            CompletableFuture<Void> completion = controller.scheduleWithCompletion(scope, record("failure-future"), () -> {
+                throw new IllegalStateException("expected failure");
+            });
+
+            assertThrows(Exception.class, () -> completion.get(5, TimeUnit.SECONDS));
+            assertTrue(completion.isCompletedExceptionally());
+        } finally {
             controller.closeExecutors();
         }
     }
@@ -181,6 +224,10 @@ class ADataControllerWriteQueueTest {
 
         private void schedule(ScopeKey scope, RecordKey key, Runnable task) {
             scheduleWriteTask(scope, key, task, true);
+        }
+
+        private CompletableFuture<Void> scheduleWithCompletion(ScopeKey scope, RecordKey key, Runnable task) {
+            return scheduleWriteTaskWithCompletion(scope, key, task, true);
         }
 
         private CompletableFuture<Void> currentCompletion(ScopeKey scope) {
