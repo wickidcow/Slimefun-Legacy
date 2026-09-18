@@ -22,6 +22,7 @@ on:
       - 'build.gradle.kts'
       - 'gradle.properties'
       - 'compatibility/addon-compatibility-matrix.json'
+      - 'compatibility/sfl-addon-release-matrix.json'
       - 'scripts/paper_26_3_preflight.py'
       - 'scripts/paper_candidate_versions.py'
       - 'scripts/test_paper_candidate_versions.py'
@@ -289,22 +290,22 @@ jobs:
           import json
           import os
 
-          with open('compatibility/addon-compatibility-matrix.json', encoding='utf-8') as stream:
+          with open('compatibility/sfl-addon-release-matrix.json', encoding='utf-8') as stream:
               data = json.load(stream)
 
           seen = set()
           include = []
           for addon in data.get('addons', []):
               repository = addon.get('repository', '')
-              if not addon.get('enabled', False) or not repository.startswith('wickidcow/SF_'):
-                  continue
+              if not repository.startswith('wickidcow/SF_'):
+                  raise SystemExit(f'Invalid maintained addon repository: {repository}')
               if repository in seen:
-                  continue
+                  raise SystemExit(f'Duplicate maintained addon repository: {repository}')
               seen.add(repository)
               include.append({
                   'repository': repository,
                   'slug': addon.get('slug') or repository.split('/', 1)[1].lower(),
-                  'tier': addon.get('tier', 'unknown'),
+                  'tier': 'maintained-release',
               })
 
           include.sort(key=lambda item: item['repository'].lower())
@@ -316,7 +317,7 @@ jobs:
 
       - name: Publish addon scan scope
         run: |
-          echo "Maintained/configured SF_ preflight targets: **${{ steps.matrix.outputs.count }}**" >> "$GITHUB_STEP_SUMMARY"
+          echo "Canonical release SF_ preflight targets: **${{ steps.matrix.outputs.count }}**" >> "$GITHUB_STEP_SUMMARY"
 
   scan-addons:
     name: 26.3 source scan - ${{ matrix.repository }}
