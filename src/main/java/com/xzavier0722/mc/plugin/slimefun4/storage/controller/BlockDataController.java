@@ -79,6 +79,8 @@ public class BlockDataController extends ADataController {
     private final Map<String, InvSnapshot> invSnapshots;
     /** Serializes acknowledgement-aware inventory save batches per block/universal inventory. */
     private final Map<String, CompletableFuture<Void>> inventorySaveChains;
+    /** Marks persisted inventory baselines that may be partially applied after a failed batch. */
+    private final Set<String> uncertainInventoryBaselines;
     /**
      * 全局控制器加载数据锁
      *
@@ -108,6 +110,7 @@ public class BlockDataController extends ADataController {
         loadedUniversalData = new ConcurrentHashMap<>();
         invSnapshots = new ConcurrentHashMap<>();
         inventorySaveChains = new ConcurrentHashMap<>();
+        uncertainInventoryBaselines = ConcurrentHashMap.newKeySet();
         lock = new ScopedLock();
     }
 
@@ -1483,10 +1486,13 @@ public class BlockDataController extends ADataController {
             @Nullable DirtyChestMenu menu,
             long changeSequence) {
         InvSnapshot acknowledged = invSnapshots.get(snapshotKey);
-        Set<Integer> changed = InvStorageUtils.getChangedSlots(acknowledged, contents);
+        Set<Integer> changed = uncertainInventoryBaselines.contains(snapshotKey)
+                ? new HashSet<>(stagedWrites.keySet())
+                : InvStorageUtils.getChangedSlots(acknowledged, contents);
 
         if (changed.isEmpty()) {
             acknowledgeInventoryStage(snapshotKey, stagedSnapshot, menu, changeSequence);
+            uncertainInventoryBaselines.remove(snapshotKey);
             return CompletableFuture.completedFuture(null);
         }
 
@@ -1511,10 +1517,13 @@ public class BlockDataController extends ADataController {
         return batch.whenComplete((ignored, failure) -> {
             if (failure == null) {
                 acknowledgeInventoryStage(snapshotKey, stagedSnapshot, menu, changeSequence);
+                uncertainInventoryBaselines.remove(snapshotKey);
             } else {
                 // A failed/partially submitted batch has an unknown database
-                // baseline. Force the next retry to rewrite the full inventory.
+                // baseline. Force the next retry to rewrite/delete every staged
+                // slot, including the contents == null deletion case.
                 invSnapshots.remove(snapshotKey);
+                uncertainInventoryBaselines.add(snapshotKey);
             }
         });
     }
