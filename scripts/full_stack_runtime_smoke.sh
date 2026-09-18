@@ -203,7 +203,8 @@ Minecraft: ${MC_VERSION}
 Paper build: ${SERVER_BUILD}
 Channel: ${SERVER_CHANNEL}
 Slimefun Legacy: ${EXPECTED_SLIMEFUN_VERSION}
-Canonical addon JARs: $(wc -l < "$WORK_DIR/expected-addons.txt")
+Manifest source: SF_ADDON_MANIFEST.json
+Manifest-defined addon JARs: $(wc -l < "$WORK_DIR/expected-addons.txt")
 Cycles: 2
 All addon enable lines: observed
 Linkage/enable failures: none
