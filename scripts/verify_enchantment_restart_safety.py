@@ -144,7 +144,12 @@ def main() -> int:
         "src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/ADataController.java",
     )
     require(controller, "while (pendingTask > 0", "database shutdown write drain")
-    require(controller, "lastShutdownClean = scheduledWriteTasks.isEmpty();", "clean write-drain verification")
+    require(
+        controller,
+        "lastShutdownClean = scheduledWriteTasks.isEmpty() && !writeFailureObserved;",
+        "clean write-drain and failure verification",
+    )
+    require(controller, "writeFailureObserved = true;", "failed database write accounting")
 
     print("Enchantment restart/interruption safety verification passed.")
     print("- processing inputs remain in persisted machine slots until completion")

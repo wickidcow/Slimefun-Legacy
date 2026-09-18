@@ -64,6 +64,7 @@ public abstract class ADataController {
 
     private volatile boolean shuttingDown = false;
     private volatile boolean lastShutdownClean = true;
+    private volatile boolean writeFailureObserved = false;
 
     /**
      * The logger for this data controller.
@@ -171,12 +172,14 @@ public abstract class ADataController {
                 pendingTask = currentTask;
             }
 
-            lastShutdownClean = scheduledWriteTasks.isEmpty();
+            lastShutdownClean = scheduledWriteTasks.isEmpty() && !writeFailureObserved;
             if (lastShutdownClean) {
                 logger.info("Data save completed.");
-            } else {
+            } else if (!scheduledWriteTasks.isEmpty()) {
                 logger.log(
                         Level.SEVERE, "Timed out with {0} pending database write task(s).", scheduledWriteTasks.size());
+            } else {
+                logger.severe("One or more database write tasks failed; shutdown is not clean.");
             }
         } catch (InterruptedException e) {
             lastShutdownClean = false;
@@ -207,7 +210,12 @@ public abstract class ADataController {
     }
 
     protected void scheduleDeleteTask(ScopeKey scopeKey, RecordKey key, boolean forceScopeKey) {
-        scheduleWriteTask(
+        scheduleDeleteTaskWithCompletion(scopeKey, key, forceScopeKey);
+    }
+
+    protected CompletableFuture<Void> scheduleDeleteTaskWithCompletion(
+            ScopeKey scopeKey, RecordKey key, boolean forceScopeKey) {
+        return scheduleWriteTaskWithCompletion(
                 scopeKey,
                 key,
                 () -> {
@@ -217,10 +225,30 @@ public abstract class ADataController {
     }
 
     protected void scheduleWriteTask(ScopeKey scopeKey, RecordKey key, RecordSet data, boolean forceScopeKey) {
-        scheduleWriteTask(scopeKey, key, () -> dataAdapter.setData(key, data), forceScopeKey);
+        scheduleWriteTaskWithCompletion(scopeKey, key, data, forceScopeKey);
+    }
+
+    protected CompletableFuture<Void> scheduleWriteTaskWithCompletion(
+            ScopeKey scopeKey, RecordKey key, RecordSet data, boolean forceScopeKey) {
+        return scheduleWriteTaskWithCompletion(scopeKey, key, () -> dataAdapter.setData(key, data), forceScopeKey);
     }
 
     protected void scheduleWriteTask(ScopeKey scopeKey, RecordKey key, Runnable task, boolean forceScopeKey) {
+        scheduleWriteTaskWithCompletion(scopeKey, key, task, forceScopeKey);
+    }
+
+    /**
+     * Queues a scoped write and returns the completion future for the exact queue
+     * that accepted it.
+     *
+     * <p>Capturing the future while submission still owns the controller's
+     * submission/scope locks avoids the race where a very fast queue can drain
+     * and disappear before a caller asks for its completion state. Queue-level
+     * completion is also safe when {@link QueuedWriteTask} compacts repeated
+     * writes for the same record key.
+     */
+    protected CompletableFuture<Void> scheduleWriteTaskWithCompletion(
+            ScopeKey scopeKey, RecordKey key, Runnable task, boolean forceScopeKey) {
         checkDestroy();
         synchronized (writeSubmissionLock) {
             checkDestroy();
@@ -237,7 +265,7 @@ public abstract class ADataController {
                 }
 
                 if (queuedTask != null && queuedTask.queue(key, task)) {
-                    return;
+                    return queuedTask.getCompletionFuture();
                 }
 
                 queuedTask = new QueuedWriteTask() {
@@ -248,6 +276,8 @@ public abstract class ADataController {
 
                     @Override
                     protected void onError(Throwable e) {
+                        writeFailureObserved = true;
+                        lastShutdownClean = false;
                         Slimefun.logger()
                                 .log(
                                         Level.SEVERE,
@@ -258,12 +288,15 @@ public abstract class ADataController {
                 };
                 queuedTask.queue(key, task);
                 scheduledWriteTasks.put(scopeToUse, queuedTask);
+                CompletableFuture<Void> completion = queuedTask.getCompletionFuture();
 
                 if (serialWriteExecutor != null && key.getScope().isSerial()) {
                     serialWriteExecutor.submit(queuedTask);
                 } else {
                     writeExecutor.submit(queuedTask);
                 }
+
+                return completion;
             } finally {
                 lock.unlock(scopeKey);
             }
@@ -466,6 +499,10 @@ public abstract class ADataController {
 
     public boolean wasLastShutdownClean() {
         return lastShutdownClean;
+    }
+
+    boolean hasObservedWriteFailure() {
+        return writeFailureObserved;
     }
 
     public final DataType getDataType() {

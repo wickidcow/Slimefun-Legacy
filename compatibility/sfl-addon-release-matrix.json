@@ -1,11 +1,12 @@
 {
   "schema": 1,
-  "bundle_revision": 17,
+  "bundle_revision": 20,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
     "addon_name_source": "SF_ repository name by default with explicit artifact_base overrides",
     "version_policy": "numeric only",
+    "exceptions": {"wickidcow/SF_DracFun2": "SFL_DracFun-Reborn<Version>.jar"},
     "forbidden_public_qualifiers": ["legacy", "english", "snapshot"]
   },
   "compatibility": {
@@ -35,7 +36,7 @@
     {"repository":"wickidcow/SF_BuildingStaff","slug":"buildingstaff"},
     {"repository":"wickidcow/SF_CultivationLegacy","slug":"cultivationlegacy","artifact_base":"Cultivation"},
     {"repository":"wickidcow/SF_DankTech2","slug":"danktech2"},
-    {"repository":"wickidcow/SF_DracFun","slug":"dracfun","artifact_base":"DracFun"},
+    {"repository":"wickidcow/SF_DracFun2","slug":"dracfunreborn","artifact_base":"DracFunReborn","source_commit":"cb5b86ba09416b3d998816abced3b912f8b0cc0e"},
     {"repository":"wickidcow/SF_DynaTech","slug":"dynatech"},
     {"repository":"wickidcow/SF_ElectricSpawners","slug":"electricspawners"},
     {"repository":"wickidcow/SF_ExoticGarden","slug":"exoticgarden"},
@@ -54,7 +55,6 @@
     {"repository":"wickidcow/SF_InfinityExpansion2","slug":"infinityexpansion2","artifact_base":"InfinityExpansion"},
     {"repository":"wickidcow/SF_LiteXpansion","slug":"litexpansion"},
     {"repository":"wickidcow/SF_LuckyBlocks","slug":"luckyblocks"},
-    {"repository":"wickidcow/SF_Magic8Ball","slug":"magic8ball"},
     {"repository":"wickidcow/SF_MagicExpansion","slug":"magicexpansion"},
     {"repository":"wickidcow/SF_MilitaryArsenal","slug":"militaryarsenal"},
     {"repository":"wickidcow/SF_MobCapturer","slug":"mobcapturer"},
@@ -73,6 +73,10 @@
     {"repository":"wickidcow/SF_SoulJars","slug":"souljars"},
     {"repository":"wickidcow/SF_Supreme","slug":"supreme"}
   ],
+  "excluded_from_bundle": {
+    "wickidcow/SF_Magic8Ball": "Integrated into Slimefun Legacy; do not ship a duplicate standalone plugin.",
+    "wickidcow/SF_DracFun": "Incorrect historical addon; replaced by SF_DracFun2 (DracFun Reborn)."
+  },
   "excluded_archived": [
     "wickidcow/SF_ExtraTools",
     "wickidcow/SF_Magic_RSC",

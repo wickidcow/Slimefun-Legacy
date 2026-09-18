@@ -141,8 +141,22 @@ public class MinerAndroid extends ProgrammableAndroid {
         // drop the original block content
         drops.addAll(block.getDrops(effectivePickaxe));
 
-        // Push our drops to the inventory
-        // Drop what does not fit
+        InfiniteBlockGenerator generator = null;
+
+        // Ordinary world blocks are the consumed resource. Remove them before
+        // committing any drops so an interruption cannot pay out items while
+        // leaving the same source block available to mine again.
+        if (applyOptimizations.getValue()) {
+            generator = InfiniteBlockGenerator.findAt(block);
+            if (generator == null) {
+                block.setType(Material.AIR);
+            }
+        } else {
+            block.setType(Material.AIR);
+        }
+
+        // Push our drops to the inventory.
+        // Drop what does not fit so a full Android never deletes mined items.
         for (ItemStack drop : drops) {
             ItemStack dropLeft = menu.pushItem(drop, getOutputSlots());
             if (dropLeft != null && !dropLeft.getType().isAir() && dropLeft.getAmount() > 0) {
@@ -150,34 +164,26 @@ public class MinerAndroid extends ProgrammableAndroid {
             }
         }
 
-        // Check if Block Generator optimizations should be applied.
-        if (applyOptimizations.getValue()) {
-            InfiniteBlockGenerator generator = InfiniteBlockGenerator.findAt(block);
-
-            // If we found a generator, continue.
-            if (generator != null) {
-                if (firesEvent.getValue()) {
-                    generator.callEvent(block);
-                }
-
-                // "poof" a "new" block was generated
-                SoundEffect.MINER_ANDROID_BLOCK_GENERATION_SOUND.playAt(block);
-                block.getWorld()
-                        .spawnParticle(
-                                VersionedParticle.SMOKE,
-                                block.getX() + 0.5,
-                                block.getY() + 1.25,
-                                block.getZ() + 0.5,
-                                8,
-                                0.5,
-                                0.5,
-                                0.5,
-                                0.015);
-            } else {
-                block.setType(Material.AIR);
+        // Infinite generators are intentionally renewable and do not consume the
+        // source block. Preserve their existing regeneration/event semantics.
+        if (generator != null) {
+            if (firesEvent.getValue()) {
+                generator.callEvent(block);
             }
-        } else {
-            block.setType(Material.AIR);
+
+            // "poof" a "new" block was generated
+            SoundEffect.MINER_ANDROID_BLOCK_GENERATION_SOUND.playAt(block);
+            block.getWorld()
+                    .spawnParticle(
+                            VersionedParticle.SMOKE,
+                            block.getX() + 0.5,
+                            block.getY() + 1.25,
+                            block.getZ() + 0.5,
+                            8,
+                            0.5,
+                            0.5,
+                            0.5,
+                            0.015);
         }
     }
 }

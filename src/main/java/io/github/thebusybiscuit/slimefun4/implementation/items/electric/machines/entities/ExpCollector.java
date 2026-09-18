@@ -158,16 +158,56 @@ public class ExpCollector extends SlimefunItem implements InventoryBlock, Energy
      *                  The number of experience points to use during production.
      */
     private void produceFlasks(@Nonnull Location location, int experiencePoints) {
-        int withdrawn = 0;
+        int remainingExperience = Math.max(0, experiencePoints);
         BlockMenu menu = StorageCacheUtils.getMenu(location);
 
-        while (experiencePoints - withdrawn >= EXPERIENCE_PER_FLASK
+        // Account for the newly collected orb before any item output is emitted.
+        // This makes the authoritative loaded balance fail toward no duplication
+        // if the server is interrupted during flask production.
+        StorageCacheUtils.setData(location, DATA_KEY, String.valueOf(remainingExperience));
+
+        while (remainingExperience >= EXPERIENCE_PER_FLASK
                 && menu.fits(SlimefunItems.FILLED_FLASK_OF_KNOWLEDGE, getOutputSlots())) {
-            withdrawn += EXPERIENCE_PER_FLASK;
-            menu.pushItem(SlimefunItems.FILLED_FLASK_OF_KNOWLEDGE.clone(), getOutputSlots());
+            int nextBalance = remainingExperience - EXPERIENCE_PER_FLASK;
+            int[] outputSlots = getOutputSlots();
+            ItemStack[] outputSnapshot = snapshotSlots(menu, outputSlots);
+
+            StorageCacheUtils.setData(location, DATA_KEY, String.valueOf(nextBalance));
+
+            try {
+                ItemStack remainder =
+                        menu.pushItem(SlimefunItems.FILLED_FLASK_OF_KNOWLEDGE.clone(), outputSlots);
+                if (remainder != null) {
+                    restoreSlots(menu, outputSlots, outputSnapshot);
+                    StorageCacheUtils.setData(location, DATA_KEY, String.valueOf(remainingExperience));
+                    return;
+                }
+            } catch (RuntimeException | LinkageError ex) {
+                restoreSlots(menu, outputSlots, outputSnapshot);
+                StorageCacheUtils.setData(location, DATA_KEY, String.valueOf(remainingExperience));
+                throw ex;
+            }
+
+            remainingExperience = nextBalance;
+        }
+    }
+
+    private ItemStack[] snapshotSlots(@Nonnull BlockMenu menu, int[] slots) {
+        ItemStack[] snapshot = new ItemStack[slots.length];
+
+        for (int i = 0; i < slots.length; i++) {
+            ItemStack item = menu.getItemInSlot(slots[i]);
+            snapshot[i] = item == null ? null : item.clone();
         }
 
-        StorageCacheUtils.setData(location, DATA_KEY, String.valueOf(experiencePoints - withdrawn));
+        return snapshot;
+    }
+
+    private void restoreSlots(@Nonnull BlockMenu menu, int[] slots, ItemStack[] snapshot) {
+        for (int i = 0; i < slots.length; i++) {
+            ItemStack item = snapshot[i];
+            menu.replaceExistingItem(slots[i], item == null ? null : item.clone());
+        }
     }
 
     private int getStoredExperience(Location location) {
