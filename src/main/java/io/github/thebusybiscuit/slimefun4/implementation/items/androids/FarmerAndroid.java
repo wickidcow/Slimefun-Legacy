@@ -62,19 +62,50 @@ public class FarmerAndroid extends ProgrammableAndroid {
         if (!event.isCancelled()) {
             drop = event.getDrop();
 
-            // Harvesting must be atomic. A partial push followed by leaving the crop mature
-            // would allow the same crop to be harvested again on a later tick.
-            if (drop != null && menu.fits(drop, getOutputSlots())) {
-                ItemStack remainder = menu.pushItem(drop, getOutputSlots());
-                if (remainder == null) {
-                    VisualEffectUtils.playBlockBreakEffect(block);
+            if (drop != null && menu.fits(drop, getOutputSlots()) && data instanceof Ageable ageable) {
+                BlockData originalCrop = data.clone();
+                int[] outputSlots = getOutputSlots();
+                ItemStack[] originalOutputs = snapshotSlots(menu, outputSlots);
 
-                    if (data instanceof Ageable ageable) {
-                        ageable.setAge(0);
-                        block.setBlockData(data);
+                // Consume the mature crop state before emitting its harvest. This
+                // makes interruption fail toward no duplication rather than paying
+                // out drops while leaving the same mature crop harvestable.
+                ageable.setAge(0);
+                block.setBlockData(data);
+
+                try {
+                    ItemStack remainder = menu.pushItem(drop, outputSlots);
+                    if (remainder != null) {
+                        restoreSlots(menu, outputSlots, originalOutputs);
+                        block.setBlockData(originalCrop);
+                        return;
                     }
+
+                    VisualEffectUtils.playBlockBreakEffect(block);
+                } catch (RuntimeException | LinkageError ex) {
+                    restoreSlots(menu, outputSlots, originalOutputs);
+                    block.setBlockData(originalCrop);
+                    throw ex;
                 }
             }
+        }
+    }
+
+    private ItemStack[] snapshotSlots(UniversalMenu menu, int[] slots) {
+        ItemStack[] snapshot = new ItemStack[slots.length];
+
+        for (int i = 0; i < slots.length; i++) {
+            ItemStack item = menu.getItemInSlot(slots[i]);
+            snapshot[i] = item == null ? null : item.clone();
+        }
+
+        return snapshot;
+    }
+
+    private void restoreSlots(UniversalMenu menu, int[] slots, ItemStack[] snapshot) {
+        for (int i = 0; i < slots.length; i++) {
+            ItemStack item = snapshot[i];
+            menu.replaceExistingItem(slots[i], item == null ? null : item.clone());
         }
     }
 
