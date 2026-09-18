@@ -1,0 +1,152 @@
+name: Paper 26.2 / 26.3 Full Stack Smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '53 11 * * 4'
+  pull_request:
+    paths:
+      - '.github/workflows/paper-26.3-full-stack.yml'
+      - 'scripts/full_stack_runtime_smoke.sh'
+      - 'compatibility/sfl-addon-release-matrix.json'
+      - 'build.gradle.kts'
+      - 'gradle/**'
+      - 'src/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: paper-full-stack-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  resolve-paper-26-3:
+    name: Resolve real Paper 26.3 API
+    runs-on: ubuntu-latest
+    outputs:
+      available: ${{ steps.paper.outputs.available }}
+      api: ${{ steps.paper.outputs.api }}
+    steps:
+      - name: Resolve latest Paper 26.3 API
+        id: paper
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re, urllib.request, xml.etree.ElementTree as ET
+          req=urllib.request.Request(
+              'https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/maven-metadata.xml',
+              headers={'User-Agent':'Slimefun-Legacy-Full-Stack/1.0'},
+          )
+          with urllib.request.urlopen(req, timeout=30) as response:
+              root=ET.fromstring(response.read())
+          versions=[n.text.strip() for n in root.findall('./versioning/versions/version') if n.text]
+          candidates=[v for v in versions if v.startswith('26.3.build.')]
+          selected=''
+          if candidates:
+              selected=max(candidates,key=lambda v:(int(re.search(r'build\.(\d+)',v).group(1)),v))
+          with open(os.environ['GITHUB_OUTPUT'],'a',encoding='utf-8') as out:
+              out.write(f"available={str(bool(selected)).lower()}\n")
+              out.write(f"api={selected}\n")
+          PY
+
+  build-core:
+    name: Build universal candidate against 26.3
+    needs: resolve-paper-26-3
+    if: ${{ needs.resolve-paper-26-3.outputs.available == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Build candidate
+        env:
+          PAPER_API_VERSION: ${{ needs.resolve-paper-26-3.outputs.api }}
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew clean shadowJar -PpaperApiVersion="$PAPER_API_VERSION" --no-daemon
+          JAR="$(find build/libs -maxdepth 1 -type f -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -s "$JAR"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+          mkdir -p candidate
+          cp "$JAR" candidate/Slimefun-Legacy-full-stack.jar
+      - uses: actions/upload-artifact@v7
+        with:
+          name: full-stack-core
+          path: candidate/Slimefun-Legacy-full-stack.jar
+          if-no-files-found: error
+
+  fetch-bundle:
+    name: Fetch canonical shipped addon bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Download canonical bundle from latest non-draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 20 --json tagName,isDraft,isPrerelease --jq '[.[] | select(.isDraft == false)][0].tagName')"
+          test -n "$TAG"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'SF_Addons_1.21.11-26.3.zip' --dir bundle
+          test -s bundle/SF_Addons_1.21.11-26.3.zip
+          unzip -tqq bundle/SF_Addons_1.21.11-26.3.zip
+      - uses: actions/upload-artifact@v7
+        with:
+          name: full-stack-addon-bundle
+          path: bundle/SF_Addons_1.21.11-26.3.zip
+          if-no-files-found: error
+
+  runtime:
+    name: Full stack Paper ${{ matrix.minecraft }}
+    needs: [build-core, fetch-bundle]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['26.2', '26.3']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/download-artifact@v8
+        with:
+          name: full-stack-core
+          path: candidate
+      - uses: actions/download-artifact@v8
+        with:
+          name: full-stack-addon-bundle
+          path: bundle
+      - name: Boot canonical stack twice
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+          SERVER_DOWNLOAD_USER_AGENT: Slimefun-Legacy-Full-Stack/1.0
+        run: |
+          chmod +x scripts/full_stack_runtime_smoke.sh
+          bash scripts/full_stack_runtime_smoke.sh             candidate/Slimefun-Legacy-full-stack.jar             bundle/SF_Addons_1.21.11-26.3.zip             "build/full-stack-${{ matrix.minecraft }}"
+      - name: Publish result
+        if: always()
+        run: |
+          RESULT="build/full-stack-${{ matrix.minecraft }}/smoke-result.txt"
+          if [[ -f "$RESULT" ]]; then cat "$RESULT" >> "$GITHUB_STEP_SUMMARY"; fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: full-stack-runtime-${{ matrix.minecraft }}
+          path: |
+            build/full-stack-${{ matrix.minecraft }}/*.console.log
+            build/full-stack-${{ matrix.minecraft }}/*.normalized.log
+            build/full-stack-${{ matrix.minecraft }}/runtime-build.txt
+            build/full-stack-${{ matrix.minecraft }}/expected-addons.txt
+            build/full-stack-${{ matrix.minecraft }}/smoke-result.txt
+          if-no-files-found: warn
