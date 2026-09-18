@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 20,
+  "bundle_revision": 21,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -15,7 +15,7 @@
       "supported": ["1.21.11", "26.1.x", "26.2", "26.3"],
       "primary": "26.2",
       "candidate": "26.3",
-      "candidate_status": "compatible-until-stable"
+      "candidate_status": "stable-released-awaiting-production-promotion"
     },
     "server_platforms": {
       "primary": ["Paper", "Purpur"],
@@ -26,7 +26,8 @@
       "do_not_raise_plugin_api_version_for_26_3_only": true,
       "paper_26_3_compile_required_for_bundle": true,
       "paper_26_2_remains_production_baseline": true,
-      "promote_26_3_only_after_stable_server_build": true
+      "promote_26_3_only_after_stable_server_build": true,
+      "promotion_requires_explicit_baseline_decision": true
     }
   },
   "addons": [

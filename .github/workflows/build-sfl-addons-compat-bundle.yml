@@ -9,13 +9,20 @@ on:
       - 'scripts/compile_addon_paper_26_3.py'
       - 'scripts/paper_candidate_versions.py'
       - 'scripts/test_paper_candidate_versions.py'
+  pull_request:
+    paths:
+      - '.github/workflows/build-sfl-addons-compat-bundle.yml'
+      - 'compatibility/sfl-addon-release-matrix.json'
+      - 'scripts/compile_addon_paper_26_3.py'
+      - 'scripts/paper_candidate_versions.py'
+      - 'scripts/test_paper_candidate_versions.py'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: sf-addons-1.21.11-26.3-bundle
+  group: sf-addons-1.21.11-26.3-bundle-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -362,7 +369,7 @@ jobs:
           - 1.21.11: minimum/base compatibility
           - 26.1.x: supported
           - 26.2: PRIMARY production baseline
-          - 26.3: compatible candidate; becomes primary after a stable server build is validated
+          - 26.3: stable compatibility target; production promotion remains an explicit decision
 
           Server platforms:
           - PRIMARY: Paper, Purpur
@@ -383,6 +390,7 @@ jobs:
           path: SF_Addons_1.21.11-26.3.zip
           if-no-files-found: error
       - name: Attach canonical bundle to latest Slimefun Legacy release
+        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
