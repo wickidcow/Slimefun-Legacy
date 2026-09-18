@@ -159,15 +159,41 @@ jobs:
             "$PWD/candidate-core/Slimefun-Legacy-candidate.jar" \
             "$PAPER_API_VERSION" \
             --report-dir "$PWD/report"
-      - name: Build pinned DracFun Reborn against candidate core
+      - name: Verify and build pinned DracFun Reborn
         if: matrix.slug == 'dracfunreborn'
         env:
           PAPER_API_VERSION: ${{ needs.prepare.outputs.paper_api }}
+          BASE_PAPER_API_VERSION: 1.21.11-R0.1-SNAPSHOT
         run: |
           set -euo pipefail
           mkdir -p addon/libs
+
+          # Paper 26.3 API artifacts require Java 25. Validate the pinned source
+          # against the exact candidate Slimefun core with a Java-25 compiler target.
           cp candidate-core/Slimefun-Legacy-candidate.jar addon/libs/Slimefun-Legacy.jar
-          gradle -p addon clean shadowJar -Pplatform=paper -PplatformVersion="$PAPER_API_VERSION" -PreleaseJvm=21 --no-daemon
+          gradle -p addon clean compileJava \
+            -Pplatform=paper \
+            -PplatformVersion="$PAPER_API_VERSION" \
+            -PreleaseJvm=25 \
+            --no-daemon
+
+          # The distributable remains universal Java-21 bytecode. Rebuild it against
+          # the 1.21.11 baseline and the published 4.1.51 Slimefun Legacy API target,
+          # matching SF_DracFun2's own green release workflow.
+          curl -fL --retry 3 \
+            -o addon/libs/Slimefun-Legacy.jar \
+            https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.51/Slimefun-Legacy4.1.51.jar
+          test -s addon/libs/Slimefun-Legacy.jar
+          gradle -p addon clean shadowJar \
+            -Pplatform=paper \
+            -PplatformVersion="$BASE_PAPER_API_VERSION" \
+            -PreleaseJvm=21 \
+            --no-daemon
+
+          JAR=addon/build/libs/SFL_DracFun-Reborn2.0.1.jar
+          test -s "$JAR"
+          javap -verbose -classpath "$JAR" io.github.wickidcow.sfdracfun2.SFDracFun2 \
+            | grep -Fq 'major version: 65'
       - name: Collect and canonicalize distributable plugin JAR
         env:
           ADDON_REPOSITORY: ${{ matrix.repository }}
@@ -367,9 +393,10 @@ jobs:
           - PRIMARY: Paper, Purpur
           - SECONDARY: Folia, Leaf
 
-          Every JAR in this archive was compiled from its maintained SF_ repository against
-          the Paper ${PAPER_API_VERSION} / Slimefun Legacy candidate stack without raising
-          the addon's own compiler target solely for 26.3.
+          Every addon source in this archive was verified against the Paper ${PAPER_API_VERSION}
+          / Slimefun Legacy candidate stack. Distributable JARs keep their intended baseline
+          bytecode; DracFun Reborn is separately validated on Java 25 / Paper 26.3, then rebuilt
+          as Java-21 bytecode against the 1.21.11 baseline for universal deployment.
           EOF
           (cd bundle && sha256sum *.jar | sort > SHA256SUMS.txt)
           (cd bundle && zip -9 -q "../${BUNDLE_NAME}" ./*)
