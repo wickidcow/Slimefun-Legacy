@@ -27,6 +27,8 @@ public class DirtyChestMenu extends ChestMenu {
 
     protected final BlockMenuPreset preset;
     protected int changes = 1;
+    private long changeSequence = 1;
+    private long acknowledgedChangeSequence;
 
     public DirtyChestMenu(@Nonnull BlockMenuPreset preset) {
         super(preset.getTitle());
@@ -44,16 +46,43 @@ public class DirtyChestMenu extends ChestMenu {
         return inv != null && !inv.getViewers().isEmpty();
     }
 
-    public void markDirty() {
-        changes++;
+    public synchronized void markDirty() {
+        if (changes < Integer.MAX_VALUE) {
+            changes++;
+        }
+        changeSequence++;
     }
 
-    public boolean isDirty() {
+    public synchronized boolean isDirty() {
         return changes > 0;
     }
 
-    public int getUnsavedChanges() {
+    public synchronized int getUnsavedChanges() {
         return changes;
+    }
+
+    /**
+     * Captures the monotonic mutation sequence represented by the current menu
+     * contents. The token can later be acknowledged after persistence succeeds
+     * without clearing mutations that happened after this capture.
+     */
+    public synchronized long captureChangeSequence() {
+        return changeSequence;
+    }
+
+    /**
+     * Acknowledges every mutation through the supplied captured sequence.
+     * Mutations recorded after that sequence remain dirty.
+     */
+    public synchronized void acknowledgeChanges(long persistedSequence) {
+        long bounded = Math.min(persistedSequence, changeSequence);
+        if (bounded <= acknowledgedChangeSequence) {
+            return;
+        }
+
+        long newlyAcknowledged = bounded - acknowledgedChangeSequence;
+        acknowledgedChangeSequence = bounded;
+        changes = (int) Math.max(0L, (long) changes - newlyAcknowledged);
     }
 
     @Nonnull
