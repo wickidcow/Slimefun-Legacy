@@ -1,6 +1,13 @@
 name: Paper 26.3 Maintained Addon Compile
 
 on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/paper-26.3-addon-compile.yml'
+      - 'compatibility/sfl-addon-release-matrix.json'
+      - 'scripts/compile_addon_paper_26_3.py'
+      - 'scripts/test_compile_addon_paper_26_3.py'
   pull_request:
     paths:
       - '.github/workflows/paper-26.3-addon-compile.yml'
