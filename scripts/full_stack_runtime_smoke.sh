@@ -24,7 +24,7 @@ rm -rf "$WORK_DIR"
 mkdir -p "$WORK_DIR/plugins" "$WORK_DIR/bundle"
 unzip -q "$ADDON_BUNDLE" -d "$WORK_DIR/bundle"
 cp "$SLIMEFUN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-full-stack.jar"
-find "$WORK_DIR/bundle" -maxdepth 1 -type f -name 'SF_*.jar' -exec cp {} "$WORK_DIR/plugins/" \;
+find "$WORK_DIR/bundle" -maxdepth 1 -type f \( -name 'SF_*.jar' -o -name 'SFL_DracFun-Reborn*.jar' \) -exec cp {} "$WORK_DIR/plugins/" \;
 
 python3 - "$WORK_DIR/plugins" "$WORK_DIR/expected-addons.txt" <<'PY'
 from pathlib import Path
@@ -35,7 +35,8 @@ import zipfile
 plugins = Path(sys.argv[1])
 out = Path(sys.argv[2])
 names = []
-for jar in sorted(plugins.glob("SF_*.jar")):
+addon_jars = sorted(plugins.glob("SF_*.jar")) + sorted(plugins.glob("SFL_DracFun-Reborn*.jar"))
+for jar in addon_jars:
     with zipfile.ZipFile(jar) as zf:
         descriptor = None
         for candidate in ("plugin.yml", "paper-plugin.yml", "paper-plugin.yaml"):
@@ -49,7 +50,7 @@ for jar in sorted(plugins.glob("SF_*.jar")):
             raise SystemExit(f"No plugin name in descriptor for {jar.name}")
         names.append((jar.name, match.group(1).strip()))
 if not names:
-    raise SystemExit("No SF_ addon JARs found in canonical bundle")
+    raise SystemExit("No maintained addon JARs found in canonical bundle")
 out.write_text("\n".join(f"{jar}\t{name}" for jar, name in names) + "\n", encoding="utf-8")
 print(f"Prepared {len(names)} addon plugins for full-stack runtime smoke")
 PY
