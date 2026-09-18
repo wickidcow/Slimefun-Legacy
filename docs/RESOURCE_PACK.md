@@ -11,28 +11,27 @@ This is intentional for servers that already use ItemsAdder, Oraxen, a proxy-lev
 ```yaml
 resource-pack:
   enabled: false
-  url: ''
+  url: 'http://overlord.kicks-ass.org:8163/SlimefunLegacyRP.zip'
   sha1: ''
   required: false
   prompt: 'Slimefun Legacy resource pack'
 ```
 
-When `enabled` is `false`, Slimefun Legacy sends no pack request at all. Slimefun Legacy intentionally does **not** pre-fill a third-party pack URL.
+When `enabled` is `false`, Slimefun Legacy sends no pack request at all. The default URL points to AlbionMC's Slimefun Legacy resource pack at `http://overlord.kicks-ass.org:8163/SlimefunLegacyRP.zip`.
 
-Minecraft changed the item-model resource-pack format substantially in the modern 1.21.x line. A pack built for an older item-model layout can load successfully while still showing vanilla, missing, or misplaced guide/item visuals. Always choose a pack that explicitly supports the Minecraft client generation used by your players.
+Minecraft changed the item-model resource-pack format substantially in the modern 1.21.x line. A pack built for an older item-model layout can load successfully while still showing vanilla, missing, or misplaced guide/item visuals, so this hosted pack must remain synchronized with Slimefun Legacy's `item-models.yml`.
 
 ## External pack delivery
 
 To let Slimefun Legacy add an externally hosted pack on player join:
 
-1. Choose or build a resource-pack ZIP that supports the Minecraft client generation used by your players.
-2. Make sure the pack's Slimefun model IDs match `plugins/Slimefun/item-models.yml`. If the pack ships its own `item-models.yml`, merge those exact values into Slimefun's file and restart the server.
-3. Host the completed ZIP on an HTTP(S) endpoint reachable by players. HTTPS is recommended.
-4. Set `resource-pack.enabled` to `true`.
-5. Set `resource-pack.url` to the direct ZIP URL.
+1. Make sure the hosted pack supports the Minecraft client generation used by your players.
+2. Make sure the pack's Slimefun model IDs match `plugins/Slimefun/item-models.yml`.
+3. Set `resource-pack.enabled` to `true`.
+4. Leave `resource-pack.url` at the included AlbionMC Slimefun Legacy pack URL, or replace it with another direct HTTP(S) ZIP URL.
+5. Restart the server or reload the Slimefun configuration through the supported server workflow.
 6. Set `resource-pack.sha1` to the 40-character SHA-1 of that exact ZIP when possible.
 7. Leave `required: false` unless the server should reject players who decline the pack.
-8. Restart the server or reload the Slimefun configuration through the supported server workflow.
 
 Slimefun Legacy uses Minecraft's additive resource-pack API so an explicitly enabled Slimefun pack can coexist with another server pack rather than replacing it. The implementation targets the modern API available on Minecraft 1.21.11+ / current Paper server lines.
 
