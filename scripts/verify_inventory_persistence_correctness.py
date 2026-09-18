@@ -85,6 +85,12 @@ def main() -> int:
     require(storage, "public CompletableFuture<Void> saveBlockInventoryAsync", "async block inventory save")
     require(storage, "public CompletableFuture<Void> saveUniversalInventoryAsync", "async universal inventory save")
     require(storage, "ItemStack[] contents = copyInventoryContents(", "immutable inventory content copy")
+    require_before(
+        storage,
+        "long changeSequence = menu == null ? 0L : menu.captureChangeSequence()",
+        "ItemStack[] contents = copyInventoryContents(",
+        "dirty token captured before inventory staging",
+    )
     require(
         storage,
         "Map<Integer, InventoryWrite> stagedWrites = stageInventoryWrites(",
