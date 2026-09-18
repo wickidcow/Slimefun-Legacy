@@ -1348,17 +1348,17 @@ public class BlockDataController extends ADataController {
         String snapshotKey = blockData.getKey();
         String chainKey = "block:" + snapshotKey;
         InvSnapshot stagedSnapshot = contents == null ? null : new InvSnapshot(contents);
+        Map<Integer, InventoryWrite> stagedWrites =
+                stageInventoryWrites(DataScope.BLOCK_INVENTORY, FieldKey.LOCATION, snapshotKey, contents);
 
         return chainInventorySave(
                 chainKey,
                 () -> persistInventoryStage(
                         snapshotKey,
                         new LocationKey(DataScope.NONE, blockData.getLocation()),
-                        DataScope.BLOCK_INVENTORY,
-                        FieldKey.LOCATION,
-                        snapshotKey,
                         contents,
                         stagedSnapshot,
+                        stagedWrites,
                         menu,
                         changeSequence));
     }
@@ -1441,17 +1441,17 @@ public class BlockDataController extends ADataController {
         String snapshotKey = universalData.getKey();
         String chainKey = "universal:" + snapshotKey;
         InvSnapshot stagedSnapshot = contents == null ? null : new InvSnapshot(contents);
+        Map<Integer, InventoryWrite> stagedWrites = stageInventoryWrites(
+                DataScope.UNIVERSAL_INVENTORY, FieldKey.UNIVERSAL_UUID, universalData.getKey(), contents);
 
         return chainInventorySave(
                 chainKey,
                 () -> persistInventoryStage(
                         snapshotKey,
                         new UUIDKey(DataScope.NONE, universalData.getKey()),
-                        DataScope.UNIVERSAL_INVENTORY,
-                        FieldKey.UNIVERSAL_UUID,
-                        universalData.getKey(),
                         contents,
                         stagedSnapshot,
+                        stagedWrites,
                         menu,
                         changeSequence));
     }
@@ -1477,11 +1477,9 @@ public class BlockDataController extends ADataController {
     private CompletableFuture<Void> persistInventoryStage(
             @Nonnull String snapshotKey,
             @Nonnull ScopeKey scopeKey,
-            @Nonnull DataScope inventoryScope,
-            @Nonnull FieldKey ownerField,
-            @Nonnull String ownerValue,
             @Nullable ItemStack[] contents,
             @Nullable InvSnapshot stagedSnapshot,
+            @Nonnull Map<Integer, InventoryWrite> stagedWrites,
             @Nullable DirtyChestMenu menu,
             long changeSequence) {
         InvSnapshot acknowledged = invSnapshots.get(snapshotKey);
@@ -1492,32 +1490,14 @@ public class BlockDataController extends ADataController {
             return CompletableFuture.completedFuture(null);
         }
 
-        var stagedWrites = new ArrayList<InventoryWrite>(changed.size());
+        var completions = new ArrayList<CompletableFuture<Void>>(changed.size());
         try {
             for (int slot : changed) {
-                var key = new RecordKey(inventoryScope);
-                key.addCondition(ownerField, ownerValue);
-                key.addCondition(FieldKey.INVENTORY_SLOT, slot + "");
-                key.addField(FieldKey.INVENTORY_ITEM);
-
-                ItemStack item = contents != null && slot < contents.length ? contents[slot] : null;
-                if (item == null) {
-                    stagedWrites.add(new InventoryWrite(key, null));
-                } else {
-                    var data = new RecordSet();
-                    data.put(ownerField, ownerValue);
-                    data.put(FieldKey.INVENTORY_SLOT, slot + "");
-                    data.put(FieldKey.INVENTORY_ITEM, item);
-                    stagedWrites.add(new InventoryWrite(key, data));
+                InventoryWrite write = stagedWrites.get(slot);
+                if (write == null) {
+                    throw new IllegalStateException("Missing staged inventory write for slot " + slot);
                 }
-            }
-        } catch (RuntimeException | LinkageError failure) {
-            return CompletableFuture.failedFuture(failure);
-        }
 
-        var completions = new ArrayList<CompletableFuture<Void>>(stagedWrites.size());
-        try {
-            for (InventoryWrite write : stagedWrites) {
                 CompletableFuture<Void> completion = write.data() == null
                         ? scheduleDeleteTaskWithCompletion(scopeKey, write.key(), true)
                         : scheduleWriteTaskWithCompletion(scopeKey, write.key(), write.data(), true);
@@ -1553,6 +1533,37 @@ public class BlockDataController extends ADataController {
         if (menu != null) {
             menu.acknowledgeChanges(changeSequence);
         }
+    }
+
+    private Map<Integer, InventoryWrite> stageInventoryWrites(
+            @Nonnull DataScope inventoryScope,
+            @Nonnull FieldKey ownerField,
+            @Nonnull String ownerValue,
+            @Nullable ItemStack[] contents) {
+        int size = contents == null ? 54 : contents.length;
+        Map<Integer, InventoryWrite> staged = new HashMap<>(size);
+
+        for (int slot = 0; slot < size; slot++) {
+            var key = new RecordKey(inventoryScope);
+            key.addCondition(ownerField, ownerValue);
+            key.addCondition(FieldKey.INVENTORY_SLOT, slot + "");
+            key.addField(FieldKey.INVENTORY_ITEM);
+
+            ItemStack item = contents == null ? null : contents[slot];
+            if (item == null) {
+                staged.put(slot, new InventoryWrite(key, null));
+            } else {
+                var data = new RecordSet();
+                data.put(ownerField, ownerValue);
+                data.put(FieldKey.INVENTORY_SLOT, slot + "");
+                // RecordSet serializes the ItemStack immediately. No Bukkit/Paper
+                // inventory serialization is deferred to a database completion thread.
+                data.put(FieldKey.INVENTORY_ITEM, item);
+                staged.put(slot, new InventoryWrite(key, data));
+            }
+        }
+
+        return staged;
     }
 
     @Nullable private ItemStack[] copyInventoryContents(@Nullable ItemStack[] contents) {
@@ -1687,7 +1698,7 @@ public class BlockDataController extends ADataController {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(120);
 
         while (System.nanoTime() < deadline) {
-            CompletableFuture<Void>[] snapshot;
+            CompletableFuture<?>[] snapshot;
             synchronized (inventorySaveChains) {
                 if (inventorySaveChains.isEmpty()) {
                     return;
@@ -1695,7 +1706,7 @@ public class BlockDataController extends ADataController {
 
                 snapshot = inventorySaveChains.values().stream()
                         .map(future -> future.handle((ignored, failure) -> null))
-                        .toArray(CompletableFuture[]::new);
+                        .toArray(CompletableFuture<?>[]::new);
             }
 
             try {
