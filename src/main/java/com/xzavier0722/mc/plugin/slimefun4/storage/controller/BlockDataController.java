@@ -24,6 +24,7 @@ import com.xzavier0722.mc.plugin.slimefun4.storage.util.LocationUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.services.scheduling.TaskHandle;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -40,6 +41,7 @@ import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
+import me.mrCookieSlime.Slimefun.api.inventory.DirtyChestMenu;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -75,6 +77,10 @@ public class BlockDataController extends ADataController {
      * 方块物品栏快照
      */
     private final Map<String, InvSnapshot> invSnapshots;
+    /** Serializes acknowledgement-aware inventory save batches per block/universal inventory. */
+    private final Map<String, CompletableFuture<Void>> inventorySaveChains;
+    /** Marks persisted inventory baselines that may be partially applied after a failed batch. */
+    private final Set<String> uncertainInventoryBaselines;
     /**
      * 全局控制器加载数据锁
      *
@@ -103,6 +109,8 @@ public class BlockDataController extends ADataController {
         loadedChunk = new ConcurrentHashMap<>();
         loadedUniversalData = new ConcurrentHashMap<>();
         invSnapshots = new ConcurrentHashMap<>();
+        inventorySaveChains = new ConcurrentHashMap<>();
+        uncertainInventoryBaselines = ConcurrentHashMap.newKeySet();
         lock = new ScopedLock();
     }
 
@@ -1088,17 +1096,28 @@ public class BlockDataController extends ADataController {
 
                     for (RecordSet record : invData) {
                         var slot = record.getInt(FieldKey.INVENTORY_SLOT);
+                        if (slot < 0 || slot >= inv.length) {
+                            uncertainInventoryBaselines.add(blockData.getKey());
+                            Slimefun.logger()
+                                    .log(
+                                            Level.WARNING,
+                                            "Ignoring out-of-range stored block inventory slot [{0}:{1}]. "
+                                                    + "The next save will reconcile the legal slot range.",
+                                            new Object[] {blockData.getKey(), slot});
+                            continue;
+                        }
 
                         try {
                             inv[slot] = record.getItemStack(FieldKey.INVENTORY_ITEM);
                         } catch (Exception ex) {
+                            uncertainInventoryBaselines.add(blockData.getKey());
                             inv[slot] = null;
                             Slimefun.logger()
                                     .log(
                                             Level.SEVERE,
                                             "Failed to load the target item; check the stored data ["
                                                     + LocationUtils.locationToString(blockData.getLocation()) + ":"
-                                                    + slot + "]",
+                                                    + slot + "]. The next save will reconcile the inventory.",
                                             ex);
                         }
                     }
@@ -1201,15 +1220,27 @@ public class BlockDataController extends ADataController {
 
                     for (RecordSet recordSet : getData(menuKey)) {
                         var slot = recordSet.getInt(FieldKey.INVENTORY_SLOT);
+                        if (slot < 0 || slot >= inv.length) {
+                            uncertainInventoryBaselines.add(uniData.getKey());
+                            Slimefun.logger()
+                                    .log(
+                                            Level.WARNING,
+                                            "Ignoring out-of-range stored universal inventory slot [{0}:{1}]. "
+                                                    + "The next save will reconcile the legal slot range.",
+                                            new Object[] {uniData.getKey(), slot});
+                            continue;
+                        }
+
                         try {
                             inv[slot] = recordSet.getItemStack(FieldKey.INVENTORY_ITEM);
                         } catch (Exception ex) {
+                            uncertainInventoryBaselines.add(uniData.getKey());
                             inv[slot] = null;
                             Slimefun.logger()
                                     .log(
                                             Level.SEVERE,
                                             "Failed to load the target item; check the stored data [" + uniData.getKey()
-                                                    + ":" + slot + "]",
+                                                    + ":" + slot + "]. The next save will reconcile the inventory.",
                                             ex);
                         }
                     }
@@ -1325,27 +1356,44 @@ public class BlockDataController extends ADataController {
     }
 
     public void saveBlockInventory(SlimefunBlockData blockData) {
-        var newInv = blockData.getMenuContents();
-        InvSnapshot lastSave;
-        if (newInv == null) {
-            lastSave = invSnapshots.remove(blockData.getKey());
-            if (lastSave == null) {
-                return;
+        saveBlockInventoryAsync(blockData).whenComplete((ignored, failure) -> {
+            if (failure != null) {
+                logger.log(Level.SEVERE, "Failed to persist Slimefun block inventory " + blockData.getKey(), failure);
             }
-        } else {
-            lastSave = invSnapshots.put(blockData.getKey(), new InvSnapshot(newInv));
-        }
+        });
+    }
 
-        var changed = InvStorageUtils.getChangedSlots(lastSave, newInv);
-        if (changed.isEmpty()) {
-            return;
-        }
+    /**
+     * Stages an immutable block-inventory state and completes only after its exact
+     * changed-slot write batch has reached the database queue completion boundary.
+     */
+    public CompletableFuture<Void> saveBlockInventoryAsync(@Nonnull SlimefunBlockData blockData) {
+        BlockMenu menu = blockData.getBlockMenu();
+        long changeSequence = menu == null ? 0L : menu.captureChangeSequence();
+        ItemStack[] contents = copyInventoryContents(blockData.getMenuContents());
+        String snapshotKey = blockData.getKey();
+        String chainKey = "block:" + snapshotKey;
+        InvSnapshot stagedSnapshot = contents == null ? null : new InvSnapshot(contents);
+        Map<Integer, InventoryWrite> stagedWrites =
+                stageInventoryWrites(DataScope.BLOCK_INVENTORY, FieldKey.LOCATION, snapshotKey, contents);
 
-        changed.forEach(slot -> saveBlockInventorySlot(blockData, slot));
+        return chainInventorySave(
+                chainKey,
+                () -> persistInventoryStage(
+                        snapshotKey,
+                        new LocationKey(DataScope.NONE, blockData.getLocation()),
+                        contents,
+                        stagedSnapshot,
+                        stagedWrites,
+                        menu,
+                        changeSequence));
     }
 
     public void saveBlockInventorySlot(SlimefunBlockData blockData, int slot) {
-        scheduleDelayedBlockInvUpdate(blockData, slot);
+        // Route legacy slot-save callers through the acknowledgement-aware batch.
+        // Persisting all currently changed slots avoids creating an untracked
+        // per-slot write that can race the inventory snapshot.
+        saveBlockInventory(blockData);
     }
 
     public Set<SlimefunChunkData> getAllLoadedChunkData() {
@@ -1400,27 +1448,173 @@ public class BlockDataController extends ADataController {
     }
 
     public void saveUniversalInventory(@Nonnull SlimefunUniversalData universalData) {
-        var universalID = universalData.getUUID();
-
-        var currentInv = universalData.getMenuContents();
-        InvSnapshot lastSave;
-
-        if (currentInv == null) {
-            lastSave = invSnapshots.remove(universalID.toString());
-            if (lastSave == null) {
-                return;
+        saveUniversalInventoryAsync(universalData).whenComplete((ignored, failure) -> {
+            if (failure != null) {
+                logger.log(
+                        Level.SEVERE, "Failed to persist Slimefun universal inventory " + universalData.getKey(), failure);
             }
-        } else {
-            lastSave = invSnapshots.put(universalID.toString(), new InvSnapshot(currentInv));
-        }
-
-        var changed = InvStorageUtils.getChangedSlots(lastSave, currentInv);
-        if (changed.isEmpty()) {
-            return;
-        }
-
-        changed.forEach(slot -> scheduleDelayedUniversalInvUpdate(universalData, slot));
+        });
     }
+
+    /**
+     * Stages an immutable universal-inventory state and serializes save attempts
+     * for the same UUID so acknowledgements cannot complete out of order.
+     */
+    public CompletableFuture<Void> saveUniversalInventoryAsync(@Nonnull SlimefunUniversalData universalData) {
+        UniversalMenu menu = universalData.getMenu();
+        long changeSequence = menu == null ? 0L : menu.captureChangeSequence();
+        ItemStack[] contents = copyInventoryContents(universalData.getMenuContents());
+        String snapshotKey = universalData.getKey();
+        String chainKey = "universal:" + snapshotKey;
+        InvSnapshot stagedSnapshot = contents == null ? null : new InvSnapshot(contents);
+        Map<Integer, InventoryWrite> stagedWrites = stageInventoryWrites(
+                DataScope.UNIVERSAL_INVENTORY, FieldKey.UNIVERSAL_UUID, universalData.getKey(), contents);
+
+        return chainInventorySave(
+                chainKey,
+                () -> persistInventoryStage(
+                        snapshotKey,
+                        new UUIDKey(DataScope.NONE, universalData.getKey()),
+                        contents,
+                        stagedSnapshot,
+                        stagedWrites,
+                        menu,
+                        changeSequence));
+    }
+
+    private CompletableFuture<Void> chainInventorySave(
+            @Nonnull String chainKey, @Nonnull java.util.function.Supplier<CompletableFuture<Void>> saveAttempt) {
+        synchronized (inventorySaveChains) {
+            CompletableFuture<Void> previous = inventorySaveChains.get(chainKey);
+            CompletableFuture<Void> start = previous == null
+                    ? CompletableFuture.completedFuture(null)
+                    : previous.handle((ignored, failure) -> null);
+            CompletableFuture<Void> next = start.thenCompose(ignored -> saveAttempt.get());
+            inventorySaveChains.put(chainKey, next);
+            next.whenComplete((ignored, failure) -> {
+                synchronized (inventorySaveChains) {
+                    inventorySaveChains.remove(chainKey, next);
+                }
+            });
+            return next;
+        }
+    }
+
+    private CompletableFuture<Void> persistInventoryStage(
+            @Nonnull String snapshotKey,
+            @Nonnull ScopeKey scopeKey,
+            @Nullable ItemStack[] contents,
+            @Nullable InvSnapshot stagedSnapshot,
+            @Nonnull Map<Integer, InventoryWrite> stagedWrites,
+            @Nullable DirtyChestMenu menu,
+            long changeSequence) {
+        InvSnapshot acknowledged = invSnapshots.get(snapshotKey);
+        Set<Integer> changed = uncertainInventoryBaselines.contains(snapshotKey)
+                ? new HashSet<>(stagedWrites.keySet())
+                : InvStorageUtils.getChangedSlots(acknowledged, contents);
+
+        if (changed.isEmpty()) {
+            acknowledgeInventoryStage(snapshotKey, stagedSnapshot, menu, changeSequence);
+            uncertainInventoryBaselines.remove(snapshotKey);
+            return CompletableFuture.completedFuture(null);
+        }
+
+        var completions = new ArrayList<CompletableFuture<Void>>(changed.size());
+        try {
+            for (int slot : changed) {
+                InventoryWrite write = stagedWrites.get(slot);
+                if (write == null) {
+                    throw new IllegalStateException("Missing staged inventory write for slot " + slot);
+                }
+
+                CompletableFuture<Void> completion = write.data() == null
+                        ? scheduleDeleteTaskWithCompletion(scopeKey, write.key(), true)
+                        : scheduleWriteTaskWithCompletion(scopeKey, write.key(), write.data(), true);
+                completions.add(completion);
+            }
+        } catch (RuntimeException | LinkageError failure) {
+            completions.add(CompletableFuture.failedFuture(failure));
+        }
+
+        CompletableFuture<Void> batch = CompletableFuture.allOf(completions.toArray(CompletableFuture[]::new));
+        return batch.whenComplete((ignored, failure) -> {
+            if (failure == null) {
+                acknowledgeInventoryStage(snapshotKey, stagedSnapshot, menu, changeSequence);
+                uncertainInventoryBaselines.remove(snapshotKey);
+            } else {
+                // A failed/partially submitted batch has an unknown database
+                // baseline. Force the next retry to rewrite/delete every staged
+                // slot, including the contents == null deletion case.
+                invSnapshots.remove(snapshotKey);
+                uncertainInventoryBaselines.add(snapshotKey);
+            }
+        });
+    }
+
+    private void acknowledgeInventoryStage(
+            @Nonnull String snapshotKey,
+            @Nullable InvSnapshot stagedSnapshot,
+            @Nullable DirtyChestMenu menu,
+            long changeSequence) {
+        if (stagedSnapshot == null) {
+            invSnapshots.remove(snapshotKey);
+        } else {
+            invSnapshots.put(snapshotKey, stagedSnapshot);
+        }
+
+        if (menu != null) {
+            menu.acknowledgeChanges(changeSequence);
+        }
+    }
+
+    private Map<Integer, InventoryWrite> stageInventoryWrites(
+            @Nonnull DataScope inventoryScope,
+            @Nonnull FieldKey ownerField,
+            @Nonnull String ownerValue,
+            @Nullable ItemStack[] contents) {
+        // Block and universal menus are chest-style inventories with a
+        // maximum persisted slot range of 0..53. Always stage that complete
+        // range so menu-size shrinkage and failed deletion retries can remove
+        // stale higher slots deterministically.
+        int size = 54;
+        Map<Integer, InventoryWrite> staged = new HashMap<>(size);
+
+        for (int slot = 0; slot < size; slot++) {
+            var key = new RecordKey(inventoryScope);
+            key.addCondition(ownerField, ownerValue);
+            key.addCondition(FieldKey.INVENTORY_SLOT, slot + "");
+            key.addField(FieldKey.INVENTORY_ITEM);
+
+            ItemStack item = contents == null || slot >= contents.length ? null : contents[slot];
+            if (item == null) {
+                staged.put(slot, new InventoryWrite(key, null));
+            } else {
+                var data = new RecordSet();
+                data.put(ownerField, ownerValue);
+                data.put(FieldKey.INVENTORY_SLOT, slot + "");
+                // RecordSet serializes the ItemStack immediately. No Bukkit/Paper
+                // inventory serialization is deferred to a database completion thread.
+                data.put(FieldKey.INVENTORY_ITEM, item);
+                staged.put(slot, new InventoryWrite(key, data));
+            }
+        }
+
+        return staged;
+    }
+
+    @Nullable private ItemStack[] copyInventoryContents(@Nullable ItemStack[] contents) {
+        if (contents == null) {
+            return null;
+        }
+
+        ItemStack[] copy = new ItemStack[contents.length];
+        for (int i = 0; i < contents.length; i++) {
+            copy[i] = contents[i] == null ? null : contents[i].clone();
+        }
+        return copy;
+    }
+
+    private record InventoryWrite(@Nonnull RecordKey key, @Nullable RecordSet data) {}
 
     public Set<SlimefunChunkData> getAllLoadedChunkData(World world) {
         var prefix = world.getName() + ";";
@@ -1532,7 +1726,46 @@ public class BlockDataController extends ADataController {
             looperTask.cancel();
             executeAllDelayedTasks();
         }
+        awaitInventorySaveChains();
         super.shutdown();
+    }
+
+    private void awaitInventorySaveChains() {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(120);
+
+        while (System.nanoTime() < deadline) {
+            CompletableFuture<?>[] snapshot;
+            synchronized (inventorySaveChains) {
+                if (inventorySaveChains.isEmpty()) {
+                    return;
+                }
+
+                snapshot = inventorySaveChains.values().stream()
+                        .map(future -> future.handle((ignored, failure) -> null))
+                        .toArray(CompletableFuture<?>[]::new);
+            }
+
+            try {
+                long remainingNanos = deadline - System.nanoTime();
+                if (remainingNanos <= 0) {
+                    break;
+                }
+                CompletableFuture.allOf(snapshot).get(remainingNanos, TimeUnit.NANOSECONDS);
+            } catch (Exception failure) {
+                logger.log(Level.WARNING, "Interrupted while waiting for inventory persistence chains", failure);
+                if (failure instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                }
+                break;
+            }
+        }
+
+        if (!inventorySaveChains.isEmpty()) {
+            logger.log(
+                    Level.SEVERE,
+                    "Timed out with {0} acknowledgement-aware inventory save chain(s) still pending.",
+                    inventorySaveChains.size());
+        }
     }
 
     void scheduleDelayedBlockDataUpdate(SlimefunBlockData blockData, String key) {
@@ -1735,15 +1968,27 @@ public class BlockDataController extends ADataController {
 
                 for (RecordSet record : invData) {
                     var slot = record.getInt(FieldKey.INVENTORY_SLOT);
+                    if (slot < 0 || slot >= inv.length) {
+                        uncertainInventoryBaselines.add(universalData.getKey());
+                        Slimefun.logger()
+                                .log(
+                                        Level.WARNING,
+                                        "Ignoring out-of-range stored inventory slot during universal migration [{0}:{1}].",
+                                        new Object[] {universalData.getKey(), slot});
+                        continue;
+                    }
+
                     try {
                         inv[slot] = record.getItemStack(FieldKey.INVENTORY_ITEM);
                     } catch (Exception ex) {
+                        uncertainInventoryBaselines.add(universalData.getKey());
                         inv[slot] = null;
                         Slimefun.logger()
                                 .log(
                                         Level.SEVERE,
                                         "Failed to load the target item; check the stored data ["
-                                                + universalData.getKey() + ":" + slot + "]",
+                                                + universalData.getKey() + ":" + slot
+                                                + "]. The next save will reconcile the inventory.",
                                         ex);
                     }
                 }
