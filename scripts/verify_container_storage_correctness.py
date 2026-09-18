@@ -161,8 +161,13 @@ def main() -> int:
     )
     require(
         listener,
-        "pendingSaves.remove(playerId, save);\n            finishBackpackSession(playerId, backpack.getUniqueId());",
+        "pendingSaves.remove(playerId, save); finishBackpackSession(playerId, backpack.getUniqueId());",
         "pending save cleared before session reservation release",
+    )
+    require(
+        listener,
+        "pendingSaves.put(playerId, save); backpacks.remove(playerId, backpack.getUniqueId()); backpackInstances.remove(playerId);",
+        "closed GUI state cleared while save reservation stays active",
     )
     require(
         listener,
