@@ -24,34 +24,63 @@ rm -rf "$WORK_DIR"
 mkdir -p "$WORK_DIR/plugins" "$WORK_DIR/bundle"
 unzip -q "$ADDON_BUNDLE" -d "$WORK_DIR/bundle"
 cp "$SLIMEFUN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-full-stack.jar"
-find "$WORK_DIR/bundle" -maxdepth 1 -type f -name 'SF_*.jar' -exec cp {} "$WORK_DIR/plugins/" \;
 
-python3 - "$WORK_DIR/plugins" "$WORK_DIR/expected-addons.txt" <<'PY'
+python3 - "$WORK_DIR/bundle" "$WORK_DIR/plugins" "$WORK_DIR/expected-addons.txt" <<'PY'
 from pathlib import Path
+import json
 import re
+import shutil
 import sys
 import zipfile
 
-plugins = Path(sys.argv[1])
-out = Path(sys.argv[2])
+bundle = Path(sys.argv[1])
+plugins = Path(sys.argv[2])
+out = Path(sys.argv[3])
+manifest_path = bundle / "SF_ADDON_MANIFEST.json"
+if not manifest_path.is_file():
+    raise SystemExit("Canonical addon bundle is missing SF_ADDON_MANIFEST.json")
+
+manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+records = manifest.get("addons", [])
+if not records:
+    raise SystemExit("Canonical addon manifest contains no addons")
+
 names = []
-for jar in sorted(plugins.glob("SF_*.jar")):
-    with zipfile.ZipFile(jar) as zf:
+seen_jars = set()
+for record in records:
+    jar_name = str(record.get("jar", "")).strip()
+    if not jar_name or Path(jar_name).name != jar_name or not jar_name.endswith(".jar"):
+        raise SystemExit(f"Invalid addon JAR name in manifest: {jar_name!r}")
+    if jar_name in seen_jars:
+        raise SystemExit(f"Duplicate addon JAR in manifest: {jar_name}")
+    seen_jars.add(jar_name)
+
+    source = bundle / jar_name
+    if not source.is_file():
+        raise SystemExit(f"Manifest-listed addon JAR is missing from bundle: {jar_name}")
+    shutil.copy2(source, plugins / jar_name)
+
+    with zipfile.ZipFile(source) as zf:
         descriptor = None
         for candidate in ("plugin.yml", "paper-plugin.yml", "paper-plugin.yaml"):
             if candidate in zf.namelist():
                 descriptor = zf.read(candidate).decode("utf-8", errors="replace")
                 break
         if descriptor is None:
-            raise SystemExit(f"No plugin descriptor in {jar.name}")
+            raise SystemExit(f"No plugin descriptor in {jar_name}")
         match = re.search(r"(?mi)^\s*name\s*:\s*['\"]?([^'\"#\r\n]+)", descriptor)
         if not match:
-            raise SystemExit(f"No plugin name in descriptor for {jar.name}")
-        names.append((jar.name, match.group(1).strip()))
-if not names:
-    raise SystemExit("No SF_ addon JARs found in canonical bundle")
+            raise SystemExit(f"No plugin name in descriptor for {jar_name}")
+        names.append((jar_name, match.group(1).strip()))
+
+bundle_jars = {path.name for path in bundle.glob("*.jar")}
+if bundle_jars != seen_jars:
+    extra = sorted(bundle_jars - seen_jars)
+    missing = sorted(seen_jars - bundle_jars)
+    raise SystemExit(f"Bundle/manifest JAR mismatch: extra={extra}, missing={missing}")
+
 out.write_text("\n".join(f"{jar}\t{name}" for jar, name in names) + "\n", encoding="utf-8")
-print(f"Prepared {len(names)} addon plugins for full-stack runtime smoke")
+print(f"Prepared {len(names)} manifest-listed addon plugins for full-stack runtime smoke")
 PY
 
 printf 'eula=true\n' > "$WORK_DIR/eula.txt"
@@ -174,7 +203,8 @@ Minecraft: ${MC_VERSION}
 Paper build: ${SERVER_BUILD}
 Channel: ${SERVER_CHANNEL}
 Slimefun Legacy: ${EXPECTED_SLIMEFUN_VERSION}
-Canonical addon JARs: $(wc -l < "$WORK_DIR/expected-addons.txt")
+Manifest source: SF_ADDON_MANIFEST.json
+Manifest-defined addon JARs: $(wc -l < "$WORK_DIR/expected-addons.txt")
 Cycles: 2
 All addon enable lines: observed
 Linkage/enable failures: none
