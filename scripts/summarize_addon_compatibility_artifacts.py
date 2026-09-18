@@ -156,8 +156,7 @@ def render_summary(rows: list[dict[str, object]], counts: Counter[str]) -> str:
     blocking = [
         row
         for row in rows
-        if row["status"] == INSTRUMENTATION_ERROR
-        or (not row["advisory"] and row["status"] != PASS)
+        if not row["advisory"] and row["status"] != PASS
     ]
     advisory_non_pass = [
         row for row in rows if row["advisory"] and row["status"] != PASS
@@ -170,8 +169,8 @@ def render_summary(rows: list[dict[str, object]], counts: Counter[str]) -> str:
         )
     elif advisory_non_pass:
         lines.append(
-            f"**PASS WITH ADVISORIES:** all required addon targets passed and instrumentation is complete; "
-            f"{len(advisory_non_pass)} advisory target(s) reported compatibility/build issues above."
+            f"**PASS WITH ADVISORIES:** all required addon targets passed; "
+            f"{len(advisory_non_pass)} advisory target(s) reported compatibility/build or instrumentation issues above."
         )
     else:
         lines.append(
@@ -203,7 +202,10 @@ def main() -> int:
     args.summary.write_text(summary, encoding="utf-8")
     print(summary, end="")
 
-    has_instrumentation = counts[INSTRUMENTATION_ERROR] > 0
+    has_required_instrumentation = any(
+        not bool(row["advisory"]) and row["status"] == INSTRUMENTATION_ERROR
+        for row in rows
+    )
     has_required_regression = any(
         not bool(row["advisory"]) and row["status"] == LEGACY_COMPATIBILITY_FAILED
         for row in rows
@@ -212,7 +214,7 @@ def main() -> int:
         not bool(row["advisory"]) and row["status"] != PASS for row in rows
     )
 
-    if has_instrumentation:
+    if has_required_instrumentation:
         return 3
     if has_required_regression:
         return 4

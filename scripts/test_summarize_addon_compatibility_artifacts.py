@@ -104,8 +104,15 @@ class AggregateCompatibilityAuditTest(unittest.TestCase):
         self.assertEqual(4, self.run_audit())
         self.assertIn("**BLOCKED:**", self.summary.read_text(encoding="utf-8"))
 
-    def test_missing_report_is_instrumentation_error(self) -> None:
+    def test_missing_advisory_report_is_non_blocking_instrumentation(self) -> None:
         self.write_status("required-addon", audit.PASS)
+        self.assertEqual(0, self.run_audit())
+        summary = self.summary.read_text(encoding="utf-8")
+        self.assertIn("INSTRUMENTATION_ERROR", summary)
+        self.assertIn("**PASS WITH ADVISORIES:**", summary)
+
+    def test_missing_required_report_blocks_as_instrumentation_error(self) -> None:
+        self.write_status("advisory-addon", audit.PASS)
         self.assertEqual(3, self.run_audit())
         summary = self.summary.read_text(encoding="utf-8")
         self.assertIn("INSTRUMENTATION_ERROR", summary)
