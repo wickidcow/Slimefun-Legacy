@@ -184,6 +184,23 @@ def main() -> int:
         "generic container output fit before input consumption",
     )
 
+    fluid_pump = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/FluidPump.java",
+    )
+    require(fluid_pump, "BlockData originalFluid = source.getBlockData().clone();", "FluidPump source snapshot")
+    require(fluid_pump, "source.setType(Material.AIR, false);", "FluidPump source consumption before output")
+    require(fluid_pump, "ItemStack remainder = menu.pushItem(output, getOutputSlots());", "FluidPump output remainder capture")
+    require(fluid_pump, "source.setBlockData(originalFluid, false);", "FluidPump source rollback")
+    require(fluid_pump, "menu.replaceExistingItem(inputSlot, originalInput);", "FluidPump input rollback")
+    require(fluid_pump, "addCharge(machine.getLocation(), ENERGY_CONSUMPTION);", "FluidPump energy rollback")
+    require_before(
+        fluid_pump,
+        "source.setType(Material.AIR, false);",
+        "ItemStack remainder = menu.pushItem(output, getOutputSlots());",
+        "FluidPump consumes fluid source before bucket output commit",
+    )
+
     tree_accelerator = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/accelerators/TreeGrowthAccelerator.java",
