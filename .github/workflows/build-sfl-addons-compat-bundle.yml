@@ -125,6 +125,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        if: matrix.slug == 'dracfunreborn'
+        with:
+          gradle-version: '9.4.1'
       - uses: actions/download-artifact@v8
         with:
           name: sfl-26.3-candidate-core
@@ -132,11 +136,18 @@ jobs:
       - name: Clone maintained addon
         env:
           ADDON_REPOSITORY: ${{ matrix.repository }}
+          SOURCE_COMMIT: ${{ matrix.source_commit }}
         run: |
           set -euo pipefail
           git clone --depth 1 "https://github.com/${ADDON_REPOSITORY}.git" addon
+          if [[ -n "$SOURCE_COMMIT" ]]; then
+            [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+            git -C addon fetch --depth 1 origin "$SOURCE_COMMIT"
+            git -C addon checkout --detach "$SOURCE_COMMIT"
+          fi
           git -C addon rev-parse HEAD
       - name: Compile against Paper 26.3 candidate
+        if: matrix.slug != 'dracfunreborn'
         env:
           PAPER_API_VERSION: ${{ needs.prepare.outputs.paper_api }}
           ORG_GRADLE_PROJECT_paperDevBundleVersion: ${{ needs.prepare.outputs.paper_api }}
@@ -148,6 +159,15 @@ jobs:
             "$PWD/candidate-core/Slimefun-Legacy-candidate.jar" \
             "$PAPER_API_VERSION" \
             --report-dir "$PWD/report"
+      - name: Build pinned DracFun Reborn against candidate core
+        if: matrix.slug == 'dracfunreborn'
+        env:
+          PAPER_API_VERSION: ${{ needs.prepare.outputs.paper_api }}
+        run: |
+          set -euo pipefail
+          mkdir -p addon/libs
+          cp candidate-core/Slimefun-Legacy-candidate.jar addon/libs/Slimefun-Legacy.jar
+          gradle -p addon clean shadowJar -Pplatform=paper -PplatformVersion="$PAPER_API_VERSION" -PreleaseJvm=21 --no-daemon
       - name: Collect and canonicalize distributable plugin JAR
         env:
           ADDON_REPOSITORY: ${{ matrix.repository }}
@@ -199,6 +219,8 @@ jobs:
           if not re.fullmatch(r'\d+(?:\.\d+)+', version):
               raise SystemExit(f'Public addon version must be numeric only for {repo}; got {version!r}')
           canonical = f'SF_{base}{version}.jar'
+          if repo == 'wickidcow/SF_DracFun2':
+              canonical = f'SFL_DracFun-Reborn{version}.jar'
           if re.search(r'(legacy|english|snapshot)', canonical, re.I):
               raise SystemExit(f'Forbidden public qualifier in {canonical}')
           destination = Path('staged/jars') / canonical
@@ -275,17 +297,23 @@ jobs:
               raise SystemExit('Duplicate canonical JAR names detected')
           for record in records:
               name = record['jar']
+              approved_record = next(r for r in source['addons'] if r['repository'] == record['repository'])
+              pinned = approved_record.get('source_commit')
+              if pinned and record['commit'] != pinned:
+                  raise SystemExit(f'Pinned source commit mismatch: {name}')
               if Path(name).name != name:
                   raise SystemExit(f'Unsafe JAR name: {name}')
               digest = hashlib.sha256((Path('collected/jars') / name).read_bytes()).hexdigest()
               if digest != record['sha256']:
                   raise SystemExit(f'Manifest SHA-256 mismatch: {name}')
           for name in expected:
-              if not name.startswith('SF_') or not name.endswith('.jar'):
+              reborn = re.fullmatch(r'SFL_DracFun-Reborn\d+(?:\.\d+)+\.jar', name)
+              if (not name.startswith('SF_') and not reborn) or not name.endswith('.jar'):
                   raise SystemExit(f'Invalid addon JAR name: {name}')
               if re.search(r'(legacy|english|snapshot)', name, re.I):
                   raise SystemExit(f'Forbidden public qualifier in addon JAR name: {name}')
           required = {
+              'SFL_DracFun-Reborn2.0.1.jar',
               'SF_BetterChests1.0.2.jar',
               'SF_BuildingStaff1.0.33.jar',
               'SF_Cultivation1.1.23.jar',
@@ -326,6 +354,7 @@ jobs:
 
           Canonical addon filename format:
           - SF_<AddonName><numeric version>.jar
+          - DracFun Reborn exception: SFL_DracFun-Reborn<version>.jar
           - No Legacy, Legacy-English, SNAPSHOT, compatibility suffixes, or repo-only suffixes
 
           Supported Minecraft/Paper generations:
