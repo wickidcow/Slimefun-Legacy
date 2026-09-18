@@ -58,7 +58,7 @@ class AggregateCompatibilityAuditTest(unittest.TestCase):
         linkage.mkdir()
         (linkage / "status.txt").write_text("PASS\n", encoding="utf-8")
 
-    def run_audit(self) -> int:
+    def run_audit(self, required_only: bool = False) -> int:
         old_argv = sys.argv
         try:
             sys.argv = [
@@ -68,6 +68,8 @@ class AggregateCompatibilityAuditTest(unittest.TestCase):
                 "--summary",
                 str(self.summary),
             ]
+            if required_only:
+                sys.argv.append("--required-only")
             return audit.main()
         finally:
             sys.argv = old_argv
@@ -108,6 +110,14 @@ class AggregateCompatibilityAuditTest(unittest.TestCase):
         summary = self.summary.read_text(encoding="utf-8")
         self.assertIn("INSTRUMENTATION_ERROR", summary)
         self.assertIn("**BLOCKED:**", summary)
+
+    def test_required_only_matches_pull_request_scope(self) -> None:
+        self.write_status("required-addon", audit.PASS)
+        self.assertEqual(0, self.run_audit(required_only=True))
+        summary = self.summary.read_text(encoding="utf-8")
+        self.assertIn("**PASS:**", summary)
+        self.assertIn("example/RequiredAddon", summary)
+        self.assertNotIn("example/AdvisoryAddon", summary)
 
     def test_required_baseline_failure_blocks(self) -> None:
         self.write_status("required-addon", audit.BASELINE_BUILD_FAILED)
