@@ -83,35 +83,96 @@ def main() -> int:
     require_absent(source, "long charge = getChargeLong(l);", "duplicate location-based energy read")
     require_absent(source, "setCharge(l, (long) charge - getEnergyConsumption());", "duplicate location-based energy write")
 
-    # Backpack snapshots are acknowledgements of changes already staged for persistence.
-    # Never advance that acknowledgement before ItemStack serialization and queue submission
-    # have succeeded for the entire changed-slot set.
+    # Backpack snapshots acknowledge successfully completed persistence, not mere queue acceptance.
     profile = compact(
         read(
             root,
             "src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/ProfileDataController.java",
         )
     )
-    require(profile, "boolean allChangesStaged = true", "backpack staging success guard")
-    require(profile, "for (int slot : slots)", "explicit backpack changed-slot staging loop")
-    require(profile, "allChangesStaged = false", "failed backpack serialization keeps snapshot dirty")
-    require(profile, "if (allChangesStaged) { bp.refreshSnapshot(); }", "snapshot refresh staging guard")
-    require_before(
+    require(profile, "public CompletableFuture<Void> saveBackpackInventoryAsync", "async backpack save API")
+    require(profile, "stagedSnapshot = new InvSnapshot(inv)", "immutable staged backpack snapshot")
+    require(profile, "CompletableFuture<Void> completion = new CompletableFuture<>()", "per-write completion capture")
+    require(profile, "completion.completeExceptionally(failure)", "failed backpack write completion")
+    require(profile, "CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new))", "backpack write batch barrier")
+    require(
         profile,
-        "data.put(FieldKey.INVENTORY_ITEM, is)",
-        "bp.refreshSnapshot()",
-        "backpack serialization before snapshot acknowledgement",
+        "return completion.thenRun(() -> { synchronized (bp) { bp.acknowledgeSnapshot(stagedSnapshot); } });",
+        "snapshot acknowledgement after successful write barrier",
+    )
+    require(
+        profile,
+        "scheduleWriteTask(ownerScope, key, write, false)",
+        "backpack completion wrapper submitted with the queued write",
+    )
+    require(
+        profile,
+        "completion.complete(null)",
+        "successful backpack write completion signal",
     )
     require_before(
         profile,
-        "scheduleWriteTask( new UUIDKey(DataScope.NONE, bp.getOwner().getUniqueId()), key, data, false)",
-        "bp.refreshSnapshot()",
-        "backpack queue submission before snapshot acknowledgement",
+        "CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new))",
+        "bp.acknowledgeSnapshot(stagedSnapshot)",
+        "write completion barrier before snapshot acknowledgement",
     )
     require_absent(
         profile,
-        "Set<Integer> slots = bp.getSnapshot().getChangedSlots(bp.getInventory()); bp.refreshSnapshot();",
-        "pre-staging backpack snapshot refresh",
+        "if (allChangesStaged) { bp.refreshSnapshot(); }",
+        "queue-acceptance snapshot acknowledgement",
+    )
+
+    backpack = compact(
+        read(
+            root,
+            "src/main/java/io/github/thebusybiscuit/slimefun4/api/player/PlayerBackpack.java",
+        )
+    )
+    require(backpack, "private volatile InvSnapshot snapshot", "cross-thread snapshot visibility")
+    require(
+        backpack,
+        "public void acknowledgeSnapshot(@Nonnull InvSnapshot persistedSnapshot)",
+        "exact persisted-snapshot acknowledgement API",
+    )
+    require(backpack, "this.snapshot = persistedSnapshot", "immutable staged snapshot assignment")
+
+    listener = compact(
+        read(
+            root,
+            "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/BackpackListener.java",
+        )
+    )
+    require(
+        listener,
+        "private final Map<UUID, CompletableFuture<Void>> pendingSaves",
+        "pending backpack save registry",
+    )
+    require(listener, "saveBackpackInventoryAsync(backpack)", "listener async backpack save")
+    require(
+        listener,
+        "if (!pendingSaves.containsKey(playerId)) { finishBackpackSession(playerId, null); }",
+        "quit keeps reservation while save is pending",
+    )
+    require_before(
+        listener,
+        "pendingSaves.put(playerId, save)",
+        "save.whenComplete",
+        "pending save registered before completion callback",
+    )
+    require(
+        listener,
+        "pendingSaves.remove(playerId, save);\n            finishBackpackSession(playerId, backpack.getUniqueId());",
+        "pending save cleared before session reservation release",
+    )
+    require(
+        listener,
+        "private void finishBackpackSession(@Nonnull UUID playerId, @Nullable UUID backpackId)",
+        "central backpack session release helper",
+    )
+    require(
+        listener,
+        "openRegistry.release(playerId)",
+        "canonical reservation release in session cleanup helper",
     )
 
     print("Container and backpack storage correctness verification passed.")
