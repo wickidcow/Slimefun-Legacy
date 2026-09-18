@@ -184,6 +184,23 @@ def main() -> int:
         "generic container output fit before input consumption",
     )
 
+    fluid_pump = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/FluidPump.java",
+    )
+    require(fluid_pump, "BlockData originalFluid = source.getBlockData().clone();", "FluidPump source snapshot")
+    require(fluid_pump, "source.setType(Material.AIR, false);", "FluidPump source consumption before output")
+    require(fluid_pump, "ItemStack remainder = menu.pushItem(output, getOutputSlots());", "FluidPump output remainder capture")
+    require(fluid_pump, "source.setBlockData(originalFluid, false);", "FluidPump source rollback")
+    require(fluid_pump, "menu.replaceExistingItem(inputSlot, originalInput);", "FluidPump input rollback")
+    require(fluid_pump, "addCharge(machine.getLocation(), ENERGY_CONSUMPTION);", "FluidPump energy rollback")
+    require_before(
+        fluid_pump,
+        "source.setType(Material.AIR, false);",
+        "ItemStack remainder = menu.pushItem(output, getOutputSlots());",
+        "FluidPump consumes fluid source before bucket output commit",
+    )
+
     tree_accelerator = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/accelerators/TreeGrowthAccelerator.java",
@@ -209,15 +226,30 @@ def main() -> int:
     require(exp_collector, "private static final int EXPERIENCE_PER_FLASK = 10;", "EXP flask conversion unit")
     require(
         exp_collector,
-        "while (experiencePoints - withdrawn >= EXPERIENCE_PER_FLASK",
-        "EXP Collector new-total conversion loop",
+        "StorageCacheUtils.setData(location, DATA_KEY, String.valueOf(remainingExperience));",
+        "EXP Collector accounts collected experience before output",
+    )
+    require(
+        exp_collector,
+        "int nextBalance = remainingExperience - EXPERIENCE_PER_FLASK;",
+        "EXP Collector per-flask source debit",
+    )
+    require(
+        exp_collector,
+        "ItemStack[] outputSnapshot = snapshotSlots(menu, outputSlots);",
+        "EXP Collector output rollback snapshot",
     )
     require(exp_collector, "int storedExperience = Math.max(0, Integer.parseInt(value));", "negative EXP repair")
     require_before(
         exp_collector,
-        "withdrawn += EXPERIENCE_PER_FLASK;",
-        "StorageCacheUtils.setData(location, DATA_KEY, String.valueOf(experiencePoints - withdrawn));",
-        "EXP withdrawal before persisted remainder",
+        "StorageCacheUtils.setData(location, DATA_KEY, String.valueOf(nextBalance));",
+        "menu.pushItem(SlimefunItems.FILLED_FLASK_OF_KNOWLEDGE.clone(), outputSlots);",
+        "EXP balance debit before flask output",
+    )
+    require(
+        exp_collector,
+        "restoreSlots(menu, outputSlots, outputSnapshot);",
+        "EXP Collector output rollback",
     )
 
     farmer = read(
@@ -225,18 +257,44 @@ def main() -> int:
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/androids/FarmerAndroid.java",
     )
     require(farmer, "menu.fits(drop, getOutputSlots())", "Farmer Android full-output preflight")
-    require(farmer, "ItemStack remainder = menu.pushItem(drop, getOutputSlots());", "Farmer Android transactional output push")
+    require(farmer, "BlockData originalCrop = data.clone();", "Farmer Android crop snapshot")
+    require(farmer, "ItemStack[] originalOutputs = snapshotSlots(menu, outputSlots);", "Farmer Android output snapshot")
+    require(farmer, "ItemStack remainder = menu.pushItem(drop, outputSlots);", "Farmer Android transactional output push")
+    require(farmer, "restoreSlots(menu, outputSlots, originalOutputs);", "Farmer Android output rollback")
+    require(farmer, "block.setBlockData(originalCrop);", "Farmer Android crop rollback")
     require_before(
         farmer,
         "menu.fits(drop, getOutputSlots())",
-        "menu.pushItem(drop, getOutputSlots())",
-        "Farmer Android fit-before-push transaction",
+        "ageable.setAge(0);",
+        "Farmer Android fit preflight before crop mutation",
     )
     require_before(
         farmer,
-        "if (remainder == null)",
         "ageable.setAge(0);",
-        "Farmer Android harvest completion before crop reset",
+        "ItemStack remainder = menu.pushItem(drop, outputSlots);",
+        "Farmer Android crop consumption before harvest output",
+    )
+
+    miner = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/androids/MinerAndroid.java",
+    )
+    require(miner, "InfiniteBlockGenerator generator = null;", "Miner Android explicit generator transaction branch")
+    require(
+        miner,
+        "if (generator == null) {\n                block.setType(Material.AIR);",
+        "Miner Android ordinary-source consumption",
+    )
+    require_before(
+        miner,
+        "block.setType(Material.AIR);",
+        "for (ItemStack drop : drops)",
+        "Miner Android ordinary block consumption before drop commit",
+    )
+    require(
+        miner,
+        "if (generator != null) {",
+        "Miner Android renewable generator exemption",
     )
 
     woodcutter = read(
@@ -245,6 +303,22 @@ def main() -> int:
     )
     require(woodcutter, "ItemStack remainder = menu.pushItem(drop, getOutputSlots());", "Woodcutter Android overflow capture")
     require(woodcutter, "dropItemNaturally(log.getLocation(), remainder)", "Woodcutter Android overflow preservation")
+    require(
+        woodcutter,
+        "if (saplingType == null || soilRequirement == null)",
+        "Woodcutter Android unknown-log fail-safe",
+    )
+    require(
+        woodcutter,
+        "block.setType(Material.AIR);\n            return;",
+        "Woodcutter Android consumes unmapped future logs",
+    )
+    require_before(
+        woodcutter,
+        "if (log.getY() == android.getRelative(face).getY())",
+        "ItemStack remainder = menu.pushItem(drop, getOutputSlots());",
+        "Woodcutter Android world mutation before harvested output",
+    )
     require_before(
         woodcutter,
         "ItemStack remainder = menu.pushItem(drop, getOutputSlots());",

@@ -51,39 +51,54 @@ class ADataControllerWriteQueueTest {
     }
 
     @Test
-    void submissionCompletionTracksExactAcceptedQueue() throws Exception {
+    void submissionCompletionTracksCompactedQueue() throws Exception {
         var controller = new TestController(1);
-        var release = new CountDownLatch(1);
+        var releaseWriter = new CountDownLatch(1);
 
         try {
-            var started = new CountDownLatch(1);
+            var writerStarted = new CountDownLatch(1);
+            controller.blockWriter(writerStarted, releaseWriter);
+            assertTrue(writerStarted.await(5, TimeUnit.SECONDS));
+
             var scope = new LocationKey(DataScope.NONE, "world;0:64:0");
-            CompletableFuture<Void> completion = controller.scheduleWithCompletion(scope, record("exact"), () -> {
-                started.countDown();
-                awaitRelease(release);
-            });
+            var key = record("compacted");
+            var firstRan = new AtomicBoolean();
+            var secondRan = new AtomicBoolean();
 
-            assertTrue(started.await(5, TimeUnit.SECONDS));
-            assertFalse(completion.isDone());
+            CompletableFuture<Void> first =
+                    controller.scheduleWithCompletion(scope, key, () -> firstRan.set(true));
+            CompletableFuture<Void> second =
+                    controller.scheduleWithCompletion(scope, key, () -> secondRan.set(true));
 
-            release.countDown();
-            completion.get(5, TimeUnit.SECONDS);
+            assertFalse(first.isDone());
+            assertFalse(second.isDone());
+
+            releaseWriter.countDown();
+            first.get(5, TimeUnit.SECONDS);
+            second.get(5, TimeUnit.SECONDS);
+
+            // QueuedWriteTask deliberately compacts the older runnable for an
+            // identical RecordKey. Both callers still observe the accepting
+            // queue's completion instead of leaving the first future stranded.
+            assertFalse(firstRan.get());
+            assertTrue(secondRan.get());
             assertEquals(0, controller.getPendingWriteTaskCount());
         } finally {
-            release.countDown();
+            releaseWriter.countDown();
             controller.closeExecutors();
         }
     }
 
     @Test
-    void submissionCompletionReportsWriteFailure() {
+    void submissionCompletionReportsQueueFailure() {
         var controller = new TestController(1);
 
         try {
             var scope = new LocationKey(DataScope.NONE, "world;0:64:0");
-            CompletableFuture<Void> completion = controller.scheduleWithCompletion(scope, record("failure-future"), () -> {
-                throw new IllegalStateException("expected failure");
-            });
+            CompletableFuture<Void> completion =
+                    controller.scheduleWithCompletion(scope, record("failure-future"), () -> {
+                        throw new IllegalStateException("expected failure");
+                    });
 
             assertThrows(Exception.class, () -> completion.get(5, TimeUnit.SECONDS));
             assertTrue(completion.isCompletedExceptionally());
@@ -228,6 +243,13 @@ class ADataControllerWriteQueueTest {
 
         private CompletableFuture<Void> scheduleWithCompletion(ScopeKey scope, RecordKey key, Runnable task) {
             return scheduleWriteTaskWithCompletion(scope, key, task, true);
+        }
+
+        private void blockWriter(CountDownLatch started, CountDownLatch release) {
+            writeExecutor.submit(() -> {
+                started.countDown();
+                awaitRelease(release);
+            });
         }
 
         private CompletableFuture<Void> currentCompletion(ScopeKey scope) {

@@ -243,7 +243,9 @@ public abstract class ADataController {
      *
      * <p>Capturing the future while submission still owns the controller's
      * submission/scope locks avoids the race where a very fast queue can drain
-     * and disappear before a caller asks for its completion state.
+     * and disappear before a caller asks for its completion state. Queue-level
+     * completion is also safe when {@link QueuedWriteTask} compacts repeated
+     * writes for the same record key.
      */
     protected CompletableFuture<Void> scheduleWriteTaskWithCompletion(
             ScopeKey scopeKey, RecordKey key, Runnable task, boolean forceScopeKey) {
