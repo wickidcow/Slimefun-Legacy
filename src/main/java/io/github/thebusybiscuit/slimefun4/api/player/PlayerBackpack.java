@@ -177,6 +177,24 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
     }
 
     /**
+     * Returns the stable owner/id identity encoded by a legacy backpack lore line.
+     *
+     * <p>This is used while reserving backpack access before the legacy item can be migrated to its canonical UUID.
+     * Including the owner UUID is important because backpack ids are only unique per owner.
+     */
+    public static Optional<String> getLegacyBackpackIdentity(@Nullable ItemMeta meta) {
+        if (meta == null || !meta.hasLore()) {
+            return Optional.empty();
+        }
+
+        return getLegacyBackpackIdentity(meta.getLore());
+    }
+
+    static Optional<String> getLegacyBackpackIdentity(@Nullable List<String> lore) {
+        return getLegacyBackpackReference(lore).map(reference -> reference.owner() + ":" + reference.id());
+    }
+
+    /**
      * Returns whether this item metadata belongs to an already-bound backpack.
      * Both the current PDC identity and the legacy visible ID lore are recognized.
      */
@@ -298,7 +316,15 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
             return Optional.empty();
         }
 
-        for (String line : meta.getLore()) {
+        return getLegacyBackpackReference(meta.getLore());
+    }
+
+    private static Optional<LegacyBackpackReference> getLegacyBackpackReference(@Nullable List<String> lore) {
+        if (lore == null) {
+            return Optional.empty();
+        }
+
+        for (String line : lore) {
             if (line == null || !line.startsWith(COLORED_LORE_ID) || line.indexOf('#') == -1) {
                 continue;
             }

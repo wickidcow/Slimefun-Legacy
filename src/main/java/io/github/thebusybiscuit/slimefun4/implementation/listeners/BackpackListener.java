@@ -545,9 +545,6 @@ public class BackpackListener implements Listener {
     private String getReservationKey(@Nonnull org.bukkit.inventory.meta.ItemMeta meta) {
         return PlayerBackpack.getBackpackUUID(meta)
                 .map(uuid -> "uuid:" + uuid)
-                .orElseGet(() -> "legacy:"
-                        + PlayerBackpack.getOwnerUUID(meta).orElse("unknown")
-                        + ':'
-                        + PlayerBackpack.getBackpackID(meta).orElse(-1));
+                .orElseGet(() -> "legacy:" + PlayerBackpack.getLegacyBackpackIdentity(meta).orElse("unknown:-1"));
     }
 }
