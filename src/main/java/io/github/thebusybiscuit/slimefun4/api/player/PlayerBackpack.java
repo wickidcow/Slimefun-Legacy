@@ -61,7 +61,7 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
     // PlayerBackpack#refreshSnapshot
     @Nonnull
     @Getter
-    private InvSnapshot snapshot;
+    private volatile InvSnapshot snapshot;
 
     /**
      * Loads a backpack and executes the callback using the legacy global/main-thread behavior.
@@ -390,6 +390,21 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
      */
     public void refreshSnapshot() {
         this.snapshot = new InvSnapshot(inventory);
+    }
+
+    /**
+     * Acknowledges the exact inventory snapshot that completed persistence.
+     *
+     * <p>This overload is used by the asynchronous backpack save path. Assigning
+     * the staged immutable snapshot instead of re-reading the Bukkit inventory
+     * allows database completion callbacks to acknowledge persistence without
+     * touching Bukkit inventory state from a database thread. Any later inventory
+     * mutation remains dirty relative to this persisted snapshot.
+     *
+     * @param persistedSnapshot the exact snapshot represented by the completed write batch
+     */
+    public void acknowledgeSnapshot(@Nonnull InvSnapshot persistedSnapshot) {
+        this.snapshot = persistedSnapshot;
     }
 
     /**
