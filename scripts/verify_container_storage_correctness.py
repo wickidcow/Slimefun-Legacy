@@ -83,7 +83,31 @@ def main() -> int:
     require_absent(source, "long charge = getChargeLong(l);", "duplicate location-based energy read")
     require_absent(source, "setCharge(l, (long) charge - getEnergyConsumption());", "duplicate location-based energy write")
 
-    # Backpack snapshots acknowledge successfully completed persistence, not mere queue acceptance.
+    # Backpack snapshots acknowledge completed queue batches, not individual
+    # runnables that may be compacted/replaced inside QueuedWriteTask.
+    controller = compact(
+        read(
+            root,
+            "src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/ADataController.java",
+        )
+    )
+    require(
+        controller,
+        "protected CompletableFuture<Void> scheduleWriteTaskWithCompletion(",
+        "completion-returning scoped write submission",
+    )
+    require(
+        controller,
+        "return queuedTask.getCompletionFuture()",
+        "existing accepting queue completion",
+    )
+    require_before(
+        controller,
+        "CompletableFuture<Void> completion = queuedTask.getCompletionFuture()",
+        "writeExecutor.submit(queuedTask)",
+        "new queue completion captured before executor submission",
+    )
+
     profile = compact(
         read(
             root,
@@ -91,30 +115,60 @@ def main() -> int:
         )
     )
     require(profile, "public CompletableFuture<Void> saveBackpackInventoryAsync", "async backpack save API")
-    require(profile, "stagedSnapshot = new InvSnapshot(inv)", "immutable staged backpack snapshot")
-    require(profile, "CompletableFuture<Void> completion = new CompletableFuture<>()", "per-write completion capture")
-    require(profile, "completion.completeExceptionally(failure)", "failed backpack write completion")
-    require(profile, "CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new))", "backpack write batch barrier")
     require(
         profile,
-        "return completion.thenRun(() -> { synchronized (bp) { bp.acknowledgeSnapshot(stagedSnapshot); } });",
-        "snapshot acknowledgement after successful write barrier",
+        "private final Map<String, CompletableFuture<Void>> backpackSaveChains",
+        "per-backpack save chains",
     )
     require(
         profile,
-        "scheduleWriteTask(ownerScope, key, write, false)",
-        "backpack completion wrapper submitted with the queued write",
+        "private final Set<String> uncertainBackpackBaselines",
+        "partial-write recovery marker",
+    )
+    require(profile, "stagedSnapshot = new InvSnapshot(contents)", "immutable staged backpack snapshot")
+    require(profile, "stageBackpackWrites(backpackId, contents)", "fully staged backpack writes")
+    require(profile, "for (int slot = 0; slot < 54; slot++)", "full legal backpack recovery range")
+    require(
+        profile,
+        "CompletableFuture<Void> next = start.thenCompose(ignored -> saveAttempt.get())",
+        "serialized save attempts per backpack UUID",
     )
     require(
         profile,
-        "completion.complete(null)",
-        "successful backpack write completion signal",
+        "changed = new HashSet<>(stagedWrites.keySet())",
+        "full rewrite after uncertain partial persistence",
+    )
+    require(
+        profile,
+        "scheduleDeleteTaskWithCompletion(ownerScope, write.key(), false)",
+        "tracked backpack delete completion",
+    )
+    require(
+        profile,
+        "scheduleWriteTaskWithCompletion(ownerScope, write.key(), write.data(), false)",
+        "tracked backpack write completion",
+    )
+    require(profile, "CompletableFuture.allOf(completions.toArray(CompletableFuture[]::new))", "backpack write batch barrier")
+    require(
+        profile,
+        "backpack.acknowledgeSnapshot(stagedSnapshot)",
+        "snapshot acknowledgement after successful batch",
+    )
+    require(
+        profile,
+        "uncertainBackpackBaselines.add(backpackId)",
+        "failed batch marks persistence baseline uncertain",
     )
     require_before(
         profile,
-        "CompletableFuture.allOf(writes.toArray(CompletableFuture[]::new))",
-        "bp.acknowledgeSnapshot(stagedSnapshot)",
-        "write completion barrier before snapshot acknowledgement",
+        "awaitBackpackSaveChains()",
+        "super.shutdown()",
+        "backpack save chains drain before controller shutdown",
+    )
+    require_absent(
+        profile,
+        "CompletableFuture<Void> completion = new CompletableFuture<>()",
+        "per-runnable completion future vulnerable to queue compaction",
     )
     require_absent(
         profile,
