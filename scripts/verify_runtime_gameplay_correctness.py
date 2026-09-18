@@ -278,6 +278,41 @@ def main() -> int:
         "research level cost validates incoming value",
     )
 
+    backpack_listener = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/BackpackListener.java",
+    )
+    require(
+        backpack_listener,
+        "isBackpackItem(e.getMainHandItem()) || isBackpackItem(e.getOffHandItem())",
+        "backpack hand-swap guard checks both participating hands",
+    )
+    require(
+        backpack_listener,
+        "isBackpackItem(e.getCurrentItem()) || isBackpackItem(e.getCursor())",
+        "backpack player-inventory click guards current item and cursor",
+    )
+    require(
+        backpack_listener,
+        "if (e.getClick() == ClickType.NUMBER_KEY)",
+        "backpack player-inventory number-key guard",
+    )
+    require(
+        backpack_listener,
+        "if (isBackpackItem(hotbarItem))",
+        "backpack hotbar source validation",
+    )
+    require(
+        backpack_listener,
+        "e.getClick() == ClickType.SWAP_OFFHAND",
+        "backpack player-inventory offhand-swap guard",
+    )
+    require(
+        backpack_listener,
+        "isBackpackItem(e.getWhoClicked().getInventory().getItemInOffHand())",
+        "backpack offhand source validation",
+    )
+
     cooler_listener = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/CoolerListener.java",
