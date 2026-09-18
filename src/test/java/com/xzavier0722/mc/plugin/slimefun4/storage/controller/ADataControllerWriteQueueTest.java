@@ -93,6 +93,39 @@ class ADataControllerWriteQueueTest {
     }
 
     @Test
+    void failedWriteRemainsVisibleToShutdownAccounting() throws Exception {
+        var controller = new TestController(1);
+        var scope = new LocationKey(DataScope.NONE, "world;0:64:0");
+        var completion = new CompletableFuture<Void>();
+
+        try {
+            controller.schedule(scope, record("failure"), () -> {
+                completion.complete(null);
+                throw new IllegalStateException("expected database write failure");
+            });
+
+            completion.get(5, TimeUnit.SECONDS);
+
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (!controller.hasObservedWriteFailure() && System.nanoTime() < deadline) {
+                Thread.sleep(10L);
+            }
+
+            assertTrue(controller.hasObservedWriteFailure());
+
+            while (controller.getPendingWriteTaskCount() != 0 && System.nanoTime() < deadline) {
+                Thread.sleep(10L);
+            }
+            assertEquals(0, controller.getPendingWriteTaskCount());
+
+            controller.shutdown();
+            assertFalse(controller.wasLastShutdownClean());
+        } finally {
+            controller.closeExecutors();
+        }
+    }
+
+    @Test
     void writeSubmissionGateRunsOnlyAfterMatchingQueueDrains() throws Exception {
         var controller = new TestController(1);
         var release = new CountDownLatch(1);
