@@ -211,6 +211,7 @@ jobs:
 
   prepare-cross-fork-api-matrix:
     name: Prepare cross-fork API probes
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
