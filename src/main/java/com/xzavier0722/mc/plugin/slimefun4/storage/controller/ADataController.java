@@ -64,6 +64,7 @@ public abstract class ADataController {
 
     private volatile boolean shuttingDown = false;
     private volatile boolean lastShutdownClean = true;
+    private volatile boolean writeFailureObserved = false;
 
     /**
      * The logger for this data controller.
@@ -171,12 +172,14 @@ public abstract class ADataController {
                 pendingTask = currentTask;
             }
 
-            lastShutdownClean = scheduledWriteTasks.isEmpty();
+            lastShutdownClean = scheduledWriteTasks.isEmpty() && !writeFailureObserved;
             if (lastShutdownClean) {
                 logger.info("Data save completed.");
-            } else {
+            } else if (!scheduledWriteTasks.isEmpty()) {
                 logger.log(
                         Level.SEVERE, "Timed out with {0} pending database write task(s).", scheduledWriteTasks.size());
+            } else {
+                logger.severe("One or more database write tasks failed; shutdown is not clean.");
             }
         } catch (InterruptedException e) {
             lastShutdownClean = false;
@@ -248,6 +251,8 @@ public abstract class ADataController {
 
                     @Override
                     protected void onError(Throwable e) {
+                        writeFailureObserved = true;
+                        lastShutdownClean = false;
                         Slimefun.logger()
                                 .log(
                                         Level.SEVERE,
@@ -466,6 +471,10 @@ public abstract class ADataController {
 
     public boolean wasLastShutdownClean() {
         return lastShutdownClean;
+    }
+
+    boolean hasObservedWriteFailure() {
+        return writeFailureObserved;
     }
 
     public final DataType getDataType() {
