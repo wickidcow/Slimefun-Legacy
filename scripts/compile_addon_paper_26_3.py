@@ -93,6 +93,21 @@ def make_executable(path: Path) -> None:
     path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 
+def prepare_shell_wrapper(path: Path) -> None:
+    """Make a checked-out Maven/Gradle wrapper executable on Linux.
+
+    A few maintained legacy forks committed their shell wrapper with CRLF line
+    endings. Executing a CRLF shebang directly on Linux reports ENOENT because
+    the kernel looks for an interpreter named "/bin/sh\r". The compatibility
+    probe runs in a disposable checkout, so normalize only the wrapper copy
+    before executing it.
+    """
+    data = path.read_bytes()
+    if b"\r\n" in data:
+        path.write_bytes(data.replace(b"\r\n", b"\n"))
+    make_executable(path)
+
+
 def stream_command(command: list[str], *, cwd: Path, env: dict[str, str], log: TextIO) -> int:
     header = f"$ {' '.join(command)}\nWorking directory: {cwd}\n\n"
     print(header, end="")
@@ -448,7 +463,7 @@ def build_project(
             )
             wrapper = project / "mvnw"
             if wrapper.is_file():
-                make_executable(wrapper)
+                prepare_shell_wrapper(wrapper)
                 command = [str(wrapper), "-B", "-DskipTests", "package"]
             else:
                 command = ["mvn", "-B", "-DskipTests", "package"]
@@ -456,7 +471,7 @@ def build_project(
             init_script = write_gradle_init_script(project)
             wrapper = project / "gradlew"
             if wrapper.is_file():
-                make_executable(wrapper)
+                prepare_shell_wrapper(wrapper)
                 command = [
                     str(wrapper),
                     "clean",

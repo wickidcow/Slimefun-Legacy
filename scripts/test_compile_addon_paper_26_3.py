@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import stat
 import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -106,6 +107,17 @@ def test_maven_injects_missing_direct_dependencies() -> None:
         assert ("io.papermc.paper", "paper-api", "26.3.build.8") in rows
 
 
+def test_shell_wrapper_normalization() -> None:
+    with tempfile.TemporaryDirectory() as raw:
+        wrapper = Path(raw) / "gradlew"
+        wrapper.write_bytes(b"#!/bin/sh\r\necho wrapper\r\n")
+
+        probe.prepare_shell_wrapper(wrapper)
+
+        assert wrapper.read_bytes() == b"#!/bin/sh\necho wrapper\n"
+        assert wrapper.stat().st_mode & stat.S_IXUSR
+
+
 def test_gradle_init_script_guards_both_stacks() -> None:
     with tempfile.TemporaryDirectory() as raw:
         root = Path(raw)
@@ -129,6 +141,7 @@ def main() -> int:
     test_coordinate_classification()
     test_maven_property_rewrite()
     test_maven_injects_missing_direct_dependencies()
+    test_shell_wrapper_normalization()
     test_gradle_init_script_guards_both_stacks()
     print("Paper 26.3 addon compile probe self-tests passed.")
     return 0

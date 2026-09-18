@@ -5,9 +5,14 @@ on:
     branches: [master]
     paths:
       - '.github/workflows/paper-26.3-addon-compile.yml'
+      - 'compatibility/addon-compatibility-matrix.json'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'scripts/compile_addon_paper_26_3.py'
       - 'scripts/test_compile_addon_paper_26_3.py'
+      - 'scripts/paper_candidate_versions.py'
+      - 'scripts/test_paper_candidate_versions.py'
+      - 'build.gradle.kts'
+      - 'gradle/**'
   pull_request:
     paths:
       - '.github/workflows/paper-26.3-addon-compile.yml'
@@ -15,6 +20,8 @@ on:
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'scripts/compile_addon_paper_26_3.py'
       - 'scripts/test_compile_addon_paper_26_3.py'
+      - 'scripts/paper_candidate_versions.py'
+      - 'scripts/test_paper_candidate_versions.py'
       - 'build.gradle.kts'
       - 'gradle/**'
   workflow_dispatch:
@@ -35,7 +42,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Verify Maven and Gradle normalization
-        run: python3 scripts/test_compile_addon_paper_26_3.py
+        run: |
+          python3 scripts/test_compile_addon_paper_26_3.py
+          python3 scripts/test_paper_candidate_versions.py
 
   detect-paper-api:
     name: Resolve Paper candidate API
@@ -48,6 +57,7 @@ jobs:
       probe_label: ${{ steps.detect.outputs.probe_label }}
       probe_mode: ${{ steps.detect.outputs.probe_mode }}
     steps:
+      - uses: actions/checkout@v6
       - name: Discover real 26.3 or PR plumbing candidate
         id: detect
         env:
@@ -57,10 +67,11 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           import os
-          import re
           import urllib.error
           import urllib.request
           import xml.etree.ElementTree as ET
+
+          from scripts.paper_candidate_versions import latest_candidate
 
           target = os.environ['PAPER_26_3_VERSION']
           production = os.environ['PAPER_PRODUCTION_VERSION']
@@ -70,15 +81,6 @@ jobs:
               'https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/maven-metadata.xml',
               headers={'User-Agent': 'Slimefun-Legacy-26.3-Addon-Compile/1.1'},
           )
-
-          def latest(versions, prefix):
-              candidates = [value for value in versions if value.startswith(prefix + '.build.')]
-              if not candidates:
-                  return ''
-              def key(value: str):
-                  match = re.search(r'\.build\.(\d+)', value)
-                  return (int(match.group(1)) if match else -1, value)
-              return max(candidates, key=key)
 
           versions = []
           try:
@@ -92,14 +94,14 @@ jobs:
           except (OSError, urllib.error.URLError, ET.ParseError) as exc:
               print(f'Paper API probe unavailable: {exc}')
 
-          paper_26_3_version = latest(versions, target)
+          paper_26_3_version = latest_candidate(versions, target) or ''
           paper_26_3_available = bool(paper_26_3_version)
           probe_version = paper_26_3_version
           probe_label = 'Paper 26.3'
           probe_mode = 'paper-26.3'
 
           if not probe_version and event_name == 'pull_request':
-              probe_version = latest(versions, production)
+              probe_version = latest_candidate(versions, production) or ''
               if probe_version:
                   probe_label = 'Paper 26.2 plumbing smoke'
                   probe_mode = 'paper-26.2-plumbing'
@@ -205,7 +207,9 @@ jobs:
               source = [
                   addon
                   for addon in compatibility.get('addons', [])
-                  if addon.get('enabled', False) and addon.get('tier') == 'required'
+                  if addon.get('enabled', False)
+                  and addon.get('tier') == 'required'
+                  and addon.get('compile_enabled', True)
               ]
           else:
               source = release.get('addons', [])
@@ -276,7 +280,6 @@ jobs:
           git clone --depth 1 "https://github.com/${ADDON_REPOSITORY}.git" addon
       - name: Compile addon against candidate stack
         id: probe
-        continue-on-error: true
         env:
           PAPER_API_VERSION: ${{ needs.detect-paper-api.outputs.probe_version }}
           PROBE_LABEL: ${{ needs.detect-paper-api.outputs.probe_label }}
@@ -322,7 +325,7 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Mark advisory incompatibility
-        if: steps.probe.outcome == 'failure'
+        if: ${{ failure() && steps.probe.outcome == 'failure' }}
         env:
           PROBE_LABEL: ${{ needs.detect-paper-api.outputs.probe_label }}
         run: |

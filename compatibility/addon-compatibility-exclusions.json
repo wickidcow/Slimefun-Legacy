@@ -9,5 +9,10 @@
       "repository": "wickidcow/SF_WorldTaste",
       "reason": "Abandoned repository; no longer maintained or compatibility-tested"
     }
+,
+    {
+      "repository": "wickidcow/SF_Magic8Ball",
+      "reason": "Standalone Magic8Ball is integrated into Slimefun Legacy core; testing both plugins together would create duplicate functionality."
+    }
   ]
 }

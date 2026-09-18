@@ -10,8 +10,8 @@ USER_AGENT="${SERVER_DOWNLOAD_USER_AGENT:-Slimefun-Legacy-26.3-Preflight/${EXPEC
 STARTUP_TIMEOUT_SECONDS="${SERVER_SMOKE_STARTUP_TIMEOUT:-300}"
 SHUTDOWN_TIMEOUT_SECONDS="${SERVER_SMOKE_SHUTDOWN_TIMEOUT:-60}"
 
-if [[ "$MC_VERSION" != "26.3" ]]; then
-    echo "This pre-release runtime harness is intentionally scoped to Minecraft 26.3; got ${MC_VERSION}." >&2
+if [[ ! "$MC_VERSION" =~ ^26\.3($|-) ]]; then
+    echo "This pre-release runtime harness is intentionally scoped to the Minecraft 26.3 version family; got ${MC_VERSION}." >&2
     exit 1
 fi
 

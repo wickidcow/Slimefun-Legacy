@@ -7,13 +7,22 @@ on:
       - '.github/workflows/build-sfl-addons-compat-bundle.yml'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'scripts/compile_addon_paper_26_3.py'
+      - 'scripts/paper_candidate_versions.py'
+      - 'scripts/test_paper_candidate_versions.py'
+  pull_request:
+    paths:
+      - '.github/workflows/build-sfl-addons-compat-bundle.yml'
+      - 'compatibility/sfl-addon-release-matrix.json'
+      - 'scripts/compile_addon_paper_26_3.py'
+      - 'scripts/paper_candidate_versions.py'
+      - 'scripts/test_paper_candidate_versions.py'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: sf-addons-1.21.11-26.3-bundle
+  group: sf-addons-1.21.11-26.3-bundle-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -60,20 +69,17 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import os, re, urllib.request, xml.etree.ElementTree as ET
+          import os, urllib.request, xml.etree.ElementTree as ET
+          from scripts.paper_candidate_versions import latest_candidate
+
           url='https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/maven-metadata.xml'
           req=urllib.request.Request(url, headers={'User-Agent':'SF-Addon-Bundle/1.0'})
           with urllib.request.urlopen(req, timeout=30) as response:
               root=ET.fromstring(response.read())
           versions=[n.text.strip() for n in root.findall('./versioning/versions/version') if n.text]
-          candidates=[v for v in versions if v.startswith('26.3') and ('build.' in v or '-alpha' in v or '-beta' in v or '-rc-' in v)]
-          if not candidates:
+          selected=latest_candidate(versions, '26.3')
+          if not selected:
               raise SystemExit('Paper 26.3 API is not published yet')
-          def key(v):
-              build=re.search(r'build\.(\d+)',v)
-              rc=re.search(r'26\.3-rc-(\d+)',v)
-              return (int(rc.group(1)) if rc else -1, int(build.group(1)) if build else -1, v)
-          selected=max(candidates,key=key)
           with open(os.environ['GITHUB_OUTPUT'],'a',encoding='utf-8') as out:
               out.write(f'paper_api={selected}\n')
           print(f'Paper candidate API: {selected}')
@@ -175,7 +181,7 @@ jobs:
             -Pplatform=paper \
             -PplatformVersion="$PAPER_API_VERSION" \
             -PreleaseJvm=25 \
-            --no-daemon
+            --stacktrace --no-daemon
 
           # The distributable remains universal Java-21 bytecode. Rebuild it against
           # the 1.21.11 baseline and the published 4.1.51 Slimefun Legacy API target,
@@ -188,7 +194,7 @@ jobs:
             -Pplatform=paper \
             -PplatformVersion="$BASE_PAPER_API_VERSION" \
             -PreleaseJvm=21 \
-            --no-daemon
+            --stacktrace --no-daemon
 
           JAR=addon/build/libs/SFL_DracFun-Reborn2.0.1.jar
           test -s "$JAR"
@@ -387,7 +393,7 @@ jobs:
           - 1.21.11: minimum/base compatibility
           - 26.1.x: supported
           - 26.2: PRIMARY production baseline
-          - 26.3: compatible candidate; becomes primary after a stable server build is validated
+          - 26.3: release-candidate compatibility target; production promotion waits for stable validation and an explicit decision
 
           Server platforms:
           - PRIMARY: Paper, Purpur
@@ -409,6 +415,7 @@ jobs:
           path: SF_Addons_1.21.11-26.3.zip
           if-no-files-found: error
       - name: Attach canonical bundle to latest Slimefun Legacy release
+        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash

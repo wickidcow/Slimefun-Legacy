@@ -24,6 +24,8 @@ on:
       - 'compatibility/addon-compatibility-matrix.json'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'scripts/paper_26_3_preflight.py'
+      - 'scripts/paper_candidate_versions.py'
+      - 'scripts/test_paper_candidate_versions.py'
       - 'scripts/paper_26_3_runtime_smoke.sh'
       - 'scripts/verify_guide_runtime_correctness.py'
       - 'scripts/verify_runtime_gameplay_correctness.py'
@@ -52,7 +54,9 @@ jobs:
       server_available: ${{ steps.detect.outputs.server_available }}
       server_build: ${{ steps.detect.outputs.server_build }}
       server_channel: ${{ steps.detect.outputs.server_channel }}
+      server_version: ${{ steps.detect.outputs.server_version }}
     steps:
+      - uses: actions/checkout@v6
       - name: Probe Paper API and server downloads
         id: detect
         shell: bash
@@ -61,10 +65,14 @@ jobs:
           python3 - <<'PY'
           import json
           import os
-          import re
           import urllib.error
           import urllib.request
           import xml.etree.ElementTree as ET
+
+          from scripts.paper_candidate_versions import (
+              latest_candidate,
+              minecraft_version_from_artifact,
+          )
 
           version = os.environ['PAPER_26_3_VERSION']
           user_agent = os.environ['PAPER_DOWNLOAD_USER_AGENT']
@@ -80,25 +88,22 @@ jobs:
           try:
               metadata = fetch('https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/maven-metadata.xml')
               root = ET.fromstring(metadata)
-              candidates = [
+              versions = [
                   node.text.strip()
                   for node in root.findall('./versioning/versions/version')
-                  if node.text and node.text.strip().startswith(version + '.build.')
+                  if node.text and node.text.strip()
               ]
-              if candidates:
-                  def build_key(value: str):
-                      match = re.match(r'.*?\.build\.(\d+)(?:-([A-Za-z]+))?$', value)
-                      return (int(match.group(1)) if match else -1, value)
-                  api_version = max(candidates, key=build_key)
-                  api_available = True
+              api_version = latest_candidate(versions, version) or ''
+              api_available = bool(api_version)
           except (OSError, urllib.error.URLError, ET.ParseError) as exc:
               print(f'Paper API probe unavailable: {exc}')
 
           server_available = False
           server_build = ''
           server_channel = ''
+          server_version = minecraft_version_from_artifact(api_version) if api_version else version
           try:
-              payload = json.loads(fetch(f'https://fill.papermc.io/v3/projects/paper/versions/{version}/builds'))
+              payload = json.loads(fetch(f'https://fill.papermc.io/v3/projects/paper/versions/{server_version}/builds'))
               if isinstance(payload, list) and payload:
                   build = max(payload, key=lambda item: int(item.get('id', -1)))
                   download = (build.get('downloads') or {}).get('server:default') or {}
@@ -115,6 +120,7 @@ jobs:
               stream.write(f'server_available={str(server_available).lower()}\n')
               stream.write(f'server_build={server_build}\n')
               stream.write(f'server_channel={server_channel}\n')
+              stream.write(f'server_version={server_version}\n')
           PY
 
       - name: Publish detection status
@@ -130,6 +136,7 @@ jobs:
             fi
             echo '- Server build available: `${{ steps.detect.outputs.server_available }}`'
             if [[ '${{ steps.detect.outputs.server_available }}' == 'true' ]]; then
+              echo '- Server version: `${{ steps.detect.outputs.server_version }}`'
               echo '- Server build: `${{ steps.detect.outputs.server_build }}` (`${{ steps.detect.outputs.server_channel }}`)'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
@@ -389,7 +396,7 @@ jobs:
 
       - name: Boot Paper 26.3 twice
         env:
-          SERVER_MINECRAFT_VERSION: '26.3'
+          SERVER_MINECRAFT_VERSION: ${{ needs.detect-paper-26-3.outputs.server_version }}
           SERVER_DOWNLOAD_USER_AGENT: ${{ env.PAPER_DOWNLOAD_USER_AGENT }}
         run: bash scripts/paper_26_3_runtime_smoke.sh "${{ steps.candidate.outputs.jar }}"
 
