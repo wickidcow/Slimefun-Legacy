@@ -83,7 +83,38 @@ def main() -> int:
     require_absent(source, "long charge = getChargeLong(l);", "duplicate location-based energy read")
     require_absent(source, "setCharge(l, (long) charge - getEnergyConsumption());", "duplicate location-based energy write")
 
-    print("AContainer loaded-storage correctness verification passed.")
+    # Backpack snapshots are acknowledgements of changes already staged for persistence.
+    # Never advance that acknowledgement before ItemStack serialization and queue submission
+    # have succeeded for the entire changed-slot set.
+    profile = compact(
+        read(
+            root,
+            "src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/ProfileDataController.java",
+        )
+    )
+    require(profile, "boolean allChangesStaged = true", "backpack staging success guard")
+    require(profile, "for (int slot : slots)", "explicit backpack changed-slot staging loop")
+    require(profile, "allChangesStaged = false", "failed backpack serialization keeps snapshot dirty")
+    require(profile, "if (allChangesStaged) { bp.refreshSnapshot(); }", "snapshot refresh staging guard")
+    require_before(
+        profile,
+        "data.put(FieldKey.INVENTORY_ITEM, is)",
+        "bp.refreshSnapshot()",
+        "backpack serialization before snapshot acknowledgement",
+    )
+    require_before(
+        profile,
+        "scheduleWriteTask( new UUIDKey(DataScope.NONE, bp.getOwner().getUniqueId()), key, data, false)",
+        "bp.refreshSnapshot()",
+        "backpack queue submission before snapshot acknowledgement",
+    )
+    require_absent(
+        profile,
+        "Set<Integer> slots = bp.getSnapshot().getChangedSlots(bp.getInventory()); bp.refreshSnapshot();",
+        "pre-staging backpack snapshot refresh",
+    )
+
+    print("Container and backpack storage correctness verification passed.")
     return 0
 
 
