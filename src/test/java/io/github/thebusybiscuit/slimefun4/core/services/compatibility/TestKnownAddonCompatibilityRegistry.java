@@ -20,6 +20,7 @@ class TestKnownAddonCompatibilityRegistry {
         assertTrue(registry.find("FoxyMachines").isPresent());
         assertTrue(registry.find("NetworksExpansion").isPresent());
         assertTrue(registry.find("BetterChests").isPresent());
+        assertTrue(registry.find("JustEnoughGuide").isPresent());
         assertTrue(registry.find("DankTech2").isPresent());
         assertTrue(registry.find("Cultivation").isPresent());
         assertTrue(registry.find("ElectricSpawners").isPresent());
@@ -51,6 +52,7 @@ class TestKnownAddonCompatibilityRegistry {
                 "Networks",
                 "SlimeTinker",
                 "BetterChests",
+                "JustEnoughGuide",
                 "InfinityExpansion2",
                 "DynaTech",
                 "Supreme",

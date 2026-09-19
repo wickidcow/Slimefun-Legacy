@@ -70,8 +70,8 @@
       "tested_core_variants": [
         "legacy"
       ],
-      "expected_commit": "4537a8d50c00961c928afbe9d50e0a2775a79bd0",
-      "target_version": "2.1.55"
+      "expected_commit": "a4aef38eac10251b7fe89233b5137eba7f7f3a8a",
+      "target_version": "2.1.59"
     },
     {
       "name": "Supreme Legacy Fork",
