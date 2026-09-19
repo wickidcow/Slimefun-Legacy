@@ -24,10 +24,8 @@ public final class ExternalResourcePackService {
             "https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip";
     private static final String PREVIOUS_HOSTED_PACK_URL =
             "http://overlord.kicks-ass.org:8163/SlimefunLegacyRP.zip";
-    private static final String PREVIOUS_UNOFFICIAL_PACK_URL =
+    private static final String PREVIOUS_GITHUB_PACK_URL =
             "https://github.com/wickidcow/SFL_ResourePack_UnOfficial/releases/latest/download/SlimefunLegacyRP.zip";
-    private static final String PREVIOUS_LEGACY_REPO_PACK_URL =
-            "https://github.com/wickidcow/Slimefun-Legacy/releases/latest/download/SlimefunLegacy-ResourcePack-1.21.11-26.3.zip";
     private static final String RETIRED_DEFAULT_PACK_URL =
             "https://cdn.modrinth.com/data/TznkVJky/versions/nwij66MR/Slimefun-ResourcePack.zip";
     private static final UUID PACK_ID = UUID.nameUUIDFromBytes(
@@ -51,9 +49,11 @@ public final class ExternalResourcePackService {
             return;
         }
 
-        String configuredUrl = trim(config.getString(CONFIG_ROOT + "url"));
-        String url = normalizeLegacyResourcePackUrl(configuredUrl);
-        if (!configuredUrl.equals(url)) {
+        String url = trim(config.getString(CONFIG_ROOT + "url"));
+        if (RETIRED_DEFAULT_PACK_URL.equals(url)
+                || PREVIOUS_HOSTED_PACK_URL.equals(url)
+                || PREVIOUS_GITHUB_PACK_URL.equals(url)) {
+            url = DEFAULT_PACK_URL;
             warnOnce(
                     "An older Slimefun Legacy resource-pack URL was detected. Slimefun Legacy is using the current "
                             + "GitHub-hosted pack instead: " + DEFAULT_PACK_URL);
@@ -90,18 +90,6 @@ public final class ExternalResourcePackService {
                     "External resource-pack delivery is unavailable on this server implementation. Slimefun will continue without sending a pack.",
                     ex);
         }
-    }
-
-    @Nonnull
-    static String normalizeLegacyResourcePackUrl(@Nonnull String value) {
-        if (RETIRED_DEFAULT_PACK_URL.equals(value)
-                || PREVIOUS_HOSTED_PACK_URL.equals(value)
-                || PREVIOUS_UNOFFICIAL_PACK_URL.equals(value)
-                || PREVIOUS_LEGACY_REPO_PACK_URL.equals(value)) {
-            return DEFAULT_PACK_URL;
-        }
-
-        return value;
     }
 
     static byte[] parseSha1(@Nonnull String value) {
