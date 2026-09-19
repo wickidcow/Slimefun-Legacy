@@ -1,6 +1,8 @@
 # Slimefun Legacy Native Enhanced Guide
-# This provides a JEG-style player experience without replacing Slimefun internals through reflection.
-enabled: true
+# Deprecated as the default UI in favor of the standalone SF_JustEnoughGuide addon.
+# The hardened machine recipe/provider and safe input-fill services remain in Slimefun Legacy core.
+# Set this to true only when intentionally using the old built-in Enhanced Guide without JEG installed.
+enabled: false
 
 titles:
   survival: "&2&lSlimefun Legacy Guide"
