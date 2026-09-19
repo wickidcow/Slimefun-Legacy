@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import me.mrCookieSlime.Slimefun.api.BlockInfoConfig;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 import org.apache.commons.lang.Validate;
@@ -126,6 +127,59 @@ public final class SlimefunRegistry {
             throw new IllegalStateException("Slimefun Guide '" + mode + "' has no registered implementation.");
         }
         return guide;
+    }
+
+    /**
+     * Replaces the guide implementation for the supplied mode.
+     *
+     * <p>This is the supported addon-facing alternative to reflectively replacing
+     * Slimefun's private guide registry. The previous implementation is returned
+     * so an addon can restore it when the addon is disabled.</p>
+     *
+     * @param mode the guide mode to replace
+     * @param guide the new guide implementation
+     * @return the previous guide implementation, or {@code null} when none was registered
+     */
+    @Nullable
+    public synchronized SlimefunGuideImplementation registerSlimefunGuide(
+            @Nonnull SlimefunGuideMode mode, @Nonnull SlimefunGuideImplementation guide) {
+        Validate.notNull(mode, "The Guide mode cannot be null");
+        Validate.notNull(guide, "The Guide implementation cannot be null");
+        Validate.isTrue(
+                guide.getMode() == mode,
+                "Guide implementation mode '" + guide.getMode() + "' does not match registry mode '" + mode + "'");
+        return guides.put(mode, guide);
+    }
+
+    /**
+     * Replaces a guide only when the expected implementation is still active.
+     *
+     * <p>This prevents an addon from restoring stale state over a guide that was
+     * replaced later by another integration.</p>
+     *
+     * @param mode the guide mode to update
+     * @param expected the implementation that must currently be registered
+     * @param replacement the replacement implementation
+     * @return whether the replacement was applied
+     */
+    public synchronized boolean compareAndSetSlimefunGuide(
+            @Nonnull SlimefunGuideMode mode,
+            @Nonnull SlimefunGuideImplementation expected,
+            @Nonnull SlimefunGuideImplementation replacement) {
+        Validate.notNull(mode, "The Guide mode cannot be null");
+        Validate.notNull(expected, "The expected Guide implementation cannot be null");
+        Validate.notNull(replacement, "The replacement Guide implementation cannot be null");
+        Validate.isTrue(
+                replacement.getMode() == mode,
+                "Guide implementation mode '" + replacement.getMode()
+                        + "' does not match registry mode '" + mode + "'");
+
+        if (guides.get(mode) != expected) {
+            return false;
+        }
+
+        guides.put(mode, replacement);
+        return true;
     }
 
     @Nonnull
