@@ -25,6 +25,12 @@
       "slug": "legacy-betterchests",
       "runtime_plugin": "BetterChests",
       "enabled": true
+    },
+    {
+      "repository": "wickidcow/SF_JustEnoughGuide",
+      "slug": "legacy-justenoughguide",
+      "runtime_plugin": "JustEnoughGuide",
+      "enabled": true
     }
   ]
 }
