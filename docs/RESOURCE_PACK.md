@@ -1,10 +1,10 @@
 # Optional resource-pack support
 
-Slimefun Legacy supports custom item model IDs independently from resource-pack delivery.
+Slimefun Legacy supports custom item model IDs independently from resource-pack delivery. Legacy-specific delivery settings live in `configSFLAddons.yml`.
 
 ## Default behavior
 
-Resource-pack delivery is **disabled by default**. Slimefun Legacy does not upload, host, download or force a resource pack unless a server owner explicitly enables the external sender in `plugins/Slimefun/config.yml`.
+Resource-pack delivery is **disabled by default**. Slimefun Legacy does not upload, host, download or force a resource pack unless a server owner explicitly enables the external sender in `plugins/Slimefun/configSFLAddons.yml`. The resource-pack section is independent of the top-level Curiosities/additions `enabled` switch.
 
 This is intentional for servers that already use ItemsAdder, Oraxen, a proxy-level pack, or their own server resource-pack workflow.
 
@@ -103,3 +103,7 @@ The official client pack is published separately at:
 The client ZIP and the server-side `plugins/Slimefun/item-models.yml` mapping must stay synchronized. Slimefun Legacy bundles the matching non-zero model IDs and fills previously generated zero placeholders during the one-time hosted-pack migration while preserving existing non-zero server customizations.
 
 On modern Paper/Minecraft, Slimefun Legacy stores the historical numeric model ID as the first float in Minecraft's CustomModelData component. Additional component floats, flags, strings, and colors supplied by other integrations are preserved.
+
+## Configuration migration
+
+On upgrade, an existing `resource-pack:` section in `plugins/Slimefun/config.yml` is copied into `configSFLAddons.yml` without overwriting values already configured there. The old core-config section is removed only after the addon config has been saved successfully.
