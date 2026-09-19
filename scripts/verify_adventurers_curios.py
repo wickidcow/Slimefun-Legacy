@@ -127,9 +127,10 @@ def main() -> int:
             "Slimefun Legacy addons config must not expand the Dough dependency boundary", failures)
 
         addons_config = read(root, files["sfl_addons_config"])
-        req("\nenabled: false\n\nSlimefunLegacyAddition:" in addons_config,
+        req("\nenabled: false\n" in addons_config,
             "configSFLAddons.yml must default Adventurer's Curios OFF for a genuinely fresh install", failures)
         for token in (
+            "resource-pack:", "SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip",
             "SlimefunLegacyAddition:", "PoweredBeacon:", "BeaconData:", "storage-type: WORLD",
             "folder-name: BeaconData", "payment-mode: EXPERIENCE", "IRON_BLOCK: 1.0", "NETHERITE_BLOCK: 5.0",
             "flying:\n        enabled: true", "immortality-field:\n        enabled: true",
@@ -138,7 +139,7 @@ def main() -> int:
             req(token in addons_config, f"configSFLAddons.yml Resonance Beacon default missing: {token}", failures)
 
         core_config = read(root, files["core_config"])
-        for forbidden in ("SlimefunLegacyAddition:", "PoweredBeacon:", "enable-non-original-slimefun-additions"):
+        for forbidden in ("resource-pack:", "SlimefunLegacyAddition:", "PoweredBeacon:", "enable-non-original-slimefun-additions"):
             req(forbidden not in core_config,
                 f"generic config.yml must not own Slimefun Legacy addon setting: {forbidden}", failures)
 
