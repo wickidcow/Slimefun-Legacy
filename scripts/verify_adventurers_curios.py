@@ -120,6 +120,9 @@ def main() -> int:
             'setValue("enabled", true)', "if (!save())", "cleanupLegacyCoreSettings()",
             "core.set(LEGACY_MODULE_TOGGLE, null)", "core.set(LEGACY_BEACON_ROOT, null)",
             "plugin.saveConfig()", "public synchronized boolean save()", "if (!dirty)",
+            "migrateLegacyResourcePackSettings(createdFromBundledResource)",
+            "migrateLegacyResourcePackSettings(boolean replaceBundledDefaults)",
+            "replaceBundledDefaults || !contains(target)",
         ):
             req(token in curiosities_config_class,
                 f"Slimefun Legacy addons config loader invariant missing: {token}", failures)
