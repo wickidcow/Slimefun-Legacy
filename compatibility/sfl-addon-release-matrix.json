@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 26,
+  "bundle_revision": 27,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -78,7 +78,7 @@
       "repository": "wickidcow/SF_DracFun2",
       "slug": "dracfunreborn",
       "artifact_base": "DracFunReborn",
-      "source_commit": "cb5b86ba09416b3d998816abced3b912f8b0cc0e"
+      "source_commit": "0f30b399dca75300622d214554900c0f96c8b2e0"
     },
     {
       "repository": "wickidcow/SF_DynaTech",
