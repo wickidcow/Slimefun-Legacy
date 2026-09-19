@@ -92,3 +92,14 @@ The IDs remain distinct to avoid a Slimefun registration collision when FluffyMa
 ## AdvanceTexture
 
 The optional sender and model-mapping workflow were designed with the same server-owner use case addressed by the community AdvanceTexture project (`m1919810/AdvanceTexture`), but Slimefun Legacy does not bundle or require that plugin. The Legacy implementation uses its own existing custom-texture service and current Paper APIs so the feature can remain optional and dependency-free.
+
+
+## Model-map synchronization
+
+The official client pack is published separately at:
+
+`https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip`
+
+The client ZIP and the server-side `plugins/Slimefun/item-models.yml` mapping must stay synchronized. Slimefun Legacy bundles the matching non-zero model IDs and fills previously generated zero placeholders during the one-time hosted-pack migration while preserving existing non-zero server customizations.
+
+On modern Paper/Minecraft, Slimefun Legacy stores the historical numeric model ID as the first float in Minecraft's CustomModelData component. Additional component floats, flags, strings, and colors supplied by other integrations are preserved.
