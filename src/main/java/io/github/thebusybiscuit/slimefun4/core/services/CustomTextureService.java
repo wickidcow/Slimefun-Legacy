@@ -80,7 +80,7 @@ public class CustomTextureService {
                         + " resource pack\n"
                         + "to give items custom textures.\n"
                         + "0 means there is no data assigned to that item.\n\n"
-                        + "There is no official Slimefun resource pack at the moment.");
+                        + "Slimefun Legacy can optionally use the official resource pack configured in config.yml.");
         config.getConfiguration().options().copyHeader(true);
 
         // SlimefunItemStack applies configured model data while the stack is constructed. Load bundled mappings
