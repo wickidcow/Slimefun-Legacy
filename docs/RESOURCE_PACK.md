@@ -106,4 +106,4 @@ On modern Paper/Minecraft, Slimefun Legacy stores the historical numeric model I
 
 ## Configuration migration
 
-On upgrade, an existing `resource-pack:` section in `plugins/Slimefun/config.yml` is copied into `configSFLAddons.yml` without overwriting values already configured there. The old core-config section is removed only after the addon config has been saved successfully.
+On upgrade, an existing `resource-pack:` section in `plugins/Slimefun/configSFLAddons.yml` is copied into `configSFLAddons.yml` without overwriting values already configured there. The old core-config section is removed only after the addon config has been saved successfully.
