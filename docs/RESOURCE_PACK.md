@@ -4,7 +4,9 @@ Slimefun Legacy supports custom item model IDs independently from resource-pack 
 
 ## Default behavior
 
-Resource-pack delivery is **disabled by default**. Slimefun Legacy does not upload, host, download or force a resource pack unless a server owner explicitly enables the external sender in `plugins/Slimefun/config.yml`.
+Resource-pack delivery is **disabled by default**. Slimefun Legacy does not upload, host, download or force a resource pack unless a server owner explicitly enables the external sender in `plugins/Slimefun/configSFLAddons.yml`.
+
+The resource-pack settings intentionally live outside Slimefun's normal `config.yml`. This keeps the standard core configuration portable between Slimefun variants while Legacy-only controls remain in the dedicated addons configuration.
 
 This is intentional for servers that already use ItemsAdder, Oraxen, a proxy-level pack, or their own server resource-pack workflow.
 
@@ -18,6 +20,8 @@ resource-pack:
 ```
 
 When `enabled` is `false`, Slimefun Legacy sends no pack request at all. The default URL points to the latest Slimefun Legacy resource-pack release at `https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip`.
+
+Server owners may replace `resource-pack.url` with any direct HTTP(S) ZIP URL. On upgrade from 4.1.52, Legacy automatically migrates an existing `resource-pack:` section out of `config.yml` into `configSFLAddons.yml`; the old section is removed only after the dedicated config saves successfully.
 
 Minecraft changed the item-model resource-pack format substantially in the modern 1.21.x line. A pack built for an older item-model layout can load successfully while still showing vanilla, missing, or misplaced guide/item visuals, so this hosted pack must remain synchronized with Slimefun Legacy's `item-models.yml`.
 
