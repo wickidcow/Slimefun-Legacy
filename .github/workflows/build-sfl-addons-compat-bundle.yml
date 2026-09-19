@@ -215,28 +215,12 @@ jobs:
             ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name 'original-*.jar' | sort)
           SELECTED=''
           # JEG produces both a thin Gradle jar and the shaded distributable.
-          # Always select the canonical shaded JAR so its runtime libraries are bundled.
+          # Prefer the shaded JAR so bundled runtime libraries are present.
           if [[ "$ADDON_REPOSITORY" == "wickidcow/SF_JustEnoughGuide" ]]; then
             for jar in "${CANDIDATES[@]}"; do
               case "$(basename "$jar")" in
                 SF_JustEnoughGuide*.jar)
-                  if jar tf "$jar" | grep -Eq '(^|/)(plugin.yml|paper-plugin.yml|paper-plugin.yaml)$'; then
-                    SELECTED="$jar"
-                    break
-                  fi
-                  ;;
-              esac
-            done
-          fi
-          if [[ -z "$SELECTED" ]]; then
-            for jar in "${CANDIDATES[@]}"; do
-              if jar tf "$jar" | grep -Eq '(^|/)(plugin.yml|paper-plugin.yml|paper-plugin.yaml)$'; then
-                SELECTED="$jar"
-                break
-              fi
-            done
-          fi
-          if [[ -z "$SELECTED" ]]; then
+                  if jar tf "$jar" | grep -Eq '(^|/)(plugin.yml|paper-plugin.yml|paper-plugin.yaml)          if [[ -z "$SELECTED" ]]; then
             echo "No distributable Bukkit/Paper plugin JAR found for ${ADDON_REPOSITORY}" >&2
             printf '%s\n' "${CANDIDATES[@]}" >&2
             exit 1
@@ -453,9 +437,11 @@ jobs:
           fi
           gh release upload "$TAG" "$BUNDLE_NAME" --repo "$GITHUB_REPOSITORY" --clobber
 ; then
-                SELECTED="$jar"
-                break
-              fi
+                    SELECTED="$jar"
+                    break
+                  fi
+                  ;;
+              esac
             done
           fi
           if [[ -z "$SELECTED" ]]; then
