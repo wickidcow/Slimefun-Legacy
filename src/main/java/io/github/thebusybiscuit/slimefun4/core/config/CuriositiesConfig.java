@@ -24,6 +24,9 @@ public final class CuriositiesConfig {
     private static final String LEGACY_MODULE_TOGGLE = "options.enable-non-original-slimefun-additions";
     private static final String LEGACY_ADDITIONS_ROOT = "SlimefunLegacyAddition";
     private static final String LEGACY_BEACON_ROOT = LEGACY_ADDITIONS_ROOT + ".PoweredBeacon";
+    private static final String LEGACY_RESOURCE_PACK_ROOT = "resource-pack";
+    private static final String DEFAULT_RESOURCE_PACK_URL =
+            "https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip";
 
     private static CuriositiesConfig config;
 
@@ -97,6 +100,46 @@ public final class CuriositiesConfig {
                 save();
             }
         }
+
+        migrateLegacyResourcePackSettings();
+        ensureResourcePackDefaults();
+    }
+
+    private void ensureResourcePackDefaults() {
+        setDefaultValue(LEGACY_RESOURCE_PACK_ROOT + ".enabled", false);
+        setDefaultValue(LEGACY_RESOURCE_PACK_ROOT + ".url", DEFAULT_RESOURCE_PACK_URL);
+        setDefaultValue(LEGACY_RESOURCE_PACK_ROOT + ".sha1", "");
+        setDefaultValue(LEGACY_RESOURCE_PACK_ROOT + ".required", false);
+        setDefaultValue(LEGACY_RESOURCE_PACK_ROOT + ".prompt", "Slimefun Legacy resource pack");
+        save();
+    }
+
+    private void migrateLegacyResourcePackSettings() {
+        var core = plugin.getConfig();
+        ConfigurationSection legacyResourcePack = core.getConfigurationSection(LEGACY_RESOURCE_PACK_ROOT);
+        if (legacyResourcePack == null) {
+            return;
+        }
+
+        for (var entry : legacyResourcePack.getValues(true).entrySet()) {
+            if (!(entry.getValue() instanceof ConfigurationSection)) {
+                String target = LEGACY_RESOURCE_PACK_ROOT + "." + entry.getKey();
+                if (!contains(target)) {
+                    setValue(target, entry.getValue());
+                }
+            }
+        }
+
+        if (!save()) {
+            plugin.getLogger()
+                    .warning("Kept legacy resource-pack settings in config.yml because " + FILE_NAME
+                            + " could not be saved successfully.");
+            return;
+        }
+
+        core.set(LEGACY_RESOURCE_PACK_ROOT, null);
+        plugin.saveConfig();
+        plugin.getLogger().info("Migrated resource-pack settings from config.yml to " + FILE_NAME + ".");
     }
 
     private boolean migrateLegacyCoreSettings() {

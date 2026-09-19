@@ -45,22 +45,6 @@ guide:
     # always use a generic player-head icon in the contributors/founders menu.
     blocked-names: []
 
-# Optional external resource-pack delivery for Minecraft 1.21.11+ clients.
-# Slimefun Legacy does not host or upload a pack. This remains OFF unless a server owner
-# explicitly enables it. Leave this disabled when ItemsAdder or another plugin already
-# manages the server's resource pack.
-resource-pack:
-  enabled: false
-  # Direct HTTP(S) URL to the Slimefun Legacy resource-pack ZIP.
-  # The pack's model IDs must match plugins/Slimefun/item-models.yml.
-  url: 'https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip'
-  # Optional 40-character SHA-1 of the ZIP. Recommended so clients can cache/update it reliably.
-  sha1: ''
-  # If true, clients that decline or fail the pack may be disconnected by Minecraft.
-  required: false
-  # Optional text shown in Minecraft's resource-pack prompt.
-  prompt: 'Slimefun Legacy resource pack'
-
 researches:
   # Creative players can unlock researches without paying.
   free-in-creative-mode: true

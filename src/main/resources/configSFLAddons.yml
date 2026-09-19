@@ -6,6 +6,18 @@
 
 enabled: false
 
+# Optional Slimefun Legacy resource-pack sender.
+# This setting is independent of the Curiosities/additions "enabled" switch above.
+# Leave disabled when ItemsAdder or another plugin already manages the server pack.
+resource-pack:
+  enabled: false
+  # Server owners may replace this with any direct HTTP(S) ZIP URL.
+  url: 'https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip'
+  # Optional 40-character SHA-1 of the exact ZIP.
+  sha1: ''
+  required: false
+  prompt: 'Slimefun Legacy resource pack'
+
 SlimefunLegacyAddition:
   # Built-in ports of the historical addons. Disable either module here if you do not want its
   # items registered. If the matching standalone plugin is installed, Legacy skips its built-in copy.
