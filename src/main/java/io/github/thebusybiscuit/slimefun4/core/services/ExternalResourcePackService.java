@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.services;
 
+import io.github.thebusybiscuit.slimefun4.core.config.CuriositiesConfig;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -46,7 +47,7 @@ public final class ExternalResourcePackService {
      * @param player The player that just joined
      */
     public void sendIfEnabled(@Nonnull Player player) {
-        var config = Slimefun.getCfg();
+        var config = CuriositiesConfig.getConfig();
         if (!config.getBoolean(CONFIG_ROOT + "enabled")) {
             return;
         }
@@ -60,14 +61,14 @@ public final class ExternalResourcePackService {
         }
 
         if (!isValidResourcePackUrl(url)) {
-            warnOnce("External resource-pack delivery is enabled, but resource-pack.url is not a valid HTTP(S) URL.");
+            warnOnce("External resource-pack delivery is enabled, but configSFLAddons.yml resource-pack.url is not a valid HTTP(S) URL.");
             return;
         }
 
         String configuredHash = trim(config.getString(CONFIG_ROOT + "sha1"));
         byte[] hash = parseSha1(configuredHash);
         if (!configuredHash.isEmpty() && hash == null) {
-            warnOnce("External resource-pack delivery is enabled, but resource-pack.sha1 is not a 40-character SHA-1 hash.");
+            warnOnce("External resource-pack delivery is enabled, but configSFLAddons.yml resource-pack.sha1 is not a 40-character SHA-1 hash.");
             return;
         }
 
