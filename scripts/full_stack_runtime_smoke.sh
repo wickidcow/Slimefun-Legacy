@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SLIMEFUN_JAR="${1:?Usage: full_stack_runtime_smoke.sh <slimefun-jar> <addon-bundle.zip> [work-directory]}"
-ADDON_BUNDLE="${2:?Usage: full_stack_runtime_smoke.sh <slimefun-jar> <addon-bundle.zip> [work-directory]}"
+SLIMEFUN_JAR="${1:?Usage: full_stack_runtime_smoke.sh <slimefun-jar> <addon-bundle.zip> [work-directory] [runtime-dependency-directory]}"
+ADDON_BUNDLE="${2:?Usage: full_stack_runtime_smoke.sh <slimefun-jar> <addon-bundle.zip> [work-directory] [runtime-dependency-directory]}"
 WORK_DIR="${3:-build/full-stack-runtime-smoke}"
+RUNTIME_DEPENDENCY_DIR="${4:-}"
 MC_VERSION="${SERVER_MINECRAFT_VERSION:-26.3}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EXPECTED_SLIMEFUN_VERSION="${SLIMEFUN_SMOKE_VERSION:-$(sed -n 's/^projectVersion=//p' "$REPO_ROOT/gradle.properties" | head -n 1 | tr -d '\r')}"
@@ -82,6 +83,50 @@ if bundle_jars != seen_jars:
 out.write_text("\n".join(f"{jar}\t{name}" for jar, name in names) + "\n", encoding="utf-8")
 print(f"Prepared {len(names)} manifest-listed addon plugins for full-stack runtime smoke")
 PY
+
+: > "$WORK_DIR/expected-runtime-dependencies.txt"
+if [[ -n "$RUNTIME_DEPENDENCY_DIR" ]]; then
+    if [[ ! -d "$RUNTIME_DEPENDENCY_DIR" ]]; then
+        echo "Runtime dependency directory does not exist: $RUNTIME_DEPENDENCY_DIR" >&2
+        exit 1
+    fi
+
+    python3 - "$RUNTIME_DEPENDENCY_DIR" "$WORK_DIR/plugins" "$WORK_DIR/expected-runtime-dependencies.txt" <<'PY'
+from pathlib import Path
+import re
+import shutil
+import sys
+import zipfile
+
+dependencies = Path(sys.argv[1])
+plugins = Path(sys.argv[2])
+out = Path(sys.argv[3])
+names = []
+
+for jar in sorted(dependencies.glob("*.jar")):
+    if not jar.is_file():
+        continue
+    shutil.copy2(jar, plugins / jar.name)
+    with zipfile.ZipFile(jar) as zf:
+        descriptor = None
+        for candidate in ("plugin.yml", "paper-plugin.yml", "paper-plugin.yaml"):
+            if candidate in zf.namelist():
+                descriptor = zf.read(candidate).decode("utf-8", errors="replace")
+                break
+        if descriptor is None:
+            raise SystemExit(f"No plugin descriptor in runtime dependency {jar.name}")
+        match = re.search(r"(?mi)^\s*name\s*:\s*['\"]?([^'\"#\r\n]+)", descriptor)
+        if not match:
+            raise SystemExit(f"No plugin name in runtime dependency descriptor for {jar.name}")
+        names.append((jar.name, match.group(1).strip()))
+
+if not names:
+    raise SystemExit(f"No runtime dependency JARs found in {dependencies}")
+
+out.write_text("\n".join(f"{jar}\t{name}" for jar, name in names) + "\n", encoding="utf-8")
+print(f"Prepared {len(names)} runtime dependency plugin(s) for full-stack smoke")
+PY
+fi
 
 printf 'eula=true\n' > "$WORK_DIR/eula.txt"
 cat > "$WORK_DIR/server.properties" <<'PROPERTIES'
@@ -181,12 +226,67 @@ run_cycle() {
         return 1
     fi
 
-    while IFS=$'\t' read -r jar plugin; do
+    while IFS= && ! grep -Fq 'Previous clean shutdown: Yes' "$normalized" && ! grep -Eq 'previous shutdown[[:space:]]+Clean' "$normalized"; then
+        echo "Second boot did not confirm a clean prior Slimefun shutdown" >&2
+        return 1
+    fi
+}
+
+run_cycle first false
+run_cycle second true
+
+cat > "$WORK_DIR/smoke-result.txt" <<EOF
+Slimefun Legacy full-stack runtime smoke: PASS
+Minecraft: ${MC_VERSION}
+Paper build: ${SERVER_BUILD}
+Channel: ${SERVER_CHANNEL}
+Slimefun Legacy: ${EXPECTED_SLIMEFUN_VERSION}
+Manifest source: SF_ADDON_MANIFEST.json
+Manifest-defined addon JARs: $(wc -l < "$WORK_DIR/expected-addons.txt")
+Runtime dependency plugins: $(wc -l < "$WORK_DIR/expected-runtime-dependencies.txt")
+Cycles: 2
+All addon enable lines: observed
+Linkage/enable failures: none
+Clean shutdown persistence: observed on second boot
+EOF
+cat "$WORK_DIR/smoke-result.txt"
+\t' read -r jar plugin; do
         if ! grep -Fq "Enabling ${plugin} v" "$normalized"; then
             echo "Expected addon did not enable: ${plugin} (${jar})" >&2
             return 1
         fi
     done < "$WORK_DIR/expected-addons.txt"
+
+    while IFS= && ! grep -Fq 'Previous clean shutdown: Yes' "$normalized" && ! grep -Eq 'previous shutdown[[:space:]]+Clean' "$normalized"; then
+        echo "Second boot did not confirm a clean prior Slimefun shutdown" >&2
+        return 1
+    fi
+}
+
+run_cycle first false
+run_cycle second true
+
+cat > "$WORK_DIR/smoke-result.txt" <<EOF
+Slimefun Legacy full-stack runtime smoke: PASS
+Minecraft: ${MC_VERSION}
+Paper build: ${SERVER_BUILD}
+Channel: ${SERVER_CHANNEL}
+Slimefun Legacy: ${EXPECTED_SLIMEFUN_VERSION}
+Manifest source: SF_ADDON_MANIFEST.json
+Manifest-defined addon JARs: $(wc -l < "$WORK_DIR/expected-addons.txt")
+Cycles: 2
+All addon enable lines: observed
+Linkage/enable failures: none
+Clean shutdown persistence: observed on second boot
+EOF
+cat "$WORK_DIR/smoke-result.txt"
+\t' read -r jar plugin; do
+        [[ -z "$plugin" ]] && continue
+        if ! grep -Fq "Enabling ${plugin} v" "$normalized"; then
+            echo "Expected runtime dependency did not enable: ${plugin} (${jar})" >&2
+            return 1
+        fi
+    done < "$WORK_DIR/expected-runtime-dependencies.txt"
 
     if [[ "$require_previous_clean" == true ]] && ! grep -Fq 'Previous clean shutdown: Yes' "$normalized" && ! grep -Eq 'previous shutdown[[:space:]]+Clean' "$normalized"; then
         echo "Second boot did not confirm a clean prior Slimefun shutdown" >&2
