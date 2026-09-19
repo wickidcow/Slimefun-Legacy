@@ -15,8 +15,9 @@ import org.bukkit.entity.Player;
  * Sends an externally hosted resource pack to players when a server owner explicitly enables it.
  *
  * <p>Slimefun Legacy does not host, upload or download a resource pack itself. The service is disabled by default and
- * only adds the configured external pack to the player's existing resource-pack stack. This allows servers using
- * ItemsAdder or another pack manager to remain fully in control unless they opt in.
+ * only adds the configured external pack to the player's existing resource-pack stack. Legacy-specific settings are
+ * read from configSFLAddons.yml so Slimefun's normal config.yml remains portable between core variants. This allows
+ * servers using ItemsAdder or another pack manager to remain fully in control unless they opt in.
  */
 public final class ExternalResourcePackService {
 
