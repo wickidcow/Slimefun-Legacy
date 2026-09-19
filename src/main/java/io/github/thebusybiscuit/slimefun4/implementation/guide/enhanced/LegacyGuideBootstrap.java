@@ -22,9 +22,14 @@ public final class LegacyGuideBootstrap {
         LegacyGuideSettings.initialize(plugin);
         LegacyGuideBookmarks.initialize(plugin);
 
+        // Slimefun Legacy's public machine-recipe providers and hardened input-fill service
+        // are core capabilities used by standalone guide addons such as SF_JustEnoughGuide.
+        // Keep them available even when the former native Enhanced Guide UI is disabled.
+        LegacyMachineRecipeProviders.registerDefaults(plugin);
+        LegacyMachineInputFillManager.initialize(plugin);
+
         if (LegacyGuideSettings.get().isEnabled()) {
-            LegacyMachineRecipeBrowser.initialize(plugin);
-            LegacyMachineInputFillManager.initialize(plugin);
+            LegacyMachineRecipeBrowser.initializeWithoutProviderRegistration(plugin);
             LegacyRecipeFillManager.initialize(plugin);
             LegacyRecipeUsageBrowser.initialize(plugin);
             guides.put(SlimefunGuideMode.SURVIVAL_MODE, new RecipeUsageIndexedEnhancedSurvivalSlimefunGuide());
