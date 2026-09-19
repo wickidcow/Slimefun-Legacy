@@ -29,7 +29,7 @@ public final class LegacyGuideBootstrap {
         LegacyMachineInputFillManager.initialize(plugin);
 
         if (LegacyGuideSettings.get().isEnabled()) {
-            LegacyMachineRecipeBrowser.initializeWithoutProviderRegistration(plugin);
+            LegacyMachineRecipeBrowser.initialize(plugin);
             LegacyRecipeFillManager.initialize(plugin);
             LegacyRecipeUsageBrowser.initialize(plugin);
             guides.put(SlimefunGuideMode.SURVIVAL_MODE, new RecipeUsageIndexedEnhancedSurvivalSlimefunGuide());
