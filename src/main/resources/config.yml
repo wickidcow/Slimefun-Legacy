@@ -53,7 +53,7 @@ resource-pack:
   enabled: false
   # Direct HTTP(S) URL to the Slimefun Legacy resource-pack ZIP.
   # The pack's model IDs must match plugins/Slimefun/item-models.yml.
-  url: 'http://overlord.kicks-ass.org:8163/SlimefunLegacyRP.zip'
+  url: 'https://github.com/wickidcow/SFL_ResourePack_UnOfficial/releases/latest/download/SlimefunLegacyRP.zip'
   # Optional 40-character SHA-1 of the ZIP. Recommended so clients can cache/update it reliably.
   sha1: ''
   # If true, clients that decline or fail the pack may be disconnected by Minecraft.
