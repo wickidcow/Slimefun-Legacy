@@ -11,15 +11,15 @@ This is intentional for servers that already use ItemsAdder, Oraxen, a proxy-lev
 ```yaml
 resource-pack:
   enabled: false
-  url: 'https://cdn.modrinth.com/data/TznkVJky/versions/nwij66MR/Slimefun-ResourcePack.zip'
+  url: 'https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip'
   sha1: ''
   required: false
   prompt: 'Slimefun Legacy resource pack'
 ```
 
-When `enabled` is `false`, Slimefun Legacy sends no pack request at all. The pre-filled URL matches AdvanceTexture's public `official_pack_1211` option and can be replaced with any direct HTTP(S) resource-pack ZIP URL.
+When `enabled` is `false`, Slimefun Legacy sends no pack request at all. The pre-filled URL points to the latest official Slimefun Legacy resource-pack release and can be replaced with any direct HTTP(S) resource-pack ZIP URL.
 
-The sender itself targets Minecraft 1.21.11+ / current Paper server APIs. The pre-filled third-party Modrinth pack is maintained separately and should be replaced by the server owner if their client version or custom assets require a newer pack build.
+The sender itself targets Minecraft 1.21.11+ / current Paper server APIs. The pre-filled pack follows the latest release published by the Slimefun Legacy resource-pack repository.
 
 ## External pack delivery
 
