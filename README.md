@@ -16,6 +16,7 @@ Slimefun Legacy turns a normal Minecraft server into a modpack-like experience w
 [![Players](https://img.shields.io/bstats/players/32960?label=players)](https://bstats.org/plugin/bukkit/Slimefun%20Legacy/32960)
 [Download](https://github.com/wickidcow/Slimefun-Legacy/releases) ·
 [Wiki](https://github.com/wickidcow/Slimefun-Legacy/wiki) ·
+[Addons](docs/ADDONS.md) ·
 [Builds](https://github.com/wickidcow/Slimefun-Legacy/actions) ·
 [Statistics](https://bstats.org/plugin/bukkit/Slimefun%20Legacy/32960) ·
 [Report a Bug](https://github.com/wickidcow/Slimefun-Legacy/issues) ·
@@ -245,6 +246,8 @@ The machine-readable support contract remains under `compatibility/`. Historical
 Folia Phase 1 routes machine ticks and entity/location callbacks through their owning schedulers while preserving Paper behavior. Cargo and energy networks intentionally operate only on nodes owned by the regulator's current Folia region; transactional cross-region transfers are not enabled yet. Folia therefore remains experimental.
 **Every installed addon must also be Folia-safe.** The historical Folia Phase 1 safety boundary and staging checklist are preserved in [`EVERYTHING_THAT_CHANGED.md`](EVERYTHING_THAT_CHANGED.md).
 ### Addons and existing worlds
+
+See the maintained [Slimefun Legacy Addons guide](docs/ADDONS.md) for installation, repository links, archived addons, and compatibility troubleshooting.
 
 The project aims to preserve the established Slimefun 4 addon API and data used by official Slimefun, Gugu-based installations, and compatible forks. The addon ecosystem is large, so no core fork can guarantee every historical addon build.
 When reporting an addon compatibility issue, include the Paper and Minecraft versions, Java version, Slimefun Legacy commit, exact addon build, full startup log, complete exception, reproduction steps, and results from a clean staging server.
