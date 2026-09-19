@@ -21,6 +21,8 @@ public final class ExternalResourcePackService {
 
     private static final String CONFIG_ROOT = "resource-pack.";
     private static final String DEFAULT_PACK_URL =
+            "https://github.com/wickidcow/SFL_ResourePack_UnOfficial/releases/latest/download/SlimefunLegacyRP.zip";
+    private static final String PREVIOUS_HOSTED_PACK_URL =
             "http://overlord.kicks-ass.org:8163/SlimefunLegacyRP.zip";
     private static final String RETIRED_DEFAULT_PACK_URL =
             "https://cdn.modrinth.com/data/TznkVJky/versions/nwij66MR/Slimefun-ResourcePack.zip";
@@ -46,11 +48,11 @@ public final class ExternalResourcePackService {
         }
 
         String url = trim(config.getString(CONFIG_ROOT + "url"));
-        if (RETIRED_DEFAULT_PACK_URL.equals(url)) {
+        if (RETIRED_DEFAULT_PACK_URL.equals(url) || PREVIOUS_HOSTED_PACK_URL.equals(url)) {
             url = DEFAULT_PACK_URL;
             warnOnce(
-                    "The retired Slimefun resource-pack preset was detected. Slimefun Legacy is using the current "
-                            + "hosted pack instead: " + DEFAULT_PACK_URL);
+                    "An older Slimefun Legacy resource-pack URL was detected. Slimefun Legacy is using the current "
+                            + "GitHub-hosted pack instead: " + DEFAULT_PACK_URL);
         }
 
         if (!isValidResourcePackUrl(url)) {
