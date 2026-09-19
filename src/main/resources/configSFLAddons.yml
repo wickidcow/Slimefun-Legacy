@@ -4,6 +4,18 @@
 # Core Slimefun4 settings remain in config.yml.
 # Fresh installs default Curiosities OFF. Existing enabled installations are migrated and stay enabled.
 
+# Optional Slimefun Legacy resource-pack delivery for Minecraft 1.21.11+ clients.
+# This setting is independent of the built-in addon master toggle below.
+# Leave enabled: false when ItemsAdder or another plugin manages the server pack.
+resource-pack:
+  enabled: false
+  # Server owners may replace this with any direct HTTP(S) resource-pack ZIP URL.
+  url: 'https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip'
+  # Optional 40-character SHA-1 of the exact ZIP.
+  sha1: ''
+  required: false
+  prompt: 'Slimefun Legacy resource pack'
+
 enabled: false
 
 SlimefunLegacyAddition:
