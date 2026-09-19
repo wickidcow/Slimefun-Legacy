@@ -51,12 +51,9 @@ public final class ExternalResourcePackService {
             return;
         }
 
-        String url = trim(config.getString(CONFIG_ROOT + "url"));
-        if (RETIRED_DEFAULT_PACK_URL.equals(url)
-                || PREVIOUS_HOSTED_PACK_URL.equals(url)
-                || PREVIOUS_UNOFFICIAL_PACK_URL.equals(url)
-                || PREVIOUS_LEGACY_REPO_PACK_URL.equals(url)) {
-            url = DEFAULT_PACK_URL;
+        String configuredUrl = trim(config.getString(CONFIG_ROOT + "url"));
+        String url = normalizeLegacyResourcePackUrl(configuredUrl);
+        if (!configuredUrl.equals(url)) {
             warnOnce(
                     "An older Slimefun Legacy resource-pack URL was detected. Slimefun Legacy is using the current "
                             + "GitHub-hosted pack instead: " + DEFAULT_PACK_URL);
@@ -93,6 +90,18 @@ public final class ExternalResourcePackService {
                     "External resource-pack delivery is unavailable on this server implementation. Slimefun will continue without sending a pack.",
                     ex);
         }
+    }
+
+    @Nonnull
+    static String normalizeLegacyResourcePackUrl(@Nonnull String value) {
+        if (RETIRED_DEFAULT_PACK_URL.equals(value)
+                || PREVIOUS_HOSTED_PACK_URL.equals(value)
+                || PREVIOUS_UNOFFICIAL_PACK_URL.equals(value)
+                || PREVIOUS_LEGACY_REPO_PACK_URL.equals(value)) {
+            return DEFAULT_PACK_URL;
+        }
+
+        return value;
     }
 
     static byte[] parseSha1(@Nonnull String value) {
