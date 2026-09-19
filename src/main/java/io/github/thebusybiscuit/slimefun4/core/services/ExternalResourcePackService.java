@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.services;
 
+import io.github.thebusybiscuit.slimefun4.core.config.CuriositiesConfig;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -20,8 +21,7 @@ import org.bukkit.entity.Player;
 public final class ExternalResourcePackService {
 
     private static final String CONFIG_ROOT = "resource-pack.";
-    private static final String DEFAULT_PACK_URL =
-            "https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip";
+    private static final String DEFAULT_PACK_URL = CuriositiesConfig.DEFAULT_RESOURCE_PACK_URL;
     private static final String PREVIOUS_HOSTED_PACK_URL =
             "http://overlord.kicks-ass.org:8163/SlimefunLegacyRP.zip";
     private static final String PREVIOUS_UNOFFICIAL_PACK_URL =
@@ -46,7 +46,7 @@ public final class ExternalResourcePackService {
      * @param player The player that just joined
      */
     public void sendIfEnabled(@Nonnull Player player) {
-        var config = Slimefun.getCfg();
+        var config = CuriositiesConfig.getConfig();
         if (!config.getBoolean(CONFIG_ROOT + "enabled")) {
             return;
         }
