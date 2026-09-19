@@ -51,8 +51,8 @@ guide:
 # manages the server's resource pack.
 resource-pack:
   enabled: false
-  # Direct HTTP(S) URL to a resource-pack ZIP. Server owners may replace this with their own URL.
-  # The pre-filled value points to the official Slimefun Legacy resource-pack release.
+  # Direct HTTP(S) URL to the Slimefun Legacy resource-pack ZIP.
+  # The pack's model IDs must match plugins/Slimefun/item-models.yml.
   url: 'https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip'
   # Optional 40-character SHA-1 of the ZIP. Recommended so clients can cache/update it reliably.
   sha1: ''
