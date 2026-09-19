@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 env:
   CANONICAL_ADDON_BUNDLE: SF_Addons_1.21.11-26.3.zip
@@ -97,63 +98,64 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG="v${LEGACY_ARTIFACT_VERSION}"
           BUNDLE_NAME="$CANONICAL_ADDON_BUNDLE"
+          ARTIFACT_NAME="${BUNDLE_NAME%.zip}"
           BUNDLE="dist/${BUNDLE_NAME}"
-          SOURCE_TAG=''
+          SOURCE_DESCRIPTION=''
 
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            CURRENT_DIGEST="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" \
-              --jq ".assets[] | select(.name == \"${BUNDLE_NAME}\") | .digest" \
-              | head -n 1)"
-            if [[ "$CURRENT_DIGEST" == sha256:* ]]; then
-              SOURCE_TAG="$TAG"
-            fi
-          fi
+          rm -rf bundle-artifact bundle-check
+          mkdir -p dist bundle-artifact bundle-check
+          rm -f "$BUNDLE"
 
-          if [[ -z "$SOURCE_TAG" ]]; then
+          # Prefer the newest successfully validated canonical bundle built on master.
+          # This keeps a new core release from silently reusing an older release's addon ZIP.
+          RUN_ID="$(gh run list             --repo "$GITHUB_REPOSITORY"             --workflow build-sfl-addons-compat-bundle.yml             --branch master             --status success             --limit 20             --json databaseId             --jq '.[0].databaseId // empty')"
+
+          if [[ -n "$RUN_ID" ]]; then
+            gh run download "$RUN_ID"               --repo "$GITHUB_REPOSITORY"               --name "$ARTIFACT_NAME"               --dir bundle-artifact
+            test -s "bundle-artifact/$BUNDLE_NAME"
+            cp "bundle-artifact/$BUNDLE_NAME" "$BUNDLE"
+            SOURCE_DESCRIPTION="validated Actions bundle from run ${RUN_ID}"
+          else
+            # Fallback for repositories without a retained successful bundle artifact.
+            SOURCE_TAG=''
             while IFS= read -r candidate; do
               [[ -n "$candidate" ]] || continue
-              DIGEST="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${candidate}" \
-                --jq ".assets[] | select(.name == \"${BUNDLE_NAME}\") | .digest" \
-                | head -n 1 || true)"
+              DIGEST="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${candidate}"                 --jq ".assets[] | select(.name == \"${BUNDLE_NAME}\") | .digest"                 | head -n 1 || true)"
               if [[ "$DIGEST" == sha256:* ]]; then
                 SOURCE_TAG="$candidate"
                 break
               fi
-            done < <(gh release list --repo "$GITHUB_REPOSITORY" --limit 50 --json tagName,isDraft \
-              --jq '.[] | select(.isDraft == false) | .tagName')
-          fi
+            done < <(gh release list --repo "$GITHUB_REPOSITORY" --limit 50 --json tagName,isDraft               --jq '.[] | select(.isDraft == false) | .tagName')
 
-          if [[ -z "$SOURCE_TAG" ]]; then
-            echo "No published Slimefun Legacy release contains ${BUNDLE_NAME}." >&2
-            exit 1
-          fi
-
-          ASSET_DIGEST="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${SOURCE_TAG}" \
-            --jq ".assets[] | select(.name == \"${BUNDLE_NAME}\") | .digest" \
-            | head -n 1)"
-          case "$ASSET_DIGEST" in
-            sha256:[0-9a-fA-F]*) ;;
-            *)
-              echo "Release ${SOURCE_TAG} does not expose a usable SHA-256 digest for ${BUNDLE_NAME}." >&2
+            if [[ -z "$SOURCE_TAG" ]]; then
+              echo "No validated Actions artifact or published Slimefun Legacy release contains ${BUNDLE_NAME}." >&2
               exit 1
-              ;;
-          esac
+            fi
 
-          EXPECTED_SHA="${ASSET_DIGEST#sha256:}"
-          [[ "$EXPECTED_SHA" =~ ^[0-9a-fA-F]{64}$ ]]
+            ASSET_DIGEST="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${SOURCE_TAG}"               --jq ".assets[] | select(.name == \"${BUNDLE_NAME}\") | .digest"               | head -n 1)"
+            case "$ASSET_DIGEST" in
+              sha256:[0-9a-fA-F]*) ;;
+              *)
+                echo "Release ${SOURCE_TAG} does not expose a usable SHA-256 digest for ${BUNDLE_NAME}." >&2
+                exit 1
+                ;;
+            esac
 
-          mkdir -p dist bundle-check
-          rm -f "$BUNDLE"
-          gh release download "$SOURCE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern "$BUNDLE_NAME" \
-            --dir dist
-          printf '%s  %s\n' "$EXPECTED_SHA" "$BUNDLE" | sha256sum -c -
+            EXPECTED_SHA="${ASSET_DIGEST#sha256:}"
+            [[ "$EXPECTED_SHA" =~ ^[0-9a-fA-F]{64}$ ]]
+
+            gh release download "$SOURCE_TAG"               --repo "$GITHUB_REPOSITORY"               --pattern "$BUNDLE_NAME"               --dir dist
+            printf '%s  %s\n' "$EXPECTED_SHA" "$BUNDLE" | sha256sum -c -
+            SOURCE_DESCRIPTION="published release ${SOURCE_TAG} (${ASSET_DIGEST})"
+          fi
+
+          test -s "$BUNDLE"
           unzip -tqq "$BUNDLE"
           unzip -q "$BUNDLE" -d bundle-check
           test -s bundle-check/SF_ADDON_MANIFEST.json
+          test -s bundle-check/SHA256SUMS.txt
+          (cd bundle-check && sha256sum -c SHA256SUMS.txt)
 
           python3 - <<'PY'
           import json
@@ -171,15 +173,18 @@ jobs:
               raise SystemExit(f'Canonical addon bundle manifest mismatch: expected={expected}, actual={actual}')
           if versions.get('minimum') != '1.21.11' or '26.3' not in versions.get('supported', []):
               raise SystemExit(f'Unexpected addon compatibility range: {versions}')
+
           for name in expected:
-              reborn = re.fullmatch(r'SFL_DracFun-Reborn\\d+(?:\\.\\d+)+\\.jar', name)
+              reborn = re.fullmatch(r'SFL_DracFun-Reborn\d+(?:\.\d+)+\.jar', name)
               if (not name.startswith('SF_') and not reborn) or not name.endswith('.jar'):
                   raise SystemExit(f'Canonical addon bundle contains an invalid public addon filename: {name}')
 
           print(f'Validated canonical addon bundle with {len(expected)} addon JARs')
           PY
 
-          echo "Canonical addon bundle source: ${SOURCE_TAG} (${ASSET_DIGEST})" >> "$GITHUB_STEP_SUMMARY"
+          BUNDLE_SHA="$(sha256sum "$BUNDLE" | awk '{print $1}')"
+          echo "Canonical addon bundle source: ${SOURCE_DESCRIPTION}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Canonical addon bundle SHA-256: ${BUNDLE_SHA}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload raw reproducible JAR artifact
         uses: actions/upload-artifact@v7
