@@ -12,6 +12,9 @@ on:
       - 'gradle/**'
       - 'src/**'
   workflow_dispatch:
+  workflow_run:
+    workflows: ['Build SF Addons 1.21.11-26.3 Bundle']
+    types: [completed]
   schedule:
     - cron: '53 11 * * 4'
   pull_request:
@@ -34,6 +37,7 @@ concurrency:
 jobs:
   resolve-paper-26-3:
     name: Resolve real Paper 26.3 API
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       available: ${{ steps.paper.outputs.available }}
