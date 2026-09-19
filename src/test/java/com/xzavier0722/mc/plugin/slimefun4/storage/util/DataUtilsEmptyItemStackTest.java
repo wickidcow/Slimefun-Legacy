@@ -38,4 +38,12 @@ class DataUtilsEmptyItemStackTest {
     void keepsRealItemsSerializable() {
         assertFalse(DataUtils.isEmptyItemStack(new ItemStack(Material.STONE)));
     }
+
+    @Test
+    void recognizesPaperEmptySerializationFailure() {
+        assertTrue(DataUtils.isPaperEmptyItemSerializationFailure(
+                new IllegalArgumentException("Empty itemstack cannot be serialized")));
+        assertFalse(DataUtils.isPaperEmptyItemSerializationFailure(
+                new IllegalArgumentException("Different serialization failure")));
+    }
 }
