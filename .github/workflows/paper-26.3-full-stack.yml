@@ -138,13 +138,39 @@ jobs:
         with:
           name: full-stack-addon-bundle
           path: bundle
+      - name: Install WorldEdit runtime dependency
+        env:
+          MINECRAFT_VERSION: ${{ matrix.minecraft }}
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-dependencies
+
+          if [[ "$MINECRAFT_VERSION" == "26.2" ]]; then
+            WORLD_EDIT_URL="$(curl --fail-with-body -sS \
+              -A 'Slimefun-Legacy-Full-Stack/1.0' \
+              https://api.modrinth.com/v2/version/F5ea2ov3 \
+              | jq -r '[.files[] | select(.primary == true and (.filename | endswith(".jar")))] | first | .url // empty')"
+          else
+            WORLD_EDIT_URL='https://ci.enginehub.org/repository/download/bt10/30182:id/worldedit-bukkit-7.4.6-SNAPSHOT-dist.jar?branch=feature%2F26.3&guest=1'
+          fi
+
+          test -n "$WORLD_EDIT_URL"
+          curl --fail-with-body -L --retry 4 --retry-all-errors \
+            -A 'Slimefun-Legacy-Full-Stack/1.0' \
+            -o runtime-dependencies/WorldEdit.jar "$WORLD_EDIT_URL"
+          test -s runtime-dependencies/WorldEdit.jar
+          unzip -tqq runtime-dependencies/WorldEdit.jar
       - name: Boot canonical stack twice
         env:
           SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
           SERVER_DOWNLOAD_USER_AGENT: Slimefun-Legacy-Full-Stack/1.0
         run: |
           chmod +x scripts/full_stack_runtime_smoke.sh
-          bash scripts/full_stack_runtime_smoke.sh             candidate/Slimefun-Legacy-full-stack.jar             bundle/SF_Addons_1.21.11-26.3.zip             "build/full-stack-${{ matrix.minecraft }}"
+          bash scripts/full_stack_runtime_smoke.sh \
+            candidate/Slimefun-Legacy-full-stack.jar \
+            bundle/SF_Addons_1.21.11-26.3.zip \
+            "build/full-stack-${{ matrix.minecraft }}" \
+            runtime-dependencies
       - name: Publish result
         if: always()
         run: |
@@ -159,5 +185,6 @@ jobs:
             build/full-stack-${{ matrix.minecraft }}/*.normalized.log
             build/full-stack-${{ matrix.minecraft }}/runtime-build.txt
             build/full-stack-${{ matrix.minecraft }}/expected-addons.txt
+            build/full-stack-${{ matrix.minecraft }}/expected-runtime-dependencies.txt
             build/full-stack-${{ matrix.minecraft }}/smoke-result.txt
           if-no-files-found: warn
