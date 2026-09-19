@@ -60,7 +60,7 @@ public final class LegacyGuideSettings {
     private final List<String> bookmarksFormat;
 
     private LegacyGuideSettings(@Nonnull YamlConfiguration config) {
-        enabled = config.getBoolean("enabled", true);
+        enabled = config.getBoolean("enabled", false);
         bookmarks = config.getBoolean("features.bookmarks", true);
         smartSearch = config.getBoolean("features.smart-search", true);
         displayItemId = config.getBoolean("features.display-item-id", true);

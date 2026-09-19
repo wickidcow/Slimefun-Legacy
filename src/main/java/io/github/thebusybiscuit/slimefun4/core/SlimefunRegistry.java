@@ -128,6 +128,57 @@ public final class SlimefunRegistry {
         return guide;
     }
 
+    /**
+     * Registers or replaces the active guide implementation for the supplied mode.
+     *
+     * <p>This is the supported addon-facing replacement for modifying the private guide registry through reflection.
+     * Callers should retain the returned implementation and restore it when their addon disables.
+     *
+     * @param mode the guide mode to replace
+     * @param guide the new guide implementation
+     * @return the previously registered guide implementation, or {@code null} when none was registered
+     */
+    public synchronized SlimefunGuideImplementation registerSlimefunGuide(
+            @Nonnull SlimefunGuideMode mode, @Nonnull SlimefunGuideImplementation guide) {
+        Validate.notNull(mode, "The Guide mode cannot be null");
+        Validate.notNull(guide, "The Guide implementation cannot be null");
+        Validate.isTrue(
+                guide.getMode() == mode,
+                "Guide implementation mode '" + guide.getMode() + "' does not match registry mode '" + mode + "'");
+        return guides.put(mode, guide);
+    }
+
+    /**
+     * Replaces a guide implementation only when the currently registered implementation is the expected instance.
+     *
+     * <p>This lets addons restore a previous guide safely without overwriting another addon that may have replaced the
+     * guide after them.
+     *
+     * @param mode the guide mode to compare
+     * @param expected the implementation that must still be registered
+     * @param replacement the implementation to restore
+     * @return {@code true} when the replacement was applied
+     */
+    public synchronized boolean compareAndSetSlimefunGuide(
+            @Nonnull SlimefunGuideMode mode,
+            @Nonnull SlimefunGuideImplementation expected,
+            @Nonnull SlimefunGuideImplementation replacement) {
+        Validate.notNull(mode, "The Guide mode cannot be null");
+        Validate.notNull(expected, "The expected Guide implementation cannot be null");
+        Validate.notNull(replacement, "The replacement Guide implementation cannot be null");
+        Validate.isTrue(
+                replacement.getMode() == mode,
+                "Replacement guide mode '" + replacement.getMode()
+                        + "' does not match registry mode '" + mode + "'");
+
+        if (guides.get(mode) != expected) {
+            return false;
+        }
+
+        guides.put(mode, replacement);
+        return true;
+    }
+
     @Nonnull
     public Map<EntityType, Set<ItemStack>> getMobDrops() {
         return mobDrops;

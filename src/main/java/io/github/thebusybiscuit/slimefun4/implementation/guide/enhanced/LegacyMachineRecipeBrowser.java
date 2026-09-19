@@ -76,7 +76,6 @@ public final class LegacyMachineRecipeBrowser implements Listener {
     }
 
     public static synchronized void initialize(@Nonnull Slimefun plugin) {
-        LegacyMachineRecipeProviders.registerDefaults(plugin);
         instance = new LegacyMachineRecipeBrowser(plugin);
     }
 
