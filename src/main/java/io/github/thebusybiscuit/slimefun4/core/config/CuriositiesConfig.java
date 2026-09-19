@@ -24,6 +24,10 @@ public final class CuriositiesConfig {
     private static final String LEGACY_MODULE_TOGGLE = "options.enable-non-original-slimefun-additions";
     private static final String LEGACY_ADDITIONS_ROOT = "SlimefunLegacyAddition";
     private static final String LEGACY_BEACON_ROOT = LEGACY_ADDITIONS_ROOT + ".PoweredBeacon";
+    private static final String RESOURCE_PACK_ROOT = "resource-pack";
+
+    public static final String DEFAULT_RESOURCE_PACK_URL =
+            "https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip";
 
     private static CuriositiesConfig config;
 
@@ -94,9 +98,12 @@ public final class CuriositiesConfig {
             boolean migrated = migrateLegacyCoreSettings();
             if (!migrated && !contains("enabled")) {
                 setValue("enabled", false);
-                save();
             }
         }
+
+        migrateLegacyResourcePackSettings();
+        ensureResourcePackDefaults();
+        save();
     }
 
     private boolean migrateLegacyCoreSettings() {
@@ -133,6 +140,39 @@ public final class CuriositiesConfig {
         cleanupLegacyCoreSettings();
         plugin.getLogger().info("Migrated existing Adventurer's Curios settings from config.yml to " + FILE_NAME + ".");
         return true;
+    }
+
+    private void migrateLegacyResourcePackSettings() {
+        var core = plugin.getConfig();
+        ConfigurationSection legacyResourcePack = core.getConfigurationSection(RESOURCE_PACK_ROOT);
+        if (legacyResourcePack == null) {
+            return;
+        }
+
+        for (var entry : legacyResourcePack.getValues(true).entrySet()) {
+            if (!(entry.getValue() instanceof ConfigurationSection)) {
+                setValue(RESOURCE_PACK_ROOT + "." + entry.getKey(), entry.getValue());
+            }
+        }
+
+        if (!save()) {
+            plugin.getLogger()
+                    .warning("Kept legacy resource-pack settings in config.yml because " + FILE_NAME
+                            + " could not be saved successfully.");
+            return;
+        }
+
+        core.set(RESOURCE_PACK_ROOT, null);
+        plugin.saveConfig();
+        plugin.getLogger().info("Migrated resource-pack settings from config.yml to " + FILE_NAME + ".");
+    }
+
+    private void ensureResourcePackDefaults() {
+        setDefaultValue(RESOURCE_PACK_ROOT + ".enabled", false);
+        setDefaultValue(RESOURCE_PACK_ROOT + ".url", DEFAULT_RESOURCE_PACK_URL);
+        setDefaultValue(RESOURCE_PACK_ROOT + ".sha1", "");
+        setDefaultValue(RESOURCE_PACK_ROOT + ".required", false);
+        setDefaultValue(RESOURCE_PACK_ROOT + ".prompt", "Slimefun Legacy resource pack");
     }
 
     /**
