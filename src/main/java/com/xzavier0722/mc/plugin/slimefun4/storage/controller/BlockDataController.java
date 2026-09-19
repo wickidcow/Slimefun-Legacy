@@ -1614,6 +1614,15 @@ public class BlockDataController extends ADataController {
         return copy;
     }
 
+    @Nullable private ItemStack snapshotInventoryItem(@Nullable ItemStack[] contents, int slot) {
+        if (contents == null || slot < 0 || slot >= contents.length) {
+            return null;
+        }
+
+        ItemStack item = contents[slot];
+        return item == null ? null : item.clone();
+    }
+
     private record InventoryWrite(@Nonnull RecordKey key, @Nullable RecordSet data) {}
 
     public Set<SlimefunChunkData> getAllLoadedChunkData(World world) {
@@ -1660,9 +1669,9 @@ public class BlockDataController extends ADataController {
     }
 
     private void scheduleBlockInvUpdate(ScopeKey scopeKey, RecordKey reqKey, String lKey, ItemStack[] inv, int slot) {
-        var item = inv != null && slot < inv.length ? inv[slot] : null;
+        ItemStack item = snapshotInventoryItem(inv, slot);
 
-        if (item == null) {
+        if (item == null || item.isEmpty()) {
             scheduleDeleteTask(scopeKey, reqKey, true);
         } else {
             try {
@@ -1701,9 +1710,9 @@ public class BlockDataController extends ADataController {
 
     private void scheduleUniversalInvUpdate(
             ScopeKey scopeKey, RecordKey reqKey, String uuid, ItemStack[] inv, int slot) {
-        var item = inv != null && slot < inv.length ? inv[slot] : null;
+        ItemStack item = snapshotInventoryItem(inv, slot);
 
-        if (item == null) {
+        if (item == null || item.isEmpty()) {
             scheduleDeleteTask(scopeKey, reqKey, true);
         } else {
             try {
