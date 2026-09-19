@@ -1,6 +1,6 @@
 # Slimefun Legacy server-side item model mapping for the hosted client pack.
 # Client resource pack:
-# http://overlord.kicks-ass.org:8163/SlimefunLegacyRP.zip
+# https://github.com/wickidcow/SFL_ResourePack_UnOfficial/releases/latest/download/SlimefunLegacyRP.zip
 #
 # This bundled map is written into plugins/Slimefun/item-models.yml.
 # Only non-zero mappings are bundled. Registered IDs not listed here are auto-added as 0.
