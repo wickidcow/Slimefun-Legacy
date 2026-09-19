@@ -157,21 +157,24 @@ jobs:
 
           python3 - <<'PY'
           import json
+          import re
           from pathlib import Path
 
           root = Path('bundle-check')
           manifest = json.loads((root / 'SF_ADDON_MANIFEST.json').read_text(encoding='utf-8'))
           records = manifest.get('addons', [])
           expected = sorted(row['jar'] for row in records)
-          actual = sorted(path.name for path in root.glob('SF_*.jar'))
+          actual = sorted(path.name for path in root.glob('*.jar'))
           versions = manifest.get('compatibility', {}).get('minecraft_versions', {})
 
           if not expected or actual != expected:
               raise SystemExit(f'Canonical addon bundle manifest mismatch: expected={expected}, actual={actual}')
           if versions.get('minimum') != '1.21.11' or '26.3' not in versions.get('supported', []):
               raise SystemExit(f'Unexpected addon compatibility range: {versions}')
-          if any(not name.startswith('SF_') or not name.endswith('.jar') for name in expected):
-              raise SystemExit('Canonical addon bundle contains an invalid public addon filename')
+          for name in expected:
+              reborn = re.fullmatch(r'SFL_DracFun-Reborn\\d+(?:\\.\\d+)+\\.jar', name)
+              if (not name.startswith('SF_') and not reborn) or not name.endswith('.jar'):
+                  raise SystemExit(f'Canonical addon bundle contains an invalid public addon filename: {name}')
 
           print(f'Validated canonical addon bundle with {len(expected)} addon JARs')
           PY
@@ -239,7 +242,7 @@ jobs:
 
           while IFS= read -r asset; do
             case "$asset" in
-              SF_*.jar|SFL_AddonsNDependencies.zip|SFL_AddonsNDependencies.sha256|SFL_Addons_1.21.11-26.3.zip)
+              SF_*.jar|SFL_DracFun-Reborn*.jar|SFL_AddonsNDependencies.zip|SFL_AddonsNDependencies.sha256|SFL_Addons_1.21.11-26.3.zip)
                 echo "Removing obsolete/non-core release asset: $asset"
                 gh release delete-asset "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" -y
                 ;;
