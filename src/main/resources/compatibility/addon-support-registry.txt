@@ -8,6 +8,7 @@ legacy-fastmachines|required|FastMachines Legacy|FastMachines,FastMachinesLegacy
 legacy-networksexp|required|Networks Expansion Legacy|Networks,NetworksExpansion,NetworksExpansionLegacy,SF_NetworksExp|maintained
 legacy-slimetinker-ie2|required|SlimeTinker IE2 Legacy|SlimeTinker,SlimeTinkerIE2,SF_SlimeTinkerIE2|maintained
 legacy-betterchests|required|BetterChests Legacy|BetterChests,BetterChestsLegacy,SF_BetterChests|maintained
+legacy-justenoughguide|required|JustEnoughGuide Legacy|JustEnoughGuide,SF_JustEnoughGuide|maintained
 upstream-networks|advisory|Networks|Networks
 infinity-expansion-2|advisory|Infinity Expansion 2|InfinityExpansion2,InfinityExpansion
 dynatech|advisory|DynaTech|DynaTech
