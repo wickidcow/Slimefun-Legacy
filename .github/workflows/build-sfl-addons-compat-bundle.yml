@@ -218,8 +218,25 @@ jobs:
           # Always select the canonical shaded JAR so its runtime libraries are bundled.
           if [[ "$ADDON_REPOSITORY" == "wickidcow/SF_JustEnoughGuide" ]]; then
             for jar in "${CANDIDATES[@]}"; do
-              if [[ "$(basename "$jar")" == SF_JustEnoughGuide*.jar ]] \
-                  && jar tf "$jar" | grep -Eq '(^|/)(plugin.yml|paper-plugin.yml|paper-plugin.yaml)          if [[ -z "$SELECTED" ]]; then
+              case "$(basename "$jar")" in
+                SF_JustEnoughGuide*.jar)
+                  if jar tf "$jar" | grep -Eq '(^|/)(plugin.yml|paper-plugin.yml|paper-plugin.yaml)$'; then
+                    SELECTED="$jar"
+                    break
+                  fi
+                  ;;
+              esac
+            done
+          fi
+          if [[ -z "$SELECTED" ]]; then
+            for jar in "${CANDIDATES[@]}"; do
+              if jar tf "$jar" | grep -Eq '(^|/)(plugin.yml|paper-plugin.yml|paper-plugin.yaml)$'; then
+                SELECTED="$jar"
+                break
+              fi
+            done
+          fi
+          if [[ -z "$SELECTED" ]]; then
             echo "No distributable Bukkit/Paper plugin JAR found for ${ADDON_REPOSITORY}" >&2
             printf '%s\n' "${CANDIDATES[@]}" >&2
             exit 1
