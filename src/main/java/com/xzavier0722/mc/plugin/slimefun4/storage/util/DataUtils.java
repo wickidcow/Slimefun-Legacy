@@ -63,6 +63,21 @@ public class DataUtils {
             }
 
             return itemData;
+        } catch (IllegalArgumentException e) {
+            // The inventory save path can observe an ItemStack while another server task
+            // is emptying the same stack. Paper performs its own native emptiness check
+            // inside serializeAsBytes(), so treat that specific transition exactly like
+            // a normal empty inventory slot rather than logging a severe serialization error.
+            if (isEmptyItemStack(itemStack) || isPaperEmptyItemSerializationFailure(e)) {
+                return new byte[0];
+            }
+
+            Slimefun.logger()
+                    .log(
+                            Level.SEVERE,
+                            "An error occurred while serializing an item; an empty value will be stored.",
+                            e);
+            return new byte[0];
         } catch (Throwable e) {
             Slimefun.logger()
                     .log(
@@ -74,7 +89,14 @@ public class DataUtils {
     }
 
     static boolean isEmptyItemStack(@Nullable ItemStack itemStack) {
-        return itemStack == null || itemStack.getType().isAir() || itemStack.getAmount() <= 0;
+        return itemStack == null
+                || itemStack.isEmpty()
+                || itemStack.getType().isAir()
+                || itemStack.getAmount() <= 0;
+    }
+
+    static boolean isPaperEmptyItemSerializationFailure(IllegalArgumentException exception) {
+        return "Empty itemstack cannot be serialized".equals(exception.getMessage());
     }
 
     /**
