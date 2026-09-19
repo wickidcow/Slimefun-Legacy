@@ -197,7 +197,7 @@ jobs:
             -PreleaseJvm=21 \
             --stacktrace --no-daemon
 
-          JAR=addon/build/libs/SFL_DracFun-Reborn2.0.2.jar
+          JAR=addon/build/libs/SFL_DracFun-Reborn2.0.3.jar
           test -s "$JAR"
           javap -verbose -classpath "$JAR" io.github.wickidcow.sfdracfun2.SFDracFun2 \
             | grep -Fq 'major version: 65'
@@ -348,7 +348,7 @@ jobs:
               if re.search(r'(legacy|english|snapshot)', name, re.I):
                   raise SystemExit(f'Forbidden public qualifier in addon JAR name: {name}')
           required = {
-              'SFL_DracFun-Reborn2.0.2.jar',
+              'SFL_DracFun-Reborn2.0.3.jar',
               'SF_BetterChests1.0.2.jar',
               'SF_BuildingStaff1.0.34.jar',
               'SF_Cultivation1.1.23.jar',
