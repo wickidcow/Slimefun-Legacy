@@ -24,6 +24,7 @@ public final class CuriositiesConfig {
     private static final String LEGACY_MODULE_TOGGLE = "options.enable-non-original-slimefun-additions";
     private static final String LEGACY_ADDITIONS_ROOT = "SlimefunLegacyAddition";
     private static final String LEGACY_BEACON_ROOT = LEGACY_ADDITIONS_ROOT + ".PoweredBeacon";
+    private static final String LEGACY_RESOURCE_PACK_ROOT = "resource-pack";
 
     private static CuriositiesConfig config;
 
@@ -97,6 +98,36 @@ public final class CuriositiesConfig {
                 save();
             }
         }
+
+        migrateLegacyResourcePackSettings();
+    }
+
+    private void migrateLegacyResourcePackSettings() {
+        var core = plugin.getConfig();
+        ConfigurationSection legacyResourcePack = core.getConfigurationSection(LEGACY_RESOURCE_PACK_ROOT);
+        if (legacyResourcePack == null) {
+            return;
+        }
+
+        for (var entry : legacyResourcePack.getValues(true).entrySet()) {
+            if (!(entry.getValue() instanceof ConfigurationSection)) {
+                String target = LEGACY_RESOURCE_PACK_ROOT + "." + entry.getKey();
+                if (!contains(target)) {
+                    setValue(target, entry.getValue());
+                }
+            }
+        }
+
+        if (!save()) {
+            plugin.getLogger()
+                    .warning("Kept legacy resource-pack settings in config.yml because " + FILE_NAME
+                            + " could not be saved successfully.");
+            return;
+        }
+
+        core.set(LEGACY_RESOURCE_PACK_ROOT, null);
+        plugin.saveConfig();
+        plugin.getLogger().info("Migrated resource-pack settings from config.yml to " + FILE_NAME + ".");
     }
 
     private boolean migrateLegacyCoreSettings() {
