@@ -40,9 +40,9 @@ To let Slimefun Legacy add an externally hosted pack on player join:
 2. Make sure the pack's Slimefun model IDs match `plugins/Slimefun/item-models.yml`.
 3. Set `resource-pack.enabled` to `true`.
 4. Leave `resource-pack.url` at the included Slimefun Legacy GitHub release URL, or replace it with another direct HTTP(S) ZIP URL.
-5. Restart the server or reload the Slimefun configuration through the supported server workflow.
-6. Set `resource-pack.sha1` to the 40-character SHA-1 of that exact ZIP when possible.
-6. Leave `required: false` unless the server should reject players who decline the pack.\n7. Restart the server or reload the Slimefun configuration through the supported server workflow.
+5. Set `resource-pack.sha1` to the 40-character SHA-1 of that exact ZIP when possible.
+6. Leave `required: false` unless the server should reject players who decline the pack.
+7. Restart the server or reload the Slimefun configuration through the supported server workflow.
 
 Slimefun Legacy uses Minecraft's additive resource-pack API so an explicitly enabled Slimefun pack can coexist with another server pack rather than replacing it. The implementation targets the modern API available on Minecraft 1.21.11+ / current Paper server lines.
 
