@@ -101,7 +101,7 @@ public final class CuriositiesConfig {
             }
         }
 
-        migrateLegacyResourcePackSettings();
+        migrateLegacyResourcePackSettings(createdFromBundledResource);
         ensureResourcePackDefaults();
     }
 
@@ -114,7 +114,7 @@ public final class CuriositiesConfig {
         save();
     }
 
-    private void migrateLegacyResourcePackSettings() {
+    private void migrateLegacyResourcePackSettings(boolean replaceBundledDefaults) {
         var core = plugin.getConfig();
         ConfigurationSection legacyResourcePack = core.getConfigurationSection(LEGACY_RESOURCE_PACK_ROOT);
         if (legacyResourcePack == null) {
@@ -124,7 +124,7 @@ public final class CuriositiesConfig {
         for (var entry : legacyResourcePack.getValues(true).entrySet()) {
             if (!(entry.getValue() instanceof ConfigurationSection)) {
                 String target = LEGACY_RESOURCE_PACK_ROOT + "." + entry.getKey();
-                if (!contains(target)) {
+                if (replaceBundledDefaults || !contains(target)) {
                     setValue(target, entry.getValue());
                 }
             }
