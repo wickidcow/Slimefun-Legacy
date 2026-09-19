@@ -140,6 +140,21 @@ def main() -> int:
     )
     require(
         storage,
+        "ItemStack item = snapshotInventoryItem(inv, slot)",
+        "delayed inventory writes snapshot the live slot before serialization",
+    )
+    require(
+        storage,
+        "return item == null ? null : item.clone()",
+        "delayed inventory slot snapshot clones the ItemStack",
+    )
+    require(
+        storage,
+        "if (item == null || item.isEmpty())",
+        "delayed inventory writes delete Paper-empty stacks",
+    )
+    require(
+        storage,
         "if (slot < 0 || slot >= inv.length)",
         "stored inventory slot bounds guards",
     )
@@ -193,6 +208,25 @@ def main() -> int:
         storage,
         "changed.forEach(slot -> scheduleDelayedUniversalInvUpdate",
         "mutable delayed universal-inventory save handoff",
+    )
+
+    data_utils = compact(
+        read(root, "src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/DataUtils.java")
+    )
+    require(
+        data_utils,
+        "itemStack.isEmpty()",
+        "Paper-native ItemStack emptiness guard before serialization",
+    )
+    require(
+        data_utils,
+        'if (isEmptyItemStack(itemStack) || isPaperEmptyItemSerializationFailure(e))',
+        "native empty-stack serialization race normalization",
+    )
+    require(
+        data_utils,
+        '"Empty itemstack cannot be serialized".equals(exception.getMessage())',
+        "exact Paper empty-stack exception signature",
     )
 
     print("Inventory persistence correctness verification passed.")
