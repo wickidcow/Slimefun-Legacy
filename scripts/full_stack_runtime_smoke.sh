@@ -25,7 +25,7 @@ mkdir -p "$WORK_DIR/plugins" "$WORK_DIR/bundle"
 unzip -q "$ADDON_BUNDLE" -d "$WORK_DIR/bundle"
 cp "$SLIMEFUN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-full-stack.jar"
 
-python3 - "$WORK_DIR/bundle" "$WORK_DIR/plugins" "$WORK_DIR/expected-addons.txt" <<'PY'
+python3 - "$WORK_DIR/bundle" "$WORK_DIR/plugins" "$WORK_DIR/expected-addons.txt" "$WORK_DIR/dependency-gated-addons.txt" <<'PY'
 from pathlib import Path
 import json
 import re
@@ -35,7 +35,8 @@ import zipfile
 
 bundle = Path(sys.argv[1])
 plugins = Path(sys.argv[2])
-out = Path(sys.argv[3])
+expected_out = Path(sys.argv[3])
+gated_out = Path(sys.argv[4])
 manifest_path = bundle / "SF_ADDON_MANIFEST.json"
 if not manifest_path.is_file():
     raise SystemExit("Canonical addon bundle is missing SF_ADDON_MANIFEST.json")
@@ -45,7 +46,38 @@ records = manifest.get("addons", [])
 if not records:
     raise SystemExit("Canonical addon manifest contains no addons")
 
-names = []
+def parse_yaml_list(descriptor, key):
+    lines = descriptor.splitlines()
+    for index, line in enumerate(lines):
+        match = re.match(rf"^(\s*){re.escape(key)}\s*:\s*(.*?)\s*$", line, flags=re.IGNORECASE)
+        if not match:
+            continue
+
+        indent = len(match.group(1))
+        value = match.group(2).strip()
+        if value:
+            if value.startswith("[") and value.endswith("]"):
+                return [
+                    item.strip().strip("'\"")
+                    for item in value[1:-1].split(",")
+                    if item.strip().strip("'\"")
+                ]
+            return [value.strip("'\"")]
+
+        values = []
+        for nested in lines[index + 1:]:
+            if not nested.strip() or nested.lstrip().startswith("#"):
+                continue
+            nested_indent = len(nested) - len(nested.lstrip())
+            if nested_indent <= indent:
+                break
+            item = re.match(r"^\s*-\s*['\"]?([^'\"#\r\n]+)", nested)
+            if item:
+                values.append(item.group(1).strip())
+        return values
+    return []
+
+addons = []
 seen_jars = set()
 for record in records:
     jar_name = str(record.get("jar", "")).strip()
@@ -68,10 +100,12 @@ for record in records:
                 break
         if descriptor is None:
             raise SystemExit(f"No plugin descriptor in {jar_name}")
+
         match = re.search(r"(?mi)^\s*name\s*:\s*['\"]?([^'\"#\r\n]+)", descriptor)
         if not match:
             raise SystemExit(f"No plugin name in descriptor for {jar_name}")
-        names.append((jar_name, match.group(1).strip()))
+
+        addons.append((jar_name, match.group(1).strip(), parse_yaml_list(descriptor, "depend")))
 
 bundle_jars = {path.name for path in bundle.glob("*.jar")}
 if bundle_jars != seen_jars:
@@ -79,8 +113,35 @@ if bundle_jars != seen_jars:
     missing = sorted(seen_jars - bundle_jars)
     raise SystemExit(f"Bundle/manifest JAR mismatch: extra={extra}, missing={missing}")
 
-out.write_text("\n".join(f"{jar}\t{name}" for jar, name in names) + "\n", encoding="utf-8")
-print(f"Prepared {len(names)} manifest-listed addon plugins for full-stack runtime smoke")
+available_plugins = {"slimefun"}
+available_plugins.update(name.casefold() for _, name, _ in addons)
+
+expected = []
+gated = []
+for jar_name, name, dependencies in addons:
+    missing_dependencies = [
+        dependency for dependency in dependencies
+        if dependency.casefold() not in available_plugins
+    ]
+    if missing_dependencies:
+        gated.append((jar_name, name, ",".join(missing_dependencies)))
+    else:
+        expected.append((jar_name, name))
+
+expected_out.write_text(
+    "".join(f"{jar}\t{name}\n" for jar, name in expected),
+    encoding="utf-8",
+)
+gated_out.write_text(
+    "".join(f"{jar}\t{name}\t{missing}\n" for jar, name, missing in gated),
+    encoding="utf-8",
+)
+print(
+    f"Prepared {len(addons)} manifest-listed addon plugins for full-stack runtime smoke "
+    f"({len(expected)} required-enable, {len(gated)} dependency-gated)"
+)
+for jar_name, name, missing in gated:
+    print(f"Dependency-gated addon: {name} ({jar_name}) missing external hard dependency/dependencies: {missing}")
 PY
 
 printf 'eula=true\n' > "$WORK_DIR/eula.txt"
@@ -119,7 +180,10 @@ if [[ -z "$SERVER_URL" || -z "$SERVER_BUILD" ]]; then
 fi
 
 curl --fail-with-body -L -sS -H "User-Agent: ${USER_AGENT}" -o "$WORK_DIR/server.jar" "$SERVER_URL"
-printf 'Minecraft: %s\nPaper build: %s\nChannel: %s\nAddons: %s\n'     "$MC_VERSION" "$SERVER_BUILD" "$SERVER_CHANNEL" "$(wc -l < "$WORK_DIR/expected-addons.txt")" > "$WORK_DIR/runtime-build.txt"
+MANIFEST_ADDON_COUNT=$(( $(wc -l < "$WORK_DIR/expected-addons.txt") + $(wc -l < "$WORK_DIR/dependency-gated-addons.txt") ))
+printf 'Minecraft: %s\nPaper build: %s\nChannel: %s\nManifest addons: %s\nRequired-enable addons: %s\nDependency-gated addons: %s\n' \
+    "$MC_VERSION" "$SERVER_BUILD" "$SERVER_CHANNEL" "$MANIFEST_ADDON_COUNT" \
+    "$(wc -l < "$WORK_DIR/expected-addons.txt")" "$(wc -l < "$WORK_DIR/dependency-gated-addons.txt")" > "$WORK_DIR/runtime-build.txt"
 
 normalize_log() {
     python3 - "$1" "$2" <<'PY'
@@ -204,9 +268,12 @@ Paper build: ${SERVER_BUILD}
 Channel: ${SERVER_CHANNEL}
 Slimefun Legacy: ${EXPECTED_SLIMEFUN_VERSION}
 Manifest source: SF_ADDON_MANIFEST.json
-Manifest-defined addon JARs: $(wc -l < "$WORK_DIR/expected-addons.txt")
+Manifest-defined addon JARs: $(( $(wc -l < "$WORK_DIR/expected-addons.txt") + $(wc -l < "$WORK_DIR/dependency-gated-addons.txt") ))
+Required-enable addon JARs: $(wc -l < "$WORK_DIR/expected-addons.txt")
+Dependency-gated addon JARs: $(wc -l < "$WORK_DIR/dependency-gated-addons.txt")
 Cycles: 2
-All addon enable lines: observed
+All required addon enable lines: observed
+Known external hard dependencies: reported separately
 Linkage/enable failures: none
 Clean shutdown persistence: observed on second boot
 EOF
