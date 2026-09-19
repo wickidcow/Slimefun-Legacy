@@ -22,9 +22,16 @@ public final class LegacyGuideBootstrap {
         LegacyGuideSettings.initialize(plugin);
         LegacyGuideBookmarks.initialize(plugin);
 
-        if (LegacyGuideSettings.get().isEnabled()) {
+        // These registries/services are core capabilities used by the standalone
+        // JustEnoughGuide addon as well as the native enhanced guide.
+        LegacyMachineRecipeProviders.registerDefaults(plugin);
+        LegacyMachineInputFillManager.initialize(plugin);
+
+        boolean standaloneGuideInstalled =
+                plugin.getServer().getPluginManager().getPlugin("JustEnoughGuide") != null;
+
+        if (LegacyGuideSettings.get().isEnabled() && !standaloneGuideInstalled) {
             LegacyMachineRecipeBrowser.initialize(plugin);
-            LegacyMachineInputFillManager.initialize(plugin);
             LegacyRecipeFillManager.initialize(plugin);
             LegacyRecipeUsageBrowser.initialize(plugin);
             guides.put(SlimefunGuideMode.SURVIVAL_MODE, new RecipeUsageIndexedEnhancedSurvivalSlimefunGuide());
@@ -33,15 +40,18 @@ public final class LegacyGuideBootstrap {
                     .info(
                             "Native enhanced guide enabled (indexed smart search, JEG-style menus, bookmarks, machine recipe browsing, budgeted recipe-usage lookup, standard and custom-addon GUI machine input fill, unordered machine fill and Ancient Altar preparation).");
 
-            if (plugin.getServer().getPluginManager().getPlugin("JustEnoughGuide") != null) {
-                plugin.getLogger()
-                        .warning(
-                                "JustEnoughGuide is also installed. Remove its JAR before using Slimefun Legacy's native enhanced guide.");
-            }
         } else {
             guides.put(SlimefunGuideMode.SURVIVAL_MODE, new IndexedSurvivalSlimefunGuide());
             guides.put(SlimefunGuideMode.CHEAT_MODE, new CheatSheetSlimefunGuide());
-            plugin.getLogger().info("Classic Slimefun guide enabled with indexed search by enhanced-guide.yml.");
+
+            if (standaloneGuideInstalled) {
+                plugin.getLogger()
+                        .info(
+                                "Standalone JustEnoughGuide detected. Native enhanced-guide UI is disabled; "
+                                        + "Slimefun Legacy machine-recipe providers and safe input-fill services remain available.");
+            } else {
+                plugin.getLogger().info("Classic Slimefun guide enabled with indexed search by enhanced-guide.yml.");
+            }
         }
     }
 }
