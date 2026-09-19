@@ -159,5 +159,6 @@ jobs:
             build/full-stack-${{ matrix.minecraft }}/*.normalized.log
             build/full-stack-${{ matrix.minecraft }}/runtime-build.txt
             build/full-stack-${{ matrix.minecraft }}/expected-addons.txt
+            build/full-stack-${{ matrix.minecraft }}/dependency-gated-addons.txt
             build/full-stack-${{ matrix.minecraft }}/smoke-result.txt
           if-no-files-found: warn
