@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "release": "4.1.51",
+  "release": "4.1.52",
   "policy": {
     "legacy_contract_is_release_blocking": true,
     "external_fork_drift_is_advisory": true,
@@ -18,9 +18,28 @@
       "ref": "master",
       "advisory": true,
       "probes": [
-        {"path":"src/main/java/io/github/thebusybiscuit/slimefun4/api/SlimefunAddon.java","tokens":["JavaPlugin getJavaPlugin()","String getBugTrackerURL()","getPluginVersion()","hasDependency("]},
-        {"path":"src/main/java/io/github/thebusybiscuit/slimefun4/api/items/SlimefunItem.java","tokens":["void register(","SlimefunAddon"]},
-        {"path":"src/main/java/io/github/thebusybiscuit/slimefun4/api/events/SlimefunItemRegistryFinalizedEvent.java","tokens":["class SlimefunItemRegistryFinalizedEvent"]}
+        {
+          "path": "src/main/java/io/github/thebusybiscuit/slimefun4/api/SlimefunAddon.java",
+          "tokens": [
+            "JavaPlugin getJavaPlugin()",
+            "String getBugTrackerURL()",
+            "getPluginVersion()",
+            "hasDependency("
+          ]
+        },
+        {
+          "path": "src/main/java/io/github/thebusybiscuit/slimefun4/api/items/SlimefunItem.java",
+          "tokens": [
+            "void register(",
+            "SlimefunAddon"
+          ]
+        },
+        {
+          "path": "src/main/java/io/github/thebusybiscuit/slimefun4/api/events/SlimefunItemRegistryFinalizedEvent.java",
+          "tokens": [
+            "class SlimefunItemRegistryFinalizedEvent"
+          ]
+        }
       ]
     },
     {
@@ -30,8 +49,21 @@
       "ref": "master",
       "advisory": true,
       "probes": [
-        {"path":"src/main/java/io/github/thebusybiscuit/slimefun4/api/SlimefunAddon.java","tokens":["JavaPlugin getJavaPlugin()","String getBugTrackerURL()","getPluginVersion()"]},
-        {"path":"src/main/java/io/github/thebusybiscuit/slimefun4/api/items/SlimefunItem.java","tokens":["void register(","SlimefunAddon"]}
+        {
+          "path": "src/main/java/io/github/thebusybiscuit/slimefun4/api/SlimefunAddon.java",
+          "tokens": [
+            "JavaPlugin getJavaPlugin()",
+            "String getBugTrackerURL()",
+            "getPluginVersion()"
+          ]
+        },
+        {
+          "path": "src/main/java/io/github/thebusybiscuit/slimefun4/api/items/SlimefunItem.java",
+          "tokens": [
+            "void register(",
+            "SlimefunAddon"
+          ]
+        }
       ]
     },
     {
@@ -41,8 +73,21 @@
       "ref": "dev",
       "advisory": true,
       "probes": [
-        {"path":"src/main/java/io/github/thebusybiscuit/slimefun4/api/SlimefunAddon.java","tokens":["JavaPlugin getJavaPlugin()","String getBugTrackerURL()","getPluginVersion()"]},
-        {"path":"src/main/java/io/github/thebusybiscuit/slimefun4/api/items/SlimefunItem.java","tokens":["void register(","SlimefunAddon"]}
+        {
+          "path": "src/main/java/io/github/thebusybiscuit/slimefun4/api/SlimefunAddon.java",
+          "tokens": [
+            "JavaPlugin getJavaPlugin()",
+            "String getBugTrackerURL()",
+            "getPluginVersion()"
+          ]
+        },
+        {
+          "path": "src/main/java/io/github/thebusybiscuit/slimefun4/api/items/SlimefunItem.java",
+          "tokens": [
+            "void register(",
+            "SlimefunAddon"
+          ]
+        }
       ]
     }
   ]
