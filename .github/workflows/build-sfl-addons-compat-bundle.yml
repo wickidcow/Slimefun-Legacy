@@ -214,12 +214,457 @@ jobs:
           mapfile -t CANDIDATES < <(find addon/build/libs addon/target -maxdepth 2 -type f -name '*.jar' 2>/dev/null \
             ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name 'original-*.jar' | sort)
           SELECTED=''
-          for jar in "${CANDIDATES[@]}"; do
-            if jar tf "$jar" | grep -Eq '(^|/)(plugin.yml|paper-plugin.yml|paper-plugin.yaml)$'; then
-              SELECTED="$jar"
-              break
-            fi
-          done
+          # JEG produces both a thin Gradle jar and the shaded distributable.
+          # Always select the canonical shaded JAR so its runtime libraries are bundled.
+          if [[ "$ADDON_REPOSITORY" == "wickidcow/SF_JustEnoughGuide" ]]; then
+            for jar in "${CANDIDATES[@]}"; do
+              if [[ "$(basename "$jar")" == SF_JustEnoughGuide*.jar ]] \
+                  && jar tf "$jar" | grep -Eq '(^|/)(plugin.yml|paper-plugin.yml|paper-plugin.yaml)          if [[ -z "$SELECTED" ]]; then
+            echo "No distributable Bukkit/Paper plugin JAR found for ${ADDON_REPOSITORY}" >&2
+            printf '%s\n' "${CANDIDATES[@]}" >&2
+            exit 1
+          fi
+          export SELECTED
+          export ADDON_REPOSITORY ADDON_SLUG ARTIFACT_BASE PAPER_API_VERSION
+          export ADDON_COMMIT="$(git -C addon rev-parse HEAD)"
+          python3 - <<'PY'
+          import hashlib, json, os, re, shutil, zipfile
+          from pathlib import Path
+          source = Path(os.environ['SELECTED'])
+          repo = os.environ['ADDON_REPOSITORY']
+          slug = os.environ['ADDON_SLUG']
+          base = os.environ.get('ARTIFACT_BASE', '').strip() or repo.split('/')[-1].removeprefix('SF_')
+          if not re.fullmatch(r'[A-Za-z0-9]+', base):
+              raise SystemExit(f'Invalid canonical addon name {base!r} for {repo}')
+          with zipfile.ZipFile(source) as zf:
+              descriptor = None
+              for candidate in ('plugin.yml', 'paper-plugin.yml', 'paper-plugin.yaml'):
+                  if candidate in zf.namelist():
+                      descriptor = zf.read(candidate).decode('utf-8', errors='replace')
+                      break
+              if descriptor is None:
+                  raise SystemExit(f'No plugin descriptor inside {source}')
+          match = re.search(r'(?mi)^\s*version\s*:\s*["\']?([^"\'\r\n#]+)', descriptor)
+          if not match:
+              raise SystemExit(f'No version in plugin descriptor for {repo}')
+          version = match.group(1).strip()
+          if not re.fullmatch(r'\d+(?:\.\d+)+', version):
+              raise SystemExit(f'Public addon version must be numeric only for {repo}; got {version!r}')
+          canonical = f'SF_{base}{version}.jar'
+          if repo == 'wickidcow/SF_DracFun2':
+              canonical = f'SFL_DracFun-Reborn{version}.jar'
+          if repo == 'wickidcow/WorldEditSlimefun':
+              canonical = f'SF_SFWorldEdit{version}_(1.21.11-26.2).jar'
+          if re.search(r'(legacy|english|snapshot)', canonical, re.I):
+              raise SystemExit(f'Forbidden public qualifier in {canonical}')
+          destination = Path('staged/jars') / canonical
+          shutil.copy2(source, destination)
+          sha256 = hashlib.sha256(destination.read_bytes()).hexdigest()
+          record = {
+              'repository': repo,
+              'slug': slug,
+              'commit': os.environ['ADDON_COMMIT'],
+              'jar': canonical,
+              'source_jar': source.name,
+              'version': version,
+              'artifact_base': base,
+              'sha256': sha256,
+              'paper_26_3_api': os.environ['PAPER_API_VERSION'],
+              'production_baseline': '26.2',
+              'minimum_supported': '1.21.11',
+              'primary_platforms': ['Paper', 'Purpur'],
+              'secondary_platforms': ['Folia', 'Leaf'],
+          }
+          Path(f'staged/metadata/{slug}.json').write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')
+          print(f'Collected {source.name} as canonical {canonical}')
+          PY
+          CANONICAL="$(python3 -c "import json; print(json.load(open('staged/metadata/${ADDON_SLUG}.json'))['jar'])")"
+          test -s "staged/jars/$CANONICAL"
+          jar tf "staged/jars/$CANONICAL" >/dev/null
+          sha256sum "staged/jars/$CANONICAL"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sf-addon-${{ matrix.slug }}
+          path: staged/
+          if-no-files-found: error
+
+  package:
+    name: Package and publish canonical addon bundle
+    needs: [prepare, compile-addons]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: sf-addon-*
+          path: collected
+          merge-multiple: true
+      - name: Verify complete maintained set and canonical names
+        env:
+          EXPECTED: ${{ needs.prepare.outputs.count }}
+          PAPER_API_VERSION: ${{ needs.prepare.outputs.paper_api }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p bundle
+          mapfile -t JARS < <(find collected/jars -maxdepth 1 -type f -name '*.jar' | sort)
+          mapfile -t META < <(find collected/metadata -maxdepth 1 -type f -name '*.json' | sort)
+          if [[ "${#JARS[@]}" -ne "$EXPECTED" || "${#META[@]}" -ne "$EXPECTED" ]]; then
+            echo "Expected ${EXPECTED} verified addons; found ${#JARS[@]} jars and ${#META[@]} metadata files" >&2
+            exit 1
+          fi
+          python3 - <<'PY'
+          import hashlib, json, re
+          from pathlib import Path
+          records = [json.loads(p.read_text(encoding='utf-8')) for p in sorted(Path('collected/metadata').glob('*.json'))]
+          actual = sorted(p.name for p in Path('collected/jars').glob('*.jar'))
+          expected = sorted(r['jar'] for r in records)
+          source = json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text(encoding='utf-8'))
+          approved = sorted((r['repository'], r['slug']) for r in source['addons'])
+          received = sorted((r['repository'], r['slug']) for r in records)
+          if received != approved:
+              raise SystemExit('Collected addon identities do not match the approved release matrix')
+          if actual != expected:
+              raise SystemExit(f'Canonical JAR set mismatch:\nactual={actual}\nexpected={expected}')
+          if len(expected) != len(set(expected)):
+              raise SystemExit('Duplicate canonical JAR names detected')
+          for record in records:
+              name = record['jar']
+              approved_record = next(r for r in source['addons'] if r['repository'] == record['repository'])
+              pinned = approved_record.get('source_commit')
+              if pinned and record['commit'] != pinned:
+                  raise SystemExit(f'Pinned source commit mismatch: {name}')
+              if Path(name).name != name:
+                  raise SystemExit(f'Unsafe JAR name: {name}')
+              digest = hashlib.sha256((Path('collected/jars') / name).read_bytes()).hexdigest()
+              if digest != record['sha256']:
+                  raise SystemExit(f'Manifest SHA-256 mismatch: {name}')
+          for name in expected:
+              reborn = re.fullmatch(r'SFL_DracFun-Reborn\d+(?:\.\d+)+\.jar', name)
+              if (not name.startswith('SF_') and not reborn) or not name.endswith('.jar'):
+                  raise SystemExit(f'Invalid addon JAR name: {name}')
+              if re.search(r'(legacy|english|snapshot)', name, re.I):
+                  raise SystemExit(f'Forbidden public qualifier in addon JAR name: {name}')
+          required = {
+              'SFL_DracFun-Reborn2.0.4.jar',
+              'SF_BetterChests1.0.2.jar',
+              'SF_BuildingStaff1.0.34.jar',
+              'SF_Cultivation1.1.23.jar',
+              'SF_ExoticGarden1.0.3.jar',
+              'SF_FastMachines1.0.4.jar',
+              'SF_Galactifun1.0.7.jar',
+              'SF_InfinityExpansion2.0.8.jar',
+              'SF_JustEnoughGuide2.1.59.jar',
+              'SF_LiteXpansion1.0.2.jar',
+              'SF_MagicExpansion1.1.5.jar',
+              'SF_MobCapturer1.0.6.jar',
+              'SF_Networks1.0.21.jar',
+              'SF_SlimeEasy1.0.3.jar',
+              'SF_SlimeHUD2.0.1.jar',
+              'SF_SlimeTinker2.0.6.jar',
+              'SF_Supreme1.0.12.jar',
+              'SF_SFWorldEdit1.0.5_(1.21.11-26.2).jar',
+          }
+          missing = sorted(required - set(actual))
+          if missing:
+              raise SystemExit(f'Missing required canonical addon names: {missing}')
+          print(f'Canonical naming verified for {len(actual)} addon JARs.')
+          PY
+          cp collected/jars/*.jar bundle/
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          source = json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text(encoding='utf-8'))
+          records = [json.loads(p.read_text(encoding='utf-8')) for p in sorted(Path('collected/metadata').glob('*.json'))]
+          out = {
+              'bundle': source['bundle_name'],
+              'artifact_naming': source['artifact_naming'],
+              'compatibility': source['compatibility'],
+              'addons': records,
+          }
+          Path('bundle/SF_ADDON_MANIFEST.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
+          PY
+          cat > bundle/COMPATIBILITY.txt <<EOF
+          Slimefun maintained addon bundle
+
+          Canonical addon filename format:
+          - SF_<AddonName><numeric version>.jar
+          - DracFun Reborn exception: SFL_DracFun-Reborn<version>.jar
+          - WorldEditSlimefun exception: SF_SFWorldEdit<version>_(1.21.11-26.2).jar
+          - WorldEditSlimefun requires WorldEdit or FAWE and is explicitly labeled for 1.21.11 through 26.2
+          - No Legacy, Legacy-English, SNAPSHOT, compatibility suffixes, or repo-only suffixes except the approved WorldEdit support-range suffix
+
+          Supported Minecraft/Paper generations:
+          - 1.21.11: minimum/base compatibility
+          - 26.1.x: supported
+          - 26.2: PRIMARY production baseline
+          - 26.3: release-candidate compatibility target; production promotion waits for stable validation and an explicit decision
+
+          Server platforms:
+          - PRIMARY: Paper, Purpur
+          - SECONDARY: Folia, Leaf
+
+          Every addon source in this archive was verified against the Paper ${PAPER_API_VERSION}
+          / Slimefun Legacy candidate stack. Distributable JARs keep their intended baseline
+          bytecode; DracFun Reborn is separately validated on Java 25 / Paper 26.3, then rebuilt
+          as Java-21 bytecode against the 1.21.11 baseline for universal deployment.
+          EOF
+          (cd bundle && sha256sum *.jar | sort > SHA256SUMS.txt)
+          (cd bundle && zip -9 -q "../${BUNDLE_NAME}" ./*)
+          unzip -tqq "$BUNDLE_NAME"
+          test -s "$BUNDLE_NAME"
+          echo "Created $BUNDLE_NAME with ${#JARS[@]} verified addons"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: SF_Addons_1.21.11-26.3
+          path: SF_Addons_1.21.11-26.3.zip
+          if-no-files-found: error
+      - name: Attach canonical bundle to latest Slimefun Legacy release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --json tagName,isDraft --jq '[.[] | select(.isDraft == false)][0].tagName')"
+          test -n "$TAG"
+          echo "Uploading ${BUNDLE_NAME} to ${TAG}"
+          OLD='SFL_Addons_1.21.11-26.3.zip'
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -Fxq "$OLD"; then
+            gh release delete-asset "$TAG" "$OLD" --repo "$GITHUB_REPOSITORY" -y
+          fi
+          gh release upload "$TAG" "$BUNDLE_NAME" --repo "$GITHUB_REPOSITORY" --clobber
+; then
+                SELECTED="$jar"
+                break
+              fi
+            done
+          fi
+          if [[ -z "$SELECTED" ]]; then
+            for jar in "${CANDIDATES[@]}"; do
+              if jar tf "$jar" | grep -Eq '(^|/)(plugin.yml|paper-plugin.yml|paper-plugin.yaml)          if [[ -z "$SELECTED" ]]; then
+            echo "No distributable Bukkit/Paper plugin JAR found for ${ADDON_REPOSITORY}" >&2
+            printf '%s\n' "${CANDIDATES[@]}" >&2
+            exit 1
+          fi
+          export SELECTED
+          export ADDON_REPOSITORY ADDON_SLUG ARTIFACT_BASE PAPER_API_VERSION
+          export ADDON_COMMIT="$(git -C addon rev-parse HEAD)"
+          python3 - <<'PY'
+          import hashlib, json, os, re, shutil, zipfile
+          from pathlib import Path
+          source = Path(os.environ['SELECTED'])
+          repo = os.environ['ADDON_REPOSITORY']
+          slug = os.environ['ADDON_SLUG']
+          base = os.environ.get('ARTIFACT_BASE', '').strip() or repo.split('/')[-1].removeprefix('SF_')
+          if not re.fullmatch(r'[A-Za-z0-9]+', base):
+              raise SystemExit(f'Invalid canonical addon name {base!r} for {repo}')
+          with zipfile.ZipFile(source) as zf:
+              descriptor = None
+              for candidate in ('plugin.yml', 'paper-plugin.yml', 'paper-plugin.yaml'):
+                  if candidate in zf.namelist():
+                      descriptor = zf.read(candidate).decode('utf-8', errors='replace')
+                      break
+              if descriptor is None:
+                  raise SystemExit(f'No plugin descriptor inside {source}')
+          match = re.search(r'(?mi)^\s*version\s*:\s*["\']?([^"\'\r\n#]+)', descriptor)
+          if not match:
+              raise SystemExit(f'No version in plugin descriptor for {repo}')
+          version = match.group(1).strip()
+          if not re.fullmatch(r'\d+(?:\.\d+)+', version):
+              raise SystemExit(f'Public addon version must be numeric only for {repo}; got {version!r}')
+          canonical = f'SF_{base}{version}.jar'
+          if repo == 'wickidcow/SF_DracFun2':
+              canonical = f'SFL_DracFun-Reborn{version}.jar'
+          if repo == 'wickidcow/WorldEditSlimefun':
+              canonical = f'SF_SFWorldEdit{version}_(1.21.11-26.2).jar'
+          if re.search(r'(legacy|english|snapshot)', canonical, re.I):
+              raise SystemExit(f'Forbidden public qualifier in {canonical}')
+          destination = Path('staged/jars') / canonical
+          shutil.copy2(source, destination)
+          sha256 = hashlib.sha256(destination.read_bytes()).hexdigest()
+          record = {
+              'repository': repo,
+              'slug': slug,
+              'commit': os.environ['ADDON_COMMIT'],
+              'jar': canonical,
+              'source_jar': source.name,
+              'version': version,
+              'artifact_base': base,
+              'sha256': sha256,
+              'paper_26_3_api': os.environ['PAPER_API_VERSION'],
+              'production_baseline': '26.2',
+              'minimum_supported': '1.21.11',
+              'primary_platforms': ['Paper', 'Purpur'],
+              'secondary_platforms': ['Folia', 'Leaf'],
+          }
+          Path(f'staged/metadata/{slug}.json').write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')
+          print(f'Collected {source.name} as canonical {canonical}')
+          PY
+          CANONICAL="$(python3 -c "import json; print(json.load(open('staged/metadata/${ADDON_SLUG}.json'))['jar'])")"
+          test -s "staged/jars/$CANONICAL"
+          jar tf "staged/jars/$CANONICAL" >/dev/null
+          sha256sum "staged/jars/$CANONICAL"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sf-addon-${{ matrix.slug }}
+          path: staged/
+          if-no-files-found: error
+
+  package:
+    name: Package and publish canonical addon bundle
+    needs: [prepare, compile-addons]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: sf-addon-*
+          path: collected
+          merge-multiple: true
+      - name: Verify complete maintained set and canonical names
+        env:
+          EXPECTED: ${{ needs.prepare.outputs.count }}
+          PAPER_API_VERSION: ${{ needs.prepare.outputs.paper_api }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p bundle
+          mapfile -t JARS < <(find collected/jars -maxdepth 1 -type f -name '*.jar' | sort)
+          mapfile -t META < <(find collected/metadata -maxdepth 1 -type f -name '*.json' | sort)
+          if [[ "${#JARS[@]}" -ne "$EXPECTED" || "${#META[@]}" -ne "$EXPECTED" ]]; then
+            echo "Expected ${EXPECTED} verified addons; found ${#JARS[@]} jars and ${#META[@]} metadata files" >&2
+            exit 1
+          fi
+          python3 - <<'PY'
+          import hashlib, json, re
+          from pathlib import Path
+          records = [json.loads(p.read_text(encoding='utf-8')) for p in sorted(Path('collected/metadata').glob('*.json'))]
+          actual = sorted(p.name for p in Path('collected/jars').glob('*.jar'))
+          expected = sorted(r['jar'] for r in records)
+          source = json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text(encoding='utf-8'))
+          approved = sorted((r['repository'], r['slug']) for r in source['addons'])
+          received = sorted((r['repository'], r['slug']) for r in records)
+          if received != approved:
+              raise SystemExit('Collected addon identities do not match the approved release matrix')
+          if actual != expected:
+              raise SystemExit(f'Canonical JAR set mismatch:\nactual={actual}\nexpected={expected}')
+          if len(expected) != len(set(expected)):
+              raise SystemExit('Duplicate canonical JAR names detected')
+          for record in records:
+              name = record['jar']
+              approved_record = next(r for r in source['addons'] if r['repository'] == record['repository'])
+              pinned = approved_record.get('source_commit')
+              if pinned and record['commit'] != pinned:
+                  raise SystemExit(f'Pinned source commit mismatch: {name}')
+              if Path(name).name != name:
+                  raise SystemExit(f'Unsafe JAR name: {name}')
+              digest = hashlib.sha256((Path('collected/jars') / name).read_bytes()).hexdigest()
+              if digest != record['sha256']:
+                  raise SystemExit(f'Manifest SHA-256 mismatch: {name}')
+          for name in expected:
+              reborn = re.fullmatch(r'SFL_DracFun-Reborn\d+(?:\.\d+)+\.jar', name)
+              if (not name.startswith('SF_') and not reborn) or not name.endswith('.jar'):
+                  raise SystemExit(f'Invalid addon JAR name: {name}')
+              if re.search(r'(legacy|english|snapshot)', name, re.I):
+                  raise SystemExit(f'Forbidden public qualifier in addon JAR name: {name}')
+          required = {
+              'SFL_DracFun-Reborn2.0.4.jar',
+              'SF_BetterChests1.0.2.jar',
+              'SF_BuildingStaff1.0.34.jar',
+              'SF_Cultivation1.1.23.jar',
+              'SF_ExoticGarden1.0.3.jar',
+              'SF_FastMachines1.0.4.jar',
+              'SF_Galactifun1.0.7.jar',
+              'SF_InfinityExpansion2.0.8.jar',
+              'SF_JustEnoughGuide2.1.59.jar',
+              'SF_LiteXpansion1.0.2.jar',
+              'SF_MagicExpansion1.1.5.jar',
+              'SF_MobCapturer1.0.6.jar',
+              'SF_Networks1.0.21.jar',
+              'SF_SlimeEasy1.0.3.jar',
+              'SF_SlimeHUD2.0.1.jar',
+              'SF_SlimeTinker2.0.6.jar',
+              'SF_Supreme1.0.12.jar',
+              'SF_SFWorldEdit1.0.5_(1.21.11-26.2).jar',
+          }
+          missing = sorted(required - set(actual))
+          if missing:
+              raise SystemExit(f'Missing required canonical addon names: {missing}')
+          print(f'Canonical naming verified for {len(actual)} addon JARs.')
+          PY
+          cp collected/jars/*.jar bundle/
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          source = json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text(encoding='utf-8'))
+          records = [json.loads(p.read_text(encoding='utf-8')) for p in sorted(Path('collected/metadata').glob('*.json'))]
+          out = {
+              'bundle': source['bundle_name'],
+              'artifact_naming': source['artifact_naming'],
+              'compatibility': source['compatibility'],
+              'addons': records,
+          }
+          Path('bundle/SF_ADDON_MANIFEST.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
+          PY
+          cat > bundle/COMPATIBILITY.txt <<EOF
+          Slimefun maintained addon bundle
+
+          Canonical addon filename format:
+          - SF_<AddonName><numeric version>.jar
+          - DracFun Reborn exception: SFL_DracFun-Reborn<version>.jar
+          - WorldEditSlimefun exception: SF_SFWorldEdit<version>_(1.21.11-26.2).jar
+          - WorldEditSlimefun requires WorldEdit or FAWE and is explicitly labeled for 1.21.11 through 26.2
+          - No Legacy, Legacy-English, SNAPSHOT, compatibility suffixes, or repo-only suffixes except the approved WorldEdit support-range suffix
+
+          Supported Minecraft/Paper generations:
+          - 1.21.11: minimum/base compatibility
+          - 26.1.x: supported
+          - 26.2: PRIMARY production baseline
+          - 26.3: release-candidate compatibility target; production promotion waits for stable validation and an explicit decision
+
+          Server platforms:
+          - PRIMARY: Paper, Purpur
+          - SECONDARY: Folia, Leaf
+
+          Every addon source in this archive was verified against the Paper ${PAPER_API_VERSION}
+          / Slimefun Legacy candidate stack. Distributable JARs keep their intended baseline
+          bytecode; DracFun Reborn is separately validated on Java 25 / Paper 26.3, then rebuilt
+          as Java-21 bytecode against the 1.21.11 baseline for universal deployment.
+          EOF
+          (cd bundle && sha256sum *.jar | sort > SHA256SUMS.txt)
+          (cd bundle && zip -9 -q "../${BUNDLE_NAME}" ./*)
+          unzip -tqq "$BUNDLE_NAME"
+          test -s "$BUNDLE_NAME"
+          echo "Created $BUNDLE_NAME with ${#JARS[@]} verified addons"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: SF_Addons_1.21.11-26.3
+          path: SF_Addons_1.21.11-26.3.zip
+          if-no-files-found: error
+      - name: Attach canonical bundle to latest Slimefun Legacy release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --json tagName,isDraft --jq '[.[] | select(.isDraft == false)][0].tagName')"
+          test -n "$TAG"
+          echo "Uploading ${BUNDLE_NAME} to ${TAG}"
+          OLD='SFL_Addons_1.21.11-26.3.zip'
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -Fxq "$OLD"; then
+            gh release delete-asset "$TAG" "$OLD" --repo "$GITHUB_REPOSITORY" -y
+          fi
+          gh release upload "$TAG" "$BUNDLE_NAME" --repo "$GITHUB_REPOSITORY" --clobber
+; then
+                SELECTED="$jar"
+                break
+              fi
+            done
+          fi
           if [[ -z "$SELECTED" ]]; then
             echo "No distributable Bukkit/Paper plugin JAR found for ${ADDON_REPOSITORY}" >&2
             printf '%s\n' "${CANDIDATES[@]}" >&2

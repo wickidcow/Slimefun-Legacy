@@ -85,7 +85,12 @@ jobs:
           if versions.get('minimum') != '1.21.11' or '26.3' not in supported:
               raise SystemExit(f'Unexpected compatibility range in verified manifest: {versions}')
 
-          invalid = [name for name in expected if not re.fullmatch(r'(?:SF_[A-Za-z0-9]+|SFL_DracFun-Reborn)\d+(?:\.\d+)+\.jar', name)]
+          def valid_public_name(name):
+              standard = re.fullmatch(r'(?:SF_[A-Za-z0-9]+|SFL_DracFun-Reborn)\d+(?:\.\d+)+\.jar', name)
+              worldedit = re.fullmatch(r'SF_SFWorldEdit\d+(?:\.\d+)+_\(1\.21\.11-26\.2\)\.jar', name)
+              return bool(standard or worldedit)
+
+          invalid = [name for name in expected if not valid_public_name(name)]
           if invalid:
               raise SystemExit(f'Invalid public addon JAR names: {invalid}')
 
