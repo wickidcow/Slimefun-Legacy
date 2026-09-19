@@ -20,6 +20,16 @@ import org.bukkit.entity.Player;
 public final class ExternalResourcePackService {
 
     private static final String CONFIG_ROOT = "resource-pack.";
+    private static final String DEFAULT_PACK_URL =
+            "https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip";
+    private static final String PREVIOUS_HOSTED_PACK_URL =
+            "http://overlord.kicks-ass.org:8163/SlimefunLegacyRP.zip";
+    private static final String PREVIOUS_UNOFFICIAL_PACK_URL =
+            "https://github.com/wickidcow/SFL_ResourePack_UnOfficial/releases/latest/download/SlimefunLegacyRP.zip";
+    private static final String PREVIOUS_LEGACY_REPO_PACK_URL =
+            "https://github.com/wickidcow/Slimefun-Legacy/releases/latest/download/SlimefunLegacy-ResourcePack-1.21.11-26.3.zip";
+    private static final String RETIRED_DEFAULT_PACK_URL =
+            "https://cdn.modrinth.com/data/TznkVJky/versions/nwij66MR/Slimefun-ResourcePack.zip";
     private static final UUID PACK_ID = UUID.nameUUIDFromBytes(
             "slimefun-legacy:external-resource-pack".getBytes(StandardCharsets.UTF_8));
 
@@ -42,6 +52,16 @@ public final class ExternalResourcePackService {
         }
 
         String url = trim(config.getString(CONFIG_ROOT + "url"));
+        if (RETIRED_DEFAULT_PACK_URL.equals(url)
+                || PREVIOUS_HOSTED_PACK_URL.equals(url)
+                || PREVIOUS_UNOFFICIAL_PACK_URL.equals(url)
+                || PREVIOUS_LEGACY_REPO_PACK_URL.equals(url)) {
+            url = DEFAULT_PACK_URL;
+            warnOnce(
+                    "An older Slimefun Legacy resource-pack URL was detected. Slimefun Legacy is using the current "
+                            + "GitHub-hosted pack instead: " + DEFAULT_PACK_URL);
+        }
+
         if (!isValidResourcePackUrl(url)) {
             warnOnce("External resource-pack delivery is enabled, but resource-pack.url is not a valid HTTP(S) URL.");
             return;

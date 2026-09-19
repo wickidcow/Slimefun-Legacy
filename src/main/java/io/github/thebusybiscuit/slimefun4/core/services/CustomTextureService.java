@@ -8,7 +8,9 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nonnull;
@@ -18,11 +20,14 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.components.CustomModelDataComponent;
 
 /**
  * This Service is responsible for applying custom model data to any {@link SlimefunItemStack}
  * if a Server Owner configured Slimefun to use those.
- * We simply use {@link ItemMeta#setCustomModelData(Integer)} for this.
+ * Modern Minecraft clients expose custom model data as a component. Slimefun Legacy keeps the
+ * historical numeric item-model mapping format, but stores that numeric value as the first float
+ * in {@link CustomModelDataComponent}. This is the modern equivalent of the old integer API.
  *
  * @author TheBusyBiscuit
  *
@@ -32,6 +37,8 @@ public class CustomTextureService {
     private static final int SHARED_PAXEL_MODEL_DATA = 2201302;
     private static final String DEEPCORE_PAXEL_VISUAL_MIGRATION =
             "_SLIMEFUN_LEGACY_MIGRATIONS.DEEPCORE_PAXEL_VISUAL_SEPARATION";
+    private static final String HOSTED_PACK_MODEL_MIGRATION =
+            "_SLIMEFUN_LEGACY_MIGRATIONS.HOSTED_PACK_MODEL_MAP_2026_09";
     private static final String[] DEEPCORE_PAXEL_IDS = {
         "ADVENTURERS_DEEPCORE_PAXEL_3X3",
         "ADVENTURERS_DEEPCORE_PAXEL_5X5",
@@ -123,8 +130,34 @@ public class CustomTextureService {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
             FileConfiguration cfg = YamlConfiguration.loadConfiguration(reader);
 
+            boolean migrateHostedPackModels =
+                    !config.getConfiguration().getBoolean(HOSTED_PACK_MODEL_MIGRATION, false);
+            int migratedModels = 0;
+
             for (String key : cfg.getKeys(false)) {
-                config.setDefaultValue(key, cfg.getInt(key));
+                int bundledModel = cfg.getInt(key);
+
+                if (!config.contains(key)) {
+                    config.setValue(key, bundledModel);
+                } else if (migrateHostedPackModels && bundledModel != 0 && config.getInt(key) == 0) {
+                    // Older Slimefun Legacy builds auto-populated registered item IDs with 0.
+                    // Upgrade only those zero placeholders to the canonical hosted-pack mapping.
+                    // Existing non-zero server customizations are never overwritten.
+                    config.setValue(key, bundledModel);
+                    migratedModels++;
+                }
+            }
+
+            if (migrateHostedPackModels) {
+                config.setValue(HOSTED_PACK_MODEL_MIGRATION, true);
+
+                if (migratedModels > 0) {
+                    Logger logger = Slimefun.instance() == null
+                            ? Logger.getLogger(CustomTextureService.class.getName())
+                            : Slimefun.logger();
+                    logger.info("Updated " + migratedModels
+                            + " zero item-model entries to the Slimefun Legacy hosted-pack mapping.");
+                }
             }
 
             defaultsLoaded = true;
@@ -224,7 +257,20 @@ public class CustomTextureService {
 
         int data = getModelData(id);
         if (data != 0) {
-            im.setCustomModelData(data);
+            CustomModelDataComponent component = im.getCustomModelDataComponent();
+            List<Float> floats = new ArrayList<>(component.getFloats());
+
+            // Paper defines a legacy integer CustomModelData value as the first float in the
+            // modern component. Preserve any extra values supplied by another plugin/resource
+            // pack integration while replacing only Slimefun's legacy-compatible model slot.
+            if (floats.isEmpty()) {
+                floats.add((float) data);
+            } else {
+                floats.set(0, (float) data);
+            }
+
+            component.setFloats(floats);
+            im.setCustomModelDataComponent(component);
         }
     }
 }
