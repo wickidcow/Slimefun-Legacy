@@ -1,5 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.core.services;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -32,5 +34,22 @@ class TestExternalResourcePackService {
     void testCustomResourcePackUrlIsPreserved() {
         String custom = "https://example.com/custom-slimefun-pack.zip";
         Assertions.assertEquals(custom, ExternalResourcePackService.normalizeLegacyResourcePackUrl(custom));
+    }
+
+    @Test
+    void testResourcePackSettingsStayOutOfCoreConfig() throws IOException {
+        String core = readResource("/config.yml");
+        String addons = readResource("/configSFLAddons.yml");
+
+        Assertions.assertFalse(core.contains("\nresource-pack:"));
+        Assertions.assertTrue(addons.contains("\nresource-pack:"));
+        Assertions.assertTrue(addons.contains(OFFICIAL));
+    }
+
+    private static String readResource(String path) throws IOException {
+        try (var stream = TestExternalResourcePackService.class.getResourceAsStream(path)) {
+            Assertions.assertNotNull(stream, "Missing test resource: " + path);
+            return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 }
