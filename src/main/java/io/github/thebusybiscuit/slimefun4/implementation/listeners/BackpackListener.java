@@ -176,7 +176,10 @@ public class BackpackListener implements Listener {
         save.whenComplete((ignored, failure) -> {
             if (failure != null) {
                 Slimefun.logger()
-                        .log(Level.SEVERE, "An Exception occurred while saving a detached backpack on " + context, failure);
+                        .log(
+                                Level.SEVERE,
+                                "An Exception occurred while saving a detached backpack on " + context,
+                                failure);
             }
         });
     }
