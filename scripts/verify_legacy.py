@@ -88,6 +88,7 @@ def main() -> int:
         "verify_core_platform_phase1k.py",
         "verify_phase1k_dependency_contract.py",
         "verify_item_doctor_translation_recovery.py",
+        "verify_item_model_doctor.py",
         "verify_doctor_migrations.py",
         "verify_doctor_schema_migrations.py",
         "verify_doctor_schema_execution.py",

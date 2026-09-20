@@ -77,6 +77,7 @@ final class DoctorCommand extends SubCommand {
             case "chunks", "worlds", "blocks" -> sendChunkHealth(sender);
             case "hand" -> repairHand(sender, service);
             case "inventory" -> repairInventory(sender, args, service);
+            case "item-models", "itemmodels", "models" -> runItemModelDoctor(sender, args, service);
             case "scan" -> startServerRun(sender, service, false);
             case "addons" -> runAddonDoctors(sender, args);
             case "compatibility", "compat" -> sendAddonCompatibility(sender, args);
@@ -336,6 +337,89 @@ final class DoctorCommand extends SubCommand {
         ItemDoctorReport report = service.inspectPlayer(target, true);
         send(sender, "&aFinished repairing &e" + target.getName() + "&a's inventory and ender chest.");
         sendProgress(sender, report);
+    }
+
+    private void runItemModelDoctor(CommandSender sender, String[] args, ItemDoctorService service) {
+        if (!service.isEnabled()) {
+            send(sender, "&cThe item doctor is disabled in config.yml.");
+            return;
+        }
+
+        String action = args.length > 2 ? args[2].toLowerCase(Locale.ROOT) : "status";
+        if (action.equals("status")) {
+            send(sender, "&6Slimefun Item-Model Compatibility Repair");
+            send(sender, "&7This targets only bundled Slimefun model values on IDs currently configured as &e0&7.");
+            send(sender, "&7Dry run: &e/sf doctor item-models scan");
+            send(sender, "&7Repair: &6/sf doctor item-models repair confirm");
+            send(sender, "&8Other custom-model floats, flags, strings and colors are preserved.");
+            return;
+        }
+
+        boolean repair;
+        if (action.equals("scan")) {
+            repair = false;
+        } else if (action.equals("repair") || action.equals("fix")) {
+            if (args.length < 4 || !args[3].equalsIgnoreCase("confirm")) {
+                send(sender, "&eMake a full offline backup and review a scan first.");
+                send(sender, "&eThen run &6/sf doctor item-models repair confirm&e.");
+                return;
+            }
+            repair = true;
+        } else {
+            send(sender, "&eUsage: /sf doctor item-models <status|scan|repair confirm>");
+            return;
+        }
+
+        boolean started = service.startItemModelRun(repair, report -> {
+            send(sender, "&aSlimefun item-model Doctor " + report.getModeName() + " completed.");
+            sendItemModelProgress(sender, report);
+            if (report.isRepairMode()) {
+                send(sender, "&eBackpack/database saves may still be queued. Keep the server running until");
+                send(sender, "&e/sf doctor status shows 0 pending database writes, then stop normally.");
+            }
+        });
+
+        if (!started) {
+            send(sender, "&eA server-wide item Doctor run is already active. Use /sf doctor status.");
+            return;
+        }
+
+        send(sender, "&aStarted the server-wide Slimefun item-model " + (repair ? "repair" : "scan") + '.');
+        send(sender, "&7Only registered Slimefun items whose current item-models.yml value is 0 are eligible.");
+        send(sender, "&7The stored first model float must exactly match Slimefun Legacy's bundled mapping.");
+        if (!repair) {
+            send(sender, "&7This is read-only. No item metadata will be changed.");
+        }
+    }
+
+    private void sendItemModelProgress(CommandSender sender, ItemDoctorReport report) {
+        send(sender, "&7Inventories: &e" + report.getInventories() + " &8| &7Backpacks: &e" + report.getBackpacks());
+        send(sender, "&7Stacks scanned: &e" + report.getScannedStacks() + " &8| &7Slimefun: &e"
+                + report.getSlimefunStacks());
+        send(sender, "&7Bundled-model candidates: &e" + report.getItemModelCandidates()
+                + " &8| &7Repaired: &a" + report.getItemModelRepairs()
+                + " &8| &7Failures: &c" + report.getFailures());
+
+        int shown = 0;
+        for (var entry : report.getItemModelCandidateCounts().entrySet()) {
+            if (shown >= 12) {
+                break;
+            }
+            send(sender, "&8- &f" + entry.getKey() + " &8x&e" + entry.getValue());
+            shown++;
+        }
+        int omitted = report.getItemModelCandidateCounts().size() - shown;
+        if (omitted > 0) {
+            send(sender, "&8... " + omitted + " more candidate item ID(s)");
+        }
+
+        if (report.getItemModelCandidates() == 0) {
+            send(sender, "&7No eligible stale Slimefun bundled model values were found.");
+            send(sender, "&8IDs still configured to a non-zero item model are intentionally ignored.");
+        }
+        if (report.isComplete()) {
+            send(sender, "&7Duration: &e" + Math.max(1L, report.getDurationMillis() / 1000L) + " second(s)");
+        }
     }
 
     private void startServerRun(CommandSender sender, ItemDoctorService service, boolean repair) {
@@ -1156,6 +1240,10 @@ final class DoctorCommand extends SubCommand {
                 sender,
                 "&7Unknown IDs: &e" + report.getUnknownIds() + " &8| &7No English template: &e"
                         + report.getUnresolvedTemplates() + " &8| &7Failures: &c" + report.getFailures());
+        if (report.getItemModelCandidates() > 0 || report.getItemModelRepairs() > 0) {
+            send(sender, "&7Item-model candidates: &e" + report.getItemModelCandidates()
+                    + " &8| &7Model repairs: &a" + report.getItemModelRepairs());
+        }
         if (!report.getUnknownIdSamples().isEmpty()) {
             send(sender, "&7Unknown ID samples: &e" + String.join(", ", report.getUnknownIdSamples()));
         }
@@ -1172,7 +1260,7 @@ final class DoctorCommand extends SubCommand {
     private void sendUsage(CommandSender sender) {
         send(
                 sender,
-                "&eUsage: /slimefun doctor [status|upgrade|core|registry|chunks|hand|inventory [player]|scan|repair confirm|addons]");
+                "&eUsage: /slimefun doctor [status|upgrade|core|registry|chunks|hand|inventory [player]|scan|repair confirm|item-models|addons]");
         send(
                 sender,
                 "&e       /slimefun doctor [compatibility [api <plugin>]|dependencies [plugin]|runtime [retry [all]]]");
