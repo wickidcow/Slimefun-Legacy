@@ -156,7 +156,7 @@ public final class ExternalResourcePackService {
 
         if (!isValidResourcePackUrl(url)) {
             warnOnce("External resource-pack delivery is enabled, but configSFLAddons.yml resource-pack.url is not a valid HTTP(S) URL.");
-            return;
+            return false;
         }
 
         // Never pair a replacement GitHub URL with a checksum that belonged to a retired pack.
@@ -164,7 +164,7 @@ public final class ExternalResourcePackService {
         byte[] hash = parseSha1(configuredHash);
         if (!configuredHash.isEmpty() && hash == null) {
             warnOnce("External resource-pack delivery is enabled, but configSFLAddons.yml resource-pack.sha1 is not a 40-character SHA-1 hash.");
-            return;
+            return false;
         }
 
         String prompt = trim(config.getString(CONFIG_ROOT + "prompt"));
