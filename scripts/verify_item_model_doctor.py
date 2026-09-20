@@ -108,12 +108,13 @@ require('args[3].equalsIgnoreCase("confirm")' in command,
         "item-model repair must require explicit confirm")
 require("service.startItemModelRun(repair" in command,
         "item-model command must use the server-wide Doctor traversal")
-require('"item-models"' in tabs and '"rollback-v52"' in tabs,
-        "item-model Doctor tab completion is missing v4.1.52 recovery")
+require('"item-models"' in tabs and '"remove-resourcepack-texture-ids"' in tabs,
+        "item-model Doctor tab completion is missing resource-pack texture ID removal")
 require('"enable-pack"' in tabs and 'List.of("scan", "confirm")' in tabs,
         "item-model Doctor tab completion is missing hosted-pack adoption")
-require('"rollback-v52"' in command and "rollbackHostedPackMigrationMappings()" in command,
-        "item-model Doctor must expose guarded v4.1.52 rollback")
+require('"remove-resourcepack-texture-ids"' in command and '"rollback-v52"' in command
+        and "rollbackHostedPackMigrationMappings()" in command,
+        "item-model Doctor must expose descriptive removal command with guarded v4.1.52 legacy alias")
 require('"enable-pack"' in command and "enableHostedPackMappings()" in command
         and "startItemModelEnableRun(repair" in command,
         "item-model Doctor must expose guarded hosted-pack adoption")
