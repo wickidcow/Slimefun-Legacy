@@ -45,6 +45,9 @@ BACKEND_LOG="$WORK_DIR/backend.console.log"
 BACKEND_NORMALIZED="$WORK_DIR/backend.normalized.log"
 PROXY_LOG="$WORK_DIR/proxy.console.log"
 PING_JSON="$WORK_DIR/proxy-ping.json"
+IDENTITY_CLIENT_MODULE="${SFL_PROXY_PROTOCOL_MODULE:-}"
+IDENTITY_PLAYER="${SFL_PROXY_IDENTITY_PLAYER:-SFLProxyBot}"
+IDENTITY_RESULT="not run (protocol-aware login client unavailable)"
 
 normalize_log() {
     python3 - "$1" "$2" <<'PY'
@@ -561,6 +564,142 @@ print("Proxy status ping reached Paper backend:", description_text)
 PY
 }
 
+normalize_uuid() {
+    tr '[:upper:]' '[:lower:]' | tr -d '-'
+}
+
+wait_for_file() {
+    local pid="$1"
+    local file="$2"
+    local label="$3"
+    local deadline=$((SECONDS + 30))
+    while kill -0 "$pid" >/dev/null 2>&1 && (( SECONDS < deadline )); do
+        if [[ -s "$file" ]]; then
+            return 0
+        fi
+        sleep 1
+    done
+    echo "$label did not produce $file." >&2
+    if [[ -f "$file" ]]; then cat "$file" >&2 || true; fi
+    return 1
+}
+
+capture_player_identity() {
+    local label="$1"
+    local research_key="${2:-}"
+    local start_line
+    start_line=$(( $(wc -l < "$BACKEND_LOG") + 1 ))
+
+    if [[ -n "$research_key" ]]; then
+        printf 'sf doctor proxy player %s %s\n' "$IDENTITY_PLAYER" "$research_key" >&3
+    else
+        printf 'sf doctor proxy player %s\n' "$IDENTITY_PLAYER" >&3
+    fi
+
+    local output="$WORK_DIR/identity-${label}.txt"
+    local deadline=$((SECONDS + 15))
+    while (( SECONDS < deadline )); do
+        normalize_log "$BACKEND_LOG" "$BACKEND_NORMALIZED"
+        tail -n "+$start_line" "$BACKEND_NORMALIZED" > "$output"
+        if grep -Fq 'UUID match: Yes' "$output"; then
+            cat "$output"
+            return 0
+        fi
+        if grep -Fq "is not online on this backend" "$output"; then
+            break
+        fi
+        sleep 1
+    done
+
+    echo "Could not capture a loaded Slimefun profile for $IDENTITY_PLAYER ($label)." >&2
+    cat "$output" >&2 || true
+    return 1
+}
+
+run_identity_client() {
+    local label="$1"
+    local hold_ms="$2"
+    local output="$WORK_DIR/client-${label}.json"
+    local log="$WORK_DIR/client-${label}.log"
+    rm -f "$output" "$log"
+
+    SFL_PROXY_PROTOCOL_MODULE="$IDENTITY_CLIENT_MODULE" \
+        node "$REPO_ROOT/scripts/proxy_identity_client.js" \
+        127.0.0.1 "$PROXY_PORT" "$IDENTITY_PLAYER" "$output" "$hold_ms" > "$log" 2>&1 &
+    IDENTITY_CLIENT_PID=$!
+    wait_for_file "$IDENTITY_CLIENT_PID" "$output" "Minecraft identity client ($label)"
+}
+
+run_player_identity_smoke() {
+    if [[ "$MC_VERSION" != "26.2" ]]; then
+        IDENTITY_RESULT="not run (pinned login client currently covers Minecraft 26.2 / protocol 776)"
+        return 0
+    fi
+    if [[ -z "$IDENTITY_CLIENT_MODULE" || ! -f "$IDENTITY_CLIENT_MODULE/package.json" ]]; then
+        echo "Minecraft 26.2 identity smoke requires SFL_PROXY_PROTOCOL_MODULE." >&2
+        return 1
+    fi
+
+    run_identity_client first 18000
+    local first_pid="$IDENTITY_CLIENT_PID"
+    sleep 2
+    capture_player_identity first
+
+    local first_client_uuid first_backend_uuid research_key
+    first_client_uuid="$(jq -r '.uuid // empty' "$WORK_DIR/client-first.json" | normalize_uuid)"
+    first_backend_uuid="$(grep -Eo 'Bukkit UUID: [0-9a-fA-F-]{36}' "$WORK_DIR/identity-first.txt" | tail -n 1 | awk '{print $3}' | normalize_uuid)"
+    research_key="$(sed -n 's/.*Persistence research candidate: //p' "$WORK_DIR/identity-first.txt" | tail -n 1 | tr -d '\r')"
+
+    if [[ -z "$first_client_uuid" || -z "$first_backend_uuid" || "$first_client_uuid" != "$first_backend_uuid" ]]; then
+        echo "Proxy/client UUID does not match the Bukkit UUID seen by Slimefun." >&2
+        cat "$WORK_DIR/client-first.json" >&2 || true
+        cat "$WORK_DIR/identity-first.txt" >&2 || true
+        return 1
+    fi
+    if [[ -z "$research_key" || "$research_key" == "<none>" ]]; then
+        echo "No locked Slimefun research was available for the persistence probe." >&2
+        cat "$WORK_DIR/identity-first.txt" >&2 || true
+        return 1
+    fi
+
+    printf 'sf research %s %s\n' "$IDENTITY_PLAYER" "$research_key" >&3
+    sleep 4
+    capture_player_identity first-after-research "$research_key"
+    grep -Fq "Research ${research_key}: Unlocked" "$WORK_DIR/identity-first-after-research.txt" || {
+        echo "The selected Slimefun research did not become unlocked during the first proxy session." >&2
+        cat "$WORK_DIR/identity-first-after-research.txt" >&2 || true
+        return 1
+    }
+
+    wait "$first_pid"
+    sleep 4
+
+    run_identity_client second 12000
+    local second_pid="$IDENTITY_CLIENT_PID"
+    sleep 2
+    capture_player_identity second "$research_key"
+
+    local second_client_uuid second_backend_uuid
+    second_client_uuid="$(jq -r '.uuid // empty' "$WORK_DIR/client-second.json" | normalize_uuid)"
+    second_backend_uuid="$(grep -Eo 'Bukkit UUID: [0-9a-fA-F-]{36}' "$WORK_DIR/identity-second.txt" | tail -n 1 | awk '{print $3}' | normalize_uuid)"
+
+    if [[ "$first_client_uuid" != "$second_client_uuid" || "$first_backend_uuid" != "$second_backend_uuid" ]]; then
+        echo "Player UUID changed across proxy reconnect." >&2
+        cat "$WORK_DIR/client-first.json" >&2 || true
+        cat "$WORK_DIR/client-second.json" >&2 || true
+        cat "$WORK_DIR/identity-second.txt" >&2 || true
+        return 1
+    fi
+    grep -Fq "Research ${research_key}: Unlocked" "$WORK_DIR/identity-second.txt" || {
+        echo "Slimefun research did not persist across proxy disconnect/reconnect." >&2
+        cat "$WORK_DIR/identity-second.txt" >&2 || true
+        return 1
+    }
+
+    wait "$second_pid"
+    IDENTITY_RESULT="PASS (login UUID + Slimefun profile + research persisted across reconnect)"
+}
+
 download_paper
 generate_backend_config
 
@@ -585,6 +724,7 @@ start_backend
 start_proxy
 sleep 3
 status_ping_through_proxy
+run_player_identity_smoke
 
 stop_process "$PROXY_PID" 4 "$([[ "$PROXY_KIND" == "waterfall" ]] && echo end || echo shutdown)"
 wait "$PROXY_PID" >/dev/null 2>&1 || true
@@ -611,6 +751,6 @@ Doctor forwarding diagnostics: PASS
 Proxy startup: PASS
 Proxy -> Paper status passthrough: PASS
 Backend MOTD observed through proxy: SFL Proxy Backend CI
-Player login / UUID persistence: not covered by this phase
+Player login / UUID / Slimefun research persistence: ${IDENTITY_RESULT}
 EOF
 cat "$WORK_DIR/smoke-result.txt"
