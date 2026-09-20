@@ -22,7 +22,7 @@ Slimefun Legacy turns a normal Minecraft server into a modpack-like experience w
 [Report a Bug](https://github.com/wickidcow/Slimefun-Legacy/issues) ·
 [Release History](EVERYTHING_THAT_CHANGED.md)
 
-Current release: **4.1.55 — Item-model & storage recovery hotfix**. ·
+Current release: **4.1.55 — Recovery, Velocity & standalone JEG compatibility**. ·
 [Contributing](CONTRIBUTING.md)
 
 </div>
@@ -90,6 +90,7 @@ These are historical Slimefun community showcase images. Full image credits and 
 | **Java runtime** | Java 25 |
 | **Client** | Normal Minecraft Java client; no client mod required |
 | **Resource pack** | Optional; Slimefun Legacy's external sender is disabled by default |
+| **Proxy** | Velocity modern forwarding supported on the primary Paper 26.2 line; Paper 26.3 proxy path is CI-tested as the candidate line |
 The supported production line uses Java 25. The repository also builds with Java 25 while deliberately targeting Java 21 bytecode for Slimefun-owned classes.
 
 Resource-pack delivery is optional and remains off unless a server owner explicitly enables it. Servers already using ItemsAdder can leave Legacy's sender disabled and continue using their own combined pack. See [`docs/RESOURCE_PACK.md`](docs/RESOURCE_PACK.md).
@@ -116,6 +117,23 @@ Download a tested build from [GitHub Releases](https://github.com/wickidcow/Slim
 /sf doctor integrations
 ```
 Test representative machines, backpacks, Cargo networks, recipes, protections, and addon items before reopening a production server.
+
+### Velocity / proxy support
+
+Slimefun Legacy 4.1.55 supports **Velocity modern forwarding** on the primary Paper 26.2 production line. Proxy CI uses a real Minecraft 26.2 client session to verify that the UUID presented through Velocity reaches Bukkit/Slimefun unchanged and that Slimefun research remains attached to the same profile after disconnect/reconnect.
+
+Use:
+
+```text
+/sf doctor proxy
+/sf doctor proxy player <online-player>
+```
+
+Paper 26.3 also receives Velocity startup, forwarding-configuration, and proxy-to-backend network-path smoke coverage while 26.3 remains the candidate line. Waterfall is retained only as a legacy/archived compatibility target.
+
+### Standalone JustEnoughGuide
+
+The maintained **SF_JustEnoughGuide** addon owns the enhanced guide UI through Slimefun Legacy's supported guide registration API. Legacy keeps its machine-recipe providers and hardened input-fill services available even when the native Enhanced Guide UI is disabled, and the classic indexed guide remains the fallback until JEG installs its implementation. JEG is a required compatibility/runtime-smoke target and is included in the maintained addon bundle.
 
 ---
 ### Rebar/Pylon diagnostics
