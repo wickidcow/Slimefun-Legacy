@@ -126,23 +126,8 @@ final class CargoUtils {
         DirtyChestMenu menu = getChestMenu(target);
 
         if (menu == null) {
-            if (hasInventory(target)) {
-                Inventory inventory = inventories.get(target.getLocation());
-
-                if (inventory != null) {
-                    return withdrawFromVanillaInventory(network, node, template, inventory);
-                }
-
-                BlockState state = target.getState(false);
-
-                if (state instanceof InventoryHolder inventoryHolder) {
-                    inventory = inventoryHolder.getInventory();
-                    inventories.put(target.getLocation(), inventory);
-                    return withdrawFromVanillaInventory(network, node, template, inventory);
-                }
-            }
-
-            return null;
+            Inventory inventory = getLiveInventory(inventories, target);
+            return inventory == null ? null : withdrawFromVanillaInventory(network, node, template, inventory);
         }
 
         ItemStackWrapper wrapperTemplate = ItemStackWrapper.wrap(template);
@@ -215,6 +200,11 @@ final class CargoUtils {
                 return null;
             }
 
+            menu = getChestMenu(target);
+            if (menu == null) {
+                return null;
+            }
+
             for (int slot : menu.getPreset().getSlotsAccessedByItemTransport(menu, ItemTransportFlow.WITHDRAW, null)) {
                 ItemStack is = menu.getItemInSlot(slot);
 
@@ -223,22 +213,23 @@ final class CargoUtils {
                     return new ItemStackAndInteger(is, slot);
                 }
             }
-        } else if (hasInventory(target)) {
-            Inventory inventory = inventories.get(target.getLocation());
-
+        } else {
+            Inventory inventory = getLiveInventory(inventories, target);
             if (inventory == null) {
-                BlockState state = target.getState(false);
-                if (!(state instanceof InventoryHolder holder)) {
-                    return null;
-                }
-
-                inventory = holder.getInventory();
-                inventories.put(target.getLocation(), inventory);
+                return null;
             }
 
             var event = new CargoWithdrawEvent(node, target, inventory);
             Bukkit.getPluginManager().callEvent(event);
-            if (!event.isCancelled()) {
+            if (event.isCancelled()) {
+                return null;
+            }
+
+            // Event handlers are allowed to run arbitrary plugin code. Re-resolve
+            // the inventory afterwards so Cargo never withdraws from a stale
+            // holder if the target was broken, replaced or otherwise invalidated.
+            inventory = getLiveInventory(inventories, target);
+            if (inventory != null) {
                 return withdrawFromVanillaInventory(network, node, inventory);
             }
         }
@@ -281,30 +272,31 @@ final class CargoUtils {
         DirtyChestMenu menu = getChestMenu(target);
 
         if (menu == null) {
-            if (hasInventory(target)) {
-                Inventory inventory = inventories.get(target.getLocation());
-
-                if (inventory == null) {
-                    BlockState state = target.getState(false);
-                    if (!(state instanceof InventoryHolder holder)) {
-                        return stack;
-                    }
-                    inventory = holder.getInventory();
-                    inventories.put(target.getLocation(), inventory);
-                }
-                var event = new CargoInsertEvent(node, target, inventory);
-                Bukkit.getPluginManager().callEvent(event);
-                if (!event.isCancelled()) {
-                    return insertIntoVanillaInventory(stack, wrapper, smartFill, inventory);
-                }
+            Inventory inventory = getLiveInventory(inventories, target);
+            if (inventory == null) {
+                return stack;
             }
 
-            return stack;
+            var event = new CargoInsertEvent(node, target, inventory);
+            Bukkit.getPluginManager().callEvent(event);
+            if (event.isCancelled()) {
+                return stack;
+            }
+
+            // Do not mutate the inventory reference that existed before the
+            // event. A listener may have replaced or removed the target.
+            inventory = getLiveInventory(inventories, target);
+            return inventory == null ? stack : insertIntoVanillaInventory(stack, wrapper, smartFill, inventory);
         }
 
         var event = new CargoInsertEvent(node, target, menu.toInventory());
         Bukkit.getPluginManager().callEvent(event);
         if (event.isCancelled()) {
+            return stack;
+        }
+
+        menu = getChestMenu(target);
+        if (menu == null) {
             return stack;
         }
 
@@ -455,6 +447,27 @@ final class CargoUtils {
         }
 
         return stack;
+    }
+
+    @Nullable static Inventory getLiveInventory(
+            @Nonnull Map<Location, Inventory> inventories, @Nonnull Block target) {
+        Location location = target.getLocation();
+
+        if (!location.getWorld().isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)
+                || !hasInventory(target)) {
+            inventories.remove(location);
+            return null;
+        }
+
+        BlockState state = target.getState(false);
+        if (!(state instanceof InventoryHolder holder)) {
+            inventories.remove(location);
+            return null;
+        }
+
+        Inventory inventory = holder.getInventory();
+        inventories.put(location, inventory);
+        return inventory;
     }
 
     @Nullable static DirtyChestMenu getChestMenu(@Nonnull Block block) {

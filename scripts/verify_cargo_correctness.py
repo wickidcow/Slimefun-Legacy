@@ -128,12 +128,12 @@ def main() -> int:
     require(attached, "!isLocationAccessible(targetLocation) || !isChunkLoaded(targetLocation)", "attached target chunk guard")
     require_before(attached, "!isChunkLoaded(targetLocation)", "targetLocation.getBlock()", "target chunk check before block access")
 
-    utils = compact(
-        read(
-            root,
-            "src/main/java/io/github/thebusybiscuit/slimefun4/core/networks/cargo/CargoUtils.java",
-        )
+    utils_source = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/core/networks/cargo/CargoUtils.java",
     )
+    utils = compact(utils_source)
+    live_inventory = compact(method_body(utils_source, "getLiveInventory"))
     require(utils, "stack.setAmount(stack.getAmount() - maxStackSize)", "empty-slot partial-stack remainder")
     require(utils, "stack.setAmount(amount - maxStackSize)", "merge partial-stack remainder")
     require(utils, "getSlotsAccessedByItemTransport(menu, ItemTransportFlow.WITHDRAW, null)", "withdraw slot contract")
@@ -147,6 +147,51 @@ def main() -> int:
         "Bukkit.getPluginManager().callEvent(event); if (event.isCancelled()) { return stack; }",
         "getSlotsAccessedByItemTransport(menu, ItemTransportFlow.INSERT, wrapper)",
         "insert cancellation before custom-menu mutation",
+    )
+    require(
+        live_inventory,
+        ".isChunkLoaded(",
+        "live Cargo inventory chunk guard",
+    )
+    require(
+        live_inventory,
+        "target.getState(false)",
+        "fresh Cargo block-state resolution",
+    )
+    require(
+        live_inventory,
+        "state instanceof InventoryHolder holder",
+        "fresh Cargo inventory-holder validation",
+    )
+    require(
+        live_inventory,
+        "inventories.put(location, inventory)",
+        "Cargo inventory cache refresh from live holder",
+    )
+    require_absent(
+        utils,
+        "inventories.get(target.getLocation())",
+        "direct stale Cargo inventory cache reads",
+    )
+    require(
+        utils,
+        "inventory = getLiveInventory(inventories, target); return inventory == null ? stack : insertIntoVanillaInventory",
+        "vanilla insertion revalidation after CargoInsertEvent",
+    )
+    require(
+        utils,
+        "inventory = getLiveInventory(inventories, target); if (inventory != null) { return withdrawFromVanillaInventory",
+        "vanilla withdrawal revalidation after CargoWithdrawEvent",
+    )
+    require(
+        utils,
+        "menu = getChestMenu(target); if (menu == null) { return stack; }",
+        "custom-menu insertion revalidation after CargoInsertEvent",
+    )
+    require(
+        utils,
+        "menu = getChestMenu(target); if (menu == null) { return null; }",
+        "custom-menu withdrawal revalidation after CargoWithdrawEvent",
     )
 
     item_filter = compact(
