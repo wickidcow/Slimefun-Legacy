@@ -55,7 +55,7 @@ final class DoctorRouterCommand extends SubCommand {
                 return;
             }
 
-            DoctorProxyCommand.send(plugin, sender);
+            DoctorProxyCommand.send(plugin, sender, args);
             return;
         }
 
