@@ -55,6 +55,34 @@ Useful commands:
 
 Never treat “0 repaired” as proof that a scan failed; a clean server may simply have nothing eligible to change.
 
+### Item-model compatibility repair
+
+Slimefun Legacy 4.1.52 introduced a bundled hosted-pack model map. Servers that return affected IDs to `0` in
+`plugins/Slimefun/item-models.yml` can use Doctor to find and remove the stale bundled model value from items
+that were already created while the mapping was active.
+
+```text
+/sf doctor item-models scan
+/sf doctor item-models repair confirm
+```
+
+The repair is deliberately narrow:
+
+- the stack must contain a currently registered Slimefun ID;
+- that ID must currently be configured as `0` in `item-models.yml`;
+- the stack's first CustomModelData float must exactly equal Slimefun Legacy's bundled value for that same ID;
+- only that first bundled float is removed;
+- additional model floats, flags, strings and colors are preserved;
+- if the bundled float was the entire custom-model-data component, Doctor removes the empty component so the
+  repaired item can match pre-model-map stacks again.
+
+The item-model repair is **never run by automatic Item Doctor listeners**. It requires an operator-triggered scan
+and an explicit `repair confirm`. The server-wide traversal covers online players, loaded inventories and machines,
+dropped items, nested containers and all database backpacks. Unloaded world containers are not force-loaded.
+
+Set the affected model entries to `0` before scanning. IDs that still have a non-zero configured mapping are
+intentionally ignored because Doctor treats those as server-owner-approved model assignments.
+
 ## Legacy upgrade workflow
 
 The unified upgrade view helps server owners understand old-world migration work without bypassing the guarded migration systems owned by Slimefun and its addons.
