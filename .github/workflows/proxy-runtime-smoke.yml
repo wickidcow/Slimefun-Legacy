@@ -5,6 +5,7 @@ on:
     paths:
       - 'src/**'
       - 'scripts/proxy_runtime_smoke.sh'
+      - 'scripts/proxy_identity_client.js'
       - '.github/workflows/proxy-runtime-smoke.yml'
       - 'build.gradle.kts'
       - 'gradle/**'
@@ -14,6 +15,7 @@ on:
     paths:
       - 'src/**'
       - 'scripts/proxy_runtime_smoke.sh'
+      - 'scripts/proxy_identity_client.js'
       - '.github/workflows/proxy-runtime-smoke.yml'
       - 'build.gradle.kts'
       - 'gradle/**'
