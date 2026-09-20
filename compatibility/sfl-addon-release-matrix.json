@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 59,
+  "bundle_revision": 60,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -8,6 +8,7 @@
     "version_policy": "numeric only",
     "exceptions": {
       "wickidcow/SF_DracFun2": "SFL_DracFun-Reborn<Version>.jar",
+      "wickidcow/SF_Magic_RSC": "SF_MagicLegacy<Version>.jar (MagicLegacy is the canonical addon name, not a Legacy qualifier)",
       "wickidcow/WorldEditSlimefun": "SF_SFWorldEdit<Version>_(1.21.11-26.2).jar"
     },
     "forbidden_public_qualifiers": [
