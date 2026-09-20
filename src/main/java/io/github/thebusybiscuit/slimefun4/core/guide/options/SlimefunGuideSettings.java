@@ -231,11 +231,12 @@ public final class SlimefunGuideSettings {
             menu.addItem(49, ChestMenuUtils.getBackground(), ChestMenuUtils.getEmptyClickHandler());
         }
 
-        addPlayerResources(menu);
+        addPlayerResources(p, menu, guide);
         addAdminTools(p, menu);
     }
 
-    private static void addPlayerResources(@Nonnull ChestMenu menu) {
+    private static void addPlayerResources(
+            @Nonnull Player p, @Nonnull ChestMenu menu, @Nonnull ItemStack guide) {
         menu.addItem(
                 51,
                 new CustomItemStack(
@@ -252,6 +253,26 @@ public final class SlimefunGuideSettings {
         menu.addMenuClickHandler(51, (pl, slot, item, action) -> {
             pl.closeInventory();
             ChatUtils.sendURL(pl, "https://github.com/wickidcow/Slimefun-Legacy/releases/latest");
+            return false;
+        });
+
+        menu.addItem(
+                53,
+                new CustomItemStack(
+                        Material.PAINTING,
+                        "&2Slimefun Resource Pack",
+                        "",
+                        "&7Turn Slimefun Legacy's optional pack",
+                        "&7on or off for yourself, reload it,",
+                        "&7and view texture-ID repair tools.",
+                        "",
+                        "&7This never removes an ItemsAdder/Oraxen",
+                        "&7or proxy-owned resource pack.",
+                        "",
+                        "&7\u21E8 &eClick to open controls"));
+
+        menu.addMenuClickHandler(53, (pl, slot, item, action) -> {
+            ResourcePackGuideMenu.open(pl, guide);
             return false;
         });
     }
@@ -319,6 +340,17 @@ public final class SlimefunGuideSettings {
                 return false;
             });
         }
+    }
+
+    /**
+     * Opens Slimefun Legacy's resource-pack controls from the classic guide or an external guide integration.
+     *
+     * @param p player opening the controls
+     * @param guide guide item used for the return action
+     */
+    @ParametersAreNonnullByDefault
+    public static void openResourcePackTools(Player p, ItemStack guide) {
+        ResourcePackGuideMenu.open(p, guide);
     }
 
     @ParametersAreNonnullByDefault
