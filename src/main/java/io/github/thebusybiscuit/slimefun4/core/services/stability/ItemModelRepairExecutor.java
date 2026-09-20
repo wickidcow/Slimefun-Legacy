@@ -93,7 +93,7 @@ final class ItemModelRepairExecutor extends ItemDoctorTraversalExecutor {
         }
     }
 
-    private boolean inspectCandidate(ItemStack item, String slimefunId, ItemDoctorReport report) {
+    boolean inspectCandidate(ItemStack item, String slimefunId, ItemDoctorReport report) {
         if (SlimefunItem.getById(slimefunId) == null) {
             return false;
         }

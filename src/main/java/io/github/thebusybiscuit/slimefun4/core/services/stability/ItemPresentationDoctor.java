@@ -45,6 +45,8 @@ public final class ItemPresentationDoctor {
     private static final Set<String> SAFE_STATIC_ADDON_LORE_IDS =
             Set.of("ELECTRIC_DUST_FABRICATOR", "REINFORCED_FLUFFY_WRENCH");
 
+    private final ItemModelRepairExecutor itemModelInspector = new ItemModelRepairExecutor(false);
+
     public boolean repairInventory(@Nonnull Inventory inventory, boolean repair, @Nonnull ItemDoctorReport report) {
         return repairInventory(inventory, repair, report, 0);
     }
@@ -119,6 +121,9 @@ public final class ItemPresentationDoctor {
 
         report.slimefunStackFound();
         String itemId = storedId.get();
+        if (!repair) {
+            itemModelInspector.inspectCandidate(item, itemId, report);
+        }
         SlimefunItem sfItem = SlimefunItem.getById(itemId);
         if (sfItem == null && Slimefun.getRegistry().getLegacySlimefunItemIdTarget(itemId).isPresent()) {
             report.legacyMigrationCandidateFound(itemId);

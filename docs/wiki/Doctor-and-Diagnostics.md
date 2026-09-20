@@ -49,8 +49,8 @@ Useful commands:
 
 1. Make a full backup.
 2. Run `/sf doctor status`.
-3. Run `/sf doctor scan` for a dry run.
-4. Review unknown IDs, failures and skipped items.
+3. Run `/sf doctor scan` for a dry run. This also checks for stale bundled item-model values.
+4. Review unknown IDs, item-model candidates, failures and skipped items.
 5. Only then run `/sf doctor repair confirm` if the result is acceptable.
 
 Never treat “0 repaired” as proof that a scan failed; a clean server may simply have nothing eligible to change.
@@ -59,7 +59,9 @@ Never treat “0 repaired” as proof that a scan failed; a clean server may sim
 
 Slimefun Legacy 4.1.52 introduced a bundled hosted-pack model map. Servers that return affected IDs to `0` in
 `plugins/Slimefun/item-models.yml` can use Doctor to find and remove the stale bundled model value from items
-that were already created while the mapping was active.
+that were already created while the mapping was active. The normal `/sf doctor scan` now performs this same
+read-only candidate test and reports the total under `Item-model candidates`; the dedicated command remains useful
+for the per-ID breakdown and is still required for repair.
 
 ```text
 /sf doctor item-models scan

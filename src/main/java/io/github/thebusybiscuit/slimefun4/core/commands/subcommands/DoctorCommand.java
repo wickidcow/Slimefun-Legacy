@@ -450,6 +450,7 @@ final class DoctorCommand extends SubCommand {
         send(sender, "&aStarted a batched server-wide item doctor " + (repair ? "repair" : "scan") + '.');
         if (!repair) {
             send(sender, "&7This is a dry run. It will report changes without modifying any item.");
+            send(sender, "&7It also tests for stale bundled item-model values from item-models.yml.");
         }
         send(sender, "&7It covers online inventories, loaded chests/machines, nested containers, and all backpacks.");
         send(sender, "&7Offline player inventories and unloaded chests are repaired automatically when loaded.");
@@ -1240,9 +1241,13 @@ final class DoctorCommand extends SubCommand {
                 sender,
                 "&7Unknown IDs: &e" + report.getUnknownIds() + " &8| &7No English template: &e"
                         + report.getUnresolvedTemplates() + " &8| &7Failures: &c" + report.getFailures());
-        if (report.getItemModelCandidates() > 0 || report.getItemModelRepairs() > 0) {
+        if (!report.isRepairMode() || report.getItemModelCandidates() > 0 || report.getItemModelRepairs() > 0) {
             send(sender, "&7Item-model candidates: &e" + report.getItemModelCandidates()
                     + " &8| &7Model repairs: &a" + report.getItemModelRepairs());
+            if (!report.isRepairMode() && report.getItemModelCandidates() > 0) {
+                send(sender, "&eReview with /sf doctor item-models scan, then repair with");
+                send(sender, "&6/sf doctor item-models repair confirm&e after a backup.");
+            }
         }
         if (!report.getUnknownIdSamples().isEmpty()) {
             send(sender, "&7Unknown ID samples: &e" + String.join(", ", report.getUnknownIdSamples()));

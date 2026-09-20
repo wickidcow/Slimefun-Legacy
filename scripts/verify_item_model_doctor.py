@@ -27,6 +27,7 @@ def reject(value: bool, message: str) -> None:
 
 
 executor = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemModelRepairExecutor.java")
+presentation = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemPresentationDoctor.java")
 service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemDoctorService.java")
 report = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemDoctorReport.java")
 command = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java")
@@ -54,6 +55,11 @@ require("ItemMeta originalMeta = currentMeta.clone()" in executor and "item.setI
         "failed item-model cleanup must restore original metadata")
 require("MAX_CONTAINER_DEPTH = 4" in executor,
         "item-model cleanup nested-container traversal must remain bounded")
+
+require("itemModelInspector = new ItemModelRepairExecutor(false)" in presentation,
+        "normal Item Doctor scan must initialize the guarded read-only item-model matcher")
+require("if (!repair)" in presentation and "itemModelInspector.inspectCandidate(item, itemId, report)" in presentation,
+        "normal read-only Item Doctor scan must test item-model candidates without repairing them")
 
 require("startItemModelRun(boolean repair" in service,
         "Item Doctor service must expose explicit item-model scan/repair traversal")
