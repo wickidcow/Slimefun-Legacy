@@ -39,10 +39,13 @@ public final class ItemDoctorReport {
     private final AtomicLong legacyMigrationCandidates = new AtomicLong();
     private final AtomicLong schemaMigrationCandidates = new AtomicLong();
     private final AtomicLong schemaValidatedCandidates = new AtomicLong();
+    private final AtomicLong itemModelCandidates = new AtomicLong();
+    private final AtomicLong itemModelRepairs = new AtomicLong();
     private final AtomicLong failures = new AtomicLong();
     private final Map<String, AtomicLong> legacyMigrationCandidateCounts = new ConcurrentHashMap<>();
     private final Map<SchemaMigrationKey, AtomicLong> schemaMigrationCandidateCounts = new ConcurrentHashMap<>();
     private final Map<SchemaValidationKey, AtomicLong> schemaValidationCounts = new ConcurrentHashMap<>();
+    private final Map<String, AtomicLong> itemModelCandidateCounts = new ConcurrentHashMap<>();
     private final Set<String> legacyBlockIdSamples = Collections.synchronizedSet(new LinkedHashSet<>());
     private final Set<String> unknownBlockIdSamples = Collections.synchronizedSet(new LinkedHashSet<>());
     private final Set<String> unknownIdSamples = Collections.synchronizedSet(new LinkedHashSet<>());
@@ -86,6 +89,13 @@ public final class ItemDoctorReport {
         unresolvedTemplates.incrementAndGet();
         addSample(unresolvedTemplateSamples, itemId);
     }
+
+    void itemModelCandidateFound(@Nonnull String itemId) {
+        itemModelCandidates.incrementAndGet();
+        itemModelCandidateCounts.computeIfAbsent(itemId, ignored -> new AtomicLong()).incrementAndGet();
+    }
+
+    void itemModelRepaired() { itemModelRepairs.incrementAndGet(); }
 
     /** Records an executable legacy-ID candidate encountered during the full Doctor traversal. */
     void legacyMigrationCandidateFound(@Nonnull String legacyId) {
@@ -164,6 +174,18 @@ public final class ItemDoctorReport {
     public long getRepairedStacks() { return repairedStacks.get(); }
     public long getUnknownIds() { return unknownIds.get(); }
     public long getUnresolvedTemplates() { return unresolvedTemplates.get(); }
+    public long getItemModelCandidates() { return itemModelCandidates.get(); }
+    public long getItemModelRepairs() { return itemModelRepairs.get(); }
+
+    public @Nonnull Map<String, Long> getItemModelCandidateCounts() {
+        List<Map.Entry<String, AtomicLong>> entries = new ArrayList<>(itemModelCandidateCounts.entrySet());
+        entries.sort(Map.Entry.comparingByKey());
+        Map<String, Long> snapshot = new LinkedHashMap<>();
+        for (Map.Entry<String, AtomicLong> entry : entries) {
+            snapshot.put(entry.getKey(), entry.getValue().get());
+        }
+        return Collections.unmodifiableMap(snapshot);
+    }
 
     /** Returns the exact number of stacks whose stored ID matched a declared legacy-ID mapping. */
     public long getLegacyMigrationCandidates() { return legacyMigrationCandidates.get(); }
