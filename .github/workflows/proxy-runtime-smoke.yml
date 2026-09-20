@@ -114,6 +114,33 @@ jobs:
           name: proxy-smoke-core
           path: candidate
 
+      - name: Set up Node 24 for protocol 776 identity probe
+        if: matrix.minecraft == '26.2'
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Prepare pinned Minecraft 26.2 login client
+        if: matrix.minecraft == '26.2'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/protocol-776-client
+          ASSET="$GITHUB_WORKSPACE/build/protocol-776-client/minecraft-protocol-26.2.3.tgz"
+          curl --fail-with-body -L -sS \
+            -o "$ASSET" \
+            https://github.com/Complexity-ML/node-minecraft-protocol-26.2/releases/download/complexity-26.2.3/minecraft-protocol-complexity-26.2.3.tgz
+          printf '%s  %s\n' \
+            8b72d382e3cc06779b2b54fc3e402291f46df3bc28fcc2c189b1fc25b3895dab \
+            "$ASSET" | sha256sum --check --status
+          cd build/protocol-776-client
+          npm init -y >/dev/null
+          npm install --ignore-scripts --no-audit --no-fund "$ASSET"
+          MODULE="$PWD/node_modules/minecraft-protocol"
+          test -f "$MODULE/package.json"
+          node -e "const p=require(process.argv[1] + '/package.json'); if (!String(p.version).includes('complexity.26.2.3')) process.exit(1)" "$MODULE"
+          echo "SFL_PROXY_PROTOCOL_MODULE=$MODULE" >> "$GITHUB_ENV"
+
       - name: Run proxy-backed runtime smoke
         env:
           SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
@@ -148,5 +175,6 @@ jobs:
           path: |
             build/proxy-runtime-${{ matrix.proxy }}-${{ matrix.minecraft }}/*.log
             build/proxy-runtime-${{ matrix.proxy }}-${{ matrix.minecraft }}/*.json
+            build/proxy-runtime-${{ matrix.proxy }}-${{ matrix.minecraft }}/identity-*.txt
             build/proxy-runtime-${{ matrix.proxy }}-${{ matrix.minecraft }}/smoke-result.txt
           if-no-files-found: warn
