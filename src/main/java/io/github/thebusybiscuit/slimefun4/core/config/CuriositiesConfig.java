@@ -4,6 +4,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Set;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -27,6 +28,11 @@ public final class CuriositiesConfig {
     private static final String LEGACY_RESOURCE_PACK_ROOT = "resource-pack";
     private static final String DEFAULT_RESOURCE_PACK_URL =
             "https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip";
+    private static final Set<String> RETIRED_RESOURCE_PACK_URLS = Set.of(
+            "https://cdn.modrinth.com/data/TznkVJky/versions/nwij66MR/Slimefun-ResourcePack.zip",
+            "http://overlord.kicks-ass.org:8163/SlimefunLegacyRP.zip",
+            "https://github.com/wickidcow/SFL_ResourePack_UnOfficial/releases/latest/download/SlimefunLegacyRP.zip",
+            "https://github.com/wickidcow/Slimefun-Legacy/releases/latest/download/SlimefunLegacy-ResourcePack-1.21.11-26.3.zip");
 
     private static CuriositiesConfig config;
 
@@ -102,7 +108,29 @@ public final class CuriositiesConfig {
         }
 
         migrateLegacyResourcePackSettings(createdFromBundledResource);
+        migrateRetiredResourcePackUrl();
         ensureResourcePackDefaults();
+    }
+
+    private void migrateRetiredResourcePackUrl() {
+        String configuredUrl = getString(LEGACY_RESOURCE_PACK_ROOT + ".url");
+        if (configuredUrl == null || !RETIRED_RESOURCE_PACK_URLS.contains(configuredUrl.trim())) {
+            return;
+        }
+
+        setValue(LEGACY_RESOURCE_PACK_ROOT + ".url", DEFAULT_RESOURCE_PACK_URL);
+        // A hash for the retired ZIP cannot be trusted for the replacement pack.
+        setValue(LEGACY_RESOURCE_PACK_ROOT + ".sha1", "");
+
+        if (save()) {
+            plugin.getLogger()
+                    .info("Updated a retired Slimefun Legacy resource-pack URL in " + FILE_NAME
+                            + " to the recommended GitHub release URL.");
+        } else {
+            plugin.getLogger()
+                    .warning("Could not persist the recommended Slimefun Legacy resource-pack URL in " + FILE_NAME
+                            + "; the retired URL will be normalized at send time.");
+        }
     }
 
     private void ensureResourcePackDefaults() {
