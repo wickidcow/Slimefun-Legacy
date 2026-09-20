@@ -38,6 +38,7 @@ Slimefun accepts both `/slimefun` and `/sf`. This page focuses on the commands m
 /sf doctor dependencies
 /sf doctor runtime
 /sf doctor integrations
+/sf doctor proxy
 /sf doctor scan
 /sf doctor repair confirm
 ```
