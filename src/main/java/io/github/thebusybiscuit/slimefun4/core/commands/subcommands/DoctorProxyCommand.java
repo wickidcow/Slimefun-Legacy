@@ -1,6 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
-import io.github.bakedlibs.dough.common.ChatColors;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.ProxyDiagnosticsService;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.ProxyDiagnosticsSnapshot;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
@@ -90,6 +90,6 @@ final class DoctorProxyCommand {
     }
 
     private static void sendLine(CommandSender sender, String message) {
-        sender.sendMessage(ChatColors.color(message));
+        sender.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(message));
     }
 }
