@@ -6,6 +6,9 @@ PROXY_KIND="${2:?Usage: proxy_runtime_smoke.sh <slimefun-jar> <velocity|waterfal
 WORK_DIR="${3:-build/proxy-runtime-smoke-${PROXY_KIND}}"
 MC_VERSION="${SERVER_MINECRAFT_VERSION:-26.2}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ "$WORK_DIR" != /* ]]; then
+    WORK_DIR="$REPO_ROOT/$WORK_DIR"
+fi
 EXPECTED_SLIMEFUN_VERSION="${SLIMEFUN_SMOKE_VERSION:-$(sed -n 's/^projectVersion=//p' "$REPO_ROOT/gradle.properties" | head -n 1 | tr -d '\r')}"
 USER_AGENT="${SERVER_DOWNLOAD_USER_AGENT:-Slimefun-Legacy-Proxy-Smoke/${EXPECTED_SLIMEFUN_VERSION} (https://github.com/wickidcow/Slimefun-Legacy)}"
 STARTUP_TIMEOUT_SECONDS="${PROXY_SMOKE_STARTUP_TIMEOUT:-300}"
@@ -228,7 +231,7 @@ PY
 download_velocity() {
     local project_json version builds
     project_json="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" https://fill.papermc.io/v3/projects/velocity)"
-    version="$(jq -r '[.versions[]][] | select(contains("SNAPSHOT") | not)' <<<"$project_json" | head -n 1)"
+    version="$(jq -r '.versions | to_entries[].value[] | select(contains("SNAPSHOT") | not)' <<<"$project_json" | head -n 1)"
     if [[ -z "$version" || "$version" == "null" ]]; then
         echo "Could not resolve a non-snapshot Velocity version." >&2
         return 1
@@ -270,7 +273,7 @@ generate_velocity_config() {
     local pid=$!
     local deadline=$((SECONDS + STARTUP_TIMEOUT_SECONDS))
     while kill -0 "$pid" >/dev/null 2>&1 && (( SECONDS < deadline )); do
-        if [[ -s "$PROXY_DIR/velocity.toml" && -s "$PROXY_DIR/forwarding.secret" ]]; then
+        if [[ -s "$PROXY_DIR/velocity.toml" ]]; then
             break
         fi
         sleep 1
