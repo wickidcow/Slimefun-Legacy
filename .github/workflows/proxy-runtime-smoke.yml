@@ -117,13 +117,13 @@ jobs:
           path: candidate
 
       - name: Set up Node 24 for protocol 776 identity probe
-        if: matrix.minecraft == '26.2'
+        if: matrix.proxy == 'velocity' && matrix.minecraft == '26.2'
         uses: actions/setup-node@v6
         with:
           node-version: '24'
 
       - name: Prepare pinned Minecraft 26.2 login client
-        if: matrix.minecraft == '26.2'
+        if: matrix.proxy == 'velocity' && matrix.minecraft == '26.2'
         shell: bash
         run: |
           set -euo pipefail

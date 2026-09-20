@@ -259,7 +259,7 @@ While a player is connected through the proxy, operators can inspect the identit
 
 The player view is read-only. It reports the Bukkit UUID, Slimefun profile-owner UUID, whether those UUIDs match, unlocked research count and backpack count. Without a research key it also prints one currently locked research that can be used for a controlled persistence test. Supplying a research key reports whether that exact research is locked or unlocked.
 
-The automated proxy smoke uses this view on Minecraft 26.2 to perform two real offline-mode client sessions through each proxy. It records the client-facing UUID, verifies the same UUID reaches Paper/Slimefun, unlocks one research through the normal `/sf research` command, disconnects, reconnects and requires that research to remain unlocked.
+The automated proxy smoke uses this view on Minecraft 26.2 to perform two real offline-mode client sessions through **Velocity modern forwarding**. It records the client-facing UUID, verifies the same UUID reaches Paper/Slimefun, unlocks one research through the normal `/sf research` command, disconnects, reconnects and requires that research to remain unlocked. Waterfall is retained only as an archived startup/configuration/status-passthrough compatibility lane and is not treated as the supported modern proxy target.
 
 ## Dependency diagnostics
 

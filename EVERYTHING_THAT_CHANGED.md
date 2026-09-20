@@ -9,7 +9,7 @@
 - Added `/sf doctor proxy` forwarding diagnostics for Velocity modern forwarding, forwarding-secret presence, conflicting Bungee-compatible forwarding, and unsafe offline backends.
 - Added `/sf doctor proxy player <name> [research-key]` to compare Bukkit and Slimefun profile UUIDs and inspect profile/research persistence through a proxy.
 - Proxy CI now performs a real Minecraft 26.2 Velocity login, verifies UUID identity reaches Paper/Slimefun unchanged, grants research, reconnects, and requires the same UUID/research state to persist.
-- Velocity + Paper 26.3 retains startup/configuration/network-path smoke coverage while 26.3 is the candidate server line; Waterfall remains a legacy/archived compatibility smoke target.
+- Velocity + Paper 26.3 retains startup/configuration/network-path smoke coverage while 26.3 is the candidate server line; Waterfall remains a legacy/archived startup/configuration/status-passthrough smoke target and is not used as the modern identity-persistence support gate.
 
 
 - Added `/sf doctor item-models enable-pack scan` and `/sf doctor item-models enable-pack confirm` for existing servers that intentionally want to adopt the bundled Legacy resource-pack models without repeating the v4.1.52 identity split.

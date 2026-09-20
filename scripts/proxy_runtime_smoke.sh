@@ -631,6 +631,10 @@ run_identity_client() {
 }
 
 run_player_identity_smoke() {
+    if [[ "$PROXY_KIND" != "velocity" ]]; then
+        IDENTITY_RESULT="not run (Waterfall is an archived startup/status compatibility lane; identity persistence support targets Velocity modern)"
+        return 0
+    fi
     if [[ "$MC_VERSION" != "26.2" ]]; then
         IDENTITY_RESULT="not run (pinned login client currently covers Minecraft 26.2 / protocol 776)"
         return 0
