@@ -144,7 +144,7 @@ class SlimefunTabCompleter implements TabCompleter {
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("item-models")
                 && args[2].equalsIgnoreCase("repair")) {
-            return createReturnList(List.of("confirm"), args[3]);
+            return createReturnList(Collections.singletonList("confirm"), args[3]);
         } else if (args.length == 4
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("storage")
