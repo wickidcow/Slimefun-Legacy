@@ -221,7 +221,10 @@ public class CustomTextureService {
         int candidates = 0;
         for (String key : bundled.getKeys(false)) {
             int bundledModel = bundled.getInt(key);
-            if (bundledModel != 0 && config.contains(key) && config.getInt(key) == 0) {
+            if (bundledModel != 0
+                    && SlimefunItem.getById(key) != null
+                    && config.contains(key)
+                    && config.getInt(key) == 0) {
                 candidates++;
             }
         }
@@ -234,7 +237,10 @@ public class CustomTextureService {
         int enabled = 0;
         for (String key : bundled.getKeys(false)) {
             int bundledModel = bundled.getInt(key);
-            if (bundledModel != 0 && config.contains(key) && config.getInt(key) == bundledModel) {
+            if (bundledModel != 0
+                    && SlimefunItem.getById(key) != null
+                    && config.contains(key)
+                    && config.getInt(key) == bundledModel) {
                 enabled++;
             }
         }
@@ -248,7 +254,10 @@ public class CustomTextureService {
         for (String key : bundled.getKeys(false)) {
             int bundledModel = bundled.getInt(key);
             int configured = config.contains(key) ? config.getInt(key) : bundledModel;
-            if (bundledModel != 0 && configured != 0 && configured != bundledModel) {
+            if (bundledModel != 0
+                    && SlimefunItem.getById(key) != null
+                    && configured != 0
+                    && configured != bundledModel) {
                 custom++;
             }
         }
@@ -269,7 +278,10 @@ public class CustomTextureService {
         int enabled = 0;
         for (String key : bundled.getKeys(false)) {
             int bundledModel = bundled.getInt(key);
-            if (bundledModel != 0 && config.contains(key) && config.getInt(key) == 0) {
+            if (bundledModel != 0
+                    && SlimefunItem.getById(key) != null
+                    && config.contains(key)
+                    && config.getInt(key) == 0) {
                 config.setValue(key, bundledModel);
                 enabled++;
             }
