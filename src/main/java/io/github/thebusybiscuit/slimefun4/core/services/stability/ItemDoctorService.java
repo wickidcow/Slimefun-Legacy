@@ -389,6 +389,7 @@ public final class ItemDoctorService implements Listener {
     private final class ServerRun {
         private final ItemDoctorReport report;
         private final Consumer<ItemDoctorReport> completion;
+        private final @Nullable LegacyItemSchemaMigrationExecutor schemaExecutor;
         private final @Nullable ItemDoctorTraversalExecutor traversalExecutor;
         private final Queue<Player> players = new ConcurrentLinkedQueue<>();
         private final Queue<InventoryTarget> inventories = new ConcurrentLinkedQueue<>();
@@ -411,6 +412,7 @@ public final class ItemDoctorService implements Listener {
             this.report = report;
             this.completion = completion;
             this.traversalExecutor = traversalExecutor;
+            this.schemaExecutor = traversalExecutor instanceof LegacyItemSchemaMigrationExecutor executor ? executor : null;
         }
 
         private void collectLoadedInventories() {
@@ -446,8 +448,12 @@ public final class ItemDoctorService implements Listener {
             BlockDataController controller = Slimefun.getDatabaseManager().getBlockDataController();
             for (SlimefunBlockData blockData : chunkData.getAllBlockData()) {
                 // Explicit schema migration runs must not perform presentation repair as a side effect.
-                if (traversalExecutor == null) {
-                    inspectSlimefunBlock(blockData.getLocation(), report.isRepairMode(), report);
+                if (schemaExecutor == null) {
+                    // Other specialized item-only Doctor traversals (such as item-model cleanup) also
+                    // skip placed-block presentation work.
+                    if (traversalExecutor == null) {
+                        inspectSlimefunBlock(blockData.getLocation(), report.isRepairMode(), report);
+                    }
                 }
 
                 BlockMenu menu = blockData.getBlockMenu();
