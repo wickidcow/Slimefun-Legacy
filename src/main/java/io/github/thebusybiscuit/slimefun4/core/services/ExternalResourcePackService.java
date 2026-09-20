@@ -54,7 +54,8 @@ public final class ExternalResourcePackService {
 
         String configuredUrl = trim(config.getString(CONFIG_ROOT + "url"));
         String url = normalizeLegacyResourcePackUrl(configuredUrl);
-        if (!configuredUrl.equals(url)) {
+        boolean normalizedLegacyUrl = !configuredUrl.equals(url);
+        if (normalizedLegacyUrl) {
             warnOnce(
                     "An older Slimefun Legacy resource-pack URL was detected. Slimefun Legacy is using the current "
                             + "GitHub-hosted pack instead: " + DEFAULT_PACK_URL);
@@ -65,7 +66,8 @@ public final class ExternalResourcePackService {
             return;
         }
 
-        String configuredHash = trim(config.getString(CONFIG_ROOT + "sha1"));
+        // Never pair a replacement GitHub URL with a checksum that belonged to a retired pack.
+        String configuredHash = normalizedLegacyUrl ? "" : trim(config.getString(CONFIG_ROOT + "sha1"));
         byte[] hash = parseSha1(configuredHash);
         if (!configuredHash.isEmpty() && hash == null) {
             warnOnce("External resource-pack delivery is enabled, but configSFLAddons.yml resource-pack.sha1 is not a 40-character SHA-1 hash.");

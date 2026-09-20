@@ -11,7 +11,9 @@ enabled: false
 # Leave disabled when ItemsAdder or another plugin already manages the server pack.
 resource-pack:
   enabled: false
-  # Server owners may replace this with any direct HTTP(S) ZIP URL.
+  # RECOMMENDED (GitHub): https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip
+  # The retired Modrinth/default Legacy URLs are migrated here automatically on upgrade.
+  # Server owners may still replace this with any custom direct HTTP(S) ZIP URL.
   url: 'https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip'
   # Optional 40-character SHA-1 of the exact ZIP.
   sha1: ''
