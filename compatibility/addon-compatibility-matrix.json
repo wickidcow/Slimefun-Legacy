@@ -514,14 +514,12 @@
       ]
     },
     {
-      "name": "Magic RSC Archived Fork",
+      "name": "Magic Legacy",
       "repository": "wickidcow/SF_Magic_RSC",
-      "slug": "legacy-archived-magic-rsc",
-      "tier": "fork-archived-advisory",
+      "slug": "magiclegacy",
+      "tier": "fork-advisory",
       "advisory": true,
       "enabled": true,
-      "compile_enabled": false,
-      "compile_note": "Archive-only repository; no Maven/Gradle source project is present to compile. Retain for source tracking and full-stack runtime validation.",
       "tested_core_variants": [
         "legacy"
       ]
