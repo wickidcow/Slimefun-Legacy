@@ -65,7 +65,7 @@ Examples include:
 - safe core name/lore repair → `/sf doctor repair confirm`;
 - addon-owned same-ID schemas → `/sf doctor migrations schemas scan`, then the exact fingerprinted execute command it prints;
 - stale bundled item-model data → `/sf doctor item-models scan` and `/sf doctor item-models repair confirm`;
-- v4.1.52 forced bundled mappings → `/sf doctor item-models rollback-v52`;
+- v4.1.52 forced bundled mappings → `/sf doctor item-models remove-resourcepack-texture-ids`;
 - declared legacy item IDs → `/sf doctor migrations plan` / `providers`, then the provider-specific scan and execute command;
 - unknown item IDs → `/sf doctor migrations unknown`;
 - legacy or unknown placed-block identity → `/sf doctor upgrade plan`;
@@ -152,12 +152,13 @@ This automatic zero-to-bundled migration has been removed. Existing zero mapping
 For a server that was already affected:
 
 ```text
-/sf doctor item-models rollback-v52
-/sf doctor item-models rollback-v52 confirm
+/sf doctor item-models remove-resourcepack-texture-ids
+/sf doctor item-models remove-resourcepack-texture-ids confirm
 ```
 
-The first command is a read-only audit. The confirmed rollback resets only mappings that still exactly equal
-Slimefun Legacy's bundled model values; unrelated custom model values are preserved. After the rollback, stop the
+The first command is a read-only audit. The confirmed removal resets only mappings that still exactly equal
+Slimefun Legacy's bundled model values; unrelated custom model values are preserved. The older
+`/sf doctor item-models rollback-v52` spelling remains supported as a backwards-compatible alias. After the removal, stop the
 server normally and restart before repairing stored stacks, because registered item templates were constructed
 earlier in the old runtime.
 
