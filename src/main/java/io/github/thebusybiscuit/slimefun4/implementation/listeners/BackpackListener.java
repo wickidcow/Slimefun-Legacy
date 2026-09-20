@@ -107,6 +107,17 @@ public class BackpackListener implements Listener {
 
     private void beginBackpackSave(
             @Nonnull UUID playerId, @Nonnull PlayerBackpack backpack, @Nonnull String context) {
+        /*
+         * PlayerBackpack is public API, so addons can open one without going
+         * through this listener's reservation path. Persist those inventories,
+         * but never let their save lifecycle mutate a different tracked session
+         * that the same player may start while the detached save is still running.
+         */
+        if (!backpack.getUniqueId().equals(backpacks.get(playerId))) {
+            saveDetachedBackpack(backpack, context);
+            return;
+        }
+
         final CompletableFuture<Void> save;
 
         synchronized (pendingSaves) {
@@ -143,6 +154,33 @@ public class BackpackListener implements Listener {
 
             pendingSaves.remove(playerId, save);
             finishBackpackSession(playerId, backpack.getUniqueId());
+        });
+    }
+
+    private void saveDetachedBackpack(@Nonnull PlayerBackpack backpack, @Nonnull String context) {
+        final CompletableFuture<Void> save;
+
+        try {
+            save = Slimefun.getDatabaseManager()
+                    .getProfileDataController()
+                    .saveBackpackInventoryAsync(backpack);
+        } catch (RuntimeException | LinkageError failure) {
+            Slimefun.logger()
+                    .log(
+                            Level.SEVERE,
+                            "An Exception occurred while starting a detached backpack save on " + context,
+                            failure);
+            return;
+        }
+
+        save.whenComplete((ignored, failure) -> {
+            if (failure != null) {
+                Slimefun.logger()
+                        .log(
+                                Level.SEVERE,
+                                "An Exception occurred while saving a detached backpack on " + context,
+                                failure);
+            }
         });
     }
 
