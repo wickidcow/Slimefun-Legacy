@@ -314,14 +314,19 @@ servers = re.search(r"(?ms)^\[servers\]\s*\n(.*?)(?=^\[|\Z)", text)
 if not servers:
     raise SystemExit("Velocity [servers] section not found")
 section = servers.group(0)
-section = re.sub(
-    r"(?ms)^try\\s*=\\s*\\[.*?^\\][ \\t]*(?:\\n|$)",
-    'try = ["backend"]\\n',
-    section,
-    count=1,
-)
-if not re.search(r"(?m)^try\s*=", section):
-    section += '\ntry = ["backend"]\n'
+server_lines = section.splitlines(keepends=True)
+try_index = next((i for i, line in enumerate(server_lines) if line.strip().startswith("try =")), None)
+if try_index is None:
+    server_lines.append('try = ["backend"]\n')
+else:
+    try_end = try_index
+    if "[" in server_lines[try_index] and "]" not in server_lines[try_index]:
+        while try_end + 1 < len(server_lines):
+            try_end += 1
+            if server_lines[try_end].strip() == "]":
+                break
+    server_lines[try_index:try_end + 1] = ['try = ["backend"]\n']
+section = "".join(server_lines)
 if re.search(r"(?m)^backend\s*=", section):
     section = re.sub(r'(?m)^backend\s*=\s*.*$', f'backend = "127.0.0.1:{backend_port}"', section)
 else:
