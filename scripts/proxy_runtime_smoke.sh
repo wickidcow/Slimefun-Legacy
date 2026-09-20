@@ -314,7 +314,12 @@ servers = re.search(r"(?ms)^\[servers\]\s*\n(.*?)(?=^\[|\Z)", text)
 if not servers:
     raise SystemExit("Velocity [servers] section not found")
 section = servers.group(0)
-section = re.sub(r"(?ms)^try\s*=\s*\[.*?^\]\s*$", 'try = ["backend"]', section)
+section = re.sub(
+    r"(?ms)^try\\s*=\\s*\\[.*?^\\][ \\t]*(?:\\n|$)",
+    'try = ["backend"]\\n',
+    section,
+    count=1,
+)
 if not re.search(r"(?m)^try\s*=", section):
     section += '\ntry = ["backend"]\n'
 if re.search(r"(?m)^backend\s*=", section):
@@ -339,16 +344,15 @@ PY
 }
 
 download_waterfall() {
-    local base="https://api.papermc.io/v2/projects/waterfall/versions/${WATERFALL_VERSION}/builds/${WATERFALL_BUILD}"
-    local metadata filename
-    metadata="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "$base")"
-    filename="$(jq -r '.downloads.application.name // empty' <<<"$metadata")"
-    if [[ -z "$filename" ]]; then
-        echo "Could not resolve Waterfall ${WATERFALL_VERSION} build ${WATERFALL_BUILD}." >&2
+    if [[ "$WATERFALL_VERSION" != "1.21" || "$WATERFALL_BUILD" != "615" ]]; then
+        echo "This smoke pins the final archived Waterfall 1.21 build 615; override is intentionally unsupported." >&2
         return 1
     fi
-    curl --fail-with-body -L -sS -H "User-Agent: ${USER_AGENT}" -o "$PROXY_DIR/proxy.jar" "$base/downloads/$filename"
+    local expected_sha256="5eda8bfd0691e5088701f87020c68964299586df0faba289a634122d282d598c"
+    local url="https://fill-data.papermc.io/v1/objects/${expected_sha256}/waterfall-1.21-615.jar"
+    curl --fail-with-body -L -sS -H "User-Agent: ${USER_AGENT}" -o "$PROXY_DIR/proxy.jar" "$url"
     test -s "$PROXY_DIR/proxy.jar"
+    printf '%s  %s\n' "$expected_sha256" "$PROXY_DIR/proxy.jar" | sha256sum --check --status
 }
 
 write_waterfall_config() {
