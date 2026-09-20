@@ -9,6 +9,8 @@ enabled: false
 # Optional Slimefun Legacy resource-pack sender.
 # This setting is independent of the Curiosities/additions "enabled" switch above.
 # Leave disabled when ItemsAdder or another plugin already manages the server pack.
+# IMPORTANT: Before enabling this on an existing server, run /sf doctor item-models scan
+# and review any reported model-data conflicts before changing item-model mappings.
 resource-pack:
   enabled: false
   # RECOMMENDED (GitHub): https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip
