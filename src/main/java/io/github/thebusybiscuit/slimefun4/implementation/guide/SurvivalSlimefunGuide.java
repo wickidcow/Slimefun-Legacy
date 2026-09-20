@@ -1,7 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.guide;
 
 import city.norain.slimefun4.VaultIntegration;
-import io.github.bakedlibs.dough.chat.ChatInput;
 import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.bakedlibs.dough.items.ItemUtils;
 import io.github.bakedlibs.dough.recipes.MinecraftRecipe;
@@ -736,10 +735,10 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
             pl.closeInventory();
 
             Slimefun.getLocalization().sendMessage(pl, "guide.search.message");
-            ChatInput.waitForPlayer(
-                    Slimefun.instance(),
-                    pl,
-                    msg -> SlimefunGuide.openSearch(profile, msg, getMode(), isSurvivalMode()));
+            Slimefun.getChatCatcher()
+                    .scheduleCatcher(
+                            pl.getUniqueId(),
+                            msg -> SlimefunGuide.openSearch(profile, msg, getMode(), isSurvivalMode()));
 
             return false;
         });
