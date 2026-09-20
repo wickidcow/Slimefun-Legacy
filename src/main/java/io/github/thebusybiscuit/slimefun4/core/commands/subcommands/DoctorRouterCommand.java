@@ -49,6 +49,16 @@ final class DoctorRouterCommand extends SubCommand {
             return;
         }
 
+        if (args.length > 1 && args[1].equalsIgnoreCase("proxy")) {
+            if (!sender.hasPermission("slimefun.command.doctor")) {
+                Slimefun.getLocalization().sendMessage(sender, "messages.no-permission", true);
+                return;
+            }
+
+            DoctorProxyCommand.send(plugin, sender);
+            return;
+        }
+
         if (args.length > 2 && args[1].equalsIgnoreCase("upgrade")) {
             upgradeWorkflow.execute(sender, args);
             return;
