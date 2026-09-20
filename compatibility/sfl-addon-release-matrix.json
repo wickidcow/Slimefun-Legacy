@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 57,
+  "bundle_revision": 58,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -157,7 +157,7 @@
       "repository": "wickidcow/SF_JustEnoughGuide",
       "slug": "justenoughguide",
       "artifact_base": "JustEnoughGuide",
-      "source_commit": "8f921c6974db9aa5f8c94c53c60337153ea0c1c6"
+      "source_commit": "d93b3865e78aa3de95e339b96f30ad076b2cc822"
     },
     {
       "repository": "wickidcow/SF_MagicExpansion",
