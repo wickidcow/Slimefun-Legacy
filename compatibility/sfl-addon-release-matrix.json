@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 61,
+  "bundle_revision": 62,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -168,7 +168,7 @@
       "repository": "wickidcow/SF_Magic_RSC",
       "slug": "magiclegacy",
       "artifact_base": "MagicLegacy",
-      "source_commit": "f71ca80c67d677fa3889cc3ae8be129db43657a1"
+      "source_commit": "49d3eead3b61cf776179f2980e2475fee66176f4"
     },
     {
       "repository": "wickidcow/SF_MilitaryArsenal",
