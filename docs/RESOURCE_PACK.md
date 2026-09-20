@@ -97,6 +97,27 @@ The IDs remain distinct to avoid a Slimefun registration collision when FluffyMa
 The optional sender and model-mapping workflow were designed with the same server-owner use case addressed by the community AdvanceTexture project (`m1919810/AdvanceTexture`), but Slimefun Legacy does not bundle or require that plugin. The Legacy implementation uses its own existing custom-texture service and current Paper APIs so the feature can remain optional and dependency-free.
 
 
+## Repairing stale model data after disabling mappings
+
+If a server previously ran with the bundled Slimefun Legacy model map and later returns affected IDs to `0` in
+`plugins/Slimefun/item-models.yml`, items created while the mapping was active can still carry that old model
+value. That can make otherwise identical Slimefun items fail normal stacking or strict addon item comparisons.
+
+Use the guarded Doctor workflow:
+
+```text
+/sf doctor item-models scan
+/sf doctor item-models repair confirm
+```
+
+The repair only considers currently registered Slimefun IDs whose current configured mapping is `0`, and only
+when the stack's first CustomModelData float exactly matches the bundled Slimefun Legacy value for that same ID.
+It removes only that bundled float, preserving any additional floats, flags, strings, or colors from other
+integrations. If the bundled float was the only custom-model-data content, the component is removed completely.
+
+This repair is never automatic. Run the scan first, make an offline backup, and use the explicit repair command
+only after reviewing the candidate counts.
+
 ## Model-map synchronization
 
 The official client pack is published separately at:
