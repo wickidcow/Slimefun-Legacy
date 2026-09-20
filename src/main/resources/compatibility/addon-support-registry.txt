@@ -31,6 +31,7 @@ legacy-infinity-expansion-2|advisory|Infinity Expansion 2 Legacy|InfinityExpansi
 legacy-dynatech|advisory|DynaTech Legacy|DynaTech,SF_DynaTech|maintained
 legacy-supreme|advisory|Supreme Legacy|Supreme,SF_Supreme|maintained
 legacy-magic-expansion|advisory|Magic Expansion Legacy|MagicExpansion,MagicExpansionLegacy,SF_MagicExpansion|maintained
+legacy-magic|advisory|Magic Legacy|MagicLegacy,SF_Magic_RSC|maintained
 legacy-fluffymachines|advisory|FluffyMachines Legacy|FluffyMachines,SF_FluffyMachines|maintained
 legacy-foxymachines|advisory|FoxyMachines Legacy|FoxyMachines,SF_FoxyMachines|maintained
 legacy-flowerpower|advisory|FlowerPower Legacy|FlowerPower,SF_FlowerPower|maintained
