@@ -1,0 +1,273 @@
+package io.github.thebusybiscuit.slimefun4.core.guide.options;
+
+import io.github.bakedlibs.dough.items.CustomItemStack;
+import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuide;
+import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuideMode;
+import io.github.thebusybiscuit.slimefun4.core.services.ExternalResourcePackService;
+import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+
+/**
+ * Player and operator controls for Slimefun Legacy's optional resource-pack sender.
+ *
+ * <p>The player toggle is intentionally scoped to Slimefun Legacy's own pack UUID. It never removes or changes
+ * resource packs owned by ItemsAdder, Oraxen, a proxy, or another plugin. Server-side model-map changes remain
+ * guarded Doctor operations with a separate confirmation screen.</p>
+ */
+final class ResourcePackGuideMenu {
+
+    private static final String DOCTOR_PERMISSION = "slimefun.command.doctor";
+
+    private ResourcePackGuideMenu() {}
+
+    static void open(@Nonnull Player player, @Nullable ItemStack guide) {
+        ItemStack returnGuide =
+                guide == null ? SlimefunGuide.getItem(SlimefunGuideMode.SURVIVAL_MODE) : guide.clone();
+        ExternalResourcePackService service = new ExternalResourcePackService(Slimefun.instance());
+
+        ChestMenu menu = new ChestMenu("&2&lSlimefun Resource Pack");
+        menu.setSize(27);
+        menu.setEmptySlotsClickable(false);
+
+        for (int slot = 0; slot < 27; slot++) {
+            menu.addItem(slot, ChestMenuUtils.getBackground(), ChestMenuUtils.getEmptyClickHandler());
+        }
+
+        addBackButton(menu, returnGuide);
+        addStatus(menu, player, service);
+        addPlayerToggle(menu, player, service, returnGuide);
+        addReloadButton(menu, player, service, returnGuide);
+        addDoctorButtons(menu, player, returnGuide);
+
+        menu.addItem(
+                22,
+                new CustomItemStack(
+                        Material.BOOK,
+                        "&fWhat these controls change",
+                        "",
+                        "&7Player On/Off and Reload affect only",
+                        "&7Slimefun Legacy's own optional pack UUID.",
+                        "",
+                        "&7They do not remove ItemsAdder, Oraxen,",
+                        "&7proxy, or other plugin-owned packs.",
+                        "",
+                        "&eTexture-ID tools are separate server-wide",
+                        "&eDoctor operations for item-models.yml/items."),
+                ChestMenuUtils.getEmptyClickHandler());
+
+        menu.open(player);
+    }
+
+    private static void addBackButton(@Nonnull ChestMenu menu, @Nonnull ItemStack guide) {
+        menu.addItem(
+                18,
+                new CustomItemStack(
+                        Material.ARROW,
+                        "&fBack to Slimefun Guide",
+                        "",
+                        "&7Return to the current guide."));
+        menu.addMenuClickHandler(18, (player, slot, item, action) -> {
+            SlimefunGuide.openGuide(player, guide);
+            return false;
+        });
+    }
+
+    private static void addStatus(
+            @Nonnull ChestMenu menu, @Nonnull Player player, @Nonnull ExternalResourcePackService service) {
+        boolean senderEnabled = service.isDeliveryEnabled();
+        boolean required = service.isRequired();
+        boolean playerEnabled = service.isPlayerEnabled(player);
+
+        menu.addItem(
+                4,
+                new CustomItemStack(
+                        Material.PAINTING,
+                        "&b&lResource Pack Status",
+                        "",
+                        "&7Legacy sender: " + (senderEnabled ? "&aEnabled" : "&cDisabled"),
+                        "&7Required by server: " + (required ? "&cYes" : "&aNo"),
+                        "&7Your auto-load: " + (playerEnabled ? "&aOn" : "&cOff"),
+                        "",
+                        senderEnabled
+                                ? "&7Use Reload if textures need to be re-applied."
+                                : "&8The server owner has Legacy's sender disabled."),
+                ChestMenuUtils.getEmptyClickHandler());
+    }
+
+    private static void addPlayerToggle(
+            @Nonnull ChestMenu menu,
+            @Nonnull Player player,
+            @Nonnull ExternalResourcePackService service,
+            @Nonnull ItemStack returnGuide) {
+        boolean enabled = service.isPlayerEnabled(player);
+        boolean required = service.isRequired();
+
+        Material material = required ? Material.BARRIER : (enabled ? Material.LIME_DYE : Material.GRAY_DYE);
+        String title = required
+                ? "&cResource Pack Required"
+                : enabled ? "&aAutomatic Resource Pack: ON" : "&7Automatic Resource Pack: OFF";
+
+        menu.addItem(
+                10,
+                new CustomItemStack(
+                        material,
+                        title,
+                        "",
+                        required
+                                ? "&7This server marks the Slimefun Legacy pack as required."
+                                : enabled
+                                        ? "&7Click to opt out and remove Legacy's pack."
+                                        : "&7Click to opt in and load Legacy's pack on join.",
+                        "",
+                        "&8This preference is saved per player."));
+
+        menu.addMenuClickHandler(10, (clickedPlayer, slot, item, action) -> {
+            if (service.isRequired()) {
+                clickedPlayer.sendMessage(ChatColor.RED + "The Slimefun Legacy resource pack is required by this server.");
+                return false;
+            }
+
+            boolean next = !service.isPlayerEnabled(clickedPlayer);
+            service.setPlayerEnabled(clickedPlayer, next);
+            if (next) {
+                if (service.isDeliveryEnabled()) {
+                    clickedPlayer.sendMessage(ChatColor.GREEN + "Slimefun Legacy resource-pack auto-load enabled.");
+                } else {
+                    clickedPlayer.sendMessage(
+                            ChatColor.YELLOW
+                                    + "Auto-load preference enabled, but the server's Slimefun Legacy pack sender is disabled.");
+                }
+            } else {
+                clickedPlayer.sendMessage(ChatColor.YELLOW + "Slimefun Legacy resource pack disabled for you.");
+            }
+
+            open(clickedPlayer, returnGuide);
+            return false;
+        });
+    }
+
+    private static void addReloadButton(
+            @Nonnull ChestMenu menu,
+            @Nonnull Player player,
+            @Nonnull ExternalResourcePackService service,
+            @Nonnull ItemStack returnGuide) {
+        boolean senderEnabled = service.isDeliveryEnabled();
+
+        menu.addItem(
+                12,
+                new CustomItemStack(
+                        senderEnabled ? Material.CHEST : Material.RED_DYE,
+                        senderEnabled ? "&eReload Resource Pack Now" : "&cReload Unavailable",
+                        "",
+                        senderEnabled
+                                ? "&7Re-send Slimefun Legacy's configured pack to your client."
+                                : "&7The server owner has resource-pack.enabled set to false.",
+                        senderEnabled ? "&7This also turns your auto-load preference on." : "",
+                        "",
+                        senderEnabled ? "&eClick to reload" : "&8No server setting is changed."));
+
+        menu.addMenuClickHandler(12, (clickedPlayer, slot, item, action) -> {
+            if (!service.reloadForPlayer(clickedPlayer)) {
+                clickedPlayer.sendMessage(
+                        ChatColor.RED + "Slimefun Legacy's resource-pack sender is disabled or unavailable.");
+                return false;
+            }
+
+            clickedPlayer.sendMessage(ChatColor.GREEN + "Slimefun Legacy resource pack requested again.");
+            open(clickedPlayer, returnGuide);
+            return false;
+        });
+    }
+
+    private static void addDoctorButtons(
+            @Nonnull ChestMenu menu, @Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        if (!player.hasPermission(DOCTOR_PERMISSION)) {
+            return;
+        }
+
+        menu.addItem(
+                14,
+                new CustomItemStack(
+                        Material.SPYGLASS,
+                        "&bScan Texture IDs",
+                        "",
+                        "&7Read-only audit for adopting the bundled",
+                        "&7Slimefun Legacy texture/model IDs.",
+                        "",
+                        "&8Server owner tool",
+                        "&eClick to run enable-pack scan"));
+        menu.addMenuClickHandler(14, (clickedPlayer, slot, item, action) -> {
+            clickedPlayer.closeInventory();
+            clickedPlayer.performCommand("slimefun doctor item-models enable-pack scan");
+            return false;
+        });
+
+        menu.addItem(
+                16,
+                new CustomItemStack(
+                        Material.SMITHING_TABLE,
+                        "&6Add / Update Texture IDs & Items",
+                        "",
+                        "&7Enable currently-zero bundled texture IDs",
+                        "&7and update reachable stored Slimefun items.",
+                        "",
+                        "&cServer-wide change. Backup first.",
+                        "&cUse maintenance mode / keep players offline.",
+                        "",
+                        "&eClick for confirmation"));
+        menu.addMenuClickHandler(16, (clickedPlayer, slot, item, action) -> {
+            openEnablePackConfirmation(clickedPlayer, returnGuide);
+            return false;
+        });
+    }
+
+    private static void openEnablePackConfirmation(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        ChestMenu menu = new ChestMenu("&6&lConfirm Texture-ID Update");
+        menu.setSize(27);
+        menu.setEmptySlotsClickable(false);
+
+        for (int slot = 0; slot < 27; slot++) {
+            menu.addItem(slot, ChestMenuUtils.getBackground(), ChestMenuUtils.getEmptyClickHandler());
+        }
+
+        menu.addItem(
+                11,
+                new CustomItemStack(
+                        Material.LIME_CONCRETE,
+                        "&aConfirm Add / Update",
+                        "",
+                        "&7Runs:",
+                        "&f/sf doctor item-models enable-pack confirm",
+                        "",
+                        "&7This can update item-models.yml and",
+                        "&7reachable stored Slimefun ItemStacks.",
+                        "",
+                        "&cOnly continue after a full backup."));
+        menu.addMenuClickHandler(11, (clickedPlayer, slot, item, action) -> {
+            clickedPlayer.closeInventory();
+            clickedPlayer.performCommand("slimefun doctor item-models enable-pack confirm");
+            return false;
+        });
+
+        menu.addItem(
+                15,
+                new CustomItemStack(
+                        Material.RED_CONCRETE,
+                        "&cCancel",
+                        "",
+                        "&7Return without changing texture IDs."));
+        menu.addMenuClickHandler(15, (clickedPlayer, slot, item, action) -> {
+            open(clickedPlayer, returnGuide);
+            return false;
+        });
+
+        menu.open(player);
+    }
+}
