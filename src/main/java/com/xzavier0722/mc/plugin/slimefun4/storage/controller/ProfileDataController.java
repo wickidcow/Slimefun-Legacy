@@ -712,6 +712,16 @@ public class ProfileDataController extends ADataController {
                 });
     }
 
+    public int getPendingBackpackSaveChainCount() {
+        synchronized (backpackSaveChains) {
+            return backpackSaveChains.size();
+        }
+    }
+
+    public int getUncertainBackpackBaselineCount() {
+        return uncertainBackpackBaselines.size();
+    }
+
     private boolean hasUncertainBackpackBaseline(@Nonnull Set<String> backpackIds) {
         for (String backpackId : backpackIds) {
             if (uncertainBackpackBaselines.contains(backpackId)) {
