@@ -200,6 +200,11 @@ final class CargoUtils {
                 return null;
             }
 
+            menu = getChestMenu(target);
+            if (menu == null) {
+                return null;
+            }
+
             for (int slot : menu.getPreset().getSlotsAccessedByItemTransport(menu, ItemTransportFlow.WITHDRAW, null)) {
                 ItemStack is = menu.getItemInSlot(slot);
 
@@ -287,6 +292,11 @@ final class CargoUtils {
         var event = new CargoInsertEvent(node, target, menu.toInventory());
         Bukkit.getPluginManager().callEvent(event);
         if (event.isCancelled()) {
+            return stack;
+        }
+
+        menu = getChestMenu(target);
+        if (menu == null) {
             return stack;
         }
 
