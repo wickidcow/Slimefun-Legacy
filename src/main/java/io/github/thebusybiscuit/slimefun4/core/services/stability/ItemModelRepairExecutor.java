@@ -33,7 +33,7 @@ import org.bukkit.inventory.meta.components.CustomModelDataComponent;
  * <p>This is intentionally not part of automatic Item Doctor repair. Operators must run the dedicated
  * item-model Doctor command after reviewing a dry-run.</p>
  */
-final class ItemModelRepairExecutor implements ItemDoctorTraversalExecutor {
+final class ItemModelRepairExecutor extends ItemDoctorTraversalExecutor {
 
     private static final int MAX_CONTAINER_DEPTH = 4;
 
@@ -46,7 +46,7 @@ final class ItemModelRepairExecutor implements ItemDoctorTraversalExecutor {
     }
 
     @Override
-    public boolean inspectInventory(@Nonnull Inventory inventory, @Nonnull ItemDoctorReport report) {
+    boolean inspectInventory(@Nonnull Inventory inventory, @Nonnull ItemDoctorReport report) {
         return inspectInventory(inventory, report, 0);
     }
 
@@ -64,7 +64,7 @@ final class ItemModelRepairExecutor implements ItemDoctorTraversalExecutor {
     }
 
     @Override
-    public boolean inspectItem(@Nullable ItemStack item, @Nonnull ItemDoctorReport report) {
+    boolean inspectItem(@Nullable ItemStack item, @Nonnull ItemDoctorReport report) {
         return inspectItem(item, report, 0);
     }
 
