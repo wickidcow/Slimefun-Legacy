@@ -1,0 +1,152 @@
+name: Proxy Runtime Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'scripts/proxy_runtime_smoke.sh'
+      - '.github/workflows/proxy-runtime-smoke.yml'
+      - 'build.gradle.kts'
+      - 'gradle/**'
+      - 'gradle.properties'
+  push:
+    branches: [master, main]
+    paths:
+      - 'src/**'
+      - 'scripts/proxy_runtime_smoke.sh'
+      - '.github/workflows/proxy-runtime-smoke.yml'
+      - 'build.gradle.kts'
+      - 'gradle/**'
+      - 'gradle.properties'
+  workflow_dispatch:
+  schedule:
+    - cron: '17 9 * * 3'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: proxy-runtime-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SERVER_DOWNLOAD_USER_AGENT: Slimefun-Legacy-Proxy-Smoke/1.0 (https://github.com/wickidcow/Slimefun-Legacy)
+
+jobs:
+  build-core:
+    name: Build Slimefun Legacy candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Verify Slimefun Legacy invariants
+        run: python3 scripts/verify_legacy.py .
+
+      - name: Build production JAR
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon
+          ./gradlew clean shadowJar --no-daemon
+          JAR="$(find build/libs -maxdepth 1 -type f -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -s "$JAR"
+          mkdir -p candidate
+          cp "$JAR" candidate/Slimefun-Legacy-proxy-smoke.jar
+
+      - name: Upload candidate
+        uses: actions/upload-artifact@v7
+        with:
+          name: proxy-smoke-core
+          path: candidate/Slimefun-Legacy-proxy-smoke.jar
+          if-no-files-found: error
+
+  runtime:
+    name: ${{ matrix.label }}
+    needs: build-core
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - proxy: velocity
+            minecraft: '26.2'
+            label: Velocity modern + Paper 26.2
+          - proxy: velocity
+            minecraft: '26.3'
+            label: Velocity modern + Paper 26.3
+          - proxy: waterfall
+            minecraft: '26.2'
+            label: Waterfall legacy + Paper 26.2
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Java 21 for archived Waterfall
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Preserve Java 21 location
+        shell: bash
+        run: echo "JAVA21_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
+
+      - name: Set up Java 25 for Paper and Velocity
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Download candidate
+        uses: actions/download-artifact@v8
+        with:
+          name: proxy-smoke-core
+          path: candidate
+
+      - name: Run proxy-backed runtime smoke
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+        run: |
+          set -euo pipefail
+          chmod +x scripts/proxy_runtime_smoke.sh
+          bash scripts/proxy_runtime_smoke.sh \
+            candidate/Slimefun-Legacy-proxy-smoke.jar \
+            "${{ matrix.proxy }}" \
+            "build/proxy-runtime-${{ matrix.proxy }}-${{ matrix.minecraft }}"
+
+      - name: Publish result
+        if: always()
+        shell: bash
+        run: |
+          RESULT="build/proxy-runtime-${{ matrix.proxy }}-${{ matrix.minecraft }}/smoke-result.txt"
+          if [[ -f "$RESULT" ]]; then
+            {
+              echo "## ${{ matrix.label }}"
+              echo
+              echo '```text'
+              cat "$RESULT"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload proxy smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: proxy-runtime-${{ matrix.proxy }}-${{ matrix.minecraft }}
+          path: |
+            build/proxy-runtime-${{ matrix.proxy }}-${{ matrix.minecraft }}/*.log
+            build/proxy-runtime-${{ matrix.proxy }}-${{ matrix.minecraft }}/*.json
+            build/proxy-runtime-${{ matrix.proxy }}-${{ matrix.minecraft }}/smoke-result.txt
+          if-no-files-found: warn
