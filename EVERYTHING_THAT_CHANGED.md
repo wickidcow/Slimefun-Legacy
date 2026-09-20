@@ -1,4 +1,4 @@
-# Slimefun Legacy 4.1.56 — v4.1.52 item-model rollback & guided Doctor recovery
+# Slimefun Legacy 4.1.55 — Item-model recovery hotfix
 
 - Removed the v4.1.52 startup behavior that force-upgraded existing `0` entries in `item-models.yml` to the bundled hosted-pack model map.
 - Existing zero mappings are now preserved on upgrade, preventing a repeat of the ItemStack identity split that could make pre-v52 items stop matching newly generated items in storages and machines.
@@ -11,8 +11,6 @@
 - Updated resource-pack and recovery documentation plus static verification for the v4.1.52 rollback path.
 
 ---
-
-# Slimefun Legacy 4.1.55 — Item-model recovery hotfix
 
 - Added `/sf doctor item-models scan` for a read-only server-wide audit of stale Slimefun Legacy bundled model values.
 - Added `/sf doctor item-models repair confirm` to remove only the exact bundled first CustomModelData float from eligible Slimefun items whose current `item-models.yml` mapping is `0`.
