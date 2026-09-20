@@ -1,3 +1,16 @@
+# Slimefun Legacy 4.1.55 — Item-model recovery hotfix
+
+- Added `/sf doctor item-models scan` for a read-only server-wide audit of stale Slimefun Legacy bundled model values.
+- Added `/sf doctor item-models repair confirm` to remove only the exact bundled first CustomModelData float from eligible Slimefun items whose current `item-models.yml` mapping is `0`.
+- The repair preserves additional CustomModelData floats, flags, strings, colors, Slimefun identity, lore, enchantments, storage identity, and other functional metadata.
+- The server-wide traversal covers online inventories, ender chests, loaded physical containers, loaded Slimefun machine/BlockMenu inventories, universal-data inventories, dropped items, nested containers, and all database backpacks.
+- Unloaded physical world containers are not force-loaded; load the affected chunks and rerun the repair to cover them.
+- Placed Slimefun block IDs are not rewritten.
+- Item-model cleanup is explicit only and is never invoked by automatic Item Doctor join, pickup, inventory-open, or chunk-load repair.
+- Added dedicated safety verification and documentation for the 4.1.52+ hosted model-map recovery workflow.
+
+---
+
 # Slimefun Legacy 4.1.29 — Core Platform Phase 1K
 
 ## Part 2 — Addon Boundary Evidence in `/sf versions`
