@@ -351,6 +351,11 @@ final class DoctorCommand extends SubCommand {
             send(sender, "&7This targets only bundled Slimefun model values on IDs currently configured as &e0&7.");
             send(sender, "&7Dry run: &e/sf doctor item-models scan");
             send(sender, "&7Repair: &6/sf doctor item-models repair confirm");
+            int enableCandidates = Slimefun.getItemTextureService().getHostedPackEnableCandidateCount();
+            if (enableCandidates > 0) {
+                send(sender, "&7Bundled resource-pack mappings available but disabled: &e" + enableCandidates);
+                send(sender, "&7Safe adoption audit: &6/sf doctor item-models enable-pack scan");
+            }
             int rollbackCandidates = Slimefun.getItemTextureService().getHostedPackRollbackCandidateCount();
             if (Slimefun.getItemTextureService().wasHostedPackModelMigrationApplied() && rollbackCandidates > 0) {
                 send(sender, "&cHistorical v4.1.52 hosted-pack migration detected.");
@@ -367,6 +372,11 @@ final class DoctorCommand extends SubCommand {
             return;
         }
 
+        if (action.equals("enable-pack") || action.equals("adopt-pack")) {
+            runHostedPackEnable(sender, args, service);
+            return;
+        }
+
         boolean repair;
         if (action.equals("scan")) {
             repair = false;
@@ -378,7 +388,7 @@ final class DoctorCommand extends SubCommand {
             }
             repair = true;
         } else {
-            send(sender, "&eUsage: /sf doctor item-models <status|scan|repair confirm|rollback-v52 [confirm]>");
+            send(sender, "&eUsage: /sf doctor item-models <status|scan|repair confirm|rollback-v52 [confirm]|enable-pack <scan|confirm>>");
             return;
         }
 
@@ -401,6 +411,100 @@ final class DoctorCommand extends SubCommand {
         send(sender, "&7The stored first model float must exactly match Slimefun Legacy's bundled mapping.");
         if (!repair) {
             send(sender, "&7This is read-only. No item metadata will be changed.");
+        }
+    }
+
+    private void runHostedPackEnable(CommandSender sender, String[] args, ItemDoctorService service) {
+        String mode = args.length > 3 ? args[3].toLowerCase(Locale.ROOT) : "scan";
+        if (!mode.equals("scan") && !mode.equals("confirm")) {
+            send(sender, "&eUsage: /sf doctor item-models enable-pack <scan|confirm>");
+            return;
+        }
+
+        var textures = Slimefun.getItemTextureService();
+        int zeroMappings = textures.getHostedPackEnableCandidateCount();
+        int bundledMappings = textures.getHostedPackEnabledMappingCount();
+        int customMappings = textures.getHostedPackCustomMappingCount();
+
+        send(sender, "&6Slimefun Legacy Resource-Pack Adoption");
+        send(sender, "&7Bundled mappings active: &e" + bundledMappings
+                + " &8| &7Zero mappings available: &e" + zeroMappings
+                + " &8| &7Custom mappings preserved: &e" + customMappings);
+
+        boolean repair = mode.equals("confirm");
+        if (repair) {
+            if (service.isServerRunActive()) {
+                send(sender, "&eA server-wide item Doctor run is already active. Use /sf doctor status.");
+                return;
+            }
+            send(sender, "&eThis intentionally adopts Slimefun Legacy's bundled item models on an established server.");
+            send(sender, "&eRun this with players offline or the server in maintenance mode and make a full backup first.");
+            int enabled = textures.enableHostedPackMappings();
+            send(sender, "&aEnabled &e" + enabled + "&a previously-zero bundled item-model mapping(s).");
+            send(sender, "&8Existing custom non-zero mappings were left unchanged.");
+        } else {
+            send(sender, "&7This is read-only. It audits stored items before changing any mapping or ItemStack.");
+        }
+
+        boolean started = service.startItemModelEnableRun(repair, report -> {
+            send(sender, "&aHosted resource-pack adoption " + report.getModeName() + " completed.");
+            sendHostedPackProgress(sender, report);
+            if (report.isRepairMode()) {
+                send(sender, "&eBackpack/database saves may still be queued. Keep the server running until");
+                send(sender, "&e/sf doctor status shows 0 pending database writes.");
+                send(sender, "&cThen stop the server normally and restart before reopening to players.");
+                send(sender, "&7After restart, run &e/sf doctor item-models enable-pack scan &7again.");
+                send(sender, "&7A clean follow-up scan should report 0 adoption candidates.");
+            } else if (report.getItemModelCandidates() > 0) {
+                send(sender, "&eTo adopt the bundled mappings and repair these stored items, run:");
+                send(sender, "&6/sf doctor item-models enable-pack confirm");
+            }
+        });
+
+        if (!started) {
+            send(sender, "&cCould not start the hosted-pack Doctor traversal.");
+            if (repair) {
+                send(sender, "&eThe mapping file may already contain the enabled values.");
+                send(sender, "&eWhen Doctor is idle, rerun &6/sf doctor item-models enable-pack confirm&e; it is safe to resume.");
+            }
+            return;
+        }
+
+        send(sender, "&aStarted hosted resource-pack " + (repair ? "adoption" : "adoption scan") + '.');
+        send(sender, "&7Only registered Slimefun IDs with a bundled mapping and either 0 or that exact bundled mapping are inspected.");
+        send(sender, "&7Items with a different existing first model float are reported as conflicts and never overwritten.");
+    }
+
+    private void sendHostedPackProgress(CommandSender sender, ItemDoctorReport report) {
+        send(sender, "&7Inventories: &e" + report.getInventories() + " &8| &7Backpacks: &e" + report.getBackpacks());
+        send(sender, "&7Stacks scanned: &e" + report.getScannedStacks() + " &8| &7Slimefun: &e"
+                + report.getSlimefunStacks());
+        send(sender, "&7Adoption candidates: &e" + report.getItemModelCandidates()
+                + " &8| &7Updated: &a" + report.getItemModelRepairs()
+                + " &8| &7Conflicts skipped: &6" + report.getItemModelConflicts()
+                + " &8| &7Failures: &c" + report.getFailures());
+
+        int shown = 0;
+        for (var entry : report.getItemModelConflictCounts().entrySet()) {
+            if (shown >= 12) {
+                break;
+            }
+            send(sender, "&8- conflict &f" + entry.getKey() + " &8x&e" + entry.getValue());
+            shown++;
+        }
+        int omitted = report.getItemModelConflictCounts().size() - shown;
+        if (omitted > 0) {
+            send(sender, "&8... " + omitted + " more conflicting item ID(s)");
+        }
+
+        if (report.getItemModelCandidates() == 0 && report.getItemModelConflicts() == 0) {
+            send(sender, "&aNo stored Slimefun ItemStacks need hosted-pack adoption in the reachable traversal.");
+        }
+        if (report.getItemModelConflicts() > 0) {
+            send(sender, "&eConflicts were preserved. Review the owning custom pack/plugin before changing those model values.");
+        }
+        if (report.isComplete()) {
+            send(sender, "&7Duration: &e" + Math.max(1L, report.getDurationMillis() / 1000L) + " second(s)");
         }
     }
 

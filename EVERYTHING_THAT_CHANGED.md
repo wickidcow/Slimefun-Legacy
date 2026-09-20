@@ -1,5 +1,10 @@
 # Slimefun Legacy 4.1.55 — Item-model recovery hotfix
 
+- Added `/sf doctor item-models enable-pack scan` and `/sf doctor item-models enable-pack confirm` for existing servers that intentionally want to adopt the bundled Legacy resource-pack models without repeating the v4.1.52 identity split.
+- Pack adoption promotes only currently-zero mappings to bundled values, preserves custom non-zero mappings, and updates reachable stored ItemStacks only when the first model-float lane is empty.
+- Existing different first model floats are reported as conflicts and skipped; other modern CustomModelData lanes and Slimefun functional metadata remain untouched.
+- Pack adoption requires an explicit scan/confirm flow plus a clean restart so registered Slimefun item templates are rebuilt from the newly enabled mapping.
+
 - Removed the v4.1.52 startup behavior that force-upgraded existing `0` entries in `item-models.yml` to the bundled hosted-pack model map.
 - Existing zero mappings are now preserved on upgrade, preventing a repeat of the ItemStack identity split that could make pre-v52 items stop matching newly generated items in storages and machines.
 - Added `/sf doctor item-models rollback-v52` as a read-only audit for servers that passed through the v4.1.52 hosted-pack migration.

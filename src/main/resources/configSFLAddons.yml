@@ -13,6 +13,9 @@ enabled: false
 # and review any reported model-data conflicts before changing item-model mappings.
 # If storage/machine matching broke after Slimefun Legacy v4.1.52, first run
 # /sf doctor item-models rollback-v52 and follow the recovery instructions it prints.
+# If an established server intentionally wants to adopt Legacy's bundled item models, run
+# /sf doctor item-models enable-pack scan, then /sf doctor item-models enable-pack confirm.
+# Enabling the sender alone never rewrites existing 0 item-model mappings.
 resource-pack:
   enabled: false
   # RECOMMENDED (GitHub): https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip

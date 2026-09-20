@@ -41,11 +41,13 @@ public final class ItemDoctorReport {
     private final AtomicLong schemaValidatedCandidates = new AtomicLong();
     private final AtomicLong itemModelCandidates = new AtomicLong();
     private final AtomicLong itemModelRepairs = new AtomicLong();
+    private final AtomicLong itemModelConflicts = new AtomicLong();
     private final AtomicLong failures = new AtomicLong();
     private final Map<String, AtomicLong> legacyMigrationCandidateCounts = new ConcurrentHashMap<>();
     private final Map<SchemaMigrationKey, AtomicLong> schemaMigrationCandidateCounts = new ConcurrentHashMap<>();
     private final Map<SchemaValidationKey, AtomicLong> schemaValidationCounts = new ConcurrentHashMap<>();
     private final Map<String, AtomicLong> itemModelCandidateCounts = new ConcurrentHashMap<>();
+    private final Map<String, AtomicLong> itemModelConflictCounts = new ConcurrentHashMap<>();
     private final Set<String> legacyBlockIdSamples = Collections.synchronizedSet(new LinkedHashSet<>());
     private final Set<String> unknownBlockIdSamples = Collections.synchronizedSet(new LinkedHashSet<>());
     private final Set<String> unknownIdSamples = Collections.synchronizedSet(new LinkedHashSet<>());
@@ -96,6 +98,11 @@ public final class ItemDoctorReport {
     }
 
     void itemModelRepaired() { itemModelRepairs.incrementAndGet(); }
+
+    void itemModelConflictFound(@Nonnull String itemId) {
+        itemModelConflicts.incrementAndGet();
+        itemModelConflictCounts.computeIfAbsent(itemId, ignored -> new AtomicLong()).incrementAndGet();
+    }
 
     /** Records an executable legacy-ID candidate encountered during the full Doctor traversal. */
     void legacyMigrationCandidateFound(@Nonnull String legacyId) {
@@ -176,9 +183,20 @@ public final class ItemDoctorReport {
     public long getUnresolvedTemplates() { return unresolvedTemplates.get(); }
     public long getItemModelCandidates() { return itemModelCandidates.get(); }
     public long getItemModelRepairs() { return itemModelRepairs.get(); }
+    public long getItemModelConflicts() { return itemModelConflicts.get(); }
 
     public @Nonnull Map<String, Long> getItemModelCandidateCounts() {
         List<Map.Entry<String, AtomicLong>> entries = new ArrayList<>(itemModelCandidateCounts.entrySet());
+        entries.sort(Map.Entry.comparingByKey());
+        Map<String, Long> snapshot = new LinkedHashMap<>();
+        for (Map.Entry<String, AtomicLong> entry : entries) {
+            snapshot.put(entry.getKey(), entry.getValue().get());
+        }
+        return Collections.unmodifiableMap(snapshot);
+    }
+
+    public @Nonnull Map<String, Long> getItemModelConflictCounts() {
+        List<Map.Entry<String, AtomicLong>> entries = new ArrayList<>(itemModelConflictCounts.entrySet());
         entries.sort(Map.Entry.comparingByKey());
         Map<String, Long> snapshot = new LinkedHashMap<>();
         for (Map.Entry<String, AtomicLong> entry : entries) {

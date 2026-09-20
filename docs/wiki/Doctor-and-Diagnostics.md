@@ -105,6 +105,42 @@ dropped items, nested containers and all database backpacks. Unloaded world cont
 Set the affected model entries to `0` before scanning. IDs that still have a non-zero configured mapping are
 intentionally ignored because Doctor treats those as server-owner-approved model assignments.
 
+#### Intentionally adopting the Slimefun Legacy resource pack on an existing server
+
+Enabling `resource-pack.enabled: true` only controls delivery of the ZIP. It does **not** silently rewrite
+existing `0` mappings in `item-models.yml`.
+
+Before intentionally adopting the bundled Legacy item models on an established server, make a full offline backup
+and run:
+
+```text
+/sf doctor item-models enable-pack scan
+```
+
+The scan is read-only. It reports bundled mappings already active, currently-zero mappings that can be enabled,
+custom non-zero mappings that will be preserved, stored ItemStacks that can safely receive the bundled first model
+float, and conflicting first model values that Doctor will not overwrite.
+
+When the audit looks correct, keep players offline or use maintenance mode and run:
+
+```text
+/sf doctor item-models enable-pack confirm
+```
+
+The confirmed operation changes only `0` mappings to their exact bundled values. It then traverses online player
+inventories, loaded storage/machines, dropped items, nested containers and every Slimefun database backpack, adding
+the bundled first model float only when that slot is empty. Other CustomModelData lanes are preserved.
+
+After completion, wait for `/sf doctor status` to show 0 pending database writes, stop the server normally, and
+restart. The restart is required so registered Slimefun templates are rebuilt using the newly enabled mapping. Then
+run `/sf doctor item-models enable-pack scan` again. A clean reachable migration reports zero adoption candidates.
+
+Unloaded physical world containers are not force-loaded. Load those chunks and re-run the scan if needed.
+
+This command adopts model mappings; it does not decide how the client ZIP is delivered. Servers using the built-in
+sender can set `resource-pack.enabled: true`. Servers using ItemsAdder or another combined-pack manager can leave
+Legacy's sender disabled while still using the bundled mapping values in their combined pack.
+
 #### Recovering servers affected by v4.1.52
 
 Slimefun Legacy v4.1.52 briefly migrated existing `0` item-model entries to the bundled hosted-pack model map.

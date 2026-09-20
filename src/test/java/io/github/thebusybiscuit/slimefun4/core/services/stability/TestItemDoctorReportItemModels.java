@@ -22,4 +22,18 @@ class TestItemDoctorReportItemModels {
                 Map.of("COPPER_INGOT", 1L, "STEEL_INGOT", 2L),
                 report.getItemModelCandidateCounts());
     }
+
+    @Test
+    void testItemModelConflictCounts() {
+        ItemDoctorReport report = new ItemDoctorReport(false);
+
+        report.itemModelConflictFound("STEEL_INGOT");
+        report.itemModelConflictFound("STEEL_INGOT");
+        report.itemModelConflictFound("COPPER_INGOT");
+
+        Assertions.assertEquals(3L, report.getItemModelConflicts());
+        Assertions.assertEquals(
+                Map.of("COPPER_INGOT", 1L, "STEEL_INGOT", 2L),
+                report.getItemModelConflictCounts());
+    }
 }

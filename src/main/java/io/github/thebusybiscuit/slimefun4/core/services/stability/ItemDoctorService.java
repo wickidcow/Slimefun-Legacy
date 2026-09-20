@@ -162,6 +162,11 @@ public final class ItemDoctorService implements Listener {
         return startServerRun(repair, false, new ItemModelRepairExecutor(repair), completion);
     }
 
+    /** Starts the explicit safe hosted-resource-pack adoption scan or repair traversal. */
+    public boolean startItemModelEnableRun(boolean repair, @Nonnull Consumer<ItemDoctorReport> completion) {
+        return startServerRun(repair, false, new ItemModelEnableExecutor(repair), completion);
+    }
+
     private boolean startServerRun(
             boolean repair,
             boolean enableSchemaProbes,

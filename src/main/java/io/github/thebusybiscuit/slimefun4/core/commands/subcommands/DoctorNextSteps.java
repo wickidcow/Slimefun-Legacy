@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
+import io.github.thebusybiscuit.slimefun4.core.config.CuriositiesConfig;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorReport;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import javax.annotation.Nonnull;
@@ -13,6 +14,15 @@ final class DoctorNextSteps {
     static void send(@Nonnull CommandSender sender, @Nonnull ItemDoctorReport report) {
         boolean any = false;
         send(sender, "&6Slimefun Doctor Next Steps");
+
+        int packEnableMappings = Slimefun.getItemTextureService().getHostedPackEnableCandidateCount();
+        if (CuriositiesConfig.getConfig().getBoolean("resource-pack.enabled") && packEnableMappings > 0) {
+            send(sender, "&eResource-pack delivery is enabled but bundled item mappings are still disabled: &f"
+                    + packEnableMappings);
+            send(sender, "&6  /sf doctor item-models enable-pack scan");
+            send(sender, "&8  This opt-in audit prevents new resource-pack items from silently splitting from old stored items.");
+            any = true;
+        }
 
         int v52Mappings = Slimefun.getItemTextureService().getHostedPackRollbackCandidateCount();
         if (Slimefun.getItemTextureService().wasHostedPackModelMigrationApplied() && v52Mappings > 0) {

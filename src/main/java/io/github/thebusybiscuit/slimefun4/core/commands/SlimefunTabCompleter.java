@@ -129,7 +129,7 @@ class SlimefunTabCompleter implements TabCompleter {
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("storage")) {
                 return createReturnList(List.of("status", "scan", "plan", "verify", "repair"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("item-models")) {
-                return createReturnList(List.of("status", "scan", "repair", "rollback-v52"), args[2]);
+                return createReturnList(List.of("status", "scan", "repair", "rollback-v52", "enable-pack"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && isDoctorMigrationRoute(args[1])) {
                 return createReturnList(
                         List.of("status", "list", "unknown", "plan", "providers", "scan", "execute", "schemas"),
@@ -140,6 +140,11 @@ class SlimefunTabCompleter implements TabCompleter {
             return null;
         } else if (args.length == 4 && args[0].equalsIgnoreCase("give")) {
             return createReturnList(Arrays.asList("1", "2", "4", "8", "16", "32", "64"), args[3]);
+        } else if (args.length == 4
+                && args[0].equalsIgnoreCase("doctor")
+                && args[1].equalsIgnoreCase("item-models")
+                && args[2].equalsIgnoreCase("enable-pack")) {
+            return createReturnList(List.of("scan", "confirm"), args[3]);
         } else if (args.length == 4
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("item-models")

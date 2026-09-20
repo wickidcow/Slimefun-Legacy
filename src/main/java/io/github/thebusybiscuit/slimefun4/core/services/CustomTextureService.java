@@ -214,6 +214,75 @@ public class CustomTextureService {
     }
 
     /**
+     * Counts bundled hosted-pack mappings that are currently disabled with an explicit zero.
+     */
+    public int getHostedPackEnableCandidateCount() {
+        FileConfiguration bundled = loadBundledModelConfiguration();
+        int candidates = 0;
+        for (String key : bundled.getKeys(false)) {
+            int bundledModel = bundled.getInt(key);
+            if (bundledModel != 0 && config.contains(key) && config.getInt(key) == 0) {
+                candidates++;
+            }
+        }
+        return candidates;
+    }
+
+    /** Returns how many bundled hosted-pack mappings are already active exactly as shipped. */
+    public int getHostedPackEnabledMappingCount() {
+        FileConfiguration bundled = loadBundledModelConfiguration();
+        int enabled = 0;
+        for (String key : bundled.getKeys(false)) {
+            int bundledModel = bundled.getInt(key);
+            if (bundledModel != 0 && config.contains(key) && config.getInt(key) == bundledModel) {
+                enabled++;
+            }
+        }
+        return enabled;
+    }
+
+    /** Returns how many bundled IDs currently use a non-zero server-customized value. */
+    public int getHostedPackCustomMappingCount() {
+        FileConfiguration bundled = loadBundledModelConfiguration();
+        int custom = 0;
+        for (String key : bundled.getKeys(false)) {
+            int bundledModel = bundled.getInt(key);
+            int configured = config.contains(key) ? config.getInt(key) : bundledModel;
+            if (bundledModel != 0 && configured != 0 && configured != bundledModel) {
+                custom++;
+            }
+        }
+        return custom;
+    }
+
+    /**
+     * Explicitly opts an existing server into Slimefun Legacy's bundled hosted-pack mappings.
+     *
+     * <p>Only mappings that are currently exactly zero are changed. Existing non-zero custom values
+     * are preserved. Registered Slimefun templates are not rebuilt in-place, so operators must restart
+     * after the corresponding Doctor traversal finishes.</p>
+     *
+     * @return number of zero mappings changed to bundled values
+     */
+    public int enableHostedPackMappings() {
+        FileConfiguration bundled = loadBundledModelConfiguration();
+        int enabled = 0;
+        for (String key : bundled.getKeys(false)) {
+            int bundledModel = bundled.getInt(key);
+            if (bundledModel != 0 && config.contains(key) && config.getInt(key) == 0) {
+                config.setValue(key, bundledModel);
+                enabled++;
+            }
+        }
+
+        if (enabled > 0) {
+            modified = true;
+            config.save();
+        }
+        return enabled;
+    }
+
+    /**
      * Resets exact bundled mappings back to zero for a server explicitly rolling back the v4.1.52
      * hosted-pack migration.
      *
