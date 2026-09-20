@@ -52,6 +52,17 @@ def main() -> int:
         "runtime stale SHA-1 suppression",
     )
 
+    require(config_source, "CURRENT_CONFIG_VERSION = 1", "versioned addon config schema")
+    require(config_source, "migrateConfigVersion();", "one-time addon config migration")
+    require(config_source, "writeResourcePackSafetyGuide", "resource-pack operator note injection")
+    require(config_source, "existingVersion >= CURRENT_CONFIG_VERSION", "no per-startup config rewrite")
+    require(config_yaml, "config-version: 1", "bundled addon config version")
+    require(config_yaml, "Slimefun Legacy resource-pack safety guide (config-version 1)", "versioned pack safety guide")
+    require(config_yaml, "/sf doctor item-models enable-pack scan", "pack enable scan instruction")
+    require(config_yaml, "/sf doctor item-models enable-pack confirm", "pack enable confirm instruction")
+    require(config_yaml, "The sender toggle NEVER rewrites item-models.yml or stored ItemStacks.", "safe pack disable boundary")
+    require(config_yaml, "/sf doctor item-models rollback-v52", "v4.1.52 recovery instruction")
+
     require(config_yaml, "RECOMMENDED (GitHub)", "recommended GitHub config comment")
     require(config_yaml, official, "recommended config URL")
     require(config_yaml, "retired Modrinth/default Legacy URLs are migrated here automatically", "config migration note")

@@ -1,4 +1,8 @@
 # Slimefun Legacy 4.1.55 — Recovery, Velocity & standalone JEG compatibility
+- Added `config-version: 1` to `configSFLAddons.yml` so future config migrations are explicit and one-time instead of rewriting the file on every plugin update/start.
+- Existing unversioned addon configs receive the resource-pack operator safety guide once, including the exact enable-pack Doctor sequence and the safe disable boundary.
+- The config now explicitly states that disabling Legacy's pack sender does not rewrite `item-models.yml` or strip stored CustomModelData; servers using another combined-pack manager should not run rollback merely because Legacy delivery is disabled.
+
 - Added supported standalone guide ownership APIs so SF_JustEnoughGuide can replace and safely restore Survival/Cheat guide implementations without reflection into Slimefun's private guide map.
 - Legacy machine-recipe providers and hardened machine input-fill services now remain available when standalone JEG owns the UI; the classic indexed guide is retained as the fallback before JEG installs its guide.
 - SF_JustEnoughGuide is a required compatibility/runtime-smoke target and is included in the maintained addon bundle.

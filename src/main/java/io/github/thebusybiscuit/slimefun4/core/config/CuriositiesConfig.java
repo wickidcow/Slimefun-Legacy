@@ -3,6 +3,7 @@ package io.github.thebusybiscuit.slimefun4.core.config;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Set;
 import java.util.logging.Level;
@@ -21,6 +22,10 @@ public final class CuriositiesConfig {
 
     public static final String FILE_NAME = "configSFLAddons.yml";
 
+    private static final int CURRENT_CONFIG_VERSION = 1;
+    private static final String CONFIG_VERSION_PATH = "config-version";
+    private static final String RESOURCE_PACK_GUIDE_MARKER =
+            "# Slimefun Legacy resource-pack safety guide (config-version 1)";
     private static final String RETIRED_FILE_NAME = "curiosities.yml";
     private static final String LEGACY_MODULE_TOGGLE = "options.enable-non-original-slimefun-additions";
     private static final String LEGACY_ADDITIONS_ROOT = "SlimefunLegacyAddition";
@@ -110,6 +115,102 @@ public final class CuriositiesConfig {
         migrateLegacyResourcePackSettings(createdFromBundledResource);
         migrateRetiredResourcePackUrl();
         ensureResourcePackDefaults();
+        migrateConfigVersion();
+    }
+
+    /**
+     * Applies one-time text-preserving migrations to configSFLAddons.yml.
+     *
+     * <p>The file version is intentionally independent from the plugin version. A normal Slimefun Legacy
+     * update does not rewrite this file. Operator comments are only injected when this config schema version
+     * advances, so server-owner formatting and notes are not churned on every startup.</p>
+     */
+    private void migrateConfigVersion() {
+        int existingVersion = yaml.getInt(CONFIG_VERSION_PATH, 0);
+        if (existingVersion >= CURRENT_CONFIG_VERSION) {
+            return;
+        }
+
+        try {
+            String contents = Files.readString(file.toPath(), StandardCharsets.UTF_8);
+            contents = writeConfigVersion(contents);
+            contents = writeResourcePackSafetyGuide(contents);
+            Files.writeString(file.toPath(), contents, StandardCharsets.UTF_8);
+
+            yaml = YamlConfiguration.loadConfiguration(file);
+            dirty = false;
+            plugin.getLogger()
+                    .info("Updated " + FILE_NAME + " config-version from " + existingVersion + " to "
+                            + CURRENT_CONFIG_VERSION + " with the resource-pack safety steps.");
+        } catch (IOException exception) {
+            plugin.getLogger()
+                    .log(
+                            Level.WARNING,
+                            "Could not apply the one-time " + FILE_NAME + " config-version migration. "
+                                    + "Existing settings were left unchanged.",
+                            exception);
+        }
+    }
+
+    private String writeConfigVersion(@Nonnull String contents) {
+        String versionLine = CONFIG_VERSION_PATH + ": " + CURRENT_CONFIG_VERSION;
+        var versionPattern = java.util.regex.Pattern.compile("(?m)^" + CONFIG_VERSION_PATH + "\\s*:\\s*.*$");
+        var versionMatcher = versionPattern.matcher(contents);
+        if (versionMatcher.find()) {
+            return versionMatcher.replaceFirst(java.util.regex.Matcher.quoteReplacement(versionLine));
+        }
+
+        int enabledIndex = contents.indexOf("\nenabled:");
+        if (enabledIndex >= 0) {
+            int insertAt = enabledIndex + 1;
+            return contents.substring(0, insertAt) + versionLine + "\n\n" + contents.substring(insertAt);
+        }
+        return versionLine + "\n\n" + contents;
+    }
+
+    private String writeResourcePackSafetyGuide(@Nonnull String contents) {
+        if (contents.contains(RESOURCE_PACK_GUIDE_MARKER)) {
+            return contents;
+        }
+
+        int resourcePackIndex = contents.indexOf("\nresource-pack:");
+        if (resourcePackIndex < 0) {
+            resourcePackIndex = contents.indexOf("resource-pack:");
+        }
+        if (resourcePackIndex < 0) {
+            return contents;
+        }
+
+        String guide = """
+                # ---------------------------------------------------------------------------
+                # Slimefun Legacy resource-pack safety guide (config-version 1)
+                #
+                # ENABLING THE LEGACY PACK ON AN EXISTING SERVER:
+                # 1) Make a full backup and keep players offline / use maintenance mode.
+                # 2) Leave resource-pack.enabled: false while auditing.
+                # 3) Run: /sf doctor item-models enable-pack scan
+                # 4) If the audit is correct, run: /sf doctor item-models enable-pack confirm
+                # 5) Run /sf doctor status and wait for pending database writes to reach 0.
+                # 6) Stop the server normally.
+                # 7) Set resource-pack.enabled: true, then start the server.
+                # 8) Verify with: /sf doctor item-models enable-pack scan
+                #
+                # DISABLING THE LEGACY PACK SENDER:
+                # 1) Set resource-pack.enabled: false and restart normally.
+                # 2) STOP THERE if another pack manager (ItemsAdder/Oraxen/etc.) still supplies
+                #    the matching Slimefun models. Do NOT strip model data just because this sender is off.
+                # 3) The sender toggle NEVER rewrites item-models.yml or stored ItemStacks.
+                # 4) Servers specifically recovering from the historical v4.1.52 forced model migration
+                #    should use /sf doctor item-models rollback-v52 and follow Doctor's printed steps.
+                # 5) Never manually zero model mappings and mass-edit items without a backup and Doctor audit.
+                # ---------------------------------------------------------------------------
+                """;
+
+        int insertAt = resourcePackIndex;
+        if (contents.charAt(resourcePackIndex) == '\n') {
+            insertAt++;
+        }
+        return contents.substring(0, insertAt) + guide + contents.substring(insertAt);
     }
 
     private void migrateRetiredResourcePackUrl() {

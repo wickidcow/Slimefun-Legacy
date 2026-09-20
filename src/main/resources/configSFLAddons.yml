@@ -3,11 +3,37 @@
 # Adventurer's Curios and related Slimefun Legacy addon-style gameplay settings live here.
 # Core Slimefun4 settings remain in config.yml.
 # Fresh installs default Curiosities OFF. Existing enabled installations are migrated and stay enabled.
+# This schema version changes only when configSFLAddons.yml itself needs a one-time migration.
+# Normal Slimefun Legacy updates do not rewrite this file just because the plugin version changed.
+config-version: 1
 
 enabled: false
 
 # Optional Slimefun Legacy resource-pack sender.
 # This setting is independent of the Curiosities/additions "enabled" switch above.
+#
+# ---------------------------------------------------------------------------
+# Slimefun Legacy resource-pack safety guide (config-version 1)
+#
+# ENABLING THE LEGACY PACK ON AN EXISTING SERVER:
+# 1) Make a full backup and keep players offline / use maintenance mode.
+# 2) Leave resource-pack.enabled: false while auditing.
+# 3) Run: /sf doctor item-models enable-pack scan
+# 4) If the audit is correct, run: /sf doctor item-models enable-pack confirm
+# 5) Run /sf doctor status and wait for pending database writes to reach 0.
+# 6) Stop the server normally.
+# 7) Set resource-pack.enabled: true, then start the server.
+# 8) Verify with: /sf doctor item-models enable-pack scan
+#
+# DISABLING THE LEGACY PACK SENDER:
+# 1) Set resource-pack.enabled: false and restart normally.
+# 2) STOP THERE if another pack manager (ItemsAdder/Oraxen/etc.) still supplies
+#    the matching Slimefun models. Do NOT strip model data just because this sender is off.
+# 3) The sender toggle NEVER rewrites item-models.yml or stored ItemStacks.
+# 4) Servers specifically recovering from the historical v4.1.52 forced model migration
+#    should use /sf doctor item-models rollback-v52 and follow Doctor's printed steps.
+# 5) Never manually zero model mappings and mass-edit items without a backup and Doctor audit.
+# ---------------------------------------------------------------------------
 # Leave disabled when ItemsAdder or another plugin already manages the server pack.
 # IMPORTANT: Before enabling this on an existing server, run /sf doctor item-models scan
 # and review any reported model-data conflicts before changing item-model mappings.

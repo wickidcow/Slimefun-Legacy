@@ -33,7 +33,17 @@ These are two separate files that must stay synchronized:
 
 Minecraft clients receive only the ZIP. The YAML is never sent as the resource pack; Slimefun reads it on the server and applies the matching model IDs to item stacks.
 
-Slimefun Legacy bundles the verified non-zero mapping for the hosted pack. On a clean install those values are written into `plugins/Slimefun/item-models.yml`, while registered IDs without a texture mapping are added as `0`. On upgrade, a one-time migration replaces old saved `0` placeholders with the bundled hosted-pack value, but preserves every existing non-zero server customization.
+Slimefun Legacy bundles the verified non-zero mapping for the hosted pack. On a clean install those values are written into `plugins/Slimefun/item-models.yml`, while registered IDs without a texture mapping are added as `0`. Existing saved `0` mappings are no longer silently promoted on upgrade. An established server that intentionally adopts the bundled models uses `/sf doctor item-models enable-pack scan` followed by `/sf doctor item-models enable-pack confirm`.
+
+## Versioned config safety notes
+
+`configSFLAddons.yml` now has its own independent `config-version`. This is a configuration-schema version, not the Slimefun Legacy plugin version.
+
+Normal plugin updates do **not** rewrite the file on every start. When the config schema itself changes, Legacy performs a one-time migration, advances `config-version`, and can inject new operator notes without repeatedly replacing the server owner's file.
+
+Config version 1 adds the resource-pack safety guide directly above the `resource-pack:` section. It includes the exact enable-pack Doctor workflow, the required restart point, and the safe disable boundary.
+
+Disabling `resource-pack.enabled` only disables Legacy's sender. It does not rewrite `item-models.yml` and does not strip CustomModelData from stored items. This is important for servers that stop using Legacy's sender but continue serving the matching models through ItemsAdder, Oraxen, a proxy pack, or another combined-pack manager.
 
 ## External pack delivery
 
@@ -124,7 +134,7 @@ The official client pack is published separately at:
 
 `https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip`
 
-The client ZIP and the server-side `plugins/Slimefun/item-models.yml` mapping must stay synchronized. Slimefun Legacy bundles the matching non-zero model IDs and fills previously generated zero placeholders during the one-time hosted-pack migration while preserving existing non-zero server customizations.
+The client ZIP and the server-side `plugins/Slimefun/item-models.yml` mapping must stay synchronized. Slimefun Legacy bundles the matching non-zero model IDs, but existing zero mappings are preserved unless the owner explicitly adopts the pack through the guarded `enable-pack` Doctor workflow. Existing non-zero server customizations are preserved.
 
 On modern Paper/Minecraft, Slimefun Legacy stores the historical numeric model ID as the first float in Minecraft's CustomModelData component. Additional component floats, flags, strings, and colors supplied by other integrations are preserved.
 
