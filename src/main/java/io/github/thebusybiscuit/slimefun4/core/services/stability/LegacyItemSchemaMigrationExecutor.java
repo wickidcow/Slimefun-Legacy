@@ -23,7 +23,7 @@ import org.bukkit.inventory.meta.BundleMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 
 /** Executes one consumed, fingerprint-approved same-ID schema plan against live ItemStacks. */
-public final class LegacyItemSchemaMigrationExecutor {
+public final class LegacyItemSchemaMigrationExecutor implements ItemDoctorTraversalExecutor {
 
     private static final int MAX_CONTAINER_DEPTH = 4;
 
@@ -54,7 +54,8 @@ public final class LegacyItemSchemaMigrationExecutor {
     public long getSkipped() { return skipped.get(); }
     public long getFailures() { return failures.get(); }
 
-    boolean inspectInventory(@Nonnull Inventory inventory, @Nonnull ItemDoctorReport report) {
+    @Override
+    public boolean inspectInventory(@Nonnull Inventory inventory, @Nonnull ItemDoctorReport report) {
         return inspectInventory(inventory, report, 0);
     }
 
@@ -71,7 +72,8 @@ public final class LegacyItemSchemaMigrationExecutor {
         return changed;
     }
 
-    boolean inspectItem(@Nullable ItemStack item, @Nonnull ItemDoctorReport report) {
+    @Override
+    public boolean inspectItem(@Nullable ItemStack item, @Nonnull ItemDoctorReport report) {
         return inspectItem(item, report, 0);
     }
 
