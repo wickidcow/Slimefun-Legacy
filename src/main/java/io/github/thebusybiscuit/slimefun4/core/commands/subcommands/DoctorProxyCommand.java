@@ -109,9 +109,10 @@ final class DoctorProxyCommand {
         }
 
         sendLine(sender, "&7Slimefun profile: &eLoading");
-        PlayerProfile.get(player, profile -> plugin.getServer()
-                .getScheduler()
-                .runTask(plugin, () -> sendLoadedProfile(sender, player, profile, requestedResearch)));
+        PlayerProfile.get(
+                player,
+                profile -> Slimefun.getSchedulerService()
+                        .runFor(player, () -> sendLoadedProfile(sender, player, profile, requestedResearch)));
     }
 
     private static void sendLoadedProfile(
