@@ -132,6 +132,17 @@ Slimefun player profiles are keyed by the UUID presented by Bukkit/Paper. Correc
 
 Doctor can validate backend configuration evidence, but it cannot prove proxy-side settings, firewall rules, or direct-backend network isolation. Use a real proxy switch/reconnect smoke test before declaring a proxy setup supported.
 
+While a player is connected through the proxy, operators can inspect the identity that Paper and Slimefun actually received:
+
+```text
+/sf doctor proxy player <name>
+/sf doctor proxy player <name> <research-key>
+```
+
+The player view is read-only. It reports the Bukkit UUID, Slimefun profile-owner UUID, whether those UUIDs match, unlocked research count and backpack count. Without a research key it also prints one currently locked research that can be used for a controlled persistence test. Supplying a research key reports whether that exact research is locked or unlocked.
+
+The automated proxy smoke uses this view on Minecraft 26.2 to perform two real offline-mode client sessions through each proxy. It records the client-facing UUID, verifies the same UUID reaches Paper/Slimefun, unlocks one research through the normal `/sf research` command, disconnects, reconnects and requires that research to remain unlocked.
+
 ## Dependency diagnostics
 
 For a specific plugin:
