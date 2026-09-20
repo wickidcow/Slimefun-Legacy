@@ -157,10 +157,15 @@ public final class ItemDoctorService implements Listener {
         return startServerRun(true, false, executor, completion);
     }
 
+    /** Starts the explicit Slimefun bundled item-model compatibility scan or repair traversal. */
+    public boolean startItemModelRun(boolean repair, @Nonnull Consumer<ItemDoctorReport> completion) {
+        return startServerRun(repair, false, new ItemModelRepairExecutor(repair), completion);
+    }
+
     private boolean startServerRun(
             boolean repair,
             boolean enableSchemaProbes,
-            @Nullable LegacyItemSchemaMigrationExecutor schemaExecutor,
+            @Nullable ItemDoctorTraversalExecutor traversalExecutor,
             @Nonnull Consumer<ItemDoctorReport> completion) {
         if (shuttingDown || !isEnabled() || !serverRunActive.compareAndSet(false, true)) {
             return false;
@@ -173,7 +178,7 @@ public final class ItemDoctorService implements Listener {
             report.enableSchemaProbeSession(probes);
         }
         currentReport = report;
-        ServerRun run = new ServerRun(report, completion, schemaExecutor);
+        ServerRun run = new ServerRun(report, completion, traversalExecutor);
         activeRun = run;
         try {
             run.collectLoadedInventories();
@@ -384,7 +389,7 @@ public final class ItemDoctorService implements Listener {
     private final class ServerRun {
         private final ItemDoctorReport report;
         private final Consumer<ItemDoctorReport> completion;
-        private final @Nullable LegacyItemSchemaMigrationExecutor schemaExecutor;
+        private final @Nullable ItemDoctorTraversalExecutor traversalExecutor;
         private final Queue<Player> players = new ConcurrentLinkedQueue<>();
         private final Queue<InventoryTarget> inventories = new ConcurrentLinkedQueue<>();
         private final Queue<Item> droppedItems = new ConcurrentLinkedQueue<>();
@@ -402,10 +407,10 @@ public final class ItemDoctorService implements Listener {
         private ServerRun(
                 ItemDoctorReport report,
                 Consumer<ItemDoctorReport> completion,
-                @Nullable LegacyItemSchemaMigrationExecutor schemaExecutor) {
+                @Nullable ItemDoctorTraversalExecutor traversalExecutor) {
             this.report = report;
             this.completion = completion;
-            this.schemaExecutor = schemaExecutor;
+            this.traversalExecutor = traversalExecutor;
         }
 
         private void collectLoadedInventories() {
@@ -441,7 +446,7 @@ public final class ItemDoctorService implements Listener {
             BlockDataController controller = Slimefun.getDatabaseManager().getBlockDataController();
             for (SlimefunBlockData blockData : chunkData.getAllBlockData()) {
                 // Explicit schema migration runs must not perform presentation repair as a side effect.
-                if (schemaExecutor == null) {
+                if (traversalExecutor == null) {
                     inspectSlimefunBlock(blockData.getLocation(), report.isRepairMode(), report);
                 }
 
@@ -639,9 +644,9 @@ public final class ItemDoctorService implements Listener {
                 inventoryTargets.remove(target.inventory());
             }
             try {
-                boolean changed = schemaExecutor == null
+                boolean changed = traversalExecutor == null
                         ? doctor.repairInventory(target.inventory(), report.isRepairMode(), report)
-                        : schemaExecutor.inspectInventory(target.inventory(), report);
+                        : traversalExecutor.inspectInventory(target.inventory(), report);
                 if (changed && target.saveAction() != null) {
                     target.saveAction().run();
                 }
@@ -657,9 +662,9 @@ public final class ItemDoctorService implements Listener {
                     return;
                 }
                 ItemStack item = itemEntity.getItemStack();
-                boolean changed = schemaExecutor == null
+                boolean changed = traversalExecutor == null
                         ? doctor.inspectItem(item, report.isRepairMode(), report)
-                        : schemaExecutor.inspectItem(item, report);
+                        : traversalExecutor.inspectItem(item, report);
                 if (changed) {
                     itemEntity.setItemStack(item);
                 }
@@ -744,9 +749,9 @@ public final class ItemDoctorService implements Listener {
                     return;
                 }
                 report.backpackScanned();
-                boolean changed = schemaExecutor == null
+                boolean changed = traversalExecutor == null
                         ? doctor.repairInventory(backpack.getInventory(), report.isRepairMode(), report)
-                        : schemaExecutor.inspectInventory(backpack.getInventory(), report);
+                        : traversalExecutor.inspectInventory(backpack.getInventory(), report);
                 if (changed) {
                     controller.saveBackpackInventory(backpack);
                 }
