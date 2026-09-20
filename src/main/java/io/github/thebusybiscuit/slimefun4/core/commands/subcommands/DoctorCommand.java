@@ -361,13 +361,16 @@ final class DoctorCommand extends SubCommand {
                 send(sender, "&cHistorical v4.1.52 hosted-pack migration detected.");
                 send(sender, "&7Bundled mappings still active: &e" + rollbackCandidates);
                 send(sender, "&7If storage/machine matching broke after v4.1.52, inspect:");
-                send(sender, "&6/sf doctor item-models rollback-v52");
+                send(sender, "&6/sf doctor item-models remove-resourcepack-texture-ids");
             }
             send(sender, "&8Other custom-model floats, flags, strings and colors are preserved.");
             return;
         }
 
-        if (action.equals("rollback-v52") || action.equals("recover-v52") || action.equals("v52-recovery")) {
+        if (action.equals("remove-resourcepack-texture-ids")
+                || action.equals("rollback-v52")
+                || action.equals("recover-v52")
+                || action.equals("v52-recovery")) {
             runV52ItemModelRollback(sender, args);
             return;
         }
@@ -388,7 +391,7 @@ final class DoctorCommand extends SubCommand {
             }
             repair = true;
         } else {
-            send(sender, "&eUsage: /sf doctor item-models <status|scan|repair confirm|rollback-v52 [confirm]|enable-pack <scan|confirm>>");
+            send(sender, "&eUsage: /sf doctor item-models <status|scan|repair confirm|remove-resourcepack-texture-ids [confirm]|enable-pack <scan|confirm>>");
             return;
         }
 
@@ -510,7 +513,7 @@ final class DoctorCommand extends SubCommand {
 
     private void runV52ItemModelRollback(CommandSender sender, String[] args) {
         var textures = Slimefun.getItemTextureService();
-        send(sender, "&6Slimefun v4.1.52 Item-Model Recovery");
+        send(sender, "&6Slimefun Resource-Pack Texture-ID Removal");
 
         if (!textures.wasHostedPackModelMigrationApplied()) {
             send(sender, "&aNo v4.1.52 hosted-pack migration marker is present in item-models.yml.");
@@ -521,7 +524,7 @@ final class DoctorCommand extends SubCommand {
         int candidates = textures.getHostedPackRollbackCandidateCount();
         send(sender, "&7Exact bundled mappings still active: &e" + candidates);
         if (candidates == 0) {
-            send(sender, "&aNo exact bundled mappings remain to roll back.");
+            send(sender, "&aNo exact bundled resource-pack mappings remain to remove.");
             send(sender, "&7Run &e/sf doctor item-models scan &7to check stored stacks.");
             return;
         }
@@ -530,9 +533,9 @@ final class DoctorCommand extends SubCommand {
             send(sender, "&eThis recovery is for servers whose existing Slimefun items/storage stopped matching after v4.1.52.");
             send(sender, "&7It resets only mappings that still exactly equal Legacy's bundled 2,200,xxx model values.");
             send(sender, "&7Custom/non-matching model values are preserved.");
-            send(sender, "&cIf you intentionally rely on the bundled resource-pack models, do not run the rollback.");
+            send(sender, "&cIf you intentionally rely on the bundled resource-pack models, do not run this removal.");
             send(sender, "&eMake a full offline backup, then run:");
-            send(sender, "&6/sf doctor item-models rollback-v52 confirm");
+            send(sender, "&6/sf doctor item-models remove-resourcepack-texture-ids confirm");
             return;
         }
 
