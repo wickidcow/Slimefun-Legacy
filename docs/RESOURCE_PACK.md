@@ -11,13 +11,16 @@ This is intentional for servers that already use ItemsAdder, Oraxen, a proxy-lev
 ```yaml
 resource-pack:
   enabled: false
+  # RECOMMENDED (GitHub): https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip
   url: 'https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip'
   sha1: ''
   required: false
   prompt: 'Slimefun Legacy resource pack'
 ```
 
-When `enabled` is `false`, Slimefun Legacy sends no pack request at all. The default URL points to the latest Slimefun Legacy resource-pack release at `https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip`.
+When `enabled` is `false`, Slimefun Legacy sends no pack request at all. The **recommended** URL is the latest Slimefun Legacy resource-pack release at `https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip`.
+
+The retired Modrinth default is no longer recommended. On upgrade, known retired built-in URLs (including the old Modrinth URL) are rewritten in `configSFLAddons.yml` to the recommended GitHub release URL. Any SHA-1 associated with a retired pack is cleared during that rewrite so Minecraft does not validate the replacement ZIP against an obsolete checksum. Custom HTTP(S) pack URLs are preserved.
 
 Minecraft changed the item-model resource-pack format substantially in the modern 1.21.x line. A pack built for an older item-model layout can load successfully while still showing vanilla, missing, or misplaced guide/item visuals, so this hosted pack must remain synchronized with Slimefun Legacy's `item-models.yml`.
 
@@ -107,3 +110,5 @@ On modern Paper/Minecraft, Slimefun Legacy stores the historical numeric model I
 ## Configuration migration
 
 On upgrade, an existing `resource-pack:` section in `plugins/Slimefun/config.yml` is copied into `configSFLAddons.yml` without overwriting values already configured there. The old core-config section is removed only after the addon config has been saved successfully.
+
+After that migration, known retired Slimefun Legacy pack URLs are normalized to the recommended GitHub release URL and persisted back to `configSFLAddons.yml`. This includes the retired Modrinth URL. A saved SHA-1 is cleared only when one of those known retired URLs is replaced; custom URLs and their hashes are left alone.
