@@ -70,7 +70,7 @@
       "tested_core_variants": [
         "legacy"
       ],
-      "expected_commit": "8f921c6974db9aa5f8c94c53c60337153ea0c1c6",
+      "expected_commit": "d93b3865e78aa3de95e339b96f30ad076b2cc822",
       "target_version": "2.1.62"
     },
     {
