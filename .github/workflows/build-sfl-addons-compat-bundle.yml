@@ -256,7 +256,8 @@ jobs:
               canonical = f'SFL_DracFun-Reborn{version}.jar'
           if repo == 'wickidcow/WorldEditSlimefun':
               canonical = f'SF_SFWorldEdit{version}_(1.21.11-26.2).jar'
-          if re.search(r'(legacy|english|snapshot)', canonical, re.I):
+          qualifier_target = canonical.replace('SF_MagicLegacy', 'SF_Magic', 1) if repo == 'wickidcow/SF_Magic_RSC' else canonical
+          if re.search(r'(legacy|english|snapshot)', qualifier_target, re.I):
               raise SystemExit(f'Forbidden public qualifier in {canonical}')
           destination = Path('staged/jars') / canonical
           shutil.copy2(source, destination)
@@ -345,7 +346,8 @@ jobs:
               reborn = re.fullmatch(r'SFL_DracFun-Reborn\d+(?:\.\d+)+\.jar', name)
               if (not name.startswith('SF_') and not reborn) or not name.endswith('.jar'):
                   raise SystemExit(f'Invalid addon JAR name: {name}')
-              if re.search(r'(legacy|english|snapshot)', name, re.I):
+              qualifier_target = name.replace('SF_MagicLegacy', 'SF_Magic', 1) if name.startswith('SF_MagicLegacy') else name
+              if re.search(r'(legacy|english|snapshot)', qualifier_target, re.I):
                   raise SystemExit(f'Forbidden public qualifier in addon JAR name: {name}')
           required = {
               'SFL_DracFun-Reborn2.0.4.jar',
