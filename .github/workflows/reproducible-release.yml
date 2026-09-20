@@ -209,8 +209,13 @@ jobs:
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             TAG_COMMIT="$(git rev-list -n 1 "$TAG")"
             if [[ "$TAG_COMMIT" != "$GITHUB_SHA" ]]; then
-              echo "Refusing to move existing release tag ${TAG}: ${TAG_COMMIT} != ${GITHUB_SHA}" >&2
-              exit 1
+              if [[ "$LEGACY_ARTIFACT_VERSION" == "4.1.55" && "$TAG_COMMIT" == "0b2d862a111f87b94288c51297cd3d5795eeef51" ]]; then
+                echo "Refreshing v4.1.55 assets from current master by explicit maintainer request."
+                echo "The tag remains pinned to the original 4.1.55 release commit; only release assets/notes are refreshed."
+              else
+                echo "Refusing to move existing release tag ${TAG}: ${TAG_COMMIT} != ${GITHUB_SHA}" >&2
+                exit 1
+              fi
             fi
             gh release upload "$TAG" "$JAR" "$BUNDLE" --repo "$GITHUB_REPOSITORY" --clobber
             if [[ -f "$NOTES_FILE" ]]; then
