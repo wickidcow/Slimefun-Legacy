@@ -101,6 +101,12 @@ final class DoctorCommand extends SubCommand {
         send(sender, "&6Slimefun Storage and Item Doctor");
         send(sender, "&7Previous clean shutdown: " + (storage.wasPreviousShutdownClean() ? "&aYes" : "&cNo"));
         send(sender, "&7Pending database writes: &e" + storage.getPendingWrites());
+        var profiles = Slimefun.getDatabaseManager().getProfileDataController();
+        int pendingBackpackSaves = profiles == null ? 0 : profiles.getPendingBackpackSaveChainCount();
+        int uncertainBackpacks = profiles == null ? 0 : profiles.getUncertainBackpackBaselineCount();
+        send(sender, "&7Backpack persistence: active saves &e" + pendingBackpackSaves
+                + " &8| &7uncertain baselines "
+                + (uncertainBackpacks == 0 ? "&a0" : "&c" + uncertainBackpacks));
         send(sender, "&7Paused machine circuits: &e" + machines.getPausedMachineCircuits());
         send(sender, "&7Currently failing machines: &e" + machines.getActiveMachineFailures());
         send(sender, "&7Observed machine failures since startup: &e" + machines.getObservedMachineFailures());
