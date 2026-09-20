@@ -13,6 +13,7 @@ Permission: `slimefun.command.doctor` (operator by default).
 /sf doctor dependencies
 /sf doctor runtime
 /sf doctor integrations
+/sf doctor proxy
 ```
 
 These read-only checks should be your first step after an upgrade or when an addon begins behaving strangely.
@@ -27,6 +28,7 @@ These read-only checks should be your first step after an upgrade or when an add
 | `dependencies` | Declared plugin dependencies, missing/disabled requirements and provider aliases |
 | `runtime` | Machine/runtime isolation and retry state |
 | `integrations` | Optional external integration capabilities and failures |
+| `proxy` | Paper backend proxy-forwarding configuration and UUID-safety signals |
 
 ## Storage & Item Doctor
 
@@ -111,6 +113,24 @@ The aggregate upgrade plan is deliberately not an authorization token. These lan
 A candidate marked `READY` by an addon probe is **not** treated as executable merely because the probe recognized it. Item-local same-ID migration requires both the probe and migrator to be present. Validation-backed migration requires the probe, validator and migrator.
 
 The unified upgrade workflow never creates a combined execution token. Legacy-ID, same-ID schema, exact-machine, persisted block-ID and persisted item-payload fingerprints remain separate, short-lived and single-use. The plan itself is read-only and never calls an addon migrator or provider repair method.
+
+## Proxy / forwarding diagnostics
+
+Use:
+
+```text
+/sf doctor proxy
+```
+
+This read-only check inspects the backend configuration that controls player-information forwarding. It reports whether the server appears to be using Velocity modern forwarding, Bungee-compatible legacy forwarding, conflicting forwarding modes, or an offline backend with no supported forwarding configured.
+
+The Bungee-compatible result intentionally does not claim a specific proxy brand. From the Paper backend alone, the same forwarding mode can be used by BungeeCord, Waterfall, or Velocity legacy forwarding.
+
+For Velocity modern forwarding, Doctor checks that `proxies.velocity.enabled` is enabled and that a forwarding secret is present without ever printing the secret. It also warns if `settings.bungeecord` is enabled at the same time.
+
+Slimefun player profiles are keyed by the UUID presented by Bukkit/Paper. Correct proxy UUID forwarding is therefore required for research, backpacks, and other player-owned Slimefun data to follow the same player identity across reconnects and backend switches.
+
+Doctor can validate backend configuration evidence, but it cannot prove proxy-side settings, firewall rules, or direct-backend network isolation. Use a real proxy switch/reconnect smoke test before declaring a proxy setup supported.
 
 ## Dependency diagnostics
 
