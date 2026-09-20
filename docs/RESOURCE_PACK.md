@@ -133,3 +133,8 @@ On modern Paper/Minecraft, Slimefun Legacy stores the historical numeric model I
 On upgrade, an existing `resource-pack:` section in `plugins/Slimefun/config.yml` is copied into `configSFLAddons.yml` without overwriting values already configured there. The old core-config section is removed only after the addon config has been saved successfully.
 
 After that migration, known retired Slimefun Legacy pack URLs are normalized to the recommended GitHub release URL and persisted back to `configSFLAddons.yml`. This includes the retired Modrinth URL. A saved SHA-1 is cleared only when one of those known retired URLs is replaced; custom URLs and their hashes are left alone.
+
+
+### v4.1.52 storage compatibility recovery
+
+v4.1.52 briefly upgraded existing zero item-model placeholders to the bundled hosted-pack map. That behavior has been removed. Affected servers can audit with `/sf doctor item-models rollback-v52`; after an explicit confirmed rollback and clean restart, use `/sf doctor item-models scan` followed by `/sf doctor item-models repair confirm` to normalize reachable stored ItemStacks. Custom non-matching model values are preserved.

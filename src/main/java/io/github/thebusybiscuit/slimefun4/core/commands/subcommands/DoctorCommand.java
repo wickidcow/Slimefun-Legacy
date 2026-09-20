@@ -351,7 +351,19 @@ final class DoctorCommand extends SubCommand {
             send(sender, "&7This targets only bundled Slimefun model values on IDs currently configured as &e0&7.");
             send(sender, "&7Dry run: &e/sf doctor item-models scan");
             send(sender, "&7Repair: &6/sf doctor item-models repair confirm");
+            int rollbackCandidates = Slimefun.getItemTextureService().getHostedPackRollbackCandidateCount();
+            if (Slimefun.getItemTextureService().wasHostedPackModelMigrationApplied() && rollbackCandidates > 0) {
+                send(sender, "&cHistorical v4.1.52 hosted-pack migration detected.");
+                send(sender, "&7Bundled mappings still active: &e" + rollbackCandidates);
+                send(sender, "&7If storage/machine matching broke after v4.1.52, inspect:");
+                send(sender, "&6/sf doctor item-models rollback-v52");
+            }
             send(sender, "&8Other custom-model floats, flags, strings and colors are preserved.");
+            return;
+        }
+
+        if (action.equals("rollback-v52") || action.equals("recover-v52") || action.equals("v52-recovery")) {
+            runV52ItemModelRollback(sender, args);
             return;
         }
 
@@ -366,7 +378,7 @@ final class DoctorCommand extends SubCommand {
             }
             repair = true;
         } else {
-            send(sender, "&eUsage: /sf doctor item-models <status|scan|repair confirm>");
+            send(sender, "&eUsage: /sf doctor item-models <status|scan|repair confirm|rollback-v52 [confirm]>");
             return;
         }
 
@@ -390,6 +402,44 @@ final class DoctorCommand extends SubCommand {
         if (!repair) {
             send(sender, "&7This is read-only. No item metadata will be changed.");
         }
+    }
+
+    private void runV52ItemModelRollback(CommandSender sender, String[] args) {
+        var textures = Slimefun.getItemTextureService();
+        send(sender, "&6Slimefun v4.1.52 Item-Model Recovery");
+
+        if (!textures.wasHostedPackModelMigrationApplied()) {
+            send(sender, "&aNo v4.1.52 hosted-pack migration marker is present in item-models.yml.");
+            send(sender, "&7No mappings were changed.");
+            return;
+        }
+
+        int candidates = textures.getHostedPackRollbackCandidateCount();
+        send(sender, "&7Exact bundled mappings still active: &e" + candidates);
+        if (candidates == 0) {
+            send(sender, "&aNo exact bundled mappings remain to roll back.");
+            send(sender, "&7Run &e/sf doctor item-models scan &7to check stored stacks.");
+            return;
+        }
+
+        if (args.length < 4 || !args[3].equalsIgnoreCase("confirm")) {
+            send(sender, "&eThis recovery is for servers whose existing Slimefun items/storage stopped matching after v4.1.52.");
+            send(sender, "&7It resets only mappings that still exactly equal Legacy's bundled 2,200,xxx model values.");
+            send(sender, "&7Custom/non-matching model values are preserved.");
+            send(sender, "&cIf you intentionally rely on the bundled resource-pack models, do not run the rollback.");
+            send(sender, "&eMake a full offline backup, then run:");
+            send(sender, "&6/sf doctor item-models rollback-v52 confirm");
+            return;
+        }
+
+        int reset = textures.rollbackHostedPackMigrationMappings();
+        send(sender, "&aReset &e" + reset + "&a exact bundled item-model mapping(s) back to 0.");
+        send(sender, "&cIMPORTANT: registered item templates still contain the old models in this running process.");
+        send(sender, "&e1. Let pending database writes finish and stop the server normally.");
+        send(sender, "&e2. Start the server again with this Slimefun Legacy build.");
+        send(sender, "&e3. Run &6/sf doctor item-models scan");
+        send(sender, "&e4. Review the candidates, then run &6/sf doctor item-models repair confirm");
+        send(sender, "&7That repair traverses online players, loaded storage/machines, nested containers, dropped items and all Slimefun backpacks.");
     }
 
     private void sendItemModelProgress(CommandSender sender, ItemDoctorReport report) {
@@ -436,6 +486,7 @@ final class DoctorCommand extends SubCommand {
                         sender,
                         "&eSome lore remains protected because Doctor cannot prove a full English rewrite is safe.");
             }
+            DoctorNextSteps.send(sender, report);
             if (report.isRepairMode()) {
                 send(sender, "&eBackpack database changes are queued. Keep the server running until");
                 send(sender, "&e/slimefun doctor status shows 0 pending database writes, then stop normally.");

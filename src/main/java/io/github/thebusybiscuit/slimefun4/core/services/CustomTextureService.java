@@ -130,35 +130,21 @@ public class CustomTextureService {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
             FileConfiguration cfg = YamlConfiguration.loadConfiguration(reader);
 
-            boolean migrateHostedPackModels =
-                    !config.getConfiguration().getBoolean(HOSTED_PACK_MODEL_MIGRATION, false);
-            int migratedModels = 0;
-
             for (String key : cfg.getKeys(false)) {
                 int bundledModel = cfg.getInt(key);
 
                 if (!config.contains(key)) {
                     config.setValue(key, bundledModel);
-                } else if (migrateHostedPackModels && bundledModel != 0 && config.getInt(key) == 0) {
-                    // Older Slimefun Legacy builds auto-populated registered item IDs with 0.
-                    // Upgrade only those zero placeholders to the canonical hosted-pack mapping.
-                    // Existing non-zero server customizations are never overwritten.
-                    config.setValue(key, bundledModel);
-                    migratedModels++;
                 }
             }
 
-            if (migrateHostedPackModels) {
-                config.setValue(HOSTED_PACK_MODEL_MIGRATION, true);
-
-                if (migratedModels > 0) {
-                    Logger logger = Slimefun.instance() == null
-                            ? Logger.getLogger(CustomTextureService.class.getName())
-                            : Slimefun.logger();
-                    logger.info("Updated " + migratedModels
-                            + " zero item-model entries to the Slimefun Legacy hosted-pack mapping.");
-                }
-            }
+            // Slimefun Legacy 4.1.52 temporarily upgraded existing zero placeholders to the bundled
+            // hosted-pack model map. That changed ItemStack equality for pre-existing servers and could
+            // make otherwise identical Slimefun items stop matching storage/machine templates.
+            //
+            // Never rewrite an existing zero mapping here again. Servers affected by that historical
+            // migration can use /sf doctor item-models rollback-v52, which is explicit and reversible
+            // through the server owner's normal config backup instead of silently changing item identity.
 
             defaultsLoaded = true;
         } catch (Exception e) {
@@ -192,6 +178,90 @@ public class CustomTextureService {
                     ? Logger.getLogger(CustomTextureService.class.getName())
                     : Slimefun.logger();
             logger.info("Cleared accidental shared Paxel visual mapping from " + migrated + " Deepcore Paxel item(s).");
+        }
+    }
+
+    /**
+     * Returns whether this item-models.yml was touched by the historical v4.1.52 hosted-pack migration.
+     *
+     * <p>The marker is diagnostic evidence only. It does not mean every bundled-looking mapping was
+     * necessarily unwanted, so rollback remains an explicit operator action.</p>
+     */
+    public boolean wasHostedPackModelMigrationApplied() {
+        return config.getConfiguration().getBoolean(HOSTED_PACK_MODEL_MIGRATION, false);
+    }
+
+    /**
+     * Counts mappings that still exactly match Slimefun Legacy's bundled hosted-pack values.
+     *
+     * <p>This count is only considered a v4.1.52 rollback candidate when the historical migration
+     * marker is present. Custom values that do not exactly match the bundled map are never included.</p>
+     */
+    public int getHostedPackRollbackCandidateCount() {
+        if (!wasHostedPackModelMigrationApplied()) {
+            return 0;
+        }
+
+        FileConfiguration bundled = loadBundledModelConfiguration();
+        int candidates = 0;
+        for (String key : bundled.getKeys(false)) {
+            int bundledModel = bundled.getInt(key);
+            if (bundledModel != 0 && config.contains(key) && config.getInt(key) == bundledModel) {
+                candidates++;
+            }
+        }
+        return candidates;
+    }
+
+    /**
+     * Resets exact bundled mappings back to zero for a server explicitly rolling back the v4.1.52
+     * hosted-pack migration.
+     *
+     * <p>Only exact bundled values are changed. Unrelated/custom model values are preserved. A clean
+     * restart is required afterwards because registered Slimefun item templates were created earlier
+     * in this runtime using the old mappings.</p>
+     *
+     * @return number of item-model entries reset to zero
+     */
+    public int rollbackHostedPackMigrationMappings() {
+        if (!wasHostedPackModelMigrationApplied()) {
+            return 0;
+        }
+
+        FileConfiguration bundled = loadBundledModelConfiguration();
+        int reset = 0;
+        for (String key : bundled.getKeys(false)) {
+            int bundledModel = bundled.getInt(key);
+            if (bundledModel != 0 && config.contains(key) && config.getInt(key) == bundledModel) {
+                config.setValue(key, 0);
+                reset++;
+            }
+        }
+
+        if (reset > 0) {
+            config.save();
+        }
+        return reset;
+    }
+
+    private FileConfiguration loadBundledModelConfiguration() {
+        InputStream stream = Slimefun.class.getResourceAsStream("/item-models.yml");
+        if (stream == null) {
+            Logger logger = Slimefun.instance() == null
+                    ? Logger.getLogger(CustomTextureService.class.getName())
+                    : Slimefun.logger();
+            logger.warning("Could not load bundled item-models.yml while checking v4.1.52 recovery.");
+            return new YamlConfiguration();
+        }
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            return YamlConfiguration.loadConfiguration(reader);
+        } catch (java.io.IOException exception) {
+            Logger logger = Slimefun.instance() == null
+                    ? Logger.getLogger(CustomTextureService.class.getName())
+                    : Slimefun.logger();
+            logger.log(Level.SEVERE, "Could not read bundled item-models.yml for v4.1.52 recovery.", exception);
+            return new YamlConfiguration();
         }
     }
 

@@ -55,6 +55,26 @@ Useful commands:
 
 Never treat “0 repaired” as proof that a scan failed; a clean server may simply have nothing eligible to change.
 
+### Doctor Next Steps
+
+A completed `/sf doctor scan` ends with a **Slimefun Doctor Next Steps** section. It translates each finding into
+the command that owns that repair lane instead of implying that `/sf doctor repair confirm` fixes everything.
+
+Examples include:
+
+- safe core name/lore repair → `/sf doctor repair confirm`;
+- addon-owned same-ID schemas → `/sf doctor migrations schemas scan`, then the exact fingerprinted execute command it prints;
+- stale bundled item-model data → `/sf doctor item-models scan` and `/sf doctor item-models repair confirm`;
+- v4.1.52 forced bundled mappings → `/sf doctor item-models rollback-v52`;
+- declared legacy item IDs → `/sf doctor migrations plan` / `providers`, then the provider-specific scan and execute command;
+- unknown item IDs → `/sf doctor migrations unknown`;
+- legacy or unknown placed-block identity → `/sf doctor upgrade plan`;
+- traversal failures → `/sf doctor report`.
+
+After `/sf doctor repair confirm`, Doctor prints Next Steps again. If core repair leaves protected data behind,
+it explicitly sends the operator back to `/sf doctor scan`, which classifies the remaining problem and prints the
+specialized command instead of repeatedly suggesting the generic repair command.
+
 ### Item-model compatibility repair
 
 Slimefun Legacy 4.1.52 introduced a bundled hosted-pack model map. Servers that return affected IDs to `0` in
@@ -84,6 +104,38 @@ dropped items, nested containers and all database backpacks. Unloaded world cont
 
 Set the affected model entries to `0` before scanning. IDs that still have a non-zero configured mapping are
 intentionally ignored because Doctor treats those as server-owner-approved model assignments.
+
+#### Recovering servers affected by v4.1.52
+
+Slimefun Legacy v4.1.52 briefly migrated existing `0` item-model entries to the bundled hosted-pack model map.
+That changed the metadata of newly created Slimefun items and could make them stop matching pre-existing stacks in
+storage systems or machines that compare complete ItemStacks.
+
+This automatic zero-to-bundled migration has been removed. Existing zero mappings are never force-upgraded again.
+
+For a server that was already affected:
+
+```text
+/sf doctor item-models rollback-v52
+/sf doctor item-models rollback-v52 confirm
+```
+
+The first command is a read-only audit. The confirmed rollback resets only mappings that still exactly equal
+Slimefun Legacy's bundled model values; unrelated custom model values are preserved. After the rollback, stop the
+server normally and restart before repairing stored stacks, because registered item templates were constructed
+earlier in the old runtime.
+
+After restart:
+
+```text
+/sf doctor item-models scan
+/sf doctor item-models repair confirm
+```
+
+The repair then removes only the exact stale bundled first model float from reachable Slimefun ItemStacks across
+online inventories, loaded storage/machines, dropped items, nested containers and all Slimefun database backpacks.
+It does not force-load unloaded chunks and it does not rewrite addon-specific encoded databases that are not stored
+as ordinary ItemStacks; those continue through the appropriate Doctor migration lane.
 
 ## Legacy upgrade workflow
 

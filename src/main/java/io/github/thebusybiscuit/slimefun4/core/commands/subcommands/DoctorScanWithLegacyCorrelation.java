@@ -38,6 +38,7 @@ final class DoctorScanWithLegacyCorrelation {
                         sendProgress(sender, report);
                         DoctorLegacyIdCorrelation.send(sender, report);
                         DoctorSchemaMigrationCorrelation.send(sender, report);
+                        DoctorNextSteps.send(sender, report);
                         if (report.getUnknownIds() > 0
                                 || report.getUnresolvedTemplates() > 0
                                 || report.getUnknownBlockIds() > 0) {
@@ -72,6 +73,7 @@ final class DoctorScanWithLegacyCorrelation {
                 + " &8| &7Distinct IDs: &e" + report.getLegacyMigrationCandidateCounts().size());
         send(sender, "&7Same-ID schema candidates: &e" + report.getSchemaMigrationCandidates()
                 + " &8| &7Validated candidate stacks: &e" + report.getSchemaValidatedCandidates());
+        send(sender, "&7Item-model candidates: &e" + report.getItemModelCandidates());
         send(sender, "&7Unknown item IDs: &e" + report.getUnknownIds() + " &8| &7No English template: &e"
                 + report.getUnresolvedTemplates() + " &8| &7Failures: &c" + report.getFailures());
         if (!report.getUnknownIdSamples().isEmpty()) {
