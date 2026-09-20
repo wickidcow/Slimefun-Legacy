@@ -39,6 +39,9 @@ final class DoctorSupportReport {
         SchedulerSnapshot scheduler = Slimefun.getSchedulerService().getSnapshot();
         MachineRuntimeSnapshot machines = Slimefun.getMachineRuntimeService().getSnapshot();
         StorageRuntimeSnapshot storage = Slimefun.getStorageRuntimeService().getSnapshot();
+        var profiles = Slimefun.getDatabaseManager().getProfileDataController();
+        int pendingBackpackSaves = profiles == null ? 0 : profiles.getPendingBackpackSaveChainCount();
+        int uncertainBackpacks = profiles == null ? 0 : profiles.getUncertainBackpackBaselineCount();
 
         List<AddonCompatibilityResult> addonResults = Slimefun.getAddonCompatibilityService().getResults();
         AddonCompatibilitySummary addonSummary = AddonCompatibilitySummary.from(addonResults);
@@ -68,6 +71,10 @@ final class DoctorSupportReport {
         }
         if (storage.getPendingWrites() > 0) {
             warnings.add(storage.getPendingWrites() + " database write(s) are still pending.");
+        }
+        if (uncertainBackpacks > 0) {
+            warnings.add(uncertainBackpacks
+                    + " backpack persistence baseline(s) are uncertain; affected caches are being retained.");
         }
         if (!scheduler.isAcceptingTasks()) {
             warnings.add("Slimefun scheduler is not accepting new tasks.");
@@ -145,6 +152,8 @@ final class DoctorSupportReport {
                 + " &8| &7pending writes &f" + storage.getPendingWrites());
         sendLine(sender, "&7Storage backends: blocks &f" + storage.getBlockStorageType()
                 + " &8| &7profiles &f" + storage.getProfileStorageType());
+        sendLine(sender, "&7Backpack persistence: active saves &f" + pendingBackpackSaves
+                + " &8| &7uncertain baselines &f" + uncertainBackpacks);
 
         sendLine(sender, "&6[Addons + Dependencies]");
         sendLine(sender, "&7Installed Slimefun addons: &f" + Slimefun.getInstalledAddons().size()

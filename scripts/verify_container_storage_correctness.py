@@ -125,6 +125,16 @@ def main() -> int:
         "private final Set<String> uncertainBackpackBaselines",
         "partial-write recovery marker",
     )
+    require(
+        profile,
+        "public int getPendingBackpackSaveChainCount()",
+        "backpack save-chain diagnostic counter",
+    )
+    require(
+        profile,
+        "public int getUncertainBackpackBaselineCount()",
+        "uncertain backpack persistence diagnostic counter",
+    )
     require(profile, "stagedSnapshot = new InvSnapshot(contents)", "immutable staged backpack snapshot")
     require(profile, "if (slot < 0 || slot >= re.length)", "stale resized-slot load guard")
     require(profile, "boolean repairRequired = false", "backpack load repair tracking")
@@ -327,6 +337,45 @@ def main() -> int:
         listener,
         "openRegistry.release(playerId)",
         "canonical reservation release in session cleanup helper",
+    )
+
+    doctor = compact(
+        read(
+            root,
+            "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java",
+        )
+    )
+    require(
+        doctor,
+        "profiles.getPendingBackpackSaveChainCount()",
+        "Doctor active backpack save diagnostic",
+    )
+    require(
+        doctor,
+        "profiles.getUncertainBackpackBaselineCount()",
+        "Doctor uncertain backpack baseline diagnostic",
+    )
+    require(
+        doctor,
+        "Backpack persistence: active saves",
+        "Doctor backpack persistence status line",
+    )
+
+    support_report = compact(
+        read(
+            root,
+            "src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorSupportReport.java",
+        )
+    )
+    require(
+        support_report,
+        "backpack persistence baseline(s) are uncertain; affected caches are being retained.",
+        "Doctor support-report persistence warning",
+    )
+    require(
+        support_report,
+        "Backpack persistence: active saves",
+        "Doctor support-report backpack persistence line",
     )
 
     print("Container and backpack storage correctness verification passed.")
