@@ -275,6 +275,16 @@ def main() -> int:
         "private final Map<UUID, CompletableFuture<Void>> pendingSaves",
         "pending backpack save registry",
     )
+    require(
+        listener,
+        "if (!backpack.getUniqueId().equals(backpacks.get(playerId))) { saveDetachedBackpack(backpack, context); return; }",
+        "detached backpack saves are kept out of tracked player-session state",
+    )
+    require(
+        listener,
+        "private void saveDetachedBackpack(@Nonnull PlayerBackpack backpack, @Nonnull String context)",
+        "detached backpack persistence path",
+    )
     require(listener, "saveBackpackInventoryAsync(backpack)", "listener async backpack save")
     require(
         listener,
