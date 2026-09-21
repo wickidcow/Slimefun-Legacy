@@ -640,7 +640,7 @@ final class DoctorOperationsCenterMenu {
         menu.open(viewer);
     }
 
-    private static void openPackOwnership(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+    static void openPackOwnership(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
         ExternalResourcePackService packs = new ExternalResourcePackService(Slimefun.instance());
         ResourcePackOwnershipMode mode = packs.getOwnershipMode();
         var textures = Slimefun.getItemTextureService();
@@ -660,20 +660,20 @@ final class DoctorOperationsCenterMenu {
                         "&7Bundled mappings at 0: &e" + textures.getHostedPackEnableCandidateCount(),
                         "&7Custom mappings preserved: &e" + textures.getHostedPackCustomMappingCount()));
 
-        addOwnershipButton(menu, 10, Material.COMPARATOR, ResourcePackOwnershipMode.AUTO,
+        addOwnershipButton(menu, 10, Material.COMPARATOR, ResourcePackOwnershipMode.AUTO, returnGuide,
                 "&fAUTO — Backwards Compatible",
                 "&7Infer delivery intent from the Legacy sender flag.",
                 "&7Existing servers default here.");
-        addOwnershipButton(menu, 12, Material.LIME_DYE, ResourcePackOwnershipMode.LEGACY,
+        addOwnershipButton(menu, 12, Material.LIME_DYE, ResourcePackOwnershipMode.LEGACY, returnGuide,
                 "&aLEGACY — Slimefun Sends It",
                 "&7Legacy sends the configured official/custom ZIP.",
                 "&7Selecting this enables Legacy delivery.");
-        addOwnershipButton(menu, 14, Material.CHEST, ResourcePackOwnershipMode.EXTERNAL,
+        addOwnershipButton(menu, 14, Material.CHEST, ResourcePackOwnershipMode.EXTERNAL, returnGuide,
                 "&bEXTERNAL — Combined Pack",
                 "&7ItemsAdder/Oraxen/proxy/server pack owns delivery.",
                 "&7Selecting this disables Legacy delivery.",
                 "&aSlimefun model mappings may remain enabled.");
-        addOwnershipButton(menu, 16, Material.GRAY_DYE, ResourcePackOwnershipMode.NONE,
+        addOwnershipButton(menu, 16, Material.GRAY_DYE, ResourcePackOwnershipMode.NONE, returnGuide,
                 "&7NONE — No Slimefun Textures",
                 "&7No Slimefun-textured resource pack is intended.",
                 "&7Selecting this disables Legacy delivery.",
@@ -714,6 +714,7 @@ final class DoctorOperationsCenterMenu {
             int slot,
             @Nonnull Material material,
             @Nonnull ResourcePackOwnershipMode mode,
+            @Nonnull ItemStack returnGuide,
             @Nonnull String name,
             @Nonnull String... lore) {
         String[] fullLore = Arrays.copyOf(lore, lore.length + 2);
@@ -721,7 +722,7 @@ final class DoctorOperationsCenterMenu {
         fullLore[lore.length + 1] = "&eClick for confirmation";
         menu.addItem(slot, menuItem(material, name, fullLore));
         menu.addMenuClickHandler(slot, (player, clickedSlot, item, action) -> {
-            openOwnershipConfirmation(player, SlimefunGuide.getItem(SlimefunGuideMode.SURVIVAL_MODE), mode);
+            openOwnershipConfirmation(player, returnGuide, mode);
             return false;
         });
     }
