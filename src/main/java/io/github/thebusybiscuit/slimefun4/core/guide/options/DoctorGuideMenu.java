@@ -244,6 +244,10 @@ final class DoctorGuideMenu {
             case RUN_SCAN -> runCommand(player, "slimefun doctor scan");
             case SHOW_STATUS -> runCommand(player, "slimefun doctor status");
             case UPGRADE_PACK_ITEMS -> openUpgradeConfirmation(player, returnGuide);
+            case PACK_PREFLIGHT -> openResourcePackPreflight(player, returnGuide);
+            case PROXY_HEALTH -> DoctorOperationsCenterMenu.openProxyCenter(player, returnGuide);
+            case PERFORMANCE_HEALTH -> DoctorOperationsCenterMenu.openPerformanceCenter(player, returnGuide);
+            case STORAGE_HEALTH -> DoctorOperationsCenterMenu.openStorageCenter(player, returnGuide);
             case REPAIR_PRESENTATION -> openGeneralRepairConfirmation(player, returnGuide);
             case SCHEMA_MIGRATION -> runCommand(player, "slimefun doctor migrations schemas scan");
             case LEGACY_MIGRATION -> runCommand(player, "slimefun doctor migrations plan");
@@ -371,8 +375,11 @@ final class DoctorGuideMenu {
                         service.isDeliveryEnabled() ? Material.LIME_DYE : Material.GRAY_DYE,
                         "&fLegacy Pack Sender",
                         "",
+                        "&7Ownership mode: &e" + service.getOwnershipMode(),
                         "&7State: " + (service.isDeliveryEnabled() ? "&aEnabled" : "&7Disabled"),
+                        "&7Raw sender flag: " + (service.isSenderFlagEnabled() ? "&aEnabled" : "&7Disabled"),
                         "&7Required: " + (service.isRequired() ? "&eYes" : "&aNo"),
+                        "&7Ownership contradiction: " + (service.hasOwnershipContradiction() ? "&cYes" : "&aNo"),
                         "",
                         service.isDeliveryEnabled()
                                 ? "&7Legacy is currently sending its configured pack."
@@ -427,6 +434,21 @@ final class DoctorGuideMenu {
                         "",
                         "&8Doctor cannot inspect the contents of another plugin's",
                         "&8pack. Keep mappings when your combined pack uses them."));
+
+        menu.addItem(
+                20,
+                menuItem(
+                        Material.COMPASS,
+                        "&3Set Resource-Pack Ownership",
+                        "",
+                        "&7Choose AUTO, LEGACY, EXTERNAL or NONE.",
+                        "&7Ownership controls delivery only; item-model",
+                        "&7cleanup always remains a separate action.",
+                        "&eClick to open"));
+        menu.addMenuClickHandler(20, (clickedPlayer, slot, item, action) -> {
+            DoctorOperationsCenterMenu.openPackOwnership(clickedPlayer, returnGuide);
+            return false;
+        });
 
         menu.addItem(
                 22,
@@ -964,6 +986,7 @@ final class DoctorGuideMenu {
                         Material.MAP,
                         "&fPack & Item Models",
                         "",
+                        "&7Ownership: &e" + packs.getOwnershipMode(),
                         "&7Legacy sender: " + (packs.isDeliveryEnabled() ? "&aEnabled" : "&7Disabled"),
                         "&7Known external pack managers: &e" + DoctorGuideAssistant.detectedPackManagers(),
                         "&7Bundled mappings active: &e" + textures.getHostedPackEnabledMappingCount(),
