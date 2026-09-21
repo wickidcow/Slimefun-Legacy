@@ -1,18 +1,19 @@
 package io.github.thebusybiscuit.slimefun4.core.guide.options;
 
-import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuide;
 import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuideMode;
 import io.github.thebusybiscuit.slimefun4.core.services.ExternalResourcePackService;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import javax.annotation.Nonnull;
+import java.util.Arrays;
 import javax.annotation.Nullable;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 /**
  * Player and operator controls for Slimefun Legacy's optional resource-pack sender.
@@ -48,7 +49,7 @@ final class ResourcePackGuideMenu {
 
         menu.addItem(
                 22,
-                new CustomItemStack(
+                menuItem(
                         Material.BOOK,
                         "&fWhat these controls change",
                         "",
@@ -68,7 +69,7 @@ final class ResourcePackGuideMenu {
     private static void addBackButton(@Nonnull ChestMenu menu, @Nonnull ItemStack guide) {
         menu.addItem(
                 18,
-                new CustomItemStack(
+                menuItem(
                         Material.ARROW,
                         "&fBack to Slimefun Guide",
                         "",
@@ -87,7 +88,7 @@ final class ResourcePackGuideMenu {
 
         menu.addItem(
                 4,
-                new CustomItemStack(
+                menuItem(
                         Material.PAINTING,
                         "&b&lResource Pack Status",
                         "",
@@ -116,7 +117,7 @@ final class ResourcePackGuideMenu {
 
         menu.addItem(
                 10,
-                new CustomItemStack(
+                menuItem(
                         material,
                         title,
                         "",
@@ -162,7 +163,7 @@ final class ResourcePackGuideMenu {
 
         menu.addItem(
                 12,
-                new CustomItemStack(
+                menuItem(
                         senderEnabled ? Material.CHEST : Material.RED_DYE,
                         senderEnabled ? "&eReload Resource Pack Now" : "&cReload Unavailable",
                         "",
@@ -194,7 +195,7 @@ final class ResourcePackGuideMenu {
 
         menu.addItem(
                 14,
-                new CustomItemStack(
+                menuItem(
                         Material.SPYGLASS,
                         "&bScan Texture IDs",
                         "",
@@ -211,7 +212,7 @@ final class ResourcePackGuideMenu {
 
         menu.addItem(
                 16,
-                new CustomItemStack(
+                menuItem(
                         Material.SMITHING_TABLE,
                         "&6Add / Update Texture IDs & Items",
                         "",
@@ -228,6 +229,17 @@ final class ResourcePackGuideMenu {
         });
     }
 
+    private static ItemStack menuItem(@Nonnull Material material, @Nonnull String name, @Nonnull String... lore) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
+        meta.setLore(Arrays.stream(lore)
+                .map(line -> ChatColor.translateAlternateColorCodes('&', line))
+                .toList());
+        item.setItemMeta(meta);
+        return item;
+    }
+
     private static void openEnablePackConfirmation(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
         ChestMenu menu = new ChestMenu("&6&lConfirm Texture-ID Update");
         menu.setSize(27);
@@ -239,7 +251,7 @@ final class ResourcePackGuideMenu {
 
         menu.addItem(
                 11,
-                new CustomItemStack(
+                menuItem(
                         Material.LIME_CONCRETE,
                         "&aConfirm Add / Update",
                         "",
@@ -258,7 +270,7 @@ final class ResourcePackGuideMenu {
 
         menu.addItem(
                 15,
-                new CustomItemStack(
+                menuItem(
                         Material.RED_CONCRETE,
                         "&cCancel",
                         "",
