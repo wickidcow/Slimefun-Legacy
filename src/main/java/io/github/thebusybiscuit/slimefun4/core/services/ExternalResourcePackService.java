@@ -9,7 +9,10 @@ import java.util.HexFormat;
 import java.util.UUID;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
+import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
+import org.bukkit.persistence.PersistentDataType;
 
 /**
  * Sends an externally hosted resource pack to players when a server owner explicitly enables it.
@@ -35,10 +38,12 @@ public final class ExternalResourcePackService {
             "slimefun-legacy:external-resource-pack".getBytes(StandardCharsets.UTF_8));
 
     private final Slimefun plugin;
+    private final NamespacedKey playerOptOutKey;
     private String lastWarning;
 
     public ExternalResourcePackService(@Nonnull Slimefun plugin) {
         this.plugin = plugin;
+        playerOptOutKey = new NamespacedKey(plugin, "resource_pack_opt_out");
     }
 
     /**
@@ -47,10 +52,129 @@ public final class ExternalResourcePackService {
      * @param player The player that just joined
      */
     public void sendIfEnabled(@Nonnull Player player) {
-        var config = CuriositiesConfig.getConfig();
-        if (!config.getBoolean(CONFIG_ROOT + "enabled")) {
+        if (!isDeliveryEnabled() || (!isRequired() && !isPlayerEnabled(player))) {
             return;
         }
+
+        sendConfiguredPack(player);
+    }
+
+    /**
+     * Returns whether Slimefun Legacy's own external pack sender is enabled by the server owner.
+     */
+    public boolean isDeliveryEnabled() {
+        return CuriositiesConfig.getConfig().getBoolean(CONFIG_ROOT + "enabled");
+    }
+
+    /**
+     * Enables or disables Slimefun Legacy's own resource-pack sender immediately.
+     *
+     * <p>Turning this on re-sends the configured Legacy pack to eligible online players. Turning it off removes only
+     * Slimefun Legacy's pack UUID from online players. This never changes item-models.yml or stored Slimefun items.</p>
+     *
+     * @return whether the setting was saved successfully
+     */
+    public boolean setDeliveryEnabled(boolean enabled) {
+        if (!CuriositiesConfig.getConfig().setResourcePackEnabled(enabled)) {
+            return false;
+        }
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (enabled) {
+                if (isRequired() || isPlayerEnabled(player)) {
+                    sendConfiguredPack(player);
+                }
+            } else {
+                removeConfiguredPack(player);
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Returns whether the configured Slimefun Legacy pack is mandatory for clients.
+     */
+    public boolean isRequired() {
+        return CuriositiesConfig.getConfig().getBoolean(CONFIG_ROOT + "required");
+    }
+
+    /**
+     * Returns whether this player has left automatic Slimefun Legacy pack delivery enabled.
+     *
+     * <p>This preference only controls Slimefun Legacy's own pack UUID. It never removes or disables
+     * resource packs owned by ItemsAdder, Oraxen, a proxy, or another plugin.</p>
+     */
+    public boolean isPlayerEnabled(@Nonnull Player player) {
+        Byte optedOut = player.getPersistentDataContainer().get(playerOptOutKey, PersistentDataType.BYTE);
+        return optedOut == null || optedOut == 0;
+    }
+
+    /**
+     * Changes the player's persistent automatic-delivery preference.
+     *
+     * @return {@code false} when the server marks the pack as required and an opt-out was requested
+     */
+    public boolean setPlayerEnabled(@Nonnull Player player, boolean enabled) {
+        if (!enabled && isRequired()) {
+            return false;
+        }
+
+        if (enabled) {
+            player.getPersistentDataContainer().remove(playerOptOutKey);
+            if (isDeliveryEnabled()) {
+                sendConfiguredPack(player);
+            }
+        } else {
+            player.getPersistentDataContainer().set(playerOptOutKey, PersistentDataType.BYTE, (byte) 1);
+            removeFromPlayer(player);
+        }
+
+        return true;
+    }
+
+    /**
+     * Re-sends the configured Slimefun Legacy pack to a player and clears their optional opt-out.
+     *
+     * @return whether a pack request was sent
+     */
+    public boolean reloadForPlayer(@Nonnull Player player) {
+        if (!isDeliveryEnabled()) {
+            return false;
+        }
+
+        player.getPersistentDataContainer().remove(playerOptOutKey);
+        return sendConfiguredPack(player);
+    }
+
+    /**
+     * Removes only Slimefun Legacy's own resource-pack UUID from this player's active pack stack.
+     *
+     * @return whether the removal request was allowed
+     */
+    public boolean removeFromPlayer(@Nonnull Player player) {
+        if (isRequired()) {
+            return false;
+        }
+
+        return removeConfiguredPack(player);
+    }
+
+    private boolean removeConfiguredPack(@Nonnull Player player) {
+        try {
+            player.removeResourcePack(PACK_ID);
+            return true;
+        } catch (LinkageError ex) {
+            plugin.getLogger().log(
+                    Level.WARNING,
+                    "Resource-pack removal is unavailable on this server implementation. Slimefun will continue normally.",
+                    ex);
+            return false;
+        }
+    }
+
+    private boolean sendConfiguredPack(@Nonnull Player player) {
+        var config = CuriositiesConfig.getConfig();
 
         String configuredUrl = trim(config.getString(CONFIG_ROOT + "url"));
         String url = normalizeLegacyResourcePackUrl(configuredUrl);
@@ -63,7 +187,7 @@ public final class ExternalResourcePackService {
 
         if (!isValidResourcePackUrl(url)) {
             warnOnce("External resource-pack delivery is enabled, but configSFLAddons.yml resource-pack.url is not a valid HTTP(S) URL.");
-            return;
+            return false;
         }
 
         // Never pair a replacement GitHub URL with a checksum that belonged to a retired pack.
@@ -71,7 +195,7 @@ public final class ExternalResourcePackService {
         byte[] hash = parseSha1(configuredHash);
         if (!configuredHash.isEmpty() && hash == null) {
             warnOnce("External resource-pack delivery is enabled, but configSFLAddons.yml resource-pack.sha1 is not a 40-character SHA-1 hash.");
-            return;
+            return false;
         }
 
         String prompt = trim(config.getString(CONFIG_ROOT + "prompt"));
@@ -85,6 +209,7 @@ public final class ExternalResourcePackService {
             // addResourcePack stacks this pack with an existing server/ItemsAdder pack instead of replacing it.
             // This API is available on the supported 1.21.11+ server line and current Paper releases.
             player.addResourcePack(PACK_ID, url, hash, prompt, required);
+            return true;
         } catch (IllegalArgumentException ex) {
             warnOnce("Could not send the configured external resource pack: " + ex.getMessage());
         } catch (LinkageError ex) {
@@ -93,6 +218,8 @@ public final class ExternalResourcePackService {
                     "External resource-pack delivery is unavailable on this server implementation. Slimefun will continue without sending a pack.",
                     ex);
         }
+
+        return false;
     }
 
     @Nonnull

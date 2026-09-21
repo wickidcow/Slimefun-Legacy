@@ -201,7 +201,9 @@ public final class CuriositiesConfig {
                 #    the matching Slimefun models. Do NOT strip model data just because this sender is off.
                 # 3) The sender toggle NEVER rewrites item-models.yml or stored ItemStacks.
                 # 4) Servers specifically recovering from the historical v4.1.52 forced model migration
-                #    should use /sf doctor item-models rollback-v52 and follow Doctor's printed steps.
+                #    or intentionally removing Legacy's bundled model IDs should use:
+                #    /sf doctor item-models remove-resourcepack-texture-ids
+                #    and follow Doctor's printed restart/cleanup steps.
                 # 5) Never manually zero model mappings and mass-edit items without a backup and Doctor audit.
                 # ---------------------------------------------------------------------------
                 """;
@@ -331,6 +333,18 @@ public final class CuriositiesConfig {
 
     public boolean getBoolean(@Nonnull String path) {
         return yaml.getBoolean(path);
+    }
+
+    /**
+     * Enables or disables Slimefun Legacy's own optional resource-pack sender.
+     *
+     * <p>This only changes {@code resource-pack.enabled}. It never rewrites item-models.yml or stored ItemStacks.</p>
+     *
+     * @return whether the updated setting was saved successfully
+     */
+    public synchronized boolean setResourcePackEnabled(boolean enabled) {
+        setValue(LEGACY_RESOURCE_PACK_ROOT + ".enabled", enabled);
+        return save();
     }
 
     public int getInt(@Nonnull String path) {

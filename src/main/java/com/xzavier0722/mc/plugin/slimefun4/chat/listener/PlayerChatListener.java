@@ -10,7 +10,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 
 public class PlayerChatListener implements Listener {
 
-    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onChat(AsyncChatEvent e) {
         Slimefun.getChatCatcher().pollCatcher(e.getPlayer().getUniqueId()).ifPresent(handler -> {
             e.setCancelled(true);

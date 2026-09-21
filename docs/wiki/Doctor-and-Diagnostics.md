@@ -30,6 +30,20 @@ These read-only checks should be your first step after an upgrade or when an add
 | `integrations` | Optional external integration capabilities and failures |
 | `proxy` | Paper backend proxy-forwarding configuration and UUID-safety signals |
 
+## Guide Admin Doctor controls
+
+Operators with `slimefun.command.doctor` can open **Slimefun Doctor** from the Slimefun Guide settings screen.
+The main resource-pack section deliberately separates four different operations:
+
+- **Enable Resource Pack** — turns only Slimefun Legacy pack delivery on; it does not change item models.
+- **Upgrade Items for Resource Pack** — adopts zero-valued bundled mappings and updates eligible stored Slimefun items.
+- **Disable Resource Pack** — turns only Slimefun Legacy pack delivery off; it does not change item models.
+- **Remove Resource-Pack Item Models** — removes exact bundled Legacy mappings and then guides the operator through stored-item cleanup after restart.
+
+A fifth **Other Doctor Fixes** button provides a full Doctor scan, names/lore repair, item-model scan,
+legacy-ID migration planning, and runtime/storage health. Server-wide repair buttons keep confirmation screens;
+read-only diagnostics do not.
+
 ## Storage & Item Doctor
 
 Older translated or migrated item stacks can retain display metadata because Minecraft stores that information in the item itself.
@@ -65,7 +79,7 @@ Examples include:
 - safe core name/lore repair → `/sf doctor repair confirm`;
 - addon-owned same-ID schemas → `/sf doctor migrations schemas scan`, then the exact fingerprinted execute command it prints;
 - stale bundled item-model data → `/sf doctor item-models scan` and `/sf doctor item-models repair confirm`;
-- v4.1.52 forced bundled mappings → `/sf doctor item-models rollback-v52`;
+- exact Legacy bundled resource-pack mappings → `/sf doctor item-models remove-resourcepack-texture-ids`;
 - declared legacy item IDs → `/sf doctor migrations plan` / `providers`, then the provider-specific scan and execute command;
 - unknown item IDs → `/sf doctor migrations unknown`;
 - legacy or unknown placed-block identity → `/sf doctor upgrade plan`;
@@ -141,7 +155,9 @@ This command adopts model mappings; it does not decide how the client ZIP is del
 sender can set `resource-pack.enabled: true`. Servers using ItemsAdder or another combined-pack manager can leave
 Legacy's sender disabled while still using the bundled mapping values in their combined pack.
 
-#### Recovering servers affected by v4.1.52
+#### Removing exact Legacy resource-pack item models
+
+`/sf doctor item-models remove-resourcepack-texture-ids` removes only mappings that still exactly match Slimefun Legacy's bundled model map. This covers both mappings intentionally adopted through the current Doctor workflow and mappings left by the historical v4.1.52 migration. Custom or non-matching model values are preserved.
 
 Slimefun Legacy v4.1.52 briefly migrated existing `0` item-model entries to the bundled hosted-pack model map.
 That changed the metadata of newly created Slimefun items and could make them stop matching pre-existing stacks in
@@ -152,12 +168,13 @@ This automatic zero-to-bundled migration has been removed. Existing zero mapping
 For a server that was already affected:
 
 ```text
-/sf doctor item-models rollback-v52
-/sf doctor item-models rollback-v52 confirm
+/sf doctor item-models remove-resourcepack-texture-ids
+/sf doctor item-models remove-resourcepack-texture-ids confirm
 ```
 
-The first command is a read-only audit. The confirmed rollback resets only mappings that still exactly equal
-Slimefun Legacy's bundled model values; unrelated custom model values are preserved. After the rollback, stop the
+The first command is a read-only audit. The confirmed removal resets only mappings that still exactly equal
+Slimefun Legacy's bundled model values; unrelated custom model values are preserved. The older
+`/sf doctor item-models rollback-v52` spelling remains supported as a backwards-compatible alias. After the removal, stop the
 server normally and restart before repairing stored stacks, because registered item templates were constructed
 earlier in the old runtime.
 

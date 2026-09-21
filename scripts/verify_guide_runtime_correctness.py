@@ -161,10 +161,33 @@ def main() -> int:
         "profile registration after load event",
     )
 
+    classic = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/SurvivalSlimefunGuide.java",
+    )
     enhanced = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/EnhancedSurvivalSlimefunGuide.java",
     )
+    indexed_enhanced = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/IndexedEnhancedSurvivalSlimefunGuide.java",
+    )
+    chat_listener = read(
+        root,
+        "src/main/java/com/xzavier0722/mc/plugin/slimefun4/chat/listener/PlayerChatListener.java",
+    )
+    for guide_source, label in (
+        (classic, "classic"),
+        (enhanced, "enhanced"),
+        (indexed_enhanced, "indexed enhanced"),
+    ):
+        require(guide_source, "Slimefun.getChatCatcher()", f"{label} guide native search catcher")
+        require(guide_source, ".scheduleCatcher(", f"{label} guide search registration")
+        reject(guide_source, "dough.chat.ChatInput", f"{label} guide Dough ChatInput dependency")
+    require(chat_listener, "AsyncChatEvent", "Paper async chat search capture")
+    reject(chat_listener, "ignoreCancelled = true", "search input skipped after another plugin cancels chat")
+
     require(enhanced, "GuideRuntimeGuard.run(", "enhanced guide page guard")
     require(enhanced, "catch (Exception | LinkageError exception)", "enhanced item-open failure boundary")
     require(enhanced, "item.error(", "enhanced item-open exception reporting")

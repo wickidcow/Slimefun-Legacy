@@ -27,7 +27,7 @@ final class DoctorNextSteps {
         int v52Mappings = Slimefun.getItemTextureService().getHostedPackRollbackCandidateCount();
         if (Slimefun.getItemTextureService().wasHostedPackModelMigrationApplied() && v52Mappings > 0) {
             send(sender, "&eHistorical v4.1.52 bundled item-model mappings are still active: &f" + v52Mappings);
-            send(sender, "&6  /sf doctor item-models rollback-v52");
+            send(sender, "&6  /sf doctor item-models remove-resourcepack-texture-ids");
             send(sender, "&8  Use this recovery only if storage/machine matching broke after v4.1.52.");
             any = true;
         }

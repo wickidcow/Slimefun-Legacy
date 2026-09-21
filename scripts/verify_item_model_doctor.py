@@ -34,6 +34,9 @@ service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/s
 report = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemDoctorReport.java")
 command = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java")
 tabs = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/SlimefunTabCompleter.java")
+doctor_menu = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/guide/options/DoctorGuideMenu.java")
+pack_service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/ExternalResourcePackService.java")
+addons_config = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/config/CuriositiesConfig.java")
 docs = read("docs/wiki/Doctor-and-Diagnostics.md")
 test = read("src/test/java/io/github/thebusybiscuit/slimefun4/core/services/stability/TestItemDoctorReportItemModels.java")
 
@@ -69,6 +72,9 @@ require("wasHostedPackModelMigrationApplied()" in textures
         and "getHostedPackRollbackCandidateCount()" in textures
         and "rollbackHostedPackMigrationMappings()" in textures,
         "v4.1.52 item-model rollback helpers are missing")
+require("getHostedPackRemovalCandidateCount()" in textures
+        and "removeHostedPackMappings()" in textures,
+        "general exact bundled resource-pack model removal helpers are missing")
 require("config.getInt(key) == bundledModel" in textures and "config.setValue(key, 0)" in textures,
         "v4.1.52 rollback must only reset exact bundled mappings to zero")
 require("getHostedPackEnableCandidateCount()" in textures
@@ -108,15 +114,40 @@ require('args[3].equalsIgnoreCase("confirm")' in command,
         "item-model repair must require explicit confirm")
 require("service.startItemModelRun(repair" in command,
         "item-model command must use the server-wide Doctor traversal")
-require('"item-models"' in tabs and '"rollback-v52"' in tabs,
-        "item-model Doctor tab completion is missing v4.1.52 recovery")
+require('"item-models"' in tabs and '"remove-resourcepack-texture-ids"' in tabs,
+        "item-model Doctor tab completion is missing resource-pack texture ID removal")
 require('"enable-pack"' in tabs and 'List.of("scan", "confirm")' in tabs,
         "item-model Doctor tab completion is missing hosted-pack adoption")
-require('"rollback-v52"' in command and "rollbackHostedPackMigrationMappings()" in command,
-        "item-model Doctor must expose guarded v4.1.52 rollback")
+require('"remove-resourcepack-texture-ids"' in command and '"rollback-v52"' in command
+        and "removeHostedPackMappings()" in command,
+        "item-model Doctor must expose descriptive exact bundled removal with the v4.1.52 legacy alias")
 require('"enable-pack"' in command and "enableHostedPackMappings()" in command
         and "startItemModelEnableRun(repair" in command,
         "item-model Doctor must expose guarded hosted-pack adoption")
+require("&aEnable Resource Pack" in doctor_menu
+        and "&6Upgrade Items for Resource Pack" in doctor_menu
+        and "&cDisable Resource Pack" in doctor_menu
+        and "&dRemove Resource-Pack Item Models" in doctor_menu,
+        "Guide Doctor menu must retain four clearly separated resource-pack admin actions")
+require('performCommand("slimefun doctor item-models enable-pack confirm")' in doctor_menu
+        and 'performCommand("slimefun doctor item-models remove-resourcepack-texture-ids confirm")' in doctor_menu
+        and 'performCommand("slimefun doctor item-models repair confirm")' in doctor_menu,
+        "Guide Doctor menu must keep guarded item upgrade/removal/cleanup command paths")
+require("setDeliveryEnabled(true)" in doctor_menu and "setDeliveryEnabled(false)" in doctor_menu,
+        "Guide Doctor menu must keep explicit server resource-pack enable/disable controls")
+require("setResourcePackEnabled(boolean enabled)" in addons_config
+        and "setDeliveryEnabled(boolean enabled)" in pack_service,
+        "resource-pack admin toggle must persist through the dedicated Legacy addons configuration")
+require("&bOther Doctor Fixes" in doctor_menu
+        and 'performCommand("slimefun doctor scan")' in doctor_menu
+        and 'performCommand("slimefun doctor repair confirm")' in doctor_menu
+        and 'performCommand("slimefun doctor item-models scan")' in doctor_menu
+        and 'performCommand("slimefun doctor migrations plan")' in doctor_menu
+        and 'performCommand("slimefun doctor status")' in doctor_menu,
+        "Guide Doctor menu must retain alternative diagnostic and repair paths")
+require("removeConfiguredPack(player)" in pack_service,
+        "disabling the Legacy resource-pack sender must remove only Legacy's pack UUID from online players")
+
 require("/sf doctor item-models scan" in docs and "/sf doctor item-models repair confirm" in docs,
         "item-model Doctor documentation is missing")
 require("/sf doctor item-models enable-pack scan" in docs
@@ -136,7 +167,8 @@ if ERRORS:
 print("Item-model Doctor verification passed.")
 print("- cleanup is explicit and never automatic")
 print("- existing zero mappings are never force-upgraded to hosted-pack models")
-print("- v4.1.52 config rollback is explicit and only resets exact bundled mappings")
+print("- historical rollback remains available while general cleanup removes any exact bundled Legacy mappings")
+print("- Guide admin Doctor keeps separate enable, upgrade, disable and remove-model actions")
 print("- hosted-pack adoption is explicit, zero-only, storage-aware and conflict-preserving")
 print("- only exact bundled first-float matches on IDs configured to 0 are eligible")
 print("- unrelated modern CustomModelData lanes remain preserved")

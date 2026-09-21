@@ -1,7 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.guide.enhanced;
 
 import city.norain.slimefun4.VaultIntegration;
-import io.github.bakedlibs.dough.chat.ChatInput;
 import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.bakedlibs.dough.items.ItemUtils;
 import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
@@ -536,10 +535,10 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
         player.closeInventory();
         player.sendMessage(ChatColor.GREEN + "Enter a search term. " + ChatColor.GRAY
                 + "Optional filters: id:, addon:, group:, recipe:");
-        ChatInput.waitForPlayer(
-                Slimefun.instance(),
-                player,
-                message -> SlimefunGuide.openSearch(profile, message, getMode(), isSurvivalMode()));
+        Slimefun.getChatCatcher()
+                .scheduleCatcher(
+                        player.getUniqueId(),
+                        message -> SlimefunGuide.openSearch(profile, message, getMode(), isSurvivalMode()));
     }
 
     private void addBackButton(ChestMenu menu, List<String> format, Player player, PlayerProfile profile) {

@@ -259,10 +259,10 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
         } else {
             player.sendMessage(ChatColor.GREEN + "Enter a search term.");
         }
-        io.github.bakedlibs.dough.chat.ChatInput.waitForPlayer(
-                Slimefun.instance(),
-                player,
-                message -> SlimefunGuide.openSearch(profile, message, getMode(), isSurvivalMode()));
+        Slimefun.getChatCatcher()
+                .scheduleCatcher(
+                        player.getUniqueId(),
+                        message -> SlimefunGuide.openSearch(profile, message, getMode(), isSurvivalMode()));
     }
 
     private void addIndexedBackButton(

@@ -214,6 +214,27 @@ public class CustomTextureService {
     }
 
     /**
+     * Counts exact bundled resource-pack mappings that can be safely removed.
+     *
+     * <p>This is intentionally provenance-independent: it covers both the historical v4.1.52 migration and
+     * mappings explicitly enabled later through Doctor. Custom/non-matching non-zero values are never included.</p>
+     */
+    public int getHostedPackRemovalCandidateCount() {
+        FileConfiguration bundled = loadBundledModelConfiguration();
+        int candidates = 0;
+        for (String key : bundled.getKeys(false)) {
+            int bundledModel = bundled.getInt(key);
+            if (bundledModel != 0
+                    && SlimefunItem.getById(key) != null
+                    && config.contains(key)
+                    && config.getInt(key) == bundledModel) {
+                candidates++;
+            }
+        }
+        return candidates;
+    }
+
+    /**
      * Counts bundled hosted-pack mappings that are currently disabled with an explicit zero.
      */
     public int getHostedPackEnableCandidateCount() {
@@ -309,11 +330,28 @@ public class CustomTextureService {
             return 0;
         }
 
+        return removeHostedPackMappings();
+    }
+
+    /**
+     * Removes every currently configured mapping that still exactly matches Slimefun Legacy's bundled
+     * resource-pack model value.
+     *
+     * <p>This is safe for both historical and newly adopted Legacy mappings. Server-customized values that differ
+     * from the bundled map are preserved. A clean restart is required afterwards because registered item templates
+     * were built earlier in this runtime.</p>
+     *
+     * @return number of exact bundled mappings reset to zero
+     */
+    public int removeHostedPackMappings() {
         FileConfiguration bundled = loadBundledModelConfiguration();
         int reset = 0;
         for (String key : bundled.getKeys(false)) {
             int bundledModel = bundled.getInt(key);
-            if (bundledModel != 0 && config.contains(key) && config.getInt(key) == bundledModel) {
+            if (bundledModel != 0
+                    && SlimefunItem.getById(key) != null
+                    && config.contains(key)
+                    && config.getInt(key) == bundledModel) {
                 config.setValue(key, 0);
                 reset++;
             }
