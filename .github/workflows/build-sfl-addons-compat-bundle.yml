@@ -360,8 +360,8 @@ jobs:
               'SF_InfinityExpansion2.0.8.jar',
               'SF_JustEnoughGuide2.1.62.jar',
               'SF_LiteXpansion1.0.2.jar',
-              'SF_MagicExpansion1.1.5.jar',
-              'SF_MagicLegacy2.0.34.jar',
+              'SF_MagicExpansion1.1.6.jar',
+              'SF_MagicLegacy2.0.35.jar',
               'SF_RykenSlimeCustomizer3.1.9.jar',
               'SF_MobCapturer1.0.6.jar',
               'SF_Networks1.0.21.jar',
@@ -400,6 +400,7 @@ jobs:
           - WorldEditSlimefun requires WorldEdit or FAWE and is explicitly labeled for 1.21.11 through 26.2
           - Magic Legacy 2.0 ships as SF_MagicLegacy2.0.34.jar and manages its embedded RSC Magic runtime automatically
           - RykenSlimeCustomizer 3.1.9 respects MagicLegacy's .magiclegacy-managed runtime marker and will not auto-update that folder after load
+          - MagicExpansion 1.1.6 uses the corrected MagicLegacy -> RykenSlimefunCustomizer crossover load ordering and registers the RSC_MAGIC_* crossover items on the 26.3 stack
           - No Legacy, Legacy-English, SNAPSHOT, compatibility suffixes, or repo-only suffixes except the approved WorldEdit support-range suffix
 
           Supported Minecraft/Paper generations:
