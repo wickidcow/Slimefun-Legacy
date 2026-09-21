@@ -210,6 +210,7 @@ final class DoctorSupportReport {
                     + " &8| &7scanned &f" + itemDoctor.getScannedStacks()
                     + " &8| &7unknown IDs &f" + itemDoctor.getUnknownIds()
                     + " &8| &7failures &f" + itemDoctor.getFailures());
+            DoctorNextSteps.send(sender, itemDoctor);
         }
 
         sendLine(sender, "&6[Curiosities]");
