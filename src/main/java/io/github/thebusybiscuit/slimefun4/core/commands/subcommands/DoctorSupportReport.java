@@ -11,6 +11,7 @@ import io.github.thebusybiscuit.slimefun4.api.runtime.CoreReadinessSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.runtime.MachineRuntimeSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.storage.StorageRuntimeSnapshot;
 import io.github.thebusybiscuit.slimefun4.core.config.CuriositiesConfig;
+import io.github.thebusybiscuit.slimefun4.core.services.ExternalResourcePackService;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.PluginDependencyDiagnosticsService;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.PluginDependencyResolution;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.PluginDependencySnapshot;
@@ -42,6 +43,8 @@ final class DoctorSupportReport {
         var profiles = Slimefun.getDatabaseManager().getProfileDataController();
         int pendingBackpackSaves = profiles == null ? 0 : profiles.getPendingBackpackSaveChainCount();
         int uncertainBackpacks = profiles == null ? 0 : profiles.getUncertainBackpackBaselineCount();
+        ExternalResourcePackService packs = new ExternalResourcePackService(plugin);
+        var textures = Slimefun.getItemTextureService();
 
         List<AddonCompatibilityResult> addonResults = Slimefun.getAddonCompatibilityService().getResults();
         AddonCompatibilitySummary addonSummary = AddonCompatibilitySummary.from(addonResults);
@@ -96,6 +99,12 @@ final class DoctorSupportReport {
         }
         if (missingRequired > 0 || disabledRequired > 0) {
             warnings.add("Required plugin dependencies are missing or disabled.");
+        }
+        if (packs.isDeliveryEnabled() && !packs.isConfiguredUrlValid()) {
+            warnings.add("Slimefun Legacy resource-pack delivery is enabled but the configured URL is invalid.");
+        }
+        if (packs.isDeliveryEnabled() && !packs.isConfiguredSha1Valid()) {
+            warnings.add("Slimefun Legacy resource-pack delivery is enabled but the configured SHA-1 is invalid.");
         }
         if (addonSummary.getCount(AddonCompatibilityStatus.WARNING) > 0
                 || addonSummary.getCount(AddonCompatibilityStatus.INCOMPATIBLE) > 0
@@ -154,6 +163,17 @@ final class DoctorSupportReport {
                 + " &8| &7profiles &f" + storage.getProfileStorageType());
         sendLine(sender, "&7Backpack persistence: active saves &f" + pendingBackpackSaves
                 + " &8| &7uncertain baselines &f" + uncertainBackpacks);
+
+        sendLine(sender, "&6[Resource Pack + Item Models]");
+        sendLine(sender, "&7Legacy sender: &f" + (packs.isDeliveryEnabled() ? "enabled" : "disabled")
+                + " &8| &7required &f" + packs.isRequired()
+                + " &8| &7URL &f" + (packs.isConfiguredUrlValid() ? "valid" : "invalid")
+                + " &8| &7SHA-1 &f" + (packs.isConfiguredSha1Valid() ? "valid/optional" : "invalid"));
+        sendLine(sender, "&7Mappings: bundled active &f" + textures.getHostedPackEnabledMappingCount()
+                + " &8| &7available/zero &f" + textures.getHostedPackEnableCandidateCount()
+                + " &8| &7custom preserved &f" + textures.getHostedPackCustomMappingCount());
+        sendLine(sender, "&8Legacy sender state and Slimefun item-model mappings are independent.");
+        sendLine(sender, "&8A custom/combined pack may keep matching Slimefun mappings enabled while Legacy's sender stays disabled.");
 
         sendLine(sender, "&6[Addons + Dependencies]");
         sendLine(sender, "&7Installed Slimefun addons: &f" + Slimefun.getInstalledAddons().size()
