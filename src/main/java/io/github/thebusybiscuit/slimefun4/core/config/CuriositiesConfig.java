@@ -333,6 +333,18 @@ public final class CuriositiesConfig {
         return yaml.getBoolean(path);
     }
 
+    /**
+     * Enables or disables Slimefun Legacy's own optional resource-pack sender.
+     *
+     * <p>This only changes {@code resource-pack.enabled}. It never rewrites item-models.yml or stored ItemStacks.</p>
+     *
+     * @return whether the updated setting was saved successfully
+     */
+    public synchronized boolean setResourcePackEnabled(boolean enabled) {
+        setValue(LEGACY_RESOURCE_PACK_ROOT + ".enabled", enabled);
+        return save();
+    }
+
     public int getInt(@Nonnull String path) {
         return yaml.getInt(path);
     }
