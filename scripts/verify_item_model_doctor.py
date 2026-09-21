@@ -34,6 +34,7 @@ service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/s
 report = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemDoctorReport.java")
 command = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java")
 doctor_router = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorRouterCommand.java")
+doctor_next_steps = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorNextSteps.java")
 support_report = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorSupportReport.java")
 tabs = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/SlimefunTabCompleter.java")
 doctor_menu = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/guide/options/DoctorGuideMenu.java")
@@ -181,6 +182,9 @@ require('"report"' in tabs,
         "Doctor support report tab completion is missing")
 require("removeConfiguredPack(player)" in pack_service,
         "disabling the Legacy resource-pack sender must remove only Legacy's pack UUID from online players")
+require("custom/combined pack" in doctor_next_steps
+        and "sender being disabled is not evidence" in doctor_next_steps,
+        "historical item-model next steps must not imply cleanup for external/custom pack setups")
 
 require("/sf doctor item-models scan" in docs and "/sf doctor item-models repair confirm" in docs,
         "item-model Doctor documentation is missing")
