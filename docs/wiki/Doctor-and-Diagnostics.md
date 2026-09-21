@@ -30,19 +30,56 @@ These read-only checks should be your first step after an upgrade or when an add
 | `integrations` | Optional external integration capabilities and failures |
 | `proxy` | Paper backend proxy-forwarding configuration and UUID-safety signals |
 
-## Guide Admin Doctor controls
+## Guide Admin Doctor console
 
 Operators with `slimefun.command.doctor` can open **Slimefun Doctor** from the Slimefun Guide settings screen.
+The console is a router over the same guarded Doctor services used by the commands; it does not introduce a second repair engine.
+
+### Doctor Assistant / Recommended Fix
+
+The top **Recommended Fix** button evaluates existing read-only Doctor, storage, machine, dependency, integration,
+resource-pack and item-model state. It can route the operator to a scan, specialist diagnostic screen or an existing
+confirmation flow, but it never performs a server-wide mutation merely because a problem was detected.
+
+Important safety rule: **Legacy pack delivery and Slimefun item-model mappings are independent**. The assistant must
+not recommend removing model mappings just because Slimefun Legacy's own pack sender is disabled.
+
+### Resource-pack administration
+
 The main resource-pack section deliberately separates four different operations:
 
-- **Enable Resource Pack** — turns only Slimefun Legacy pack delivery on; it does not change item models.
+- **Enable Legacy Pack Sender** — turns only Slimefun Legacy pack delivery on; it does not change item models.
 - **Upgrade Items for Resource Pack** — adopts zero-valued bundled mappings and updates eligible stored Slimefun items.
-- **Disable Resource Pack** — turns only Slimefun Legacy pack delivery off; it does not change item models.
-- **Remove Resource-Pack Item Models** — removes exact bundled Legacy mappings and then guides the operator through stored-item cleanup after restart.
+- **Disable Legacy Pack Sender** — turns only Slimefun Legacy pack delivery off; it does not change item models.
+- **Remove Resource-Pack Item Models** — intentionally removes exact bundled Legacy mappings and then guides the operator through stored-item cleanup after restart.
 
-A fifth **Other Doctor Fixes** button provides a full Doctor scan, names/lore repair, item-model scan,
-legacy-ID migration planning, and runtime/storage health. Server-wide repair buttons keep confirmation screens;
-read-only diagnostics do not.
+A separate **Resource Pack Preflight** screen reports sender state, URL/SHA-1 validity, known external pack-manager
+plugins, bundled/custom item-model counts, and lets an administrator test the configured Legacy pack only on themselves.
+
+Two common configurations are both supported:
+
+1. **Slimefun Legacy sends the pack** — enable the Legacy sender and point `resource-pack.url` at the official pack or
+   your own hosted combined pack. Keep the matching Slimefun item-model mappings enabled.
+2. **Another plugin/proxy sends your combined pack** — keep the Legacy sender disabled. Keep the Slimefun item-model
+   mappings enabled when your combined pack contains the corresponding Slimefun models.
+
+Do **not** remove Slimefun item-model mappings merely because the Legacy sender is disabled. Doctor cannot inspect the
+contents of an ItemsAdder/Oraxen/proxy/server pack, so the server owner must decide whether that external pack contains
+the matching Slimefun models. Remove mappings only when they are intentionally no longer used, after a backup and scan.
+
+### Additional Doctor screens
+
+- **Player & Item Repair** — read-only hand/inventory inspection, confirmed held-item repair, confirmed self repair and an online-player repair picker.
+- **Addon & Dependency Health** — addon compatibility evidence, missing/disabled hard dependencies, registered addon Doctor scans, registry health and cross-fork API diagnostics.
+- **Runtime Recovery** — storage/runtime status, core/chunk health, machine failure detail, external integration status and guarded retry/reload confirmations.
+- **Other Doctor Fixes** — full scan, names/lore repair, item-model scan, storage integrity, upgrade readiness, legacy-ID planning and addon schema migration probes.
+- **Doctor Support Summary** — compact live platform/storage/machine/pack/dependency/integration/last-scan state plus the current recommended next step.
+
+`/sf doctor report` prints the same compact support-oriented command-line snapshot and the existing Doctor next-step
+classification. This is useful when collecting information for an issue report.
+
+Server-wide repair buttons keep confirmation screens and backup guidance; read-only diagnostics do not.
+
 
 ## Storage & Item Doctor
 
