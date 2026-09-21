@@ -906,6 +906,7 @@ final class DoctorGuideMenu {
         ItemDoctorReport last = Slimefun.getItemDoctorService().getLastReport();
         var textures = Slimefun.getItemTextureService();
         DoctorGuideAssistant.Recommendation recommendation = DoctorGuideAssistant.recommend();
+        var platform = Slimefun.getPlatformCompatibilityService().getProfile();
 
         ChestMenu menu = subMenu("&f&lDoctor Support Summary", 45);
         menu.addItem(
@@ -915,8 +916,9 @@ final class DoctorGuideMenu {
                         "&fPlatform",
                         "",
                         "&7Slimefun Legacy: &e" + Slimefun.instance().getPluginMeta().getVersion(),
-                        "&7Server: &e" + Bukkit.getName(),
-                        "&7Java: &e" + System.getProperty("java.version")));
+                        "&7Server: &e" + platform.getDisplayName(),
+                        "&7Minecraft: &e" + platform.getRawMinecraftVersion(),
+                        "&7Java: &e" + platform.getJavaFeatureVersion())));
         menu.addItem(
                 12,
                 menuItem(
