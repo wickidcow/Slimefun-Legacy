@@ -45,7 +45,7 @@ final class ResourcePackGuideMenu {
         addStatus(menu, player, service);
         addPlayerToggle(menu, player, service, returnGuide);
         addReloadButton(menu, player, service, returnGuide);
-        addDoctorButtons(menu, player, returnGuide);
+        addAdminDoctorShortcut(menu, player, returnGuide);
 
         menu.addItem(
                 22,
@@ -187,44 +187,27 @@ final class ResourcePackGuideMenu {
         });
     }
 
-    private static void addDoctorButtons(
+    private static void addAdminDoctorShortcut(
             @Nonnull ChestMenu menu, @Nonnull Player player, @Nonnull ItemStack returnGuide) {
         if (!player.hasPermission(DOCTOR_PERMISSION)) {
             return;
         }
 
         menu.addItem(
-                14,
-                menuItem(
-                        Material.SPYGLASS,
-                        "&bScan Texture IDs",
-                        "",
-                        "&7Read-only audit for adopting the bundled",
-                        "&7Slimefun Legacy texture/model IDs.",
-                        "",
-                        "&8Server owner tool",
-                        "&eClick to run enable-pack scan"));
-        menu.addMenuClickHandler(14, (clickedPlayer, slot, item, action) -> {
-            clickedPlayer.closeInventory();
-            clickedPlayer.performCommand("slimefun doctor item-models enable-pack scan");
-            return false;
-        });
-
-        menu.addItem(
                 16,
                 menuItem(
-                        Material.SMITHING_TABLE,
-                        "&6Add / Update Texture IDs & Items",
+                        Material.ANVIL,
+                        "&cSlimefun Doctor (Admin)",
                         "",
-                        "&7Enable currently-zero bundled texture IDs",
-                        "&7and update reachable stored Slimefun items.",
+                        "&7Open the administrative Doctor controls for",
+                        "&7resource-pack delivery and item-model migration.",
                         "",
-                        "&cServer-wide change. Backup first.",
-                        "&cUse maintenance mode / keep players offline.",
+                        "&7Contains separate actions to enable/disable",
+                        "&7the pack, upgrade items, or remove models.",
                         "",
-                        "&eClick for confirmation"));
+                        "&eClick to open Slimefun Doctor"));
         menu.addMenuClickHandler(16, (clickedPlayer, slot, item, action) -> {
-            openEnablePackConfirmation(clickedPlayer, returnGuide);
+            DoctorGuideMenu.open(clickedPlayer, returnGuide);
             return false;
         });
     }
@@ -240,46 +223,4 @@ final class ResourcePackGuideMenu {
         return item;
     }
 
-    private static void openEnablePackConfirmation(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
-        ChestMenu menu = new ChestMenu("&6&lConfirm Texture-ID Update");
-        menu.setSize(27);
-        menu.setEmptySlotsClickable(false);
-
-        for (int slot = 0; slot < 27; slot++) {
-            menu.addItem(slot, ChestMenuUtils.getBackground(), ChestMenuUtils.getEmptyClickHandler());
-        }
-
-        menu.addItem(
-                11,
-                menuItem(
-                        Material.LIME_CONCRETE,
-                        "&aConfirm Add / Update",
-                        "",
-                        "&7Runs:",
-                        "&f/sf doctor item-models enable-pack confirm",
-                        "",
-                        "&7This can update item-models.yml and",
-                        "&7reachable stored Slimefun ItemStacks.",
-                        "",
-                        "&cOnly continue after a full backup."));
-        menu.addMenuClickHandler(11, (clickedPlayer, slot, item, action) -> {
-            clickedPlayer.closeInventory();
-            clickedPlayer.performCommand("slimefun doctor item-models enable-pack confirm");
-            return false;
-        });
-
-        menu.addItem(
-                15,
-                menuItem(
-                        Material.RED_CONCRETE,
-                        "&cCancel",
-                        "",
-                        "&7Return without changing texture IDs."));
-        menu.addMenuClickHandler(15, (clickedPlayer, slot, item, action) -> {
-            open(clickedPlayer, returnGuide);
-            return false;
-        });
-
-        menu.open(player);
-    }
 }
