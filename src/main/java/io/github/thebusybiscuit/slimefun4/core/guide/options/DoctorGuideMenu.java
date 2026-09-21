@@ -918,7 +918,7 @@ final class DoctorGuideMenu {
                         "&7Slimefun Legacy: &e" + Slimefun.instance().getPluginMeta().getVersion(),
                         "&7Server: &e" + platform.getDisplayName(),
                         "&7Minecraft: &e" + platform.getRawMinecraftVersion(),
-                        "&7Java: &e" + platform.getJavaFeatureVersion())));
+                        "&7Java: &e" + platform.getJavaFeatureVersion()));
         menu.addItem(
                 12,
                 menuItem(
