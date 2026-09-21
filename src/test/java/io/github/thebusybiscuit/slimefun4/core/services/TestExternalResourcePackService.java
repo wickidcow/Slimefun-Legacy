@@ -33,4 +33,20 @@ class TestExternalResourcePackService {
         String custom = "https://example.com/custom-slimefun-pack.zip";
         Assertions.assertEquals(custom, ExternalResourcePackService.normalizeLegacyResourcePackUrl(custom));
     }
+
+    @Test
+    void testResourcePackOwnershipParsingIsBackwardsCompatible() {
+        Assertions.assertEquals(ResourcePackOwnershipMode.AUTO, ResourcePackOwnershipMode.parse(null));
+        Assertions.assertEquals(ResourcePackOwnershipMode.AUTO, ResourcePackOwnershipMode.parse(""));
+        Assertions.assertEquals(ResourcePackOwnershipMode.AUTO, ResourcePackOwnershipMode.parse("unknown"));
+        Assertions.assertEquals(ResourcePackOwnershipMode.AUTO, ResourcePackOwnershipMode.parse("auto"));
+    }
+
+    @Test
+    void testResourcePackOwnershipParsingAcceptsExplicitModes() {
+        Assertions.assertEquals(ResourcePackOwnershipMode.LEGACY, ResourcePackOwnershipMode.parse("legacy"));
+        Assertions.assertEquals(ResourcePackOwnershipMode.EXTERNAL, ResourcePackOwnershipMode.parse("EXTERNAL"));
+        Assertions.assertEquals(ResourcePackOwnershipMode.NONE, ResourcePackOwnershipMode.parse("none"));
+        Assertions.assertEquals("external", ResourcePackOwnershipMode.EXTERNAL.configValue());
+    }
 }
