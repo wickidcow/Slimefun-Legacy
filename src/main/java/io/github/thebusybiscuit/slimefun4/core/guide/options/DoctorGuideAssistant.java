@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.guide.options;
 
+import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityStatus;
 import io.github.thebusybiscuit.slimefun4.api.runtime.MachineRuntimeSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.storage.StorageRuntimeSnapshot;
 import io.github.thebusybiscuit.slimefun4.core.services.ExternalResourcePackService;
@@ -169,6 +170,16 @@ final class DoctorGuideAssistant {
                     dependencyProblems);
         }
 
+        long addonCompatibilityProblems = addonCompatibilityAttentionCount();
+        if (addonCompatibilityProblems > 0) {
+            return new Recommendation(
+                    Action.DEPENDENCY_HEALTH,
+                    "Review Addon Compatibility",
+                    addonCompatibilityProblems
+                            + " addon compatibility record(s) are warning, incompatible or disabled.",
+                    addonCompatibilityProblems);
+        }
+
         long integrationFailures = Slimefun.getExternalIntegrationService().getActiveFailureCount();
         if (integrationFailures > 0) {
             return new Recommendation(
@@ -191,6 +202,15 @@ final class DoctorGuideAssistant {
                 "No Immediate Doctor Fix Recommended",
                 "Current Doctor, storage, machine, dependency, integration, and resource-pack signals do not require a repair action.",
                 0);
+    }
+
+    static long addonCompatibilityAttentionCount() {
+        Slimefun.getAddonCompatibilityService().refresh();
+        return Slimefun.getAddonCompatibilityService().getResults().stream()
+                .filter(result -> result.getStatus() == AddonCompatibilityStatus.WARNING
+                        || result.getStatus() == AddonCompatibilityStatus.INCOMPATIBLE
+                        || result.getStatus() == AddonCompatibilityStatus.DISABLED)
+                .count();
     }
 
     static long dependencyProblemCount() {
