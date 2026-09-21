@@ -292,6 +292,7 @@ public final class SlimefunGuideSettings {
                             "&6- upgrading items for the pack",
                             "&c- disabling pack delivery",
                             "&d- removing resource-pack item models",
+                            "&b- other Doctor fixes and diagnostics",
                             "",
                             "&8Server owner tool",
                             "&7⇨ &eClick to open Slimefun Doctor"));
