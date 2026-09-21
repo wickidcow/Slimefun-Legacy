@@ -52,6 +52,7 @@ final class DoctorGuideMenu {
         addUpgradeItemsButton(menu, returnGuide);
         addDisablePackButton(menu, packService, returnGuide);
         addRemoveModelsButton(menu, returnGuide);
+        addOtherDoctorFixesButton(menu, returnGuide);
 
         menu.addItem(
                 18,
@@ -199,6 +200,174 @@ final class DoctorGuideMenu {
             openRemoveModelsConfirmation(player, returnGuide);
             return false;
         });
+    }
+
+
+    private static void addOtherDoctorFixesButton(@Nonnull ChestMenu menu, @Nonnull ItemStack returnGuide) {
+        menu.addItem(
+                20,
+                menuItem(
+                        Material.TOOLSMITH_SMITHING_TEMPLATE,
+                        "&bOther Doctor Fixes",
+                        "",
+                        "&7Alternative diagnostics and repair paths for",
+                        "&7problems that are not just the resource pack.",
+                        "",
+                        "&7Includes full scan, names/lore repair,",
+                        "&7item-model scan, legacy-ID migration planning,",
+                        "&7and runtime/storage health.",
+                        "",
+                        "&eClick to open other Doctor tools"));
+
+        menu.addMenuClickHandler(20, (player, slot, item, action) -> {
+            openOtherDoctorFixes(player, returnGuide);
+            return false;
+        });
+    }
+
+    private static void openOtherDoctorFixes(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        ChestMenu menu = new ChestMenu("&b&lOther Doctor Fixes");
+        menu.setSize(27);
+        menu.setEmptySlotsClickable(false);
+
+        for (int slot = 0; slot < 27; slot++) {
+            menu.addItem(slot, ChestMenuUtils.getBackground(), ChestMenuUtils.getEmptyClickHandler());
+        }
+
+        menu.addItem(
+                10,
+                menuItem(
+                        Material.SPYGLASS,
+                        "&bFull Doctor Scan",
+                        "",
+                        "&7Read-only server-wide scan for item problems,",
+                        "&7unknown IDs, legacy migrations, stale models,",
+                        "&7storage candidates and other recoverable issues.",
+                        "",
+                        "&aBest first step when the cause is unclear.",
+                        "&eClick to run /sf doctor scan"));
+        menu.addMenuClickHandler(10, (clickedPlayer, slot, item, action) -> {
+            clickedPlayer.closeInventory();
+            clickedPlayer.performCommand("slimefun doctor scan");
+            return false;
+        });
+
+        menu.addItem(
+                12,
+                menuItem(
+                        Material.NAME_TAG,
+                        "&6Repair Names & Lore",
+                        "",
+                        "&7Repairs safely recoverable Slimefun display",
+                        "&7names/lore while preserving item identity/data.",
+                        "",
+                        "&cServer-wide item change. Full backup first.",
+                        "&eClick for confirmation"));
+        menu.addMenuClickHandler(12, (clickedPlayer, slot, item, action) -> {
+            openGeneralRepairConfirmation(clickedPlayer, returnGuide);
+            return false;
+        });
+
+        menu.addItem(
+                14,
+                menuItem(
+                        Material.COMPARATOR,
+                        "&eScan Item Models",
+                        "",
+                        "&7Read-only check for stale exact bundled",
+                        "&7Slimefun Legacy model values in stored items.",
+                        "",
+                        "&eClick to run /sf doctor item-models scan"));
+        menu.addMenuClickHandler(14, (clickedPlayer, slot, item, action) -> {
+            clickedPlayer.closeInventory();
+            clickedPlayer.performCommand("slimefun doctor item-models scan");
+            return false;
+        });
+
+        menu.addItem(
+                16,
+                menuItem(
+                        Material.WRITABLE_BOOK,
+                        "&dLegacy-ID Migration Plan",
+                        "",
+                        "&7Correlates the latest Doctor scan with addon",
+                        "&7legacy item-ID mappings and migration providers.",
+                        "",
+                        "&8Read-only. Run Full Doctor Scan first.",
+                        "&eClick to run /sf doctor migrations plan"));
+        menu.addMenuClickHandler(16, (clickedPlayer, slot, item, action) -> {
+            clickedPlayer.closeInventory();
+            clickedPlayer.performCommand("slimefun doctor migrations plan");
+            return false;
+        });
+
+        menu.addItem(
+                22,
+                menuItem(
+                        Material.REDSTONE_TORCH,
+                        "&cRuntime & Storage Health",
+                        "",
+                        "&7Shows pending writes, paused/failing machines,",
+                        "&7shutdown state, automatic repair state and",
+                        "&7the latest server-wide Doctor progress.",
+                        "",
+                        "&eClick to run /sf doctor status"));
+        menu.addMenuClickHandler(22, (clickedPlayer, slot, item, action) -> {
+            clickedPlayer.closeInventory();
+            clickedPlayer.performCommand("slimefun doctor status");
+            return false;
+        });
+
+        menu.addItem(
+                18,
+                menuItem(
+                        Material.ARROW,
+                        "&fBack to Slimefun Doctor",
+                        "",
+                        "&7Return to the main Doctor controls."));
+        menu.addMenuClickHandler(18, (clickedPlayer, slot, item, action) -> {
+            open(clickedPlayer, returnGuide);
+            return false;
+        });
+
+        menu.open(player);
+    }
+
+    private static void openGeneralRepairConfirmation(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        ChestMenu menu = confirmationMenu("&6&lConfirm Doctor Repair");
+
+        menu.addItem(
+                11,
+                menuItem(
+                        Material.LIME_CONCRETE,
+                        "&aConfirm Names & Lore Repair",
+                        "",
+                        "&7Runs:",
+                        "&f/sf doctor repair confirm",
+                        "",
+                        "&7Repairs only safely recoverable Slimefun",
+                        "&7presentation data across reachable storage.",
+                        "",
+                        "&cOnly continue after a full backup."));
+        menu.addMenuClickHandler(11, (clickedPlayer, slot, item, action) -> {
+            clickedPlayer.closeInventory();
+            clickedPlayer.performCommand("slimefun doctor repair confirm");
+            return false;
+        });
+
+        menu.addItem(
+                15,
+                menuItem(
+                        Material.BARRIER,
+                        "&cCancel",
+                        "",
+                        "&7Return to Other Doctor Fixes."));
+        menu.addMenuClickHandler(15, (clickedPlayer, slot, item, action) -> {
+            openOtherDoctorFixes(clickedPlayer, returnGuide);
+            return false;
+        });
+
+        menu.open(player);
     }
 
     private static void openUpgradeConfirmation(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
