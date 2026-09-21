@@ -33,8 +33,12 @@ presentation = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/servi
 service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemDoctorService.java")
 report = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemDoctorReport.java")
 command = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java")
+doctor_router = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorRouterCommand.java")
+doctor_next_steps = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorNextSteps.java")
+support_report = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorSupportReport.java")
 tabs = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/SlimefunTabCompleter.java")
 doctor_menu = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/guide/options/DoctorGuideMenu.java")
+doctor_assistant = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/guide/options/DoctorGuideAssistant.java")
 pack_service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/ExternalResourcePackService.java")
 addons_config = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/config/CuriositiesConfig.java")
 docs = read("docs/wiki/Doctor-and-Diagnostics.md")
@@ -124,14 +128,14 @@ require('"remove-resourcepack-texture-ids"' in command and '"rollback-v52"' in c
 require('"enable-pack"' in command and "enableHostedPackMappings()" in command
         and "startItemModelEnableRun(repair" in command,
         "item-model Doctor must expose guarded hosted-pack adoption")
-require("&aEnable Resource Pack" in doctor_menu
+require("&aEnable Legacy Pack Sender" in doctor_menu
         and "&6Upgrade Items for Resource Pack" in doctor_menu
-        and "&cDisable Resource Pack" in doctor_menu
+        and "&cDisable Legacy Pack Sender" in doctor_menu
         and "&dRemove Resource-Pack Item Models" in doctor_menu,
         "Guide Doctor menu must retain four clearly separated resource-pack admin actions")
-require('performCommand("slimefun doctor item-models enable-pack confirm")' in doctor_menu
-        and 'performCommand("slimefun doctor item-models remove-resourcepack-texture-ids confirm")' in doctor_menu
-        and 'performCommand("slimefun doctor item-models repair confirm")' in doctor_menu,
+require('"slimefun doctor item-models enable-pack confirm"' in doctor_menu
+        and '"slimefun doctor item-models remove-resourcepack-texture-ids confirm"' in doctor_menu
+        and '"slimefun doctor item-models repair confirm"' in doctor_menu,
         "Guide Doctor menu must keep guarded item upgrade/removal/cleanup command paths")
 require("setDeliveryEnabled(true)" in doctor_menu and "setDeliveryEnabled(false)" in doctor_menu,
         "Guide Doctor menu must keep explicit server resource-pack enable/disable controls")
@@ -139,14 +143,48 @@ require("setResourcePackEnabled(boolean enabled)" in addons_config
         and "setDeliveryEnabled(boolean enabled)" in pack_service,
         "resource-pack admin toggle must persist through the dedicated Legacy addons configuration")
 require("&bOther Doctor Fixes" in doctor_menu
-        and 'performCommand("slimefun doctor scan")' in doctor_menu
-        and 'performCommand("slimefun doctor repair confirm")' in doctor_menu
-        and 'performCommand("slimefun doctor item-models scan")' in doctor_menu
-        and 'performCommand("slimefun doctor migrations plan")' in doctor_menu
-        and 'performCommand("slimefun doctor status")' in doctor_menu,
+        and '"slimefun doctor scan"' in doctor_menu
+        and '"slimefun doctor repair confirm"' in doctor_menu
+        and '"slimefun doctor item-models scan"' in doctor_menu
+        and '"slimefun doctor migrations plan"' in doctor_menu
+        and '"slimefun doctor status"' in doctor_menu,
         "Guide Doctor menu must retain alternative diagnostic and repair paths")
+require("&bResource Pack Preflight" in doctor_menu
+        and "&6Player & Item Repair" in doctor_menu
+        and "&dAddon & Dependency Health" in doctor_menu
+        and "&cRuntime Recovery" in doctor_menu
+        and "&fDoctor Support Summary" in doctor_menu,
+        "Guide Doctor console must retain preflight, targeted repair, addon/dependency, runtime and support views")
+require("&aSupported setup:" in doctor_menu
+        and "Legacy sender OFF" in doctor_menu
+        and "External/combined packs may still need these mappings." in doctor_menu,
+        "Guide Doctor must clearly support external/combined pack delivery without implying model cleanup")
+require("testForPlayer(@Nonnull Player player)" in pack_service
+        and "getEffectivePackUrl()" in pack_service
+        and "isConfiguredUrlValid()" in pack_service
+        and "isConfiguredSha1Valid()" in pack_service,
+        "resource-pack Doctor preflight/test helpers are missing")
+require("class DoctorGuideAssistant" in doctor_assistant
+        and "static @Nonnull Recommendation recommend()" in doctor_assistant
+        and "Action.UPGRADE_PACK_ITEMS" in doctor_assistant
+        and "Action.RUNTIME_HEALTH" in doctor_assistant
+        and "Action.DEPENDENCY_HEALTH" in doctor_assistant,
+        "Guide Doctor recommendation engine is missing key safe routing lanes")
+reject("REVIEW_MODEL_CLEANUP," in doctor_assistant[doctor_assistant.find("static @Nonnull Recommendation recommend()"):],
+        "Doctor assistant must not recommend removing model mappings merely from sender/resource-pack state")
+require('args[1].equalsIgnoreCase("report")' in doctor_router
+        and "DoctorSupportReport.send(plugin, sender)" in doctor_router
+        and "[Resource Pack + Item Models]" in support_report
+        and "custom/combined pack" in support_report
+        and "DoctorNextSteps.send(sender, itemDoctor)" in support_report,
+        "Doctor support report must expose custom-pack and item-model state through the router-level reporter")
+require('"report"' in tabs,
+        "Doctor support report tab completion is missing")
 require("removeConfiguredPack(player)" in pack_service,
         "disabling the Legacy resource-pack sender must remove only Legacy's pack UUID from online players")
+require("custom/combined pack" in doctor_next_steps
+        and "sender being disabled is not evidence" in doctor_next_steps,
+        "historical item-model next steps must not imply cleanup for external/custom pack setups")
 
 require("/sf doctor item-models scan" in docs and "/sf doctor item-models repair confirm" in docs,
         "item-model Doctor documentation is missing")
@@ -168,7 +206,9 @@ print("Item-model Doctor verification passed.")
 print("- cleanup is explicit and never automatic")
 print("- existing zero mappings are never force-upgraded to hosted-pack models")
 print("- historical rollback remains available while general cleanup removes any exact bundled Legacy mappings")
-print("- Guide admin Doctor keeps separate enable, upgrade, disable and remove-model actions")
+print("- Guide admin Doctor keeps separate sender, item-upgrade, sender-disable and remove-model actions")
+print("- external/combined pack delivery is a supported state and never implies model cleanup")
+print("- Doctor Assistant remains read-only and routes operators to existing guarded repair lanes")
 print("- hosted-pack adoption is explicit, zero-only, storage-aware and conflict-preserving")
 print("- only exact bundled first-float matches on IDs configured to 0 are eligible")
 print("- unrelated modern CustomModelData lanes remain preserved")
