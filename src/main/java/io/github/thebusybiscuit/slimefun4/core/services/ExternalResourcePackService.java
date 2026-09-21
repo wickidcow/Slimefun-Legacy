@@ -99,6 +99,41 @@ public final class ExternalResourcePackService {
         return CuriositiesConfig.getConfig().getBoolean(CONFIG_ROOT + "required");
     }
 
+    /** Returns the configured pack URL after normalizing retired Legacy defaults. */
+    public @Nonnull String getEffectivePackUrl() {
+        return normalizeLegacyResourcePackUrl(trim(CuriositiesConfig.getConfig().getString(CONFIG_ROOT + "url")));
+    }
+
+    /** Returns whether the configured effective pack URL is a valid absolute HTTP(S) URL. */
+    public boolean isConfiguredUrlValid() {
+        return isValidResourcePackUrl(getEffectivePackUrl());
+    }
+
+    /** Returns whether a SHA-1 was explicitly configured for the current pack. */
+    public boolean hasConfiguredSha1() {
+        return !trim(CuriositiesConfig.getConfig().getString(CONFIG_ROOT + "sha1")).isEmpty();
+    }
+
+    /**
+     * Returns whether the configured SHA-1 is usable.
+     *
+     * <p>An empty SHA-1 is valid because Minecraft accepts pack requests without an explicit hash.</p>
+     */
+    public boolean isConfiguredSha1Valid() {
+        String configured = trim(CuriositiesConfig.getConfig().getString(CONFIG_ROOT + "sha1"));
+        return configured.isEmpty() || parseSha1(configured) != null;
+    }
+
+    /**
+     * Sends the currently configured Legacy pack to one administrator without changing their saved opt-in preference.
+     *
+     * <p>This intentionally works even when server-wide Legacy delivery is disabled so an operator can test the URL
+     * and client behavior before enabling it for everyone.</p>
+     */
+    public boolean testForPlayer(@Nonnull Player player) {
+        return sendConfiguredPack(player);
+    }
+
     /**
      * Returns whether this player has left automatic Slimefun Legacy pack delivery enabled.
      *
