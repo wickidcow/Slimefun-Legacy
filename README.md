@@ -182,7 +182,7 @@ Core diagnostics correlate unknown IDs with explicitly registered replacements a
 
 ### Release lifecycle
 
-Slimefun Legacy 4.1.56 uses the exact released 4.1.55 tag commit as its release-blocking compatibility baseline. Required addons that work against 4.1.55 but regress against the 4.1.56 candidate block release. The historical 4.1.15 floor remains advisory for long-term drift visibility. CI-only addon repository coverage may be broader than `/sf versions`; runtime recognition stays curated and never treats CI monitoring as proof for an exact installed addon build.
+Slimefun Legacy 4.1.56 uses the exact validated source commit of the currently published 4.1.55 JAR as its release-blocking compatibility baseline. Required addons that work against 4.1.55 but regress against the 4.1.56 candidate block release. The historical 4.1.15 floor remains advisory for long-term drift visibility. CI-only addon repository coverage may be broader than `/sf versions`; runtime recognition stays curated and never treats CI monitoring as proof for an exact installed addon build.
 
 ## 🌐 English-first and recovery
 
