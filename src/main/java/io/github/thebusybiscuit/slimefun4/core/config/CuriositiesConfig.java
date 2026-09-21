@@ -116,9 +116,9 @@ public final class CuriositiesConfig {
         }
 
         migrateLegacyResourcePackSettings(createdFromBundledResource);
+        migrateConfigVersion();
         migrateRetiredResourcePackUrl();
         ensureResourcePackDefaults();
-        migrateConfigVersion();
     }
 
     /**
@@ -145,7 +145,7 @@ public final class CuriositiesConfig {
             dirty = false;
             plugin.getLogger()
                     .info("Updated " + FILE_NAME + " config-version from " + existingVersion + " to "
-                            + CURRENT_CONFIG_VERSION + " with the resource-pack safety steps.");
+                            + CURRENT_CONFIG_VERSION + " with the resource-pack safety and ownership steps.");
         } catch (IOException exception) {
             plugin.getLogger()
                     .log(
@@ -220,10 +220,6 @@ public final class CuriositiesConfig {
     }
 
     private String writeResourcePackOwnershipGuide(@Nonnull String contents) {
-        if (contents.contains(RESOURCE_PACK_OWNERSHIP_GUIDE_MARKER)) {
-            return contents;
-        }
-
         int resourcePackIndex = contents.indexOf("\nresource-pack:");
         if (resourcePackIndex < 0) {
             resourcePackIndex = contents.indexOf("resource-pack:");
@@ -232,24 +228,40 @@ public final class CuriositiesConfig {
             return contents;
         }
 
-        String guide = """
-                # Slimefun Legacy resource-pack ownership mode (config-version 2)
-                # ownership-mode controls who is expected to DELIVER the Slimefun textures:
-                #   auto     = backwards-compatible; infer intent from resource-pack.enabled.
-                #   legacy   = Slimefun Legacy sends the configured ZIP.
-                #   external = ItemsAdder/Oraxen/proxy/server pack sends a combined pack.
-                #   none     = no Slimefun-textured pack is intentionally in use.
-                #
-                # IMPORTANT: ownership-mode does NOT directly rewrite item-models.yml or stored items.
-                # EXTERNAL is a valid setup with Legacy sender OFF and Slimefun model mappings ON.
-                # NONE is the only explicit mode saying the server intentionally does not use Slimefun models.
-                """;
+        String updated = contents;
+        if (!updated.contains(RESOURCE_PACK_OWNERSHIP_GUIDE_MARKER)) {
+            String guide = """
+                    # Slimefun Legacy resource-pack ownership mode (config-version 2)
+                    # ownership-mode controls who is expected to DELIVER the Slimefun textures:
+                    #   auto     = backwards-compatible; infer intent from resource-pack.enabled.
+                    #   legacy   = Slimefun Legacy sends the configured ZIP.
+                    #   external = ItemsAdder/Oraxen/proxy/server pack sends a combined pack.
+                    #   none     = no Slimefun-textured pack is intentionally in use.
+                    #
+                    # IMPORTANT: ownership-mode does NOT directly rewrite item-models.yml or stored items.
+                    # EXTERNAL is a valid setup with Legacy sender OFF and Slimefun model mappings ON.
+                    # NONE is the only explicit mode saying the server intentionally does not use Slimefun models.
+                    """;
 
-        int insertAt = resourcePackIndex;
-        if (contents.charAt(resourcePackIndex) == '\n') {
-            insertAt++;
+            int insertAt = resourcePackIndex;
+            if (updated.charAt(resourcePackIndex) == '\n') {
+                insertAt++;
+            }
+            updated = updated.substring(0, insertAt) + guide + updated.substring(insertAt);
         }
-        return contents.substring(0, insertAt) + guide + contents.substring(insertAt);
+
+        if (!java.util.regex.Pattern.compile("(?m)^\\s{2}ownership-mode\\s*:").matcher(updated).find()) {
+            var rootPattern = java.util.regex.Pattern.compile("(?m)^resource-pack\\s*:\\s*$");
+            var rootMatcher = rootPattern.matcher(updated);
+            if (rootMatcher.find()) {
+                int insertAt = rootMatcher.end();
+                updated = updated.substring(0, insertAt)
+                        + "\n  ownership-mode: auto"
+                        + updated.substring(insertAt);
+            }
+        }
+
+        return updated;
     }
 
     private void migrateRetiredResourcePackUrl() {
