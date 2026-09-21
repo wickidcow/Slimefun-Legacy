@@ -9,6 +9,7 @@ import java.util.HexFormat;
 import java.util.UUID;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
+import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataType;
@@ -63,6 +64,32 @@ public final class ExternalResourcePackService {
      */
     public boolean isDeliveryEnabled() {
         return CuriositiesConfig.getConfig().getBoolean(CONFIG_ROOT + "enabled");
+    }
+
+    /**
+     * Enables or disables Slimefun Legacy's own resource-pack sender immediately.
+     *
+     * <p>Turning this on re-sends the configured Legacy pack to eligible online players. Turning it off removes only
+     * Slimefun Legacy's pack UUID from online players. This never changes item-models.yml or stored Slimefun items.</p>
+     *
+     * @return whether the setting was saved successfully
+     */
+    public boolean setDeliveryEnabled(boolean enabled) {
+        if (!CuriositiesConfig.getConfig().setResourcePackEnabled(enabled)) {
+            return false;
+        }
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (enabled) {
+                if (isRequired() || isPlayerEnabled(player)) {
+                    sendConfiguredPack(player);
+                }
+            } else {
+                removeConfiguredPack(player);
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -130,6 +157,10 @@ public final class ExternalResourcePackService {
             return false;
         }
 
+        return removeConfiguredPack(player);
+    }
+
+    private boolean removeConfiguredPack(@Nonnull Player player) {
         try {
             player.removeResourcePack(PACK_ID);
             return true;
