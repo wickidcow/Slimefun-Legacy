@@ -22,7 +22,7 @@ Slimefun Legacy turns a normal Minecraft server into a modpack-like experience w
 [Report a Bug](https://github.com/wickidcow/Slimefun-Legacy/issues) ·
 [Release History](EVERYTHING_THAT_CHANGED.md)
 
-Current release: **4.1.57 — Guided Doctor console & custom-pack safety**. ·
+Current release: **4.1.58 — Doctor Operations Center & pack ownership**. ·
 [Contributing](CONTRIBUTING.md)
 
 </div>
@@ -120,7 +120,7 @@ Test representative machines, backpacks, Cargo networks, recipes, protections, a
 
 ### Velocity / proxy support
 
-Slimefun Legacy 4.1.57 supports **Velocity modern forwarding** on the primary Paper 26.2 production line. Proxy CI uses a real Minecraft 26.2 client session to verify that the UUID presented through Velocity reaches Bukkit/Slimefun unchanged and that Slimefun research remains attached to the same profile after disconnect/reconnect.
+Slimefun Legacy 4.1.58 supports **Velocity modern forwarding** on the primary Paper 26.2 production line. Proxy CI uses a real Minecraft 26.2 client session to verify that the UUID presented through Velocity reaches Bukkit/Slimefun unchanged and that Slimefun research remains attached to the same profile after disconnect/reconnect.
 
 Use:
 
@@ -182,7 +182,7 @@ Core diagnostics correlate unknown IDs with explicitly registered replacements a
 
 ### Release lifecycle
 
-Slimefun Legacy 4.1.57 uses the exact released 4.1.56 source commit as its release-blocking compatibility baseline. Required addons that work against 4.1.56 but regress against the 4.1.57 candidate block release. The historical 4.1.15 floor remains advisory for long-term drift visibility. CI-only addon repository coverage may be broader than `/sf versions`; runtime recognition stays curated and never treats CI monitoring as proof for an exact installed addon build.
+Slimefun Legacy 4.1.58 uses the exact released 4.1.57 source commit as its release-blocking compatibility baseline. Required addons that work against 4.1.57 but regress against the 4.1.58 candidate block release. The historical 4.1.15 floor remains advisory for long-term drift visibility. CI-only addon repository coverage may be broader than `/sf versions`; runtime recognition stays curated and never treats CI monitoring as proof for an exact installed addon build.
 
 ## 🌐 English-first and recovery
 
@@ -259,7 +259,7 @@ Historical compatibility, core-platform, release, validation, and Enhanced Guide
 | Sponge | ❌ Unsupported |
 | Hybrid servers such as Arclight, Mohist, or Cardboard | ❌ Unsupported and blocked |
 | Fabric / Forge / NeoForge | ❌ Unsupported — this is a server plugin, not a mod |
-Slimefun Legacy 4.1.57 is tested primarily against **Paper 26.2 / Minecraft 26.2 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
+Slimefun Legacy 4.1.58 is tested primarily against **Paper 26.2 / Minecraft 26.2 on Java 25**. Purpur and most conventional Paper forks should work, but fork-specific behavior cannot be guaranteed. The `api-version: 1.16` plugin descriptor is retained for historical Bukkit material and addon behavior; it is not the supported Minecraft-version floor.
 The machine-readable support contract remains under `compatibility/`. Historical Compatibility Foundation and Paper/Purpur maintenance notes are consolidated in [`EVERYTHING_THAT_CHANGED.md`](EVERYTHING_THAT_CHANGED.md).
 Folia Phase 1 routes machine ticks and entity/location callbacks through their owning schedulers while preserving Paper behavior. Cargo and energy networks intentionally operate only on nodes owned by the regulator's current Folia region; transactional cross-region transfers are not enabled yet. Folia therefore remains experimental.
 **Every installed addon must also be Folia-safe.** The historical Folia Phase 1 safety boundary and staging checklist are preserved in [`EVERYTHING_THAT_CHANGED.md`](EVERYTHING_THAT_CHANGED.md).

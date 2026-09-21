@@ -1,5 +1,5 @@
 {
-  "release": "4.1.57",
+  "release": "4.1.58",
   "project": "Slimefun Legacy",
   "plugin_name": "Slimefun",
   "primary_platform": {
@@ -219,7 +219,20 @@
     "external_resource_pack_delivery_default_enabled": false,
     "external_resource_pack_hosting": false,
     "external_resource_pack_additive_stack": true,
-    "item_model_mapping_reapplied_after_registration": true
+    "item_model_mapping_reapplied_after_registration": true,
+    "doctor_operations_center": true,
+    "doctor_operations_center_read_mostly": true,
+    "doctor_performance_health_gui": true,
+    "doctor_upgrade_center_gui": true,
+    "doctor_storage_persistence_center": true,
+    "doctor_proxy_player_identity_gui": true,
+    "explicit_resource_pack_ownership_mode": true,
+    "external_resource_pack_ownership_preserves_item_models": true,
+    "resource_pack_ownership_changes_item_models": false,
+    "planned_restart_readiness_diagnostics": true,
+    "shutdown_backup_readiness_diagnostics": true,
+    "shutdown_backup_directory_self_initializing": true,
+    "shutdown_backup_retention_enforced": true
   },
   "phase": "Core Platform Phase 1L"
 }
