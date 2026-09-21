@@ -13,6 +13,7 @@ import io.github.thebusybiscuit.slimefun4.api.storage.StorageRuntimeSnapshot;
 import io.github.thebusybiscuit.slimefun4.core.config.CuriositiesConfig;
 import io.github.thebusybiscuit.slimefun4.core.services.ExternalResourcePackService;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.PluginDependencyDiagnosticsService;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.ProxyDiagnosticsService;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.PluginDependencyResolution;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.PluginDependencySnapshot;
 import io.github.thebusybiscuit.slimefun4.core.services.scheduling.SchedulerSnapshot;
@@ -45,6 +46,9 @@ final class DoctorSupportReport {
         int uncertainBackpacks = profiles == null ? 0 : profiles.getUncertainBackpackBaselineCount();
         ExternalResourcePackService packs = new ExternalResourcePackService(plugin);
         var textures = Slimefun.getItemTextureService();
+        var proxy = new ProxyDiagnosticsService(plugin).inspect();
+        var backup = Slimefun.getBackupService();
+        boolean backupEnabled = Slimefun.getCfg().getBoolean("options.backup-data");
 
         List<AddonCompatibilityResult> addonResults = Slimefun.getAddonCompatibilityService().getResults();
         AddonCompatibilitySummary addonSummary = AddonCompatibilitySummary.from(addonResults);
@@ -99,6 +103,17 @@ final class DoctorSupportReport {
         }
         if (missingRequired > 0 || disabledRequired > 0) {
             warnings.add("Required plugin dependencies are missing or disabled.");
+        }
+        if (packs.hasOwnershipContradiction()) {
+            warnings.add("Resource-pack ownership mode conflicts with the raw Legacy sender flag.");
+        }
+        if (packs.getOwnershipMode() == io.github.thebusybiscuit.slimefun4.core.services.ResourcePackOwnershipMode.NONE
+                && textures.getHostedPackRemovalCandidateCount() > 0) {
+            warnings.add(textures.getHostedPackRemovalCandidateCount()
+                    + " exact Legacy bundled item-model mapping(s) remain active while ownership mode is NONE.");
+        }
+        if (!proxy.getFailures().isEmpty()) {
+            warnings.add(proxy.getFailures().size() + " blocking proxy/forwarding finding(s) are present.");
         }
         if (packs.isDeliveryEnabled() && !packs.isConfiguredUrlValid()) {
             warnings.add("Slimefun Legacy resource-pack delivery is enabled but the configured URL is invalid.");
@@ -163,10 +178,17 @@ final class DoctorSupportReport {
                 + " &8| &7profiles &f" + storage.getProfileStorageType());
         sendLine(sender, "&7Backpack persistence: active saves &f" + pendingBackpackSaves
                 + " &8| &7uncertain baselines &f" + uncertainBackpacks);
+        sendLine(sender, "&7Shutdown backup: applicable &f" + backup.isApplicable()
+                + " &8| &7configured &f" + backupEnabled
+                + " &8| &7files &f" + backup.getBackupCount()
+                + " &8| &7newest &f" + backupAgeText(backup.getLatestBackupModifiedMillis()));
 
         sendLine(sender, "&6[Resource Pack + Item Models]");
-        sendLine(sender, "&7Legacy sender: &f" + (packs.isDeliveryEnabled() ? "enabled" : "disabled")
-                + " &8| &7required &f" + packs.isRequired()
+        sendLine(sender, "&7Ownership: &f" + packs.getOwnershipMode()
+                + " &8| &7raw sender &f" + (packs.isSenderFlagEnabled() ? "enabled" : "disabled")
+                + " &8| &7effective sender &f" + (packs.isDeliveryEnabled() ? "enabled" : "disabled")
+                + " &8| &7contradiction &f" + packs.hasOwnershipContradiction());
+        sendLine(sender, "&7Pack: required &f" + packs.isRequired()
                 + " &8| &7URL &f" + (packs.isConfiguredUrlValid() ? "valid" : "invalid")
                 + " &8| &7SHA-1 &f" + (packs.isConfiguredSha1Valid() ? "valid/optional" : "invalid"));
         sendLine(sender, "&7Mappings: bundled active &f" + textures.getHostedPackEnabledMappingCount()
@@ -174,6 +196,15 @@ final class DoctorSupportReport {
                 + " &8| &7custom preserved &f" + textures.getHostedPackCustomMappingCount());
         sendLine(sender, "&8Legacy sender state and Slimefun item-model mappings are independent.");
         sendLine(sender, "&8A custom/combined pack may keep matching Slimefun mappings enabled while Legacy's sender stays disabled.");
+
+        sendLine(sender, "&6[Proxy + Player Identity]");
+        sendLine(sender, "&7Forwarding mode: &f" + proxy.getForwardingMode()
+                + " &8| &7backend online-mode &f" + proxy.isBackendOnlineMode());
+        sendLine(sender, "&7Velocity: &f" + proxy.isVelocityEnabled()
+                + " &8| &7secret configured &f" + proxy.isVelocitySecretConfigured()
+                + " &8| &7Bungee-compatible &f" + proxy.isBungeeEnabled());
+        sendLine(sender, "&7Proxy findings: warnings &f" + proxy.getWarnings().size()
+                + " &8| &7blocking &f" + proxy.getFailures().size());
 
         sendLine(sender, "&6[Addons + Dependencies]");
         sendLine(sender, "&7Installed Slimefun addons: &f" + Slimefun.getInstalledAddons().size()
@@ -231,6 +262,18 @@ final class DoctorSupportReport {
         }
         sendLine(sender, "&8For detailed follow-up use /sf doctor core, compatibility, dependencies, runtime, integrations, or /sf tick top.");
         sendLine(sender, "&6====================================================");
+    }
+
+    private static @Nonnull String backupAgeText(long modifiedMillis) {
+        if (modifiedMillis <= 0L) {
+            return "none";
+        }
+        long minutes = Math.max(0L, (System.currentTimeMillis() - modifiedMillis) / 60_000L);
+        if (minutes < 120L) {
+            return minutes + "m ago";
+        }
+        long hours = minutes / 60L;
+        return hours < 72L ? hours + "h ago" : (hours / 24L) + "d ago";
     }
 
     private static void sendLine(@Nonnull CommandSender sender, @Nonnull String message) {

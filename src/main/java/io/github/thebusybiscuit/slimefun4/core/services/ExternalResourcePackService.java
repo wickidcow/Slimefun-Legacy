@@ -59,11 +59,35 @@ public final class ExternalResourcePackService {
         sendConfiguredPack(player);
     }
 
+    /** Returns the configured resource-pack ownership mode. */
+    public @Nonnull ResourcePackOwnershipMode getOwnershipMode() {
+        return ResourcePackOwnershipMode.parse(
+                CuriositiesConfig.getConfig().getString(CONFIG_ROOT + "ownership-mode"));
+    }
+
+    /** Returns the raw legacy sender flag before ownership-mode safety is applied. */
+    public boolean isSenderFlagEnabled() {
+        return CuriositiesConfig.getConfig().getBoolean(CONFIG_ROOT + "enabled");
+    }
+
     /**
-     * Returns whether Slimefun Legacy's own external pack sender is enabled by the server owner.
+     * Returns whether Slimefun Legacy's own external pack sender is effectively enabled.
+     *
+     * <p>EXTERNAL and NONE explicitly suppress Legacy delivery even if an older/stale enabled flag is still true.
+     * AUTO preserves historical behavior. LEGACY requires the sender flag to be enabled.</p>
      */
     public boolean isDeliveryEnabled() {
-        return CuriositiesConfig.getConfig().getBoolean(CONFIG_ROOT + "enabled");
+        ResourcePackOwnershipMode mode = getOwnershipMode();
+        return isSenderFlagEnabled() && mode != ResourcePackOwnershipMode.EXTERNAL && mode != ResourcePackOwnershipMode.NONE;
+    }
+
+    /** Returns whether ownership mode and the raw Legacy sender flag disagree. */
+    public boolean hasOwnershipContradiction() {
+        return switch (getOwnershipMode()) {
+            case LEGACY -> !isSenderFlagEnabled();
+            case EXTERNAL, NONE -> isSenderFlagEnabled();
+            case AUTO -> false;
+        };
     }
 
     /**
@@ -75,10 +99,45 @@ public final class ExternalResourcePackService {
      * @return whether the setting was saved successfully
      */
     public boolean setDeliveryEnabled(boolean enabled) {
-        if (!CuriositiesConfig.getConfig().setResourcePackEnabled(enabled)) {
+        ResourcePackOwnershipMode current = getOwnershipMode();
+        ResourcePackOwnershipMode updatedMode = current;
+        if (enabled && (current == ResourcePackOwnershipMode.EXTERNAL || current == ResourcePackOwnershipMode.NONE)) {
+            updatedMode = ResourcePackOwnershipMode.LEGACY;
+        } else if (!enabled && current == ResourcePackOwnershipMode.LEGACY) {
+            updatedMode = ResourcePackOwnershipMode.AUTO;
+        }
+
+        if (!CuriositiesConfig.getConfig().setResourcePackOwnershipAndSender(updatedMode, enabled)) {
             return false;
         }
 
+        applyDeliveryState();
+        return true;
+    }
+
+    /**
+     * Applies an explicit ownership mode and synchronizes the Legacy sender to a non-contradictory state.
+     *
+     * <p>AUTO preserves the current sender flag. LEGACY enables Legacy delivery. EXTERNAL and NONE disable Legacy
+     * delivery. This never changes item-model mappings or stored Slimefun items.</p>
+     */
+    public boolean setOwnershipMode(@Nonnull ResourcePackOwnershipMode mode) {
+        boolean senderEnabled = switch (mode) {
+            case LEGACY -> true;
+            case EXTERNAL, NONE -> false;
+            case AUTO -> isSenderFlagEnabled();
+        };
+
+        if (!CuriositiesConfig.getConfig().setResourcePackOwnershipAndSender(mode, senderEnabled)) {
+            return false;
+        }
+
+        applyDeliveryState();
+        return true;
+    }
+
+    private void applyDeliveryState() {
+        boolean enabled = isDeliveryEnabled();
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (enabled) {
                 if (isRequired() || isPlayerEnabled(player)) {
@@ -88,8 +147,6 @@ public final class ExternalResourcePackService {
                 removeConfiguredPack(player);
             }
         }
-
-        return true;
     }
 
     /**

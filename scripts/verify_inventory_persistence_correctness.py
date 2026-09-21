@@ -210,6 +210,31 @@ def main() -> int:
         "mutable delayed universal-inventory save handoff",
     )
 
+    backup = compact(
+        read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/BackupService.java")
+    )
+    require(backup, "Files.createDirectories(directory.toPath())", "shutdown backup directory creation")
+    require(
+        backup,
+        'candidate.getName().endsWith(".zip")',
+        "shutdown backup ZIP-only retention listing",
+    )
+    require(
+        backup,
+        'matches("^\\\\d{4}-\\\\d{2}-\\\\d{2}-\\\\d{2}-\\\\d{2}\\\\.zip$")',
+        "timestamped ZIP retention matcher",
+    )
+    require(
+        backup,
+        "for (int i = MAX_BACKUPS; i < matchedBackups.size(); i++)",
+        "backup retention ceiling enforcement",
+    )
+    require(
+        backup,
+        "Files.deleteIfExists(matchedBackups.get(i).toPath())",
+        "old backup deletion after newest-first ordering",
+    )
+
     data_utils = compact(
         read(root, "src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/DataUtils.java")
     )

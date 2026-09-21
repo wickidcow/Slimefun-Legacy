@@ -21,6 +21,9 @@ def main() -> int:
     sender = (root / "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/ExternalResourcePackService.java").read_text(
         encoding="utf-8"
     )
+    ownership = (root / "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/ResourcePackOwnershipMode.java").read_text(
+        encoding="utf-8"
+    )
     config_yaml = (root / "src/main/resources/configSFLAddons.yml").read_text(encoding="utf-8")
     docs = (root / "docs/RESOURCE_PACK.md").read_text(encoding="utf-8")
     tests = (root / "src/test/java/io/github/thebusybiscuit/slimefun4/core/services/TestExternalResourcePackService.java").read_text(
@@ -52,16 +55,35 @@ def main() -> int:
         "runtime stale SHA-1 suppression",
     )
 
-    require(config_source, "CURRENT_CONFIG_VERSION = 1", "versioned addon config schema")
+    require(config_source, "CURRENT_CONFIG_VERSION = 2", "versioned addon config schema")
     require(config_source, "migrateConfigVersion();", "one-time addon config migration")
     require(config_source, "writeResourcePackSafetyGuide", "resource-pack operator note injection")
+    require(config_source, "writeResourcePackOwnershipGuide", "resource-pack ownership note injection")
     require(config_source, "existingVersion >= CURRENT_CONFIG_VERSION", "no per-startup config rewrite")
-    require(config_yaml, "config-version: 1", "bundled addon config version")
+    require(config_source, "migrateConfigVersion();\n        migrateRetiredResourcePackUrl();\n        ensureResourcePackDefaults();", "schema migration must run before normal default persistence")
+    require(config_source, '"\\n  ownership-mode: auto"', "text-preserving ownership key insertion")
+    require(config_source, 'Pattern.compile("(?m)^\\\\s{2}ownership-mode\\\\s*:")', "ownership-key duplicate guard")
+    require(config_yaml, "config-version: 2", "bundled addon config version")
     require(config_yaml, "Slimefun Legacy resource-pack safety guide (config-version 1)", "versioned pack safety guide")
     require(config_yaml, "/sf doctor item-models enable-pack scan", "pack enable scan instruction")
     require(config_yaml, "/sf doctor item-models enable-pack confirm", "pack enable confirm instruction")
     require(config_yaml, "The sender toggle NEVER rewrites item-models.yml or stored ItemStacks.", "safe pack disable boundary")
-    require(config_yaml, "/sf doctor item-models rollback-v52", "v4.1.52 recovery instruction")
+    require(config_yaml, "/sf doctor item-models remove-resourcepack-texture-ids", "clear model cleanup instruction")
+
+    require(config_yaml, "ownership-mode: auto", "backwards-compatible ownership default")
+    require(config_yaml, "external = ItemsAdder/Oraxen/proxy/server pack sends a combined pack.", "external ownership guidance")
+    require(config_yaml, "EXTERNAL is valid with Legacy sender OFF and Slimefun model mappings ON.", "combined-pack safety boundary")
+    require(config_source, 'setDefaultValue(LEGACY_RESOURCE_PACK_ROOT + ".ownership-mode", ResourcePackOwnershipMode.AUTO.configValue())', "ownership default registration")
+    require(config_source, "setResourcePackOwnershipAndSender", "atomic ownership/sender persistence")
+    require(ownership, "AUTO", "AUTO ownership mode")
+    require(ownership, "LEGACY", "LEGACY ownership mode")
+    require(ownership, "EXTERNAL", "EXTERNAL ownership mode")
+    require(ownership, "NONE", "NONE ownership mode")
+    require(sender, "getOwnershipMode()", "ownership mode accessor")
+    require(sender, "hasOwnershipContradiction()", "ownership contradiction detection")
+    require(sender, "mode != ResourcePackOwnershipMode.EXTERNAL && mode != ResourcePackOwnershipMode.NONE", "external/none sender suppression")
+    require(sender, "case EXTERNAL, NONE -> false;", "explicit external/none ownership disables Legacy sender")
+    require(sender, "This never changes item-model mappings or stored Slimefun items.", "ownership mutation safety boundary")
 
     require(config_yaml, "RECOMMENDED (GitHub)", "recommended GitHub config comment")
     require(config_yaml, official, "recommended config URL")
@@ -69,10 +91,13 @@ def main() -> int:
 
     require(docs, "recommended", "resource-pack recommendation documentation")
     require(docs, "retired Modrinth", "retired Modrinth migration documentation")
+    require(docs, "ownership-mode", "resource-pack ownership documentation")
+    require(docs, "external", "external/combined pack ownership documentation")
+    require(docs, "Legacy sender OFF + Slimefun mappings ON", "combined-pack mapping preservation documentation")
     require(tests, retired_modrinth, "retired Modrinth normalization regression test")
     require(tests, "testCustomResourcePackUrlIsPreserved", "custom URL preservation regression test")
 
-    print("Resource-pack recommendation and retired-URL migration verification passed.")
+    print("Resource-pack recommendation, ownership and retired-URL migration verification passed.")
     return 0
 
 

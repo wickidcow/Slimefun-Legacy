@@ -67,6 +67,87 @@ Do **not** remove Slimefun item-model mappings merely because the Legacy sender 
 contents of an ItemsAdder/Oraxen/proxy/server pack, so the server owner must decide whether that external pack contains
 the matching Slimefun models. Remove mappings only when they are intentionally no longer used, after a backup and scan.
 
+### Slimefun Operations Center
+
+The **Slimefun Operations Center** is the read-mostly dashboard above the individual repair lanes. It gives one
+screen with six live status cards:
+
+- **Items** — latest Doctor findings, unknown IDs, item-model candidates and migration signals.
+- **Storage** — backend readiness, pending writes, backpack save chains, previous clean shutdown and persistence state.
+- **Machines** — ticker state, active failures, paused circuits and registered ticking locations.
+- **Addons** — hard dependency problems, compatibility attention and addon callback failures.
+- **Proxy** — Velocity/Bungee-compatible forwarding health and blocking identity risks.
+- **Resource Pack** — explicit ownership mode, Legacy sender state, external pack managers and config contradictions.
+
+The dashboard also shows **Planned Restart Readiness**. `READY` means Slimefun storage is ready, queued database writes
+are zero, backpack save chains are idle and no server-wide Doctor traversal is active. It is guidance for a planned
+restart or migration window, not a guarantee that unrelated plugins or the server platform cannot fail during shutdown.
+
+#### Performance Health
+
+Performance Health ties the Doctor UI to the existing `/sf tick` diagnostics instead of creating a second profiler.
+It exposes ticker state, rate, registered chunks/locations, targeted pauses, circuit-breaker pauses and active machine
+failures. Buttons route to `/sf tick top`, `/sf tick at`, `/sf tick frozen` and machine/integration diagnostics.
+
+Global Slimefun ticker freeze/resume is available only behind a confirmation screen. Freezing the ticker preserves
+machine registrations and stored data; already-dispatched work may finish.
+
+#### Upgrade Center
+
+Upgrade Center is read-only orchestration over the existing migration system. It surfaces:
+
+- legacy item-ID discovery;
+- addon-owned same-ID schema discovery;
+- exact placed-machine providers;
+- persisted block/universal IDs;
+- stored item payload formats;
+- persisted machine Slimefun Item IDs;
+- persisted backpack Slimefun Item IDs.
+
+The GUI deliberately does **not** execute a migration fingerprint. Operators review the scan/plan output in chat and
+use only the exact short-lived execution command printed by that native lane. The aggregate upgrade view never becomes
+a universal authorization token.
+
+#### Storage & Persistence Center
+
+Storage & Persistence combines runtime persistence health with the existing storage-integrity and migration workflows.
+It reports block/profile storage types, pending database writes, backpack save chains, uncertain backpack baselines,
+previous clean shutdown, active Doctor work and read-only shutdown-backup readiness.
+
+For SQLite-backed Slimefun data, Doctor can show whether the existing normal-shutdown backup service is configured,
+how many backup ZIPs exist and the age of the newest backup. There is intentionally **no live Force Backup button**:
+the existing backup runs after the normal database shutdown attempt, and Doctor does not create a competing live
+snapshot path.
+
+The existing `/sf doctor storage` two-pass/fingerprint workflow remains authoritative for storage-integrity repair.
+The Operations Center does not bypass its matching quiet scans, fresh verification, mandatory repair backup or
+destructive-repair guardrails.
+
+#### Proxy & Player Identity
+
+Proxy Health reuses `/sf doctor proxy` and adds an online-player picker for `/sf doctor proxy player <name>`. This lets
+an operator compare the Bukkit UUID with the loaded Slimefun profile owner UUID and inspect research/backpack evidence
+without editing player data.
+
+This matters because broken forwarding can look like lost Slimefun progress even when the database itself is healthy.
+
+#### Resource-pack ownership
+
+Config schema version 2 adds `resource-pack.ownership-mode`:
+
+| Mode | Meaning |
+| --- | --- |
+| `auto` | Backwards-compatible. Legacy sender behavior follows `resource-pack.enabled`. |
+| `legacy` | Slimefun Legacy owns delivery of the configured official/custom ZIP. |
+| `external` | ItemsAdder, Oraxen, a proxy/server pack, or another system owns delivery. Legacy's sender is disabled. |
+| `none` | The server explicitly declares that no Slimefun-textured pack is intended. Legacy's sender is disabled. |
+
+Ownership controls **delivery only**. It never rewrites `item-models.yml` or stored ItemStacks.
+
+`external` is the normal mode for a combined pack: **Legacy sender OFF + matching Slimefun model mappings ON**.
+`none` can make Doctor recommend reviewing exact Legacy bundled mappings that are still active, but Doctor still does
+not remove them automatically. Cleanup remains the separate confirmed resource-pack item-model action.
+
 ### Additional Doctor screens
 
 - **Player & Item Repair** — read-only hand/inventory inspection, confirmed held-item repair, confirmed self repair and an online-player repair picker.
@@ -269,6 +350,8 @@ If the server restarts, an addon is updated/reloaded, storage changes, or migrat
 | Exact placed machines | `/sf doctor migrations blocks scan <plugin>` | Addon-owned machines in currently loaded supported scope |
 | Persisted block IDs | `/sf doctor migrations schemas blocks scan` | Stored `BLOCK_RECORD` and `UNIVERSAL_RECORD` identities without loading chunks |
 | Persisted item payloads | `/sf doctor migrations schemas storage scan` | Unloaded `BLOCK_INVENTORY` and `UNIVERSAL_INVENTORY` item payload formats |
+| Persisted machine Item IDs | `/sf doctor migrations schemas storage ids scan` | Stored canonical/legacy Slimefun Item IDs in machine inventory payloads |
+| Persisted backpack Item IDs | `/sf doctor migrations schemas storage backpacks scan` | Stored canonical/legacy Slimefun Item IDs in backpack payloads, with cached profiles deferred |
 
 The aggregate upgrade plan is deliberately not an authorization token. These lanes remain separate because they protect different storage/live-state invariants and have different revalidation requirements.
 

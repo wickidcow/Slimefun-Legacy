@@ -48,41 +48,73 @@ public class BackupService implements Runnable {
                 && dbManager.getBlockDataStorageType() != StorageType.SQLITE) {
             return;
         }
-        // Make sure that the directory exists.
-        if (directory.exists()) {
-            List<File> backups = Arrays.asList(directory.listFiles());
 
-            if (backups.size() > MAX_BACKUPS) {
-                try {
-                    purgeBackups(backups);
-                } catch (IOException e) {
-                    Slimefun.logger().log(Level.WARNING, "Unable to delete old backup file", e);
-                }
-            }
+        try {
+            Files.createDirectories(directory.toPath());
+        } catch (IOException exception) {
+            Slimefun.logger().log(Level.SEVERE, "Unable to create the Slimefun backup directory", exception);
+            return;
+        }
 
-            File file = new File(directory, format.format(LocalDateTime.now()) + ".zip");
-
-            if (!file.exists()) {
-                try {
-                    if (file.createNewFile()) {
-                        try (ZipOutputStream output = new ZipOutputStream(new FileOutputStream(file))) {
-                            createBackup(output);
-                        }
-
-                        Slimefun.logger().log(Level.INFO, "Backed up Slimefun data to: {0}", file.getName());
-                    } else {
-                        Slimefun.logger().log(Level.WARNING, "Unable to create backup file: {0}", file.getName());
+        File file = new File(directory, format.format(LocalDateTime.now()) + ".zip");
+        if (!file.exists()) {
+            try {
+                if (file.createNewFile()) {
+                    try (ZipOutputStream output = new ZipOutputStream(new FileOutputStream(file))) {
+                        createBackup(output);
                     }
-                } catch (IOException x) {
-                    Slimefun.logger()
-                            .log(
-                                    Level.SEVERE,
-                                    x,
-                                    () -> "An Exception occurred while creating a backup for Slimefun "
-                                            + Slimefun.getVersion());
+
+                    Slimefun.logger().log(Level.INFO, "Backed up Slimefun data to: {0}", file.getName());
+                } else {
+                    Slimefun.logger().log(Level.WARNING, "Unable to create backup file: {0}", file.getName());
                 }
+            } catch (IOException exception) {
+                Slimefun.logger()
+                        .log(
+                                Level.SEVERE,
+                                exception,
+                                () -> "An Exception occurred while creating a backup for Slimefun "
+                                        + Slimefun.getVersion());
+                return;
             }
         }
+
+        File[] files = directory.listFiles(candidate -> candidate.isFile() && candidate.getName().endsWith(".zip"));
+        if (files != null && files.length > MAX_BACKUPS) {
+            try {
+                purgeBackups(Arrays.asList(files));
+            } catch (IOException exception) {
+                Slimefun.logger().log(Level.WARNING, "Unable to delete old Slimefun backup file", exception);
+            }
+        }
+    }
+
+    /** Returns whether the current database configuration has SQLite data covered by this backup service. */
+    public boolean isApplicable() {
+        var dbManager = Slimefun.getDatabaseManager();
+        return dbManager.getProfileStorageType() == StorageType.SQLITE
+                || dbManager.getBlockDataStorageType() == StorageType.SQLITE;
+    }
+
+    /** Returns the number of existing Slimefun shutdown backup ZIPs. */
+    public int getBackupCount() {
+        File[] backups = directory.listFiles(file -> file.isFile() && file.getName().endsWith(".zip"));
+        return backups == null ? 0 : backups.length;
+    }
+
+    /** Returns the newest backup file modification time, or {@code 0} when no backup exists. */
+    public long getLatestBackupModifiedMillis() {
+        File[] backups = directory.listFiles(file -> file.isFile() && file.getName().endsWith(".zip"));
+        if (backups == null || backups.length == 0) {
+            return 0L;
+        }
+
+        return Arrays.stream(backups).mapToLong(File::lastModified).max().orElse(0L);
+    }
+
+    /** Returns the retention ceiling used by the shutdown backup service. */
+    public int getMaximumBackups() {
+        return MAX_BACKUPS;
     }
 
     private void createBackup(@Nonnull ZipOutputStream output) throws IOException {
@@ -129,20 +161,13 @@ public class BackupService implements Runnable {
      *             An {@link IOException} is thrown if a {@link File} could not be deleted
      */
     private void purgeBackups(@Nonnull List<File> backups) throws IOException {
-        var matchedBackup = backups.stream()
-                .filter(f -> f.getName().matches("^\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}$"))
-                .sorted((a, b) -> {
-                    LocalDateTime time1 = LocalDateTime.parse(
-                            a.getName().substring(0, a.getName().length() - 4), format);
-                    LocalDateTime time2 = LocalDateTime.parse(
-                            b.getName().substring(0, b.getName().length() - 4), format);
-
-                    return time2.compareTo(time1);
-                })
+        List<File> matchedBackups = backups.stream()
+                .filter(file -> file.getName().matches("^\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}\\.zip$"))
+                .sorted((left, right) -> Long.compare(right.lastModified(), left.lastModified()))
                 .toList();
 
-        for (int i = matchedBackup.size() - MAX_BACKUPS; i > 0; i--) {
-            Files.delete(matchedBackup.get(i).toPath());
+        for (int i = MAX_BACKUPS; i < matchedBackups.size(); i++) {
+            Files.deleteIfExists(matchedBackups.get(i).toPath());
         }
     }
 }

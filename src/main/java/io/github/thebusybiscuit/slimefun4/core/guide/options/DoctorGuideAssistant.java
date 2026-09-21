@@ -4,6 +4,8 @@ import io.github.thebusybiscuit.slimefun4.api.addons.AddonCompatibilityStatus;
 import io.github.thebusybiscuit.slimefun4.api.runtime.MachineRuntimeSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.storage.StorageRuntimeSnapshot;
 import io.github.thebusybiscuit.slimefun4.core.services.ExternalResourcePackService;
+import io.github.thebusybiscuit.slimefun4.core.services.ResourcePackOwnershipMode;
+import io.github.thebusybiscuit.slimefun4.core.services.compatibility.ProxyDiagnosticsService;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.PluginDependencyDiagnosticsService;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorReport;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
@@ -25,6 +27,10 @@ final class DoctorGuideAssistant {
         RUN_SCAN,
         SHOW_STATUS,
         UPGRADE_PACK_ITEMS,
+        PACK_PREFLIGHT,
+        PROXY_HEALTH,
+        PERFORMANCE_HEALTH,
+        STORAGE_HEALTH,
         REPAIR_PRESENTATION,
         SCHEMA_MIGRATION,
         LEGACY_MIGRATION,
@@ -56,15 +62,34 @@ final class DoctorGuideAssistant {
         StorageRuntimeSnapshot storage = Slimefun.getStorageRuntimeService().getSnapshot();
         if (storage.getPendingWrites() > 0) {
             return new Recommendation(
-                    Action.SHOW_STATUS,
+                    Action.STORAGE_HEALTH,
                     "Wait for Database Writes",
-                    storage.getPendingWrites() + " Slimefun database write(s) are still pending. Do not stop or restart yet.",
+                    storage.getPendingWrites() + " Slimefun database write(s) are still pending. Review persistence health before restarting.",
                     storage.getPendingWrites());
         }
 
         ItemDoctorReport last = itemDoctor.getLastReport();
         ExternalResourcePackService packs = new ExternalResourcePackService(Slimefun.instance());
         int packEnableCandidates = Slimefun.getItemTextureService().getHostedPackEnableCandidateCount();
+
+        if (packs.hasOwnershipContradiction()) {
+            return new Recommendation(
+                    Action.PACK_PREFLIGHT,
+                    "Resolve Resource-Pack Ownership",
+                    "The explicit pack ownership mode conflicts with the saved Legacy sender flag. Effective delivery is being kept safe, but config should be reconciled.",
+                    1);
+        }
+
+        if (packs.getOwnershipMode() == ResourcePackOwnershipMode.NONE
+                && Slimefun.getItemTextureService().getHostedPackRemovalCandidateCount() > 0) {
+            int activeMappings = Slimefun.getItemTextureService().getHostedPackRemovalCandidateCount();
+            return new Recommendation(
+                    Action.PACK_PREFLIGHT,
+                    "Review Unused Slimefun Model Mappings",
+                    "Pack ownership is explicitly NONE, but " + activeMappings
+                            + " exact Legacy bundled mapping(s) remain active. Review the preflight before choosing cleanup.",
+                    activeMappings);
+        }
 
         if (packs.isDeliveryEnabled() && packEnableCandidates > 0) {
             return new Recommendation(
@@ -73,6 +98,16 @@ final class DoctorGuideAssistant {
                     "Legacy pack delivery is enabled, but " + packEnableCandidates
                             + " bundled item mapping(s) are still disabled. Review the guarded adoption flow.",
                     packEnableCandidates);
+        }
+
+        var proxy = new ProxyDiagnosticsService(Slimefun.instance()).inspect();
+        if (!proxy.getFailures().isEmpty()) {
+            return new Recommendation(
+                    Action.PROXY_HEALTH,
+                    "Review Proxy Forwarding",
+                    proxy.getFailures().size()
+                            + " blocking proxy/forwarding finding(s) can affect Slimefun profile identity and persistence.",
+                    proxy.getFailures().size());
         }
 
         if (last == null) {
@@ -152,6 +187,14 @@ final class DoctorGuideAssistant {
         }
 
         MachineRuntimeSnapshot machines = Slimefun.getMachineRuntimeService().getSnapshot();
+        if (machines.isPaused()) {
+            return new Recommendation(
+                    Action.PERFORMANCE_HEALTH,
+                    "Slimefun Ticker Is Paused",
+                    "The global Slimefun machine ticker is paused. Review Performance Health before resuming or leaving it frozen.",
+                    1);
+        }
+
         if (machines.getActiveMachineFailures() > 0 || machines.getPausedMachineCircuits() > 0) {
             long count = (long) machines.getActiveMachineFailures() + machines.getPausedMachineCircuits();
             return new Recommendation(
@@ -191,9 +234,9 @@ final class DoctorGuideAssistant {
 
         if (!storage.wasPreviousShutdownClean()) {
             return new Recommendation(
-                    Action.SUPPORT_SUMMARY,
+                    Action.STORAGE_HEALTH,
                     "Review Previous Unclean Shutdown",
-                    "Slimefun did not observe a clean previous shutdown. Review storage/runtime health before migrations.",
+                    "Slimefun did not observe a clean previous shutdown. Review storage/persistence health before migrations.",
                     1);
         }
 

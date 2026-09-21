@@ -39,6 +39,8 @@ support_report = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/com
 tabs = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/SlimefunTabCompleter.java")
 doctor_menu = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/guide/options/DoctorGuideMenu.java")
 doctor_assistant = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/guide/options/DoctorGuideAssistant.java")
+operations_menu = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/guide/options/DoctorOperationsCenterMenu.java")
+ownership_mode = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/ResourcePackOwnershipMode.java")
 pack_service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/ExternalResourcePackService.java")
 addons_config = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/config/CuriositiesConfig.java")
 docs = read("docs/wiki/Doctor-and-Diagnostics.md")
@@ -159,6 +161,48 @@ require("&aSupported setup:" in doctor_menu
         and "Legacy sender OFF" in doctor_menu
         and "External/combined packs may still need these mappings." in doctor_menu,
         "Guide Doctor must clearly support external/combined pack delivery without implying model cleanup")
+require("&3Slimefun Operations Center" in doctor_menu
+        and "&6Performance Health" in operations_menu
+        and "&bUpgrade Center" in operations_menu
+        and "&eStorage & Persistence Center" in operations_menu
+        and "&dProxy & Player Identity" in operations_menu
+        and "&3Resource-Pack Ownership" in operations_menu,
+        "Guide Doctor must retain the unified operations center and health lanes")
+require("&fItems" in operations_menu
+        and "&fStorage" in operations_menu
+        and "&fMachines" in operations_menu
+        and "&fAddons" in operations_menu
+        and "&fProxy" in operations_menu
+        and "&fResource Pack" in operations_menu,
+        "Operations Center must retain the six top-level status cards")
+require("ResourcePackOwnershipMode.EXTERNAL" in operations_menu
+        and "Slimefun model mappings may remain enabled." in operations_menu
+        and "This still does NOT remove item-model mappings." in operations_menu,
+        "Operations Center must preserve external/combined pack mapping semantics")
+require("AUTO" in ownership_mode and "LEGACY" in ownership_mode
+        and "EXTERNAL" in ownership_mode and "NONE" in ownership_mode,
+        "resource-pack ownership modes are incomplete")
+require("setOwnershipMode(@Nonnull ResourcePackOwnershipMode mode)" in pack_service
+        and "case EXTERNAL, NONE -> false;" in pack_service,
+        "resource-pack ownership must safely synchronize Legacy sender state")
+require("Action.PACK_PREFLIGHT" in doctor_assistant
+        and "Action.PROXY_HEALTH" in doctor_assistant
+        and "Action.PERFORMANCE_HEALTH" in doctor_assistant
+        and "Action.STORAGE_HEALTH" in doctor_assistant,
+        "Doctor Assistant must retain operations-health routing lanes")
+require("getOwnershipMode() == ResourcePackOwnershipMode.NONE" in doctor_assistant
+        and "Review Unused Slimefun Model Mappings" in doctor_assistant,
+        "explicit NONE ownership may recommend review but not automatic model cleanup")
+reject("removeHostedPackMappings()" in doctor_assistant,
+        "Doctor Assistant must never directly remove resource-pack item-model mappings")
+require('"slimefun doctor upgrade plan"' in operations_menu
+        and '"slimefun doctor migrations schemas storage status"' in operations_menu
+        and '"slimefun doctor migrations schemas storage ids status"' in operations_menu
+        and '"slimefun doctor migrations schemas storage backpacks status"' in operations_menu,
+        "Operations Center must retain read-only upgrade and persisted-storage lanes")
+require("This GUI intentionally does not execute migration" in operations_menu,
+        "Upgrade Center must keep migration execution outside the GUI and behind native fingerprints")
+
 require("testForPlayer(@Nonnull Player player)" in pack_service
         and "getEffectivePackUrl()" in pack_service
         and "isConfiguredUrlValid()" in pack_service
@@ -209,6 +253,8 @@ print("- historical rollback remains available while general cleanup removes any
 print("- Guide admin Doctor keeps separate sender, item-upgrade, sender-disable and remove-model actions")
 print("- external/combined pack delivery is a supported state and never implies model cleanup")
 print("- Doctor Assistant remains read-only and routes operators to existing guarded repair lanes")
+print("- Operations Center retains items/storage/machines/addons/proxy/resource-pack health lanes")
+print("- explicit pack ownership preserves EXTERNAL combined-pack mappings and keeps NONE cleanup review-only")
 print("- hosted-pack adoption is explicit, zero-only, storage-aware and conflict-preserving")
 print("- only exact bundled first-float matches on IDs configured to 0 are eligible")
 print("- unrelated modern CustomModelData lanes remain preserved")

@@ -5,7 +5,7 @@
 # Fresh installs default Curiosities OFF. Existing enabled installations are migrated and stay enabled.
 # This schema version changes only when configSFLAddons.yml itself needs a one-time migration.
 # Normal Slimefun Legacy updates do not rewrite this file just because the plugin version changed.
-config-version: 1
+config-version: 2
 
 enabled: false
 
@@ -38,11 +38,21 @@ enabled: false
 # IMPORTANT: Before enabling this on an existing server, run /sf doctor item-models scan
 # and review any reported model-data conflicts before changing item-model mappings.
 # If storage/machine matching broke after Slimefun Legacy v4.1.52, first run
-# /sf doctor item-models rollback-v52 and follow the recovery instructions it prints.
+# /sf doctor item-models remove-resourcepack-texture-ids and follow the recovery instructions it prints.
 # If an established server intentionally wants to adopt Legacy's bundled item models, run
 # /sf doctor item-models enable-pack scan, then /sf doctor item-models enable-pack confirm.
 # Enabling the sender alone never rewrites existing 0 item-model mappings.
+# Slimefun Legacy resource-pack ownership mode (config-version 2)
+# auto     = backwards-compatible; infer intent from resource-pack.enabled.
+# legacy   = Slimefun Legacy sends the configured ZIP.
+# external = ItemsAdder/Oraxen/proxy/server pack sends a combined pack.
+# none     = no Slimefun-textured pack is intentionally in use.
+#
+# ownership-mode controls delivery ownership only. It never rewrites item-models.yml or stored items.
+# EXTERNAL is valid with Legacy sender OFF and Slimefun model mappings ON.
+# NONE is the only explicit mode saying Slimefun textures are intentionally not used.
 resource-pack:
+  ownership-mode: auto
   enabled: false
   # RECOMMENDED (GitHub): https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip
   # The retired Modrinth/default Legacy URLs are migrated here automatically on upgrade.
