@@ -154,10 +154,12 @@ final class DoctorCommand extends SubCommand {
                 .mapToLong(PluginDependencySnapshot::getRequiredDependencyProblemCount)
                 .sum();
 
+        var platform = Slimefun.getPlatformCompatibilityService().getProfile();
         send(sender, "&6Slimefun Doctor Support Report");
         send(sender, "&7Slimefun Legacy: &e" + plugin.getPluginMeta().getVersion());
-        send(sender, "&7Server: &e" + Bukkit.getName() + " " + Bukkit.getVersion());
-        send(sender, "&7Java: &e" + System.getProperty("java.version"));
+        send(sender, "&7Server: &e" + platform.getDisplayName()
+                + " &8| &7Minecraft &e" + platform.getRawMinecraftVersion());
+        send(sender, "&7Java: &e" + platform.getJavaFeatureVersion());
         send(sender, "&7Storage: " + (storage.isReady() ? "&aReady" : "&cNot ready")
                 + " &8| &7previous clean shutdown: " + (storage.wasPreviousShutdownClean() ? "&aYes" : "&eNo")
                 + " &8| &7pending writes: &e" + storage.getPendingWrites());
