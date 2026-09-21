@@ -85,6 +85,34 @@ public class BackupService implements Runnable {
         }
     }
 
+    /** Returns whether the current database configuration has SQLite data covered by this backup service. */
+    public boolean isApplicable() {
+        var dbManager = Slimefun.getDatabaseManager();
+        return dbManager.getProfileStorageType() == StorageType.SQLITE
+                || dbManager.getBlockDataStorageType() == StorageType.SQLITE;
+    }
+
+    /** Returns the number of existing Slimefun shutdown backup ZIPs. */
+    public int getBackupCount() {
+        File[] backups = directory.listFiles(file -> file.isFile() && file.getName().endsWith(".zip"));
+        return backups == null ? 0 : backups.length;
+    }
+
+    /** Returns the newest backup file modification time, or {@code 0} when no backup exists. */
+    public long getLatestBackupModifiedMillis() {
+        File[] backups = directory.listFiles(file -> file.isFile() && file.getName().endsWith(".zip"));
+        if (backups == null || backups.length == 0) {
+            return 0L;
+        }
+
+        return Arrays.stream(backups).mapToLong(File::lastModified).max().orElse(0L);
+    }
+
+    /** Returns the retention ceiling used by the shutdown backup service. */
+    public int getMaximumBackups() {
+        return MAX_BACKUPS;
+    }
+
     private void createBackup(@Nonnull ZipOutputStream output) throws IOException {
         Validate.notNull(output, "The Output Stream cannot be null!");
 
