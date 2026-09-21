@@ -61,7 +61,7 @@ def main() -> int:
     require(config_source, "writeResourcePackOwnershipGuide", "resource-pack ownership note injection")
     require(config_source, "existingVersion >= CURRENT_CONFIG_VERSION", "no per-startup config rewrite")
     require(config_source, "migrateConfigVersion();\n        migrateRetiredResourcePackUrl();\n        ensureResourcePackDefaults();", "schema migration must run before normal default persistence")
-    require(config_source, '"+ "\\n  ownership-mode: auto" +"', "text-preserving ownership key insertion")
+    require(config_source, '"\\n  ownership-mode: auto"', "text-preserving ownership key insertion")
     require(config_source, 'Pattern.compile("(?m)^\\\\s{2}ownership-mode\\\\s*:")', "ownership-key duplicate guard")
     require(config_yaml, "config-version: 2", "bundled addon config version")
     require(config_yaml, "Slimefun Legacy resource-pack safety guide (config-version 1)", "versioned pack safety guide")
