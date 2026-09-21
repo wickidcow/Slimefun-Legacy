@@ -24,7 +24,6 @@ final class DoctorGuideAssistant {
         RUN_SCAN,
         SHOW_STATUS,
         UPGRADE_PACK_ITEMS,
-        REVIEW_MODEL_CLEANUP,
         REPAIR_PRESENTATION,
         SCHEMA_MIGRATION,
         LEGACY_MIGRATION,
