@@ -69,9 +69,7 @@
       "enabled": true,
       "tested_core_variants": [
         "legacy"
-      ],
-      "expected_commit": "2164c8615900888f1e0c22bc42752fbaf24867f7",
-      "target_version": "2.1.62"
+      ]
     },
     {
       "name": "Supreme Legacy Fork",
