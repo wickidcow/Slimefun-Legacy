@@ -10,6 +10,7 @@ This is intentional for servers that already use ItemsAdder, Oraxen, a proxy-lev
 
 ```yaml
 resource-pack:
+  ownership-mode: auto
   enabled: false
   # RECOMMENDED (GitHub): https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip
   url: 'https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip'
@@ -41,7 +42,16 @@ Slimefun Legacy bundles the verified non-zero mapping for the hosted pack. On a 
 
 Normal plugin updates do **not** rewrite the file on every start. When the config schema itself changes, Legacy performs a one-time migration, advances `config-version`, and can inject new operator notes without repeatedly replacing the server owner's file.
 
-Config version 1 adds the resource-pack safety guide directly above the `resource-pack:` section. It includes the exact enable-pack Doctor workflow, the required restart point, and the safe disable boundary.
+Config version 1 added the resource-pack safety guide directly above the `resource-pack:` section. Config version 2 adds an explicit `resource-pack.ownership-mode` so Doctor can distinguish who is expected to deliver Slimefun textures without guessing from the sender toggle.
+
+The supported ownership modes are:
+
+- `auto` — backwards-compatible behavior; infer delivery from `resource-pack.enabled`.
+- `legacy` — Slimefun Legacy owns delivery of the configured official/custom ZIP.
+- `external` — ItemsAdder, Oraxen, a proxy, server-level pack system, or another combined-pack manager owns delivery.
+- `none` — the server explicitly declares that no Slimefun-textured pack is intended.
+
+Changing ownership never rewrites `item-models.yml` or stored ItemStacks. `external` deliberately supports **Legacy sender OFF + Slimefun mappings ON**. `none` may cause Doctor to recommend reviewing unused bundled mappings, but cleanup remains a separate confirmed Doctor action.
 
 Disabling `resource-pack.enabled` only disables Legacy's sender. It does not rewrite `item-models.yml` and does not strip CustomModelData from stored items. This is important for servers that stop using Legacy's sender but continue serving the matching models through ItemsAdder, Oraxen, a proxy pack, or another combined-pack manager.
 
@@ -61,10 +71,11 @@ Slimefun Legacy uses Minecraft's additive resource-pack API so an explicitly ena
 
 ## ItemsAdder servers
 
-If ItemsAdder already builds and sends the server's combined pack, leave this feature disabled:
+If ItemsAdder already builds and sends the server's combined pack, declare external ownership:
 
 ```yaml
 resource-pack:
+  ownership-mode: external
   enabled: false
 ```
 
@@ -147,4 +158,4 @@ After that migration, known retired Slimefun Legacy pack URLs are normalized to 
 
 ### v4.1.52 storage compatibility recovery
 
-v4.1.52 briefly upgraded existing zero item-model placeholders to the bundled hosted-pack map. That behavior has been removed. Affected servers can audit with `/sf doctor item-models rollback-v52`; after an explicit confirmed rollback and clean restart, use `/sf doctor item-models scan` followed by `/sf doctor item-models repair confirm` to normalize reachable stored ItemStacks. Custom non-matching model values are preserved.
+v4.1.52 briefly upgraded existing zero item-model placeholders to the bundled hosted-pack map. That behavior has been removed. Affected servers can audit with `/sf doctor item-models remove-resourcepack-texture-ids` (the historical `rollback-v52` alias still works); after an explicit confirmed rollback and clean restart, use `/sf doctor item-models scan` followed by `/sf doctor item-models repair confirm` to normalize reachable stored ItemStacks. Custom non-matching model values are preserved.
