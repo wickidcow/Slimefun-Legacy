@@ -298,7 +298,7 @@ final class DoctorOperationsCenterMenu {
         menu.open(player);
     }
 
-    private static void openPerformanceCenter(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+    static void openPerformanceCenter(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
         MachineRuntimeSnapshot machines = Slimefun.getMachineRuntimeService().getSnapshot();
         var ticker = Slimefun.getTickerTask();
         ChestMenu menu = subMenu("&6&lPerformance Health", 45);
@@ -451,7 +451,7 @@ final class DoctorOperationsCenterMenu {
         menu.open(player);
     }
 
-    private static void openStorageCenter(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+    static void openStorageCenter(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
         StorageRuntimeSnapshot storage = Slimefun.getStorageRuntimeService().getSnapshot();
         var backup = Slimefun.getBackupService();
         boolean backupEnabled = Slimefun.getCfg().getBoolean("options.backup-data");
@@ -536,7 +536,7 @@ final class DoctorOperationsCenterMenu {
         menu.open(player);
     }
 
-    private static void openProxyCenter(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+    static void openProxyCenter(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
         ProxyDiagnosticsSnapshot snapshot = new ProxyDiagnosticsService(Slimefun.instance()).inspect();
         ChestMenu menu = subMenu("&d&lProxy & Player Identity", 45);
 
