@@ -107,6 +107,11 @@ final class DoctorSupportReport {
         if (packs.hasOwnershipContradiction()) {
             warnings.add("Resource-pack ownership mode conflicts with the raw Legacy sender flag.");
         }
+        if (packs.getOwnershipMode() == io.github.thebusybiscuit.slimefun4.core.services.ResourcePackOwnershipMode.NONE
+                && textures.getHostedPackRemovalCandidateCount() > 0) {
+            warnings.add(textures.getHostedPackRemovalCandidateCount()
+                    + " exact Legacy bundled item-model mapping(s) remain active while ownership mode is NONE.");
+        }
         if (!proxy.getFailures().isEmpty()) {
             warnings.add(proxy.getFailures().size() + " blocking proxy/forwarding finding(s) are present.");
         }
@@ -176,7 +181,7 @@ final class DoctorSupportReport {
         sendLine(sender, "&7Shutdown backup: applicable &f" + backup.isApplicable()
                 + " &8| &7configured &f" + backupEnabled
                 + " &8| &7files &f" + backup.getBackupCount()
-                + " &8| &7newest age-min &f" + backupAgeMinutes(backup.getLatestBackupModifiedMillis()));
+                + " &8| &7newest &f" + backupAgeText(backup.getLatestBackupModifiedMillis()));
 
         sendLine(sender, "&6[Resource Pack + Item Models]");
         sendLine(sender, "&7Ownership: &f" + packs.getOwnershipMode()
@@ -259,8 +264,16 @@ final class DoctorSupportReport {
         sendLine(sender, "&6====================================================");
     }
 
-    private static long backupAgeMinutes(long modifiedMillis) {
-        return modifiedMillis <= 0L ? -1L : Math.max(0L, (System.currentTimeMillis() - modifiedMillis) / 60_000L);
+    private static @Nonnull String backupAgeText(long modifiedMillis) {
+        if (modifiedMillis <= 0L) {
+            return "none";
+        }
+        long minutes = Math.max(0L, (System.currentTimeMillis() - modifiedMillis) / 60_000L);
+        if (minutes < 120L) {
+            return minutes + "m ago";
+        }
+        long hours = minutes / 60L;
+        return hours < 72L ? hours + "h ago" : (hours / 24L) + "d ago";
     }
 
     private static void sendLine(@Nonnull CommandSender sender, @Nonnull String message) {
