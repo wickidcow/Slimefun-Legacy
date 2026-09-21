@@ -187,16 +187,6 @@ final class DoctorGuideAssistant {
                     1);
         }
 
-        int removalCandidates = Slimefun.getItemTextureService().getHostedPackRemovalCandidateCount();
-        if (Slimefun.getItemTextureService().wasHostedPackModelMigrationApplied() && removalCandidates > 0) {
-            return new Recommendation(
-                    Action.REVIEW_MODEL_CLEANUP,
-                    "Review Legacy Model Cleanup",
-                    removalCandidates
-                            + " exact bundled mapping(s) remain from a historical migration. Remove them only if that mapping is unwanted.",
-                    removalCandidates);
-        }
-
         return new Recommendation(
                 Action.NONE,
                 "No Immediate Doctor Fix Recommended",
