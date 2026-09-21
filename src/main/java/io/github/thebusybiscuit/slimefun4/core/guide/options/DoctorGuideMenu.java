@@ -152,6 +152,22 @@ final class DoctorGuideMenu {
         addOtherDoctorFixesButton(menu, returnGuide);
 
         menu.addItem(
+                31,
+                menuItem(
+                        Material.COMPASS,
+                        "&3Slimefun Operations Center",
+                        "",
+                        "&7Unified health dashboard for:",
+                        "&7items, storage, machines, addons, proxy,",
+                        "&7resource packs, performance and upgrades.",
+                        "",
+                        "&eClick to open"));
+        menu.addMenuClickHandler(31, (clickedPlayer, slot, item, action) -> {
+            DoctorOperationsCenterMenu.open(clickedPlayer, returnGuide);
+            return false;
+        });
+
+        menu.addItem(
                 30,
                 menuItem(
                         Material.PAPER,
@@ -341,7 +357,7 @@ final class DoctorGuideMenu {
         });
     }
 
-    private static void openResourcePackPreflight(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+    static void openResourcePackPreflight(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
         ExternalResourcePackService service = new ExternalResourcePackService(Slimefun.instance());
         var textures = Slimefun.getItemTextureService();
         String managers = DoctorGuideAssistant.detectedPackManagers();
@@ -454,7 +470,7 @@ final class DoctorGuideMenu {
         menu.open(player);
     }
 
-    private static void openPlayerItemRepair(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+    static void openPlayerItemRepair(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
         ChestMenu menu = subMenu("&6&lPlayer & Item Repair", 36);
 
         menu.addItem(
@@ -624,7 +640,7 @@ final class DoctorGuideMenu {
         menu.open(viewer);
     }
 
-    private static void openAddonDependencyHealth(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+    static void openAddonDependencyHealth(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
         long dependencies = DoctorGuideAssistant.dependencyProblemCount();
         long addonFailures = DoctorGuideAssistant.addonRuntimeFailureCount();
         ChestMenu menu = subMenu("&d&lAddon & Dependency Health", 36);
@@ -671,7 +687,7 @@ final class DoctorGuideMenu {
         menu.open(player);
     }
 
-    private static void openRuntimeRecovery(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+    static void openRuntimeRecovery(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
         MachineRuntimeSnapshot machines = Slimefun.getMachineRuntimeService().getSnapshot();
         StorageRuntimeSnapshot storage = Slimefun.getStorageRuntimeService().getSnapshot();
         ChestMenu menu = subMenu("&c&lRuntime Recovery", 45);
@@ -904,7 +920,7 @@ final class DoctorGuideMenu {
         menu.open(player);
     }
 
-    private static void openSupportSummary(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+    static void openSupportSummary(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
         ExternalResourcePackService packs = new ExternalResourcePackService(Slimefun.instance());
         StorageRuntimeSnapshot storage = Slimefun.getStorageRuntimeService().getSnapshot();
         MachineRuntimeSnapshot machines = Slimefun.getMachineRuntimeService().getSnapshot();
