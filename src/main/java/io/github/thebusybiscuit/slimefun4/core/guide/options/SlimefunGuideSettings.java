@@ -232,7 +232,7 @@ public final class SlimefunGuideSettings {
         }
 
         addPlayerResources(p, menu, guide);
-        addAdminTools(p, menu);
+        addAdminTools(p, menu, guide);
     }
 
     private static void addPlayerResources(
@@ -277,7 +277,30 @@ public final class SlimefunGuideSettings {
         });
     }
 
-    private static void addAdminTools(@Nonnull Player p, @Nonnull ChestMenu menu) {
+    private static void addAdminTools(
+            @Nonnull Player p, @Nonnull ChestMenu menu, @Nonnull ItemStack guide) {
+        if (p.hasPermission("slimefun.command.doctor")) {
+            menu.addItem(
+                    46,
+                    new CustomItemStack(
+                            Material.ANVIL,
+                            "&cSlimefun Doctor",
+                            "",
+                            "&7Administrative Slimefun repair and migration tools.",
+                            "&7Includes clear resource-pack controls for:",
+                            "&a- enabling pack delivery",
+                            "&6- upgrading items for the pack",
+                            "&c- disabling pack delivery",
+                            "&d- removing resource-pack item models",
+                            "",
+                            "&8Server owner tool",
+                            "&7⇨ &eClick to open Slimefun Doctor"));
+
+            menu.addMenuClickHandler(46, (pl, slot, item, action) -> {
+                DoctorGuideMenu.open(pl, guide);
+                return false;
+            });
+        }
         if (p.hasPermission("slimefun.command.versions")) {
             menu.addItem(
                     48,
@@ -340,6 +363,22 @@ public final class SlimefunGuideSettings {
                 return false;
             });
         }
+    }
+
+    /**
+     * Opens Slimefun Legacy's administrative Doctor controls from the classic guide or an external guide integration.
+     *
+     * @param p player opening the Doctor controls
+     * @param guide guide item used for the return action
+     */
+    @ParametersAreNonnullByDefault
+    public static void openDoctorTools(Player p, ItemStack guide) {
+        if (!p.hasPermission("slimefun.command.doctor")) {
+            Slimefun.getLocalization().sendMessage(p, "messages.no-permission", true);
+            return;
+        }
+
+        DoctorGuideMenu.open(p, guide);
     }
 
     /**
