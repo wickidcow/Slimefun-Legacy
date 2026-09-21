@@ -174,7 +174,8 @@ reject("REVIEW_MODEL_CLEANUP," in doctor_assistant[doctor_assistant.find("static
 require('args[1].equalsIgnoreCase("report")' in doctor_router
         and "DoctorSupportReport.send(plugin, sender)" in doctor_router
         and "[Resource Pack + Item Models]" in support_report
-        and "custom/combined pack" in support_report,
+        and "custom/combined pack" in support_report
+        and "DoctorNextSteps.send(sender, itemDoctor)" in support_report,
         "Doctor support report must expose custom-pack and item-model state through the router-level reporter")
 require('"report"' in tabs,
         "Doctor support report tab completion is missing")
