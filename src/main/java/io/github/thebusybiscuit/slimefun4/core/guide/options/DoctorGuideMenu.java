@@ -223,7 +223,6 @@ final class DoctorGuideMenu {
             case RUN_SCAN -> runCommand(player, "slimefun doctor scan");
             case SHOW_STATUS -> runCommand(player, "slimefun doctor status");
             case UPGRADE_PACK_ITEMS -> openUpgradeConfirmation(player, returnGuide);
-            case REVIEW_MODEL_CLEANUP -> openRemoveModelsConfirmation(player, returnGuide);
             case REPAIR_PRESENTATION -> openGeneralRepairConfirmation(player, returnGuide);
             case SCHEMA_MIGRATION -> runCommand(player, "slimefun doctor migrations schemas scan");
             case LEGACY_MIGRATION -> runCommand(player, "slimefun doctor migrations plan");
