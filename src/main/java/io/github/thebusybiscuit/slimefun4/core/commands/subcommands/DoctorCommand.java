@@ -1426,7 +1426,7 @@ final class DoctorCommand extends SubCommand {
     private void sendUsage(CommandSender sender) {
         send(
                 sender,
-                "&eUsage: /slimefun doctor [status|report|upgrade|core|registry|chunks|hand|inventory [player]|scan|repair confirm|item-models|addons]");
+                "&eUsage: /slimefun doctor [status|upgrade|core|registry|chunks|report|hand|inventory [player]|scan|repair confirm|item-models|addons]");
         send(
                 sender,
                 "&e       /slimefun doctor [compatibility [api <plugin>]|dependencies [plugin]|runtime [retry [all]]]");
