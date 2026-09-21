@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 75,
+  "bundle_revision": 76,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -193,7 +193,8 @@
     },
     {
       "repository": "wickidcow/SF_RykenSlimeCustomizer",
-      "slug": "rykenslimecustomizer"
+      "slug": "rykenslimecustomizer",
+      "source_commit": "1380f68cb82a1affd6e2b54fc6c94fa1184966cf"
     },
     {
       "repository": "wickidcow/SF_SlimeEasy",
