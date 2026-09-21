@@ -170,6 +170,7 @@ public class SlimefunCommand implements CommandExecutor, Listener {
 
     private void sendStorageIntegrityStatus(@Nonnull CommandSender sender) {
         sender.sendMessage(ChatColors.color("&6Slimefun Storage Integrity"));
+        sendStorageRuntimeReadiness(sender);
         if (StorageIntegrityScanner.isScanRunning()) {
             sender.sendMessage(ChatColors.color("&eA storage scan, verification or repair is currently running."));
         }
@@ -184,6 +185,47 @@ public class SlimefunCommand implements CommandExecutor, Listener {
         sendStorageIntegritySnapshot(sender, snapshot);
         sendStorageRepairVerificationStatus(sender);
         sendStorageRepairExecutionStatus(sender);
+    }
+
+    private void sendStorageRuntimeReadiness(@Nonnull CommandSender sender) {
+        var storage = Slimefun.getStorageRuntimeService().getSnapshot();
+        var profiles = Slimefun.getDatabaseManager().getProfileDataController();
+        int pendingBackpackSaves = profiles == null ? 0 : profiles.getPendingBackpackSaveChainCount();
+        int uncertainBackpacks = profiles == null ? 0 : profiles.getUncertainBackpackBaselineCount();
+        var backup = Slimefun.getBackupService();
+        boolean backupEnabled = Slimefun.getCfg().getBoolean("options.backup-data");
+        boolean doctorBusy = Slimefun.getItemDoctorService().getCurrentReport() != null;
+        boolean restartReady = storage.isReady()
+                && storage.getPendingWrites() == 0
+                && pendingBackpackSaves == 0
+                && !doctorBusy;
+
+        sender.sendMessage(ChatColors.color("&7Runtime: " + (storage.isReady() ? "&aReady" : "&cNot ready")
+                + " &8| &7block &e" + storage.getBlockStorageType()
+                + " &8| &7profiles &e" + storage.getProfileStorageType()));
+        sender.sendMessage(ChatColors.color("&7Persistence: pending writes &e" + storage.getPendingWrites()
+                + " &8| &7backpack saves &e" + pendingBackpackSaves
+                + " &8| &7uncertain baselines " + (uncertainBackpacks == 0 ? "&a0" : "&c" + uncertainBackpacks)));
+        sender.sendMessage(ChatColors.color("&7Previous clean shutdown: "
+                + (storage.wasPreviousShutdownClean() ? "&aYes" : "&eNo")));
+        if (backup.isApplicable()) {
+            long latest = backup.getLatestBackupModifiedMillis();
+            String latestText = latest <= 0L
+                    ? "none"
+                    : Math.max(0L, (System.currentTimeMillis() - latest) / 60_000L) + "m ago";
+            sender.sendMessage(ChatColors.color("&7Shutdown backup: "
+                    + (backupEnabled ? "&aEnabled" : "&eDisabled")
+                    + " &8| &7files &e" + backup.getBackupCount() + "&7/&e" + backup.getMaximumBackups()
+                    + " &8| &7newest &e" + latestText));
+        } else {
+            sender.sendMessage(ChatColors.color("&7Shutdown SQLite backup: &8Not applicable to the active storage backend"));
+        }
+        sender.sendMessage(ChatColors.color("&7Planned restart readiness: "
+                + (restartReady ? "&aREADY" : "&eWAIT")));
+        if (!restartReady) {
+            sender.sendMessage(ChatColors.color(
+                    "&8Wait for pending writes/backpack saves/active Doctor traversal before a planned restart."));
+        }
     }
 
     private void sendStorageIntegritySnapshot(
