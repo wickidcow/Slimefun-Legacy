@@ -207,7 +207,7 @@ final class DoctorGuideMenu {
         menu.addItem(
                 20,
                 menuItem(
-                        Material.TOOLSMITH_SMITHING_TEMPLATE,
+                        Material.ENCHANTED_BOOK,
                         "&bOther Doctor Fixes",
                         "",
                         "&7Alternative diagnostics and repair paths for",
