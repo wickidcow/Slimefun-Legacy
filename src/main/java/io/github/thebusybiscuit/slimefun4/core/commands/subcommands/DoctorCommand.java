@@ -71,7 +71,6 @@ final class DoctorCommand extends SubCommand {
         String action = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "status";
         switch (action) {
             case "status" -> sendStatus(sender, service);
-            case "storage", "persistence" -> sendStorageHealth(sender, service);
             case "upgrade" -> UpgradeDiagnostics.send(plugin, sender);
             case "core", "lifecycle" -> sendCoreHealth(sender);
             case "registry" -> sendRegistryHealth(sender);
@@ -143,66 +142,6 @@ final class DoctorCommand extends SubCommand {
             send(sender, "&7Server-wide scan: &fNot run yet");
         }
         sendUsage(sender);
-    }
-
-    private void sendStorageHealth(CommandSender sender, ItemDoctorService service) {
-        StorageRuntimeSnapshot storage = Slimefun.getStorageRuntimeService().getSnapshot();
-        var profiles = Slimefun.getDatabaseManager().getProfileDataController();
-        int pendingBackpackSaves = profiles == null ? 0 : profiles.getPendingBackpackSaveChainCount();
-        int uncertainBackpacks = profiles == null ? 0 : profiles.getUncertainBackpackBaselineCount();
-        var backups = Slimefun.getBackupService();
-        boolean backupEnabled = Slimefun.getCfg().getBoolean("options.backup-data");
-        ItemDoctorReport current = service.getCurrentReport();
-        boolean restartReady = storage.isReady()
-                && storage.getPendingWrites() == 0
-                && pendingBackpackSaves == 0
-                && current == null;
-
-        send(sender, "&6Slimefun Storage & Persistence Health");
-        send(sender, "&7Storage ready: " + (storage.isReady() ? "&aYes" : "&cNo")
-                + " &8| &7block &e" + storage.getBlockStorageType()
-                + " &8| &7profiles &e" + storage.getProfileStorageType());
-        send(sender, "&7Previous clean shutdown: " + (storage.wasPreviousShutdownClean() ? "&aYes" : "&eNo"));
-        send(sender, "&7Pending database writes: &e" + storage.getPendingWrites()
-                + " &8| &7backpack save chains: &e" + pendingBackpackSaves);
-        send(sender, "&7Uncertain backpack baselines: "
-                + (uncertainBackpacks == 0 ? "&a0" : "&c" + uncertainBackpacks));
-        send(sender, "&7Loaded storage cache: chunks &e" + storage.getLoadedChunks()
-                + " &8| &7universal data &e" + storage.getLoadedUniversalData());
-
-        if (!backups.isApplicable()) {
-            send(sender, "&7Shutdown SQLite backup: &8Not applicable to the active storage backend");
-        } else {
-            long latest = backups.getLatestBackupModifiedMillis();
-            String latestText = latest <= 0L
-                    ? "&eNone found yet"
-                    : "&e" + Math.max(0L, (System.currentTimeMillis() - latest) / 60_000L) + " minute(s) ago";
-            send(sender, "&7Shutdown SQLite backup: " + (backupEnabled ? "&aEnabled" : "&eDisabled")
-                    + " &8| &7files &e" + backups.getBackupCount() + "&7/&e" + backups.getMaximumBackups());
-            send(sender, "&7Newest shutdown backup: " + latestText);
-        }
-
-        send(sender, "&7Planned restart readiness: " + (restartReady ? "&aREADY" : "&eWAIT"));
-        if (!restartReady) {
-            if (storage.getPendingWrites() > 0) {
-                send(sender, "&8- &eWait for pending database writes to reach 0.");
-            }
-            if (pendingBackpackSaves > 0) {
-                send(sender, "&8- &eWait for backpack save chains to finish.");
-            }
-            if (current != null) {
-                send(sender, "&8- &eWait for the active Doctor " + current.getModeName() + " to complete.");
-            }
-            if (!storage.isReady()) {
-                send(sender, "&8- &eStorage runtime is not currently ready.");
-            }
-        }
-
-        send(sender, "&7Persisted block IDs: &e/sf doctor migrations schemas blocks status");
-        send(sender, "&7Stored item payloads: &e/sf doctor migrations schemas storage status");
-        send(sender, "&7Stored machine Item IDs: &e/sf doctor migrations schemas storage ids status");
-        send(sender, "&7Backpack Item IDs: &e/sf doctor migrations schemas storage backpacks status");
-        send(sender, "&8Status is read-only. Migration execution still requires a fresh native fingerprint.");
     }
 
     private void sendCoreHealth(CommandSender sender) {
