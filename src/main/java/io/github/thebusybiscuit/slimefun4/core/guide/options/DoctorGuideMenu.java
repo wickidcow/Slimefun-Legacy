@@ -102,15 +102,20 @@ final class DoctorGuideMenu {
         });
 
         long dependencyProblems = DoctorGuideAssistant.dependencyProblemCount();
+        long addonCompatibilityProblems = DoctorGuideAssistant.addonCompatibilityAttentionCount();
         long addonFailures = DoctorGuideAssistant.addonRuntimeFailureCount();
         menu.addItem(
                 23,
                 menuItem(
-                        dependencyProblems > 0 || addonFailures > 0 ? Material.REDSTONE_BLOCK : Material.EMERALD_BLOCK,
+                        dependencyProblems > 0 || addonCompatibilityProblems > 0 || addonFailures > 0
+                                ? Material.REDSTONE_BLOCK
+                                : Material.EMERALD_BLOCK,
                         "&dAddon & Dependency Health",
                         "",
                         "&7Required dependency problems: "
                                 + (dependencyProblems == 0 ? "&a0" : "&c" + dependencyProblems),
+                        "&7Compatibility attention: "
+                                + (addonCompatibilityProblems == 0 ? "&a0" : "&e" + addonCompatibilityProblems),
                         "&7Active addon callback records: "
                                 + (addonFailures == 0 ? "&a0" : "&e" + addonFailures),
                         "",
