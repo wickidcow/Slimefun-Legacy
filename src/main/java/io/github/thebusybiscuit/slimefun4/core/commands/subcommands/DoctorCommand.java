@@ -71,7 +71,6 @@ final class DoctorCommand extends SubCommand {
         String action = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "status";
         switch (action) {
             case "status" -> sendStatus(sender, service);
-            case "report" -> sendSupportReport(sender, service);
             case "upgrade" -> UpgradeDiagnostics.send(plugin, sender);
             case "core", "lifecycle" -> sendCoreHealth(sender);
             case "registry" -> sendRegistryHealth(sender);
@@ -143,57 +142,6 @@ final class DoctorCommand extends SubCommand {
             send(sender, "&7Server-wide scan: &fNot run yet");
         }
         sendUsage(sender);
-    }
-
-    private void sendSupportReport(CommandSender sender, ItemDoctorService service) {
-        StorageRuntimeSnapshot storage = Slimefun.getStorageRuntimeService().getSnapshot();
-        MachineRuntimeSnapshot machines = Slimefun.getMachineRuntimeService().getSnapshot();
-        var packs = new io.github.thebusybiscuit.slimefun4.core.services.ExternalResourcePackService(plugin);
-        var textures = Slimefun.getItemTextureService();
-        long dependencyProblems = new PluginDependencyDiagnosticsService(plugin).getSnapshots().stream()
-                .mapToLong(PluginDependencySnapshot::getRequiredDependencyProblemCount)
-                .sum();
-
-        var platform = Slimefun.getPlatformCompatibilityService().getProfile();
-        send(sender, "&6Slimefun Doctor Support Report");
-        send(sender, "&7Slimefun Legacy: &e" + plugin.getPluginMeta().getVersion());
-        send(sender, "&7Server: &e" + platform.getDisplayName()
-                + " &8| &7Minecraft &e" + platform.getRawMinecraftVersion());
-        send(sender, "&7Java: &e" + platform.getJavaFeatureVersion());
-        send(sender, "&7Storage: " + (storage.isReady() ? "&aReady" : "&cNot ready")
-                + " &8| &7previous clean shutdown: " + (storage.wasPreviousShutdownClean() ? "&aYes" : "&eNo")
-                + " &8| &7pending writes: &e" + storage.getPendingWrites());
-        send(sender, "&7Machines: active failures &e" + machines.getActiveMachineFailures()
-                + " &8| &7paused circuits &e" + machines.getPausedMachineCircuits()
-                + " &8| &7observed &e" + machines.getObservedMachineFailures());
-        send(sender, "&7Legacy pack sender: " + (packs.isDeliveryEnabled() ? "&aEnabled" : "&7Disabled")
-                + " &8| &7required: " + (packs.isRequired() ? "&eYes" : "&aNo"));
-        send(sender, "&7Pack config: URL " + (packs.isConfiguredUrlValid() ? "&aValid" : "&cInvalid")
-                + " &8| &7SHA-1 " + (packs.isConfiguredSha1Valid() ? "&aValid/optional" : "&cInvalid"));
-        send(sender, "&7Item-model mappings: bundled active &e" + textures.getHostedPackEnabledMappingCount()
-                + " &8| &7available &e" + textures.getHostedPackEnableCandidateCount()
-                + " &8| &7custom preserved &e" + textures.getHostedPackCustomMappingCount());
-        send(sender, "&8Legacy pack delivery and Slimefun item-model mappings are independent.");
-        send(sender, "&8If another plugin sends your combined/custom pack, Legacy's sender can stay off while matching Slimefun mappings remain enabled.");
-        send(sender, "&7Required dependency problems: " + (dependencyProblems == 0 ? "&a0" : "&c" + dependencyProblems));
-        send(sender, "&7Addon callback failures active: &e"
-                + Slimefun.getAddonRuntimeHealthService().getFailures().size());
-        send(sender, "&7External integration failures active: &e"
-                + Slimefun.getExternalIntegrationService().getActiveFailureCount());
-
-        ItemDoctorReport current = service.getCurrentReport();
-        ItemDoctorReport last = service.getLastReport();
-        if (current != null) {
-            send(sender, "&7Doctor traversal: &eRunning " + current.getModeName());
-            sendProgress(sender, current);
-        } else if (last != null) {
-            send(sender, "&7Last Doctor traversal: &aComplete " + last.getModeName());
-            sendProgress(sender, last);
-            DoctorNextSteps.send(sender, last);
-        } else {
-            send(sender, "&7Doctor traversal: &fNo server-wide scan has completed yet");
-            send(sender, "&7Recommended first step: &e/sf doctor scan");
-        }
     }
 
     private void sendCoreHealth(CommandSender sender) {
