@@ -72,6 +72,7 @@ class SlimefunTabCompleter implements TabCompleter {
                 return createReturnList(
                         List.of(
                                 "status",
+                                "report",
                                 "upgrade",
                                 "core",
                                 "registry",
