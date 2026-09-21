@@ -33,6 +33,8 @@ presentation = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/servi
 service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemDoctorService.java")
 report = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemDoctorReport.java")
 command = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java")
+doctor_router = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorRouterCommand.java")
+support_report = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorSupportReport.java")
 tabs = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/SlimefunTabCompleter.java")
 doctor_menu = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/guide/options/DoctorGuideMenu.java")
 doctor_assistant = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/guide/options/DoctorGuideAssistant.java")
@@ -169,9 +171,11 @@ require("class DoctorGuideAssistant" in doctor_assistant
         "Guide Doctor recommendation engine is missing key safe routing lanes")
 reject("REVIEW_MODEL_CLEANUP," in doctor_assistant[doctor_assistant.find("static @Nonnull Recommendation recommend()"):],
         "Doctor assistant must not recommend removing model mappings merely from sender/resource-pack state")
-require('case "report" -> sendSupportReport(sender, service);' in command
-        and "Slimefun Doctor Support Report" in command,
-        "Doctor support report command is missing")
+require('args[1].equalsIgnoreCase("report")' in doctor_router
+        and "DoctorSupportReport.send(plugin, sender)" in doctor_router
+        and "[Resource Pack + Item Models]" in support_report
+        and "custom/combined pack" in support_report,
+        "Doctor support report must expose custom-pack and item-model state through the router-level reporter")
 require('"report"' in tabs,
         "Doctor support report tab completion is missing")
 require("removeConfiguredPack(player)" in pack_service,
