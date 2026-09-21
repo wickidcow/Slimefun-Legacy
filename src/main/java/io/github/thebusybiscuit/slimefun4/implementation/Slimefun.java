@@ -1161,6 +1161,12 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
         return instance.itemDoctorService;
     }
 
+    /** Returns the existing shutdown backup service for read-only Doctor readiness diagnostics. */
+    public static @Nonnull BackupService getBackupService() {
+        validateInstance();
+        return instance.backupService;
+    }
+
     /**
      * This returns the {@link LocalizationService} of Slimefun.
      *
