@@ -138,6 +138,13 @@ require("setDeliveryEnabled(true)" in doctor_menu and "setDeliveryEnabled(false)
 require("setResourcePackEnabled(boolean enabled)" in addons_config
         and "setDeliveryEnabled(boolean enabled)" in pack_service,
         "resource-pack admin toggle must persist through the dedicated Legacy addons configuration")
+require("&bOther Doctor Fixes" in doctor_menu
+        and 'performCommand("slimefun doctor scan")' in doctor_menu
+        and 'performCommand("slimefun doctor repair confirm")' in doctor_menu
+        and 'performCommand("slimefun doctor item-models scan")' in doctor_menu
+        and 'performCommand("slimefun doctor migrations plan")' in doctor_menu
+        and 'performCommand("slimefun doctor status")' in doctor_menu,
+        "Guide Doctor menu must retain alternative diagnostic and repair paths")
 require("removeConfiguredPack(player)" in pack_service,
         "disabling the Legacy resource-pack sender must remove only Legacy's pack UUID from online players")
 
