@@ -50,9 +50,10 @@ final class DoctorOperationsCenterMenu {
         ExternalResourcePackService packs = new ExternalResourcePackService(Slimefun.instance());
 
         long itemIssues = itemIssueCount(last);
-        long addonIssues = DoctorGuideAssistant.dependencyProblemCount()
-                + DoctorGuideAssistant.addonCompatibilityAttentionCount()
-                + DoctorGuideAssistant.addonRuntimeFailureCount();
+        long dependencyIssues = DoctorGuideAssistant.dependencyProblemCount();
+        long addonCompatibilityIssues = DoctorGuideAssistant.addonCompatibilityAttentionCount();
+        long addonRuntimeIssues = DoctorGuideAssistant.addonRuntimeFailureCount();
+        long addonIssues = dependencyIssues + addonCompatibilityIssues + addonRuntimeIssues;
         long storageIssues = (storage.isReady() ? 0 : 1)
                 + storage.getPendingWrites()
                 + (storage.wasPreviousShutdownClean() ? 0 : 1)
@@ -139,9 +140,9 @@ final class DoctorOperationsCenterMenu {
                 "&fAddons",
                 addonIssues,
                 new String[] {
-                    "&7Dependency problems: &e" + DoctorGuideAssistant.dependencyProblemCount(),
-                    "&7Compatibility attention: &e" + DoctorGuideAssistant.addonCompatibilityAttentionCount(),
-                    "&7Addon callback records: &e" + DoctorGuideAssistant.addonRuntimeFailureCount(),
+                    "&7Dependency problems: &e" + dependencyIssues,
+                    "&7Compatibility attention: &e" + addonCompatibilityIssues,
+                    "&7Addon callback records: &e" + addonRuntimeIssues,
                     "&eClick for addon/dependency health"
                 },
                 () -> DoctorGuideMenu.openAddonDependencyHealth(player, returnGuide));
