@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.config;
 
+import io.github.thebusybiscuit.slimefun4.core.services.ResourcePackOwnershipMode;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.File;
 import java.io.IOException;
@@ -22,10 +23,12 @@ public final class CuriositiesConfig {
 
     public static final String FILE_NAME = "configSFLAddons.yml";
 
-    private static final int CURRENT_CONFIG_VERSION = 1;
+    private static final int CURRENT_CONFIG_VERSION = 2;
     private static final String CONFIG_VERSION_PATH = "config-version";
     private static final String RESOURCE_PACK_GUIDE_MARKER =
             "# Slimefun Legacy resource-pack safety guide (config-version 1)";
+    private static final String RESOURCE_PACK_OWNERSHIP_GUIDE_MARKER =
+            "# Slimefun Legacy resource-pack ownership mode (config-version 2)";
     private static final String RETIRED_FILE_NAME = "curiosities.yml";
     private static final String LEGACY_MODULE_TOGGLE = "options.enable-non-original-slimefun-additions";
     private static final String LEGACY_ADDITIONS_ROOT = "SlimefunLegacyAddition";
@@ -135,6 +138,7 @@ public final class CuriositiesConfig {
             String contents = Files.readString(file.toPath(), StandardCharsets.UTF_8);
             contents = writeConfigVersion(contents);
             contents = writeResourcePackSafetyGuide(contents);
+            contents = writeResourcePackOwnershipGuide(contents);
             Files.writeString(file.toPath(), contents, StandardCharsets.UTF_8);
 
             yaml = YamlConfiguration.loadConfiguration(file);
@@ -215,6 +219,39 @@ public final class CuriositiesConfig {
         return contents.substring(0, insertAt) + guide + contents.substring(insertAt);
     }
 
+    private String writeResourcePackOwnershipGuide(@Nonnull String contents) {
+        if (contents.contains(RESOURCE_PACK_OWNERSHIP_GUIDE_MARKER)) {
+            return contents;
+        }
+
+        int resourcePackIndex = contents.indexOf("\nresource-pack:");
+        if (resourcePackIndex < 0) {
+            resourcePackIndex = contents.indexOf("resource-pack:");
+        }
+        if (resourcePackIndex < 0) {
+            return contents;
+        }
+
+        String guide = """
+                # Slimefun Legacy resource-pack ownership mode (config-version 2)
+                # ownership-mode controls who is expected to DELIVER the Slimefun textures:
+                #   auto     = backwards-compatible; infer intent from resource-pack.enabled.
+                #   legacy   = Slimefun Legacy sends the configured ZIP.
+                #   external = ItemsAdder/Oraxen/proxy/server pack sends a combined pack.
+                #   none     = no Slimefun-textured pack is intentionally in use.
+                #
+                # IMPORTANT: ownership-mode does NOT directly rewrite item-models.yml or stored items.
+                # EXTERNAL is a valid setup with Legacy sender OFF and Slimefun model mappings ON.
+                # NONE is the only explicit mode saying the server intentionally does not use Slimefun models.
+                """;
+
+        int insertAt = resourcePackIndex;
+        if (contents.charAt(resourcePackIndex) == '\n') {
+            insertAt++;
+        }
+        return contents.substring(0, insertAt) + guide + contents.substring(insertAt);
+    }
+
     private void migrateRetiredResourcePackUrl() {
         String configuredUrl = getString(LEGACY_RESOURCE_PACK_ROOT + ".url");
         if (configuredUrl == null || !RETIRED_RESOURCE_PACK_URLS.contains(configuredUrl.trim())) {
@@ -238,6 +275,7 @@ public final class CuriositiesConfig {
 
     private void ensureResourcePackDefaults() {
         setDefaultValue(LEGACY_RESOURCE_PACK_ROOT + ".enabled", false);
+        setDefaultValue(LEGACY_RESOURCE_PACK_ROOT + ".ownership-mode", ResourcePackOwnershipMode.AUTO.configValue());
         setDefaultValue(LEGACY_RESOURCE_PACK_ROOT + ".url", DEFAULT_RESOURCE_PACK_URL);
         setDefaultValue(LEGACY_RESOURCE_PACK_ROOT + ".sha1", "");
         setDefaultValue(LEGACY_RESOURCE_PACK_ROOT + ".required", false);
@@ -343,6 +381,24 @@ public final class CuriositiesConfig {
      * @return whether the updated setting was saved successfully
      */
     public synchronized boolean setResourcePackEnabled(boolean enabled) {
+        setValue(LEGACY_RESOURCE_PACK_ROOT + ".enabled", enabled);
+        return save();
+    }
+
+    /** Saves the explicit resource-pack ownership mode without touching item models or stored items. */
+    public synchronized boolean setResourcePackOwnershipMode(@Nonnull ResourcePackOwnershipMode mode) {
+        setValue(LEGACY_RESOURCE_PACK_ROOT + ".ownership-mode", mode.configValue());
+        return save();
+    }
+
+    /**
+     * Saves ownership mode and Legacy sender state atomically in configSFLAddons.yml.
+     *
+     * <p>This is used by the Doctor GUI when the operator explicitly chooses a delivery owner.</p>
+     */
+    public synchronized boolean setResourcePackOwnershipAndSender(
+            @Nonnull ResourcePackOwnershipMode mode, boolean enabled) {
+        setValue(LEGACY_RESOURCE_PACK_ROOT + ".ownership-mode", mode.configValue());
         setValue(LEGACY_RESOURCE_PACK_ROOT + ".enabled", enabled);
         return save();
     }
