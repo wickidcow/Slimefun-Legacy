@@ -46,14 +46,19 @@ not recommend removing model mappings just because Slimefun Legacy's own pack se
 
 ### Resource-pack administration
 
-The main resource-pack section deliberately separates four different operations:
+The Recovery Center now groups these controls under **Resource Pack & Item Textures** so sender settings, model mappings,
+and stored-item texture repair are not presented as the same operation.
+
+The resource-pack section deliberately separates these operations:
 
 - **Enable Legacy Pack Sender** — turns only Slimefun Legacy pack delivery on; it does not change item models.
 - **Upgrade Items for Resource Pack** — adopts zero-valued bundled mappings and updates eligible stored Slimefun items.
 - **Disable Legacy Pack Sender** — turns only Slimefun Legacy pack delivery off; it does not change item models.
-- **Remove Resource-Pack Item Models** — intentionally removes exact bundled Legacy mappings and then guides the operator through stored-item cleanup after restart.
+- **Remove Resource-Pack Item Models** — intentionally removes exact bundled Legacy mappings. It does **not** unregister Slimefun items or machines.
+- **Resource Pack Item Texture Repairs** — separately scans for and repairs eligible stale exact bundled model data on existing stored items after the operator reviews the scan and backup.
 
-A separate **Resource Pack Preflight** screen reports sender state, URL/SHA-1 validity, known external pack-manager
+A **Current Resource-Pack State** card shows ownership, sender state and model counts at a glance. A separate
+**Resource Pack Preflight** screen reports sender state, URL/SHA-1 validity, known external pack-manager
 plugins, bundled/custom item-model counts, and lets an administrator test the configured Legacy pack only on themselves.
 
 Two common configurations are both supported:
