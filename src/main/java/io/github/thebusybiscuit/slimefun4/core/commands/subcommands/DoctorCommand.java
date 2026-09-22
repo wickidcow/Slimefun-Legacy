@@ -1210,11 +1210,10 @@ final class DoctorCommand extends SubCommand {
     }
 
     private void sendCompatibilityEvidenceLine(CommandSender sender, AddonCompatibilityResult result) {
-        String evidence = compatibilityEvidence(result);
         send(
                 sender,
                 statusColor(result.getStatus()) + "- " + result.getPluginName() + " v" + result.getPluginVersion()
-                        + " &7— " + evidence);
+                        + " &8| " + compactCompatibilityEvidence(result));
         if (result.getStatus() == AddonCompatibilityStatus.WARNING
                 || result.getStatus() == AddonCompatibilityStatus.INCOMPATIBLE
                 || result.getStatus() == AddonCompatibilityStatus.DISABLED) {
@@ -1222,6 +1221,20 @@ final class DoctorCommand extends SubCommand {
                 send(sender, "&8  - &7" + message);
             }
         }
+    }
+
+    private String compactCompatibilityEvidence(AddonCompatibilityResult result) {
+        return switch (result.getStatus()) {
+            case COMPATIBLE -> "&aSFL Approved";
+            case WARNING -> "&eCompatible (warning)";
+            case INCOMPATIBLE -> "&cIncompatible";
+            case DISABLED -> "&cDisabled";
+            case UNDECLARED -> {
+                boolean sflManaged = result.getPluginName().toUpperCase(Locale.ROOT).startsWith("SF_")
+                        || knownAddonRegistry.find(result.getPluginName()).isPresent();
+                yield sflManaged ? "&aSFL Approved" : "&aNon-Slimefun Compatible";
+            }
+        };
     }
 
     private void sendCompatibilityResult(CommandSender sender, AddonCompatibilityResult result) {
