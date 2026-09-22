@@ -45,9 +45,52 @@ jobs:
         run: python3 scripts/verify_legacy.py .
 
       - name: Compile against Paper 1.21.11 API
+        shell: bash
         run: |
+          set -euo pipefail
           chmod +x gradlew
-          ./gradlew clean compileJava -PpaperApiVersion="${LEGACY_PAPER_API_VERSION}" --no-daemon
+          mkdir -p build/legacy-1.21.11-api-compile
+
+          EXTRA_ARGS=()
+          for attempt in 1 2 3; do
+            LOG="build/legacy-1.21.11-api-compile/attempt-${attempt}.log"
+            set +e
+            ./gradlew clean compileJava \
+              -PpaperApiVersion="${LEGACY_PAPER_API_VERSION}" \
+              --no-daemon \
+              "${EXTRA_ARGS[@]}" 2>&1 | tee "$LOG"
+            CODE=${PIPESTATUS[0]}
+            set -e
+
+            if [[ "$CODE" -eq 0 ]]; then
+              exit 0
+            fi
+
+            if ! grep -Eqi 'status code: (429|502|503|504)|too many requests|bad gateway|service unavailable|gateway timeout|connection reset|read timed out|connection timed out|temporary failure in name resolution' "$LOG"; then
+              echo "Paper 1.21.11 API compile failed with a non-transient error; not retrying." >&2
+              exit "$CODE"
+            fi
+
+            if [[ "$attempt" -ge 3 ]]; then
+              echo "Paper 1.21.11 API compile still has a transient repository/network failure after 3 attempts." >&2
+              exit "$CODE"
+            fi
+
+            EXTRA_ARGS=(--refresh-dependencies --no-configuration-cache)
+            DELAY=$((attempt * 5))
+            echo "Transient Paper repository/network failure detected; retrying attempt $((attempt + 1))/3 in ${DELAY}s."
+            sleep "$DELAY"
+          done
+
+          exit 1
+
+      - name: Upload Paper API compile retry evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: paper-1.21.11-api-compile
+          path: build/legacy-1.21.11-api-compile/*.log
+          if-no-files-found: warn
 
   legacy-runtime-smoke:
     name: Boot twice on ${{ matrix.software }} 1.21.11
