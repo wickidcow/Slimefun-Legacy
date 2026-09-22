@@ -79,6 +79,7 @@
 
 ## Release preparation
 
+- [ ] Merge PR #253 — coordinated 4.1.60 candidate rollover after merged-state master validation and the PR's compatibility gates are green.
 - [ ] Intentionally roll the development line from 4.1.59 to 4.1.60 in one coordinated version-alignment change.
   - `gradle.properties` project version;
   - `compatibility/release-baselines.json` candidate → 4.1.60 and previous stable → released 4.1.59;
