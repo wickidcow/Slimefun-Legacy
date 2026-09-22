@@ -146,7 +146,7 @@ final class DoctorGuideAssistant {
         if (last.getItemModelCandidates() > 0) {
             return new Recommendation(
                     Action.ITEM_MODEL_SCAN,
-                    "Review Stale Item Models",
+                    "Resource Pack Item Texture Repairs",
                     last.getItemModelCandidates()
                             + " stored Slimefun item(s) match the safe stale bundled-model recovery criteria.",
                     last.getItemModelCandidates());
