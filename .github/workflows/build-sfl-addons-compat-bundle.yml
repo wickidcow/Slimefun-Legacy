@@ -358,9 +358,9 @@ jobs:
               'SF_FastMachines1.0.4.jar',
               'SF_Galactifun1.0.7.jar',
               'SF_InfinityExpansion2.0.9.jar',
-              'SF_JustEnoughGuide2.1.62.jar',
+              'SF_JustEnoughGuide2.1.63.jar',
               'SF_LiteXpansion1.0.2.jar',
-              'SF_MagicExpansion1.1.6.jar',
+              'SF_MagicExpansion1.1.7.jar',
               'SF_MagicLegacy2.0.36.jar',
               'SF_RykenSlimeCustomizer3.1.10.jar',
               'SF_MobCapturer1.0.6.jar',
@@ -382,9 +382,9 @@ jobs:
             echo "InfinityExpansion2 must load before RykenSlimefunCustomizer, not the obsolete RykenSlimeCustomizer name" >&2
             exit 1
           fi
-          unzip -p collected/jars/SF_MagicExpansion1.1.6.jar plugin.yml | grep -Fxq 'loadbefore: [RykenSlimefunCustomizer]'
-          unzip -p collected/jars/SF_MagicExpansion1.1.6.jar plugin.yml | grep -Fxq 'softdepend: [MagicLegacy, Networks, NetworksExpansion]'
-          if unzip -p collected/jars/SF_MagicExpansion1.1.6.jar plugin.yml | grep -Fq 'softdepend: [MagicLegacy, RykenSlimefunCustomizer'; then
+          unzip -p collected/jars/SF_MagicExpansion1.1.7.jar plugin.yml | grep -Fxq 'loadbefore: [RykenSlimefunCustomizer]'
+          unzip -p collected/jars/SF_MagicExpansion1.1.7.jar plugin.yml | grep -Fxq 'softdepend: [MagicLegacy, Networks, NetworksExpansion]'
+          if unzip -p collected/jars/SF_MagicExpansion1.1.7.jar plugin.yml | grep -Fq 'softdepend: [MagicLegacy, RykenSlimefunCustomizer'; then
             echo "MagicExpansion must load before RSC, not soft-depend on it" >&2
             exit 1
           fi
@@ -413,7 +413,7 @@ jobs:
           - WorldEditSlimefun requires WorldEdit or FAWE and is explicitly labeled for 1.21.11 through 26.2
           - Magic Legacy 2.0 ships as SF_MagicLegacy2.0.36.jar and manages its embedded RSC Magic runtime automatically
           - RykenSlimeCustomizer 3.1.10 respects MagicLegacy's .magiclegacy-managed runtime marker and only probes legacy external recipe types when the matching plugin is installed
-          - MagicExpansion 1.1.6 enforces MagicLegacy -> MagicExpansion -> RykenSlimefunCustomizer load ordering and registers the RSC_MAGIC_* crossover items before RSC parses Magic
+          - MagicExpansion 1.1.7 enforces MagicLegacy -> MagicExpansion -> RykenSlimefunCustomizer load ordering and registers the RSC_MAGIC_* crossover items before RSC parses Magic
           - No Legacy, Legacy-English, SNAPSHOT, compatibility suffixes, or repo-only suffixes except the approved WorldEdit support-range suffix
 
           Supported Minecraft/Paper generations:
