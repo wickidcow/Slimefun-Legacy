@@ -159,7 +159,7 @@ These lanes exist because a Slimefun ID can stay the same while an addon's store
 | `/sf doctor migrations schemas blocks execute <fingerprint>` | **Yes** | Executes the prepared persisted block-ID plan. |
 | `/sf doctor migrations schemas storage status` | No | Persisted item-payload migration state. |
 | `/sf doctor migrations schemas storage scan` | No | Read-only persisted inventory payload/schema scan. |
-| `/sf doctor migrations schemas storage execute <plugin> <fingerprint>` | **Yes** | Executes the prepared persisted item-payload migration. |
+| `/sf doctor migrations schemas storage execute <fingerprint>` | **Yes** | Executes the prepared persisted item-payload migration. |
 | `/sf doctor migrations schemas storage ids status` | No | Persisted machine Item-ID migration state. |
 | `/sf doctor migrations schemas storage ids scan` | No | Read-only persisted machine Item-ID audit. |
 | `/sf doctor migrations schemas storage ids execute <fingerprint>` | **Yes** | Executes the exact prepared persisted machine Item-ID plan. |
