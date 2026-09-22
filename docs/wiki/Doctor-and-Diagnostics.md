@@ -125,7 +125,7 @@ the existing backup runs after the normal database shutdown attempt, and Doctor 
 snapshot path.
 
 The existing `/sf doctor storage` two-pass/fingerprint workflow remains authoritative for storage-integrity repair.
-The Operations Center does not bypass its matching quiet scans, fresh verification, mandatory repair backup or
+Advanced System Health does not bypass its matching quiet scans, fresh verification, mandatory repair backup or
 destructive-repair guardrails.
 
 #### Proxy & Player Identity
