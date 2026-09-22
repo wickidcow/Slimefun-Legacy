@@ -22,7 +22,7 @@ concurrency:
 jobs:
   release-artifact:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Check out exact source
         uses: actions/checkout@v6
@@ -107,7 +107,7 @@ jobs:
           rm -f "$BUNDLE"
 
           RUN_ID=''
-          for attempt in $(seq 1 90); do
+          for attempt in $(seq 1 180); do
             MATCH="$(gh run list \
               --repo "$GITHUB_REPOSITORY" \
               --workflow build-sfl-addons-compat-bundle.yml \
@@ -130,13 +130,13 @@ jobs:
               exit 1
             fi
 
-            if [[ "$attempt" -eq 90 ]]; then
+            if [[ "$attempt" -eq 180 ]]; then
               echo "No successful addon bundle for exact release source $GITHUB_SHA became available." >&2
               echo "Run Build SF Addons 1.21.11-26.3 Bundle at this exact commit before publishing." >&2
               exit 1
             fi
 
-            echo "Waiting for exact-source addon bundle for $GITHUB_SHA (attempt ${attempt}/90; run=${MATCH_ID:-not-started}; status=${MATCH_STATUS:-unknown})."
+            echo "Waiting for exact-source addon bundle for $GITHUB_SHA (attempt ${attempt}/180; run=${MATCH_ID:-not-started}; status=${MATCH_STATUS:-unknown})."
             sleep 10
           done
 
