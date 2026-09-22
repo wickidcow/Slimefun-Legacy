@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 78,
+  "bundle_revision": 79,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -144,7 +144,8 @@
     {
       "repository": "wickidcow/SF_InfinityExpansion2",
       "slug": "infinityexpansion2",
-      "artifact_base": "InfinityExpansion"
+      "artifact_base": "InfinityExpansion",
+      "source_commit": "5702e72eea7ede1c4eedfd2ffcd7b33b5fe6f678"
     },
     {
       "repository": "wickidcow/SF_LiteXpansion",
@@ -169,7 +170,7 @@
       "repository": "wickidcow/SF_Magic_RSC",
       "slug": "magiclegacy",
       "artifact_base": "MagicLegacy",
-      "source_commit": "ccc780cc80edfd9bc8c89b94d49bd7edb1cf5253"
+      "source_commit": "d95053974498a22d92e5bb9908e49456aded565c"
     },
     {
       "repository": "wickidcow/SF_MilitaryArsenal",
@@ -195,7 +196,7 @@
     {
       "repository": "wickidcow/SF_RykenSlimeCustomizer",
       "slug": "rykenslimecustomizer",
-      "source_commit": "e57c144281d6dfb6945c6201704039d6f95d6c6f"
+      "source_commit": "c0fa9eb9b39878bf5ca3978ca4678d3faa78c84d"
     },
     {
       "repository": "wickidcow/SF_SlimeEasy",
