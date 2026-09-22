@@ -227,7 +227,7 @@ final class DoctorGuideMenu {
                 40,
                 menuItem(
                         Material.REDSTONE,
-                        "&fLive Doctor Overview",
+                        "&fLive Recovery Overview",
                         "",
                         "&7Legacy sender: " + (packService.isDeliveryEnabled() ? "&aEnabled" : "&7Disabled"),
                         "&7Bundled mappings active: &e" + textures.getHostedPackEnabledMappingCount(),
@@ -488,7 +488,7 @@ final class DoctorGuideMenu {
                         "",
                         "&7Removes Legacy's exact bundled texture mappings.",
                         "&8Does NOT unregister Slimefun items or machines.",
-                        "&7Use only when you intentionally want Legacy's"
+                        "&7Use only when you intentionally want Legacy's",
                         "&7exact bundled model mappings removed.",
                         "",
                         "&7Exact bundled mappings to remove: &e" + mappingCandidates,
@@ -848,7 +848,7 @@ final class DoctorGuideMenu {
                 "slimefun doctor compatibility api",
                 "&7Inspect the active addon API compatibility facade.");
 
-        addBack(menu, 27, "&fBack to Doctor Console", () -> open(player, returnGuide));
+        addBack(menu, 27, "&fBack to Recovery Center", () -> open(player, returnGuide));
         menu.open(player);
     }
 
@@ -941,7 +941,7 @@ final class DoctorGuideMenu {
             return false;
         });
 
-        addBack(menu, 36, "&fBack to Doctor Console", () -> open(player, returnGuide));
+        addBack(menu, 36, "&fBack to Recovery Center", () -> open(player, returnGuide));
         menu.open(player);
     }
 
@@ -1082,7 +1082,7 @@ final class DoctorGuideMenu {
                 "slimefun doctor status",
                 "&7Shutdown, pending writes, machine isolation and scan state.");
 
-        addBack(menu, 36, "&fBack to Doctor Console", () -> open(player, returnGuide));
+        addBack(menu, 36, "&fBack to Recovery Center", () -> open(player, returnGuide));
         menu.open(player);
     }
 
@@ -1095,7 +1095,7 @@ final class DoctorGuideMenu {
         DoctorGuideAssistant.Recommendation recommendation = DoctorGuideAssistant.recommend();
         var platform = Slimefun.getPlatformCompatibilityService().getProfile();
 
-        ChestMenu menu = subMenu("&f&lSupport & Diagnostics", 45)
+        ChestMenu menu = subMenu("&f&lSupport & Diagnostics", 45);
         menu.addItem(
                 10,
                 menuItem(
@@ -1207,7 +1207,7 @@ final class DoctorGuideMenu {
             return false;
         });
 
-        addBack(menu, 36, "&fBack to Doctor Console", () -> open(player, returnGuide));
+        addBack(menu, 36, "&fBack to Recovery Center", () -> open(player, returnGuide));
         menu.open(player);
     }
 
@@ -1424,7 +1424,7 @@ final class DoctorGuideMenu {
                         Material.BARRIER,
                         "&cCancel",
                         "",
-                        "&7Return to Slimefun Doctor without making changes."));
+                        "&7Return to the Recovery Center without making changes."));
         menu.addMenuClickHandler(15, (clickedPlayer, slot, item, action) -> {
             open(clickedPlayer, returnGuide);
             return false;
