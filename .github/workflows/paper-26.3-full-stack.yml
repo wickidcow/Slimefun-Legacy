@@ -103,6 +103,7 @@ jobs:
           if-no-files-found: error
 
   fetch-bundle:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     name: Fetch exact addon bundle under test
     runs-on: ubuntu-latest
     steps:
