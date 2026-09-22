@@ -465,16 +465,90 @@ final class DoctorGuideMenu {
                         "&7Eligible online players receive the configured pack.",
                         "",
                         "&8This does not add or change item-model mappings.",
-                        enabled ? "&8Already enabled." : "&eClick to enable"));
-        menu.addMenuClickHandler(10, (player, slot, item, action) -> {
+                        enabled ? "&8Already enabled." : "&eClick to review and enable"));
+        if (!enabled) {
+            menu.addMenuClickHandler(10, (player, slot, item, action) -> {
+                openEnablePackSenderConfirmation(player, returnGuide);
+                return false;
+            });
+        }
+    }
+
+    private static void openEnablePackSenderConfirmation(
+            @Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        ExternalResourcePackService service = new ExternalResourcePackService(Slimefun.instance());
+        ChestMenu menu = confirmationMenu("&a&lEnable Legacy Pack Sender");
+
+        menu.addItem(
+                11,
+                menuItem(
+                        Material.LIME_CONCRETE,
+                        "&aConfirm Enable Sender",
+                        "",
+                        "&7Persists Legacy resource-pack delivery as ON.",
+                        "&7Eligible online players may receive the configured",
+                        "&7Legacy pack immediately.",
+                        "",
+                        "&8This does not change item-model mappings.",
+                        "&8Use pack upgrade/repair tools separately.",
+                        "&eClick to confirm"));
+        menu.addMenuClickHandler(11, (clickedPlayer, slot, item, action) -> {
             if (!service.setDeliveryEnabled(true)) {
-                player.sendMessage(ChatColor.RED + "Could not save resource-pack.enabled in configSFLAddons.yml.");
+                clickedPlayer.sendMessage(
+                        ChatColor.RED + "Could not save resource-pack.enabled in configSFLAddons.yml.");
                 return false;
             }
-            player.sendMessage(ChatColor.GREEN + "Slimefun Legacy resource-pack delivery is enabled.");
-            openResourcePackRecovery(player, returnGuide);
+            clickedPlayer.sendMessage(ChatColor.GREEN + "Slimefun Legacy resource-pack delivery is enabled.");
+            openResourcePackRecovery(clickedPlayer, returnGuide);
             return false;
         });
+
+        menu.addItem(15, menuItem(Material.BARRIER, "&cCancel", "", "&7Leave sender state unchanged."));
+        menu.addMenuClickHandler(15, (clickedPlayer, slot, item, action) -> {
+            openResourcePackRecovery(clickedPlayer, returnGuide);
+            return false;
+        });
+        menu.open(player);
+    }
+
+    private static void openDisablePackSenderConfirmation(
+            @Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        ExternalResourcePackService service = new ExternalResourcePackService(Slimefun.instance());
+        ChestMenu menu = confirmationMenu("&c&lDisable Legacy Pack Sender");
+
+        menu.addItem(
+                11,
+                menuItem(
+                        Material.RED_CONCRETE,
+                        "&cConfirm Disable Sender",
+                        "",
+                        "&7Persists Legacy resource-pack delivery as OFF.",
+                        "&7Legacy's own pack UUID is removed from online",
+                        "&7players where supported by the client API.",
+                        "",
+                        "&8Item-model mappings are left unchanged.",
+                        "&8Combined/external pack setups can keep using them.",
+                        "&eClick to confirm"));
+        menu.addMenuClickHandler(11, (clickedPlayer, slot, item, action) -> {
+            if (!service.setDeliveryEnabled(false)) {
+                clickedPlayer.sendMessage(
+                        ChatColor.RED + "Could not save resource-pack.enabled in configSFLAddons.yml.");
+                return false;
+            }
+            clickedPlayer.sendMessage(ChatColor.YELLOW + "Slimefun Legacy resource-pack delivery is disabled.");
+            clickedPlayer.sendMessage(
+                    ChatColor.GRAY
+                            + "Item-model mappings were left unchanged for custom/combined resource-pack compatibility.");
+            openResourcePackRecovery(clickedPlayer, returnGuide);
+            return false;
+        });
+
+        menu.addItem(15, menuItem(Material.BARRIER, "&cCancel", "", "&7Leave sender state unchanged."));
+        menu.addMenuClickHandler(15, (clickedPlayer, slot, item, action) -> {
+            openResourcePackRecovery(clickedPlayer, returnGuide);
+            return false;
+        });
+        menu.open(player);
     }
 
     private static void addUpgradeItemsButton(@Nonnull ChestMenu menu, @Nonnull ItemStack returnGuide) {
@@ -514,19 +588,13 @@ final class DoctorGuideMenu {
                         "",
                         "&aSafe with an external/combined pack sender.",
                         "&8This does NOT remove Slimefun item-model mappings.",
-                        enabled ? "&eClick to disable" : "&8Already disabled."));
-        menu.addMenuClickHandler(14, (player, slot, item, action) -> {
-            if (!service.setDeliveryEnabled(false)) {
-                player.sendMessage(ChatColor.RED + "Could not save resource-pack.enabled in configSFLAddons.yml.");
+                        enabled ? "&eClick to review and disable" : "&8Already disabled."));
+        if (enabled) {
+            menu.addMenuClickHandler(14, (player, slot, item, action) -> {
+                openDisablePackSenderConfirmation(player, returnGuide);
                 return false;
-            }
-            player.sendMessage(ChatColor.YELLOW + "Slimefun Legacy resource-pack delivery is disabled.");
-            player.sendMessage(
-                    ChatColor.GRAY
-                            + "Item-model mappings were left unchanged for custom/combined resource-pack compatibility.");
-            openResourcePackRecovery(player, returnGuide);
-            return false;
-        });
+            });
+        }
     }
 
     private static void addRemoveModelsButton(@Nonnull ChestMenu menu, @Nonnull ItemStack returnGuide) {
