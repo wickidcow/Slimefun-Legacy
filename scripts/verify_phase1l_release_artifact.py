@@ -142,6 +142,7 @@ def main() -> int:
         bundle_workflow = read(root, ".github/workflows/build-sfl-addons-compat-bundle.yml")
         for token in (
             "gradle.properties",
+            "docs/releases/**",
             "permissions:\n  contents: read",
             "'core_source_commit': os.environ['GITHUB_SHA']",
             "ThreadPoolExecutor(max_workers=6)",
@@ -159,6 +160,7 @@ def main() -> int:
             "branches:",
             "- master",
             "- gradle.properties",
+            "- 'docs/releases/**'",
             "fetch-depth: 0",
             "SOURCE_COMMIT=$GITHUB_SHA",
             "SOURCE_DATE_EPOCH=",
