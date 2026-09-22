@@ -240,6 +240,7 @@ Slimefun Legacy currently includes:
 - Preserved legacy method descriptors for addon compatibility
 - Native Enhanced Guide with indexed smart search, bookmarks, safe recipe preparation, universal machine recipe browsing, and TPS-safe reverse recipe usage browsing
 - Guide runtime isolation with slow-menu and addon ownership diagnostics
+- OP/admin-only Slimefun Recovery Center in the Guide, shared with maintained JEG, with read-only diagnostics, guided scan-before-change resource-pack recovery, item repair, migration, runtime, addon, storage, proxy, and performance tools
 - Addon-facing machine recipe provider API for structured inputs, alternatives, outputs, timing, and energy metadata
 - Safe machine input-fill adapter API for standard and custom addon inventories, including Supreme `GenericMachine` and FastMachines compatibility
 - Restart-safe `/sf update` staging for Slimefun Legacy and installed maintained addons
