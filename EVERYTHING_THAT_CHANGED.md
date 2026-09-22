@@ -1,3 +1,21 @@
+# Slimefun Legacy 4.1.60 — Stabilization & Validation Integrity
+
+- Stabilized the 4.1.59 Recovery Center/Doctor surface without changing its admin-only permission boundary or adding automatic migration/model cleanup.
+- Added active guide-provider evidence to `/sf doctor report`, showing the classic Slimefun Guide or maintained JEG version/state.
+- Kept resource-pack sender control, pack item adoption, stored-item texture repair, and exact Legacy model removal as separate confirmed recovery lanes.
+- Hardened the canonical 45-addon bundle so every build uses an exact per-run source SHA and records source commit + JAR SHA-256 metadata.
+- Added exact core-source identity to the addon bundle manifest and made the release workflow reject any bundle not built from the exact release `GITHUB_SHA`.
+- Changed release publication to explicit manual dispatch after candidate validation; ordinary addon-bundle builds no longer rewrite published Slimefun Legacy release assets.
+- Added release-note-triggered addon-bundle and reproducible candidate validation so the final release-document commit cannot silently move the release SHA without rebuilding matching artifacts.
+- Hardened compatibility CI against transient Maven/Paper repository HTTP 429/5xx and network failures while preserving immediate failure for real compile/linkage regressions.
+- Protected exact addon-bundle full-stack validation from unrelated concurrency cancellation and ignored unsuccessful bundle handoffs that cannot provide an artifact.
+- Confirmed the exact addon-bundle full-stack path boots the canonical stack twice on both Paper 26.2 and Paper 26.3.
+- Corrected Paper 26.3 status to **alpha/pre-release**; Paper 26.2 remains the production baseline and 26.3 is not promoted by this release.
+- Rolled the compatibility baseline to exact released 4.1.59 commit `3169bb8c67973b16c46316fdc4fe875df88351d1`.
+- No Slimefun item IDs, research IDs, storage keys, database schema, saved-world format, or normal Cargo/Energy/gameplay semantics are intentionally changed.
+
+---
+
 # Slimefun Legacy 4.1.59 — Admin Recovery Center & guided resource-pack recovery
 
 - Replaced the old Guide Doctor/placeholder experience with an OP/admin-only **Slimefun Recovery Center** guarded by `slimefun.command.doctor`.
