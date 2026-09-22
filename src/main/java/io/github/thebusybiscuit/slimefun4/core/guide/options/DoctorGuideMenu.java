@@ -279,8 +279,11 @@ final class DoctorGuideMenu {
         }
     }
 
-    private static void openResourcePackRecovery(
+    static void openResourcePackRecovery(
             @Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        if (!requireRecoveryAccess(player)) {
+            return;
+        }
         ExternalResourcePackService service = new ExternalResourcePackService(Slimefun.instance());
         var textures = Slimefun.getItemTextureService();
         boolean attention = service.hasOwnershipContradiction()
