@@ -283,7 +283,7 @@ final class DoctorOperationsCenterMenu {
                         Material.PAPER,
                         "&fSupport Summary",
                         "",
-                        "&7Open the compact Doctor support dashboard.",
+                        "&7Open the compact Support & Diagnostics summary.",
                         "&eClick to open"));
         menu.addMenuClickHandler(38, (clickedPlayer, slot, item, action) -> {
             DoctorGuideMenu.openSupportSummary(clickedPlayer, returnGuide);
@@ -300,7 +300,7 @@ final class DoctorOperationsCenterMenu {
                 49,
                 menuItem(
                         Material.COMPASS,
-                        "&bRefresh Operations Center",
+                        "&bRefresh Advanced System Health",
                         "",
                         "&7Refresh all live status cards.",
                         "&eClick to refresh"));
@@ -371,7 +371,7 @@ final class DoctorOperationsCenterMenu {
         addCommandButton(menu, 24, Material.HOPPER, "&dIntegration Runtime", "slimefun doctor integrations",
                 "&7Inspect external adapter failures that may look like machine lag.");
 
-        addBack(menu, 36, "&fBack to Operations Center", () -> open(player, returnGuide));
+        addBack(menu, 36, "&fBack to Advanced System Health", () -> open(player, returnGuide));
         menu.open(player);
     }
 
@@ -465,7 +465,7 @@ final class DoctorOperationsCenterMenu {
                         "&7use the exact execution command it prints.",
                         "&8Fingerprints remain short-lived and lane-specific."));
 
-        addBack(menu, 45, "&fBack to Operations Center", () -> open(player, returnGuide));
+        addBack(menu, 45, "&fBack to Advanced System Health", () -> open(player, returnGuide));
         menu.open(player);
     }
 
@@ -554,7 +554,7 @@ final class DoctorOperationsCenterMenu {
                 "slimefun doctor migrations schemas storage backpacks scan",
                 "&7Read-only audit that may prepare a guarded fingerprint.");
 
-        addBack(menu, 45, "&fBack to Operations Center", () -> open(player, returnGuide));
+        addBack(menu, 45, "&fBack to Advanced System Health", () -> open(player, returnGuide));
         menu.open(player);
     }
 
@@ -613,7 +613,7 @@ final class DoctorOperationsCenterMenu {
                         "&8This diagnostic cannot prove firewall rules or",
                         "&8identify every Bungee-compatible proxy brand."));
 
-        addBack(menu, 36, "&fBack to Operations Center", () -> open(player, returnGuide));
+        addBack(menu, 36, "&fBack to Advanced System Health", () -> open(player, returnGuide));
         menu.open(player);
     }
 
@@ -735,7 +735,7 @@ final class DoctorOperationsCenterMenu {
             return false;
         });
 
-        addBack(menu, 36, "&fBack to Operations Center", () -> open(player, returnGuide));
+        addBack(menu, 36, "&fBack to Advanced System Health", () -> open(player, returnGuide));
         menu.open(player);
     }
 
