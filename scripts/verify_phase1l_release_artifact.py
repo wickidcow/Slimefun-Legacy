@@ -139,6 +139,14 @@ def main() -> int:
             require(token in primary_workflow, f"Primary build artifact-verification invariant missing: {token}", failures)
 
         release_workflow = read(root, ".github/workflows/reproducible-release.yml")
+        bundle_workflow = read(root, ".github/workflows/build-sfl-addons-compat-bundle.yml")
+        for token in (
+            "gradle.properties",
+            "permissions:\n  contents: read",
+            "'core_source_commit': os.environ['GITHUB_SHA']",
+        ):
+            require(token in bundle_workflow, f"Addon bundle source-identity invariant missing: {token}", failures)
+
         for token in (
             "name: Reproducible Release",
             "workflow_dispatch:",
@@ -156,6 +164,12 @@ def main() -> int:
             "Require byte-for-byte reproducibility",
             "sha256sum",
             "cmp \"$RUNNER_TEMP/Slimefun-first.jar\" \"$RUNNER_TEMP/Slimefun-second.jar\"",
+            "Require exact-source validated canonical addon bundle",
+            "--json databaseId,headSha,status,conclusion",
+            "select(.headSha == $sha)",
+            "No successful addon bundle for exact release source $GITHUB_SHA became available.",
+            "bundle_core_commit = manifest.get('core_source_commit')",
+            "if bundle_core_commit != release_core_commit:",
             "Upload raw reproducible JAR artifact",
             "archive: false",
             "dist/${{ env.OUTPUT_NAME }}",
