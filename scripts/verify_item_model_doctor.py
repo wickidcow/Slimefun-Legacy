@@ -38,6 +38,7 @@ doctor_next_steps = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/
 support_report = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorSupportReport.java")
 tabs = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/SlimefunTabCompleter.java")
 doctor_menu = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/guide/options/DoctorGuideMenu.java")
+resource_pack_menu = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/guide/options/ResourcePackGuideMenu.java")
 doctor_assistant = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/guide/options/DoctorGuideAssistant.java")
 operations_menu = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/guide/options/DoctorOperationsCenterMenu.java")
 ownership_mode = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/ResourcePackOwnershipMode.java")
@@ -147,6 +148,16 @@ require("setResourcePackEnabled(boolean enabled)" in addons_config
         "resource-pack admin toggle must persist through the dedicated Legacy addons configuration")
 require('player.hasPermission("slimefun.command.doctor")' in doctor_menu,
         "Recovery Center must enforce the OP/admin Doctor permission at the menu boundary")
+require("&6Resource Pack & Item Textures" in doctor_menu
+        and "&eResource Pack Item Texture Repairs" in doctor_menu
+        and "&dRemove Resource-Pack Item Models" in doctor_menu,
+        "Recovery Center must keep resource-pack delivery, texture repair, and model removal clearly separated")
+require("&8Does NOT unregister Slimefun items or machines." in doctor_menu
+        and "&7No Legacy Item Models to Remove" in doctor_menu,
+        "item-model removal UI must state its safe boundary and never masquerade as stored-item repair")
+require('player.hasPermission(DOCTOR_PERMISSION)' in resource_pack_menu
+        and "&6&lSlimefun Recovery Center" in resource_pack_menu,
+        "player resource-pack menu must hide the Recovery Center shortcut from non-admin users")
 require("&bAdditional Recovery Tools" in doctor_menu
         and '"slimefun doctor scan"' in doctor_menu
         and '"slimefun doctor repair confirm"' in doctor_menu
