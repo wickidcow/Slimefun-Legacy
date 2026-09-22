@@ -52,6 +52,8 @@ and stored-item texture repair are not presented as the same operation.
 The resource-pack section deliberately separates these operations:
 
 - **Enable Legacy Pack Sender** — first requires a valid configured pack URL and SHA-1 (an empty SHA-1 remains valid), routing invalid configuration to **Resource Pack Preflight** instead of enabling delivery. A valid setup then opens a confirmation. If ownership is `EXTERNAL` or `NONE`, enabling reconciles ownership to `LEGACY`. Item-model mappings are not changed.
+
+If an `EXTERNAL`/`NONE` ownership mode suppresses effective Legacy delivery while the older raw sender flag is still ON, the Recovery Center shows a **Sender Flag Conflict** instead of pretending the sender is simply enabled or disabled. The admin can review the conflict in Preflight or explicitly clear the stale sender flag without touching item-model mappings.
 - **Upgrade Items for Resource Pack** — opens a guided **Scan Pack Upgrade → Apply Pack Texture Upgrade** flow. The scan is read-only; the apply step adopts zero-valued bundled mappings and updates eligible stored Slimefun items only after confirmation.
 - **Disable Legacy Pack Sender** — opens a confirmation before turning Slimefun Legacy pack delivery off. If ownership is `LEGACY`, the sender action reconciles ownership back to `AUTO`. Item-model mappings are not changed.
 - **Remove Resource-Pack Item Models** — opens a guided **Audit Model Removal → Remove Legacy Item Models** flow. The audit is read-only; the confirmed step removes exact bundled Legacy mappings. It does **not** unregister Slimefun items or machines.
