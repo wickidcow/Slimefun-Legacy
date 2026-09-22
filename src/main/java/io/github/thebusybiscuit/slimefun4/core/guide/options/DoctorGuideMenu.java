@@ -369,7 +369,29 @@ final class DoctorGuideMenu {
 
     private static void openItemTextureRepairs(
             @Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        ItemDoctorReport last = Slimefun.getItemDoctorService().getLastReport();
         ChestMenu menu = subMenu("&e&lResource Pack Item Texture Repairs", 27);
+
+        menu.addItem(
+                4,
+                last == null
+                        ? menuItem(
+                                Material.PAPER,
+                                "&fLatest Item-Model Snapshot",
+                                "",
+                                "&7No completed server-wide Doctor scan is available.",
+                                "&aRun the texture scan below before repairing.")
+                        : menuItem(
+                                last.getItemModelCandidates() > 0 ? Material.COMPARATOR : Material.EMERALD,
+                                "&fLatest Item-Model Snapshot",
+                                "",
+                                "&7Item-model candidates: &e" + last.getItemModelCandidates(),
+                                "&7Scan complete: " + (last.isComplete() ? "&aYes" : "&eNo"),
+                                "&7Traversal failures: &e" + last.getFailures(),
+                                "",
+                                last.getItemModelCandidates() > 0
+                                        ? "&eReview the dedicated texture scan before repair."
+                                        : "&aNo stale bundled item-model candidates in the latest scan."));
 
         menu.addItem(
                 10,
