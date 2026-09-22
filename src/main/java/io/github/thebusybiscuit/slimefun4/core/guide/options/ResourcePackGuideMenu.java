@@ -199,14 +199,16 @@ final class ResourcePackGuideMenu {
                         Material.TOTEM_OF_UNDYING,
                         "&6&lSlimefun Recovery Center",
                         "",
-                        "&7Administrative resource-pack and item recovery.",
-                        "&7Includes sender controls, item texture repairs,",
-                        "&7model removal, diagnostics and migration tools.",
+                        "&7Open the Recovery Center directly at",
+                        "&6Resource Pack & Item Textures&7.",
+                        "",
+                        "&7Includes sender controls, upgrade scans,",
+                        "&7model removal audits and item texture repairs.",
                         "",
                         "&8OP/Admin only • slimefun.command.doctor",
-                        "&eClick to open Recovery Center"));
+                        "&eClick to open resource-pack recovery"));
         menu.addMenuClickHandler(16, (clickedPlayer, slot, item, action) -> {
-            DoctorGuideMenu.open(clickedPlayer, returnGuide);
+            DoctorGuideMenu.openResourcePackRecovery(clickedPlayer, returnGuide);
             return false;
         });
     }
