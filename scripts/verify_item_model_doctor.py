@@ -145,7 +145,7 @@ require("setDeliveryEnabled(true)" in doctor_menu and "setDeliveryEnabled(false)
 require("setResourcePackEnabled(boolean enabled)" in addons_config
         and "setDeliveryEnabled(boolean enabled)" in pack_service,
         "resource-pack admin toggle must persist through the dedicated Legacy addons configuration")
-require("&bOther Doctor Fixes" in doctor_menu
+require('player.hasPermission("slimefun.command.doctor")' in doctor_menu,\n        "Recovery Center must enforce the OP/admin Doctor permission at the menu boundary")\nrequire("&bAdditional Recovery Tools" in doctor_menu
         and '"slimefun doctor scan"' in doctor_menu
         and '"slimefun doctor repair confirm"' in doctor_menu
         and '"slimefun doctor item-models scan"' in doctor_menu
@@ -156,13 +156,13 @@ require("&bResource Pack Preflight" in doctor_menu
         and "&6Player & Item Repair" in doctor_menu
         and "&dAddon & Dependency Health" in doctor_menu
         and "&cRuntime Recovery" in doctor_menu
-        and "&fDoctor Support Summary" in doctor_menu,
+        and "&fSupport & Diagnostics Summary" in doctor_menu,
         "Guide Doctor console must retain preflight, targeted repair, addon/dependency, runtime and support views")
 require("&aSupported setup:" in doctor_menu
         and "Legacy sender OFF" in doctor_menu
         and "External/combined packs may still need these mappings." in doctor_menu,
         "Guide Doctor must clearly support external/combined pack delivery without implying model cleanup")
-require("&3Slimefun Operations Center" in doctor_menu
+require("&3Advanced System Health" in doctor_menu
         and "&6Performance Health" in operations_menu
         and "&bUpgrade Center" in operations_menu
         and "&eStorage & Persistence Center" in operations_menu
