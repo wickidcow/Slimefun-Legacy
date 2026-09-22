@@ -37,7 +37,7 @@ final class DoctorGuideMenu {
         var textures = Slimefun.getItemTextureService();
         DoctorGuideAssistant.Recommendation recommendation = DoctorGuideAssistant.recommend();
 
-        ChestMenu menu = new ChestMenu("&4&lSlimefun Doctor Console");
+        ChestMenu menu = new ChestMenu("&6&lSlimefun Recovery Center");
         menu.setSize(45);
         menu.setEmptySlotsClickable(false);
         fill(menu, 45);
@@ -346,6 +346,7 @@ final class DoctorGuideMenu {
                         Material.GRINDSTONE,
                         "&dRemove Resource-Pack Item Models",
                         "",
+                        "&7Unregister Legacy's resource-pack enhanced item mappings.",
                         "&7Use only when you intentionally want Legacy's",
                         "&7exact bundled model mappings removed.",
                         "",
@@ -899,9 +900,10 @@ final class DoctorGuideMenu {
                 menu,
                 14,
                 Material.COMPARATOR,
-                "&eScan Item Models",
+                "&eResource Pack Item Texture Repairs",
                 "slimefun doctor item-models scan",
-                "&7Read-only stale bundled item-model inspection.");
+                "&7Read-only scan for stale or mismatched bundled item textures.",
+                "&7Use the guarded repair command only after reviewing results.");
         addCommandButton(
                 menu,
                 16,
@@ -1117,14 +1119,14 @@ final class DoctorGuideMenu {
 
     private static void openRemoveModelsConfirmation(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
         int mappingCandidates = Slimefun.getItemTextureService().getHostedPackRemovalCandidateCount();
-        ChestMenu menu = confirmationMenu("&d&lConfirm Model Cleanup");
+        ChestMenu menu = confirmationMenu("&d&lConfirm Remove Item Models");
 
         if (mappingCandidates > 0) {
             menu.addItem(
                     11,
                     menuItem(
                             Material.RED_CONCRETE,
-                            "&cConfirm Remove Bundled Mappings",
+                            "&cConfirm Remove Item Models",
                             "",
                             "&7Resets only exact Legacy bundled mappings to 0.",
                             "&aDo not use merely because Legacy's sender is disabled.",
@@ -1142,7 +1144,7 @@ final class DoctorGuideMenu {
                     11,
                     menuItem(
                             Material.GRINDSTONE,
-                            "&dConfirm Clean Stored Item Models",
+                            "&dConfirm Resource Pack Item Texture Repair",
                             "",
                             "&7Runs the guarded stored-item model cleanup.",
                             "&7Eligible stale exact bundled data is removed.",
