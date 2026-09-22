@@ -79,7 +79,7 @@ final class DoctorOperationsCenterMenu {
         long packIssues = packIssueCount(packs);
         long proxyIssues = proxy.getFailures().size();
 
-        ChestMenu menu = subMenu("&3&lSlimefun Operations Center", 54);
+        ChestMenu menu = subMenu("&3&lAdvanced System Health", 54);
 
         menu.addItem(
                 4,
@@ -88,8 +88,8 @@ final class DoctorOperationsCenterMenu {
                                 ? Material.EMERALD_BLOCK
                                 : Material.COMPASS,
                         totalIssues(itemIssues, storageIssues, machineIssues, addonIssues, proxyIssues, packIssues) == 0
-                                ? "&a&lOperations Healthy"
-                                : "&e&lOperations Attention",
+                                ? "&a&lSystem Healthy"
+                                : "&e&lSystem Attention",
                         "",
                         "&7Unified read-only health dashboard.",
                         "&7Click a status card to inspect its lane.",
@@ -290,7 +290,7 @@ final class DoctorOperationsCenterMenu {
             return false;
         });
 
-        menu.addItem(45, menuItem(Material.ARROW, "&fBack to Slimefun Doctor"));
+        menu.addItem(45, menuItem(Material.ARROW, "&fBack to Recovery Center"));
         menu.addMenuClickHandler(45, (clickedPlayer, slot, item, action) -> {
             DoctorGuideMenu.open(clickedPlayer, returnGuide);
             return false;
