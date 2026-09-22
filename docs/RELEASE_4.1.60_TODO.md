@@ -35,17 +35,17 @@
 
 ## Doctor / Recovery Center final pass
 
-- [ ] Run the full Item Doctor static verification after #247 merges.
-- [ ] Confirm `/sf doctor report` remains public-safe and contains no paths, IPs, credentials, player data, coordinates, raw config dumps, or raw exception messages.
-- [ ] Confirm the Recovery Center remains OP/admin-only at every entry point.
-- [ ] Confirm resource-pack actions remain separated:
+- [x] Run the full Item Doctor static verification after #247 merges.
+- [x] Confirm `/sf doctor report` remains public-safe and contains no paths, IPs, credentials, player data, coordinates, raw config dumps, or raw exception messages.
+- [x] Confirm the Recovery Center remains OP/admin-only at every entry point.
+- [x] Confirm resource-pack actions remain separated:
   - Legacy sender enable/disable;
   - resource-pack item adoption/upgrade;
   - stored-item texture/model repair;
   - exact bundled mapping removal.
-- [ ] Confirm destructive/mutating lanes still require explicit confirmation or fingerprint gates.
-- [ ] Confirm the Slimefun Doctor wiki link and maintained command list remain reachable from the Recovery Center.
-- [ ] Confirm Doctor Next Steps routes unresolved findings to specialist lanes instead of implying the generic repair fixes everything.
+- [x] Confirm destructive/mutating lanes still require explicit confirmation or fingerprint gates.
+- [x] Confirm the Slimefun Doctor wiki link and maintained command list remain reachable from the Recovery Center.
+- [x] Confirm Doctor Next Steps routes unresolved findings to specialist lanes instead of implying the generic repair fixes everything.
 
 ## Maintained addon bundle validation
 
