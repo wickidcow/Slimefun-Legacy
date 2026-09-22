@@ -160,6 +160,11 @@ require("&a&lEnable Legacy Pack Sender" in doctor_menu
         and "&aConfirm Enable Sender" in doctor_menu
         and "&cConfirm Disable Sender" in doctor_menu,
         "Recovery Center sender toggles must require explicit confirmation")
+require("&cLegacy Pack Sender Not Ready" in doctor_menu
+        and "service.isConfiguredUrlValid()" in doctor_menu
+        and "service.isConfiguredSha1Valid()" in doctor_menu
+        and "openResourcePackPreflight(player, returnGuide)" in doctor_menu,
+        "invalid pack configuration must route to preflight instead of sender enablement")
 require("&7Current ownership: &e" in doctor_menu
         and "&7After confirm: &a" in doctor_menu
         and "&8EXTERNAL/NONE is reconciled to LEGACY." in doctor_menu
