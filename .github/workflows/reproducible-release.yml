@@ -114,7 +114,7 @@ jobs:
               --branch master \
               --limit 50 \
               --json databaseId,headSha,status,conclusion \
-              --jq "[.[] | select(.headSha == \"$GITHUB_SHA\")] | sort_by(.databaseId) | reverse | .[0] // {}")"
+              | jq --arg sha "$GITHUB_SHA" '[.[] | select(.headSha == $sha)] | sort_by(.databaseId) | reverse | .[0] // {}')"
 
             MATCH_ID="$(jq -r '.databaseId // empty' <<<"$MATCH")"
             MATCH_STATUS="$(jq -r '.status // empty' <<<"$MATCH")"
