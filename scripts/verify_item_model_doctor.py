@@ -165,6 +165,11 @@ require("&cLegacy Pack Sender Not Ready" in doctor_menu
         and "service.isConfiguredSha1Valid()" in doctor_menu
         and "openResourcePackPreflight(player, returnGuide)" in doctor_menu,
         "invalid pack configuration must route to preflight instead of sender enablement")
+require("&eLegacy Sender Flag Conflict" in doctor_menu
+        and "&eResolve Sender Flag Conflict" in doctor_menu
+        and "&eConfirm Clear Sender Flag" in doctor_menu
+        and "service.isSenderFlagEnabled()" in doctor_menu,
+        "suppressed raw sender flags must be surfaced as an explicit recoverable conflict")
 require("&7Current ownership: &e" in doctor_menu
         and "&7After confirm: &a" in doctor_menu
         and "&8EXTERNAL/NONE is reconciled to LEGACY." in doctor_menu
