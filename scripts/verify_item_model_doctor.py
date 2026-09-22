@@ -155,6 +155,11 @@ require("&6Resource Pack & Item Textures" in doctor_menu
         and "&eResource Pack Item Texture Repairs" in doctor_menu
         and "&dRemove Resource-Pack Item Models" in doctor_menu,
         "Recovery Center must keep resource-pack delivery, texture repair, and model removal clearly separated")
+require("&a&lEnable Legacy Pack Sender" in doctor_menu
+        and "&c&lDisable Legacy Pack Sender" in doctor_menu
+        and "&aConfirm Enable Sender" in doctor_menu
+        and "&cConfirm Disable Sender" in doctor_menu,
+        "Recovery Center sender toggles must require explicit confirmation")
 require("&a1. Scan Pack Upgrade" in doctor_menu
         and '"slimefun doctor item-models enable-pack scan"' in doctor_menu
         and "&a1. Audit Model Removal" in doctor_menu
