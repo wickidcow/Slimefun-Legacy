@@ -72,7 +72,16 @@
 
 ## Release preparation
 
-- [ ] Use released 4.1.59 as the previous-stable compatibility/release baseline for 4.1.60.
+- [ ] Intentionally roll the development line from 4.1.59 to 4.1.60 in one coordinated version-alignment change.
+  - `gradle.properties` project version;
+  - `compatibility/release-baselines.json` candidate → 4.1.60 and previous stable → released 4.1.59;
+  - `compatibility/core-api-registry.json`;
+  - `compatibility/cross-fork-api-matrix.json`;
+  - `compatibility/support-contract.json`;
+  - `compatibility/addon-compatibility-matrix.json`;
+  - README development/release-lifecycle wording where it describes the active candidate.
+- [ ] Pin released 4.1.59 commit `3169bb8c67973b16c46316fdc4fe875df88351d1` as the release-blocking previous-stable compatibility baseline for 4.1.60.
+- [ ] After the rollover, require compatibility CI job names/summaries to say previous stable 4.1.59 rather than 4.1.58.
 - [ ] Prepare `docs/releases/4.1.60.md` only after stabilization PRs and release gates are green.
 - [ ] Update `EVERYTHING_THAT_CHANGED.md` with the final 4.1.60 stabilization changes.
 - [ ] Publish only the canonical raw core JAR and validated addon bundle artifacts expected by the release workflow.
