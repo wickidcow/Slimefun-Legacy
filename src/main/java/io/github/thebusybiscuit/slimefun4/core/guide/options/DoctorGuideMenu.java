@@ -203,6 +203,8 @@ final class DoctorGuideMenu {
                         "&aGreen/read-only actions &7inspect only.",
                         "&eYellow actions &7route to a specialist lane.",
                         "&cConfirmed actions &7can change stored items/settings.",
+                        "&8Read-only command buttons may close the menu so",
+                        "&8you can review their chat output before continuing.",
                         "",
                         "&8Legacy pack delivery and model mappings are independent.",
                         "&8Custom/non-matching model values stay protected."));
@@ -365,6 +367,7 @@ final class DoctorGuideMenu {
                         "",
                         "&7Finds eligible stale exact Legacy model data.",
                         "&aRead-only. No items are changed.",
+                        "&8Review chat output, then reopen this menu to continue.",
                         "&eClick to scan"));
         menu.addMenuClickHandler(10, (clickedPlayer, slot, item, action) -> {
             runCommand(clickedPlayer, "slimefun doctor item-models scan");
@@ -528,6 +531,7 @@ final class DoctorGuideMenu {
                         "&7Audits zero-valued Legacy mappings and reachable",
                         "&7stored items that can safely adopt bundled textures.",
                         "&aRead-only. No mappings or items are changed.",
+                        "&8Review chat output, then reopen this menu to continue.",
                         "&eClick to scan"));
         menu.addMenuClickHandler(10, (clickedPlayer, slot, item, action) -> {
             runCommand(clickedPlayer, "slimefun doctor item-models enable-pack scan");
@@ -586,6 +590,7 @@ final class DoctorGuideMenu {
                         "&7Reports exact Legacy bundled mappings eligible",
                         "&7for removal without changing anything.",
                         "&aRead-only. No mappings or items are changed.",
+                        "&8Review chat output, then reopen this menu to continue.",
                         "&eClick to audit"));
         menu.addMenuClickHandler(10, (clickedPlayer, slot, item, action) -> {
             runCommand(clickedPlayer, "slimefun doctor item-models remove-resourcepack-texture-ids");
