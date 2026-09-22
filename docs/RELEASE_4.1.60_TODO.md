@@ -48,6 +48,10 @@
 
 ## Maintained addon bundle validation
 
+- [ ] Freeze canonical release-bundle source identity before publishing 4.1.60.
+  - The current matrix contains 45 maintained addons, but only 7 have explicit `source_commit` pins and 38 still build from repository HEAD.
+  - Keep normal compatibility discovery flexible if desired, but the **release bundle** must have an exact source commit recorded and enforced for every shipped addon.
+  - Continue embedding resolved commit + JAR SHA-256 metadata inside the addon bundle manifest.
 - [ ] Rebuild the canonical `SF_Addons_1.21.11-26.3.zip` after stabilization PRs merge.
 - [ ] Require every maintained addon in `compatibility/sfl-addon-release-matrix.json` to compile against the detected Paper 26.3 API.
 - [ ] Run required-addon runtime smoke for JEG, BetterChests, FastMachines, Networks, and SlimeTinker.
