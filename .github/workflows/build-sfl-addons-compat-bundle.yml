@@ -4,6 +4,7 @@ on:
   push:
     branches: [master]
     paths:
+      - 'gradle.properties'
       - '.github/workflows/build-sfl-addons-compat-bundle.yml'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'scripts/compile_addon_paper_26_3.py'
@@ -19,7 +20,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: sf-addons-1.21.11-26.3-bundle-${{ github.ref }}
@@ -392,11 +393,13 @@ jobs:
           cp collected/jars/*.jar bundle/
           python3 - <<'PY'
           import json
+          import os
           from pathlib import Path
           source = json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text(encoding='utf-8'))
           records = [json.loads(p.read_text(encoding='utf-8')) for p in sorted(Path('collected/metadata').glob('*.json'))]
           out = {
               'bundle': source['bundle_name'],
+              'core_source_commit': os.environ['GITHUB_SHA'],
               'artifact_naming': source['artifact_naming'],
               'compatibility': source['compatibility'],
               'addons': records,
