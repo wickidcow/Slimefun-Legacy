@@ -155,6 +155,11 @@ require("&6Resource Pack & Item Textures" in doctor_menu
         and "&eResource Pack Item Texture Repairs" in doctor_menu
         and "&dRemove Resource-Pack Item Models" in doctor_menu,
         "Recovery Center must keep resource-pack delivery, texture repair, and model removal clearly separated")
+require("&a1. Scan Pack Upgrade" in doctor_menu
+        and '"slimefun doctor item-models enable-pack scan"' in doctor_menu
+        and "&a1. Audit Model Removal" in doctor_menu
+        and '"slimefun doctor item-models remove-resourcepack-texture-ids"' in doctor_menu,
+        "resource-pack mutation paths must expose a read-only scan/audit step before confirmation")
 require("&8Does NOT unregister Slimefun items or machines." in doctor_menu
         and "&7No Legacy Item Models to Remove" in doctor_menu,
         "item-model removal UI must state its safe boundary and never masquerade as stored-item repair")
