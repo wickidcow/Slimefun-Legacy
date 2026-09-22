@@ -15,6 +15,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import time
 import traceback
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -76,6 +77,65 @@ def copy_project(source: Path, destination: Path) -> None:
     if destination.exists():
         shutil.rmtree(destination)
     shutil.copytree(source, destination, symlinks=True, ignore=COPY_IGNORE)
+
+
+TRANSIENT_MAVEN_FAILURE_MARKERS = (
+    "429",
+    "too many requests",
+    "502 bad gateway",
+    "503 service unavailable",
+    "504 gateway timeout",
+    "connection reset",
+    "read timed out",
+    "connection timed out",
+    "remote host terminated",
+    "temporary failure in name resolution",
+)
+
+
+def is_transient_maven_failure(text: str) -> bool:
+    lowered = text.lower()
+    return any(marker in lowered for marker in TRANSIENT_MAVEN_FAILURE_MARKERS)
+
+
+def stream_maven_command(
+    command: list[str],
+    *,
+    cwd: Path,
+    env: dict[str, str],
+    log: TextIO,
+    max_attempts: int = 3,
+) -> int:
+    last_code = 1
+    retry_command = command
+    for attempt in range(1, max_attempts + 1):
+        last_code = stream_command(retry_command, cwd=cwd, env=env, log=log)
+        if last_code == 0:
+            return 0
+
+        log.flush()
+        try:
+            text = Path(log.name).read_text(encoding="utf-8", errors="replace")
+        except (OSError, TypeError):
+            return last_code
+
+        if not is_transient_maven_failure(text) or attempt >= max_attempts:
+            return last_code
+
+        if "-U" not in retry_command:
+            retry_command = [retry_command[0], "-U", *retry_command[1:]]
+
+        delay = attempt * 5
+        message = (
+            f"\nTransient Maven repository/network failure detected; retrying "
+            f"attempt {attempt + 1}/{max_attempts} in {delay}s.\n"
+        )
+        print(message, end="")
+        log.write(message)
+        log.flush()
+        time.sleep(delay)
+
+    return last_code
 
 
 def stream_command(
@@ -225,10 +285,11 @@ def install_maven_jar(
     env: dict[str, str],
     log: TextIO,
 ) -> int:
-    return stream_command(
+    return stream_maven_command(
         [
             "mvn",
             "-B",
+            "-Dmaven.wagon.http.retryHandler.count=3",
             "install:install-file",
             f"-Dfile={jar}",
             "-DgroupId=com.github.slimefun",
@@ -301,11 +362,23 @@ def build_project(
             wrapper = project / "mvnw"
             if wrapper.exists():
                 make_executable(wrapper)
-                command = [str(wrapper), "-B", "-DskipTests", "package"]
+                command = [
+                    str(wrapper),
+                    "-B",
+                            "-Dmaven.wagon.http.retryHandler.count=3",
+                    "-DskipTests",
+                    "package",
+                ]
             else:
-                command = ["mvn", "-B", "-DskipTests", "package"]
+                command = [
+                    "mvn",
+                    "-B",
+                            "-Dmaven.wagon.http.retryHandler.count=3",
+                    "-DskipTests",
+                    "package",
+                ]
 
-            exit_code = stream_command(command, cwd=project, env=env, log=log)
+            exit_code = stream_maven_command(command, cwd=project, env=env, log=log)
             output_jar = find_built_addon_jar(project) if exit_code == 0 else None
             return BuildResult(
                 label,

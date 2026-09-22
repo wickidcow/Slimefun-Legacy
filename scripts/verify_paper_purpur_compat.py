@@ -62,6 +62,17 @@ def main() -> int:
             failures.append("previous-stable compatibility baseline build command is missing")
         if spotless >= 0 and build >= 0 and spotless > build:
             failures.append("previous-stable compatibility baseline runs Spotless after the build")
+    addons_start = workflow.find("  addons:")
+    addons_end = workflow.find("\n  legacy-floor-addons:", addons_start)
+    if addons_start < 0 or addons_end < 0:
+        failures.append("required addon compatibility job is missing or malformed")
+    else:
+        addons_job = workflow[addons_start:addons_end]
+        if "max-parallel: 4" not in addons_job:
+            failures.append("required addon compatibility concurrency must stay capped at 4")
+        if "max-parallel: 8" in addons_job:
+            failures.append("required addon compatibility concurrency is high enough to trigger repository rate limiting")
+
     comparator = (
         read("scripts/compare_addon_slimefun_compatibility.py")
         + "\n"
@@ -107,7 +118,6 @@ def main() -> int:
         "Declared addon version:",
         "Expected addon version $TARGET_VERSION",
         "continue-on-error: ${{ matrix.advisory }}",
-        "max-parallel: 4",
         "GIT_TERMINAL_PROMPT: '0'",
         "addon-compatibility-${{ matrix.slug }}",
         "- name: Make Gradle wrapper executable",
@@ -147,6 +157,13 @@ def main() -> int:
         "analyze_linkage",
         "write_linkage_report",
         "find_built_addon_jar",
+        "TRANSIENT_MAVEN_FAILURE_MARKERS",
+        "is_transient_maven_failure",
+        "stream_maven_command",
+        "too many requests",
+        "-Dmaven.wagon.http.retryHandler.count=3",
+        'if "-U" not in retry_command:',
+        'retry_command = [retry_command[0], "-U", *retry_command[1:]]',
     ):
         if token not in comparator:
             failures.append(f"Two-stage addon comparator invariant is missing: {token}")
