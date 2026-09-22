@@ -283,19 +283,20 @@ public final class SlimefunGuideSettings {
             menu.addItem(
                     46,
                     new CustomItemStack(
-                            Material.ANVIL,
-                            "&cSlimefun Doctor",
+                            Material.TOTEM_OF_UNDYING,
+                            "&6Slimefun Recovery Center",
                             "",
-                            "&7Administrative Slimefun repair and migration tools.",
+                            "&7Administrative diagnostics, repair and recovery tools.",
                             "&7Includes clear resource-pack controls for:",
                             "&a- enabling pack delivery",
                             "&6- upgrading items for the pack",
                             "&c- disabling pack delivery",
                             "&d- removing resource-pack item models",
+                            "&e- resource pack item texture repairs",
                             "&b- other Doctor fixes and diagnostics",
                             "",
                             "&8Server owner tool",
-                            "&7⇨ &eClick to open Slimefun Doctor"));
+                            "&7⇨ &eClick to open Recovery Center"));
 
             menu.addMenuClickHandler(46, (pl, slot, item, action) -> {
                 DoctorGuideMenu.open(pl, guide);
