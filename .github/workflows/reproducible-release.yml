@@ -22,7 +22,7 @@ concurrency:
 jobs:
   release-artifact:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Check out exact source
         uses: actions/checkout@v6
@@ -92,7 +92,7 @@ jobs:
           cp "$RUNNER_TEMP/release-artifact-first.json" "$RUNNER_TEMP/release-artifact-first.md" "$RUNNER_TEMP/release-artifact-second.json" "$RUNNER_TEMP/release-artifact-second.md" build/release-verification/
           printf '# Reproducible release verification\n\n- Source: `%s`\n- SHA-256: `%s`\n- Result: **PASS — byte-for-byte identical**\n' "$GITHUB_SHA" "$FIRST_SHA" | tee build/release-verification/reproducible-release.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Preserve latest validated canonical addon bundle
+      - name: Require exact-source validated canonical addon bundle
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -101,56 +101,53 @@ jobs:
           BUNDLE_NAME="$CANONICAL_ADDON_BUNDLE"
           ARTIFACT_NAME="${BUNDLE_NAME%.zip}"
           BUNDLE="dist/${BUNDLE_NAME}"
-          SOURCE_DESCRIPTION=''
 
           rm -rf bundle-artifact bundle-check
           mkdir -p dist bundle-artifact bundle-check
           rm -f "$BUNDLE"
 
-          # Prefer the newest successfully validated canonical bundle built on master.
-          # This keeps a new core release from silently reusing an older release's addon ZIP.
-          RUN_ID="$(gh run list             --repo "$GITHUB_REPOSITORY"             --workflow build-sfl-addons-compat-bundle.yml             --branch master             --status success             --limit 20             --json databaseId             --jq '.[0].databaseId // empty')"
+          RUN_ID=''
+          for attempt in $(seq 1 180); do
+            MATCH="$(gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow build-sfl-addons-compat-bundle.yml \
+              --branch master \
+              --limit 50 \
+              --json databaseId,headSha,status,conclusion \
+              | jq --arg sha "$GITHUB_SHA" '[.[] | select(.headSha == $sha)] | sort_by(.databaseId) | reverse | .[0] // {}')"
 
-          if [[ -n "$RUN_ID" ]]; then
-            gh run download "$RUN_ID"               --repo "$GITHUB_REPOSITORY"               --name "$ARTIFACT_NAME"               --dir bundle-artifact
-            test -s "bundle-artifact/$BUNDLE_NAME"
-            cp "bundle-artifact/$BUNDLE_NAME" "$BUNDLE"
-            SOURCE_DESCRIPTION="validated Actions bundle from run ${RUN_ID}"
-          else
-            # Fallback for repositories without a retained successful bundle artifact.
-            SOURCE_TAG=''
-            while IFS= read -r candidate; do
-              [[ -n "$candidate" ]] || continue
-              DIGEST="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${candidate}"                 --jq ".assets[] | select(.name == \"${BUNDLE_NAME}\") | .digest"                 | head -n 1 || true)"
-              if [[ "$DIGEST" == sha256:* ]]; then
-                SOURCE_TAG="$candidate"
-                break
-              fi
-            done < <(gh release list --repo "$GITHUB_REPOSITORY" --limit 50 --json tagName,isDraft               --jq '.[] | select(.isDraft == false) | .tagName')
+            MATCH_ID="$(jq -r '.databaseId // empty' <<<"$MATCH")"
+            MATCH_STATUS="$(jq -r '.status // empty' <<<"$MATCH")"
+            MATCH_CONCLUSION="$(jq -r '.conclusion // empty' <<<"$MATCH")"
 
-            if [[ -z "$SOURCE_TAG" ]]; then
-              echo "No validated Actions artifact or published Slimefun Legacy release contains ${BUNDLE_NAME}." >&2
+            if [[ -n "$MATCH_ID" && "$MATCH_STATUS" == "completed" && "$MATCH_CONCLUSION" == "success" ]]; then
+              RUN_ID="$MATCH_ID"
+              break
+            fi
+
+            if [[ -n "$MATCH_ID" && "$MATCH_STATUS" == "completed" && "$MATCH_CONCLUSION" != "success" ]]; then
+              echo "Exact-source addon bundle run ${MATCH_ID} completed with ${MATCH_CONCLUSION}; refusing release publication." >&2
               exit 1
             fi
 
-            ASSET_DIGEST="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${SOURCE_TAG}"               --jq ".assets[] | select(.name == \"${BUNDLE_NAME}\") | .digest"               | head -n 1)"
-            case "$ASSET_DIGEST" in
-              sha256:[0-9a-fA-F]*) ;;
-              *)
-                echo "Release ${SOURCE_TAG} does not expose a usable SHA-256 digest for ${BUNDLE_NAME}." >&2
-                exit 1
-                ;;
-            esac
+            if [[ "$attempt" -eq 180 ]]; then
+              echo "No successful addon bundle for exact release source $GITHUB_SHA became available." >&2
+              echo "Run Build SF Addons 1.21.11-26.3 Bundle at this exact commit before publishing." >&2
+              exit 1
+            fi
 
-            EXPECTED_SHA="${ASSET_DIGEST#sha256:}"
-            [[ "$EXPECTED_SHA" =~ ^[0-9a-fA-F]{64}$ ]]
+            echo "Waiting for exact-source addon bundle for $GITHUB_SHA (attempt ${attempt}/180; run=${MATCH_ID:-not-started}; status=${MATCH_STATUS:-unknown})."
+            sleep 10
+          done
 
-            gh release download "$SOURCE_TAG"               --repo "$GITHUB_REPOSITORY"               --pattern "$BUNDLE_NAME"               --dir dist
-            printf '%s  %s\n' "$EXPECTED_SHA" "$BUNDLE" | sha256sum -c -
-            SOURCE_DESCRIPTION="published release ${SOURCE_TAG} (${ASSET_DIGEST})"
-          fi
+          test -n "$RUN_ID"
+          gh run download "$RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$ARTIFACT_NAME" \
+            --dir bundle-artifact
+          test -s "bundle-artifact/$BUNDLE_NAME"
+          cp "bundle-artifact/$BUNDLE_NAME" "$BUNDLE"
 
-          test -s "$BUNDLE"
           unzip -tqq "$BUNDLE"
           unzip -q "$BUNDLE" -d bundle-check
           test -s bundle-check/SF_ADDON_MANIFEST.json
@@ -159,6 +156,7 @@ jobs:
 
           python3 - <<'PY'
           import json
+          import os
           import re
           from pathlib import Path
 
@@ -168,7 +166,13 @@ jobs:
           expected = sorted(row['jar'] for row in records)
           actual = sorted(path.name for path in root.glob('*.jar'))
           versions = manifest.get('compatibility', {}).get('minecraft_versions', {})
+          bundle_core_commit = manifest.get('core_source_commit')
+          release_core_commit = os.environ['GITHUB_SHA']
 
+          if bundle_core_commit != release_core_commit:
+              raise SystemExit(
+                  f'Addon bundle/core source mismatch: bundle={bundle_core_commit}, release={release_core_commit}'
+              )
           if not expected or actual != expected:
               raise SystemExit(f'Canonical addon bundle manifest mismatch: expected={expected}, actual={actual}')
           if versions.get('minimum') != '1.21.11' or '26.3' not in versions.get('supported', []):
@@ -179,11 +183,11 @@ jobs:
               if (not name.startswith('SF_') and not reborn) or not name.endswith('.jar'):
                   raise SystemExit(f'Canonical addon bundle contains an invalid public addon filename: {name}')
 
-          print(f'Validated canonical addon bundle with {len(expected)} addon JARs')
+          print(f'Validated exact-source canonical addon bundle with {len(expected)} addon JARs')
           PY
 
           BUNDLE_SHA="$(sha256sum "$BUNDLE" | awk '{print $1}')"
-          echo "Canonical addon bundle source: ${SOURCE_DESCRIPTION}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Canonical addon bundle source: exact release commit $GITHUB_SHA (Actions run ${RUN_ID})" >> "$GITHUB_STEP_SUMMARY"
           echo "Canonical addon bundle SHA-256: ${BUNDLE_SHA}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload raw reproducible JAR artifact
@@ -194,7 +198,17 @@ jobs:
           archive: false
           if-no-files-found: error
 
+      - name: Mark candidate validation complete
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          {
+            echo
+            echo "Candidate validation completed without publishing a GitHub Release."
+            echo "Use workflow_dispatch on this exact commit after release notes and all release gates are complete."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Publish reproducible release assets
+        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -239,6 +253,7 @@ jobs:
           fi
 
       - name: Normalize and verify release assets
+        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash

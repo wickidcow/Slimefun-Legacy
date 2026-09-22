@@ -47,6 +47,19 @@ COMPILE_FAILED = "COMPILE_FAILED"
 INSTRUMENTATION_ERROR = "INSTRUMENTATION_ERROR"
 EXIT_CODES = {PASS: 0, COMPILE_FAILED: 20, INSTRUMENTATION_ERROR: 30}
 
+TRANSIENT_REPOSITORY_FAILURE_MARKERS = (
+    "429",
+    "too many requests",
+    "bad gateway",
+    "service unavailable",
+    "gateway timeout",
+    "connection reset",
+    "read timed out",
+    "connection timed out",
+    "remote host terminated",
+    "temporary failure in name resolution",
+)
+
 
 @dataclass(frozen=True)
 class BuildResult:
@@ -135,6 +148,58 @@ def stream_command(command: list[str], *, cwd: Path, env: dict[str, str], log: T
     log.write(footer)
     log.flush()
     return exit_code
+
+
+def is_transient_repository_failure(text: str) -> bool:
+    lowered = text.lower()
+    return any(marker in lowered for marker in TRANSIENT_REPOSITORY_FAILURE_MARKERS)
+
+
+def stream_maven_command(
+    command: list[str],
+    *,
+    cwd: Path,
+    env: dict[str, str],
+    log: TextIO,
+    max_attempts: int = 3,
+) -> int:
+    retry_command = list(command)
+    last_code = 1
+
+    for attempt in range(1, max_attempts + 1):
+        log.flush()
+        log_path = Path(log.name)
+        start_offset = log_path.stat().st_size if log_path.exists() else 0
+
+        last_code = stream_command(retry_command, cwd=cwd, env=env, log=log)
+        if last_code == 0:
+            return 0
+
+        log.flush()
+        with log_path.open("rb") as current_log:
+            current_log.seek(start_offset)
+            attempt_text = current_log.read().decode("utf-8", errors="replace")
+
+        if not is_transient_repository_failure(attempt_text) or attempt >= max_attempts:
+            return last_code
+
+        if "-U" not in retry_command:
+            retry_command = [retry_command[0], "-U", *retry_command[1:]]
+
+        delay = attempt * 5
+        message = (
+            f"\nTransient Maven repository/network failure detected; retrying "
+            f"attempt {attempt + 1}/{max_attempts} in {delay}s.\n"
+        )
+        print(message, end="")
+        log.write(message)
+        log.flush()
+
+        import time
+
+        time.sleep(delay)
+
+    return last_code
 
 
 def maven_properties(root: ET.Element) -> dict[str, str]:
@@ -399,10 +464,11 @@ gradle.projectsEvaluated {
 
 
 def install_slimefun_candidate(project: Path, jar: Path, env: dict[str, str], log: TextIO) -> int:
-    return stream_command(
+    return stream_maven_command(
         [
             "mvn",
             "-B",
+            "-Dmaven.wagon.http.retryHandler.count=3",
             "install:install-file",
             f"-Dfile={jar}",
             f"-DgroupId={SLIMEFUN_PROBE_GROUP}",
@@ -464,9 +530,21 @@ def build_project(
             wrapper = project / "mvnw"
             if wrapper.is_file():
                 prepare_shell_wrapper(wrapper)
-                command = [str(wrapper), "-B", "-DskipTests", "package"]
+                command = [
+                    str(wrapper),
+                    "-B",
+                    "-Dmaven.wagon.http.retryHandler.count=3",
+                    "-DskipTests",
+                    "package",
+                ]
             else:
-                command = ["mvn", "-B", "-DskipTests", "package"]
+                command = [
+                    "mvn",
+                    "-B",
+                    "-Dmaven.wagon.http.retryHandler.count=3",
+                    "-DskipTests",
+                    "package",
+                ]
         else:
             init_script = write_gradle_init_script(project)
             wrapper = project / "gradlew"
@@ -492,7 +570,10 @@ def build_project(
                     str(init_script),
                 ]
 
-        exit_code = stream_command(command, cwd=project, env=env, log=log)
+        if build_system == "maven":
+            exit_code = stream_maven_command(command, cwd=project, env=env, log=log)
+        else:
+            exit_code = stream_command(command, cwd=project, env=env, log=log)
         status = PASS if exit_code == 0 else COMPILE_FAILED
         return BuildResult(
             status,
