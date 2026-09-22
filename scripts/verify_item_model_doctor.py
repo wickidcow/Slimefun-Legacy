@@ -160,6 +160,10 @@ require("&a&lEnable Legacy Pack Sender" in doctor_menu
         and "&aConfirm Enable Sender" in doctor_menu
         and "&cConfirm Disable Sender" in doctor_menu,
         "Recovery Center sender toggles must require explicit confirmation")
+require("If ownership is EXTERNAL/NONE, it becomes LEGACY." in doctor_menu
+        and "If ownership is LEGACY, it returns to AUTO." in doctor_menu
+        and "Item-model mappings are never changed." in doctor_menu,
+        "sender controls must explain ownership reconciliation without implying item-model mutation")
 require("&a1. Scan Pack Upgrade" in doctor_menu
         and '"slimefun doctor item-models enable-pack scan"' in doctor_menu
         and "&a1. Audit Model Removal" in doctor_menu
