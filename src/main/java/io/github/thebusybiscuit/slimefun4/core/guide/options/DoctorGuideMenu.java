@@ -1041,11 +1041,11 @@ final class DoctorGuideMenu {
         addCommandButton(
                 menu,
                 14,
-                Material.COMPARATOR,
-                "&eResource Pack Item Texture Repairs",
-                "slimefun doctor item-models scan",
-                "&7Read-only scan for stale or mismatched bundled item textures.",
-                "&7Use the guarded repair command only after reviewing results.");
+                Material.NAME_TAG,
+                "&eUnknown Slimefun IDs",
+                "slimefun doctor migrations unknown",
+                "&7Correlate unknown item IDs with registered",
+                "&7addon migration providers without guessing ownership.");
         addCommandButton(
                 menu,
                 16,
@@ -1229,7 +1229,7 @@ final class DoctorGuideMenu {
             runCommand(clickedPlayer, "slimefun doctor repair confirm");
             return false;
         });
-        menu.addItem(15, menuItem(Material.BARRIER, "&cCancel", "", "&7Return to Other Doctor Fixes."));
+        menu.addItem(15, menuItem(Material.BARRIER, "&cCancel", "", "&7Return to Additional Recovery Tools."));
         menu.addMenuClickHandler(15, (clickedPlayer, slot, item, action) -> {
             openOtherDoctorFixes(clickedPlayer, returnGuide);
             return false;
