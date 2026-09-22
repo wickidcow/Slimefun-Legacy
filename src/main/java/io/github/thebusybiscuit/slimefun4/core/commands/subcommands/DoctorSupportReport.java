@@ -23,6 +23,7 @@ import io.github.thebusybiscuit.slimefun4.utils.NumberUtils;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 
 /** Builds a compact, copy/paste-safe support report from existing Slimefun Legacy runtime snapshots. */
@@ -35,6 +36,11 @@ final class DoctorSupportReport {
         Slimefun.getExternalIntegrationService().refresh();
 
         PlatformProfile platform = Slimefun.getPlatformCompatibilityService().getProfile();
+        var guidePlugin = Bukkit.getPluginManager().getPlugin("JustEnoughGuide");
+        String guideProvider = guidePlugin == null
+                ? "Classic Slimefun Guide"
+                : "JEG " + guidePlugin.getPluginMeta().getVersion()
+                        + (guidePlugin.isEnabled() ? " (enabled)" : " (disabled)");
         CoreReadinessSnapshot readiness = Slimefun.getCoreReadinessService().getSnapshot();
         CoreLifecycleSnapshot lifecycle = Slimefun.getCoreLifecycleService().getSnapshot();
         RegistryRuntimeSnapshot registry = Slimefun.getRegistryRuntimeService().getSnapshot();
@@ -141,6 +147,7 @@ final class DoctorSupportReport {
                 + " &8| &7Minecraft &f" + platform.getRawMinecraftVersion());
         sendLine(sender, "&7Java: &f" + NumberUtils.getJavaVersion() + " &8| &7profile &f"
                 + platform.getFamily().getDisplayName() + " / " + platform.getSupportLevel().getDisplayName());
+        sendLine(sender, "&7Guide: &f" + guideProvider);
         sendLine(sender, "&7Scheduler: &f"
                 + (scheduler.isRegionOwnedExecution() ? "region-owned" : "main-thread")
                 + " &8| &7accepting &f" + scheduler.isAcceptingTasks()
