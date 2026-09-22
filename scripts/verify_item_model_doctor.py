@@ -145,7 +145,9 @@ require("setDeliveryEnabled(true)" in doctor_menu and "setDeliveryEnabled(false)
 require("setResourcePackEnabled(boolean enabled)" in addons_config
         and "setDeliveryEnabled(boolean enabled)" in pack_service,
         "resource-pack admin toggle must persist through the dedicated Legacy addons configuration")
-require('player.hasPermission("slimefun.command.doctor")' in doctor_menu,\n        "Recovery Center must enforce the OP/admin Doctor permission at the menu boundary")\nrequire("&bAdditional Recovery Tools" in doctor_menu
+require('player.hasPermission("slimefun.command.doctor")' in doctor_menu,
+        "Recovery Center must enforce the OP/admin Doctor permission at the menu boundary")
+require("&bAdditional Recovery Tools" in doctor_menu
         and '"slimefun doctor scan"' in doctor_menu
         and '"slimefun doctor repair confirm"' in doctor_menu
         and '"slimefun doctor item-models scan"' in doctor_menu
