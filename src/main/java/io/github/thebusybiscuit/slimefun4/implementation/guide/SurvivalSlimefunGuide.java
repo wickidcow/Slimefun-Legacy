@@ -685,7 +685,7 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
         }
 
         menu.addItem(10, recipeType.getItem(p), ChestMenuUtils.getEmptyClickHandler());
-        menu.addItem(16, output, ChestMenuUtils.getEmptyClickHandler());
+        menu.addItem(16, refreshRecipeDisplayStack(output), ChestMenuUtils.getEmptyClickHandler());
     }
 
     @ParametersAreNonnullByDefault
@@ -785,27 +785,43 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
 
     @ParametersAreNonnullByDefault
     private static @Nonnull ItemStack getDisplayItem(Player p, boolean isSlimefunRecipe, ItemStack item) {
+        ItemStack displayItem = refreshRecipeDisplayStack(item);
+
         if (isSlimefunRecipe) {
-            SlimefunItem slimefunItem = SlimefunItem.getByItem(item);
+            SlimefunItem slimefunItem = SlimefunItem.getByItem(displayItem);
 
             if (slimefunItem == null) {
-                return item;
+                return displayItem;
             }
 
             String lore = hasPermission(p, slimefunItem)
                     ? "&fRequired in " + slimefunItem.getItemGroup().getDisplayName(p) + " to unlock"
                     : "&fNo Permission";
             return slimefunItem.canUse(p, false)
-                    ? item
+                    ? displayItem
                     : new CustomItemStack(
                             Material.BARRIER,
-                            ItemUtils.getItemName(item),
+                            ItemUtils.getItemName(displayItem),
                             "&4&l" + Slimefun.getLocalization().getMessage(p, "guide.locked"),
                             "",
                             lore);
         } else {
-            return item;
+            return displayItem;
         }
+    }
+
+    @ParametersAreNonnullByDefault
+    private static ItemStack refreshRecipeDisplayStack(ItemStack stack) {
+        if (stack == null) {
+            return null;
+        }
+
+        ItemStack display = stack.clone();
+        SlimefunItem slimefunItem = SlimefunItem.getByItem(display);
+        if (slimefunItem != null) {
+            Slimefun.getItemTextureService().setTexture(display, slimefunItem.getId());
+        }
+        return display;
     }
 
     @ParametersAreNonnullByDefault
