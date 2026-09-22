@@ -25,7 +25,7 @@
 - [x] Merge PR #250 — give exact addon-bundle `workflow_run` smokes their own concurrency key so unrelated master pushes cannot cancel the provenance validation.
 - [x] Merge PR #251 — retry only recognized transient Maven repository/network failures in addon compatibility checks so HTTP 429/5xx infrastructure does not masquerade as a required-addon regression.
 - [x] Merge PR #252 — retry only recognized transient Paper Maven repository failures in the 1.21.11 API compile lane; preserve immediate failure for real compiler/API errors.
-- [ ] Merge PR #257 — ignore cancelled/failed addon-bundle `workflow_run` completions so missing artifacts from unsuccessful source runs do not create false full-stack failures.
+- [x] Merge PR #257 — ignore cancelled/failed addon-bundle `workflow_run` completions so missing artifacts from unsuccessful source runs do not create false full-stack failures.
 - [x] Merge PR #247 — include the active Guide provider in `/sf doctor report`.
   - Match Recovery Center Support & Diagnostics wording.
   - Show `Classic Slimefun Guide` when JEG is absent.
@@ -51,7 +51,7 @@
 
 ## Maintained addon bundle validation
 
-- [ ] Freeze canonical release-bundle source identity before publishing 4.1.60.
+- [x] Freeze canonical release-bundle source identity before publishing 4.1.60.
   - The current matrix contains 45 maintained addons, but only 7 have explicit `source_commit` pins and 38 still build from repository HEAD.
   - Keep normal compatibility discovery flexible if desired, but the **release bundle** must have an exact source commit recorded and enforced for every shipped addon.
   - Continue embedding resolved commit + JAR SHA-256 metadata inside the addon bundle manifest.
@@ -81,8 +81,8 @@
 
 ## Release preparation
 
-- [ ] Merge PR #253 — coordinated 4.1.60 candidate rollover after merged-state master validation and the PR's compatibility gates are green.
-- [ ] Intentionally roll the development line from 4.1.59 to 4.1.60 in one coordinated version-alignment change.
+- [x] Merge PR #253 — coordinated 4.1.60 candidate rollover after merged-state master validation and the PR's compatibility gates are green.
+- [x] Intentionally roll the development line from 4.1.59 to 4.1.60 in one coordinated version-alignment change.
   - `gradle.properties` project version;
   - `compatibility/release-baselines.json` candidate → 4.1.60 and previous stable → released 4.1.59;
   - `compatibility/core-api-registry.json`;
@@ -90,13 +90,14 @@
   - `compatibility/support-contract.json`;
   - `compatibility/addon-compatibility-matrix.json`;
   - README development/release-lifecycle wording where it describes the active candidate.
-- [ ] Pin released 4.1.59 commit `3169bb8c67973b16c46316fdc4fe875df88351d1` as the release-blocking previous-stable compatibility baseline for 4.1.60.
+- [x] Pin released 4.1.59 commit `3169bb8c67973b16c46316fdc4fe875df88351d1` as the release-blocking previous-stable compatibility baseline for 4.1.60.
 - [ ] After the rollover, require compatibility CI job names/summaries to say previous stable 4.1.59 rather than 4.1.58.
 - [ ] Prepare `docs/releases/4.1.60.md` only after stabilization PRs and release gates are green.
 - [ ] Update `EVERYTHING_THAT_CHANGED.md` with the final 4.1.60 stabilization changes.
 - [x] Merge PR #254 — ordinary addon-bundle builds no longer mutate already-published Slimefun Legacy releases; release asset publication is owned only by the reproducible-release workflow.
-- [ ] Merge PR #255 — require the addon bundle selected by `.github/workflows/reproducible-release.yml` to come from the **same exact source commit** as the core release, lock every shipped addon to an exact per-run source SHA, and require explicit manual dispatch for publication after candidate validation.
-- [ ] Require the addon bundle selected by `.github/workflows/reproducible-release.yml` to come from the **same exact source commit** as the core release.
+- [x] Merge PR #255 — require the addon bundle selected by `.github/workflows/reproducible-release.yml` to come from the **same exact source commit** as the core release, lock every shipped addon to an exact per-run source SHA, and require explicit manual dispatch for publication after candidate validation.
+- [x] Require the addon bundle selected by `.github/workflows/reproducible-release.yml` to come from the **same exact source commit** as the core release.
+  - Implemented by PR #255: per-run addon SHA locks, bundle `core_source_commit`, exact `headSha == GITHUB_SHA` selection, and manual-only release publication.
   - The current workflow prefers the newest successful master bundle but does not yet require its `headSha` to equal the release `GITHUB_SHA`.
   - 4.1.60 must not publish a freshly built core JAR beside a bundle validated against an older core commit.
   - If exact-SHA automation is not implemented before release cut, run/validate the canonical addon bundle at the final release commit before invoking release publication.
