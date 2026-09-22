@@ -28,7 +28,7 @@
       ],
       "primary": "26.2",
       "candidate": "26.3",
-      "candidate_status": "release-candidate-awaiting-stable"
+      "candidate_status": "alpha-awaiting-stable"
     },
     "server_platforms": {
       "primary": [
