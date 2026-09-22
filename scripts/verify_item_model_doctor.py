@@ -133,7 +133,8 @@ require('"enable-pack"' in command and "enableHostedPackMappings()" in command
 require("&aEnable Legacy Pack Sender" in doctor_menu
         and "&6Upgrade Items for Resource Pack" in doctor_menu
         and "&cDisable Legacy Pack Sender" in doctor_menu
-        and "&dRemove Resource-Pack Item Models" in doctor_menu,
+        and "&dRemove Resource-Pack Item Models" in doctor_menu
+        and "&eResource Pack Item Texture Repairs" in doctor_menu,
         "Guide Doctor menu must retain four clearly separated resource-pack admin actions")
 require('"slimefun doctor item-models enable-pack confirm"' in doctor_menu
         and '"slimefun doctor item-models remove-resourcepack-texture-ids confirm"' in doctor_menu
