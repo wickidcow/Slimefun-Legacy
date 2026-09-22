@@ -45,6 +45,19 @@ def test_coordinate_classification() -> None:
     assert not probe.is_server_api_dependency("com.sk89q.worldedit", "worldedit-bukkit")
 
 
+def test_transient_repository_classification() -> None:
+    assert probe.is_transient_repository_failure(
+        "Could not transfer artifact from repo: Connection reset"
+    )
+    assert probe.is_transient_repository_failure(
+        "Received status code 503 from server: Service Unavailable"
+    )
+    assert probe.is_transient_repository_failure("HTTP 429 Too Many Requests")
+    assert not probe.is_transient_repository_failure(
+        "COMPILATION ERROR: cannot find symbol SlimefunItem"
+    )
+
+
 def test_maven_property_rewrite() -> None:
     with tempfile.TemporaryDirectory() as raw:
         root = Path(raw)
@@ -139,6 +152,7 @@ def test_gradle_init_script_guards_both_stacks() -> None:
 
 def main() -> int:
     test_coordinate_classification()
+    test_transient_repository_classification()
     test_maven_property_rewrite()
     test_maven_injects_missing_direct_dependencies()
     test_shell_wrapper_normalization()
