@@ -448,9 +448,9 @@ final class DoctorGuideMenu {
                         "",
                         "&7Mappings available: &e" + candidates,
                         "&cServer-wide item change. Full backup first.",
-                        "&eClick for confirmation"));
+                        "&eClick to review scan/apply steps"));
         menu.addMenuClickHandler(12, (player, slot, item, action) -> {
-            openUpgradeConfirmation(player, returnGuide);
+            openPackUpgradeFlow(player, returnGuide);
             return false;
         });
     }
@@ -504,11 +504,130 @@ final class DoctorGuideMenu {
                         "&8External/combined packs may still need these mappings.",
                         "&8Custom/non-matching model values are preserved.",
                         "&cServer-wide recovery. Full backup first.",
-                        "&eClick for confirmation"));
+                        "&eClick to review audit/remove steps"));
         menu.addMenuClickHandler(16, (player, slot, item, action) -> {
-            openRemoveModelsConfirmation(player, returnGuide);
+            openRemoveModelsFlow(player, returnGuide);
             return false;
         });
+    }
+
+    private static void openPackUpgradeFlow(
+            @Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        int candidates = Slimefun.getItemTextureService().getHostedPackEnableCandidateCount();
+        ChestMenu menu = subMenu("&6&lUpgrade Items for Resource Pack", 27);
+
+        menu.addItem(
+                10,
+                menuItem(
+                        Material.SPYGLASS,
+                        "&a1. Scan Pack Upgrade",
+                        "",
+                        "&7Runs:",
+                        "&f/sf doctor item-models enable-pack scan",
+                        "",
+                        "&7Audits zero-valued Legacy mappings and reachable",
+                        "&7stored items that can safely adopt bundled textures.",
+                        "&aRead-only. No mappings or items are changed.",
+                        "&eClick to scan"));
+        menu.addMenuClickHandler(10, (clickedPlayer, slot, item, action) -> {
+            runCommand(clickedPlayer, "slimefun doctor item-models enable-pack scan");
+            return false;
+        });
+
+        menu.addItem(
+                12,
+                menuItem(
+                        Material.SMITHING_TABLE,
+                        "&62. Apply Pack Texture Upgrade",
+                        "",
+                        "&7Current mappings available: &e" + candidates,
+                        "&7Adopts only exact bundled Legacy model mappings",
+                        "&7where the current server mapping is 0.",
+                        "",
+                        "&cReview the scan and make a full backup first.",
+                        "&eClick for final confirmation"));
+        menu.addMenuClickHandler(12, (clickedPlayer, slot, item, action) -> {
+            openUpgradeConfirmation(clickedPlayer, returnGuide);
+            return false;
+        });
+
+        menu.addItem(
+                14,
+                menuItem(
+                        Material.KNOWLEDGE_BOOK,
+                        "&fWhat this changes",
+                        "",
+                        "&7Adds Legacy's bundled item texture mappings",
+                        "&7and updates eligible reachable Slimefun items.",
+                        "",
+                        "&8Custom non-zero mappings are preserved.",
+                        "&8This does not enable pack delivery by itself.",
+                        "&8Use Enable Legacy Pack Sender separately if needed."));
+
+        addBack(menu, 18, "&fBack to Resource Pack & Item Textures",
+                () -> openResourcePackRecovery(player, returnGuide));
+        menu.open(player);
+    }
+
+    private static void openRemoveModelsFlow(
+            @Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        int candidates = Slimefun.getItemTextureService().getHostedPackRemovalCandidateCount();
+        ChestMenu menu = subMenu("&d&lRemove Resource-Pack Item Models", 27);
+
+        menu.addItem(
+                10,
+                menuItem(
+                        Material.SPYGLASS,
+                        "&a1. Audit Model Removal",
+                        "",
+                        "&7Runs:",
+                        "&f/sf doctor item-models remove-resourcepack-texture-ids",
+                        "",
+                        "&7Reports exact Legacy bundled mappings eligible",
+                        "&7for removal without changing anything.",
+                        "&aRead-only. No mappings or items are changed.",
+                        "&eClick to audit"));
+        menu.addMenuClickHandler(10, (clickedPlayer, slot, item, action) -> {
+            runCommand(clickedPlayer, "slimefun doctor item-models remove-resourcepack-texture-ids");
+            return false;
+        });
+
+        menu.addItem(
+                12,
+                menuItem(
+                        candidates > 0 ? Material.GRINDSTONE : Material.GRAY_DYE,
+                        candidates > 0 ? "&d2. Remove Legacy Item Models" : "&7No Legacy Item Models to Remove",
+                        "",
+                        "&7Exact bundled mappings eligible: &e" + candidates,
+                        "&8Does NOT unregister Slimefun items or machines.",
+                        "",
+                        candidates > 0
+                                ? "&cReview the audit and make a full backup first."
+                                : "&aNo exact bundled mapping removal is currently needed.",
+                        candidates > 0 ? "&eClick for final confirmation" : "&8No removal action available."));
+        if (candidates > 0) {
+            menu.addMenuClickHandler(12, (clickedPlayer, slot, item, action) -> {
+                openRemoveModelsConfirmation(clickedPlayer, returnGuide);
+                return false;
+            });
+        }
+
+        menu.addItem(
+                14,
+                menuItem(
+                        Material.KNOWLEDGE_BOOK,
+                        "&fWhat this changes",
+                        "",
+                        "&7Resets only exact Legacy bundled mapping values",
+                        "&7back to 0 in the server-side item model map.",
+                        "",
+                        "&8Pack sender state is not the same as model state.",
+                        "&8Do not remove mappings if a combined pack uses them.",
+                        "&8Stored-item cleanup is a separate Texture Repair step."));
+
+        addBack(menu, 18, "&fBack to Resource Pack & Item Textures",
+                () -> openResourcePackRecovery(player, returnGuide));
+        menu.open(player);
     }
 
     static void openResourcePackPreflight(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
@@ -1285,7 +1404,7 @@ final class DoctorGuideMenu {
         });
         menu.addItem(15, menuItem(Material.BARRIER, "&cCancel", "", "&7Return without making changes."));
         menu.addMenuClickHandler(15, (clickedPlayer, slot, item, action) -> {
-            openResourcePackRecovery(clickedPlayer, returnGuide);
+            openPackUpgradeFlow(clickedPlayer, returnGuide);
             return false;
         });
         menu.open(player);
@@ -1334,7 +1453,7 @@ final class DoctorGuideMenu {
 
         menu.addItem(15, menuItem(Material.BARRIER, "&cCancel", "", "&7Return without making changes."));
         menu.addMenuClickHandler(15, (clickedPlayer, slot, item, action) -> {
-            openResourcePackRecovery(clickedPlayer, returnGuide);
+            openRemoveModelsFlow(clickedPlayer, returnGuide);
             return false;
         });
         menu.open(player);
