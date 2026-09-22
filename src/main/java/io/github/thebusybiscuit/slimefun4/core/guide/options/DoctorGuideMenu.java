@@ -68,30 +68,27 @@ final class DoctorGuideMenu {
             return false;
         });
 
-        addEnablePackButton(menu, packService, returnGuide);
-        addUpgradeItemsButton(menu, returnGuide);
-        addDisablePackButton(menu, packService, returnGuide);
-        addRemoveModelsButton(menu, returnGuide);
-
         menu.addItem(
-                19,
+                10,
                 menuItem(
-                        Material.MAP,
-                        "&bResource Pack Preflight",
+                        Material.PAINTING,
+                        "&6Resource Pack & Item Textures",
                         "",
-                        "&7Check sender state, URL/SHA-1 validity,",
-                        "&7external/combined pack managers and model mappings.",
+                        "&7Manage Legacy pack delivery and item textures",
+                        "&7without mixing sender controls with item repairs.",
                         "",
-                        "&8Legacy sender OFF is valid when another system",
-                        "&8delivers a combined pack with matching models.",
-                        "&eClick to inspect"));
-        menu.addMenuClickHandler(19, (clickedPlayer, slot, item, action) -> {
-            openResourcePackPreflight(clickedPlayer, returnGuide);
+                        "&7Sender: " + (packService.isDeliveryEnabled() ? "&aEnabled" : "&7Disabled"),
+                        "&7Bundled mappings active: &e" + textures.getHostedPackEnabledMappingCount(),
+                        "&7Mappings available: &e" + textures.getHostedPackEnableCandidateCount(),
+                        "",
+                        "&eClick to open resource-pack recovery"));
+        menu.addMenuClickHandler(10, (clickedPlayer, slot, item, action) -> {
+            openResourcePackRecovery(clickedPlayer, returnGuide);
             return false;
         });
 
         menu.addItem(
-                21,
+                12,
                 menuItem(
                         Material.PLAYER_HEAD,
                         "&6Player & Item Repair",
@@ -102,7 +99,7 @@ final class DoctorGuideMenu {
                         "&7Includes hand inspection, hand repair,",
                         "&7inventory inspection and online-player repair.",
                         "&eClick to open"));
-        menu.addMenuClickHandler(21, (clickedPlayer, slot, item, action) -> {
+        menu.addMenuClickHandler(12, (clickedPlayer, slot, item, action) -> {
             openPlayerItemRepair(clickedPlayer, returnGuide);
             return false;
         });
@@ -111,7 +108,7 @@ final class DoctorGuideMenu {
         long addonCompatibilityProblems = DoctorGuideAssistant.addonCompatibilityAttentionCount();
         long addonFailures = DoctorGuideAssistant.addonRuntimeFailureCount();
         menu.addItem(
-                23,
+                14,
                 menuItem(
                         dependencyProblems > 0 || addonCompatibilityProblems > 0 || addonFailures > 0
                                 ? Material.REDSTONE_BLOCK
@@ -128,7 +125,7 @@ final class DoctorGuideMenu {
                         "&7Compatibility, dependency, addon Doctor,",
                         "&7registry and cross-fork API diagnostics.",
                         "&eClick to inspect"));
-        menu.addMenuClickHandler(23, (clickedPlayer, slot, item, action) -> {
+        menu.addMenuClickHandler(14, (clickedPlayer, slot, item, action) -> {
             openAddonDependencyHealth(clickedPlayer, returnGuide);
             return false;
         });
@@ -136,7 +133,7 @@ final class DoctorGuideMenu {
         MachineRuntimeSnapshot machines = Slimefun.getMachineRuntimeService().getSnapshot();
         StorageRuntimeSnapshot storage = Slimefun.getStorageRuntimeService().getSnapshot();
         menu.addItem(
-                25,
+                16,
                 menuItem(
                         machines.getActiveMachineFailures() > 0 || machines.getPausedMachineCircuits() > 0
                                 ? Material.REDSTONE_TORCH
@@ -150,7 +147,7 @@ final class DoctorGuideMenu {
                                 + Slimefun.getExternalIntegrationService().getActiveFailureCount(),
                         "",
                         "&eClick for diagnostics and guarded retries"));
-        menu.addMenuClickHandler(25, (clickedPlayer, slot, item, action) -> {
+        menu.addMenuClickHandler(16, (clickedPlayer, slot, item, action) -> {
             openRuntimeRecovery(clickedPlayer, returnGuide);
             return false;
         });
@@ -158,7 +155,7 @@ final class DoctorGuideMenu {
         addOtherDoctorFixesButton(menu, returnGuide);
 
         menu.addItem(
-                31,
+                20,
                 menuItem(
                         Material.COMPASS,
                         "&3Advanced System Health",
@@ -168,13 +165,13 @@ final class DoctorGuideMenu {
                         "&7resource packs, performance and upgrades.",
                         "",
                         "&eClick to open"));
-        menu.addMenuClickHandler(31, (clickedPlayer, slot, item, action) -> {
+        menu.addMenuClickHandler(20, (clickedPlayer, slot, item, action) -> {
             DoctorOperationsCenterMenu.open(clickedPlayer, returnGuide);
             return false;
         });
 
         menu.addItem(
-                30,
+                24,
                 menuItem(
                         Material.PAPER,
                         "&fSupport & Diagnostics Summary",
@@ -184,13 +181,13 @@ final class DoctorGuideMenu {
                         "&7dependencies, integrations and last Doctor scan.",
                         "",
                         "&eClick to open"));
-        menu.addMenuClickHandler(30, (clickedPlayer, slot, item, action) -> {
+        menu.addMenuClickHandler(24, (clickedPlayer, slot, item, action) -> {
             openSupportSummary(clickedPlayer, returnGuide);
             return false;
         });
 
         menu.addItem(
-                32,
+                30,
                 menuItem(
                         Material.BOOK,
                         "&fRecovery Safety Guide",
@@ -202,14 +199,14 @@ final class DoctorGuideMenu {
                         "&8Legacy pack delivery and model mappings are independent.",
                         "&8Custom/non-matching model values stay protected."));
         menu.addItem(
-                34,
+                32,
                 menuItem(
                         Material.CLOCK,
                         "&bRefresh Recovery Center",
                         "",
                         "&7Refresh live health counts and recommendations.",
                         "&eClick to refresh"));
-        menu.addMenuClickHandler(34, (clickedPlayer, slot, item, action) -> {
+        menu.addMenuClickHandler(32, (clickedPlayer, slot, item, action) -> {
             open(clickedPlayer, returnGuide);
             return false;
         });
@@ -249,7 +246,7 @@ final class DoctorGuideMenu {
         switch (recommendation.action()) {
             case RUN_SCAN -> runCommand(player, "slimefun doctor scan");
             case SHOW_STATUS -> runCommand(player, "slimefun doctor status");
-            case UPGRADE_PACK_ITEMS -> openUpgradeConfirmation(player, returnGuide);
+            case UPGRADE_PACK_ITEMS -> openResourcePackRecovery(player, returnGuide);
             case PACK_PREFLIGHT -> openResourcePackPreflight(player, returnGuide);
             case PROXY_HEALTH -> DoctorOperationsCenterMenu.openProxyCenter(player, returnGuide);
             case PERFORMANCE_HEALTH -> DoctorOperationsCenterMenu.openPerformanceCenter(player, returnGuide);
@@ -263,6 +260,143 @@ final class DoctorGuideMenu {
             case INTEGRATION_HEALTH -> runCommand(player, "slimefun doctor integrations");
             case SUPPORT_SUMMARY, NONE -> openSupportSummary(player, returnGuide);
         }
+    }
+
+    private static void openResourcePackRecovery(
+            @Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        ExternalResourcePackService service = new ExternalResourcePackService(Slimefun.instance());
+        var textures = Slimefun.getItemTextureService();
+
+        ChestMenu menu = subMenu("&6&lResource Pack & Item Textures", 36);
+
+        menu.addItem(
+                4,
+                menuItem(
+                        Material.MAP,
+                        "&fCurrent Resource-Pack State",
+                        "",
+                        "&7Ownership: &e" + service.getOwnershipMode(),
+                        "&7Legacy sender: " + (service.isDeliveryEnabled() ? "&aEnabled" : "&7Disabled"),
+                        "&7Bundled mappings active: &e" + textures.getHostedPackEnabledMappingCount(),
+                        "&7Mappings available: &e" + textures.getHostedPackEnableCandidateCount(),
+                        "&7Removal candidates: &e" + textures.getHostedPackRemovalCandidateCount(),
+                        "&7Custom mappings preserved: &e" + textures.getHostedPackCustomMappingCount(),
+                        "",
+                        "&8Pack delivery and item-model mappings are separate."));
+
+        addEnablePackButton(menu, service, returnGuide);
+        addUpgradeItemsButton(menu, returnGuide);
+        addDisablePackButton(menu, service, returnGuide);
+        addRemoveModelsButton(menu, returnGuide);
+
+        menu.addItem(
+                20,
+                menuItem(
+                        Material.COMPARATOR,
+                        "&eResource Pack Item Texture Repairs",
+                        "",
+                        "&7Scan and repair stale Legacy texture metadata",
+                        "&7on existing Slimefun items after model changes.",
+                        "",
+                        "&aScan is read-only.",
+                        "&cRepair changes eligible stored items and requires review.",
+                        "&eClick to open"));
+        menu.addMenuClickHandler(20, (clickedPlayer, slot, item, action) -> {
+            openItemTextureRepairs(clickedPlayer, returnGuide);
+            return false;
+        });
+
+        menu.addItem(
+                22,
+                menuItem(
+                        Material.SPYGLASS,
+                        "&bResource Pack Preflight",
+                        "",
+                        "&7Inspect ownership, sender state, URL/SHA-1,",
+                        "&7external pack managers and mapping counts.",
+                        "&aRead-only except the personal test-pack action.",
+                        "&eClick to inspect"));
+        menu.addMenuClickHandler(22, (clickedPlayer, slot, item, action) -> {
+            openResourcePackPreflight(clickedPlayer, returnGuide);
+            return false;
+        });
+
+        menu.addItem(
+                24,
+                menuItem(
+                        Material.BOOK,
+                        "&fWhat each action changes",
+                        "",
+                        "&aEnable/Disable Sender",
+                        "&7Changes only Legacy pack delivery.",
+                        "&6Upgrade Items",
+                        "&7Adopts Legacy mappings and updates eligible items.",
+                        "&dRemove Item Models",
+                        "&7Removes only exact Legacy bundled mappings.",
+                        "&eTexture Repairs",
+                        "&7Repairs stale exact bundled model data on items.",
+                        "",
+                        "&8None of these unregister Slimefun items or machines."));
+
+        addBack(menu, 27, "&fBack to Recovery Center", () -> open(player, returnGuide));
+        menu.open(player);
+    }
+
+    private static void openItemTextureRepairs(
+            @Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        ChestMenu menu = subMenu("&e&lResource Pack Item Texture Repairs", 27);
+
+        menu.addItem(
+                10,
+                menuItem(
+                        Material.SPYGLASS,
+                        "&aScan Resource-Pack Item Textures",
+                        "",
+                        "&7Runs:",
+                        "&f/sf doctor item-models scan",
+                        "",
+                        "&7Finds eligible stale exact Legacy model data.",
+                        "&aRead-only. No items are changed.",
+                        "&eClick to scan"));
+        menu.addMenuClickHandler(10, (clickedPlayer, slot, item, action) -> {
+            runCommand(clickedPlayer, "slimefun doctor item-models scan");
+            return false;
+        });
+
+        menu.addItem(
+                12,
+                menuItem(
+                        Material.ANVIL,
+                        "&eRepair Resource-Pack Item Textures",
+                        "",
+                        "&7Runs the guarded stored-item texture repair.",
+                        "&7Only exact eligible bundled model data is changed.",
+                        "&8Custom/non-matching model data is preserved.",
+                        "",
+                        "&cReview a scan and make a full backup first.",
+                        "&eClick for confirmation"));
+        menu.addMenuClickHandler(12, (clickedPlayer, slot, item, action) -> {
+            openTextureRepairConfirmation(clickedPlayer, returnGuide);
+            return false;
+        });
+
+        menu.addItem(
+                14,
+                menuItem(
+                        Material.KNOWLEDGE_BOOK,
+                        "&fWhen should I use this?",
+                        "",
+                        "&7Use after intentionally changing/removing Legacy",
+                        "&7item-model mappings when old stored items still",
+                        "&7carry the former bundled texture metadata.",
+                        "",
+                        "&cDo not use this as a generic item reset.",
+                        "&8Slimefun identity, lore and unrelated metadata",
+                        "&8are outside this repair lane."));
+
+        addBack(menu, 18, "&fBack to Resource Pack & Item Textures",
+                () -> openResourcePackRecovery(player, returnGuide));
+        menu.open(player);
     }
 
     private static void addEnablePackButton(
@@ -287,7 +421,7 @@ final class DoctorGuideMenu {
                 return false;
             }
             player.sendMessage(ChatColor.GREEN + "Slimefun Legacy resource-pack delivery is enabled.");
-            open(player, returnGuide);
+            openResourcePackRecovery(player, returnGuide);
             return false;
         });
     }
@@ -339,7 +473,7 @@ final class DoctorGuideMenu {
             player.sendMessage(
                     ChatColor.GRAY
                             + "Item-model mappings were left unchanged for custom/combined resource-pack compatibility.");
-            open(player, returnGuide);
+            openResourcePackRecovery(player, returnGuide);
             return false;
         });
     }
@@ -352,8 +486,9 @@ final class DoctorGuideMenu {
                         Material.GRINDSTONE,
                         "&dRemove Resource-Pack Item Models",
                         "",
-                        "&7Unregister Legacy's resource-pack enhanced item mappings.",
-                        "&7Use only when you intentionally want Legacy's",
+                        "&7Removes Legacy's exact bundled texture mappings.",
+                        "&8Does NOT unregister Slimefun items or machines.",
+                        "&7Use only when you intentionally want Legacy's"
                         "&7exact bundled model mappings removed.",
                         "",
                         "&7Exact bundled mappings to remove: &e" + mappingCandidates,
@@ -495,7 +630,8 @@ final class DoctorGuideMenu {
                         "&7Only then consider removing bundled mappings,",
                         "&7after a backup and Doctor scan."));
 
-        addBack(menu, 27, "&fBack to Doctor Console", () -> open(player, returnGuide));
+        addBack(menu, 27, "&fBack to Resource Pack & Item Textures",
+                () -> openResourcePackRecovery(player, returnGuide));
         menu.open(player);
     }
 
@@ -575,7 +711,7 @@ final class DoctorGuideMenu {
             return false;
         });
 
-        addBack(menu, 27, "&fBack to Doctor Console", () -> open(player, returnGuide));
+        addBack(menu, 27, "&fBack to Recovery Center", () -> open(player, returnGuide));
         menu.open(player);
     }
 
@@ -860,7 +996,7 @@ final class DoctorGuideMenu {
 
     private static void addOtherDoctorFixesButton(@Nonnull ChestMenu menu, @Nonnull ItemStack returnGuide) {
         menu.addItem(
-                28,
+                22,
                 menuItem(
                         Material.ENCHANTED_BOOK,
                         "&bAdditional Recovery Tools",
@@ -869,14 +1005,14 @@ final class DoctorGuideMenu {
                         "&7Includes scans, storage integrity, upgrade",
                         "&7readiness, migrations and names/lore repair.",
                         "&eClick to open"));
-        menu.addMenuClickHandler(28, (player, slot, item, action) -> {
+        menu.addMenuClickHandler(22, (player, slot, item, action) -> {
             openOtherDoctorFixes(player, returnGuide);
             return false;
         });
     }
 
     private static void openOtherDoctorFixes(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
-        ChestMenu menu = subMenu("&b&lOther Doctor Fixes", 45);
+        ChestMenu menu = subMenu("&b&lAdditional Recovery Tools", 45);
 
         addCommandButton(
                 menu,
@@ -959,7 +1095,7 @@ final class DoctorGuideMenu {
         DoctorGuideAssistant.Recommendation recommendation = DoctorGuideAssistant.recommend();
         var platform = Slimefun.getPlatformCompatibilityService().getProfile();
 
-        ChestMenu menu = subMenu("&f&lDoctor Support Summary", 45);
+        ChestMenu menu = subMenu("&f&lSupport & Diagnostics", 45)
         menu.addItem(
                 10,
                 menuItem(
@@ -1119,7 +1255,11 @@ final class DoctorGuideMenu {
             runCommand(clickedPlayer, "slimefun doctor item-models enable-pack confirm");
             return false;
         });
-        addCancel(menu, returnGuide);
+        menu.addItem(15, menuItem(Material.BARRIER, "&cCancel", "", "&7Return without making changes."));
+        menu.addMenuClickHandler(15, (clickedPlayer, slot, item, action) -> {
+            openResourcePackRecovery(clickedPlayer, returnGuide);
+            return false;
+        });
         menu.open(player);
     }
 
@@ -1135,11 +1275,12 @@ final class DoctorGuideMenu {
                             "&cConfirm Remove Item Models",
                             "",
                             "&7Resets only exact Legacy bundled mappings to 0.",
+                            "&8Does NOT unregister Slimefun items or machines.",
                             "&aDo not use merely because Legacy's sender is disabled.",
                             "&7External/combined packs may still depend on them.",
                             "",
                             "&7Afterward: stop normally, restart, scan, then",
-                            "&7repair stale stored item models if appropriate.",
+                            "&7use Resource Pack Item Texture Repairs if needed.",
                             "&cOnly continue after a full backup."));
             menu.addMenuClickHandler(11, (clickedPlayer, slot, item, action) -> {
                 runCommand(clickedPlayer, "slimefun doctor item-models remove-resourcepack-texture-ids confirm");
@@ -1150,19 +1291,52 @@ final class DoctorGuideMenu {
                     11,
                     menuItem(
                             Material.GRINDSTONE,
-                            "&dConfirm Resource Pack Item Texture Repair",
+                            "&7No Legacy Item Models to Remove",
                             "",
-                            "&7Runs the guarded stored-item model cleanup.",
-                            "&7Eligible stale exact bundled data is removed.",
-                            "&8Custom/non-matching model data is preserved.",
-                            "&cOnly continue after a full backup."));
+                            "&7Doctor found no exact bundled mapping values",
+                            "&7that are eligible for removal.",
+                            "",
+                            "&aNo removal action is necessary.",
+                            "&eUse Item Texture Repairs for stale stored items."));
             menu.addMenuClickHandler(11, (clickedPlayer, slot, item, action) -> {
-                runCommand(clickedPlayer, "slimefun doctor item-models repair confirm");
+                openItemTextureRepairs(clickedPlayer, returnGuide);
                 return false;
             });
         }
 
-        addCancel(menu, returnGuide);
+        menu.addItem(15, menuItem(Material.BARRIER, "&cCancel", "", "&7Return without making changes."));
+        menu.addMenuClickHandler(15, (clickedPlayer, slot, item, action) -> {
+            openResourcePackRecovery(clickedPlayer, returnGuide);
+            return false;
+        });
+        menu.open(player);
+    }
+
+    private static void openTextureRepairConfirmation(
+            @Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        ChestMenu menu = confirmationMenu("&e&lConfirm Item Texture Repair");
+        menu.addItem(
+                11,
+                menuItem(
+                        Material.ORANGE_CONCRETE,
+                        "&eConfirm Resource Pack Item Texture Repair",
+                        "",
+                        "&7Runs:",
+                        "&f/sf doctor item-models repair confirm",
+                        "",
+                        "&7Repairs only eligible stale exact bundled",
+                        "&7model data on reachable stored Slimefun items.",
+                        "&8Custom/non-matching model data is preserved.",
+                        "&cOnly continue after reviewing a scan and backup."));
+        menu.addMenuClickHandler(11, (clickedPlayer, slot, item, action) -> {
+            runCommand(clickedPlayer, "slimefun doctor item-models repair confirm");
+            return false;
+        });
+        menu.addItem(15, menuItem(Material.BARRIER, "&cCancel", "", "&7Return without making changes."));
+        menu.addMenuClickHandler(15, (clickedPlayer, slot, item, action) -> {
+            openItemTextureRepairs(clickedPlayer, returnGuide);
+            return false;
+        });
         menu.open(player);
     }
 
