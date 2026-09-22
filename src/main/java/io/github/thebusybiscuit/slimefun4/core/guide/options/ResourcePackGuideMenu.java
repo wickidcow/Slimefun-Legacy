@@ -59,8 +59,8 @@ final class ResourcePackGuideMenu {
                         "&7They do not remove ItemsAdder, Oraxen,",
                         "&7proxy, or other plugin-owned packs.",
                         "",
-                        "&eTexture-ID tools are separate server-wide",
-                        "&eDoctor operations for item-models.yml/items."),
+                        "&8Server-wide item texture recovery is available",
+                        "&8only to OP/admin users in Recovery Center."),
                 ChestMenuUtils.getEmptyClickHandler());
 
         menu.open(player);
@@ -196,16 +196,15 @@ final class ResourcePackGuideMenu {
         menu.addItem(
                 16,
                 menuItem(
-                        Material.ANVIL,
-                        "&cSlimefun Doctor (Admin)",
+                        Material.TOTEM_OF_UNDYING,
+                        "&6&lSlimefun Recovery Center",
                         "",
-                        "&7Open the administrative Doctor controls for",
-                        "&7resource-pack delivery and item-model migration.",
+                        "&7Administrative resource-pack and item recovery.",
+                        "&7Includes sender controls, item texture repairs,",
+                        "&7model removal, diagnostics and migration tools.",
                         "",
-                        "&7Contains separate actions to enable/disable",
-                        "&7the pack, upgrade items, or remove models.",
-                        "",
-                        "&eClick to open Slimefun Doctor"));
+                        "&8OP/Admin only • slimefun.command.doctor",
+                        "&eClick to open Recovery Center"));
         menu.addMenuClickHandler(16, (clickedPlayer, slot, item, action) -> {
             DoctorGuideMenu.open(clickedPlayer, returnGuide);
             return false;
