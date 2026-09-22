@@ -144,6 +144,11 @@ def main() -> int:
             "gradle.properties",
             "permissions:\n  contents: read",
             "'core_source_commit': os.environ['GITHUB_SHA']",
+            "ThreadPoolExecutor(max_workers=6)",
+            "['git', 'ls-remote'",
+            "locked['source_commit'] = sha",
+            "LOCKED_MATRIX: ${{ needs.prepare.outputs.matrix }}",
+            "Locked source commit mismatch:",
         ):
             require(token in bundle_workflow, f"Addon bundle source-identity invariant missing: {token}", failures)
 
