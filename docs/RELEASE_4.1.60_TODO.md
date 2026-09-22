@@ -93,7 +93,7 @@
 - [ ] Prepare `docs/releases/4.1.60.md` only after stabilization PRs and release gates are green.
 - [ ] Update `EVERYTHING_THAT_CHANGED.md` with the final 4.1.60 stabilization changes.
 - [x] Merge PR #254 — ordinary addon-bundle builds no longer mutate already-published Slimefun Legacy releases; release asset publication is owned only by the reproducible-release workflow.
-- [ ] Merge PR #255 — require the addon bundle selected by `.github/workflows/reproducible-release.yml` to come from the **same exact source commit** as the core release.
+- [ ] Merge PR #255 — require the addon bundle selected by `.github/workflows/reproducible-release.yml` to come from the **same exact source commit** as the core release, lock every shipped addon to an exact per-run source SHA, and require explicit manual dispatch for publication after candidate validation.
 - [ ] Require the addon bundle selected by `.github/workflows/reproducible-release.yml` to come from the **same exact source commit** as the core release.
   - The current workflow prefers the newest successful master bundle but does not yet require its `headSha` to equal the release `GITHUB_SHA`.
   - 4.1.60 must not publish a freshly built core JAR beside a bundle validated against an older core commit.
