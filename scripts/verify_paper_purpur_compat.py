@@ -147,6 +147,12 @@ def main() -> int:
         "analyze_linkage",
         "write_linkage_report",
         "find_built_addon_jar",
+        "TRANSIENT_MAVEN_FAILURE_MARKERS",
+        "is_transient_maven_failure",
+        "stream_maven_command",
+        "too many requests",
+        "-Dmaven.wagon.http.retryHandler.count=3",
+        "\"-U\"",
     ):
         if token not in comparator:
             failures.append(f"Two-stage addon comparator invariant is missing: {token}")
