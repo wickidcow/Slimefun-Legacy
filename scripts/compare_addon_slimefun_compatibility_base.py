@@ -107,8 +107,9 @@ def stream_maven_command(
     max_attempts: int = 3,
 ) -> int:
     last_code = 1
+    retry_command = command
     for attempt in range(1, max_attempts + 1):
-        last_code = stream_command(command, cwd=cwd, env=env, log=log)
+        last_code = stream_command(retry_command, cwd=cwd, env=env, log=log)
         if last_code == 0:
             return 0
 
@@ -120,6 +121,9 @@ def stream_maven_command(
 
         if not is_transient_maven_failure(text) or attempt >= max_attempts:
             return last_code
+
+        if "-U" not in retry_command:
+            retry_command = [retry_command[0], "-U", *retry_command[1:]]
 
         delay = attempt * 5
         message = (
@@ -285,7 +289,6 @@ def install_maven_jar(
         [
             "mvn",
             "-B",
-            "-U",
             "-Dmaven.wagon.http.retryHandler.count=3",
             "install:install-file",
             f"-Dfile={jar}",
@@ -362,8 +365,7 @@ def build_project(
                 command = [
                     str(wrapper),
                     "-B",
-                    "-U",
-                    "-Dmaven.wagon.http.retryHandler.count=3",
+                            "-Dmaven.wagon.http.retryHandler.count=3",
                     "-DskipTests",
                     "package",
                 ]
@@ -371,8 +373,7 @@ def build_project(
                 command = [
                     "mvn",
                     "-B",
-                    "-U",
-                    "-Dmaven.wagon.http.retryHandler.count=3",
+                            "-Dmaven.wagon.http.retryHandler.count=3",
                     "-DskipTests",
                     "package",
                 ]
