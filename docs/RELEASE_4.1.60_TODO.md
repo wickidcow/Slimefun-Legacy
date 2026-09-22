@@ -18,12 +18,14 @@
   - Ordinary PR/push/scheduled runs may still validate the latest released canonical bundle.
   - Addon-bundle-triggered runs must consume the exact artifact produced by the triggering workflow.
   - Preserve bundle provenance in CI evidence.
-- [ ] After #246 merges, prove the cross-workflow artifact path on master using a fresh maintained-addon bundle build.
-  - Require the triggering bundle run ID/head SHA to appear in provenance.
-  - Require the exact bundle to boot twice on Paper 26.2 and Paper 26.3.
+- [x] After #246 merges, prove the cross-workflow artifact path on master using a fresh maintained-addon bundle build.
+  - Proven by full-stack workflow run `35733620964`, triggered from addon-bundle run `35729428058`.
+  - Trigger source SHA: `d58bc92c153f113b9da8246acb0438497c0679f1`.
+  - The exact bundle artifact was downloaded and both Paper 26.2 and Paper 26.3 full-stack boots passed.
 - [x] Merge PR #250 — give exact addon-bundle `workflow_run` smokes their own concurrency key so unrelated master pushes cannot cancel the provenance validation.
 - [x] Merge PR #251 — retry only recognized transient Maven repository/network failures in addon compatibility checks so HTTP 429/5xx infrastructure does not masquerade as a required-addon regression.
 - [x] Merge PR #252 — retry only recognized transient Paper Maven repository failures in the 1.21.11 API compile lane; preserve immediate failure for real compiler/API errors.
+- [ ] Merge PR #257 — ignore cancelled/failed addon-bundle `workflow_run` completions so missing artifacts from unsuccessful source runs do not create false full-stack failures.
 - [x] Merge PR #247 — include the active Guide provider in `/sf doctor report`.
   - Match Recovery Center Support & Diagnostics wording.
   - Show `Classic Slimefun Guide` when JEG is absent.
@@ -35,17 +37,17 @@
 
 ## Doctor / Recovery Center final pass
 
-- [ ] Run the full Item Doctor static verification after #247 merges.
-- [ ] Confirm `/sf doctor report` remains public-safe and contains no paths, IPs, credentials, player data, coordinates, raw config dumps, or raw exception messages.
-- [ ] Confirm the Recovery Center remains OP/admin-only at every entry point.
-- [ ] Confirm resource-pack actions remain separated:
+- [x] Run the full Item Doctor static verification after #247 merges.
+- [x] Confirm `/sf doctor report` remains public-safe and contains no paths, IPs, credentials, player data, coordinates, raw config dumps, or raw exception messages.
+- [x] Confirm the Recovery Center remains OP/admin-only at every entry point.
+- [x] Confirm resource-pack actions remain separated:
   - Legacy sender enable/disable;
   - resource-pack item adoption/upgrade;
   - stored-item texture/model repair;
   - exact bundled mapping removal.
-- [ ] Confirm destructive/mutating lanes still require explicit confirmation or fingerprint gates.
-- [ ] Confirm the Slimefun Doctor wiki link and maintained command list remain reachable from the Recovery Center.
-- [ ] Confirm Doctor Next Steps routes unresolved findings to specialist lanes instead of implying the generic repair fixes everything.
+- [x] Confirm destructive/mutating lanes still require explicit confirmation or fingerprint gates.
+- [x] Confirm the Slimefun Doctor wiki link and maintained command list remain reachable from the Recovery Center.
+- [x] Confirm Doctor Next Steps routes unresolved findings to specialist lanes instead of implying the generic repair fixes everything.
 
 ## Maintained addon bundle validation
 
@@ -56,11 +58,11 @@
 - [ ] Rebuild the canonical `SF_Addons_1.21.11-26.3.zip` after stabilization PRs merge.
 - [ ] Require every maintained addon in `compatibility/sfl-addon-release-matrix.json` to compile against the detected Paper 26.3 API.
 - [ ] Run required-addon runtime smoke for JEG, BetterChests, FastMachines, Networks, and SlimeTinker.
-- [ ] Confirm current pinned JEG and SlimeHUD revisions are the versions actually present in the generated bundle.
-- [ ] Confirm no archived/duplicate addons are accidentally shipped.
+- [x] Confirm current pinned JEG and SlimeHUD revisions are the versions actually present in the generated bundle.
+- [x] Confirm no archived/duplicate addons are accidentally shipped.
   - Magic 8 Ball remains core-integrated and excluded as a standalone addon.
   - Historical DracFun remains replaced by DracFun Reborn.
-- [ ] Verify canonical addon JAR naming and reject stale/qualified filenames where the bundle policy forbids them.
+- [x] Verify canonical addon JAR naming and reject stale/qualified filenames where the bundle policy forbids them.
 
 ## Platform and runtime gates
 
