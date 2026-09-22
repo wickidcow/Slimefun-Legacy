@@ -479,6 +479,11 @@ final class DoctorGuideMenu {
     private static void openEnablePackSenderConfirmation(
             @Nonnull Player player, @Nonnull ItemStack returnGuide) {
         ExternalResourcePackService service = new ExternalResourcePackService(Slimefun.instance());
+        var ownership = service.getOwnershipMode();
+        String resultingOwnership = switch (ownership) {
+            case EXTERNAL, NONE -> "LEGACY";
+            case AUTO, LEGACY -> ownership.name();
+        };
         ChestMenu menu = confirmationMenu("&a&lEnable Legacy Pack Sender");
 
         menu.addItem(
@@ -490,7 +495,10 @@ final class DoctorGuideMenu {
                         "&7Persists Legacy resource-pack delivery as ON.",
                         "&7Eligible online players may receive the configured",
                         "&7Legacy pack immediately.",
-                        "&7If ownership is EXTERNAL/NONE, it becomes LEGACY.",
+                        "",
+                        "&7Current ownership: &e" + ownership.name(),
+                        "&7After confirm: &a" + resultingOwnership + " / sender ON",
+                        "&8EXTERNAL/NONE is reconciled to LEGACY.",
                         "",
                         "&8This does not change item-model mappings.",
                         "&8Use pack upgrade/repair tools separately.",
@@ -517,6 +525,11 @@ final class DoctorGuideMenu {
     private static void openDisablePackSenderConfirmation(
             @Nonnull Player player, @Nonnull ItemStack returnGuide) {
         ExternalResourcePackService service = new ExternalResourcePackService(Slimefun.instance());
+        var ownership = service.getOwnershipMode();
+        String resultingOwnership = switch (ownership) {
+            case LEGACY -> "AUTO";
+            case AUTO, EXTERNAL, NONE -> ownership.name();
+        };
         ChestMenu menu = confirmationMenu("&c&lDisable Legacy Pack Sender");
 
         menu.addItem(
@@ -528,7 +541,10 @@ final class DoctorGuideMenu {
                         "&7Persists Legacy resource-pack delivery as OFF.",
                         "&7Legacy's own pack UUID is removed from online",
                         "&7players where supported by the client API.",
-                        "&7If ownership is LEGACY, it returns to AUTO.",
+                        "",
+                        "&7Current ownership: &e" + ownership.name(),
+                        "&7After confirm: &7" + resultingOwnership + " / sender OFF",
+                        "&8LEGACY ownership is reconciled back to AUTO.",
                         "",
                         "&8Item-model mappings are left unchanged.",
                         "&8Combined/external pack setups can keep using them.",
