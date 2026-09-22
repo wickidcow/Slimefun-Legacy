@@ -14,21 +14,21 @@
 
 ## Stabilization work in progress
 
-- [ ] Merge PR #246 — pin the Paper 26.2/26.3 full-stack smoke to the exact addon bundle artifact and source commit under test.
+- [x] Merge PR #246 — pin the Paper 26.2/26.3 full-stack smoke to the exact addon bundle artifact and source commit under test.
   - Ordinary PR/push/scheduled runs may still validate the latest released canonical bundle.
   - Addon-bundle-triggered runs must consume the exact artifact produced by the triggering workflow.
   - Preserve bundle provenance in CI evidence.
 - [ ] After #246 merges, prove the cross-workflow artifact path on master using a fresh maintained-addon bundle build.
   - Require the triggering bundle run ID/head SHA to appear in provenance.
   - Require the exact bundle to boot twice on Paper 26.2 and Paper 26.3.
-- [ ] Merge PR #250 — give exact addon-bundle `workflow_run` smokes their own concurrency key so unrelated master pushes cannot cancel the provenance validation.
-- [ ] Merge PR #251 — retry only recognized transient Maven repository/network failures in addon compatibility checks so HTTP 429/5xx infrastructure does not masquerade as a required-addon regression.
-- [ ] Merge PR #252 — retry only recognized transient Paper Maven repository failures in the 1.21.11 API compile lane; preserve immediate failure for real compiler/API errors.
-- [ ] Merge PR #247 — include the active Guide provider in `/sf doctor report`.
+- [x] Merge PR #250 — give exact addon-bundle `workflow_run` smokes their own concurrency key so unrelated master pushes cannot cancel the provenance validation.
+- [x] Merge PR #251 — retry only recognized transient Maven repository/network failures in addon compatibility checks so HTTP 429/5xx infrastructure does not masquerade as a required-addon regression.
+- [x] Merge PR #252 — retry only recognized transient Paper Maven repository failures in the 1.21.11 API compile lane; preserve immediate failure for real compiler/API errors.
+- [x] Merge PR #247 — include the active Guide provider in `/sf doctor report`.
   - Match Recovery Center Support & Diagnostics wording.
   - Show `Classic Slimefun Guide` when JEG is absent.
   - Show JEG version plus enabled/disabled state when installed.
-- [ ] Merge PR #248 — correct Paper 26.3 maturity wording.
+- [x] Merge PR #248 — correct Paper 26.3 maturity wording.
   - Matrix state: `alpha-awaiting-stable`.
   - Generated addon-bundle notes: alpha/pre-release compatibility target.
   - No compatibility-policy or build-logic change.
