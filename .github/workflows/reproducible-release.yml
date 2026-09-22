@@ -198,7 +198,17 @@ jobs:
           archive: false
           if-no-files-found: error
 
+      - name: Mark candidate validation complete
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          {
+            echo
+            echo "Candidate validation completed without publishing a GitHub Release."
+            echo "Use workflow_dispatch on this exact commit after release notes and all release gates are complete."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Publish reproducible release assets
+        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -243,6 +253,7 @@ jobs:
           fi
 
       - name: Normalize and verify release assets
+        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
