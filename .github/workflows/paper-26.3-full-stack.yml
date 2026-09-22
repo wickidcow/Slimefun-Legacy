@@ -32,7 +32,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: paper-full-stack-${{ github.ref }}
+  group: paper-full-stack-${{ github.event_name == 'workflow_run' && format('bundle-run-{0}', github.event.workflow_run.id) || github.ref }}
   cancel-in-progress: true
 
 jobs:
