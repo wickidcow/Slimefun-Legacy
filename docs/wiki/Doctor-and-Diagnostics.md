@@ -30,12 +30,12 @@ These read-only checks should be your first step after an upgrade or when an add
 | `integrations` | Optional external integration capabilities and failures |
 | `proxy` | Paper backend proxy-forwarding configuration and UUID-safety signals |
 
-## Guide Admin Doctor console
+## Guide Recovery Center
 
-Operators with `slimefun.command.doctor` can open **Slimefun Doctor** from the Slimefun Guide settings screen.
-The console is a router over the same guarded Doctor services used by the commands; it does not introduce a second repair engine.
+The **Slimefun Recovery Center** is visible only to players with `slimefun.command.doctor` (operator by default; permission-plugin admins can be granted it explicitly). Normal players do not see the Recovery Center button.
+The Recovery Center is a router over the same guarded Doctor services used by the commands; it does not introduce a second repair engine.
 
-### Doctor Assistant / Recommended Fix
+### Recovery Assistant / Recommended Recovery
 
 The top **Recommended Fix** button evaluates existing read-only Doctor, storage, machine, dependency, integration,
 resource-pack and item-model state. It can route the operator to a scan, specialist diagnostic screen or an existing
@@ -153,8 +153,8 @@ not remove them automatically. Cleanup remains the separate confirmed resource-p
 - **Player & Item Repair** — read-only hand/inventory inspection, confirmed held-item repair, confirmed self repair and an online-player repair picker.
 - **Addon & Dependency Health** — addon compatibility evidence, missing/disabled hard dependencies, registered addon Doctor scans, registry health and cross-fork API diagnostics.
 - **Runtime Recovery** — storage/runtime status, core/chunk health, machine failure detail, external integration status and guarded retry/reload confirmations.
-- **Other Doctor Fixes** — full scan, names/lore repair, item-model scan, storage integrity, upgrade readiness, legacy-ID planning and addon schema migration probes.
-- **Doctor Support Summary** — compact live platform/storage/machine/pack/dependency/integration/last-scan state plus the current recommended next step.
+- **Additional Recovery Tools** — full scan, names/lore repair, item-model scan, storage integrity, upgrade readiness, legacy-ID planning and addon schema migration probes.
+- **Support & Diagnostics Summary** — compact live platform/storage/machine/pack/dependency/integration/last-scan state plus the current recommended next step.
 
 `/sf doctor report` prints the same compact support-oriented command-line snapshot and the existing Doctor next-step
 classification. This is useful when collecting information for an issue report.
