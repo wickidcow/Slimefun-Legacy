@@ -12,6 +12,7 @@ on:
       - 'scripts/test_paper_candidate_versions.py'
   pull_request:
     paths:
+      - 'gradle.properties'
       - '.github/workflows/build-sfl-addons-compat-bundle.yml'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'scripts/compile_addon_paper_26_3.py'
