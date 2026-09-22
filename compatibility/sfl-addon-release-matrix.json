@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 80,
+  "bundle_revision": 81,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -159,7 +159,7 @@
       "repository": "wickidcow/SF_JustEnoughGuide",
       "slug": "justenoughguide",
       "artifact_base": "JustEnoughGuide",
-      "source_commit": "fb6c9ba522e06217556c7c0fdcd82df397ed277b"
+      "source_commit": "22bad01998424acdf875c50383d8ae74a06e2e7d"
     },
     {
       "repository": "wickidcow/SF_MagicExpansion",
@@ -217,7 +217,8 @@
     {
       "repository": "wickidcow/SF_SlimeHUD",
       "slug": "slimehud",
-      "artifact_base": "SlimeHUD"
+      "artifact_base": "SlimeHUD",
+      "source_commit": "791e565f198ceb809c445aad80fc0a8fc9ac8236"
     },
     {
       "repository": "wickidcow/SF_SlimeTinkerIE2",
