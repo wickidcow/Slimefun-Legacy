@@ -22,6 +22,7 @@
   - Require the triggering bundle run ID/head SHA to appear in provenance.
   - Require the exact bundle to boot twice on Paper 26.2 and Paper 26.3.
 - [ ] Merge PR #250 — give exact addon-bundle `workflow_run` smokes their own concurrency key so unrelated master pushes cannot cancel the provenance validation.
+- [ ] Merge PR #251 — retry only recognized transient Maven repository/network failures in addon compatibility checks so HTTP 429/5xx infrastructure does not masquerade as a required-addon regression.
 - [ ] Merge PR #247 — include the active Guide provider in `/sf doctor report`.
   - Match Recovery Center Support & Diagnostics wording.
   - Show `Classic Slimefun Guide` when JEG is absent.
