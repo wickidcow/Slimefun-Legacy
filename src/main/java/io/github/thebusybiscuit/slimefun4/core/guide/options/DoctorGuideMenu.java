@@ -271,7 +271,7 @@ final class DoctorGuideMenu {
             case REPAIR_PRESENTATION -> openGeneralRepairConfirmation(player, returnGuide);
             case SCHEMA_MIGRATION -> runCommand(player, "slimefun doctor migrations schemas scan");
             case LEGACY_MIGRATION -> runCommand(player, "slimefun doctor migrations plan");
-            case ITEM_MODEL_SCAN -> runCommand(player, "slimefun doctor item-models scan");
+            case ITEM_MODEL_SCAN -> openItemTextureRepairs(player, returnGuide);
             case RUNTIME_HEALTH -> openRuntimeRecovery(player, returnGuide);
             case DEPENDENCY_HEALTH -> openAddonDependencyHealth(player, returnGuide);
             case INTEGRATION_HEALTH -> runCommand(player, "slimefun doctor integrations");
