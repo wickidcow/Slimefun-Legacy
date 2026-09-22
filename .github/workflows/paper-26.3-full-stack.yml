@@ -29,6 +29,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: paper-full-stack-${{ github.ref }}
@@ -44,6 +45,8 @@ jobs:
       api: ${{ steps.paper.outputs.api }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
       - name: Resolve latest Paper 26.3 API
         id: paper
         shell: bash
@@ -74,6 +77,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -98,25 +103,60 @@ jobs:
           if-no-files-found: error
 
   fetch-bundle:
-    name: Fetch canonical shipped addon bundle
+    name: Fetch exact addon bundle under test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Download canonical bundle from latest non-draft release
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - name: Download addon bundle under test
         env:
           GH_TOKEN: ${{ github.token }}
+          TRIGGER_RUN_ID: ${{ github.event.workflow_run.id }}
+          TRIGGER_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         shell: bash
         run: |
           set -euo pipefail
-          TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 20 --json tagName,isDraft,isPrerelease --jq '[.[] | select(.isDraft == false)][0].tagName')"
-          test -n "$TAG"
-          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'SF_Addons_1.21.11-26.3.zip' --dir bundle
+          mkdir -p bundle
+
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_run" ]]; then
+            test -n "${TRIGGER_RUN_ID:-}"
+            test -n "${TRIGGER_HEAD_SHA:-}"
+            echo "Downloading exact addon bundle artifact from triggering workflow run ${TRIGGER_RUN_ID}"
+            gh run download "$TRIGGER_RUN_ID" \
+              --repo "$GITHUB_REPOSITORY" \
+              --name 'SF_Addons_1.21.11-26.3' \
+              --dir bundle
+            printf 'source=workflow-artifact\nrun_id=%s\nhead_sha=%s\n' \
+              "$TRIGGER_RUN_ID" "$TRIGGER_HEAD_SHA" > bundle/bundle-source.txt
+          else
+            TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 20 --json tagName,isDraft,isPrerelease --jq '[.[] | select(.isDraft == false)][0].tagName')"
+            test -n "$TAG"
+            gh release download "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --pattern 'SF_Addons_1.21.11-26.3.zip' \
+              --dir bundle
+            printf 'source=release\nrelease_tag=%s\nhead_sha=%s\n' \
+              "$TAG" "$GITHUB_SHA" > bundle/bundle-source.txt
+          fi
+
           test -s bundle/SF_Addons_1.21.11-26.3.zip
           unzip -tqq bundle/SF_Addons_1.21.11-26.3.zip
+
+      - name: Publish bundle provenance
+        run: |
+          {
+            echo '## Full-stack addon bundle provenance'
+            echo
+            sed 's/^/- /' bundle/bundle-source.txt
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/upload-artifact@v7
         with:
           name: full-stack-addon-bundle
-          path: bundle/SF_Addons_1.21.11-26.3.zip
+          path: |
+            bundle/SF_Addons_1.21.11-26.3.zip
+            bundle/bundle-source.txt
           if-no-files-found: error
 
   runtime:
@@ -130,6 +170,8 @@ jobs:
         minecraft: ['26.2', '26.3']
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -154,6 +196,13 @@ jobs:
         run: |
           RESULT="build/full-stack-${{ matrix.minecraft }}/smoke-result.txt"
           if [[ -f "$RESULT" ]]; then cat "$RESULT" >> "$GITHUB_STEP_SUMMARY"; fi
+          if [[ -f bundle/bundle-source.txt ]]; then
+            {
+              echo
+              echo 'Addon bundle provenance:'
+              sed 's/^/- /' bundle/bundle-source.txt
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/upload-artifact@v7
         if: always()
         with:
