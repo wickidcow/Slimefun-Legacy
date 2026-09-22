@@ -148,6 +148,9 @@ require("setResourcePackEnabled(boolean enabled)" in addons_config
         "resource-pack admin toggle must persist through the dedicated Legacy addons configuration")
 require('player.hasPermission("slimefun.command.doctor")' in doctor_menu,
         "Recovery Center must enforce the OP/admin Doctor permission at the menu boundary")
+require('player.hasPermission("slimefun.command.doctor")' in operations_menu
+        and "requireRecoveryAccess(player)" in operations_menu,
+        "Recovery Center advanced dashboards must enforce the same OP/admin permission")
 require("&6Resource Pack & Item Textures" in doctor_menu
         and "&eResource Pack Item Texture Repairs" in doctor_menu
         and "&dRemove Resource-Pack Item Models" in doctor_menu,
