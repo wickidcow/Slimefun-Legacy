@@ -377,6 +377,11 @@ jobs:
           print(f'Canonical naming verified for {len(actual)} addon JARs.')
           PY
 
+          unzip -p collected/jars/SF_InfinityExpansion2.0.9.jar plugin.yml | grep -A10 '^loadbefore:' | grep -Fq 'RykenSlimefunCustomizer'
+          if unzip -p collected/jars/SF_InfinityExpansion2.0.9.jar plugin.yml | grep -Fq 'RykenSlimeCustomizer'; then
+            echo "InfinityExpansion2 must load before RykenSlimefunCustomizer, not the obsolete RykenSlimeCustomizer name" >&2
+            exit 1
+          fi
           unzip -p collected/jars/SF_MagicExpansion1.1.6.jar plugin.yml | grep -Fxq 'loadbefore: [RykenSlimefunCustomizer]'
           unzip -p collected/jars/SF_MagicExpansion1.1.6.jar plugin.yml | grep -Fxq 'softdepend: [MagicLegacy, Networks, NetworksExpansion]'
           if unzip -p collected/jars/SF_MagicExpansion1.1.6.jar plugin.yml | grep -Fq 'softdepend: [MagicLegacy, RykenSlimefunCustomizer'; then
