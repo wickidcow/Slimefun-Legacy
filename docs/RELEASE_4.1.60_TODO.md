@@ -56,11 +56,11 @@
 - [ ] Rebuild the canonical `SF_Addons_1.21.11-26.3.zip` after stabilization PRs merge.
 - [ ] Require every maintained addon in `compatibility/sfl-addon-release-matrix.json` to compile against the detected Paper 26.3 API.
 - [ ] Run required-addon runtime smoke for JEG, BetterChests, FastMachines, Networks, and SlimeTinker.
-- [ ] Confirm current pinned JEG and SlimeHUD revisions are the versions actually present in the generated bundle.
-- [ ] Confirm no archived/duplicate addons are accidentally shipped.
+- [x] Confirm current pinned JEG and SlimeHUD revisions are the versions actually present in the generated bundle.
+- [x] Confirm no archived/duplicate addons are accidentally shipped.
   - Magic 8 Ball remains core-integrated and excluded as a standalone addon.
   - Historical DracFun remains replaced by DracFun Reborn.
-- [ ] Verify canonical addon JAR naming and reject stale/qualified filenames where the bundle policy forbids them.
+- [x] Verify canonical addon JAR naming and reject stale/qualified filenames where the bundle policy forbids them.
 
 ## Platform and runtime gates
 
