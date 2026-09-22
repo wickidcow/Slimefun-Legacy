@@ -175,6 +175,10 @@ def main() -> int:
             "No successful addon bundle for exact release source $GITHUB_SHA became available.",
             "bundle_core_commit = manifest.get('core_source_commit')",
             "if bundle_core_commit != release_core_commit:",
+            "Mark candidate validation complete",
+            "if: github.event_name != 'workflow_dispatch'",
+            "if: github.event_name == 'workflow_dispatch'",
+            "Candidate validation completed without publishing a GitHub Release.",
             "Upload raw reproducible JAR artifact",
             "archive: false",
             "dist/${{ env.OUTPUT_NAME }}",
@@ -222,7 +226,8 @@ def main() -> int:
         "- the release workflow performs two independent clean builds of the exact source commit\n"
         "- build and configuration caches are disabled for the reproducibility comparison\n"
         "- release workflow requires byte-for-byte and SHA-256 equality\n"
-        "- release workflow can publish automatically from master version bumps and remains manually dispatchable\n"
+        "- master version bumps run reproducible candidate validation without publishing a GitHub Release\n"
+        "- release publication requires an explicit workflow_dispatch on the exact validated commit\n"
         f"- {previous_version} is the pinned release-blocking previous-stable baseline\n"
         "- Phase 1L Part 2 itself does not change Cargo/Energy, database, storage-schema or saved-world semantics\n"
         f"- active release gameplay behavior changed is explicitly declared as {str(gameplay_changed).lower()}\n",
