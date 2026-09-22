@@ -38,7 +38,20 @@ final class DoctorOperationsCenterMenu {
 
     private DoctorOperationsCenterMenu() {}
 
+    private static boolean requireRecoveryAccess(@Nonnull Player player) {
+        if (player.hasPermission("slimefun.command.doctor")) {
+            return true;
+        }
+
+        player.sendMessage(ChatColor.RED
+                + "The Slimefun Recovery Center is restricted to server operators/admins.");
+        return false;
+    }
+
     static void open(@Nonnull Player player, @Nullable ItemStack guide) {
+        if (!requireRecoveryAccess(player)) {
+            return;
+        }
         ItemStack returnGuide =
                 guide == null ? SlimefunGuide.getItem(SlimefunGuideMode.SURVIVAL_MODE) : guide.clone();
 
@@ -300,6 +313,10 @@ final class DoctorOperationsCenterMenu {
     }
 
     static void openPerformanceCenter(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        if (!requireRecoveryAccess(player)) {
+            return;
+        }
+
         MachineRuntimeSnapshot machines = Slimefun.getMachineRuntimeService().getSnapshot();
         var ticker = Slimefun.getTickerTask();
         ChestMenu menu = subMenu("&6&lPerformance Health", 45);
@@ -453,6 +470,10 @@ final class DoctorOperationsCenterMenu {
     }
 
     static void openStorageCenter(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        if (!requireRecoveryAccess(player)) {
+            return;
+        }
+
         StorageRuntimeSnapshot storage = Slimefun.getStorageRuntimeService().getSnapshot();
         var backup = Slimefun.getBackupService();
         boolean backupEnabled = Slimefun.getCfg().getBoolean("options.backup-data");
@@ -538,6 +559,10 @@ final class DoctorOperationsCenterMenu {
     }
 
     static void openProxyCenter(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        if (!requireRecoveryAccess(player)) {
+            return;
+        }
+
         ProxyDiagnosticsSnapshot snapshot = new ProxyDiagnosticsService(Slimefun.instance()).inspect();
         ChestMenu menu = subMenu("&d&lProxy & Player Identity", 45);
 
@@ -642,6 +667,10 @@ final class DoctorOperationsCenterMenu {
     }
 
     static void openPackOwnership(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        if (!requireRecoveryAccess(player)) {
+            return;
+        }
+
         ExternalResourcePackService packs = new ExternalResourcePackService(Slimefun.instance());
         ResourcePackOwnershipMode mode = packs.getOwnershipMode();
         var textures = Slimefun.getItemTextureService();
