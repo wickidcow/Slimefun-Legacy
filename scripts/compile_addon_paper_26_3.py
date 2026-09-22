@@ -50,9 +50,9 @@ EXIT_CODES = {PASS: 0, COMPILE_FAILED: 20, INSTRUMENTATION_ERROR: 30}
 TRANSIENT_REPOSITORY_FAILURE_MARKERS = (
     "429",
     "too many requests",
-    "502 bad gateway",
-    "503 service unavailable",
-    "504 gateway timeout",
+    "bad gateway",
+    "service unavailable",
+    "gateway timeout",
     "connection reset",
     "read timed out",
     "connection timed out",
