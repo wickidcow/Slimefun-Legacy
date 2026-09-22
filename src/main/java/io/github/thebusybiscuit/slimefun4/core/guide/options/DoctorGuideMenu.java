@@ -15,6 +15,9 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -27,6 +30,8 @@ import org.bukkit.inventory.meta.SkullMeta;
 final class DoctorGuideMenu {
 
     private static final int PLAYER_PAGE_SIZE = 45;
+    private static final String DOCTOR_WIKI_URL =
+            "https://github.com/wickidcow/Slimefun-Legacy/wiki/Slimefun-Doctor-Commands";
 
     private DoctorGuideMenu() {}
 
@@ -202,6 +207,25 @@ final class DoctorGuideMenu {
         });
 
         menu.addItem(
+                28,
+                menuItem(
+                        Material.WRITTEN_BOOK,
+                        "&bSlimefun Doctor Wiki",
+                        "",
+                        "&7Complete OP/admin command reference for:",
+                        "&7Doctor scans, repairs, resource-pack recovery,",
+                        "&7storage integrity, migrations, runtime, proxy,",
+                        "&7addon/dependency health and performance.",
+                        "",
+                        "&8Closes this menu and posts a clickable link in chat.",
+                        "&eClick to open the wiki link"));
+        menu.addMenuClickHandler(28, (clickedPlayer, slot, item, action) -> {
+            clickedPlayer.closeInventory();
+            sendDoctorWikiLink(clickedPlayer);
+            return false;
+        });
+
+        menu.addItem(
                 30,
                 menuItem(
                         Material.BOOK,
@@ -254,6 +278,16 @@ final class DoctorGuideMenu {
                         "&7Pending writes: &e" + storage.getPendingWrites()));
 
         menu.open(player);
+    }
+
+    private static void sendDoctorWikiLink(@Nonnull Player player) {
+        Component open = Component.text("Slimefun Doctor Wiki: ", NamedTextColor.GOLD)
+                .append(Component.text("Click here to open the full command reference", NamedTextColor.AQUA)
+                        .clickEvent(ClickEvent.openUrl(DOCTOR_WIKI_URL)));
+        Component url = Component.text(DOCTOR_WIKI_URL, NamedTextColor.DARK_GRAY)
+                .clickEvent(ClickEvent.openUrl(DOCTOR_WIKI_URL));
+        player.sendMessage(open);
+        player.sendMessage(url);
     }
 
     private static void routeRecommendation(

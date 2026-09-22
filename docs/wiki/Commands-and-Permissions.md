@@ -43,7 +43,7 @@ Slimefun accepts both `/slimefun` and `/sf`. This page focuses on the commands m
 /sf doctor repair confirm
 ```
 
-See [Doctor & Diagnostics](Doctor-and-Diagnostics.md) before running repair operations.
+See [Doctor & Diagnostics](Doctor-and-Diagnostics.md) for workflows and the [Slimefun Doctor Command Reference](Slimefun-Doctor-Commands.md) for the complete admin command catalog.
 
 ## Important bypass permissions
 

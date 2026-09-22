@@ -50,6 +50,7 @@
 - [Addons](Addons.md)
 - [Compatibility & Addons](Compatibility-and-Addons.md)
 - [Doctor & Diagnostics](Doctor-and-Diagnostics.md)
+- [Slimefun Doctor Commands](Slimefun-Doctor-Commands.md)
 - [Troubleshooting](Troubleshooting.md)
 - [Bug Reporting](Bug-Reporting.md)
 

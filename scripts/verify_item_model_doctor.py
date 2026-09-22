@@ -45,6 +45,7 @@ ownership_mode = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/ser
 pack_service = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/ExternalResourcePackService.java")
 addons_config = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/config/CuriositiesConfig.java")
 docs = read("docs/wiki/Doctor-and-Diagnostics.md")
+command_wiki = read("docs/wiki/Slimefun-Doctor-Commands.md")
 test = read("src/test/java/io/github/thebusybiscuit/slimefun4/core/services/stability/TestItemDoctorReportItemModels.java")
 
 require("SlimefunItem.getById(slimefunId) == null" in executor,
@@ -148,6 +149,16 @@ require("setResourcePackEnabled(boolean enabled)" in addons_config
         "resource-pack admin toggle must persist through the dedicated Legacy addons configuration")
 require('player.hasPermission("slimefun.command.doctor")' in doctor_menu,
         "Recovery Center must enforce the OP/admin Doctor permission at the menu boundary")
+require("DOCTOR_WIKI_URL" in doctor_menu
+        and "&bSlimefun Doctor Wiki" in doctor_menu
+        and "Slimefun-Doctor-Commands" in doctor_menu,
+        "Recovery Center must link to the maintained Slimefun Doctor command wiki")
+require("/sf doctor status" in command_wiki
+        and "/sf doctor item-models remove-resourcepack-texture-ids confirm" in command_wiki
+        and "/sf doctor storage repair <full-fingerprint>" in command_wiki
+        and "/sf doctor migrations execute <plugin> <fingerprint>" in command_wiki
+        and "/sf tick top" in command_wiki,
+        "Doctor command wiki must retain the core recovery, storage, migration and performance references")
 require('player.hasPermission("slimefun.command.doctor")' in operations_menu
         and "requireRecoveryAccess(player)" in operations_menu,
         "Recovery Center advanced dashboards must enforce the same OP/admin permission")
