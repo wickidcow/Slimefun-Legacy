@@ -420,7 +420,7 @@ jobs:
           - 1.21.11: minimum/base compatibility
           - 26.1.x: supported
           - 26.2: PRIMARY production baseline
-          - 26.3: release-candidate compatibility target; production promotion waits for stable validation and an explicit decision
+          - 26.3: alpha/pre-release compatibility target; production promotion waits for a stable Paper build, validation, and an explicit decision
 
           Server platforms:
           - PRIMARY: Paper, Purpur
