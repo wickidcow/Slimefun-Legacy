@@ -159,7 +159,7 @@ not remove them automatically. Cleanup remains the separate confirmed resource-p
 - **Addon & Dependency Health** — addon compatibility evidence, missing/disabled hard dependencies, registered addon Doctor scans, registry health and cross-fork API diagnostics.
 - **Runtime Recovery** — storage/runtime status, core/chunk health, machine failure detail, external integration status and guarded retry/reload confirmations.
 - **Additional Recovery Tools** — full scan, names/lore repair, item-model scan, storage integrity, upgrade readiness, legacy-ID planning and addon schema migration probes.
-- **Support & Diagnostics Summary** — compact live platform/storage/machine/pack/dependency/integration/last-scan state plus the current recommended next step.
+- **Support & Diagnostics Summary** — compact live platform/storage/machine/pack/dependency/integration/last-scan state, the active Guide provider/version (JEG when installed, otherwise the classic Slimefun Guide), plus the current recommended next step.
 
 `/sf doctor report` prints the same compact support-oriented command-line snapshot and the existing Doctor next-step
 classification. This is useful when collecting information for an issue report.
