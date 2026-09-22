@@ -1317,7 +1317,7 @@ final class DoctorGuideMenu {
                 16,
                 menuItem(
                         Material.MAP,
-                        "&fPack & Item Models",
+                        "&fResource Pack & Item Textures",
                         "",
                         "&7Ownership: &e" + packs.getOwnershipMode(),
                         "&7Legacy sender: " + (packs.isDeliveryEnabled() ? "&aEnabled" : "&7Disabled"),
