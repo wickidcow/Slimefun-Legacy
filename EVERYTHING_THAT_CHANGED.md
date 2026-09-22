@@ -1,3 +1,18 @@
+# Slimefun Legacy 4.1.59 — Admin Recovery Center & guided resource-pack recovery
+
+- Replaced the old Guide Doctor/placeholder experience with an OP/admin-only **Slimefun Recovery Center** guarded by `slimefun.command.doctor`.
+- Unified native Guide and maintained SF_JustEnoughGuide administration around the same Recovery Center instead of duplicating repair logic.
+- Added a dedicated **Resource Pack & Item Textures** lane that keeps pack delivery, item-model mappings, and stored-item texture repair visibly separate.
+- Pack sender enable/disable now requires confirmation, previews ownership transitions, and blocks enablement when the configured pack preflight is invalid.
+- **Upgrade Items for Resource Pack** now follows a read-only scan → confirmed apply workflow.
+- **Remove Resource-Pack Item Models** now follows a read-only audit → confirmed removal workflow and explicitly never unregisters Slimefun items or machines.
+- **Resource Pack Item Texture Repairs** is a separate scan/repair lane with the latest Doctor item-model snapshot and protected custom/non-matching metadata.
+- Renamed the read-mostly operations dashboard to **Advanced System Health**, added live attention states, and exposed the active Guide provider in Support & Diagnostics.
+- Released maintained **SF_JustEnoughGuide 2.1.64** with the Totem Recovery Center slot hidden from normal players and pinned it in the canonical addon bundle.
+- No storage schema, saved-world format, normal Cargo/Energy behavior, Slimefun item IDs, or automatic migration policy changed.
+
+---
+
 # Slimefun Legacy 4.1.55 — Recovery, Velocity & standalone JEG compatibility
 - Added `config-version: 1` to `configSFLAddons.yml` so future config migrations are explicit and one-time instead of rewriting the file on every plugin update/start.
 - Existing unversioned addon configs receive the resource-pack operator safety guide once, including the exact enable-pack Doctor sequence and the safe disable boundary.
