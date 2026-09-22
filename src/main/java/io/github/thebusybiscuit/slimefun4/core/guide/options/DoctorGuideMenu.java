@@ -456,24 +456,32 @@ final class DoctorGuideMenu {
             @Nonnull ExternalResourcePackService service,
             @Nonnull ItemStack returnGuide) {
         boolean enabled = service.isDeliveryEnabled();
+        boolean rawSenderEnabled = service.isSenderFlagEnabled();
+        boolean senderConflict = rawSenderEnabled && !enabled && service.hasOwnershipContradiction();
         boolean configured = service.isConfiguredUrlValid() && service.isConfiguredSha1Valid();
         menu.addItem(
                 10,
                 menuItem(
-                        enabled ? Material.LIME_DYE : configured ? Material.GREEN_DYE : Material.REDSTONE,
+                        enabled
+                                ? Material.LIME_DYE
+                                : senderConflict ? Material.YELLOW_DYE : configured ? Material.GREEN_DYE : Material.REDSTONE,
                         enabled
                                 ? "&aResource Pack Sender Enabled"
-                                : configured ? "&aEnable Legacy Pack Sender" : "&cLegacy Pack Sender Not Ready",
+                                : senderConflict
+                                        ? "&eLegacy Sender Flag Conflict"
+                                        : configured ? "&aEnable Legacy Pack Sender" : "&cLegacy Pack Sender Not Ready",
                         "",
                         enabled
                                 ? "&7Slimefun Legacy is currently sending its configured pack."
-                                : configured
-                                        ? "&7Turns Slimefun Legacy's pack sender ON."
-                                        : "&7Fix the configured pack before enabling Legacy delivery.",
-                        enabled || !configured
+                                : senderConflict
+                                        ? "&7The raw sender flag is ON but current ownership suppresses delivery."
+                                        : configured
+                                                ? "&7Turns Slimefun Legacy's pack sender ON."
+                                                : "&7Fix the configured pack before enabling Legacy delivery.",
+                        enabled || !configured || senderConflict
                                 ? ""
                                 : "&7Eligible online players receive the configured pack.",
-                        enabled || !configured
+                        enabled || !configured || senderConflict
                                 ? ""
                                 : "&7Ownership is reconciled to LEGACY when needed.",
                         !configured ? "&7URL valid: " + (service.isConfiguredUrlValid() ? "&aYes" : "&cNo") : "",
@@ -482,13 +490,15 @@ final class DoctorGuideMenu {
                         "&8This does not add or change item-model mappings.",
                         enabled
                                 ? "&8Already enabled."
-                                : configured ? "&eClick to review and enable" : "&eClick to open Resource Pack Preflight"));
+                                : senderConflict
+                                        ? "&eClick to review ownership conflict"
+                                        : configured ? "&eClick to review and enable" : "&eClick to open Resource Pack Preflight"));
         if (!enabled) {
             menu.addMenuClickHandler(10, (player, slot, item, action) -> {
-                if (configured) {
-                    openEnablePackSenderConfirmation(player, returnGuide);
-                } else {
+                if (senderConflict || !configured) {
                     openResourcePackPreflight(player, returnGuide);
+                } else {
+                    openEnablePackSenderConfirmation(player, returnGuide);
                 }
                 return false;
             });
@@ -545,21 +555,29 @@ final class DoctorGuideMenu {
             @Nonnull Player player, @Nonnull ItemStack returnGuide) {
         ExternalResourcePackService service = new ExternalResourcePackService(Slimefun.instance());
         var ownership = service.getOwnershipMode();
+        boolean effectiveDelivery = service.isDeliveryEnabled();
         String resultingOwnership = switch (ownership) {
             case LEGACY -> "AUTO";
             case AUTO, EXTERNAL, NONE -> ownership.name();
         };
-        ChestMenu menu = confirmationMenu("&c&lDisable Legacy Pack Sender");
+        ChestMenu menu = confirmationMenu(
+                effectiveDelivery ? "&c&lDisable Legacy Pack Sender" : "&e&lClear Sender Flag Conflict");
 
         menu.addItem(
                 11,
                 menuItem(
-                        Material.RED_CONCRETE,
-                        "&cConfirm Disable Sender",
+                        effectiveDelivery ? Material.RED_CONCRETE : Material.YELLOW_CONCRETE,
+                        effectiveDelivery ? "&cConfirm Disable Sender" : "&eConfirm Clear Sender Flag",
                         "",
-                        "&7Persists Legacy resource-pack delivery as OFF.",
-                        "&7Legacy's own pack UUID is removed from online",
-                        "&7players where supported by the client API.",
+                        effectiveDelivery
+                                ? "&7Persists Legacy resource-pack delivery as OFF."
+                                : "&7Clears the stale raw sender flag while delivery remains OFF.",
+                        effectiveDelivery
+                                ? "&7Legacy's own pack UUID is removed from online"
+                                : "&7No effective Legacy delivery is currently active.",
+                        effectiveDelivery
+                                ? "&7players where supported by the client API."
+                                : "",
                         "",
                         "&7Current ownership: &e" + ownership.name(),
                         "&7After confirm: &7" + resultingOwnership + " / sender OFF",
@@ -616,20 +634,31 @@ final class DoctorGuideMenu {
             @Nonnull ExternalResourcePackService service,
             @Nonnull ItemStack returnGuide) {
         boolean enabled = service.isDeliveryEnabled();
+        boolean rawSenderEnabled = service.isSenderFlagEnabled();
+        boolean suppressedConflict = rawSenderEnabled && !enabled;
         menu.addItem(
                 14,
                 menuItem(
-                        Material.RED_DYE,
-                        enabled ? "&cDisable Legacy Pack Sender" : "&7Legacy Pack Sender Disabled",
+                        suppressedConflict ? Material.YELLOW_DYE : Material.RED_DYE,
+                        enabled
+                                ? "&cDisable Legacy Pack Sender"
+                                : suppressedConflict ? "&eResolve Sender Flag Conflict" : "&7Legacy Pack Sender Disabled",
                         "",
-                        "&7Turns Slimefun Legacy's pack sender OFF.",
-                        "&7Removes only Legacy's pack UUID from online players.",
-                        "&7LEGACY ownership is reconciled back to AUTO.",
+                        enabled
+                                ? "&7Turns Slimefun Legacy's pack sender OFF."
+                                : suppressedConflict
+                                        ? "&7Effective delivery is already OFF, but the raw sender flag is still ON."
+                                        : "&7Slimefun Legacy's sender flag and delivery are both OFF.",
+                        rawSenderEnabled ? "&7Clears Legacy's raw sender flag." : "",
+                        enabled ? "&7Removes only Legacy's pack UUID from online players." : "",
+                        enabled ? "&7LEGACY ownership is reconciled back to AUTO." : "",
                         "",
                         "&aSafe with an external/combined pack sender.",
                         "&8This does NOT remove Slimefun item-model mappings.",
-                        enabled ? "&eClick to review and disable" : "&8Already disabled."));
-        if (enabled) {
+                        rawSenderEnabled
+                                ? "&eClick to review and set sender OFF"
+                                : "&8Already disabled."));
+        if (rawSenderEnabled) {
             menu.addMenuClickHandler(14, (player, slot, item, action) -> {
                 openDisablePackSenderConfirmation(player, returnGuide);
                 return false;
