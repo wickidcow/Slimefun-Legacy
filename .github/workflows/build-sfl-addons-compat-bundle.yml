@@ -5,6 +5,7 @@ on:
     branches: [master]
     paths:
       - 'gradle.properties'
+      - 'docs/releases/**'
       - '.github/workflows/build-sfl-addons-compat-bundle.yml'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'scripts/compile_addon_paper_26_3.py'
@@ -13,6 +14,7 @@ on:
   pull_request:
     paths:
       - 'gradle.properties'
+      - 'docs/releases/**'
       - '.github/workflows/build-sfl-addons-compat-bundle.yml'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'scripts/compile_addon_paper_26_3.py'

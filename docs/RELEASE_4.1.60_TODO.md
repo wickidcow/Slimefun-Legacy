@@ -55,9 +55,9 @@
   - The current matrix contains 45 maintained addons, but only 7 have explicit `source_commit` pins and 38 still build from repository HEAD.
   - Keep normal compatibility discovery flexible if desired, but the **release bundle** must have an exact source commit recorded and enforced for every shipped addon.
   - Continue embedding resolved commit + JAR SHA-256 metadata inside the addon bundle manifest.
-- [ ] Rebuild the canonical `SF_Addons_1.21.11-26.3.zip` after stabilization PRs merge.
-- [ ] Require every maintained addon in `compatibility/sfl-addon-release-matrix.json` to compile against the detected Paper 26.3 API.
-- [ ] Run required-addon runtime smoke for JEG, BetterChests, FastMachines, Networks, and SlimeTinker.
+- [x] Rebuild the canonical `SF_Addons_1.21.11-26.3.zip` after stabilization PRs merge.
+- [x] Require every maintained addon in `compatibility/sfl-addon-release-matrix.json` to compile against the detected Paper 26.3 API.
+- [x] Run required-addon runtime smoke for JEG, BetterChests, FastMachines, Networks, and SlimeTinker.
 - [x] Confirm current pinned JEG and SlimeHUD revisions are the versions actually present in the generated bundle.
 - [x] Confirm no archived/duplicate addons are accidentally shipped.
   - Magic 8 Ball remains core-integrated and excluded as a standalone addon.
@@ -66,18 +66,18 @@
 
 ## Platform and runtime gates
 
-- [ ] Paper 26.2 runtime smoke passes.
-- [ ] Paper/Purpur 1.21.11 compatibility passes.
-- [ ] Purpur/Folia/Leaf 26.2 runtime smoke passes.
-- [ ] Paper 26.3 advisory compile passes against the latest detected official API artifact.
-- [ ] Paper 26.3 pre-release runtime smoke boots twice.
-- [ ] Paper 26.2 / 26.3 full-stack smoke passes with exact bundle provenance.
-- [ ] Velocity modern-forwarding smoke remains green.
-- [ ] Public API compatibility remains green against the previous stable release.
+- [x] Paper 26.2 runtime smoke passes.
+- [x] Paper/Purpur 1.21.11 compatibility passes.
+- [x] Purpur/Folia/Leaf 26.2 runtime smoke passes.
+- [x] Paper 26.3 advisory compile passes against the latest detected official API artifact.
+- [x] Paper 26.3 pre-release runtime smoke boots twice.
+- [x] Paper 26.2 / 26.3 full-stack smoke passes with exact bundle provenance.
+- [x] Velocity modern-forwarding smoke remains green.
+- [x] Public API compatibility remains green against the previous stable release.
 - [ ] Runtime gameplay correctness remains green.
-- [ ] Required addon runtime smoke remains green.
-- [ ] Reproducible release build produces byte-identical JARs.
-- [ ] Verify Java 21 bytecode target.
+- [x] Required addon runtime smoke remains green.
+- [ ] Reproducible release build produces byte-identical JARs at the final release-prep source commit.
+- [ ] Verify Java 21 bytecode target at the final release-prep source commit.
 
 ## Release preparation
 
@@ -92,15 +92,14 @@
   - README development/release-lifecycle wording where it describes the active candidate.
 - [x] Pin released 4.1.59 commit `3169bb8c67973b16c46316fdc4fe875df88351d1` as the release-blocking previous-stable compatibility baseline for 4.1.60.
 - [ ] After the rollover, require compatibility CI job names/summaries to say previous stable 4.1.59 rather than 4.1.58.
-- [ ] Prepare `docs/releases/4.1.60.md` only after stabilization PRs and release gates are green.
-- [ ] Update `EVERYTHING_THAT_CHANGED.md` with the final 4.1.60 stabilization changes.
+- [x] Prepare `docs/releases/4.1.60.md` only after stabilization PRs and release gates are green.
+- [x] Update `EVERYTHING_THAT_CHANGED.md` with the final 4.1.60 stabilization changes.
 - [x] Merge PR #254 — ordinary addon-bundle builds no longer mutate already-published Slimefun Legacy releases; release asset publication is owned only by the reproducible-release workflow.
 - [x] Merge PR #255 — require the addon bundle selected by `.github/workflows/reproducible-release.yml` to come from the **same exact source commit** as the core release, lock every shipped addon to an exact per-run source SHA, and require explicit manual dispatch for publication after candidate validation.
 - [x] Require the addon bundle selected by `.github/workflows/reproducible-release.yml` to come from the **same exact source commit** as the core release.
   - Implemented by PR #255: per-run addon SHA locks, bundle `core_source_commit`, exact `headSha == GITHUB_SHA` selection, and manual-only release publication.
-  - The current workflow prefers the newest successful master bundle but does not yet require its `headSha` to equal the release `GITHUB_SHA`.
-  - 4.1.60 must not publish a freshly built core JAR beside a bundle validated against an older core commit.
-  - If exact-SHA automation is not implemented before release cut, run/validate the canonical addon bundle at the final release commit before invoking release publication.
+  - The workflow now requires the selected bundle run `headSha` to equal the release `GITHUB_SHA` and verifies the bundle manifest `core_source_commit` against that same SHA.
+  - Release-note changes trigger both the canonical addon-bundle build and reproducible candidate validation so the final release-prep commit receives exact-source evidence before manual publication.
 - [ ] Publish only the canonical raw core JAR and validated addon bundle artifacts expected by the release workflow.
 - [ ] Do not promote Paper 26.3 to the production baseline as part of 4.1.60 unless Paper publishes a stable build and the full promotion checklist is rerun explicitly.
 
