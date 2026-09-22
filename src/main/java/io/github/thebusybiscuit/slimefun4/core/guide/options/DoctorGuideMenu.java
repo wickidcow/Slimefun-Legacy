@@ -1512,7 +1512,7 @@ final class DoctorGuideMenu {
     }
 
     private static void openGeneralRepairConfirmation(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
-        ChestMenu menu = confirmationMenu("&6&lConfirm Doctor Repair");
+        ChestMenu menu = confirmationMenu("&6&lConfirm Names & Lore Repair");
         menu.addItem(
                 11,
                 menuItem(
