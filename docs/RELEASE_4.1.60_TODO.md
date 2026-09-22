@@ -90,6 +90,10 @@
 - [ ] After the rollover, require compatibility CI job names/summaries to say previous stable 4.1.59 rather than 4.1.58.
 - [ ] Prepare `docs/releases/4.1.60.md` only after stabilization PRs and release gates are green.
 - [ ] Update `EVERYTHING_THAT_CHANGED.md` with the final 4.1.60 stabilization changes.
+- [ ] Require the addon bundle selected by `.github/workflows/reproducible-release.yml` to come from the **same exact source commit** as the core release.
+  - The current workflow prefers the newest successful master bundle but does not yet require its `headSha` to equal the release `GITHUB_SHA`.
+  - 4.1.60 must not publish a freshly built core JAR beside a bundle validated against an older core commit.
+  - If exact-SHA automation is not implemented before release cut, run/validate the canonical addon bundle at the final release commit before invoking release publication.
 - [ ] Publish only the canonical raw core JAR and validated addon bundle artifacts expected by the release workflow.
 - [ ] Do not promote Paper 26.3 to the production baseline as part of 4.1.60 unless Paper publishes a stable build and the full promotion checklist is rerun explicitly.
 
