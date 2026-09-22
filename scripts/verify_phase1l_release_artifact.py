@@ -171,7 +171,7 @@ def main() -> int:
             "cmp \"$RUNNER_TEMP/Slimefun-first.jar\" \"$RUNNER_TEMP/Slimefun-second.jar\"",
             "Require exact-source validated canonical addon bundle",
             "--json databaseId,headSha,status,conclusion",
-            "select(.headSha == $sha)",
+            "select(.headSha == \"$GITHUB_SHA\")",
             "No successful addon bundle for exact release source $GITHUB_SHA became available.",
             "bundle_core_commit = manifest.get('core_source_commit')",
             "if bundle_core_commit != release_core_commit:",
