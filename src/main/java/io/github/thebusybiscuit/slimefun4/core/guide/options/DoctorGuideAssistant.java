@@ -242,8 +242,8 @@ final class DoctorGuideAssistant {
 
         return new Recommendation(
                 Action.NONE,
-                "No Immediate Doctor Fix Recommended",
-                "Current Doctor, storage, machine, dependency, integration, and resource-pack signals do not require a repair action.",
+                "No Immediate Recovery Action Recommended",
+                "Current Doctor, storage, machine, dependency, integration, and resource-pack signals do not require an admin recovery action.",
                 0);
     }
 
