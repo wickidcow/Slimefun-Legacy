@@ -441,18 +441,5 @@ jobs:
           name: SF_Addons_1.21.11-26.3
           path: SF_Addons_1.21.11-26.3.zip
           if-no-files-found: error
-      - name: Attach canonical bundle to latest Slimefun Legacy release
-        if: github.event_name != 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --json tagName,isDraft --jq '[.[] | select(.isDraft == false)][0].tagName')"
-          test -n "$TAG"
-          echo "Uploading ${BUNDLE_NAME} to ${TAG}"
-          OLD='SFL_Addons_1.21.11-26.3.zip'
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -Fxq "$OLD"; then
-            gh release delete-asset "$TAG" "$OLD" --repo "$GITHUB_REPOSITORY" -y
-          fi
-          gh release upload "$TAG" "$BUNDLE_NAME" --repo "$GITHUB_REPOSITORY" --clobber
+      # Release assets are published only by reproducible-release.yml so a
+      # post-release addon rebuild cannot mutate an already published core release.
