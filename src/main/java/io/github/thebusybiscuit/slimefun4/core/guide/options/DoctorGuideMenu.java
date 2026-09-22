@@ -456,21 +456,40 @@ final class DoctorGuideMenu {
             @Nonnull ExternalResourcePackService service,
             @Nonnull ItemStack returnGuide) {
         boolean enabled = service.isDeliveryEnabled();
+        boolean configured = service.isConfiguredUrlValid() && service.isConfiguredSha1Valid();
         menu.addItem(
                 10,
                 menuItem(
-                        enabled ? Material.LIME_DYE : Material.GREEN_DYE,
-                        enabled ? "&aResource Pack Sender Enabled" : "&aEnable Legacy Pack Sender",
+                        enabled ? Material.LIME_DYE : configured ? Material.GREEN_DYE : Material.REDSTONE,
+                        enabled
+                                ? "&aResource Pack Sender Enabled"
+                                : configured ? "&aEnable Legacy Pack Sender" : "&cLegacy Pack Sender Not Ready",
                         "",
-                        "&7Turns Slimefun Legacy's pack sender ON.",
-                        "&7Eligible online players receive the configured pack.",
-                        "&7Ownership is reconciled to LEGACY when needed.",
+                        enabled
+                                ? "&7Slimefun Legacy is currently sending its configured pack."
+                                : configured
+                                        ? "&7Turns Slimefun Legacy's pack sender ON."
+                                        : "&7Fix the configured pack before enabling Legacy delivery.",
+                        enabled || !configured
+                                ? ""
+                                : "&7Eligible online players receive the configured pack.",
+                        enabled || !configured
+                                ? ""
+                                : "&7Ownership is reconciled to LEGACY when needed.",
+                        !configured ? "&7URL valid: " + (service.isConfiguredUrlValid() ? "&aYes" : "&cNo") : "",
+                        !configured ? "&7SHA-1 valid: " + (service.isConfiguredSha1Valid() ? "&aYes" : "&cNo") : "",
                         "",
                         "&8This does not add or change item-model mappings.",
-                        enabled ? "&8Already enabled." : "&eClick to review and enable"));
+                        enabled
+                                ? "&8Already enabled."
+                                : configured ? "&eClick to review and enable" : "&eClick to open Resource Pack Preflight"));
         if (!enabled) {
             menu.addMenuClickHandler(10, (player, slot, item, action) -> {
-                openEnablePackSenderConfirmation(player, returnGuide);
+                if (configured) {
+                    openEnablePackSenderConfirmation(player, returnGuide);
+                } else {
+                    openResourcePackPreflight(player, returnGuide);
+                }
                 return false;
             });
         }
