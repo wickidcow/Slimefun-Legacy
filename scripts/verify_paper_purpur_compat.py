@@ -47,6 +47,19 @@ def main() -> int:
     if "if (isProfiling && queued.get() > 0)" in profiler:
         failures.append("Profiler still permits an empty report after queued is reset")
 
+    legacy_workflow = read(".github/workflows/legacy-1.21.11-compatibility.yml")
+    for token in (
+        "for attempt in 1 2 3",
+        "CODE=${PIPESTATUS[0]}",
+        "status code: (429|502|503|504)",
+        "service unavailable",
+        "EXTRA_ARGS=(--refresh-dependencies --no-configuration-cache)",
+        "non-transient error; not retrying",
+        "paper-1.21.11-api-compile",
+    ):
+        if token not in legacy_workflow:
+            failures.append(f"Paper 1.21.11 transient repository retry safeguard is missing: {token}")
+
     workflow = read(".github/workflows/compatibility-ci.yml")
     baseline_start = workflow.find("  build-baseline-slimefun:")
     baseline_end = workflow.find("\n  build-legacy-floor-slimefun:", baseline_start)
