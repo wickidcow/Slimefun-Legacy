@@ -162,7 +162,8 @@ def main() -> int:
         "stream_maven_command",
         "too many requests",
         "-Dmaven.wagon.http.retryHandler.count=3",
-        "\"-U\"",
+        'if "-U" not in retry_command:',
+        'retry_command = [retry_command[0], "-U", *retry_command[1:]]',
     ):
         if token not in comparator:
             failures.append(f"Two-stage addon comparator invariant is missing: {token}")
