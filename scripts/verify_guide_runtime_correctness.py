@@ -191,6 +191,11 @@ def main() -> int:
     require(enhanced, "GuideRuntimeGuard.run(", "enhanced guide page guard")
     require(enhanced, "catch (Exception | LinkageError exception)", "enhanced item-open failure boundary")
     require(enhanced, "item.error(", "enhanced item-open exception reporting")
+    require(classic, "refreshRecipeDisplayStack(output)", "classic recipe output texture refresh")
+    require(classic, "ItemStack displayItem = refreshRecipeDisplayStack(item);", "classic recipe ingredient texture refresh")
+    require(classic, "ItemStack display = stack.clone();", "recipe display refresh must clone cached addon stacks")
+    require(classic, "Slimefun.getItemTextureService().setTexture(display, slimefunItem.getId());", "recipe display texture refresh")
+    reject(classic, "setTexture(stack,", "recipe display must not mutate cached addon recipe stacks")
 
     bootstrap = read(
         root,
