@@ -31,6 +31,12 @@ final class DoctorGuideMenu {
     private DoctorGuideMenu() {}
 
     static void open(@Nonnull Player player, @Nullable ItemStack guide) {
+        if (!player.hasPermission("slimefun.command.doctor")) {
+            player.sendMessage(ChatColor.RED
+                    + "The Slimefun Recovery Center is restricted to server operators/admins.");
+            return;
+        }
+
         ItemStack returnGuide =
                 guide == null ? SlimefunGuide.getItem(SlimefunGuideMode.SURVIVAL_MODE) : guide.clone();
         ExternalResourcePackService packService = new ExternalResourcePackService(Slimefun.instance());
@@ -47,8 +53,8 @@ final class DoctorGuideMenu {
                 menuItem(
                         recommendation.issueCount() > 0 ? Material.COMPASS : Material.RECOVERY_COMPASS,
                         recommendation.issueCount() > 0
-                                ? "&e&lRecommended Fix: " + recommendation.title()
-                                : "&a&lDoctor Assistant: " + recommendation.title(),
+                                ? "&e&lRecommended Recovery: " + recommendation.title()
+                                : "&a&lRecovery Assistant: " + recommendation.title(),
                         "",
                         "&7" + recommendation.detail(),
                         "",
@@ -155,9 +161,9 @@ final class DoctorGuideMenu {
                 31,
                 menuItem(
                         Material.COMPASS,
-                        "&3Slimefun Operations Center",
+                        "&3Advanced System Health",
                         "",
-                        "&7Unified health dashboard for:",
+                        "&7Detailed health dashboard for:",
                         "&7items, storage, machines, addons, proxy,",
                         "&7resource packs, performance and upgrades.",
                         "",
@@ -171,7 +177,7 @@ final class DoctorGuideMenu {
                 30,
                 menuItem(
                         Material.PAPER,
-                        "&fDoctor Support Summary",
+                        "&fSupport & Diagnostics Summary",
                         "",
                         "&7One compact view for issue reports:",
                         "&7version, storage, machines, pack/model state,",
@@ -187,7 +193,7 @@ final class DoctorGuideMenu {
                 32,
                 menuItem(
                         Material.BOOK,
-                        "&fDoctor Safety Rules",
+                        "&fRecovery Safety Guide",
                         "",
                         "&aGreen/read-only actions &7inspect only.",
                         "&eYellow actions &7route to a specialist lane.",
@@ -199,9 +205,9 @@ final class DoctorGuideMenu {
                 34,
                 menuItem(
                         Material.CLOCK,
-                        "&bRefresh Doctor Console",
+                        "&bRefresh Recovery Center",
                         "",
-                        "&7Refresh all live counts and recommendations.",
+                        "&7Refresh live health counts and recommendations.",
                         "&eClick to refresh"));
         menu.addMenuClickHandler(34, (clickedPlayer, slot, item, action) -> {
             open(clickedPlayer, returnGuide);
@@ -857,7 +863,7 @@ final class DoctorGuideMenu {
                 28,
                 menuItem(
                         Material.ENCHANTED_BOOK,
-                        "&bOther Doctor Fixes",
+                        "&bAdditional Recovery Tools",
                         "",
                         "&7Alternative diagnostics and specialist lanes.",
                         "&7Includes scans, storage integrity, upgrade",
