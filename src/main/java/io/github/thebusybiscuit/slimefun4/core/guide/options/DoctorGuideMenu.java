@@ -49,6 +49,9 @@ final class DoctorGuideMenu {
                 guide == null ? SlimefunGuide.getItem(SlimefunGuideMode.SURVIVAL_MODE) : guide.clone();
         ExternalResourcePackService packService = new ExternalResourcePackService(Slimefun.instance());
         var textures = Slimefun.getItemTextureService();
+        boolean packAttention = packService.hasOwnershipContradiction()
+                || (packService.isDeliveryEnabled()
+                        && (!packService.isConfiguredUrlValid() || !packService.isConfiguredSha1Valid()));
         DoctorGuideAssistant.Recommendation recommendation = DoctorGuideAssistant.recommend();
 
         ChestMenu menu = new ChestMenu("&6&lSlimefun Recovery Center");
@@ -79,13 +82,15 @@ final class DoctorGuideMenu {
         menu.addItem(
                 10,
                 menuItem(
-                        Material.PAINTING,
+                        packAttention ? Material.REDSTONE : Material.PAINTING,
                         "&6Resource Pack & Item Textures",
                         "",
                         "&7Manage Legacy pack delivery and item textures",
                         "&7without mixing sender controls with item repairs.",
                         "",
+                        "&7Ownership: &e" + packService.getOwnershipMode(),
                         "&7Sender: " + (packService.isDeliveryEnabled() ? "&aEnabled" : "&7Disabled"),
+                        "&7Preflight: " + (packAttention ? "&cNeeds review" : "&aNo obvious contradiction"),
                         "&7Bundled mappings active: &e" + textures.getHostedPackEnabledMappingCount(),
                         "&7Mappings available: &e" + textures.getHostedPackEnableCandidateCount(),
                         "",
@@ -140,13 +145,15 @@ final class DoctorGuideMenu {
 
         MachineRuntimeSnapshot machines = Slimefun.getMachineRuntimeService().getSnapshot();
         StorageRuntimeSnapshot storage = Slimefun.getStorageRuntimeService().getSnapshot();
+        boolean runtimeAttention = machines.getActiveMachineFailures() > 0
+                || machines.getPausedMachineCircuits() > 0
+                || storage.getPendingWrites() > 0
+                || Slimefun.getExternalIntegrationService().getActiveFailureCount() > 0;
         menu.addItem(
                 16,
                 menuItem(
-                        machines.getActiveMachineFailures() > 0 || machines.getPausedMachineCircuits() > 0
-                                ? Material.REDSTONE_TORCH
-                                : Material.LEVER,
-                        "&cRuntime Recovery",
+                        runtimeAttention ? Material.REDSTONE_TORCH : Material.LEVER,
+                        runtimeAttention ? "&cRuntime Recovery - Attention" : "&aRuntime & Storage Health",
                         "",
                         "&7Machine failures: &e" + machines.getActiveMachineFailures(),
                         "&7Paused circuits: &e" + machines.getPausedMachineCircuits(),
@@ -276,17 +283,25 @@ final class DoctorGuideMenu {
             @Nonnull Player player, @Nonnull ItemStack returnGuide) {
         ExternalResourcePackService service = new ExternalResourcePackService(Slimefun.instance());
         var textures = Slimefun.getItemTextureService();
+        boolean attention = service.hasOwnershipContradiction()
+                || (service.isDeliveryEnabled()
+                        && (!service.isConfiguredUrlValid() || !service.isConfiguredSha1Valid()));
 
         ChestMenu menu = subMenu("&6&lResource Pack & Item Textures", 36);
 
         menu.addItem(
                 4,
                 menuItem(
-                        Material.MAP,
-                        "&fCurrent Resource-Pack State",
+                        attention ? Material.REDSTONE : Material.MAP,
+                        attention ? "&cCurrent Resource-Pack State - Review" : "&aCurrent Resource-Pack State",
                         "",
                         "&7Ownership: &e" + service.getOwnershipMode(),
                         "&7Legacy sender: " + (service.isDeliveryEnabled() ? "&aEnabled" : "&7Disabled"),
+                        "&7Ownership contradiction: " + (service.hasOwnershipContradiction() ? "&cYes" : "&aNo"),
+                        "&7Configured URL: "
+                                + (service.isDeliveryEnabled()
+                                        ? (service.isConfiguredUrlValid() ? "&aValid" : "&cInvalid")
+                                        : "&7Not required while Legacy sender is off"),
                         "&7Bundled mappings active: &e" + textures.getHostedPackEnabledMappingCount(),
                         "&7Mappings available: &e" + textures.getHostedPackEnableCandidateCount(),
                         "&7Removal candidates: &e" + textures.getHostedPackRemovalCandidateCount(),
