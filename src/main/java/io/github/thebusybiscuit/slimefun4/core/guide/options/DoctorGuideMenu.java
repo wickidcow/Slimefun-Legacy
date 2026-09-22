@@ -30,10 +30,18 @@ final class DoctorGuideMenu {
 
     private DoctorGuideMenu() {}
 
+    private static boolean requireRecoveryAccess(@Nonnull Player player) {
+        if (player.hasPermission("slimefun.command.doctor")) {
+            return true;
+        }
+
+        player.sendMessage(ChatColor.RED
+                + "The Slimefun Recovery Center is restricted to server operators/admins.");
+        return false;
+    }
+
     static void open(@Nonnull Player player, @Nullable ItemStack guide) {
-        if (!player.hasPermission("slimefun.command.doctor")) {
-            player.sendMessage(ChatColor.RED
-                    + "The Slimefun Recovery Center is restricted to server operators/admins.");
+        if (!requireRecoveryAccess(player)) {
             return;
         }
 
@@ -504,6 +512,10 @@ final class DoctorGuideMenu {
     }
 
     static void openResourcePackPreflight(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        if (!requireRecoveryAccess(player)) {
+            return;
+        }
+
         ExternalResourcePackService service = new ExternalResourcePackService(Slimefun.instance());
         var textures = Slimefun.getItemTextureService();
         String managers = DoctorGuideAssistant.detectedPackManagers();
@@ -636,6 +648,10 @@ final class DoctorGuideMenu {
     }
 
     static void openPlayerItemRepair(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        if (!requireRecoveryAccess(player)) {
+            return;
+        }
+
         ChestMenu menu = subMenu("&6&lPlayer & Item Repair", 36);
 
         menu.addItem(
@@ -806,6 +822,10 @@ final class DoctorGuideMenu {
     }
 
     static void openAddonDependencyHealth(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        if (!requireRecoveryAccess(player)) {
+            return;
+        }
+
         long dependencies = DoctorGuideAssistant.dependencyProblemCount();
         long addonFailures = DoctorGuideAssistant.addonRuntimeFailureCount();
         ChestMenu menu = subMenu("&d&lAddon & Dependency Health", 36);
@@ -853,6 +873,10 @@ final class DoctorGuideMenu {
     }
 
     static void openRuntimeRecovery(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        if (!requireRecoveryAccess(player)) {
+            return;
+        }
+
         MachineRuntimeSnapshot machines = Slimefun.getMachineRuntimeService().getSnapshot();
         StorageRuntimeSnapshot storage = Slimefun.getStorageRuntimeService().getSnapshot();
         ChestMenu menu = subMenu("&c&lRuntime Recovery", 45);
@@ -1087,6 +1111,10 @@ final class DoctorGuideMenu {
     }
 
     static void openSupportSummary(@Nonnull Player player, @Nonnull ItemStack returnGuide) {
+        if (!requireRecoveryAccess(player)) {
+            return;
+        }
+
         ExternalResourcePackService packs = new ExternalResourcePackService(Slimefun.instance());
         StorageRuntimeSnapshot storage = Slimefun.getStorageRuntimeService().getSnapshot();
         MachineRuntimeSnapshot machines = Slimefun.getMachineRuntimeService().getSnapshot();
