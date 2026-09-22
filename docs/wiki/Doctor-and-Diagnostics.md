@@ -37,7 +37,7 @@ The Recovery Center is a router over the same guarded Doctor services used by th
 
 ### Recovery Assistant / Recommended Recovery
 
-The top **Recommended Fix** button evaluates existing read-only Doctor, storage, machine, dependency, integration,
+The top **Recommended Recovery** button evaluates existing read-only Doctor, storage, machine, dependency, integration,
 resource-pack and item-model state. It can route the operator to a scan, specialist diagnostic screen or an existing
 confirmation flow, but it never performs a server-wide mutation merely because a problem was detected.
 
@@ -72,9 +72,9 @@ Do **not** remove Slimefun item-model mappings merely because the Legacy sender 
 contents of an ItemsAdder/Oraxen/proxy/server pack, so the server owner must decide whether that external pack contains
 the matching Slimefun models. Remove mappings only when they are intentionally no longer used, after a backup and scan.
 
-### Slimefun Operations Center
+### Advanced System Health
 
-The **Slimefun Operations Center** is the read-mostly dashboard above the individual repair lanes. It gives one
+The **Advanced System Health** screen is the read-mostly dashboard above the individual repair lanes. It gives one
 screen with six live status cards:
 
 - **Items** — latest Doctor findings, unknown IDs, item-model candidates and migration signals.
