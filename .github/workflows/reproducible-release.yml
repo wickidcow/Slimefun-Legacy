@@ -7,6 +7,7 @@ on:
       - master
     paths:
       - gradle.properties
+      - 'docs/releases/**'
 
 permissions:
   contents: write
