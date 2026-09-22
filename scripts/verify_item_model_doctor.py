@@ -195,6 +195,9 @@ require("&bResource Pack Preflight" in doctor_menu
         and "&cRuntime Recovery" in doctor_menu
         and "&fSupport & Diagnostics Summary" in doctor_menu,
         "Guide Doctor console must retain preflight, targeted repair, addon/dependency, runtime and support views")
+require('getPlugin("JustEnoughGuide")' in doctor_menu
+        and '"&7Guide: &e" + guideProvider' in doctor_menu,
+        "support summary must identify whether JEG or the classic guide is active")
 require("&aSupported setup:" in doctor_menu
         and "Legacy sender OFF" in doctor_menu
         and "External/combined packs may still need these mappings." in doctor_menu,
