@@ -46,8 +46,13 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json, os
+          import concurrent.futures
+          import json
+          import os
+          import re
+          import subprocess
           from pathlib import Path
+
           p = Path('compatibility/sfl-addon-release-matrix.json')
           data = json.loads(p.read_text(encoding='utf-8'))
           addons = data['addons']
@@ -60,11 +65,48 @@ jobs:
           allowed_non_sf = {'wickidcow/WorldEditSlimefun'}
           if not all(repo.startswith('wickidcow/SF_') or repo in allowed_non_sf for repo in repos):
               raise SystemExit('release matrix must contain only maintained wickidcow/SF_ repositories or approved naming exceptions')
-          matrix = {'include': addons}
+
+          def lock_source(row):
+              locked = dict(row)
+              pinned = (locked.get('source_commit') or '').strip()
+              if pinned:
+                  if not re.fullmatch(r'[0-9a-f]{40}', pinned):
+                      raise SystemExit(f'Invalid pinned source_commit for {locked["repository"]}: {pinned}')
+                  return locked
+
+              repository = locked['repository']
+              result = subprocess.run(
+                  ['git', 'ls-remote', f'https://github.com/{repository}.git', 'HEAD'],
+                  text=True,
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.PIPE,
+                  check=False,
+                  timeout=45,
+              )
+              if result.returncode != 0 or not result.stdout.strip():
+                  raise SystemExit(
+                      f'Unable to resolve source HEAD for {repository}: '
+                      f'{result.stderr.strip() or "git ls-remote returned no commit"}'
+                  )
+              sha = result.stdout.split()[0].strip().lower()
+              if not re.fullmatch(r'[0-9a-f]{40}', sha):
+                  raise SystemExit(f'Invalid resolved source commit for {repository}: {sha}')
+              locked['source_commit'] = sha
+              return locked
+
+          with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
+              locked_addons = list(pool.map(lock_source, addons))
+
+          matrix = {'include': locked_addons}
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as out:
               out.write('matrix=' + json.dumps(matrix, separators=(',', ':')) + '\n')
-              out.write(f'count={len(addons)}\n')
-          print(f'Prepared {len(addons)} maintained addons')
+              out.write(f'count={len(locked_addons)}\n')
+
+          pinned_count = sum(1 for row in addons if row.get('source_commit'))
+          print(
+              f'Prepared {len(locked_addons)} maintained addons with exact source locks '
+              f'({pinned_count} matrix-pinned, {len(locked_addons) - pinned_count} HEAD-resolved)'
+          )
           PY
       - name: Resolve latest Paper 26.3 API
         id: paper
@@ -308,6 +350,7 @@ jobs:
         env:
           EXPECTED: ${{ needs.prepare.outputs.count }}
           PAPER_API_VERSION: ${{ needs.prepare.outputs.paper_api }}
+          LOCKED_MATRIX: ${{ needs.prepare.outputs.matrix }}
         shell: bash
         run: |
           set -euo pipefail
@@ -319,12 +362,13 @@ jobs:
             exit 1
           fi
           python3 - <<'PY'
-          import hashlib, json, re
+          import hashlib, json, os, re
           from pathlib import Path
           records = [json.loads(p.read_text(encoding='utf-8')) for p in sorted(Path('collected/metadata').glob('*.json'))]
           actual = sorted(p.name for p in Path('collected/jars').glob('*.jar'))
           expected = sorted(r['jar'] for r in records)
           source = json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text(encoding='utf-8'))
+          locked = json.loads(os.environ['LOCKED_MATRIX'])['include']
           approved = sorted((r['repository'], r['slug']) for r in source['addons'])
           received = sorted((r['repository'], r['slug']) for r in records)
           if received != approved:
@@ -335,10 +379,10 @@ jobs:
               raise SystemExit('Duplicate canonical JAR names detected')
           for record in records:
               name = record['jar']
-              approved_record = next(r for r in source['addons'] if r['repository'] == record['repository'])
-              pinned = approved_record.get('source_commit')
-              if pinned and record['commit'] != pinned:
-                  raise SystemExit(f'Pinned source commit mismatch: {name}')
+              approved_record = next(r for r in locked if r['repository'] == record['repository'])
+              pinned = approved_record['source_commit']
+              if record['commit'] != pinned:
+                  raise SystemExit(f'Locked source commit mismatch: {name}: built={record["commit"]}, expected={pinned}')
               if Path(name).name != name:
                   raise SystemExit(f'Unsafe JAR name: {name}')
               digest = hashlib.sha256((Path('collected/jars') / name).read_bytes()).hexdigest()
