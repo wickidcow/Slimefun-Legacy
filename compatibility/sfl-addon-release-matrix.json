@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 84,
+  "bundle_revision": 85,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -8,7 +8,6 @@
     "version_policy": "numeric only",
     "exceptions": {
       "wickidcow/SF_DracFun2": "SFL_DracFun-Reborn<Version>.jar",
-      "wickidcow/SF_Magic_RSC": "SF_MagicLegacy<Version>.jar (MagicLegacy is the canonical addon name, not a Legacy qualifier)",
       "wickidcow/WorldEditSlimefun": "SF_SFWorldEdit<Version>_(1.21.11-26.2).jar"
     },
     "forbidden_public_qualifiers": [
@@ -172,12 +171,6 @@
       "source_commit": "59c569754fbb1f4227618228af6ffa4e7045b878"
     },
     {
-      "repository": "wickidcow/SF_Magic_RSC",
-      "slug": "magiclegacy",
-      "artifact_base": "MagicLegacy",
-      "source_commit": "7516793d21181971d94ebeddfba037ca7e89747f"
-    },
-    {
       "repository": "wickidcow/SF_MilitaryArsenal",
       "slug": "militaryarsenal"
     },
@@ -254,7 +247,8 @@
   ],
   "excluded_from_bundle": {
     "wickidcow/SF_Magic8Ball": "Integrated into Slimefun Legacy; do not ship a duplicate standalone plugin.",
-    "wickidcow/SF_DracFun": "Incorrect historical addon; replaced by SF_DracFun2 (DracFun Reborn)."
+    "wickidcow/SF_DracFun": "Incorrect historical addon; replaced by SF_DracFun2 (DracFun Reborn).",
+    "wickidcow/SF_Magic_RSC": "Magic Legacy is no longer shipped in the SF Addons bundle. MagicExpansion remains bundled; install Magic Legacy separately only if desired."
   },
   "excluded_archived": [
     "wickidcow/SF_ExtraTools",
