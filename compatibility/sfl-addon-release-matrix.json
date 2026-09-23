@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 82,
+  "bundle_revision": 83,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -70,6 +70,11 @@
       "repository": "wickidcow/SF_CultivationLegacy",
       "slug": "cultivationlegacy",
       "artifact_base": "Cultivation"
+    },
+    {
+      "repository": "wickidcow/SF_CrystamaeHistoria",
+      "slug": "crystamaehistoria",
+      "source_commit": "69fdff9358fa18359475539a1385c04de44ee102"
     },
     {
       "repository": "wickidcow/SF_DankTech2",
@@ -145,7 +150,7 @@
       "repository": "wickidcow/SF_InfinityExpansion2",
       "slug": "infinityexpansion2",
       "artifact_base": "InfinityExpansion",
-      "source_commit": "5702e72eea7ede1c4eedfd2ffcd7b33b5fe6f678"
+      "source_commit": "721f4fc5702229adfdc4002936ba48575444e828"
     },
     {
       "repository": "wickidcow/SF_LiteXpansion",
@@ -159,7 +164,7 @@
       "repository": "wickidcow/SF_JustEnoughGuide",
       "slug": "justenoughguide",
       "artifact_base": "JustEnoughGuide",
-      "source_commit": "22bad01998424acdf875c50383d8ae74a06e2e7d"
+      "source_commit": "9f602c7aeb1076319b839dc77451d8947fd93250"
     },
     {
       "repository": "wickidcow/SF_MagicExpansion",
@@ -170,7 +175,7 @@
       "repository": "wickidcow/SF_Magic_RSC",
       "slug": "magiclegacy",
       "artifact_base": "MagicLegacy",
-      "source_commit": "d95053974498a22d92e5bb9908e49456aded565c"
+      "source_commit": "7516793d21181971d94ebeddfba037ca7e89747f"
     },
     {
       "repository": "wickidcow/SF_MilitaryArsenal",
