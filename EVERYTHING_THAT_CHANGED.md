@@ -4,10 +4,12 @@
 - Added active guide-provider evidence to `/sf doctor report`, showing the classic Slimefun Guide or maintained JEG version/state.
 - Kept resource-pack sender control, pack item adoption, stored-item texture repair, and exact Legacy model removal as separate confirmed recovery lanes.
 - Hardened the canonical 45-addon bundle so every build uses an exact per-run source SHA and records source commit + JAR SHA-256 metadata.
+- Removed Magic Legacy (`SF_Magic_RSC`) from the canonical addon bundle while keeping MagicExpansion bundled; Magic Legacy remains an optional separately installed integration target.
 - Added exact core-source identity to the addon bundle manifest and made the release workflow reject any bundle not built from the exact release `GITHUB_SHA`.
 - Changed release publication to explicit manual dispatch after candidate validation; ordinary addon-bundle builds no longer rewrite published Slimefun Legacy release assets.
 - Added release-note-triggered addon-bundle and reproducible candidate validation so the final release-document commit cannot silently move the release SHA without rebuilding matching artifacts.
 - Hardened compatibility CI against transient Maven/Paper repository HTTP 429/5xx and network failures while preserving immediate failure for real compile/linkage regressions.
+- Hardened the Velocity 26.2 research-persistence smoke so it waits for the requested Doctor research-state line instead of reading a partial response after `UUID match: Yes`.
 - Protected exact addon-bundle full-stack validation from unrelated concurrency cancellation and ignored unsuccessful bundle handoffs that cannot provide an artifact.
 - Confirmed the exact addon-bundle full-stack path boots the canonical stack twice on both Paper 26.2 and Paper 26.3.
 - Corrected Paper 26.3 status to **alpha/pre-release**; Paper 26.2 remains the production baseline and 26.3 is not promoted by this release.
