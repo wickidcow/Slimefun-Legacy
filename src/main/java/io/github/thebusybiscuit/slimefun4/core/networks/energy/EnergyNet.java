@@ -147,7 +147,8 @@ public class EnergyNet extends Network implements HologramOwner {
     }
 
     public void tick(@Nonnull Block b, SlimefunBlockData blockData) {
-        long timestamp = Slimefun.getProfiler().newEntry();
+        var profiler = Slimefun.getProfiler();
+        long timestamp = profiler.newEntry();
         AtomicLong profiledTimestamp = timestamp == 0L ? null : new AtomicLong(timestamp);
 
         try {
@@ -158,32 +159,32 @@ public class EnergyNet extends Network implements HologramOwner {
                 return;
             }
 
-            long phaseTimestamp = Slimefun.getProfiler().startPhase();
+            long phaseTimestamp = profiler.startPhase();
             super.tick();
-            Slimefun.getProfiler().closePhase("EnergyNet", "network discovery", phaseTimestamp);
+            profiler.closePhase("EnergyNet", "network discovery", phaseTimestamp);
 
             if (connectorNodes.isEmpty() && terminusNodes.isEmpty()) {
-                phaseTimestamp = Slimefun.getProfiler().startPhase();
+                phaseTimestamp = profiler.startPhase();
                 syncNetworkTransportState(false);
-                Slimefun.getProfiler().closePhase("EnergyNet", "transport state", phaseTimestamp);
+                profiler.closePhase("EnergyNet", "transport state", phaseTimestamp);
 
-                phaseTimestamp = Slimefun.getProfiler().startPhase();
+                phaseTimestamp = profiler.startPhase();
                 updateHologram(b, "&4No energy network found", blockData::isPendingRemove);
-                Slimefun.getProfiler().closePhase("EnergyNet", "hologram", phaseTimestamp);
+                profiler.closePhase("EnergyNet", "hologram", phaseTimestamp);
             } else {
-                phaseTimestamp = Slimefun.getProfiler().startPhase();
+                phaseTimestamp = profiler.startPhase();
                 long generatorsSupply = tickAllGenerators(profiledTimestamp);
-                Slimefun.getProfiler().closePhase("EnergyNet", "generators (separately profiled)", phaseTimestamp);
+                profiler.closePhase("EnergyNet", "generators (separately profiled)", phaseTimestamp);
 
-                phaseTimestamp = Slimefun.getProfiler().startPhase();
+                phaseTimestamp = profiler.startPhase();
                 long capacitorsSupply = tickAllCapacitors();
-                Slimefun.getProfiler().closePhase("EnergyNet", "capacitor supply", phaseTimestamp);
+                profiler.closePhase("EnergyNet", "capacitor supply", phaseTimestamp);
 
                 long supply = NumberUtils.flowSafeAddition(generatorsSupply, capacitorsSupply);
                 long remainingEnergy = supply;
                 long demand = 0;
 
-                phaseTimestamp = Slimefun.getProfiler().startPhase();
+                phaseTimestamp = profiler.startPhase();
                 for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet()) {
                     Location loc = entry.getKey();
                     if (!isEnergyLocationAccessible(loc)) {
@@ -238,25 +239,25 @@ public class EnergyNet extends Network implements HologramOwner {
 
                     VanillaPowerStateBridge.sync(loc, resultingCharge > 0);
                 }
-                Slimefun.getProfiler().closePhase("EnergyNet", "consumer distribution", phaseTimestamp);
+                profiler.closePhase("EnergyNet", "consumer distribution", phaseTimestamp);
 
-                phaseTimestamp = Slimefun.getProfiler().startPhase();
+                phaseTimestamp = profiler.startPhase();
                 storeRemainingEnergy(remainingEnergy);
-                Slimefun.getProfiler().closePhase("EnergyNet", "remainder storage", phaseTimestamp);
+                profiler.closePhase("EnergyNet", "remainder storage", phaseTimestamp);
 
-                phaseTimestamp = Slimefun.getProfiler().startPhase();
+                phaseTimestamp = profiler.startPhase();
                 syncNetworkTransportState(supply > 0 && demand > 0);
-                Slimefun.getProfiler().closePhase("EnergyNet", "transport state", phaseTimestamp);
+                profiler.closePhase("EnergyNet", "transport state", phaseTimestamp);
 
-                phaseTimestamp = Slimefun.getProfiler().startPhase();
+                phaseTimestamp = profiler.startPhase();
                 updateHologram(blockData, supply, demand);
-                Slimefun.getProfiler().closePhase("EnergyNet", "hologram", phaseTimestamp);
+                profiler.closePhase("EnergyNet", "hologram", phaseTimestamp);
             }
         } finally {
             if (profiledTimestamp != null) {
                 // Generator timings are added to the start timestamp so they are not reported twice.
-                Slimefun.getProfiler()
-                        .closeEntry(b.getLocation(), SlimefunItems.ENERGY_REGULATOR.getItem(), profiledTimestamp.get());
+                profiler.closeEntry(
+                        b.getLocation(), SlimefunItems.ENERGY_REGULATOR.getItem(), profiledTimestamp.get());
             }
         }
     }
