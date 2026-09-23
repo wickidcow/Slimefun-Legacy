@@ -179,7 +179,7 @@ jobs:
           distribution: temurin
           java-version: '25'
       - uses: gradle/actions/setup-gradle@v4
-        if: matrix.slug == 'dracfunreborn' || matrix.slug == 'magiclegacy'
+        if: matrix.slug == 'dracfunreborn'
         with:
           gradle-version: '9.4.1'
       - uses: actions/download-artifact@v8
@@ -302,8 +302,7 @@ jobs:
               canonical = f'SFL_DracFun-Reborn{version}.jar'
           if repo == 'wickidcow/WorldEditSlimefun':
               canonical = f'SF_SFWorldEdit{version}_(1.21.11-26.2).jar'
-          qualifier_target = canonical.replace('SF_MagicLegacy', 'SF_Magic', 1) if repo == 'wickidcow/SF_Magic_RSC' else canonical
-          if re.search(r'(legacy|english|snapshot)', qualifier_target, re.I):
+          if re.search(r'(legacy|english|snapshot)', canonical, re.I):
               raise SystemExit(f'Forbidden public qualifier in {canonical}')
           destination = Path('staged/jars') / canonical
           shutil.copy2(source, destination)
@@ -394,8 +393,7 @@ jobs:
               reborn = re.fullmatch(r'SFL_DracFun-Reborn\d+(?:\.\d+)+\.jar', name)
               if (not name.startswith('SF_') and not reborn) or not name.endswith('.jar'):
                   raise SystemExit(f'Invalid addon JAR name: {name}')
-              qualifier_target = name.replace('SF_MagicLegacy', 'SF_Magic', 1) if name.startswith('SF_MagicLegacy') else name
-              if re.search(r'(legacy|english|snapshot)', qualifier_target, re.I):
+              if re.search(r'(legacy|english|snapshot)', name, re.I):
                   raise SystemExit(f'Forbidden public qualifier in addon JAR name: {name}')
           required = {
               'SFL_DracFun-Reborn2.0.4.jar',
@@ -410,7 +408,6 @@ jobs:
               'SF_JustEnoughGuide2.1.66.jar',
               'SF_LiteXpansion1.0.2.jar',
               'SF_MagicExpansion1.1.7.jar',
-              'SF_MagicLegacy2.0.37.jar',
               'SF_RykenSlimeCustomizer3.1.10.jar',
               'SF_MobCapturer1.0.6.jar',
               'SF_Networks1.0.21.jar',
@@ -437,7 +434,6 @@ jobs:
             echo "MagicExpansion must load before RSC, not soft-depend on it" >&2
             exit 1
           fi
-          unzip -p collected/jars/SF_MagicLegacy2.0.37.jar plugin.yml | grep -A20 '^loadbefore:' | grep -Fq 'RykenSlimefunCustomizer'
           cp collected/jars/*.jar bundle/
           python3 - <<'PY'
           import json
@@ -462,9 +458,9 @@ jobs:
           - DracFun Reborn exception: SFL_DracFun-Reborn<version>.jar
           - WorldEditSlimefun exception: SF_SFWorldEdit<version>_(1.21.11-26.2).jar
           - WorldEditSlimefun requires WorldEdit or FAWE and is explicitly labeled for 1.21.11 through 26.2
-          - Magic Legacy 2.0 ships as SF_MagicLegacy2.0.37.jar and manages its embedded RSC Magic runtime automatically
-          - RykenSlimeCustomizer 3.1.10 respects MagicLegacy's .magiclegacy-managed runtime marker and only probes legacy external recipe types when the matching plugin is installed
-          - MagicExpansion 1.1.7 enforces MagicLegacy -> MagicExpansion -> RykenSlimefunCustomizer load ordering and registers the RSC_MAGIC_* crossover items before RSC parses Magic
+          - Magic Legacy is intentionally excluded from this bundle and can be installed separately if needed
+          - RykenSlimeCustomizer 3.1.10 remains bundled and only probes legacy external recipe types when the matching plugin is installed
+          - MagicExpansion 1.1.7 remains bundled; its optional MagicLegacy integration is used only when Magic Legacy is installed separately
           - No Legacy, Legacy-English, SNAPSHOT, compatibility suffixes, or repo-only suffixes except the approved WorldEdit support-range suffix
 
           Supported Minecraft/Paper generations:
