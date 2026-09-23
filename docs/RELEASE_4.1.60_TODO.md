@@ -76,8 +76,10 @@
 - [x] Public API compatibility remains green against the previous stable release.
 - [ ] Runtime gameplay correctness remains green.
 - [x] Required addon runtime smoke remains green.
-- [ ] Reproducible release build produces byte-identical JARs at the final release-prep source commit.
-- [ ] Verify Java 21 bytecode target at the final release-prep source commit.
+- [x] Reproducible release build produces byte-identical JARs at the final release-prep source commit.
+  - Proven by reproducible-release run `35767534943` at `3ec34185df90d8fb2a7176bb90b75d3c1fa7a47d`; both clean builds matched byte-for-byte.
+- [x] Verify Java 21 bytecode target at the final release-prep source commit.
+  - Proven by build run `35767535163` at the same source commit; the explicit `Verify Java 21 bytecode target` step passed.
 
 ## Release preparation
 
