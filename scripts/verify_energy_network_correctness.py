@@ -95,6 +95,13 @@ def main() -> int:
     require(generators, "finally { if (timestamp != 0L)", "generator profiler finally close guard")
     require(generators, "Slimefun.getProfiler().closeEntry(loc, item, timestamp)", "generator profiler close")
     require(generators, "profiledTimestamp.addAndGet(time)", "generator timing exclusion from regulator")
+    require(tick, 'var profiler = Slimefun.getProfiler()', "single EnergyNet profiler lookup")
+    require(tick, 'profiler.startPhase()', "requested EnergyNet phase timers")
+    require(tick, 'closePhase("EnergyNet", "network discovery"', "network discovery phase")
+    require(tick, 'closePhase("EnergyNet", "consumer distribution"', "consumer distribution phase")
+    require(tick, 'closePhase("EnergyNet", "remainder storage"', "remainder storage phase")
+    require(tick, 'closePhase("EnergyNet", "transport state"', "transport-state phase")
+    require(tick, 'closePhase("EnergyNet", "hologram"', "hologram phase")
 
     # Stable connector/player-head transport state is presentation state, not energy truth. Skip
     # the full connector walk while the desired state is unchanged, but refresh immediately when

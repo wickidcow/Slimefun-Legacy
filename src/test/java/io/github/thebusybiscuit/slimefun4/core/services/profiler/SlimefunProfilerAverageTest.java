@@ -114,6 +114,32 @@ class SlimefunProfilerAverageTest {
     }
 
     @Test
+    void phaseTimersOnlyRunForDetailedSamples() {
+        SlimefunProfiler idle = new SlimefunProfiler();
+        assertEquals(0L, idle.startPhase());
+        idle.kill();
+
+        SlimefunProfiler telemetry = new SlimefunProfiler();
+        telemetry.startTelemetry();
+        assertEquals(0L, telemetry.startPhase());
+        telemetry.kill();
+
+        SlimefunProfiler detailed = new SlimefunProfiler();
+        detailed.start();
+        long started = detailed.startPhase();
+        assertTrue(started > 0L);
+        detailed.closePhase("EnergyNet", "consumer distribution", started);
+
+        var groups = detailed.getPhaseTimingStats();
+        assertTrue(groups.containsKey("EnergyNet"));
+        assertEquals(1, groups.get("EnergyNet").size());
+        assertEquals("consumer distribution", groups.get("EnergyNet").get(0).phase());
+        assertEquals(1L, groups.get("EnergyNet").get(0).samples());
+        assertTrue(groups.get("EnergyNet").get(0).totalNanos() >= 0L);
+        detailed.kill();
+    }
+
+    @Test
     void suppressesSupersededCycleReport() throws ReflectiveOperationException {
         SlimefunProfiler profiler = new SlimefunProfiler();
         AtomicInteger messages = new AtomicInteger();
