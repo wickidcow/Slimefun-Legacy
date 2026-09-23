@@ -73,13 +73,21 @@ class PerformanceSummary {
             }
 
             String average = NumberUtils.getAsMillis(entry.getValue() / count);
+            SlimefunProfiler.ItemTimingStats stats = profiler.getItemTimingStats(entry.getKey());
+            String distribution = " | P95: " + NumberUtils.getAsMillis(stats.p95Nanos())
+                    + " | Max: " + NumberUtils.getAsMillis(stats.maxNanos());
+            if (!stats.hottestLocation().isEmpty()) {
+                distribution += " @ " + stats.hottestLocation();
+            }
 
             if (sender.getOrderType() == SummaryOrderType.AVERAGE) {
-                return String.format(message, average + " | Total: " + time);
+                return String.format(message, average + " | Total: " + time + distribution);
             } else {
-                return String.format(message, time + " | Average: " + average);
+                return String.format(message, time + " | Average: " + average + distribution);
             }
         });
+
+        sendPhaseDiagnostics(sender);
 
         summarizeTimings(chunks.size(), "chunk", sender, chunks, entry -> {
             int count = profiler.getBlocksInChunk(entry.getKey());
@@ -101,6 +109,33 @@ class PerformanceSummary {
         if (sender.isVerbose()) {
             sender.sendMessage("");
             sender.sendMessage(profiler.getThreadPoolStatus());
+        }
+    }
+
+    private void sendPhaseDiagnostics(@Nonnull PerformanceInspector sender) {
+        Map<String, List<SlimefunProfiler.PhaseTimingStats>> groups = profiler.getPhaseTimingStats();
+        if (groups.isEmpty()) {
+            return;
+        }
+
+        sender.sendMessage("");
+        sender.sendMessage(ChatColor.GOLD + "Internal phase diagnostics");
+
+        for (Map.Entry<String, List<SlimefunProfiler.PhaseTimingStats>> group : groups.entrySet()) {
+            sender.sendMessage(ChatColor.YELLOW + group.getKey());
+            int shown = 0;
+            for (SlimefunProfiler.PhaseTimingStats phase : group.getValue()) {
+                if (shown++ >= 8) {
+                    break;
+                }
+
+                long samples = Math.max(1L, phase.samples());
+                sender.sendMessage(ChatColor.GRAY + "  " + phase.phase()
+                        + " - " + ChatColor.YELLOW + NumberUtils.getAsMillis(phase.totalNanos())
+                        + ChatColor.DARK_GRAY + " | " + ChatColor.GRAY + phase.samples() + "x"
+                        + ChatColor.DARK_GRAY + " | " + ChatColor.GRAY + "avg "
+                        + NumberUtils.getAsMillis(phase.totalNanos() / samples));
+            }
         }
     }
 
