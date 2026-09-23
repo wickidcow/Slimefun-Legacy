@@ -62,6 +62,7 @@
 - [x] Confirm no archived/duplicate addons are accidentally shipped.
   - Magic 8 Ball remains core-integrated and excluded as a standalone addon.
   - Historical DracFun remains replaced by DracFun Reborn.
+  - Magic Legacy (`SF_Magic_RSC`) is intentionally excluded from the canonical bundle; MagicExpansion remains bundled and may use Magic Legacy only when it is installed separately.
 - [x] Verify canonical addon JAR naming and reject stale/qualified filenames where the bundle policy forbids them.
 
 ## Platform and runtime gates
@@ -72,9 +73,11 @@
 - [x] Paper 26.3 advisory compile passes against the latest detected official API artifact.
 - [x] Paper 26.3 pre-release runtime smoke boots twice.
 - [x] Paper 26.2 / 26.3 full-stack smoke passes with exact bundle provenance.
-- [x] Velocity modern-forwarding smoke remains green.
+- [ ] Velocity modern-forwarding smoke remains green after the 26.2 research-state capture race hardening.
+  - Commit `cd69fa972349eb863323af189da6eaffda91f18f` now waits for the requested `Research <key>:` line instead of treating the earlier `UUID match: Yes` line as a complete Doctor response.
 - [x] Public API compatibility remains green against the previous stable release.
-- [ ] Runtime gameplay correctness remains green.
+- [x] Runtime gameplay correctness remains green.
+  - Proven by workflow run `35856465079` at `68a06a22b7616c3df0a420dc2a390dc26fc632d7`; subsequent bundle/workflow-only changes do not alter gameplay code.
 - [x] Required addon runtime smoke remains green.
 - [x] Reproducible release build produces byte-identical JARs at the final release-prep source commit.
   - Proven by reproducible-release run `35767534943` at `3ec34185df90d8fb2a7176bb90b75d3c1fa7a47d`; both clean builds matched byte-for-byte.
@@ -93,7 +96,8 @@
   - `compatibility/addon-compatibility-matrix.json`;
   - README development/release-lifecycle wording where it describes the active candidate.
 - [x] Pin released 4.1.59 commit `3169bb8c67973b16c46316fdc4fe875df88351d1` as the release-blocking previous-stable compatibility baseline for 4.1.60.
-- [ ] After the rollover, require compatibility CI job names/summaries to say previous stable 4.1.59 rather than 4.1.58.
+- [x] After the rollover, require compatibility CI job names/summaries to say previous stable 4.1.59 rather than 4.1.58.
+  - Compatibility and API workflows read the previous-stable version dynamically from `compatibility/release-baselines.json`, which now resolves to 4.1.59.
 - [x] Prepare `docs/releases/4.1.60.md` only after stabilization PRs and release gates are green.
 - [x] Update `EVERYTHING_THAT_CHANGED.md` with the final 4.1.60 stabilization changes.
 - [x] Merge PR #254 — ordinary addon-bundle builds no longer mutate already-published Slimefun Legacy releases; release asset publication is owned only by the reproducible-release workflow.
