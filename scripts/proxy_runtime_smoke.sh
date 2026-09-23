@@ -602,8 +602,10 @@ capture_player_identity() {
         normalize_log "$BACKEND_LOG" "$BACKEND_NORMALIZED"
         tail -n "+$start_line" "$BACKEND_NORMALIZED" > "$output"
         if grep -Fq 'UUID match: Yes' "$output"; then
-            cat "$output"
-            return 0
+            if [[ -z "$research_key" ]] || grep -Fq "Research ${research_key}:" "$output"; then
+                cat "$output"
+                return 0
+            fi
         fi
         if grep -Fq "is not online on this backend" "$output"; then
             break
