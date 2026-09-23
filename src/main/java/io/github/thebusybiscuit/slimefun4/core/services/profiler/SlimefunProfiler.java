@@ -11,6 +11,8 @@ import io.github.thebusybiscuit.slimefun4.implementation.tasks.TickerTask;
 import io.github.thebusybiscuit.slimefun4.utils.NumberUtils;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -24,6 +26,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import lombok.Getter;
@@ -108,6 +111,7 @@ public class SlimefunProfiler {
     private long totalElapsedTime;
 
     private final Map<ProfiledBlock, Long> timings = new ConcurrentHashMap<>();
+    private final Map<PhaseKey, PhaseAccumulator> phaseTimings = new ConcurrentHashMap<>();
     private final Queue<PerformanceInspector> requests = new ConcurrentLinkedQueue<>();
 
     private final AtomicLong totalMsTicked = new AtomicLong();
@@ -143,6 +147,7 @@ public class SlimefunProfiler {
         isProfiling = true;
         queued.set(0);
         timings.clear();
+        phaseTimings.clear();
     }
 
     /**
@@ -208,6 +213,36 @@ public class SlimefunProfiler {
             queued.incrementAndGet();
         }
         return System.nanoTime();
+    }
+
+    /**
+     * Starts a named sub-phase timer only for a requested detailed profiler sample.
+     * Normal machine ticks and aggregate telemetry do not pay a nanoTime cost.
+     *
+     * @return a timestamp for {@link #closePhase(String, String, long)}, or {@code 0} when inactive
+     */
+    @SlimefunInternal
+    public long startPhase() {
+        return isProfiling && !telemetryProfiling ? System.nanoTime() : 0L;
+    }
+
+    /**
+     * Records one named sub-phase inside a detailed sample.
+     *
+     * <p>This is intended for expensive shared systems such as EnergyNet where an item-level total
+     * alone cannot show which internal pass is responsible for the cost.</p>
+     */
+    @SlimefunInternal
+    public void closePhase(@Nonnull String group, @Nonnull String phase, long timestamp) {
+        if (timestamp == 0L) {
+            return;
+        }
+
+        Validate.notNull(group, "Profiler phase group cannot be null");
+        Validate.notNull(phase, "Profiler phase name cannot be null");
+
+        long elapsed = Math.max(0L, System.nanoTime() - timestamp);
+        phaseTimings.computeIfAbsent(new PhaseKey(group, phase), ignored -> new PhaseAccumulator()).add(elapsed);
     }
 
     /**
@@ -449,6 +484,49 @@ public class SlimefunProfiler {
     }
 
     @Nonnull
+    protected ItemTimingStats getItemTimingStats(@Nonnull String id) {
+        Validate.notNull(id, "The id cannot be null!");
+
+        List<Map.Entry<ProfiledBlock, Long>> matches = new ArrayList<>();
+        for (Map.Entry<ProfiledBlock, Long> entry : timings.entrySet()) {
+            if (entry.getKey().getId().equals(id)) {
+                matches.add(entry);
+            }
+        }
+
+        if (matches.isEmpty()) {
+            return ItemTimingStats.EMPTY;
+        }
+
+        matches.sort(Comparator.comparingLong(Map.Entry::getValue));
+        int p95Index = Math.max(0, (int) Math.ceil(matches.size() * 0.95D) - 1);
+        long p95 = matches.get(p95Index).getValue();
+        Map.Entry<ProfiledBlock, Long> hottest = matches.get(matches.size() - 1);
+        ProfiledBlock block = hottest.getKey();
+        String location = block.getWorld().getName() + " " + block.getX() + "," + block.getY() + "," + block.getZ();
+
+        return new ItemTimingStats(p95, hottest.getValue(), location);
+    }
+
+    @Nonnull
+    protected Map<String, List<PhaseTimingStats>> getPhaseTimingStats() {
+        Map<String, List<PhaseTimingStats>> groups = new HashMap<>();
+
+        for (Map.Entry<PhaseKey, PhaseAccumulator> entry : phaseTimings.entrySet()) {
+            PhaseKey key = entry.getKey();
+            PhaseAccumulator accumulator = entry.getValue();
+            groups.computeIfAbsent(key.group(), ignored -> new ArrayList<>())
+                    .add(new PhaseTimingStats(key.phase(), accumulator.totalNanos(), accumulator.samples()));
+        }
+
+        for (List<PhaseTimingStats> phases : groups.values()) {
+            phases.sort(Comparator.comparingLong(PhaseTimingStats::totalNanos).reversed());
+        }
+
+        return groups;
+    }
+
+    @Nonnull
     protected Map<String, Long> getByPlugin() {
         Map<String, Long> map = new HashMap<>();
 
@@ -685,5 +763,32 @@ public class SlimefunProfiler {
         }
 
         return sb.toString();
+    }
+
+    record ItemTimingStats(long p95Nanos, long maxNanos, @Nonnull String hottestLocation) {
+        private static final ItemTimingStats EMPTY = new ItemTimingStats(0L, 0L, "");
+    }
+
+    record PhaseTimingStats(@Nonnull String phase, long totalNanos, long samples) {}
+
+    private record PhaseKey(@Nonnull String group, @Nonnull String phase) {}
+
+    private static final class PhaseAccumulator {
+
+        private final LongAdder totalNanos = new LongAdder();
+        private final LongAdder samples = new LongAdder();
+
+        void add(long nanos) {
+            totalNanos.add(nanos);
+            samples.increment();
+        }
+
+        long totalNanos() {
+            return totalNanos.sum();
+        }
+
+        long samples() {
+            return samples.sum();
+        }
     }
 }
