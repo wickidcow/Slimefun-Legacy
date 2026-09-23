@@ -67,18 +67,18 @@ class PerformanceSummary {
             int count = profiler.getBlocksOfId(entry.getKey());
             String time = NumberUtils.getAsMillis(entry.getValue());
             String message = entry.getKey() + " - " + count + "x (%s)";
-
-            if (count <= 1) {
-                return String.format(message, time);
-            }
-
-            String average = NumberUtils.getAsMillis(entry.getValue() / count);
             SlimefunProfiler.ItemTimingStats stats = profiler.getItemTimingStats(entry.getKey());
             String distribution = " | P95: " + NumberUtils.getAsMillis(stats.p95Nanos())
                     + " | Max: " + NumberUtils.getAsMillis(stats.maxNanos());
             if (!stats.hottestLocation().isEmpty()) {
                 distribution += " @ " + stats.hottestLocation();
             }
+
+            if (count <= 1) {
+                return String.format(message, time + distribution);
+            }
+
+            String average = NumberUtils.getAsMillis(entry.getValue() / count);
 
             if (sender.getOrderType() == SummaryOrderType.AVERAGE) {
                 return String.format(message, average + " | Total: " + time + distribution);
