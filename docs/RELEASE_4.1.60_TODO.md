@@ -73,8 +73,9 @@
 - [x] Paper 26.3 advisory compile passes against the latest detected official API artifact.
 - [x] Paper 26.3 pre-release runtime smoke boots twice.
 - [x] Paper 26.2 / 26.3 full-stack smoke passes with exact bundle provenance.
-- [ ] Velocity modern-forwarding smoke remains green after the 26.2 research-state capture race hardening.
+- [x] Velocity modern-forwarding smoke remains green after the 26.2 research-state capture race hardening.
   - Commit `cd69fa972349eb863323af189da6eaffda91f18f` now waits for the requested `Research <key>:` line instead of treating the earlier `UUID match: Yes` line as a complete Doctor response.
+  - Proven by proxy runtime smoke run `35935589786`: Velocity + Paper 26.2, Velocity + Paper 26.3, and archived Waterfall + Paper 26.2 all passed.
 - [x] Public API compatibility remains green against the previous stable release.
 - [x] Runtime gameplay correctness remains green.
   - Proven by workflow run `35856465079` at `68a06a22b7616c3df0a420dc2a390dc26fc632d7`; subsequent bundle/workflow-only changes do not alter gameplay code.
