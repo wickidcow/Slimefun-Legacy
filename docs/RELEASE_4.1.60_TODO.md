@@ -107,8 +107,10 @@
   - Implemented by PR #255: per-run addon SHA locks, bundle `core_source_commit`, exact `headSha == GITHUB_SHA` selection, and manual-only release publication.
   - The workflow now requires the selected bundle run `headSha` to equal the release `GITHUB_SHA` and verifies the bundle manifest `core_source_commit` against that same SHA.
   - Release-note changes trigger both the canonical addon-bundle build and reproducible candidate validation so the final release-prep commit receives exact-source evidence before manual publication.
-- [ ] Publish only the canonical raw core JAR and validated addon bundle artifacts expected by the release workflow.
-- [ ] Do not promote Paper 26.3 to the production baseline as part of 4.1.60 unless Paper publishes a stable build and the full promotion checklist is rerun explicitly.
+- [x] Publish only the canonical raw core JAR and validated addon bundle artifacts expected by the release workflow.
+  - Published as `v4.1.60` from exact source `09f16ab0325b15153e5c84299d2bc9223810ff96` by manual Reproducible Release run `35995575283` (#116).
+  - Final release assets: `Slimefun-Legacy4.1.60.jar` and `SF_Addons_1.21.11-26.3.zip`.
+- [x] Paper 26.3 was not promoted to the production baseline as part of 4.1.60; Paper 26.2 remains the production baseline.
 
 ## After 4.1.60
 
