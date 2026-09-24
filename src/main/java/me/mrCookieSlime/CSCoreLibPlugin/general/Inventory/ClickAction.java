@@ -1,16 +1,15 @@
 package me.mrCookieSlime.CSCoreLibPlugin.general.Inventory;
 
 /**
- * An old remnant of CS-CoreLib.
- * This will be removed once we updated everything.
- * Don't look at the code, it will be gone soon, don't worry.
+ * Immutable description of the mouse/keyboard modifiers used for a menu click.
+ *
+ * <p>This type remains part of the public menu-handler contract and is therefore
+ * supported until a binary-compatible replacement API is introduced.
  */
-@Deprecated
-// todo: make it an enum
-public class ClickAction {
+public final class ClickAction {
 
-    private boolean right;
-    private boolean shift;
+    private final boolean right;
+    private final boolean shift;
 
     public ClickAction(boolean rightClicked, boolean shiftClicked) {
         this.right = rightClicked;
