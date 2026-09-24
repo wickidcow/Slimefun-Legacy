@@ -74,8 +74,32 @@ public interface EnergyNetComponent extends ItemAttribute {
         return getCapacity();
     }
 
+    /**
+     * Legacy int-capacity bridge retained for binary/source compatibility.
+     *
+     * <p>Older addons may continue to override this method, in which case
+     * {@link #getCapacityLong()} delegates to that override. New addons should
+     * override {@link #getCapacityLong()} instead. When a modern implementation
+     * is called through this legacy method, its long capacity is safely clamped
+     * to the historical int range.</p>
+     *
+     * @return this component's capacity clamped to an int
+     * @deprecated override {@link #getCapacityLong()} in new code
+     */
     @Deprecated
-    int getCapacity();
+    default int getCapacity() {
+        try {
+            var modernMethod = getClass().getMethod("getCapacityLong");
+            if (modernMethod.getDeclaringClass() != EnergyNetComponent.class) {
+                return (int) NumberUtils.clamp(0, getCapacityLong(), Integer.MAX_VALUE);
+            }
+        } catch (NoSuchMethodException | SecurityException ignored) {
+            // Fall through to the neutral default. Old implementations that
+            // override getCapacity() never execute this bridge.
+        }
+
+        return 0;
+    }
 
     /**
      * This returns whether this {@link EnergyNetComponent} can hold energy charges.
