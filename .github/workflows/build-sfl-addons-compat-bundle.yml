@@ -339,10 +339,8 @@ jobs:
           if-no-files-found: error
 
   package:
-    name: Package and publish canonical addon bundle
+    name: Package canonical addon bundle
     needs: [prepare, compile-addons]
-    permissions:
-      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -491,14 +489,4 @@ jobs:
           name: SF_Addons_1.21.11-26.3
           path: SF_Addons_1.21.11-26.3.zip
           if-no-files-found: error
-      - name: Refresh addon bundle on latest Slimefun Legacy release
-        if: github.event_name != 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          TAG="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq '.tagName')"
-          test -n "$TAG"
-          gh release upload "$TAG" "$BUNDLE_NAME" --repo "$GITHUB_REPOSITORY" --clobber
-          echo "Published refreshed $BUNDLE_NAME to release $TAG"
+      # Release publication remains owned by reproducible-release.yml so published\n      # core releases keep an exact-source addon bundle and are not mutated by later builds.\n
