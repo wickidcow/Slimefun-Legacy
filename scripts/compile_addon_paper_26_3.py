@@ -283,6 +283,54 @@ def ensure_paper_repository(root: ET.Element, namespace: str) -> None:
     url.text = PAPER_REPOSITORY
 
 
+def ensure_maven_deprecation_lint(root: ET.Element, namespace: str) -> None:
+    build = next((child for child in root if local_name(child.tag) == "build"), None)
+    if build is None:
+        build = ET.SubElement(root, namespaced(namespace, "build"))
+
+    plugins = next((child for child in build if local_name(child.tag) == "plugins"), None)
+    if plugins is None:
+        plugins = ET.SubElement(build, namespaced(namespace, "plugins"))
+
+    compiler = None
+    for plugin in plugins:
+        if local_name(plugin.tag) != "plugin":
+            continue
+        children = {local_name(child.tag): child for child in plugin}
+        artifact = children.get("artifactId")
+        if artifact is not None and (artifact.text or "").strip() == "maven-compiler-plugin":
+            compiler = plugin
+            break
+
+    if compiler is None:
+        compiler = ET.SubElement(plugins, namespaced(namespace, "plugin"))
+        group = ET.SubElement(compiler, namespaced(namespace, "groupId"))
+        group.text = "org.apache.maven.plugins"
+        artifact = ET.SubElement(compiler, namespaced(namespace, "artifactId"))
+        artifact.text = "maven-compiler-plugin"
+
+    compiler_children = {local_name(child.tag): child for child in compiler}
+    configuration = compiler_children.get("configuration")
+    if configuration is None:
+        configuration = ET.SubElement(compiler, namespaced(namespace, "configuration"))
+
+    config_children = {local_name(child.tag): child for child in configuration}
+    show = config_children.get("showDeprecation")
+    if show is None:
+        show = ET.SubElement(configuration, namespaced(namespace, "showDeprecation"))
+    show.text = "true"
+
+    compiler_args = config_children.get("compilerArgs")
+    if compiler_args is None:
+        compiler_args = ET.SubElement(configuration, namespaced(namespace, "compilerArgs"))
+
+    existing = {(arg.text or "").strip() for arg in compiler_args if local_name(arg.tag) == "arg"}
+    for value in ("-Xlint:deprecation", "-Xlint:removal"):
+        if value not in existing:
+            arg = ET.SubElement(compiler_args, namespaced(namespace, "arg"))
+            arg.text = value
+
+
 def append_direct_dependency(
     dependencies: ET.Element,
     namespace: str,
@@ -374,6 +422,7 @@ def patch_maven_project(project: Path, paper_api_version: str) -> tuple[int, int
         )
 
     ensure_paper_repository(root, namespace)
+    ensure_maven_deprecation_lint(root, namespace)
     tree.write(pom, encoding="utf-8", xml_declaration=True)
     return core_rewritten, paper_rewritten, core_injected, paper_injected
 
@@ -453,6 +502,7 @@ gradle.projectsEvaluated {
 
         p.tasks.withType(org.gradle.api.tasks.compile.JavaCompile).configureEach { task ->
             task.classpath = p.files(System.getenv('SLIMEFUN_COMPATIBILITY_JAR')) + task.classpath
+            task.options.compilerArgs.addAll(['-Xlint:deprecation', '-Xlint:removal'])
         }
     }
 }
