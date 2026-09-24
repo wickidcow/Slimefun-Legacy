@@ -416,10 +416,13 @@ jobs:
           missing_slugs = sorted(required_slugs - present_slugs)
           if missing_slugs:
               raise SystemExit(f'Missing required maintained addons: {missing_slugs}')
-          networks = [name for name in actual if re.fullmatch(r'SF_Networks\d+(?:\.\d+)+\.jar', name)]
-          if len(networks) != 1:
-              raise SystemExit(f'Expected exactly one canonical Networks JAR; found: {networks}')
-          print(f'Canonical naming verified for {len(actual)} addon JARs, including {networks[0]}.')
+          networks_records = [r for r in records if r['slug'] == 'networksexp']
+          if len(networks_records) != 1:
+              raise SystemExit(f'Expected exactly one Networks metadata record; found: {len(networks_records)}')
+          networks_jar = networks_records[0]['jar']
+          if networks_jar not in actual:
+              raise SystemExit(f'Networks metadata JAR is missing from bundle: {networks_jar}')
+          print(f'Canonical naming verified for {len(actual)} addon JARs, including {networks_jar}.')
           PY
 
           IE2_JAR="$(python3 -c "import json; print(json.load(open('collected/metadata/infinityexpansion2.json'))['jar'])")"
