@@ -213,7 +213,7 @@ public class HologramsService {
             container.set(persistentDataKey, PersistentDataType.LONG, position.getPosition());
 
             // Store in cache for faster access
-            Hologram hologram = new Hologram(armorStand.getUniqueId());
+            Hologram hologram = new Hologram(armorStand);
             cache.put(position, hologram);
 
             return hologram;
