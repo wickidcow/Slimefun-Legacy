@@ -133,7 +133,7 @@ def main() -> int:
     require(capacitors, "resolveLiveComponent( loc, entry.getValue(), data.getSfId(), EnergyNetComponentType.CAPACITOR, capacitors)", "capacitor identity refresh")
     require(storage, "EnergyNetComponentType.CAPACITOR, capacitors", "capacitor identity refresh before storage")
     require(generators, "resolveLiveGenerator(loc, provider, data.getSfId())", "generator identity refresh")
-    require(storage, "resolveLiveGenerator(loc, entry.getValue(), data.getSfId())", "generator identity refresh before storage")
+    require(storage, "resolveLiveGenerator(loc, cached, data.getSfId())", "generator identity refresh before storage")
     require(resolve_component, "cache.remove(loc, cached)", "stale component cache eviction")
     require(resolve_generator, "generators.remove(loc, cached)", "stale generator cache eviction")
 
@@ -144,6 +144,16 @@ def main() -> int:
     require(generators, "if (!data.isDataLoaded()) { StorageCacheUtils.requestLoad(data); continue; }", "generator load guard")
     require(storage, "StorageCacheUtils.requestLoad(data)", "storage load guard")
 
+    # Supply collection and remainder storage happen in the same regulator transaction. Reuse the
+    # already resolved source/container/capacity state rather than repeating block-storage lookups for
+    # every capacitor and generator later in that same tick.
+    require(source_compact, "EnergyStorageSnapshot", "reusable energy-source storage snapshots")
+    require(capacitors, "capacitorStorageSnapshot.add(loc, component, data, capacity)", "capacitor storage snapshot")
+    require(generators, "generatorStorageSnapshot.add(loc, provider, data, storageCapacity)", "generator storage snapshot")
+    require(storage, "capacitorStorageSnapshot.containers[i]", "cached capacitor data reuse")
+    require(storage, "generatorStorageSnapshot.containers[i]", "cached generator data reuse")
+    require_absent(storage, "StorageCacheUtils.getDataContainer", "duplicate remainder-storage data lookup")
+
     # Network-visible energy must always remain in legal bounds even if old persisted data or
     # an addon implementation returns an invalid number.
     require(safe_capacity, "Math.max(0L, component.getCapacityLong())", "non-negative capacity bound")
@@ -151,7 +161,7 @@ def main() -> int:
     require(set_safe_charge, "NumberUtils.clamp(0L, charge, capacity)", "write 0..capacity bound")
     require(set_safe_charge, "component.setCharge(loc, safeCharge, data)", "loaded-container energy write")
     require(generators, "Math.max(0L, provider.getGeneratedOutputLong(loc, data))", "non-negative generator output")
-    require(generators, "getSafeCharge(provider, loc, data, capacity)", "bounded generator stored charge")
+    require(generators, "getSafeCharge(provider, loc, data, storageCapacity)", "bounded generator stored charge")
     require(capacitors, "getSafeCharge(component, loc, data, capacity)", "bounded capacitor supply")
     require(tick, "getSafeCharge(component, loc, data, capacity)", "bounded consumer charge")
 

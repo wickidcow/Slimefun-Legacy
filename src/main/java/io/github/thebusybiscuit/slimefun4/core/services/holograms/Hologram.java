@@ -27,6 +27,12 @@ class Hologram {
     private final UUID uniqueId;
 
     /**
+     * Direct reference to the currently live ArmorStand. This avoids a Bukkit UUID lookup on every
+     * hologram refresh while still falling back to UUID resolution after unload/reload or despawn.
+     */
+    private volatile ArmorStand cachedArmorStand;
+
+    /**
      * The timestamp of when the {@link ArmorStand} was last accessed.
      */
     private volatile long lastAccess;
@@ -37,12 +43,13 @@ class Hologram {
     private String label;
 
     /**
-     * This creates a new {@link Hologram} for the given {@link UUID}.
+     * This creates a new {@link Hologram} for the given {@link ArmorStand}.
      *
-     * @param uniqueId The {@link UUID} of the corresponding {@link ArmorStand}
+     * @param armorStand The corresponding {@link ArmorStand}
      */
-    Hologram(@Nonnull UUID uniqueId) {
-        this.uniqueId = uniqueId;
+    Hologram(@Nonnull ArmorStand armorStand) {
+        this.uniqueId = armorStand.getUniqueId();
+        this.cachedArmorStand = armorStand;
         this.lastAccess = System.currentTimeMillis();
     }
 
@@ -55,15 +62,22 @@ class Hologram {
      * @return The {@link ArmorStand} or null.
      */
     @Nullable ArmorStand getArmorStand() {
-        Entity n = Bukkit.getEntity(uniqueId);
+        ArmorStand cached = cachedArmorStand;
+        if (cached != null && cached.isValid()) {
+            this.lastAccess = System.currentTimeMillis();
+            return cached;
+        }
 
+        Entity n = Bukkit.getEntity(uniqueId);
         if (n instanceof ArmorStand armorStand && n.isValid()) {
+            this.cachedArmorStand = armorStand;
             this.lastAccess = System.currentTimeMillis();
             return armorStand;
-        } else {
-            this.lastAccess = 0;
-            return null;
         }
+
+        this.cachedArmorStand = null;
+        this.lastAccess = 0;
+        return null;
     }
 
     /**
