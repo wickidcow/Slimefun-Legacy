@@ -6,7 +6,7 @@ package me.mrCookieSlime.CSCoreLibPlugin.general.Inventory;
  * <p>This type remains part of the public menu-handler contract and is therefore
  * supported until a binary-compatible replacement API is introduced.
  */
-public final class ClickAction {
+public class ClickAction {
 
     private final boolean right;
     private final boolean shift;
