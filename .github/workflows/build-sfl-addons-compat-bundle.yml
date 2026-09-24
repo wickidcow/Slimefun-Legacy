@@ -21,9 +21,11 @@ on:
       - 'scripts/paper_candidate_versions.py'
       - 'scripts/test_paper_candidate_versions.py'
   workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * *'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: sf-addons-1.21.11-26.3-bundle-${{ github.ref }}
@@ -243,7 +245,8 @@ jobs:
             -PreleaseJvm=21 \
             --stacktrace --no-daemon
 
-          JAR=addon/build/libs/SFL_DracFun-Reborn2.0.4.jar
+          JAR="$(find addon/build/libs -maxdepth 1 -type f -name 'SFL_DracFun-Reborn*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | sort | tail -n1)"
+          test -n "$JAR"
           test -s "$JAR"
           javap -verbose -classpath "$JAR" io.github.wickidcow.sfdracfun2.SFDracFun2 \
             | grep -Fq 'major version: 65'
@@ -395,44 +398,40 @@ jobs:
                   raise SystemExit(f'Invalid addon JAR name: {name}')
               if re.search(r'(legacy|english|snapshot)', name, re.I):
                   raise SystemExit(f'Forbidden public qualifier in addon JAR name: {name}')
-          required = {
-              'SFL_DracFun-Reborn2.0.4.jar',
-              'SF_BetterChests1.0.2.jar',
-              'SF_BuildingStaff1.0.34.jar',
-              'SF_Cultivation1.1.23.jar',
-              'SF_CrystamaeHistoria1.0.0.jar',
-              'SF_ExoticGarden1.0.3.jar',
-              'SF_FastMachines1.0.4.jar',
-              'SF_Galactifun1.0.7.jar',
-              'SF_InfinityExpansion2.0.10.jar',
-              'SF_JustEnoughGuide2.1.66.jar',
-              'SF_LiteXpansion1.0.2.jar',
-              'SF_MagicExpansion1.1.7.jar',
-              'SF_RykenSlimeCustomizer3.1.10.jar',
-              'SF_MobCapturer1.0.6.jar',
-              'SF_SlimeEasy1.0.3.jar',
-              'SF_SlimeHUD2.0.3.jar',
-              'SF_SlimeTinker2.0.6.jar',
-              'SF_Supreme1.0.13.jar',
-              'SF_SFWorldEdit1.0.5_(1.21.11-26.2).jar',
+          required_slugs = {
+              'betterchests',
+              'buildingstaff',
+              'crystamaehistoria',
+              'dracfunreborn',
+              'fastmachines',
+              'infinityexpansion2',
+              'justenoughguide',
+              'magicexpansion',
+              'mobcapturer',
+              'networksexp',
+              'slimehud',
+              'slimetinkerie2',
           }
-          missing = sorted(required - set(actual))
-          if missing:
-              raise SystemExit(f'Missing required canonical addon names: {missing}')
+          present_slugs = {r['slug'] for r in records}
+          missing_slugs = sorted(required_slugs - present_slugs)
+          if missing_slugs:
+              raise SystemExit(f'Missing required maintained addons: {missing_slugs}')
           networks = [name for name in actual if re.fullmatch(r'SF_Networks\\d+(?:\\.\\d+)+\\.jar', name)]
           if len(networks) != 1:
               raise SystemExit(f'Expected exactly one canonical Networks JAR; found: {networks}')
           print(f'Canonical naming verified for {len(actual)} addon JARs, including {networks[0]}.')
           PY
 
-          unzip -p collected/jars/SF_InfinityExpansion2.0.10.jar plugin.yml | grep -A10 '^loadbefore:' | grep -Fq 'RykenSlimefunCustomizer'
-          if unzip -p collected/jars/SF_InfinityExpansion2.0.10.jar plugin.yml | grep -Fq 'RykenSlimeCustomizer'; then
+          IE2_JAR="$(python3 -c "import json; print(json.load(open('collected/metadata/infinityexpansion2.json'))['jar'])")"
+          MAGIC_EXPANSION_JAR="$(python3 -c "import json; print(json.load(open('collected/metadata/magicexpansion.json'))['jar'])")"
+          unzip -p "collected/jars/$IE2_JAR" plugin.yml | grep -A10 '^loadbefore:' | grep -Fq 'RykenSlimefunCustomizer'
+          if unzip -p "collected/jars/$IE2_JAR" plugin.yml | grep -Fq 'RykenSlimeCustomizer'; then
             echo "InfinityExpansion2 must load before RykenSlimefunCustomizer, not the obsolete RykenSlimeCustomizer name" >&2
             exit 1
           fi
-          unzip -p collected/jars/SF_MagicExpansion1.1.7.jar plugin.yml | grep -Fxq 'loadbefore: [RykenSlimefunCustomizer]'
-          unzip -p collected/jars/SF_MagicExpansion1.1.7.jar plugin.yml | grep -Fxq 'softdepend: [MagicLegacy, Networks, NetworksExpansion]'
-          if unzip -p collected/jars/SF_MagicExpansion1.1.7.jar plugin.yml | grep -Fq 'softdepend: [MagicLegacy, RykenSlimefunCustomizer'; then
+          unzip -p "collected/jars/$MAGIC_EXPANSION_JAR" plugin.yml | grep -Fxq 'loadbefore: [RykenSlimefunCustomizer]'
+          unzip -p "collected/jars/$MAGIC_EXPANSION_JAR" plugin.yml | grep -Fxq 'softdepend: [MagicLegacy, Networks, NetworksExpansion]'
+          if unzip -p "collected/jars/$MAGIC_EXPANSION_JAR" plugin.yml | grep -Fq 'softdepend: [MagicLegacy, RykenSlimefunCustomizer'; then
             echo "MagicExpansion must load before RSC, not soft-depend on it" >&2
             exit 1
           fi
@@ -461,8 +460,8 @@ jobs:
           - WorldEditSlimefun exception: SF_SFWorldEdit<version>_(1.21.11-26.2).jar
           - WorldEditSlimefun requires WorldEdit or FAWE and is explicitly labeled for 1.21.11 through 26.2
           - Magic Legacy is intentionally excluded from this bundle and can be installed separately if needed
-          - RykenSlimeCustomizer 3.1.10 remains bundled and only probes legacy external recipe types when the matching plugin is installed
-          - MagicExpansion 1.1.7 remains bundled; its optional MagicLegacy integration is used only when Magic Legacy is installed separately
+          - RykenSlimeCustomizer remains bundled and only probes legacy external recipe types when the matching plugin is installed
+          - MagicExpansion remains bundled; its optional MagicLegacy integration is used only when Magic Legacy is installed separately
           - No Legacy, Legacy-English, SNAPSHOT, compatibility suffixes, or repo-only suffixes except the approved WorldEdit support-range suffix
 
           Supported Minecraft/Paper generations:
@@ -490,5 +489,14 @@ jobs:
           name: SF_Addons_1.21.11-26.3
           path: SF_Addons_1.21.11-26.3.zip
           if-no-files-found: error
-      # Release assets are published only by reproducible-release.yml so a
-      # post-release addon rebuild cannot mutate an already published core release.
+      - name: Refresh addon bundle on latest Slimefun Legacy release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq '.tagName')"
+          test -n "$TAG"
+          gh release upload "$TAG" "$BUNDLE_NAME" --repo "$GITHUB_REPOSITORY" --clobber
+          echo "Published refreshed $BUNDLE_NAME to release $TAG"
