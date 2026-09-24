@@ -410,7 +410,6 @@ jobs:
               'SF_MagicExpansion1.1.7.jar',
               'SF_RykenSlimeCustomizer3.1.10.jar',
               'SF_MobCapturer1.0.6.jar',
-              'SF_Networks1.0.21.jar',
               'SF_SlimeEasy1.0.3.jar',
               'SF_SlimeHUD2.0.3.jar',
               'SF_SlimeTinker2.0.6.jar',
@@ -420,7 +419,10 @@ jobs:
           missing = sorted(required - set(actual))
           if missing:
               raise SystemExit(f'Missing required canonical addon names: {missing}')
-          print(f'Canonical naming verified for {len(actual)} addon JARs.')
+          networks = [name for name in actual if re.fullmatch(r'SF_Networks\\d+(?:\\.\\d+)+\\.jar', name)]
+          if len(networks) != 1:
+              raise SystemExit(f'Expected exactly one canonical Networks JAR; found: {networks}')
+          print(f'Canonical naming verified for {len(actual)} addon JARs, including {networks[0]}.')
           PY
 
           unzip -p collected/jars/SF_InfinityExpansion2.0.10.jar plugin.yml | grep -A10 '^loadbefore:' | grep -Fq 'RykenSlimefunCustomizer'
