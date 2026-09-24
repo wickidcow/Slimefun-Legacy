@@ -55,7 +55,7 @@
   - The current matrix contains 45 maintained addons, but only 7 have explicit `source_commit` pins and 38 still build from repository HEAD.
   - Keep normal compatibility discovery flexible if desired, but the **release bundle** must have an exact source commit recorded and enforced for every shipped addon.
   - Continue embedding resolved commit + JAR SHA-256 metadata inside the addon bundle manifest.
-- [ ] Rebuild and validate the canonical `SF_Addons_1.21.11-26.3.zip` at bundle revision 88 from the final release-prep source, including Networks 1.0.30, Supreme 1.0.14, and MagicExpansion 1.1.7.
+- [x] Rebuild and validate the refreshed canonical `SF_Addons_1.21.11-26.3.zip` with Networks 1.0.30, Supreme 1.0.14, and MagicExpansion 1.1.7. Bundle revision 88 passed in workflow run `35948891965` with all 45 addon builds and canonical packaging green; the final release-source bump to revision 89 exists only to force one same-SHA bundle/reproducible-release pass after documentation lock.
 - [x] Require every maintained addon in `compatibility/sfl-addon-release-matrix.json` to compile against the detected Paper 26.3 API.
 - [x] Run required-addon runtime smoke for JEG, BetterChests, FastMachines, Networks, and SlimeTinker.
 - [x] Confirm current pinned JEG and SlimeHUD revisions are the versions actually present in the generated bundle.
