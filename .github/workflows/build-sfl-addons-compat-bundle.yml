@@ -28,7 +28,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: sf-addons-1.21.11-26.3-bundle-${{ github.ref }}
+  group: sf-addons-1.21.11-26.3-bundle-v2-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -489,4 +489,5 @@ jobs:
           name: SF_Addons_1.21.11-26.3
           path: SF_Addons_1.21.11-26.3.zip
           if-no-files-found: error
-      # Release publication remains owned by reproducible-release.yml so published\n      # core releases keep an exact-source addon bundle and are not mutated by later builds.\n
+      # Release publication remains owned by reproducible-release.yml so published
+      # core releases keep an exact-source addon bundle and are not mutated by later builds.
