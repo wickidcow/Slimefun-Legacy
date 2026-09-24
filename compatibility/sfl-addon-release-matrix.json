@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 85,
+  "bundle_revision": 86,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -72,8 +72,7 @@
     },
     {
       "repository": "wickidcow/SF_CrystamaeHistoria",
-      "slug": "crystamaehistoria",
-      "source_commit": "ea9f7d1719abcb02816cd06bfe28d08e821fd94a"
+      "slug": "crystamaehistoria"
     },
     {
       "repository": "wickidcow/SF_DankTech2",
@@ -82,8 +81,7 @@
     {
       "repository": "wickidcow/SF_DracFun2",
       "slug": "dracfunreborn",
-      "artifact_base": "DracFunReborn",
-      "source_commit": "7154c78b7e0be4450051261ec0fd5faec3bd5cbd"
+      "artifact_base": "DracFunReborn"
     },
     {
       "repository": "wickidcow/SF_DynaTech",
@@ -148,8 +146,7 @@
     {
       "repository": "wickidcow/SF_InfinityExpansion2",
       "slug": "infinityexpansion2",
-      "artifact_base": "InfinityExpansion",
-      "source_commit": "1e0bc7f6bdf8370cdf502ff2513c88b8a05d0e43"
+      "artifact_base": "InfinityExpansion"
     },
     {
       "repository": "wickidcow/SF_LiteXpansion",
@@ -162,13 +159,11 @@
     {
       "repository": "wickidcow/SF_JustEnoughGuide",
       "slug": "justenoughguide",
-      "artifact_base": "JustEnoughGuide",
-      "source_commit": "9f602c7aeb1076319b839dc77451d8947fd93250"
+      "artifact_base": "JustEnoughGuide"
     },
     {
       "repository": "wickidcow/SF_MagicExpansion",
-      "slug": "magicexpansion",
-      "source_commit": "59c569754fbb1f4227618228af6ffa4e7045b878"
+      "slug": "magicexpansion"
     },
     {
       "repository": "wickidcow/SF_MilitaryArsenal",
@@ -193,8 +188,7 @@
     },
     {
       "repository": "wickidcow/SF_RykenSlimeCustomizer",
-      "slug": "rykenslimecustomizer",
-      "source_commit": "c0fa9eb9b39878bf5ca3978ca4678d3faa78c84d"
+      "slug": "rykenslimecustomizer"
     },
     {
       "repository": "wickidcow/SF_SlimeEasy",
@@ -215,8 +209,7 @@
     {
       "repository": "wickidcow/SF_SlimeHUD",
       "slug": "slimehud",
-      "artifact_base": "SlimeHUD",
-      "source_commit": "34f5aa353225c282dc596eae93384786875f0253"
+      "artifact_base": "SlimeHUD"
     },
     {
       "repository": "wickidcow/SF_SlimeTinkerIE2",
