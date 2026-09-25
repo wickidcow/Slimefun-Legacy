@@ -148,10 +148,14 @@ def main() -> int:
     # already resolved source/container/capacity state rather than repeating block-storage lookups for
     # every capacitor and generator later in that same tick.
     require(source_compact, "EnergyStorageSnapshot", "reusable energy-source storage snapshots")
-    require(capacitors, "capacitorStorageSnapshot.add(loc, component, data, capacity)", "capacitor storage snapshot")
-    require(generators, "generatorStorageSnapshot.add(loc, provider, data, storageCapacity)", "generator storage snapshot")
+    require(capacitors, "capacitorStorageSnapshot.add(loc, component, data, capacity, charge)", "capacitor storage snapshot")
+    require(generators, "generatorStorageSnapshot.add(loc, provider, data, storageCapacity, storedCharge)", "generator storage snapshot")
+    require(source_compact, "private long[] charges", "source charge snapshot")
     require(storage, "capacitorStorageSnapshot.containers[i]", "cached capacitor data reuse")
     require(storage, "generatorStorageSnapshot.containers[i]", "cached generator data reuse")
+    require(storage, "capacitorStorageSnapshot.charges[i]", "cached capacitor charge reuse")
+    require(storage, "generatorStorageSnapshot.charges[i]", "cached generator charge reuse")
+    require(storage, "if (stored != previousCharge)", "skip unchanged source charge writes")
     require_absent(storage, "StorageCacheUtils.getDataContainer", "duplicate remainder-storage data lookup")
 
     # Network-visible energy must always remain in legal bounds even if old persisted data or
