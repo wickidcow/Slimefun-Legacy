@@ -452,9 +452,10 @@ def compatibility_explanation(
         )
     if status == BASELINE_BUILD_FAILED:
         return (
-            "The addon did not compile against the known-good baseline. This is an addon "
-            "dependency, repository, or build-environment failure and is not evidence of "
-            "a new Slimefun Legacy regression."
+            "The addon did not compile against the known-good baseline, but it did compile "
+            "against the candidate Slimefun Legacy JAR. This confirms current source compatibility "
+            "while leaving baseline-built binary linkage unavailable; it is not evidence of a new "
+            "Slimefun Legacy regression."
         )
     if status == LEGACY_COMPATIBILITY_FAILED:
         if candidate_result is not None and candidate_result.exit_code != 0:
@@ -598,21 +599,11 @@ def main() -> int:
             jar=baseline_jar,
             report_dir=report_dir,
         )
-        if baseline_result.exit_code != 0:
-            status = BASELINE_BUILD_FAILED
-            write_report(
-                report_dir=report_dir,
-                status=status,
-                source=source,
-                baseline_jar=baseline_jar,
-                candidate_jar=candidate_jar,
-                baseline_result=baseline_result,
-                candidate_result=None,
-                binary_linkage=None,
-                error=None,
-            )
-            return EXIT_CODES[status]
 
+        # Always test the candidate, even when the current addon has already moved beyond
+        # the previous stable Legacy baseline. A baseline failure cannot prove a regression,
+        # but it also must not prevent us from proving that the addon builds against the
+        # candidate release we are actually preparing.
         candidate_project = report_dir / "work" / "candidate"
         copy_project(source, candidate_project)
         candidate_result = build_project(
@@ -621,6 +612,33 @@ def main() -> int:
             jar=candidate_jar,
             report_dir=report_dir,
         )
+
+        if baseline_result.exit_code != 0:
+            if candidate_result.exit_code == 0:
+                status = BASELINE_BUILD_FAILED
+                error = None
+            else:
+                # Neither side provides a known-good source build, so no regression claim is
+                # possible and current candidate compatibility remains unproven. Fail closed.
+                status = INSTRUMENTATION_ERROR
+                error = (
+                    "Addon source build failed against both the previous stable baseline and "
+                    "the candidate Slimefun Legacy JAR. Candidate compatibility is unproven; "
+                    "review baseline.log and candidate.log."
+                )
+
+            write_report(
+                report_dir=report_dir,
+                status=status,
+                source=source,
+                baseline_jar=baseline_jar,
+                candidate_jar=candidate_jar,
+                baseline_result=baseline_result,
+                candidate_result=candidate_result,
+                binary_linkage=None,
+                error=error,
+            )
+            return EXIT_CODES[status]
 
         status = PASS if candidate_result.exit_code == 0 else LEGACY_COMPATIBILITY_FAILED
         if status == PASS:
