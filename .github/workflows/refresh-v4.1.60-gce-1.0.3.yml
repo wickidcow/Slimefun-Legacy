@@ -62,12 +62,12 @@ jobs:
           test "$(sha256sum "work/original/$OLD_GCE_JAR" | awk '{print $1}')" = "$OLD_GCE_SHA256"
 
       - name: Download and verify Genetic ChickEngineering 1.0.3
-        env:
-          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          gh release download v1.0.3             --repo wickidcow/SF_GeneticChickEngineering             --pattern "$NEW_GCE_JAR"             --dir work/new
+          curl -fL --retry 3 --retry-all-errors \
+            "https://github.com/wickidcow/SF_GeneticChickEngineering/releases/download/v1.0.3/$NEW_GCE_JAR" \
+            -o "work/new/$NEW_GCE_JAR"
           test -s "work/new/$NEW_GCE_JAR"
           test "$(sha256sum "work/new/$NEW_GCE_JAR" | awk '{print $1}')" = "$NEW_GCE_SHA256"
 
