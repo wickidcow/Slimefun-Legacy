@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 89,
+  "bundle_revision": 90,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -133,7 +133,8 @@
     },
     {
       "repository": "wickidcow/SF_GeneticChickEngineering",
-      "slug": "geneticchickengineering"
+      "slug": "geneticchickengineering",
+      "source_commit": "3562de11a6c3445a4c26cdaec1bf7a852a87fd63"
     },
     {
       "repository": "wickidcow/SF_HotbarPets",
