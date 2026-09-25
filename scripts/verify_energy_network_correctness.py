@@ -157,6 +157,10 @@ def main() -> int:
     require(storage, "generatorStorageSnapshot.charges[i]", "cached generator charge reuse")
     require(storage, "if (stored != previousCharge)", "skip unchanged source charge writes")
     require_absent(storage, "StorageCacheUtils.getDataContainer", "duplicate remainder-storage data lookup")
+    require(generators, "Set<Location> explodedBlocks = null", "lazy generator failure-set allocation")
+    require(generators, "if (explodedBlocks == null)", "on-demand generator failure-set creation")
+    require(generators, "if (explodedBlocks != null)", "conditional failed-generator cleanup")
+    require_absent(generators, "Set<Location> explodedBlocks = new HashSet<>()", "healthy-tick generator failure-set allocation")
 
     # Network-visible energy must always remain in legal bounds even if old persisted data or
     # an addon implementation returns an invalid number.
