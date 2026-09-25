@@ -21,11 +21,12 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * An old remnant of CS-CoreLib.
- * This will be removed once we updated everything.
- * Don't look at the code, it will be gone soon, don't worry.
+ * Base inventory menu used by Slimefun's public menu APIs.
+ *
+ * <p>This class remains supported for addon compatibility until a complete
+ * binary-compatible replacement is available. Individual legacy methods may
+ * still be deprecated when a direct replacement exists.
  */
-@Deprecated
 public class ChestMenu extends SlimefunInventoryHolder {
 
     private boolean clickable;

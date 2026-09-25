@@ -74,7 +74,15 @@ public interface EnergyNetComponent extends ItemAttribute {
         return getCapacity();
     }
 
-    @Deprecated
+    /**
+     * Returns the historical int capacity for this component.
+     *
+     * <p>This remains an abstract part of the public addon API for binary and
+     * source compatibility. Addons with capacities above the int range should
+     * additionally override {@link #getCapacityLong()}.</p>
+     *
+     * @return the maximum int capacity exposed by the legacy-compatible API
+     */
     int getCapacity();
 
     /**
