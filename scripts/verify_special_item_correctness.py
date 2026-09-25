@@ -137,12 +137,19 @@ def main() -> int:
     forbid(reactor, "inv.pushItem(result.clone(), getOutputSlots());\n        }\n\n        if (accessPort != null)", "reactor unchecked byproduct insertion")
 
     smeltery = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/ElectricSmeltery.java")
-    require(smeltery, "List<Integer> emptySlots = new LinkedList<>();", "Electric Smeltery empty-slot tracking")
+    require(smeltery, "int[] emptySlots = new int[INPUT_SLOTS.length];", "Electric Smeltery primitive empty-slot tracking")
     require(
         smeltery,
-        "if (!matchingSlots.isEmpty()) {\n                    Collections.sort(matchingSlots, compareSlots(menu));\n                    return toSlotArray(matchingSlots);\n                }\n\n                return toSlotArray(emptySlots);",
+        "if (matchingCount > 0) {\n                    return Arrays.copyOf(matchingSlots, matchingCount);\n                }\n\n                return Arrays.copyOf(emptySlots, emptyCount);",
         "Electric Smeltery matching-stack then empty-slot cargo fallback",
     )
+    require(
+        smeltery,
+        "while (insertAt > 0 && matchingAmounts[insertAt - 1] > stack.getAmount())",
+        "Electric Smeltery smallest-partial-stack preference",
+    )
+    forbid(smeltery, "new LinkedList", "Electric Smeltery boxed cargo-slot list allocation")
+    forbid(smeltery, "Collections.sort", "Electric Smeltery boxed cargo-slot sorting")
     forbid(smeltery, "else if (fullSlots == slots.size())", "Electric Smeltery false-full cargo short circuit")
 
     oil_pump = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/geo/OilPump.java")
