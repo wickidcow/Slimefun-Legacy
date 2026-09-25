@@ -416,13 +416,14 @@ jobs:
               exit 0
               ;;
             BASELINE_BUILD_FAILED)
-              MESSAGE="Addon does not build against the previous stable $PREVIOUS_VERSION baseline; this is not evidence of a new candidate regression."
+              echo "::warning title=Previous baseline unavailable::Addon does not build against previous stable $PREVIOUS_VERSION, but the candidate source build passed. Current candidate compatibility is proven; baseline-built binary linkage is unavailable."
+              exit 0
               ;;
             LEGACY_COMPATIBILITY_FAILED)
               MESSAGE="Addon builds against previous stable $PREVIOUS_VERSION but fails against the candidate JAR; this is a Legacy compatibility regression."
               ;;
             *)
-              MESSAGE="Compatibility comparison could not be completed because of checkout or test-harness infrastructure."
+              MESSAGE="Compatibility comparison could not be completed or candidate compatibility remains unproven. Review baseline.log and candidate.log."
               ;;
           esac
 
