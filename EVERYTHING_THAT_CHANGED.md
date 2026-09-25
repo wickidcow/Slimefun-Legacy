@@ -1,3 +1,16 @@
+# Slimefun Legacy 4.1.61 — Performance & Hot-Path Efficiency
+
+- Reduced Energy Regulator overhead by reusing same-tick source charge snapshots, skipping unchanged source charge writes, and allocating generator-failure tracking only when a failure actually occurs.
+- Reduced high-speed `AContainer` recipe-search allocation churn with fixed slot arrays, one input-slot snapshot per scan, and a cheap material prefilter before exact Slimefun item comparison.
+- Reduced Electric Smeltery cargo-routing overhead by replacing boxed slot lists/sorting with fixed primitive buffers while preserving partial-stack-first and smallest-stack-first routing. InfinityExpansion2 Void Smelteries inherit this optimization automatically.
+- Updated maintained Networks performance work to reuse stable controller roots, skip transport work while existing miss limiters are active, reduce Auto Crafter idle-state churn, and reduce pusher/line-transfer allocation churn.
+- Updated maintained Supreme machine handling so idle Magical/Core fabricators skip repeated recipe scans until their inputs change, with periodic full revalidation as a collision/safety fallback.
+- Hardened addon compatibility comparison so the candidate addon build is always tested even when an addon no longer builds against the previous stable Legacy baseline; candidate compatibility can no longer be hidden by an obsolete baseline failure.
+- Preserved EnergyNet distribution order, machine recipe precedence, Networks routing order, transfer limits, transfer cadence, and saved-world/storage identities.
+- Paper 26.2 remains the production baseline. Paper 26.3 remains a pre-release/candidate line and continues to receive compile/runtime preflight coverage.
+
+---
+
 # Slimefun Legacy 4.1.60 — Stabilization & Validation Integrity
 
 - Stabilized the 4.1.59 Recovery Center/Doctor surface without changing its admin-only permission boundary or adding automatic migration/model cleanup.
