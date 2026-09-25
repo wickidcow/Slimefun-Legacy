@@ -10,11 +10,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.Smeltery;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.LinkedList;
-import java.util.List;
-import javax.annotation.Nonnull;
+import java.util.Arrays;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu.AdvancedMenuClickHandler;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ClickAction;
@@ -73,43 +69,45 @@ public class ElectricSmeltery extends AContainer implements NotHopperable {
                     return getOutputSlots();
                 }
 
-                List<Integer> matchingSlots = new LinkedList<>();
-                List<Integer> emptySlots = new LinkedList<>();
+                /*
+                 * This method is queried heavily by cargo/Networks. The old path allocated two
+                 * LinkedLists, boxed every slot and sorted through a Comparator on every request.
+                 * There are only six input slots, so fixed primitive arrays are cheaper and keep
+                 * the exact same preference: partial matching stacks first, smallest stack first,
+                 * then empty slots in normal input-slot order.
+                 */
+                int[] matchingSlots = new int[INPUT_SLOTS.length];
+                int[] matchingAmounts = new int[INPUT_SLOTS.length];
+                int[] emptySlots = new int[INPUT_SLOTS.length];
+                int matchingCount = 0;
+                int emptyCount = 0;
 
                 for (int slot : INPUT_SLOTS) {
                     ItemStack stack = menu.getItemInSlot(slot);
 
                     if (stack == null || stack.getType().isAir()) {
-                        emptySlots.add(slot);
-                    } else if (SlimefunUtils.isItemSimilar(stack, item, true, false)
-                            && stack.getAmount() < stack.getMaxStackSize()) {
-                        matchingSlots.add(slot);
+                        emptySlots[emptyCount++] = slot;
+                    } else if (stack.getAmount() < stack.getMaxStackSize()
+                            && SlimefunUtils.isItemSimilar(stack, item, true, false)) {
+                        int insertAt = matchingCount;
+                        while (insertAt > 0 && matchingAmounts[insertAt - 1] > stack.getAmount()) {
+                            matchingSlots[insertAt] = matchingSlots[insertAt - 1];
+                            matchingAmounts[insertAt] = matchingAmounts[insertAt - 1];
+                            insertAt--;
+                        }
+                        matchingSlots[insertAt] = slot;
+                        matchingAmounts[insertAt] = stack.getAmount();
+                        matchingCount++;
                     }
                 }
 
-                if (!matchingSlots.isEmpty()) {
-                    Collections.sort(matchingSlots, compareSlots(menu));
-                    return toSlotArray(matchingSlots);
+                if (matchingCount > 0) {
+                    return Arrays.copyOf(matchingSlots, matchingCount);
                 }
 
-                return toSlotArray(emptySlots);
+                return Arrays.copyOf(emptySlots, emptyCount);
             }
         };
-    }
-
-    private int[] toSlotArray(@Nonnull List<Integer> slots) {
-        int[] array = new int[slots.size()];
-
-        for (int i = 0; i < slots.size(); i++) {
-            array[i] = slots.get(i);
-        }
-
-        return array;
-    }
-
-    @Nonnull
-    private Comparator<Integer> compareSlots(@Nonnull DirtyChestMenu menu) {
-        return Comparator.comparingInt(slot -> menu.getItemInSlot(slot).getAmount());
     }
 
     @Override

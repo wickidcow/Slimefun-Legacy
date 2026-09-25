@@ -140,7 +140,7 @@ def render_summary(rows: list[dict[str, object]], counts: Counter[str]) -> str:
         "| Classification | Count | Meaning |",
         "| --- | ---: | --- |",
         f"| `{PASS}` | {pass_count} | Baseline + candidate source builds and binary linkage passed |",
-        f"| `{BASELINE_BUILD_FAILED}` | {baseline_count} | Addon also fails the known-good baseline; not evidence of a new Legacy regression |",
+        f"| `{BASELINE_BUILD_FAILED}` | {baseline_count} | Baseline source build failed, but candidate source build passed; binary baseline linkage unavailable |",
         f"| `{LEGACY_COMPATIBILITY_FAILED}` | {regression_count} | Baseline passes but candidate Legacy compatibility fails |",
         f"| `{INSTRUMENTATION_ERROR}` | {instrumentation_count} | Missing/invalid artifact or comparison harness failure |",
         "",
@@ -156,10 +156,13 @@ def render_summary(rows: list[dict[str, object]], counts: Counter[str]) -> str:
     blocking = [
         row
         for row in rows
-        if not row["advisory"] and row["status"] != PASS
+        if not row["advisory"] and row["status"] not in {PASS, BASELINE_BUILD_FAILED}
     ]
-    advisory_non_pass = [
-        row for row in rows if row["advisory"] and row["status"] != PASS
+    non_blocking_non_pass = [
+        row
+        for row in rows
+        if row["status"] != PASS
+        and (row["advisory"] or row["status"] == BASELINE_BUILD_FAILED)
     ]
 
     lines.extend(["", "### Release decision", ""])
@@ -167,10 +170,11 @@ def render_summary(rows: list[dict[str, object]], counts: Counter[str]) -> str:
         lines.append(
             f"**BLOCKED:** {len(blocking)} target(s) require review before treating the compatibility run as authoritative."
         )
-    elif advisory_non_pass:
+    elif non_blocking_non_pass:
         lines.append(
-            f"**PASS WITH ADVISORIES:** all required addon targets passed; "
-            f"{len(advisory_non_pass)} advisory target(s) reported compatibility/build or instrumentation issues above."
+            f"**PASS WITH ADVISORIES:** no required candidate compatibility regression or "
+            f"instrumentation failure was found; {len(non_blocking_non_pass)} non-blocking "
+            f"baseline/advisory result(s) are listed above."
         )
     else:
         lines.append(
@@ -211,7 +215,9 @@ def main() -> int:
         for row in rows
     )
     has_required_failure = any(
-        not bool(row["advisory"]) and row["status"] != PASS for row in rows
+        not bool(row["advisory"])
+        and row["status"] not in {PASS, BASELINE_BUILD_FAILED}
+        for row in rows
     )
 
     if has_required_instrumentation:

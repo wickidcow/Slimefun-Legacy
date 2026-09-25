@@ -73,18 +73,21 @@ public class EnergyNet extends Network implements HologramOwner {
         private EnergyNetComponent[] components = new EnergyNetComponent[INITIAL_CAPACITY];
         private ASlimefunDataContainer[] containers = new ASlimefunDataContainer[INITIAL_CAPACITY];
         private long[] capacities = new long[INITIAL_CAPACITY];
+        private long[] charges = new long[INITIAL_CAPACITY];
         private int size;
 
         private void add(
                 @Nonnull Location location,
                 @Nonnull EnergyNetComponent component,
                 @Nonnull ASlimefunDataContainer container,
-                long capacity) {
+                long capacity,
+                long charge) {
             ensureCapacity(size + 1);
             locations[size] = location;
             components[size] = component;
             containers[size] = container;
             capacities[size] = capacity;
+            charges[size] = charge;
             size++;
         }
 
@@ -98,6 +101,7 @@ public class EnergyNet extends Network implements HologramOwner {
             components = Arrays.copyOf(components, newCapacity);
             containers = Arrays.copyOf(containers, newCapacity);
             capacities = Arrays.copyOf(capacities, newCapacity);
+            charges = Arrays.copyOf(charges, newCapacity);
         }
 
         private void clear() {
@@ -357,8 +361,13 @@ public class EnergyNet extends Network implements HologramOwner {
             long capacity = component == cached
                     ? capacitorStorageSnapshot.capacities[i]
                     : getSafeCapacity(component, loc);
+            long previousCharge = component == cached
+                    ? capacitorStorageSnapshot.charges[i]
+                    : getSafeCharge(component, loc, data, capacity);
             long stored = Math.min(remainingEnergy, capacity);
-            setSafeCharge(component, loc, data, stored, capacity);
+            if (stored != previousCharge) {
+                setSafeCharge(component, loc, data, stored, capacity);
+            }
             VanillaPowerStateBridge.sync(loc, stored > 0);
             remainingEnergy -= stored;
         }
@@ -391,14 +400,21 @@ public class EnergyNet extends Network implements HologramOwner {
             long capacity = component == cached
                     ? generatorStorageSnapshot.capacities[i]
                     : getSafeCapacity(component, loc);
+            long previousCharge = component == cached
+                    ? generatorStorageSnapshot.charges[i]
+                    : getSafeCharge(component, loc, data, capacity);
             long stored = Math.min(remainingEnergy, capacity);
-            setSafeCharge(component, loc, data, stored, capacity);
+            if (stored != previousCharge) {
+                setSafeCharge(component, loc, data, stored, capacity);
+            }
             remainingEnergy -= stored;
         }
     }
 
     private long tickAllGenerators(@Nullable AtomicLong profiledTimestamp) {
-        Set<Location> explodedBlocks = new HashSet<>();
+        // Explosions/failures are exceptional. Do not allocate a HashSet on every healthy
+        // Energy Regulator tick just to prove that nothing needs removing.
+        Set<Location> explodedBlocks = null;
         long supply = 0;
 
         for (Map.Entry<Location, EnergyNetProvider> entry : generators.entrySet()) {
@@ -433,15 +449,19 @@ public class EnergyNet extends Network implements HologramOwner {
 
                 long energy = Math.max(0L, provider.getGeneratedOutputLong(loc, data));
                 long storageCapacity = -1L;
+                long storedCharge = 0L;
 
                 if (provider.isChargeable()) {
                     storageCapacity = getSafeCapacity(provider, loc);
-                    long storedCharge = getSafeCharge(provider, loc, data, storageCapacity);
+                    storedCharge = getSafeCharge(provider, loc, data, storageCapacity);
                     energy = NumberUtils.flowSafeAddition(energy, storedCharge);
                 }
 
                 if (provider.willExplode(loc, data)) {
                     VanillaPowerStateBridge.sync(loc, false);
+                    if (explodedBlocks == null) {
+                        explodedBlocks = new HashSet<>();
+                    }
                     explodedBlocks.add(loc);
                     Slimefun.getDatabaseManager().getBlockDataController().removeBlock(loc);
 
@@ -453,12 +473,15 @@ public class EnergyNet extends Network implements HologramOwner {
                     if (storageCapacity < 0L) {
                         storageCapacity = getSafeCapacity(provider, loc);
                     }
-                    generatorStorageSnapshot.add(loc, provider, data, storageCapacity);
+                    generatorStorageSnapshot.add(loc, provider, data, storageCapacity, storedCharge);
                     VanillaPowerStateBridge.sync(loc, energy > 0);
                     supply = NumberUtils.flowSafeAddition(supply, energy);
                 }
             } catch (Exception | LinkageError throwable) {
                 VanillaPowerStateBridge.sync(loc, false);
+                if (explodedBlocks == null) {
+                    explodedBlocks = new HashSet<>();
+                }
                 explodedBlocks.add(loc);
                 new ErrorReport<>(throwable, loc, item);
             } finally {
@@ -470,7 +493,7 @@ public class EnergyNet extends Network implements HologramOwner {
         }
 
         // Remove all generators which have exploded or failed catastrophically.
-        if (!explodedBlocks.isEmpty()) {
+        if (explodedBlocks != null) {
             generators.keySet().removeAll(explodedBlocks);
         }
 
@@ -507,7 +530,7 @@ public class EnergyNet extends Network implements HologramOwner {
 
             long capacity = getSafeCapacity(component, loc);
             long charge = getSafeCharge(component, loc, data, capacity);
-            capacitorStorageSnapshot.add(loc, component, data, capacity);
+            capacitorStorageSnapshot.add(loc, component, data, capacity, charge);
             VanillaPowerStateBridge.sync(loc, charge > 0);
             supply = NumberUtils.flowSafeAddition(supply, charge);
         }

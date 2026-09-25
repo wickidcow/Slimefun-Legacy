@@ -23,9 +23,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.operations.CraftingOper
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import io.github.thebusybiscuit.slimefun4.utils.itemstack.ItemStackWrapper;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu.AdvancedMenuClickHandler;
@@ -505,34 +503,60 @@ public abstract class AContainer extends SlimefunItem
     }
 
     protected MachineRecipe findNextRecipe(BlockMenu inv) {
-        Map<Integer, ItemStack> inventory = new HashMap<>();
+        if (recipes.isEmpty()) {
+            return null;
+        }
 
-        for (int slot : getInputSlots()) {
-            ItemStack item = inv.getItemInSlot(slot);
+        /*
+         * This is one of the hottest paths for high-speed AContainer machines. Keep the exact
+         * historical one-recipe-input-per-physical-slot matching semantics, but avoid allocating
+         * two HashMaps and repeatedly rebuilding the input-slot array for every recipe candidate.
+         */
+        int[] inputSlots = getInputSlots();
+        ItemStack[] inventory = new ItemStack[inputSlots.length];
 
+        for (int i = 0; i < inputSlots.length; i++) {
+            ItemStack item = inv.getItemInSlot(inputSlots[i]);
             if (item != null) {
-                inventory.put(slot, ItemStackWrapper.wrap(item));
+                inventory[i] = ItemStackWrapper.wrap(item);
             }
         }
 
-        Map<Integer, Integer> found = new HashMap<>();
+        boolean[] usedSlots = new boolean[inputSlots.length];
+        int[] consumeAmounts = new int[inputSlots.length];
 
         for (MachineRecipe recipe : recipes) {
-            for (ItemStack input : recipe.getInput()) {
-                for (int slot : getInputSlots()) {
-                    if (found.containsKey(slot)) {
+            for (int i = 0; i < usedSlots.length; i++) {
+                usedSlots[i] = false;
+                consumeAmounts[i] = 0;
+            }
+
+            ItemStack[] recipeInputs = recipe.getInput();
+            int found = 0;
+
+            for (ItemStack input : recipeInputs) {
+                for (int i = 0; i < inputSlots.length; i++) {
+                    if (usedSlots[i]) {
+                        continue;
+                    }
+
+                    ItemStack candidate = inventory[i];
+                    // Material is an inexpensive necessary condition for Slimefun recipe similarity.
+                    if (candidate == null || candidate.getType() != input.getType()) {
                         continue;
                     }
 
                     if (Slimefun.getItemStackService()
-                            .isSimilar(inventory.get(slot), input, MatchContext.RECIPE_INPUT, true, true)) {
-                        found.put(slot, input.getAmount());
+                            .isSimilar(candidate, input, MatchContext.RECIPE_INPUT, true, true)) {
+                        usedSlots[i] = true;
+                        consumeAmounts[i] = input.getAmount();
+                        found++;
                         break;
                     }
                 }
             }
 
-            if (found.size() == recipe.getInput().length) {
+            if (found == recipeInputs.length) {
                 if (!Slimefun.getItemStackService()
                         .fitAll(
                                 inv.toInventory(),
@@ -542,13 +566,13 @@ public abstract class AContainer extends SlimefunItem
                     return null;
                 }
 
-                for (Map.Entry<Integer, Integer> entry : found.entrySet()) {
-                    inv.consumeItem(entry.getKey(), entry.getValue());
+                for (int i = 0; i < inputSlots.length; i++) {
+                    if (usedSlots[i]) {
+                        inv.consumeItem(inputSlots[i], consumeAmounts[i]);
+                    }
                 }
 
                 return recipe;
-            } else {
-                found.clear();
             }
         }
 
