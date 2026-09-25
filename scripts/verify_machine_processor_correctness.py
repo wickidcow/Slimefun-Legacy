@@ -74,6 +74,10 @@ def main() -> int:
         root,
         "src/main/java/me/mrCookieSlime/Slimefun/Objects/SlimefunItem/abstractItems/AContainer.java",
     )
+    electric_smeltery_source = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/ElectricSmeltery.java",
+    )
 
     source_compact = compact(source)
     progress = compact(method_body(source, "updateProgressBar"))
@@ -84,6 +88,7 @@ def main() -> int:
     progress_text = compact(method_body(menu_utils, "getProgressBar"))
     durability = compact(method_body(menu_utils, "getDurability"))
     container_recipe_scan = compact(method_body(container_source, "findNextRecipe"))
+    electric_smeltery = compact(electric_smeltery_source)
 
     require(operation, "return getRemainingTicks() <= 0", "finished-operation contract")
     require(progress, "int remainingTicks = operation.getRemainingTicks()", "remaining-tick lookup")
@@ -159,6 +164,16 @@ def main() -> int:
     require(container_recipe_scan, "if (usedSlots[i])", "one recipe input per physical slot")
     require_absent(container_recipe_scan, "new HashMap", "per-tick recipe-scan HashMap allocation")
     require_absent(container_recipe_scan, "getInputSlots())", "repeated virtual input-slot lookup inside scan loops")
+
+    # Electric Smeltery is a common item-aware cargo target (including IE2 Void Smeltery).
+    # Keep its six-slot preference semantics without LinkedList/Integer/Comparator churn.
+    require(electric_smeltery, "int[] matchingSlots = new int[INPUT_SLOTS.length]", "primitive matching-slot buffer")
+    require(electric_smeltery, "int[] emptySlots = new int[INPUT_SLOTS.length]", "primitive empty-slot buffer")
+    require(electric_smeltery, "matchingAmounts[insertAt - 1] > stack.getAmount()", "ascending partial-stack routing")
+    require(electric_smeltery, "Arrays.copyOf(matchingSlots, matchingCount)", "bounded matching-slot result")
+    require_absent(electric_smeltery, "new LinkedList", "cargo-slot LinkedList allocation")
+    require_absent(electric_smeltery, "Collections.sort", "boxed cargo-slot sorting")
+    require_absent(electric_smeltery, "Comparator<Integer>", "boxed cargo-slot comparator")
 
     # Paper has marked these legacy Effect constants for removal. Keep production source on
     # Particle/Sound APIs so a future Paper update cannot turn today's warnings into failures.
