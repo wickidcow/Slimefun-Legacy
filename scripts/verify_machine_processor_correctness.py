@@ -70,6 +70,10 @@ def main() -> int:
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/utils/ChestMenuUtils.java",
     )
+    container_source = read(
+        root,
+        "src/main/java/me/mrCookieSlime/Slimefun/Objects/SlimefunItem/abstractItems/AContainer.java",
+    )
 
     source_compact = compact(source)
     progress = compact(method_body(source, "updateProgressBar"))
@@ -79,6 +83,7 @@ def main() -> int:
     menu_progress = compact(method_body(menu_utils, "updateProgressbar"))
     progress_text = compact(method_body(menu_utils, "getProgressBar"))
     durability = compact(method_body(menu_utils, "getDurability"))
+    container_recipe_scan = compact(method_body(container_source, "findNextRecipe"))
 
     require(operation, "return getRemainingTicks() <= 0", "finished-operation contract")
     require(progress, "int remainingTicks = operation.getRemainingTicks()", "remaining-tick lookup")
@@ -143,6 +148,17 @@ def main() -> int:
         "precise durability ratio",
     )
     require_absent(durability, "getMaxDurability() / max", "integer-truncated durability ratio")
+
+    # High-speed AContainer machines can run this path thousands of times per profile window.
+    # Preserve the historical one-input-per-slot behavior while keeping recipe scans allocation-light.
+    require(container_recipe_scan, "int[] inputSlots = getInputSlots()", "single input-slot snapshot")
+    require(container_recipe_scan, "ItemStack[] inventory = new ItemStack[inputSlots.length]", "array inventory snapshot")
+    require(container_recipe_scan, "boolean[] usedSlots = new boolean[inputSlots.length]", "slot-use tracking")
+    require(container_recipe_scan, "int[] consumeAmounts = new int[inputSlots.length]", "consume amount tracking")
+    require(container_recipe_scan, "candidate.getType() != input.getType()", "cheap material prefilter")
+    require(container_recipe_scan, "if (usedSlots[i])", "one recipe input per physical slot")
+    require_absent(container_recipe_scan, "new HashMap", "per-tick recipe-scan HashMap allocation")
+    require_absent(container_recipe_scan, "getInputSlots())", "repeated virtual input-slot lookup inside scan loops")
 
     # Paper has marked these legacy Effect constants for removal. Keep production source on
     # Particle/Sound APIs so a future Paper update cannot turn today's warnings into failures.
