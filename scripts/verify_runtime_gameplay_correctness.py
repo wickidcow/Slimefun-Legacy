@@ -171,16 +171,30 @@ def main() -> int:
         "processor.endOperation(b);\n            return;",
         "machine progress reset before completion cleanup",
     )
+    # AContainer keeps the historical one-recipe-input-per-physical-slot rule, but the
+    # allocation-light hot path now tracks reservations in fixed arrays rather than HashMaps.
     require_before(
         container,
-        "if (found.containsKey(slot)) {",
-        ".isSimilar(inventory.get(slot), input, MatchContext.RECIPE_INPUT, true, true)",
+        "if (usedSlots[i]) {",
+        ".isSimilar(candidate, input, MatchContext.RECIPE_INPUT, true, true)",
         "distinct input-slot reservation before recipe matching",
     )
     require_before(
         container,
+        "if (candidate == null || candidate.getType() != input.getType()) {",
+        ".isSimilar(candidate, input, MatchContext.RECIPE_INPUT, true, true)",
+        "cheap material prefilter before recipe similarity",
+    )
+    require_before(
+        container,
+        ".isSimilar(candidate, input, MatchContext.RECIPE_INPUT, true, true)",
+        "usedSlots[i] = true;",
+        "recipe match before reserving physical input slot",
+    )
+    require_before(
+        container,
         ".fitAll(\n                                inv.toInventory(),",
-        "inv.consumeItem(entry.getKey(), entry.getValue());",
+        "inv.consumeItem(inputSlots[i], consumeAmounts[i]);",
         "generic container output fit before input consumption",
     )
 
