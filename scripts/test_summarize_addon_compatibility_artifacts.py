@@ -126,11 +126,13 @@ class AggregateCompatibilityAuditTest(unittest.TestCase):
         self.assertIn("example/RequiredAddon", summary)
         self.assertNotIn("example/AdvisoryAddon", summary)
 
-    def test_required_baseline_failure_blocks(self) -> None:
+    def test_required_baseline_failure_is_non_blocking_when_candidate_passed(self) -> None:
         self.write_status("required-addon", audit.BASELINE_BUILD_FAILED)
         self.write_status("advisory-addon", audit.PASS)
-        self.assertEqual(5, self.run_audit())
-        self.assertIn("**BLOCKED:**", self.summary.read_text(encoding="utf-8"))
+        self.assertEqual(0, self.run_audit())
+        summary = self.summary.read_text(encoding="utf-8")
+        self.assertIn("**PASS WITH ADVISORIES:**", summary)
+        self.assertIn(audit.BASELINE_BUILD_FAILED, summary)
 
 
 if __name__ == "__main__":
