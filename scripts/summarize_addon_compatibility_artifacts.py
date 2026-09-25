@@ -140,7 +140,7 @@ def render_summary(rows: list[dict[str, object]], counts: Counter[str]) -> str:
         "| Classification | Count | Meaning |",
         "| --- | ---: | --- |",
         f"| `{PASS}` | {pass_count} | Baseline + candidate source builds and binary linkage passed |",
-        f"| `{BASELINE_BUILD_FAILED}` | {baseline_count} | Addon also fails the known-good baseline; not evidence of a new Legacy regression |",
+        f"| `{BASELINE_BUILD_FAILED}` | {baseline_count} | Baseline source build failed, but candidate source build passed; binary baseline linkage unavailable |",
         f"| `{LEGACY_COMPATIBILITY_FAILED}` | {regression_count} | Baseline passes but candidate Legacy compatibility fails |",
         f"| `{INSTRUMENTATION_ERROR}` | {instrumentation_count} | Missing/invalid artifact or comparison harness failure |",
         "",
