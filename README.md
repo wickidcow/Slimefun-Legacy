@@ -22,7 +22,7 @@ Slimefun Legacy turns a normal Minecraft server into a modpack-like experience w
 [Report a Bug](https://github.com/wickidcow/Slimefun-Legacy/issues) ·
 [Release History](EVERYTHING_THAT_CHANGED.md)
 
-Current stable release: **4.1.59 — Admin Recovery Center & guided resource-pack recovery**. Development candidate: **4.1.60 — Stabilization & Validation Integrity**. ·
+Current stable release: **4.1.60 — Stabilization & Validation Integrity**. Development candidate: **4.1.61 — Performance & Hot-Path Efficiency**. ·
 [Contributing](CONTRIBUTING.md)
 
 </div>
