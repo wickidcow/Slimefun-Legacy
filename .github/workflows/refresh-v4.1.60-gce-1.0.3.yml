@@ -1,0 +1,183 @@
+name: Refresh v4.1.60 addon bundle with GCE 1.0.3
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/refresh-v4.1.60-gce-1.0.3.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    if: contains(github.event.head_commit.message, 'Refresh 4.1.60 addon bundle with GCE 1.0.3')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RELEASE_TAG: v4.1.60
+      RELEASE_CORE_COMMIT: 09f16ab0325b15153e5c84299d2bc9223810ff96
+      BUNDLE_NAME: SF_Addons_1.21.11-26.3.zip
+      EXPECTED_OLD_BUNDLE_SHA256: 2091e0d37234db87dcd1f98e8398eba9ef38479f09fef18c66d60fb2f64e7376
+      OLD_GCE_JAR: SF_GeneticChickEngineering1.0.2.jar
+      OLD_GCE_SHA256: bc6223526af1a066a010ad5c7117b5dfca8080f4c4c5757d16b8ee041d709448
+      NEW_GCE_JAR: SF_GeneticChickEngineering1.0.3.jar
+      NEW_GCE_SHA256: c0571e8c183378ed47621efe77078d8dc3df846bca59c5c8b1b7c590e2ca02e4
+      NEW_GCE_COMMIT: 3562de11a6c3445a4c26cdaec1bf7a852a87fd63
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Verify bundle matrix pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text())
+          if data.get('bundle_revision') != 90:
+              raise SystemExit(f"Expected bundle revision 90, got {data.get('bundle_revision')}")
+          row=next((x for x in data['addons'] if x['repository']=='wickidcow/SF_GeneticChickEngineering'), None)
+          if row is None or row.get('source_commit') != '3562de11a6c3445a4c26cdaec1bf7a852a87fd63':
+              raise SystemExit(f'GCE source pin mismatch: {row}')
+          PY
+
+      - name: Download and verify current published bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/current work/original work/updated work/new
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$BUNDLE_NAME" --dir work/current
+          test -s "work/current/$BUNDLE_NAME"
+          ACTUAL="$(sha256sum "work/current/$BUNDLE_NAME" | awk '{print $1}')"
+          if [[ "$ACTUAL" != "$EXPECTED_OLD_BUNDLE_SHA256" ]]; then
+            echo "Published bundle changed since this refresh was prepared: $ACTUAL" >&2
+            exit 1
+          fi
+          unzip -q "work/current/$BUNDLE_NAME" -d work/original
+          cp -a work/original/. work/updated/
+          test "$(sha256sum "work/original/$OLD_GCE_JAR" | awk '{print $1}')" = "$OLD_GCE_SHA256"
+
+      - name: Download and verify Genetic ChickEngineering 1.0.3
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release download v1.0.3             --repo wickidcow/SF_GeneticChickEngineering             --pattern "$NEW_GCE_JAR"             --dir work/new
+          test -s "work/new/$NEW_GCE_JAR"
+          test "$(sha256sum "work/new/$NEW_GCE_JAR" | awk '{print $1}')" = "$NEW_GCE_SHA256"
+
+      - name: Replace only GCE and update bundle metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm "work/updated/$OLD_GCE_JAR"
+          cp "work/new/$NEW_GCE_JAR" "work/updated/$NEW_GCE_JAR"
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+
+          root=Path('work/updated')
+          manifest_path=root/'SF_ADDON_MANIFEST.json'
+          manifest=json.loads(manifest_path.read_text(encoding='utf-8'))
+          if manifest.get('core_source_commit') != os.environ['RELEASE_CORE_COMMIT']:
+              raise SystemExit(
+                  f"Release-core provenance changed: {manifest.get('core_source_commit')}"
+              )
+          rows=[r for r in manifest.get('addons', []) if r.get('repository')=='wickidcow/SF_GeneticChickEngineering']
+          if len(rows) != 1:
+              raise SystemExit(f'Expected one GCE record, found {len(rows)}')
+          row=rows[0]
+          if row.get('jar') != os.environ['OLD_GCE_JAR'] or row.get('sha256') != os.environ['OLD_GCE_SHA256']:
+              raise SystemExit(f'Unexpected existing GCE manifest record: {row}')
+          row.update({
+              'commit': os.environ['NEW_GCE_COMMIT'],
+              'jar': os.environ['NEW_GCE_JAR'],
+              'source_jar': os.environ['NEW_GCE_JAR'],
+              'version': '1.0.3',
+              'sha256': os.environ['NEW_GCE_SHA256'],
+          })
+          manifest_path.write_text(json.dumps(manifest, indent=2)+'\n', encoding='utf-8')
+
+          jars=sorted(root.glob('*.jar'), key=lambda p:p.name)
+          (root/'SHA256SUMS.txt').write_text(
+              ''.join(f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n" for p in jars),
+              encoding='utf-8',
+          )
+          PY
+
+      - name: Prove all non-GCE addon JARs are byte-for-byte unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+
+          old=Path('work/original')
+          new=Path('work/updated')
+          old_map={p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in old.glob('*.jar') if not p.name.startswith('SF_GeneticChickEngineering')}
+          new_map={p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in new.glob('*.jar') if not p.name.startswith('SF_GeneticChickEngineering')}
+          if old_map != new_map:
+              missing=sorted(set(old_map)-set(new_map))
+              added=sorted(set(new_map)-set(old_map))
+              changed=sorted(k for k in set(old_map)&set(new_map) if old_map[k]!=new_map[k])
+              raise SystemExit(f'Non-GCE bundle contents changed: missing={missing}, added={added}, changed={changed}')
+          if len(new_map) != 44:
+              raise SystemExit(f'Expected 44 unchanged non-GCE addons, found {len(new_map)}')
+          print('Verified 44 non-GCE addon JARs are byte-for-byte unchanged.')
+          PY
+
+      - name: Rebuild and validate canonical bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd work/updated && sha256sum -c SHA256SUMS.txt)
+          test ! -e "work/updated/$OLD_GCE_JAR"
+          test -s "work/updated/$NEW_GCE_JAR"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('work/updated/SF_ADDON_MANIFEST.json').read_text())
+          jars=sorted(p.name for p in Path('work/updated').glob('*.jar'))
+          expected=sorted(r['jar'] for r in m['addons'])
+          if len(jars) != 45 or jars != expected:
+              raise SystemExit(f'Bundle/manifest mismatch: jars={len(jars)}, records={len(expected)}')
+          PY
+          rm -f "work/$BUNDLE_NAME"
+          (cd work/updated && zip -9 -q "../$BUNDLE_NAME" ./*)
+          unzip -tqq "work/$BUNDLE_NAME"
+          sha256sum "work/$BUNDLE_NAME" | tee work/new-bundle.sha256
+
+      - name: Replace only the v4.1.60 addon ZIP asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" "work/$BUNDLE_NAME" --repo "$GITHUB_REPOSITORY" --clobber
+          LOCAL="sha256:$(sha256sum "work/$BUNDLE_NAME" | awk '{print $1}')"
+          REMOTE="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | select(.name=="'"$BUNDLE_NAME"'") | .digest')"
+          test "$REMOTE" = "$LOCAL"
+          echo "Published $BUNDLE_NAME with digest $REMOTE"
+
+      - name: Add release-note refresh record
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > work/release-notes.md
+          if ! grep -Fq 'Post-release addon bundle refresh — September 25, 2026' work/release-notes.md; then
+            cat >> work/release-notes.md <<'EOF'
+
+          ## Post-release addon bundle refresh — September 25, 2026
+
+          The canonical addon ZIP was refreshed without changing the Slimefun Legacy 4.1.60 core JAR. Genetic ChickEngineering was updated from 1.0.2 to 1.0.3 to add the optional stacked Pocket Chicken behavior for Excitation Chambers. All other 44 addon JARs were preserved byte-for-byte from the original 4.1.60 bundle, and the bundle manifest/SHA-256 inventory were regenerated for the new GCE JAR.
+          EOF
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --notes-file work/release-notes.md
+          fi
