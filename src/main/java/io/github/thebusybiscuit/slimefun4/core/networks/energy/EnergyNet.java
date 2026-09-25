@@ -412,7 +412,9 @@ public class EnergyNet extends Network implements HologramOwner {
     }
 
     private long tickAllGenerators(@Nullable AtomicLong profiledTimestamp) {
-        Set<Location> explodedBlocks = new HashSet<>();
+        // Explosions/failures are exceptional. Do not allocate a HashSet on every healthy
+        // Energy Regulator tick just to prove that nothing needs removing.
+        Set<Location> explodedBlocks = null;
         long supply = 0;
 
         for (Map.Entry<Location, EnergyNetProvider> entry : generators.entrySet()) {
@@ -457,6 +459,9 @@ public class EnergyNet extends Network implements HologramOwner {
 
                 if (provider.willExplode(loc, data)) {
                     VanillaPowerStateBridge.sync(loc, false);
+                    if (explodedBlocks == null) {
+                        explodedBlocks = new HashSet<>();
+                    }
                     explodedBlocks.add(loc);
                     Slimefun.getDatabaseManager().getBlockDataController().removeBlock(loc);
 
@@ -474,6 +479,9 @@ public class EnergyNet extends Network implements HologramOwner {
                 }
             } catch (Exception | LinkageError throwable) {
                 VanillaPowerStateBridge.sync(loc, false);
+                if (explodedBlocks == null) {
+                    explodedBlocks = new HashSet<>();
+                }
                 explodedBlocks.add(loc);
                 new ErrorReport<>(throwable, loc, item);
             } finally {
@@ -485,7 +493,7 @@ public class EnergyNet extends Network implements HologramOwner {
         }
 
         // Remove all generators which have exploded or failed catastrophically.
-        if (!explodedBlocks.isEmpty()) {
+        if (explodedBlocks != null) {
             generators.keySet().removeAll(explodedBlocks);
         }
 
