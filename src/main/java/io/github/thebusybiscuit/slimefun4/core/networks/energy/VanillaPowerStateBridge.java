@@ -54,26 +54,45 @@ final class VanillaPowerStateBridge {
                 block.setBlockData(powerable, false);
             }
 
-            cache(location, powered, gameTime);
+            cache(location, powered, gameTime, cached);
         }
     }
 
-    private static void cache(@Nonnull Location location, boolean powered, long gameTime) {
-        if (LAST_APPLIED_STATE.size() >= MAX_CACHED_LOCATIONS && !LAST_APPLIED_STATE.containsKey(location)) {
+    private static void cache(
+            @Nonnull Location location, boolean powered, long gameTime, CachedState cached) {
+        long phase = Math.floorMod(location.hashCode(), REVALIDATE_INTERVAL_TICKS);
+        long nextValidationTick = gameTime + 1L;
+        long offset = Math.floorMod(
+                phase - Math.floorMod(nextValidationTick, REVALIDATE_INTERVAL_TICKS),
+                REVALIDATE_INTERVAL_TICKS);
+        nextValidationTick += offset;
+
+        /*
+         * This path is reached every periodic self-heal pass for every energy-network player head.
+         * Reuse the cache value already found by sync() instead of allocating both a new CachedState
+         * and a cloned Location key every 20 ticks when the location remains in the cache.
+         */
+        if (cached != null) {
+            cached.powered = powered;
+            cached.nextValidationTick = nextValidationTick;
+            return;
+        }
+
+        if (LAST_APPLIED_STATE.size() >= MAX_CACHED_LOCATIONS) {
             LAST_APPLIED_STATE.clear();
         }
 
-        long phase = Math.floorMod(location.hashCode(), REVALIDATE_INTERVAL_TICKS);
-        long nextValidationTick = gameTime + 1L;
-        long offset = Math.floorMod(phase - Math.floorMod(nextValidationTick, REVALIDATE_INTERVAL_TICKS), REVALIDATE_INTERVAL_TICKS);
-        nextValidationTick += offset;
-
-        LAST_APPLIED_STATE.put(location.clone(), new CachedState(powered, nextValidationTick));
+        CachedState created = new CachedState(powered, nextValidationTick);
+        CachedState raced = LAST_APPLIED_STATE.putIfAbsent(location.clone(), created);
+        if (raced != null) {
+            raced.powered = powered;
+            raced.nextValidationTick = nextValidationTick;
+        }
     }
 
     private static final class CachedState {
-        private final boolean powered;
-        private final long nextValidationTick;
+        private volatile boolean powered;
+        private volatile long nextValidationTick;
 
         private CachedState(boolean powered, long nextValidationTick) {
             this.powered = powered;
