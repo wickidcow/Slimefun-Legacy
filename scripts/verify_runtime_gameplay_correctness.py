@@ -137,10 +137,10 @@ def main() -> int:
     require_before(
         container,
         "if (!currentOperation.isFinished()) {",
-        "if (takeCharge(b.getLocation()))",
+        "if (takeCharge(location))",
         "finished check before machine energy charge",
     )
-    require(container, "if (takeCharge(b.getLocation()))", "energy-gated machine progress")
+    require(container, "if (takeCharge(location))", "energy-gated machine progress")
     require(container, "currentOperation.addProgress(1);", "machine operation progress")
     require(container, "ItemStack[] results = currentOperation.getResults();", "completed machine result snapshot")
     require(

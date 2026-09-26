@@ -20,7 +20,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.bukkit.Location;
@@ -58,6 +57,12 @@ public class EnergyNet extends Network implements HologramOwner {
      */
     private final EnergyStorageSnapshot capacitorStorageSnapshot = new EnergyStorageSnapshot();
     private final EnergyStorageSnapshot generatorStorageSnapshot = new EnergyStorageSnapshot();
+
+    /*
+     * Generator entries are profiled separately from the regulator. A primitive field is reused
+     * for the current tick so the regulator does not allocate an AtomicLong on every sampled pass.
+     */
+    private long generatorProfileNanos;
 
     private boolean transportStateDirty = true;
     private boolean transportPowered;
@@ -206,13 +211,15 @@ public class EnergyNet extends Network implements HologramOwner {
     public void tick(@Nonnull Block b, SlimefunBlockData blockData) {
         var profiler = Slimefun.getProfiler();
         long timestamp = profiler.newEntry();
-        AtomicLong profiledTimestamp = timestamp == 0L ? null : new AtomicLong(timestamp);
+        boolean profileGenerators = timestamp != 0L;
+        generatorProfileNanos = 0L;
 
-        boolean ownsNetwork = regulator.equals(b.getLocation());
+        Location regulatorLocation = blockData.getLocation();
+        boolean ownsNetwork = regulator.equals(regulatorLocation);
 
         try {
             if (!ownsNetwork) {
-                VanillaPowerStateBridge.sync(b.getLocation(), false);
+                VanillaPowerStateBridge.sync(regulatorLocation, false);
                 updateHologram(b, "&4Another regulator detected nearby", blockData::isPendingRemove);
 
                 return;
@@ -235,7 +242,7 @@ public class EnergyNet extends Network implements HologramOwner {
                 profiler.closePhase("EnergyNet", "hologram", phaseTimestamp);
             } else {
                 phaseTimestamp = profiler.startPhase();
-                long generatorsSupply = tickAllGenerators(profiledTimestamp);
+                long generatorsSupply = tickAllGenerators(profileGenerators);
                 profiler.closePhase("EnergyNet", "generators (separately profiled)", phaseTimestamp);
 
                 phaseTimestamp = profiler.startPhase();
@@ -321,10 +328,12 @@ public class EnergyNet extends Network implements HologramOwner {
                 generatorStorageSnapshot.clear();
             }
 
-            if (profiledTimestamp != null) {
+            if (timestamp != 0L) {
                 // Generator timings are added to the start timestamp so they are not reported twice.
                 profiler.closeEntry(
-                        b.getLocation(), SlimefunItems.ENERGY_REGULATOR.getItem(), profiledTimestamp.get());
+                        regulatorLocation,
+                        SlimefunItems.ENERGY_REGULATOR.getItem(),
+                        timestamp + generatorProfileNanos);
             }
         }
     }
@@ -411,7 +420,7 @@ public class EnergyNet extends Network implements HologramOwner {
         }
     }
 
-    private long tickAllGenerators(@Nullable AtomicLong profiledTimestamp) {
+    private long tickAllGenerators(boolean profileGenerators) {
         // Explosions/failures are exceptional. Do not allocate a HashSet on every healthy
         // Energy Regulator tick just to prove that nothing needs removing.
         Set<Location> explodedBlocks = null;
@@ -425,7 +434,7 @@ public class EnergyNet extends Network implements HologramOwner {
 
             EnergyNetProvider provider = entry.getValue();
             SlimefunItem item = (SlimefunItem) provider;
-            long timestamp = profiledTimestamp == null ? 0L : Slimefun.getProfiler().newEntry();
+            long timestamp = profileGenerators ? Slimefun.getProfiler().newEntry() : 0L;
 
             try {
                 var data = StorageCacheUtils.getDataContainer(loc);
@@ -487,7 +496,7 @@ public class EnergyNet extends Network implements HologramOwner {
             } finally {
                 if (timestamp != 0L) {
                     long time = Slimefun.getProfiler().closeEntry(loc, item, timestamp);
-                    profiledTimestamp.addAndGet(time);
+                    generatorProfileNanos += time;
                 }
             }
         }

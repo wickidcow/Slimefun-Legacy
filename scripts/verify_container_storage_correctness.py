@@ -53,12 +53,16 @@ def main() -> int:
     require(source, "private final ThreadLocal<TickContext> tickContext = new ThreadLocal<>()", "thread-local tick context")
     require(source, "private record TickContext(Location location, SlimefunBlockData data)", "tick context payload")
     require(source, "TickContext previous = tickContext.get()", "nested tick-context preservation")
-    require(source, "tickContext.set(new TickContext(b.getLocation(), data))", "loaded ticker-data capture")
+    require(source, "tickContext.set(new TickContext(data.getLocation(), data))", "loaded ticker-data capture")
     require(source, "try { AContainer.this.tick(b); } finally", "legacy virtual tick dispatch with cleanup")
     require(source, "tickContext.remove()", "thread-local cleanup")
     require(source, "tickContext.set(previous)", "nested tick-context restoration")
     require(source, "protected void tick(Block b)", "legacy protected tick hook")
-    require(source, "if (takeCharge(b.getLocation()))", "legacy virtual takeCharge dispatch")
+    require(source, "inv = context.data().getBlockMenu()", "loaded BlockMenu reuse")
+    require(source, "isSameBlock(b, context.location())", "tick-context block identity guard")
+    require(source, "location = b.getLocation();", "legacy fallback location lookup")
+    require(source, "inv = StorageCacheUtils.getMenu(location);", "legacy/fallback storage lookup")
+    require(source, "if (takeCharge(location))", "legacy virtual takeCharge dispatch")
     require(source, "protected boolean takeCharge(@Nonnull Location l)", "legacy protected takeCharge hook")
 
     # The current block may use the ticker's loaded SlimefunBlockData, but arbitrary locations

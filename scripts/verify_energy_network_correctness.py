@@ -81,21 +81,27 @@ def main() -> int:
 
     # Preserve the established network transaction order: collect supply, satisfy consumers,
     # then place the leftover back into network storage.
-    require(tick, "tickAllGenerators(profiledTimestamp)", "generator supply phase")
+    require(tick, "tickAllGenerators(profileGenerators)", "generator supply phase")
     require(tick, "tickAllCapacitors()", "capacitor supply phase")
     require(tick, "for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet())", "consumer phase")
     require(tick, "storeRemainingEnergy(remainingEnergy)", "leftover storage phase")
-    require_before(tick, "tickAllGenerators(profiledTimestamp)", "for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet())", "supply before consumers")
+    require_before(tick, "tickAllGenerators(profileGenerators)", "for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet())", "supply before consumers")
     require_before(tick, "for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet())", "storeRemainingEnergy(remainingEnergy)", "consumers before leftover storage")
 
     # Profiling must remain absent from the normal hot path while requested samples still close
     # generator entries across early-exit paths and exclude their elapsed time from the regulator.
-    require(tick, "AtomicLong profiledTimestamp = timestamp == 0L ? null : new AtomicLong(timestamp)", "lazy regulator profiler holder")
-    require(generators, "long timestamp = profiledTimestamp == null ? 0L : Slimefun.getProfiler().newEntry()", "generator profiler idle fast path")
+    require(tick, "boolean profileGenerators = timestamp != 0L", "primitive regulator profiler gate")
+    require(source_compact, "private long generatorProfileNanos", "reused generator profiler accumulator")
+    require(generators, "long timestamp = profileGenerators ? Slimefun.getProfiler().newEntry() : 0L", "generator profiler idle fast path")
     require(generators, "finally { if (timestamp != 0L)", "generator profiler finally close guard")
     require(generators, "Slimefun.getProfiler().closeEntry(loc, item, timestamp)", "generator profiler close")
-    require(generators, "profiledTimestamp.addAndGet(time)", "generator timing exclusion from regulator")
+    require(generators, "generatorProfileNanos += time", "generator profiler primitive accumulation")
+    require(tick, "timestamp + generatorProfileNanos", "generator time excluded from regulator profile")
+    require_absent(source_compact, "AtomicLong profiledTimestamp", "per-tick regulator profiler allocation")
     require(tick, 'var profiler = Slimefun.getProfiler()', "single EnergyNet profiler lookup")
+    require(tick, "Location regulatorLocation = blockData.getLocation()", "canonical regulator location reuse")
+    require(tick, "regulator.equals(regulatorLocation)", "regulator ownership lookup without Block location allocation")
+    require(tick, "VanillaPowerStateBridge.sync(regulatorLocation, false)", "duplicate regulator transport-state sync")
     require(tick, 'profiler.startPhase()', "requested EnergyNet phase timers")
     require(tick, 'closePhase("EnergyNet", "network discovery"', "network discovery phase")
     require(tick, 'closePhase("EnergyNet", "consumer distribution"', "consumer distribution phase")

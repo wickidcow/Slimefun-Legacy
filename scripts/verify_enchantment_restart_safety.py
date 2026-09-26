@@ -46,7 +46,7 @@ def main() -> int:
     require_before(
         container,
         "if (!canProgressOperation(inv, currentOperation))",
-        "if (takeCharge(b.getLocation()))",
+        "if (takeCharge(location))",
         "input validation before energy consumption",
     )
     require_before(
