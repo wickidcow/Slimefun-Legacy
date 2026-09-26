@@ -76,6 +76,7 @@ jobs:
               if pinned:
                   if not re.fullmatch(r'[0-9a-f]{40}', pinned):
                       raise SystemExit(f'Invalid pinned source_commit for {locked["repository"]}: {pinned}')
+                  locked['source_lock_origin'] = 'matrix'
                   return locked
 
               repository = locked['repository']
@@ -96,6 +97,7 @@ jobs:
               if not re.fullmatch(r'[0-9a-f]{40}', sha):
                   raise SystemExit(f'Invalid resolved source commit for {repository}: {sha}')
               locked['source_commit'] = sha
+              locked['source_lock_origin'] = 'head'
               return locked
 
           with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
@@ -188,6 +190,26 @@ jobs:
         with:
           name: sfl-26.3-candidate-core
           path: candidate-core
+      - name: Reject stale HEAD-resolved source lock on rerun
+        if: github.run_attempt > 1 && matrix.source_lock_origin == 'head'
+        env:
+          ADDON_REPOSITORY: ${{ matrix.repository }}
+          SOURCE_COMMIT: ${{ matrix.source_commit }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          CURRENT_HEAD="$(git ls-remote "https://github.com/${ADDON_REPOSITORY}.git" HEAD | awk 'NR == 1 { print $1 }')"
+          if [[ ! "$CURRENT_HEAD" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error title=Unable to verify addon source::Could not resolve current HEAD for ${ADDON_REPOSITORY}."
+            exit 1
+          fi
+          if [[ "$CURRENT_HEAD" != "$SOURCE_COMMIT" ]]; then
+            echo "::error title=Stale addon source lock::${ADDON_REPOSITORY} moved from ${SOURCE_COMMIT} to ${CURRENT_HEAD} after this workflow run was created."
+            echo "Do not reuse this workflow attempt for release validation."
+            echo "Start a fresh Build SF Addons 1.21.11-26.3 Bundle run so the prepare job resolves a new exact-source snapshot."
+            exit 1
+          fi
+
       - name: Clone maintained addon
         env:
           ADDON_REPOSITORY: ${{ matrix.repository }}
