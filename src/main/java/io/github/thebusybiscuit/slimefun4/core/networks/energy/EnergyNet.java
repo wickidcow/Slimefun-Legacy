@@ -208,11 +208,12 @@ public class EnergyNet extends Network implements HologramOwner {
         long timestamp = profiler.newEntry();
         AtomicLong profiledTimestamp = timestamp == 0L ? null : new AtomicLong(timestamp);
 
-        boolean ownsNetwork = regulator.equals(b.getLocation());
+        Location regulatorLocation = blockData.getLocation();
+        boolean ownsNetwork = regulator.equals(regulatorLocation);
 
         try {
             if (!ownsNetwork) {
-                VanillaPowerStateBridge.sync(b.getLocation(), false);
+                VanillaPowerStateBridge.sync(regulatorLocation, false);
                 updateHologram(b, "&4Another regulator detected nearby", blockData::isPendingRemove);
 
                 return;
@@ -324,7 +325,7 @@ public class EnergyNet extends Network implements HologramOwner {
             if (profiledTimestamp != null) {
                 // Generator timings are added to the start timestamp so they are not reported twice.
                 profiler.closeEntry(
-                        b.getLocation(), SlimefunItems.ENERGY_REGULATOR.getItem(), profiledTimestamp.get());
+                        regulatorLocation, SlimefunItems.ENERGY_REGULATOR.getItem(), profiledTimestamp.get());
             }
         }
     }
