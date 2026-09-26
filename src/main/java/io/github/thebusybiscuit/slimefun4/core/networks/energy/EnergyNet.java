@@ -363,9 +363,6 @@ public class EnergyNet extends Network implements HologramOwner {
 
         for (int i = 0; i < capacitorStorageSnapshot.size; i++) {
             Location loc = capacitorStorageSnapshot.locations[i];
-            if (!isEnergyLocationAccessible(loc)) {
-                continue;
-            }
 
             ASlimefunDataContainer data = capacitorStorageSnapshot.containers[i];
             EnergyNetComponent cached = capacitorStorageSnapshot.components[i];
@@ -403,9 +400,6 @@ public class EnergyNet extends Network implements HologramOwner {
 
         for (int i = 0; i < generatorStorageSnapshot.size; i++) {
             Location loc = generatorStorageSnapshot.locations[i];
-            if (!isEnergyLocationAccessible(loc)) {
-                continue;
-            }
 
             ASlimefunDataContainer data = generatorStorageSnapshot.containers[i];
             EnergyNetProvider cached = (EnergyNetProvider) generatorStorageSnapshot.components[i];
@@ -560,7 +554,11 @@ public class EnergyNet extends Network implements HologramOwner {
             long capacity = getSafeCapacity(component, loc);
             long charge = getSafeCharge(component, loc, data, capacity);
             capacitorStorageSnapshot.add(loc, component, data, capacity, charge);
-            VanillaPowerStateBridge.sync(loc, charge > 0);
+            /*
+             * The same capacitor is presented again after the EnergyNet transaction stores the
+             * final charge. Avoid an intermediate player-head state write for the pre-consumption
+             * snapshot; storeRemainingEnergy owns the authoritative presentation update.
+             */
             supply = NumberUtils.flowSafeAddition(supply, charge);
         }
 
