@@ -9,6 +9,7 @@
 - Released SF_JustEnoughGuide 2.1.67 for issue #264: restored the centered 3x3 recipe grid, removed the duplicate machine-recipe slot, stopped duplicate first-join guide delivery, and re-exposed Legacy's lazy/TPS-budgeted "Recipes Using This Item" browser while preserving the public guide ownership API.
 - Issue #264 is a JEG/Legacy integration regression; no InfinityExpansion2 changes are required for it.
 - Released MobDrops 1.0.4 with forked javac isolation so Java 25 / Paper 26.3 compatibility checks no longer die in Maven's in-process compiler path; Java 21 runtime bytecode and mob-drop gameplay remain unchanged.
+- Released SlimefunAdvancements 1.0.7 with forked javac isolation and reflection-only optional JEG search-history integration, removing a stale hard build dependency while preserving the classic guide fallback.
 - Continued maintained-addon deprecation cleanup as a release gate rather than suppressing removal warnings.
 - Hardened addon compatibility probing so the exact maintained `com.github.wickidcow:Slimefun-Legacy` dependency coordinate is rewritten to the exact candidate core rather than accidentally resolving an old public artifact.
 - Preserved EnergyNet distribution order, machine recipe precedence, Networks routing order, transfer limits/cadence, storage identities, item/research IDs, and saved-world formats.
