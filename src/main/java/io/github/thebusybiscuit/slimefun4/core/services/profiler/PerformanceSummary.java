@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.ToIntFunction;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import net.md_5.bungee.api.ChatColor;
@@ -63,7 +64,7 @@ class PerformanceSummary {
         sender.sendMessage(ChatColor.GOLD + "Performance rating: " + getPerformanceRating());
         sender.sendMessage("");
 
-        summarizeTimings(totalTickedBlocks, "block", sender, items, entry -> {
+        summarizeTimings(totalTickedBlocks, "block", sender, items, profiler::getBlocksOfId, entry -> {
             int count = profiler.getBlocksOfId(entry.getKey());
             String time = NumberUtils.getAsMillis(entry.getValue());
             String message = entry.getKey() + " - " + count + "x (%s)";
@@ -89,7 +90,7 @@ class PerformanceSummary {
 
         sendPhaseDiagnostics(sender);
 
-        summarizeTimings(chunks.size(), "chunk", sender, chunks, entry -> {
+        summarizeTimings(chunks.size(), "chunk", sender, chunks, profiler::getBlocksInChunk, entry -> {
             int count = profiler.getBlocksInChunk(entry.getKey());
             String time = NumberUtils.getAsMillis(entry.getValue());
             String hotspot = profiler.getHottestBlockInChunk(entry.getKey());
@@ -99,7 +100,7 @@ class PerformanceSummary {
             return chunkLabel + hotspotLabel + " - " + count + " block" + (count != 1 ? 's' : "") + " (" + time + ")";
         });
 
-        summarizeTimings(plugins.size(), "plugin", sender, plugins, entry -> {
+        summarizeTimings(plugins.size(), "plugin", sender, plugins, profiler::getBlocksFromPlugin, entry -> {
             int count = profiler.getBlocksFromPlugin(entry.getKey());
             String total = NumberUtils.getAsMillis(entry.getValue());
             String average = NumberUtils.getAsMillis(entry.getValue() / Math.max(1, count));
@@ -168,9 +169,10 @@ class PerformanceSummary {
             String name,
             PerformanceInspector inspector,
             Map<String, Long> map,
+            ToIntFunction<String> sampleCountResolver,
             Function<Map.Entry<String, Long>, String> formatter) {
         Set<Entry<String, Long>> entrySet = map.entrySet();
-        List<Entry<String, Long>> results = inspector.getOrderType().sort(profiler, entrySet);
+        List<Entry<String, Long>> results = inspector.getOrderType().sort(entrySet, sampleCountResolver);
         String prefix = count + " " + name + (count != 1 ? 's' : "");
 
         if (inspector instanceof PlayerPerformanceInspector playerPerformanceInspector) {
