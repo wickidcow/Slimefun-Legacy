@@ -527,6 +527,31 @@ public class SlimefunProfiler {
     }
 
     @Nonnull
+    protected PluginTimingStats getPluginTimingStats(@Nonnull String pluginName) {
+        Validate.notNull(pluginName, "The Plugin name cannot be null!");
+
+        List<Map.Entry<ProfiledBlock, Long>> matches = new ArrayList<>();
+        for (Map.Entry<ProfiledBlock, Long> entry : timings.entrySet()) {
+            if (entry.getKey().getAddon().getName().equals(pluginName)) {
+                matches.add(entry);
+            }
+        }
+
+        if (matches.isEmpty()) {
+            return PluginTimingStats.EMPTY;
+        }
+
+        matches.sort(Comparator.comparingLong(Map.Entry::getValue));
+        int p95Index = Math.max(0, (int) Math.ceil(matches.size() * 0.95D) - 1);
+        long p95 = matches.get(p95Index).getValue();
+        Map.Entry<ProfiledBlock, Long> hottest = matches.get(matches.size() - 1);
+        ProfiledBlock block = hottest.getKey();
+        String location = block.getWorld().getName() + " " + block.getX() + "," + block.getY() + "," + block.getZ();
+
+        return new PluginTimingStats(p95, hottest.getValue(), block.getId(), location);
+    }
+
+    @Nonnull
     protected Map<String, Long> getByPlugin() {
         Map<String, Long> map = new HashMap<>();
 
@@ -767,6 +792,11 @@ public class SlimefunProfiler {
 
     record ItemTimingStats(long p95Nanos, long maxNanos, @Nonnull String hottestLocation) {
         private static final ItemTimingStats EMPTY = new ItemTimingStats(0L, 0L, "");
+    }
+
+    record PluginTimingStats(
+            long p95Nanos, long maxNanos, @Nonnull String hottestItemId, @Nonnull String hottestLocation) {
+        private static final PluginTimingStats EMPTY = new PluginTimingStats(0L, 0L, "", "");
     }
 
     record PhaseTimingStats(@Nonnull String phase, long totalNanos, long samples) {}
