@@ -6,6 +6,7 @@ import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeDispl
 import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeIngredient;
 import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeProvider;
 import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeProviderRegistry;
+import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuideImplementation;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
@@ -43,7 +44,8 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 /**
- * Provides the Enhanced Guide 4.2 reverse recipe browser.
+ * Provides Slimefun Legacy's budgeted reverse recipe browser for the native enhanced guide and
+ * supported external guide implementations such as SF_JustEnoughGuide.
  *
  * <p>Normal item pages remain intentionally cheap. Decorating a page only installs a protected button and checks an
  * already-built per-world cache. The first explicit click starts a bounded, incremental reverse-index build. Only a
@@ -104,7 +106,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
     public void decorateItemPage(
             @Nonnull Player player,
             @Nonnull PlayerProfile profile,
-            @Nonnull EnhancedSurvivalSlimefunGuide guide,
+            @Nonnull SlimefunGuideImplementation guide,
             @Nonnull SlimefunItem target) {
         contexts.remove(player.getUniqueId());
 
@@ -766,7 +768,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
     private record ButtonContext(
             Inventory guideInventory,
             PlayerProfile profile,
-            EnhancedSurvivalSlimefunGuide guide,
+            SlimefunGuideImplementation guide,
             SlimefunItem target,
             int buttonSlot,
             long expiresAt) {}
