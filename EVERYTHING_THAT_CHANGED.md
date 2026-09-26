@@ -1,3 +1,23 @@
+# Slimefun Legacy 4.1.61 — Performance, Guide Cleanup & Compatibility Modernization
+
+- Reduced Energy Regulator overhead with same-tick source snapshots, no-op charge-write elimination, primitive generator profiling, reusable vanilla power-state cache entries, and skipped unchanged hologram work between periodic self-heal refreshes.
+- Reduced `AContainer` hot-path work by reusing the loaded storage/menu context, reusing per-thread recipe-scan arrays, snapshotting input slots once, and rejecting impossible recipes by Material before exact Slimefun item matching.
+- Reduced Electric Smeltery cargo-routing overhead by replacing boxed slot lists/sorting with primitive buffers while preserving partial-stack-first and smallest-stack-first routing. InfinityExpansion2 Void Smelteries inherit the core improvements automatically.
+- Released Networks 1.0.34 with stable controller-root reuse, transfer limiter fast paths, lower ticker/cache Location churn, direct topology traversal in network reads/writes, lazy miss-list allocation, lower access-history key churn, and Auto Crafter preflight-request reuse.
+- Released Supreme 1.0.16 with lower idle Magical/Core recipe work, consolidated idle state, precomputed recipe transport templates, and preserved staged-input/rollback/persistence behavior.
+- Released MilitaryArsenal 1.1.8 with deprecated ticker, metadata, inventory-title/color, and enchantment-registry APIs removed so strict maintained-addon candidate builds remain clean.
+- Released SF_JustEnoughGuide 2.1.67 for issue #264: restored the centered 3x3 recipe grid, removed the duplicate machine-recipe slot, stopped duplicate first-join guide delivery, and re-exposed Legacy's lazy/TPS-budgeted "Recipes Using This Item" browser while preserving the public guide ownership API.
+- Issue #264 is a JEG/Legacy integration regression; no InfinityExpansion2 changes are required for it.
+- Released MobDrops 1.0.4 with forked javac isolation so Java 25 / Paper 26.3 compatibility checks no longer die in Maven's in-process compiler path; Java 21 runtime bytecode and mob-drop gameplay remain unchanged.
+- Released SlimefunAdvancements 1.0.7 with forked javac isolation and reflection-only optional JEG search-history integration, removing a stale hard build dependency while preserving the classic guide fallback.
+- Continued maintained-addon deprecation cleanup as a release gate rather than suppressing removal warnings.
+- Hardened addon compatibility probing so the exact maintained `com.github.wickidcow:Slimefun-Legacy` dependency coordinate is rewritten to the exact candidate core rather than accidentally resolving an old public artifact.
+- Preserved EnergyNet distribution order, machine recipe precedence, Networks routing order, transfer limits/cadence, storage identities, item/research IDs, and saved-world formats.
+- Paper 26.2 remains the production baseline. Paper 26.3 remains a pre-release/candidate validation line.
+
+
+---
+
 # Slimefun Legacy 4.1.60 — Stabilization & Validation Integrity
 
 - Stabilized the 4.1.59 Recovery Center/Doctor surface without changing its admin-only permission boundary or adding automatic migration/model cleanup.
