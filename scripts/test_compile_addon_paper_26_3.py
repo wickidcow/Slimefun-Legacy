@@ -166,6 +166,11 @@ def test_gradle_init_script_guards_both_stacks() -> None:
         text = script.read_text(encoding="utf-8")
         assert "details.useTarget(\"com.github.slimefun:Slimefun:${probeSlimefunVersion}\")" in text
         assert "details.useTarget(\"io.papermc.paper:paper-api:${probePaperVersion}\")" in text
+        assert "maintainedJegVersion = '2.1.67'" in text
+        assert "isMaintainedJegRedirect" in text
+        assert "com.github.wickidcow.release:SF_JustEnoughGuide:${maintainedJegVersion}" in text
+        assert "https://github.com/wickidcow/SF_JustEnoughGuide/releases/download" in text
+        assert "includeGroup('com.github.wickidcow.release')" in text
         assert "org.spigotmc" in text
         assert "org.bukkit" in text
         assert "org.purpurmc.purpur" in text
