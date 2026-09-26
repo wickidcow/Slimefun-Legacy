@@ -156,12 +156,24 @@ def main() -> int:
 
     # High-speed AContainer machines can run this path thousands of times per profile window.
     # Preserve the historical one-input-per-slot behavior while keeping recipe scans allocation-light.
+    require(container_source, "ThreadLocal<RecipeScanScratch> recipeScanScratch", "thread-local recipe scan scratch")
+    require(container_source, "private static final class RecipeScanScratch", "recipe scan scratch payload")
+    require(container_source, "inventory = new ItemStack[size]", "scratch inventory growth")
+    require(container_source, "usedSlots = new boolean[size]", "scratch slot-use growth")
+    require(container_source, "consumeAmounts = new int[size]", "scratch consume-amount growth")
     require(container_recipe_scan, "int[] inputSlots = getInputSlots()", "single input-slot snapshot")
-    require(container_recipe_scan, "ItemStack[] inventory = new ItemStack[inputSlots.length]", "array inventory snapshot")
-    require(container_recipe_scan, "boolean[] usedSlots = new boolean[inputSlots.length]", "slot-use tracking")
-    require(container_recipe_scan, "int[] consumeAmounts = new int[inputSlots.length]", "consume amount tracking")
+    require(container_recipe_scan, "RecipeScanScratch scratch = recipeScanScratch.get()", "scratch reuse")
+    require(container_recipe_scan, "ItemStack[] inventory = scratch.inventory", "reused inventory buffer")
+    require(container_recipe_scan, "boolean[] usedSlots = scratch.usedSlots", "reused slot-use buffer")
+    require(container_recipe_scan, "int[] consumeAmounts = scratch.consumeAmounts", "reused consume-amount buffer")
+    require(container_recipe_scan, "Material anchorType = recipeInputs[0].getType()", "first-input material recipe prefilter")
+    require(container_recipe_scan, "if (!anchorPresent)", "impossible recipe early skip")
+    require(container_recipe_scan, "var itemStackService = Slimefun.getItemStackService()", "single item-stack service lookup")
     require(container_recipe_scan, "candidate.getType() != input.getType()", "cheap material prefilter")
     require(container_recipe_scan, "if (usedSlots[i])", "one recipe input per physical slot")
+    require_absent(container_recipe_scan, "new ItemStack[inputSlots.length]", "per-scan inventory array allocation")
+    require_absent(container_recipe_scan, "new boolean[inputSlots.length]", "per-scan used-slot allocation")
+    require_absent(container_recipe_scan, "new int[inputSlots.length]", "per-scan consume-amount allocation")
     require_absent(container_recipe_scan, "new HashMap", "per-tick recipe-scan HashMap allocation")
     require_absent(container_recipe_scan, "getInputSlots())", "repeated virtual input-slot lookup inside scan loops")
 
