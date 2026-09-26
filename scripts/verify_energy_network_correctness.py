@@ -72,6 +72,7 @@ def main() -> int:
     capacitors = compact(method_body(source, "tickAllCapacitors"))
     storage = compact(method_body(source, "storeRemainingEnergy"))
     transport = compact(method_body(source, "syncNetworkTransportState"))
+    hologram = compact(method_body(source, "updateHologram"))
     accessible = compact(method_body(source, "isEnergyLocationAccessible"))
     safe_capacity = compact(method_body(source, "getSafeCapacity"))
     safe_charge = compact(method_body(source, "getSafeCharge"))
@@ -127,6 +128,25 @@ def main() -> int:
         "stable-state fast path before connector walk",
     )
 
+    # The visible net-gain/loss label is presentation state. Avoid rebuilding the compact number
+    # and entering the hologram service every tick when the exact displayed delta is unchanged.
+    require(source_compact, "HOLOGRAM_REVALIDATE_INTERVAL = 20", "hologram revalidation interval")
+    require(source_compact, "private long lastHologramDeltaBits = Long.MIN_VALUE", "hologram value cache")
+    require(source_compact, "private long nextHologramValidationTick", "hologram revalidation deadline")
+    require(tick, "invalidateHologramValueCache()", "status-path hologram cache invalidation")
+    require(tick, "updateHologram(b, blockData, supply, demand)", "active hologram block reuse")
+    require(hologram, "Double.doubleToLongBits(delta)", "exact hologram delta comparison")
+    require(hologram, "deltaBits == lastHologramDeltaBits", "unchanged hologram fast path")
+    require(hologram, "gameTime < nextHologramValidationTick", "periodic hologram self-heal gate")
+    require_before(
+        hologram,
+        "if (deltaBits == lastHologramDeltaBits && gameTime < nextHologramValidationTick)",
+        "NumberUtils.getCompactDouble",
+        "hologram fast path before string formatting",
+    )
+    require(hologram, "regulatorBlock", "existing regulator Block reuse")
+    require_absent(hologram, "data.getLocation().getBlock()", "duplicate regulator Block lookup")
+
     # Paper accessibility is not a chunk-loaded guarantee. Energy state must never force or
     # touch an unloaded component chunk.
     require(accessible, "isLocationAccessible(location)", "Folia ownership guard")
@@ -163,6 +183,9 @@ def main() -> int:
     require(storage, "generatorStorageSnapshot.charges[i]", "cached generator charge reuse")
     require(storage, "if (stored != previousCharge)", "skip unchanged source charge writes")
     require_absent(storage, "StorageCacheUtils.getDataContainer", "duplicate remainder-storage data lookup")
+    require_absent(storage, "isEnergyLocationAccessible(loc)", "same-tick source accessibility recheck")
+    require_absent(capacitors, "VanillaPowerStateBridge.sync(loc, charge > 0)", "pre-storage capacitor presentation sync")
+    require(storage, "VanillaPowerStateBridge.sync(loc, stored > 0)", "final capacitor presentation sync")
     require(generators, "Set<Location> explodedBlocks = null", "lazy generator failure-set allocation")
     require(generators, "if (explodedBlocks == null)", "on-demand generator failure-set creation")
     require(generators, "if (explodedBlocks != null)", "conditional failed-generator cleanup")
