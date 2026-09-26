@@ -361,7 +361,9 @@ public abstract class AContainer extends SlimefunItem
             @Override
             public void tick(Block b, SlimefunItem sf, SlimefunBlockData data) {
                 TickContext previous = tickContext.get();
-                tickContext.set(new TickContext(b.getLocation(), data));
+                // SlimefunBlockData already owns the canonical block location; do not allocate
+                // Block#getLocation() for every container tick.
+                tickContext.set(new TickContext(data.getLocation(), data));
 
                 try {
                     AContainer.this.tick(b);
@@ -382,7 +384,20 @@ public abstract class AContainer extends SlimefunItem
     }
 
     protected void tick(Block b) {
-        BlockMenu inv = StorageCacheUtils.getMenu(b.getLocation());
+        TickContext context = tickContext.get();
+        Location location;
+        BlockMenu inv;
+
+        if (context != null && isSameBlock(b, context.location())) {
+            location = context.location();
+            // The ticker already resolved this exact SlimefunBlockData. Reuse its live menu
+            // instead of looking the same block up in StorageCacheUtils again.
+            inv = context.data().getBlockMenu();
+        } else {
+            location = b.getLocation();
+            inv = StorageCacheUtils.getMenu(location);
+        }
+
         if (inv == null) {
             return;
         }
@@ -395,7 +410,7 @@ public abstract class AContainer extends SlimefunItem
                     return;
                 }
 
-                if (takeCharge(b.getLocation())) {
+                if (takeCharge(location)) {
                     processor.updateProgressBar(inv, 22, currentOperation);
                     currentOperation.addProgress(1);
                 }
@@ -418,7 +433,7 @@ public abstract class AContainer extends SlimefunItem
                 ItemStack remainder = inv.pushItem(output.clone(), getOutputSlots());
                 if (remainder != null) {
                     ItemStack overflow = remainder.clone();
-                    Location overflowLocation = b.getLocation();
+                    Location overflowLocation = location;
                     Slimefun.runSyncAt(
                             overflowLocation,
                             () -> overflowLocation.getWorld().dropItemNaturally(overflowLocation, overflow));
@@ -439,6 +454,13 @@ public abstract class AContainer extends SlimefunItem
             // Fixes #3534 - Update indicator immediately
             processor.updateProgressBar(inv, 22, currentOperation);
         }
+    }
+
+    private static boolean isSameBlock(@Nonnull Block block, @Nonnull Location location) {
+        return block.getWorld() == location.getWorld()
+                && block.getX() == location.getBlockX()
+                && block.getY() == location.getBlockY()
+                && block.getZ() == location.getBlockZ();
     }
 
     @ParametersAreNonnullByDefault
