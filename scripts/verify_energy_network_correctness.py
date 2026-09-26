@@ -90,10 +90,14 @@ def main() -> int:
 
     # Profiling must remain absent from the normal hot path while requested samples still close
     # generator entries across early-exit paths and exclude their elapsed time from the regulator.
-    require(tick, "AtomicLong profiledTimestamp = timestamp == 0L ? null : new AtomicLong(timestamp)", "lazy regulator profiler holder")
-    require(generators, "long timestamp = profiledTimestamp == null ? 0L : Slimefun.getProfiler().newEntry()", "generator profiler idle fast path")
+    require(tick, "boolean profileGenerators = timestamp != 0L", "primitive regulator profiler gate")
+    require(source_compact, "private long generatorProfileNanos", "reused generator profiler accumulator")
+    require(generators, "long timestamp = profileGenerators ? Slimefun.getProfiler().newEntry() : 0L", "generator profiler idle fast path")
     require(generators, "finally { if (timestamp != 0L)", "generator profiler finally close guard")
     require(generators, "Slimefun.getProfiler().closeEntry(loc, item, timestamp)", "generator profiler close")
+    require(generators, "generatorProfileNanos += time", "generator profiler primitive accumulation")
+    require(tick, "timestamp + generatorProfileNanos", "generator time excluded from regulator profile")
+    require_absent(source_compact, "AtomicLong profiledTimestamp", "per-tick regulator profiler allocation")
     require(generators, "profiledTimestamp.addAndGet(time)", "generator timing exclusion from regulator")
     require(tick, 'var profiler = Slimefun.getProfiler()', "single EnergyNet profiler lookup")
     require(tick, "Location regulatorLocation = blockData.getLocation()", "canonical regulator location reuse")
