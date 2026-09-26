@@ -469,6 +469,7 @@ jobs:
           records = [json.loads(p.read_text(encoding='utf-8')) for p in sorted(Path('collected/metadata').glob('*.json'))]
           out = {
               'bundle': source['bundle_name'],
+              'bundle_revision': source['bundle_revision'],
               'core_source_commit': os.environ['GITHUB_SHA'],
               'artifact_naming': source['artifact_naming'],
               'compatibility': source['compatibility'],

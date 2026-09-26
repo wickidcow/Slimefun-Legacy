@@ -8,6 +8,12 @@ on:
     paths:
       - gradle.properties
       - 'docs/releases/**'
+      - '.github/workflows/reproducible-release.yml'
+      - '.github/workflows/build-sfl-addons-compat-bundle.yml'
+      - 'compatibility/sfl-addon-release-matrix.json'
+      - 'scripts/compile_addon_paper_26_3.py'
+      - 'scripts/paper_candidate_versions.py'
+      - 'scripts/test_paper_candidate_versions.py'
 
 permissions:
   contents: write
@@ -163,13 +169,20 @@ jobs:
 
           root = Path('bundle-check')
           manifest = json.loads((root / 'SF_ADDON_MANIFEST.json').read_text(encoding='utf-8'))
+          matrix = json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text(encoding='utf-8'))
           records = manifest.get('addons', [])
           expected = sorted(row['jar'] for row in records)
           actual = sorted(path.name for path in root.glob('*.jar'))
           versions = manifest.get('compatibility', {}).get('minecraft_versions', {})
           bundle_core_commit = manifest.get('core_source_commit')
           release_core_commit = os.environ['GITHUB_SHA']
+          bundle_revision = manifest.get('bundle_revision')
+          expected_bundle_revision = matrix.get('bundle_revision')
 
+          if bundle_revision != expected_bundle_revision:
+              raise SystemExit(
+                  f'Addon bundle revision mismatch: bundle={bundle_revision}, expected={expected_bundle_revision}'
+              )
           if bundle_core_commit != release_core_commit:
               raise SystemExit(
                   f'Addon bundle/core source mismatch: bundle={bundle_core_commit}, release={release_core_commit}'
@@ -184,11 +197,16 @@ jobs:
               if (not name.startswith('SF_') and not reborn) or not name.endswith('.jar'):
                   raise SystemExit(f'Canonical addon bundle contains an invalid public addon filename: {name}')
 
-          print(f'Validated exact-source canonical addon bundle with {len(expected)} addon JARs')
+          print(
+              f'Validated exact-source canonical addon bundle revision {bundle_revision} '
+              f'with {len(expected)} addon JARs'
+          )
           PY
 
           BUNDLE_SHA="$(sha256sum "$BUNDLE" | awk '{print $1}')"
+          BUNDLE_REVISION="$(python3 -c "import json; print(json.load(open('bundle-check/SF_ADDON_MANIFEST.json'))['bundle_revision'])")"
           echo "Canonical addon bundle source: exact release commit $GITHUB_SHA (Actions run ${RUN_ID})" >> "$GITHUB_STEP_SUMMARY"
+          echo "Canonical addon bundle revision: ${BUNDLE_REVISION}" >> "$GITHUB_STEP_SUMMARY"
           echo "Canonical addon bundle SHA-256: ${BUNDLE_SHA}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload raw reproducible JAR artifact
