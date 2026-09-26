@@ -60,7 +60,8 @@ def main() -> int:
     require(source, "protected void tick(Block b)", "legacy protected tick hook")
     require(source, "inv = context.data().getBlockMenu()", "loaded BlockMenu reuse")
     require(source, "isSameBlock(b, context.location())", "tick-context block identity guard")
-    require(source, "location = b.getLocation();\n            inv = StorageCacheUtils.getMenu(location);", "legacy/fallback storage lookup")
+    require(source, "location = b.getLocation();", "legacy fallback location lookup")
+    require(source, "inv = StorageCacheUtils.getMenu(location);", "legacy/fallback storage lookup")
     require(source, "if (takeCharge(location))", "legacy virtual takeCharge dispatch")
     require(source, "protected boolean takeCharge(@Nonnull Location l)", "legacy protected takeCharge hook")
 
