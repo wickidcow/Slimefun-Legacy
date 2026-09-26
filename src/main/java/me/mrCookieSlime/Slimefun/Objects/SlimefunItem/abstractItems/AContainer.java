@@ -67,12 +67,34 @@ public abstract class AContainer extends SlimefunItem
 
     private final MachineProcessor<CraftingOperation> processor = new MachineProcessor<>(this);
     private final ThreadLocal<TickContext> tickContext = new ThreadLocal<>();
+    /*
+     * AContainer recipe scans run very frequently on fast machines. Keep the tiny scratch buffers
+     * per ticking thread so a scan does not allocate three new arrays for every machine pass.
+     */
+    private final ThreadLocal<RecipeScanScratch> recipeScanScratch =
+            ThreadLocal.withInitial(RecipeScanScratch::new);
 
     private int energyConsumedPerTick = -1;
     private int energyCapacity = -1;
     private int processingSpeed = -1;
 
     private record TickContext(Location location, SlimefunBlockData data) {}
+
+    private static final class RecipeScanScratch {
+        private ItemStack[] inventory = new ItemStack[0];
+        private boolean[] usedSlots = new boolean[0];
+        private int[] consumeAmounts = new int[0];
+
+        private void ensureCapacity(int size) {
+            if (inventory.length >= size) {
+                return;
+            }
+
+            inventory = new ItemStack[size];
+            usedSlots = new boolean[size];
+            consumeAmounts = new int[size];
+        }
+    }
 
     @ParametersAreNonnullByDefault
     protected AContainer(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
@@ -531,29 +553,53 @@ public abstract class AContainer extends SlimefunItem
 
         /*
          * This is one of the hottest paths for high-speed AContainer machines. Keep the exact
-         * historical one-recipe-input-per-physical-slot matching semantics, but avoid allocating
-         * two HashMaps and repeatedly rebuilding the input-slot array for every recipe candidate.
+         * historical one-recipe-input-per-physical-slot matching semantics, but reuse per-thread
+         * scratch arrays and reject impossible recipes by their first input Material before invoking
+         * Slimefun's comparatively expensive metadata-aware item matcher.
          */
         int[] inputSlots = getInputSlots();
-        ItemStack[] inventory = new ItemStack[inputSlots.length];
+        RecipeScanScratch scratch = recipeScanScratch.get();
+        scratch.ensureCapacity(inputSlots.length);
+
+        ItemStack[] inventory = scratch.inventory;
+        boolean[] usedSlots = scratch.usedSlots;
+        int[] consumeAmounts = scratch.consumeAmounts;
 
         for (int i = 0; i < inputSlots.length; i++) {
             ItemStack item = inv.getItemInSlot(inputSlots[i]);
-            if (item != null) {
-                inventory[i] = ItemStackWrapper.wrap(item);
-            }
+            inventory[i] = item == null ? null : ItemStackWrapper.wrap(item);
         }
 
-        boolean[] usedSlots = new boolean[inputSlots.length];
-        int[] consumeAmounts = new int[inputSlots.length];
+        var itemStackService = Slimefun.getItemStackService();
 
         for (MachineRecipe recipe : recipes) {
-            for (int i = 0; i < usedSlots.length; i++) {
+            ItemStack[] recipeInputs = recipe.getInput();
+
+            /*
+             * The first recipe input is a necessary condition for a match. Electric Smeltery-style
+             * machines can carry hundreds of recipes but normally expose only one or two input slots;
+             * this cheap Material check avoids full metadata comparisons for almost every candidate.
+             */
+            if (recipeInputs.length > 0) {
+                Material anchorType = recipeInputs[0].getType();
+                boolean anchorPresent = false;
+                for (int i = 0; i < inputSlots.length; i++) {
+                    ItemStack candidate = inventory[i];
+                    if (candidate != null && candidate.getType() == anchorType) {
+                        anchorPresent = true;
+                        break;
+                    }
+                }
+                if (!anchorPresent) {
+                    continue;
+                }
+            }
+
+            for (int i = 0; i < inputSlots.length; i++) {
                 usedSlots[i] = false;
                 consumeAmounts[i] = 0;
             }
 
-            ItemStack[] recipeInputs = recipe.getInput();
             int found = 0;
 
             for (ItemStack input : recipeInputs) {
@@ -568,8 +614,7 @@ public abstract class AContainer extends SlimefunItem
                         continue;
                     }
 
-                    if (Slimefun.getItemStackService()
-                            .isSimilar(candidate, input, MatchContext.RECIPE_INPUT, true, true)) {
+                    if (itemStackService.isSimilar(candidate, input, MatchContext.RECIPE_INPUT, true, true)) {
                         usedSlots[i] = true;
                         consumeAmounts[i] = input.getAmount();
                         found++;
@@ -579,8 +624,7 @@ public abstract class AContainer extends SlimefunItem
             }
 
             if (found == recipeInputs.length) {
-                if (!Slimefun.getItemStackService()
-                        .fitAll(
+                if (!itemStackService.fitAll(
                                 inv.toInventory(),
                                 recipe.getOutput(),
                                 InventoryContext.MACHINE_OUTPUT,
