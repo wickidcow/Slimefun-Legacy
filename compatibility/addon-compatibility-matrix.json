@@ -501,10 +501,10 @@
       ]
     },
     {
-      "name": "MagicExpansion Archived Fork",
+      "name": "MagicExpansion Legacy Fork",
       "repository": "wickidcow/SF_MagicExpansion",
       "slug": "legacy-archived-magic-expansion",
-      "tier": "fork-archived-advisory",
+      "tier": "fork-advisory",
       "advisory": true,
       "enabled": true,
       "tested_core_variants": [

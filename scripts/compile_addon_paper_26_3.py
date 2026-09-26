@@ -438,6 +438,7 @@ def write_gradle_init_script(project: Path) -> Path:
 def probePaperVersion = System.getenv('PAPER_API_VERSION')
 def probeSlimefunVersion = 'Paper-26.3-CI'
 def probeRuntimeJvm = 25
+def maintainedJegVersion = '2.1.67'
 
 def isCoreSlimefunDependency(groupValue, artifactValue) {
     def group = (groupValue ?: '').toLowerCase()
@@ -446,6 +447,12 @@ def isCoreSlimefunDependency(groupValue, artifactValue) {
     def coreArtifact = artifact == 'slimefun' || artifact == 'slimefun4'
     def coreGroup = group.contains('slimefun') || group.contains('thebusybiscuit') || group.contains('starwishsama')
     return canonicalLegacyFork || (coreArtifact && coreGroup)
+}
+
+def isMaintainedJegRedirect(groupValue, artifactValue) {
+    def group = (groupValue ?: '').toLowerCase()
+    def artifact = (artifactValue ?: '').toLowerCase()
+    return group == 'com.github.balugaq' && artifact == 'justenoughguide'
 }
 
 def isServerApiDependency(groupValue, artifactValue) {
@@ -461,6 +468,19 @@ allprojects { p ->
     p.repositories {
         mavenLocal()
         maven { url = uri('https://repo.papermc.io/repository/maven-public/') }
+        ivy {
+            name = 'maintainedJegRelease'
+            url = uri('https://github.com/wickidcow/SF_JustEnoughGuide/releases/download')
+            patternLayout {
+                artifact('v[revision]/[artifact][revision].jar')
+            }
+            metadataSources {
+                artifact()
+            }
+            content {
+                includeGroup('com.github.wickidcow.release')
+            }
+        }
     }
 
     p.configurations.configureEach { configuration ->
@@ -468,6 +488,9 @@ allprojects { p ->
             if (isCoreSlimefunDependency(details.requested.group, details.requested.name)) {
                 details.useTarget("com.github.slimefun:Slimefun:${probeSlimefunVersion}")
                 details.because('Paper candidate preflight must compile against the exact Slimefun Legacy candidate')
+            } else if (isMaintainedJegRedirect(details.requested.group, details.requested.name)) {
+                details.useTarget("com.github.wickidcow.release:SF_JustEnoughGuide:${maintainedJegVersion}")
+                details.because('Maintained compatibility probes use the released JEG fork instead of stale upstream JitPack commits')
             } else if (isServerApiDependency(details.requested.group, details.requested.name)) {
                 details.useTarget("io.papermc.paper:paper-api:${probePaperVersion}")
                 details.because('Paper candidate preflight must not resolve an older Bukkit/Spigot/Paper API')
