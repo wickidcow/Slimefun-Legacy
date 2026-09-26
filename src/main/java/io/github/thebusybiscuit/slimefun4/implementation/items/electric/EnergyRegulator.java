@@ -116,7 +116,9 @@ public class EnergyRegulator extends SlimefunItem implements HologramOwner, NotR
     }
 
     private void tick(@Nonnull Block b, SlimefunBlockData blockData) {
-        Location location = b.getLocation();
+        // Reuse the storage-owned canonical Location instead of allocating Block#getLocation()
+        // for every regulator ticker pass.
+        Location location = blockData.getLocation();
         EnergyNet network = Slimefun.getNetworkManager()
                 .getNetworkFromRegulator(location, EnergyNet.class)
                 .orElseGet(() -> EnergyNet.getNetworkFromLocationOrCreate(location));
