@@ -202,6 +202,12 @@ def main() -> int:
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/LegacyGuideBootstrap.java",
     )
     require(bootstrap, "LegacyRecipeUsageBrowser.initialize(plugin);", "recipe-usage browser initialization")
+    require_before(
+        bootstrap,
+        "LegacyRecipeUsageBrowser.initialize(plugin);",
+        "if (nativeEnhancedGuide)",
+        "recipe-usage service initializes before native/JEG ownership branch",
+    )
     require(
         bootstrap,
         "new RecipeUsageIndexedEnhancedSurvivalSlimefunGuide()",
@@ -227,6 +233,16 @@ def main() -> int:
     usage_browser = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/LegacyRecipeUsageBrowser.java",
+    )
+    require(
+        usage_browser,
+        "SlimefunGuideImplementation guide",
+        "recipe-usage browser public guide interface",
+    )
+    reject(
+        usage_browser,
+        "EnhancedSurvivalSlimefunGuide guide",
+        "recipe-usage browser native-guide-only coupling",
     )
     decorate = method_body(usage_browser, "decorateItemPage")
     click = method_body(usage_browser, "onInventoryClick")

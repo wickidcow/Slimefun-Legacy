@@ -28,6 +28,11 @@ public final class LegacyGuideBootstrap {
         LegacyMachineRecipeProviders.registerDefaults(plugin);
         LegacyMachineInputFillManager.initialize(plugin);
 
+        // Reverse recipe usages are a shared Legacy capability. The browser remains lazy and
+        // budgeted, so initialization does not scan the registry. This also lets standalone JEG
+        // decorate its own registered item pages without enabling Legacy's native enhanced UI.
+        LegacyRecipeUsageBrowser.initialize(plugin);
+
         boolean standaloneJegInstalled =
                 plugin.getServer().getPluginManager().getPlugin("JustEnoughGuide") != null;
         boolean nativeEnhancedGuide = LegacyGuideSettings.get().isEnabled() && !standaloneJegInstalled;
@@ -35,7 +40,6 @@ public final class LegacyGuideBootstrap {
         if (nativeEnhancedGuide) {
             LegacyMachineRecipeBrowser.initialize(plugin);
             LegacyRecipeFillManager.initialize(plugin);
-            LegacyRecipeUsageBrowser.initialize(plugin);
             guides.put(SlimefunGuideMode.SURVIVAL_MODE, new RecipeUsageIndexedEnhancedSurvivalSlimefunGuide());
             guides.put(SlimefunGuideMode.CHEAT_MODE, new EnhancedCheatSheetSlimefunGuide());
             plugin.getLogger()

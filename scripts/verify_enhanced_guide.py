@@ -87,6 +87,12 @@ def main() -> int:
             "4.2 guide wrapper no longer preserves indexed enhanced search")
     require("LegacyRecipeUsageBrowser.initialize(plugin);" in bootstrap,
             "4.2 recipe-usage browser is not initialized")
+    require(bootstrap.find("LegacyRecipeUsageBrowser.initialize(plugin);") < bootstrap.find("if (nativeEnhancedGuide)"),
+            "recipe-usage browser must initialize before native/JEG guide ownership is selected")
+    require("SlimefunGuideImplementation guide" in usage_browser,
+            "recipe-usage browser must accept the public guide implementation interface")
+    require("EnhancedSurvivalSlimefunGuide guide" not in usage_browser,
+            "recipe-usage browser must not be locked to Legacy's native enhanced guide")
     require("new EnhancedCheatSheetSlimefunGuide()" in bootstrap, "Enhanced cheat guide is not registered")
     require("new IndexedSurvivalSlimefunGuide()" in bootstrap, "Indexed classic survival fallback is missing")
     require("new CheatSheetSlimefunGuide()" in bootstrap, "Classic cheat fallback is missing")
