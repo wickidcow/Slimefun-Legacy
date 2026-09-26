@@ -72,6 +72,8 @@ def main() -> int:
     capacitors = compact(method_body(source, "tickAllCapacitors"))
     storage = compact(method_body(source, "storeRemainingEnergy"))
     transport = compact(method_body(source, "syncNetworkTransportState"))
+    hologram_gate = compact(method_body(source, "shouldRefreshHologram"))
+    balance_hologram = compact(method_body(source, "updateHologram"))
     accessible = compact(method_body(source, "isEnergyLocationAccessible"))
     safe_capacity = compact(method_body(source, "getSafeCapacity"))
     safe_charge = compact(method_body(source, "getSafeCharge"))
@@ -108,6 +110,27 @@ def main() -> int:
     require(tick, 'closePhase("EnergyNet", "remainder storage"', "remainder storage phase")
     require(tick, 'closePhase("EnergyNet", "transport state"', "transport-state phase")
     require(tick, 'closePhase("EnergyNet", "hologram"', "hologram phase")
+
+    # Regulator holograms are presentation state. Unchanged labels should not traverse the hologram
+    # service every tick, but periodic refresh still repairs a despawned/external hologram.
+    require(source_compact, "HOLOGRAM_REVALIDATE_INTERVAL_TICKS = 20L", "hologram revalidation interval")
+    require(source_compact, "HOLOGRAM_MODE_BALANCE = 0", "balance hologram mode")
+    require(source_compact, "HOLOGRAM_MODE_DUPLICATE_REGULATOR = 1", "duplicate-regulator hologram mode")
+    require(source_compact, "HOLOGRAM_MODE_NO_NETWORK = 2", "no-network hologram mode")
+    require(tick, "shouldRefreshHologram( regulatorLocation, HOLOGRAM_MODE_DUPLICATE_REGULATOR, 0L, 0L)", "duplicate-regulator hologram gate")
+    require(tick, "shouldRefreshHologram( regulatorLocation, HOLOGRAM_MODE_NO_NETWORK, 0L, 0L)", "no-network hologram gate")
+    require(balance_hologram, "shouldRefreshHologram(location, HOLOGRAM_MODE_BALANCE, supply, demand)", "balance hologram gate")
+    require(hologram_gate, "hologramMode == mode", "unchanged hologram mode comparison")
+    require(hologram_gate, "hologramSupply == supply", "unchanged hologram supply comparison")
+    require(hologram_gate, "hologramDemand == demand", "unchanged hologram demand comparison")
+    require(hologram_gate, "gameTime < nextHologramRefreshTick", "periodic hologram self-heal gate")
+    require(hologram_gate, "nextHologramRefreshTick = gameTime + HOLOGRAM_REVALIDATE_INTERVAL_TICKS", "hologram refresh scheduling")
+    require_before(
+        balance_hologram,
+        "if (!shouldRefreshHologram(location, HOLOGRAM_MODE_BALANCE, supply, demand))",
+        "NumberUtils.getCompactDouble",
+        "skip unchanged regulator label before string formatting",
+    )
 
     # Stable connector/player-head transport state is presentation state, not energy truth. Skip
     # the full connector walk while the desired state is unchanged, but refresh immediately when
