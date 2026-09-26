@@ -81,11 +81,11 @@ def main() -> int:
 
     # Preserve the established network transaction order: collect supply, satisfy consumers,
     # then place the leftover back into network storage.
-    require(tick, "tickAllGenerators(profiledTimestamp)", "generator supply phase")
+    require(tick, "tickAllGenerators(profileGenerators)", "generator supply phase")
     require(tick, "tickAllCapacitors()", "capacitor supply phase")
     require(tick, "for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet())", "consumer phase")
     require(tick, "storeRemainingEnergy(remainingEnergy)", "leftover storage phase")
-    require_before(tick, "tickAllGenerators(profiledTimestamp)", "for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet())", "supply before consumers")
+    require_before(tick, "tickAllGenerators(profileGenerators)", "for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet())", "supply before consumers")
     require_before(tick, "for (Map.Entry<Location, EnergyNetComponent> entry : consumers.entrySet())", "storeRemainingEnergy(remainingEnergy)", "consumers before leftover storage")
 
     # Profiling must remain absent from the normal hot path while requested samples still close
@@ -98,7 +98,6 @@ def main() -> int:
     require(generators, "generatorProfileNanos += time", "generator profiler primitive accumulation")
     require(tick, "timestamp + generatorProfileNanos", "generator time excluded from regulator profile")
     require_absent(source_compact, "AtomicLong profiledTimestamp", "per-tick regulator profiler allocation")
-    require(generators, "profiledTimestamp.addAndGet(time)", "generator timing exclusion from regulator")
     require(tick, 'var profiler = Slimefun.getProfiler()', "single EnergyNet profiler lookup")
     require(tick, "Location regulatorLocation = blockData.getLocation()", "canonical regulator location reuse")
     require(tick, "regulator.equals(regulatorLocation)", "regulator ownership lookup without Block location allocation")
