@@ -38,6 +38,8 @@ def test_coordinate_classification() -> None:
     assert probe.is_core_slimefun_dependency("com.github.slimefun", "Slimefun")
     assert probe.is_core_slimefun_dependency("com.github.SlimefunGuguProject", "Slimefun4")
     assert probe.is_core_slimefun_dependency("com.github.StarWishsama", "Slimefun4")
+    assert probe.is_core_slimefun_dependency("com.github.wickidcow", "Slimefun-Legacy")
+    assert not probe.is_core_slimefun_dependency("com.github.someoneelse", "Slimefun-Legacy")
     assert not probe.is_core_slimefun_dependency("net.guizhanss", "SlimefunTranslation")
     assert probe.is_server_api_dependency("io.papermc.paper", "paper-api")
     assert probe.is_server_api_dependency("org.spigotmc", "spigot-api")
@@ -92,6 +94,32 @@ def test_maven_property_rewrite() -> None:
         assert ("io.papermc.paper", "paper-api", "26.3.build.7") in rows
         text = pom.read_text(encoding="utf-8")
         assert probe.PAPER_REPOSITORY in text
+
+
+def test_maven_rewrites_legacy_fork_coordinate() -> None:
+    with tempfile.TemporaryDirectory() as raw:
+        root = Path(raw)
+        pom = root / "pom.xml"
+        pom.write_text(
+            """<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>example</groupId><artifactId>addon</artifactId><version>1</version>
+  <dependencies>
+    <dependency><groupId>com.github.wickidcow</groupId><artifactId>Slimefun-Legacy</artifactId><version>4.1.60</version><scope>provided</scope></dependency>
+  </dependencies>
+</project>
+""",
+            encoding="utf-8",
+        )
+
+        core, paper, core_injected, paper_injected = probe.patch_maven_project(root, "26.3.build.8")
+        assert core == 1
+        assert paper == 0
+        assert not core_injected
+        assert paper_injected
+        rows = dependencies(pom)
+        assert ("com.github.slimefun", "Slimefun", "Paper-26.3-CI") in rows
+        assert ("com.github.wickidcow", "Slimefun-Legacy", "4.1.60") not in rows
 
 
 def test_maven_injects_missing_direct_dependencies() -> None:
@@ -154,6 +182,7 @@ def main() -> int:
     test_coordinate_classification()
     test_transient_repository_classification()
     test_maven_property_rewrite()
+    test_maven_rewrites_legacy_fork_coordinate()
     test_maven_injects_missing_direct_dependencies()
     test_shell_wrapper_normalization()
     test_gradle_init_script_guards_both_stacks()

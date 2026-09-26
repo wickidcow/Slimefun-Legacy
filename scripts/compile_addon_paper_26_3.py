@@ -2,10 +2,11 @@
 """Compile a maintained Slimefun addon against a Paper candidate stack.
 
 The probe is advisory and works with Maven and Gradle projects. It installs the
-exact Slimefun Legacy candidate into Maven Local, redirects core Slimefun
-coordinates to that candidate, and redirects Bukkit/Spigot/Paper/Purpur API
-coordinates to the selected Paper API before running the addon's normal
-assemble/package path without tests.
+exact Slimefun Legacy candidate into Maven Local, redirects upstream Slimefun
+coordinates and the maintained com.github.wickidcow:Slimefun-Legacy coordinate
+to that candidate, and redirects Bukkit/Spigot/Paper/Purpur API coordinates to
+the selected Paper API before running the addon's normal assemble/package path
+without tests.
 
 Gradle projects may intentionally emit Java 21 bytecode while current Paper API
 artifacts are published as Java 25 variants. The probe therefore selects
@@ -34,6 +35,7 @@ SLIMEFUN_PROBE_ARTIFACT = "Slimefun"
 SLIMEFUN_PROBE_VERSION = "Paper-26.3-CI"
 CORE_ARTIFACTS = {"slimefun", "slimefun4"}
 CORE_GROUP_HINTS = ("slimefun", "thebusybiscuit", "starwishsama")
+LEGACY_FORK_COORDINATE = ("com.github.wickidcow", "slimefun-legacy")
 SERVER_API_COORDINATES = {
     ("io.papermc.paper", "paper-api"),
     ("org.spigotmc", "spigot-api"),
@@ -85,6 +87,8 @@ def namespaced(namespace: str, name: str) -> str:
 def is_core_slimefun_dependency(group: str, artifact: str) -> bool:
     normalized_group = group.strip().lower()
     normalized_artifact = artifact.strip().lower()
+    if (normalized_group, normalized_artifact) == LEGACY_FORK_COORDINATE:
+        return True
     return normalized_artifact in CORE_ARTIFACTS and any(
         hint in normalized_group for hint in CORE_GROUP_HINTS
     )
@@ -438,9 +442,10 @@ def probeRuntimeJvm = 25
 def isCoreSlimefunDependency(groupValue, artifactValue) {
     def group = (groupValue ?: '').toLowerCase()
     def artifact = (artifactValue ?: '').toLowerCase()
+    def canonicalLegacyFork = group == 'com.github.wickidcow' && artifact == 'slimefun-legacy'
     def coreArtifact = artifact == 'slimefun' || artifact == 'slimefun4'
     def coreGroup = group.contains('slimefun') || group.contains('thebusybiscuit') || group.contains('starwishsama')
-    return coreArtifact && coreGroup
+    return canonicalLegacyFork || (coreArtifact && coreGroup)
 }
 
 def isServerApiDependency(groupValue, artifactValue) {
