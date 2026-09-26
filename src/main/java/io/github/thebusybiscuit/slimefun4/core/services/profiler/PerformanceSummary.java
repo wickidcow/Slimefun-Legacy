@@ -101,9 +101,22 @@ class PerformanceSummary {
 
         summarizeTimings(plugins.size(), "plugin", sender, plugins, entry -> {
             int count = profiler.getBlocksFromPlugin(entry.getKey());
-            String time = NumberUtils.getAsMillis(entry.getValue());
+            String total = NumberUtils.getAsMillis(entry.getValue());
+            String average = NumberUtils.getAsMillis(entry.getValue() / Math.max(1, count));
+            SlimefunProfiler.PluginTimingStats stats = profiler.getPluginTimingStats(entry.getKey());
+            String hotspot = "";
+            if (!stats.hottestItemId().isEmpty()) {
+                hotspot = " | Hotspot: " + stats.hottestItemId();
+                if (!stats.hottestLocation().isEmpty()) {
+                    hotspot += " @ " + stats.hottestLocation();
+                }
+            }
 
-            return entry.getKey() + " - " + count + " block" + (count != 1 ? 's' : "") + " (" + time + ")";
+            return entry.getKey() + " - " + count + " block" + (count != 1 ? 's' : "")
+                    + " (" + total + " | Avg: " + average
+                    + " | P95: " + NumberUtils.getAsMillis(stats.p95Nanos())
+                    + " | Max: " + NumberUtils.getAsMillis(stats.maxNanos())
+                    + hotspot + ")";
         });
 
         if (sender.isVerbose()) {
