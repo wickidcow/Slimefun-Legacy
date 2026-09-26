@@ -2,10 +2,11 @@
 """Compile a maintained Slimefun addon against a Paper candidate stack.
 
 The probe is advisory and works with Maven and Gradle projects. It installs the
-exact Slimefun Legacy candidate into Maven Local, redirects core Slimefun
-coordinates to that candidate, and redirects Bukkit/Spigot/Paper/Purpur API
-coordinates to the selected Paper API before running the addon's normal
-assemble/package path without tests.
+exact Slimefun Legacy candidate into Maven Local, redirects upstream Slimefun
+coordinates and the maintained com.github.wickidcow:Slimefun-Legacy coordinate
+to that candidate, and redirects Bukkit/Spigot/Paper/Purpur API coordinates to
+the selected Paper API before running the addon's normal assemble/package path
+without tests.
 
 Gradle projects may intentionally emit Java 21 bytecode while current Paper API
 artifacts are published as Java 25 variants. The probe therefore selects
