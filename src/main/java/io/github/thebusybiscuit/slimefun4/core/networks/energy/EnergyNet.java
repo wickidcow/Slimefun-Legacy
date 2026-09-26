@@ -43,6 +43,7 @@ public class EnergyNet extends Network implements HologramOwner {
 
     private static final int RANGE = 6;
     private static final int TRANSPORT_STATE_REVALIDATE_INTERVAL = 20;
+    private static final int HOLOGRAM_REVALIDATE_INTERVAL = 20;
 
     private final Map<Location, EnergyNetProvider> generators = new ConcurrentHashMap<>();
     private final Map<Location, EnergyNetComponent> capacitors = new ConcurrentHashMap<>();
@@ -66,6 +67,14 @@ public class EnergyNet extends Network implements HologramOwner {
 
     private boolean transportStateDirty = true;
     private boolean transportPowered;
+
+    /*
+     * The regulator label is presentation state. Avoid rebuilding compact-number strings and
+     * traversing the hologram service every tick when the displayed net delta is unchanged.
+     * Periodic revalidation keeps the label self-healing if an entity is externally modified.
+     */
+    private long lastHologramDeltaBits = Long.MIN_VALUE;
+    private long nextHologramValidationTick;
 
     protected EnergyNet(@Nonnull Location l) {
         super(Slimefun.getNetworkManager(), l);
@@ -220,6 +229,7 @@ public class EnergyNet extends Network implements HologramOwner {
         try {
             if (!ownsNetwork) {
                 VanillaPowerStateBridge.sync(regulatorLocation, false);
+                invalidateHologramValueCache();
                 updateHologram(b, "&4Another regulator detected nearby", blockData::isPendingRemove);
 
                 return;
@@ -238,6 +248,7 @@ public class EnergyNet extends Network implements HologramOwner {
                 profiler.closePhase("EnergyNet", "transport state", phaseTimestamp);
 
                 phaseTimestamp = profiler.startPhase();
+                invalidateHologramValueCache();
                 updateHologram(b, "&4No energy network found", blockData::isPendingRemove);
                 profiler.closePhase("EnergyNet", "hologram", phaseTimestamp);
             } else {
@@ -319,7 +330,7 @@ public class EnergyNet extends Network implements HologramOwner {
                 profiler.closePhase("EnergyNet", "transport state", phaseTimestamp);
 
                 phaseTimestamp = profiler.startPhase();
-                updateHologram(blockData, supply, demand);
+                updateHologram(b, blockData, supply, demand);
                 profiler.closePhase("EnergyNet", "hologram", phaseTimestamp);
             }
         } finally {
@@ -343,10 +354,6 @@ public class EnergyNet extends Network implements HologramOwner {
 
         for (int i = 0; i < capacitorStorageSnapshot.size; i++) {
             Location loc = capacitorStorageSnapshot.locations[i];
-            if (!isEnergyLocationAccessible(loc)) {
-                continue;
-            }
-
             ASlimefunDataContainer data = capacitorStorageSnapshot.containers[i];
             EnergyNetComponent cached = capacitorStorageSnapshot.components[i];
             if (data.isPendingRemove()) {
@@ -383,10 +390,6 @@ public class EnergyNet extends Network implements HologramOwner {
 
         for (int i = 0; i < generatorStorageSnapshot.size; i++) {
             Location loc = generatorStorageSnapshot.locations[i];
-            if (!isEnergyLocationAccessible(loc)) {
-                continue;
-            }
-
             ASlimefunDataContainer data = generatorStorageSnapshot.containers[i];
             EnergyNetProvider cached = (EnergyNetProvider) generatorStorageSnapshot.components[i];
             if (data.isPendingRemove()) {
@@ -540,7 +543,6 @@ public class EnergyNet extends Network implements HologramOwner {
             long capacity = getSafeCapacity(component, loc);
             long charge = getSafeCharge(component, loc, data, capacity);
             capacitorStorageSnapshot.add(loc, component, data, capacity, charge);
-            VanillaPowerStateBridge.sync(loc, charge > 0);
             supply = NumberUtils.flowSafeAddition(supply, charge);
         }
 
@@ -666,16 +668,36 @@ public class EnergyNet extends Network implements HologramOwner {
         return null;
     }
 
-    private void updateHologram(@Nonnull SlimefunBlockData data, double supply, double demand) {
-        if (demand > supply) {
-            String netLoss = NumberUtils.getCompactDouble(demand - supply);
-            updateHologram(
-                    data.getLocation().getBlock(), "&4&l- &c" + netLoss + " &7J &e\u26A1", data::isPendingRemove);
-        } else {
-            String netGain = NumberUtils.getCompactDouble(supply - demand);
-            updateHologram(
-                    data.getLocation().getBlock(), "&2&l+ &a" + netGain + " &7J &e\u26A1", data::isPendingRemove);
+    private void updateHologram(
+            @Nonnull Block regulatorBlock,
+            @Nonnull SlimefunBlockData data,
+            double supply,
+            double demand) {
+        double delta = supply - demand;
+        long deltaBits = Double.doubleToLongBits(delta);
+        long gameTime = data.getLocation().getWorld().getGameTime();
+
+        if (deltaBits == lastHologramDeltaBits && gameTime < nextHologramValidationTick) {
+            return;
         }
+
+        lastHologramDeltaBits = deltaBits;
+        nextHologramValidationTick = gameTime + HOLOGRAM_REVALIDATE_INTERVAL;
+
+        if (delta < 0) {
+            String netLoss = NumberUtils.getCompactDouble(-delta);
+            updateHologram(
+                    regulatorBlock, "&4&l- &c" + netLoss + " &7J &e\u26A1", data::isPendingRemove);
+        } else {
+            String netGain = NumberUtils.getCompactDouble(delta);
+            updateHologram(
+                    regulatorBlock, "&2&l+ &a" + netGain + " &7J &e\u26A1", data::isPendingRemove);
+        }
+    }
+
+    private void invalidateHologramValueCache() {
+        lastHologramDeltaBits = Long.MIN_VALUE;
+        nextHologramValidationTick = 0L;
     }
 
     @Nullable private static EnergyNetComponent getComponent(@Nonnull Location l) {
