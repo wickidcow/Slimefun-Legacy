@@ -1,10 +1,10 @@
 package io.github.thebusybiscuit.slimefun4.core.services.profiler;
 
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -29,7 +29,8 @@ public enum SummaryOrderType {
     AVERAGE;
 
     @ParametersAreNonnullByDefault
-    List<Map.Entry<String, Long>> sort(SlimefunProfiler profiler, Set<Map.Entry<String, Long>> entrySet) {
+    List<Map.Entry<String, Long>> sort(
+            Set<Map.Entry<String, Long>> entrySet, ToIntFunction<String> sampleCountResolver) {
         switch (this) {
             case HIGHEST:
                 return entrySet.stream()
@@ -40,15 +41,18 @@ public enum SummaryOrderType {
                         .sorted(Comparator.comparingLong(Map.Entry::getValue))
                         .collect(Collectors.toList());
             default:
-                final Map<String, Long> map = new HashMap<>();
-                for (Map.Entry<String, Long> entry : entrySet) {
-                    int count = profiler.getBlocksOfId(entry.getKey());
-                    long avg = count > 0 ? entry.getValue() / count : entry.getValue();
-
-                    map.put(entry.getKey(), avg);
-                }
-                return map.entrySet().stream()
-                        .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
+                /*
+                 * Sort by the section-specific average without replacing the original entries.
+                 * The formatter still needs the total timing value to display both total and
+                 * average correctly. Different summary sections also use different sample counts
+                 * (item IDs, chunks, addons), so the caller supplies the matching resolver.
+                 */
+                return entrySet.stream()
+                        .sorted(Comparator.<Map.Entry<String, Long>>comparingDouble(entry -> {
+                                    int count = Math.max(1, sampleCountResolver.applyAsInt(entry.getKey()));
+                                    return (double) entry.getValue() / count;
+                                })
+                                .reversed())
                         .collect(Collectors.toList());
         }
     }
