@@ -30,7 +30,9 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.curios.TravelersB
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.WayfarersLodestone;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.WayfindersCompass;
 import java.util.List;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -753,10 +755,13 @@ final class AdventurersCuriosSetup {
     private static ItemStack createCategoryIcon() {
         ItemStack icon = new ItemStack(Material.RECOVERY_COMPASS);
         ItemMeta meta = icon.getItemMeta();
-        meta.setDisplayName(ChatColor.GOLD + "Adventurer's Curios");
-        meta.setLore(List.of(
-                ChatColor.GRAY + "Exploration tools, navigation,",
-                ChatColor.GRAY + "field safety and protective equipment"));
+        meta.displayName(Component.text("Adventurer's Curios", NamedTextColor.GOLD)
+                .decoration(TextDecoration.ITALIC, false));
+        meta.lore(List.of(
+                Component.text("Exploration tools, navigation,", NamedTextColor.GRAY)
+                        .decoration(TextDecoration.ITALIC, false),
+                Component.text("field safety and protective equipment", NamedTextColor.GRAY)
+                        .decoration(TextDecoration.ITALIC, false)));
         icon.setItemMeta(meta);
         return icon;
     }
@@ -764,10 +769,13 @@ final class AdventurersCuriosSetup {
     private static ItemStack createCuriositiesIcon() {
         ItemStack icon = new ItemStack(Material.SPYGLASS);
         ItemMeta meta = icon.getItemMeta();
-        meta.setDisplayName(ChatColor.GOLD + "Curiosities");
-        meta.setLore(List.of(
-                ChatColor.GRAY + "Exploration tools, navigation,",
-                ChatColor.GRAY + "field support and expedition gear"));
+        meta.displayName(Component.text("Curiosities", NamedTextColor.GOLD)
+                .decoration(TextDecoration.ITALIC, false));
+        meta.lore(List.of(
+                Component.text("Exploration tools, navigation,", NamedTextColor.GRAY)
+                        .decoration(TextDecoration.ITALIC, false),
+                Component.text("field support and expedition gear", NamedTextColor.GRAY)
+                        .decoration(TextDecoration.ITALIC, false)));
         icon.setItemMeta(meta);
         return icon;
     }
@@ -775,10 +783,13 @@ final class AdventurersCuriosSetup {
     private static ItemStack createArmorIcon() {
         ItemStack icon = new ItemStack(Material.NETHERITE_CHESTPLATE);
         ItemMeta meta = icon.getItemMeta();
-        meta.setDisplayName(ChatColor.GOLD + "Armor");
-        meta.setLore(List.of(
-                ChatColor.GRAY + "Advanced Hazmat and Netherite Containment",
-                ChatColor.GRAY + "protective armor for hazardous environments"));
+        meta.displayName(Component.text("Armor", NamedTextColor.GOLD)
+                .decoration(TextDecoration.ITALIC, false));
+        meta.lore(List.of(
+                Component.text("Advanced Hazmat and Netherite Containment", NamedTextColor.GRAY)
+                        .decoration(TextDecoration.ITALIC, false),
+                Component.text("protective armor for hazardous environments", NamedTextColor.GRAY)
+                        .decoration(TextDecoration.ITALIC, false)));
         icon.setItemMeta(meta);
         return icon;
     }
