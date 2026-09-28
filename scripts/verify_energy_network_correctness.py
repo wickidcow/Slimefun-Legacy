@@ -69,7 +69,10 @@ def main() -> int:
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/EnergyRegulator.java",
     )
-    regulator_tick = compact(method_body(regulator_source, "tick"))
+    regulator_tick_start = regulator_source.find("private void tick(")
+    if regulator_tick_start < 0:
+        raise SystemExit("Energy network correctness failed: missing EnergyRegulator private tick")
+    regulator_tick = compact(method_body(regulator_source[regulator_tick_start:], "tick"))
 
     tick = compact(method_body(source, "tick"))
     classification = compact(method_body(source, "onClassificationChange"))
