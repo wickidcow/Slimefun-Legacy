@@ -24,6 +24,9 @@ import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -603,8 +606,8 @@ public final class LegacyRecipeUsageBrowser implements Listener {
             @Nonnull Material material, @Nonnull String displayName, @Nonnull List<String> lore) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(displayName);
-        meta.setLore(lore);
+        meta.displayName(legacyText(displayName));
+        meta.lore(lore.stream().map(LegacyRecipeUsageBrowser::legacyText).toList());
         item.setItemMeta(meta);
         return item;
     }
@@ -698,12 +701,20 @@ public final class LegacyRecipeUsageBrowser implements Listener {
     private @Nonnull ItemStack addLore(@Nonnull ItemStack source, @Nonnull String... lines) {
         ItemStack clone = source.clone();
         ItemMeta meta = clone.getItemMeta();
-        List<String> lore =
-                meta.hasLore() && meta.getLore() != null ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
-        Collections.addAll(lore, lines);
-        meta.setLore(lore);
+        List<Component> currentLore = meta.lore();
+        List<Component> lore = currentLore == null ? new ArrayList<>() : new ArrayList<>(currentLore);
+        for (String line : lines) {
+            lore.add(legacyText(line));
+        }
+        meta.lore(lore);
         clone.setItemMeta(meta);
         return clone;
+    }
+
+    private static Component legacyText(String value) {
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(value)
+                .decoration(TextDecoration.ITALIC, false);
     }
 
     private @Nonnull ChestMenu createMenu(@Nonnull String title) {
