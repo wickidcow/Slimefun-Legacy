@@ -1481,7 +1481,7 @@ public final class LegacyRecipeFillManager implements Listener {
             SoundEffect.ANCIENT_PEDESTAL_ITEM_PLACE_SOUND.playAt(pedestal);
             return entity;
         } catch (RuntimeException exception) {
-            entity.removeMetadata("no_pickup", plugin);
+            SlimefunUtils.clearNoPickupFlag(entity);
             entity.remove();
             if (armorStand.isValid()) {
                 armorStand.remove();
@@ -1495,7 +1495,7 @@ public final class LegacyRecipeFillManager implements Listener {
         for (PlacedPedestalItem placement : placed) {
             Item entity = placement.entity();
             if (entity.isValid()) {
-                entity.removeMetadata("no_pickup", plugin);
+                SlimefunUtils.clearNoPickupFlag(entity);
                 entity.remove();
             }
             ArmorStand armorStand = pedestalItem.getArmorStand(placement.pedestal(), false);
