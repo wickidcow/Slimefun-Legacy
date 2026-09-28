@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeDisplay;
+import io.github.thebusybiscuit.slimefun4.utils.itemstack.ItemStackWrapper;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,6 +78,18 @@ class TestPublicMachineRecipeProvider {
         assertEquals(0, recipes.size());
     }
 
+    @Test
+    void copiesImmutableItemStackWrappersForRecipeIndexing() {
+        WrappedRecipeMachine machine = new WrappedRecipeMachine();
+        List<MachineRecipeDisplay> recipes = provider.getRecipesFromObject(machine, world());
+
+        assertTrue(provider.supportsObject(machine));
+        assertEquals(1, recipes.size());
+        ItemStack input = recipes.get(0).getInputs().get(0).getChoices().get(0);
+        assertEquals(Material.IRON_INGOT, input.getType());
+        assertEquals(3, input.getAmount());
+    }
+
     private World world() {
         return server.addSimpleWorld("phase4_compatibility");
     }
@@ -135,6 +148,22 @@ class TestPublicMachineRecipeProvider {
 
         MapRecipeMachine() {
             recipeMap.put(new ItemStack(Material.IRON_INGOT), new ItemStack(Material.GOLD_INGOT));
+        }
+    }
+
+    public static final class WrappedRecipeMachine {
+
+        public final List<WrappedRecipe> recipes = List.of(new WrappedRecipe());
+    }
+
+    public static final class WrappedRecipe {
+
+        public ItemStack getInput() {
+            return ItemStackWrapper.wrap(new ItemStack(Material.IRON_INGOT, 3));
+        }
+
+        public ItemStack getOutput() {
+            return new ItemStack(Material.GOLD_INGOT);
         }
     }
 

@@ -713,7 +713,7 @@ public final class LegacyMachineRecipeProviders {
         }
         if (value instanceof ItemStack item) {
             if (!isEmpty(item)) {
-                items.add(item.clone());
+                items.add(copyRecipeItem(item));
             }
             return;
         }
@@ -759,6 +759,21 @@ public final class LegacyMachineRecipeProviders {
             } catch (IllegalAccessException | InvocationTargetException | LinkageError ignored) {
                 // Unsupported public wrapper type; leave it out of the normalized recipe.
             }
+        }
+    }
+
+    private static @Nonnull ItemStack copyRecipeItem(@Nonnull ItemStack item) {
+        try {
+            return item.clone();
+        } catch (UnsupportedOperationException exception) {
+            // Some Slimefun hot paths expose immutable ItemStack subclasses such as ItemStackWrapper.
+            // Recipe indexing must never retain or mutate those wrappers, so rebuild a normal mutable
+            // ItemStack while preserving the cached item meta and amount.
+            ItemStack copy = new ItemStack(item.getType(), item.getAmount());
+            if (item.hasItemMeta()) {
+                copy.setItemMeta(item.getItemMeta());
+            }
+            return copy;
         }
     }
 

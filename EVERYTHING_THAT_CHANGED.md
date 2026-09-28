@@ -1,3 +1,10 @@
+# Slimefun Legacy 4.1.62 — Paper 26.3 Primary Compatibility & Guide Stability
+
+- Promoted Paper/Minecraft 26.3 to the primary API/support target while retaining 1.21.11+ compatibility and Java 21 Slimefun bytecode.
+- Retained Paper 26.2 as a backwards-compatibility runtime/full-stack validation line.
+- Fixed issue #281 by safely normalizing immutable ItemStackWrapper recipe ingredients in the shared Enhanced Guide/JEG recipe index.
+- Preserved item IDs, research IDs, storage formats, addon APIs, and normal gameplay semantics.
+
 # Slimefun Legacy 4.1.61 — Performance, Guide Cleanup & Compatibility Modernization
 
 - Reduced Energy Regulator overhead with same-tick source snapshots, no-op charge-write elimination, primitive generator profiling, reusable vanilla power-state cache entries, and skipped unchanged hologram work between periodic self-heal refreshes.

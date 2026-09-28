@@ -1,4 +1,4 @@
-name: Paper 26.3 Pre-release Preflight
+name: Paper 26.3 Primary Preflight
 
 on:
   workflow_call:
@@ -126,10 +126,10 @@ jobs:
       - name: Publish detection status
         run: |
           {
-            echo '## Paper 26.3 pre-release availability'
+            echo '## Paper 26.3 primary availability'
             echo
-            echo '- Paper 26.2 remains the production/runtime baseline.'
-            echo '- This lane is advisory and does not replace any 26.2 gate.'
+            echo '- Paper 26.3 is the primary API/support baseline.'
+            echo '- Paper 26.2 and 1.21.11 remain backwards-compatibility gates.'
             echo '- API available: `${{ steps.detect.outputs.api_available }}`'
             if [[ '${{ steps.detect.outputs.api_available }}' == 'true' ]]; then
               echo '- API artifact: `${{ steps.detect.outputs.api_version }}`'

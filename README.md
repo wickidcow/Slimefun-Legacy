@@ -22,7 +22,7 @@ Slimefun Legacy turns a normal Minecraft server into a modpack-like experience w
 [Report a Bug](https://github.com/wickidcow/Slimefun-Legacy/issues) ·
 [Release History](EVERYTHING_THAT_CHANGED.md)
 
-Current stable release: **4.1.60 — Stabilization & Validation Integrity**. Development candidate: **4.1.61 — Performance & Hot-Path Efficiency**. ·
+Current stable release: **4.1.61 — Performance, Guide Cleanup & Compatibility Modernization**. Development candidate: **4.1.62 — Paper 26.3 Primary Compatibility & Guide Stability**. ·
 [Contributing](CONTRIBUTING.md)
 
 </div>
@@ -120,7 +120,7 @@ Test representative machines, backpacks, Cargo networks, recipes, protections, a
 
 ### Velocity / proxy support
 
-Slimefun Legacy 4.1.61 development builds retain **Velocity modern forwarding** with Paper 26.3 as the primary API/support target. Proxy CI uses a real Minecraft 26.2 client session to verify that the UUID presented through Velocity reaches Bukkit/Slimefun unchanged and that Slimefun research remains attached to the same profile after disconnect/reconnect.
+Slimefun Legacy 4.1.62 development builds retain **Velocity modern forwarding** with Paper 26.3 as the primary API/support target. Proxy CI uses a real Minecraft 26.2 client session to verify that the UUID presented through Velocity reaches Bukkit/Slimefun unchanged and that Slimefun research remains attached to the same profile after disconnect/reconnect.
 
 Use:
 
