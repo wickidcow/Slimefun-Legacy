@@ -6,7 +6,9 @@ import io.github.thebusybiscuit.slimefun4.core.attributes.MachineTier;
 import io.github.thebusybiscuit.slimefun4.core.attributes.MachineType;
 import io.github.thebusybiscuit.slimefun4.utils.LoreBuilder;
 import java.util.Objects;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
@@ -89,11 +91,10 @@ public final class ExtraToolsItems {
 
     private ExtraToolsItems() {}
 
-    @SuppressWarnings("deprecation")
     private static ItemStack createItemGroupIcon() {
         ItemStack icon = new ItemStack(Material.DIAMOND_AXE);
         ItemMeta meta = icon.getItemMeta();
-        meta.setDisplayName(ChatColor.DARK_RED + "Extra Tools");
+        meta.displayName(Component.text("Extra Tools", NamedTextColor.DARK_RED).decoration(TextDecoration.ITALIC, false));
         icon.setItemMeta(meta);
         return icon;
     }
