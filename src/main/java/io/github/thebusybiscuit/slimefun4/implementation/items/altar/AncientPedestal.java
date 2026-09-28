@@ -11,7 +11,6 @@ import io.github.thebusybiscuit.slimefun4.core.attributes.NotHopperable;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockBreakHandler;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockDispenseHandler;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.handlers.SimpleBlockBreakHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.AncientAltarListener;
@@ -75,7 +74,7 @@ public class AncientPedestal extends SimpleSlimefunItem<BlockDispenseHandler> im
                     Item stack = entity.get();
 
                     if (stack.isValid()) {
-                        stack.removeMetadata("no_pickup", Slimefun.instance());
+                        SlimefunUtils.clearNoPickupFlag(stack);
                         b.getWorld().dropItem(b.getLocation(), getOriginalItemStack(stack));
                         stack.remove();
                     }
