@@ -9,6 +9,9 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -28,19 +31,27 @@ public class SlimefunGuideItem extends ItemStack {
         super(Material.ENCHANTED_BOOK);
 
         ItemMeta meta = getItemMeta();
-        meta.setDisplayName(ChatColors.color(name));
+        meta.displayName(legacyText(ChatColors.color(name)));
 
-        List<String> lore = new ArrayList<>();
+        List<Component> lore = new ArrayList<>();
         SlimefunGuideMode type = implementation.getMode();
-        lore.add(type == SlimefunGuideMode.CHEAT_MODE ? ChatColors.color("&4&lAdmin-Only") : "");
-        lore.add(ChatColors.color("&eRight-Click &8\u21E8 &7Browse Items"));
-        lore.add(ChatColors.color("&eShift + Right-Click &8\u21E8 &7Open Settings / About"));
+        lore.add(type == SlimefunGuideMode.CHEAT_MODE
+                ? legacyText(ChatColors.color("&4&lAdmin-Only"))
+                : Component.empty());
+        lore.add(legacyText(ChatColors.color("&eRight-Click &8\u21E8 &7Browse Items")));
+        lore.add(legacyText(ChatColors.color("&eShift + Right-Click &8\u21E8 &7Open Settings / About")));
 
-        meta.setLore(lore);
+        meta.lore(lore);
 
         PersistentDataAPI.setString(meta, Slimefun.getRegistry().getGuideDataKey(), type.name());
         Slimefun.getItemTextureService().setTexture(meta, "SLIMEFUN_GUIDE");
 
         setItemMeta(meta);
+    }
+
+    private static Component legacyText(String value) {
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(value)
+                .decoration(TextDecoration.ITALIC, false);
     }
 }
