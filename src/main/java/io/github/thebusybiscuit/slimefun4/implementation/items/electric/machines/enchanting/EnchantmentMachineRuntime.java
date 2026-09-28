@@ -9,8 +9,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
@@ -103,13 +105,13 @@ final class EnchantmentMachineRuntime {
 
             ItemStack status = new ItemStack(material);
             ItemMeta meta = status.getItemMeta();
-            meta.setDisplayName(color(title));
+            meta.displayName(color(title));
             if (lore.length > 0) {
-                List<String> coloredLore = new ArrayList<>(lore.length);
+                List<Component> coloredLore = new ArrayList<>(lore.length);
                 for (String line : lore) {
                     coloredLore.add(color(line));
                 }
-                meta.setLore(coloredLore);
+                meta.lore(coloredLore);
             }
             status.setItemMeta(meta);
             ItemStack current = menu.getItemInSlot(22);
@@ -165,7 +167,9 @@ final class EnchantmentMachineRuntime {
         }
     }
 
-    private static @Nonnull String color(@Nonnull String text) {
-        return ChatColor.translateAlternateColorCodes('&', text);
+    private static @Nonnull Component color(@Nonnull String text) {
+        return LegacyComponentSerializer.legacyAmpersand()
+                .deserialize(text)
+                .decoration(TextDecoration.ITALIC, false);
     }
 }
