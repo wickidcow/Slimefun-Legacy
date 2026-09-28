@@ -19,6 +19,9 @@ import java.util.concurrent.ThreadLocalRandom;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.MachineFuel;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -169,14 +172,20 @@ public class IndustrialMiner extends MultiBlockMachine {
         for (MachineFuel fuel : fuelTypes) {
             ItemStack item = fuel.getInput().clone();
             ItemMeta im = item.getItemMeta();
-            List<String> lore = new ArrayList<>();
-            lore.add(ChatColors.color("&8\u21E8 &7Up to " + fuel.getTicks() + " ores remaining"));
-            im.setLore(lore);
+            List<Component> lore = new ArrayList<>();
+            lore.add(legacyText(ChatColors.color("&8\u21E8 &7Up to " + fuel.getTicks() + " ores remaining")));
+            im.lore(lore);
             item.setItemMeta(im);
             list.add(item);
         }
 
         return list;
+    }
+
+    private static Component legacyText(String value) {
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(value)
+                .decoration(TextDecoration.ITALIC, false);
     }
 
     @Override
