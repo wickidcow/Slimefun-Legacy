@@ -2,7 +2,7 @@
 
 Slimefun is a large gameplay platform. Machines, Cargo, energy networks and addons can create a lot of scheduled work, so performance should be managed with measurements rather than guesses.
 
-Slimefun Legacy is maintained primarily for **Paper 26.2 / Minecraft 26.2 with Java 25**.
+Slimefun Legacy is maintained with **Paper 26.3 / Minecraft 26.3 with Java 25** as the primary API/support target. Paper 26.2 and 1.21.11 remain compatibility lines.
 
 ## 1. Profile first
 
