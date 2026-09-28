@@ -43,7 +43,6 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
-import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
@@ -58,7 +57,7 @@ import org.bukkit.persistence.PersistentDataType;
  */
 public final class SlimefunUtils {
 
-    private static final String NO_PICKUP_METADATA = "no_pickup";
+    private static final String NO_PICKUP_KEY = "no_pickup";
     private static final String SOULBOUND_LORE = ChatColor.GRAY + "Soulbound";
 
     private SlimefunUtils() {}
@@ -72,7 +71,7 @@ public final class SlimefunUtils {
      * @return Whether the {@link Item} is excluded from being picked up
      */
     public static boolean hasNoPickupFlag(@Nonnull Item item) {
-        return item.hasMetadata(NO_PICKUP_METADATA);
+        return item.getPersistentDataContainer().has(noPickupKey(), PersistentDataType.STRING);
     }
 
     /**
@@ -85,13 +84,27 @@ public final class SlimefunUtils {
      *            The context in which this {@link Item} was flagged
      */
     public static void markAsNoPickup(@Nonnull Item item, @Nonnull String context) {
-        item.setMetadata(NO_PICKUP_METADATA, new FixedMetadataValue(Slimefun.instance(), context));
+        item.getPersistentDataContainer().set(noPickupKey(), PersistentDataType.STRING, context);
         /*
          * Max the pickup delay - This makes it so no Player can pick up items ever without need for an event.
          * It is also an indication used by third-party plugins to know if it's a custom item.
          * Fixes #3203
          */
         item.setPickupDelay(Short.MAX_VALUE);
+    }
+
+    /**
+     * Clears Slimefun's persistent no-pickup marker from the supplied item entity.
+     *
+     * @param item
+     *            The {@link Item} to unmark
+     */
+    public static void clearNoPickupFlag(@Nonnull Item item) {
+        item.getPersistentDataContainer().remove(noPickupKey());
+    }
+
+    private static @Nonnull NamespacedKey noPickupKey() {
+        return new NamespacedKey(Slimefun.instance(), NO_PICKUP_KEY);
     }
 
     /**
