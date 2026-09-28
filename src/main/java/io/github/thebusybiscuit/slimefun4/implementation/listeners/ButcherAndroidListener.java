@@ -3,6 +3,7 @@ package io.github.thebusybiscuit.slimefun4.implementation.listeners;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.androids.AndroidInstance;
 import io.github.thebusybiscuit.slimefun4.implementation.items.androids.ButcherAndroid;
+import io.github.thebusybiscuit.slimefun4.implementation.items.androids.ButcherAndroidKillTracker;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,18 +32,14 @@ import org.bukkit.inventory.ItemStack;
  */
 public class ButcherAndroidListener implements Listener {
 
-    private static final String METADATA_KEY = "android_killer";
-
     public ButcherAndroidListener(@Nonnull Slimefun plugin) {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onDeath(EntityDeathEvent e) {
-        if (e.getEntity().hasMetadata(METADATA_KEY)) {
-            AndroidInstance obj = (AndroidInstance)
-                    e.getEntity().getMetadata(METADATA_KEY).get(0).value();
-
+        AndroidInstance obj = ButcherAndroidKillTracker.consume(e.getEntity());
+        if (obj != null) {
             Location deathLocation = e.getEntity().getLocation();
             EntityType entityType = e.getEntityType();
 
@@ -70,9 +67,6 @@ public class ButcherAndroidListener implements Listener {
                         exp.setExperience(1 + ThreadLocalRandom.current().nextInt(6));
                     },
                     1L);
-
-            // Removing metadata to prevent memory leaks
-            e.getEntity().removeMetadata(METADATA_KEY, Slimefun.instance());
         }
     }
 
