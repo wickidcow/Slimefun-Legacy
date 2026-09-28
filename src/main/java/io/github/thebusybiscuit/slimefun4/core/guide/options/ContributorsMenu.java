@@ -16,6 +16,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.logging.Level;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -100,14 +103,14 @@ final class ContributorsMenu {
         boolean legacyMaintainer = contributor.getName().equalsIgnoreCase(LEGACY_MAINTAINER);
 
         SkullMeta meta = (SkullMeta) skull.getItemMeta();
-        meta.setDisplayName(legacyMaintainer ? ChatColors.color(LEGACY_DISPLAY_NAME) : contributor.getDisplayName());
+        meta.displayName(legacyComponent(
+                legacyMaintainer ? ChatColors.color(LEGACY_DISPLAY_NAME) : contributor.getDisplayName()));
 
-        List<String> lore = new LinkedList<>();
-        lore.add("");
+        List<Component> lore = new LinkedList<>();
+        lore.add(Component.empty());
 
         if (legacyMaintainer) {
-            lore.add(ChatColors.color(LEGACY_BYLINE));
-            lore.add("");
+            lore.add(legacyComponent(ChatColors.color(LEGACY_BYLINE)));\n            lore.add(Component.empty());
         }
 
         for (Map.Entry<String, Integer> entry : contributor.getContributions()) {
@@ -129,18 +132,22 @@ final class ContributorsMenu {
                 info += " &7(" + entry.getValue() + ' ' + commits + ')';
             }
 
-            lore.add(ChatColors.color(info));
+            lore.add(legacyComponent(ChatColors.color(info)));
         }
 
         if (contributor.getProfile() != null) {
-            lore.add("");
-            lore.add(ChatColors.color("&7\u21E8 &e")
-                    + Slimefun.getLocalization().getMessage(p, "guide.credits.profile-link"));
+            lore.add(Component.empty());\n            lore.add(legacyComponent(ChatColors.color("&7\u21E8 &e")\n                    + Slimefun.getLocalization().getMessage(p, "guide.credits.profile-link")));
         }
 
-        meta.setLore(lore);
+        meta.lore(lore);
         skull.setItemMeta(meta);
         return skull;
+    }
+
+    private static Component legacyComponent(String value) {
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(value)
+                .decoration(TextDecoration.ITALIC, false);
     }
 
     private static ItemStack createSafeContributorHead(Contributor contributor) {
