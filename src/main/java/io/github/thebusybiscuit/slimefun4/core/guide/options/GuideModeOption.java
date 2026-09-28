@@ -8,9 +8,11 @@ import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
@@ -52,17 +54,27 @@ class GuideModeOption implements SlimefunGuideOption<SlimefunGuideMode> {
             }
 
             ItemMeta meta = item.getItemMeta();
-            meta.setDisplayName(
-                    ChatColor.GRAY + "Slimefun Guide style: " + ChatColor.YELLOW + selectedMode.getDisplayName());
-            List<String> lore = new ArrayList<>();
-            lore.add("");
-            lore.add((selectedMode == SlimefunGuideMode.SURVIVAL_MODE ? ChatColor.GREEN : ChatColor.GRAY)
-                    + "Survival Mode");
-            lore.add((selectedMode == SlimefunGuideMode.CHEAT_MODE ? ChatColor.GREEN : ChatColor.GRAY) + "Cheat Mode");
+            meta.displayName(Component.text("Slimefun Guide style: ", NamedTextColor.GRAY)
+                    .append(Component.text(selectedMode.getDisplayName(), NamedTextColor.YELLOW))
+                    .decoration(TextDecoration.ITALIC, false));
+            List<Component> lore = new ArrayList<>();
+            lore.add(Component.empty());
+            lore.add(Component.text(
+                            "Survival Mode",
+                            selectedMode == SlimefunGuideMode.SURVIVAL_MODE
+                                    ? NamedTextColor.GREEN
+                                    : NamedTextColor.GRAY)
+                    .decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text(
+                            "Cheat Mode",
+                            selectedMode == SlimefunGuideMode.CHEAT_MODE ? NamedTextColor.GREEN : NamedTextColor.GRAY)
+                    .decoration(TextDecoration.ITALIC, false));
 
-            lore.add("");
-            lore.add(ChatColor.GRAY + "\u21E8 " + ChatColor.YELLOW + "Click to change the guide mode");
-            meta.setLore(lore);
+            lore.add(Component.empty());
+            lore.add(Component.text("\u21E8 ", NamedTextColor.GRAY)
+                    .append(Component.text("Click to change the guide mode", NamedTextColor.YELLOW))
+                    .decoration(TextDecoration.ITALIC, false));
+            meta.lore(lore);
             item.setItemMeta(meta);
 
             return Optional.of(item);
