@@ -44,12 +44,14 @@ def main() -> int:
         support = json.loads(read(root, "compatibility/support-contract.json"))
         require(support.get("release") == version, "Support contract release must match projectVersion", failures)
         primary = support.get("primary_platform", {})
-        require(primary.get("release_line") == "26.2", "Primary Paper release line must be 26.2", failures)
-        require(primary.get("minecraft") == "26.2", "Primary Minecraft version must be 26.2", failures)
-        require(primary.get("paper_api") == "26.2.build.+", "Primary Paper API must be 26.2.build.+", failures)
+        require(primary.get("release_line") == "26.3", "Primary Paper release line must be 26.3", failures)
+        require(primary.get("minecraft") == "26.3", "Primary Minecraft version must be 26.3", failures)
+        require(primary.get("paper_api") == "26.3.build.+", "Primary Paper API must be 26.3.build.+", failures)
 
         policy = support.get("compatibility_policy", {})
         for key in (
+            "paper_26_3_primary_compile",
+            "paper_26_3_full_stack_smoke",
             "paper_26_2_runtime_smoke",
             "paper_runtime_smoke_uses_latest_stable_build",
             "paper_runtime_smoke_two_boot_lifecycle",
@@ -69,7 +71,7 @@ def main() -> int:
         )
 
         versions = read(root, "gradle/libs.versions.toml")
-        require('paperApi = "26.2.build.+"' in versions, "Production Paper API catalog target must be 26.2.build.+", failures)
+        require('paperApi = "26.3.build.+"' in versions, "Primary Paper API catalog target must be 26.3.build.+", failures)
 
         workflow = read(root, ".github/workflows/runtime-smoke.yml")
         for token in (
@@ -142,8 +144,8 @@ def main() -> int:
     gameplay_changed = support.get("compatibility_policy", {}).get("gameplay_behavior_changed")
     report.write_text(
         "Core Platform Phase 1L Part 4 Paper runtime smoke verification: PASS\n"
-        "- production source compiles against Paper API 26.2.build.+\n"
-        "- the support contract identifies Minecraft/Paper 26.2 consistently\n"
+        "- production source compiles against Paper API 26.3.build.+\n"
+        "- the support contract identifies Minecraft/Paper 26.3 as the primary API line\n"
         "- stable Paper 26.2 is selected through PaperMC's downloads service\n"
         "- the candidate JAR is boot-tested with Java 25\n"
         "- /sf doctor upgrade is executed during the runtime smoke\n"
