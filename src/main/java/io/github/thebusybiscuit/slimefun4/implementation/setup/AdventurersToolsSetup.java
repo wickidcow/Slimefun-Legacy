@@ -13,7 +13,9 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.tools.DeepcoreTun
 import io.github.thebusybiscuit.slimefun4.implementation.items.tools.DeepcoreTunnelTool.ExcavationType;
 import io.github.thebusybiscuit.slimefun4.implementation.items.tools.Paxel;
 import java.util.List;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
@@ -292,10 +294,13 @@ final class AdventurersToolsSetup {
     private static ItemStack createToolsIcon() {
         ItemStack icon = new ItemStack(Material.NETHERITE_PICKAXE);
         ItemMeta meta = icon.getItemMeta();
-        meta.setDisplayName(ChatColor.GOLD + "Tools");
-        meta.setLore(List.of(
-                ChatColor.GRAY + "Excavation, field engineering",
-                ChatColor.GRAY + "and specialized expedition tools"));
+        meta.displayName(Component.text("Tools", NamedTextColor.GOLD)
+                .decoration(TextDecoration.ITALIC, false));
+        meta.lore(List.of(
+                Component.text("Excavation, field engineering", NamedTextColor.GRAY)
+                        .decoration(TextDecoration.ITALIC, false),
+                Component.text("and specialized expedition tools", NamedTextColor.GRAY)
+                        .decoration(TextDecoration.ITALIC, false)));
         icon.setItemMeta(meta);
         return icon;
     }
