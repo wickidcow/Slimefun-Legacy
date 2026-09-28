@@ -591,7 +591,6 @@ class VersionsCommand extends SubCommand {
         return version.length() <= maxLength ? version : version.substring(0, maxLength - 1) + "…";
     }
 
-    @SuppressWarnings("deprecation")
     private void addPluginVersions(
             @Nonnull net.kyori.adventure.text.TextComponent.Builder builder,
             @Nonnull Collection<Plugin> addons,
@@ -619,7 +618,7 @@ class VersionsCommand extends SubCommand {
             if (Bukkit.getPluginManager().isPluginEnabled(addonPlugin)) {
                 primaryColor = NamedTextColor.GREEN;
                 secondaryColor = NamedTextColor.DARK_GREEN;
-                String authors = String.join(", ", addonPlugin.getDescription().getAuthors());
+                String authors = String.join(", ", addonPlugin.getPluginMeta().getAuthors());
 
                 if (addonPlugin instanceof SlimefunAddon addon && addon.getBugTrackerURL() != null) {
                     try {
