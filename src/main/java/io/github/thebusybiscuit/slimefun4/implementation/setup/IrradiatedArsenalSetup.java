@@ -11,7 +11,9 @@ import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.weapons.IrradiatedWeapon;
 import io.github.thebusybiscuit.slimefun4.implementation.items.weapons.IrradiatedWeaponListener;
 import java.util.List;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
@@ -203,10 +205,13 @@ final class IrradiatedArsenalSetup {
     private static ItemStack createArsenalIcon() {
         ItemStack icon = new ItemStack(Material.NETHERITE_SWORD);
         ItemMeta meta = icon.getItemMeta();
-        meta.setDisplayName(ChatColor.GREEN + "Irradiated Arsenal");
-        meta.setLore(List.of(
-                ChatColor.GRAY + "Blistering-alloy weapons with radioactive payloads",
-                ChatColor.DARK_GRAY + "Powerful in combat; unsafe to hold forever"));
+        meta.displayName(Component.text("Irradiated Arsenal", NamedTextColor.GREEN)
+                .decoration(TextDecoration.ITALIC, false));
+        meta.lore(List.of(
+                Component.text("Blistering-alloy weapons with radioactive payloads", NamedTextColor.GRAY)
+                        .decoration(TextDecoration.ITALIC, false),
+                Component.text("Powerful in combat; unsafe to hold forever", NamedTextColor.DARK_GRAY)
+                        .decoration(TextDecoration.ITALIC, false)));
         icon.setItemMeta(meta);
         return icon;
     }
