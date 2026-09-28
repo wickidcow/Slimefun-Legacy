@@ -14,9 +14,11 @@ import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -142,11 +144,12 @@ class BackpackCommand extends SubCommand {
 
             var visualBackpack = SlimefunItems.RESTORED_BACKPACK.clone();
             var im = visualBackpack.getItemMeta();
-            im.setDisplayName(bp.getName().isEmpty() ? "Backpack #" + bp.getId() : bp.getName());
-            var lore = new ArrayList<String>();
-            lore.add("");
-            lore.add(ChatColor.translateAlternateColorCodes('&', "&aLeft click to retrieve this backpack"));
-            im.setLore(lore);
+            im.displayName(Component.text(bp.getName().isEmpty() ? "Backpack #" + bp.getId() : bp.getName())
+                    .decoration(TextDecoration.ITALIC, false));
+            im.lore(java.util.List.of(
+                    Component.empty(),
+                    Component.text("Left click to retrieve this backpack", NamedTextColor.GREEN)
+                            .decoration(TextDecoration.ITALIC, false)));
             visualBackpack.setItemMeta(im);
 
             menu.addItem(slot, visualBackpack);
