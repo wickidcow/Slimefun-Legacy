@@ -15,7 +15,9 @@ import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
@@ -172,13 +174,18 @@ public final class AdvancedEnchantmentsIntegration {
         data.set(BOOK_SUCCESS_KEY, PersistentDataType.INTEGER, book.successChance());
         data.set(BOOK_FAILURE_KEY, PersistentDataType.INTEGER, book.destroyChance());
 
-        meta.setDisplayName(ChatColor.GOLD + "" + ChatColor.BOLD + formatName(book.enchantment()) + ' '
-                + formatLevel(book.level()));
-        meta.setLore(List.of(
-                ChatColor.GREEN + Integer.toString(book.successChance()) + "% Success Rate",
-                ChatColor.RED + Integer.toString(book.destroyChance()) + "% Destroy Rate",
-                ChatColor.GRAY + "Advanced Enchantment",
-                ChatColor.GRAY + "Drag n' drop onto item to enchant"));
+        meta.displayName(Component.text(formatName(book.enchantment()) + ' ' + formatLevel(book.level()), NamedTextColor.GOLD)
+                .decorate(TextDecoration.BOLD)
+                .decoration(TextDecoration.ITALIC, false));
+        meta.lore(List.of(
+                Component.text(book.successChance() + "% Success Rate", NamedTextColor.GREEN)
+                        .decoration(TextDecoration.ITALIC, false),
+                Component.text(book.destroyChance() + "% Destroy Rate", NamedTextColor.RED)
+                        .decoration(TextDecoration.ITALIC, false),
+                Component.text("Advanced Enchantment", NamedTextColor.GRAY)
+                        .decoration(TextDecoration.ITALIC, false),
+                Component.text("Drag n' drop onto item to enchant", NamedTextColor.GRAY)
+                        .decoration(TextDecoration.ITALIC, false)));
         item.setItemMeta(meta);
         return item;
     }
