@@ -84,8 +84,13 @@ def main() -> int:
         )
         require(
             tools_items,
-            'ChatColor.DARK_RED + "Extra Tools"',
-            "ExtraTools guide page must keep its original Extra Tools label",
+            'Component.text("Extra Tools", NamedTextColor.DARK_RED)',
+            "ExtraTools guide page must keep its original dark-red Extra Tools label",
+        )
+        require(
+            tools_items,
+            ".decoration(TextDecoration.ITALIC, false)",
+            "ExtraTools guide page label must retain non-italic item-name styling",
         )
         require(
             tools_items,
