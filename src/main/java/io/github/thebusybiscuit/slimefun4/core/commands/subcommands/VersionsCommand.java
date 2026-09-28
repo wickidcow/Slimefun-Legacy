@@ -607,7 +607,7 @@ class VersionsCommand extends SubCommand {
         for (Plugin addonPlugin : addons.stream()
                 .sorted((left, right) -> left.getName().compareToIgnoreCase(right.getName()))
                 .toList()) {
-            String version = addonPlugin.getDescription().getVersion();
+            String version = addonPlugin.getPluginMeta().getVersion();
             Optional<PluginDependencySnapshot> dependencySnapshot = dependencies.findPlugin(addonPlugin.getName());
             Optional<AddonRuntimeFailureSnapshot> runtimeFailure =
                     Slimefun.getAddonRuntimeHealthService().getFailure(addonPlugin.getName());
