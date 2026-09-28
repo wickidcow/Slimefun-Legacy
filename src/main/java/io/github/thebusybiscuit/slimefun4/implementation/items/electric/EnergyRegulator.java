@@ -119,11 +119,21 @@ public class EnergyRegulator extends SlimefunItem implements HologramOwner, NotR
         // Reuse the storage-owned canonical Location instead of allocating Block#getLocation()
         // for every regulator ticker pass.
         Location location = blockData.getLocation();
+        var profiler = Slimefun.getProfiler();
+
+        long phaseTimestamp = profiler.startPhase();
         EnergyNet network = Slimefun.getNetworkManager()
                 .getNetworkFromRegulator(location, EnergyNet.class)
                 .orElseGet(() -> EnergyNet.getNetworkFromLocationOrCreate(location));
+        profiler.closePhase("EnergyRegulator", "network lookup", phaseTimestamp);
+
+        phaseTimestamp = profiler.startPhase();
         network.tick(b, blockData);
+        profiler.closePhase("EnergyRegulator", "network execution", phaseTimestamp);
+
+        phaseTimestamp = profiler.startPhase();
         displayActiveVisualizer(b, network);
+        profiler.closePhase("EnergyRegulator", "player visualizer", phaseTimestamp);
     }
 
     private void openVisualizerMenu(@Nonnull Player player, @Nonnull Block regulator) {
