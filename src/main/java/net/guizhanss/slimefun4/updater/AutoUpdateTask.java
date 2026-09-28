@@ -28,7 +28,7 @@ public class AutoUpdateTask implements Runnable {
     public AutoUpdateTask(Plugin plugin, File file) {
         this.plugin = plugin;
         this.file = file;
-        this.version = plugin.getDescription().getVersion();
+        this.version = plugin.getPluginMeta().getVersion();
     }
 
     @Override
