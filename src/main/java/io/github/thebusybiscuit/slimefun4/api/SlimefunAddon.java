@@ -2,12 +2,12 @@ package io.github.thebusybiscuit.slimefun4.api;
 
 import io.github.thebusybiscuit.slimefun4.api.annotations.SlimefunAPI;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
+import io.papermc.paper.plugin.configuration.PluginMeta;
 import java.util.logging.Logger;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang.Validate;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
@@ -60,7 +60,7 @@ public interface SlimefunAddon {
      * @return The version of this {@link SlimefunAddon}
      */
     default @Nonnull String getPluginVersion() {
-        return getJavaPlugin().getDescription().getVersion();
+        return getJavaPlugin().getPluginMeta().getVersion();
     }
 
     /**
@@ -76,8 +76,8 @@ public interface SlimefunAddon {
     /**
      * This method checks whether the given String is the name of a dependency of this
      * {@link SlimefunAddon}.
-     * It specifically checks whether the given String can be found in {@link PluginDescriptionFile#getDepend()}
-     * or {@link PluginDescriptionFile#getSoftDepend()}
+     * It specifically checks whether the given String can be found in {@link PluginMeta#getPluginDependencies()}
+     * or {@link PluginMeta#getPluginSoftDependencies()}
      *
      * @param dependency
      *            The dependency to check for
@@ -92,9 +92,9 @@ public interface SlimefunAddon {
             return true;
         }
 
-        PluginDescriptionFile description = getJavaPlugin().getDescription();
-        return description.getDepend().contains(dependency)
-                || description.getSoftDepend().contains(dependency);
+        PluginMeta metadata = getJavaPlugin().getPluginMeta();
+        return metadata.getPluginDependencies().contains(dependency)
+                || metadata.getPluginSoftDependencies().contains(dependency);
     }
 
     /**
