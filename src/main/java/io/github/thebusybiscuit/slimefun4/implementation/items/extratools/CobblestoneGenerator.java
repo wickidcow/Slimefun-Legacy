@@ -10,6 +10,8 @@ import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import java.util.List;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
 import me.mrCookieSlime.CSCoreLibPlugin.Configuration.Config;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ClickAction;
@@ -103,11 +105,10 @@ public final class CobblestoneGenerator extends SimpleSlimefunItem<BlockTicker> 
         };
     }
 
-    @SuppressWarnings("deprecation")
     private static ItemStack createMenuPane(Material material) {
         ItemStack pane = new ItemStack(material);
         ItemMeta meta = pane.getItemMeta();
-        meta.setDisplayName(" ");
+        meta.displayName(Component.text(" ").decoration(TextDecoration.ITALIC, false));
         pane.setItemMeta(meta);
         return pane;
     }
