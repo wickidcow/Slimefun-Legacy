@@ -6,8 +6,8 @@ Slimefun Legacy is a server plugin. Players do **not** need to install a client 
 
 | Requirement | Supported setup |
 | --- | --- |
-| Primary server | Paper 26.2 / Minecraft 26.2 |
-| Secondary server | Purpur based on Paper 26.2 |
+| Primary API/server target | Paper 26.3 / Minecraft 26.3 |
+| Backwards compatibility | Paper/Purpur 1.21.11 and Paper/Purpur 26.2 |
 | Java runtime | Java 25 |
 | Client | Normal Minecraft Java client |
 | Folia | Experimental |
