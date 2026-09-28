@@ -110,7 +110,8 @@ final class ContributorsMenu {
         lore.add(Component.empty());
 
         if (legacyMaintainer) {
-            lore.add(legacyComponent(ChatColors.color(LEGACY_BYLINE)));\n            lore.add(Component.empty());
+            lore.add(legacyComponent(ChatColors.color(LEGACY_BYLINE)));
+            lore.add(Component.empty());
         }
 
         for (Map.Entry<String, Integer> entry : contributor.getContributions()) {
@@ -136,7 +137,9 @@ final class ContributorsMenu {
         }
 
         if (contributor.getProfile() != null) {
-            lore.add(Component.empty());\n            lore.add(legacyComponent(ChatColors.color("&7\u21E8 &e")\n                    + Slimefun.getLocalization().getMessage(p, "guide.credits.profile-link")));
+            lore.add(Component.empty());
+            lore.add(legacyComponent(ChatColors.color("&7\u21E8 &e")
+                    + Slimefun.getLocalization().getMessage(p, "guide.credits.profile-link")));
         }
 
         meta.lore(lore);
