@@ -4,9 +4,9 @@
   "plugin_name": "Slimefun",
   "primary_platform": {
     "software": "Paper",
-    "release_line": "26.2",
-    "minecraft": "26.2",
-    "paper_api": "26.2.build.+",
+    "release_line": "26.3",
+    "minecraft": "26.3",
+    "paper_api": "26.3.build.+",
     "status": "supported"
   },
   "legacy_compatibility_targets": [
@@ -30,6 +30,13 @@
     }
   ],
   "secondary_platforms": [
+    {
+      "software": "Paper",
+      "basis": "Paper 26.2",
+      "runtime_java": 25,
+      "status": "supported",
+      "validation": "two-boot real-server runtime smoke plus 26.2/26.3 full-stack smoke"
+    },
     {
       "software": "Purpur",
       "basis": "Paper 26.2",
@@ -75,7 +82,7 @@
   },
   "compatibility_policy": {
     "public_api_removals_require_allowlist": true,
-    "candidate_paper_api_is_non_blocking": true,
+    "candidate_paper_api_is_non_blocking": false,
     "folia_is_experimental": true,
     "automatic_core_or_addon_downloads": false,
     "database_format_changed": false,
@@ -232,7 +239,9 @@
     "planned_restart_readiness_diagnostics": true,
     "shutdown_backup_readiness_diagnostics": true,
     "shutdown_backup_directory_self_initializing": true,
-    "shutdown_backup_retention_enforced": true
+    "shutdown_backup_retention_enforced": true,
+    "paper_26_3_primary_compile": true,
+    "paper_26_3_full_stack_smoke": true
   },
   "phase": "Core Platform Phase 1L"
 }
