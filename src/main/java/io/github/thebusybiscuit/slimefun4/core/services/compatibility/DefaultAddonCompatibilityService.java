@@ -12,6 +12,7 @@ import io.github.thebusybiscuit.slimefun4.api.addons.SlimefunCoreVariant;
 import io.github.thebusybiscuit.slimefun4.api.annotations.SlimefunInternal;
 import io.github.thebusybiscuit.slimefun4.api.platform.PlatformCompatibilityReport;
 import io.github.thebusybiscuit.slimefun4.api.platform.PlatformCompatibilityService;
+import io.papermc.paper.plugin.configuration.PluginMeta;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -24,7 +25,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import org.bukkit.plugin.Plugin;
-import io.papermc.paper.plugin.configuration.PluginMeta;
 
 /** Internal runtime registry for addon compatibility declarations and diagnostics. */
 @SlimefunInternal

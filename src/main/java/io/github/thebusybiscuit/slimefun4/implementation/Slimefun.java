@@ -221,7 +221,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     private final CustomTextureService textureService = new CustomTextureService(new Config(this, "item-models.yml"));
     private final GitHubService gitHubService = new GitHubService("wickidcow/Slimefun-Legacy");
     private final UpdaterService updaterService =
-            new UpdaterService(this, getDescription().getVersion(), getFile());
+            new UpdaterService(this, getPluginMeta().getVersion(), getFile());
     private final MetricsService metricsService = new MetricsService(this);
     private final AutoSavingService autoSavingService = new AutoSavingService();
     private final BackupService backupService = new BackupService();
@@ -744,7 +744,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
             StartupWarnings.invalidMinecraftVersion(
                     getLogger(),
                     getServer().getMinecraftVersion(),
-                    getDescription().getVersion());
+                    getPluginMeta().getVersion());
             return true;
         } catch (Exception | LinkageError x) {
             getLogger()
@@ -752,7 +752,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
                             Level.SEVERE,
                             x,
                             () -> "Error: Unable to recognize the server Minecraft version, Slimefun v"
-                                    + getDescription().getVersion());
+                                    + getPluginMeta().getVersion());
 
             // We assume "unsupported" if something went wrong.
             return true;
