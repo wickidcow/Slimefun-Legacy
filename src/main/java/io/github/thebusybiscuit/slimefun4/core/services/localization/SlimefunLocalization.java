@@ -17,6 +17,9 @@ import java.util.function.UnaryOperator;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.apache.commons.lang.Validate;
 import org.bukkit.ChatColor;
@@ -320,7 +323,8 @@ public abstract class SlimefunLocalization implements Keyed {
 
             // Set the display name if possible, else keep the default item name.
             if (displayName != null) {
-                meta.setDisplayName(ChatColor.AQUA + displayName);
+                meta.displayName(Component.text(displayName, NamedTextColor.AQUA)
+                        .decoration(TextDecoration.ITALIC, false));
             }
 
             List<String> lore = getStringListOrNull(
@@ -328,8 +332,10 @@ public abstract class SlimefunLocalization implements Keyed {
 
             // Set the lore if possible, else keep the default lore.
             if (lore != null) {
-                lore.replaceAll(line -> ChatColor.GRAY + line);
-                meta.setLore(lore);
+                meta.lore(lore.stream()
+                        .map(line -> Component.text(line, NamedTextColor.GRAY)
+                                .decoration(TextDecoration.ITALIC, false))
+                        .toList());
             }
 
             meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
