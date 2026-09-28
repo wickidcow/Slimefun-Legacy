@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 90,
+  "bundle_revision": 91,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -8,7 +8,7 @@
     "version_policy": "numeric only",
     "exceptions": {
       "wickidcow/SF_DracFun2": "SFL_DracFun-Reborn<Version>.jar",
-      "wickidcow/WorldEditSlimefun": "SF_SFWorldEdit<Version>_(1.21.11-26.2).jar"
+      "wickidcow/WorldEditSlimefun": "SF_SFWorldEdit<Version>_(1.21.11-26.3).jar"
     },
     "forbidden_public_qualifiers": [
       "legacy",
@@ -25,9 +25,9 @@
         "26.2",
         "26.3"
       ],
-      "primary": "26.2",
-      "candidate": "26.3",
-      "candidate_status": "alpha-awaiting-stable"
+      "primary": "26.3",
+      "candidate": null,
+      "candidate_status": "promoted-to-primary-api"
     },
     "server_platforms": {
       "primary": [
@@ -43,9 +43,11 @@
       "preserve_oldest_supported_api_floor": true,
       "do_not_raise_plugin_api_version_for_26_3_only": true,
       "paper_26_3_compile_required_for_bundle": true,
-      "paper_26_2_remains_production_baseline": true,
-      "promote_26_3_only_after_stable_server_build": true,
-      "promotion_requires_explicit_baseline_decision": true
+      "paper_26_2_remains_production_baseline": false,
+      "promote_26_3_only_after_stable_server_build": false,
+      "promotion_requires_explicit_baseline_decision": false,
+      "paper_26_3_is_primary_api_target": true,
+      "paper_26_2_backwards_compatibility": true
     }
   },
   "addons": [
