@@ -1,4 +1,4 @@
-name: Paper 26.3 Advisory
+name: Paper 26.3 Primary API
 
 on:
   push:
@@ -17,13 +17,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: paper-26-3-advisory
+  group: paper-26-3-primary-api
   cancel-in-progress: true
 
 jobs:
   paper-26-3-api:
     name: Discover and compile against Paper 26.3
-    continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -53,10 +52,11 @@ jobs:
           if [[ -z "$VERSION" ]]; then
             echo 'available=false' >> "$GITHUB_OUTPUT"
             {
-              echo '## Paper 26.3 advisory'
+              echo '## Paper 26.3 primary API'
               echo
               echo 'Paper 26.3 API is not published in the official Paper Maven repository yet.'
-              echo 'Slimefun Legacy remains on the Paper 26.2 production baseline. No compatibility failure is recorded.'
+              echo 'Paper 26.3 is the primary API target, so a missing API is a compatibility failure.'
+              exit 1
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
@@ -67,7 +67,7 @@ jobs:
             echo '## Paper 26.3 advisory'
             echo
             echo "Detected official Paper API: \`$VERSION\`"
-            echo 'This lane is advisory only and does not promote 26.3 to the production baseline.'
+            echo 'Paper 26.3 is the primary compile/support target. The distributable remains Java 21 bytecode for 1.21.11+ compatibility.'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Compile Slimefun Legacy against Paper 26.3
@@ -92,14 +92,14 @@ jobs:
         run: |
           {
             echo
-            echo "Candidate API checked: \`${PAPER_26_3_API}\`"
-            echo 'Review warnings and failures before changing the supported Paper baseline.'
+            echo "Primary API checked: \`${PAPER_26_3_API}\`"
+            echo 'A compile failure in this lane is a primary compatibility regression.'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Paper 26.3 compile log
         if: steps.paper.outputs.available == 'true' && always()
         uses: actions/upload-artifact@v7
         with:
-          name: paper-26.3-advisory-compile
+          name: paper-26.3-primary-compile
           path: paper-26.3-compile.log
           if-no-files-found: warn
