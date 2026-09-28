@@ -11,7 +11,7 @@ import org.bukkit.event.inventory.InventoryPickupItemEvent;
 import org.bukkit.inventory.meta.ItemMeta;
 
 /**
- * Listens to the ItemPickup events to prevent it if the item has the "no_pickup" metadata or is an ALTAR_PROBE.
+ * Listens to the ItemPickup events to prevent it if the item has Slimefun's no-pickup marker or is an ALTAR_PROBE.
  *
  * @author TheBusyBiscuit
  */
