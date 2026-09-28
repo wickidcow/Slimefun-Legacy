@@ -18,11 +18,8 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.metadata.FixedMetadataValue;
 
 public class ButcherAndroid extends ProgrammableAndroid {
-
-    private static final String METADATA_KEY = "android_killer";
 
     @ParametersAreNonnullByDefault
     public ButcherAndroid(
@@ -62,9 +59,7 @@ public class ButcherAndroid extends ProgrammableAndroid {
                     };
 
             if (willAttack) {
-                if (n.hasMetadata(METADATA_KEY)) {
-                    n.removeMetadata(METADATA_KEY, Slimefun.instance());
-                }
+                ButcherAndroidKillTracker.clear(n);
 
                 OfflinePlayer owner =
                         Bukkit.getOfflinePlayer(UUID.fromString(StorageCacheUtils.getData(b.getLocation(), "owner")));
@@ -72,9 +67,14 @@ public class ButcherAndroid extends ProgrammableAndroid {
                     return;
                 }
 
-                n.setMetadata(METADATA_KEY, new FixedMetadataValue(Slimefun.instance(), new AndroidInstance(this, b)));
-
-                ((LivingEntity) n).damage(damage);
+                ButcherAndroidKillTracker.mark(n, new AndroidInstance(this, b));
+                try {
+                    ((LivingEntity) n).damage(damage);
+                } finally {
+                    // EntityDeathEvent consumes the marker synchronously when this hit kills the target.
+                    // Surviving entities must not retain a stale Android context.
+                    ButcherAndroidKillTracker.clear(n);
+                }
                 break;
             }
         }
