@@ -11,8 +11,10 @@ import io.github.thebusybiscuit.slimefun4.utils.ChatUtils;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.logging.Level;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.enchantments.Enchantment;
@@ -518,11 +520,10 @@ final class ExtraGearSetup {
         return Objects.requireNonNull(NamespacedKey.fromString(LEGACY_RESEARCH_NAMESPACE + ':' + key));
     }
 
-    @SuppressWarnings("deprecation")
     private static ItemStack createItemGroupIcon() {
         ItemStack icon = new ItemStack(Material.DIAMOND_SWORD);
         ItemMeta meta = icon.getItemMeta();
-        meta.setDisplayName(ChatColor.GOLD + "ExtraGear");
+        meta.displayName(Component.text("ExtraGear", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false));
         icon.setItemMeta(meta);
         return icon;
     }
