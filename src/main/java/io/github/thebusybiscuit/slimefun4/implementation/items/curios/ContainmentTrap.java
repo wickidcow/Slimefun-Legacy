@@ -15,6 +15,9 @@ import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -164,12 +167,15 @@ public final class ContainmentTrap extends SimpleSlimefunItem<ItemUseHandler> {
         }
 
         pdc.set(payloadKey, PersistentDataType.BYTE_ARRAY, payload.serializeAsBytes());
-        meta.setDisplayName(ChatColor.GOLD + "Containment Trap " + ChatColor.YELLOW + "[SEALED]");
-        meta.setLore(List.of(
-                ChatColor.GRAY + "Radioactive material securely contained.",
-                ChatColor.YELLOW + friendlyName(payload),
-                "",
-                ChatColor.GREEN + "Right Click " + ChatColor.GRAY + "to release contents"));
+        meta.displayName(legacyText(ChatColor.GOLD + "Containment Trap " + ChatColor.YELLOW + "[SEALED]"));
+        meta.lore(List.of(
+                        ChatColor.GRAY + "Radioactive material securely contained.",
+                        ChatColor.YELLOW + friendlyName(payload),
+                        "",
+                        ChatColor.GREEN + "Right Click " + ChatColor.GRAY + "to release contents")
+                .stream()
+                .map(ContainmentTrap::legacyText)
+                .toList());
         meta.setMaxStackSize(1);
         trap.setItemMeta(meta);
         return true;
@@ -192,8 +198,8 @@ public final class ContainmentTrap extends SimpleSlimefunItem<ItemUseHandler> {
         }
 
         pdc.remove(payloadKey);
-        meta.setDisplayName(ChatColor.GOLD + "Containment Trap");
-        meta.setLore(emptyLore());
+        meta.displayName(legacyText(ChatColor.GOLD + "Containment Trap"));
+        meta.lore(emptyLore().stream().map(ContainmentTrap::legacyText).toList());
         meta.setMaxStackSize(1);
         trap.setItemMeta(meta);
 
@@ -249,9 +255,16 @@ public final class ContainmentTrap extends SimpleSlimefunItem<ItemUseHandler> {
         return lore;
     }
 
+    private static Component legacyText(String value) {
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(value)
+                .decoration(TextDecoration.ITALIC, false);
+    }
+
     private static String friendlyName(ItemStack stack) {
         if (stack.hasItemMeta() && stack.getItemMeta().hasDisplayName()) {
-            return ChatColor.stripColor(stack.getItemMeta().getDisplayName());
+            String legacy = LegacyComponentSerializer.legacySection().serialize(stack.getItemMeta().displayName());
+            return ChatColor.stripColor(legacy);
         }
 
         String[] words = stack.getType().name().toLowerCase(Locale.ROOT).split("_");
