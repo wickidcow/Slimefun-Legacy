@@ -15,6 +15,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
@@ -958,10 +960,14 @@ final class DoctorOperationsCenterMenu {
     private static ItemStack menuItem(@Nonnull Material material, @Nonnull String name, @Nonnull String... lore) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
-        meta.setLore(Arrays.stream(lore)
+        meta.displayName(LegacyComponentSerializer.legacyAmpersand()
+                .deserialize(name)
+                .decoration(TextDecoration.ITALIC, false));
+        meta.lore(Arrays.stream(lore)
                 .filter(line -> line != null)
-                .map(line -> ChatColor.translateAlternateColorCodes('&', line))
+                .map(line -> LegacyComponentSerializer.legacyAmpersand()
+                        .deserialize(line)
+                        .decoration(TextDecoration.ITALIC, false))
                 .toList());
         item.setItemMeta(meta);
         return item;
