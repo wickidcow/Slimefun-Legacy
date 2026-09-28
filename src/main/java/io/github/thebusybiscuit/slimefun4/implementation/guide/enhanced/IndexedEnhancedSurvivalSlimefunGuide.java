@@ -21,6 +21,9 @@ import java.util.Map;
 import java.util.WeakHashMap;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -223,14 +226,17 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
         ItemStack item = new ItemStack(Material.COMPASS);
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName(ChatColor.AQUA + "" + ChatColor.BOLD + "Smart Search");
-            meta.setLore(List.of(
-                    "",
-                    ChatColor.GRAY + "Search names, IDs, addons, categories,",
-                    ChatColor.GRAY + "groups, recipe types and item lore.",
-                    "",
-                    ChatColor.WHITE + "Filters: " + ChatColor.GRAY + "id:, addon:, category:,",
-                    ChatColor.GRAY + "group:, recipe:"));
+            meta.displayName(legacyText(ChatColor.AQUA + "" + ChatColor.BOLD + "Smart Search"));
+            meta.lore(List.of(
+                            "",
+                            ChatColor.GRAY + "Search names, IDs, addons, categories,",
+                            ChatColor.GRAY + "groups, recipe types and item lore.",
+                            "",
+                            ChatColor.WHITE + "Filters: " + ChatColor.GRAY + "id:, addon:, category:,",
+                            ChatColor.GRAY + "group:, recipe:")
+                    .stream()
+                    .map(IndexedEnhancedSurvivalSlimefunGuide::legacyText)
+                    .toList());
             item.setItemMeta(meta);
         }
         return item;
@@ -240,12 +246,15 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
         ItemStack item = new ItemStack(Material.NETHER_STAR);
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName(ChatColor.GOLD + "" + ChatColor.BOLD + "Bookmarks");
-            meta.setLore(List.of(
-                    "",
-                    ChatColor.GRAY + "Saved items: " + ChatColor.WHITE + count,
-                    "",
-                    ChatColor.YELLOW + "Click to open"));
+            meta.displayName(legacyText(ChatColor.GOLD + "" + ChatColor.BOLD + "Bookmarks"));
+            meta.lore(List.of(
+                            "",
+                            ChatColor.GRAY + "Saved items: " + ChatColor.WHITE + count,
+                            "",
+                            ChatColor.YELLOW + "Click to open")
+                    .stream()
+                    .map(IndexedEnhancedSurvivalSlimefunGuide::legacyText)
+                    .toList());
             item.setItemMeta(meta);
         }
         return item;
@@ -307,41 +316,47 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
             return decorated;
         }
 
-        List<String> lore = meta.hasLore() && meta.getLore() != null
-                ? new ArrayList<>(meta.getLore())
-                : new ArrayList<>();
-        lore.add("");
-        lore.add(ChatColor.DARK_GRAY + "Group: " + ChatColor.WHITE
-                + item.getItemGroup().getDisplayName(player));
+        List<Component> currentLore = meta.lore();
+        List<Component> lore = currentLore == null ? new ArrayList<>() : new ArrayList<>(currentLore);
+        lore.add(Component.empty());
+        lore.add(legacyText(ChatColor.DARK_GRAY + "Group: " + ChatColor.WHITE
+                + item.getItemGroup().getDisplayName(player)));
         String categoryId = item.getItemGroup().getCategoryId();
         if (categoryId != null && !categoryId.isBlank()) {
-            lore.add(ChatColor.DARK_GRAY + "Guide Category: " + ChatColor.WHITE
-                    + categoryId.replace('_', ' '));
+            lore.add(legacyText(ChatColor.DARK_GRAY + "Guide Category: " + ChatColor.WHITE
+                    + categoryId.replace('_', ' ')));
         }
         if (LegacyGuideSettings.get().shouldDisplayAddon()) {
-            lore.add(ChatColor.DARK_GRAY + "Addon: " + ChatColor.WHITE + GuideSearchIndex.getAddonName(item));
+            lore.add(legacyText(
+                    ChatColor.DARK_GRAY + "Addon: " + ChatColor.WHITE + GuideSearchIndex.getAddonName(item)));
         }
         if (LegacyGuideSettings.get().shouldDisplayItemId()) {
-            lore.add(ChatColor.DARK_GRAY + "ID: " + ChatColor.GRAY + item.getId());
+            lore.add(legacyText(ChatColor.DARK_GRAY + "ID: " + ChatColor.GRAY + item.getId()));
         }
         if (!isSurvivalMode()) {
-            lore.add("");
-            lore.add(ChatColor.GREEN + "Left-click: " + ChatColor.GRAY + "Give 1 item");
-            lore.add(ChatColor.YELLOW + "Right-click: " + ChatColor.GRAY + "Give a full stack");
+            lore.add(Component.empty());
+            lore.add(legacyText(ChatColor.GREEN + "Left-click: " + ChatColor.GRAY + "Give 1 item"));
+            lore.add(legacyText(ChatColor.YELLOW + "Right-click: " + ChatColor.GRAY + "Give a full stack"));
         }
         if (LegacyGuideSettings.get().hasBookmarks()) {
-            lore.add("");
-            lore.add(bookmarked
+            lore.add(Component.empty());
+            lore.add(legacyText(bookmarked
                     ? ChatColor.GOLD + "★ Bookmarked"
-                    : ChatColor.YELLOW + "Shift-click to bookmark");
+                    : ChatColor.YELLOW + "Shift-click to bookmark"));
             if (bookmarked) {
-                lore.add(ChatColor.GRAY + "Shift-click to remove bookmark");
+                lore.add(legacyText(ChatColor.GRAY + "Shift-click to remove bookmark"));
             }
         }
-        meta.setLore(lore);
+        meta.lore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, VersionedItemFlag.HIDE_ADDITIONAL_TOOLTIP);
         decorated.setItemMeta(meta);
         return decorated;
+    }
+
+    private static Component legacyText(String value) {
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(value)
+                .decoration(TextDecoration.ITALIC, false);
     }
 
     private void openIndexedItem(
