@@ -125,7 +125,7 @@ public final class DefaultRegistryRuntimeService implements RegistryRuntimeServi
         private AddonRegistrySnapshot snapshot() {
             return new AddonRegistrySnapshot(
                     plugin.getName(),
-                    plugin.getDescription().getVersion(),
+                    plugin.getPluginMeta().getVersion(),
                     totalItems,
                     enabledItems,
                     disabledItems,
