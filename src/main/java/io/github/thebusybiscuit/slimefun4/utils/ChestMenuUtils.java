@@ -9,6 +9,9 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu.MenuClickHandler;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -92,12 +95,12 @@ public final class ChestMenuUtils {
 
     public static @Nonnull ItemStack getSearchButton(@Nonnull Player p) {
         return new CustomItemStack(SEARCH_BUTTON, meta -> {
-            meta.setDisplayName(ChatColors.color(Slimefun.getLocalization().getMessage(p, "guide.search.name")));
+            meta.displayName(legacyText(ChatColors.color(
+                    Slimefun.getLocalization().getMessage(p, "guide.search.name"))));
 
             List<String> lore = Arrays.asList(
                     "", ChatColor.GRAY + "\u21E8 " + Slimefun.getLocalization().getMessage(p, "guide.search.tooltip"));
-            lore.replaceAll(ChatColors::color);
-            meta.setLore(lore);
+            meta.lore(lore.stream().map(ChatColors::color).map(ChestMenuUtils::legacyText).toList());
         });
     }
 
@@ -108,16 +111,20 @@ public final class ChestMenuUtils {
     public static @Nonnull ItemStack getPreviousButton(@Nonnull Player p, int page, int pages) {
         if (pages == 1 || page == 1) {
             return new CustomItemStack(PREV_BUTTON_INACTIVE, meta -> {
-                meta.setDisplayName(ChatColor.DARK_GRAY
+                meta.displayName(legacyText(ChatColor.DARK_GRAY
                         + "\u21E6 "
-                        + Slimefun.getLocalization().getMessage(p, "guide.pages.previous"));
-                meta.setLore(Arrays.asList("", ChatColor.GRAY + "(" + page + " / " + pages + ")"));
+                        + Slimefun.getLocalization().getMessage(p, "guide.pages.previous")));
+                meta.lore(List.of(
+                        Component.empty(),
+                        legacyText(ChatColor.GRAY + "(" + page + " / " + pages + ")")));
             });
         } else {
             return new CustomItemStack(PREV_BUTTON_ACTIVE, meta -> {
-                meta.setDisplayName(
-                        ChatColor.WHITE + "\u21E6 " + Slimefun.getLocalization().getMessage(p, "guide.pages.previous"));
-                meta.setLore(Arrays.asList("", ChatColor.GRAY + "(" + page + " / " + pages + ")"));
+                meta.displayName(legacyText(
+                        ChatColor.WHITE + "\u21E6 " + Slimefun.getLocalization().getMessage(p, "guide.pages.previous")));
+                meta.lore(List.of(
+                        Component.empty(),
+                        legacyText(ChatColor.GRAY + "(" + page + " / " + pages + ")")));
             });
         }
     }
@@ -125,15 +132,19 @@ public final class ChestMenuUtils {
     public static @Nonnull ItemStack getNextButton(@Nonnull Player p, int page, int pages) {
         if (pages == 1 || page == pages) {
             return new CustomItemStack(NEXT_BUTTON_INACTIVE, meta -> {
-                meta.setDisplayName(
-                        ChatColor.DARK_GRAY + Slimefun.getLocalization().getMessage(p, "guide.pages.next") + " \u21E8");
-                meta.setLore(Arrays.asList("", ChatColor.GRAY + "(" + page + " / " + pages + ")"));
+                meta.displayName(legacyText(
+                        ChatColor.DARK_GRAY + Slimefun.getLocalization().getMessage(p, "guide.pages.next") + " \u21E8"));
+                meta.lore(List.of(
+                        Component.empty(),
+                        legacyText(ChatColor.GRAY + "(" + page + " / " + pages + ")")));
             });
         } else {
             return new CustomItemStack(NEXT_BUTTON_ACTIVE, meta -> {
-                meta.setDisplayName(
-                        ChatColor.WHITE + Slimefun.getLocalization().getMessage(p, "guide.pages.next") + " \u21E8");
-                meta.setLore(Arrays.asList("", ChatColor.GRAY + "(" + page + " / " + pages + ")"));
+                meta.displayName(legacyText(
+                        ChatColor.WHITE + Slimefun.getLocalization().getMessage(p, "guide.pages.next") + " \u21E8"));
+                meta.lore(List.of(
+                        Component.empty(),
+                        legacyText(ChatColor.GRAY + "(" + page + " / " + pages + ")")));
             });
         }
     }
@@ -162,9 +173,11 @@ public final class ChestMenuUtils {
             damageable.setDamage(getDurability(item, safeTimeLeft, time));
         }
 
-        im.setDisplayName(" ");
-        im.setLore(Arrays.asList(
-                getProgressBar(safeTimeLeft, time), "", ChatColor.GRAY + NumberUtils.getTimeLeft(safeTimeLeft / 2)));
+        im.displayName(legacyText(" "));
+        im.lore(List.of(
+                legacyText(getProgressBar(safeTimeLeft, time)),
+                Component.empty(),
+                legacyText(ChatColor.GRAY + NumberUtils.getTimeLeft(safeTimeLeft / 2))));
         item.setItemMeta(im);
 
         menu.replaceExistingItem(slot, item);
@@ -192,6 +205,12 @@ public final class ChestMenuUtils {
 
         builder.append(" - ").append(percentage).append('%');
         return ChatColors.color(builder.toString());
+    }
+
+    private static Component legacyText(String value) {
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(value)
+                .decoration(TextDecoration.ITALIC, false);
     }
 
     private static int getDurability(@Nonnull ItemStack item, int timeLeft, int max) {
