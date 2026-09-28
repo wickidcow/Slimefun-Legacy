@@ -607,7 +607,7 @@ class VersionsCommand extends SubCommand {
         for (Plugin addonPlugin : addons.stream()
                 .sorted((left, right) -> left.getName().compareToIgnoreCase(right.getName()))
                 .toList()) {
-            String version = addonPlugin.getDescription().getVersion();
+            String version = addonPlugin.getPluginMeta().getVersion();
             Optional<PluginDependencySnapshot> dependencySnapshot = dependencies.findPlugin(addonPlugin.getName());
             Optional<AddonRuntimeFailureSnapshot> runtimeFailure =
                     Slimefun.getAddonRuntimeHealthService().getFailure(addonPlugin.getName());
@@ -619,7 +619,7 @@ class VersionsCommand extends SubCommand {
             if (Bukkit.getPluginManager().isPluginEnabled(addonPlugin)) {
                 primaryColor = NamedTextColor.GREEN;
                 secondaryColor = NamedTextColor.DARK_GREEN;
-                String authors = String.join(", ", addonPlugin.getDescription().getAuthors());
+                String authors = String.join(", ", addonPlugin.getPluginMeta().getAuthors());
 
                 if (addonPlugin instanceof SlimefunAddon addon && addon.getBugTrackerURL() != null) {
                     try {

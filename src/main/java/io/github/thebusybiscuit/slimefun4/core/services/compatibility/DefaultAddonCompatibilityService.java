@@ -24,7 +24,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.plugin.PluginDescriptionFile;
+import io.papermc.paper.plugin.configuration.PluginMeta;
 
 /** Internal runtime registry for addon compatibility declarations and diagnostics. */
 @SlimefunInternal
@@ -164,7 +164,7 @@ public final class DefaultAddonCompatibilityService implements AddonCompatibilit
         String coreName = owner.getName();
         Arrays.stream(owner.getServer().getPluginManager().getPlugins())
                 .filter(plugin -> plugin != owner)
-                .filter(plugin -> dependsOn(plugin.getDescription(), coreName))
+                .filter(plugin -> dependsOn(plugin.getPluginMeta(), coreName))
                 .forEach(addons::add);
 
         for (String pluginName : explicitDeclarations.keySet()) {
@@ -225,16 +225,16 @@ public final class DefaultAddonCompatibilityService implements AddonCompatibilit
             Plugin plugin, AddonCompatibilityStatus status, ResolvedDeclaration resolved, List<String> messages) {
         return new AddonCompatibilityResult(
                 plugin.getName(),
-                plugin.getDescription().getVersion(),
+                plugin.getPluginMeta().getVersion(),
                 status,
                 resolved.source(),
                 resolved.declaration(),
                 messages);
     }
 
-    private static boolean dependsOn(PluginDescriptionFile description, String coreName) {
-        return containsIgnoreCase(description.getDepend(), coreName)
-                || containsIgnoreCase(description.getSoftDepend(), coreName);
+    private static boolean dependsOn(PluginMeta description, String coreName) {
+        return containsIgnoreCase(description.getPluginDependencies(), coreName)
+                || containsIgnoreCase(description.getPluginSoftDependencies(), coreName);
     }
 
     private static boolean containsIgnoreCase(List<String> values, String expected) {

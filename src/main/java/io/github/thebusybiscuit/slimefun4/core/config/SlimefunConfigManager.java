@@ -92,7 +92,7 @@ public class SlimefunConfigManager {
                             () -> "An Exception was thrown while loading the config file \""
                                     + name
                                     + ".yml\" for Slimefun v"
-                                    + plugin.getDescription().getVersion());
+                                    + plugin.getPluginMeta().getVersion());
             return null;
         }
     }
@@ -154,7 +154,7 @@ public class SlimefunConfigManager {
                             Level.SEVERE,
                             x,
                             () -> "An Exception was caught while (re)loading the config files for Slimefun v"
-                                    + plugin.getDescription().getVersion());
+                                    + plugin.getPluginMeta().getVersion());
             isSuccessful = false;
         }
 

@@ -223,13 +223,13 @@ class UpdateCommand extends SubCommand {
                 continue;
             }
             BundlePlugin bundled = bundle.get(normalize(addon.getName()));
-            if (bundled == null || compareVersions(bundled.version(), addon.getDescription().getVersion()) <= 0) {
+            if (bundled == null || compareVersions(bundled.version(), addon.getPluginMeta().getVersion()) <= 0) {
                 continue;
             }
             updates.add(new UpdateCandidate(
                     support.orElseThrow().displayName(),
                     addon.getName(),
-                    addon.getDescription().getVersion(),
+                    addon.getPluginMeta().getVersion(),
                     bundled.version(),
                     installedFileName(addon),
                     bundled.jarBytes(),

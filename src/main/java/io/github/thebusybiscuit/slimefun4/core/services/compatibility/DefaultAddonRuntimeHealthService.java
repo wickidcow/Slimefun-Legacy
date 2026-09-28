@@ -25,7 +25,7 @@ public final class DefaultAddonRuntimeHealthService implements AddonRuntimeHealt
     @Override
     public void recordFailure(@Nonnull Plugin plugin, @Nonnull String operation, @Nonnull Throwable failure) {
         Objects.requireNonNull(plugin, "plugin");
-        recordFailure(plugin.getName(), plugin.getDescription().getVersion(), operation, failure);
+        recordFailure(plugin.getName(), plugin.getPluginMeta().getVersion(), operation, failure);
     }
 
     void recordFailure(

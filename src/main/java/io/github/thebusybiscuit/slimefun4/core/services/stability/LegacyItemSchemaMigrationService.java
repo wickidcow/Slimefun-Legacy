@@ -120,7 +120,7 @@ public final class LegacyItemSchemaMigrationService {
         if (owner == null || !owner.isEnabled() || !owner.getName().equals(providerId)) return;
 
         String providerKey = normalizeProviderId(providerId);
-        String version = owner.getDescription().getVersion();
+        String version = owner.getPluginMeta().getVersion();
         String previousVersion = versions.putIfAbsent(providerKey, version);
         if (previousVersion != null && !previousVersion.equals(version)) return;
         providerIds.putIfAbsent(providerKey, providerId);
@@ -167,7 +167,7 @@ public final class LegacyItemSchemaMigrationService {
         if (plan.isExpired(System.currentTimeMillis())) return CompletableFuture.completedFuture(false);
 
         Plugin owner = Bukkit.getPluginManager().getPlugin(plan.getProviderId());
-        if (owner == null || !owner.isEnabled() || !plan.matchesProviderVersion(owner.getDescription().getVersion())) {
+        if (owner == null || !owner.isEnabled() || !plan.matchesProviderVersion(owner.getPluginMeta().getVersion())) {
             return CompletableFuture.completedFuture(false);
         }
 
@@ -225,7 +225,7 @@ public final class LegacyItemSchemaMigrationService {
     public @Nonnull Optional<LegacyItemSchemaMigrationExecutor> createExecutor(@Nonnull LegacyItemSchemaMigrationPlan plan) {
         if (plan.isExpired(System.currentTimeMillis())) return Optional.empty();
         Plugin owner = Bukkit.getPluginManager().getPlugin(plan.getProviderId());
-        if (owner == null || !owner.isEnabled() || !plan.matchesProviderVersion(owner.getDescription().getVersion())) {
+        if (owner == null || !owner.isEnabled() || !plan.matchesProviderVersion(owner.getPluginMeta().getVersion())) {
             return Optional.empty();
         }
 

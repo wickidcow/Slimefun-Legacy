@@ -102,7 +102,7 @@ public final class DefaultAddonRegistrationService implements AddonRegistrationS
             String pluginName = registry != null ? registry.getPluginName() : plugin != null ? plugin.getName() : name;
             String pluginVersion = registry != null
                     ? registry.getPluginVersion()
-                    : plugin != null ? plugin.getDescription().getVersion() : "unknown";
+                    : plugin != null ? plugin.getPluginMeta().getVersion() : "unknown";
             boolean enabled = plugin == null || plugin.isEnabled();
             snapshots.add(new AddonRegistrationSnapshot(
                     pluginName,

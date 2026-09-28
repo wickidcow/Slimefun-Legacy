@@ -266,21 +266,21 @@ public class ErrorReport<T extends Throwable> {
         for (Plugin plugin : Bukkit.getPluginManager().getPlugins()) {
             if (Bukkit.getPluginManager().isPluginEnabled(plugin)) {
                 plugins.add("  + " + plugin.getName() + ' '
-                        + plugin.getDescription().getVersion());
+                        + plugin.getPluginMeta().getVersion());
 
-                if (plugin.getDescription().getDepend().contains(dependency)
-                        || plugin.getDescription().getSoftDepend().contains(dependency)) {
+                if (plugin.getPluginMeta().getPluginDependencies().contains(dependency)
+                        || plugin.getPluginMeta().getPluginSoftDependencies().contains(dependency)) {
                     addons.add("  + " + plugin.getName() + ' '
-                            + plugin.getDescription().getVersion());
+                            + plugin.getPluginMeta().getVersion());
                 }
             } else {
                 plugins.add("  - " + plugin.getName() + ' '
-                        + plugin.getDescription().getVersion());
+                        + plugin.getPluginMeta().getVersion());
 
-                if (plugin.getDescription().getDepend().contains(dependency)
-                        || plugin.getDescription().getSoftDepend().contains(dependency)) {
+                if (plugin.getPluginMeta().getPluginDependencies().contains(dependency)
+                        || plugin.getPluginMeta().getPluginSoftDependencies().contains(dependency)) {
                     addons.add("  - " + plugin.getName() + ' '
-                            + plugin.getDescription().getVersion());
+                            + plugin.getPluginMeta().getVersion());
                 }
             }
         }

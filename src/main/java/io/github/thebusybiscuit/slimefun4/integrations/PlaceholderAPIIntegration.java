@@ -25,8 +25,8 @@ class PlaceholderAPIIntegration extends PlaceholderExpansion {
     private final String author;
 
     public PlaceholderAPIIntegration(@Nonnull Slimefun plugin) {
-        this.version = plugin.getDescription().getVersion();
-        this.author = plugin.getDescription().getAuthors().toString();
+        this.version = plugin.getPluginMeta().getVersion();
+        this.author = plugin.getPluginMeta().getAuthors().toString();
     }
 
     @Nonnull
