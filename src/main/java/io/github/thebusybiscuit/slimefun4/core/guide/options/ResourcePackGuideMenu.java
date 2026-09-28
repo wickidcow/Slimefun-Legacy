@@ -5,6 +5,8 @@ import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuideMode;
 import io.github.thebusybiscuit.slimefun4.core.services.ExternalResourcePackService;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import javax.annotation.Nonnull;
 import java.util.Arrays;
 import javax.annotation.Nullable;
@@ -216,9 +218,13 @@ final class ResourcePackGuideMenu {
     private static ItemStack menuItem(@Nonnull Material material, @Nonnull String name, @Nonnull String... lore) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
-        meta.setLore(Arrays.stream(lore)
-                .map(line -> ChatColor.translateAlternateColorCodes('&', line))
+        meta.displayName(LegacyComponentSerializer.legacyAmpersand()
+                .deserialize(name)
+                .decoration(TextDecoration.ITALIC, false));
+        meta.lore(Arrays.stream(lore)
+                .map(line -> LegacyComponentSerializer.legacyAmpersand()
+                        .deserialize(line)
+                        .decoration(TextDecoration.ITALIC, false))
                 .toList());
         item.setItemMeta(meta);
         return item;
