@@ -1,9 +1,9 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
-import com.xzavier0722.mc.plugin.slimefun4.storage.callback.IAsyncReadCallback;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.utils.ThreadUtils;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.block.BlockFace;
 import org.bukkit.command.CommandSender;
@@ -32,33 +32,31 @@ class TeleporterCommand extends SubCommand {
                     String targetName = args[1];
                     Slimefun.getDatabaseManager()
                             .getProfileDataController()
-                            .getPlayerUuidAsync(targetName, new IAsyncReadCallback<>() {
-                                @Override
-                                public void onResult(java.util.UUID targetUuid) {
-                                    if (!player.isOnline()) {
-                                        return;
-                                    }
+                            .getPlayerUuidAsync(targetName)
+                            .thenAcceptAsync(
+                                    targetUuid -> {
+                                        if (!player.isOnline()) {
+                                            return;
+                                        }
 
-                                    Slimefun.getGPSNetwork()
-                                            .getTeleportationManager()
-                                            .openTeleporterGUI(
-                                                    player,
-                                                    targetUuid,
-                                                    player.getLocation().getBlock().getRelative(BlockFace.DOWN),
-                                                    999999999);
-                                }
+                                        if (targetUuid == null) {
+                                            Slimefun.getLocalization()
+                                                    .sendMessage(
+                                                            player,
+                                                            "messages.unknown-player",
+                                                            msg -> msg.replace("%player%", targetName));
+                                            return;
+                                        }
 
-                                @Override
-                                public void onResultNotFound() {
-                                    if (player.isOnline()) {
-                                        Slimefun.getLocalization()
-                                                .sendMessage(
+                                        Slimefun.getGPSNetwork()
+                                                .getTeleportationManager()
+                                                .openTeleporterGUI(
                                                         player,
-                                                        "messages.unknown-player",
-                                                        msg -> msg.replace("%player%", targetName));
-                                    }
-                                }
-                            });
+                                                        targetUuid,
+                                                        player.getLocation().getBlock().getRelative(BlockFace.DOWN),
+                                                        999999999);
+                                    },
+                                    ThreadUtils.getEntityDelayedExecutor(player));
                 } else {
                     Slimefun.getLocalization()
                             .sendMessage(
