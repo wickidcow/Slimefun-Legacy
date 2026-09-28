@@ -21,6 +21,9 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
@@ -125,7 +128,8 @@ public class AncientPedestal extends SimpleSlimefunItem<BlockDispenseHandler> im
         if (n instanceof Item item && n.isValid()) {
             ItemMeta meta = item.getItemStack().getItemMeta();
 
-            return meta.hasDisplayName() && meta.getDisplayName().startsWith(ITEM_PREFIX);
+            Component displayName = meta.displayName();
+            return displayName != null && legacyString(displayName).startsWith(ITEM_PREFIX);
         } else {
             return false;
         }
@@ -133,8 +137,8 @@ public class AncientPedestal extends SimpleSlimefunItem<BlockDispenseHandler> im
 
     private boolean testArmorStand(@Nullable Entity n) {
         if (n instanceof ArmorStand && n.isValid()) {
-            String customName = n.getCustomName();
-            return customName != null && customName.startsWith(ITEM_PREFIX);
+            Component customName = n.customName();
+            return customName != null && legacyString(customName).startsWith(ITEM_PREFIX);
         } else {
             return false;
         }
@@ -143,16 +147,27 @@ public class AncientPedestal extends SimpleSlimefunItem<BlockDispenseHandler> im
     public @Nonnull ItemStack getOriginalItemStack(@Nonnull Item item) {
         ItemStack stack = item.getItemStack().clone();
         ItemMeta im = stack.getItemMeta();
-        String customName = item.getCustomName();
-        im.setDisplayName(null);
+        Component customName = item.customName();
+        im.displayName(null);
         stack.setItemMeta(im);
 
-        if (customName == null || !customName.equals(ItemUtils.getItemName(stack))) {
-            im.setDisplayName(customName);
+        String legacyCustomName = customName == null ? null : legacyString(customName);
+        if (legacyCustomName == null || !legacyCustomName.equals(ItemUtils.getItemName(stack))) {
+            im.displayName(customName);
             stack.setItemMeta(im);
         }
 
         return stack;
+    }
+
+    private static Component legacyText(String value) {
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(value)
+                .decoration(TextDecoration.ITALIC, false);
+    }
+
+    private static String legacyString(Component value) {
+        return LegacyComponentSerializer.legacySection().serialize(value);
     }
 
     public void placeItem(@Nonnull Player p, @Nonnull Block b) {
@@ -176,8 +191,8 @@ public class AncientPedestal extends SimpleSlimefunItem<BlockDispenseHandler> im
             entity.setInvulnerable(true);
             entity.setVelocity(new Vector(0, 0.1, 0));
             entity.setCustomNameVisible(true);
-            entity.setCustomName(nametag);
-            armorStand.setCustomName(displayName);
+            entity.customName(legacyText(nametag));
+            armorStand.customName(legacyText(displayName));
             armorStand.addPassenger(entity);
             SlimefunUtils.markAsNoPickup(entity, "altar_item");
             SoundEffect.ANCIENT_PEDESTAL_ITEM_PLACE_SOUND.playAt(b);
