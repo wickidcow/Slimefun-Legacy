@@ -5,7 +5,9 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.annotation.Nonnull;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Color;
 import org.bukkit.FireworkEffect;
 import org.bukkit.FireworkEffect.Type;
@@ -65,7 +67,7 @@ public final class FireworkUtils {
         Firework fw = (Firework) l.getWorld().spawnEntity(l, firework);
         FireworkMeta meta = fw.getFireworkMeta();
 
-        meta.setDisplayName(ChatColor.GREEN + "Slimefun Research");
+        meta.displayName(Component.text("Slimefun Research", NamedTextColor.GREEN)\n                .decoration(TextDecoration.ITALIC, false));
         FireworkEffect effect = getRandomEffect(ThreadLocalRandom.current(), color);
         meta.addEffect(effect);
         meta.setPower(ThreadLocalRandom.current().nextInt(2) + 1);
