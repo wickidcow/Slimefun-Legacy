@@ -22,6 +22,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Color;
@@ -159,26 +162,31 @@ public class EnergyRegulator extends SlimefunItem implements HologramOwner, NotR
             return item;
         }
 
-        meta.setDisplayName(ChatColor.GOLD + "" + ChatColor.BOLD + "Energy Network Visualizer");
-        if (!globallyEnabled) {
-            meta.setLore(List.of(
-                    "",
-                    ChatColor.GRAY + "Shows this Energy Network with clean gold dust particles.",
-                    ChatColor.GRAY + "Only you can see the visualizer.",
-                    "",
-                    ChatColor.RED + "Disabled by server configuration"));
-        } else {
-            meta.setLore(List.of(
-                    "",
-                    ChatColor.GRAY + "Shows this Energy Network with clean gold dust particles.",
-                    ChatColor.GRAY + "Only you can see the visualizer.",
-                    ChatColor.GRAY + "Rendering is range-limited and particle-capped.",
-                    "",
-                    ChatColor.GRAY + "Status: " + (active ? ChatColor.GREEN + "ON" : ChatColor.RED + "OFF"),
-                    ChatColor.YELLOW + "Click to toggle"));
-        }
+        meta.displayName(legacyText(ChatColor.GOLD + "" + ChatColor.BOLD + "Energy Network Visualizer"));
+        List<String> lore = !globallyEnabled
+                ? List.of(
+                        "",
+                        ChatColor.GRAY + "Shows this Energy Network with clean gold dust particles.",
+                        ChatColor.GRAY + "Only you can see the visualizer.",
+                        "",
+                        ChatColor.RED + "Disabled by server configuration")
+                : List.of(
+                        "",
+                        ChatColor.GRAY + "Shows this Energy Network with clean gold dust particles.",
+                        ChatColor.GRAY + "Only you can see the visualizer.",
+                        ChatColor.GRAY + "Rendering is range-limited and particle-capped.",
+                        "",
+                        ChatColor.GRAY + "Status: " + (active ? ChatColor.GREEN + "ON" : ChatColor.RED + "OFF"),
+                        ChatColor.YELLOW + "Click to toggle");
+        meta.lore(lore.stream().map(EnergyRegulator::legacyText).toList());
         item.setItemMeta(meta);
         return item;
+    }
+
+    private static Component legacyText(String value) {
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(value)
+                .decoration(TextDecoration.ITALIC, false);
     }
 
     private boolean toggleVisualizer(@Nonnull UUID playerId, @Nonnull Location regulator) {
