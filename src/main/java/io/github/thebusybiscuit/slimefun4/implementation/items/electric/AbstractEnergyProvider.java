@@ -19,6 +19,9 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.AGenerator;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.MachineFuel;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.interfaces.InventoryBlock;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.apache.commons.lang.Validate;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -127,17 +130,23 @@ public abstract class AbstractEnergyProvider extends SlimefunItem
         for (MachineFuel fuel : fuelTypes) {
             ItemStack item = fuel.getInput().clone();
             ItemMeta im = item.getItemMeta();
-            List<String> lore = new ArrayList<>();
-            lore.add(ChatColors.color("&8\u21E8 &7Lasts " + NumberUtils.getTimeLeft(fuel.getTicks() / 2)));
-            lore.add(ChatColors.color("&8\u21E8 &e\u26A1 &7" + getEnergyProduction() * 2) + " J/s");
-            lore.add(ChatColors.color("&8\u21E8 &e\u26A1 &7"
+            List<Component> lore = new ArrayList<>();
+            lore.add(legacyText(ChatColors.color("&8\u21E8 &7Lasts " + NumberUtils.getTimeLeft(fuel.getTicks() / 2))));
+            lore.add(legacyText(ChatColors.color("&8\u21E8 &e\u26A1 &7" + getEnergyProduction() * 2) + " J/s"));
+            lore.add(legacyText(ChatColors.color("&8\u21E8 &e\u26A1 &7"
                     + NumberUtils.getCompactDouble((double) fuel.getTicks() * getEnergyProduction())
-                    + " J"));
-            im.setLore(lore);
+                    + " J")));
+            im.lore(lore);
             item.setItemMeta(im);
             list.add(item);
         }
 
         return list;
+    }
+
+    private static Component legacyText(String value) {
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(value)
+                .decoration(TextDecoration.ITALIC, false);
     }
 }
