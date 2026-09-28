@@ -22,6 +22,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import lombok.Getter;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.OfflinePlayer;
@@ -167,7 +170,7 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
     }
 
     public static OptionalInt getBackpackID(ItemMeta meta) {
-        if (meta == null || !meta.hasLore()) {
+        if (meta == null || getLegacyLore(meta) == null) {
             return OptionalInt.empty();
         }
 
@@ -183,11 +186,12 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
      * Including the owner UUID is important because backpack ids are only unique per owner.
      */
     public static Optional<String> getLegacyBackpackIdentity(@Nullable ItemMeta meta) {
-        if (meta == null || !meta.hasLore()) {
+        List<String> lore = meta == null ? null : getLegacyLore(meta);
+        if (lore == null) {
             return Optional.empty();
         }
 
-        return getLegacyBackpackIdentity(meta.getLore());
+        return getLegacyBackpackIdentity(lore);
     }
 
     static Optional<String> getLegacyBackpackIdentity(@Nullable List<String> lore) {
@@ -289,7 +293,8 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
     }
 
     private static void setItem(ItemMeta meta, PlayerBackpack bp) {
-        List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+        List<String> existingLore = getLegacyLore(meta);
+        List<String> lore = existingLore == null ? new ArrayList<>() : new ArrayList<>(existingLore);
         boolean ownerLineFound = false;
         for (var i = 0; i < lore.size(); i++) {
             var line = lore.get(i);
@@ -303,20 +308,17 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
         if (!ownerLineFound) {
             lore.add(COLORED_LORE_OWNER + bp.getOwner().getName());
         }
-        meta.setLore(lore);
+        setLegacyLore(meta, lore);
 
         if (bp.name.isEmpty() || bp.name.isBlank()) {
             return;
         }
-        meta.setDisplayName(ChatColors.color(bp.name));
+        meta.displayName(legacyText(ChatColors.color(bp.name)));
     }
 
     private static Optional<LegacyBackpackReference> getLegacyBackpackReference(@Nullable ItemMeta meta) {
-        if (meta == null || !meta.hasLore()) {
-            return Optional.empty();
-        }
-
-        return getLegacyBackpackReference(meta.getLore());
+        List<String> lore = meta == null ? null : getLegacyLore(meta);
+        return getLegacyBackpackReference(lore);
     }
 
     private static Optional<LegacyBackpackReference> getLegacyBackpackReference(@Nullable List<String> lore) {
@@ -348,13 +350,41 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
     }
 
     private static void removeLegacyIdLore(ItemMeta meta) {
-        if (meta == null || !meta.hasLore()) {
+        if (meta == null) {
             return;
         }
 
-        List<String> lore = new ArrayList<>(meta.getLore());
+        List<String> existingLore = getLegacyLore(meta);
+        if (existingLore == null) {
+            return;
+        }
+
+        List<String> lore = new ArrayList<>(existingLore);
         lore.removeIf(line -> line != null && line.startsWith(COLORED_LORE_ID));
-        meta.setLore(lore.isEmpty() ? null : lore);
+        setLegacyLore(meta, lore.isEmpty() ? null : lore);
+    }
+
+    private static @Nullable List<String> getLegacyLore(@Nonnull ItemMeta meta) {
+        List<Component> lore = meta.lore();
+        if (lore == null) {
+            return null;
+        }
+
+        return lore.stream().map(PlayerBackpack::legacyString).toList();
+    }
+
+    private static void setLegacyLore(@Nonnull ItemMeta meta, @Nullable List<String> lore) {
+        meta.lore(lore == null ? null : lore.stream().map(PlayerBackpack::legacyText).toList());
+    }
+
+    private static @Nonnull Component legacyText(@Nonnull String value) {
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(value)
+                .decoration(TextDecoration.ITALIC, false);
+    }
+
+    private static @Nonnull String legacyString(@Nonnull Component value) {
+        return LegacyComponentSerializer.legacySection().serialize(value);
     }
 
     private record LegacyBackpackReference(UUID owner, int id) {}
