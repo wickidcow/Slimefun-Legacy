@@ -17,6 +17,7 @@ import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -27,7 +28,7 @@ import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.Vector;
 
 /**
@@ -98,7 +99,19 @@ public class SeismicAxe extends SimpleSlimefunItem<ItemUseHandler> implements No
         FallingBlock block = ground.getWorld().spawnFallingBlock(loc, ground.getBlockData());
         block.setDropItem(false);
         block.setVelocity(new Vector(0, 0.4 + index * 0.01, 0));
-        block.setMetadata("seismic_axe", new FixedMetadataValue(Slimefun.instance(), "fake_block"));
+        block.getPersistentDataContainer().set(seismicMarkerKey(), PersistentDataType.BYTE, (byte) 1);
+    }
+
+    public static boolean isSeismicFallingBlock(@Nonnull Entity entity) {
+        return entity.getPersistentDataContainer().has(seismicMarkerKey(), PersistentDataType.BYTE);
+    }
+
+    public static void clearSeismicFallingBlock(@Nonnull Entity entity) {
+        entity.getPersistentDataContainer().remove(seismicMarkerKey());
+    }
+
+    private static @Nonnull NamespacedKey seismicMarkerKey() {
+        return new NamespacedKey(Slimefun.instance(), "seismic_axe");
     }
 
     @ParametersAreNonnullByDefault
