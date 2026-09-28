@@ -780,14 +780,20 @@ public class ProgrammableAndroid extends SlimefunItem
         for (MachineFuel fuel : fuelTypes) {
             ItemStack item = fuel.getInput().clone();
             ItemMeta im = item.getItemMeta();
-            List<String> lore = new ArrayList<>();
-            lore.add(ChatColors.color("&8\u21E8 &7Lasts " + NumberUtils.getTimeLeft(fuel.getTicks() / 2)));
-            im.setLore(lore);
+            List<Component> lore = new ArrayList<>();
+            lore.add(legacyText(ChatColors.color("&8\u21E8 &7Lasts " + NumberUtils.getTimeLeft(fuel.getTicks() / 2))));
+            im.lore(lore);
             item.setItemMeta(im);
             list.add(item);
         }
 
         return list;
+    }
+
+    private static Component legacyText(String value) {
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(value)
+                .decoration(TextDecoration.ITALIC, false);
     }
 
     @Override
