@@ -179,7 +179,7 @@ public class IntegrationsManager {
         if (externalPlugin != null) {
             Slimefun.getAddonRuntimeHealthService()
                     .recordFailure(externalPlugin, "integration-runtime:" + name, throwable);
-            String version = externalPlugin.getDescription().getVersion();
+            String version = externalPlugin.getPluginMeta().getVersion();
             Slimefun.logger().log(Level.WARNING, "Is {0} v{1} up to date?", new Object[] {name, version});
             Slimefun.logger()
                     .log(
@@ -212,7 +212,7 @@ public class IntegrationsManager {
         Plugin integration = plugin.getServer().getPluginManager().getPlugin(pluginName);
 
         if (integration != null && integration.isEnabled()) {
-            String version = integration.getDescription().getVersion();
+            String version = integration.getPluginMeta().getVersion();
             Slimefun.logger().log(Level.INFO, "Hooked into Plugin: {0} v{1}", new Object[] {pluginName, version});
 
             Slimefun.getAddonRuntimeHealthService()
