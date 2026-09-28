@@ -6,8 +6,9 @@ Slimefun's addon ecosystem is one of its biggest strengths — and one of the ma
 
 | Platform | Legacy status |
 | --- | --- |
-| Paper 26.2 / Minecraft 26.2 | ✅ Primary supported line |
-| Purpur based on Paper 26.2 | ✅ Supported |
+| Paper 26.3 / Minecraft 26.3 | ✅ Primary API/support line |
+| Paper 26.2 / Minecraft 26.2 | ✅ Backwards-compatible line |
+| Purpur based on supported Paper lines | ✅ Supported where the matching platform build is available |
 | Conventional Paper derivatives | ⚠️ Often compatible, not guaranteed |
 | Folia based on the target Paper line | ⚠️ Experimental |
 | Spigot / CraftBukkit / Bukkit | ❌ Unsupported |

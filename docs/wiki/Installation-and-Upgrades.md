@@ -6,8 +6,8 @@ Slimefun Legacy is maintained for modern Paper servers and should be installed l
 
 | Component | Current Legacy target |
 | --- | --- |
-| Server | **Paper 26.2 / Minecraft 26.2** |
-| Purpur | Supported when based on the same Paper line |
+| Server | **Paper 26.3 / Minecraft 26.3** primary target |
+| Backwards compatibility | Paper/Purpur 26.2 and Paper/Purpur 1.21.11 |
 | Java runtime | **Java 25** |
 | Folia | Experimental secondary target |
 | Client mod | Not required |

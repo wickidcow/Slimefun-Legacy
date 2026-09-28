@@ -33,7 +33,7 @@ permissions:
 
 env:
   PAPER_26_3_VERSION: '26.3'
-  PAPER_PRODUCTION_VERSION: '26.2'
+  PAPER_FALLBACK_VERSION: '26.2'
 
 jobs:
   self-test:
@@ -47,7 +47,7 @@ jobs:
           python3 scripts/test_paper_candidate_versions.py
 
   detect-paper-api:
-    name: Resolve Paper candidate API
+    name: Resolve Paper 26.3 primary API
     runs-on: ubuntu-latest
     outputs:
       paper_26_3_available: ${{ steps.detect.outputs.paper_26_3_available }}
@@ -74,7 +74,7 @@ jobs:
           from scripts.paper_candidate_versions import latest_candidate
 
           target = os.environ['PAPER_26_3_VERSION']
-          production = os.environ['PAPER_PRODUCTION_VERSION']
+          fallback = os.environ['PAPER_FALLBACK_VERSION']
           event_name = os.environ.get('EVENT_NAME', '')
           output = os.environ['GITHUB_OUTPUT']
           request = urllib.request.Request(
@@ -101,7 +101,7 @@ jobs:
           probe_mode = 'paper-26.3'
 
           if not probe_version and event_name == 'pull_request':
-              probe_version = latest_candidate(versions, production) or ''
+              probe_version = latest_candidate(versions, fallback) or ''
               if probe_version:
                   probe_label = 'Paper 26.2 plumbing smoke'
                   probe_mode = 'paper-26.2-plumbing'
@@ -121,8 +121,8 @@ jobs:
           {
             echo '## Paper 26.3 maintained-addon compile lane'
             echo
-            echo '- Production baseline remains Paper 26.2.'
-            echo '- This workflow is advisory and does not block releases.'
+            echo '- Primary API/support target is Paper 26.3.'
+            echo '- Maintained addons must pass this lane for 26.3-primary compatibility.'
             echo '- Paper 26.3 API available: `${{ steps.detect.outputs.paper_26_3_available }}`'
             if [[ '${{ steps.detect.outputs.paper_26_3_available }}' == 'true' ]]; then
               echo '- Real 26.3 candidate API: `${{ steps.detect.outputs.paper_26_3_version }}`'
@@ -136,7 +136,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   build-core-candidate:
-    name: Build Slimefun Legacy candidate stack
+    name: Build Slimefun Legacy 26.3 stack
     needs: [self-test, detect-paper-api]
     if: ${{ needs.detect-paper-api.outputs.probe_available == 'true' }}
     runs-on: ubuntu-latest
@@ -251,7 +251,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   compile-addons:
-    name: Candidate compile - ${{ matrix.repository }}
+    name: Primary 26.3 compile - ${{ matrix.repository }}
     needs: [detect-paper-api, build-core-candidate, prepare-addon-matrix]
     if: ${{ needs.detect-paper-api.outputs.probe_available == 'true' && needs.prepare-addon-matrix.outputs.count != '0' }}
     runs-on: ubuntu-latest
@@ -330,7 +330,7 @@ jobs:
         env:
           PROBE_LABEL: ${{ needs.detect-paper-api.outputs.probe_label }}
         run: |
-          echo "::warning title=${PROBE_LABEL} addon preflight::${{ matrix.repository }} did not pass the candidate compile probe. Paper 26.2 remains the production baseline."
+          echo "::warning title=${PROBE_LABEL} addon preflight::${{ matrix.repository }} did not pass the Paper 26.3 primary compatibility probe."
       - uses: actions/upload-artifact@v7
         if: always()
         with:

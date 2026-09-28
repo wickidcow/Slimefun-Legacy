@@ -304,7 +304,7 @@ jobs:
           if repo == 'wickidcow/SF_DracFun2':
               canonical = f'SFL_DracFun-Reborn{version}.jar'
           if repo == 'wickidcow/WorldEditSlimefun':
-              canonical = f'SF_SFWorldEdit{version}_(1.21.11-26.2).jar'
+              canonical = f'SF_SFWorldEdit{version}_(1.21.11-26.3).jar'
           if re.search(r'(legacy|english|snapshot)', canonical, re.I):
               raise SystemExit(f'Forbidden public qualifier in {canonical}')
           destination = Path('staged/jars') / canonical
@@ -320,7 +320,8 @@ jobs:
               'artifact_base': base,
               'sha256': sha256,
               'paper_26_3_api': os.environ['PAPER_API_VERSION'],
-              'production_baseline': '26.2',
+              'primary_api_target': '26.3',
+              'backwards_compatible_through': '1.21.11',
               'minimum_supported': '1.21.11',
               'primary_platforms': ['Paper', 'Purpur'],
               'secondary_platforms': ['Folia', 'Leaf'],
@@ -461,7 +462,7 @@ jobs:
           - SF_<AddonName><numeric version>.jar
           - DracFun Reborn exception: SFL_DracFun-Reborn<version>.jar
           - WorldEditSlimefun exception: SF_SFWorldEdit<version>_(1.21.11-26.2).jar
-          - WorldEditSlimefun requires WorldEdit or FAWE and is explicitly labeled for 1.21.11 through 26.2
+          - WorldEditSlimefun requires WorldEdit or FAWE and is explicitly labeled for 1.21.11 through 26.3
           - Magic Legacy is intentionally excluded from this bundle and can be installed separately if needed
           - RykenSlimeCustomizer remains bundled and only probes legacy external recipe types when the matching plugin is installed
           - MagicExpansion remains bundled; its optional MagicLegacy integration is used only when Magic Legacy is installed separately
@@ -470,8 +471,8 @@ jobs:
           Supported Minecraft/Paper generations:
           - 1.21.11: minimum/base compatibility
           - 26.1.x: supported
-          - 26.2: PRIMARY production baseline
-          - 26.3: alpha/pre-release compatibility target; production promotion waits for a stable Paper build, validation, and an explicit decision
+          - 26.2: supported backwards-compatibility line
+          - 26.3: PRIMARY API/support target; bundle compile validation is required
 
           Server platforms:
           - PRIMARY: Paper, Purpur

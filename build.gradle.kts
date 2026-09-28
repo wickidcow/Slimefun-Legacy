@@ -65,7 +65,7 @@ val selectedPaperApiVersion = providers.gradleProperty("paperApiVersion").orElse
 val mockBukkitPaperApiVersion = "1.21.11-R0.1-SNAPSHOT"
 
 fun ExternalModuleDependency.requireBuildJvm25() {
-    // Paper 26.2 publishes Java 25 API classes. Slimefun is compiled by a Java 25
+    // Paper 26.3 publishes Java 25 API classes. Slimefun is compiled by a Java 25
     // toolchain but intentionally emits Java 21 bytecode, so only the production
     // Paper dependency needs to advertise the build JVM rather than Slimefun's
     // bytecode floor.
@@ -75,7 +75,7 @@ fun ExternalModuleDependency.requireBuildJvm25() {
 }
 
 dependencies {
-    // Production compatibility target: real Paper 26.2 API.
+    // Primary compatibility target: real Paper 26.3 API.
     compileOnly("io.papermc.paper:paper-api:${selectedPaperApiVersion.get()}") {
         requireBuildJvm25()
     }

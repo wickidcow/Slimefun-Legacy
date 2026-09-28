@@ -78,7 +78,7 @@ The following pages document areas where Legacy adds new maintenance, compatibil
 
 ## Current platform target
 
-Slimefun Legacy is maintained primarily for **Paper 26.2 / Minecraft 26.2 on Java 25**. Purpur based on the same Paper line is supported. Folia remains an **experimental** secondary target, and every installed addon must also be Folia-safe.
+Slimefun Legacy is maintained with **Paper 26.3 / Minecraft 26.3 on Java 25** as the primary API/support target. Paper/Purpur 26.2 and Paper/Purpur 1.21.11 remain backwards-compatibility lines. Folia remains an **experimental** secondary target, and every installed addon must also be Folia-safe.
 
 For the exact current build, use the repository's Releases page rather than relying on a version number copied into documentation.
 
