@@ -20,8 +20,10 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.apache.commons.lang.Validate;
-import org.bukkit.ChatColor;
 import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
@@ -90,7 +92,7 @@ public class SlimefunItemStack extends ItemStack {
             @Nonnull String id, @Nonnull Material type, @Nullable String name, @Nonnull Consumer<ItemMeta> consumer) {
         this(id, type, meta -> {
             if (name != null) {
-                meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
+                meta.displayName(legacyText(name));
             }
 
             consumer.accept(meta);
@@ -100,16 +102,16 @@ public class SlimefunItemStack extends ItemStack {
     public SlimefunItemStack(@Nonnull String id, @Nonnull ItemStack item, @Nullable String name, String... lore) {
         this(id, item, im -> {
             if (name != null) {
-                im.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
+                im.displayName(legacyText(name));
             }
 
             if (lore.length > 0) {
-                List<String> lines = new ArrayList<>();
+                List<Component> lines = new ArrayList<>();
 
                 for (String line : lore) {
-                    lines.add(ChatColor.translateAlternateColorCodes('&', line));
+                    lines.add(legacyText(line));
                 }
-                im.setLore(lines);
+                im.lore(lines);
             }
         });
     }
@@ -122,17 +124,17 @@ public class SlimefunItemStack extends ItemStack {
             @Nonnull String id, @Nonnull Material type, @Nonnull Color color, @Nullable String name, String... lore) {
         this(id, type, im -> {
             if (name != null) {
-                im.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
+                im.displayName(legacyText(name));
             }
 
             if (lore.length > 0) {
-                List<String> lines = new ArrayList<>();
+                List<Component> lines = new ArrayList<>();
 
                 for (String line : lore) {
-                    lines.add(ChatColor.translateAlternateColorCodes('&', line));
+                    lines.add(legacyText(line));
                 }
 
-                im.setLore(lines);
+                im.lore(lines);
             }
 
             if (im instanceof LeatherArmorMeta leatherArmorMeta) {
@@ -153,17 +155,17 @@ public class SlimefunItemStack extends ItemStack {
             String... lore) {
         this(id, Material.POTION, im -> {
             if (name != null) {
-                im.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
+                im.displayName(legacyText(name));
             }
 
             if (lore.length > 0) {
-                List<String> lines = new ArrayList<>();
+                List<Component> lines = new ArrayList<>();
 
                 for (String line : lore) {
-                    lines.add(ChatColor.translateAlternateColorCodes('&', line));
+                    lines.add(legacyText(line));
                 }
 
-                im.setLore(lines);
+                im.lore(lines);
             }
 
             if (im instanceof PotionMeta potionMeta) {
@@ -196,7 +198,7 @@ public class SlimefunItemStack extends ItemStack {
             @Nonnull String id, @Nonnull String texture, @Nullable String name, @Nonnull Consumer<ItemMeta> consumer) {
         this(id, getSkull(id, texture), meta -> {
             if (name != null) {
-                meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
+                meta.displayName(legacyText(name));
             }
 
             consumer.accept(meta);
@@ -293,6 +295,12 @@ public class SlimefunItemStack extends ItemStack {
         }
 
         return itemMetaSnapshot.getDisplayName().orElse(null);
+    }
+
+    private static @Nonnull Component legacyText(@Nonnull String value) {
+        return LegacyComponentSerializer.legacyAmpersand()
+                .deserialize(value)
+                .decoration(TextDecoration.ITALIC, false);
     }
 
     private static @Nonnull ItemStack getSkull(@Nonnull String id, @Nonnull String texture) {
