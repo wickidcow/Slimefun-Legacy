@@ -606,6 +606,11 @@ public class ProfileDataController extends ADataController {
         return UUID.fromString(result.get(0).get(FieldKey.PLAYER_UUID));
     }
 
+    public CompletableFuture<UUID> getPlayerUuidAsync(String pName) {
+        checkDestroy();
+        return CompletableFuture.supplyAsync(() -> getPlayerUuid(pName), readExecutor);
+    }
+
     public void getPlayerUuidAsync(String pName, IAsyncReadCallback<UUID> callback) {
         scheduleReadTask(() -> invokeCallback(callback, getPlayerUuid(pName)));
     }
