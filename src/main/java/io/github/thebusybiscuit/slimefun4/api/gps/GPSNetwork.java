@@ -29,6 +29,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -161,9 +164,11 @@ public class GPSNetwork {
         }
 
         menu.addItem(2, new CustomItemStack(SlimefunItems.GPS_TRANSMITTER, im -> {
-            im.setDisplayName(ChatColor.GRAY
-                    + Slimefun.getLocalization().getMessage(p, "machines.GPS_CONTROL_PANEL.transmitters"));
-            im.setLore(null);
+            im.displayName(Component.text(
+                            Slimefun.getLocalization().getMessage(p, "machines.GPS_CONTROL_PANEL.transmitters"),
+                            NamedTextColor.GRAY)
+                    .decoration(TextDecoration.ITALIC, false));
+            im.lore(null);
         }));
 
         menu.addMenuClickHandler(2, ChestMenuUtils.getEmptyClickHandler());
