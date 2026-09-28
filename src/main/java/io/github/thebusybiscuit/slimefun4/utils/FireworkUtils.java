@@ -67,7 +67,8 @@ public final class FireworkUtils {
         Firework fw = (Firework) l.getWorld().spawnEntity(l, firework);
         FireworkMeta meta = fw.getFireworkMeta();
 
-        meta.displayName(Component.text("Slimefun Research", NamedTextColor.GREEN)\n                .decoration(TextDecoration.ITALIC, false));
+        meta.displayName(Component.text("Slimefun Research", NamedTextColor.GREEN)
+                .decoration(TextDecoration.ITALIC, false));
         FireworkEffect effect = getRandomEffect(ThreadLocalRandom.current(), color);
         meta.addEffect(effect);
         meta.setPower(ThreadLocalRandom.current().nextInt(2) + 1);
