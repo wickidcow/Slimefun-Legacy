@@ -20,6 +20,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -135,8 +138,10 @@ public final class ItemPresentationDoctor {
         }
 
         ItemMeta currentMeta = item.getItemMeta();
-        boolean hasCjkName = currentMeta.hasDisplayName() && ItemDoctorText.containsCjk(currentMeta.getDisplayName());
-        boolean hasCjkLore = currentMeta.hasLore() && ItemDoctorText.containsCjk(currentMeta.getLore());
+        String currentName = legacyName(currentMeta);
+        List<String> currentLore = legacyLore(currentMeta);
+        boolean hasCjkName = currentName != null && ItemDoctorText.containsCjk(currentName);
+        boolean hasCjkLore = currentLore != null && ItemDoctorText.containsCjk(currentLore);
         if (!hasCjkName && !hasCjkLore) {
             return false;
         }
@@ -148,18 +153,18 @@ public final class ItemPresentationDoctor {
         }
 
         ItemMeta canonicalMeta = sfItem.getItem().getItemMeta();
+        String canonicalName = legacyName(canonicalMeta);
         String repairedName = null;
         if (hasCjkName) {
-            if (canonicalMeta.hasDisplayName() && !ItemDoctorText.containsCjk(canonicalMeta.getDisplayName())) {
-                repairedName = canonicalMeta.getDisplayName();
+            if (canonicalName != null && !ItemDoctorText.containsCjk(canonicalName)) {
+                repairedName = canonicalName;
             } else {
                 repairedName = ItemDoctorText.preserveLeadingFormatting(
-                        currentMeta.getDisplayName(), ItemDoctorText.humanizeItemId(itemId));
+                        currentName, ItemDoctorText.humanizeItemId(itemId));
             }
         }
 
-        List<String> currentLore = currentMeta.hasLore() ? currentMeta.getLore() : null;
-        List<String> canonicalLore = canonicalMeta.hasLore() ? canonicalMeta.getLore() : null;
+        List<String> canonicalLore = legacyLore(canonicalMeta);
         List<String> repairedLore = currentLore;
         DynamicState state = DynamicState.empty();
         boolean stateCaptured = false;
@@ -210,7 +215,7 @@ public final class ItemPresentationDoctor {
             return false;
         }
 
-        boolean nameChanged = hasCjkName && !Objects.equals(currentMeta.getDisplayName(), repairedName);
+        boolean nameChanged = hasCjkName && !Objects.equals(currentName, repairedName);
         boolean loreChanged = hasCjkLore && !Objects.equals(currentLore, repairedLore);
         if (!nameChanged && !loreChanged) {
             if (loreStillUnresolved) {
@@ -222,10 +227,10 @@ public final class ItemPresentationDoctor {
         ItemMeta originalMeta = currentMeta.clone();
         try {
             if (nameChanged) {
-                currentMeta.setDisplayName(repairedName);
+                setLegacyName(currentMeta, repairedName);
             }
             if (loreChanged) {
-                currentMeta.setLore(repairedLore == null || repairedLore.isEmpty() ? null : repairedLore);
+                setLegacyLore(currentMeta, repairedLore == null || repairedLore.isEmpty() ? null : repairedLore);
             }
             item.setItemMeta(currentMeta);
 
@@ -234,8 +239,10 @@ public final class ItemPresentationDoctor {
             }
 
             ItemMeta finalMeta = item.getItemMeta();
-            if ((finalMeta.hasDisplayName() && ItemDoctorText.containsCjk(finalMeta.getDisplayName()))
-                    || (finalMeta.hasLore() && ItemDoctorText.containsCjk(finalMeta.getLore()))) {
+            String finalName = legacyName(finalMeta);
+            List<String> finalLore = legacyLore(finalMeta);
+            if ((finalName != null && ItemDoctorText.containsCjk(finalName))
+                    || (finalLore != null && ItemDoctorText.containsCjk(finalLore))) {
                 report.unresolvedTemplateFound(itemId);
             }
             report.stackRepaired();
@@ -280,8 +287,9 @@ public final class ItemPresentationDoctor {
         ItemMeta originalMeta = currentMeta.clone();
         try {
             String fallbackName = ItemDoctorText.humanizeItemId(itemId);
-            currentMeta.setDisplayName(
-                    ItemDoctorText.preserveLeadingFormatting(currentMeta.getDisplayName(), fallbackName));
+            setLegacyName(
+                    currentMeta,
+                    ItemDoctorText.preserveLeadingFormatting(legacyName(currentMeta), fallbackName));
             item.setItemMeta(currentMeta);
             report.stackRepaired();
             return true;
@@ -318,10 +326,11 @@ public final class ItemPresentationDoctor {
                 SlimefunUtils.setSoulbound(item, true);
             }
             ItemMeta meta = item.getItemMeta();
-            List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+            List<String> existingLore = legacyLore(meta);
+            List<String> lore = existingLore == null ? new ArrayList<>() : new ArrayList<>(existingLore);
             if (!lore.contains(SOULBOUND_LORE)) {
                 lore.add(SOULBOUND_LORE);
-                meta.setLore(lore);
+                setLegacyLore(meta, lore);
                 item.setItemMeta(meta);
             }
         }
@@ -350,7 +359,8 @@ public final class ItemPresentationDoctor {
         } catch (IllegalArgumentException ex) {
             ownerName = ownerId.get();
         }
-        List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+        List<String> existingLore = legacyLore(meta);
+            List<String> lore = existingLore == null ? new ArrayList<>() : new ArrayList<>(existingLore);
         boolean replaced = false;
         for (int i = 0; i < lore.size(); i++) {
             String line = lore.get(i);
@@ -363,7 +373,7 @@ public final class ItemPresentationDoctor {
         if (!replaced) {
             lore.add(BACKPACK_OWNER_PREFIX + ownerName);
         }
-        meta.setLore(lore);
+        setLegacyLore(meta, lore);
         item.setItemMeta(meta);
     }
 
@@ -377,7 +387,8 @@ public final class ItemPresentationDoctor {
         OfflinePlayer owner = Bukkit.getOfflinePlayer(ownerId);
         String ownerName = owner.getName() == null ? ownerId.toString() : owner.getName();
         ItemMeta meta = item.getItemMeta();
-        List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+        List<String> existingLore = legacyLore(meta);
+            List<String> lore = existingLore == null ? new ArrayList<>() : new ArrayList<>(existingLore);
         boolean idLineFound = false;
         boolean ownerLineFound = false;
         for (int i = 0; i < lore.size(); i++) {
@@ -400,7 +411,7 @@ public final class ItemPresentationDoctor {
         if (!ownerLineFound) {
             lore.add(BACKPACK_OWNER_PREFIX + ownerName);
         }
-        meta.setLore(lore);
+        setLegacyLore(meta, lore);
         item.setItemMeta(meta);
     }
 
@@ -408,13 +419,14 @@ public final class ItemPresentationDoctor {
         OfflinePlayer owner = Bukkit.getOfflinePlayer(ownerId);
         String ownerName = owner.getName() == null ? ownerId.toString() : owner.getName();
         ItemMeta meta = item.getItemMeta();
-        List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+        List<String> existingLore = legacyLore(meta);
+            List<String> lore = existingLore == null ? new ArrayList<>() : new ArrayList<>(existingLore);
         while (lore.size() < 2) {
             lore.add("");
         }
         lore.set(0, ChatColor.GRAY + "Owner: " + ChatColor.AQUA + ownerName);
         lore.set(1, ChatColor.BLACK + ownerId.toString());
-        meta.setLore(lore);
+        setLegacyLore(meta, lore);
         item.setItemMeta(meta);
     }
 
@@ -443,6 +455,36 @@ public final class ItemPresentationDoctor {
             }
         }
         return changed;
+    }
+
+    private static @Nullable String legacyName(@Nonnull ItemMeta meta) {
+        Component name = meta.displayName();
+        return name == null ? null : LegacyComponentSerializer.legacySection().serialize(name);
+    }
+
+    private static @Nullable List<String> legacyLore(@Nonnull ItemMeta meta) {
+        List<Component> lore = meta.lore();
+        return lore == null
+                ? null
+                : lore.stream().map(LegacyComponentSerializer.legacySection()::serialize).toList();
+    }
+
+    private static void setLegacyName(@Nonnull ItemMeta meta, @Nullable String value) {
+        meta.displayName(value == null
+                ? null
+                : LegacyComponentSerializer.legacySection()
+                        .deserialize(value)
+                        .decoration(TextDecoration.ITALIC, false));
+    }
+
+    private static void setLegacyLore(@Nonnull ItemMeta meta, @Nullable List<String> lore) {
+        meta.lore(lore == null
+                ? null
+                : lore.stream()
+                        .map(line -> LegacyComponentSerializer.legacySection()
+                                .deserialize(line)
+                                .decoration(TextDecoration.ITALIC, false))
+                        .toList());
     }
 
     private static final class DynamicState {
@@ -480,7 +522,7 @@ public final class ItemPresentationDoctor {
 
         private static DynamicState capture(ItemStack item, SlimefunItem sfItem) {
             ItemMeta meta = item.getItemMeta();
-            List<String> lore = meta.hasLore() ? meta.getLore() : null;
+            List<String> lore = legacyLore(meta);
 
             boolean safelyRestorable = true;
             Float charge = null;
