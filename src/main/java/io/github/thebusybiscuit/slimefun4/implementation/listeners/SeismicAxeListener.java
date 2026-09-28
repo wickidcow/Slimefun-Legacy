@@ -33,9 +33,9 @@ public class SeismicAxeListener implements Listener {
             return;
         }
 
-        if (e.getEntity().getType() == EntityType.FALLING_BLOCK && e.getEntity().hasMetadata("seismic_axe")) {
+        if (e.getEntity().getType() == EntityType.FALLING_BLOCK && SeismicAxe.isSeismicFallingBlock(e.getEntity())) {
             e.setCancelled(true);
-            e.getEntity().removeMetadata("seismic_axe", Slimefun.instance());
+            SeismicAxe.clearSeismicFallingBlock(e.getEntity());
             e.getEntity().remove();
         }
     }
