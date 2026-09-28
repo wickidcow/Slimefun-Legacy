@@ -7,6 +7,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nonnull;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
@@ -346,25 +349,34 @@ final class BeaconPlusAreaVisualizer implements Listener {
                         : BeaconPlusField.footprint(block.getX(), block.getZ(), range);
         ItemStack item = new ItemStack(Material.SPYGLASS);
         ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName((enabled ? ChatColor.GREEN : ChatColor.GRAY) + "Show Effect Area");
-        meta.setLore(java.util.List.of(
-                ChatColor.GRAY + "Shows the exact chunk-aligned square",
-                ChatColor.GRAY + "covered by Resonance Beacon field powers.",
-                "",
-                ChatColor.GRAY + "Status: " + (enabled ? ChatColor.GREEN + "ON" : ChatColor.RED + "OFF"),
-                ChatColor.GRAY + "Effect footprint: "
-                        + (range > 0.0D
-                                ? ChatColor.AQUA.toString() + footprint.widthChunks() + "x" + footprint.widthChunks()
-                                        + " chunks"
-                                : ChatColor.RED + "Dormant"),
-                ChatColor.GRAY + "Vertical reach: " + ChatColor.AQUA + "Full world height",
-                "",
-                ChatColor.DARK_GRAY + "Particle grid follows your current Y level",
-                ChatColor.DARK_GRAY + "Display only • never loads extra chunks",
-                "",
-                ChatColor.YELLOW + "Click to toggle"));
+        meta.displayName(legacyText((enabled ? ChatColor.GREEN : ChatColor.GRAY) + "Show Effect Area"));
+        meta.lore(java.util.List.of(
+                        ChatColor.GRAY + "Shows the exact chunk-aligned square",
+                        ChatColor.GRAY + "covered by Resonance Beacon field powers.",
+                        "",
+                        ChatColor.GRAY + "Status: " + (enabled ? ChatColor.GREEN + "ON" : ChatColor.RED + "OFF"),
+                        ChatColor.GRAY + "Effect footprint: "
+                                + (range > 0.0D
+                                        ? ChatColor.AQUA.toString() + footprint.widthChunks() + "x"
+                                                + footprint.widthChunks() + " chunks"
+                                        : ChatColor.RED + "Dormant"),
+                        ChatColor.GRAY + "Vertical reach: " + ChatColor.AQUA + "Full world height",
+                        "",
+                        ChatColor.DARK_GRAY + "Particle grid follows your current Y level",
+                        ChatColor.DARK_GRAY + "Display only • never loads extra chunks",
+                        "",
+                        ChatColor.YELLOW + "Click to toggle")
+                .stream()
+                .map(BeaconPlusAreaVisualizer::legacyText)
+                .toList());
         item.setItemMeta(meta);
         return item;
+    }
+
+    private static Component legacyText(String value) {
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(value)
+                .decoration(TextDecoration.ITALIC, false);
     }
 
     private static boolean canConfigure(Player player, UUID owner) {
