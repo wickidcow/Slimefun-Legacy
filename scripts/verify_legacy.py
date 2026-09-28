@@ -111,6 +111,7 @@ def main() -> int:
         "verify_beacon_plus_area_preview.py",
         "verify_enchantment_restart_safety.py",
         "verify_compatibility_round2.py",
+        "verify_plugin_metadata_modernization.py",
         "verify_compatibility_foundation.py",
         "check_dependency_boundaries.py",
         "verify_phase1k_release_readiness.py",
