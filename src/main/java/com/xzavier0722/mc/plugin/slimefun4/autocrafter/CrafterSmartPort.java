@@ -136,7 +136,8 @@ public class CrafterSmartPort extends SlimefunItem {
     private ItemStack getCountItem() {
         ItemStack countItem = new ItemStack(Material.CLOCK);
         ItemMeta im = countItem.getItemMeta();
-        im.displayName(Component.text("Crafting table ingredient count", NamedTextColor.BLUE)\n                .decoration(TextDecoration.ITALIC, false));
+        im.displayName(Component.text("Crafting table ingredient count", NamedTextColor.BLUE)
+                .decoration(TextDecoration.ITALIC, false));
         countItem.setItemMeta(im);
         return countItem;
     }
