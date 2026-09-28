@@ -327,7 +327,7 @@ public final class ItemPresentationDoctor {
             }
             ItemMeta meta = item.getItemMeta();
             List<String> existingLore = legacyLore(meta);
-            List<String> lore = existingLore == null ? new ArrayList<>() : new ArrayList<>(existingLore);
+        List<String> lore = existingLore == null ? new ArrayList<>() : new ArrayList<>(existingLore);
             if (!lore.contains(SOULBOUND_LORE)) {
                 lore.add(SOULBOUND_LORE);
                 setLegacyLore(meta, lore);
@@ -360,7 +360,7 @@ public final class ItemPresentationDoctor {
             ownerName = ownerId.get();
         }
         List<String> existingLore = legacyLore(meta);
-            List<String> lore = existingLore == null ? new ArrayList<>() : new ArrayList<>(existingLore);
+        List<String> lore = existingLore == null ? new ArrayList<>() : new ArrayList<>(existingLore);
         boolean replaced = false;
         for (int i = 0; i < lore.size(); i++) {
             String line = lore.get(i);
@@ -388,7 +388,7 @@ public final class ItemPresentationDoctor {
         String ownerName = owner.getName() == null ? ownerId.toString() : owner.getName();
         ItemMeta meta = item.getItemMeta();
         List<String> existingLore = legacyLore(meta);
-            List<String> lore = existingLore == null ? new ArrayList<>() : new ArrayList<>(existingLore);
+        List<String> lore = existingLore == null ? new ArrayList<>() : new ArrayList<>(existingLore);
         boolean idLineFound = false;
         boolean ownerLineFound = false;
         for (int i = 0; i < lore.size(); i++) {
@@ -420,7 +420,7 @@ public final class ItemPresentationDoctor {
         String ownerName = owner.getName() == null ? ownerId.toString() : owner.getName();
         ItemMeta meta = item.getItemMeta();
         List<String> existingLore = legacyLore(meta);
-            List<String> lore = existingLore == null ? new ArrayList<>() : new ArrayList<>(existingLore);
+        List<String> lore = existingLore == null ? new ArrayList<>() : new ArrayList<>(existingLore);
         while (lore.size() < 2) {
             lore.add("");
         }
