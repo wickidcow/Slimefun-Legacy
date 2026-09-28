@@ -9,13 +9,15 @@ import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuide;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedItemFlag;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.apache.commons.lang.Validate;
 import org.bukkit.ChatColor;
 import org.bukkit.Keyed;
@@ -284,19 +286,14 @@ public class ItemGroup implements Keyed {
             String name = Slimefun.getLocalization().getItemGroupName(p, getKey());
 
             if (name == null) {
-                name = item.getItemMeta().getDisplayName();
+                name = legacyString(item.getItemMeta().displayName());
             }
 
-            if (this instanceof SeasonalItemGroup) {
-                meta.setDisplayName(ChatColor.GOLD + name);
-            } else {
-                meta.setDisplayName(ChatColor.YELLOW + name);
-            }
-
-            meta.setLore(Arrays.asList(
-                    "",
-                    ChatColor.GRAY + "\u21E8 " + ChatColor.GREEN
-                            + Slimefun.getLocalization().getMessage(p, "guide.tooltips.open-itemgroup")));
+            meta.displayName(legacyText((this instanceof SeasonalItemGroup ? ChatColor.GOLD : ChatColor.YELLOW) + name));
+            meta.lore(List.of(
+                    Component.empty(),
+                    legacyText(ChatColor.GRAY + "\u21E8 " + ChatColor.GREEN
+                            + Slimefun.getLocalization().getMessage(p, "guide.tooltips.open-itemgroup"))));
         });
     }
 
@@ -307,7 +304,17 @@ public class ItemGroup implements Keyed {
      * @return The unlocalized name of this {@link ItemGroup}
      */
     public @Nonnull String getUnlocalizedName() {
-        return ChatColor.stripColor(item.getItemMeta().getDisplayName());
+        return ChatColor.stripColor(legacyString(item.getItemMeta().displayName()));
+    }
+
+    private static Component legacyText(String value) {
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(value)
+                .decoration(TextDecoration.ITALIC, false);
+    }
+
+    private static String legacyString(@Nullable Component value) {
+        return value == null ? "" : LegacyComponentSerializer.legacySection().serialize(value);
     }
 
     /**
