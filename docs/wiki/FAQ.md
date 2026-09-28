@@ -10,7 +10,7 @@ Not for Slimefun Legacy itself. A server may choose to provide a resource pack f
 
 ## What server software should I use?
 
-The primary target is Paper 26.2 / Minecraft 26.2 on Java 25. Purpur based on that Paper line is supported. Folia is experimental.
+The primary API/support target is Paper 26.3 / Minecraft 26.3 on Java 25. Paper/Purpur 26.2 and Paper/Purpur 1.21.11 remain supported compatibility lines. Folia is experimental.
 
 ## Can I use Spigot?
 
