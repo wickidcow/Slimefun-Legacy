@@ -3,6 +3,9 @@ package io.github.thebusybiscuit.slimefun4.implementation.items.magic8ball;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import java.util.Objects;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.enchantments.Enchantment;
@@ -47,11 +50,10 @@ public final class Magic8BallItems {
 
     private Magic8BallItems() {}
 
-    @SuppressWarnings("deprecation")
     private static ItemStack createItemGroupIcon() {
         ItemStack icon = MAGIC_8_BALL.clone();
         ItemMeta meta = icon.getItemMeta();
-        meta.setDisplayName("§eMagic 8 Ball");
+        meta.displayName(Component.text("Magic 8 Ball", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false));
         icon.setItemMeta(meta);
         return icon;
     }
