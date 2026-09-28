@@ -233,11 +233,16 @@ public class EnergyNet extends Network implements HologramOwner {
 
         try {
             if (!ownsNetwork) {
+                long duplicatePhaseTimestamp = profiler.startPhase();
                 VanillaPowerStateBridge.sync(regulatorLocation, false);
+                profiler.closePhase("EnergyNet", "duplicate regulator state", duplicatePhaseTimestamp);
+
+                duplicatePhaseTimestamp = profiler.startPhase();
                 if (shouldRefreshHologram(
                         regulatorLocation, HOLOGRAM_MODE_DUPLICATE_REGULATOR, 0L, 0L)) {
                     updateHologram(b, "&4Another regulator detected nearby", blockData::isPendingRemove);
                 }
+                profiler.closePhase("EnergyNet", "duplicate regulator hologram", duplicatePhaseTimestamp);
 
                 return;
             }

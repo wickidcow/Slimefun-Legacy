@@ -110,6 +110,8 @@ def main() -> int:
     require(tick, 'closePhase("EnergyNet", "remainder storage"', "remainder storage phase")
     require(tick, 'closePhase("EnergyNet", "transport state"', "transport-state phase")
     require(tick, 'closePhase("EnergyNet", "hologram"', "hologram phase")
+    require(tick, 'closePhase("EnergyNet", "duplicate regulator state"', "duplicate-regulator state phase")
+    require(tick, 'closePhase("EnergyNet", "duplicate regulator hologram"', "duplicate-regulator hologram phase")
 
     # Regulator holograms are presentation state. Unchanged labels should not traverse the hologram
     # service every tick, but periodic refresh still repairs a despawned/external hologram.
