@@ -13,7 +13,6 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.handlers.VanillaInventoryDropHandler;
 import io.github.thebusybiscuit.slimefun4.utils.InfiniteBlockGenerator;
 import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
-import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedParticle;
 import io.github.thebusybiscuit.slimefun4.utils.tags.SlimefunTag;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +20,7 @@ import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Bukkit;
+import org.bukkit.Particle;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.block.Block;
@@ -175,7 +175,7 @@ public class MinerAndroid extends ProgrammableAndroid {
             SoundEffect.MINER_ANDROID_BLOCK_GENERATION_SOUND.playAt(block);
             block.getWorld()
                     .spawnParticle(
-                            VersionedParticle.SMOKE,
+                            Particle.SMOKE,
                             block.getX() + 0.5,
                             block.getY() + 1.25,
                             block.getZ() + 0.5,
