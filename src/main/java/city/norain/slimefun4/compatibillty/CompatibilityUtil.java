@@ -1,71 +1,32 @@
 package city.norain.slimefun4.compatibillty;
 
-import city.norain.slimefun4.SlimefunExtended;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import lombok.experimental.UtilityClass;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.block.data.Ageable;
 import org.bukkit.block.data.BlockData;
-import org.bukkit.block.data.type.WallSign;
 
 @UtilityClass
 public class CompatibilityUtil {
     /**
-     * 获取玩家放置此方块所使用的物品材质。
-     * 对于大多数方块，这与 getMaterial() 相同，但有些方块有不同的材质用于放置它们。
-     * 注意：此处没有涵盖所有可能不同的方块数据类型。
+     * Returns the item material used to place the supplied block data.
      *
-     * @param blockData
-     * @return 放置此方块所使用的材质
+     * @param blockData the block data to inspect
+     * @return the placement material
      */
     public Material getPlacementMaterial(BlockData blockData) {
-        if (SlimefunExtended.isAtLeast(1, 19, 4)) {
-            return blockData.getPlacementMaterial();
-        } else {
-            switch (blockData.getMaterial()) {
-                case PLAYER_WALL_HEAD -> {
-                    return Material.PLAYER_HEAD;
-                }
-                case REDSTONE_WIRE -> {
-                    return Material.REDSTONE;
-                }
-                default -> {
-                    var mat = blockData.getMaterial();
-                    var enumName = blockData.getMaterial().name();
-
-                    if (Ageable.class.equals(mat.data) && enumName.endsWith("S")) {
-                        var itemMat = Material.getMaterial(enumName.substring(0, enumName.length() - 1));
-                        return itemMat != null && itemMat.isItem() ? itemMat : mat;
-                    }
-
-                    if (WallSign.class.equals(mat.data) && enumName.contains("_WALL_")) {
-                        Material itemMat = Material.getMaterial(enumName.replace("_WALL_", "_"));
-
-                        if (itemMat != null && itemMat.isItem()) {
-                            return mat;
-                        }
-                    }
-
-                    // Fallback to original material
-                    return blockData.getMaterial();
-                }
-            }
-        }
+        return blockData.getPlacementMaterial();
     }
 
     /**
-     * 检查玩家是否处于连接状态。
-     * 在 1.20- 中不能保证玩家是否连接，仅返回在线状态。
+     * Checks whether the player is connected.
      *
-     * @param player 离线玩家
-     * @return 玩家连接或在线
+     * <p>Offline-mode servers retain the historical online-state fallback.
+     *
+     * @param player the offline-player reference
+     * @return whether the player is connected or online
      */
     public boolean isConnected(OfflinePlayer player) {
-        if (SlimefunExtended.isAtLeast(1, 20) && Slimefun.instance().getServer().getOnlineMode()) {
-            return player.isConnected();
-        } else {
-            return player.isOnline();
-        }
+        return Slimefun.instance().getServer().getOnlineMode() ? player.isConnected() : player.isOnline();
     }
 }
