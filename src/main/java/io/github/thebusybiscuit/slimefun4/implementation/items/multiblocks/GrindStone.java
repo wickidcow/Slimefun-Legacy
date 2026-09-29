@@ -1,14 +1,12 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks;
 
 import io.github.bakedlibs.dough.items.CustomItemStack;
-import io.github.thebusybiscuit.slimefun4.api.MinecraftVersion;
 import io.github.thebusybiscuit.slimefun4.api.events.MultiBlockCraftEvent;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.multiblocks.MultiBlockMachine;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
 import java.util.List;
@@ -96,13 +94,11 @@ public class GrindStone extends MultiBlockMachine {
         recipes.add(new ItemStack(Material.BASALT, 2));
         recipes.add(new ItemStack(Material.BLACKSTONE));
 
-        if (Slimefun.getMinecraftVersion().isAtLeast(MinecraftVersion.MINECRAFT_1_17)) {
-            recipes.add(new ItemStack(Material.AMETHYST_BLOCK));
-            recipes.add(new ItemStack(Material.AMETHYST_SHARD, 4));
+        recipes.add(new ItemStack(Material.AMETHYST_BLOCK));
+        recipes.add(new ItemStack(Material.AMETHYST_SHARD, 4));
 
-            recipes.add(new ItemStack(Material.COBBLED_DEEPSLATE));
-            recipes.add(new ItemStack(Material.GRAVEL));
-        }
+        recipes.add(new ItemStack(Material.COBBLED_DEEPSLATE));
+        recipes.add(new ItemStack(Material.GRAVEL));
 
         recipes.add(SlimefunItems.MAGIC_LUMP_2);
         recipes.add(new SlimefunItemStack(SlimefunItems.MAGIC_LUMP_1, 4));
