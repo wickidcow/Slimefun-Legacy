@@ -24,7 +24,6 @@ import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -128,7 +127,7 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
                 BeaconPlusLegacyDataStore.sync(block);
 
                 event.getPlayer()
-                        .sendMessage(ChatColor.GOLD + "Resonance Beacon placed. " + ChatColor.GRAY
+                        .sendMessage("&6" + "Resonance Beacon placed. " + "&7"
                                 + "Build its mineral pyramid, then right click it to unlock and configure powers.");
             }
         };
@@ -143,20 +142,20 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
                 return;
             }
             if (!BeaconPlusConfig.isEnabled()) {
-                player.sendMessage(ChatColor.RED + "Resonance Beacons are disabled by the server administrator.");
+                message(player, "&c" + "Resonance Beacons are disabled by the server administrator.");
                 return;
             }
 
             BeaconPlusManager manager = BeaconPlusManager.getInstance();
             if (manager == null) {
-                player.sendMessage(ChatColor.RED + "Resonance Beacon is still initializing. Try again in a moment.");
+                message(player, "&c" + "Resonance Beacon is still initializing. Try again in a moment.");
                 return;
             }
 
             UUID owner = manager.getOwner(block.getLocation());
             if (!canConfigure(player, owner)) {
-                player.sendMessage(
-                        ChatColor.RED + "Only this Resonance Beacon owner or a server operator can configure it.");
+                message(player, 
+                        "&c" + "Only this Resonance Beacon owner or a server operator can configure it.");
                 return;
             }
 
@@ -241,12 +240,12 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
                 DISABLE_ALL_SLOT,
                 createMenuItem(
                         Material.BARRIER,
-                        ChatColor.RED + "Disable All Powers",
+                        "&c" + "Disable All Powers",
                         List.of(
-                                ChatColor.GRAY + "Turns off every Resonance Beacon power",
-                                ChatColor.GRAY + "including the Activator chunk loader.",
+                                "&7" + "Turns off every Resonance Beacon power",
+                                "&7" + "including the Activator chunk loader.",
                                 "",
-                                ChatColor.YELLOW + "Right click to disable everything")));
+                                "&e" + "Right click to disable everything")));
         menu.addMenuClickHandler(DISABLE_ALL_SLOT, (pl, slot, item, action) -> {
             if (action.isRightClicked()) {
                 disableAll(pl, block, owner);
@@ -262,8 +261,8 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
                 CLOSE_SLOT,
                 createMenuItem(
                         Material.RED_STAINED_GLASS_PANE,
-                        ChatColor.RED + "Close",
-                        List.of(ChatColor.GRAY + "Close Resonance Beacon configuration.")));
+                        "&c" + "Close",
+                        List.of("&7" + "Close Resonance Beacon configuration.")));
         menu.addMenuClickHandler(CLOSE_SLOT, (pl, slot, item, action) -> {
             pl.closeInventory();
             return false;
@@ -275,14 +274,14 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
     private void handleEffectClick(
             Player player, Block block, UUID owner, BeaconPlusEffect effect, boolean rightClick, boolean shiftClick) {
         if (!rightClick) {
-            player.sendMessage(ChatColor.GRAY + "Use right click to buy, enable, disable, or upgrade this power.");
+            message(player, "&7" + "Use right click to buy, enable, disable, or upgrade this power.");
             return;
         }
         if (!validateMenuAction(player, block, owner)) {
             return;
         }
         if (!BeaconPlusConfig.isPowerEnabled(effect)) {
-            player.sendMessage(ChatColor.RED + effect.getDisplayName() + " is disabled by the server administrator.");
+            message(player, "&c" + effect.getDisplayName() + " is disabled by the server administrator.");
             openMenu(player, block, owner);
             return;
         }
@@ -293,13 +292,13 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
 
         if (shiftClick) {
             if (legacyImported) {
-                player.sendMessage(ChatColor.YELLOW + "This is a legacy-imported beacon. " + ChatColor.GRAY
+                message(player, "&e" + "This is a legacy-imported beacon. " + "&7"
                         + "Its old BeaconData unlock levels are grandfathered and cannot be purchased again.");
                 openMenu(player, block, owner);
                 return;
             }
             if (unlocked >= maximum) {
-                player.sendMessage(ChatColor.GRAY + effect.getDisplayName() + " is already at Tier " + maximum + ".");
+                message(player, "&7" + effect.getDisplayName() + " is already at Tier " + maximum + ".");
                 openMenu(player, block, owner);
                 return;
             }
@@ -311,22 +310,22 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         if (enabled.contains(effect)) {
             enabled.remove(effect);
             if (effect == BeaconPlusEffect.ACTIVATOR && !BeaconPlusRuntime.reconcileActivator(block, 0)) {
-                player.sendMessage(ChatColor.RED + "Could not release this Resonance Beacon's Activator coverage.");
+                message(player, "&c" + "Could not release this Resonance Beacon's Activator coverage.");
                 openMenu(player, block, owner);
                 return;
             }
             BeaconPlusRuntime.setConfiguredEffects(block.getLocation(), enabled);
             BeaconPlusRuntime.refreshPlayerState(player);
             player.playSound(block.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.65F, 1.0F);
-            player.sendMessage(ChatColor.GOLD + "Resonance Beacon: " + ChatColor.WHITE + effect.getDisplayName()
-                    + ChatColor.GRAY + " is now " + ChatColor.RED + "DISABLED" + ChatColor.GRAY + ".");
+            message(player, "&6" + "Resonance Beacon: " + "&f" + effect.getDisplayName()
+                    + "&7" + " is now " + "&c" + "DISABLED" + "&7" + ".");
             openMenu(player, block, owner);
             return;
         }
 
         if (unlocked <= 0) {
             if (legacyImported) {
-                player.sendMessage(ChatColor.RED + "That power was not unlocked in this imported BeaconData record.");
+                message(player, "&c" + "That power was not unlocked in this imported BeaconData record.");
                 openMenu(player, block, owner);
                 return;
             }
@@ -340,11 +339,11 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         if (!activatorAccepted) {
             enabled.remove(effect);
             BeaconPlusRuntime.setConfiguredEffects(block.getLocation(), enabled);
-            player.sendMessage(ChatColor.RED + "The Resonance Beacon chunk-loader safety cap would be exceeded.");
+            message(player, "&c" + "The Resonance Beacon chunk-loader safety cap would be exceeded.");
         } else {
             player.playSound(block.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 0.65F, 1.35F);
-            player.sendMessage(ChatColor.GOLD + "Resonance Beacon: " + ChatColor.WHITE + effect.getDisplayName()
-                    + ChatColor.GRAY + " is now " + ChatColor.GREEN + "ENABLED" + ChatColor.GRAY + ".");
+            message(player, "&6" + "Resonance Beacon: " + "&f" + effect.getDisplayName()
+                    + "&7" + " is now " + "&a" + "ENABLED" + "&7" + ".");
         }
         openMenu(player, block, owner);
     }
@@ -352,7 +351,7 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
     private void purchaseAndEnable(Player player, Block block, UUID owner, BeaconPlusEffect effect) {
         BeaconPlusProgression.PurchaseResult result = BeaconPlusProgression.purchaseNextTier(player, owner, effect);
         if (!result.success()) {
-            player.sendMessage(ChatColor.RED + result.error());
+            message(player, "&c" + result.error());
             openMenu(player, block, owner);
             return;
         }
@@ -367,8 +366,8 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         }
 
         player.playSound(block.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, 0.8F, 1.45F);
-        player.sendMessage(ChatColor.GREEN + "Unlocked " + ChatColor.WHITE + effect.getDisplayName() + ChatColor.GREEN
-                + " Tier " + result.newTier() + ChatColor.GRAY + "."
+        message(player, "&a" + "Unlocked " + "&f" + effect.getDisplayName() + "&a"
+                + " Tier " + result.newTier() + "&7" + "."
                 + (activatorAccepted
                         ? " It is enabled."
                         : " Unlock kept; Activator stayed disabled because of the loader cap."));
@@ -389,7 +388,7 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         BeaconPlusRuntime.setConfiguredEffects(block.getLocation(), EnumSet.noneOf(BeaconPlusEffect.class));
         BeaconPlusRuntime.refreshPlayerState(player);
         player.playSound(block.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.65F, 1.0F);
-        player.sendMessage(ChatColor.RED + "All Resonance Beacon powers have been disabled.");
+        message(player, "&c" + "All Resonance Beacon powers have been disabled.");
         openMenu(player, block, owner);
     }
 
@@ -398,8 +397,8 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
             return;
         }
         if (!BeaconPlusConfig.isElectricOperationEnabled()) {
-            player.sendMessage(
-                    ChatColor.RED + "Electric Resonance Beacon operation is disabled by the server administrator.");
+            message(player, 
+                    "&c" + "Electric Resonance Beacon operation is disabled by the server administrator.");
             openMenu(player, block, owner);
             return;
         }
@@ -413,9 +412,9 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
                 enabled ? Sound.BLOCK_BEACON_POWER_SELECT : Sound.BLOCK_BEACON_DEACTIVATE,
                 0.65F,
                 enabled ? 1.55F : 1.0F);
-        player.sendMessage(ChatColor.GOLD + "Resonance Beacon electric operation: "
-                + (enabled ? ChatColor.GREEN + "ON" : ChatColor.RED + "OFF")
-                + ChatColor.GRAY
+        message(player, "&6" + "Resonance Beacon electric operation: "
+                + (enabled ? "&a" + "ON" : "&c" + "OFF")
+                + "&7"
                 + (enabled
                         ? ". Powers now require Slimefun energy."
                         : ". Powers now use normal pyramid-only operation."));
@@ -425,7 +424,7 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
     private boolean validateMenuAction(Player player, Block block, UUID expectedOwner) {
         if (!StorageCacheUtils.isBlock(block.getLocation(), getId())) {
             player.closeInventory();
-            player.sendMessage(ChatColor.RED + "That Resonance Beacon no longer exists.");
+            message(player, "&c" + "That Resonance Beacon no longer exists.");
             return false;
         }
 
@@ -433,7 +432,7 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         UUID currentOwner = manager == null ? expectedOwner : manager.getOwner(block.getLocation());
         if (!canConfigure(player, currentOwner)) {
             player.closeInventory();
-            player.sendMessage(ChatColor.RED + "You no longer have permission to configure this Resonance Beacon.");
+            message(player, "&c" + "You no longer have permission to configure this Resonance Beacon.");
             return false;
         }
         return true;
@@ -447,31 +446,31 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
             BeaconPlusChunkMode chunkMode) {
         List<String> lore = new ArrayList<>();
         int baseSize = profile.completedLayers() <= 0 ? 0 : profile.completedLayers() * 2 + 1;
-        lore.add(ChatColor.GRAY + "Physical pyramid: "
+        lore.add("&7" + "Physical pyramid: "
                 + (baseSize > 0
-                        ? ChatColor.GREEN.toString() + baseSize + "x" + baseSize
-                        : ChatColor.RED + "Incomplete"));
-        lore.add(ChatColor.GRAY + "Natural power tier: " + tierColor(profile.naturalPowerTier())
+                        ? "&a" + baseSize + "x" + baseSize
+                        : "&c" + "Incomplete"));
+        lore.add("&7" + "Natural power tier: " + tierColor(profile.naturalPowerTier())
                 + roman(profile.naturalPowerTier()));
-        lore.add(ChatColor.GRAY + "Dominant mineral: " + ChatColor.AQUA + profile.dominantMaterialName());
-        lore.add(ChatColor.GRAY + "Average mineral power: " + ChatColor.AQUA
+        lore.add("&7" + "Dominant mineral: " + "&b" + profile.dominantMaterialName());
+        lore.add("&7" + "Average mineral power: " + "&b"
                 + String.format(java.util.Locale.ROOT, "%.2f", profile.averageMaterialPower()));
-        lore.add(ChatColor.GRAY + "Enabled powers: " + ChatColor.GOLD + enabled.size() + "/29");
-        lore.add(ChatColor.GRAY + "Activator coverage: " + ChatColor.AQUA + chunkMode.getDisplayName());
+        lore.add("&7" + "Enabled powers: " + "&6" + enabled.size() + "/29");
+        lore.add("&7" + "Activator coverage: " + "&b" + chunkMode.getDisplayName());
         lore.add("");
         if (BeaconPlusLegacyDataStore.isLegacyImported(block.getLocation())) {
-            lore.add(ChatColor.YELLOW + "Legacy BeaconData import");
-            lore.add(ChatColor.GRAY + "No owner existed in the old format; operator-managed.");
+            lore.add("&e" + "Legacy BeaconData import");
+            lore.add("&7" + "No owner existed in the old format; operator-managed.");
         } else if (owner != null) {
-            lore.add(ChatColor.DARK_GRAY + "Unlocks are permanently owned by the placing player.");
+            lore.add("&8" + "Unlocks are permanently owned by the placing player.");
         }
         lore.add(
                 profile.naturalPowerTier() > 0
-                        ? ChatColor.GREEN + "Pyramid resonance is active."
-                        : ChatColor.RED + "Build a valid powered mineral pyramid.");
+                        ? "&a" + "Pyramid resonance is active."
+                        : "&c" + "Build a valid powered mineral pyramid.");
         return createMenuItem(
                 profile.naturalPowerTier() > 0 ? Material.NETHER_STAR : Material.GRAY_DYE,
-                ChatColor.GOLD + "Resonance Beacon Status",
+                "&6" + "Resonance Beacon Status",
                 lore);
     }
 
@@ -489,58 +488,58 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         int maximum = BeaconPlusConfig.getMaxTier();
 
         List<String> lore = new ArrayList<>();
-        lore.add(ChatColor.GRAY + effect.getDescription());
+        lore.add("&7" + effect.getDescription());
         lore.add("");
-        lore.add(ChatColor.GRAY + "Server: "
-                + (serverEnabled ? ChatColor.GREEN + "AVAILABLE" : ChatColor.RED + "DISABLED"));
-        lore.add(ChatColor.GRAY + "Unlocked: " + tierColor(unlocked) + roman(unlocked) + ChatColor.DARK_GRAY + "/III");
+        lore.add("&7" + "Server: "
+                + (serverEnabled ? "&a" + "AVAILABLE" : "&c" + "DISABLED"));
+        lore.add("&7" + "Unlocked: " + tierColor(unlocked) + roman(unlocked) + "&8" + "/III");
         if (BeaconPlusLegacyDataStore.isLegacyImported(block.getLocation()) && selected > 0) {
-            lore.add(ChatColor.GRAY + "Legacy selected tier: " + tierColor(selected) + roman(selected));
+            lore.add("&7" + "Legacy selected tier: " + tierColor(selected) + roman(selected));
         }
-        lore.add(ChatColor.GRAY + "Pyramid ceiling: " + tierColor(profile.naturalPowerTier())
+        lore.add("&7" + "Pyramid ceiling: " + tierColor(profile.naturalPowerTier())
                 + roman(profile.naturalPowerTier()));
-        lore.add(ChatColor.GRAY + "Status: " + (active ? ChatColor.GREEN + "ENABLED" : ChatColor.RED + "DISABLED"));
+        lore.add("&7" + "Status: " + (active ? "&a" + "ENABLED" : "&c" + "DISABLED"));
         if (active) {
-            lore.add(ChatColor.GRAY + "Effective tier: "
-                    + (effective > 0 ? tierColor(effective) + roman(effective) : ChatColor.RED + "DORMANT"));
+            lore.add("&7" + "Effective tier: "
+                    + (effective > 0 ? tierColor(effective) + roman(effective) : "&c" + "DORMANT"));
             if (effective > 0) {
-                lore.add(ChatColor.GRAY + "Runtime: "
-                        + (operational ? ChatColor.GREEN + "ACTIVE" : ChatColor.RED + "DORMANT (ENERGY)"));
+                lore.add("&7" + "Runtime: "
+                        + (operational ? "&a" + "ACTIVE" : "&c" + "DORMANT (ENERGY)"));
             }
         }
         if (effect == BeaconPlusEffect.ACTIVATOR) {
-            lore.add(ChatColor.DARK_GRAY + "Tier I = this chunk; II = 3x3; III = 5x5.");
+            lore.add("&8" + "Tier I = this chunk; II = 3x3; III = 5x5.");
         } else if (effect == BeaconPlusEffect.RADIATION_ABSORBER) {
-            lore.add(ChatColor.DARK_GRAY + "Tier I absorbs 25 exposure; II absorbs 50; III clears all.");
+            lore.add("&8" + "Tier I absorbs 25 exposure; II absorbs 50; III clears all.");
         }
 
         if (serverEnabled && unlocked < maximum && !BeaconPlusLegacyDataStore.isLegacyImported(block.getLocation())) {
             lore.add("");
-            lore.add(ChatColor.GOLD + "Next Tier: " + roman(unlocked + 1));
-            lore.add(ChatColor.GRAY + "Cost: " + ChatColor.YELLOW
+            lore.add("&6" + "Next Tier: " + roman(unlocked + 1));
+            lore.add("&7" + "Cost: " + "&e"
                     + BeaconPlusProgression.describeCost(effect, unlocked + 1));
         }
 
         lore.add("");
         if (!serverEnabled) {
-            lore.add(ChatColor.RED + "Disabled in configSFLAddons.yml");
+            lore.add("&c" + "Disabled in configSFLAddons.yml");
         } else if (unlocked <= 0 && BeaconPlusLegacyDataStore.isLegacyImported(block.getLocation())) {
-            lore.add(ChatColor.DARK_GRAY + "Not unlocked in imported BeaconData.");
+            lore.add("&8" + "Not unlocked in imported BeaconData.");
         } else if (unlocked <= 0) {
-            lore.add(ChatColor.YELLOW + "Right click to buy Tier I + enable");
+            lore.add("&e" + "Right click to buy Tier I + enable");
         } else {
-            lore.add(ChatColor.YELLOW + "Right click to " + (active ? "disable" : "enable"));
+            lore.add("&e" + "Right click to " + (active ? "disable" : "enable"));
             if (unlocked < maximum && !BeaconPlusLegacyDataStore.isLegacyImported(block.getLocation())) {
-                lore.add(ChatColor.YELLOW + "Shift + Right Click to buy Tier " + roman(unlocked + 1));
+                lore.add("&e" + "Shift + Right Click to buy Tier " + roman(unlocked + 1));
             }
         }
 
         Material icon = serverEnabled ? effect.getIcon() : Material.BARRIER;
         String nameColor = !serverEnabled
-                ? ChatColor.DARK_GRAY.toString()
+                ? "&8"
                 : active
-                        ? ChatColor.GREEN.toString()
-                        : unlocked > 0 ? ChatColor.GOLD.toString() : ChatColor.RED.toString();
+                        ? "&a"
+                        : unlocked > 0 ? "&6" : "&c";
         return createMenuItem(icon, nameColor + effect.getDisplayName(), lore);
     }
 
@@ -554,55 +553,55 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         boolean powered = !selected || demand <= 0L || operational;
 
         List<String> lore = new ArrayList<>();
-        lore.add(ChatColor.GRAY + "Optional native Slimefun Energy Network operation.");
-        lore.add(ChatColor.GRAY + "Mode: " + (selected ? ChatColor.GREEN + "ON" : ChatColor.RED + "OFF"));
-        lore.add(ChatColor.GRAY + "Charge: " + ChatColor.AQUA + charge + ChatColor.GRAY + "/" + capacity + " J");
-        lore.add(ChatColor.GRAY + "Current draw: " + ChatColor.YELLOW + demand + " J/second");
-        lore.add(ChatColor.GRAY + "Power state: "
-                + (powered ? ChatColor.GREEN + "READY" : ChatColor.RED + "INSUFFICIENT ENERGY"));
+        lore.add("&7" + "Optional native Slimefun Energy Network operation.");
+        lore.add("&7" + "Mode: " + (selected ? "&a" + "ON" : "&c" + "OFF"));
+        lore.add("&7" + "Charge: " + "&b" + charge + "&7" + "/" + capacity + " J");
+        lore.add("&7" + "Current draw: " + "&e" + demand + " J/second");
+        lore.add("&7" + "Power state: "
+                + (powered ? "&a" + "READY" : "&c" + "INSUFFICIENT ENERGY"));
         lore.add("");
         if (!available) {
-            lore.add(ChatColor.RED + "Disabled by server configuration.");
+            lore.add("&c" + "Disabled by server configuration.");
         } else {
-            lore.add(ChatColor.YELLOW + "Right click to turn electric operation " + (selected ? "OFF" : "ON"));
-            lore.add(ChatColor.DARK_GRAY + "When ON, all powers pause if charge is too low.");
-            lore.add(ChatColor.DARK_GRAY + "Activator chunk tickets release until energy returns.");
+            lore.add("&e" + "Right click to turn electric operation " + (selected ? "OFF" : "ON"));
+            lore.add("&8" + "When ON, all powers pause if charge is too low.");
+            lore.add("&8" + "Activator chunk tickets release until energy returns.");
         }
 
         return createMenuItem(
                 available ? (selected ? Material.REDSTONE_BLOCK : Material.REDSTONE_TORCH) : Material.BARRIER,
-                ChatColor.YELLOW + "Electric Operation",
+                "&e" + "Electric Operation",
                 lore);
     }
 
     private ItemStack createPyramidItem(BeaconPlusPyramid.Profile profile) {
         return createMenuItem(
                 profile.naturalPowerTier() > 0 ? profile.dominantMaterial() : Material.IRON_BLOCK,
-                ChatColor.AQUA + "Pyramid Resonance",
+                "&b" + "Pyramid Resonance",
                 List.of(
-                        ChatColor.GRAY + "Tier I: 3x3+ base / material power 1.0",
-                        ChatColor.GRAY + "Tier II: 5x5+ base / material power 3.0",
-                        ChatColor.GRAY + "Tier III: 7x7+ base / material power 4.0",
+                        "&7" + "Tier I: 3x3+ base / material power 1.0",
+                        "&7" + "Tier II: 5x5+ base / material power 3.0",
+                        "&7" + "Tier III: 7x7+ base / material power 4.0",
                         "",
-                        ChatColor.DARK_GRAY + "Default mineral power:",
-                        ChatColor.GRAY + "Iron 1 • Gold 2 • Emerald 3",
-                        ChatColor.GRAY + "Diamond 4 • Netherite 5",
+                        "&8" + "Default mineral power:",
+                        "&7" + "Iron 1 • Gold 2 • Emerald 3",
+                        "&7" + "Diamond 4 • Netherite 5",
                         "",
-                        ChatColor.DARK_GRAY + "All thresholds are server-configurable."));
+                        "&8" + "All thresholds are server-configurable."));
     }
 
     private ItemStack createControlsItem() {
         return createMenuItem(
                 Material.BOOK,
-                ChatColor.YELLOW + "Power Controls",
+                "&e" + "Power Controls",
                 List.of(
-                        ChatColor.GRAY + "Right click a locked power to buy Tier I",
-                        ChatColor.GRAY + "and immediately enable it.",
-                        ChatColor.GRAY + "Right click an unlocked power to toggle it.",
-                        ChatColor.GRAY + "Shift + Right Click buys the next tier.",
+                        "&7" + "Right click a locked power to buy Tier I",
+                        "&7" + "and immediately enable it.",
+                        "&7" + "Right click an unlocked power to toggle it.",
+                        "&7" + "Shift + Right Click buys the next tier.",
                         "",
-                        ChatColor.GRAY + "Purchased tiers stay with the beacon owner.",
-                        ChatColor.GRAY + "The physical pyramid caps the tier that can run."));
+                        "&7" + "Purchased tiers stay with the beacon owner.",
+                        "&7" + "The physical pyramid caps the tier that can run."));
     }
 
     private static ItemStack createMenuItem(Material material, String displayName, List<String> lore) {
@@ -614,8 +613,12 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         return item;
     }
 
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
     private static Component legacyText(String value) {
-        return LegacyComponentSerializer.legacySection()
+        return LegacyComponentSerializer.legacyAmpersand()
                 .deserialize(value)
                 .decoration(TextDecoration.ITALIC, false);
     }
@@ -636,12 +639,12 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         };
     }
 
-    private static ChatColor tierColor(int tier) {
+    private static String tierColor(int tier) {
         return switch (tier) {
-            case 1 -> ChatColor.YELLOW;
-            case 2 -> ChatColor.AQUA;
-            case 3 -> ChatColor.LIGHT_PURPLE;
-            default -> ChatColor.RED;
+            case 1 -> "&e";
+            case 2 -> "&b";
+            case 3 -> "&d";
+            default -> "&c";
         };
     }
 }
