@@ -3,6 +3,7 @@ package io.github.thebusybiscuit.slimefun4.implementation.items.autocrafters;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.tasks.AsyncRecipeChoiceTask;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
+import io.github.thebusybiscuit.slimefun4.utils.compatibility.LegacyBukkitCompatibility;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -84,7 +85,7 @@ class VanillaRecipe extends AbstractRecipe {
         if (choices.length == 1) {
             RecipeChoice choice = choices[0];
             if (choice != null) {
-                items[4] = choice.getItemStack();
+                items[4] = LegacyBukkitCompatibility.getRecipeChoiceRepresentative(choice);
 
                 if (choice instanceof MaterialChoice materialChoice && materialChoice.getChoices().size() > 1) {
                     task.add(slots[4], materialChoice);
@@ -94,7 +95,7 @@ class VanillaRecipe extends AbstractRecipe {
             for (int i = 0; i < choices.length; i++) {
                 RecipeChoice choice = choices[i];
                 if (choice != null) {
-                    items[i] = choice.getItemStack();
+                    items[i] = LegacyBukkitCompatibility.getRecipeChoiceRepresentative(choice);
 
                     if (choice instanceof MaterialChoice materialChoice && materialChoice.getChoices().size() > 1) {
                         task.add(slots[i], materialChoice);
