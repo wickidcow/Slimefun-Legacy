@@ -9,6 +9,7 @@ import io.github.thebusybiscuit.slimefun4.core.handlers.ItemUseHandler;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
+import io.github.thebusybiscuit.slimefun4.utils.compatibility.LegacyBukkitCompatibility;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.entity.Player;
@@ -41,7 +42,7 @@ public class KnowledgeFlask extends SimpleSlimefunItem<ItemUseHandler> {
 
             if (p.getLevel() >= 1
                     && (e.getClickedBlock().isEmpty()
-                            || !(e.getClickedBlock().get().getType().isInteractable()))) {
+                            || !LegacyBukkitCompatibility.isInteractable(e.getClickedBlock().get().getType()))) {
                 p.setLevel(p.getLevel() - 1);
 
                 ItemStack item = SlimefunItems.FILLED_FLASK_OF_KNOWLEDGE.clone();
