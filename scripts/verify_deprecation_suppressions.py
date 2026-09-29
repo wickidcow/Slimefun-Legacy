@@ -15,7 +15,6 @@ ALLOWED = {
     "src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/LegacyItemMetaDeserializer.java": 2,
     "src/main/java/io/github/thebusybiscuit/slimefun4/core/attributes/EnergyNetProvider.java": 1,
     "src/main/java/io/github/thebusybiscuit/slimefun4/core/attributes/EnergyNetComponent.java": 1,
-    "src/main/java/io/github/thebusybiscuit/slimefun4/integrations/IntegrationsManager.java": 2,
     "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/Slimefun.java": 1,
 }
 
