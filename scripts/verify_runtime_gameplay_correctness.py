@@ -223,7 +223,7 @@ def main() -> int:
     require_before(
         tree_accelerator,
         "if (!sapling.applyBoneMeal(BlockFace.UP))",
-        "removeCharge(machine.getLocation(), ENERGY_CONSUMPTION);",
+        "removeCharge(machine.getLocation(), (long) ENERGY_CONSUMPTION);",
         "tree growth success before energy consumption",
     )
     require_before(
