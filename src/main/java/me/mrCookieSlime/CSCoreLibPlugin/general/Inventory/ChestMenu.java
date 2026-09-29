@@ -48,8 +48,11 @@ public class ChestMenu extends SlimefunInventoryHolder {
     private MenuCloseHandler close;
     private MenuClickHandler playerclick;
 
-    @Deprecated(forRemoval = true)
-    // 何意味
+    /**
+     * Tracks players currently viewing this menu.
+     *
+     * <p>This remains active compatibility state for ChestMenu and BlockMenu lifecycle handling.
+     */
     private final Set<UUID> viewers = new CopyOnWriteArraySet<>();
 
     private final AtomicBoolean lock = new AtomicBoolean(false);
