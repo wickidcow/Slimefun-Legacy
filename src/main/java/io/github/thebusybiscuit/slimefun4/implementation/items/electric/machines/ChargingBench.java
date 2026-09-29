@@ -33,7 +33,7 @@ public class ChargingBench extends AContainer {
 
     @Override
     protected void tick(Block b) {
-        if (getCharge(b.getLocation()) < getEnergyConsumption()) {
+        if (getChargeLong(b.getLocation()) < getEnergyConsumption()) {
             return;
         }
 
@@ -55,7 +55,7 @@ public class ChargingBench extends AContainer {
             float charge = getEnergyConsumption() / 2F;
 
             if (rechargeable.addItemCharge(item, charge)) {
-                removeCharge(b.getLocation(), getEnergyConsumption());
+                removeCharge(b.getLocation(), (long) getEnergyConsumption());
             } else if (inv.fits(item, getOutputSlots())) {
                 inv.pushItem(item, getOutputSlots());
                 inv.replaceExistingItem(slot, null);
