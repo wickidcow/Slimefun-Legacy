@@ -3,7 +3,9 @@ package io.github.thebusybiscuit.slimefun4.implementation.listeners.entity;
 import io.github.thebusybiscuit.slimefun4.api.researches.Research;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import javax.annotation.Nonnull;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -35,7 +37,9 @@ public class FireworksListener implements Listener {
 
             Entity display names do not work either as Firework cannot be named.
             */
-            if (meta.hasDisplayName() && meta.getDisplayName().equals(ChatColor.GREEN + "Slimefun Research")) {
+            Component expected = Component.text("Slimefun Research", NamedTextColor.GREEN)
+                    .decoration(TextDecoration.ITALIC, false);
+            if (expected.equals(meta.displayName())) {
                 e.setCancelled(true);
             }
         }
