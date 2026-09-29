@@ -135,6 +135,7 @@ public class Research implements Keyed {
      *
      * @return The ID of this {@link Research}
      */
+    @Deprecated
     @ApiStatus.Internal
     public int getLegacyId() {
         return id;
