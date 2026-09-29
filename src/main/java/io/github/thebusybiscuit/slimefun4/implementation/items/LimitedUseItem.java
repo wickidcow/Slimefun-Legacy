@@ -18,7 +18,6 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.apache.commons.lang.Validate;
-import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -118,7 +117,6 @@ public abstract class LimitedUseItem extends SimpleSlimefunItem<ItemUseHandler> 
             if (usesLeft == 1) {
                 SoundEffect.LIMITED_USE_ITEM_BREAK_SOUND.playFor(p);
                 item.setAmount(0);
-                item.setType(Material.AIR);
             } else {
                 usesLeft--;
                 pdc.set(key, PersistentDataType.INTEGER, usesLeft);
