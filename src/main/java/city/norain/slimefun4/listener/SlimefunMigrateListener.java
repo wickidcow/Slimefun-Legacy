@@ -4,7 +4,8 @@ import com.xzavier0722.mc.plugin.slimefun4.storage.migrator.BlockStorageMigrator
 import com.xzavier0722.mc.plugin.slimefun4.storage.migrator.PlayerProfileMigrator;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import javax.annotation.Nonnull;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -17,10 +18,9 @@ public class SlimefunMigrateListener implements Listener {
         if ((PlayerProfileMigrator.getInstance().hasOldData()
                         || BlockStorageMigrator.getInstance().hasOldData())
                 && p.hasPermission("slimefun.command.migrate")) {
-            p.sendMessage(
-                    ChatColor.translateAlternateColorCodes(
-                            '&',
-                            "&cDetected legacy data stored in files. Please run /sf migrate to move the old data into the database!"));
+            p.sendMessage(Component.text(
+                    "Detected legacy data stored in files. Please run /sf migrate to move the old data into the database!",
+                    NamedTextColor.RED));
         }
     }
 
