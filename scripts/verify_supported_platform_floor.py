@@ -16,6 +16,14 @@ MODERN_ALIAS_FILES = (
     "src/main/java/io/github/thebusybiscuit/slimefun4/utils/compatibility/VersionedPotionEffectType.java",
 )
 
+COMPATIBILITY_ONLY_ALIASES = {
+    "VersionedParticle": "src/main/java/io/github/thebusybiscuit/slimefun4/utils/compatibility/VersionedParticle.java",
+    "VersionedEntityType": "src/main/java/io/github/thebusybiscuit/slimefun4/utils/compatibility/VersionedEntityType.java",
+    "VersionedPotionType": "src/main/java/io/github/thebusybiscuit/slimefun4/utils/compatibility/VersionedPotionType.java",
+    "VersionedEnchantment": "src/main/java/io/github/thebusybiscuit/slimefun4/utils/compatibility/VersionedEnchantment.java",
+    "VersionedPotionEffectType": "src/main/java/io/github/thebusybiscuit/slimefun4/utils/compatibility/VersionedPotionEffectType.java",
+}
+
 
 def main() -> int:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
@@ -27,6 +35,17 @@ def main() -> int:
             failures.append(f"{relative} still contains a pre-floor version gate")
         if "java.lang.reflect" in text or "getDeclaredField(" in text:
             failures.append(f"{relative} still contains pre-1.21.11 reflection fallback logic")
+
+    source_root = root / "src" / "main" / "java"
+    for alias, definition in COMPATIBILITY_ONLY_ALIASES.items():
+        for java_file in source_root.rglob("*.java"):
+            relative = java_file.relative_to(root).as_posix()
+            if relative == definition:
+                continue
+            if alias in java_file.read_text(encoding="utf-8"):
+                failures.append(
+                    f"{relative} still routes supported 1.21.11+ APIs through compatibility alias {alias}"
+                )
 
     events = (root / "src/main/java/city/norain/slimefun4/compatibillty/VersionedEvent.java").read_text(encoding="utf-8")
     for forbidden in (
