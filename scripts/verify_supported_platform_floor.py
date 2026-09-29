@@ -205,6 +205,34 @@ def main() -> int:
             "VersionedEnchantment",
             "Enchantment.FORTUNE",
         ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/tasks/ArmorTask.java": (
+            "VersionedPotionEffectType",
+            "PotionEffectType.",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/core/attributes/RadiationSymptom.java": (
+            "VersionedPotionEffectType",
+            "PotionEffectType.",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/weapons/IcyBow.java": (
+            "VersionedPotionEffectType",
+            "PotionEffectType.",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/medical/Splint.java": (
+            "VersionedPotionEffectType",
+            "PotionEffectType.",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/medical/Bandage.java": (
+            "VersionedPotionEffectType",
+            "PotionEffectType.",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/medical/MedicalSupply.java": (
+            "VersionedPotionEffectType",
+            "PotionEffectType.",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/api/gps/TeleportationManager.java": (
+            "VersionedPotionEffectType",
+            "PotionEffectType.",
+        ),
     }
     for relative, (forbidden, required) in direct_api_files.items():
         text = (root / relative).read_text(encoding="utf-8")
