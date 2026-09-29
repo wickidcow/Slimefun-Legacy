@@ -16,7 +16,8 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.magical.runes.Vil
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.DyeColor;
 import org.bukkit.GameMode;
 import org.bukkit.Tag;
@@ -92,7 +93,7 @@ public class StrangeNetherGoo extends SimpleSlimefunItem<ItemUseHandler> impleme
             // Give Sheep color, name and effect
             sheep.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 60, 2));
             sheep.setColor(DyeColor.PURPLE);
-            sheep.setCustomName(ChatColor.DARK_PURPLE + "Contaminated Sheep");
+            sheep.customName(Component.text("Contaminated Sheep", NamedTextColor.DARK_PURPLE));
             e.setCancelled(true);
         };
     }
