@@ -29,6 +29,7 @@ import org.bukkit.Keyed;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.jetbrains.annotations.ApiStatus;
 
 /**
  * Represents a research, which is bound to one
@@ -438,15 +439,17 @@ public class Research implements Keyed {
         return Optional.empty();
     }
 
-    @Deprecated
-    public static Optional<Research> getResearchByID(@Nonnull Integer oldID) {
-        if (oldID == null) {
-            return Optional.empty();
-        }
-
+    @ApiStatus.Internal
+    @Nonnull
+    public static Optional<Research> getResearchByLegacyId(int oldID) {
         return Slimefun.getRegistry().getResearches().parallelStream()
                 .filter(r -> r.id == oldID)
                 .findFirst();
+    }
+
+    @Deprecated
+    public static Optional<Research> getResearchByID(@Nonnull Integer oldID) {
+        return oldID == null ? Optional.empty() : getResearchByLegacyId(oldID);
     }
 
     @Override
