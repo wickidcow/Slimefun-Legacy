@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import io.github.bakedlibs.dough.config.Config;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
@@ -30,15 +31,13 @@ public class SoundService {
     public SoundService(@Nonnull Slimefun plugin) {
         config = new Config(plugin, "sounds.yml");
 
-        // @formatter:off
         config.getConfiguration()
                 .options()
-                .header("This file is used to assign the sounds which Slimefun will play.\n"
-                        + "You can fully customize any sound you want and even change their pitch\n"
-                        + "and volume. To disable a sound, simply set the volume to zero.\n");
-        // @formatter:on
-
-        config.getConfiguration().options().copyHeader();
+                .setHeader(List.of(
+                        "This file is used to assign the sounds which Slimefun will play.",
+                        "You can fully customize any sound you want and even change their pitch",
+                        "and volume. To disable a sound, simply set the volume to zero."))
+                .parseComments(true);
     }
 
     /**
