@@ -1,13 +1,11 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.weapons;
 
-import io.github.thebusybiscuit.slimefun4.api.MinecraftVersion;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemSetting;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.settings.IntRangeSetting;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.handlers.EntityKillHandler;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
@@ -80,8 +78,7 @@ public class SwordOfBeheading extends SimpleSlimefunItem<EntityKillHandler> {
                     }
                 }
                 case PIGLIN -> {
-                    if (Slimefun.getMinecraftVersion().isAtLeast(MinecraftVersion.MINECRAFT_1_20)
-                            && random.nextInt(100) < chancePiglin.getValue()) {
+                    if (random.nextInt(100) < chancePiglin.getValue()) {
                         e.getDrops().add(new ItemStack(Material.PIGLIN_HEAD));
                     }
                 }
