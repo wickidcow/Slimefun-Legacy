@@ -43,8 +43,7 @@ public class SmeltersPickaxe extends SimpleSlimefunItem<ToolUseHandler> implemen
                 List<ItemStack> itemDrops = new ArrayList<>();
                 for (ItemStack drop : blockDrops) {
                     if (drop != null && !drop.getType().isAir()) {
-                        smelt(b, drop, fortune);
-                        itemDrops.add(drop);
+                        itemDrops.add(smelt(b, drop, fortune));
                     }
                 }
                 // stop blockListener from dropping origin drops
@@ -59,16 +58,18 @@ public class SmeltersPickaxe extends SimpleSlimefunItem<ToolUseHandler> implemen
     }
 
     @ParametersAreNonnullByDefault
-    private void smelt(Block b, ItemStack drop, int fortune) {
+    private ItemStack smelt(Block b, ItemStack drop, int fortune) {
         Optional<ItemStack> furnaceOutput = Slimefun.getMinecraftRecipeService().getFurnaceOutput(drop);
+        ItemStack result = drop;
 
         if (furnaceOutput.isPresent()) {
             b.getWorld().playEffect(b.getLocation(), Effect.MOBSPAWNER_FLAMES, 1);
-            drop.setType(furnaceOutput.get().getType());
+            result = drop.withType(furnaceOutput.get().getType());
         }
 
         // Fixes #3116
-        drop.setAmount(fortune);
+        result.setAmount(fortune);
+        return result;
     }
 
     @Override
