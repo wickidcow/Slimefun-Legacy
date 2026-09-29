@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.implementation.guide.enhanced;
 
-import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
 import io.github.thebusybiscuit.slimefun4.core.guide.GuideHistory;
@@ -354,8 +353,8 @@ public class IndexedEnhancedSurvivalSlimefunGuide extends EnhancedSurvivalSlimef
     }
 
     private static Component legacyText(String value) {
-        return LegacyComponentSerializer.legacySection()
-                .deserialize(ChatColors.color(value))
+        return LegacyComponentSerializer.legacyAmpersand()
+                .deserialize(value)
                 .decoration(TextDecoration.ITALIC, false);
     }
 

@@ -1,7 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.guide.enhanced;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
-import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.bakedlibs.dough.items.ItemUtils;
 import io.github.bakedlibs.dough.protection.Interaction;
@@ -25,6 +24,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.AContainer;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.MachineRecipe;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -40,6 +40,8 @@ import org.bukkit.inventory.PlayerInventory;
  * operation or changes energy. The machine's own ticker remains responsible for processing inserted ingredients.
  */
 public final class LegacyMachineInputFillManager {
+
+    private static final LegacyComponentSerializer LEGACY_AMPERSAND = LegacyComponentSerializer.legacyAmpersand();
 
     private static LegacyMachineInputFillManager instance;
 
@@ -842,11 +844,11 @@ public final class LegacyMachineInputFillManager {
         for (int index = 0; index < limit; index++) {
             MissingIngredient ingredient = missing.get(index);
             int shortfall = Math.max(0, ingredient.required() - ingredient.available());
-            player.sendMessage(ChatColors.color(
+            player.sendMessage(LEGACY_AMPERSAND.deserialize(
                     "&8 • &c" + shortfall + "x &7" + ItemUtils.getItemName(ingredient.expected())));
         }
         if (missing.size() > limit) {
-            player.sendMessage(ChatColors.color("&8 • &7Additional ingredients are missing."));
+            player.sendMessage(LEGACY_AMPERSAND.deserialize("&8 • &7Additional ingredients are missing."));
         }
     }
 
@@ -876,7 +878,7 @@ public final class LegacyMachineInputFillManager {
     }
 
     private static void send(@Nonnull Player player, @Nonnull String message) {
-        player.sendMessage(ChatColors.color("&2[Slimefun Legacy] " + message));
+        player.sendMessage(LEGACY_AMPERSAND.deserialize("&2[Slimefun Legacy] " + message));
     }
 
     @FunctionalInterface

@@ -1,7 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.guide.enhanced;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
-import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.bakedlibs.dough.items.ItemUtils;
 import io.github.bakedlibs.dough.protection.Interaction;
@@ -29,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -66,6 +66,8 @@ import org.bukkit.util.Vector;
  * performs the final craft and never reads nearby storage.
  */
 public final class LegacyRecipeFillManager implements Listener {
+
+    private static final LegacyComponentSerializer LEGACY_AMPERSAND = LegacyComponentSerializer.legacyAmpersand();
 
     private static final int BUTTON_SLOT = 25;
     private static final BlockFace[] HORIZONTAL_FACES = {
@@ -516,7 +518,7 @@ public final class LegacyRecipeFillManager implements Listener {
                         + context.item().getItemName());
         for (IngredientStatus status : report.statuses()) {
             String color = status.missing() == 0 ? "&a" : "&c";
-            player.sendMessage(ChatColors.color(
+            player.sendMessage(LEGACY_AMPERSAND.deserialize(
                     "&8 • " + color + status.available() + "/" + status.required()
                             + "&7 " + ItemUtils.getItemName(status.expected())));
             if (status.missing() > 0
@@ -524,15 +526,15 @@ public final class LegacyRecipeFillManager implements Listener {
                     && LegacyGuideSettings.get().shouldShowSubRecipeHints()) {
                 SlimefunItem ingredient = SlimefunItem.getByItem(status.expected());
                 if (ingredient != null) {
-                    player.sendMessage(ChatColors.color(
+                    player.sendMessage(LEGACY_AMPERSAND.deserialize(
                             "&8   ↳ &7Sub-recipe available: &f" + ingredient.getId()));
                 }
             }
         }
         if (report.ready()) {
-            player.sendMessage(ChatColors.color("&2All required ingredients are available."));
+            player.sendMessage(LEGACY_AMPERSAND.deserialize("&2All required ingredients are available."));
         } else {
-            player.sendMessage(ChatColors.color("&4Missing " + report.totalMissing() + " ingredient item(s)."));
+            player.sendMessage(LEGACY_AMPERSAND.deserialize("&4Missing " + report.totalMissing() + " ingredient item(s)."));
         }
     }
 
@@ -546,15 +548,15 @@ public final class LegacyRecipeFillManager implements Listener {
         int limit = Math.min(3, missingFromPlan.size());
         for (int index = 0; index < limit; index++) {
             IngredientStatus status = missingFromPlan.get(index);
-            player.sendMessage(ChatColors.color(
+            player.sendMessage(LEGACY_AMPERSAND.deserialize(
                     "&8 • &c" + status.missing() + "x &7" + ItemUtils.getItemName(status.expected())));
         }
         if (missingFromPlan.size() > limit) {
-            player.sendMessage(ChatColors.color("&8 • &7Right-click the guide button for the full report."));
+            player.sendMessage(LEGACY_AMPERSAND.deserialize("&8 • &7Right-click the guide button for the full report."));
         } else if (LegacyGuideSettings.get().shouldShowSubRecipeHints()) {
             boolean hasSubRecipe = missingFromPlan.stream().anyMatch(IngredientStatus::craftable);
             if (hasSubRecipe) {
-                player.sendMessage(ChatColors.color(
+                player.sendMessage(LEGACY_AMPERSAND.deserialize(
                         "&8 • &7Some missing ingredients have their own Slimefun recipes."));
             }
         }
@@ -1568,7 +1570,7 @@ public final class LegacyRecipeFillManager implements Listener {
     }
 
     private static void send(@Nonnull Player player, @Nonnull String message) {
-        player.sendMessage(ChatColors.color("&2[Slimefun Legacy] " + message));
+        player.sendMessage(LEGACY_AMPERSAND.deserialize("&2[Slimefun Legacy] " + message));
     }
 
     private enum RecipeKind {
