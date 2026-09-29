@@ -10,7 +10,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunIte
 import io.github.thebusybiscuit.slimefun4.utils.RadiationUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
@@ -59,21 +59,21 @@ public final class GeigerCounter extends SimpleSlimefunItem<ItemUseHandler> {
                 }
             }
 
-            player.sendMessage(ChatColor.GOLD + "Geiger Counter " + ChatColor.GRAY + "• exposure "
-                    + exposureColor(exposure) + exposure + ChatColor.GRAY + "/100"
-                    + ChatColor.GRAY + " • carried source "
-                    + (carriedStrength > 0 ? ChatColor.YELLOW + Integer.toString(carriedStrength) : ChatColor.GREEN + "none"));
+            message(player, "&6" + "Geiger Counter " + "&7" + "• exposure "
+                    + exposureColor(exposure) + exposure + "&7" + "/100"
+                    + "&7" + " • carried source "
+                    + (carriedStrength > 0 ? "&e" + Integer.toString(carriedStrength) : "&a" + "none"));
 
             if (strongest == null) {
-                player.sendMessage(ChatColor.GREEN + "No dropped radioactive source detected within 12 blocks.");
+                message(player, "&a" + "No dropped radioactive source detected within 12 blocks.");
                 return;
             }
 
             Location target = strongest.getLocation();
             int distance = (int) Math.round(Math.sqrt(strongestDistance));
-            player.sendMessage(ChatColor.GRAY + "Strongest nearby source: " + ChatColor.RED + strongestStrength
-                    + ChatColor.GRAY + " • about " + ChatColor.YELLOW + distance + ChatColor.GRAY + " blocks "
-                    + ChatColor.AQUA + cardinalDirection(origin, target));
+            message(player, "&7" + "Strongest nearby source: " + "&c" + strongestStrength
+                    + "&7" + " • about " + "&e" + distance + "&7" + " blocks "
+                    + "&b" + cardinalDirection(origin, target));
         };
     }
 
@@ -91,20 +91,20 @@ public final class GeigerCounter extends SimpleSlimefunItem<ItemUseHandler> {
         return strongest;
     }
 
-    private static ChatColor exposureColor(int exposure) {
+    private static String exposureColor(int exposure) {
         if (exposure >= 75) {
-            return ChatColor.DARK_RED;
+            return "&4";
         }
         if (exposure >= 50) {
-            return ChatColor.RED;
+            return "&c";
         }
         if (exposure >= 25) {
-            return ChatColor.GOLD;
+            return "&6";
         }
         if (exposure > 0) {
-            return ChatColor.YELLOW;
+            return "&e";
         }
-        return ChatColor.GREEN;
+        return "&a";
     }
 
     private static String cardinalDirection(Location from, Location to) {
@@ -123,4 +123,8 @@ public final class GeigerCounter extends SimpleSlimefunItem<ItemUseHandler> {
             default -> "southeast";
         };
     }
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
 }
