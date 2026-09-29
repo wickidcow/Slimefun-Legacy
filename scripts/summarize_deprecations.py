@@ -14,6 +14,11 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("log", type=Path)
     parser.add_argument("--output", type=Path, default=Path("build/reports/deprecations.md"))
+    parser.add_argument(
+        "--fail-on-warnings",
+        action="store_true",
+        help="Return a non-zero exit status when explicit deprecation/removal warnings are present.",
+    )
     args = parser.parse_args()
 
     text = args.log.read_text(encoding="utf-8", errors="replace") if args.log.exists() else ""
@@ -57,6 +62,12 @@ def main() -> int:
         f"{per_category.get('deprecation', 0)} deprecation, "
         f"{per_category.get('removal', 0)} removal."
     )
+    if args.fail_on_warnings and warnings:
+        print("Compatibility warning gate: FAIL")
+        return 1
+
+    if args.fail_on_warnings:
+        print("Compatibility warning gate: PASS")
     return 0
 
 
