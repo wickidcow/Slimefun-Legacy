@@ -42,7 +42,20 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew spotlessApply --no-daemon
-          ./gradlew clean build -PslimefunDeprecationReport=true --no-daemon
+          mkdir -p build/reports
+          set -o pipefail
+          ./gradlew clean build -PslimefunDeprecationReport=true --no-daemon 2>&1 | tee build/reports/deprecation-compile.log
+          python3 scripts/summarize_deprecations.py build/reports/deprecation-compile.log
+          cat build/reports/deprecations.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload deprecation and removal report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: deprecation-removal-report
+          path: |
+            build/reports/deprecation-compile.log
+            build/reports/deprecations.md
+          if-no-files-found: warn
       - name: Verify critical runtime classes are packaged
         shell: bash
         run: |
