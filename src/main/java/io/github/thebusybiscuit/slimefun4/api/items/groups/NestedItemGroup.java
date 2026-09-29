@@ -18,7 +18,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import org.apache.commons.lang.Validate;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
@@ -99,7 +98,7 @@ public class NestedItemGroup extends FlexItemGroup {
                 new CustomItemStack(ChestMenuUtils.getBackButton(
                         player,
                         "",
-                        ChatColor.GRAY + Slimefun.getLocalization().getMessage(player, "guide.back.guide"))));
+                        "&7" + Slimefun.getLocalization().getMessage(player, "guide.back.guide"))));
         menu.addMenuClickHandler(1, (pl, slot, item, action) -> {
             SlimefunGuide.openMainMenu(profile, mode, history.getMainMenuPage());
             return false;
