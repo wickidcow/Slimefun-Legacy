@@ -1,6 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.implementation.guide.enhanced;
 
 import city.norain.slimefun4.VaultIntegration;
+import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.bakedlibs.dough.items.ItemUtils;
 import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
@@ -33,7 +34,6 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
@@ -254,7 +254,7 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
         List<Integer> contentSlots = settings.findSlots(format, 'i');
         int pages = pageCount(matches.size(), contentSlots.size());
         int safePage = clampPage(page, pages);
-        String cropped = ChatUtils.crop(ChatColor.WHITE, input);
+        String cropped = ChatUtils.crop("&f", input);
         ChestMenu menu = createMenu(settings.getSearchTitle(cropped));
         addBackground(menu, format);
         addCommonControls(
@@ -312,7 +312,7 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
         List<String> lore = new ArrayList<>();
         lore.add("");
         for (String line : Slimefun.getLocalization().getMessages(player, "guide.locked-itemgroup")) {
-            lore.add(ChatColor.WHITE + line);
+            lore.add("&f" + line);
         }
         lore.add("");
         for (ItemGroup parent : lockedGroup.getParents()) {
@@ -412,26 +412,26 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
             List<Component> currentLore = meta.lore();
             List<Component> lore = currentLore == null ? new ArrayList<>() : new ArrayList<>(currentLore);
             lore.add(Component.empty());
-            lore.add(legacyText(ChatColor.DARK_GRAY + "Category: " + ChatColor.WHITE
+            lore.add(legacyText("&8" + "Category: " + "&f"
                     + item.getItemGroup().getDisplayName(player)));
             if (LegacyGuideSettings.get().shouldDisplayAddon()) {
-                lore.add(legacyText(ChatColor.DARK_GRAY + "Addon: " + ChatColor.WHITE + getAddonName(item)));
+                lore.add(legacyText("&8" + "Addon: " + "&f" + getAddonName(item)));
             }
             if (LegacyGuideSettings.get().shouldDisplayItemId()) {
-                lore.add(legacyText(ChatColor.DARK_GRAY + "ID: " + ChatColor.GRAY + item.getId()));
+                lore.add(legacyText("&8" + "ID: " + "&7" + item.getId()));
             }
             if (!isSurvivalMode()) {
                 lore.add(Component.empty());
-                lore.add(legacyText(ChatColor.GREEN + "Left-click: " + ChatColor.GRAY + "Give 1 item"));
-                lore.add(legacyText(ChatColor.YELLOW + "Right-click: " + ChatColor.GRAY + "Give a full stack"));
+                lore.add(legacyText("&a" + "Left-click: " + "&7" + "Give 1 item"));
+                lore.add(legacyText("&e" + "Right-click: " + "&7" + "Give a full stack"));
             }
             if (LegacyGuideSettings.get().hasBookmarks()) {
                 lore.add(Component.empty());
                 lore.add(legacyText(bookmarked
-                        ? ChatColor.GOLD + "★ Bookmarked"
-                        : ChatColor.YELLOW + "Shift-click to bookmark"));
+                        ? "&6" + "★ Bookmarked"
+                        : "&e" + "Shift-click to bookmark"));
                 if (bookmarked) {
-                    lore.add(legacyText(ChatColor.GRAY + "Shift-click to remove bookmark"));
+                    lore.add(legacyText("&7" + "Shift-click to remove bookmark"));
                 }
             }
             meta.lore(lore);
@@ -539,8 +539,7 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
 
     private void requestSearch(Player player, PlayerProfile profile) {
         player.closeInventory();
-        player.sendMessage(ChatColor.GREEN + "Enter a search term. " + ChatColor.GRAY
-                + "Optional filters: id:, addon:, group:, recipe:");
+        player.sendMessage(legacyText("&aEnter a search term. &7Optional filters: id:, addon:, group:, recipe:"));
         Slimefun.getChatCatcher()
                 .scheduleCatcher(
                         player.getUniqueId(),
@@ -679,7 +678,7 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
     }
 
     private static Component legacyText(String value) {
-        return LegacyComponentSerializer.legacySection().deserialize(value);
+        return LegacyComponentSerializer.legacySection().deserialize(ChatColors.color(value));
     }
 
     private static int pageCount(int entries, int pageSize) {
