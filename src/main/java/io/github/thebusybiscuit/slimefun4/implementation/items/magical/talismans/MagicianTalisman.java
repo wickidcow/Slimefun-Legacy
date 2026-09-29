@@ -1,5 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.magical.talismans;
 
+import io.papermc.paper.registry.RegistryAccess;
+import io.papermc.paper.registry.RegistryKey;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemSetting;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
@@ -38,7 +40,7 @@ public class MagicianTalisman extends Talisman {
 
         addItemSetting(allowEnchantmentBooks);
 
-        for (Enchantment enchantment : Enchantment.values()) {
+        for (Enchantment enchantment : RegistryAccess.registryAccess().getRegistry(RegistryKey.ENCHANTMENT)) {
             try {
                 for (int i = 1; i <= enchantment.getMaxLevel(); i++) {
                     enchantments.add(new TalismanEnchantment(this, enchantment, i));
