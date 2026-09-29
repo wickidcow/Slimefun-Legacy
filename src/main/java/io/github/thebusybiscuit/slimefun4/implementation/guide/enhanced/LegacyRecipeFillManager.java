@@ -68,6 +68,7 @@ import org.bukkit.util.Vector;
 public final class LegacyRecipeFillManager implements Listener {
 
     private static final LegacyComponentSerializer LEGACY_AMPERSAND = LegacyComponentSerializer.legacyAmpersand();
+    private static final LegacyComponentSerializer LEGACY_SECTION = LegacyComponentSerializer.legacySection();
 
     private static final int BUTTON_SLOT = 25;
     private static final BlockFace[] HORIZONTAL_FACES = {
@@ -1476,8 +1477,8 @@ public final class LegacyRecipeFillManager implements Listener {
             entity.setInvulnerable(true);
             entity.setVelocity(new Vector(0, 0.1, 0));
             entity.setCustomNameVisible(true);
-            entity.setCustomName(nametag);
-            armorStand.setCustomName(displayName);
+            entity.customName(LEGACY_SECTION.deserialize(nametag));
+            armorStand.customName(LEGACY_SECTION.deserialize(displayName));
             armorStand.addPassenger(entity);
             SlimefunUtils.markAsNoPickup(entity, "altar_item");
             SoundEffect.ANCIENT_PEDESTAL_ITEM_PLACE_SOUND.playAt(pedestal);
