@@ -24,7 +24,6 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.block.Block;
@@ -95,8 +94,7 @@ public final class TeleportationManager {
                         4,
                         new CustomItemStack(
                                 HeadTexture.GLOBE_OVERWORLD.getAsItemStack(),
-                                ChatColor.YELLOW
-                                        + Slimefun.getLocalization().getMessage(p, "machines.TELEPORTER.gui.title")));
+                                "&e" + Slimefun.getLocalization().getMessage(p, "machines.TELEPORTER.gui.title")));
                 menu.addMenuClickHandler(4, ChestMenuUtils.getEmptyClickHandler());
 
                 Location source = new Location(b.getWorld(), b.getX() + 0.5D, b.getY() + 2D, b.getZ() + 0.5D);
