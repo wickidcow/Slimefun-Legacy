@@ -54,7 +54,6 @@ import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
 import me.mrCookieSlime.Slimefun.api.item_transport.ItemTransportFlow;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.Tag;
@@ -288,7 +287,7 @@ public class ProgrammableAndroid extends SlimefunItem
     @ParametersAreNonnullByDefault
     public void openScript(Player p, SlimefunUniversalBlockData uniData, String sourceCode) {
         ChestMenu menu =
-                new ChestMenu(ChatColor.DARK_AQUA + Slimefun.getLocalization().getMessage(p, "android.scripts.editor"));
+                new ChestMenu("&3" + Slimefun.getLocalization().getMessage(p, "android.scripts.editor"));
         menu.setEmptySlotsClickable(false);
 
         menu.addItem(
@@ -588,7 +587,7 @@ public class ProgrammableAndroid extends SlimefunItem
 
     public void openScriptEditor(Player p, SlimefunUniversalBlockData uniData) {
         ChestMenu menu =
-                new ChestMenu(ChatColor.DARK_AQUA + Slimefun.getLocalization().getMessage(p, "android.scripts.editor"));
+                new ChestMenu("&3" + Slimefun.getLocalization().getMessage(p, "android.scripts.editor"));
         menu.setEmptySlotsClickable(false);
 
         menu.addItem(
@@ -675,7 +674,7 @@ public class ProgrammableAndroid extends SlimefunItem
 
     protected void editInstruction(Player p, SlimefunUniversalBlockData uniData, String[] script, int index) {
         ChestMenu menu =
-                new ChestMenu(ChatColor.DARK_AQUA + Slimefun.getLocalization().getMessage(p, "android.scripts.editor"));
+                new ChestMenu("&3" + Slimefun.getLocalization().getMessage(p, "android.scripts.editor"));
         ChestMenuUtils.drawBackground(menu, 0, 1, 2, 3, 4, 5, 6, 7, 8);
 
         menu.setEmptySlotsClickable(false);
