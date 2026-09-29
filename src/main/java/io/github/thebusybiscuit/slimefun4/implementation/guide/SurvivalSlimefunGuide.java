@@ -38,6 +38,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu.MenuClickHandler;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.apache.commons.lang.Validate;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -434,8 +437,10 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
                     && isSearchFilterApplicable(slimefunItem, searchTerm)) {
                 ItemStack itemstack = new CustomItemStack(slimefunItem.getItem(), meta -> {
                     ItemGroup itemGroup = slimefunItem.getItemGroup();
-                    meta.setLore(Arrays.asList(
-                            "", ChatColor.DARK_GRAY + "\u21E8 " + ChatColor.WHITE + itemGroup.getDisplayName(p)));
+                    meta.lore(List.of(
+                            Component.empty(),
+                            Component.text("\u21E8 ", NamedTextColor.DARK_GRAY)
+                                    .append(Component.text(itemGroup.getDisplayName(p), NamedTextColor.WHITE))));
                     meta.addItemFlags(
                             ItemFlag.HIDE_ATTRIBUTES,
                             ItemFlag.HIDE_ENCHANTS,
@@ -707,8 +712,9 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
     @ParametersAreNonnullByDefault
     protected final String safeItemGroupName(PlayerProfile profile, ItemGroup group, Player player) {
         ItemStack icon = safeItemGroupIcon(profile, group, player);
-        return icon.hasItemMeta() && icon.getItemMeta().hasDisplayName()
-                ? icon.getItemMeta().getDisplayName()
+        Component displayName = icon.hasItemMeta() ? icon.getItemMeta().displayName() : null;
+        return displayName != null
+                ? LegacyComponentSerializer.legacySection().serialize(displayName)
                 : ChatColor.RED + "Broken guide category";
     }
 
@@ -922,17 +928,18 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
 
     @ParametersAreNonnullByDefault
     private void printErrorMessage(Player p, Throwable x) {
-        p.sendMessage(ChatColor.DARK_RED
-                + "An internal server error has occurred. Please inform an admin, check the console for further info.");
+        p.sendMessage(Component.text(
+                "An internal server error has occurred. Please inform an admin, check the console for further info.",
+                NamedTextColor.DARK_RED));
         Slimefun.logger()
                 .log(Level.SEVERE, "An error has occurred while trying to open a SlimefunItem in the guide!", x);
     }
 
     @ParametersAreNonnullByDefault
     private void printErrorMessage(Player p, SlimefunItem item, Throwable x) {
-        p.sendMessage(ChatColor.DARK_RED
-                + "An internal server error has occurred. Please inform an admin, check the console for"
-                + " further info.");
+        p.sendMessage(Component.text(
+                "An internal server error has occurred. Please inform an admin, check the console for further info.",
+                NamedTextColor.DARK_RED));
         item.error(
                 "This item has caused an error message to be thrown while viewing it in the Slimefun" + " guide.", x);
     }
