@@ -43,6 +43,10 @@ FULL_FILES = (
     "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/altar/AncientPedestal.java",
     "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/ContainmentTrap.java",
     "src/main/java/io/github/thebusybiscuit/slimefun4/integrations/AdvancedEnchantmentsIntegration.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/blocks/AbstractMonsterSpawner.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/LimitedUseItem.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/magical/KnowledgeTome.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/utils/ChargeUtils.java",
 )
 
 WRITE_FORBIDDEN = (".setDisplayName(", ".setLore(")
