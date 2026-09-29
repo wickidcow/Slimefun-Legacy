@@ -120,6 +120,10 @@ def main() -> int:
             "MinecraftVersion",
             "new ItemStack(Material.RAW_COPPER)",
         ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/ExplosionsListener.java": (
+            "MinecraftVersion",
+            "e.getExplosionResult() == ExplosionResult.TRIGGER_BLOCK",
+        ),
     }
     for relative, (forbidden, required) in modern_paths.items():
         text = (root / relative).read_text(encoding="utf-8")
