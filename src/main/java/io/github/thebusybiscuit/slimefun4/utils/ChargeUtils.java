@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.apache.commons.lang.Validate;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -46,19 +48,22 @@ public final class ChargeUtils {
         NamespacedKey key = Slimefun.getRegistry().getItemChargeDataKey();
         meta.getPersistentDataContainer().set(key, PersistentDataType.FLOAT, value);
 
-        List<String> lore = meta.hasLore() ? meta.getLore() : new ArrayList<>();
+        List<Component> currentLore = meta.lore();
+        List<Component> lore = currentLore == null ? new ArrayList<>() : new ArrayList<>(currentLore);
         for (int i = 0; i < lore.size(); i++) {
-            String line = lore.get(i);
+            String line = LegacyComponentSerializer.legacySection().serialize(lore.get(i));
 
             if (REGEX.matcher(line).matches()) {
-                lore.set(i, LORE_PREFIX + value + " / " + capacity + " J");
-                meta.setLore(lore);
+                lore.set(i, LegacyComponentSerializer.legacySection()
+                        .deserialize(LORE_PREFIX + value + " / " + capacity + " J"));
+                meta.lore(lore);
                 return;
             }
         }
 
-        lore.add(LORE_PREFIX + value + " / " + capacity + " J");
-        meta.setLore(lore);
+        lore.add(LegacyComponentSerializer.legacySection()
+                .deserialize(LORE_PREFIX + value + " / " + capacity + " J"));
+        meta.lore(lore);
     }
 
     public static float getCharge(@Nonnull ItemMeta meta) {
@@ -74,8 +79,10 @@ public final class ChargeUtils {
         }
 
         // If no persistent data exists, we will just fall back to the lore
-        if (meta.hasLore()) {
-            for (String line : meta.getLore()) {
+        List<Component> lore = meta.lore();
+        if (lore != null) {
+            for (Component component : lore) {
+                String line = LegacyComponentSerializer.legacySection().serialize(component);
                 var matcher = REGEX.matcher(line);
                 if (matcher.matches()) {
                     String data = matcher.group(2);
