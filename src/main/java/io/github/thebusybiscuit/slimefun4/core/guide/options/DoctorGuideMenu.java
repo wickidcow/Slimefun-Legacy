@@ -627,8 +627,9 @@ final class DoctorGuideMenu {
                         "&eClick to confirm"));
         menu.addMenuClickHandler(11, (clickedPlayer, slot, item, action) -> {
             if (!service.setDeliveryEnabled(false)) {
-                clickedPlayer.sendMessage(
-                        ChatColor.RED + "Could not save resource-pack.enabled in configSFLAddons.yml.");
+                clickedPlayer.sendMessage(Component.text(
+                        "Could not save resource-pack.enabled in configSFLAddons.yml.",
+                        NamedTextColor.RED));
                 return false;
             }
             clickedPlayer.sendMessage(Component.text(
