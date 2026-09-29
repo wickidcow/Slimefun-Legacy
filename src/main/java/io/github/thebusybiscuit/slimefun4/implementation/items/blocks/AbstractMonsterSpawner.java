@@ -13,8 +13,11 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.apache.commons.lang.Validate;
-import org.bukkit.ChatColor;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.CreatureSpawner;
 import org.bukkit.entity.EntityType;
@@ -62,17 +65,13 @@ public abstract class AbstractMonsterSpawner extends SlimefunItem implements Dis
             }
         }
 
-        if (!meta.hasLore()) {
+        List<Component> lore = meta.lore();
+        if (lore == null) {
             return Optional.empty();
         }
 
-        for (String line : meta.getLore()) {
-            String plain = ChatColor.stripColor(line);
-            if (plain == null) {
-                continue;
-            }
-
-            String normalized = plain.trim();
+        for (Component line : lore) {
+            String normalized = PlainTextComponentSerializer.plainText().serialize(line).trim();
             if (!normalized.toLowerCase(Locale.ROOT).startsWith("type:") || normalized.contains("<")) {
                 continue;
             }
@@ -118,28 +117,31 @@ public abstract class AbstractMonsterSpawner extends SlimefunItem implements Dis
             }
         }
 
-        List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+        List<Component> currentLore = meta.lore();
+        List<Component> lore = currentLore == null ? new ArrayList<>() : new ArrayList<>(currentLore);
         String typeName = type == null ? "None" : ChatUtils.humanize(type.name());
         boolean replaced = false;
         for (int i = 0; i < lore.size(); i++) {
-            String currentLine = lore.get(i);
-            String plain = ChatColor.stripColor(currentLine);
-            if (currentLine.contains("<Type>") || currentLine.contains("<type>")) {
-                lore.set(i, currentLine.replace("<Type>", typeName).replace("<type>", typeName));
+            Component currentLine = lore.get(i);
+            String legacy = LegacyComponentSerializer.legacySection().serialize(currentLine);
+            String plain = PlainTextComponentSerializer.plainText().serialize(currentLine);
+            if (legacy.contains("<Type>") || legacy.contains("<type>")) {
+                lore.set(i, LegacyComponentSerializer.legacySection()
+                        .deserialize(legacy.replace("<Type>", typeName).replace("<type>", typeName)));
                 replaced = true;
                 break;
             }
-            if (plain != null && plain.trim().toLowerCase(Locale.ROOT).startsWith("type:")) {
-                lore.set(i, ChatColor.GRAY + "Type: " + typeName);
+            if (plain.trim().toLowerCase(Locale.ROOT).startsWith("type:")) {
+                lore.set(i, Component.text("Type: " + typeName, NamedTextColor.GRAY));
                 replaced = true;
                 break;
             }
         }
         if (!replaced) {
-            lore.add(ChatColor.GRAY + "Type: " + typeName);
+            lore.add(Component.text("Type: " + typeName, NamedTextColor.GRAY));
         }
 
-        meta.setLore(lore);
+        meta.lore(lore);
         item.setItemMeta(meta);
     }
 
