@@ -16,6 +16,8 @@ import io.github.thebusybiscuit.slimefun4.utils.tags.SlimefunTag;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -84,6 +86,10 @@ public class SlimefunBackpack extends SimpleSlimefunItem<ItemUseHandler> impleme
         };
     }
 
+    private static java.util.List<String> legacyLore(java.util.List<Component> lore) {
+        return lore.stream().map(LegacyComponentSerializer.legacySection()::serialize).toList();
+    }
+
     @Override
     public boolean canStack(@Nonnull ItemMeta itemMetaOne, @Nonnull ItemMeta itemMetaTwo) {
         /*
@@ -95,12 +101,13 @@ public class SlimefunBackpack extends SimpleSlimefunItem<ItemUseHandler> impleme
             return false;
         }
 
-        boolean hasLoreItem = itemMetaTwo.hasLore();
-        boolean hasLoreSfItem = itemMetaOne.hasLore();
+        List<Component> itemLore = itemMetaTwo.lore();
+        List<Component> slimefunLore = itemMetaOne.lore();
 
-        if (hasLoreItem && hasLoreSfItem && SlimefunUtils.equalsLore(itemMetaTwo.getLore(), itemMetaOne.getLore())) {
+        if (itemLore != null && slimefunLore != null
+                && SlimefunUtils.equalsLore(legacyLore(itemLore), legacyLore(slimefunLore))) {
             return true;
         }
-        return !hasLoreItem && !hasLoreSfItem;
+        return itemLore == null && slimefunLore == null;
     }
 }
