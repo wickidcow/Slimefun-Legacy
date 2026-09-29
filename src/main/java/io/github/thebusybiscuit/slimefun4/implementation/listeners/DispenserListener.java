@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.implementation.listeners;
 
-import com.destroystokyo.paper.MaterialTags;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockDispenseHandler;
@@ -57,7 +56,7 @@ public class DispenserListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onStopBucketItemReplacingSlimefunBlock(BlockDispenseEvent event) {
-        if (MaterialTags.BUCKETS.isTagged(event.getItem().getType())) {
+        if (isBucketMaterial(event.getItem().getType())) {
             // fix #1103 : dispenser can replace head machines with liquid
             Block b = event.getBlock();
             BlockData blockData = b.getBlockData();
@@ -69,5 +68,9 @@ public class DispenserListener implements Listener {
                 }
             }
         }
+    }
+
+    private static boolean isBucketMaterial(@Nonnull Material material) {
+        return material == Material.BUCKET || material.name().endsWith("_BUCKET");
     }
 }
