@@ -288,8 +288,7 @@ public class GPSNetwork {
                             SlimefunItems.GPS_TRANSMITTER,
                             "&7" + Slimefun.getLocalization().getMessage(p, "machines.GPS_CONTROL_PANEL.transmitters"),
                             "",
-                            ChatColor.GRAY
-                                    + "\u21E8 "
+                            "&7\u21E8 "
                                     + Slimefun.getLocalization().getMessage(p, "guide.tooltips.open-itemgroup")));
             menu.addMenuClickHandler(2, (pl, slot, item, action) -> {
                 openTransmitterControlPanel(pl);
