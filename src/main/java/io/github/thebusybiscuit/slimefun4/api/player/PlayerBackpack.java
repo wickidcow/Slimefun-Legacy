@@ -551,8 +551,8 @@ public class PlayerBackpack extends SlimefunInventoryHolder {
      * @return new {@link Inventory}
      */
     private Inventory newInv() {
-        return Bukkit.createInventory(
-                this, size, (name.isEmpty() ? "Backpack" : ChatColors.color(name + "&r")) + " [Size " + size + "]");
+        String title = (name.isEmpty() ? "Backpack" : ChatColors.color(name + "&r")) + " [Size " + size + "]";
+        return Bukkit.createInventory(this, size, LegacyComponentSerializer.legacySection().deserialize(title));
     }
 
     private void updateInv() {
