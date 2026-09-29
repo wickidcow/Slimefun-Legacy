@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.Map;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import org.bukkit.ChatColor;
 import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
@@ -1010,9 +1009,9 @@ public final class SlimefunItems {
 
     static {
         hazmatLore.add("");
-        hazmatLore.add(ChatColor.GOLD + "Full set effects:");
-        hazmatLore.add(ChatColor.YELLOW + "- Radiation immunity");
-        hazmatLore.add(ChatColor.YELLOW + "- Bee sting protection");
+        hazmatLore.add("&6Full set effects:");
+        hazmatLore.add("&e- Radiation immunity");
+        hazmatLore.add("&e- Bee sting protection");
     }
 
     public static final SlimefunItemStack SCUBA_HELMET = new SlimefunItemStack(
@@ -1043,7 +1042,7 @@ public final class SlimefunItems {
         List<Component> helmetCurrentLore = helmetMeta.lore();
         List<Component> helmetLore =
                 helmetCurrentLore == null ? new ArrayList<>() : new ArrayList<>(helmetCurrentLore);
-        helmetLore.addAll(hazmatLore.stream().map(LegacyComponentSerializer.legacySection()::deserialize).toList());
+        helmetLore.addAll(hazmatLore.stream().map(LegacyComponentSerializer.legacyAmpersand()::deserialize).toList());
         helmetMeta.lore(helmetLore);
         SCUBA_HELMET.setItemMeta(helmetMeta);
 
@@ -1052,7 +1051,7 @@ public final class SlimefunItems {
         List<Component> chestplateLore =
                 chestplateCurrentLore == null ? new ArrayList<>() : new ArrayList<>(chestplateCurrentLore);
         chestplateLore.addAll(
-                hazmatLore.stream().map(LegacyComponentSerializer.legacySection()::deserialize).toList());
+                hazmatLore.stream().map(LegacyComponentSerializer.legacyAmpersand()::deserialize).toList());
         chestplateMeta.lore(chestplateLore);
         HAZMAT_CHESTPLATE.setItemMeta(chestplateMeta);
     }
