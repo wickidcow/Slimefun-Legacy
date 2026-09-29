@@ -20,6 +20,7 @@ import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.SoundCategory;
@@ -623,7 +624,8 @@ public class BackpackListener implements Listener {
         }
 
         matcher.appendTail(formatted);
-        return org.bukkit.ChatColor.translateAlternateColorCodes('&', formatted.toString());
+        return LegacyComponentSerializer.legacySection()
+                .serialize(LegacyComponentSerializer.legacyAmpersand().deserialize(formatted.toString()));
     }
 
     private String getReservationKey(@Nonnull org.bukkit.inventory.meta.ItemMeta meta) {
