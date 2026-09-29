@@ -114,6 +114,7 @@ def main() -> int:
         "verify_plugin_metadata_modernization.py",
         "verify_no_bukkit_metadata.py",
         "verify_deprecation_suppressions.py",
+        "verify_curios_adventure_formatting.py",
         "verify_presentation_api_modernization.py",
         "verify_compatibility_foundation.py",
         "check_dependency_boundaries.py",
