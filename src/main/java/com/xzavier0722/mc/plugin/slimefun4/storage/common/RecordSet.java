@@ -76,6 +76,11 @@ public class RecordSet {
     @Deprecated
     @Nullable @ParametersAreNonnullByDefault
     public String get(FieldKey key) {
+        return getString(key);
+    }
+
+    @Nullable @ParametersAreNonnullByDefault
+    public String getString(FieldKey key) {
         return valueAsString(data.get(key));
     }
 
@@ -86,7 +91,7 @@ public class RecordSet {
 
     @ParametersAreNonnullByDefault
     public String getOrDef(FieldKey key, String def) {
-        var value = get(key);
+        var value = getString(key);
         return value == null ? def : value;
     }
 
@@ -118,7 +123,7 @@ public class RecordSet {
     }
 
     private String requireString(FieldKey key) {
-        var value = get(key);
+        var value = getString(key);
         if (value == null) {
             throw new IllegalStateException("Missing required field: " + key);
         }
