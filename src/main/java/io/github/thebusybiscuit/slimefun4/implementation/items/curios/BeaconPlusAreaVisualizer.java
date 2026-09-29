@@ -10,8 +10,8 @@ import javax.annotation.Nonnull;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -131,7 +131,7 @@ final class BeaconPlusAreaVisualizer implements Listener {
         Location location = key.toLocation();
         if (location == null || !StorageCacheUtils.isBlock(location, BeaconPlusManager.ITEM_ID)) {
             player.closeInventory();
-            player.sendMessage(ChatColor.RED + "That Resonance Beacon no longer exists.");
+            message(player, "&c" + "That Resonance Beacon no longer exists.");
             return;
         }
 
@@ -139,7 +139,7 @@ final class BeaconPlusAreaVisualizer implements Listener {
         UUID owner = manager == null ? null : manager.getOwner(location);
         if (!canConfigure(player, owner)) {
             player.closeInventory();
-            player.sendMessage(ChatColor.RED + "You no longer have permission to configure this Resonance Beacon.");
+            message(player, "&c" + "You no longer have permission to configure this Resonance Beacon.");
             return;
         }
 
@@ -158,8 +158,8 @@ final class BeaconPlusAreaVisualizer implements Listener {
                 enabled ? Sound.BLOCK_BEACON_POWER_SELECT : Sound.BLOCK_BEACON_DEACTIVATE,
                 0.55F,
                 enabled ? 1.55F : 1.0F);
-        player.sendMessage(ChatColor.GOLD + "Resonance Beacon effect-area outline: "
-                + (enabled ? ChatColor.GREEN + "ON" : ChatColor.RED + "OFF") + ChatColor.GRAY + ".");
+        message(player, "&6" + "Resonance Beacon effect-area outline: "
+                + (enabled ? "&a" + "ON" : "&c" + "OFF") + "&7" + ".");
 
         if (enabled) {
             renderBeacon(key);
@@ -349,23 +349,23 @@ final class BeaconPlusAreaVisualizer implements Listener {
                         : BeaconPlusField.footprint(block.getX(), block.getZ(), range);
         ItemStack item = new ItemStack(Material.SPYGLASS);
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(legacyText((enabled ? ChatColor.GREEN : ChatColor.GRAY) + "Show Effect Area"));
+        meta.displayName(legacyText((enabled ? "&a" : "&7") + "Show Effect Area"));
         meta.lore(java.util.List.of(
-                        ChatColor.GRAY + "Shows the exact chunk-aligned square",
-                        ChatColor.GRAY + "covered by Resonance Beacon field powers.",
+                        "&7" + "Shows the exact chunk-aligned square",
+                        "&7" + "covered by Resonance Beacon field powers.",
                         "",
-                        ChatColor.GRAY + "Status: " + (enabled ? ChatColor.GREEN + "ON" : ChatColor.RED + "OFF"),
-                        ChatColor.GRAY + "Effect footprint: "
+                        "&7" + "Status: " + (enabled ? "&a" + "ON" : "&c" + "OFF"),
+                        "&7" + "Effect footprint: "
                                 + (range > 0.0D
-                                        ? ChatColor.AQUA.toString() + footprint.widthChunks() + "x"
+                                        ? "&b" + footprint.widthChunks() + "x"
                                                 + footprint.widthChunks() + " chunks"
-                                        : ChatColor.RED + "Dormant"),
-                        ChatColor.GRAY + "Vertical reach: " + ChatColor.AQUA + "Full world height",
+                                        : "&c" + "Dormant"),
+                        "&7" + "Vertical reach: " + "&b" + "Full world height",
                         "",
-                        ChatColor.DARK_GRAY + "Particle grid follows your current Y level",
-                        ChatColor.DARK_GRAY + "Display only • never loads extra chunks",
+                        "&8" + "Particle grid follows your current Y level",
+                        "&8" + "Display only • never loads extra chunks",
                         "",
-                        ChatColor.YELLOW + "Click to toggle")
+                        "&e" + "Click to toggle")
                 .stream()
                 .map(BeaconPlusAreaVisualizer::legacyText)
                 .toList());
@@ -373,8 +373,12 @@ final class BeaconPlusAreaVisualizer implements Listener {
         return item;
     }
 
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
     private static Component legacyText(String value) {
-        return LegacyComponentSerializer.legacySection()
+        return LegacyComponentSerializer.legacyAmpersand()
                 .deserialize(value)
                 .decoration(TextDecoration.ITALIC, false);
     }
@@ -387,7 +391,9 @@ final class BeaconPlusAreaVisualizer implements Listener {
     }
 
     private static boolean isResonanceMenu(String title) {
-        return "Resonance Beacon".equals(ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', title)));
+        String normalized = title.replace('§', '&');
+        return "Resonance Beacon".equals(PlainTextComponentSerializer.plainText()
+                .serialize(LegacyComponentSerializer.legacyAmpersand().deserialize(normalized)));
     }
 
     private record BeaconKey(UUID worldId, int x, int y, int z) {
