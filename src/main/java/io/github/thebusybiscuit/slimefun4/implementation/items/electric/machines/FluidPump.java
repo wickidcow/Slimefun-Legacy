@@ -134,7 +134,7 @@ public class FluidPump extends SimpleSlimefunItem<BlockTicker> implements Invent
     protected void tick(@Nonnull Block b) {
         Block fluid = b.getRelative(BlockFace.DOWN);
 
-        if (fluid.isLiquid() && getCharge(b.getLocation()) >= ENERGY_CONSUMPTION) {
+        if (fluid.isLiquid() && getChargeLong(b.getLocation()) >= ENERGY_CONSUMPTION) {
             BlockMenu menu = StorageCacheUtils.getMenu(b.getLocation());
 
             for (int slot : getInputSlots()) {
@@ -165,7 +165,7 @@ public class FluidPump extends SimpleSlimefunItem<BlockTicker> implements Invent
                     Block nextFluid = findNextFluid(fluid);
 
                     if (nextFluid != null) {
-                        removeCharge(b.getLocation(), ENERGY_CONSUMPTION);
+                        removeCharge(b.getLocation(), (long) ENERGY_CONSUMPTION);
                         menu.consumeItem(slot);
                         menu.pushItem(bottle, getOutputSlots());
 
@@ -198,7 +198,7 @@ public class FluidPump extends SimpleSlimefunItem<BlockTicker> implements Invent
         }
 
         try {
-            removeCharge(machine.getLocation(), ENERGY_CONSUMPTION);
+            removeCharge(machine.getLocation(), (long) ENERGY_CONSUMPTION);
             energyRemoved = true;
 
             menu.consumeItem(inputSlot);
@@ -238,7 +238,7 @@ public class FluidPump extends SimpleSlimefunItem<BlockTicker> implements Invent
         }
 
         if (energyRemoved) {
-            addCharge(machine.getLocation(), ENERGY_CONSUMPTION);
+            addCharge(machine.getLocation(), (long) ENERGY_CONSUMPTION);
         }
     }
 
