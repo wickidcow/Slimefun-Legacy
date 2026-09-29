@@ -14,7 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
@@ -112,7 +113,11 @@ public class MultiTool extends SlimefunItem implements Rechargeable {
                                 "messages.multi-tool.mode-change",
                                 true,
                                 msg -> msg.replace("%device%", "Multi Tool")
-                                        .replace("%mode%", ChatColor.stripColor(itemName)));
+                                        .replace(
+                                                "%mode%",
+                                                PlainTextComponentSerializer.plainText()
+                                                        .serialize(LegacyComponentSerializer.legacySection()
+                                                                .deserialize(itemName))));
 
                 pdc.set(
                         multiToolMode,
