@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.apache.commons.lang.Validate;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
@@ -124,9 +125,12 @@ public class LockedItemGroup extends ItemGroup {
      */
     public void addParent(ItemGroup group) {
         if (group == this || group == null) {
-            throw new IllegalArgumentException("ItemGroup '"
-                    + item.getItemMeta().getDisplayName()
-                    + "' cannot be a parent of itself or have a 'null' parent.");
+            var displayName = item.getItemMeta().displayName();
+            String itemName = displayName == null
+                    ? item.getType().name()
+                    : PlainTextComponentSerializer.plainText().serialize(displayName);
+            throw new IllegalArgumentException(
+                    "ItemGroup '" + itemName + "' cannot be a parent of itself or have a 'null' parent.");
         }
 
         parents.add(group);
