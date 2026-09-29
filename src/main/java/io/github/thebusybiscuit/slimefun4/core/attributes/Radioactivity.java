@@ -1,10 +1,10 @@
 package io.github.thebusybiscuit.slimefun4.core.attributes;
 
+import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.thebusybiscuit.slimefun4.api.annotations.SlimefunAPI;
 import io.github.thebusybiscuit.slimefun4.implementation.tasks.armor.RadiationTask;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import io.github.bakedlibs.dough.common.ChatColors;
 import org.bukkit.entity.Player;
 
 /**
