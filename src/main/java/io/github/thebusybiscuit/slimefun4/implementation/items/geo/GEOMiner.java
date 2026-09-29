@@ -279,11 +279,11 @@ public class GEOMiner extends SlimefunItem
             if (!operation.isFinished()) {
                 processor.updateProgressBar(inv, 4, operation);
 
-                if (getCharge(b.getLocation()) < getEnergyConsumption()) {
+                if (getChargeLong(b.getLocation()) < getEnergyConsumption()) {
                     return;
                 }
 
-                removeCharge(b.getLocation(), getEnergyConsumption());
+                removeCharge(b.getLocation(), (long) getEnergyConsumption());
                 operation.addProgress(getSpeed());
             } else {
                 ItemStack result = operation.getResult();
