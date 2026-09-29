@@ -2,9 +2,9 @@ package com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon;
 
 import static com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon.SqlConstants.FIELD_TABLE_METADATA_KEY;
 import static com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon.SqlConstants.FIELD_TABLE_METADATA_VALUE;
-import static com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon.SqlConstants.LEGACY_LEGACY_FIELD_TABLE_VERSION;
+import static com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon.SqlConstants.LEGACY_FIELD_TABLE_VERSION;
 import static com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon.SqlConstants.METADATA_VERSION;
-import static com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon.SqlConstants.LEGACY_LEGACY_TABLE_NAME_TABLE_INFORMATION;
+import static com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon.SqlConstants.LEGACY_TABLE_NAME_TABLE_INFORMATION;
 
 import city.norain.slimefun4.timings.entry.SQLEntry;
 import com.xzavier0722.mc.plugin.slimefun4.storage.adapter.IDataSourceAdapter;
@@ -115,7 +115,7 @@ public abstract class SqlCommonAdapter<T extends ISqlCommonConfig> implements ID
             try {
                 var prefix = config instanceof SqlCommonConfig sqc ? sqc.tablePrefix() : "";
                 var fallbackQuery = executeQuery(
-                        "SELECT (" + FIELD_TABLE_VERSION + ") FROM " + (prefix + TABLE_NAME_TABLE_INFORMATION));
+                        "SELECT (" + LEGACY_FIELD_TABLE_VERSION + ") FROM " + (prefix + LEGACY_TABLE_NAME_TABLE_INFORMATION));
 
                 if (fallbackQuery.isEmpty()) {
                     return 0;
