@@ -17,10 +17,26 @@ def main() -> int:
     source_root = root / "src" / "main" / "java"
     observed: set[str] = set()
 
+    chat_utils_rel = "src/main/java/io/github/thebusybiscuit/slimefun4/utils/ChatUtils.java"
+    chat_utils_signature = "crop(@Nonnull org.bukkit.ChatColor color, @Nonnull String string)"
+
     for java_file in source_root.rglob("*.java"):
         text = java_file.read_text(encoding="utf-8")
-        if "org.bukkit.ChatColor" in text:
-            observed.add(java_file.relative_to(root).as_posix())
+        rel = java_file.relative_to(root).as_posix()
+        if "org.bukkit.ChatColor" not in text:
+            continue
+
+        if rel == chat_utils_rel:
+            # Preserve one source/binary compatibility overload for addons while keeping
+            # all ChatUtils implementation logic off Bukkit ChatColor.
+            if (
+                text.count("org.bukkit.ChatColor") == 1
+                and chat_utils_signature in text
+                and "import org.bukkit.ChatColor;" not in text
+            ):
+                continue
+
+        observed.add(rel)
 
     unexpected = sorted(observed - ALLOWED)
     missing = sorted(ALLOWED - observed)
