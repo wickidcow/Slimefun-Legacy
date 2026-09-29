@@ -14,7 +14,6 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
@@ -35,7 +34,7 @@ public class IndexedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
 
         ChestMenu menu = new ChestMenu(Slimefun.getLocalization()
                 .getMessage(player, "guide.search.inventory")
-                .replace("%item%", ChatUtils.crop(ChatColor.WHITE, input)));
+                .replace("%item%", ChatUtils.crop("&f", input)));
         String searchTerm = GuideSearchIndex.normalize(input);
 
         if (addToHistory) {
@@ -121,7 +120,7 @@ public class IndexedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
                 ChestMenuUtils.getBackButton(
                         player,
                         "",
-                        ChatColor.GRAY + Slimefun.getLocalization().getMessage(player, "guide.back.guide")));
+                        "&7" + Slimefun.getLocalization().getMessage(player, "guide.back.guide")));
         menu.addMenuClickHandler(slot, (clickedPlayer, clickedSlot, item, action) -> {
             SlimefunGuide.openMainMenu(profile, getMode(), history.getMainMenuPage());
             return false;
