@@ -7,7 +7,7 @@ import io.github.thebusybiscuit.slimefun4.core.handlers.ItemUseHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -54,9 +54,13 @@ public final class WayfindersCompass extends SimpleSlimefunItem<ItemUseHandler> 
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.8F, 1.35F);
 
             String targetName = usingWorldSpawn ? "world spawn" : "your last death";
-            player.sendMessage(ChatColor.GOLD + "Wayfinder tuned to " + targetName + ChatColor.GRAY + " ["
+            message(player, "&6" + "Wayfinder tuned to " + targetName + "&7" + " ["
                     + target.getWorld().getName() + " " + target.getBlockX() + ", " + target.getBlockY() + ", "
                     + target.getBlockZ() + "]");
         };
     }
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
 }
