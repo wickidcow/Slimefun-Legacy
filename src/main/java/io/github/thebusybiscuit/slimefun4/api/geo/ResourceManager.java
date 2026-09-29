@@ -26,7 +26,6 @@ import javax.annotation.Nonnull;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -271,7 +270,7 @@ public class ResourceManager {
                 4,
                 new CustomItemStack(
                         HeadTexture.MINECRAFT_CHUNK.getAsItemStack(),
-                        ChatColor.YELLOW + Slimefun.getLocalization().getResourceString(p, "tooltips.chunk"),
+                        "&e" + Slimefun.getLocalization().getResourceString(p, "tooltips.chunk"),
                         "",
                         "&8\u21E8 &7"
                                 + Slimefun.getLocalization().getResourceString(p, "tooltips.world")
