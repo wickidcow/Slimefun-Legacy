@@ -5,6 +5,7 @@ import io.github.thebusybiscuit.slimefun4.core.services.holograms.HologramsServi
 import io.github.thebusybiscuit.slimefun4.implementation.items.altar.AncientPedestal;
 import io.github.thebusybiscuit.slimefun4.implementation.items.blocks.HologramProjector;
 import javax.annotation.Nonnull;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Location;
 import org.bukkit.entity.ArmorStand;
 
@@ -33,7 +34,7 @@ public class ArmorStandUtils {
      */
     public static @Nonnull ArmorStand spawnArmorStand(@Nonnull Location location, @Nonnull String customName) {
         ArmorStand armorStand = spawnArmorStand(location);
-        armorStand.setCustomName(customName);
+        armorStand.customName(LegacyComponentSerializer.legacySection().deserialize(customName));
         armorStand.setCustomNameVisible(true);
         return armorStand;
     }
