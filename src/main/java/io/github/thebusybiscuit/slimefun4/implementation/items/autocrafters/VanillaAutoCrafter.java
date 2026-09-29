@@ -18,9 +18,11 @@ import java.util.function.Predicate;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import org.apache.commons.lang.Validate;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.SoundCategory;
@@ -159,8 +161,11 @@ public class VanillaAutoCrafter extends AbstractAutoCrafter implements NotDiagon
         menu.replaceExistingItem(
                 49,
                 new CustomItemStack(
-                        Material.CRAFTING_TABLE,
-                        ChatColor.GREEN + Slimefun.getLocalization().getMessage(p, "messages.auto-crafting.select")));
+                        new ItemStack(Material.CRAFTING_TABLE),
+                        meta -> meta.displayName(Component.text(
+                                        Slimefun.getLocalization().getMessage(p, "messages.auto-crafting.select"),
+                                        NamedTextColor.GREEN)
+                                .decoration(TextDecoration.ITALIC, false))));
         menu.addMenuClickHandler(49, (pl, slot, item, action) -> {
             setSelectedRecipe(b, recipe);
             pl.closeInventory();
