@@ -21,8 +21,8 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.apache.commons.lang.Validate;
-import org.bukkit.ChatColor;
 import org.bukkit.Keyed;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -352,7 +352,7 @@ public abstract class SlimefunLocalization implements Keyed {
         if (recipient instanceof Player player) {
             recipient.sendMessage(ChatColors.color(prefix + getMessage(player, key)));
         } else {
-            recipient.sendMessage(ChatColor.stripColor(ChatColors.color(prefix + getMessage(key))));
+            recipient.sendMessage(plainLegacy(ChatColors.color(prefix + getMessage(key))));
         }
     }
 
@@ -386,7 +386,7 @@ public abstract class SlimefunLocalization implements Keyed {
         if (recipient instanceof Player player) {
             recipient.sendMessage(ChatColors.color(prefix + function.apply(getMessage(player, key))));
         } else {
-            recipient.sendMessage(ChatColor.stripColor(ChatColors.color(prefix + function.apply(getMessage(key)))));
+            recipient.sendMessage(plainLegacy(ChatColors.color(prefix + function.apply(getMessage(key)))));
         }
     }
 
@@ -401,7 +401,7 @@ public abstract class SlimefunLocalization implements Keyed {
         } else {
             for (String translation : getDefaultMessages(key)) {
                 String message = ChatColors.color(prefix + translation);
-                recipient.sendMessage(ChatColor.stripColor(message));
+                recipient.sendMessage(plainLegacy(message));
             }
         }
     }
@@ -418,7 +418,7 @@ public abstract class SlimefunLocalization implements Keyed {
         } else {
             for (String translation : getDefaultMessages(key)) {
                 String message = ChatColors.color(prefix + function.apply(translation));
-                recipient.sendMessage(ChatColor.stripColor(message));
+                recipient.sendMessage(plainLegacy(message));
             }
         }
     }
@@ -426,6 +426,11 @@ public abstract class SlimefunLocalization implements Keyed {
     @ParametersAreNonnullByDefault
     public void sendMessages(CommandSender recipient, String key, UnaryOperator<String> function) {
         sendMessages(recipient, key, true, function);
+    }
+
+    private static String plainLegacy(@Nonnull String message) {
+        return PlainTextComponentSerializer.plainText()
+                .serialize(LegacyComponentSerializer.legacySection().deserialize(message));
     }
 
     protected @Nonnull Set<String> getTotalKeys(@Nonnull Language lang) {
