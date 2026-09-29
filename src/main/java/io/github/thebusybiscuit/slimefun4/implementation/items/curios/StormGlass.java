@@ -7,7 +7,7 @@ import io.github.thebusybiscuit.slimefun4.core.handlers.ItemUseHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.World;
@@ -48,11 +48,15 @@ public final class StormGlass extends SimpleSlimefunItem<ItemUseHandler> {
 
             player.setCooldown(Material.GLASS_BOTTLE, 20);
             player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.65F, 1.45F);
-            player.sendMessage(ChatColor.AQUA + "Storm Glass " + ChatColor.GRAY + "• " + ChatColor.WHITE + weather
-                    + ChatColor.GRAY + " • " + ChatColor.YELLOW + dayPart + ChatColor.GRAY + " • " + ChatColor.LIGHT_PURPLE
+            message(player, "&b" + "Storm Glass " + "&7" + "• " + "&f" + weather
+                    + "&7" + " • " + "&e" + dayPart + "&7" + " • " + "&d"
                     + MOON_PHASES[moonIndex]);
-            player.sendMessage(ChatColor.GRAY + "Current weather cycle has about " + ChatColor.WHITE + weatherSeconds
-                    + ChatColor.GRAY + " seconds remaining.");
+            message(player, "&7" + "Current weather cycle has about " + "&f" + weatherSeconds
+                    + "&7" + " seconds remaining.");
         };
     }
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
 }
