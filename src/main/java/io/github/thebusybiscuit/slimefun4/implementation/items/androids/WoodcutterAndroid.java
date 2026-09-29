@@ -1,11 +1,9 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.androids;
 
-import city.norain.slimefun4.SlimefunExtended;
 import city.norain.slimefun4.api.menu.UniversalMenu;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.bakedlibs.dough.blocks.Vein;
 import io.github.bakedlibs.dough.protection.Interaction;
-import io.github.thebusybiscuit.slimefun4.api.MinecraftVersion;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
@@ -132,34 +130,20 @@ public class WoodcutterAndroid extends ProgrammableAndroid {
             default -> {}
         }
 
-        if (Slimefun.getMinecraftVersion().isAtLeast(MinecraftVersion.MINECRAFT_1_19)) {
-            switch (logType) {
-                case MANGROVE_LOG, STRIPPED_MANGROVE_LOG -> {
-                    saplingType = Material.MANGROVE_PROPAGULE;
-                    soilRequirement = SlimefunTag.MANGROVE_BASE_BLOCKS::isTagged;
-                }
-                default -> {}
+        switch (logType) {
+            case MANGROVE_LOG, STRIPPED_MANGROVE_LOG -> {
+                saplingType = Material.MANGROVE_PROPAGULE;
+                soilRequirement = SlimefunTag.MANGROVE_BASE_BLOCKS::isTagged;
             }
-        }
-
-        if (Slimefun.getMinecraftVersion().isAtLeast(MinecraftVersion.MINECRAFT_1_20)) {
-            switch (logType) {
-                case CHERRY_LOG, STRIPPED_CHERRY_LOG -> {
-                    saplingType = Material.CHERRY_SAPLING;
-                    soilRequirement = SlimefunTag.DIRT_VARIANTS::isTagged;
-                }
-                default -> {}
+            case CHERRY_LOG, STRIPPED_CHERRY_LOG -> {
+                saplingType = Material.CHERRY_SAPLING;
+                soilRequirement = SlimefunTag.DIRT_VARIANTS::isTagged;
             }
-        }
-
-        if (SlimefunExtended.isAtLeast(1, 21, 2)) {
-            switch (logType) {
-                case PALE_OAK_LOG, PALE_OAK_WOOD, STRIPPED_PALE_OAK_LOG, STRIPPED_PALE_OAK_WOOD -> {
-                    saplingType = Material.PALE_OAK_SAPLING;
-                    soilRequirement = SlimefunTag.DIRT_VARIANTS::isTagged;
-                }
-                default -> {}
+            case PALE_OAK_LOG, PALE_OAK_WOOD, STRIPPED_PALE_OAK_LOG, STRIPPED_PALE_OAK_WOOD -> {
+                saplingType = Material.PALE_OAK_SAPLING;
+                soilRequirement = SlimefunTag.DIRT_VARIANTS::isTagged;
             }
+            default -> {}
         }
 
         if (saplingType == null || soilRequirement == null) {
