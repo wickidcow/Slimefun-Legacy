@@ -6,6 +6,7 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.handlers.ItemUseHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
+import io.github.thebusybiscuit.slimefun4.utils.compatibility.LegacyBukkitCompatibility;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -36,7 +37,7 @@ public class HeavyCream extends SimpleSlimefunItem<ItemUseHandler> {
         return e -> {
             Optional<Block> block = e.getClickedBlock();
 
-            if (!block.isPresent() || !block.get().getType().isInteractable()) {
+            if (!block.isPresent() || !LegacyBukkitCompatibility.isInteractable(block.get().getType())) {
                 e.cancel();
             }
         };
