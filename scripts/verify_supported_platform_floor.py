@@ -185,6 +185,26 @@ def main() -> int:
             "VersionedEntityType",
             "EntityType.MOOSHROOM",
         ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/core/attributes/DamageableItem.java": (
+            "VersionedEnchantment",
+            "Enchantment.UNBREAKING",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/TalismanListener.java": (
+            "VersionedEnchantment",
+            "Enchantment.FORTUNE",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/SlimefunItems.java": (
+            "VersionedEnchantment",
+            "Enchantment.UNBREAKING",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/tools/ClimbingPick.java": (
+            "VersionedEnchantment",
+            "Enchantment.EFFICIENCY",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/BlockListener.java": (
+            "VersionedEnchantment",
+            "Enchantment.FORTUNE",
+        ),
     }
     for relative, (forbidden, required) in direct_api_files.items():
         text = (root / relative).read_text(encoding="utf-8")

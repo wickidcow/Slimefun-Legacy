@@ -18,7 +18,6 @@ import io.github.thebusybiscuit.slimefun4.core.handlers.BlockBreakHandler;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockPlaceHandler;
 import io.github.thebusybiscuit.slimefun4.core.handlers.ToolUseHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedEnchantment;
 import io.github.thebusybiscuit.slimefun4.utils.tags.SlimefunTag;
 import java.util.ArrayList;
 import java.util.List;
@@ -413,7 +412,7 @@ public class BlockListener implements Listener {
              * directly and reuse it.
              */
             ItemMeta meta = item.getItemMeta();
-            int fortuneLevel = meta.getEnchantLevel(VersionedEnchantment.FORTUNE);
+            int fortuneLevel = meta.getEnchantLevel(Enchantment.FORTUNE);
 
             if (fortuneLevel > 0 && !meta.hasEnchant(Enchantment.SILK_TOUCH)) {
                 Random random = ThreadLocalRandom.current();
