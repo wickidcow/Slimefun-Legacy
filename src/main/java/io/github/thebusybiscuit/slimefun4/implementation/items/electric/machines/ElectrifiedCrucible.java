@@ -1,10 +1,8 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.electric.machines;
 
-import io.github.thebusybiscuit.slimefun4.api.MinecraftVersion;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.utils.tags.SlimefunTag;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.AContainer;
 import org.bukkit.Material;
@@ -63,20 +61,18 @@ public class ElectrifiedCrucible extends AContainer {
                 new ItemStack[] {new ItemStack(Material.BUCKET), new ItemStack(Material.BASALT, 12)},
                 new ItemStack[] {new ItemStack(Material.LAVA_BUCKET)});
 
-        if (Slimefun.getMinecraftVersion().isAtLeast(MinecraftVersion.MINECRAFT_1_17)) {
-            registerRecipe(
-                    10,
-                    new ItemStack[] {new ItemStack(Material.BUCKET), new ItemStack(Material.COBBLED_DEEPSLATE, 12)},
-                    new ItemStack[] {new ItemStack(Material.LAVA_BUCKET)});
-            registerRecipe(
-                    10,
-                    new ItemStack[] {new ItemStack(Material.BUCKET), new ItemStack(Material.DEEPSLATE, 10)},
-                    new ItemStack[] {new ItemStack(Material.LAVA_BUCKET)});
-            registerRecipe(
-                    10,
-                    new ItemStack[] {new ItemStack(Material.BUCKET), new ItemStack(Material.TUFF, 8)},
-                    new ItemStack[] {new ItemStack(Material.LAVA_BUCKET)});
-        }
+        registerRecipe(
+                10,
+                new ItemStack[] {new ItemStack(Material.BUCKET), new ItemStack(Material.COBBLED_DEEPSLATE, 12)},
+                new ItemStack[] {new ItemStack(Material.LAVA_BUCKET)});
+        registerRecipe(
+                10,
+                new ItemStack[] {new ItemStack(Material.BUCKET), new ItemStack(Material.DEEPSLATE, 10)},
+                new ItemStack[] {new ItemStack(Material.LAVA_BUCKET)});
+        registerRecipe(
+                10,
+                new ItemStack[] {new ItemStack(Material.BUCKET), new ItemStack(Material.TUFF, 8)},
+                new ItemStack[] {new ItemStack(Material.LAVA_BUCKET)});
     }
 
     @Override
