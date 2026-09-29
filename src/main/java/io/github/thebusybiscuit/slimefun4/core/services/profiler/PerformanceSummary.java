@@ -11,10 +11,11 @@ import java.util.function.Function;
 import java.util.function.ToIntFunction;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import net.md_5.bungee.api.ChatColor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 class PerformanceSummary {
 
@@ -49,17 +50,15 @@ class PerformanceSummary {
 
     public void send(@Nonnull PerformanceInspector sender) {
         sender.sendMessage("");
-        sender.sendMessage(ChatColor.GREEN + "===== Slimefun Performance Profiler =====");
-        sender.sendMessage(
-                ChatColor.GOLD + "Total tick time: " + ChatColor.YELLOW + NumberUtils.getAsMillis(totalElapsedTime));
-        sender.sendMessage(ChatColor.GOLD
-                + "Ticker runtime: "
-                + ChatColor.YELLOW
-                + NumberUtils.roundDecimalNumber(tickRate / 20.0)
-                + "s ("
-                + tickRate
-                + " ticks)");
-        sender.sendMessage(ChatColor.GOLD + "Performance rating: " + getPerformanceRating());
+        sender.sendMessage(legacy(Component.text("===== Slimefun Performance Profiler =====", NamedTextColor.GREEN)));
+        sender.sendMessage(legacy(Component.text("Total tick time: ", NamedTextColor.GOLD)
+                .append(Component.text(NumberUtils.getAsMillis(totalElapsedTime), NamedTextColor.YELLOW))));
+        sender.sendMessage(legacy(Component.text("Ticker runtime: ", NamedTextColor.GOLD)
+                .append(Component.text(
+                        NumberUtils.roundDecimalNumber(tickRate / 20.0) + "s (" + tickRate + " ticks)",
+                        NamedTextColor.YELLOW))));
+        sender.sendMessage(legacy(Component.text("Performance rating: ", NamedTextColor.GOLD)
+                .append(getPerformanceRating())));
         sender.sendMessage("");
 
         summarizeTimings(totalTickedBlocks, "block", sender, items, profiler::getBlocksOfId, entry -> {
@@ -131,10 +130,10 @@ class PerformanceSummary {
         }
 
         sender.sendMessage("");
-        sender.sendMessage(ChatColor.GOLD + "Internal phase diagnostics");
+        sender.sendMessage(legacy(Component.text("Internal phase diagnostics", NamedTextColor.GOLD)));
 
         for (Map.Entry<String, List<SlimefunProfiler.PhaseTimingStats>> group : groups.entrySet()) {
-            sender.sendMessage(ChatColor.YELLOW + group.getKey());
+            sender.sendMessage(legacy(Component.text(group.getKey(), NamedTextColor.YELLOW)));
             int shown = 0;
             for (SlimefunProfiler.PhaseTimingStats phase : group.getValue()) {
                 if (shown++ >= 8) {
@@ -142,11 +141,14 @@ class PerformanceSummary {
                 }
 
                 long samples = Math.max(1L, phase.samples());
-                sender.sendMessage(ChatColor.GRAY + "  " + phase.phase()
-                        + " - " + ChatColor.YELLOW + NumberUtils.getAsMillis(phase.totalNanos())
-                        + ChatColor.DARK_GRAY + " | " + ChatColor.GRAY + phase.samples() + "x"
-                        + ChatColor.DARK_GRAY + " | " + ChatColor.GRAY + "avg "
-                        + NumberUtils.getAsMillis(phase.totalNanos() / samples));
+                sender.sendMessage(legacy(Component.text("  " + phase.phase() + " - ", NamedTextColor.GRAY)
+                        .append(Component.text(NumberUtils.getAsMillis(phase.totalNanos()), NamedTextColor.YELLOW))
+                        .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
+                        .append(Component.text(phase.samples() + "x", NamedTextColor.GRAY))
+                        .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
+                        .append(Component.text(
+                                "avg " + NumberUtils.getAsMillis(phase.totalNanos() / samples),
+                                NamedTextColor.GRAY))));
             }
         }
     }
@@ -234,18 +236,16 @@ class PerformanceSummary {
         int shownEntries = 0;
         int hiddenEntries = 0;
 
-        StringBuilder builder = new StringBuilder();
-        builder.append(ChatColor.GOLD).append(prefix);
+        StringBuilder builder = new StringBuilder(legacy(Component.text(prefix, NamedTextColor.GOLD)));
 
         if (count > 0) {
-            builder.append(ChatColor.YELLOW);
-
             for (Map.Entry<String, Long> entry : results) {
                 if (inspector.isVerbose()
                         || (shownEntries < MAX_ITEMS
                                 && (shownEntries < MIN_ITEMS || entry.getValue() > VISIBILITY_THRESHOLD))) {
-                    builder.append("\n  ");
-                    builder.append(ChatColor.stripColor(formatter.apply(entry)));
+                    builder.append(legacy(Component.text(
+                            "\n  " + plainLegacy(formatter.apply(entry)),
+                            NamedTextColor.YELLOW)));
                     shownEntries++;
                 } else {
                     hiddenEntries++;
@@ -253,7 +253,9 @@ class PerformanceSummary {
             }
 
             if (hiddenEntries > 0) {
-                builder.append("\n+ ").append(hiddenEntries).append(" more...");
+                builder.append(legacy(Component.text(
+                        "\n+ " + hiddenEntries + " more...",
+                        NamedTextColor.YELLOW)));
             }
         }
 
@@ -261,26 +263,51 @@ class PerformanceSummary {
     }
 
     @Nonnull
-    private String getPerformanceRating() {
-        StringBuilder builder = new StringBuilder();
-        builder.append(NumberUtils.getColorFromPercentage(100 - Math.min(percentage, 100)));
+    private Component getPerformanceRating() {
+        int filled = Math.min(20, Math.max(0, (int) Math.min(percentage, 100) / 5));
+        int rest = 20 - filled;
 
-        int rest = 20;
-        for (int i = (int) Math.min(percentage, 100); i >= 5; i = i - 5) {
-            builder.append(':');
-            rest--;
+        return Component.text(":".repeat(filled), percentageColor(100 - Math.min(percentage, 100)))
+                .append(Component.text(":".repeat(rest) + " - ", NamedTextColor.DARK_GRAY))
+                .append(Component.text(ChatUtils.humanize(rating.name()), ratingColor(rating)))
+                .append(Component.text(
+                        " (" + NumberUtils.roundDecimalNumber(percentage) + "%)",
+                        NamedTextColor.GRAY));
+    }
+
+    private static NamedTextColor percentageColor(float percentage) {
+        if (percentage < 16.0F) {
+            return NamedTextColor.DARK_RED;
+        } else if (percentage < 32.0F) {
+            return NamedTextColor.RED;
+        } else if (percentage < 48.0F) {
+            return NamedTextColor.GOLD;
+        } else if (percentage < 64.0F) {
+            return NamedTextColor.YELLOW;
+        } else if (percentage < 80.0F) {
+            return NamedTextColor.DARK_GREEN;
+        } else {
+            return NamedTextColor.GREEN;
         }
+    }
 
-        builder.append(ChatColor.DARK_GRAY)
-                .append(":".repeat(Math.max(0, rest)))
-                .append(" - ")
-                .append(rating.getColor())
-                .append(ChatUtils.humanize(rating.name()))
-                .append(ChatColor.GRAY)
-                .append(" (")
-                .append(NumberUtils.roundDecimalNumber(percentage))
-                .append("%)");
+    private static NamedTextColor ratingColor(PerformanceRating rating) {
+        return switch (rating) {
+            case UNKNOWN -> NamedTextColor.WHITE;
+            case GOOD, FINE -> NamedTextColor.DARK_GREEN;
+            case OKAY -> NamedTextColor.GREEN;
+            case MODERATE -> NamedTextColor.YELLOW;
+            case SEVERE -> NamedTextColor.RED;
+            case HURTFUL, BAD -> NamedTextColor.DARK_RED;
+        };
+    }
 
-        return builder.toString();
+    private static String legacy(Component component) {
+        return LegacyComponentSerializer.legacySection().serialize(component);
+    }
+
+    private static String plainLegacy(String value) {
+        return PlainTextComponentSerializer.plainText()
+                .serialize(LegacyComponentSerializer.legacySection().deserialize(value));
     }
 }
