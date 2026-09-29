@@ -299,14 +299,15 @@ public class AutoEnchanter extends AbstractEnchantmentMachine {
             default -> false;
         };
 
-        ItemStack variant = target.clone();
-        variant.setType(netherite ? Material.NETHERITE_PICKAXE : Material.DIAMOND_PICKAXE);
-        if (enchantment.canEnchantItem(variant)) {
+        ItemStack pickaxeVariant =
+                target.withType(netherite ? Material.NETHERITE_PICKAXE : Material.DIAMOND_PICKAXE);
+        if (enchantment.canEnchantItem(pickaxeVariant)) {
             return true;
         }
 
-        variant.setType(netherite ? Material.NETHERITE_SHOVEL : Material.DIAMOND_SHOVEL);
-        return enchantment.canEnchantItem(variant);
+        ItemStack shovelVariant =
+                target.withType(netherite ? Material.NETHERITE_SHOVEL : Material.DIAMOND_SHOVEL);
+        return enchantment.canEnchantItem(shovelVariant);
     }
 
     private boolean isEnchantable(@Nullable ItemStack item) {
