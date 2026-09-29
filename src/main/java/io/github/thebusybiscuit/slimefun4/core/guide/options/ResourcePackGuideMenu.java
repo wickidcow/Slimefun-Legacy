@@ -8,10 +8,11 @@ import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import java.util.Arrays;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -133,7 +134,7 @@ final class ResourcePackGuideMenu {
 
         menu.addMenuClickHandler(10, (clickedPlayer, slot, item, action) -> {
             if (service.isRequired()) {
-                clickedPlayer.sendMessage(ChatColor.RED + "The Slimefun Legacy resource pack is required by this server.");
+                clickedPlayer.sendMessage(Component.text("The Slimefun Legacy resource pack is required by this server.", NamedTextColor.RED));
                 return false;
             }
 
@@ -141,14 +142,14 @@ final class ResourcePackGuideMenu {
             service.setPlayerEnabled(clickedPlayer, next);
             if (next) {
                 if (service.isDeliveryEnabled()) {
-                    clickedPlayer.sendMessage(ChatColor.GREEN + "Slimefun Legacy resource-pack auto-load enabled.");
+                    clickedPlayer.sendMessage(Component.text("Slimefun Legacy resource-pack auto-load enabled.", NamedTextColor.GREEN));
                 } else {
-                    clickedPlayer.sendMessage(
-                            ChatColor.YELLOW
-                                    + "Auto-load preference enabled, but the server's Slimefun Legacy pack sender is disabled.");
+                    clickedPlayer.sendMessage(Component.text(
+                            "Auto-load preference enabled, but the server's Slimefun Legacy pack sender is disabled.",
+                            NamedTextColor.YELLOW));
                 }
             } else {
-                clickedPlayer.sendMessage(ChatColor.YELLOW + "Slimefun Legacy resource pack disabled for you.");
+                clickedPlayer.sendMessage(Component.text("Slimefun Legacy resource pack disabled for you.", NamedTextColor.YELLOW));
             }
 
             open(clickedPlayer, returnGuide);
@@ -178,12 +179,13 @@ final class ResourcePackGuideMenu {
 
         menu.addMenuClickHandler(12, (clickedPlayer, slot, item, action) -> {
             if (!service.reloadForPlayer(clickedPlayer)) {
-                clickedPlayer.sendMessage(
-                        ChatColor.RED + "Slimefun Legacy's resource-pack sender is disabled or unavailable.");
+                clickedPlayer.sendMessage(Component.text(
+                        "Slimefun Legacy's resource-pack sender is disabled or unavailable.",
+                        NamedTextColor.RED));
                 return false;
             }
 
-            clickedPlayer.sendMessage(ChatColor.GREEN + "Slimefun Legacy resource pack requested again.");
+            clickedPlayer.sendMessage(Component.text("Slimefun Legacy resource pack requested again.", NamedTextColor.GREEN));
             open(clickedPlayer, returnGuide);
             return false;
         });
