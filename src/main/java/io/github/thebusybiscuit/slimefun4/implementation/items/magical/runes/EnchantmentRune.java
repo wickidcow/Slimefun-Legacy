@@ -1,5 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.magical.runes;
 
+import io.papermc.paper.registry.RegistryAccess;
+import io.papermc.paper.registry.RegistryKey;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
@@ -59,7 +61,7 @@ public class EnchantmentRune extends SimpleSlimefunItem<ItemDropHandler> {
 
                 List<Enchantment> enchantments = new ArrayList<>();
 
-                for (Enchantment enchantment : Enchantment.values()) {
+                for (Enchantment enchantment : RegistryAccess.registryAccess().getRegistry(RegistryKey.ENCHANTMENT)) {
 
                     if (enchantment.equals(Enchantment.BINDING_CURSE)
                             || enchantment.equals(Enchantment.VANISHING_CURSE)) {
