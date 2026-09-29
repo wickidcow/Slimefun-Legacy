@@ -23,10 +23,10 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -130,7 +130,7 @@ public class EnergyRegulator extends SlimefunItem implements HologramOwner, NotR
     }
 
     private void openVisualizerMenu(@Nonnull Player player, @Nonnull Block regulator) {
-        ChestMenu menu = new ChestMenu(ChatColor.DARK_GRAY + "Energy Regulator");
+        ChestMenu menu = new ChestMenu("&8Energy Regulator");
         menu.setEmptySlotsClickable(false);
 
         boolean globallyEnabled = Slimefun.getNetworkManager().isVisualizerEnabled();
@@ -140,13 +140,15 @@ public class EnergyRegulator extends SlimefunItem implements HologramOwner, NotR
         menu.addItem(4, toggle);
         menu.addMenuClickHandler(4, (clickedPlayer, slot, item, action) -> {
             if (!Slimefun.getNetworkManager().isVisualizerEnabled()) {
-                clickedPlayer.sendMessage(ChatColor.RED + "Network visualizers are disabled in the server configuration.");
+                clickedPlayer.sendMessage(Component.text("Network visualizers are disabled in the server configuration.", NamedTextColor.RED));
                 return false;
             }
 
             boolean enabled = toggleVisualizer(clickedPlayer.getUniqueId(), regulator.getLocation());
-            clickedPlayer.sendMessage(
-                    ChatColor.GOLD + "Energy network visualizer " + (enabled ? ChatColor.GREEN + "enabled" : ChatColor.RED + "disabled") + ChatColor.GOLD + ".");
+            clickedPlayer.sendMessage(Component.text("Energy network visualizer ", NamedTextColor.GOLD)
+                    .append(Component.text(enabled ? "enabled" : "disabled",
+                            enabled ? NamedTextColor.GREEN : NamedTextColor.RED))
+                    .append(Component.text(".", NamedTextColor.GOLD)));
             openVisualizerMenu(clickedPlayer, regulator);
             return false;
         });
@@ -162,29 +164,29 @@ public class EnergyRegulator extends SlimefunItem implements HologramOwner, NotR
             return item;
         }
 
-        meta.displayName(legacyText(ChatColor.GOLD + "" + ChatColor.BOLD + "Energy Network Visualizer"));
+        meta.displayName(legacyText("&6&lEnergy Network Visualizer"));
         List<String> lore = !globallyEnabled
                 ? List.of(
                         "",
-                        ChatColor.GRAY + "Shows this Energy Network with clean gold dust particles.",
-                        ChatColor.GRAY + "Only you can see the visualizer.",
+                        "&7Shows this Energy Network with clean gold dust particles.",
+                        "&7Only you can see the visualizer.",
                         "",
-                        ChatColor.RED + "Disabled by server configuration")
+                        "&cDisabled by server configuration")
                 : List.of(
                         "",
-                        ChatColor.GRAY + "Shows this Energy Network with clean gold dust particles.",
-                        ChatColor.GRAY + "Only you can see the visualizer.",
-                        ChatColor.GRAY + "Rendering is range-limited and particle-capped.",
+                        "&7Shows this Energy Network with clean gold dust particles.",
+                        "&7Only you can see the visualizer.",
+                        "&7Rendering is range-limited and particle-capped.",
                         "",
-                        ChatColor.GRAY + "Status: " + (active ? ChatColor.GREEN + "ON" : ChatColor.RED + "OFF"),
-                        ChatColor.YELLOW + "Click to toggle");
+                        "&7Status: " + (active ? "&aON" : "&cOFF"),
+                        "&eClick to toggle");
         meta.lore(lore.stream().map(EnergyRegulator::legacyText).toList());
         item.setItemMeta(meta);
         return item;
     }
 
     private static Component legacyText(String value) {
-        return LegacyComponentSerializer.legacySection()
+        return LegacyComponentSerializer.legacyAmpersand()
                 .deserialize(value)
                 .decoration(TextDecoration.ITALIC, false);
     }
