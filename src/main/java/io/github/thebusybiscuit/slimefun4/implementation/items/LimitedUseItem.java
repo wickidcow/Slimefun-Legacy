@@ -11,11 +11,12 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.magical.staves.StormStaff;
 import io.github.thebusybiscuit.slimefun4.utils.LoreBuilder;
 import io.github.thebusybiscuit.slimefun4.utils.PatternUtils;
-import java.util.Collections;
 import java.util.List;
 import java.util.OptionalInt;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -166,26 +167,23 @@ public abstract class LimitedUseItem extends SimpleSlimefunItem<ItemUseHandler> 
 
     @ParametersAreNonnullByDefault
     private void updateItemLore(ItemStack item, ItemMeta meta, int usesLeft) {
-        List<String> lore = meta.getLore();
+        List<Component> currentLore = meta.lore();
+        List<Component> lore = currentLore == null ? new java.util.ArrayList<>() : new java.util.ArrayList<>(currentLore);
         String newLine = ChatColors.color(LoreBuilder.usesLeft(usesLeft));
-
-        if (lore == null || lore.isEmpty()) {
-            meta.setLore(Collections.singletonList(newLine));
-            item.setItemMeta(meta);
-            return;
-        }
+        Component newLineComponent = LegacyComponentSerializer.legacySection().deserialize(newLine);
 
         for (int i = 0; i < lore.size(); i++) {
-            if (PatternUtils.USES_LEFT_LORE.matcher(lore.get(i)).matches()) {
-                lore.set(i, newLine);
-                meta.setLore(lore);
+            String legacyLine = LegacyComponentSerializer.legacySection().serialize(lore.get(i));
+            if (PatternUtils.USES_LEFT_LORE.matcher(legacyLine).matches()) {
+                lore.set(i, newLineComponent);
+                meta.lore(lore);
                 item.setItemMeta(meta);
                 return;
             }
         }
 
-        lore.add(newLine);
-        meta.setLore(lore);
+        lore.add(newLineComponent);
+        meta.lore(lore);
         item.setItemMeta(meta);
     }
 }
