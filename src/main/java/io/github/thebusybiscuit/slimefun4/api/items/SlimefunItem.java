@@ -980,11 +980,6 @@ public class SlimefunItem implements Placeable {
      *
      * @return This item's name in {@link ItemStack} form
      */
-    private static @Nonnull String plainLegacyName(@Nonnull String name) {
-        return PlainTextComponentSerializer.plainText()
-                .serialize(LegacyComponentSerializer.legacySection().deserialize(name));
-    }
-
     public final @Nonnull String getItemName() {
         if (itemStackTemplate instanceof SlimefunItemStack) {
             Optional<String> name = ((SlimefunItemStack) itemStackTemplate)
@@ -997,6 +992,11 @@ public class SlimefunItem implements Placeable {
         }
 
         return ItemUtils.getItemName(itemStackTemplate);
+    }
+
+    private static @Nonnull String plainLegacyName(@Nonnull String name) {
+        return PlainTextComponentSerializer.plainText()
+                .serialize(LegacyComponentSerializer.legacySection().deserialize(name));
     }
 
     /**
