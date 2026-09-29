@@ -13,6 +13,8 @@ import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.AContainer;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import org.bukkit.Material;
@@ -104,13 +106,15 @@ abstract class AbstractEnchantmentMachine extends AContainer {
         if (useIgnoredLores.getValue() && item.hasItemMeta()) {
             ItemMeta itemMeta = item.getItemMeta();
 
-            if (itemMeta.hasLore()) {
-                List<String> itemLore = itemMeta.getLore();
+            List<Component> itemLore = itemMeta.lore();
+            if (itemLore != null) {
+                List<String> legacyLore =
+                        itemLore.stream().map(LegacyComponentSerializer.legacySection()::serialize).toList();
                 List<String> ignoredLore = ignoredLores.getValue();
 
                 // Check if any of the lines are found on the item
                 for (String lore : ignoredLore) {
-                    if (itemLore.contains(ChatColors.color(lore))) {
+                    if (legacyLore.contains(ChatColors.color(lore))) {
                         return true;
                     }
                 }
