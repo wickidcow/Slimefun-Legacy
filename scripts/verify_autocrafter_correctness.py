@@ -116,8 +116,8 @@ def main() -> int:
     )
     require(
         crafter,
-        "ItemStack itemInChoice = choice.getItemStack();",
-        "Paper RecipeChoice representative-stack ingredient counting",
+        "ItemStack itemInChoice = LegacyBukkitCompatibility.getRecipeChoiceRepresentative(choice);",
+        "compatibility-routed RecipeChoice representative-stack ingredient counting",
     )
     forbid(
         crafter,
@@ -280,13 +280,13 @@ def main() -> int:
     )
     require(
         vanilla_recipe,
-        "items[4] = choice.getItemStack();",
-        "single generic RecipeChoice preview representative",
+        "items[4] = LegacyBukkitCompatibility.getRecipeChoiceRepresentative(choice);",
+        "single compatibility-routed RecipeChoice preview representative",
     )
     require(
         vanilla_recipe,
-        "items[i] = choice.getItemStack();",
-        "multi-slot generic RecipeChoice preview representative",
+        "items[i] = LegacyBukkitCompatibility.getRecipeChoiceRepresentative(choice);",
+        "multi-slot compatibility-routed RecipeChoice preview representative",
     )
     require(
         vanilla_recipe,
