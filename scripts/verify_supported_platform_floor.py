@@ -144,6 +144,22 @@ def main() -> int:
         failures.append("OreDictionary still contains an obsolete version factory")
 
     runtime_floor_files = {
+        "src/main/java/city/norain/slimefun4/compatibillty/CompatibilityUtil.java": (
+            "SlimefunExtended.isAtLeast",
+            "return blockData.getPlacementMaterial();",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/utils/ArmorStandUtils.java": (
+            "SlimefunExtended.isAtLeast",
+            "ArmorStandUtils::setupArmorStand",
+        ),
+        "src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/LocationUtils.java": (
+            "SlimefunExtended.isAtLeast",
+            "w.getChunkAt(Integer.parseInt(loc[0]), Integer.parseInt(loc[1]), false)",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/crafting/VanillaCrafterListener.java": (
+            "SlimefunExtended.isAtLeast",
+            "registerEvents(this, plugin)",
+        ),
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/sounds/SoundEffect.java": (
             "SlimefunExtended.isAtLeast",
             "Registry.SOUNDS.get(",
