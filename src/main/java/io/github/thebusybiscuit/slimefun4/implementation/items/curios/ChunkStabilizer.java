@@ -11,8 +11,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -61,17 +61,17 @@ public final class ChunkStabilizer extends SimpleSlimefunItem<ItemUseHandler> {
             Stabilization existing = ACTIVE.get(playerId);
             if (existing != null) {
                 long remaining = Math.max(1L, (existing.expiresAt() - System.currentTimeMillis() + 999L) / 1_000L);
-                player.sendMessage(ChatColor.YELLOW + "You already have a stabilized chunk for another " + remaining
+                message(player, "&e" + "You already have a stabilized chunk for another " + remaining
                         + " seconds. Sneak-right-click to release it first.");
                 return;
             }
             if (ACTIVE.size() >= MAX_ACTIVE_STABILIZERS) {
-                player.sendMessage(ChatColor.RED + "The global Chunk Stabilizer limit of " + MAX_ACTIVE_STABILIZERS
+                message(player, "&c" + "The global Chunk Stabilizer limit of " + MAX_ACTIVE_STABILIZERS
                         + " is currently reached.");
                 return;
             }
             if (ACTIVE.values().stream().anyMatch(stabilization::sameChunk)) {
-                player.sendMessage(ChatColor.YELLOW + "That chunk is already stabilized by another expedition.");
+                message(player, "&e" + "That chunk is already stabilized by another expedition.");
                 return;
             }
             ACTIVE.put(playerId, stabilization);
@@ -80,7 +80,7 @@ public final class ChunkStabilizer extends SimpleSlimefunItem<ItemUseHandler> {
         Map<Integer, ItemStack> missing = player.getInventory().removeItem(new ItemStack(Material.REDSTONE_BLOCK, 1));
         if (!missing.isEmpty()) {
             ACTIVE.remove(playerId, stabilization);
-            player.sendMessage(ChatColor.RED + "Chunk Stabilizer activation requires 1 Redstone Block as field fuel.");
+            message(player, "&c" + "Chunk Stabilizer activation requires 1 Redstone Block as field fuel.");
             return;
         }
 
@@ -88,14 +88,14 @@ public final class ChunkStabilizer extends SimpleSlimefunItem<ItemUseHandler> {
         if (!added) {
             ACTIVE.remove(playerId, stabilization);
             refundFuel(player);
-            player.sendMessage(ChatColor.RED + "The server refused the chunk ticket. No stabilization was started.");
+            message(player, "&c" + "The server refused the chunk ticket. No stabilization was started.");
             return;
         }
 
         Location center = chunkCenter(player.getWorld(), chunk.getX(), chunk.getZ());
         player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.6F, 1.4F);
-        player.sendMessage(ChatColor.AQUA + "Chunk Stabilizer active for 5 minutes on chunk " + chunk.getX() + ", "
-                + chunk.getZ() + ChatColor.GRAY + ". Only this chunk is retained; no neighboring chunks are loaded.");
+        message(player, "&b" + "Chunk Stabilizer active for 5 minutes on chunk " + chunk.getX() + ", "
+                + chunk.getZ() + "&7" + ". Only this chunk is retained; no neighboring chunks are loaded.");
         Slimefun.getSchedulerService().runAtLater(center, () -> expire(playerId, stabilization), DURATION_TICKS);
     }
 
@@ -103,13 +103,13 @@ public final class ChunkStabilizer extends SimpleSlimefunItem<ItemUseHandler> {
         UUID playerId = player.getUniqueId();
         Stabilization stabilization = ACTIVE.remove(playerId);
         if (stabilization == null) {
-            player.sendMessage(ChatColor.GRAY + "You do not currently have a stabilized chunk.");
+            message(player, "&7" + "You do not currently have a stabilized chunk.");
             return;
         }
 
         removeTicket(stabilization);
         player.playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.6F, 1.2F);
-        player.sendMessage(ChatColor.YELLOW + "Your stabilized chunk has been released.");
+        message(player, "&e" + "Your stabilized chunk has been released.");
     }
 
     private void expire(UUID playerId, Stabilization expected) {
@@ -120,7 +120,7 @@ public final class ChunkStabilizer extends SimpleSlimefunItem<ItemUseHandler> {
         Player player = Bukkit.getPlayer(playerId);
         if (player != null) {
             Slimefun.getSchedulerService().runFor(player,
-                    () -> player.sendMessage(ChatColor.YELLOW + "Your Chunk Stabilizer's five-minute field has expired."),
+                    () -> message(player, "&e" + "Your Chunk Stabilizer's five-minute field has expired."),
                     () -> {});
         }
     }
@@ -155,4 +155,8 @@ public final class ChunkStabilizer extends SimpleSlimefunItem<ItemUseHandler> {
             return worldId.equals(other.worldId) && chunkX == other.chunkX && chunkZ == other.chunkZ;
         }
     }
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
 }
