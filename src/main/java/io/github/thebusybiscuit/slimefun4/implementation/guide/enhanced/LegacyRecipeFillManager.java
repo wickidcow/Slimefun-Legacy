@@ -1,6 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.implementation.guide.enhanced;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
+import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.bakedlibs.dough.items.ItemUtils;
 import io.github.bakedlibs.dough.protection.Interaction;
@@ -28,7 +29,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -163,7 +163,7 @@ public final class LegacyRecipeFillManager implements Listener {
         event.setCancelled(true);
         if (context.expiresAt() < System.currentTimeMillis()) {
             contexts.remove(player.getUniqueId());
-            send(player, ChatColor.RED + "This recipe-fill session expired. Reopen the recipe and try again.");
+            send(player, "&c" + "This recipe-fill session expired. Reopen the recipe and try again.");
             return;
         }
 
@@ -246,24 +246,24 @@ public final class LegacyRecipeFillManager implements Listener {
         if (resolved == null) {
             send(
                     player,
-                    ChatColor.RED + "Aim at a valid " + context.machineName()
+                    "&c" + "Aim at a valid " + context.machineName()
                             + " crafting block or its dispenser, then click again.");
             return;
         }
 
         if (!isRegionOwned(resolved.dispenser()) || !isRegionOwned(resolved.interactionBlock())) {
-            send(player, ChatColor.RED + "Move closer to the machine and try again.");
+            send(player, "&c" + "Move closer to the machine and try again.");
             return;
         }
 
         if (!hasAccess(player, resolved.dispenser()) || !hasAccess(player, resolved.interactionBlock())) {
-            send(player, ChatColor.RED + "You do not have permission to access this machine.");
+            send(player, "&c" + "You do not have permission to access this machine.");
             return;
         }
 
         BlockState state = resolved.dispenser().getState();
         if (!(state instanceof Dispenser dispenser)) {
-            send(player, ChatColor.RED + "The target dispenser is no longer available.");
+            send(player, "&c" + "The target dispenser is no longer available.");
             return;
         }
 
@@ -283,7 +283,7 @@ public final class LegacyRecipeFillManager implements Listener {
                 : plan(playerContents, targetContents, context.recipeType(), context.recipe(), context.kind(), 1);
 
         if (!plan.success()) {
-            send(player, ChatColor.RED + plan.message());
+            send(player, "&c" + plan.message());
             sendMissingSummary(player, context, plan.missing());
             return;
         }
@@ -294,18 +294,18 @@ public final class LegacyRecipeFillManager implements Listener {
         } catch (RuntimeException exception) {
             restoreInventories(playerInventory, playerContents, targetInventory, targetContents);
             plugin.getLogger().log(Level.SEVERE, "Could not commit an enhanced-guide recipe fill", exception);
-            send(player, ChatColor.RED + "The transfer was cancelled and both inventories were restored.");
+            send(player, "&c" + "The transfer was cancelled and both inventories were restored.");
             return;
         }
         player.updateInventory();
         SoundEffect.GUIDE_BUTTON_CLICK_SOUND.playFor(player);
 
         if (plan.movedItems() == 0) {
-            send(player, ChatColor.YELLOW + "The " + context.machineName() + " already contains a complete recipe.");
+            send(player, "&e" + "The " + context.machineName() + " already contains a complete recipe.");
         } else {
             send(
                     player,
-                    ChatColor.GREEN + "Filled the " + context.machineName() + " for " + plan.sets()
+                    "&a" + "Filled the " + context.machineName() + " for " + plan.sets()
                             + (plan.sets() == 1 ? " recipe set." : " recipe sets."));
         }
 
@@ -317,53 +317,53 @@ public final class LegacyRecipeFillManager implements Listener {
         Block lookedAt = player.getTargetBlockExact(settings.getRecipeFillTargetRange());
         Block altar = resolveAncientAltar(lookedAt);
         if (altar == null) {
-            send(player, ChatColor.RED + "Aim at the Ancient Altar or one of its eight pedestals, then click again.");
+            send(player, "&c" + "Aim at the Ancient Altar or one of its eight pedestals, then click again.");
             return;
         }
 
         pruneAltarLocks();
         Long lockExpires = observedAltarLocks.get(altar.getLocation());
         if (lockExpires != null && lockExpires >= System.currentTimeMillis()) {
-            send(player, ChatColor.RED + "That Ancient Altar is currently active. Wait for the ritual to finish.");
+            send(player, "&c" + "That Ancient Altar is currently active. Wait for the ritual to finish.");
             return;
         }
 
         List<Block> pedestals = getAncientAltarPedestals(altar);
         if (pedestals.size() != ALTAR_PEDESTAL_OFFSETS.length) {
-            send(player, ChatColor.RED + "This Ancient Altar does not have all eight valid Ancient Pedestals.");
+            send(player, "&c" + "This Ancient Altar does not have all eight valid Ancient Pedestals.");
             return;
         }
 
         if (!isRegionOwned(altar)) {
-            send(player, ChatColor.RED + "Move closer to the Ancient Altar and try again.");
+            send(player, "&c" + "Move closer to the Ancient Altar and try again.");
             return;
         }
         if (!hasAccess(player, altar)) {
-            send(player, ChatColor.RED + "You do not have permission to use this Ancient Altar.");
+            send(player, "&c" + "You do not have permission to use this Ancient Altar.");
             return;
         }
 
         AncientPedestal pedestalItem = getAncientPedestalItem();
         if (pedestalItem == null) {
-            send(player, ChatColor.RED + "The Ancient Pedestal item is unavailable.");
+            send(player, "&c" + "The Ancient Pedestal item is unavailable.");
             return;
         }
 
         for (Block pedestal : pedestals) {
             if (!isRegionOwned(pedestal)) {
-                send(player, ChatColor.RED + "Move closer so every pedestal is owned by the current region.");
+                send(player, "&c" + "Move closer so every pedestal is owned by the current region.");
                 return;
             }
             if (!hasAccess(player, pedestal)) {
-                send(player, ChatColor.RED + "You do not have permission to access every Ancient Pedestal.");
+                send(player, "&c" + "You do not have permission to access every Ancient Pedestal.");
                 return;
             }
             if (!pedestal.getRelative(BlockFace.UP).getType().isAir()) {
-                send(player, ChatColor.RED + "Clear the block above every Ancient Pedestal first.");
+                send(player, "&c" + "Clear the block above every Ancient Pedestal first.");
                 return;
             }
             if (pedestalItem.getPlacedItem(pedestal).isPresent()) {
-                send(player, ChatColor.RED + "Remove the existing items from all Ancient Pedestals first.");
+                send(player, "&c" + "Remove the existing items from all Ancient Pedestals first.");
                 return;
             }
         }
@@ -376,7 +376,7 @@ public final class LegacyRecipeFillManager implements Listener {
                 context.recipe(),
                 settings.shouldPrepareAltarCatalystInHand());
         if (!plan.success()) {
-            send(player, ChatColor.RED + plan.message());
+            send(player, "&c" + plan.message());
             sendMissingSummary(player, context, plan.missing());
             return;
         }
@@ -402,7 +402,7 @@ public final class LegacyRecipeFillManager implements Listener {
                 // The original exception is logged below.
             }
             plugin.getLogger().log(Level.SEVERE, "Could not commit an enhanced-guide Ancient Altar fill", exception);
-            send(player, ChatColor.RED + "The altar preparation was cancelled and your inventory was restored.");
+            send(player, "&c" + "The altar preparation was cancelled and your inventory was restored.");
             return;
         }
 
@@ -412,13 +412,13 @@ public final class LegacyRecipeFillManager implements Listener {
         if (settings.shouldPrepareAltarCatalystInHand()) {
             send(
                     player,
-                    ChatColor.GREEN + "Prepared all eight Ancient Pedestals and selected " + ChatColor.WHITE
-                            + catalystName + ChatColor.GREEN + ". Right-click the altar to begin.");
+                    "&a" + "Prepared all eight Ancient Pedestals and selected " + "&f"
+                            + catalystName + "&a" + ". Right-click the altar to begin.");
         } else {
             send(
                     player,
-                    ChatColor.GREEN + "Prepared all eight Ancient Pedestals. Hold " + ChatColor.WHITE + catalystName
-                            + ChatColor.GREEN + " and right-click the altar.");
+                    "&a" + "Prepared all eight Ancient Pedestals. Hold " + "&f" + catalystName
+                            + "&a" + " and right-click the altar.");
         }
         closeAfterSuccess(player);
     }
@@ -512,26 +512,27 @@ public final class LegacyRecipeFillManager implements Listener {
 
         send(
                 player,
-                ChatColor.GOLD + "Ingredient report for " + ChatColor.WHITE
+                "&6" + "Ingredient report for " + "&f"
                         + context.item().getItemName());
         for (IngredientStatus status : report.statuses()) {
-            ChatColor color = status.missing() == 0 ? ChatColor.GREEN : ChatColor.RED;
-            player.sendMessage(ChatColor.DARK_GRAY + " • " + color + status.available() + "/" + status.required()
-                    + ChatColor.GRAY + " " + ItemUtils.getItemName(status.expected()));
+            String color = status.missing() == 0 ? "&a" : "&c";
+            player.sendMessage(ChatColors.color(
+                    "&8 • " + color + status.available() + "/" + status.required()
+                            + "&7 " + ItemUtils.getItemName(status.expected())));
             if (status.missing() > 0
                     && status.craftable()
                     && LegacyGuideSettings.get().shouldShowSubRecipeHints()) {
                 SlimefunItem ingredient = SlimefunItem.getByItem(status.expected());
                 if (ingredient != null) {
-                    player.sendMessage(ChatColor.DARK_GRAY + "   ↳ " + ChatColor.GRAY + "Sub-recipe available: "
-                            + ChatColor.WHITE + ingredient.getId());
+                    player.sendMessage(ChatColors.color(
+                            "&8   ↳ &7Sub-recipe available: &f" + ingredient.getId()));
                 }
             }
         }
         if (report.ready()) {
-            player.sendMessage(ChatColor.DARK_GREEN + "All required ingredients are available.");
+            player.sendMessage(ChatColors.color("&2All required ingredients are available."));
         } else {
-            player.sendMessage(ChatColor.DARK_RED + "Missing " + report.totalMissing() + " ingredient item(s).");
+            player.sendMessage(ChatColors.color("&4Missing " + report.totalMissing() + " ingredient item(s)."));
         }
     }
 
@@ -545,17 +546,16 @@ public final class LegacyRecipeFillManager implements Listener {
         int limit = Math.min(3, missingFromPlan.size());
         for (int index = 0; index < limit; index++) {
             IngredientStatus status = missingFromPlan.get(index);
-            player.sendMessage(ChatColor.DARK_GRAY + " • " + ChatColor.RED + status.missing() + "x " + ChatColor.GRAY
-                    + ItemUtils.getItemName(status.expected()));
+            player.sendMessage(ChatColors.color(
+                    "&8 • &c" + status.missing() + "x &7" + ItemUtils.getItemName(status.expected())));
         }
         if (missingFromPlan.size() > limit) {
-            player.sendMessage(
-                    ChatColor.DARK_GRAY + " • " + ChatColor.GRAY + "Right-click the guide button for the full report.");
+            player.sendMessage(ChatColors.color("&8 • &7Right-click the guide button for the full report."));
         } else if (LegacyGuideSettings.get().shouldShowSubRecipeHints()) {
             boolean hasSubRecipe = missingFromPlan.stream().anyMatch(IngredientStatus::craftable);
             if (hasSubRecipe) {
-                player.sendMessage(ChatColor.DARK_GRAY + " • " + ChatColor.GRAY
-                        + "Some missing ingredients have their own Slimefun recipes.");
+                player.sendMessage(ChatColors.color(
+                        "&8 • &7Some missing ingredients have their own Slimefun recipes."));
             }
         }
     }
@@ -1568,7 +1568,7 @@ public final class LegacyRecipeFillManager implements Listener {
     }
 
     private static void send(@Nonnull Player player, @Nonnull String message) {
-        player.sendMessage(ChatColor.DARK_GREEN + "[Slimefun Legacy] " + message);
+        player.sendMessage(ChatColors.color("&2[Slimefun Legacy] " + message));
     }
 
     private enum RecipeKind {
