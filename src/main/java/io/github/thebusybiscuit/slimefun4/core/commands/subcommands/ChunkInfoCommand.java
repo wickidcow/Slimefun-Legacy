@@ -15,8 +15,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -351,8 +352,8 @@ final class ChunkInfoCommand extends SubCommand {
         sender.sendMessage(color(message));
     }
 
-    private String color(String message) {
-        return ChatColor.translateAlternateColorCodes('&', message);
+    private Component color(String message) {
+        return LegacyComponentSerializer.legacyAmpersand().deserialize(message);
     }
 
     private record ChunkTarget(World world, int chunkX, int chunkZ) {}
