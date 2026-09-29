@@ -1,7 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.api.network;
 
 import io.github.thebusybiscuit.slimefun4.core.networks.energy.EnergyNet;
-import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedParticle;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang.Validate;
@@ -119,7 +118,7 @@ class NetworkVisualizer implements Runnable {
             } else {
                 l.getWorld()
                         .spawnParticle(
-                                VersionedParticle.DUST,
+                                Particle.DUST,
                                 l.getX() + 0.5,
                                 l.getY() + 0.5,
                                 l.getZ() + 0.5,
@@ -149,7 +148,7 @@ class NetworkVisualizer implements Runnable {
                         ENERGY_PARTICLE_OPTIONS);
             } else {
                 viewer.spawnParticle(
-                        VersionedParticle.DUST,
+                        Particle.DUST,
                         l.getX() + 0.5,
                         l.getY() + 0.5,
                         l.getZ() + 0.5,
