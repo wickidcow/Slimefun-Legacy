@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.guide.enhanced;
 
+import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.bakedlibs.dough.items.ItemUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
@@ -21,8 +22,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.HumanEntity;
@@ -154,7 +155,7 @@ public final class LegacyMachineRecipeBrowser implements Listener {
         event.setCancelled(true);
         if (context.expiresAt() < System.currentTimeMillis()) {
             contexts.remove(player.getUniqueId());
-            player.sendMessage(ChatColor.RED + "This machine-recipe session expired. Reopen the machine in the guide.");
+            player.sendMessage(legacyText("&cThis machine-recipe session expired. Reopen the machine in the guide."));
             return;
         }
 
@@ -219,7 +220,7 @@ public final class LegacyMachineRecipeBrowser implements Listener {
     private void openRecipeList(@Nonnull Player player, @Nonnull BrowserContext context, int requestedPage) {
         List<MachineRecipeDisplay> recipes = context.recipes();
         if (recipes.isEmpty()) {
-            player.sendMessage(ChatColor.RED + "No enabled recipes are available for this machine in this world.");
+            player.sendMessage(legacyText("&cNo enabled recipes are available for this machine in this world."));
             context.guide().displayItem(context.profile(), context.machine(), false);
             return;
         }
@@ -341,8 +342,8 @@ public final class LegacyMachineRecipeBrowser implements Listener {
             ItemStack output = addLore(
                     recipeOutput,
                     "",
-                    ChatColor.GREEN + "Machine output",
-                    ChatColor.GRAY + "Right-click to view this item's own recipe");
+                    "&a" + "Machine output",
+                    "&7" + "Right-click to view this item's own recipe");
             int slot = DETAIL_OUTPUT_SLOTS[index];
             menu.replaceExistingItem(slot, output);
             menu.addMenuClickHandler(slot, (pl, clickedSlot, clickedItem, action) -> {
@@ -426,16 +427,16 @@ public final class LegacyMachineRecipeBrowser implements Listener {
 
         List<String> lore = new ArrayList<>();
         lore.add("");
-        lore.add(ChatColor.GOLD + "Machine recipe " + ChatColor.WHITE + (recipeIndex + 1) + ChatColor.GRAY + "/"
+        lore.add("&6" + "Machine recipe " + "&f" + (recipeIndex + 1) + "&7" + "/"
                 + totalRecipes);
-        lore.add(ChatColor.GRAY + "Inputs: " + ChatColor.WHITE
+        lore.add("&7" + "Inputs: " + "&f"
                 + recipe.getInputs().size());
-        lore.add(ChatColor.GRAY + "Outputs: " + ChatColor.WHITE + outputs.size());
+        lore.add("&7" + "Outputs: " + "&f" + outputs.size());
         if (!recipe.getLabel().isBlank()) {
-            lore.add(ChatColor.DARK_GRAY + recipe.getLabel());
+            lore.add("&8" + recipe.getLabel());
         }
-        lore.add(ChatColor.YELLOW + "Left-click: " + ChatColor.GRAY + "View full recipe");
-        lore.add(ChatColor.YELLOW + "Right-click: " + ChatColor.GRAY + "View output's own recipe");
+        lore.add("&e" + "Left-click: " + "&7" + "View full recipe");
+        lore.add("&e" + "Right-click: " + "&7" + "View output's own recipe");
         return addLore(outputs.get(0), lore.toArray(new String[0]));
     }
 
@@ -446,34 +447,34 @@ public final class LegacyMachineRecipeBrowser implements Listener {
         ItemStack choice = choices.get(safeIndex);
         List<String> lore = new ArrayList<>();
         lore.add("");
-        lore.add(ChatColor.AQUA + "Ingredient " + ChatColor.WHITE + (ingredientIndex + 1));
-        lore.add(ChatColor.GRAY + "Required: " + ChatColor.WHITE + choice.getAmount());
+        lore.add("&b" + "Ingredient " + "&f" + (ingredientIndex + 1));
+        lore.add("&7" + "Required: " + "&f" + choice.getAmount());
         if (choices.size() > 1) {
-            lore.add(ChatColor.GRAY + "Alternative " + ChatColor.WHITE + (safeIndex + 1) + ChatColor.GRAY + "/"
+            lore.add("&7" + "Alternative " + "&f" + (safeIndex + 1) + "&7" + "/"
                     + choices.size());
-            lore.add(ChatColor.YELLOW + "Left/right-click to cycle choices");
+            lore.add("&e" + "Left/right-click to cycle choices");
         }
         return addLore(choice, lore.toArray(new String[0]));
     }
 
     private @Nonnull ItemStack recipeInformation(@Nonnull MachineRecipeDisplay recipe) {
         List<String> lore = new ArrayList<>();
-        lore.add(ChatColor.GRAY + "Inputs: " + ChatColor.WHITE
+        lore.add("&7" + "Inputs: " + "&f"
                 + recipe.getInputs().size());
-        lore.add(ChatColor.GRAY + "Outputs: " + ChatColor.WHITE
+        lore.add("&7" + "Outputs: " + "&f"
                 + recipe.getOutputs().size());
-        lore.add(ChatColor.GRAY + "Layout: " + ChatColor.WHITE + readableLayout(recipe));
+        lore.add("&7" + "Layout: " + "&f" + readableLayout(recipe));
         if (recipe.hasKnownProcessingTime()) {
-            lore.add(ChatColor.GRAY + "Processing ticks: " + ChatColor.WHITE + recipe.getProcessingTicks());
+            lore.add("&7" + "Processing ticks: " + "&f" + recipe.getProcessingTicks());
         }
         if (recipe.hasKnownEnergyUse()) {
-            lore.add(ChatColor.GRAY + "Energy use: " + ChatColor.WHITE + recipe.getEnergyPerTick() + " J/t");
+            lore.add("&7" + "Energy use: " + "&f" + recipe.getEnergyPerTick() + " J/t");
         }
         if (!recipe.getLabel().isBlank()) {
-            lore.add(ChatColor.DARK_GRAY + recipe.getLabel());
+            lore.add("&8" + recipe.getLabel());
         }
         if (recipe.getInputs().size() > DETAIL_INPUT_SLOTS.length) {
-            lore.add(ChatColor.RED + "Only the first " + DETAIL_INPUT_SLOTS.length + " inputs are shown.");
+            lore.add("&c" + "Only the first " + DETAIL_INPUT_SLOTS.length + " inputs are shown.");
         }
         return new CustomItemStack(Material.BOOK, "&6Recipe Information", lore.toArray(new String[0]));
     }
@@ -491,9 +492,9 @@ public final class LegacyMachineRecipeBrowser implements Listener {
         return addLore(
                 machine.getItem(),
                 "",
-                ChatColor.GRAY + "Processes " + ChatColor.WHITE + recipeCount + ChatColor.GRAY + " recipes",
-                ChatColor.GRAY + "Provider: " + ChatColor.WHITE + provider.getKey(),
-                ChatColor.DARK_GRAY + machine.getId());
+                "&7" + "Processes " + "&f" + recipeCount + "&7" + " recipes",
+                "&7" + "Provider: " + "&f" + provider.getKey(),
+                "&8" + machine.getId());
     }
 
     private @Nonnull ItemStack addLore(@Nonnull ItemStack source, @Nonnull String... lines) {
@@ -502,11 +503,15 @@ public final class LegacyMachineRecipeBrowser implements Listener {
         List<Component> currentLore = meta.lore();
         List<Component> lore = currentLore == null ? new ArrayList<>() : new ArrayList<>(currentLore);
         for (String line : lines) {
-            lore.add(LegacyComponentSerializer.legacySection().deserialize(line));
+            lore.add(legacyText(line));
         }
         meta.lore(lore);
         clone.setItemMeta(meta);
         return clone;
+    }
+
+    private static Component legacyText(String value) {
+        return LegacyComponentSerializer.legacySection().deserialize(ChatColors.color(value));
     }
 
     private @Nonnull ChestMenu createMenu(@Nonnull String title) {
@@ -523,7 +528,7 @@ public final class LegacyMachineRecipeBrowser implements Listener {
     }
 
     private @Nonnull String title(@Nonnull String value) {
-        String stripped = ChatColor.stripColor(value);
+        String stripped = PlainTextComponentSerializer.plainText().serialize(legacyText(value));
         if (stripped == null) {
             return "Machine Recipes";
         }
