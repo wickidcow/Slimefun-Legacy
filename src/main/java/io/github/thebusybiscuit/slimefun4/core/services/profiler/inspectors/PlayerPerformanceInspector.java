@@ -5,14 +5,14 @@ import io.github.thebusybiscuit.slimefun4.core.services.profiler.SummaryOrderTyp
 import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import net.md_5.bungee.api.chat.TextComponent;
+import net.kyori.adventure.text.Component;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 /**
  * This implementation of {@link PerformanceInspector} refers to a {@link Player}.
- * It also supports {@link TextComponent TextComponents} for rich text messages.
+ * It also supports Adventure {@link Component Components} for rich text messages.
  *
  * @author TheBusyBiscuit
  *
@@ -89,11 +89,11 @@ public class PlayerPerformanceInspector implements PerformanceInspector {
         }
     }
 
-    public void sendMessage(@Nonnull TextComponent component) {
+    public void sendMessage(@Nonnull Component component) {
         Player player = getPlayer();
 
         if (player != null) {
-            player.spigot().sendMessage(component);
+            player.sendMessage(component);
         }
     }
 }
