@@ -15,7 +15,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
-import org.bukkit.ChatColor;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -37,7 +36,7 @@ class PlayerLanguageOption implements SlimefunGuideOption<String> {
         Language language = Slimefun.getLocalization().getLanguage(p);
         String languageName = language.isDefault()
                 ? (Slimefun.getLocalization().getMessage(p, "languages.default")
-                        + ChatColor.DARK_GRAY
+                        + "&8"
                         + " ("
                         + language.getName(p)
                         + ")")
@@ -131,9 +130,9 @@ class PlayerLanguageOption implements SlimefunGuideOption<String> {
                 9,
                 new CustomItemStack(
                         defaultLanguage.getItem(),
-                        ChatColor.GRAY
+                        "&7"
                                 + defaultLanguageString
-                                + ChatColor.DARK_GRAY
+                                + "&8"
                                 + " ("
                                 + defaultLanguage.getName(p)
                                 + ")",
@@ -165,7 +164,7 @@ class PlayerLanguageOption implements SlimefunGuideOption<String> {
                         slot,
                         new CustomItemStack(
                                 language.getItem(),
-                                ChatColor.GREEN + language.getName(p),
+                                "&a" + language.getName(p),
                                 "&b" + language.getTranslationProgress() + '%',
                                 "",
                                 "&7\u21E8 &e" + Slimefun.getLocalization().getMessage(p, "guide.languages.select")),
