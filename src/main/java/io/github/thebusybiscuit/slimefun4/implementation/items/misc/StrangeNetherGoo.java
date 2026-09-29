@@ -81,7 +81,7 @@ public class StrangeNetherGoo extends SimpleSlimefunItem<ItemUseHandler> impleme
                 return;
             }
 
-            if (sheep.getCustomName() != null) {
+            if (sheep.customName() != null) {
                 e.setCancelled(true);
                 return;
             }
