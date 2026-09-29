@@ -118,7 +118,7 @@ final class BeaconPlusAreaVisualizer implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)
-                || !isResonanceMenu(event.getView().getTitle())
+                || !isResonanceMenu(event.getView().title())
                 || event.getRawSlot() != MENU_SLOT) {
             return;
         }
@@ -169,7 +169,7 @@ final class BeaconPlusAreaVisualizer implements Listener {
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
         if (event.getPlayer() instanceof Player player
-                && isResonanceMenu(event.getView().getTitle())) {
+                && isResonanceMenu(event.getView().title())) {
             OPEN_MENU_TARGETS.remove(player.getUniqueId());
         }
     }
