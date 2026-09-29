@@ -13,8 +13,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nonnull;
 import lombok.Getter;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
@@ -60,7 +61,8 @@ public class ChestMenu extends SlimefunInventoryHolder {
      * @param title The title of the Menu
      */
     public ChestMenu(String title) {
-        this.title = ChatColor.translateAlternateColorCodes('&', title);
+        this.title = LegacyComponentSerializer.legacySection()
+                .serialize(LegacyComponentSerializer.legacyAmpersand().deserialize(title));
         this.clickable = false;
         this.emptyClickable = true;
         this.items = new CopyOnWriteArrayList<>();
@@ -262,7 +264,7 @@ public class ChestMenu extends SlimefunInventoryHolder {
     private void setup() {
         if (this.inventory != null) return;
 
-        this.inventory = Bukkit.createInventory(this, getSize(), title);
+        this.inventory = Bukkit.createInventory(this, getSize(), titleComponent());
         for (int i = 0; i < this.items.size(); i++) {
             this.inventory.setItem(i, this.items.get(i));
         }
@@ -273,12 +275,12 @@ public class ChestMenu extends SlimefunInventoryHolder {
      */
     public void reset(boolean update) {
         if (this.inventory == null || this.inventory.getSize() != getSize())
-            this.inventory = Bukkit.createInventory(this, getSize(), title);
+            this.inventory = Bukkit.createInventory(this, getSize(), titleComponent());
 
         if (update) {
             this.inventory.clear();
         } else {
-            this.inventory = Bukkit.createInventory(this, getSize(), title);
+            this.inventory = Bukkit.createInventory(this, getSize(), titleComponent());
         }
 
         for (int i = 0; i < this.items.size(); i++) {
@@ -357,6 +359,10 @@ public class ChestMenu extends SlimefunInventoryHolder {
      */
     public Inventory toInventory() {
         return this.inventory;
+    }
+
+    private Component titleComponent() {
+        return LegacyComponentSerializer.legacySection().deserialize(title);
     }
 
     public int getSize() {
