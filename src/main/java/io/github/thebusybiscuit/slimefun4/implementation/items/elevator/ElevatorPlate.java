@@ -14,6 +14,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
 import io.github.thebusybiscuit.slimefun4.utils.ChatUtils;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -24,6 +25,9 @@ import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -249,10 +253,14 @@ public class ElevatorPlate extends SimpleSlimefunItem<BlockUseHandler> {
                     return;
                 }
 
-                Slimefun.runSyncFor(
-                        player,
-                        () -> player.sendTitle(
-                                ChatColors.color("&f" + floor.getName()), null, 20, 60, 20));
+                Slimefun.runSyncFor(player, () -> player.showTitle(Title.title(
+                        LegacyComponentSerializer.legacySection()
+                                .deserialize(ChatColors.color("&f" + floor.getName())),
+                        Component.empty(),
+                        Title.Times.times(
+                                Duration.ofMillis(1000L),
+                                Duration.ofMillis(3000L),
+                                Duration.ofMillis(1000L)))));
             });
         });
     }
