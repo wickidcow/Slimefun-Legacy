@@ -81,8 +81,10 @@ jobs:
           echo "Compiling Slimefun Legacy against Paper API ${PAPER_26_3_API}"
           ./gradlew clean compileJava \
             -PpaperApiVersion="${PAPER_26_3_API}" \
+            -PslimefunDeprecationReport=true \
             --warning-mode all \
             --no-daemon 2>&1 | tee paper-26.3-compile.log
+          python3 scripts/summarize_deprecations.py paper-26.3-compile.log
 
       - name: Publish compile result
         if: steps.paper.outputs.available == 'true' && always()
@@ -101,5 +103,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: paper-26.3-primary-compile
-          path: paper-26.3-compile.log
+          path: |
+            paper-26.3-compile.log
+            build/reports/deprecations.md
           if-no-files-found: warn
