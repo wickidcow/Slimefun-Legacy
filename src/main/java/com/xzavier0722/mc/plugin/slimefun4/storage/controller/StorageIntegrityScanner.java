@@ -659,7 +659,7 @@ public final class StorageIntegrityScanner {
         key.addField(ownerField);
         Set<String> owners = new HashSet<>();
         controller.getData(key, true).forEach(record -> {
-            String owner = record.get(ownerField);
+            String owner = record.getString(ownerField);
             if (owner != null && !owner.isBlank()) {
                 owners.add(owner);
             }
