@@ -12,7 +12,6 @@ import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -20,6 +19,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -498,10 +499,12 @@ public final class LegacyMachineRecipeBrowser implements Listener {
     private @Nonnull ItemStack addLore(@Nonnull ItemStack source, @Nonnull String... lines) {
         ItemStack clone = source.clone();
         ItemMeta meta = clone.getItemMeta();
-        List<String> lore =
-                meta.hasLore() && meta.getLore() != null ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
-        Collections.addAll(lore, lines);
-        meta.setLore(lore);
+        List<Component> currentLore = meta.lore();
+        List<Component> lore = currentLore == null ? new ArrayList<>() : new ArrayList<>(currentLore);
+        for (String line : lines) {
+            lore.add(LegacyComponentSerializer.legacySection().deserialize(line));
+        }
+        meta.lore(lore);
         clone.setItemMeta(meta);
         return clone;
     }
