@@ -207,7 +207,7 @@ def main() -> int:
     require(fluid_pump, "ItemStack remainder = menu.pushItem(output, getOutputSlots());", "FluidPump output remainder capture")
     require(fluid_pump, "source.setBlockData(originalFluid, false);", "FluidPump source rollback")
     require(fluid_pump, "menu.replaceExistingItem(inputSlot, originalInput);", "FluidPump input rollback")
-    require(fluid_pump, "addCharge(machine.getLocation(), ENERGY_CONSUMPTION);", "FluidPump energy rollback")
+    require(fluid_pump, "addCharge(machine.getLocation(), (long) ENERGY_CONSUMPTION);", "FluidPump energy rollback")
     require_before(
         fluid_pump,
         "source.setType(Material.AIR, false);",
