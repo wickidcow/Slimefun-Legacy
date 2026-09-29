@@ -3,7 +3,7 @@ package io.github.thebusybiscuit.slimefun4.integrations;
 import com.gmail.nossr50.events.fake.FakeBlockBreakEvent;
 import com.gmail.nossr50.util.skills.SkillUtils;
 import dev.lone.itemsadder.api.CustomBlock;
-import dev.lone.itemsadder.api.ItemsAdder;
+import dev.lone.itemsadder.api.CustomStack;
 import io.github.bakedlibs.dough.protection.ProtectionManager;
 import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
 import io.github.thebusybiscuit.slimefun4.core.services.protection.ProtectionCompatibility;
@@ -349,7 +349,6 @@ public class IntegrationsManager {
      *
      * @return Whether a different custom {@link Block} exists at that {@link Location}
      */
-    @SuppressWarnings("deprecation")
     public boolean isCustomBlock(@Nonnull Block block) {
         if (isItemsAdderInstalled) {
             try {
@@ -371,11 +370,10 @@ public class IntegrationsManager {
      *
      * @return Whether this {@link ItemStack} is a custom item
      */
-    @SuppressWarnings("deprecation")
     public boolean isCustomItem(@Nonnull ItemStack item) {
         if (isItemsAdderInstalled) {
             try {
-                return ItemsAdder.isCustomItem(item);
+                return CustomStack.byItemStack(item) != null;
             } catch (Exception | LinkageError x) {
                 logError("ItemsAdder", x);
             }
