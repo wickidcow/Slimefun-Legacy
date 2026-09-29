@@ -19,7 +19,6 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -122,7 +121,7 @@ public final class SlimefunGuideSettings {
                 4,
                 new CustomItemStack(
                         Material.WRITABLE_BOOK,
-                        ChatColor.GREEN + locale.getMessage(p, "guide.title.versions"),
+                        "&a" + locale.getMessage(p, "guide.title.versions"),
                         "&7&o" + locale.getMessage(p, "guide.tooltips.versions-notice"),
                         "",
                         "&fSlimefun Legacy by wickidcow/TanukiTomo",
