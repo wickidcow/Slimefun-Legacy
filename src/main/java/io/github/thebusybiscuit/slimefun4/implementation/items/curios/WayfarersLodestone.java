@@ -9,8 +9,8 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunIte
 import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
@@ -66,9 +66,9 @@ public final class WayfarersLodestone extends SimpleSlimefunItem<ItemUseHandler>
         item.setItemMeta(meta);
 
         player.playSound(location, Sound.BLOCK_LODESTONE_PLACE, 0.8F, 1.25F);
-        player.sendMessage(ChatColor.GOLD + "Wayfarer's Lodestone bound to this expedition point at "
-                + ChatColor.YELLOW + location.getBlockX() + ", " + location.getBlockY() + ", " + location.getBlockZ()
-                + ChatColor.GRAY + ". It does not create a home or teleport point.");
+        message(player, "&6" + "Wayfarer's Lodestone bound to this expedition point at "
+                + "&e" + location.getBlockX() + ", " + location.getBlockY() + ", " + location.getBlockZ()
+                + "&7" + ". It does not create a home or teleport point.");
     }
 
     private void pointHome(Player player, ItemStack item, CompassMeta meta) {
@@ -78,7 +78,7 @@ public final class WayfarersLodestone extends SimpleSlimefunItem<ItemUseHandler>
         Double y = data.get(yKey, PersistentDataType.DOUBLE);
         Double z = data.get(zKey, PersistentDataType.DOUBLE);
         if (worldValue == null || x == null || y == null || z == null) {
-            player.sendMessage(ChatColor.YELLOW + "Sneak-right-click to bind the Wayfarer's Lodestone to an expedition point.");
+            message(player, "&e" + "Sneak-right-click to bind the Wayfarer's Lodestone to an expedition point.");
             return;
         }
 
@@ -86,13 +86,13 @@ public final class WayfarersLodestone extends SimpleSlimefunItem<ItemUseHandler>
         try {
             worldId = UUID.fromString(worldValue);
         } catch (IllegalArgumentException ignored) {
-            player.sendMessage(ChatColor.RED + "The Wayfarer's Lodestone binding is damaged. Bind it again.");
+            message(player, "&c" + "The Wayfarer's Lodestone binding is damaged. Bind it again.");
             return;
         }
 
         World targetWorld = Bukkit.getWorld(worldId);
         if (targetWorld == null) {
-            player.sendMessage(ChatColor.RED + "The bound expedition world is not currently available.");
+            message(player, "&c" + "The bound expedition world is not currently available.");
             return;
         }
 
@@ -102,17 +102,17 @@ public final class WayfarersLodestone extends SimpleSlimefunItem<ItemUseHandler>
         item.setItemMeta(meta);
 
         if (!player.getWorld().getUID().equals(worldId)) {
-            player.sendMessage(ChatColor.GOLD + "Wayfarer's Lodestone: " + ChatColor.GRAY
-                    + "your expedition point is in " + ChatColor.AQUA + targetWorld.getName() + ChatColor.GRAY + ".");
+            message(player, "&6" + "Wayfarer's Lodestone: " + "&7"
+                    + "your expedition point is in " + "&b" + targetWorld.getName() + "&7" + ".");
             return;
         }
 
         Location origin = player.getLocation();
         int distance = (int) Math.round(Math.sqrt(origin.distanceSquared(target)));
         player.playSound(origin, Sound.BLOCK_LODESTONE_PLACE, 0.6F, 1.45F);
-        player.sendMessage(ChatColor.GOLD + "Wayfarer's Lodestone: " + ChatColor.GRAY + "about "
-                + ChatColor.YELLOW + distance + ChatColor.GRAY + " blocks " + ChatColor.AQUA
-                + cardinalDirection(origin, target) + ChatColor.GRAY + ". Follow the compass needle back.");
+        message(player, "&6" + "Wayfarer's Lodestone: " + "&7" + "about "
+                + "&e" + distance + "&7" + " blocks " + "&b"
+                + cardinalDirection(origin, target) + "&7" + ". Follow the compass needle back.");
     }
 
     private static String cardinalDirection(Location from, Location to) {
@@ -131,4 +131,8 @@ public final class WayfarersLodestone extends SimpleSlimefunItem<ItemUseHandler>
             default -> "southeast";
         };
     }
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
 }
