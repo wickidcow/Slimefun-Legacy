@@ -29,3 +29,11 @@ Base contributions on `master`. Commits must follow Conventional Commits, for ex
 ## Security & Configuration
 
 Never commit server data, credentials, or publishing secrets. Maven publishing reads `MAVEN_ACCOUNT` and `MAVEN_PASSWORD` from the environment; keep local test-server configuration outside tracked source and build directories.
+
+## Compatibility-First Modernization
+
+Minecraft 1.21.11 is the minimum supported version. Prioritize Paper and Purpur; retain Leaf and Folia support with explicit scheduler/region-safety validation. Do not confuse the minimum server version with the age of world data that must remain readable.
+
+Preserve item/research IDs, persistent keys, machine/backpack identities, inventories, saved-world formats and addon-facing descriptors. Audit `BlockStorage`, legacy `Config`, menus, ticker/energy bridges and serialization before changing them. Deprecated compatibility bridges may remain when their removal would break data or addons; blanket warning suppression is not a modernization strategy.
+
+Follow [the storage audit and execution order](docs/modernization-storage-audit.md). Keep batches coherent and isolate them from concurrent work. Report actual test evidence separately from planned validation; a green compile is not proof of old-world upgrades, Folia safety or cross-fork rollback. Cross-fork compatibility claims require exact build pairs and round-trip evidence, not merely successful reads of an older format.
