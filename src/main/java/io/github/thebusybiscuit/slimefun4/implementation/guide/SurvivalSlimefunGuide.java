@@ -139,7 +139,7 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
                     if (flexItemGroup.isVisible(p, profile, visibilityMode)) {
                         groups.add(group);
                     }
-                } else if (!group.isHidden(p)) {
+                } else if (group.isVisible(p)) {
                     groups.add(group);
                 }
             } catch (Exception | LinkageError x) {
