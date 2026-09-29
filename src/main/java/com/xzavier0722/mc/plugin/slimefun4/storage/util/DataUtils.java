@@ -139,15 +139,28 @@ public class DataUtils {
      */
     @Deprecated
     @Nullable public static ItemStack deserializeItemStack(String base64Str) {
-        if (base64Str == null || base64Str.isBlank()) {
+        return deserializeStoredItemStack(base64Str);
+    }
+
+    /**
+     * Deserializes item data read from a legacy String-backed storage column.
+     *
+     * <p>This keeps the historical String decoding contract for internal migration code while the
+     * deprecated {@link #deserializeItemStack(String)} entry point remains available to addons.
+     *
+     * @param storedValue encoded item data
+     * @return item, or null for an empty value
+     */
+    @Nullable public static ItemStack deserializeStoredItemStack(String storedValue) {
+        if (storedValue == null || storedValue.isBlank()) {
             return null;
         }
 
         Debug.log(TestCase.BACKPACK, "Deserializing legacy string item data");
-        var decoded = Base64.getMimeDecoder().decode(base64Str);
+        var decoded = Base64.getMimeDecoder().decode(storedValue);
         return ItemStackDataCodec.isCurrent(decoded)
                 ? deserializeItemStack(decoded)
-                : deserializeItemStack(base64Str.getBytes(StandardCharsets.US_ASCII));
+                : deserializeItemStack(storedValue.getBytes(StandardCharsets.US_ASCII));
     }
 
     public static boolean isLegacyItemStack(byte[] data) {
