@@ -414,7 +414,7 @@ public class GPSNetwork {
                 Bukkit.getPluginManager().callEvent(event);
 
                 if (!event.isCancelled()) {
-                    String id = ChatUtils.removeColor(event.getName())
+                    String id = ChatUtils.removeColorCodes(event.getName())
                             .toUpperCase(Locale.ROOT)
                             .replace(' ', '_');
 
