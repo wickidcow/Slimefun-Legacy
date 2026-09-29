@@ -18,7 +18,8 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 
@@ -149,8 +150,9 @@ public final class GuideRuntimeGuard {
             boolean playerFacing) {
         if (playerFacing) {
             player.closeInventory();
-            player.sendMessage(ChatColor.DARK_RED
-                    + "Slimefun blocked a recursive guide menu. Please tell an administrator to check the console.");
+            player.sendMessage(Component.text(
+                    "Slimefun blocked a recursive guide menu. Please tell an administrator to check the console.",
+                    NamedTextColor.DARK_RED));
         }
 
         String warningKey = "recursive|" + call;
@@ -169,8 +171,9 @@ public final class GuideRuntimeGuard {
             boolean playerFacing) {
         if (playerFacing) {
             player.closeInventory();
-            player.sendMessage(ChatColor.DARK_RED
-                    + "Slimefun blocked a broken guide menu. Please tell an administrator to check the console.");
+            player.sendMessage(Component.text(
+                    "Slimefun blocked a broken guide menu. Please tell an administrator to check the console.",
+                    NamedTextColor.DARK_RED));
         }
 
         String warningKey = "failure|" + call + '|' + failure.getClass().getName();
