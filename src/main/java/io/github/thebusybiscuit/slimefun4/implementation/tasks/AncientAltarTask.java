@@ -9,7 +9,6 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.altar.AncientPede
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.AncientAltarListener;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
 import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
-import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedParticle;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -19,6 +18,7 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Bukkit;
+import org.bukkit.Particle;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.SoundCategory;
@@ -131,12 +131,12 @@ public class AncientAltarTask implements Runnable {
     }
 
     private void idle() {
-        dropLocation.getWorld().spawnParticle(VersionedParticle.WITCH, dropLocation, 16, 1.2F, 0F, 1.2F);
-        dropLocation.getWorld().spawnParticle(VersionedParticle.FIREWORK, dropLocation, 8, 0.2F, 0F, 0.2F);
+        dropLocation.getWorld().spawnParticle(Particle.WITCH, dropLocation, 16, 1.2F, 0F, 1.2F);
+        dropLocation.getWorld().spawnParticle(Particle.FIREWORK, dropLocation, 8, 0.2F, 0F, 0.2F);
 
         for (Location loc : particleLocations) {
-            dropLocation.getWorld().spawnParticle(VersionedParticle.ENCHANT, loc, 16, 0.3F, 0.2F, 0.3F);
-            dropLocation.getWorld().spawnParticle(VersionedParticle.ENCHANTED_HIT, loc, 8, 0.3F, 0.2F, 0.3F);
+            dropLocation.getWorld().spawnParticle(Particle.ENCHANT, loc, 16, 0.3F, 0.2F, 0.3F);
+            dropLocation.getWorld().spawnParticle(Particle.ENCHANTED_HIT, loc, 8, 0.3F, 0.2F, 0.3F);
         }
     }
 
@@ -154,11 +154,11 @@ public class AncientAltarTask implements Runnable {
             dropLocation
                     .getWorld()
                     .spawnParticle(
-                            VersionedParticle.ENCHANT, pedestal.getLocation().add(0.5, 1.5, 0.5), 16, 0.3F, 0.2F, 0.3F);
+                            Particle.ENCHANT, pedestal.getLocation().add(0.5, 1.5, 0.5), 16, 0.3F, 0.2F, 0.3F);
             dropLocation
                     .getWorld()
                     .spawnParticle(
-                            VersionedParticle.ENCHANTED_HIT,
+                            Particle.ENCHANTED_HIT,
                             pedestal.getLocation().add(0.5, 1.5, 0.5),
                             8,
                             0.3F,
