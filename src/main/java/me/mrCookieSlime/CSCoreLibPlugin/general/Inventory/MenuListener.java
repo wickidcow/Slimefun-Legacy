@@ -19,12 +19,11 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
 /**
- * An old {@link Listener} for CS-CoreLib
+ * Central compatibility listener for {@link ChestMenu} and {@link BlockMenu} inventory interactions.
  *
- * @deprecated This is an old remnant of CS-CoreLib, the last bits of the past. They will be removed once everything is
- * updated.
+ * <p>The class remains in the historical CS-CoreLib package for addon and binary compatibility, but it is actively
+ * maintained by Slimefun Legacy and is the supported listener for the retained ChestMenu API.
  */
-@Deprecated
 public class MenuListener implements Listener {
 
     public MenuListener(Plugin plugin) {
