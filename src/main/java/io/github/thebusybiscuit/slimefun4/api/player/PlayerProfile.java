@@ -2,7 +2,6 @@ package io.github.thebusybiscuit.slimefun4.api.player;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.bakedlibs.dough.config.Config;
 import io.github.thebusybiscuit.slimefun4.api.annotations.SlimefunAPI;
 import io.github.thebusybiscuit.slimefun4.api.gps.Waypoint;
@@ -29,6 +28,8 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -366,21 +367,20 @@ public class PlayerProfile {
 
         float progress = Math.round(((unlockedResearches * 100.0F) / allResearches) * 100.0F) / 100.0F;
 
-        sender.sendMessage("");
-        sender.sendMessage(ChatColors.color("&7Player research statistics: &b" + getPlayer()));
-        sender.sendMessage("");
-        sender.sendMessage(ChatColors.color("&7Research level: &b" + getTitle()));
-        sender.sendMessage(ChatColors.color("&7Research progress: "
-                + NumberUtils.getColorFromPercentage(progress)
-                + progress
-                + " &r% "
-                + "&e"
-                + '('
-                + unlockedResearches
-                + " / "
-                + allResearches
-                + ')'));
-        sender.sendMessage(ChatColors.color("&7Total experience levels spent: &b" + levels));
+        sender.sendMessage(Component.empty());
+        sender.sendMessage(Component.text("Player research statistics: ", NamedTextColor.GRAY)
+                .append(Component.text(String.valueOf(getPlayer()), NamedTextColor.AQUA)));
+        sender.sendMessage(Component.empty());
+        sender.sendMessage(Component.text("Research level: ", NamedTextColor.GRAY)
+                .append(Component.text(getTitle(), NamedTextColor.AQUA)));
+        sender.sendMessage(Component.text("Research progress: ", NamedTextColor.GRAY)
+                .append(Component.text(progress, NumberUtils.getTextColorFromPercentage(progress)))
+                .append(Component.text(" % "))
+                .append(Component.text(
+                        '(' + String.valueOf(unlockedResearches) + " / " + allResearches + ')',
+                        NamedTextColor.YELLOW)));
+        sender.sendMessage(Component.text("Total experience levels spent: ", NamedTextColor.GRAY)
+                .append(Component.text(levels, NamedTextColor.AQUA)));
     }
 
     /**
