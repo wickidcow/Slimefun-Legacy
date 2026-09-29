@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.gps;
 
+import com.xzavier0722.mc.plugin.slimefun4.storage.controller.ASlimefunDataContainer;
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.SlimefunBlockData;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
@@ -102,11 +103,12 @@ public abstract class GPSTransmitter extends SimpleSlimefunItem<BlockTicker>
                     return;
                 }
 
-                int charge = getCharge(b.getLocation(), data);
+                ASlimefunDataContainer loadedData = data;
+                long charge = getChargeLong(b.getLocation(), loadedData);
 
                 if (charge >= getEnergyConsumption()) {
                     Slimefun.getGPSNetwork().updateTransmitter(b.getLocation(), owner, true);
-                    removeCharge(b.getLocation(), getEnergyConsumption());
+                    removeCharge(b.getLocation(), (long) getEnergyConsumption(), loadedData);
                 } else {
                     Slimefun.getGPSNetwork().updateTransmitter(b.getLocation(), owner, false);
                 }
