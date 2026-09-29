@@ -73,6 +73,10 @@ SPECIAL_FORBIDDEN = {
         "meta.getLore()",
         ".setDisplayName(",
         ".setLore(",
+        "itemMeta.hasCustomModelData()",
+        "itemMeta.getCustomModelData()",
+        "sfitemMeta.hasCustomModelData()",
+        "sfitemMeta.getCustomModelData()",
     ),
 }
 
