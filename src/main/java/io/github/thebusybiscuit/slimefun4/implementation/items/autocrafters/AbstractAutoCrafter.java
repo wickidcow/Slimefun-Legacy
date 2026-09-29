@@ -3,6 +3,7 @@ package io.github.thebusybiscuit.slimefun4.implementation.items.autocrafters;
 import com.xzavier0722.mc.plugin.slimefun4.autocrafter.ChestInventoryParser;
 import com.xzavier0722.mc.plugin.slimefun4.autocrafter.CrafterInteractable;
 import com.xzavier0722.mc.plugin.slimefun4.autocrafter.CrafterInteractorManager;
+import com.xzavier0722.mc.plugin.slimefun4.storage.controller.ASlimefunDataContainer;
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.SlimefunBlockData;
 import io.github.bakedlibs.dough.data.persistent.PersistentDataAPI;
 import io.github.bakedlibs.dough.items.CustomItemStack;
@@ -210,8 +211,9 @@ public abstract class AbstractAutoCrafter extends SlimefunItem implements Energy
         AbstractRecipe recipe = getSelectedRecipe(b);
         Location location = b.getLocation();
         int energyConsumption = getEnergyConsumption();
+        ASlimefunDataContainer energyData = data;
 
-        if (recipe == null || !recipe.isEnabled() || getCharge(location, data) < energyConsumption) {
+        if (recipe == null || !recipe.isEnabled() || getChargeLong(location, energyData) < energyConsumption) {
             // No recipe / disabled recipe / no energy, abort...
             return;
         }
@@ -235,7 +237,7 @@ public abstract class AbstractAutoCrafter extends SlimefunItem implements Energy
         }
 
         // Keep the defensive charge re-check after custom interactor callbacks.
-        if (getCharge(location, data) < energyConsumption) {
+        if (getChargeLong(location, energyData) < energyConsumption) {
             return;
         }
 
@@ -256,7 +258,7 @@ public abstract class AbstractAutoCrafter extends SlimefunItem implements Energy
             // We are done crafting!
             Location particleLocation = location.clone().add(0.5, 0.8, 0.5);
             b.getWorld().spawnParticle(VersionedParticle.HAPPY_VILLAGER, particleLocation, 6);
-            removeCharge(location, energyConsumption);
+            removeCharge(location, (long) energyConsumption, energyData);
         }
     }
 
