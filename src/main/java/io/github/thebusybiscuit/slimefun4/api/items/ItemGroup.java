@@ -16,10 +16,11 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.apache.commons.lang.Validate;
-import org.bukkit.ChatColor;
 import org.bukkit.Keyed;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
@@ -289,11 +290,14 @@ public class ItemGroup implements Keyed {
                 name = legacyString(item.getItemMeta().displayName());
             }
 
-            meta.displayName(legacyText((this instanceof SeasonalItemGroup ? ChatColor.GOLD : ChatColor.YELLOW) + name));
+            meta.displayName(legacyText(name)
+                    .color(this instanceof SeasonalItemGroup ? NamedTextColor.GOLD : NamedTextColor.YELLOW));
             meta.lore(List.of(
                     Component.empty(),
-                    legacyText(ChatColor.GRAY + "\u21E8 " + ChatColor.GREEN
-                            + Slimefun.getLocalization().getMessage(p, "guide.tooltips.open-itemgroup"))));
+                    Component.text("\u21E8 ", NamedTextColor.GRAY)
+                            .append(legacyText(Slimefun.getLocalization().getMessage(
+                                            p, "guide.tooltips.open-itemgroup"))
+                                    .color(NamedTextColor.GREEN))));
         });
     }
 
@@ -304,7 +308,8 @@ public class ItemGroup implements Keyed {
      * @return The unlocalized name of this {@link ItemGroup}
      */
     public @Nonnull String getUnlocalizedName() {
-        return ChatColor.stripColor(legacyString(item.getItemMeta().displayName()));
+        Component displayName = item.getItemMeta().displayName();
+        return displayName == null ? "" : PlainTextComponentSerializer.plainText().serialize(displayName);
     }
 
     private static Component legacyText(String value) {
