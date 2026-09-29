@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.core.services.github;
 
-import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.bakedlibs.dough.data.TriStateOptional;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.utils.HeadTexture;
@@ -14,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.apache.commons.lang.Validate;
 
 /**
@@ -239,11 +239,13 @@ public class Contributor {
      */
     @Nonnull
     public String getDisplayName() {
-        return ChatColors.color("&7"
-                + githubUsername
-                + (!githubUsername.equals(minecraftUsername)
-                        ? "&8 (MC: " + minecraftUsername + ")"
-                        : ""));
+        return LegacyComponentSerializer.legacySection()
+                .serialize(LegacyComponentSerializer.legacyAmpersand()
+                        .deserialize("&7"
+                                + githubUsername
+                                + (!githubUsername.equals(minecraftUsername)
+                                        ? "&8 (MC: " + minecraftUsername + ")"
+                                        : "")));
     }
 
     /**

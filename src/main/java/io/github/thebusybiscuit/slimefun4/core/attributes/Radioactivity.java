@@ -1,9 +1,9 @@
 package io.github.thebusybiscuit.slimefun4.core.attributes;
 
-import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.thebusybiscuit.slimefun4.api.annotations.SlimefunAPI;
 import io.github.thebusybiscuit.slimefun4.implementation.tasks.armor.RadiationTask;
 import javax.annotation.Nonnull;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.entity.Player;
 
@@ -73,7 +73,9 @@ public enum Radioactivity {
     }
 
     public @Nonnull String getLore() {
-        return ChatColors.color("&a\u2622&7 Radiation Level: " + color + displayName);
+        return LegacyComponentSerializer.legacySection()
+                .serialize(LegacyComponentSerializer.legacyAmpersand()
+                        .deserialize("&a\u2622&7 Radiation Level: " + color + displayName));
     }
 
     /**

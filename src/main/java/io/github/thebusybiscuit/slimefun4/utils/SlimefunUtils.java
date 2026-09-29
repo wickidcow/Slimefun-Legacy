@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.utils;
 
-import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.bakedlibs.dough.common.CommonPatterns;
 import io.github.bakedlibs.dough.items.ItemMetaSnapshot;
 import io.github.bakedlibs.dough.skins.PlayerHead;
@@ -60,7 +59,8 @@ import org.bukkit.persistence.PersistentDataType;
 public final class SlimefunUtils {
 
     private static final String NO_PICKUP_KEY = "no_pickup";
-    private static final String SOULBOUND_LORE = ChatColors.color("&7Soulbound");
+    private static final String SOULBOUND_LORE = LegacyComponentSerializer.legacySection()
+            .serialize(LegacyComponentSerializer.legacyAmpersand().deserialize("&7Soulbound"));
 
     private SlimefunUtils() {}
 
