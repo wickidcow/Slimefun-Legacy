@@ -6,7 +6,6 @@ import com.xzavier0722.mc.plugin.slimefun4.storage.controller.ASlimefunDataConta
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.attributes.UniversalBlock;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.bakedlibs.dough.protection.Interaction;
-import io.github.thebusybiscuit.slimefun4.api.MinecraftVersion;
 import io.github.thebusybiscuit.slimefun4.api.events.ExplosiveToolBreakBlocksEvent;
 import io.github.thebusybiscuit.slimefun4.api.events.SlimefunBlockBreakEvent;
 import io.github.thebusybiscuit.slimefun4.api.events.SlimefunBlockPlaceEvent;
@@ -400,12 +399,7 @@ public class BlockListener implements Listener {
      */
     @ParametersAreNonnullByDefault
     private boolean isSupported(BlockData blockData, Block block) {
-        if (Slimefun.getMinecraftVersion().isAtLeast(MinecraftVersion.MINECRAFT_1_19)) {
-            return blockData.isSupported(block);
-        } else {
-            // TODO: Make 1.16-1.18 version. BlockData::isSupported is 1.19+.
-            return true;
-        }
+        return blockData.isSupported(block);
     }
 
     private int getBonusDropsWithFortune(@Nullable ItemStack item, @Nonnull Block b) {

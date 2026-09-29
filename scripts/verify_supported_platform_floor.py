@@ -54,6 +54,44 @@ def main() -> int:
     if "VersionedEvent.init()" in extended:
         failures.append("SlimefunExtended still initializes removed pre-1.21 event reflection state")
 
+    modern_paths = {
+        "src/main/java/io/github/thebusybiscuit/slimefun4/utils/SlimefunUtils.java": ("MINECRAFT_1_16", "return inventory.isEmpty();"),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/crafting/SmithingTableListener.java": (
+            "MINECRAFT_1_20",
+            "return 2;",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/BlockListener.java": (
+            "MINECRAFT_1_19",
+            "return blockData.isSupported(block);",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/weapons/IcyBow.java": (
+            "MINECRAFT_1_17",
+            "player.setFreezeTicks(60);",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/AutoDrier.java": (
+            "MINECRAFT_1_19",
+            "new ItemStack(Material.MUD)",
+        ),
+    }
+    for relative, (forbidden, required) in modern_paths.items():
+        text = (root / relative).read_text(encoding="utf-8")
+        if forbidden in text:
+            failures.append(f"{relative} still contains unsupported-version gate {forbidden}")
+        if required not in text:
+            failures.append(f"{relative} is missing its 1.21.11+ direct code path: {required}")
+
+    resource_maps = {
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/resources/OilResource.java": "/biome-maps/oil_v1.18.json",
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/resources/SaltResource.java": "/biome-maps/salt_v1.18.json",
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/resources/UraniumResource.java": "/biome-maps/uranium_v1.18.json",
+    }
+    for relative, required_map in resource_maps.items():
+        text = (root / relative).read_text(encoding="utf-8")
+        if "MinecraftVersion" in text:
+            failures.append(f"{relative} still contains an obsolete biome-version branch")
+        if required_map not in text:
+            failures.append(f"{relative} is missing the supported biome map {required_map}")
+
     if failures:
         print("Supported platform floor verification: FAIL")
         for failure in failures:

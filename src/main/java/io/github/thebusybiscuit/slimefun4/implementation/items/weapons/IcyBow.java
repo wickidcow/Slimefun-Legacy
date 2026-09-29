@@ -1,10 +1,8 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.weapons;
 
-import io.github.thebusybiscuit.slimefun4.api.MinecraftVersion;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BowShootHandler;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedPotionEffectType;
 import javax.annotation.Nonnull;
@@ -40,9 +38,7 @@ public class IcyBow extends SlimefunBow {
                     return;
                 }
 
-                if (Slimefun.getMinecraftVersion().isAtLeast(MinecraftVersion.MINECRAFT_1_17)) {
-                    player.setFreezeTicks(60);
-                }
+                player.setFreezeTicks(60);
             }
             VisualEffectUtils.playBlockBreakEffect(n.getLocation(), Material.ICE);
             VisualEffectUtils.playBlockBreakEffect(n.getEyeLocation(), Material.ICE);

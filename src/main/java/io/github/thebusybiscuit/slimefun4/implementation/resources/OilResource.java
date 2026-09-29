@@ -1,8 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.resources;
 
-import io.github.thebusybiscuit.slimefun4.api.MinecraftVersion;
 import io.github.thebusybiscuit.slimefun4.api.geo.GEOResource;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.geo.GEOMiner;
 import io.github.thebusybiscuit.slimefun4.implementation.items.geo.OilPump;
@@ -29,14 +27,7 @@ class OilResource extends AbstractResource {
     OilResource() {
         super("oil", "Oil", SlimefunItems.OIL_BUCKET, 8, false);
 
-        MinecraftVersion version = Slimefun.getMinecraftVersion();
-
-        if (version.isAtLeast(MinecraftVersion.MINECRAFT_1_18)) {
-            // 1.18+ renamed most biomes
-            biomes = getBiomeMap(this, "/biome-maps/oil_v1.18.json");
-        } else {
-            biomes = getBiomeMap(this, "/biome-maps/oil_v1.16.json");
-        }
+        biomes = getBiomeMap(this, "/biome-maps/oil_v1.18.json");
     }
 
     @Override
