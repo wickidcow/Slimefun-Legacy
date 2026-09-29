@@ -1,12 +1,10 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.electric.machines.accelerators;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
-import io.github.thebusybiscuit.slimefun4.api.MinecraftVersion;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.misc.OrganicFertilizer;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedParticle;
 import javax.annotation.Nonnull;
@@ -16,7 +14,6 @@ import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import org.bukkit.Tag;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.block.data.type.Sapling;
 import org.bukkit.inventory.ItemStack;
 
 /**
@@ -69,14 +66,7 @@ public class TreeGrowthAccelerator extends AbstractGrowthAccelerator {
 
     @ParametersAreNonnullByDefault
     private boolean tryToBoostGrowth(Block machine, BlockMenu inv, Block sapling) {
-        if (Slimefun.getMinecraftVersion().isAtLeast(MinecraftVersion.MINECRAFT_1_17)) {
-            // On 1.17+ we can actually simulate bonemeal :O
-            return applyBoneMeal(machine, sapling, inv);
-        } else {
-            Sapling saplingData = (Sapling) sapling.getBlockData();
-            return saplingData.getStage() < saplingData.getMaximumStage()
-                    && updateSaplingData(machine, sapling, inv, saplingData);
-        }
+        return applyBoneMeal(machine, sapling, inv);
     }
 
     @ParametersAreNonnullByDefault
@@ -104,30 +94,6 @@ public class TreeGrowthAccelerator extends AbstractGrowthAccelerator {
         return false;
     }
 
-    @ParametersAreNonnullByDefault
-    private boolean updateSaplingData(Block machine, Block block, BlockMenu inv, Sapling sapling) {
-        for (int slot : getInputSlots()) {
-            if (isFertilizer(inv.getItemInSlot(slot))) {
-                removeCharge(machine.getLocation(), (long) ENERGY_CONSUMPTION);
-
-                sapling.setStage(sapling.getStage() + 1);
-                block.setBlockData(sapling, false);
-
-                inv.consumeItem(slot);
-                block.getWorld()
-                        .spawnParticle(
-                                VersionedParticle.HAPPY_VILLAGER,
-                                block.getLocation().add(0.5D, 0.5D, 0.5D),
-                                4,
-                                0.1F,
-                                0.1F,
-                                0.1F);
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     protected boolean isFertilizer(@Nullable ItemStack item) {
         return SlimefunItem.getByItem(item) instanceof OrganicFertilizer;
