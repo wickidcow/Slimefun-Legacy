@@ -16,6 +16,7 @@ import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import org.bukkit.GameRules;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Material;
@@ -131,7 +132,7 @@ public class SeismicAxe extends SimpleSlimefunItem<ItemUseHandler> implements No
     @ParametersAreNonnullByDefault
     private void pushEntity(Player p, Entity entity) {
         // Only damage players when PVP is enabled, other entities are fine.
-        if (entity.getType() != EntityType.PLAYER || p.getWorld().getPVP()) {
+        if (entity.getType() != EntityType.PLAYER || Boolean.TRUE.equals(p.getWorld().getGameRuleValue(GameRules.PVP))) {
             // Let Paper create and dispatch the attributed damage event through the supported API.
             boolean damaged = DamageUtils.damage((LivingEntity) entity, DAMAGE, DamageType.PLAYER_ATTACK, p, p);
 
