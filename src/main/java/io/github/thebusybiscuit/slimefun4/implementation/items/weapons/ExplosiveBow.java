@@ -7,11 +7,11 @@ import io.github.thebusybiscuit.slimefun4.api.items.settings.IntRangeSetting;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BowShootHandler;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.DamageUtils;
-import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedParticle;
 import java.util.Collection;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.SoundCategory;
+import org.bukkit.Particle;
 import org.bukkit.damage.DamageType;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
@@ -47,7 +47,7 @@ public class ExplosiveBow extends SlimefunBow {
     @Override
     public BowShootHandler onShoot() {
         return (e, target) -> {
-            target.getWorld().spawnParticle(VersionedParticle.EXPLOSION, target.getLocation(), 1);
+            target.getWorld().spawnParticle(Particle.EXPLOSION, target.getLocation(), 1);
             SoundEffect.EXPLOSIVE_BOW_HIT_SOUND.playAt(target.getLocation(), SoundCategory.PLAYERS);
             int radius = range.getValue();
 
