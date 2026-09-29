@@ -49,7 +49,7 @@ public class TreeGrowthAccelerator extends AbstractGrowthAccelerator {
     protected void tick(@Nonnull Block b) {
         BlockMenu inv = StorageCacheUtils.getMenu(b.getLocation());
 
-        if (getCharge(b.getLocation()) >= ENERGY_CONSUMPTION) {
+        if (getChargeLong(b.getLocation()) >= ENERGY_CONSUMPTION) {
             for (int x = -RADIUS; x <= RADIUS; x++) {
                 for (int z = -RADIUS; z <= RADIUS; z++) {
                     Block block = b.getRelative(x, 0, z);
@@ -87,7 +87,7 @@ public class TreeGrowthAccelerator extends AbstractGrowthAccelerator {
                     return false;
                 }
 
-                removeCharge(machine.getLocation(), ENERGY_CONSUMPTION);
+                removeCharge(machine.getLocation(), (long) ENERGY_CONSUMPTION);
                 inv.consumeItem(slot);
                 sapling.getWorld()
                         .spawnParticle(
@@ -108,7 +108,7 @@ public class TreeGrowthAccelerator extends AbstractGrowthAccelerator {
     private boolean updateSaplingData(Block machine, Block block, BlockMenu inv, Sapling sapling) {
         for (int slot : getInputSlots()) {
             if (isFertilizer(inv.getItemInSlot(slot))) {
-                removeCharge(machine.getLocation(), ENERGY_CONSUMPTION);
+                removeCharge(machine.getLocation(), (long) ENERGY_CONSUMPTION);
 
                 sapling.setStage(sapling.getStage() + 1);
                 block.setBlockData(sapling, false);
