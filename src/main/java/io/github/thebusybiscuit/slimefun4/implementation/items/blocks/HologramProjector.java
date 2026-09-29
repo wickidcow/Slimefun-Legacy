@@ -20,6 +20,7 @@ import io.github.thebusybiscuit.slimefun4.utils.NumberUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -44,6 +45,7 @@ import org.bukkit.inventory.ItemStack;
  */
 public class HologramProjector extends SlimefunItem implements HologramOwner {
 
+    private static final LegacyComponentSerializer LEGACY_SECTION = LegacyComponentSerializer.legacySection();
     private static final String OFFSET_PARAMETER = "offset";
     private static final double DEFAULT_OFFSET = 0.5D;
 
@@ -132,8 +134,9 @@ public class HologramProjector extends SlimefunItem implements HologramOwner {
                     return;
                 }
 
-                hologram.setCustomName(ChatColors.color(message));
-                StorageCacheUtils.setData(projector.getLocation(), "text", hologram.getCustomName());
+                String formatted = ChatColors.color(message);
+                hologram.customName(LEGACY_SECTION.deserialize(formatted));
+                StorageCacheUtils.setData(projector.getLocation(), "text", formatted);
                 openEditor(pl, projector);
             });
 
@@ -202,9 +205,10 @@ public class HologramProjector extends SlimefunItem implements HologramOwner {
 
         for (Entity n : l.getChunk().getEntities()) {
             if (n instanceof ArmorStand armorStand && l.distanceSquared(n.getLocation()) < 0.4) {
-                String customName = n.getCustomName();
+                var customName = n.customName();
+                String legacyName = customName == null ? null : LEGACY_SECTION.serialize(customName);
 
-                if (customName != null && customName.equals(nametag)) {
+                if (legacyName != null && legacyName.equals(nametag)) {
                     return armorStand;
                 }
             }
