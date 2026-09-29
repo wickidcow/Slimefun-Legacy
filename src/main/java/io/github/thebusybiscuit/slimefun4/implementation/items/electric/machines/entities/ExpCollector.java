@@ -136,13 +136,13 @@ public class ExpCollector extends SlimefunItem implements InventoryBlock, Energy
         while (iterator.hasNext() && experiencePoints == 0) {
             ExperienceOrb orb = (ExperienceOrb) iterator.next();
 
-            if (getCharge(location) < ENERGY_CONSUMPTION) {
+            if (getChargeLong(location) < ENERGY_CONSUMPTION) {
                 return;
             }
 
             experiencePoints = getStoredExperience(location) + orb.getExperience();
 
-            removeCharge(location, ENERGY_CONSUMPTION);
+            removeCharge(location, (long) ENERGY_CONSUMPTION);
             orb.remove();
             produceFlasks(location, experiencePoints);
         }
