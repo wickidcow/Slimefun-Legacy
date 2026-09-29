@@ -187,11 +187,12 @@ public class BlockPlacer extends SlimefunItem {
                 if (item.hasItemMeta()) {
                     ItemMeta meta = item.getItemMeta();
 
-                    if (meta.hasDisplayName()) {
+                    var displayName = meta.displayName();
+                    if (displayName != null) {
                         BlockState blockState = facedBlock.getState(false);
 
                         if (blockState instanceof Nameable nameable) {
-                            nameable.setCustomName(meta.getDisplayName());
+                            nameable.customName(displayName);
                             blockState.update(true, false);
                         }
                     }
