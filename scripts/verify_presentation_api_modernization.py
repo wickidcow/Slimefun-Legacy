@@ -51,6 +51,17 @@ FULL_FILES = (
 
 WRITE_FORBIDDEN = (".setDisplayName(", ".setLore(")
 FULL_FORBIDDEN = WRITE_FORBIDDEN + (".getDisplayName()", ".getLore()")
+SPECIAL_FORBIDDEN = {
+    "src/main/java/io/github/thebusybiscuit/slimefun4/utils/SlimefunUtils.java": (
+        "itemMeta.getDisplayName()",
+        "sfitemMeta.getDisplayName()",
+        "itemMeta.getLore()",
+        "sfitemMeta.getLore()",
+        "meta.getLore()",
+        ".setDisplayName(",
+        ".setLore(",
+    ),
+}
 
 
 def check_files(root: Path, files: tuple[str, ...], forbidden: tuple[str, ...], failures: list[str]) -> None:
@@ -72,6 +83,8 @@ def main() -> int:
 
     check_files(root, WRITE_ONLY_FILES, WRITE_FORBIDDEN, failures)
     check_files(root, FULL_FILES, FULL_FORBIDDEN, failures)
+    for relative, forbidden in SPECIAL_FORBIDDEN.items():
+        check_files(root, (relative,), forbidden, failures)
 
     if failures:
         print("Presentation API modernization verification: FAIL")
