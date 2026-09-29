@@ -3,6 +3,7 @@ package io.github.thebusybiscuit.slimefun4.core.services.profiler;
 import java.util.function.Predicate;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.apache.commons.lang.Validate;
 import org.bukkit.ChatColor;
 
@@ -15,25 +16,24 @@ import org.bukkit.ChatColor;
  * @see SlimefunProfiler
  *
  */
-@SuppressWarnings("deprecation") // Public compatibility API still exposes Bukkit ChatColor.
 public enum PerformanceRating implements Predicate<Float> {
 
     // Thresholds might change in the future!
 
-    UNKNOWN(ChatColor.WHITE, -1),
+    UNKNOWN(NamedTextColor.WHITE, -1),
 
-    GOOD(ChatColor.DARK_GREEN, 10),
-    FINE(ChatColor.DARK_GREEN, 20),
-    OKAY(ChatColor.GREEN, 30),
-    MODERATE(ChatColor.YELLOW, 55),
-    SEVERE(ChatColor.RED, 85),
-    HURTFUL(ChatColor.DARK_RED, 500),
-    BAD(ChatColor.DARK_RED, Float.MAX_VALUE);
+    GOOD(NamedTextColor.DARK_GREEN, 10),
+    FINE(NamedTextColor.DARK_GREEN, 20),
+    OKAY(NamedTextColor.GREEN, 30),
+    MODERATE(NamedTextColor.YELLOW, 55),
+    SEVERE(NamedTextColor.RED, 85),
+    HURTFUL(NamedTextColor.DARK_RED, 500),
+    BAD(NamedTextColor.DARK_RED, Float.MAX_VALUE);
 
-    private final ChatColor color;
+    private final NamedTextColor color;
     private final float threshold;
 
-    PerformanceRating(@Nonnull ChatColor color, float threshold) {
+    PerformanceRating(@Nonnull NamedTextColor color, float threshold) {
         Validate.notNull(color, "Color cannot be null");
         this.color = color;
         this.threshold = threshold;
@@ -49,8 +49,34 @@ public enum PerformanceRating implements Predicate<Float> {
         return value <= threshold;
     }
 
-    @Nonnull
-    public ChatColor getColor() {
+    /**
+     * Returns the Adventure color for this rating.
+     *
+     * @return the modern text color
+     */
+    public @Nonnull NamedTextColor getTextColor() {
         return color;
+    }
+
+    /**
+     * Legacy Bukkit color compatibility accessor.
+     *
+     * @return the equivalent Bukkit chat color
+     */
+    @SuppressWarnings("deprecation")
+    public @Nonnull ChatColor getColor() {
+        if (color == NamedTextColor.DARK_GREEN) {
+            return ChatColor.DARK_GREEN;
+        } else if (color == NamedTextColor.GREEN) {
+            return ChatColor.GREEN;
+        } else if (color == NamedTextColor.YELLOW) {
+            return ChatColor.YELLOW;
+        } else if (color == NamedTextColor.RED) {
+            return ChatColor.RED;
+        } else if (color == NamedTextColor.DARK_RED) {
+            return ChatColor.DARK_RED;
+        } else {
+            return ChatColor.WHITE;
+        }
     }
 }
