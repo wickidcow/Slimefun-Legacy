@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.apache.commons.lang.Validate;
 import org.bukkit.ChatColor;
 
@@ -89,6 +90,28 @@ public final class NumberUtils {
     public static @Nonnull LocalDateTime parseGitHubDate(@Nonnull String date) {
         Validate.notNull(date, "Provided date was null");
         return LocalDateTime.parse(date.substring(0, date.length() - 1));
+    }
+
+    /**
+     * Returns an Adventure color representing the given percentage.
+     *
+     * @param percentage the percentage to classify
+     * @return the corresponding text color
+     */
+    public static @Nonnull NamedTextColor getTextColorFromPercentage(float percentage) {
+        if (percentage < 16.0F) {
+            return NamedTextColor.DARK_RED;
+        } else if (percentage < 32.0F) {
+            return NamedTextColor.RED;
+        } else if (percentage < 48.0F) {
+            return NamedTextColor.GOLD;
+        } else if (percentage < 64.0F) {
+            return NamedTextColor.YELLOW;
+        } else if (percentage < 80.0F) {
+            return NamedTextColor.DARK_GREEN;
+        } else {
+            return NamedTextColor.GREEN;
+        }
     }
 
     /**
