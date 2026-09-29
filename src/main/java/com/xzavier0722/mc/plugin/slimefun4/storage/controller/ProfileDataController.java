@@ -105,7 +105,7 @@ public class ProfileDataController extends ADataController {
 
         // check player name changed or not
         var currentPlayerName = p.getName();
-        if (currentPlayerName != null && !currentPlayerName.equals(result.get(0).get(FieldKey.PLAYER_NAME))) {
+        if (currentPlayerName != null && !currentPlayerName.equals(result.get(0).getString(FieldKey.PLAYER_NAME))) {
             updateUsername(uuid, currentPlayerName);
         }
 
@@ -152,8 +152,8 @@ public class ProfileDataController extends ADataController {
             }
 
             var result = bResult.get(0);
-            var size = Integer.parseInt(bResult.get(0).get(FieldKey.BACKPACK_SIZE));
-            var idStr = result.get(FieldKey.BACKPACK_ID);
+            var size = Integer.parseInt(bResult.get(0).getString(FieldKey.BACKPACK_SIZE));
+            var idStr = result.getString(FieldKey.BACKPACK_ID);
 
             return new PlayerBackpack(
                     owner,
@@ -182,7 +182,7 @@ public class ProfileDataController extends ADataController {
                     var key = new RecordKey(DataScope.BACKPACK_PROFILE);
                     key.addField(FieldKey.BACKPACK_ID);
                     return getData(key).stream()
-                            .map(record -> record.get(FieldKey.BACKPACK_ID))
+                            .map(record -> record.getString(FieldKey.BACKPACK_ID))
                             .filter(id -> id != null && !id.isBlank())
                             .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
                 },
@@ -240,10 +240,10 @@ public class ProfileDataController extends ADataController {
         }
 
         var result = resultSet.get(0);
-        var idStr = result.get(FieldKey.BACKPACK_ID);
+        var idStr = result.getString(FieldKey.BACKPACK_ID);
         var size = result.getInt(FieldKey.BACKPACK_SIZE);
         return new PlayerBackpack(
-                Bukkit.getOfflinePlayer(UUID.fromString(result.get(FieldKey.PLAYER_UUID))),
+                Bukkit.getOfflinePlayer(UUID.fromString(result.getString(FieldKey.PLAYER_UUID))),
                 UUID.fromString(idStr),
                 DataUtils.profileDataDebase64(result.getOrDef(FieldKey.BACKPACK_NAME, "")),
                 result.getInt(FieldKey.BACKPACK_NUMBER),
@@ -306,7 +306,7 @@ public class ProfileDataController extends ADataController {
         }
 
         return result.stream()
-                .map(record -> NamespacedKey.fromString(record.get(FieldKey.RESEARCH_ID)))
+                .map(record -> NamespacedKey.fromString(record.getString(FieldKey.RESEARCH_ID)))
                 .collect(Collectors.toSet());
     }
 
@@ -333,7 +333,7 @@ public class ProfileDataController extends ADataController {
         }
 
         var re = new HashSet<PlayerBackpack>();
-        result.forEach(bUuid -> re.add(getBackpack(bUuid.get(FieldKey.BACKPACK_ID))));
+        result.forEach(bUuid -> re.add(getBackpack(bUuid.getString(FieldKey.BACKPACK_ID))));
         return re;
     }
 
@@ -603,7 +603,7 @@ public class ProfileDataController extends ADataController {
             return null;
         }
 
-        return UUID.fromString(result.get(0).get(FieldKey.PLAYER_UUID));
+        return UUID.fromString(result.get(0).getString(FieldKey.PLAYER_UUID));
     }
 
     public CompletableFuture<UUID> getPlayerUuidAsync(String pName) {
