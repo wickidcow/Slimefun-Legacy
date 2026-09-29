@@ -9,8 +9,9 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event.Result;
 import org.bukkit.event.EventHandler;
@@ -89,12 +90,14 @@ public class SlimefunGuideListener implements Listener {
             if (!Slimefun.getWorldSettingsService().isWorldEnabled(p.getWorld())) {
                 Slimefun.getLocalization().sendMessage(p, "messages.disabled-item", true, msg -> {
                     if (item.hasItemMeta()) {
-                        return msg.replace(
-                                "%item_name%",
-                                ChatColor.stripColor(item.getItemMeta().getDisplayName()));
-                    } else {
-                        return msg;
+                        Component name = item.getItemMeta().displayName();
+                        if (name != null) {
+                            return msg.replace(
+                                    "%item_name%",
+                                    PlainTextComponentSerializer.plainText().serialize(name));
+                        }
                     }
+                    return msg;
                 });
                 return Result.DENY;
             }
