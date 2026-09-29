@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.electric.machines.entities;
 
+import com.xzavier0722.mc.plugin.slimefun4.storage.controller.ASlimefunDataContainer;
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.SlimefunBlockData;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.bakedlibs.dough.items.CustomItemStack;
@@ -221,7 +222,9 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
                     return;
                 }
 
-                if (lifetime % 60 == 0 && getCharge(b.getLocation(), data) >= getEnergyConsumption()) {
+                ASlimefunDataContainer loadedData = data;
+                if (lifetime % 60 == 0
+                        && getChargeLong(b.getLocation(), loadedData) >= getEnergyConsumption()) {
                     BlockMenu menu = data.getBlockMenu();
                     if (menu == null) {
                         return;
@@ -234,7 +237,7 @@ public abstract class AbstractEntityAssembler<T extends Entity> extends SimpleSl
                         double offset = readOffset(data.getData(KEY_OFFSET));
 
                         consumeResources(menu);
-                        removeCharge(b.getLocation(), getEnergyConsumption());
+                        removeCharge(b.getLocation(), (long) getEnergyConsumption(), loadedData);
 
                         Slimefun.runSyncAt(b.getLocation(), () -> {
                             Location loc =
