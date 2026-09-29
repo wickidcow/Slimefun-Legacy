@@ -187,11 +187,7 @@ public class ElevatorPlate extends SimpleSlimefunItem<BlockUseHandler> {
                         i,
                         new CustomItemStack(
                                 Material.PAPER,
-                                ChatColor.GRAY.toString()
-                                        + floor.getNumber()
-                                        + ". "
-                                        + ChatColor.BLACK
-                                        + floor.getName(),
+                                "&7" + floor.getNumber() + ". &0" + floor.getName(),
                                 Slimefun.getLocalization().getMessage(p, "machines.ELEVATOR.click-to-teleport")
                                         + " &f"
                                         + floor.getName()),
