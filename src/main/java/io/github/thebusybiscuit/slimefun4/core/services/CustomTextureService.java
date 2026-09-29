@@ -75,13 +75,14 @@ public class CustomTextureService {
         this.config = config;
         config.getConfiguration()
                 .options()
-                .header("This file is used to assign items from Slimefun or any of its addons\n"
-                        + "the 'CustomModelData' NBT tag. This can be used in conjunction with a custom"
-                        + " resource pack\n"
-                        + "to give items custom textures.\n"
-                        + "0 means there is no data assigned to that item.\n\n"
-                        + "Slimefun Legacy can optionally use the official resource pack configured in config.yml.");
-        config.getConfiguration().options().copyHeader(true);
+                .setHeader(List.of(
+                        "This file is used to assign items from Slimefun or any of its addons",
+                        "the 'CustomModelData' NBT tag. This can be used in conjunction with a custom resource pack",
+                        "to give items custom textures.",
+                        "0 means there is no data assigned to that item.",
+                        "",
+                        "Slimefun Legacy can optionally use the official resource pack configured in config.yml."))
+                .parseComments(true);
 
         // SlimefunItemStack applies configured model data while the stack is constructed. Load bundled mappings
         // before core or addon items are created so those immutable templates are correct from the beginning.
