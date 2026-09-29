@@ -10,6 +10,7 @@ import javax.annotation.Nonnull;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu.MenuClickHandler;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
@@ -185,24 +186,12 @@ public final class ChestMenuUtils {
         int safeTotal = Math.max(1, total);
         int safeTime = Math.max(0, Math.min(time, safeTotal));
         float percentage = Math.round(((((safeTotal - safeTime) * 100.0F) / safeTotal) * 100.0F) / 100.0F);
-        StringBuilder builder = new StringBuilder();
+        int filled = Math.max(0, Math.min(20, ((int) percentage) / 5));
+        int rest = 20 - filled;
 
-        builder.append(NumberUtils.getColorFromPercentage(percentage));
-
-        int rest = 20;
-        for (int i = (int) percentage; i >= 5; i = i - 5) {
-            builder.append(':');
-            rest--;
-        }
-
-        builder.append("&7");
-
-        for (int i = 0; i < rest; i++) {
-            builder.append(':');
-        }
-
-        builder.append(" - ").append(percentage).append('%');
-        return ChatColors.color(builder.toString());
+        Component progress = Component.text(":".repeat(filled), NumberUtils.getTextColorFromPercentage(percentage))
+                .append(Component.text(":".repeat(rest) + " - " + percentage + '%', NamedTextColor.GRAY));
+        return LegacyComponentSerializer.legacySection().serialize(progress);
     }
 
     private static Component legacyText(String value) {
