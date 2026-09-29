@@ -17,11 +17,12 @@ import java.util.Comparator;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -45,8 +46,9 @@ final class DoctorOperationsCenterMenu {
             return true;
         }
 
-        player.sendMessage(ChatColor.RED
-                + "The Slimefun Recovery Center is restricted to server operators/admins.");
+        player.sendMessage(Component.text(
+                "The Slimefun Recovery Center is restricted to server operators/admins.",
+                NamedTextColor.RED));
         return false;
     }
 
@@ -635,7 +637,9 @@ final class DoctorOperationsCenterMenu {
             menu.addItem(slot, playerHead(target, "&7Click to inspect Slimefun UUID/profile identity."));
             menu.addMenuClickHandler(slot, (clickedPlayer, clickedSlot, item, action) -> {
                 if (!target.isOnline()) {
-                    clickedPlayer.sendMessage(ChatColor.RED + "That player is no longer online.");
+                    clickedPlayer.sendMessage(Component.text(
+                            "That player is no longer online.",
+                            NamedTextColor.RED));
                     openProxyPlayerPicker(clickedPlayer, returnGuide, page);
                     return false;
                 }
@@ -774,10 +778,14 @@ final class DoctorOperationsCenterMenu {
         menu.addMenuClickHandler(11, (clickedPlayer, slot, item, action) -> {
             ExternalResourcePackService service = new ExternalResourcePackService(Slimefun.instance());
             if (!service.setOwnershipMode(mode)) {
-                clickedPlayer.sendMessage(ChatColor.RED + "Could not save resource-pack ownership mode.");
+                clickedPlayer.sendMessage(Component.text(
+                        "Could not save resource-pack ownership mode.",
+                        NamedTextColor.RED));
                 return false;
             }
-            clickedPlayer.sendMessage(ChatColor.GREEN + "Resource-pack ownership mode is now " + mode + ".");
+            clickedPlayer.sendMessage(Component.text(
+                    "Resource-pack ownership mode is now " + mode + ".",
+                    NamedTextColor.GREEN));
             openPackOwnership(clickedPlayer, returnGuide);
             return false;
         });
