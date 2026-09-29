@@ -9,8 +9,8 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunIte
 import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
@@ -38,13 +38,13 @@ public final class RescueWhistle extends SimpleSlimefunItem<ItemUseHandler> {
             Player caller = event.getPlayer();
             long remaining = remainingCooldown(caller);
             if (remaining > 0L) {
-                caller.sendMessage(ChatColor.RED + "Rescue Whistle is recharging for " + seconds(remaining) + " more seconds.");
+                message(caller, "&c" + "Rescue Whistle is recharging for " + seconds(remaining) + " more seconds.");
                 return;
             }
 
             startCooldown(caller);
             caller.playSound(caller.getLocation(), Sound.ITEM_GOAT_HORN_SOUND_0, 1.0F, 1.2F);
-            caller.sendMessage(ChatColor.GOLD + "Rescue Whistle sounded. Listening for nearby players within 128 blocks...");
+            message(caller, "&6" + "Rescue Whistle sounded. Listening for nearby players within 128 blocks...");
 
             UUID callerId = caller.getUniqueId();
             UUID worldId = caller.getWorld().getUID();
@@ -74,14 +74,14 @@ public final class RescueWhistle extends SimpleSlimefunItem<ItemUseHandler> {
         int distance = (int) Math.round(Math.sqrt(distanceSquared));
         String direction = cardinalDirection(origin, responseLocation);
         responder.playSound(responder.getLocation(), Sound.ITEM_GOAT_HORN_SOUND_0, 0.6F, 0.85F);
-        responder.sendMessage(ChatColor.YELLOW + "A Rescue Whistle is calling nearby (about " + distance + " blocks away)." );
+        message(responder, "&e" + "A Rescue Whistle is calling nearby (about " + distance + " blocks away)." );
 
         Player caller = Bukkit.getPlayer(callerId);
         if (caller != null) {
             String responderName = responder.getName();
-            Slimefun.getSchedulerService().runFor(caller, () -> caller.sendMessage(ChatColor.GREEN + responderName
-                    + ChatColor.GRAY + " is about " + ChatColor.YELLOW + distance + ChatColor.GRAY + " blocks "
-                    + ChatColor.AQUA + direction + ChatColor.GRAY + "."), () -> {});
+            Slimefun.getSchedulerService().runFor(caller, () -> message(caller, "&a" + responderName
+                    + "&7" + " is about " + "&e" + distance + "&7" + " blocks "
+                    + "&b" + direction + "&7" + "."), () -> {});
         }
     }
 
@@ -114,4 +114,8 @@ public final class RescueWhistle extends SimpleSlimefunItem<ItemUseHandler> {
             default -> "southeast";
         };
     }
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
 }
