@@ -56,6 +56,10 @@ FULL_FILES = (
     "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/LimitedUseItem.java",
     "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/magical/KnowledgeTome.java",
     "src/main/java/io/github/thebusybiscuit/slimefun4/utils/ChargeUtils.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/api/items/groups/LockedItemGroup.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/cargo/AbstractCargoNode.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/ItemPickupListener.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/blocks/BlockPlacer.java",
 )
 
 WRITE_FORBIDDEN = (".setDisplayName(", ".setLore(")
