@@ -29,30 +29,51 @@ jobs:
           import hashlib
           import json
           import os
+          import re
+          from collections import Counter
           from pathlib import Path
 
-          path = Path('src/main/java/io/github/thebusybiscuit/slimefun4/implementation/setup/SlimefunItemSetup.java')
-          original = path.read_bytes()
           def blob_sha(data):
               return hashlib.sha1(b'blob ' + str(len(data)).encode('ascii') + b'\0' + data).hexdigest()
+          path = Path('src/main/java/io/github/thebusybiscuit/slimefun4/implementation/setup/SlimefunItemSetup.java')
+          original = path.read_bytes()
           expected = '3bfa9dd6f2e9ba053e7af6c1c3a328740f3f8ea3'
           if blob_sha(original) != expected:
               raise SystemExit('Refusing to modify an unexpected recipe-registration source blob')
+          alias_path = Path('src/main/java/io/github/thebusybiscuit/slimefun4/utils/compatibility/VersionedPotionEffectType.java')
+          aliases = alias_path.read_bytes()
+          if blob_sha(aliases) != '91d0835760f766deacc7402861e61b4523f0885d':
+              raise SystemExit('Refusing to infer mappings from an unexpected compatibility class')
+          mappings = dict(re.findall(rb'public static final PotionEffectType ([A-Z_]+) = PotionEffectType\.([A-Z_]+);', aliases))
+          if len(mappings) != 9 or any(key != value for key, value in mappings.items()):
+              raise SystemExit('Expected exactly nine identity-preserving potion aliases')
           obsolete = b'import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedPotionEffectType;\n'
-          if original.count(obsolete) != 1 or original.count(b'VersionedPotionEffectType') != 1:
-              raise SystemExit('Refusing to remove an import unless it is the only alias reference')
-          corrected = original.replace(obsolete, b'', 1)
+          pattern = rb'\bVersionedPotionEffectType\.([A-Z][A-Z0-9_]*)'
+          references = re.findall(pattern, original)
+          if original.count(obsolete) != 1 or original.count(b'VersionedPotionEffectType') != 1 + len(references):
+              raise SystemExit('Unexpected alias usage; no source correction applied')
+          if not references or any(name not in mappings for name in references):
+              raise SystemExit('Unverified potion effect mapping; no source correction applied')
+          if b'import org.bukkit.potion.PotionEffectType;\n' not in original:
+              raise SystemExit('The native PotionEffectType import must already exist')
+          corrected = re.sub(pattern, lambda match: b'PotionEffectType.' + mappings[match.group(1)], original.replace(obsolete, b'', 1))
+          if b'VersionedPotionEffectType' in corrected:
+              raise SystemExit('Alias cleanup is incomplete')
           path.write_bytes(corrected)
           request = Path(os.environ['RUNNER_TEMP']) / 'legacy-corrected-blob.json'
           request.write_text(json.dumps({'content': base64.b64encode(corrected).decode('ascii'), 'encoding': 'base64'}))
           new_sha = blob_sha(corrected)
           print(f'Original source blob: {expected}')
           print(f'Corrected source blob: {new_sha}')
-          print(f'Change: exactly one unused import removed ({len(original) - len(corrected)} bytes); all recipe bytes preserved')
+          print(f'Removed one alias import and replaced {len(references)} verified identity aliases')
+          for name, count in sorted(Counter(references).items()):
+              print(f'  {name.decode()}: {count} identical-effect replacements')
+          print('No item identifiers, ingredients, recipe quantities, effect durations or amplifiers were edited')
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write(f'blob_sha={new_sha}\n')
           PY
           git diff --check
+          git diff --stat
           git diff -- src/main/java/io/github/thebusybiscuit/slimefun4/implementation/setup/SlimefunItemSetup.java
       - name: Store corrected source blob without updating any branch
         if: steps.patch.outcome == 'success'
