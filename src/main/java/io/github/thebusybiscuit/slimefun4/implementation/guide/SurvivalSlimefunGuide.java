@@ -42,7 +42,6 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.apache.commons.lang.Validate;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.Tag;
 import org.bukkit.entity.Player;
@@ -229,7 +228,7 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
             lore.add("");
 
             for (String line : Slimefun.getLocalization().getMessages(p, "guide.locked-itemgroup")) {
-                lore.add(ChatColor.WHITE + line);
+                lore.add("&f" + line);
             }
 
             lore.add("");
@@ -414,8 +413,8 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
 
         ChestMenu menu = new ChestMenu(Slimefun.getLocalization()
                 .getMessage(p, "guide.search.inventory")
-                .replace("%item%", ChatUtils.crop(ChatColor.WHITE, input)));
-        String searchTerm = ChatColor.stripColor(input.toLowerCase(Locale.ROOT));
+                .replace("%item%", ChatUtils.crop("&f", input)));
+        String searchTerm = ChatUtils.removeColorCodes(input.toLowerCase(Locale.ROOT));
 
         if (addToHistory) {
             profile.getGuideHistory().add(searchTerm);
@@ -477,7 +476,7 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
 
     @ParametersAreNonnullByDefault
     private boolean isSearchFilterApplicable(SlimefunItem slimefunItem, String searchTerm) {
-        String itemName = ChatColor.stripColor(slimefunItem.getItemName()).toLowerCase(Locale.ROOT);
+        String itemName = ChatUtils.removeColorCodes(slimefunItem.getItemName()).toLowerCase(Locale.ROOT);
         return !itemName.isEmpty() && (itemName.equals(searchTerm) || itemName.contains(searchTerm));
     }
 
@@ -615,11 +614,9 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
                     8,
                     new CustomItemStack(
                             Material.KNOWLEDGE_BOOK,
-                            ChatColor.WHITE + Slimefun.getLocalization().getMessage(p, "guide.tooltips.wiki"),
+                            "&f" + Slimefun.getLocalization().getMessage(p, "guide.tooltips.wiki"),
                             "",
-                            ChatColor.GRAY
-                                    + "\u21E8 "
-                                    + ChatColor.GREEN
+                            "&7\u21E8 &a"
                                     + Slimefun.getLocalization().getMessage(p, "guide.tooltips.open-itemgroup")));
             menu.addMenuClickHandler(8, (pl, slot, itemstack, action) -> {
                 pl.closeInventory();
@@ -715,7 +712,7 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
         Component displayName = icon.hasItemMeta() ? icon.getItemMeta().displayName() : null;
         return displayName != null
                 ? LegacyComponentSerializer.legacySection().serialize(displayName)
-                : ChatColor.RED + "Broken guide category";
+                : LegacyComponentSerializer.legacySection().serialize(Component.text("Broken guide category", NamedTextColor.RED));
     }
 
     @ParametersAreNonnullByDefault
@@ -780,7 +777,7 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
             menu.addItem(
                     slot,
                     new CustomItemStack(ChestMenuUtils.getBackButton(
-                            p, "", ChatColor.GRAY + Slimefun.getLocalization().getMessage(p, "guide.back.guide"))));
+                            p, "", "&7" + Slimefun.getLocalization().getMessage(p, "guide.back.guide"))));
             menu.addMenuClickHandler(slot, (pl, s, is, action) -> {
                 SlimefunGuide.openMainMenu(
                         profile, getMode(), profile.getGuideHistory().getMainMenuPage());
