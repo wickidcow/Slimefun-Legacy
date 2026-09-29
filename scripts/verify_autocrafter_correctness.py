@@ -54,8 +54,8 @@ def main() -> int:
     require(crafter, "int energyConsumption = getEnergyConsumption();", "single auto-crafter energy-cost capture")
     require(
         crafter,
-        "if (recipe == null || !recipe.isEnabled() || getCharge(location, data) < energyConsumption)",
-        "recipe, enabled-state and energy preflight",
+        "if (recipe == null || !recipe.isEnabled() || getChargeLong(location, energyData) < energyConsumption)",
+        "recipe, enabled-state and modern energy preflight",
     )
     require_count(
         crafter,
@@ -71,15 +71,15 @@ def main() -> int:
     )
     require(
         crafter,
-        "if (getCharge(location, data) < energyConsumption)",
-        "defensive energy re-check after addon interactor callback",
+        "if (getChargeLong(location, energyData) < energyConsumption)",
+        "defensive modern energy re-check after addon interactor callback",
     )
     require(crafter, "if (interactor != null && craft(interactor, recipe))", "craft success gate before energy charge")
     require_before(
         crafter,
         "if (interactor != null && craft(interactor, recipe))",
-        "removeCharge(location, energyConsumption);",
-        "auto-crafter craft-before-energy ordering",
+        "removeCharge(location, (long) energyConsumption, energyData);",
+        "auto-crafter craft-before-modern-energy ordering",
     )
     require(
         crafter,
