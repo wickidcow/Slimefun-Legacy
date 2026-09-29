@@ -40,6 +40,8 @@ import java.util.logging.Logger;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -978,6 +980,11 @@ public class SlimefunItem implements Placeable {
      *
      * @return This item's name in {@link ItemStack} form
      */
+    private static @Nonnull String plainLegacyName(@Nonnull String name) {
+        return PlainTextComponentSerializer.plainText()
+                .serialize(LegacyComponentSerializer.legacySection().deserialize(name));
+    }
+
     public final @Nonnull String getItemName() {
         if (itemStackTemplate instanceof SlimefunItemStack) {
             Optional<String> name = ((SlimefunItemStack) itemStackTemplate)
