@@ -131,11 +131,11 @@ public class Research implements Keyed {
      * Gets the ID of this {@link Research}.
      * This is the old way of identifying Researches, use a {@link NamespacedKey} in the future.
      *
-     * @deprecated Numeric Ids for Researches are deprecated, use {@link #getKey()} for identification instead.
+     * <p>This internal bridge exists only for migration and legacy-storage compatibility.
+     * New code should use {@link #getKey()} for identification.
      *
-     * @return The ID of this {@link Research}
+     * @return The legacy numeric ID of this {@link Research}
      */
-    @Deprecated
     @ApiStatus.Internal
     public int getLegacyId() {
         return id;
