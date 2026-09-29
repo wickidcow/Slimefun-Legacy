@@ -40,7 +40,7 @@ def main() -> int:
     lines.extend(
         [
             "",
-            "> This report is informational in 4.1.16. Public compatibility bridges may remain deprecated intentionally; new internal use should be reduced over time.",
+            "> This report is informational. Public compatibility bridges may remain deprecated intentionally; new internal use should be reduced over time.",
         ]
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
