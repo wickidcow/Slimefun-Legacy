@@ -2,14 +2,9 @@ package io.github.thebusybiscuit.slimefun4.implementation.listeners;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
-import io.github.thebusybiscuit.slimefun4.api.platform.PlatformCapability;
-import io.github.thebusybiscuit.slimefun4.core.services.compatibility.RuntimePlatformDetector;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import io.papermc.paper.event.player.PlayerPickItemEvent;
-import java.lang.reflect.Method;
-import java.util.logging.Level;
+import io.papermc.paper.event.player.PlayerPickBlockEvent;
 import javax.annotation.Nonnull;
-import org.apache.commons.lang.Validate;
 import org.bukkit.GameMode;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -18,65 +13,43 @@ import org.bukkit.event.Listener;
 import org.bukkit.inventory.ItemStack;
 
 public class VersionedMiddleClickListener implements Listener {
-    Class<? extends PlayerPickItemEvent> pickBlockEventClass;
-    Method getBlockMethod;
 
     public VersionedMiddleClickListener(@Nonnull Slimefun plugin) {
-        try {
-            Validate.isTrue(
-                    Slimefun.getPlatformCompatibilityService().supports(PlatformCapability.PLAYER_PICK_BLOCK_EVENT));
-            pickBlockEventClass = (Class<? extends PlayerPickItemEvent>)
-                    RuntimePlatformDetector.findClass("io.papermc.paper.event.player.PlayerPickBlockEvent");
-            Validate.notNull(pickBlockEventClass, "PlayerPickBlockEvent is unavailable");
-            Validate.isTrue(PlayerPickItemEvent.class.isAssignableFrom(pickBlockEventClass));
-            getBlockMethod = pickBlockEventClass.getMethod("getBlock");
-            getBlockMethod.setAccessible(true);
-            plugin.getServer().getPluginManager().registerEvents(this, plugin);
-        } catch (Throwable e) {
-            Slimefun.logger()
-                    .log(
-                            Level.WARNING,
-                            "Failed to initialize version compatibility module for middle-click listener. Some functionality may not work correctly.",
-                            e);
-        }
+        plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
     @EventHandler
-    public void onMiddleClick(PlayerPickItemEvent event) {
+    public void onMiddleClick(PlayerPickBlockEvent event) {
         Player player = event.getPlayer();
-        // there is no api for abilities now, so we just judge by player's gameMode
-        if (player.getGameMode() == GameMode.CREATIVE
-                && pickBlockEventClass != null
-                && pickBlockEventClass.isInstance(event)) {
-            try {
-                Block block = (Block) getBlockMethod.invoke(event);
-                SlimefunItem sfItem = StorageCacheUtils.getSlimefunItem(block.getLocation());
-                if (sfItem == null) {
-                    return;
-                }
 
-                int slotTarget = event.getTargetSlot();
-                // check targetSlot for safety, actually it must be in range 0-9
-                if (slotTarget >= 0 && slotTarget < 9) {
-                    // remove original pickItem logic because it sucks
-                    event.setCancelled(true);
+        // There is no abilities API here, so creative mode remains the supported pick-block path.
+        if (player.getGameMode() != GameMode.CREATIVE) {
+            return;
+        }
 
-                    // try redirect to another hotbar if it contains the slimefunItem
-                    for (var i = 0; i < 9; ++i) {
-                        ItemStack hotbarItem = player.getInventory().getItem(i);
-                        if (hotbarItem != null && !hotbarItem.getType().isAir() && sfItem.isItem(hotbarItem)) {
-                            player.getInventory().setHeldItemSlot(i);
-                            return;
-                        }
-                    }
+        Block block = event.getBlock();
+        SlimefunItem sfItem = StorageCacheUtils.getSlimefunItem(block.getLocation());
+        if (sfItem == null) {
+            return;
+        }
 
-                    // use the event target Slot
-                    player.getInventory().setHeldItemSlot(slotTarget);
-                    player.getInventory().setItemInMainHand(sfItem.getItem().clone());
-                }
-            } catch (Throwable e) {
-                // Ignored this because it is not worth throwing
+        int targetSlot = event.getTargetSlot();
+        if (targetSlot < 0 || targetSlot >= 9) {
+            return;
+        }
+
+        event.setCancelled(true);
+
+        // Prefer an existing hotbar copy instead of creating another item.
+        for (int slot = 0; slot < 9; slot++) {
+            ItemStack hotbarItem = player.getInventory().getItem(slot);
+            if (hotbarItem != null && !hotbarItem.getType().isAir() && sfItem.isItem(hotbarItem)) {
+                player.getInventory().setHeldItemSlot(slot);
+                return;
             }
         }
+
+        player.getInventory().setHeldItemSlot(targetSlot);
+        player.getInventory().setItemInMainHand(sfItem.getItem().clone());
     }
 }

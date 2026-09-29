@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.core.services.sounds;
 
-import city.norain.slimefun4.SlimefunExtended;
 import com.google.common.base.Preconditions;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedSound;
@@ -228,11 +227,7 @@ public enum SoundEffect {
     }
 
     private Sound getPlaySound(String soundId) {
-        Sound playSound = null;
-
-        if (SlimefunExtended.isAtLeast(1, 21, 3)) {
-            playSound = Registry.SOUNDS.get(NamespacedKey.minecraft(soundId.toLowerCase(Locale.ROOT)));
-        }
+        Sound playSound = Registry.SOUNDS.get(NamespacedKey.minecraft(soundId.toLowerCase(Locale.ROOT)));
 
         if (playSound == null) {
             try {

@@ -143,6 +143,36 @@ def main() -> int:
     if "MinecraftVersion" in ore_dictionary or "forVersion(" in ore_dictionary:
         failures.append("OreDictionary still contains an obsolete version factory")
 
+    runtime_floor_files = {
+        "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/sounds/SoundEffect.java": (
+            "SlimefunExtended.isAtLeast",
+            "Registry.SOUNDS.get(",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/AutoBrewer.java": (
+            "SlimefunExtended.isAtLeast",
+            "PotionType.WIND_CHARGED",
+        ),
+    }
+    for relative, (forbidden, required) in runtime_floor_files.items():
+        text = (root / relative).read_text(encoding="utf-8")
+        if forbidden in text:
+            failures.append(f"{relative} still contains below-floor runtime branching: {forbidden}")
+        if required not in text:
+            failures.append(f"{relative} is missing its direct 1.21.11+ runtime path: {required}")
+
+    slimefun_runtime = (root / "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/Slimefun.java").read_text(encoding="utf-8")
+    if "new MiddleClickListener(" in slimefun_runtime or "SlimefunExtended.isAtLeast(1, 21, 5)" in slimefun_runtime:
+        failures.append("Slimefun still selects the pre-1.21.11 middle-click listener")
+    if "new VersionedMiddleClickListener(this);" not in slimefun_runtime:
+        failures.append("Slimefun must register the supported Paper middle-click listener directly")
+
+    middle_click = (root / "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/VersionedMiddleClickListener.java").read_text(encoding="utf-8")
+    for forbidden in ("java.lang.reflect", "RuntimePlatformDetector", "PlatformCapability", "pickBlockEventClass", "getBlockMethod"):
+        if forbidden in middle_click:
+            failures.append(f"VersionedMiddleClickListener still contains obsolete reflection compatibility: {forbidden}")
+    if "PlayerPickBlockEvent" not in middle_click or "event.getBlock()" not in middle_click:
+        failures.append("VersionedMiddleClickListener must use PlayerPickBlockEvent directly")
+
     resource_maps = {
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/resources/OilResource.java": "/biome-maps/oil_v1.18.json",
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/resources/SaltResource.java": "/biome-maps/salt_v1.18.json",

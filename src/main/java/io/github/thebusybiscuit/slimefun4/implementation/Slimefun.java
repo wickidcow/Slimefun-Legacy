@@ -99,7 +99,6 @@ import io.github.thebusybiscuit.slimefun4.implementation.listeners.HopperListene
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.ItemDropListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.ItemPickupListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.JoinListener;
-import io.github.thebusybiscuit.slimefun4.implementation.listeners.MiddleClickListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.MiningAndroidListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.MultiBlockListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.NetworkListener;
@@ -839,11 +838,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
         new SoulboundListener(this);
         new AutoCrafterListener(this);
         new SlimefunItemHitListener(this);
-        if (SlimefunExtended.isAtLeast(1, 21, 5)) {
-            new VersionedMiddleClickListener(this);
-        } else {
-            new MiddleClickListener(this);
-        }
+        new VersionedMiddleClickListener(this);
         new BeeListener(this);
         new BeeWingsListener(this, (BeeWings) SlimefunItems.BEE_WINGS.getItem());
         new PiglinListener(this);
