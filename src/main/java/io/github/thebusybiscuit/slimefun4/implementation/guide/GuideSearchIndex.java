@@ -13,7 +13,9 @@ import java.util.Map;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -78,8 +80,10 @@ public final class GuideSearchIndex {
     }
 
     public static @Nonnull String normalize(String input) {
-        String stripped = ChatColor.stripColor(input == null ? "" : input);
-        return stripped == null ? "" : stripped.toLowerCase(Locale.ROOT).trim();
+        String value = input == null ? "" : input;
+        String stripped = PlainTextComponentSerializer.plainText()
+                .serialize(LegacyComponentSerializer.legacySection().deserialize(value));
+        return stripped.toLowerCase(Locale.ROOT).trim();
     }
 
     public static @Nonnull String getAddonName(@Nonnull SlimefunItem item) {
@@ -238,10 +242,13 @@ public final class GuideSearchIndex {
         try {
             ItemStack stack = item.getItem();
             ItemMeta meta = stack == null ? null : stack.getItemMeta();
-            if (meta == null || !meta.hasLore() || meta.getLore() == null) {
+            if (meta == null || meta.lore() == null) {
                 return "";
             }
-            return normalize(String.join(" ", meta.getLore()));
+            return meta.lore().stream()
+                    .map(PlainTextComponentSerializer.plainText()::serialize)
+                    .map(GuideSearchIndex::normalize)
+                    .collect(java.util.stream.Collectors.joining(" "));
         } catch (RuntimeException | LinkageError ignored) {
             return "";
         }
@@ -263,8 +270,8 @@ public final class GuideSearchIndex {
             }
 
             ItemMeta meta = stack.getItemMeta();
-            if (meta != null && meta.hasDisplayName()) {
-                return normalize(meta.getDisplayName());
+            if (meta != null && meta.displayName() != null) {
+                return normalize(PlainTextComponentSerializer.plainText().serialize(meta.displayName()));
             }
 
             return normalize(stack.getType().name().replace('_', ' '));
