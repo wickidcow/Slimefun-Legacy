@@ -497,14 +497,7 @@ public final class SlimefunUtils {
         }
 
         // Fixes #3133: name and lore are not enough
-        OptionalInt itemCustomModelData = itemMetaSnapshot.getCustomModelData();
-        if (itemMeta.hasCustomModelData()
-                && itemCustomModelData.isPresent()
-                && itemMeta.getCustomModelData() != itemCustomModelData.getAsInt()) {
-            return false;
-        } else {
-            return itemMeta.hasCustomModelData() == itemCustomModelData.isPresent();
-        }
+        return matchesLegacyCustomModelData(itemMeta, itemMetaSnapshot.getCustomModelData());
     }
 
     private static boolean equalsItemMeta(@Nonnull ItemMeta itemMeta, @Nonnull ItemMeta sfitemMeta, boolean checkLore) {
@@ -539,17 +532,9 @@ public final class SlimefunUtils {
             }
         }
 
-        if (checkCustomModelCheck) {
+        if (checkCustomModelCheck && !hasSameCustomModelData(itemMeta, sfitemMeta)) {
             // Fixes #3133: name and lore are not enough
-            boolean hasItemMetaCustomModelData = itemMeta.hasCustomModelData();
-            boolean hasSfItemMetaCustomModelData = sfitemMeta.hasCustomModelData();
-            if (hasItemMetaCustomModelData
-                    && hasSfItemMetaCustomModelData
-                    && itemMeta.getCustomModelData() != sfitemMeta.getCustomModelData()) {
-                return false;
-            } else if (hasItemMetaCustomModelData != hasSfItemMetaCustomModelData) {
-                return false;
-            }
+            return false;
         }
 
         if (itemMeta instanceof PotionMeta potionMeta && sfitemMeta instanceof PotionMeta sfPotionMeta) {
@@ -565,6 +550,43 @@ public final class SlimefunUtils {
         Debug.log(TestCase.CARGO_INPUT_TESTING, "  All meta checked.");
 
         return true;
+    }
+
+    private static boolean matchesLegacyCustomModelData(
+            @Nonnull ItemMeta itemMeta, @Nonnull OptionalInt legacyCustomModelData) {
+        if (!itemMeta.hasCustomModelDataComponent()) {
+            return legacyCustomModelData.isEmpty();
+        }
+
+        var component = itemMeta.getCustomModelDataComponent();
+        List<Float> floats = component.getFloats();
+        if (legacyCustomModelData.isEmpty()
+                || floats.size() != 1
+                || !component.getFlags().isEmpty()
+                || !component.getStrings().isEmpty()
+                || !component.getColors().isEmpty()) {
+            return false;
+        }
+
+        return Float.compare(floats.get(0), legacyCustomModelData.getAsInt()) == 0;
+    }
+
+    private static boolean hasSameCustomModelData(@Nonnull ItemMeta first, @Nonnull ItemMeta second) {
+        boolean firstHasComponent = first.hasCustomModelDataComponent();
+        boolean secondHasComponent = second.hasCustomModelDataComponent();
+        if (firstHasComponent != secondHasComponent) {
+            return false;
+        }
+        if (!firstHasComponent) {
+            return true;
+        }
+
+        var firstComponent = first.getCustomModelDataComponent();
+        var secondComponent = second.getCustomModelDataComponent();
+        return firstComponent.getFloats().equals(secondComponent.getFloats())
+                && firstComponent.getFlags().equals(secondComponent.getFlags())
+                && firstComponent.getStrings().equals(secondComponent.getStrings())
+                && firstComponent.getColors().equals(secondComponent.getColors());
     }
 
     /**
