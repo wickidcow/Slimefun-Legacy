@@ -14,9 +14,11 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import org.apache.commons.lang.Validate;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -149,10 +151,12 @@ public class SlimefunAutoCrafter extends AbstractAutoCrafter {
                     menu.addItem(
                             49,
                             new CustomItemStack(
-                                    Material.CRAFTING_TABLE,
-                                    ChatColor.GREEN
-                                            + Slimefun.getLocalization()
-                                                    .getMessage(p, "messages.auto-crafting.select")));
+                                    new ItemStack(Material.CRAFTING_TABLE),
+                                    meta -> meta.displayName(Component.text(
+                                                    Slimefun.getLocalization()
+                                                            .getMessage(p, "messages.auto-crafting.select"),
+                                                    NamedTextColor.GREEN)
+                                            .decoration(TextDecoration.ITALIC, false))));
                     menu.addMenuClickHandler(49, (pl, stack, slot, action) -> {
                         setSelectedRecipe(b, recipe);
                         SoundEffect.AUTO_CRAFTER_UPDATE_RECIPE.playAt(b);
