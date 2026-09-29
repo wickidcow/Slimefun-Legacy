@@ -35,7 +35,7 @@ public abstract class CropGrowthAccelerator extends AbstractGrowthAccelerator {
     protected void tick(Block b) {
         BlockMenu inv = StorageCacheUtils.getMenu(b.getLocation());
 
-        if (getCharge(b.getLocation()) >= getEnergyConsumption()) {
+        if (getChargeLong(b.getLocation()) >= getEnergyConsumption()) {
             for (int x = -getRadius(); x <= getRadius(); x++) {
                 for (int z = -getRadius(); z <= getRadius(); z++) {
                     Block block = b.getRelative(x, 0, z);
@@ -54,7 +54,7 @@ public abstract class CropGrowthAccelerator extends AbstractGrowthAccelerator {
         if (ageable.getAge() < ageable.getMaximumAge()) {
             for (int slot : getInputSlots()) {
                 if (isFertilizer(inv.getItemInSlot(slot))) {
-                    removeCharge(machine.getLocation(), getEnergyConsumption());
+                    removeCharge(machine.getLocation(), (long) getEnergyConsumption());
                     inv.consumeItem(slot);
 
                     ageable.setAge(ageable.getAge() + 1);
