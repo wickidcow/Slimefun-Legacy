@@ -9,6 +9,7 @@ import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
 import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.CraftingInventory;
@@ -35,7 +36,7 @@ public class PortableCrafter extends SimpleSlimefunItem<ItemUseHandler> implemen
             e.cancel();
 
             Player p = e.getPlayer();
-            p.openInventory(MenuType.CRAFTING.create(p, null));
+            p.openInventory(MenuType.CRAFTING.create(p, (Component) null));
             SoundEffect.PORTABLE_CRAFTER_OPEN_SOUND.playAt(p.getLocation(), SoundCategory.PLAYERS);
         };
     }
