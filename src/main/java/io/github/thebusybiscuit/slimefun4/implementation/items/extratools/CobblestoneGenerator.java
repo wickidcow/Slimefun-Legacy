@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.extratools;
 
+import com.xzavier0722.mc.plugin.slimefun4.storage.controller.ASlimefunDataContainer;
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.SlimefunBlockData;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
@@ -145,7 +146,7 @@ public final class CobblestoneGenerator extends SimpleSlimefunItem<BlockTicker> 
 
             @Override
             public void tick(Block block, SlimefunItem item, SlimefunBlockData data) {
-                if (decrement != 2 || getChargeLong(block.getLocation(), data) < ENERGY_CONSUMPTION) {
+                if (decrement != 2 || getChargeLong(block.getLocation(), (ASlimefunDataContainer) data) < ENERGY_CONSUMPTION) {
                     return;
                 }
 
