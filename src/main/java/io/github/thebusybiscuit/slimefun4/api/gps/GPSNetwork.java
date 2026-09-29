@@ -15,6 +15,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.gps.GPSTransmitter;
 import io.github.thebusybiscuit.slimefun4.implementation.items.teleporter.Teleporter;
+import io.github.thebusybiscuit.slimefun4.utils.ChatUtils;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import io.github.thebusybiscuit.slimefun4.utils.HeadTexture;
 import io.github.thebusybiscuit.slimefun4.utils.NumberUtils;
@@ -34,7 +35,6 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Server;
 import org.bukkit.World;
@@ -157,7 +157,7 @@ public class GPSNetwork {
      */
     public void openTransmitterControlPanel(@Nonnull Player p) {
         ChestMenu menu = new ChestMenu(
-                ChatColor.BLUE + Slimefun.getLocalization().getMessage(p, "machines.GPS_CONTROL_PANEL.title"));
+                "&9" + Slimefun.getLocalization().getMessage(p, "machines.GPS_CONTROL_PANEL.title"));
 
         for (int slot : border) {
             menu.addItem(slot, ChestMenuUtils.getBackground(), ChestMenuUtils.getEmptyClickHandler());
@@ -190,8 +190,7 @@ public class GPSNetwork {
                         HeadTexture.GLOBE_OVERWORLD.getAsItemStack(),
                         "&7" + Slimefun.getLocalization().getMessage(p, "machines.GPS_CONTROL_PANEL.waypoints"),
                         "",
-                        ChatColor.GRAY
-                                + "\u21E8 "
+                        "&7\u21E8 "
                                 + Slimefun.getLocalization().getMessage(p, "guide.tooltips.open-itemgroup")));
         menu.addMenuClickHandler(6, (pl, slot, item, action) -> {
             openWaypointControlPanel(pl);
@@ -273,7 +272,7 @@ public class GPSNetwork {
     public void openWaypointControlPanel(@Nonnull Player p) {
         PlayerProfile.get(p, profile -> {
             ChestMenu menu = new ChestMenu(
-                    ChatColor.BLUE + Slimefun.getLocalization().getMessage(p, "machines.GPS_CONTROL_PANEL.title"));
+                    "&9" + Slimefun.getLocalization().getMessage(p, "machines.GPS_CONTROL_PANEL.title"));
 
             menu.addMenuCloseHandler((pl) -> {
                 pages.remove(pl.getUniqueId());
@@ -416,7 +415,7 @@ public class GPSNetwork {
                 Bukkit.getPluginManager().callEvent(event);
 
                 if (!event.isCancelled()) {
-                    String id = ChatColor.stripColor(ChatColors.color(event.getName()))
+                    String id = ChatUtils.removeColor(event.getName())
                             .toUpperCase(Locale.ROOT)
                             .replace(' ', '_');
 
