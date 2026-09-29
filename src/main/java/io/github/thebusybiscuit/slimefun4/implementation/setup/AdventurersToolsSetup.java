@@ -239,8 +239,7 @@ final class AdventurersToolsSetup {
         ItemStack template = fluffyPaxel.getItem();
         for (Material material :
                 List.of(Material.NETHERITE_PICKAXE, Material.NETHERITE_AXE, Material.NETHERITE_SHOVEL)) {
-            ItemStack upgraded = template.clone();
-            upgraded.setType(material);
+            ItemStack upgraded = template.withType(material);
             RecipeType.ENHANCED_CRAFTING_TABLE.register(recipeWithCenter(baseRecipe, upgraded), output);
         }
     }
@@ -252,9 +251,7 @@ final class AdventurersToolsSetup {
             throw new IllegalArgumentException("A Netherite Paxel recipe ingredient must use a Netherite tool material");
         }
 
-        ItemStack upgraded = paxel.clone();
-        upgraded.setType(material);
-        return upgraded;
+        return paxel.withType(material);
     }
 
     private static ItemStack[] recipeWithCenter(ItemStack[] recipe, ItemStack center) {
