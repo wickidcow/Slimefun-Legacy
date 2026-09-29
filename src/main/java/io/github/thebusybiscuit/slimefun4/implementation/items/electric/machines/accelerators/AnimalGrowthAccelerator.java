@@ -6,10 +6,10 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.implementation.items.misc.OrganicFood;
-import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedParticle;
 import javax.annotation.Nullable;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import org.bukkit.block.Block;
+import org.bukkit.Particle;
 import org.bukkit.entity.Ageable;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -52,7 +52,7 @@ public class AnimalGrowthAccelerator extends AbstractGrowthAccelerator {
 
                     n.getWorld()
                             .spawnParticle(
-                                    VersionedParticle.HAPPY_VILLAGER,
+                                    Particle.HAPPY_VILLAGER,
                                     ((LivingEntity) n).getEyeLocation(),
                                     8,
                                     0.2F,
