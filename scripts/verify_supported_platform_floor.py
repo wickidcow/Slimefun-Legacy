@@ -233,6 +233,54 @@ def main() -> int:
             "VersionedPotionEffectType",
             "PotionEffectType.",
         ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/api/network/NetworkVisualizer.java": (
+            "VersionedParticle",
+            "Particle.",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/tasks/AncientAltarTask.java": (
+            "VersionedParticle",
+            "Particle.",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/weapons/ExplosiveBow.java": (
+            "VersionedParticle",
+            "Particle.",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/magical/staves/WindStaff.java": (
+            "VersionedParticle",
+            "Particle.",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/magical/runes/VillagerRune.java": (
+            "VersionedParticle",
+            "Particle.",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/magic8ball/Magic8BallItem.java": (
+            "VersionedParticle",
+            "Particle.",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/androids/MinerAndroid.java": (
+            "VersionedParticle",
+            "Particle.",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/accelerators/CropGrowthAccelerator.java": (
+            "VersionedParticle",
+            "Particle.",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/accelerators/AnimalGrowthAccelerator.java": (
+            "VersionedParticle",
+            "Particle.",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/magical/runes/EnchantmentRune.java": (
+            "VersionedParticle",
+            "Particle.",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/multiblocks/miner/MiningTask.java": (
+            "VersionedParticle",
+            "Particle.",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/autocrafters/AbstractAutoCrafter.java": (
+            "VersionedParticle",
+            "Particle.",
+        ),
     }
     for relative, (forbidden, required) in direct_api_files.items():
         text = (root / relative).read_text(encoding="utf-8")
