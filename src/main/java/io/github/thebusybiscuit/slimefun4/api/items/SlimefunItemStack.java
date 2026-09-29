@@ -263,6 +263,7 @@ public class SlimefunItemStack extends ItemStack {
     }
 
     @Override
+    @SuppressWarnings("deprecation") // Override retained so locked Slimefun templates cannot bypass validation.
     public void setType(Material type) {
         validate();
         super.setType(type);

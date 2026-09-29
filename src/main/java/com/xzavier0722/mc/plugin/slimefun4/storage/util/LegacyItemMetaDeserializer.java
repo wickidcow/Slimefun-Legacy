@@ -86,6 +86,7 @@ public final class LegacyItemMetaDeserializer implements ConfigurationSerializab
         skullMeta.setPlayerProfile(profile);
     }
 
+    @SuppressWarnings("deprecation") // PlayerProfile is required by the 1.21.11-compatible skull migration path.
     private static void restoreTextures(org.bukkit.profile.PlayerProfile profile, String encodedTextures) {
         try {
             var json = new String(Base64.getDecoder().decode(encodedTextures), StandardCharsets.UTF_8);

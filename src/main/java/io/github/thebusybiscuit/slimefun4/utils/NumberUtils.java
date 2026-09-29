@@ -101,6 +101,7 @@ public final class NumberUtils {
      *
      * @return A representative {@link ChatColor}
      */
+    @SuppressWarnings("deprecation") // Retained public API returns Bukkit ChatColor.
     public static @Nonnull ChatColor getColorFromPercentage(float percentage) {
         if (percentage < 16.0F) {
             return ChatColor.DARK_RED;

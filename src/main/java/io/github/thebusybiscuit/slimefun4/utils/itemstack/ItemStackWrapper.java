@@ -82,6 +82,7 @@ public final class ItemStackWrapper extends ItemStack {
     }
 
     @Override
+    @SuppressWarnings("deprecation") // Override retained to keep this wrapper immutable.
     public void setType(Material type) {
         throw new UnsupportedOperationException(ERROR_MESSAGE);
     }

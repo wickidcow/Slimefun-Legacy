@@ -15,6 +15,7 @@ import org.bukkit.ChatColor;
  * @see SlimefunProfiler
  *
  */
+@SuppressWarnings("deprecation") // Public compatibility API still exposes Bukkit ChatColor.
 public enum PerformanceRating implements Predicate<Float> {
 
     // Thresholds might change in the future!

@@ -53,6 +53,7 @@ public final class ItemStackDataCodec {
                 && Arrays.equals(FORMAT_V2, Arrays.copyOf(itemData, FORMAT_V2.length));
     }
 
+    @SuppressWarnings("deprecation") // Required only to read historical Bukkit object-stream item data.
     private static ItemStack deserializeLegacy(byte[] serializedObject) throws Exception {
         try (var stream = new ByteArrayInputStream(serializedObject);
                 var input = new BukkitObjectInputStream(stream)) {

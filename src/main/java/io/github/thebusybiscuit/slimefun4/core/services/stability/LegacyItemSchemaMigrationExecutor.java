@@ -203,6 +203,7 @@ public final class LegacyItemSchemaMigrationExecutor extends ItemDoctorTraversal
         }
     }
 
+    @SuppressWarnings("deprecation") // Rollback must restore the same live ItemStack reference in place.
     private static void restore(ItemStack target, ItemStack original) {
         target.setType(original.getType());
         target.setAmount(original.getAmount());

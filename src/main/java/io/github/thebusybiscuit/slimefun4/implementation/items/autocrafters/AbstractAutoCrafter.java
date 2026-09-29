@@ -663,6 +663,7 @@ public abstract class AbstractAutoCrafter extends SlimefunItem implements Energy
         return EnergyNetComponentType.CONSUMER;
     }
 
+    @SuppressWarnings("deprecation") // Generic representative stack is the cross-version RecipeChoice compatibility path.
     private int getIngredientCount(AbstractRecipe recipe) {
 
         if (recipe instanceof SlimefunItemRecipe) {

@@ -798,6 +798,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     /**
      * This method registers all of our {@link Listener Listeners}.
      */
+    @SuppressWarnings("deprecation") // MenuListener remains the retained CS-CoreLib inventory compatibility listener.
     private void registerListeners() {
         chatCatcher = new PlayerChatCatcher(this);
         // Old deprecated CS-CoreLib Listener

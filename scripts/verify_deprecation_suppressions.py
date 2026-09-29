@@ -12,10 +12,17 @@ ALLOWED = {
     "src/main/java/me/mrCookieSlime/Slimefun/api/BlockStorage.java": 1,
     "src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/BlockDataConfigWrapper.java": 1,
     "src/main/java/me/mrCookieSlime/Slimefun/Objects/handlers/BlockTicker.java": 1,
-    "src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/LegacyItemMetaDeserializer.java": 2,
+    "src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/LegacyItemMetaDeserializer.java": 3,
+    "src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/ItemStackDataCodec.java": 1,
     "src/main/java/io/github/thebusybiscuit/slimefun4/core/attributes/EnergyNetProvider.java": 1,
     "src/main/java/io/github/thebusybiscuit/slimefun4/core/attributes/EnergyNetComponent.java": 1,
-    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/Slimefun.java": 1,
+    "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/profiler/PerformanceRating.java": 1,
+    "src/main/java/io/github/thebusybiscuit/slimefun4/utils/NumberUtils.java": 1,
+    "src/main/java/io/github/thebusybiscuit/slimefun4/api/items/SlimefunItemStack.java": 1,
+    "src/main/java/io/github/thebusybiscuit/slimefun4/utils/itemstack/ItemStackWrapper.java": 1,
+    "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyItemSchemaMigrationExecutor.java": 1,
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/autocrafters/AbstractAutoCrafter.java": 1,
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/Slimefun.java": 2,
 }
 
 PATTERN = re.compile(r'@SuppressWarnings\s*\((?:\{[^)]*\}|[^)]*)\)')
