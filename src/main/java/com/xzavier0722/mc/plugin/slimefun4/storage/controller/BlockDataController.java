@@ -179,12 +179,12 @@ public class BlockDataController extends ADataController {
         var key = new RecordKey(DataScope.CHUNK_DATA);
         key.addField(FieldKey.CHUNK);
         key.addCondition(FieldKey.CHUNK, world.getName() + ";%");
-        getData(key, true).forEach(data -> chunkKeys.add(data.get(FieldKey.CHUNK)));
+        getData(key, true).forEach(data -> chunkKeys.add(data.getString(FieldKey.CHUNK)));
 
         key = new RecordKey(DataScope.BLOCK_RECORD);
         key.addField(FieldKey.CHUNK);
         key.addCondition(FieldKey.CHUNK, world.getName() + ";%");
-        getData(key, true).forEach(data -> chunkKeys.add(data.get(FieldKey.CHUNK)));
+        getData(key, true).forEach(data -> chunkKeys.add(data.getString(FieldKey.CHUNK)));
 
         chunkKeys.forEach(cKey -> scheduleExistingLoadedChunk(world, cKey));
     }
@@ -563,7 +563,7 @@ public class BlockDataController extends ADataController {
 
         var result = getData(key);
         var re =
-                result.isEmpty() ? null : new SlimefunBlockData(l, result.get(0).get(FieldKey.SLIMEFUN_ID));
+                result.isEmpty() ? null : new SlimefunBlockData(l, result.get(0).getString(FieldKey.SLIMEFUN_ID));
         if (re != null) {
             // fix issue #935
             SlimefunChunkData chunkData = getChunkDataCache(l, true);
@@ -628,14 +628,14 @@ public class BlockDataController extends ADataController {
             return null;
         }
 
-        var traits = StringUtil.getTraitsFromStr(result.get(0).get(FieldKey.UNIVERSAL_TRAITS));
+        var traits = StringUtil.getTraitsFromStr(result.get(0).getString(FieldKey.UNIVERSAL_TRAITS));
 
         if (traits.contains(UniversalDataTrait.BLOCK)) {
-            var ubd = new SlimefunUniversalBlockData(uuid, result.get(0).get(FieldKey.SLIMEFUN_ID));
+            var ubd = new SlimefunUniversalBlockData(uuid, result.get(0).getString(FieldKey.SLIMEFUN_ID));
             traits.forEach(ubd::addTrait);
             return ubd;
         } else {
-            return new SlimefunUniversalData(uuid, result.get(0).get(FieldKey.SLIMEFUN_ID), traits);
+            return new SlimefunUniversalData(uuid, result.get(0).getString(FieldKey.SLIMEFUN_ID), traits);
         }
     }
 
@@ -905,8 +905,8 @@ public class BlockDataController extends ADataController {
         key.addCondition(FieldKey.CHUNK, chunkData.getKey());
 
         getData(key).forEach(block -> {
-            var lKey = block.get(FieldKey.LOCATION);
-            var sfId = block.get(FieldKey.SLIMEFUN_ID);
+            var lKey = block.getString(FieldKey.LOCATION);
+            var sfId = block.getString(FieldKey.SLIMEFUN_ID);
             var sfItem = SlimefunItem.getById(sfId);
             if (sfItem == null) {
                 return;
@@ -932,12 +932,12 @@ public class BlockDataController extends ADataController {
         var key = new RecordKey(DataScope.CHUNK_DATA);
         key.addField(FieldKey.CHUNK);
         key.addCondition(FieldKey.CHUNK, worldName + ";%");
-        getData(key, true).forEach(data -> chunkKeys.add(data.get(FieldKey.CHUNK)));
+        getData(key, true).forEach(data -> chunkKeys.add(data.getString(FieldKey.CHUNK)));
 
         key = new RecordKey(DataScope.BLOCK_RECORD);
         key.addField(FieldKey.CHUNK);
         key.addCondition(FieldKey.CHUNK, world.getName() + ";%");
-        getData(key, true).forEach(data -> chunkKeys.add(data.get(FieldKey.CHUNK)));
+        getData(key, true).forEach(data -> chunkKeys.add(data.getString(FieldKey.CHUNK)));
 
         if (Slimefun.getSchedulerService().isFolia()) {
             // Folia's global region must not directly touch chunk state. Resolve each stored chunk on the
@@ -993,7 +993,7 @@ public class BlockDataController extends ADataController {
         var uniRecord = getData(uniKey);
 
         uniRecord.forEach(data -> {
-            var sfId = data.get(FieldKey.SLIMEFUN_ID);
+            var sfId = data.getString(FieldKey.SLIMEFUN_ID);
             var sfItem = SlimefunItem.getById(sfId);
 
             if (sfItem == null) {
@@ -1001,7 +1001,7 @@ public class BlockDataController extends ADataController {
             }
 
             var uuid = data.getUUID(FieldKey.UNIVERSAL_UUID);
-            var traitsData = data.get(FieldKey.UNIVERSAL_TRAITS);
+            var traitsData = data.getString(FieldKey.UNIVERSAL_TRAITS);
             var traits = new HashSet<UniversalDataTrait>();
 
             // Read trait(s) of universal data
@@ -1043,8 +1043,8 @@ public class BlockDataController extends ADataController {
             }
             getData(key)
                     .forEach(data -> chunkData.setCacheInternal(
-                            data.get(FieldKey.DATA_KEY),
-                            DataUtils.blockDataDebase64(data.get(FieldKey.DATA_VALUE)),
+                            data.getString(FieldKey.DATA_KEY),
+                            DataUtils.blockDataDebase64(data.getString(FieldKey.DATA_VALUE)),
                             false));
             chunkData.setIsDataLoaded(true);
         } finally {
@@ -1083,8 +1083,8 @@ public class BlockDataController extends ADataController {
                 migrateUniversalData(blockData.getLocation(), blockData.getSfId(), kvData, invData);
             } else {
                 kvData.forEach(recordSet -> blockData.setCacheInternal(
-                        recordSet.get(FieldKey.DATA_KEY),
-                        DataUtils.blockDataDebase64(recordSet.get(FieldKey.DATA_VALUE)),
+                        recordSet.getString(FieldKey.DATA_KEY),
+                        DataUtils.blockDataDebase64(recordSet.getString(FieldKey.DATA_VALUE)),
                         false));
 
                 blockData.setIsDataLoaded(true);
@@ -1187,8 +1187,8 @@ public class BlockDataController extends ADataController {
 
             getData(key)
                     .forEach(recordSet -> uniData.setCacheInternal(
-                            recordSet.get(FieldKey.DATA_KEY),
-                            DataUtils.blockDataDebase64(recordSet.get(FieldKey.DATA_VALUE)),
+                            recordSet.getString(FieldKey.DATA_KEY),
+                            DataUtils.blockDataDebase64(recordSet.getString(FieldKey.DATA_VALUE)),
                             false));
 
             uniData.setIsDataLoaded(true);
@@ -1969,7 +1969,7 @@ public class BlockDataController extends ADataController {
                     10L);
 
             kvData.forEach(recordSet -> universalData.setData(
-                    recordSet.get(FieldKey.DATA_KEY), DataUtils.blockDataDebase64(recordSet.get(FieldKey.DATA_VALUE))));
+                    recordSet.getString(FieldKey.DATA_KEY), DataUtils.blockDataDebase64(recordSet.getString(FieldKey.DATA_VALUE))));
 
             var preset = UniversalMenuPreset.getPreset(sfId);
             if (preset != null) {
