@@ -7,7 +7,7 @@ import io.github.thebusybiscuit.slimefun4.core.handlers.ItemUseHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.block.BlockState;
@@ -57,19 +57,19 @@ public final class EchoLocator extends SimpleSlimefunItem<ItemUseHandler> {
             String intensity = signal >= 20 ? "strong" : signal >= 8 ? "noticeable" : signal > 0 ? "faint" : "quiet";
 
             player.playSound(origin, Sound.BLOCK_SCULK_SENSOR_CLICKING, 0.65F, signal >= 20 ? 0.75F : 1.25F);
-            player.sendMessage(ChatColor.DARK_AQUA + "Echo Locator " + ChatColor.GRAY + "• " + ChatColor.AQUA
-                    + intensity + ChatColor.GRAY + " underground activity");
-            player.sendMessage(ChatColor.GRAY + "Hostile echoes: " + ChatColor.YELLOW + monsters + ChatColor.GRAY
-                    + " • Spawner resonance in this chunk: " + ChatColor.YELLOW + spawners);
+            message(player, "&3" + "Echo Locator " + "&7" + "• " + "&b"
+                    + intensity + "&7" + " underground activity");
+            message(player, "&7" + "Hostile echoes: " + "&e" + monsters + "&7"
+                    + " • Spawner resonance in this chunk: " + "&e" + spawners);
 
             if (monsters > 0) {
                 Location center = new Location(origin.getWorld(), sumX / monsters, origin.getY(), sumZ / monsters);
-                player.sendMessage(ChatColor.GRAY + "The strongest living echoes seem to come from the "
-                        + ChatColor.AQUA + cardinalDirection(origin, center) + ChatColor.GRAY + ".");
+                message(player, "&7" + "The strongest living echoes seem to come from the "
+                        + "&b" + cardinalDirection(origin, center) + "&7" + ".");
             } else if (spawners > 0) {
-                player.sendMessage(ChatColor.GRAY + "A mechanical echo is present somewhere in this chunk.");
+                message(player, "&7" + "A mechanical echo is present somewhere in this chunk.");
             } else {
-                player.sendMessage(ChatColor.DARK_GRAY + "No exact coordinates are revealed by the locator.");
+                message(player, "&8" + "No exact coordinates are revealed by the locator.");
             }
         };
     }
@@ -90,4 +90,8 @@ public final class EchoLocator extends SimpleSlimefunItem<ItemUseHandler> {
             default -> "southeast";
         };
     }
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
 }
