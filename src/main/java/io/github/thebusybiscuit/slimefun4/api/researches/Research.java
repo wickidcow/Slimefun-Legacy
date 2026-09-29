@@ -20,9 +20,10 @@ import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Keyed;
 import org.bukkit.NamespacedKey;
@@ -159,7 +160,7 @@ public class Research implements Keyed {
      * @return The unlocalized, decolorized name for this {@link Research}
      */
     public @Nonnull String getUnlocalizedName() {
-        return ChatColor.stripColor(name);
+        return PlainTextComponentSerializer.plainText().serialize(LegacyComponentSerializer.legacySection().deserialize(name));
     }
 
     /**
