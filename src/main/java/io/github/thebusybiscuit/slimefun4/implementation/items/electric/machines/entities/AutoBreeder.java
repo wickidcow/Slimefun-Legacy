@@ -107,11 +107,11 @@ public class AutoBreeder extends SlimefunItem implements InventoryBlock, EnergyN
         for (Entity n : b.getWorld().getNearbyEntities(b.getLocation(), 4.0, 2.0, 4.0, this::canBreed)) {
             for (int slot : getInputSlots()) {
                 if (isOrganicFood(inv.getItemInSlot(slot))) {
-                    if (getCharge(b.getLocation()) < ENERGY_CONSUMPTION) {
+                    if (getChargeLong(b.getLocation()) < ENERGY_CONSUMPTION) {
                         return;
                     }
 
-                    removeCharge(b.getLocation(), ENERGY_CONSUMPTION);
+                    removeCharge(b.getLocation(), (long) ENERGY_CONSUMPTION);
                     inv.consumeItem(slot);
 
                     ((Animals) n).setLoveModeTicks(600);
