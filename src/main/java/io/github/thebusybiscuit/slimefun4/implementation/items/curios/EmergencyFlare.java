@@ -9,7 +9,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunIte
 import java.util.Locale;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Color;
 import org.bukkit.FireworkEffect;
 import org.bukkit.HeightMap;
@@ -57,13 +57,13 @@ public final class EmergencyFlare extends SimpleSlimefunItem<ItemUseHandler> {
                 meta.getPersistentDataContainer().set(modeKey, PersistentDataType.STRING, next.name());
                 item.setItemMeta(meta);
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.65F, 1.45F);
-                player.sendMessage(ChatColor.GOLD + "Emergency Flare mode: " + next.chatColor() + next.displayName());
+                message(player, "&6" + "Emergency Flare mode: " + next.chatColor() + next.displayName());
                 return;
             }
 
             long remaining = getCooldownRemainingMillis(player);
             if (remaining > 0L) {
-                player.sendMessage(ChatColor.RED + "Emergency Flare is recharging for " + formatSeconds(remaining)
+                message(player, "&c" + "Emergency Flare is recharging for " + formatSeconds(remaining)
                         + " more seconds.");
                 return;
             }
@@ -101,8 +101,8 @@ public final class EmergencyFlare extends SimpleSlimefunItem<ItemUseHandler> {
         firework.setFireworkMeta(fireworkMeta);
 
         player.playSound(playerLocation, Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 1.0F, 1.0F);
-        player.sendMessage(ChatColor.GOLD + "Emergency Flare: " + mode.chatColor() + mode.displayName() + ChatColor.GRAY
-                + " launched at " + ChatColor.YELLOW + x + ", " + z + ChatColor.GRAY
+        message(player, "&6" + "Emergency Flare: " + mode.chatColor() + mode.displayName() + "&7"
+                + " launched at " + "&e" + x + ", " + z + "&7"
                 + ". The marker remains visible for about 20 seconds.");
         emitPulse(flareLocation, mode, FLARE_PULSES);
     }
@@ -141,15 +141,15 @@ public final class EmergencyFlare extends SimpleSlimefunItem<ItemUseHandler> {
     }
 
     enum FlareMode {
-        HELP("Help", Color.RED, ChatColor.RED),
-        RALLY("Rally Point", Color.LIME, ChatColor.GREEN),
-        DANGER("Danger", Color.ORANGE, ChatColor.GOLD);
+        HELP("Help", Color.RED, "&c"),
+        RALLY("Rally Point", Color.LIME, "&a"),
+        DANGER("Danger", Color.ORANGE, "&6");
 
         private final String displayName;
         private final Color color;
-        private final ChatColor chatColor;
+        private final String chatColor;
 
-        FlareMode(String displayName, Color color, ChatColor chatColor) {
+        FlareMode(String displayName, Color color, String chatColor) {
             this.displayName = displayName;
             this.color = color;
             this.chatColor = chatColor;
@@ -163,7 +163,7 @@ public final class EmergencyFlare extends SimpleSlimefunItem<ItemUseHandler> {
             return color;
         }
 
-        ChatColor chatColor() {
+        String chatColor() {
             return chatColor;
         }
 
@@ -183,4 +183,8 @@ public final class EmergencyFlare extends SimpleSlimefunItem<ItemUseHandler> {
             }
         }
     }
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
 }
