@@ -15,6 +15,9 @@ import java.util.UUID;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -148,9 +151,9 @@ public final class Script {
     @Nonnull
     private String getScriptRatingPercentage() {
         float percentage = getRating();
-        return NumberUtils.getColorFromPercentage(percentage)
-                + String.valueOf(percentage)
-                + "§f% ";
+        Component rating = Component.text(percentage, NumberUtils.getTextColorFromPercentage(percentage))
+                .append(Component.text("% ", NamedTextColor.WHITE));
+        return LegacyComponentSerializer.legacySection().serialize(rating);
     }
 
     /**
