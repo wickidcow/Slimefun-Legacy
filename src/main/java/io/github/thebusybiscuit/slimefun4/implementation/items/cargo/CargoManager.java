@@ -17,8 +17,9 @@ import io.github.thebusybiscuit.slimefun4.implementation.handlers.SimpleBlockBre
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
-import org.bukkit.ChatColor;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -75,12 +76,12 @@ public class CargoManager extends SlimefunItem implements HologramOwner, NotRota
                             var blockData = StorageCacheUtils.getBlock(b.getLocation());
                             if (blockData.getData("visualizer") == null) {
                                 blockData.setData("visualizer", "disabled");
-                                p.sendMessage(ChatColor.translateAlternateColorCodes(
-                                        '&', "&cCargo Net Visualizer: " + "&4\u2718"));
+                                p.sendMessage(Component.text("Cargo Net Visualizer: ", NamedTextColor.RED)
+                                        .append(Component.text("\u2718", NamedTextColor.DARK_RED)));
                             } else {
                                 blockData.removeData("visualizer");
-                                p.sendMessage(ChatColor.translateAlternateColorCodes(
-                                        '&', "&cCargo Net Visualizer: " + "&2\u2714"));
+                                p.sendMessage(Component.text("Cargo Net Visualizer: ", NamedTextColor.RED)
+                                        .append(Component.text("\u2714", NamedTextColor.DARK_GREEN)));
                             }
                         }
                     }
