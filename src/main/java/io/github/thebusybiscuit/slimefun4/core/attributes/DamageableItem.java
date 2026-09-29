@@ -4,7 +4,7 @@ import io.github.bakedlibs.dough.config.Config;
 import io.github.thebusybiscuit.slimefun4.api.annotations.SlimefunAPI;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.utils.UnbreakingAlgorithm;
-import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedEnchantment;
+import org.bukkit.enchantments.Enchantment;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.bukkit.Sound;
@@ -52,7 +52,7 @@ public interface DamageableItem extends ItemAttribute {
      */
     default void damageItem(@Nonnull Player p, @Nullable ItemStack item) {
         if (isDamageable() && item != null && !item.getType().isAir() && item.getAmount() > 0) {
-            int unbreakingLevel = item.getEnchantmentLevel(VersionedEnchantment.UNBREAKING);
+            int unbreakingLevel = item.getEnchantmentLevel(Enchantment.UNBREAKING);
 
             if (evaluateUnbreakingEnchantment(unbreakingLevel)) {
                 return;
