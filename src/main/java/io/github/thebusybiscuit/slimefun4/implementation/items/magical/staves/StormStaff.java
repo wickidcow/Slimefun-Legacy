@@ -12,6 +12,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
+import org.bukkit.GameRules;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -63,7 +64,7 @@ public class StormStaff extends LimitedUseItem {
 
                 Location loc = target.getLocation();
                 if (loc.getWorld() != null && loc.getChunk().isLoaded()) {
-                    if (loc.getWorld().getPVP()
+                    if (Boolean.TRUE.equals(loc.getWorld().getGameRuleValue(GameRules.PVP))
                             && Slimefun.getProtectionManager().hasPermission(p, loc, Interaction.ATTACK_PLAYER)) {
                         e.cancel();
                         useItem(p, item, loc);
