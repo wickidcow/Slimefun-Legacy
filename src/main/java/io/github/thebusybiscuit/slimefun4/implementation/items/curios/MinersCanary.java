@@ -12,7 +12,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -85,7 +85,7 @@ public final class MinersCanary extends SimpleSlimefunItem<ItemUseHandler> imple
             player.setCooldown(Material.YELLOW_DYE, MANUAL_COOLDOWN_TICKS);
             if (danger == null) {
                 player.playSound(player.getLocation(), Sound.ENTITY_PARROT_AMBIENT, 0.55F, 1.35F);
-                player.sendMessage(ChatColor.YELLOW + "The Miner's Canary is calm. " + ChatColor.GRAY
+                message(player, "&e" + "The Miner's Canary is calm. " + "&7"
                         + "No immediate danger detected nearby.");
             } else {
                 chirp(player, danger, true);
@@ -311,17 +311,17 @@ public final class MinersCanary extends SimpleSlimefunItem<ItemUseHandler> imple
         String detail =
                 switch (danger.type()) {
                     case HOSTILE ->
-                        ChatColor.RED + prettyName(danger.detail()) + ChatColor.GRAY + " is closing in about "
-                                + ChatColor.WHITE + (int) Math.ceil(danger.distance()) + ChatColor.GRAY
+                        "&c" + prettyName(danger.detail()) + "&7" + " is closing in about "
+                                + "&f" + (int) Math.ceil(danger.distance()) + "&7"
                                 + " blocks away.";
                     case LAVA ->
-                        ChatColor.RED + "Exposed lava" + ChatColor.GRAY + " is about " + ChatColor.WHITE
-                                + (int) Math.ceil(danger.distance()) + ChatColor.GRAY + " blocks away.";
-                    case FIRE -> ChatColor.RED + "You are on fire.";
-                    case DROWNING -> ChatColor.RED + "Your air is dangerously low.";
-                    case FALL -> ChatColor.RED + "You are in a dangerous fall.";
+                        "&c" + "Exposed lava" + "&7" + " is about " + "&f"
+                                + (int) Math.ceil(danger.distance()) + "&7" + " blocks away.";
+                    case FIRE -> "&c" + "You are on fire.";
+                    case DROWNING -> "&c" + "Your air is dangerously low.";
+                    case FALL -> "&c" + "You are in a dangerous fall.";
                 };
-        player.sendMessage(ChatColor.GOLD + "The Miner's Canary chirps sharply! " + detail);
+        message(player, "&6" + "The Miner's Canary chirps sharply! " + detail);
     }
 
     private static String prettyName(String value) {
@@ -348,4 +348,8 @@ public final class MinersCanary extends SimpleSlimefunItem<ItemUseHandler> imple
     }
 
     private record Danger(DangerType type, String detail, double distance) {}
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
 }
