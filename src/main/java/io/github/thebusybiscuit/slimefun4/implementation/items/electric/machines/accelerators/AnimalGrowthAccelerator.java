@@ -37,12 +37,12 @@ public class AnimalGrowthAccelerator extends AbstractGrowthAccelerator {
         for (Entity n : b.getWorld().getNearbyEntities(b.getLocation(), RADIUS, RADIUS, RADIUS, this::isReadyToGrow)) {
             for (int slot : getInputSlots()) {
                 if (isOrganicFood(inv.getItemInSlot(slot))) {
-                    if (getCharge(b.getLocation()) < ENERGY_CONSUMPTION) {
+                    if (getChargeLong(b.getLocation()) < ENERGY_CONSUMPTION) {
                         return;
                     }
 
                     Ageable ageable = (Ageable) n;
-                    removeCharge(b.getLocation(), ENERGY_CONSUMPTION);
+                    removeCharge(b.getLocation(), (long) ENERGY_CONSUMPTION);
                     inv.consumeItem(slot);
                     ageable.setAge(ageable.getAge() + 2000);
 
