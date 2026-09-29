@@ -8,7 +8,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunIte
 import java.util.Locale;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -36,9 +36,9 @@ public final class ExplorersSpyglass extends SimpleSlimefunItem<ItemUseHandler> 
             String biome = humanize(location.getBlock().getBiome().getKey().getKey());
             String direction = getDirection(location.getYaw());
 
-            player.sendMessage(ChatColor.GOLD + "Explorer's Spyglass " + ChatColor.GRAY + "• " + ChatColor.YELLOW
-                    + location.getBlockX() + ", " + location.getBlockY() + ", " + location.getBlockZ() + ChatColor.GRAY
-                    + " • " + ChatColor.AQUA + biome + ChatColor.GRAY + " • " + ChatColor.GREEN + direction);
+            message(player, "&6" + "Explorer's Spyglass " + "&7" + "• " + "&e"
+                    + location.getBlockX() + ", " + location.getBlockY() + ", " + location.getBlockZ() + "&7"
+                    + " • " + "&b" + biome + "&7" + " • " + "&a" + direction);
         };
     }
 
@@ -63,4 +63,8 @@ public final class ExplorersSpyglass extends SimpleSlimefunItem<ItemUseHandler> 
 
         return result.toString();
     }
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
 }
