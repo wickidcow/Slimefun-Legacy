@@ -24,6 +24,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.AutoCrafterListener;
 import io.github.thebusybiscuit.slimefun4.implementation.tasks.AsyncRecipeChoiceTask;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
+import io.github.thebusybiscuit.slimefun4.utils.compatibility.LegacyBukkitCompatibility;
 import io.github.thebusybiscuit.slimefun4.utils.HeadTexture;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedParticle;
@@ -663,7 +664,6 @@ public abstract class AbstractAutoCrafter extends SlimefunItem implements Energy
         return EnergyNetComponentType.CONSUMER;
     }
 
-    @SuppressWarnings("deprecation") // Generic representative stack is the cross-version RecipeChoice compatibility path.
     private int getIngredientCount(AbstractRecipe recipe) {
 
         if (recipe instanceof SlimefunItemRecipe) {
@@ -716,7 +716,7 @@ public abstract class AbstractAutoCrafter extends SlimefunItem implements Energy
             for (char each : row.toCharArray()) {
                 RecipeChoice choice = shapedRecipe.getChoiceMap().get(each);
                 if (choice != null) {
-                    ItemStack itemInChoice = choice.getItemStack();
+                    ItemStack itemInChoice = LegacyBukkitCompatibility.getRecipeChoiceRepresentative(choice);
                     boolean found = false;
                     for (ItemStack eachInRecipe : itemInRecipe) {
                         if (eachInRecipe.isSimilar(itemInChoice)) {
