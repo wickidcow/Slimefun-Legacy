@@ -12,7 +12,7 @@ import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
-import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedParticle;
+import org.bukkit.Particle;
 import io.github.thebusybiscuit.slimefun4.utils.tags.SlimefunTag;
 import java.util.LinkedList;
 import java.util.List;
@@ -189,7 +189,7 @@ public class Crucible extends SimpleSlimefunItem<BlockUseHandler> implements Rec
         if (isWater && block.getWorld().getEnvironment() == Environment.NETHER && !allowWaterInNether.getValue()) {
             // We will still consume the items but won't generate water in the Nether.
             block.getWorld()
-                    .spawnParticle(VersionedParticle.SMOKE, block.getLocation().add(0.5, 0.5, 0.5), 4);
+                    .spawnParticle(Particle.SMOKE, block.getLocation().add(0.5, 0.5, 0.5), 4);
             SoundEffect.CRUCIBLE_GENERATE_LIQUID_SOUND.playAt(block);
             return;
         }

@@ -6,7 +6,7 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.implementation.items.misc.OrganicFertilizer;
-import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedParticle;
+import org.bukkit.Particle;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -81,7 +81,7 @@ public class TreeGrowthAccelerator extends AbstractGrowthAccelerator {
                 inv.consumeItem(slot);
                 sapling.getWorld()
                         .spawnParticle(
-                                VersionedParticle.HAPPY_VILLAGER,
+                                Particle.HAPPY_VILLAGER,
                                 sapling.getLocation().add(0.5D, 0.5D, 0.5D),
                                 4,
                                 0.1F,
