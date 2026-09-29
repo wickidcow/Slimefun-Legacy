@@ -18,9 +18,11 @@ import java.util.concurrent.ThreadLocalRandom;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
@@ -103,17 +105,23 @@ public class Talisman extends SlimefunItem {
         this.chance = chance;
 
         if (!(this instanceof EnderTalisman)) {
-            String name =
-                    "&5Ender " + ChatColor.stripColor(getItem().getItemMeta().getDisplayName());
+            Component displayName = getItem().getItemMeta().displayName();
+            String name = "&5Ender " + (displayName == null
+                    ? getItem().getType().name()
+                    : PlainTextComponentSerializer.plainText().serialize(displayName));
             List<String> lore = new ArrayList<>();
             lore.add("&7&oEnder Infused");
             lore.add("");
 
-            for (String line : getItem().getItemMeta().getLore()) {
-                if (line.contains("Backpack")) {
-                    line = line.replace("Backpack", "Ender Chest");
+            List<Component> sourceLore = getItem().getItemMeta().lore();
+            if (sourceLore != null) {
+                for (Component component : sourceLore) {
+                    String line = LegacyComponentSerializer.legacyAmpersand().serialize(component);
+                    if (line.contains("Backpack")) {
+                        line = line.replace("Backpack", "Ender Chest");
+                    }
+                    lore.add(line);
                 }
-                lore.add(line);
             }
 
             enderTalisman =
