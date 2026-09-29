@@ -11,8 +11,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
@@ -52,7 +52,7 @@ public final class UniversalLeash extends SlimefunItem {
         event.setCancelled(true);
 
         if (!Slimefun.getIntegrations().canInteractEntity(player, target)) {
-            player.sendMessage(ChatColor.RED + "You cannot leash that entity here.");
+            message(player, "&c" + "You cannot leash that entity here.");
             return;
         }
 
@@ -65,13 +65,13 @@ public final class UniversalLeash extends SlimefunItem {
 
     private void leashToPlayer(Player player, Entity target, Leashable leashable) {
         if (!leashable.setLeashHolder(player)) {
-            player.sendMessage(ChatColor.RED + "That entity cannot be leashed right now.");
+            message(player, "&c" + "That entity cannot be leashed right now.");
             return;
         }
 
         chainEndpoints.put(player.getUniqueId(), target.getUniqueId());
         chainLengths.put(player.getUniqueId(), 1);
-        player.sendMessage(ChatColor.GREEN + "Leashed " + displayName(target) + '.');
+        message(player, "&a" + "Leashed " + displayName(target) + '.');
     }
 
     private void chainTo(Player player, Entity target, Leashable targetLeashable) {
@@ -90,25 +90,25 @@ public final class UniversalLeash extends SlimefunItem {
 
         int currentLength = chainLengths.getOrDefault(playerId, 1);
         if (currentLength >= MAX_CHAIN_LENGTH) {
-            player.sendMessage(ChatColor.RED + "This leash chain has reached " + MAX_CHAIN_LENGTH + " mobs.");
+            message(player, "&c" + "This leash chain has reached " + MAX_CHAIN_LENGTH + " mobs.");
             return;
         }
 
         if (!targetLeashable.setLeashHolder(player)) {
-            player.sendMessage(ChatColor.RED + "That entity cannot be added to the leash chain.");
+            message(player, "&c" + "That entity cannot be added to the leash chain.");
             return;
         }
 
         if (!endpointLeashable.setLeashHolder(target)) {
             targetLeashable.setLeashHolder(null);
-            player.sendMessage(ChatColor.RED + "The previous leash could not be linked to that mob.");
+            message(player, "&c" + "The previous leash could not be linked to that mob.");
             return;
         }
 
         chainEndpoints.put(playerId, target.getUniqueId());
         chainLengths.put(playerId, currentLength + 1);
-        player.sendMessage(ChatColor.GREEN + "Linked " + displayName(endpoint) + ChatColor.GRAY + " → "
-                + ChatColor.GREEN + displayName(target) + '.');
+        message(player, "&a" + "Linked " + displayName(endpoint) + "&7" + " → "
+                + "&a" + displayName(target) + '.');
     }
 
     private Entity resolveEndpoint(Player player) {
@@ -154,4 +154,8 @@ public final class UniversalLeash extends SlimefunItem {
 
         return entity.getType().getKey().getKey().replace('_', ' ');
     }
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
 }
