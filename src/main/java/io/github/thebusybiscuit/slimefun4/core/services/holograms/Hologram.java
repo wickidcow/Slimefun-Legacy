@@ -5,6 +5,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
@@ -119,10 +120,10 @@ class Hologram {
             if (entity != null) {
                 if (label != null) {
                     entity.setCustomNameVisible(true);
-                    entity.setCustomName(label);
+                    entity.customName(LegacyComponentSerializer.legacySection().deserialize(label));
                 } else {
                     entity.setCustomNameVisible(false);
-                    entity.setCustomName(null);
+                    entity.customName(null);
                 }
             }
         }
