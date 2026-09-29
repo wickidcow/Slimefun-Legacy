@@ -19,7 +19,7 @@ def main() -> int:
 
     for java_file in source_root.rglob("*.java"):
         text = java_file.read_text(encoding="utf-8")
-        if "import org.bukkit.ChatColor;" in text:
+        if "org.bukkit.ChatColor" in text:
             observed.add(java_file.relative_to(root).as_posix())
 
     unexpected = sorted(observed - ALLOWED)
