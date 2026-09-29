@@ -305,7 +305,7 @@ public final class PersistedItemStorageMaintenance {
         }
 
         public @Nullable ItemStack deserialize() {
-            return binary != null ? DataUtils.deserializeItemStack(binary) : DataUtils.deserializeItemStack(text);
+            return binary != null ? DataUtils.deserializeItemStack(binary) : DataUtils.deserializeStoredItemStack(text);
         }
 
         boolean sameValue(StoredItemValue other) {
