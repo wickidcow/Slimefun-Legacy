@@ -43,6 +43,16 @@ public final class ChatUtils {
         }
     }
 
+    public static @Nonnull String crop(@Nonnull String color, @Nonnull String string) {
+        String legacyColor = ChatColors.color(color);
+        String stripped = removeColorCodes(string);
+        if (stripped.length() > 19) {
+            return (legacyColor + stripped).substring(0, 18) + "...";
+        } else {
+            return legacyColor + stripped;
+        }
+    }
+
     public static @Nonnull String christmas(@Nonnull String text) {
         return ChatColors.alternating(text, ChatColor.GREEN, ChatColor.RED);
     }
