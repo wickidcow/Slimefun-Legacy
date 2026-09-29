@@ -31,6 +31,7 @@ tasks.compileJava {
     options.release.set(21)
     if (providers.gradleProperty("slimefunDeprecationReport").isPresent) {
         options.compilerArgs.add("-Xlint:deprecation")
+        options.compilerArgs.add("-Xlint:removal")
         options.compilerArgs.add("-Xmaxwarns")
         options.compilerArgs.add("1000")
     }
