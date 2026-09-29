@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""Reject deprecated String Player#sendTitle usage in production Java sources."""
+"""Reject deprecated title APIs in production Java sources."""
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-FORBIDDEN = ".sendTitle("
+FORBIDDEN = {
+    ".sendTitle(": "Player#sendTitle",
+    ".getView().getTitle()": "InventoryView#getTitle",
+    ".getOpenInventory().getTitle()": "InventoryView#getTitle",
+}
 
 
 def main() -> int:
@@ -16,10 +20,11 @@ def main() -> int:
 
     for path in source_root.rglob("*.java"):
         source = path.read_text(encoding="utf-8")
-        if FORBIDDEN in source:
-            failures.append(
-                f"{path.relative_to(root)} still uses deprecated Player#sendTitle API"
-            )
+        for token, api in FORBIDDEN.items():
+            if token in source:
+                failures.append(
+                    f"{path.relative_to(root)} still uses deprecated {api} API"
+                )
 
     if failures:
         print("Title API modernization verification: FAIL")
