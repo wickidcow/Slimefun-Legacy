@@ -106,7 +106,7 @@ public class RecordSet {
         if (value instanceof byte[] bytes) {
             return DataUtils.deserializeItemStack(bytes);
         }
-        return DataUtils.deserializeItemStack((String) value);
+        return DataUtils.deserializeStoredItemStack((String) value);
     }
 
     @ParametersAreNonnullByDefault
