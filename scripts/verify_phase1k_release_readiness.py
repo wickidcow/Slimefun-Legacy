@@ -117,7 +117,7 @@ def main() -> int:
         build_workflow = read(root, ".github/workflows/build-ci.yml")
         for token in (
             "python3 scripts/verify_legacy.py .",
-            "./gradlew clean build --no-daemon",
+            "./gradlew clean build -PslimefunDeprecationReport=true --no-daemon",
             "--expected-java 21",
             "OUTPUT_NAME=Slimefun-Legacy${VERSION}.jar",
             "dist/${OUTPUT_NAME}",
