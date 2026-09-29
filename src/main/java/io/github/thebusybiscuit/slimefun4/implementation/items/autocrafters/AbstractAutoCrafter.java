@@ -27,7 +27,6 @@ import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.LegacyBukkitCompatibility;
 import io.github.thebusybiscuit.slimefun4.utils.HeadTexture;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
-import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedParticle;
 import io.github.thebusybiscuit.slimefun4.utils.itemstack.ItemStackWrapper;
 import io.github.thebusybiscuit.slimefun4.utils.tags.SlimefunTag;
 import java.util.ArrayList;
@@ -46,6 +45,7 @@ import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.AContainer;
 import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Location;
+import org.bukkit.Particle;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
@@ -258,7 +258,7 @@ public abstract class AbstractAutoCrafter extends SlimefunItem implements Energy
         if (interactor != null && craft(interactor, recipe)) {
             // We are done crafting!
             Location particleLocation = location.clone().add(0.5, 0.8, 0.5);
-            b.getWorld().spawnParticle(VersionedParticle.HAPPY_VILLAGER, particleLocation, 6);
+            b.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, particleLocation, 6);
             removeCharge(location, (long) energyConsumption, energyData);
         }
     }
