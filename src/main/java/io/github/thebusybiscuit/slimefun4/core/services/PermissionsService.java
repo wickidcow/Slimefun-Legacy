@@ -32,19 +32,14 @@ public class PermissionsService {
     public PermissionsService(@Nonnull Slimefun plugin) {
         config = new Config(plugin, "permissions.yml");
 
-        // @formatter:off
         config.getConfiguration()
                 .options()
-                .header("This file is used to assign permission nodes to items from Slimefun or any of its"
-                        + " addons.\n"
-                        + "To assign an item a certain permission node you simply have to set the"
-                        + " 'permission' attribute\n"
-                        + "to your desired permission node.\n"
-                        + "You can also customize the text that is displayed when a Player does not have"
-                        + " that permission.");
-        // @formatter:on
-
-        config.getConfiguration().options().copyHeader(true);
+                .setHeader(List.of(
+                        "This file is used to assign permission nodes to items from Slimefun or any of its addons.",
+                        "To assign an item a certain permission node you simply have to set the 'permission' attribute",
+                        "to your desired permission node.",
+                        "You can also customize the text that is displayed when a Player does not have that permission."))
+                .parseComments(true);
     }
 
     /**
