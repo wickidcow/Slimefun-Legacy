@@ -1,5 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.extratools;
 
+import com.xzavier0722.mc.plugin.slimefun4.storage.controller.SlimefunBlockData;
+import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.attributes.EnergyNetComponent;
@@ -12,11 +14,9 @@ import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import java.util.List;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
-import me.mrCookieSlime.CSCoreLibPlugin.Configuration.Config;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ClickAction;
 import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
-import me.mrCookieSlime.Slimefun.api.BlockStorage;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 import me.mrCookieSlime.Slimefun.api.item_transport.ItemTransportFlow;
@@ -144,18 +144,18 @@ public final class CobblestoneGenerator extends SimpleSlimefunItem<BlockTicker> 
             }
 
             @Override
-            public void tick(Block block, SlimefunItem item, Config data) {
-                if (decrement != 2 || getChargeLong(block.getLocation()) < ENERGY_CONSUMPTION) {
+            public void tick(Block block, SlimefunItem item, SlimefunBlockData data) {
+                if (decrement != 2 || getChargeLong(block.getLocation(), data) < ENERGY_CONSUMPTION) {
                     return;
                 }
 
                 ItemStack output = new ItemStack(Material.COBBLESTONE);
-                BlockMenu menu = BlockStorage.getInventory(block);
+                BlockMenu menu = data.getBlockMenu();
                 if (menu == null || !menu.fits(output, getOutputSlots())) {
                     return;
                 }
 
-                removeCharge(block.getLocation(), (long) ENERGY_CONSUMPTION);
+                removeCharge(block.getLocation(), (long) ENERGY_CONSUMPTION, data);
                 menu.pushItem(output, getOutputSlots());
             }
 
@@ -171,7 +171,7 @@ public final class CobblestoneGenerator extends SimpleSlimefunItem<BlockTicker> 
             @Override
             public void onPlayerBreak(BlockBreakEvent event, ItemStack item, List<ItemStack> drops) {
                 Block block = event.getBlock();
-                BlockMenu menu = BlockStorage.getInventory(block);
+                BlockMenu menu = StorageCacheUtils.getMenu(block.getLocation());
                 if (menu != null) {
                     menu.dropItems(block.getLocation(), getOutputSlots());
                 }
