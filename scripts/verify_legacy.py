@@ -116,6 +116,7 @@ def main() -> int:
         "verify_deprecation_suppressions.py",
         "verify_curios_adventure_formatting.py",
         "verify_presentation_api_modernization.py",
+        "verify_no_deprecated_itemmeta_setters.py",
         "verify_compatibility_foundation.py",
         "check_dependency_boundaries.py",
         "verify_phase1k_release_readiness.py",
