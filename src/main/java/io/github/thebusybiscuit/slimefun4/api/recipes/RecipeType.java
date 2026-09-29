@@ -21,7 +21,8 @@ import java.util.function.BiConsumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Keyed;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -270,7 +271,10 @@ public class RecipeType implements Keyed {
 
     @ParametersAreNonnullByDefault
     private static void registerMobDrop(ItemStack[] recipe, ItemStack output) {
-        String mob = ChatColor.stripColor(recipe[4].getItemMeta().getDisplayName())
+        Component displayName = recipe[4].getItemMeta().displayName();
+        String mob = (displayName == null
+                        ? recipe[4].getType().name()
+                        : PlainTextComponentSerializer.plainText().serialize(displayName))
                 .toUpperCase(Locale.ROOT)
                 .replace(' ', '_');
         EntityType entity = EntityType.valueOf(mob);
