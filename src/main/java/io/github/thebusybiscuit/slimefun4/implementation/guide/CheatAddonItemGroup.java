@@ -21,7 +21,6 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
@@ -110,12 +109,12 @@ public final class CheatAddonItemGroup extends FlexItemGroup {
         String categoryLabel = groups.size() == 1 ? "category" : "categories";
         return new CustomItemStack(
                 Material.CHEST,
-                ChatColor.GOLD + addonName,
+                "&6" + addonName,
                 "",
-                ChatColor.GRAY + String.valueOf(groups.size()) + ' ' + categoryLabel,
-                ChatColor.GRAY + "Addon version: " + addon.getPluginVersion(),
+                "&7" + String.valueOf(groups.size()) + ' ' + categoryLabel,
+                "&7" + "Addon version: " + addon.getPluginVersion(),
                 "",
-                ChatColor.GREEN + "\u21E8 Open addon categories");
+                "&a" + "\u21E8 Open addon categories");
     }
 
     @Override
@@ -135,7 +134,7 @@ public final class CheatAddonItemGroup extends FlexItemGroup {
         int pages = Math.max(1, (groups.size() + GROUPS_PER_PAGE - 1) / GROUPS_PER_PAGE);
         int page = Math.max(1, Math.min(requestedPage, pages));
 
-        ChestMenu menu = new ChestMenu(ChatUtils.crop(ChatColor.DARK_GREEN, addonName));
+        ChestMenu menu = new ChestMenu(ChatUtils.crop("&2", addonName));
         SurvivalSlimefunGuide guide =
                 (SurvivalSlimefunGuide) Slimefun.getRegistry().getSlimefunGuide(mode);
 
@@ -148,7 +147,7 @@ public final class CheatAddonItemGroup extends FlexItemGroup {
                 new CustomItemStack(ChestMenuUtils.getBackButton(
                         player,
                         "",
-                        ChatColor.GRAY + Slimefun.getLocalization().getMessage(player, "guide.back.guide"))));
+                        "&7" + Slimefun.getLocalization().getMessage(player, "guide.back.guide"))));
         menu.addMenuClickHandler(1, (p, slot, item, action) -> {
             SlimefunGuide.openMainMenu(profile, mode, profile.getGuideHistory().getMainMenuPage());
             return false;
