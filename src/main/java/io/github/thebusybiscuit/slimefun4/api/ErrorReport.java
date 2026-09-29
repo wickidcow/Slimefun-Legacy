@@ -268,8 +268,8 @@ public class ErrorReport<T extends Throwable> {
                 plugins.add("  + " + plugin.getName() + ' '
                         + plugin.getPluginMeta().getVersion());
 
-                if (plugin.getDescription().getDepend().contains(dependency)
-                        || plugin.getDescription().getSoftDepend().contains(dependency)) {
+                if (plugin.getPluginMeta().getPluginDependencies().contains(dependency)
+                        || plugin.getPluginMeta().getPluginSoftDependencies().contains(dependency)) {
                     addons.add("  + " + plugin.getName() + ' '
                             + plugin.getPluginMeta().getVersion());
                 }
@@ -277,8 +277,8 @@ public class ErrorReport<T extends Throwable> {
                 plugins.add("  - " + plugin.getName() + ' '
                         + plugin.getPluginMeta().getVersion());
 
-                if (plugin.getDescription().getDepend().contains(dependency)
-                        || plugin.getDescription().getSoftDepend().contains(dependency)) {
+                if (plugin.getPluginMeta().getPluginDependencies().contains(dependency)
+                        || plugin.getPluginMeta().getPluginSoftDependencies().contains(dependency)) {
                     addons.add("  - " + plugin.getName() + ' '
                             + plugin.getPluginMeta().getVersion());
                 }
