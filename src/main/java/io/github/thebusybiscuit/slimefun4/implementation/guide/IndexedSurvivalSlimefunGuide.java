@@ -9,9 +9,10 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.utils.ChatUtils;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedItemFlag;
-import java.util.Arrays;
 import java.util.List;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -56,8 +57,10 @@ public class IndexedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
             ItemMeta meta = itemStack.getItemMeta();
             if (meta != null) {
                 ItemGroup itemGroup = slimefunItem.getItemGroup();
-                meta.setLore(Arrays.asList(
-                        "", ChatColor.DARK_GRAY + "\u21E8 " + ChatColor.WHITE + itemGroup.getDisplayName(player)));
+                meta.lore(List.of(
+                        Component.empty(),
+                        Component.text("\u21E8 ", NamedTextColor.DARK_GRAY)
+                                .append(Component.text(itemGroup.getDisplayName(player), NamedTextColor.WHITE))));
                 meta.addItemFlags(
                         ItemFlag.HIDE_ATTRIBUTES,
                         ItemFlag.HIDE_ENCHANTS,
@@ -74,8 +77,9 @@ public class IndexedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
                         SlimefunGuide.displayItem(profile, slimefunItem, true);
                     }
                 } catch (Exception | LinkageError failure) {
-                    clickedPlayer.sendMessage(ChatColor.DARK_RED
-                            + "An internal error occurred while opening this item. Please inform an administrator.");
+                    clickedPlayer.sendMessage(Component.text(
+                            "An internal error occurred while opening this item. Please inform an administrator.",
+                            NamedTextColor.DARK_RED));
                     slimefunItem.error("This item caused an error while being opened from indexed search.", failure);
                 }
                 return false;
