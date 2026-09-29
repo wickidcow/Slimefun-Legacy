@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -198,17 +199,15 @@ public class PerWorldSettingsService {
 
             config.getConfiguration()
                     .options()
-                    .header("This file is used to disable certain items in a particular world.\n"
-                            + "You can set any item to 'false' to disable it in the world '"
-                            + name
-                            + "'.\n"
-                            + "You can also disable an entire addon from Slimefun by setting the respective\n"
-                            + "value of 'enabled' for that Addon.\n\n"
-                            + "Items which are disabled in this world will not show up in the Slimefun"
-                            + " Guide.\n"
-                            + "You won't be able to use these items either. Using them will result in a"
-                            + " warning message.");
-            config.getConfiguration().options().copyHeader(true);
+                    .setHeader(List.of(
+                            "This file is used to disable certain items in a particular world.",
+                            "You can set any item to 'false' to disable it in the world '" + name + "'.",
+                            "You can also disable an entire addon from Slimefun by setting the respective",
+                            "value of 'enabled' for that Addon.",
+                            "",
+                            "Items which are disabled in this world will not show up in the Slimefun Guide.",
+                            "You won't be able to use these items either. Using them will result in a warning message."))
+                    .parseComments(true);
             config.setDefaultValue("enabled", true);
 
             if (config.getBoolean("enabled")) {
