@@ -14,8 +14,8 @@ import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -60,14 +60,14 @@ public final class SalvagersMagnet extends SimpleSlimefunItem<ItemUseHandler> {
                 } else {
                     FilterMode next = mode(data).next();
                     data.set(modeKey, PersistentDataType.STRING, next.name());
-                    player.sendMessage(ChatColor.GOLD + "Salvager's Magnet filter mode: " + ChatColor.AQUA
-                            + next.displayName() + ChatColor.GRAY + ".");
+                    message(player, "&6" + "Salvager's Magnet filter mode: " + "&b"
+                            + next.displayName() + "&7" + ".");
                 }
             } else {
                 boolean active = !isActive(data);
                 data.set(activeKey, PersistentDataType.BYTE, (byte) (active ? 1 : 0));
-                player.sendMessage(ChatColor.GOLD + "Salvager's Magnet: "
-                        + (active ? ChatColor.GREEN + "ON" : ChatColor.RED + "OFF") + ChatColor.GRAY + " • "
+                message(player, "&6" + "Salvager's Magnet: "
+                        + (active ? "&a" + "ON" : "&c" + "OFF") + "&7" + " • "
                         + mode(data).displayName() + " • " + filter(data).size() + " filtered material(s).");
             }
 
@@ -189,9 +189,9 @@ public final class SalvagersMagnet extends SimpleSlimefunItem<ItemUseHandler> {
 
         String serialized = materials.stream().map(Material::name).reduce((a, b) -> a + "," + b).orElse("");
         data.set(filterKey, PersistentDataType.STRING, serialized);
-        player.sendMessage(ChatColor.GOLD + "Salvager's Magnet: " + ChatColor.WHITE
-                + humanize(material) + ChatColor.GRAY + (added ? " added to " : " removed from ")
-                + mode(data).displayName().toLowerCase(Locale.ROOT) + ChatColor.GRAY + ".");
+        message(player, "&6" + "Salvager's Magnet: " + "&f"
+                + humanize(material) + "&7" + (added ? " added to " : " removed from ")
+                + mode(data).displayName().toLowerCase(Locale.ROOT) + "&7" + ".");
     }
 
     private static String humanize(Material material) {
@@ -222,4 +222,8 @@ public final class SalvagersMagnet extends SimpleSlimefunItem<ItemUseHandler> {
             return this == BLACKLIST ? !contained : contained;
         }
     }
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
 }
