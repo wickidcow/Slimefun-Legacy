@@ -40,7 +40,7 @@ public class SlimefunPoolExecutor extends ThreadPoolExecutor {
     protected void beforeExecute(Thread t, Runnable r) {
         super.beforeExecute(t, r);
 
-        runningThreads.add(t.getId());
+        runningThreads.add(t.threadId());
     }
 
     @Override
@@ -70,7 +70,7 @@ public class SlimefunPoolExecutor extends ThreadPoolExecutor {
                 }
             }
         } finally {
-            runningThreads.remove(Thread.currentThread().getId());
+            runningThreads.remove(Thread.currentThread().threadId());
         }
     }
 }
