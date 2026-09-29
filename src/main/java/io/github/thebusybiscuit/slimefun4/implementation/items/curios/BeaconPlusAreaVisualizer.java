@@ -100,7 +100,7 @@ final class BeaconPlusAreaVisualizer implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryOpen(InventoryOpenEvent event) {
         if (!(event.getPlayer() instanceof Player player)
-                || !isResonanceMenu(event.getView().getTitle())) {
+                || !isResonanceMenu(event.getView().title())) {
             return;
         }
         BeaconKey key = OPEN_MENU_TARGETS.get(player.getUniqueId());
@@ -390,10 +390,8 @@ final class BeaconPlusAreaVisualizer implements Listener {
         return owner.equals(player.getUniqueId()) || player.isOp();
     }
 
-    private static boolean isResonanceMenu(String title) {
-        String normalized = title.replace('§', '&');
-        return "Resonance Beacon".equals(PlainTextComponentSerializer.plainText()
-                .serialize(LegacyComponentSerializer.legacyAmpersand().deserialize(normalized)));
+    private static boolean isResonanceMenu(Component title) {
+        return "Resonance Beacon".equals(PlainTextComponentSerializer.plainText().serialize(title));
     }
 
     private record BeaconKey(UUID worldId, int x, int y, int z) {
