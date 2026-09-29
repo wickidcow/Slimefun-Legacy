@@ -13,6 +13,7 @@ import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.MenuType;
 
 /**
  * The {@link PortableCrafter} is one of the oldest items in Slimefun.
@@ -34,7 +35,7 @@ public class PortableCrafter extends SimpleSlimefunItem<ItemUseHandler> implemen
             e.cancel();
 
             Player p = e.getPlayer();
-            p.openWorkbench(p.getLocation(), true);
+            p.openInventory(MenuType.CRAFTING.create(p, null));
             SoundEffect.PORTABLE_CRAFTER_OPEN_SOUND.playAt(p.getLocation(), SoundCategory.PLAYERS);
         };
     }
