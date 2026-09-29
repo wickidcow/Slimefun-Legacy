@@ -15,6 +15,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.ChatColor;
 import org.bukkit.Color;
 import org.bukkit.Material;
@@ -1038,15 +1040,20 @@ public final class SlimefunItems {
 
     static {
         ItemMeta helmetMeta = SCUBA_HELMET.getItemMeta();
-        List<String> helmetLore = helmetMeta.getLore();
-        helmetLore.addAll(hazmatLore);
-        helmetMeta.setLore(helmetLore);
+        List<Component> helmetCurrentLore = helmetMeta.lore();
+        List<Component> helmetLore =
+                helmetCurrentLore == null ? new ArrayList<>() : new ArrayList<>(helmetCurrentLore);
+        helmetLore.addAll(hazmatLore.stream().map(LegacyComponentSerializer.legacySection()::deserialize).toList());
+        helmetMeta.lore(helmetLore);
         SCUBA_HELMET.setItemMeta(helmetMeta);
 
         ItemMeta chestplateMeta = HAZMAT_CHESTPLATE.getItemMeta();
-        List<String> chestplateLore = chestplateMeta.getLore();
-        chestplateLore.addAll(hazmatLore);
-        chestplateMeta.setLore(chestplateLore);
+        List<Component> chestplateCurrentLore = chestplateMeta.lore();
+        List<Component> chestplateLore =
+                chestplateCurrentLore == null ? new ArrayList<>() : new ArrayList<>(chestplateCurrentLore);
+        chestplateLore.addAll(
+                hazmatLore.stream().map(LegacyComponentSerializer.legacySection()::deserialize).toList());
+        chestplateMeta.lore(chestplateLore);
         HAZMAT_CHESTPLATE.setItemMeta(chestplateMeta);
     }
 
