@@ -12,7 +12,6 @@ import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu.MenuClickHan
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -88,7 +87,7 @@ public final class ChestMenuUtils {
     public static @Nonnull ItemStack getMenuButton(@Nonnull Player p) {
         return new CustomItemStack(
                 MENU_BUTTON,
-                ChatColor.YELLOW + Slimefun.getLocalization().getMessage(p, "guide.title.settings"),
+                "&e" + Slimefun.getLocalization().getMessage(p, "guide.title.settings"),
                 "",
                 "&7\u21E8 " + Slimefun.getLocalization().getMessage(p, "guide.tooltips.open-itemgroup"));
     }
@@ -99,7 +98,7 @@ public final class ChestMenuUtils {
                     Slimefun.getLocalization().getMessage(p, "guide.search.name"))));
 
             List<String> lore = Arrays.asList(
-                    "", ChatColor.GRAY + "\u21E8 " + Slimefun.getLocalization().getMessage(p, "guide.search.tooltip"));
+                    "", "&7" + "\u21E8 " + Slimefun.getLocalization().getMessage(p, "guide.search.tooltip"));
             meta.lore(lore.stream().map(ChatColors::color).map(ChestMenuUtils::legacyText).toList());
         });
     }
@@ -116,15 +115,15 @@ public final class ChestMenuUtils {
                         + Slimefun.getLocalization().getMessage(p, "guide.pages.previous")));
                 meta.lore(List.of(
                         Component.empty(),
-                        legacyText(ChatColor.GRAY + "(" + page + " / " + pages + ")")));
+                        legacyText("&7" + "(" + page + " / " + pages + ")")));
             });
         } else {
             return new CustomItemStack(PREV_BUTTON_ACTIVE, meta -> {
                 meta.displayName(legacyText(
-                        ChatColor.WHITE + "\u21E6 " + Slimefun.getLocalization().getMessage(p, "guide.pages.previous")));
+                        "&f" + "\u21E6 " + Slimefun.getLocalization().getMessage(p, "guide.pages.previous")));
                 meta.lore(List.of(
                         Component.empty(),
-                        legacyText(ChatColor.GRAY + "(" + page + " / " + pages + ")")));
+                        legacyText("&7" + "(" + page + " / " + pages + ")")));
             });
         }
     }
@@ -133,18 +132,18 @@ public final class ChestMenuUtils {
         if (pages == 1 || page == pages) {
             return new CustomItemStack(NEXT_BUTTON_INACTIVE, meta -> {
                 meta.displayName(legacyText(
-                        ChatColor.DARK_GRAY + Slimefun.getLocalization().getMessage(p, "guide.pages.next") + " \u21E8"));
+                        "&8" + Slimefun.getLocalization().getMessage(p, "guide.pages.next") + " \u21E8"));
                 meta.lore(List.of(
                         Component.empty(),
-                        legacyText(ChatColor.GRAY + "(" + page + " / " + pages + ")")));
+                        legacyText("&7" + "(" + page + " / " + pages + ")")));
             });
         } else {
             return new CustomItemStack(NEXT_BUTTON_ACTIVE, meta -> {
                 meta.displayName(legacyText(
-                        ChatColor.WHITE + Slimefun.getLocalization().getMessage(p, "guide.pages.next") + " \u21E8"));
+                        "&f" + Slimefun.getLocalization().getMessage(p, "guide.pages.next") + " \u21E8"));
                 meta.lore(List.of(
                         Component.empty(),
-                        legacyText(ChatColor.GRAY + "(" + page + " / " + pages + ")")));
+                        legacyText("&7" + "(" + page + " / " + pages + ")")));
             });
         }
     }
@@ -177,7 +176,7 @@ public final class ChestMenuUtils {
         im.lore(List.of(
                 legacyText(getProgressBar(safeTimeLeft, time)),
                 Component.empty(),
-                legacyText(ChatColor.GRAY + NumberUtils.getTimeLeft(safeTimeLeft / 2))));
+                legacyText("&7" + NumberUtils.getTimeLeft(safeTimeLeft / 2))));
         item.setItemMeta(im);
 
         menu.replaceExistingItem(slot, item);
@@ -209,7 +208,7 @@ public final class ChestMenuUtils {
 
     private static Component legacyText(String value) {
         return LegacyComponentSerializer.legacySection()
-                .deserialize(value)
+                .deserialize(ChatColors.color(value))
                 .decoration(TextDecoration.ITALIC, false);
     }
 
