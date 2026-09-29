@@ -23,6 +23,7 @@ ALLOWED = {
     "src/main/java/io/github/thebusybiscuit/slimefun4/utils/itemstack/ItemStackWrapper.java": 1,
     "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyItemSchemaMigrationExecutor.java": 1,
     "src/main/java/io/github/thebusybiscuit/slimefun4/utils/compatibility/LegacyBukkitCompatibility.java": 2,
+    "src/main/java/io/github/thebusybiscuit/slimefun4/utils/compatibility/VersionedItemFlag.java": 1,
     "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/Slimefun.java": 1,
 }
 
