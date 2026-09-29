@@ -31,7 +31,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.OfflinePlayer;
@@ -370,18 +369,18 @@ public class PlayerProfile {
         sender.sendMessage("");
         sender.sendMessage(ChatColors.color("&7Player research statistics: &b" + getPlayer()));
         sender.sendMessage("");
-        sender.sendMessage(ChatColors.color("&7Research level: " + ChatColor.AQUA + getTitle()));
+        sender.sendMessage(ChatColors.color("&7Research level: &b" + getTitle()));
         sender.sendMessage(ChatColors.color("&7Research progress: "
                 + NumberUtils.getColorFromPercentage(progress)
                 + progress
                 + " &r% "
-                + ChatColor.YELLOW
+                + "&e"
                 + '('
                 + unlockedResearches
                 + " / "
                 + allResearches
                 + ')'));
-        sender.sendMessage(ChatColors.color("&7Total experience levels spent: " + ChatColor.AQUA + levels));
+        sender.sendMessage(ChatColors.color("&7Total experience levels spent: &b" + levels));
     }
 
     /**
