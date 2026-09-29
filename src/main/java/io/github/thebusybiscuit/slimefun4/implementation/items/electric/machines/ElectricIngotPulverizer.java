@@ -1,12 +1,10 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.electric.machines;
 
-import io.github.thebusybiscuit.slimefun4.api.MinecraftVersion;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.attributes.NotHopperable;
 import io.github.thebusybiscuit.slimefun4.core.attributes.RecipeDisplayItem;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,9 +52,7 @@ public class ElectricIngotPulverizer extends AContainer implements RecipeDisplay
         // Vanilla Gold Ingot to Slimefun gold dust and Vanilla Copper Ingot into Slimefun copper dust
         registerRecipe(3, new ItemStack(Material.GOLD_INGOT), SlimefunItems.GOLD_DUST);
 
-        if (Slimefun.getMinecraftVersion().isAtLeast(MinecraftVersion.MINECRAFT_1_17)) {
-            registerRecipe(3, new ItemStack(Material.COPPER_INGOT), SlimefunItems.COPPER_DUST);
-        }
+        registerRecipe(3, new ItemStack(Material.COPPER_INGOT), SlimefunItems.COPPER_DUST);
     }
 
     @Override
