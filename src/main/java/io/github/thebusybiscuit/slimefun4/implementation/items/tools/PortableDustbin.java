@@ -10,8 +10,9 @@ import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -37,7 +38,7 @@ public class PortableDustbin extends SimpleSlimefunItem<ItemUseHandler> implemen
             e.cancel();
 
             Player p = e.getPlayer();
-            var dustbin = Bukkit.createInventory(null, 9 * 3, ChatColor.DARK_RED + "Portable Dustbin");
+            var dustbin = Bukkit.createInventory(null, 9 * 3, Component.text("Portable Dustbin", NamedTextColor.DARK_RED));
             InventoryUtil.openInventory(p, dustbin);
             SoundEffect.PORTABLE_DUSTBIN_OPEN_SOUND.playFor(p);
         };
