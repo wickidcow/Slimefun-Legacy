@@ -176,6 +176,23 @@ def main() -> int:
         if required not in text:
             failures.append(f"{relative} is missing its direct 1.21.11+ runtime path: {required}")
 
+    direct_api_files = {
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/AutoBrewer.java": (
+            "VersionedPotionType",
+            "PotionType.SWIFTNESS",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/gadgets/MultiTool.java": (
+            "VersionedEntityType",
+            "EntityType.MOOSHROOM",
+        ),
+    }
+    for relative, (forbidden, required) in direct_api_files.items():
+        text = (root / relative).read_text(encoding="utf-8")
+        if forbidden in text:
+            failures.append(f"{relative} still routes supported APIs through compatibility alias {forbidden}")
+        if required not in text:
+            failures.append(f"{relative} is missing its direct 1.21.11+ API usage: {required}")
+
     slimefun_runtime = (root / "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/Slimefun.java").read_text(encoding="utf-8")
     if "new MiddleClickListener(" in slimefun_runtime or "SlimefunExtended.isAtLeast(1, 21, 5)" in slimefun_runtime:
         failures.append("Slimefun still selects the pre-1.21.11 middle-click listener")

@@ -9,7 +9,6 @@ import io.github.thebusybiscuit.slimefun4.core.handlers.EntityInteractHandler;
 import io.github.thebusybiscuit.slimefun4.core.handlers.ItemUseHandler;
 import io.github.thebusybiscuit.slimefun4.core.handlers.ToolUseHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedEntityType;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -160,8 +159,8 @@ public class MultiTool extends SlimefunItem implements Rechargeable {
         return (e, item, offhand) -> {
             // Fixes #2217 - Prevent them from being used to shear entities
             EntityType type = e.getRightClicked().getType();
-            if (type == VersionedEntityType.MOOSHROOM
-                    || type == VersionedEntityType.SNOW_GOLEM
+            if (type == EntityType.MOOSHROOM
+                    || type == EntityType.SNOW_GOLEM
                     || type == EntityType.SHEEP) {
                 Slimefun.getLocalization().sendMessage(e.getPlayer(), "messages.multi-tool.not-shears");
                 e.setCancelled(true);

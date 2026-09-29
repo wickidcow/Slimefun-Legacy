@@ -7,7 +7,6 @@ import io.github.thebusybiscuit.slimefun4.api.items.virtual.VirtualItemHandler.I
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.attributes.NotHopperable;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedPotionType;
 import java.util.EnumMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -35,22 +34,22 @@ public class AutoBrewer extends AContainer implements NotHopperable {
     private static final Map<PotionType, PotionType> fermentations = new EnumMap<>(PotionType.class);
 
     static {
-        potionRecipes.put(Material.SUGAR, VersionedPotionType.SWIFTNESS);
-        potionRecipes.put(Material.RABBIT_FOOT, VersionedPotionType.LEAPING);
+        potionRecipes.put(Material.SUGAR, PotionType.SWIFTNESS);
+        potionRecipes.put(Material.RABBIT_FOOT, PotionType.LEAPING);
         potionRecipes.put(Material.BLAZE_POWDER, PotionType.STRENGTH);
-        potionRecipes.put(Material.GLISTERING_MELON_SLICE, VersionedPotionType.HEALING);
+        potionRecipes.put(Material.GLISTERING_MELON_SLICE, PotionType.HEALING);
         potionRecipes.put(Material.SPIDER_EYE, PotionType.POISON);
-        potionRecipes.put(Material.GHAST_TEAR, VersionedPotionType.REGENERATION);
+        potionRecipes.put(Material.GHAST_TEAR, PotionType.REGENERATION);
         potionRecipes.put(Material.MAGMA_CREAM, PotionType.FIRE_RESISTANCE);
         potionRecipes.put(Material.PUFFERFISH, PotionType.WATER_BREATHING);
         potionRecipes.put(Material.GOLDEN_CARROT, PotionType.NIGHT_VISION);
         potionRecipes.put(Material.TURTLE_HELMET, PotionType.TURTLE_MASTER);
         potionRecipes.put(Material.PHANTOM_MEMBRANE, PotionType.SLOW_FALLING);
 
-        fermentations.put(VersionedPotionType.SWIFTNESS, PotionType.SLOWNESS);
-        fermentations.put(VersionedPotionType.LEAPING, PotionType.SLOWNESS);
-        fermentations.put(VersionedPotionType.HEALING, VersionedPotionType.HARMING);
-        fermentations.put(PotionType.POISON, VersionedPotionType.HARMING);
+        fermentations.put(PotionType.SWIFTNESS, PotionType.SLOWNESS);
+        fermentations.put(PotionType.LEAPING, PotionType.SLOWNESS);
+        fermentations.put(PotionType.HEALING, PotionType.HARMING);
+        fermentations.put(PotionType.POISON, PotionType.HARMING);
         fermentations.put(PotionType.NIGHT_VISION, PotionType.INVISIBILITY);
 
         potionRecipes.put(Material.BREEZE_ROD, PotionType.WIND_CHARGED);
