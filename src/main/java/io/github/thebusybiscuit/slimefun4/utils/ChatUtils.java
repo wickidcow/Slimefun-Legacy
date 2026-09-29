@@ -7,7 +7,6 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.Locale;
 import java.util.function.Consumer;
 import javax.annotation.Nonnull;
-import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -32,14 +31,19 @@ public final class ChatUtils {
     }
 
     public static @Nonnull String removeColorCodes(@Nonnull String string) {
-        return ChatColor.stripColor(ChatColors.color(string));
+        return ChatColors.color(string).replaceAll("(?i)§[0-9A-FK-ORX]", "");
     }
 
-    public static @Nonnull String crop(@Nonnull ChatColor color, @Nonnull String string) {
-        if (ChatColor.stripColor(color + string).length() > 19) {
-            return (color + ChatColor.stripColor(string)).substring(0, 18) + "...";
+    /**
+     * Legacy compatibility overload for callers that still pass Bukkit's color enum.
+     */
+    public static @Nonnull String crop(@Nonnull org.bukkit.ChatColor color, @Nonnull String string) {
+        String stripped = removeColorCodes(string);
+        String legacyColor = color.toString();
+        if (stripped.length() > 19) {
+            return (legacyColor + stripped).substring(0, 18) + "...";
         } else {
-            return color + ChatColor.stripColor(string);
+            return legacyColor + stripped;
         }
     }
 
@@ -54,7 +58,13 @@ public final class ChatUtils {
     }
 
     public static @Nonnull String christmas(@Nonnull String text) {
-        return ChatColors.alternating(text, ChatColor.GREEN, ChatColor.RED);
+        StringBuilder builder = new StringBuilder(text.length() * 3);
+        boolean green = true;
+        for (char character : text.toCharArray()) {
+            builder.append(green ? "&a" : "&c").append(character);
+            green = !green;
+        }
+        return ChatColors.color(builder.toString());
     }
 
     public static void awaitInput(@Nonnull Player p, @Nonnull Consumer<String> callback) {
