@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.core.services.profiler;
 
-import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.thebusybiscuit.slimefun4.core.services.profiler.inspectors.PlayerPerformanceInspector;
 import io.github.thebusybiscuit.slimefun4.utils.ChatUtils;
 import io.github.thebusybiscuit.slimefun4.utils.NumberUtils;
