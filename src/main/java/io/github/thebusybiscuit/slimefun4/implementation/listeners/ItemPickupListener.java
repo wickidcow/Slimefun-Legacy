@@ -4,6 +4,8 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.altar.AncientPedestal;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
 import javax.annotation.Nonnull;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPickupItemEvent;
@@ -28,7 +30,7 @@ public class ItemPickupListener implements Listener {
         } else if (e.getItem().getItemStack().hasItemMeta()) {
             ItemMeta meta = e.getItem().getItemStack().getItemMeta();
 
-            if (meta.hasDisplayName() && meta.getDisplayName().startsWith(AncientPedestal.ITEM_PREFIX)) {
+            if (isAncientPedestalDisplay(meta.displayName())) {
                 e.setCancelled(true);
                 e.getItem().remove();
             }
@@ -42,10 +44,17 @@ public class ItemPickupListener implements Listener {
         } else if (e.getItem().getItemStack().hasItemMeta()) {
             ItemMeta meta = e.getItem().getItemStack().getItemMeta();
 
-            if (meta.hasDisplayName() && meta.getDisplayName().startsWith(AncientPedestal.ITEM_PREFIX)) {
+            if (isAncientPedestalDisplay(meta.displayName())) {
                 e.setCancelled(true);
                 e.getItem().remove();
             }
         }
+    }
+
+    private static boolean isAncientPedestalDisplay(Component displayName) {
+        return displayName != null
+                && LegacyComponentSerializer.legacySection()
+                        .serialize(displayName)
+                        .startsWith(AncientPedestal.ITEM_PREFIX);
     }
 }
