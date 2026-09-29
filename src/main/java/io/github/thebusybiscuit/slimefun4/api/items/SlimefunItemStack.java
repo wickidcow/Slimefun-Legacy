@@ -294,7 +294,8 @@ public class SlimefunItemStack extends ItemStack {
             return null;
         }
 
-        return itemMetaSnapshot.getDisplayName().orElse(null);
+        Component displayName = super.getItemMeta().displayName();
+        return displayName == null ? null : LegacyComponentSerializer.legacySection().serialize(displayName);
     }
 
     private static @Nonnull Component legacyText(@Nonnull String value) {

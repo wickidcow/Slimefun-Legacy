@@ -2930,58 +2930,58 @@ public final class SlimefunItems {
     public static final SlimefunItemStack ORGANIC_FOOD =
             new SlimefunItemStack("ORGANIC_FOOD", HeadTexture.FILLED_CAN, "&aOrganic Food", "&7Content: &9???");
     public static final SlimefunItemStack WHEAT_ORGANIC_FOOD = new SlimefunItemStack(
-            "ORGANIC_FOOD_WHEAT", HeadTexture.FILLED_CAN, ORGANIC_FOOD.getDisplayName(), "&7Content: &9Wheat");
+            "ORGANIC_FOOD_WHEAT", HeadTexture.FILLED_CAN, "&aOrganic Food", "&7Content: &9Wheat");
     public static final SlimefunItemStack CARROT_ORGANIC_FOOD = new SlimefunItemStack(
-            "ORGANIC_FOOD_CARROT", HeadTexture.FILLED_CAN, ORGANIC_FOOD.getDisplayName(), "&7Content: &9Carrots");
+            "ORGANIC_FOOD_CARROT", HeadTexture.FILLED_CAN, "&aOrganic Food", "&7Content: &9Carrots");
     public static final SlimefunItemStack POTATO_ORGANIC_FOOD = new SlimefunItemStack(
-            "ORGANIC_FOOD_POTATO", HeadTexture.FILLED_CAN, ORGANIC_FOOD.getDisplayName(), "&7Content: &9Potatoes");
+            "ORGANIC_FOOD_POTATO", HeadTexture.FILLED_CAN, "&aOrganic Food", "&7Content: &9Potatoes");
     public static final SlimefunItemStack SEEDS_ORGANIC_FOOD = new SlimefunItemStack(
-            "ORGANIC_FOOD_SEEDS", HeadTexture.FILLED_CAN, ORGANIC_FOOD.getDisplayName(), "&7Content: &9Seeds");
+            "ORGANIC_FOOD_SEEDS", HeadTexture.FILLED_CAN, "&aOrganic Food", "&7Content: &9Seeds");
     public static final SlimefunItemStack BEETROOT_ORGANIC_FOOD = new SlimefunItemStack(
-            "ORGANIC_FOOD_BEETROOT", HeadTexture.FILLED_CAN, ORGANIC_FOOD.getDisplayName(), "&7Content: &9Beetroot");
+            "ORGANIC_FOOD_BEETROOT", HeadTexture.FILLED_CAN, "&aOrganic Food", "&7Content: &9Beetroot");
     public static final SlimefunItemStack MELON_ORGANIC_FOOD = new SlimefunItemStack(
-            "ORGANIC_FOOD_MELON", HeadTexture.FILLED_CAN, ORGANIC_FOOD.getDisplayName(), "&7Content: &9Melon");
+            "ORGANIC_FOOD_MELON", HeadTexture.FILLED_CAN, "&aOrganic Food", "&7Content: &9Melon");
     public static final SlimefunItemStack APPLE_ORGANIC_FOOD = new SlimefunItemStack(
-            "ORGANIC_FOOD_APPLE", HeadTexture.FILLED_CAN, ORGANIC_FOOD.getDisplayName(), "&7Content: &9Apple");
+            "ORGANIC_FOOD_APPLE", HeadTexture.FILLED_CAN, "&aOrganic Food", "&7Content: &9Apple");
     public static final SlimefunItemStack SWEET_BERRIES_ORGANIC_FOOD = new SlimefunItemStack(
             "ORGANIC_FOOD_SWEET_BERRIES",
             HeadTexture.FILLED_CAN,
-            ORGANIC_FOOD.getDisplayName(),
+            "&aOrganic Food",
             "&7Content: &9Sweet Berries");
     public static final SlimefunItemStack KELP_ORGANIC_FOOD = new SlimefunItemStack(
-            "ORGANIC_FOOD_KELP", HeadTexture.FILLED_CAN, ORGANIC_FOOD.getDisplayName(), "&7Content: &9Dried Kelp");
+            "ORGANIC_FOOD_KELP", HeadTexture.FILLED_CAN, "&aOrganic Food", "&7Content: &9Dried Kelp");
     public static final SlimefunItemStack COCOA_ORGANIC_FOOD = new SlimefunItemStack(
-            "ORGANIC_FOOD_COCOA", HeadTexture.FILLED_CAN, ORGANIC_FOOD.getDisplayName(), "&7Content: &9Cocoa Beans");
+            "ORGANIC_FOOD_COCOA", HeadTexture.FILLED_CAN, "&aOrganic Food", "&7Content: &9Cocoa Beans");
     public static final SlimefunItemStack SEAGRASS_ORGANIC_FOOD = new SlimefunItemStack(
-            "ORGANIC_FOOD_SEAGRASS", HeadTexture.FILLED_CAN, ORGANIC_FOOD.getDisplayName(), "&7Content: &9Seagrass");
+            "ORGANIC_FOOD_SEAGRASS", HeadTexture.FILLED_CAN, "&aOrganic Food", "&7Content: &9Seagrass");
 
     public static final SlimefunItemStack FERTILIZER =
             new SlimefunItemStack("FERTILIZER", HeadTexture.FILLED_CAN, "&aOrganic Fertilizer", "&7Content: &9???");
     public static final SlimefunItemStack WHEAT_FERTILIZER = new SlimefunItemStack(
-            "FERTILIZER_WHEAT", HeadTexture.FILLED_CAN, FERTILIZER.getDisplayName(), "&7Content: &9Wheat");
+            "FERTILIZER_WHEAT", HeadTexture.FILLED_CAN, "&aOrganic Fertilizer", "&7Content: &9Wheat");
     public static final SlimefunItemStack CARROT_FERTILIZER = new SlimefunItemStack(
-            "FERTILIZER_CARROT", HeadTexture.FILLED_CAN, FERTILIZER.getDisplayName(), "&7Content: &9Carrots");
+            "FERTILIZER_CARROT", HeadTexture.FILLED_CAN, "&aOrganic Fertilizer", "&7Content: &9Carrots");
     public static final SlimefunItemStack POTATO_FERTILIZER = new SlimefunItemStack(
-            "FERTILIZER_POTATO", HeadTexture.FILLED_CAN, FERTILIZER.getDisplayName(), "&7Content: &9Potatoes");
+            "FERTILIZER_POTATO", HeadTexture.FILLED_CAN, "&aOrganic Fertilizer", "&7Content: &9Potatoes");
     public static final SlimefunItemStack SEEDS_FERTILIZER = new SlimefunItemStack(
-            "FERTILIZER_SEEDS", HeadTexture.FILLED_CAN, FERTILIZER.getDisplayName(), "&7Content: &9Seeds");
+            "FERTILIZER_SEEDS", HeadTexture.FILLED_CAN, "&aOrganic Fertilizer", "&7Content: &9Seeds");
     public static final SlimefunItemStack BEETROOT_FERTILIZER = new SlimefunItemStack(
-            "FERTILIZER_BEETROOT", HeadTexture.FILLED_CAN, FERTILIZER.getDisplayName(), "&7Content: &9Beetroot");
+            "FERTILIZER_BEETROOT", HeadTexture.FILLED_CAN, "&aOrganic Fertilizer", "&7Content: &9Beetroot");
     public static final SlimefunItemStack MELON_FERTILIZER = new SlimefunItemStack(
-            "FERTILIZER_MELON", HeadTexture.FILLED_CAN, FERTILIZER.getDisplayName(), "&7Content: &9Melon");
+            "FERTILIZER_MELON", HeadTexture.FILLED_CAN, "&aOrganic Fertilizer", "&7Content: &9Melon");
     public static final SlimefunItemStack APPLE_FERTILIZER = new SlimefunItemStack(
-            "FERTILIZER_APPLE", HeadTexture.FILLED_CAN, FERTILIZER.getDisplayName(), "&7Content: &9Apple");
+            "FERTILIZER_APPLE", HeadTexture.FILLED_CAN, "&aOrganic Fertilizer", "&7Content: &9Apple");
     public static final SlimefunItemStack SWEET_BERRIES_FERTILIZER = new SlimefunItemStack(
             "FERTILIZER_SWEET_BERRIES",
             HeadTexture.FILLED_CAN,
-            FERTILIZER.getDisplayName(),
+            "&aOrganic Fertilizer",
             "&7Content: &9Sweet Berries");
     public static final SlimefunItemStack KELP_FERTILIZER = new SlimefunItemStack(
-            "FERTILIZER_KELP", HeadTexture.FILLED_CAN, FERTILIZER.getDisplayName(), "&7Content: &9Dried Kelp");
+            "FERTILIZER_KELP", HeadTexture.FILLED_CAN, "&aOrganic Fertilizer", "&7Content: &9Dried Kelp");
     public static final SlimefunItemStack COCOA_FERTILIZER = new SlimefunItemStack(
-            "FERTILIZER_COCOA", HeadTexture.FILLED_CAN, FERTILIZER.getDisplayName(), "&7Content: &9Cocoa beans");
+            "FERTILIZER_COCOA", HeadTexture.FILLED_CAN, "&aOrganic Fertilizer", "&7Content: &9Cocoa beans");
     public static final SlimefunItemStack SEAGRASS_FERTILIZER = new SlimefunItemStack(
-            "FERTILIZER_SEAGRASS", HeadTexture.FILLED_CAN, FERTILIZER.getDisplayName(), "&7Content: &9Seagrass");
+            "FERTILIZER_SEAGRASS", HeadTexture.FILLED_CAN, "&aOrganic Fertilizer", "&7Content: &9Seagrass");
 
     public static final SlimefunItemStack ANIMAL_GROWTH_ACCELERATOR = new SlimefunItemStack(
             "ANIMAL_GROWTH_ACCELERATOR",
