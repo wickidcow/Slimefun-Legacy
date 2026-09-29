@@ -72,6 +72,54 @@ def main() -> int:
             "MINECRAFT_1_19",
             "new ItemStack(Material.MUD)",
         ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/ElectricIngotPulverizer.java": (
+            "MinecraftVersion",
+            "new ItemStack(Material.COPPER_INGOT)",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/blocks/Crucible.java": (
+            "MinecraftVersion",
+            "new ItemStack(Material.COBBLED_DEEPSLATE, 12)",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/multiblocks/GrindStone.java": (
+            "MinecraftVersion",
+            "new ItemStack(Material.AMETHYST_BLOCK)",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/ElectrifiedCrucible.java": (
+            "MinecraftVersion",
+            "new ItemStack(Material.COBBLED_DEEPSLATE, 12)",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/generators/BioGenerator.java": (
+            "MinecraftVersion",
+            "new ItemStack(Material.GLOW_BERRIES)",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/ElectricPress.java": (
+            "MinecraftVersion",
+            "new ItemStack(Material.AMETHYST_SHARD, 4)",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/weapons/SwordOfBeheading.java": (
+            "MinecraftVersion",
+            "new ItemStack(Material.PIGLIN_HEAD)",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/entities/ProduceCollector.java": (
+            "MinecraftVersion",
+            "n instanceof Cow || n instanceof Goat",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/TalismanListener.java": (
+            "MinecraftVersion",
+            "entity instanceof Allay",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/multiblocks/miner/IndustrialMiner.java": (
+            "MinecraftVersion",
+            "SlimefunTag.DEEPSLATE_ORES.isTagged(type)",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/accelerators/TreeGrowthAccelerator.java": (
+            "MinecraftVersion",
+            "return applyBoneMeal(machine, sapling, inv);",
+        ),
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/multiblocks/OreCrusher.java": (
+            "MinecraftVersion",
+            "new ItemStack(Material.RAW_COPPER)",
+        ),
     }
     for relative, (forbidden, required) in modern_paths.items():
         text = (root / relative).read_text(encoding="utf-8")
@@ -79,6 +127,17 @@ def main() -> int:
             failures.append(f"{relative} still contains unsupported-version gate {forbidden}")
         if required not in text:
             failures.append(f"{relative} is missing its 1.21.11+ direct code path: {required}")
+
+    woodcutter = (root / "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/androids/WoodcutterAndroid.java").read_text(encoding="utf-8")
+    if "MinecraftVersion" in woodcutter or "SlimefunExtended.isAtLeast" in woodcutter:
+        failures.append("WoodcutterAndroid still contains obsolete tree-version gates")
+    for required in ("MANGROVE_PROPAGULE", "CHERRY_SAPLING", "PALE_OAK_SAPLING"):
+        if required not in woodcutter:
+            failures.append(f"WoodcutterAndroid is missing supported tree mapping: {required}")
+
+    ore_dictionary = (root / "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/multiblocks/miner/OreDictionary.java").read_text(encoding="utf-8")
+    if "MinecraftVersion" in ore_dictionary or "forVersion(" in ore_dictionary:
+        failures.append("OreDictionary still contains an obsolete version factory")
 
     resource_maps = {
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/resources/OilResource.java": "/biome-maps/oil_v1.18.json",
