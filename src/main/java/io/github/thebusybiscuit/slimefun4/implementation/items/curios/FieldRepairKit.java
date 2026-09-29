@@ -9,7 +9,7 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
@@ -33,32 +33,32 @@ public final class FieldRepairKit extends SimpleSlimefunItem<ItemUseHandler> {
             ItemStack target = player.getInventory().getItemInOffHand();
 
             if (target.getType().isAir()) {
-                player.sendMessage(ChatColor.YELLOW + "Put the damaged item in your off-hand, then use the Field Repair Kit.");
+                message(player, "&e" + "Put the damaged item in your off-hand, then use the Field Repair Kit.");
                 return;
             }
 
             ItemMeta meta = target.getItemMeta();
             if (!(meta instanceof Damageable damageable)) {
-                player.sendMessage(ChatColor.RED + "That item cannot be repaired by the Field Repair Kit.");
+                message(player, "&c" + "That item cannot be repaired by the Field Repair Kit.");
                 return;
             }
 
             int damage = damageable.getDamage();
             int maxDurability = target.getType().getMaxDurability();
             if (maxDurability <= 0 || damage <= 0) {
-                player.sendMessage(ChatColor.GRAY + "That item does not need field repairs.");
+                message(player, "&7" + "That item does not need field repairs.");
                 return;
             }
 
             Material repairMaterial = repairMaterial(target.getType());
             if (repairMaterial == null) {
-                player.sendMessage(ChatColor.RED + "The Field Repair Kit has no compatible repair material for that item.");
+                message(player, "&c" + "The Field Repair Kit has no compatible repair material for that item.");
                 return;
             }
 
             Map<Integer, ItemStack> missing = player.getInventory().removeItem(new ItemStack(repairMaterial, 1));
             if (!missing.isEmpty()) {
-                player.sendMessage(ChatColor.RED + "Field repair requires 1 " + humanize(repairMaterial) + ".");
+                message(player, "&c" + "Field repair requires 1 " + humanize(repairMaterial) + ".");
                 return;
             }
 
@@ -68,8 +68,8 @@ public final class FieldRepairKit extends SimpleSlimefunItem<ItemUseHandler> {
             target.setItemMeta(meta);
 
             player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_USE, 0.55F, 1.35F);
-            player.sendMessage(ChatColor.GREEN + "Field repair restored " + (damage - newDamage)
-                    + ChatColor.GRAY + " durability using 1 " + humanize(repairMaterial) + ".");
+            message(player, "&a" + "Field repair restored " + (damage - newDamage)
+                    + "&7" + " durability using 1 " + humanize(repairMaterial) + ".");
         };
     }
 
@@ -103,4 +103,8 @@ public final class FieldRepairKit extends SimpleSlimefunItem<ItemUseHandler> {
     private static String humanize(Material material) {
         return material.name().toLowerCase(java.util.Locale.ROOT).replace('_', ' ');
     }
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
 }
