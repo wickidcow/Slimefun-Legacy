@@ -30,6 +30,8 @@ import java.util.List;
 import java.util.OptionalInt;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu.AdvancedMenuClickHandler;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ClickAction;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.interfaces.InventoryBlock;
@@ -37,7 +39,6 @@ import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 import org.apache.commons.lang.Validate;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -203,7 +204,8 @@ public class GEOMiner extends SlimefunItem
 
         for (GEOResource resource : Slimefun.getRegistry().getGEOResources().values()) {
             if (resource.isObtainableFromGEOMiner()) {
-                displayRecipes.add(new CustomItemStack(resource.getItem(), ChatColor.RESET + resource.getName()));
+                displayRecipes.add(new CustomItemStack(resource.getItem(), meta -> meta.displayName(
+                        Component.text(resource.getName()).decoration(TextDecoration.ITALIC, false))));
             }
         }
 
