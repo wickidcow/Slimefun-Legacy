@@ -20,11 +20,12 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.AContainer;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.MachineRecipe;
 import net.guizhanss.slimefun4.utils.WikiUtils;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.inventory.ItemStack;
 
@@ -83,30 +84,23 @@ public final class PostSetup {
         int slimefunOnly = countNonAddonItems();
 
         sender.sendMessage("");
-        sender.sendMessage(
-                ChatColor.GREEN + "######################### - Slimefun Legacy - Snapshot - #########################");
+        sendGreen(sender, "######################### - Slimefun Legacy - Snapshot - #########################");
         sender.sendMessage("");
-        sender.sendMessage(ChatColor.GREEN
-                + "Successfully loaded "
-                + total
-                + " items and "
-                + Slimefun.getRegistry().getResearches().size()
-                + " researches");
-        sender.sendMessage(ChatColor.GREEN
-                + "( "
-                + slimefunOnly
-                + " items from Slimefun, "
-                + (total - slimefunOnly)
-                + " items from "
-                + Slimefun.getInstalledAddons().size()
-                + " addons )");
+        sendGreen(
+                sender,
+                "Successfully loaded " + total + " items and "
+                        + Slimefun.getRegistry().getResearches().size() + " researches");
+        sendGreen(
+                sender,
+                "( " + slimefunOnly + " items from Slimefun, " + (total - slimefunOnly) + " items from "
+                        + Slimefun.getInstalledAddons().size() + " addons )");
         sender.sendMessage("");
 
         reportAddonCompatibility(sender);
 
         sender.sendMessage("");
-        sender.sendMessage(ChatColor.GREEN + " - Source:       https://github.com/wickidcow/Slimefun-Legacy");
-        sender.sendMessage(ChatColor.GREEN + " - Bug Reports:  https://github.com/wickidcow/Slimefun-Legacy/issues");
+        sendGreen(sender, " - Source:       https://github.com/wickidcow/Slimefun-Legacy");
+        sendGreen(sender, " - Bug Reports:  https://github.com/wickidcow/Slimefun-Legacy/issues");
 
         sender.sendMessage("");
 
@@ -115,12 +109,17 @@ public final class PostSetup {
         Slimefun.getConfigManager().setAutoLoadingMode(true);
     }
 
+    private static void sendGreen(CommandSender sender, String message) {
+        sender.sendMessage(Component.text(message, NamedTextColor.GREEN));
+    }
+
     private static void reportAddonCompatibility(CommandSender sender) {
         Slimefun.getAddonCompatibilityService().refresh();
         AddonCompatibilitySummary summary =
                 Slimefun.getAddonCompatibilityService().getSummary();
-        sender.sendMessage(
-                ChatColor.GREEN + "Addon compatibility: " + summary.getCount(AddonCompatibilityStatus.COMPATIBLE)
+        sendGreen(
+                sender,
+                "Addon compatibility: " + summary.getCount(AddonCompatibilityStatus.COMPATIBLE)
                         + " compatible, " + summary.getCount(AddonCompatibilityStatus.WARNING) + " warning, "
                         + summary.getCount(AddonCompatibilityStatus.UNDECLARED) + " undeclared, "
                         + summary.getCount(AddonCompatibilityStatus.INCOMPATIBLE) + " incompatible, "
