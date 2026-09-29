@@ -14,10 +14,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 
 /**
- * @deprecated This interface is not designed to be used by addons. The entire inventory system will be replaced
- * eventually.
+ * Internal inventory contract used by Slimefun's current block-menu implementations.
+ *
+ * <p>This interface is not an addon API. It remains active until the inventory system has a concrete replacement.
  */
-@Deprecated
 @SlimefunInternal
 public interface InventoryBlock {
 
