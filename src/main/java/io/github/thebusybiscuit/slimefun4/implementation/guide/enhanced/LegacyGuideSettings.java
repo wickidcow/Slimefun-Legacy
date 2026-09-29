@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nonnull;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 /**
@@ -278,6 +278,7 @@ public final class LegacyGuideSettings {
     }
 
     private static @Nonnull String color(String value) {
-        return ChatColor.translateAlternateColorCodes('&', value == null ? "" : value);
+        return LegacyComponentSerializer.legacySection()
+                .serialize(LegacyComponentSerializer.legacyAmpersand().deserialize(value == null ? "" : value));
     }
 }
