@@ -32,7 +32,7 @@ public class LegacyStorage implements Storage {
         // Load research
         Set<Research> researches = new HashSet<>();
         for (Research research : Slimefun.getRegistry().getResearches()) {
-            if (playerFile.contains("researches." + research.getID())) {
+            if (playerFile.contains("researches." + research.getLegacyId())) {
                 researches.add(research);
             }
         }
@@ -102,7 +102,7 @@ public class LegacyStorage implements Storage {
         for (Research research : Slimefun.getRegistry().getResearches()) {
             // Save the research if it's researched
             if (data.getResearches().contains(research)) {
-                playerFile.setValue("researches." + research.getID(), true);
+                playerFile.setValue("researches." + research.getLegacyId(), true);
 
                 // Remove the research if it's no longer researched
                 // ----
@@ -112,9 +112,9 @@ public class LegacyStorage implements Storage {
                 // but then go into this branch and remove it if you didn't have Bio Reactor
                 // Sooooo we're gonna hack this for now while we move away from the Legacy Storage
                 // Let's make sure the user doesn't have _any_ research with this ID and _then_ remove it
-            } else if (playerFile.contains("researches." + research.getID())
-                    && !data.getResearches().stream().anyMatch((r) -> r.getID() == research.getID())) {
-                playerFile.setValue("researches." + research.getID(), null);
+            } else if (playerFile.contains("researches." + research.getLegacyId())
+                    && !data.getResearches().stream().anyMatch((r) -> r.getLegacyId() == research.getLegacyId())) {
+                playerFile.setValue("researches." + research.getLegacyId(), null);
             }
         }
 
