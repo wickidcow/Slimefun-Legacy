@@ -9,7 +9,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunIte
 import io.github.thebusybiscuit.slimefun4.utils.RadiationUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -42,7 +42,7 @@ public final class BastionResonator extends SimpleSlimefunItem<ItemUseHandler> {
             Player player = event.getPlayer();
             long remaining = remainingCooldown(player);
             if (remaining > 0L) {
-                player.sendMessage(ChatColor.RED + "Bastion Resonator is settling for " + seconds(remaining) + " more seconds.");
+                message(player, "&c" + "Bastion Resonator is settling for " + seconds(remaining) + " more seconds.");
                 return;
             }
             player.getPersistentDataContainer().set(
@@ -78,16 +78,16 @@ public final class BastionResonator extends SimpleSlimefunItem<ItemUseHandler> {
         ThreatBand band = ThreatBand.fromScore(score);
 
         player.playSound(origin, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.55F, band == ThreatBand.CRITICAL ? 0.65F : 1.15F);
-        player.sendMessage(ChatColor.GOLD + "Bastion Resonator " + ChatColor.GRAY + "• " + band.color
-                + band.label + ChatColor.GRAY + " • threat score " + ChatColor.WHITE + score);
-        player.sendMessage(ChatColor.GRAY + "Hostiles: " + ChatColor.YELLOW + monsters + ChatColor.GRAY
-                + " • Spawners: " + ChatColor.YELLOW + spawners + ChatColor.GRAY + " • Local hazards: "
-                + ChatColor.YELLOW + hazards + ChatColor.GRAY + " • Radiation: " + ChatColor.YELLOW + exposure + "/100");
+        message(player, "&6" + "Bastion Resonator " + "&7" + "• " + band.color
+                + band.label + "&7" + " • threat score " + "&f" + score);
+        message(player, "&7" + "Hostiles: " + "&e" + monsters + "&7"
+                + " • Spawners: " + "&e" + spawners + "&7" + " • Local hazards: "
+                + "&e" + hazards + "&7" + " • Radiation: " + "&e" + exposure + "/100");
 
         if (monsters > 0) {
             Location center = new Location(origin.getWorld(), sumX / monsters, origin.getY(), sumZ / monsters);
-            player.sendMessage(ChatColor.GRAY + "The strongest hostile pressure is roughly " + ChatColor.AQUA
-                    + cardinalDirection(origin, center) + ChatColor.GRAY + ".");
+            message(player, "&7" + "The strongest hostile pressure is roughly " + "&b"
+                    + cardinalDirection(origin, center) + "&7" + ".");
         }
     }
 
@@ -140,15 +140,15 @@ public final class BastionResonator extends SimpleSlimefunItem<ItemUseHandler> {
     }
 
     private enum ThreatBand {
-        CALM("CALM", ChatColor.GREEN),
-        GUARDED("GUARDED", ChatColor.YELLOW),
-        DANGEROUS("DANGEROUS", ChatColor.GOLD),
-        CRITICAL("CRITICAL", ChatColor.RED);
+        CALM("CALM", "&a"),
+        GUARDED("GUARDED", "&e"),
+        DANGEROUS("DANGEROUS", "&6"),
+        CRITICAL("CRITICAL", "&c");
 
         private final String label;
-        private final ChatColor color;
+        private final String color;
 
-        ThreatBand(String label, ChatColor color) {
+        ThreatBand(String label, String color) {
             this.label = label;
             this.color = color;
         }
@@ -166,4 +166,8 @@ public final class BastionResonator extends SimpleSlimefunItem<ItemUseHandler> {
             return CALM;
         }
     }
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
 }
