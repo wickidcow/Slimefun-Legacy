@@ -14,6 +14,7 @@ import io.github.thebusybiscuit.slimefun4.utils.ThreadUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -41,7 +42,7 @@ abstract class AbstractCraftingTable extends MultiBlockMachine {
     }
 
     protected @Nonnull Inventory createVirtualInventory(@Nonnull Inventory inv, @Nonnull ItemStack[] recipe) {
-        Inventory fakeInv = Bukkit.createInventory(null, 9, "Fake Inventory");
+        Inventory fakeInv = Bukkit.createInventory(null, 9, Component.text("Fake Inventory"));
 
         for (int j = 0; j < inv.getContents().length; j++) {
             ItemStack stack = inv.getContents()[j];
