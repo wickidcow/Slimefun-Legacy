@@ -65,6 +65,14 @@ def main() -> int:
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/networks/energy/EnergyNet.java",
     )
     source_compact = compact(source)
+    regulator_source = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/EnergyRegulator.java",
+    )
+    regulator_tick_start = regulator_source.find("private void tick(")
+    if regulator_tick_start < 0:
+        raise SystemExit("Energy network correctness failed: missing EnergyRegulator private tick")
+    regulator_tick = compact(method_body(regulator_source[regulator_tick_start:], "tick"))
 
     tick = compact(method_body(source, "tick"))
     classification = compact(method_body(source, "onClassificationChange"))
@@ -112,6 +120,26 @@ def main() -> int:
     require(tick, 'closePhase("EnergyNet", "hologram"', "hologram phase")
     require(tick, 'closePhase("EnergyNet", "duplicate regulator state"', "duplicate-regulator state phase")
     require(tick, 'closePhase("EnergyNet", "duplicate regulator hologram"', "duplicate-regulator hologram phase")
+
+    # The outer Energy Regulator ticker includes lookup and optional player-visualizer work that
+    # does not belong to EnergyNet's internal phase table. Keep those costs visible in requested
+    # detailed samples so an expensive visualizer pulse cannot be mistaken for power distribution.
+    require(regulator_tick, 'var profiler = Slimefun.getProfiler()', "single Energy Regulator profiler lookup")
+    require(regulator_tick, 'closePhase("EnergyRegulator", "network lookup"', "regulator network lookup phase")
+    require(regulator_tick, 'closePhase("EnergyRegulator", "network execution"', "regulator network execution phase")
+    require(regulator_tick, 'closePhase("EnergyRegulator", "player visualizer"', "regulator player visualizer phase")
+    require_before(
+        regulator_tick,
+        'closePhase("EnergyRegulator", "network lookup"',
+        'closePhase("EnergyRegulator", "network execution"',
+        "regulator lookup before network execution",
+    )
+    require_before(
+        regulator_tick,
+        'closePhase("EnergyRegulator", "network execution"',
+        'closePhase("EnergyRegulator", "player visualizer"',
+        "regulator network execution before visualizer",
+    )
 
     # Regulator holograms are presentation state. Unchanged labels should not traverse the hologram
     # service every tick, but periodic refresh still repairs a despawned/external hologram.
