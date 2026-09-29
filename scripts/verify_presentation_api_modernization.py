@@ -36,6 +36,15 @@ WRITE_ONLY_FILES = (
 )
 
 FULL_FILES = (
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/magical/talismans/Talisman.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/enchanting/AbstractEnchantmentMachine.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/backpacks/SlimefunBackpack.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/LegacyMachineRecipeBrowser.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/EnhancedSurvivalSlimefunGuide.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/SurvivalSlimefunGuide.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/IndexedSurvivalSlimefunGuide.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/GuideSearchIndex.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/SlimefunItems.java",
     "src/main/java/io/github/thebusybiscuit/slimefun4/api/items/SlimefunItemStack.java",
     "src/main/java/io/github/thebusybiscuit/slimefun4/api/player/PlayerBackpack.java",
     "src/main/java/io/github/thebusybiscuit/slimefun4/api/recipes/RecipeType.java",
