@@ -4,8 +4,8 @@ import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.UUID;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -64,14 +64,14 @@ final class BeaconPlusLifecycleListener implements Listener {
         BeaconPlusManager manager = BeaconPlusManager.getInstance();
         if (manager == null) {
             event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + "Resonance Beacon is still initializing. Try placing it again shortly.");
+            message(player, "&c" + "Resonance Beacon is still initializing. Try placing it again shortly.");
             return;
         }
 
         if (manager.isBeaconWithinChunkRadius(
                 event.getBlockPlaced().getLocation(), MINIMUM_BEACON_CHUNK_SPACING)) {
             event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + "Cannot place Resonance Beacon: " + ChatColor.GRAY
+            message(player, "&c" + "Cannot place Resonance Beacon: " + "&7"
                     + "it is too close to another Resonance Beacon. Beacons must be more than 3 chunks apart.");
         }
     }
@@ -106,8 +106,8 @@ final class BeaconPlusLifecycleListener implements Listener {
         UUID owner = manager == null ? null : manager.getOwner(block.getLocation());
         if (!canConfigure(player, owner)) {
             denyInteraction(event);
-            player.sendMessage(
-                    ChatColor.RED + "Only this Resonance Beacon owner or a server operator can change beam visuals.");
+            message(player, 
+                    "&c" + "Only this Resonance Beacon owner or a server operator can change beam visuals.");
             return;
         }
 
@@ -120,9 +120,9 @@ final class BeaconPlusLifecycleListener implements Listener {
                 enabled ? Sound.BLOCK_BEACON_POWER_SELECT : Sound.BLOCK_BEACON_DEACTIVATE,
                 0.65F,
                 enabled ? 1.45F : 0.9F);
-        player.sendMessage(ChatColor.GOLD + "Resonance Beacon yellow beam visuals: "
-                + (enabled ? ChatColor.GREEN + "ENABLED" : ChatColor.RED + "DISABLED")
-                + ChatColor.GRAY + ". Sneak-right-click the Resonance Beacon to toggle them.");
+        message(player, "&6" + "Resonance Beacon yellow beam visuals: "
+                + (enabled ? "&a" + "ENABLED" : "&c" + "DISABLED")
+                + "&7" + ". Sneak-right-click the Resonance Beacon to toggle them.");
     }
 
     private static void denyInteraction(PlayerInteractEvent event) {
@@ -149,4 +149,8 @@ final class BeaconPlusLifecycleListener implements Listener {
             registered = false;
         }
     }
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
 }
