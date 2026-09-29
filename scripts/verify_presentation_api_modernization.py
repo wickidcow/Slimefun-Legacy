@@ -6,7 +6,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-FILES = (
+WRITE_ONLY_FILES = (
     "src/main/java/com/xzavier0722/mc/plugin/slimefun4/autocrafter/CrafterSmartPort.java",
     "src/main/java/io/github/thebusybiscuit/slimefun4/api/gps/GPSNetwork.java",
     "src/main/java/io/github/thebusybiscuit/slimefun4/api/items/ItemGroup.java",
@@ -35,23 +35,39 @@ FILES = (
     "src/main/java/io/github/thebusybiscuit/slimefun4/utils/itemstack/SlimefunGuideItem.java",
 )
 
-FORBIDDEN = (".setDisplayName(", ".setLore(")
+FULL_FILES = (
+    "src/main/java/io/github/thebusybiscuit/slimefun4/api/items/SlimefunItemStack.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/api/player/PlayerBackpack.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/api/recipes/RecipeType.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemPresentationDoctor.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/altar/AncientPedestal.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/ContainmentTrap.java",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/integrations/AdvancedEnchantmentsIntegration.java",
+)
+
+WRITE_FORBIDDEN = (".setDisplayName(", ".setLore(")
+FULL_FORBIDDEN = WRITE_FORBIDDEN + (".getDisplayName()", ".getLore()")
 
 
-def main() -> int:
-    root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
-    failures: list[str] = []
-
-    for relative in FILES:
+def check_files(root: Path, files: tuple[str, ...], forbidden: tuple[str, ...], failures: list[str]) -> None:
+    for relative in files:
         path = root / relative
         if not path.is_file():
             failures.append(f"Missing modernization target: {relative}")
             continue
 
         source = path.read_text(encoding="utf-8")
-        for token in FORBIDDEN:
+        for token in forbidden:
             if token in source:
-                failures.append(f"{relative} reintroduced deprecated ItemMeta string setter: {token}")
+                failures.append(f"{relative} reintroduced deprecated ItemMeta string API: {token}")
+
+
+def main() -> int:
+    root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
+    failures: list[str] = []
+
+    check_files(root, WRITE_ONLY_FILES, WRITE_FORBIDDEN, failures)
+    check_files(root, FULL_FILES, FULL_FORBIDDEN, failures)
 
     if failures:
         print("Presentation API modernization verification: FAIL")
