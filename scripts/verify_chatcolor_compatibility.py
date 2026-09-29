@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 
 ALLOWED = {
-    "src/main/java/io/github/thebusybiscuit/slimefun4/utils/ChatUtils.java",
     "src/main/java/io/github/thebusybiscuit/slimefun4/utils/NumberUtils.java",
     "src/main/java/me/mrCookieSlime/CSCoreLibPlugin/general/Inventory/ChestMenu.java",
     "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/profiler/PerformanceRating.java",
