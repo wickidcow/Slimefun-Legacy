@@ -37,8 +37,9 @@ def main() -> int:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
 
     tome = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/magical/KnowledgeTome.java")
-    require(tome, "if (lore == null || lore.size() < 2 || lore.get(1) == null)", "Knowledge Tome lore corruption guard")
-    require(tome, "if (serializedOwner == null || serializedOwner.isBlank())", "Knowledge Tome blank owner guard")
+    require(tome, "if (currentLore == null || currentLore.size() < 2 || currentLore.get(1) == null)", "Knowledge Tome lore corruption guard")
+    require(tome, "new java.util.ArrayList<>(currentLore)", "Knowledge Tome mutable lore snapshot")
+    require(tome, "if (serializedOwner.isBlank())", "Knowledge Tome blank owner guard")
     require(tome, "catch (IllegalArgumentException ignored)", "Knowledge Tome malformed UUID guard")
     require(tome, "ItemStack singleTome = item.clone();", "Knowledge Tome one-item transaction snapshot")
     require(tome, "singleTome.setAmount(1);", "Knowledge Tome exact one-item consumption")
