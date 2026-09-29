@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.androids;
 
-import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.bakedlibs.dough.config.Config;
 import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
@@ -151,7 +150,7 @@ public final class Script {
         float percentage = getRating();
         return NumberUtils.getColorFromPercentage(percentage)
                 + String.valueOf(percentage)
-                + ChatColors.color("&f% ");
+                + "§f% ";
     }
 
     /**
