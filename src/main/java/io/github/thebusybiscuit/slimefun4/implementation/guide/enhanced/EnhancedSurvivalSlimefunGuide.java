@@ -29,6 +29,10 @@ import java.util.Locale;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -396,39 +400,41 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
                 Slimefun.getLocalization().sendMessage(player, "messages.no-permission", true);
             }
         } catch (Exception | LinkageError exception) {
-            player.sendMessage(ChatColor.DARK_RED
-                    + "An internal error occurred while opening this item. Please inform an administrator.");
+            player.sendMessage(Component.text(
+                    "An internal error occurred while opening this item. Please inform an administrator.",
+                    NamedTextColor.DARK_RED));
             item.error("This item caused an error while being opened in the enhanced Slimefun guide.", exception);
         }
     }
 
     private ItemStack decorateItem(Player player, SlimefunItem item, boolean bookmarked) {
         return new CustomItemStack(item.getItem(), meta -> {
-            List<String> lore = meta.hasLore() ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
-            lore.add("");
-            lore.add(ChatColor.DARK_GRAY + "Category: " + ChatColor.WHITE
-                    + item.getItemGroup().getDisplayName(player));
+            List<Component> currentLore = meta.lore();
+            List<Component> lore = currentLore == null ? new ArrayList<>() : new ArrayList<>(currentLore);
+            lore.add(Component.empty());
+            lore.add(legacyText(ChatColor.DARK_GRAY + "Category: " + ChatColor.WHITE
+                    + item.getItemGroup().getDisplayName(player)));
             if (LegacyGuideSettings.get().shouldDisplayAddon()) {
-                lore.add(ChatColor.DARK_GRAY + "Addon: " + ChatColor.WHITE + getAddonName(item));
+                lore.add(legacyText(ChatColor.DARK_GRAY + "Addon: " + ChatColor.WHITE + getAddonName(item)));
             }
             if (LegacyGuideSettings.get().shouldDisplayItemId()) {
-                lore.add(ChatColor.DARK_GRAY + "ID: " + ChatColor.GRAY + item.getId());
+                lore.add(legacyText(ChatColor.DARK_GRAY + "ID: " + ChatColor.GRAY + item.getId()));
             }
             if (!isSurvivalMode()) {
-                lore.add("");
-                lore.add(ChatColor.GREEN + "Left-click: " + ChatColor.GRAY + "Give 1 item");
-                lore.add(ChatColor.YELLOW + "Right-click: " + ChatColor.GRAY + "Give a full stack");
+                lore.add(Component.empty());
+                lore.add(legacyText(ChatColor.GREEN + "Left-click: " + ChatColor.GRAY + "Give 1 item"));
+                lore.add(legacyText(ChatColor.YELLOW + "Right-click: " + ChatColor.GRAY + "Give a full stack"));
             }
             if (LegacyGuideSettings.get().hasBookmarks()) {
-                lore.add("");
-                lore.add(bookmarked
+                lore.add(Component.empty());
+                lore.add(legacyText(bookmarked
                         ? ChatColor.GOLD + "★ Bookmarked"
-                        : ChatColor.YELLOW + "Shift-click to bookmark");
+                        : ChatColor.YELLOW + "Shift-click to bookmark"));
                 if (bookmarked) {
-                    lore.add(ChatColor.GRAY + "Shift-click to remove bookmark");
+                    lore.add(legacyText(ChatColor.GRAY + "Shift-click to remove bookmark"));
                 }
             }
-            meta.setLore(lore);
+            meta.lore(lore);
             meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, VersionedItemFlag.HIDE_ADDITIONAL_TOOLTIP);
         });
     }
@@ -636,15 +642,22 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
     }
 
     private String normalizeLore(ItemMeta meta) {
-        if (meta == null || !meta.hasLore()) {
+        List<Component> lore = meta == null ? null : meta.lore();
+        if (lore == null) {
             return "";
         }
-        return normalize(String.join(" ", meta.getLore()));
+        return lore.stream()
+                .map(PlainTextComponentSerializer.plainText()::serialize)
+                .map(EnhancedSurvivalSlimefunGuide::normalize)
+                .collect(java.util.stream.Collectors.joining(" "));
     }
 
     private static String normalize(String input) {
-        String stripped = ChatColor.stripColor(input == null ? "" : input);
-        return stripped == null ? "" : stripped.toLowerCase(Locale.ROOT).trim();
+        String value = input == null ? "" : input;
+        return PlainTextComponentSerializer.plainText()
+                .serialize(LegacyComponentSerializer.legacySection().deserialize(value))
+                .toLowerCase(Locale.ROOT)
+                .trim();
     }
 
     private static @Nonnull String getAddonName(@Nonnull SlimefunItem item) {
@@ -654,12 +667,19 @@ public class EnhancedSurvivalSlimefunGuide extends SurvivalSlimefunGuide {
 
     private void toggleBookmark(Player player, SlimefunItem item) {
         boolean added = LegacyGuideBookmarks.get().toggle(player.getUniqueId(), item.getId());
+        String itemName = normalize(item.getItemName());
         player.sendMessage(
                 added
-                        ? ChatColor.GOLD + "★ Added " + ChatColor.WHITE + ChatColor.stripColor(item.getItemName())
-                                + ChatColor.GOLD + " to your bookmarks."
-                        : ChatColor.YELLOW + "Removed " + ChatColor.WHITE + ChatColor.stripColor(item.getItemName())
-                                + ChatColor.YELLOW + " from your bookmarks.");
+                        ? Component.text("★ Added ", NamedTextColor.GOLD)
+                                .append(Component.text(itemName, NamedTextColor.WHITE))
+                                .append(Component.text(" to your bookmarks.", NamedTextColor.GOLD))
+                        : Component.text("Removed ", NamedTextColor.YELLOW)
+                                .append(Component.text(itemName, NamedTextColor.WHITE))
+                                .append(Component.text(" from your bookmarks.", NamedTextColor.YELLOW)));
+    }
+
+    private static Component legacyText(String value) {
+        return LegacyComponentSerializer.legacySection().deserialize(value);
     }
 
     private static int pageCount(int entries, int pageSize) {
