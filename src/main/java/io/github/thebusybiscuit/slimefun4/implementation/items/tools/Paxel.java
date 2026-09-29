@@ -101,13 +101,15 @@ public final class Paxel extends SlimefunItem implements Listener, NotPlaceable 
         Block block = event.getBlock();
         boolean netherite = isNetheriteTool(item.getType());
 
+        Material effectiveMaterial;
         if (SlimefunTag.EXPLOSIVE_SHOVEL_BLOCKS.isTagged(block.getType())) {
-            item.setType(netherite ? Material.NETHERITE_SHOVEL : Material.DIAMOND_SHOVEL);
+            effectiveMaterial = netherite ? Material.NETHERITE_SHOVEL : Material.DIAMOND_SHOVEL;
         } else if (AXE_BLOCKS.contains(block.getType())) {
-            item.setType(netherite ? Material.NETHERITE_AXE : Material.DIAMOND_AXE);
+            effectiveMaterial = netherite ? Material.NETHERITE_AXE : Material.DIAMOND_AXE;
         } else {
-            item.setType(netherite ? Material.NETHERITE_PICKAXE : Material.DIAMOND_PICKAXE);
+            effectiveMaterial = netherite ? Material.NETHERITE_PICKAXE : Material.DIAMOND_PICKAXE;
         }
+        player.getInventory().setItemInMainHand(item.withType(effectiveMaterial));
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -121,7 +123,9 @@ public final class Paxel extends SlimefunItem implements Listener, NotPlaceable 
             return;
         }
 
-        item.setType(isNetheriteTool(item.getType()) ? Material.NETHERITE_AXE : Material.DIAMOND_AXE);
+        player.getInventory()
+                .setItemInMainHand(item.withType(
+                        isNetheriteTool(item.getType()) ? Material.NETHERITE_AXE : Material.DIAMOND_AXE));
     }
 
     private static boolean isNetheriteTool(Material material) {
