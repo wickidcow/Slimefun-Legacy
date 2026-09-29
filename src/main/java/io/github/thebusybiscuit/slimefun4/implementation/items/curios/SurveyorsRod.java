@@ -9,7 +9,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunIte
 import java.util.Locale;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Chunk;
 import org.bukkit.HeightMap;
 import org.bukkit.Location;
@@ -52,9 +52,9 @@ public final class SurveyorsRod extends SimpleSlimefunItem<ItemUseHandler> {
         int chunkZ = target.getBlockZ() >> 4;
         if (!world.isChunkLoaded(chunkX, chunkZ)) {
             return new SurveyReport(
-                    ChatColor.GOLD + "Surveyor's Rod " + ChatColor.GRAY + "• chunk " + chunkX + ", " + chunkZ,
-                    ChatColor.RED + "Target chunk is not currently loaded; no chunk was loaded to perform the survey.",
-                    ChatColor.DARK_GRAY + "Move into the chunk and scan again.");
+                    "&6" + "Surveyor's Rod " + "&7" + "• chunk " + chunkX + ", " + chunkZ,
+                    "&c" + "Target chunk is not currently loaded; no chunk was loaded to perform the survey.",
+                    "&8" + "Move into the chunk and scan again.");
         }
 
         Chunk chunk = world.getChunkAt(chunkX, chunkZ);
@@ -66,39 +66,39 @@ public final class SurveyorsRod extends SimpleSlimefunItem<ItemUseHandler> {
         int surfaceY =
                 world.getHighestBlockYAt(target.getBlockX(), target.getBlockZ(), HeightMap.MOTION_BLOCKING_NO_LEAVES);
 
-        String first = ChatColor.GOLD + "Surveyor's Rod " + ChatColor.GRAY + "• " + ChatColor.WHITE + world.getName()
-                + ChatColor.GRAY + " • XYZ " + ChatColor.YELLOW + target.getBlockX() + ", " + target.getBlockY() + ", "
+        String first = "&6" + "Surveyor's Rod " + "&7" + "• " + "&f" + world.getName()
+                + "&7" + " • XYZ " + "&e" + target.getBlockX() + ", " + target.getBlockY() + ", "
                 + target.getBlockZ();
-        String second = ChatColor.GRAY + "Biome: " + ChatColor.AQUA
+        String second = "&7" + "Biome: " + "&b"
                 + humanize(sample.getBiome().getKey().getKey())
-                + ChatColor.GRAY + " • Chunk: " + ChatColor.WHITE + chunkX + ", " + chunkZ + ChatColor.GRAY
-                + " • Region: " + ChatColor.WHITE + regionX + ", " + regionZ;
-        String third = ChatColor.GRAY + "Surface Y: " + ChatColor.WHITE + surfaceY + ChatColor.GRAY + " • Entities: "
-                + ChatColor.YELLOW + entities.length + ChatColor.GRAY + " • Block entities: " + ChatColor.YELLOW
-                + tileEntities.length + ChatColor.GRAY + " • Force loaded: "
-                + (chunk.isForceLoaded() ? ChatColor.GREEN + "YES" : ChatColor.DARK_GRAY + "NO");
+                + "&7" + " • Chunk: " + "&f" + chunkX + ", " + chunkZ + "&7"
+                + " • Region: " + "&f" + regionX + ", " + regionZ;
+        String third = "&7" + "Surface Y: " + "&f" + surfaceY + "&7" + " • Entities: "
+                + "&e" + entities.length + "&7" + " • Block entities: " + "&e"
+                + tileEntities.length + "&7" + " • Force loaded: "
+                + (chunk.isForceLoaded() ? "&a" + "YES" : "&8" + "NO");
         return new SurveyReport(first, second, third);
     }
 
     private static SurveyReport inspectBlock(Location target) {
         Block block = target.getBlock();
-        String first = ChatColor.GOLD + "Surveyor's Rod " + ChatColor.GRAY + "• detailed block survey";
-        String second = ChatColor.GRAY + "Block: " + ChatColor.WHITE
+        String first = "&6" + "Surveyor's Rod " + "&7" + "• detailed block survey";
+        String second = "&7" + "Block: " + "&f"
                 + humanize(block.getType().getKey().getKey())
-                + ChatColor.GRAY + " • XYZ " + ChatColor.YELLOW + block.getX() + ", " + block.getY() + ", "
+                + "&7" + " • XYZ " + "&e" + block.getX() + ", " + block.getY() + ", "
                 + block.getZ();
-        String third = ChatColor.GRAY + "Biome: " + ChatColor.AQUA
+        String third = "&7" + "Biome: " + "&b"
                 + humanize(block.getBiome().getKey().getKey())
-                + ChatColor.GRAY + " • Block light: " + ChatColor.YELLOW + block.getLightFromBlocks() + ChatColor.GRAY
-                + " • Sky light: " + ChatColor.YELLOW + block.getLightFromSky() + ChatColor.GRAY + " • Total: "
-                + ChatColor.YELLOW + block.getLightLevel();
+                + "&7" + " • Block light: " + "&e" + block.getLightFromBlocks() + "&7"
+                + " • Sky light: " + "&e" + block.getLightFromSky() + "&7" + " • Total: "
+                + "&e" + block.getLightLevel();
         return new SurveyReport(first, second, third);
     }
 
     private static void sendReport(Player player, SurveyReport report) {
-        player.sendMessage(report.first());
-        player.sendMessage(report.second());
-        player.sendMessage(report.third());
+        message(player, report.first());
+        message(player, report.second());
+        message(player, report.third());
     }
 
     private static String humanize(String key) {
@@ -116,4 +116,8 @@ public final class SurveyorsRod extends SimpleSlimefunItem<ItemUseHandler> {
     }
 
     private record SurveyReport(String first, String second, String third) {}
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
 }
