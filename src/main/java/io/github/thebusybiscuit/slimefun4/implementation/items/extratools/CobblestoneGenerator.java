@@ -145,7 +145,7 @@ public final class CobblestoneGenerator extends SimpleSlimefunItem<BlockTicker> 
 
             @Override
             public void tick(Block block, SlimefunItem item, Config data) {
-                if (decrement != 2 || getCharge(block.getLocation()) < ENERGY_CONSUMPTION) {
+                if (decrement != 2 || getChargeLong(block.getLocation()) < ENERGY_CONSUMPTION) {
                     return;
                 }
 
@@ -155,7 +155,7 @@ public final class CobblestoneGenerator extends SimpleSlimefunItem<BlockTicker> 
                     return;
                 }
 
-                removeCharge(block.getLocation(), ENERGY_CONSUMPTION);
+                removeCharge(block.getLocation(), (long) ENERGY_CONSUMPTION);
                 menu.pushItem(output, getOutputSlots());
             }
 
