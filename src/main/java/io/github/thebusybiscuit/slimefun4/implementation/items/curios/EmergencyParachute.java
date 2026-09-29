@@ -5,7 +5,7 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
@@ -57,7 +57,7 @@ public final class EmergencyParachute extends SlimefunItem implements Listener {
         player.setFallDistance(0.0F);
         player.setCooldown(Material.PHANTOM_MEMBRANE, DEPLOY_COOLDOWN_TICKS);
         player.playSound(player.getLocation(), Sound.ENTITY_PHANTOM_FLAP, 1.0F, 1.45F);
-        player.sendMessage(ChatColor.AQUA + "Emergency Parachute " + ChatColor.GRAY
+        message(player, "&b" + "Emergency Parachute " + "&7"
                 + "• Deployed just before impact! Fall damage prevented.");
     }
 
@@ -75,4 +75,8 @@ public final class EmergencyParachute extends SlimefunItem implements Listener {
 
         return null;
     }
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
 }
