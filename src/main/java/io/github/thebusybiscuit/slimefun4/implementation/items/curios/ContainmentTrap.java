@@ -18,7 +18,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -167,12 +167,12 @@ public final class ContainmentTrap extends SimpleSlimefunItem<ItemUseHandler> {
         }
 
         pdc.set(payloadKey, PersistentDataType.BYTE_ARRAY, payload.serializeAsBytes());
-        meta.displayName(legacyText(ChatColor.GOLD + "Containment Trap " + ChatColor.YELLOW + "[SEALED]"));
+        meta.displayName(legacyText("&6" + "Containment Trap " + "&e" + "[SEALED]"));
         meta.lore(List.of(
-                        ChatColor.GRAY + "Radioactive material securely contained.",
-                        ChatColor.YELLOW + friendlyName(payload),
+                        "&7" + "Radioactive material securely contained.",
+                        "&e" + friendlyName(payload),
                         "",
-                        ChatColor.GREEN + "Right Click " + ChatColor.GRAY + "to release contents")
+                        "&a" + "Right Click " + "&7" + "to release contents")
                 .stream()
                 .map(ContainmentTrap::legacyText)
                 .toList());
@@ -193,12 +193,12 @@ public final class ContainmentTrap extends SimpleSlimefunItem<ItemUseHandler> {
         try {
             payload = ItemStack.deserializeBytes(payloadBytes);
         } catch (RuntimeException ex) {
-            player.sendMessage(ChatColor.RED + "This Containment Trap could not safely decode its stored item.");
+            message(player, "&c" + "This Containment Trap could not safely decode its stored item.");
             return;
         }
 
         pdc.remove(payloadKey);
-        meta.displayName(legacyText(ChatColor.GOLD + "Containment Trap"));
+        meta.displayName(legacyText("&6" + "Containment Trap"));
         meta.lore(emptyLore().stream().map(ContainmentTrap::legacyText).toList());
         meta.setMaxStackSize(1);
         trap.setItemMeta(meta);
@@ -213,7 +213,7 @@ public final class ContainmentTrap extends SimpleSlimefunItem<ItemUseHandler> {
                 0.45D,
                 0.02D);
         player.playSound(player.getLocation(), Sound.BLOCK_IRON_TRAPDOOR_OPEN, 0.75F, 0.8F);
-        player.sendMessage(ChatColor.GOLD + "Containment Trap opened: " + ChatColor.YELLOW + friendlyName(payload));
+        message(player, "&6" + "Containment Trap opened: " + "&e" + friendlyName(payload));
     }
 
     private boolean hasPayload(ItemStack trap) {
@@ -247,24 +247,27 @@ public final class ContainmentTrap extends SimpleSlimefunItem<ItemUseHandler> {
 
     public static List<String> emptyLore() {
         List<String> lore = new ArrayList<>();
-        lore.add(ChatColor.GRAY + "A reusable field trap for dangerous cargo.");
-        lore.add(ChatColor.GRAY + "It can safely seal one dropped radioactive stack.");
+        lore.add("&7" + "A reusable field trap for dangerous cargo.");
+        lore.add("&7" + "It can safely seal one dropped radioactive stack.");
         lore.add("");
-        lore.add(ChatColor.YELLOW + "Right Click " + ChatColor.GRAY + "to throw");
-        lore.add(ChatColor.DARK_GRAY + "Lands near radioactive material to capture it");
+        lore.add("&e" + "Right Click " + "&7" + "to throw");
+        lore.add("&8" + "Lands near radioactive material to capture it");
         return lore;
     }
 
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
     private static Component legacyText(String value) {
-        return LegacyComponentSerializer.legacySection()
+        return LegacyComponentSerializer.legacyAmpersand()
                 .deserialize(value)
                 .decoration(TextDecoration.ITALIC, false);
     }
 
     private static String friendlyName(ItemStack stack) {
         if (stack.hasItemMeta() && stack.getItemMeta().hasDisplayName()) {
-            String legacy = LegacyComponentSerializer.legacySection().serialize(stack.getItemMeta().displayName());
-            return ChatColor.stripColor(legacy);
+            return PlainTextComponentSerializer.plainText().serialize(stack.getItemMeta().displayName());
         }
 
         String[] words = stack.getType().name().toLowerCase(Locale.ROOT).split("_");
