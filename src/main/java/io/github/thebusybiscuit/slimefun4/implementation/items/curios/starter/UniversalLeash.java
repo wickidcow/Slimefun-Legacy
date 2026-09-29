@@ -148,8 +148,12 @@ public final class UniversalLeash extends SlimefunItem {
     }
 
     private static String displayName(Entity entity) {
-        if (entity.getCustomName() != null && !entity.getCustomName().isBlank()) {
-            return entity.getCustomName();
+        var customName = entity.customName();
+        if (customName != null) {
+            String legacyName = LegacyComponentSerializer.legacySection().serialize(customName);
+            if (!legacyName.isBlank()) {
+                return legacyName;
+            }
         }
 
         return entity.getType().getKey().getKey().replace('_', ' ');
