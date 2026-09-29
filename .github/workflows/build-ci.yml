@@ -45,7 +45,7 @@ jobs:
           mkdir -p build/reports
           set -o pipefail
           ./gradlew clean build -PslimefunDeprecationReport=true --no-daemon 2>&1 | tee build/reports/deprecation-compile.log
-          python3 scripts/summarize_deprecations.py build/reports/deprecation-compile.log
+          python3 scripts/summarize_deprecations.py build/reports/deprecation-compile.log --fail-on-warnings
           cat build/reports/deprecations.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload deprecation and removal report
         if: always()
