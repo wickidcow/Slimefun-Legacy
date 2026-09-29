@@ -8,7 +8,6 @@ from pathlib import Path
 
 ALLOWED = {
     "src/main/java/io/github/thebusybiscuit/slimefun4/utils/NumberUtils.java",
-    "src/main/java/me/mrCookieSlime/CSCoreLibPlugin/general/Inventory/ChestMenu.java",
     "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/profiler/PerformanceRating.java",
     "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/elevator/ElevatorPlate.java",
     "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ItemPresentationDoctor.java",
