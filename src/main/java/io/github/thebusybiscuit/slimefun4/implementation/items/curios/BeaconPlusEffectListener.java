@@ -9,6 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.bukkit.Location;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Monster;
@@ -154,7 +155,9 @@ final class BeaconPlusEffectListener implements Listener {
 
         IMMORTALITY_COOLDOWNS.put(player.getUniqueId(), now + IMMORTALITY_COOLDOWN_MILLIS);
         event.setCancelled(true);
-        player.setHealth(Math.min(player.getMaxHealth(), Math.max(1.0D, player.getHealth())));
+        var maxHealthAttribute = player.getAttribute(Attribute.MAX_HEALTH);
+        double maxHealth = maxHealthAttribute == null ? player.getHealth() : maxHealthAttribute.getValue();
+        player.setHealth(Math.min(maxHealth, Math.max(1.0D, player.getHealth())));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
