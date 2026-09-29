@@ -29,7 +29,7 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.command.CommandSender;
 
 /** Read-only runtime evidence intended to help operators evaluate a Slimefun upgrade. */
@@ -336,7 +336,7 @@ final class UpgradeDiagnostics {
     }
 
     private static void send(CommandSender sender, String message) {
-        sender.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+        sender.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(message));
     }
 
     private record BaselineInfo(String candidate, String previousStable, boolean available) {
