@@ -45,13 +45,8 @@ class GuideModeOption implements SlimefunGuideOption<SlimefunGuideMode> {
 
         if (current.isPresent()) {
             SlimefunGuideMode selectedMode = current.get();
-            ItemStack item = new ItemStack(Material.AIR);
-
-            if (selectedMode == SlimefunGuideMode.SURVIVAL_MODE) {
-                item.setType(Material.CHEST);
-            } else {
-                item.setType(Material.COMMAND_BLOCK);
-            }
+            ItemStack item = new ItemStack(
+                    selectedMode == SlimefunGuideMode.SURVIVAL_MODE ? Material.CHEST : Material.COMMAND_BLOCK);
 
             ItemMeta meta = item.getItemMeta();
             meta.displayName(Component.text("Slimefun Guide style: ", NamedTextColor.GRAY)
