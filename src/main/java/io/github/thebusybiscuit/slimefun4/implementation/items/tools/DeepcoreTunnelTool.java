@@ -94,7 +94,9 @@ public final class DeepcoreTunnelTool extends ExplosiveTool implements Listener 
             return;
         }
 
-        item.setType(effectivePaxelMaterial(event.getBlock().getType()));
+        event.getPlayer()
+                .getInventory()
+                .setItemInMainHand(item.withType(effectivePaxelMaterial(event.getBlock().getType())));
     }
 
     @Override
@@ -214,9 +216,7 @@ public final class DeepcoreTunnelTool extends ExplosiveTool implements Listener 
             return tool;
         }
 
-        ItemStack effectiveTool = tool.clone();
-        effectiveTool.setType(effectivePaxelMaterial(block.getType()));
-        return effectiveTool;
+        return tool.withType(effectivePaxelMaterial(block.getType()));
     }
 
     private static Material effectivePaxelMaterial(Material blockType) {
