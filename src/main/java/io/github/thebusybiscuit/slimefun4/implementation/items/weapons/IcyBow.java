@@ -4,7 +4,6 @@ import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BowShootHandler;
 import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
-import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedPotionEffectType;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Material;
@@ -12,6 +11,7 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 /**
  * The {@link IcyBow} is a special kind of bow which slows down any
@@ -42,8 +42,8 @@ public class IcyBow extends SlimefunBow {
             }
             VisualEffectUtils.playBlockBreakEffect(n.getLocation(), Material.ICE);
             VisualEffectUtils.playBlockBreakEffect(n.getEyeLocation(), Material.ICE);
-            n.addPotionEffect(new PotionEffect(VersionedPotionEffectType.SLOWNESS, 20 * 2, 10));
-            n.addPotionEffect(new PotionEffect(VersionedPotionEffectType.JUMP_BOOST, 20 * 2, -10));
+            n.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 20 * 2, 10));
+            n.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 20 * 2, -10));
         };
     }
 }
