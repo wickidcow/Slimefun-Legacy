@@ -7,7 +7,7 @@ import io.github.thebusybiscuit.slimefun4.core.handlers.ItemUseHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Entity;
@@ -53,8 +53,12 @@ public final class EchoLantern extends SimpleSlimefunItem<ItemUseHandler> {
 
             player.setCooldown(Material.SOUL_LANTERN, COOLDOWN_TICKS);
             player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.65F, 1.55F);
-            player.sendMessage(ChatColor.AQUA + "Echo Lantern pulse: " + ChatColor.WHITE + revealed
-                    + ChatColor.GRAY + (revealed == 1 ? " hostile revealed." : " hostiles revealed."));
+            message(player, "&b" + "Echo Lantern pulse: " + "&f" + revealed
+                    + "&7" + (revealed == 1 ? " hostile revealed." : " hostiles revealed."));
         };
     }
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
 }
