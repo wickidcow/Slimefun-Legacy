@@ -110,9 +110,8 @@ public final class ChestMenuUtils {
     public static @Nonnull ItemStack getPreviousButton(@Nonnull Player p, int page, int pages) {
         if (pages == 1 || page == 1) {
             return new CustomItemStack(PREV_BUTTON_INACTIVE, meta -> {
-                meta.displayName(legacyText(ChatColor.DARK_GRAY
-                        + "\u21E6 "
-                        + Slimefun.getLocalization().getMessage(p, "guide.pages.previous")));
+                meta.displayName(legacyText(
+                        "&8\u21E6 " + Slimefun.getLocalization().getMessage(p, "guide.pages.previous")));
                 meta.lore(List.of(
                         Component.empty(),
                         legacyText("&7" + "(" + page + " / " + pages + ")")));
