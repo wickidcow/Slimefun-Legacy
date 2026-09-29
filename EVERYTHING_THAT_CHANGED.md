@@ -4,6 +4,11 @@
 - Retained Paper 26.2 as a backwards-compatibility runtime/full-stack validation line.
 - Fixed issue #281 by safely normalizing immutable ItemStackWrapper recipe ingredients in the shared Enhanced Guide/JEG recipe index.
 - Preserved item IDs, research IDs, storage formats, addon APIs, and normal gameplay semantics.
+- Completed the Part 2 deprecated-API cleanup across core presentation, plugin metadata, ItemsAdder integration, entity markers, and resource-pack/Doctor UI paths while preserving addon-facing signatures.
+- Migrated ordinary item/entity presentation to Adventure components and removed production use of deprecated ItemMeta display/lore setters, Bukkit metadata, deprecated Paper MaterialTags, old PluginDescriptionFile getters, and obsolete static ItemsAdder custom-content checks.
+- Retained only documented compatibility bridges where removal would break 1.21.11+ support, historical serialized ItemStacks/skull profiles, immutable Slimefun ItemStack behavior, legacy Energy/BlockStorage addon APIs, or in-place rollback semantics.
+- Reclassified the CS-CoreLib MenuListener and ChestMenu viewer tracking as maintained compatibility infrastructure instead of obsolete removal targets.
+- Added release-blocking compiler gates for both `javac -Xlint:deprecation` and `-Xlint:removal`; Paper 26.3 primary compilation now reports **0 deprecation** and **0 removal** warnings outside explicitly suppressed compatibility bridges.
 
 # Slimefun Legacy 4.1.61 — Performance, Guide Cleanup & Compatibility Modernization
 
