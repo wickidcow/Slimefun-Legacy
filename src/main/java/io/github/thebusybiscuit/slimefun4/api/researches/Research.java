@@ -169,7 +169,8 @@ public class Research implements Keyed {
      * @return The unlocalized, decolorized name for this {@link Research}
      */
     public @Nonnull String getUnlocalizedName() {
-        return PlainTextComponentSerializer.plainText().serialize(LegacyComponentSerializer.legacySection().deserialize(name));
+        return PlainTextComponentSerializer.plainText()
+                .serialize(LegacyComponentSerializer.legacySection().deserialize(name));
     }
 
     /**
