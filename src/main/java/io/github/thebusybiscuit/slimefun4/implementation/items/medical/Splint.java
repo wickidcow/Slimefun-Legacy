@@ -7,7 +7,6 @@ import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.handlers.ItemUseHandler;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
-import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedPotionEffectType;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import net.guizhanss.guizhanlib.minecraft.utils.compatibility.AttributeX;
@@ -15,6 +14,7 @@ import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 public class Splint extends SimpleSlimefunItem<ItemUseHandler> {
 
@@ -43,7 +43,7 @@ public class Splint extends SimpleSlimefunItem<ItemUseHandler> {
             }
 
             SoundEffect.SPLINT_CONSUME_SOUND.playFor(p);
-            p.addPotionEffect(new PotionEffect(VersionedPotionEffectType.INSTANT_HEALTH, 1, 0));
+            p.addPotionEffect(new PotionEffect(PotionEffectType.INSTANT_HEALTH, 1, 0));
 
             e.cancel();
         };
