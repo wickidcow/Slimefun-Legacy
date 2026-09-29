@@ -6,7 +6,6 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockUseHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedParticle;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
@@ -109,7 +108,7 @@ public final class Magic8BallItem extends SlimefunItem implements Listener {
                     "§c",
                     NEGATIVE.get(random.nextInt(NEGATIVE.size())),
                     Sound.ENTITY_VILLAGER_NO,
-                    VersionedParticle.ENCHANTED_HIT);
+                    Particle.ENCHANTED_HIT);
         };
     }
 
