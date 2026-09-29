@@ -98,7 +98,7 @@ public class PlayerProfile {
                         && Bukkit.getWorld(waypointsFile.getString(key + ".world")) != null) {
                     String waypointName = waypointsFile.getString(key + ".name");
                     Location loc = waypointsFile.getLocation(key);
-                    waypoints.add(new Waypoint(this, key, loc, waypointName));
+                    waypoints.add(new Waypoint(getUUID(), key, loc, waypointName));
                 }
             } catch (Exception x) {
                 Slimefun.logger()
