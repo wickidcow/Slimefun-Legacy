@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.guide.enhanced;
 
+import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
 import io.github.thebusybiscuit.slimefun4.api.recipes.machine.MachineRecipeDisplay;
@@ -27,7 +28,7 @@ import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
@@ -169,7 +170,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
         event.setCancelled(true);
         if (context.expiresAt() < System.currentTimeMillis()) {
             contexts.remove(player.getUniqueId());
-            player.sendMessage(ChatColor.RED + "This recipe-usage session expired. Reopen the item in the guide.");
+            sendLegacy(player, "&c" + "This recipe-usage session expired. Reopen the item in the guide.");
             return;
         }
 
@@ -223,7 +224,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
         if (existing != null) {
             existing.waiters.put(player.getUniqueId(), request);
             refreshBuildingButton(player, context, existing);
-            player.sendMessage(ChatColor.GRAY + "Recipe usage index is still building ("
+            sendLegacy(player, "&7" + "Recipe usage index is still building ("
                     + existing.progressPercent() + "%).");
             return;
         }
@@ -240,13 +241,13 @@ public final class LegacyRecipeUsageBrowser implements Listener {
             state = created;
             state.waiters.put(player.getUniqueId(), request);
             refreshBuildingButton(player, context, state);
-            player.sendMessage(ChatColor.GRAY
+            sendLegacy(player, "&7"
                     + "Building recipe usages gradually to protect server tick time. You can keep using the guide.");
             scheduleNextBatch(state);
         } else {
             state.waiters.put(player.getUniqueId(), request);
             refreshBuildingButton(player, context, state);
-            player.sendMessage(ChatColor.GRAY + "Recipe usage index is already building ("
+            sendLegacy(player, "&7" + "Recipe usage index is already building ("
                     + state.progressPercent() + "%).");
         }
     }
@@ -453,7 +454,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
                 context.guideInventory().setItem(context.buttonSlot(), createButton(0));
                 player.updateInventory();
             }
-            player.sendMessage(ChatColor.GRAY + "No known Slimefun or machine recipes use "
+            sendLegacy(player, "&7" + "No known Slimefun or machine recipes use "
                     + readableName(context.target()) + ".");
             return;
         }
@@ -541,9 +542,9 @@ public final class LegacyRecipeUsageBrowser implements Listener {
                 49,
                 createMenuItem(
                         Material.PAPER,
-                        ChatColor.WHITE + "Page " + ChatColor.YELLOW + page + ChatColor.GRAY + " / "
-                                + ChatColor.YELLOW + pages,
-                        List.of(ChatColor.GRAY + "" + usages.size() + " known recipe usages")));
+                        "&f" + "Page " + "&e" + page + "&7" + " / "
+                                + "&e" + pages,
+                        List.of("&7" + "" + usages.size() + " known recipe usages")));
         menu.addMenuClickHandler(49, ChestMenuUtils.getEmptyClickHandler());
         menu.replaceExistingItem(52, ChestMenuUtils.getNextButton(player, page, pages));
         menu.addMenuClickHandler(52, (pl, slot, item, action) -> {
@@ -568,20 +569,20 @@ public final class LegacyRecipeUsageBrowser implements Listener {
     private @Nonnull ItemStack createButton(@Nullable Integer cachedCount) {
         List<String> lore = new ArrayList<>();
         lore.add("");
-        lore.add(ChatColor.GRAY + "Find Slimefun crafting and machine recipes");
-        lore.add(ChatColor.GRAY + "that consume this item as an ingredient.");
+        lore.add("&7" + "Find Slimefun crafting and machine recipes");
+        lore.add("&7" + "that consume this item as an ingredient.");
         if (cachedCount == null) {
             lore.add("");
-            lore.add(ChatColor.DARK_GRAY + "Indexing starts only when you click this button.");
+            lore.add("&8" + "Indexing starts only when you click this button.");
         } else {
             lore.add("");
-            lore.add(ChatColor.GRAY + "Known usages: " + ChatColor.WHITE + cachedCount);
+            lore.add("&7" + "Known usages: " + "&f" + cachedCount);
         }
         lore.add("");
-        lore.add(ChatColor.YELLOW + "Click to browse usages");
+        lore.add("&e" + "Click to browse usages");
 
         ItemStack button = createMenuItem(
-                Material.HOPPER, ChatColor.GOLD + "" + ChatColor.BOLD + "Recipes Using This Item", lore);
+                Material.HOPPER, "&6" + "" + "&l" + "Recipes Using This Item", lore);
         markButton(button);
         return button;
     }
@@ -589,15 +590,15 @@ public final class LegacyRecipeUsageBrowser implements Listener {
     private @Nonnull ItemStack createBuildingButton(@Nonnull IndexBuildState state) {
         ItemStack button = createMenuItem(
                 Material.CLOCK,
-                ChatColor.YELLOW + "" + ChatColor.BOLD + "Building Recipe Usages",
+                "&e" + "" + "&l" + "Building Recipe Usages",
                 List.of(
                         "",
-                        ChatColor.GRAY + "Progress: " + ChatColor.WHITE + state.progressPercent() + "%",
-                        ChatColor.GRAY + "Processed: " + ChatColor.WHITE + state.nextItem + ChatColor.GRAY + "/"
-                                + ChatColor.WHITE + state.itemLimit,
+                        "&7" + "Progress: " + "&f" + state.progressPercent() + "%",
+                        "&7" + "Processed: " + "&f" + state.nextItem + "&7" + "/"
+                                + "&f" + state.itemLimit,
                         "",
-                        ChatColor.DARK_GRAY + "Work is split across ticks to protect TPS.",
-                        ChatColor.YELLOW + "Click for current progress"));
+                        "&8" + "Work is split across ticks to protect TPS.",
+                        "&e" + "Click for current progress"));
         markButton(button);
         return button;
     }
@@ -631,11 +632,11 @@ public final class LegacyRecipeUsageBrowser implements Listener {
             return addLore(
                     usage.owner().getItem(),
                     "",
-                    ChatColor.GOLD + "Slimefun recipe",
-                    ChatColor.GRAY + "Result: " + ChatColor.WHITE + readableName(usage.owner()),
-                    ChatColor.GRAY + "Uses this item: " + ChatColor.WHITE + usage.requiredAmount(),
+                    "&6" + "Slimefun recipe",
+                    "&7" + "Result: " + "&f" + readableName(usage.owner()),
+                    "&7" + "Uses this item: " + "&f" + usage.requiredAmount(),
                     "",
-                    ChatColor.YELLOW + "Click to view the result recipe");
+                    "&e" + "Click to view the result recipe");
         }
 
         MachineRecipeDisplay recipe = usage.machineRecipe();
@@ -645,21 +646,21 @@ public final class LegacyRecipeUsageBrowser implements Listener {
         return addLore(
                 icon,
                 "",
-                ChatColor.GOLD + "Machine recipe " + ChatColor.WHITE + (usage.recipeIndex() + 1),
-                ChatColor.GRAY + "Machine: " + ChatColor.WHITE + readableName(usage.owner()),
-                ChatColor.GRAY + "Uses this item: " + ChatColor.WHITE + usage.requiredAmount(),
-                ChatColor.GRAY + "Provider: " + ChatColor.WHITE + usage.providerKey(),
+                "&6" + "Machine recipe " + "&f" + (usage.recipeIndex() + 1),
+                "&7" + "Machine: " + "&f" + readableName(usage.owner()),
+                "&7" + "Uses this item: " + "&f" + usage.requiredAmount(),
+                "&7" + "Provider: " + "&f" + usage.providerKey(),
                 "",
-                ChatColor.YELLOW + "Left-click: " + ChatColor.GRAY + "Open the machine",
-                ChatColor.YELLOW + "Right-click: " + ChatColor.GRAY + "View this output's recipe");
+                "&e" + "Left-click: " + "&7" + "Open the machine",
+                "&e" + "Right-click: " + "&7" + "View this output's recipe");
     }
 
     private @Nonnull ItemStack targetHeader(@Nonnull SlimefunItem target, int usageCount) {
         return addLore(
                 target.getItem(),
                 "",
-                ChatColor.GRAY + "Known recipe usages: " + ChatColor.WHITE + usageCount,
-                ChatColor.DARK_GRAY + target.getId());
+                "&7" + "Known recipe usages: " + "&f" + usageCount,
+                "&8" + target.getId());
     }
 
     private static void addUsage(
@@ -694,7 +695,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
     }
 
     private static @Nonnull String readableName(@Nonnull SlimefunItem item) {
-        String name = ChatColor.stripColor(item.getItemName());
+        String name = plainText(item.getItemName());
         return name == null || name.isBlank() ? item.getId() : name;
     }
 
@@ -713,8 +714,16 @@ public final class LegacyRecipeUsageBrowser implements Listener {
 
     private static Component legacyText(String value) {
         return LegacyComponentSerializer.legacySection()
-                .deserialize(value)
+                .deserialize(ChatColors.color(value))
                 .decoration(TextDecoration.ITALIC, false);
+    }
+
+    private static void sendLegacy(@Nonnull Player player, @Nonnull String message) {
+        player.sendMessage(legacyText(message));
+    }
+
+    private static String plainText(@Nonnull String value) {
+        return PlainTextComponentSerializer.plainText().serialize(legacyText(value));
     }
 
     private @Nonnull ChestMenu createMenu(@Nonnull String title) {
@@ -731,7 +740,7 @@ public final class LegacyRecipeUsageBrowser implements Listener {
     }
 
     private static @Nonnull String title(@Nonnull String value) {
-        String stripped = ChatColor.stripColor(value);
+        String stripped = plainText(value);
         if (stripped == null || stripped.isBlank()) {
             return "Recipes Using This Item";
         }
