@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.utils;
 
+import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.bakedlibs.dough.common.CommonPatterns;
 import io.github.bakedlibs.dough.items.ItemMetaSnapshot;
 import io.github.bakedlibs.dough.skins.PlayerHead;
@@ -31,8 +32,9 @@ import java.util.OptionalInt;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.apache.commons.lang.Validate;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -58,7 +60,7 @@ import org.bukkit.persistence.PersistentDataType;
 public final class SlimefunUtils {
 
     private static final String NO_PICKUP_KEY = "no_pickup";
-    private static final String SOULBOUND_LORE = ChatColor.GRAY + "Soulbound";
+    private static final String SOULBOUND_LORE = ChatColors.color("&7Soulbound");
 
     private SlimefunUtils() {}
 
@@ -153,7 +155,8 @@ public final class SlimefunUtils {
                     return !sfItem.isDisabled();
                 }
             } else if (meta != null) {
-                return meta.hasLore() && meta.getLore().contains(SOULBOUND_LORE);
+                List<String> lore = legacyLore(meta);
+                return lore != null && lore.contains(SOULBOUND_LORE);
             }
         }
         return false;
@@ -203,17 +206,18 @@ public final class SlimefunUtils {
             container.remove(key);
         }
 
-        List<String> lore = meta.hasLore() ? meta.getLore() : new ArrayList<>();
+        List<Component> currentLore = meta.lore();
+        List<Component> lore = currentLore == null ? new ArrayList<>() : new ArrayList<>(currentLore);
 
         if (makeSoulbound && !isSoulbound) {
-            lore.add(SOULBOUND_LORE);
+            lore.add(LegacyComponentSerializer.legacySection().deserialize(SOULBOUND_LORE));
         }
 
         if (!makeSoulbound && isSoulbound) {
-            lore.remove(SOULBOUND_LORE);
+            lore.removeIf(line -> SOULBOUND_LORE.equals(LegacyComponentSerializer.legacySection().serialize(line)));
         }
 
-        meta.setLore(lore);
+        meta.lore(lore);
         item.setItemMeta(meta);
     }
 
@@ -446,6 +450,18 @@ public final class SlimefunUtils {
         return distinctiveItem.canStack(first.getItemMeta(), second.getItemMeta());
     }
 
+    private static @Nullable String legacyName(@Nonnull ItemMeta meta) {
+        Component name = meta.displayName();
+        return name == null ? null : LegacyComponentSerializer.legacySection().serialize(name);
+    }
+
+    private static @Nullable List<String> legacyLore(@Nonnull ItemMeta meta) {
+        List<Component> lore = meta.lore();
+        return lore == null
+                ? null
+                : lore.stream().map(LegacyComponentSerializer.legacySection()::serialize).toList();
+    }
+
     private static boolean equalsItemMeta(
             @Nonnull ItemMeta itemMeta, @Nonnull ItemMetaSnapshot itemMetaSnapshot, boolean checkLore) {
         return equalsItemMeta(itemMeta, itemMetaSnapshot, checkLore, false);
@@ -457,19 +473,21 @@ public final class SlimefunUtils {
             boolean checkLore,
             boolean checkCustomModelCheck) {
         Optional<String> displayName = itemMetaSnapshot.getDisplayName();
+        String currentDisplayName = legacyName(itemMeta);
 
-        if (itemMeta.hasDisplayName() != displayName.isPresent()) {
+        if ((currentDisplayName != null) != displayName.isPresent()) {
             return false;
-        } else if (itemMeta.hasDisplayName()
+        } else if (currentDisplayName != null
                 && displayName.isPresent()
-                && !itemMeta.getDisplayName().equals(displayName.get())) {
+                && !currentDisplayName.equals(displayName.get())) {
             return false;
         } else if (checkLore) {
             Optional<List<String>> itemLore = itemMetaSnapshot.getLore();
+            List<String> currentLore = legacyLore(itemMeta);
 
-            if (itemMeta.hasLore() && itemLore.isPresent() && !equalsLore(itemMeta.getLore(), itemLore.get())) {
+            if (currentLore != null && itemLore.isPresent() && !equalsLore(currentLore, itemLore.get())) {
                 return false;
-            } else if (itemMeta.hasLore() != itemLore.isPresent()) {
+            } else if ((currentLore != null) != itemLore.isPresent()) {
                 return false;
             }
         }
@@ -498,24 +516,24 @@ public final class SlimefunUtils {
             @Nonnull ItemMeta sfitemMeta,
             boolean checkLore,
             boolean checkCustomModelCheck) {
-        if (itemMeta.hasDisplayName() != sfitemMeta.hasDisplayName()) {
+        String itemDisplayName = legacyName(itemMeta);
+        String slimefunDisplayName = legacyName(sfitemMeta);
+        if ((itemDisplayName != null) != (slimefunDisplayName != null)) {
             Debug.log(TestCase.CARGO_INPUT_TESTING, "  Comparing has display name failed");
             return false;
-        } else if (itemMeta.hasDisplayName()
-                && sfitemMeta.hasDisplayName()
-                && !itemMeta.getDisplayName().equals(sfitemMeta.getDisplayName())) {
+        } else if (itemDisplayName != null && !itemDisplayName.equals(slimefunDisplayName)) {
             Debug.log(TestCase.CARGO_INPUT_TESTING, "  Comparing display name failed");
             return false;
         } else if (checkLore) {
-            boolean hasItemMetaLore = itemMeta.hasLore();
-            boolean hasSfItemMetaLore = sfitemMeta.hasLore();
+            List<String> itemLore = legacyLore(itemMeta);
+            List<String> slimefunLore = legacyLore(sfitemMeta);
 
-            if (hasItemMetaLore && hasSfItemMetaLore) {
-                if (!equalsLore(itemMeta.getLore(), sfitemMeta.getLore())) {
+            if (itemLore != null && slimefunLore != null) {
+                if (!equalsLore(itemLore, slimefunLore)) {
                     Debug.log(TestCase.CARGO_INPUT_TESTING, "  Comparing lore failed");
                     return false;
                 }
-            } else if (hasItemMetaLore != hasSfItemMetaLore) {
+            } else if ((itemLore != null) != (slimefunLore != null)) {
                 Debug.log(TestCase.CARGO_INPUT_TESTING, "  Comparing has lore failed");
                 return false;
             }
