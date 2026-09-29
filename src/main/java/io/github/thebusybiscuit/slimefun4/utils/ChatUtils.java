@@ -37,6 +37,7 @@ public final class ChatUtils {
     /**
      * Legacy compatibility overload for callers that still pass Bukkit's color enum.
      */
+    @SuppressWarnings("deprecation") // Retained public compatibility overload for Bukkit ChatColor callers.
     public static @Nonnull String crop(@Nonnull org.bukkit.ChatColor color, @Nonnull String string) {
         String stripped = removeColorCodes(string);
         String legacyColor = color.toString();
