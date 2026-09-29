@@ -131,7 +131,7 @@ public class PlayerProfileMigrator implements IMigrator {
 
         // Research migrate
         for (String researchID : configFile.getKeys("researches")) {
-            var research = Research.getResearchByID(Integer.parseInt(researchID));
+            var research = Research.getResearchByLegacyId(Integer.parseInt(researchID));
 
             if (research.isEmpty()) {
                 continue;
