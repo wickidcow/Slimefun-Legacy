@@ -10,7 +10,6 @@ import io.github.thebusybiscuit.slimefun4.core.handlers.ItemDropHandler;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
-import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedParticle;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
@@ -22,6 +21,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.bukkit.Location;
+import org.bukkit.Particle;
 import org.bukkit.Material;
 import org.bukkit.SoundCategory;
 import org.bukkit.enchantments.Enchantment;
@@ -195,7 +195,7 @@ public class EnchantmentRune extends SimpleSlimefunItem<ItemDropHandler> {
         item.remove();
         consumeOneRune(rune);
 
-        location.getWorld().spawnParticle(VersionedParticle.ENCHANTED_HIT, location, 1);
+        location.getWorld().spawnParticle(Particle.ENCHANTED_HIT, location, 1);
         SoundEffect.ENCHANTMENT_RUNE_ADD_ENCHANT_SOUND.playAt(location, SoundCategory.PLAYERS);
         location.getWorld().dropItemNaturally(location, enchanted);
         Slimefun.getLocalization().sendMessage(p, "messages.enchantment-rune.success", true);
