@@ -1,6 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.implementation.guide.enhanced;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
+import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.bakedlibs.dough.items.ItemUtils;
 import io.github.bakedlibs.dough.protection.Interaction;
@@ -25,7 +26,6 @@ import javax.annotation.Nullable;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.AContainer;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.MachineRecipe;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -95,29 +95,29 @@ public final class LegacyMachineInputFillManager {
             boolean maximum) {
         LegacyGuideSettings settings = LegacyGuideSettings.get();
         if (!settings.hasMachineInputFill()) {
-            send(player, ChatColor.RED + "Machine input filling is disabled on this server.");
+            send(player, "&c" + "Machine input filling is disabled on this server.");
             return;
         }
 
         MachineInputFillAdapter adapter = LegacyMachineInputFillAdapters.findAdapter(plugin, guideMachine, recipe);
         if (adapter == null) {
-            send(player, ChatColor.RED + "This machine recipe does not have a compatible input-fill adapter.");
+            send(player, "&c" + "This machine recipe does not have a compatible input-fill adapter.");
             return;
         }
 
         Block target = player.getTargetBlockExact(settings.getMachineInputFillTargetRange());
         if (target == null) {
-            send(player, ChatColor.RED + "Aim at the placed machine, then click the fill button again.");
+            send(player, "&c" + "Aim at the placed machine, then click the fill button again.");
             return;
         }
 
         if (!Slimefun.getSchedulerService().isOwnedByCurrentRegion(target.getLocation())) {
-            send(player, ChatColor.RED + "Move closer to the machine and try again.");
+            send(player, "&c" + "Move closer to the machine and try again.");
             return;
         }
 
         if (!Slimefun.getProtectionManager().hasPermission(player, target, Interaction.INTERACT_BLOCK)) {
-            send(player, ChatColor.RED + "You do not have permission to access this machine.");
+            send(player, "&c" + "You do not have permission to access this machine.");
             return;
         }
 
@@ -125,30 +125,30 @@ public final class LegacyMachineInputFillManager {
         if (placedItem == null || !adapter.supports(placedItem) || !adapter.isValidTarget(guideMachine, placedItem)) {
             send(
                     player,
-                    ChatColor.RED + "Aim at a placed " + ItemUtils.getItemName(guideMachine.getItem())
+                    "&c" + "Aim at a placed " + ItemUtils.getItemName(guideMachine.getItem())
                             + ", then try again.");
             return;
         }
 
         BlockMenu menu = StorageCacheUtils.getMenu(target.getLocation());
         if (menu == null || menu.locked()) {
-            send(player, ChatColor.RED + "That machine inventory is unavailable right now.");
+            send(player, "&c" + "That machine inventory is unavailable right now.");
             return;
         }
 
         if (menu.hasViewer() || Slimefun.getTickerTask().isInventoryViewed(target.getLocation())) {
-            send(player, ChatColor.RED + "Close the machine inventory before filling it from the guide.");
+            send(player, "&c" + "Close the machine inventory before filling it from the guide.");
             return;
         }
 
         try {
             if (!adapter.isSafeToFill(player, placedItem, target, menu)) {
-                send(player, ChatColor.RED + "This machine cannot be filled safely in its current state.");
+                send(player, "&c" + "This machine cannot be filled safely in its current state.");
                 return;
             }
         } catch (RuntimeException | LinkageError exception) {
             plugin.getLogger().log(Level.WARNING, "A machine input-fill adapter safety check failed", exception);
-            send(player, ChatColor.RED + "The machine adapter could not verify that filling is safe.");
+            send(player, "&c" + "The machine adapter could not verify that filling is safe.");
             return;
         }
 
@@ -157,11 +157,11 @@ public final class LegacyMachineInputFillManager {
             resolved = adapter.resolve(placedItem, recipe, selectedAlternatives.clone());
         } catch (RuntimeException | LinkageError exception) {
             plugin.getLogger().log(Level.WARNING, "A machine input-fill adapter could not resolve a recipe", exception);
-            send(player, ChatColor.RED + "The selected recipe could not be resolved safely.");
+            send(player, "&c" + "The selected recipe could not be resolved safely.");
             return;
         }
         if (resolved == null) {
-            send(player, ChatColor.RED + "The selected ingredients do not match an authoritative machine recipe.");
+            send(player, "&c" + "The selected ingredients do not match an authoritative machine recipe.");
             return;
         }
 
@@ -169,21 +169,21 @@ public final class LegacyMachineInputFillManager {
         int[] inputSlots = resolved.getInputSlots();
         int[] protectedSlots = resolved.getProtectedSlots();
         if (requirements.size() > inputSlots.length) {
-            send(player, ChatColor.RED + "This recipe uses more inputs than the machine exposes.");
+            send(player, "&c" + "This recipe uses more inputs than the machine exposes.");
             return;
         }
         if (!validInputSlots(inputSlots, menu.getSize())) {
-            send(player, ChatColor.RED + "This machine adapter exposes an invalid input-slot layout.");
+            send(player, "&c" + "This machine adapter exposes an invalid input-slot layout.");
             return;
         }
         if (!validProtectedSlots(protectedSlots, menu.getSize())) {
-            send(player, ChatColor.RED + "This machine adapter exposes an invalid protected-slot layout.");
+            send(player, "&c" + "This machine adapter exposes an invalid protected-slot layout.");
             return;
         }
         if (!slotsAreDisjoint(inputSlots, protectedSlots)) {
             send(
                     player,
-                    ChatColor.RED + "This machine adapter overlaps input and protected slots, so filling was blocked.");
+                    "&c" + "This machine adapter overlaps input and protected slots, so filling was blocked.");
             return;
         }
 
@@ -215,7 +215,7 @@ public final class LegacyMachineInputFillManager {
                             LegacyMachineInputFillManager::canEnterEmptySlot);
 
             if (!plan.success()) {
-                send(player, ChatColor.RED + plan.message());
+                send(player, "&c" + plan.message());
                 sendMissing(player, plan.missing());
                 return;
             }
@@ -229,18 +229,18 @@ public final class LegacyMachineInputFillManager {
                 player.updateInventory();
                 plugin.getLogger()
                         .log(Level.SEVERE, "Could not commit an enhanced-guide machine input fill", exception);
-                send(player, ChatColor.RED + "The transfer was cancelled and both inventories were restored.");
+                send(player, "&c" + "The transfer was cancelled and both inventories were restored.");
                 return;
             }
 
             player.updateInventory();
             SoundEffect.GUIDE_BUTTON_CLICK_SOUND.playFor(player);
             if (plan.movedItems() == 0) {
-                send(player, ChatColor.YELLOW + "The machine already contains a complete recipe.");
+                send(player, "&e" + "The machine already contains a complete recipe.");
             } else {
                 send(
                         player,
-                        ChatColor.GREEN + "Filled " + ItemUtils.getItemName(guideMachine.getItem()) + " for "
+                        "&a" + "Filled " + ItemUtils.getItemName(guideMachine.getItem()) + " for "
                                 + plan.sets() + (plan.sets() == 1 ? " recipe set." : " recipe sets."));
             }
 
@@ -842,11 +842,11 @@ public final class LegacyMachineInputFillManager {
         for (int index = 0; index < limit; index++) {
             MissingIngredient ingredient = missing.get(index);
             int shortfall = Math.max(0, ingredient.required() - ingredient.available());
-            player.sendMessage(ChatColor.DARK_GRAY + " • " + ChatColor.RED + shortfall + "x " + ChatColor.GRAY
-                    + ItemUtils.getItemName(ingredient.expected()));
+            player.sendMessage(ChatColors.color(
+                    "&8 • &c" + shortfall + "x &7" + ItemUtils.getItemName(ingredient.expected())));
         }
         if (missing.size() > limit) {
-            player.sendMessage(ChatColor.DARK_GRAY + " • " + ChatColor.GRAY + "Additional ingredients are missing.");
+            player.sendMessage(ChatColors.color("&8 • &7Additional ingredients are missing."));
         }
     }
 
@@ -876,7 +876,7 @@ public final class LegacyMachineInputFillManager {
     }
 
     private static void send(@Nonnull Player player, @Nonnull String message) {
-        player.sendMessage(ChatColor.DARK_GREEN + "[Slimefun Legacy] " + message);
+        player.sendMessage(ChatColors.color("&2[Slimefun Legacy] " + message));
     }
 
     @FunctionalInterface
