@@ -4,11 +4,11 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.attributes.RecipeDisplayItem;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockBreakHandler;
+import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import java.util.ArrayList;
 import java.util.List;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.AContainer;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.MachineRecipe;
-import me.mrCookieSlime.Slimefun.api.BlockStorage;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import org.bukkit.block.Block;
 import org.bukkit.event.block.BlockBreakEvent;
@@ -37,7 +37,7 @@ abstract class ExtraToolsContainer extends AContainer implements RecipeDisplayIt
             @Override
             public void onPlayerBreak(BlockBreakEvent event, ItemStack item, List<ItemStack> drops) {
                 Block block = event.getBlock();
-                BlockMenu menu = BlockStorage.getInventory(block);
+                BlockMenu menu = StorageCacheUtils.getMenu(block.getLocation());
                 if (menu != null) {
                     menu.dropItems(block.getLocation(), getInputSlots());
                     menu.dropItems(block.getLocation(), getOutputSlots());
