@@ -11,6 +11,7 @@ import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import io.github.thebusybiscuit.slimefun4.utils.HeadTexture;
 import io.github.thebusybiscuit.slimefun4.utils.NumberUtils;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedPotionEffectType;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -22,6 +23,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.title.Title;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -42,6 +46,7 @@ import org.bukkit.potion.PotionEffect;
  */
 @SlimefunAPI
 public final class TeleportationManager {
+    private static final LegacyComponentSerializer LEGACY_SECTION = LegacyComponentSerializer.legacySection();
     private static final int PREV_SLOT = 46;
     private static final int NEXT_SLOT = 52;
 
@@ -231,7 +236,8 @@ public final class TeleportationManager {
         teleporterUsers.remove(uuid);
 
         if (p != null) {
-            p.sendTitle(
+            showTitle(
+                    p,
                     ChatColors.color(Slimefun.getLocalization().getMessage(p, "machines.TELEPORTER.cancelled")),
                     ChatColors.color("&c&k40&f&c%"),
                     20,
@@ -247,7 +253,8 @@ public final class TeleportationManager {
 
         if (isValid(p, source)) {
             if (progress > 99) {
-                p.sendTitle(
+                showTitle(
+                        p,
                         ChatColors.color(Slimefun.getLocalization().getMessage(p, "machines.TELEPORTER.teleported")),
                         ChatColors.color("&b100%"),
                         20,
@@ -255,7 +262,8 @@ public final class TeleportationManager {
                         20);
                 p.teleportAsync(destination).thenAccept(success -> onTeleport(p, destination, success, resistance));
             } else {
-                p.sendTitle(
+                showTitle(
+                        p,
                         ChatColors.color(Slimefun.getLocalization().getMessage(p, "machines.TELEPORTER.teleporting")),
                         ChatColors.color("&b" + progress + "%"),
                         0,
@@ -270,6 +278,22 @@ public final class TeleportationManager {
         } else {
             cancel(uuid, p);
         }
+    }
+
+    private static void showTitle(
+            @Nonnull Player player,
+            @Nonnull String title,
+            @Nonnull String subtitle,
+            int fadeInTicks,
+            int stayTicks,
+            int fadeOutTicks) {
+        player.showTitle(Title.title(
+                LEGACY_SECTION.deserialize(title),
+                LEGACY_SECTION.deserialize(subtitle),
+                Title.Times.times(
+                        Duration.ofMillis(fadeInTicks * 50L),
+                        Duration.ofMillis(stayTicks * 50L),
+                        Duration.ofMillis(fadeOutTicks * 50L))));
     }
 
     @ParametersAreNonnullByDefault
