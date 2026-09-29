@@ -12,7 +12,7 @@ import java.util.Locale;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
@@ -57,19 +57,19 @@ public final class ExpeditionJournal extends SimpleSlimefunItem<ItemUseHandler> 
                 meta.getPersistentDataContainer().set(biomesKey, PersistentDataType.STRING, String.join("|", biomes));
                 item.setItemMeta(meta);
                 player.playSound(player.getLocation(), Sound.ITEM_BOOK_PAGE_TURN, 0.7F, 1.15F);
-                player.sendMessage(ChatColor.GOLD + "New journal entry: " + ChatColor.AQUA + humanize(current));
+                message(player, "&6" + "New journal entry: " + "&b" + humanize(current));
             }
 
-            player.sendMessage(ChatColor.GRAY + "Expedition Journal: " + ChatColor.WHITE + biomes.size() + ChatColor.GRAY
-                    + " biomes recorded • current: " + ChatColor.AQUA + humanize(current));
+            message(player, "&7" + "Expedition Journal: " + "&f" + biomes.size() + "&7"
+                    + " biomes recorded • current: " + "&b" + humanize(current));
 
             if (player.isSneaking() && !biomes.isEmpty()) {
                 String recent = biomes.stream()
                         .skip(Math.max(0, biomes.size() - 6L))
                         .map(ExpeditionJournal::humanize)
-                        .reduce((left, right) -> left + ChatColor.GRAY + ", " + ChatColor.AQUA + right)
+                        .reduce((left, right) -> left + "&7" + ", " + "&b" + right)
                         .orElse("");
-                player.sendMessage(ChatColor.GRAY + "Recent discoveries: " + ChatColor.AQUA + recent);
+                message(player, "&7" + "Recent discoveries: " + "&b" + recent);
             }
         };
     }
@@ -87,4 +87,8 @@ public final class ExpeditionJournal extends SimpleSlimefunItem<ItemUseHandler> 
         }
         return result.toString();
     }
+    private static void message(Player player, String value) {
+        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(value));
+    }
+
 }
