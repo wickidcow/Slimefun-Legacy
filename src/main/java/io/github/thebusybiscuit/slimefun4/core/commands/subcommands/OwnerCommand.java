@@ -9,8 +9,8 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.Locale;
 import java.util.UUID;
 import javax.annotation.Nonnull;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.block.Block;
@@ -192,7 +192,7 @@ final class OwnerCommand extends SubCommand {
     }
 
     private void send(CommandSender sender, String message) {
-        sender.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+        sender.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(message));
     }
 
     /** Records ownership after core Slimefun placement handling has created the block data. */
