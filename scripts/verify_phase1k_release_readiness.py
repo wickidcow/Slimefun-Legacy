@@ -36,11 +36,79 @@ def version_tuple(version: str) -> tuple[int, int, int]:
     return tuple(map(int, version.split(".")))
 
 
+# These reviewed commands must execute in this order in the primary Build step.
+# This is deliberately a narrow contract for our workflow, not a shell/YAML parser.
+BUILD_COMMANDS = (
+    "set -euo pipefail",
+    "./gradlew clean --no-daemon",
+    "mkdir -p build/reports",
+    "./gradlew build -PslimefunDeprecationReport=true --console=plain --no-daemon "
+    "2>&1 | tee build/reports/deprecation-compile.log",
+    "python3 scripts/summarize_deprecations.py build/reports/deprecation-compile.log "
+    "--fail-on-warnings --require-successful-build",
+)
+
+
+def verify_primary_build_commands(workflow: str) -> list[str]:
+    step = re.search(r"(?ms)^      - name: Build[ \t]*\n(.*?)(?=^      - |\Z)", workflow)
+    if step is None:
+        return ["Primary Build step is missing"]
+    run = re.search(r"(?ms)^        run: \|[ \t]*\n(.*)", step.group(1))
+    if run is None:
+        return ["Primary Build step must retain its reviewed shell block"]
+    failures = []
+    if re.search(r"(?m)^        (?:continue-on-error|if):", step.group(1)):
+        failures.append("Primary Build step must not suppress failures or conditionally skip validation")
+    commands = [line.strip() for line in run.group(1).splitlines()
+                if line.strip() and not line.lstrip().startswith("#")]
+    positions = []
+    for command in BUILD_COMMANDS:
+        if commands.count(command) != 1:
+            failures.append(f"Primary Build step must execute exactly once: {command}")
+        else:
+            positions.append(commands.index(command))
+    if len(positions) == len(BUILD_COMMANDS) and positions != sorted(positions):
+        failures.append("Primary Build must clean before opening the compiler log and validate evidence after building")
+    for command in commands:
+        if command.startswith("./gradlew ") and re.search(r"\bclean\b", command) and command != BUILD_COMMANDS[1]:
+            failures.append("Primary Build must not combine clean with compiler-log capture")
+    return failures
+
+
+def self_test_primary_build_commands() -> None:
+    def workflow(commands: list[str], settings: str = "") -> str:
+        return ("      - name: Build\n" + settings + "        run: |\n"
+                + "".join(f"          {command}\n" for command in commands)
+                + "      - name: Next step\n        run: echo done\n")
+
+    valid = list(BUILD_COMMANDS)
+    if verify_primary_build_commands(workflow(valid)):
+        raise AssertionError("Build-evidence guard rejects the reviewed safe sequence")
+    invalid = ["", workflow(valid, "        continue-on-error: true\n"),
+               workflow(valid, "        if: false\n")]
+    for index in range(len(valid)):
+        invalid.append(workflow(valid[:index] + valid[index + 1:]))
+        invalid.append(workflow(valid[:index] + ["# " + valid[index]] + valid[index + 1:]))
+        invalid.append(workflow(valid[:index] + [valid[index] + " || true"] + valid[index + 1:]))
+        invalid.append(workflow(valid[:index] + [valid[index]] + valid[index:]))
+    for index in range(len(valid) - 1):
+        swapped = valid.copy()
+        swapped[index], swapped[index + 1] = swapped[index + 1], swapped[index]
+        invalid.append(workflow(swapped))
+    invalid.append(workflow(valid + ["./gradlew clean build --no-daemon | tee build/reports/deprecation-compile.log"]))
+    invalid.append(workflow([]) + "".join(f"# {command}\n" for command in valid))
+    for case, candidate in enumerate(invalid, 1):
+        if not verify_primary_build_commands(candidate):
+            raise AssertionError(f"Build-evidence guard accepted invalid sequence {case}")
+    print(f"Primary build-evidence guard self-test: PASS ({len(invalid) + 1} cases)")
+
+
 def main() -> int:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     failures: list[str] = []
 
     try:
+        self_test_primary_build_commands()
         version = project_version(root)
         require(bool(version), "projectVersion is missing", failures)
         if version:
@@ -117,12 +185,13 @@ def main() -> int:
         build_workflow = read(root, ".github/workflows/build-ci.yml")
         for token in (
             "python3 scripts/verify_legacy.py .",
-            "./gradlew clean build -PslimefunDeprecationReport=true --no-daemon",
             "--expected-java 21",
             "OUTPUT_NAME=Slimefun-Legacy${VERSION}.jar",
             "dist/${OUTPUT_NAME}",
         ):
             require(token in build_workflow, f"Primary build workflow invariant missing: {token}", failures)
+
+        failures.extend(verify_primary_build_commands(build_workflow))
 
         compatibility_workflow = read(root, ".github/workflows/compatibility-ci.yml")
         for token in (
@@ -161,4 +230,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    if sys.argv[1:] == ["--self-test"]:
+        self_test_primary_build_commands()
+    else:
+        raise SystemExit(main())
