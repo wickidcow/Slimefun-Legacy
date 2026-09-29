@@ -18,6 +18,7 @@ ALLOWED = {
     "src/main/java/io/github/thebusybiscuit/slimefun4/core/attributes/EnergyNetComponent.java": 1,
     "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/profiler/PerformanceRating.java": 1,
     "src/main/java/io/github/thebusybiscuit/slimefun4/utils/NumberUtils.java": 1,
+    "src/main/java/io/github/thebusybiscuit/slimefun4/utils/ChatUtils.java": 1,
     "src/main/java/io/github/thebusybiscuit/slimefun4/api/items/SlimefunItemStack.java": 1,
     "src/main/java/io/github/thebusybiscuit/slimefun4/utils/itemstack/ItemStackWrapper.java": 1,
     "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyItemSchemaMigrationExecutor.java": 1,
