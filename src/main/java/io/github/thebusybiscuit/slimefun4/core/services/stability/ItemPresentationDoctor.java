@@ -22,9 +22,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.block.BlockState;
@@ -40,9 +40,12 @@ import org.bukkit.persistence.PersistentDataType;
 /** Repairs only the visible name and lore of registered Slimefun items. */
 public final class ItemPresentationDoctor {
     private static final int MAX_CONTAINER_DEPTH = 4;
-    private static final String SOULBOUND_LORE = ChatColor.GRAY + "Soulbound";
-    private static final String BACKPACK_OWNER_PREFIX = ChatColor.GRAY + "Owner: ";
-    private static final String BACKPACK_ID_PREFIX = ChatColor.GRAY + "ID: ";
+    private static final LegacyComponentSerializer LEGACY_SECTION = LegacyComponentSerializer.legacySection();
+    private static final LegacyComponentSerializer LEGACY_AMPERSAND = LegacyComponentSerializer.legacyAmpersand();
+    private static final PlainTextComponentSerializer PLAIN_TEXT = PlainTextComponentSerializer.plainText();
+    private static final String SOULBOUND_LORE = legacy("&7Soulbound");
+    private static final String BACKPACK_OWNER_PREFIX = legacy("&7Owner: ");
+    private static final String BACKPACK_ID_PREFIX = legacy("&7ID: ");
     private static final Pattern LEGACY_BACKPACK_IDENTITY =
             Pattern.compile("(?i)([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})#([0-9]+)");
     private static final Set<String> SAFE_STATIC_ADDON_LORE_IDS =
@@ -393,7 +396,7 @@ public final class ItemPresentationDoctor {
         boolean ownerLineFound = false;
         for (int i = 0; i < lore.size(); i++) {
             String line = lore.get(i);
-            String plain = ChatColor.stripColor(line);
+            String plain = plain(line);
             if (!idLineFound
                     && plain != null
                     && (plain.contains(identity) || plain.trim().startsWith("ID:") || plain.contains("<ID>"))) {
@@ -424,8 +427,8 @@ public final class ItemPresentationDoctor {
         while (lore.size() < 2) {
             lore.add("");
         }
-        lore.set(0, ChatColor.GRAY + "Owner: " + ChatColor.AQUA + ownerName);
-        lore.set(1, ChatColor.BLACK + ownerId.toString());
+        lore.set(0, legacy("&7Owner: &b" + ownerName));
+        lore.set(1, legacy("&0" + ownerId));
         setLegacyLore(meta, lore);
         item.setItemMeta(meta);
     }
@@ -457,22 +460,30 @@ public final class ItemPresentationDoctor {
         return changed;
     }
 
+    private static @Nonnull String legacy(@Nonnull String value) {
+        return LEGACY_SECTION.serialize(LEGACY_AMPERSAND.deserialize(value));
+    }
+
+    private static @Nullable String plain(@Nullable String value) {
+        return value == null ? null : PLAIN_TEXT.serialize(LEGACY_SECTION.deserialize(value));
+    }
+
     private static @Nullable String legacyName(@Nonnull ItemMeta meta) {
         Component name = meta.displayName();
-        return name == null ? null : LegacyComponentSerializer.legacySection().serialize(name);
+        return name == null ? null : LEGACY_SECTION.serialize(name);
     }
 
     private static @Nullable List<String> legacyLore(@Nonnull ItemMeta meta) {
         List<Component> lore = meta.lore();
         return lore == null
                 ? null
-                : lore.stream().map(LegacyComponentSerializer.legacySection()::serialize).toList();
+                : lore.stream().map(LEGACY_SECTION::serialize).toList();
     }
 
     private static void setLegacyName(@Nonnull ItemMeta meta, @Nullable String value) {
         meta.displayName(value == null
                 ? null
-                : LegacyComponentSerializer.legacySection()
+                : LEGACY_SECTION
                         .deserialize(value)
                         .decoration(TextDecoration.ITALIC, false));
     }
@@ -481,7 +492,7 @@ public final class ItemPresentationDoctor {
         meta.lore(lore == null
                 ? null
                 : lore.stream()
-                        .map(line -> LegacyComponentSerializer.legacySection()
+                        .map(line -> LEGACY_SECTION
                                 .deserialize(line)
                                 .decoration(TextDecoration.ITALIC, false))
                         .toList());
@@ -571,11 +582,11 @@ public final class ItemPresentationDoctor {
 
             UUID tomeOwner = null;
             if (sfItem instanceof KnowledgeTome) {
-                String hiddenOwner = lore != null && lore.size() > 1 ? ChatColor.stripColor(lore.get(1)) : null;
+                String hiddenOwner = lore != null && lore.size() > 1 ? plain(lore.get(1)) : null;
                 boolean unboundTome = hiddenOwner != null && hiddenOwner.isBlank();
                 if (lore != null) {
                     for (String line : lore) {
-                        String ownerValue = ChatColor.stripColor(line);
+                        String ownerValue = plain(line);
                         try {
                             if (ownerValue != null && !ownerValue.isBlank()) {
                                 tomeOwner = UUID.fromString(ownerValue.trim());
@@ -596,7 +607,7 @@ public final class ItemPresentationDoctor {
             String legacyBackpackIdentity = null;
             if (!backpackPdcBound && lore != null) {
                 for (String line : lore) {
-                    String plain = ChatColor.stripColor(line);
+                    String plain = plain(line);
                     if (plain == null) {
                         continue;
                     }
@@ -639,7 +650,7 @@ public final class ItemPresentationDoctor {
         }
 
         private boolean canRestoreDynamicLine(String line) {
-            String plain = ChatColor.stripColor(line);
+            String plain = plain(line);
             if (plain == null) {
                 return false;
             }
@@ -660,7 +671,7 @@ public final class ItemPresentationDoctor {
                 return false;
             }
             for (String line : lore) {
-                String plain = ChatColor.stripColor(line);
+                String plain = plain(line);
                 if (plain == null) {
                     continue;
                 }
