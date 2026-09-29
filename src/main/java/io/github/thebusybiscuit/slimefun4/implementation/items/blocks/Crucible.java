@@ -2,7 +2,6 @@ package io.github.thebusybiscuit.slimefun4.implementation.items.blocks;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.bakedlibs.dough.protection.Interaction;
-import io.github.thebusybiscuit.slimefun4.api.MinecraftVersion;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemSetting;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
@@ -10,7 +9,6 @@ import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import io.github.thebusybiscuit.slimefun4.core.attributes.RecipeDisplayItem;
 import io.github.thebusybiscuit.slimefun4.core.handlers.BlockUseHandler;
 import io.github.thebusybiscuit.slimefun4.core.services.sounds.SoundEffect;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedParticle;
@@ -92,16 +90,14 @@ public class Crucible extends SimpleSlimefunItem<BlockUseHandler> implements Rec
         items.add(new ItemStack(Material.BASALT, 12));
         items.add(new ItemStack(Material.LAVA_BUCKET));
 
-        if (Slimefun.getMinecraftVersion().isAtLeast(MinecraftVersion.MINECRAFT_1_17)) {
-            items.add(new ItemStack(Material.COBBLED_DEEPSLATE, 12));
-            items.add(new ItemStack(Material.LAVA_BUCKET));
+        items.add(new ItemStack(Material.COBBLED_DEEPSLATE, 12));
+        items.add(new ItemStack(Material.LAVA_BUCKET));
 
-            items.add(new ItemStack(Material.DEEPSLATE, 10));
-            items.add(new ItemStack(Material.LAVA_BUCKET));
+        items.add(new ItemStack(Material.DEEPSLATE, 10));
+        items.add(new ItemStack(Material.LAVA_BUCKET));
 
-            items.add(new ItemStack(Material.TUFF, 8));
-            items.add(new ItemStack(Material.LAVA_BUCKET));
-        }
+        items.add(new ItemStack(Material.TUFF, 8));
+        items.add(new ItemStack(Material.LAVA_BUCKET));
 
         return items;
     }
