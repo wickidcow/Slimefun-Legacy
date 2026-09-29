@@ -1,7 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.utils;
 
-import io.github.thebusybiscuit.slimefun4.api.MinecraftVersion;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.annotation.Nonnull;
@@ -47,16 +45,6 @@ public final class FireworkUtils {
     };
     // @formatter:on
 
-    private static final EntityType firework;
-
-    static {
-        if (Slimefun.getMinecraftVersion().isAtLeast(MinecraftVersion.MINECRAFT_1_20_5)) {
-            firework = EntityType.FIREWORK_ROCKET;
-        } else {
-            firework = EntityType.valueOf("FIREWORK");
-        }
-    }
-
     private FireworkUtils() {}
 
     public static void launchFirework(@Nonnull Location l, @Nonnull Color color) {
@@ -64,7 +52,7 @@ public final class FireworkUtils {
     }
 
     public static @Nonnull Firework createFirework(@Nonnull Location l, @Nonnull Color color) {
-        Firework fw = (Firework) l.getWorld().spawnEntity(l, firework);
+        Firework fw = (Firework) l.getWorld().spawnEntity(l, EntityType.FIREWORK_ROCKET);
         FireworkMeta meta = fw.getFireworkMeta();
 
         meta.displayName(Component.text("Slimefun Research", NamedTextColor.GREEN)

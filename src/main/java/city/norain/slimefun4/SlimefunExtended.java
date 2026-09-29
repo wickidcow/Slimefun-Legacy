@@ -1,6 +1,5 @@
 package city.norain.slimefun4;
 
-import city.norain.slimefun4.compatibillty.VersionedEvent;
 import city.norain.slimefun4.listener.SlimefunMigrateListener;
 import city.norain.slimefun4.utils.EnvUtil;
 import com.zaxxer.hikari.HikariConfig;
@@ -127,7 +126,6 @@ public final class SlimefunExtended {
 
         migrateListener.register(sf);
 
-        VersionedEvent.init();
     }
 
     public static void shutdown() {
