@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.implementation.guide.enhanced;
 
-import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.bakedlibs.dough.items.ItemUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
@@ -511,7 +510,7 @@ public final class LegacyMachineRecipeBrowser implements Listener {
     }
 
     private static Component legacyText(String value) {
-        return LegacyComponentSerializer.legacySection().deserialize(ChatColors.color(value));
+        return LegacyComponentSerializer.legacyAmpersand().deserialize(value);
     }
 
     private @Nonnull ChestMenu createMenu(@Nonnull String title) {
