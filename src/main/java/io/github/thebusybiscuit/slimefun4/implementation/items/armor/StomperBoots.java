@@ -11,6 +11,7 @@ import io.github.thebusybiscuit.slimefun4.utils.VisualEffectUtils;
 import io.github.thebusybiscuit.slimefun4.utils.compatibility.DamageUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import org.bukkit.GameRules;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -54,7 +55,7 @@ public class StomperBoots extends SlimefunItem {
 
                 // Check if it's not a Player or if PvP is enabled
                 if (!(entity instanceof Player)
-                        || (player.getWorld().getPVP()
+                        || (Boolean.TRUE.equals(player.getWorld().getGameRuleValue(GameRules.PVP))
                                 && Slimefun.getProtectionManager()
                                         .hasPermission(player, entity.getLocation(), Interaction.ATTACK_PLAYER))) {
                     DamageUtils.damage(
