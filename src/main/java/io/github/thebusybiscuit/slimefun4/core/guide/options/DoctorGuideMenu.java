@@ -21,7 +21,6 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -42,8 +41,9 @@ final class DoctorGuideMenu {
             return true;
         }
 
-        player.sendMessage(ChatColor.RED
-                + "The Slimefun Recovery Center is restricted to server operators/admins.");
+        player.sendMessage(Component.text(
+                "The Slimefun Recovery Center is restricted to server operators/admins.",
+                NamedTextColor.RED));
         return false;
     }
 
@@ -570,11 +570,14 @@ final class DoctorGuideMenu {
                         "&eClick to confirm"));
         menu.addMenuClickHandler(11, (clickedPlayer, slot, item, action) -> {
             if (!service.setDeliveryEnabled(true)) {
-                clickedPlayer.sendMessage(
-                        ChatColor.RED + "Could not save resource-pack.enabled in configSFLAddons.yml.");
+                clickedPlayer.sendMessage(Component.text(
+                        "Could not save resource-pack.enabled in configSFLAddons.yml.",
+                        NamedTextColor.RED));
                 return false;
             }
-            clickedPlayer.sendMessage(ChatColor.GREEN + "Slimefun Legacy resource-pack delivery is enabled.");
+            clickedPlayer.sendMessage(Component.text(
+                    "Slimefun Legacy resource-pack delivery is enabled.",
+                    NamedTextColor.GREEN));
             openResourcePackRecovery(clickedPlayer, returnGuide);
             return false;
         });
@@ -628,10 +631,12 @@ final class DoctorGuideMenu {
                         ChatColor.RED + "Could not save resource-pack.enabled in configSFLAddons.yml.");
                 return false;
             }
-            clickedPlayer.sendMessage(ChatColor.YELLOW + "Slimefun Legacy resource-pack delivery is disabled.");
-            clickedPlayer.sendMessage(
-                    ChatColor.GRAY
-                            + "Item-model mappings were left unchanged for custom/combined resource-pack compatibility.");
+            clickedPlayer.sendMessage(Component.text(
+                    "Slimefun Legacy resource-pack delivery is disabled.",
+                    NamedTextColor.YELLOW));
+            clickedPlayer.sendMessage(Component.text(
+                    "Item-model mappings were left unchanged for custom/combined resource-pack compatibility.",
+                    NamedTextColor.GRAY));
             openResourcePackRecovery(clickedPlayer, returnGuide);
             return false;
         });
@@ -957,8 +962,12 @@ final class DoctorGuideMenu {
         menu.addMenuClickHandler(22, (clickedPlayer, slot, item, action) -> {
             boolean sent = service.testForPlayer(clickedPlayer);
             clickedPlayer.sendMessage(sent
-                    ? ChatColor.GREEN + "Sent the configured Slimefun Legacy pack to you for testing."
-                    : ChatColor.RED + "The configured Slimefun Legacy pack could not be sent. Check URL/SHA-1 and console.");
+                    ? Component.text(
+                            "Sent the configured Slimefun Legacy pack to you for testing.",
+                            NamedTextColor.GREEN)
+                    : Component.text(
+                            "The configured Slimefun Legacy pack could not be sent. Check URL/SHA-1 and console.",
+                            NamedTextColor.RED));
             return false;
         });
 
@@ -1084,7 +1093,7 @@ final class DoctorGuideMenu {
             menu.addItem(slot, playerHead(target));
             menu.addMenuClickHandler(slot, (clickedPlayer, clickedSlot, item, action) -> {
                 if (!target.isOnline()) {
-                    clickedPlayer.sendMessage(ChatColor.RED + "That player is no longer online.");
+                    clickedPlayer.sendMessage(Component.text("That player is no longer online.", NamedTextColor.RED));
                     openPlayerRepairPicker(clickedPlayer, returnGuide, page);
                     return false;
                 }
@@ -1145,7 +1154,7 @@ final class DoctorGuideMenu {
             } else if (target != null && target.isOnline()) {
                 clickedPlayer.performCommand("slimefun doctor inventory " + target.getName());
             } else {
-                clickedPlayer.sendMessage(ChatColor.RED + "That player is no longer online.");
+                clickedPlayer.sendMessage(Component.text("That player is no longer online.", NamedTextColor.RED));
             }
             return false;
         });
@@ -1744,16 +1753,18 @@ final class DoctorGuideMenu {
 
     private static void sendInspection(
             @Nonnull Player player, @Nonnull String label, @Nonnull ItemDoctorReport report) {
-        player.sendMessage(ChatColor.GOLD + "Slimefun Doctor — " + label);
-        player.sendMessage(ChatColor.GRAY + "Slimefun stacks: " + ChatColor.YELLOW + report.getSlimefunStacks());
-        player.sendMessage(ChatColor.GRAY + "Presentation findings: " + ChatColor.YELLOW
-                + (report.getCjkStacks() + report.getCjkBlocks()));
-        player.sendMessage(ChatColor.GRAY + "Unknown IDs: " + ChatColor.YELLOW + report.getUnknownIds());
-        player.sendMessage(
-                ChatColor.GRAY + "Unresolved templates: " + ChatColor.YELLOW + report.getUnresolvedTemplates());
-        player.sendMessage(
-                ChatColor.GRAY + "Item-model candidates: " + ChatColor.YELLOW + report.getItemModelCandidates());
-        player.sendMessage(ChatColor.GRAY + "No changes were made.");
+        player.sendMessage(Component.text("Slimefun Doctor — " + label, NamedTextColor.GOLD));
+        player.sendMessage(Component.text("Slimefun stacks: ", NamedTextColor.GRAY)
+                .append(Component.text(report.getSlimefunStacks(), NamedTextColor.YELLOW)));
+        player.sendMessage(Component.text("Presentation findings: ", NamedTextColor.GRAY)
+                .append(Component.text(report.getCjkStacks() + report.getCjkBlocks(), NamedTextColor.YELLOW)));
+        player.sendMessage(Component.text("Unknown IDs: ", NamedTextColor.GRAY)
+                .append(Component.text(report.getUnknownIds(), NamedTextColor.YELLOW)));
+        player.sendMessage(Component.text("Unresolved templates: ", NamedTextColor.GRAY)
+                .append(Component.text(report.getUnresolvedTemplates(), NamedTextColor.YELLOW)));
+        player.sendMessage(Component.text("Item-model candidates: ", NamedTextColor.GRAY)
+                .append(Component.text(report.getItemModelCandidates(), NamedTextColor.YELLOW)));
+        player.sendMessage(Component.text("No changes were made.", NamedTextColor.GRAY));
     }
 
     private static ItemStack playerHead(@Nonnull Player player) {
