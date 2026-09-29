@@ -5,6 +5,8 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.Objects;
 import javax.annotation.Nonnull;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Location;
 import org.bukkit.Nameable;
 import org.bukkit.block.BlockState;
@@ -39,7 +41,8 @@ final class BlockPresentationDoctor {
             return false;
         }
 
-        String currentName = nameable.getCustomName();
+        Component currentNameComponent = nameable.customName();
+        String currentName = legacyName(currentNameComponent);
         if (!ItemDoctorText.containsCjk(currentName)) {
             return false;
         }
@@ -51,7 +54,8 @@ final class BlockPresentationDoctor {
             return false;
         }
 
-        String canonicalName = canonicalMeta.getDisplayName();
+        Component canonicalNameComponent = canonicalMeta.displayName();
+        String canonicalName = legacyName(canonicalNameComponent);
         if (canonicalName == null
                 || canonicalName.isBlank()
                 || ItemDoctorText.containsCjk(canonicalName)
@@ -63,7 +67,7 @@ final class BlockPresentationDoctor {
             return false;
         }
 
-        nameable.setCustomName(canonicalName);
+        nameable.customName(canonicalNameComponent);
         if (!state.update(false, false)) {
             report.failure();
             return false;
@@ -71,6 +75,10 @@ final class BlockPresentationDoctor {
 
         report.blockRepaired();
         return true;
+    }
+
+    private static String legacyName(Component component) {
+        return component == null ? null : LegacyComponentSerializer.legacySection().serialize(component);
     }
 
     private void inspectStoredIdentity(Location location, ItemDoctorReport report) {
