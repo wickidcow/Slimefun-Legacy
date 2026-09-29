@@ -13,10 +13,9 @@ import java.util.function.ToIntFunction;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import net.md_5.bungee.api.ChatColor;
-import net.md_5.bungee.api.chat.HoverEvent;
-import net.md_5.bungee.api.chat.TextComponent;
-import net.md_5.bungee.api.chat.hover.content.Content;
-import net.md_5.bungee.api.chat.hover.content.Text;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.format.NamedTextColor;
 
 class PerformanceSummary {
 
@@ -176,7 +175,7 @@ class PerformanceSummary {
         String prefix = count + " " + name + (count != 1 ? 's' : "");
 
         if (inspector instanceof PlayerPerformanceInspector playerPerformanceInspector) {
-            TextComponent component = summarizeAsTextComponent(count, prefix, results, formatter);
+            Component component = summarizeAsComponent(count, prefix, results, formatter);
             playerPerformanceInspector.sendMessage(component);
         } else {
             String text = summarizeAsString(inspector, count, prefix, results, formatter);
@@ -186,25 +185,23 @@ class PerformanceSummary {
 
     @Nonnull
     @ParametersAreNonnullByDefault
-    private TextComponent summarizeAsTextComponent(
+    private Component summarizeAsComponent(
             int count,
             String prefix,
             List<Map.Entry<String, Long>> results,
             Function<Entry<String, Long>, String> formatter) {
-        TextComponent component = new TextComponent(prefix);
-        component.setColor(ChatColor.YELLOW);
+        Component component = Component.text(prefix, NamedTextColor.YELLOW);
 
         if (count > 0) {
-            TextComponent hoverComponent = new TextComponent("  (Hover here for more info)");
-            hoverComponent.setColor(ChatColor.GRAY);
-            StringBuilder builder = new StringBuilder();
-
+            Component hoverText = Component.empty();
             int shownEntries = 0;
             int hiddenEntries = 0;
 
             for (Map.Entry<String, Long> entry : results) {
                 if (shownEntries < MAX_ITEMS && (shownEntries < MIN_ITEMS || entry.getValue() > VISIBILITY_THRESHOLD)) {
-                    builder.append("\n").append(ChatColor.YELLOW).append(formatter.apply(entry));
+                    hoverText = hoverText
+                            .append(Component.newline())
+                            .append(Component.text(formatter.apply(entry), NamedTextColor.YELLOW));
                     shownEntries++;
                 } else {
                     hiddenEntries++;
@@ -212,13 +209,16 @@ class PerformanceSummary {
             }
 
             if (hiddenEntries > 0) {
-                builder.append("\n\n&c+ &6").append(hiddenEntries).append(" more");
+                hoverText = hoverText
+                        .append(Component.newline())
+                        .append(Component.newline())
+                        .append(Component.text("+ ", NamedTextColor.RED))
+                        .append(Component.text(hiddenEntries + " more", NamedTextColor.GOLD));
             }
 
-            Content content = new Text(TextComponent.fromLegacyText(ChatColors.color(builder.toString())));
-            hoverComponent.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, content));
-
-            component.addExtra(hoverComponent);
+            Component hoverComponent = Component.text("  (Hover here for more info)", NamedTextColor.GRAY)
+                    .hoverEvent(HoverEvent.showText(hoverText));
+            component = component.append(hoverComponent);
         }
 
         return component;
