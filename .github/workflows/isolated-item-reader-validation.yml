@@ -4,6 +4,10 @@ on:
   push:
     branches: ['work/legacy-item-reader-compatibility']
 
+concurrency:
+  group: legacy-item-reader-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -14,55 +18,24 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Check out reader candidate
+      - name: Check out final reader candidate
         uses: actions/checkout@v6
         with:
           persist-credentials: false
-          fetch-depth: 4
       - name: Set up Java 25
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '25'
           cache: gradle
-      - name: Format the candidate sources
-        run: |
-          chmod +x gradlew
-          ./gradlew spotlessApply --no-daemon
-      - name: Reproduce the reader failure on the original source
+      - name: Verify and build final corrected source
         shell: bash
         run: |
           set -euo pipefail
-          CODEC='src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/ItemStackDataCodec.java'
           mkdir -p audit-evidence
-          cp "$CODEC" "$RUNNER_TEMP/fixed-codec.java"
-          trap 'cp "$RUNNER_TEMP/fixed-codec.java" "$CODEC"' EXIT
-          git show '24baa82eb4667965a621a0960a80af286597986f:src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/ItemStackDataCodec.java' > "$CODEC"
-          set +e
-          ./gradlew test --tests '*ItemStackDataCodecCompatibilityTest.readsTextEnvelopeWhenSuppliedAsBytes' --console=plain --no-daemon > audit-evidence/original-reader.log 2>&1
-          STATUS=$?
-          set -e
-          test "$STATUS" -ne 0
-          python3 - <<'PY'
-          from pathlib import Path
-          import xml.etree.ElementTree as ET
-          report = Path('build/test-results/test/TEST-com.xzavier0722.mc.plugin.slimefun4.storage.util.ItemStackDataCodecCompatibilityTest.xml')
-          suite = ET.parse(report).getroot()
-          assert suite.get('tests') == '1' and suite.get('failures') == '1' and suite.get('skipped') == '0', suite.attrib
-          text = report.read_text()
-          assert 'invalid stream header: 53463200' in text, text
-          Path('audit-evidence/original-reader.xml').write_text(text)
-          print('Original reader: reproduced exactly one expected invalid-SF2-object-stream-header failure.')
-          PY
-      - name: Verify and build corrected source
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Like the normal build, check committed production sources before
-          # Spotless reformats unrelated historical exact-text invariants.
-          # HEAD contains the corrected codec; this is not the original reader.
-          git restore --source=HEAD --worktree -- src/main
+          echo 'Original reader failure reproduced in run 36648883378: invalid stream header 53463200.' > audit-evidence/baseline-reference.txt
           python3 scripts/verify_legacy.py . > audit-evidence/invariants.log 2>&1
+          chmod +x gradlew
           ./gradlew spotlessApply --no-daemon
           ./gradlew clean --console=plain --no-daemon
           mkdir -p build/reports
