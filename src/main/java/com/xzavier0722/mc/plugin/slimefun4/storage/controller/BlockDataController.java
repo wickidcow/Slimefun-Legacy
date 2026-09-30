@@ -1368,25 +1368,31 @@ public class BlockDataController extends ADataController {
      * changed-slot write batch has reached the database queue completion boundary.
      */
     public CompletableFuture<Void> saveBlockInventoryAsync(@Nonnull SlimefunBlockData blockData) {
-        BlockMenu menu = blockData.getBlockMenu();
-        long changeSequence = menu == null ? 0L : menu.captureChangeSequence();
-        ItemStack[] contents = copyInventoryContents(blockData.getMenuContents());
-        String snapshotKey = blockData.getKey();
-        String chainKey = "block:" + snapshotKey;
-        InvSnapshot stagedSnapshot = contents == null ? null : new InvSnapshot(contents);
-        Map<Integer, InventoryWrite> stagedWrites =
-                stageInventoryWrites(DataScope.BLOCK_INVENTORY, FieldKey.LOCATION, snapshotKey, contents);
+        try {
+            BlockMenu menu = blockData.getBlockMenu();
+            long changeSequence = menu == null ? 0L : menu.captureChangeSequence();
+            ItemStack[] contents = copyInventoryContents(blockData.getMenuContents());
+            String snapshotKey = blockData.getKey();
+            String chainKey = "block:" + snapshotKey;
+            InvSnapshot stagedSnapshot = contents == null ? null : new InvSnapshot(contents);
+            Map<Integer, InventoryWrite> stagedWrites =
+                    stageInventoryWrites(DataScope.BLOCK_INVENTORY, FieldKey.LOCATION, snapshotKey, contents);
 
-        return chainInventorySave(
-                chainKey,
-                () -> persistInventoryStage(
-                        snapshotKey,
-                        new LocationKey(DataScope.NONE, blockData.getLocation()),
-                        contents,
-                        stagedSnapshot,
-                        stagedWrites,
-                        menu,
-                        changeSequence));
+            return chainInventorySave(
+                    chainKey,
+                    () -> persistInventoryStage(
+                            snapshotKey,
+                            new LocationKey(DataScope.NONE, blockData.getLocation()),
+                            contents,
+                            stagedSnapshot,
+                            stagedWrites,
+                            menu,
+                            changeSequence));
+        } catch (RuntimeException | LinkageError failure) {
+            // No write has been submitted and no dirty token/snapshot was acknowledged.
+            // Keep the previous persisted baseline and let a later save retry this state.
+            return CompletableFuture.failedFuture(failure);
+        }
     }
 
     public void saveBlockInventorySlot(SlimefunBlockData blockData, int slot) {
@@ -1451,7 +1457,9 @@ public class BlockDataController extends ADataController {
         saveUniversalInventoryAsync(universalData).whenComplete((ignored, failure) -> {
             if (failure != null) {
                 logger.log(
-                        Level.SEVERE, "Failed to persist Slimefun universal inventory " + universalData.getKey(), failure);
+                        Level.SEVERE,
+                        "Failed to persist Slimefun universal inventory " + universalData.getKey(),
+                        failure);
             }
         });
     }
@@ -1461,25 +1469,31 @@ public class BlockDataController extends ADataController {
      * for the same UUID so acknowledgements cannot complete out of order.
      */
     public CompletableFuture<Void> saveUniversalInventoryAsync(@Nonnull SlimefunUniversalData universalData) {
-        UniversalMenu menu = universalData.getMenu();
-        long changeSequence = menu == null ? 0L : menu.captureChangeSequence();
-        ItemStack[] contents = copyInventoryContents(universalData.getMenuContents());
-        String snapshotKey = universalData.getKey();
-        String chainKey = "universal:" + snapshotKey;
-        InvSnapshot stagedSnapshot = contents == null ? null : new InvSnapshot(contents);
-        Map<Integer, InventoryWrite> stagedWrites = stageInventoryWrites(
-                DataScope.UNIVERSAL_INVENTORY, FieldKey.UNIVERSAL_UUID, universalData.getKey(), contents);
+        try {
+            UniversalMenu menu = universalData.getMenu();
+            long changeSequence = menu == null ? 0L : menu.captureChangeSequence();
+            ItemStack[] contents = copyInventoryContents(universalData.getMenuContents());
+            String snapshotKey = universalData.getKey();
+            String chainKey = "universal:" + snapshotKey;
+            InvSnapshot stagedSnapshot = contents == null ? null : new InvSnapshot(contents);
+            Map<Integer, InventoryWrite> stagedWrites = stageInventoryWrites(
+                    DataScope.UNIVERSAL_INVENTORY, FieldKey.UNIVERSAL_UUID, universalData.getKey(), contents);
 
-        return chainInventorySave(
-                chainKey,
-                () -> persistInventoryStage(
-                        snapshotKey,
-                        new UUIDKey(DataScope.NONE, universalData.getKey()),
-                        contents,
-                        stagedSnapshot,
-                        stagedWrites,
-                        menu,
-                        changeSequence));
+            return chainInventorySave(
+                    chainKey,
+                    () -> persistInventoryStage(
+                            snapshotKey,
+                            new UUIDKey(DataScope.NONE, universalData.getKey()),
+                            contents,
+                            stagedSnapshot,
+                            stagedWrites,
+                            menu,
+                            changeSequence));
+        } catch (RuntimeException | LinkageError failure) {
+            // No write has been submitted and no dirty token/snapshot was acknowledged.
+            // Keep the previous persisted baseline and let a later save retry this state.
+            return CompletableFuture.failedFuture(failure);
+        }
     }
 
     private CompletableFuture<Void> chainInventorySave(
@@ -1586,7 +1600,7 @@ public class BlockDataController extends ADataController {
             key.addField(FieldKey.INVENTORY_ITEM);
 
             ItemStack item = contents == null || slot >= contents.length ? null : contents[slot];
-            if (item == null) {
+            if (item == null || item.isEmpty()) {
                 staged.put(slot, new InventoryWrite(key, null));
             } else {
                 var data = new RecordSet();
@@ -1623,7 +1637,8 @@ public class BlockDataController extends ADataController {
         return item == null ? null : item.clone();
     }
 
-    private record InventoryWrite(@Nonnull RecordKey key, @Nullable RecordSet data) {}
+    private record InventoryWrite(
+            @Nonnull RecordKey key, @Nullable RecordSet data) {}
 
     public Set<SlimefunChunkData> getAllLoadedChunkData(World world) {
         var prefix = world.getName() + ";";
@@ -1680,8 +1695,12 @@ public class BlockDataController extends ADataController {
                 data.put(FieldKey.INVENTORY_SLOT, slot + "");
                 data.put(FieldKey.INVENTORY_ITEM, item);
                 scheduleWriteTask(scopeKey, reqKey, data, true);
-            } catch (IllegalArgumentException e) {
-                Slimefun.logger().log(Level.WARNING, e.getMessage());
+            } catch (RuntimeException | LinkageError failure) {
+                logger.log(
+                        Level.WARNING,
+                        "Could not serialize inventory slot " + lKey + ":" + slot
+                                + "; the existing stored value was retained.",
+                        failure);
             }
         }
     }
@@ -1721,8 +1740,12 @@ public class BlockDataController extends ADataController {
                 data.put(FieldKey.INVENTORY_SLOT, slot + "");
                 data.put(FieldKey.INVENTORY_ITEM, item);
                 scheduleWriteTask(scopeKey, reqKey, data, true);
-            } catch (IllegalArgumentException e) {
-                Slimefun.logger().log(Level.WARNING, e.getMessage());
+            } catch (RuntimeException | LinkageError failure) {
+                logger.log(
+                        Level.WARNING,
+                        "Could not serialize inventory slot " + uuid + ":" + slot
+                                + "; the existing stored value was retained.",
+                        failure);
             }
         }
     }
@@ -1969,7 +1992,8 @@ public class BlockDataController extends ADataController {
                     10L);
 
             kvData.forEach(recordSet -> universalData.setData(
-                    recordSet.getString(FieldKey.DATA_KEY), DataUtils.blockDataDebase64(recordSet.getString(FieldKey.DATA_VALUE))));
+                    recordSet.getString(FieldKey.DATA_KEY),
+                    DataUtils.blockDataDebase64(recordSet.getString(FieldKey.DATA_VALUE))));
 
             var preset = UniversalMenuPreset.getPreset(sfId);
             if (preset != null) {

@@ -32,7 +32,9 @@ public class RecordSet {
 
     @ParametersAreNonnullByDefault
     public void put(FieldKey key, ItemStack itemStack) {
-        putValue(key, DataUtils.serializeItemStackBytes(itemStack));
+        // Reject writes before invoking an addon-supplied ItemStack serializer.
+        checkReadonly();
+        putValue(key, DataUtils.serializeItemStackBytesForStorage(itemStack));
     }
 
     public void put(FieldKey key, boolean val) {

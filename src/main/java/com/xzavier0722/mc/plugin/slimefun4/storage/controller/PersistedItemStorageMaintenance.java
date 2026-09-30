@@ -43,8 +43,8 @@ public final class PersistedItemStorageMaintenance {
         AtomicReference<List<PersistedItemRecord>> snapshot = new AtomicReference<>();
         AtomicBoolean readGateAcquired = new AtomicBoolean();
 
-        boolean writeGateAcquired = controller.runIfAllWriteWorkIdle(() -> readGateAcquired.set(
-                controller.runIfReadExecutorIdle(() -> snapshot.set(readAllUnloadedItems()))));
+        boolean writeGateAcquired = controller.runIfAllWriteWorkIdle(() ->
+                readGateAcquired.set(controller.runIfReadExecutorIdle(() -> snapshot.set(readAllUnloadedItems()))));
 
         if (!writeGateAcquired || !readGateAcquired.get()) {
             return new SnapshotResult(false, List.of());
@@ -68,8 +68,8 @@ public final class PersistedItemStorageMaintenance {
 
         AtomicReference<RewriteSummary> result = new AtomicReference<>();
         AtomicBoolean readGateAcquired = new AtomicBoolean();
-        boolean writeGateAcquired = controller.runIfAllWriteWorkIdle(() -> readGateAcquired.set(
-                controller.runIfReadExecutorIdle(() -> result.set(rewriteWhileGated(requests)))));
+        boolean writeGateAcquired = controller.runIfAllWriteWorkIdle(() ->
+                readGateAcquired.set(controller.runIfReadExecutorIdle(() -> result.set(rewriteWhileGated(requests)))));
 
         if (!writeGateAcquired || !readGateAcquired.get()) {
             return RewriteSummary.busyResult();
@@ -89,10 +89,7 @@ public final class PersistedItemStorageMaintenance {
     }
 
     private void readScope(
-            DataScope scope,
-            FieldKey ownerField,
-            Set<String> loadedOwners,
-            List<PersistedItemRecord> destination) {
+            DataScope scope, FieldKey ownerField, Set<String> loadedOwners, List<PersistedItemRecord> destination) {
         RecordKey key = new RecordKey(scope);
         key.addField(ownerField);
         key.addField(FieldKey.INVENTORY_SLOT);
@@ -171,8 +168,7 @@ public final class PersistedItemStorageMaintenance {
         return result;
     }
 
-    private void readScopeIncludingLoaded(
-            DataScope scope, FieldKey ownerField, List<PersistedItemRecord> destination) {
+    private void readScopeIncludingLoaded(DataScope scope, FieldKey ownerField, List<PersistedItemRecord> destination) {
         RecordKey key = new RecordKey(scope);
         key.addField(ownerField);
         key.addField(FieldKey.INVENTORY_SLOT);
@@ -191,8 +187,7 @@ public final class PersistedItemStorageMaintenance {
         }
     }
 
-    private boolean isLoaded(
-            PersistedItemRecord record, Set<String> loadedBlocks, Set<String> loadedUniversal) {
+    private boolean isLoaded(PersistedItemRecord record, Set<String> loadedBlocks, Set<String> loadedUniversal) {
         return switch (record.scope()) {
             case BLOCK_INVENTORY -> loadedBlocks.contains(record.ownerKey());
             case UNIVERSAL_INVENTORY -> loadedUniversal.contains(record.ownerKey());
@@ -232,14 +227,12 @@ public final class PersistedItemStorageMaintenance {
         return loaded;
     }
 
-    @Nullable
-    private static String stringValue(RecordSet record, FieldKey key) {
+    @Nullable private static String stringValue(RecordSet record, FieldKey key) {
         Object value = record.getValue(key);
         return value == null ? null : String.valueOf(value);
     }
 
-    public record PersistedItemRecord(
-            DataScope scope, String ownerKey, String slotKey, StoredItemValue storedValue) {
+    public record PersistedItemRecord(DataScope scope, String ownerKey, String slotKey, StoredItemValue storedValue) {
         public PersistedItemRecord {
             Objects.requireNonNull(scope, "scope");
             Objects.requireNonNull(ownerKey, "ownerKey");
@@ -285,7 +278,7 @@ public final class PersistedItemStorageMaintenance {
 
         public static @Nonnull StoredItemValue current(@Nonnull ItemStack item) {
             Objects.requireNonNull(item, "item");
-            return new StoredItemValue(DataUtils.serializeItemStackBytes(item), null);
+            return new StoredItemValue(DataUtils.serializeItemStackBytesForStorage(item), null);
         }
 
         public boolean isBinary() {
@@ -340,13 +333,7 @@ public final class PersistedItemStorageMaintenance {
     }
 
     public record RewriteSummary(
-            boolean busy,
-            int rewritten,
-            int stale,
-            int loaded,
-            int missing,
-            int failures,
-            boolean rollbackComplete) {
+            boolean busy, int rewritten, int stale, int loaded, int missing, int failures, boolean rollbackComplete) {
         static RewriteSummary busyResult() {
             return new RewriteSummary(true, 0, 0, 0, 0, 0, true);
         }

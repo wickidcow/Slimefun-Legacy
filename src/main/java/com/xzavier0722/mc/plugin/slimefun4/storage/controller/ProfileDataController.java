@@ -462,8 +462,7 @@ public class ProfileDataController extends ADataController {
                 stagedWrites = stageBackpackWrites(backpackId, contents);
             }
         } catch (RuntimeException | LinkageError failure) {
-            Slimefun.logger()
-                    .log(Level.WARNING, "Could not stage backpack " + backpackId + " for persistence", failure);
+            logger.log(Level.WARNING, "Could not stage backpack " + backpackId + " for persistence", failure);
             return CompletableFuture.failedFuture(failure);
         }
 
@@ -532,8 +531,7 @@ public class ProfileDataController extends ADataController {
             completions.add(CompletableFuture.failedFuture(failure));
         }
 
-        CompletableFuture<Void> batch =
-                CompletableFuture.allOf(completions.toArray(CompletableFuture[]::new));
+        CompletableFuture<Void> batch = CompletableFuture.allOf(completions.toArray(CompletableFuture[]::new));
         return batch.whenComplete((ignored, failure) -> {
             if (failure == null) {
                 synchronized (backpack) {
@@ -546,8 +544,7 @@ public class ProfileDataController extends ADataController {
         });
     }
 
-    private Map<Integer, BackpackWrite> stageBackpackWrites(
-            @Nonnull String backpackId, @Nonnull ItemStack[] contents) {
+    private Map<Integer, BackpackWrite> stageBackpackWrites(@Nonnull String backpackId, @Nonnull ItemStack[] contents) {
         Map<Integer, BackpackWrite> staged = new HashMap<>(54);
 
         // Stage the full legal backpack slot range. Normal saves submit only the
@@ -560,7 +557,7 @@ public class ProfileDataController extends ADataController {
             key.addField(FieldKey.INVENTORY_ITEM);
 
             ItemStack item = slot < contents.length ? contents[slot] : null;
-            if (item == null) {
+            if (item == null || item.isEmpty()) {
                 staged.put(slot, new BackpackWrite(key, null));
             } else {
                 var data = new RecordSet();
@@ -584,7 +581,8 @@ public class ProfileDataController extends ADataController {
         return copy;
     }
 
-    private record BackpackWrite(@Nonnull RecordKey key, @Nullable RecordSet data) {}
+    private record BackpackWrite(
+            @Nonnull RecordKey key, @Nullable RecordSet data) {}
 
     @Deprecated(forRemoval = true)
     public void saveBackpackInventory(PlayerBackpack bp, Integer... slots) {
@@ -702,19 +700,18 @@ public class ProfileDataController extends ADataController {
             return;
         }
 
-        CompletableFuture.allOf(pending.toArray(CompletableFuture[]::new))
-                .whenComplete((ignored, failure) -> {
-                    if (failure != null || hasUncertainBackpackBaseline(backpackIds)) {
-                        logger.log(
-                                Level.WARNING,
-                                "Keeping backpack cache for disconnected owner " + pUuid
-                                        + " because a persistence barrier failed.",
-                                failure);
-                        return;
-                    }
+        CompletableFuture.allOf(pending.toArray(CompletableFuture[]::new)).whenComplete((ignored, failure) -> {
+            if (failure != null || hasUncertainBackpackBaseline(backpackIds)) {
+                logger.log(
+                        Level.WARNING,
+                        "Keeping backpack cache for disconnected owner " + pUuid
+                                + " because a persistence barrier failed.",
+                        failure);
+                return;
+            }
 
-                    backpackCache.invalidateAfterPersistence(pUuid);
-                });
+            backpackCache.invalidateAfterPersistence(pUuid);
+        });
     }
 
     public int getPendingBackpackSaveChainCount() {
