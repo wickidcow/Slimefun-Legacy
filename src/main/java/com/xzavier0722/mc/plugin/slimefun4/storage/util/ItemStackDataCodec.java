@@ -12,7 +12,9 @@ import org.bukkit.util.io.BukkitObjectInputStream;
  * Versioned codec for database-backed {@link ItemStack} data.
  *
  * <p>New records use Paper's native binary format and carry a short format marker. Existing
- * Base64/Bukkit object stream records remain readable for in-place migration.
+ * Base64/Bukkit object stream records remain readable for in-place migration. The retained
+ * String API also writes Base64-wrapped native records, which remain readable when a storage
+ * adapter returns the text column as ASCII bytes.
  */
 public final class ItemStackDataCodec {
     private static final byte[] FORMAT_V2 = {'S', 'F', '2', 0};
@@ -32,8 +34,14 @@ public final class ItemStackDataCodec {
             return deserializeCurrent(Arrays.copyOfRange(itemData, FORMAT_V2.length, itemData.length));
         }
 
-        var serializedObject = Base64.getMimeDecoder().decode(new String(itemData, StandardCharsets.US_ASCII));
-        return deserializeLegacyWithCompatibility(serializedObject);
+        var decoded = Base64.getMimeDecoder().decode(new String(itemData, StandardCharsets.US_ASCII));
+        // Text written by the retained String API can be returned as bytes by a
+        // binary column or storage adapter. Recognize its envelope before taking
+        // the historical Bukkit object-stream path. Decode exactly one layer.
+        if (isCurrent(decoded)) {
+            return deserializeCurrent(Arrays.copyOfRange(decoded, FORMAT_V2.length, decoded.length));
+        }
+        return deserializeLegacyWithCompatibility(decoded);
     }
 
     private static ItemStack deserializeCurrent(byte[] serializedItem) {

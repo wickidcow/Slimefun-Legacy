@@ -1,0 +1,124 @@
+name: Legacy Item Reader Regression Validation
+
+on:
+  push:
+    branches: ['work/legacy-item-reader-compatibility']
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - name: Check out reader candidate
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Format the candidate sources
+        run: |
+          chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon
+      - name: Reproduce the reader failure on the original source
+        shell: bash
+        run: |
+          set -euo pipefail
+          CODEC='src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/ItemStackDataCodec.java'
+          mkdir -p audit-evidence
+          cp "$CODEC" "$RUNNER_TEMP/fixed-codec.java"
+          trap 'cp "$RUNNER_TEMP/fixed-codec.java" "$CODEC"' EXIT
+          git show '24baa82eb4667965a621a0960a80af286597986f:src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/ItemStackDataCodec.java' > "$CODEC"
+          set +e
+          ./gradlew test --tests '*ItemStackDataCodecCompatibilityTest.readsTextEnvelopeWhenSuppliedAsBytes' --console=plain --no-daemon > audit-evidence/original-reader.log 2>&1
+          STATUS=$?
+          set -e
+          test "$STATUS" -ne 0
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          report = Path('build/test-results/test/TEST-com.xzavier0722.mc.plugin.slimefun4.storage.util.ItemStackDataCodecCompatibilityTest.xml')
+          suite = ET.parse(report).getroot()
+          assert suite.get('tests') == '1' and suite.get('failures') == '1' and suite.get('skipped') == '0', suite.attrib
+          text = report.read_text()
+          assert 'invalid stream header: 53463200' in text, text
+          Path('audit-evidence/original-reader.xml').write_text(text)
+          print('Original reader: reproduced exactly one expected invalid-SF2-object-stream-header failure.')
+          PY
+      - name: Verify and build corrected source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_legacy.py . > audit-evidence/invariants.log 2>&1
+          ./gradlew clean --console=plain --no-daemon
+          mkdir -p build/reports
+          ./gradlew build -PslimefunDeprecationReport=true --console=plain --no-daemon 2>&1 | tee build/reports/deprecation-compile.log
+          python3 scripts/summarize_deprecations.py build/reports/deprecation-compile.log --fail-on-warnings --require-successful-build
+          git diff --check
+      - name: Summarize exact regression and suite results
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          totals = dict.fromkeys(('tests', 'failures', 'errors', 'skipped'), 0)
+          new_tests = 0
+          for file in sorted(Path('build/test-results/test').glob('TEST-*.xml')):
+              suite = ET.parse(file).getroot()
+              for key in totals:
+                  totals[key] += int(suite.get(key, '0'))
+              if any(name in file.name for name in ('ItemStackDataCodecCompatibilityTest', 'ItemStackEnvelopeMigrationTest')):
+                  print('New old-item suite:', suite.attrib)
+                  assert int(suite.get('failures', '0')) + int(suite.get('errors', '0')) + int(suite.get('skipped', '0')) == 0
+                  new_tests += int(suite.get('tests', '0'))
+          assert new_tests == 14, new_tests
+          assert totals['failures'] == totals['errors'] == 0, totals
+          print('Corrected source full JUnit results:', totals)
+          Path('audit-evidence/results.txt').write_text(f'New item compatibility tests: {new_tests} passed\nFull JUnit results: {totals}\n')
+          PY
+      - name: Preserve formatted validated blobs without moving any branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, hashlib, json, os, subprocess
+          from pathlib import Path
+          paths = (
+              'src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/ItemStackDataCodec.java',
+              'src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/ItemStackDataCodecCompatibilityTest.java',
+              'src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/patch/ItemStackEnvelopeMigrationTest.java',
+          )
+          manifest = {}
+          for path in paths:
+              data = Path(path).read_bytes()
+              expected = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+              body = json.dumps({'content': base64.b64encode(data).decode('ascii'), 'encoding': 'base64'})
+              result = subprocess.run(['gh', 'api', '--method', 'POST', f"repos/{os.environ['GITHUB_REPOSITORY']}/git/blobs", '--input', '-', '--jq', '.sha'], input=body, text=True, capture_output=True, check=True)
+              actual = result.stdout.strip()
+              assert actual == expected, (path, expected, actual)
+              manifest[path] = actual
+              print(f'VALIDATED_BLOB {actual} {path}')
+          Path('audit-evidence/validated-blobs.json').write_text(json.dumps(manifest, indent=2) + '\n')
+          PY
+      - name: Preserve test evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: legacy-item-reader-regression-evidence
+          path: |
+            audit-evidence/
+            build/test-results/test/TEST-*.xml
+            build/reports/deprecation-compile.log
+            build/reports/deprecations.md
+          if-no-files-found: warn
