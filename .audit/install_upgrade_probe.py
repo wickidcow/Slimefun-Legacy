@@ -39,10 +39,11 @@ assert text.count(anchor) == 1
 text = text.replace(anchor, helper + anchor)
 assert blob(text.encode()) == '22827241e322b793b605c22f275123afa52f9b23'
 old = '            Bukkit.getScheduler().runTaskLater(this, this::execute, 80L);'
-new = '''            if (seed) {
-                var owner = Bukkit.getOfflinePlayer(OWNER);
-                require("LegacyFixture".equals(owner.getName()), "Missing synthetic owner cache entry");
-                Slimefun.getDatabaseManager().getProfileDataController().getOrCreateProfileAsync(owner)
+new = '''            fixtureOwner = Bukkit.getOfflinePlayerIfCached("LegacyFixture");
+            require(fixtureOwner != null && OWNER.equals(fixtureOwner.getUniqueId())
+                    && "LegacyFixture".equals(fixtureOwner.getName()), "Missing synthetic owner cache entry");
+            if (seed) {
+                Slimefun.getDatabaseManager().getProfileDataController().getOrCreateProfileAsync(fixtureOwner)
                         .whenComplete((profile, error) -> {
                             if (error != null) finish(error);
                             else Bukkit.getScheduler().runTaskLater(this, this::execute, 80L);
@@ -52,7 +53,10 @@ new = '''            if (seed) {
             }'''
 assert text.count(old) == 1
 text = text.replace(old, new)
-assert blob(text.encode()) == '0eac1608dddab52ed402e27938c60c97ce4b013d'
+old = '    private World world;'
+assert text.count(old) == 1
+text = text.replace(old, old + '\n    // Keep the named cached identity alive while the old core writes its profile.\n    private org.bukkit.OfflinePlayer fixtureOwner;')
+assert blob(text.encode()) == '282053c29b330b57697b42cafe49cfca685a2ce3'
 probe.write_text(text)
 
 runner = Path('scripts/old_world_upgrade.py')
