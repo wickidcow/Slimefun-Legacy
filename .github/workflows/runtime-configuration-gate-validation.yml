@@ -34,7 +34,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY'
-          import hashlib, importlib.util, io, json, subprocess, zipfile
+          import hashlib, importlib.util, io, json, os, subprocess, zipfile
           from pathlib import Path
           spec = importlib.util.spec_from_file_location('error_gate', 'scripts/test_full_stack_runtime_error_gate.py')
           module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
