@@ -245,6 +245,8 @@ run_cycle() {
         return 1
     fi
 
+    python3 "$REPO_ROOT/scripts/verify_runtime_configuration.py" "$normalized"
+
     while IFS=$'\t' read -r jar plugin; do
         if ! grep -Fq "Enabling ${plugin} v" "$normalized"; then
             echo "Expected addon did not enable: ${plugin} (${jar})" >&2
@@ -275,6 +277,7 @@ Cycles: 2
 All required addon enable lines: observed
 Known external hard dependencies: reported separately
 Linkage/enable failures: none
+Configuration-load failures: none
 Clean shutdown persistence: observed on second boot
 EOF
 cat "$WORK_DIR/smoke-result.txt"
