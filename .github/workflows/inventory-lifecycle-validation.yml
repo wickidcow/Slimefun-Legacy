@@ -73,9 +73,6 @@ jobs:
                       enabled.setBoolean(plugin, wasEnabled);
                   }
                   org.bukkit.event.HandlerList.unregisterAll(listener);'''
-          # The YAML block removes ten leading spaces. Normalize the embedded Java
-          # continuation indentation to the reviewed eight/twelve-space source.
-          after = '\n'.join(line[10:] if index else line for index, line in enumerate(after.splitlines()))
           text = fixture.read_text()
           assert text.count(before) == 1
           fixture.write_text(text.replace(before, after))
