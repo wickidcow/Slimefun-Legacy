@@ -69,6 +69,7 @@ public class SlimefunChunkData extends ADataContainer {
     @Nonnull
     @ParametersAreNonnullByDefault
     public SlimefunBlockData createBlockData(Location l, String sfId) {
+        Slimefun.getDatabaseManager().getBlockDataController().requireMutableBlockLocation(l);
         var lKey = LocationUtils.getLocKey(l);
         if (getBlockCacheInternal(lKey) != null) {
             throw new IllegalStateException("There already a block in this location: " + lKey);
@@ -95,16 +96,7 @@ public class SlimefunChunkData extends ADataContainer {
 
     @Nullable @ParametersAreNonnullByDefault
     public SlimefunBlockData removeBlockData(Location l) {
-        var lKey = LocationUtils.getLocKey(l);
-        var re = removeBlockDataCacheInternal(lKey);
-        if (re == null) {
-            if (isDataLoaded()) {
-                return null;
-            }
-            sfBlocks.put(lKey, INVALID_BLOCK_DATA);
-        }
-        Slimefun.getDatabaseManager().getBlockDataController().removeBlockDirectly(l);
-        return re;
+        return Slimefun.getDatabaseManager().getBlockDataController().removeChunkBlockData(this, l);
     }
 
     void addBlockCacheInternal(SlimefunBlockData data, boolean override) {

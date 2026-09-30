@@ -83,6 +83,8 @@ public class BlockDataController extends ADataController {
     private final Set<String> uncertainInventoryBaselines;
     /** Retained until a complete retry succeeds; never cleared by an attempted save. */
     private final Set<String> incompleteInventoryLoads = ConcurrentHashMap.newKeySet();
+    /** Maps known universal positions while their UUID's inventory is incomplete; never loads chunks. */
+    private final InventoryRecoveryLocations inventoryRecoveryLocations = new InventoryRecoveryLocations();
     /**
      * 全局控制器加载数据锁
      *
@@ -268,6 +270,7 @@ public class BlockDataController extends ADataController {
     @Nonnull
     public SlimefunBlockData createBlock(Location l, String sfId) {
         checkDestroy();
+        requireMutableBlockLocation(l);
         var sfItem = SlimefunItem.getById(sfId);
 
         if (sfItem instanceof UniversalBlock) {
@@ -305,6 +308,7 @@ public class BlockDataController extends ADataController {
     @Nonnull
     public SlimefunUniversalData createUniversalData(UUID uuid, String sfId) {
         checkDestroy();
+        requireCompleteInventoryLoad(uuid.toString());
 
         if (getUniversalDataFromCache(uuid) != null || getUniversalData(uuid) != null) {
             throw new IllegalArgumentException("A universal data with this UUID already exists: " + uuid);
@@ -332,7 +336,13 @@ public class BlockDataController extends ADataController {
     @ParametersAreNonnullByDefault
     public SlimefunUniversalBlockData createUniversalBlock(Location l, String sfId) {
         checkDestroy();
+        requireMutableBlockLocation(l);
+        return createUniversalBlockAfterPreflight(l, sfId);
+    }
 
+    // Private to the controller: the normal API checks recovery state first. The migration
+    // caller has separately decoded its source and must keep that source's read guard active.
+    private SlimefunUniversalBlockData createUniversalBlockAfterPreflight(Location l, String sfId) {
         var uuid = UUID.randomUUID();
         var uniData = new SlimefunUniversalBlockData(uuid, sfId, l);
 
@@ -363,6 +373,7 @@ public class BlockDataController extends ADataController {
     }
 
     void saveNewBlock(Location l, String sfId) {
+        requireMutableBlockLocation(l);
         var lKey = LocationUtils.getLocKey(l);
 
         var key = new RecordKey(DataScope.BLOCK_RECORD);
@@ -384,6 +395,7 @@ public class BlockDataController extends ADataController {
      * @param universalData 欲写入数据库保存的通用数据
      */
     void saveUniversalData(SlimefunUniversalData universalData) {
+        requireCompleteInventoryLoad(universalData.getKey());
         var uuid = universalData.getKey();
         var sfId = universalData.getSfId();
         var traitsStr = StringUtil.getTraitsStr(universalData.getTraits());
@@ -407,6 +419,7 @@ public class BlockDataController extends ADataController {
      */
     public void removeBlock(Location l) {
         checkDestroy();
+        requireMutableBlockLocation(l);
 
         var removed = getChunkDataCache(l.getChunk(), true).removeBlockData(l);
 
@@ -439,9 +452,13 @@ public class BlockDataController extends ADataController {
      */
     public void removeBlockData(Location l) {
         checkDestroy();
+        requireMutableBlockLocation(l);
 
         var removed = getChunkDataCache(l.getChunk(), true).removeBlockData(l);
+        finishBlockDataRemoval(l, removed);
+    }
 
+    private void finishBlockDataRemoval(Location l, @Nullable SlimefunBlockData removed) {
         if (removed == null || !removed.isDataLoaded()) {
             return;
         }
@@ -463,6 +480,7 @@ public class BlockDataController extends ADataController {
      */
     public void removeUniversalBlockData(Location l) {
         checkDestroy();
+        requireMutableBlockLocation(l);
 
         var toRemove = getUniversalBlockDataFromCache(l);
 
@@ -480,6 +498,7 @@ public class BlockDataController extends ADataController {
      */
     public void removeUniversalBlockData(UUID uuid) {
         checkDestroy();
+        requireCompleteInventoryLoad(uuid.toString());
 
         var toRemove = loadedUniversalData.get(uuid);
 
@@ -514,6 +533,11 @@ public class BlockDataController extends ADataController {
 
     void removeBlockDirectly(Location l) {
         checkDestroy();
+        requireMutableBlockLocation(l);
+        deleteBlockRecordAfterPreflight(l);
+    }
+
+    private void deleteBlockRecordAfterPreflight(Location l) {
         var scopeKey = new LocationKey(DataScope.NONE, l);
         removeDelayedDataUpdates(scopeKey);
 
@@ -524,12 +548,30 @@ public class BlockDataController extends ADataController {
 
     void removeUniversalBlockDirectly(UUID uuid) {
         checkDestroy();
+        requireCompleteInventoryLoad(uuid.toString());
         var scopeKey = new UUIDKey(DataScope.NONE, uuid);
         removeDelayedDataUpdates(scopeKey);
 
         var key = new RecordKey(DataScope.UNIVERSAL_RECORD);
         key.addCondition(FieldKey.UNIVERSAL_UUID, uuid.toString());
         scheduleDeleteTask(scopeKey, key, true);
+    }
+
+    SlimefunBlockData removeChunkBlockData(SlimefunChunkData chunk, Location location) {
+        checkDestroy();
+        requireMutableBlockLocation(location);
+        return removeChunkBlockDataAfterPreflight(chunk, location);
+    }
+
+    private SlimefunBlockData removeChunkBlockDataAfterPreflight(SlimefunChunkData chunk, Location location) {
+        var removed = chunk.removeBlockDataCacheInternal(LocationUtils.getLocKey(location));
+        if (removed == null && chunk.isDataLoaded()) {
+            return null;
+        }
+        // Preserve the existing cache tombstone and record-cascade behavior. Only a
+        // private, fully preflighted migration may reach this with its source guard set.
+        deleteBlockRecordAfterPreflight(location);
+        return removed;
     }
 
     /**
@@ -741,6 +783,9 @@ public class BlockDataController extends ADataController {
     }
 
     private void move(SlimefunBlockData blockData, Location target) {
+        checkDestroy();
+        requireMutableBlockLocation(blockData.getLocation());
+        requireMutableBlockLocation(target);
         if (LocationUtils.isSameLoc(blockData.getLocation(), target)) {
             return;
         }
@@ -815,12 +860,16 @@ public class BlockDataController extends ADataController {
     }
 
     private void move(SlimefunUniversalBlockData uniData, Location target) {
+        checkDestroy();
+        requireCompleteInventoryLoad(uniData.getKey());
+        requireMutableBlockLocation(target);
         var lastPresent = uniData.getLastPresent();
         if (lastPresent == null) {
             uniData.setLastPresent(target);
             return;
         }
         var loc = lastPresent.toLocation();
+        requireMutableBlockLocation(loc);
 
         if (LocationUtils.isSameLoc(loc, target)) {
             return;
@@ -1163,7 +1212,20 @@ public class BlockDataController extends ADataController {
                 return;
             }
             incompleteInventoryLoads.add(uniData.getKey());
+            if (uniData instanceof SlimefunUniversalBlockData block) {
+                inventoryRecoveryLocations.remember(uniData.getKey(), block.getKnownLocationKey());
+            }
             var kvData = getData(key);
+            if (uniData.hasTrait(UniversalDataTrait.BLOCK)) {
+                for (RecordSet row : kvData) {
+                    if (UniversalDataTrait.BLOCK.getReservedKey().equals(row.getString(FieldKey.DATA_KEY))) {
+                        inventoryRecoveryLocations.remember(
+                                uniData.getKey(),
+                                InventoryRecoveryLocations.canonicalLocationKey(
+                                        DataUtils.blockDataDebase64(row.getString(FieldKey.DATA_VALUE))));
+                    }
+                }
+            }
             var menuKey = new RecordKey(DataScope.UNIVERSAL_INVENTORY);
             menuKey.addCondition(FieldKey.UNIVERSAL_UUID, uniData.getKey());
             menuKey.addField(FieldKey.INVENTORY_SLOT);
@@ -1194,7 +1256,6 @@ public class BlockDataController extends ADataController {
                     invSnapshots.put(uniData.getKey(), new InvSnapshot(content));
                 }
             }
-            incompleteInventoryLoads.remove(uniData.getKey());
             // Publish ticking only after the entire stored inventory was decoded and installed.
             if (uniData instanceof SlimefunUniversalBlockData ubd && ubd.hasTrait(UniversalDataTrait.BLOCK)) {
                 var sfItem = SlimefunItem.getById(ubd.getSfId());
@@ -1202,6 +1263,8 @@ public class BlockDataController extends ADataController {
                     Slimefun.getTickerTask().enableTicker(ubd.getLastPresent().toLocation(), ubd.getUUID());
                 }
             }
+            incompleteInventoryLoads.remove(uniData.getKey());
+            inventoryRecoveryLocations.clear(uniData.getKey());
         } catch (Exception | LinkageError failure) {
             incompleteInventoryLoads.add(uniData.getKey());
             uniData.setIsDataLoaded(false);
@@ -1310,6 +1373,44 @@ public class BlockDataController extends ADataController {
         }
     }
 
+    /**
+     * Reports whether a known incomplete inventory load protects this block position.
+     * This read-only check does not fetch data, resolve chunks, or clear recovery state.
+     * Callers handling player events should cancel before producing drops or changing blocks.
+     */
+    public boolean isInventoryMutationBlocked(@Nonnull Location location) {
+        if (incompleteInventoryLoads.isEmpty() && inventoryRecoveryLocations.isEmpty()) {
+            return false;
+        }
+        String key = LocationUtils.getLocKey(location);
+        return incompleteInventoryLoads.contains(key) || inventoryRecoveryLocations.containsLocation(key);
+    }
+
+    void requireMutableBlockLocation(Location location) {
+        requireCompleteInventoryLoad(LocationUtils.getLocKey(location));
+        requireNoIncompleteUniversalAt(location);
+    }
+
+    private void requireNoIncompleteUniversalAt(Location location) {
+        String key = LocationUtils.getLocKey(location);
+        if (inventoryRecoveryLocations.containsLocation(key)) {
+            throw StoredInventoryReader.refused(key, "a universal inventory at this location needs recovery", null);
+        }
+    }
+
+    private void requireMutableScope(World world, @Nullable Chunk chunk) {
+        String prefix = world.getName() + ";";
+        Set<String> protectedLocations = new HashSet<>(incompleteInventoryLoads);
+        protectedLocations.addAll(inventoryRecoveryLocations.locationKeys());
+        for (String key : protectedLocations) {
+            if (key.startsWith(prefix)
+                    && (chunk == null
+                            || InventoryRecoveryLocations.isInChunk(key, prefix, chunk.getX(), chunk.getZ()))) {
+                throw StoredInventoryReader.refused(key, "bulk removal includes an incomplete inventory", null);
+            }
+        }
+    }
+
     public void saveBlockInventory(SlimefunBlockData blockData) {
         saveBlockInventoryAsync(blockData).whenComplete((ignored, failure) -> {
             if (failure != null) {
@@ -1367,6 +1468,8 @@ public class BlockDataController extends ADataController {
     }
 
     public void removeAllDataInChunk(Chunk chunk) {
+        checkDestroy();
+        requireMutableScope(chunk.getWorld(), chunk);
         var cKey = LocationUtils.getChunkKey(chunk);
         var cache = loadedChunk.remove(cKey);
 
@@ -1384,6 +1487,8 @@ public class BlockDataController extends ADataController {
     }
 
     public void removeAllDataInWorld(World world) {
+        checkDestroy();
+        requireMutableScope(world, null);
         // 1. remove block cache
         var loadedBlockData = new HashSet<SlimefunBlockData>();
         for (var chunkData : getAllLoadedChunkData(world)) {
@@ -1951,7 +2056,8 @@ public class BlockDataController extends ADataController {
                                 DataUtils.blockDataDebase64(record.getString(FieldKey.DATA_VALUE))));
             }
 
-            var universalData = createUniversalBlock(l, sfId);
+            requireNoIncompleteUniversalAt(l);
+            var universalData = createUniversalBlockAfterPreflight(l, sfId);
 
             Slimefun.runSyncAt(
                     l,
@@ -1974,7 +2080,11 @@ public class BlockDataController extends ADataController {
                 }
             }
 
-            removeBlockData(l);
+            // The source inventory/KV data above was fully decoded. Do not clear its
+            // recovery guard to call a public mutation API: that would open a bypass to
+            // other threads. The loader clears the guard only when this method returns.
+            var removed = removeChunkBlockDataAfterPreflight(getChunkDataCache(l.getChunk(), true), l);
+            finishBlockDataRemoval(l, removed);
 
             if (Slimefun.getRegistry().getTickerBlocks().contains(universalData.getSfId())) {
                 Slimefun.getTickerTask()

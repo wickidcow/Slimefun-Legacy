@@ -70,6 +70,12 @@ public class BlockListener implements Listener {
         if (!e.canBuild()) {
             return;
         }
+        if (Slimefun.getDatabaseManager()
+                .getBlockDataController()
+                .isInventoryMutationBlocked(e.getBlock().getLocation())) {
+            e.setCancelled(true);
+            return;
+        }
         Block block = e.getBlock();
         var loc = block.getLocation();
 
@@ -113,6 +119,12 @@ public class BlockListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent e) {
         if (!e.canBuild()) {
+            return;
+        }
+        if (Slimefun.getDatabaseManager()
+                .getBlockDataController()
+                .isInventoryMutationBlocked(e.getBlock().getLocation())) {
+            e.setCancelled(true);
             return;
         }
         ItemStack item = e.getItemInHand();
@@ -169,6 +181,13 @@ public class BlockListener implements Listener {
 
         // Also ignore custom blocks which were placed by other plugins
         if (Slimefun.getIntegrations().isCustomBlock(e.getBlock())) {
+            return;
+        }
+
+        if (Slimefun.getDatabaseManager()
+                .getBlockDataController()
+                .isInventoryMutationBlocked(e.getBlock().getLocation())) {
+            e.setCancelled(true);
             return;
         }
 
@@ -316,6 +335,9 @@ public class BlockListener implements Listener {
 
         if (SlimefunTag.SENSITIVE_MATERIALS.isTagged(blockAbove.getType())) {
             var loc = blockAbove.getLocation();
+            if (Slimefun.getDatabaseManager().getBlockDataController().isInventoryMutationBlocked(loc)) {
+                return;
+            }
             var blockData = StorageCacheUtils.getDataContainer(loc);
             SlimefunItem sfItem = StorageCacheUtils.getSlimefunItem(loc);
 
