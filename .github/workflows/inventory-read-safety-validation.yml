@@ -1,0 +1,163 @@
+name: Legacy Inventory Read Safety Validation
+
+on:
+  push:
+    branches: ['work/legacy-inventory-read-safety']
+
+concurrency:
+  group: legacy-inventory-read-safety-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - name: Check out exact baseline and reviewed patch
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Apply hash-verified read-safety changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p audit-evidence
+          python3 - <<'PY'
+          import gzip, hashlib, json
+          from pathlib import Path
+          def blob(data):
+              return hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+          compressed = Path('.audit/read-safety.patch.json.gz').read_bytes()
+          assert blob(compressed) == '5e0d55cfc672918db87ef6fde462abe9d984d4c9'
+          changes = json.loads(gzip.decompress(compressed))
+          assert len(changes) == 8
+          prepared = {}
+          for change in changes:
+              path = Path(change['path'])
+              assert not path.is_absolute() and '..' not in path.parts
+              assert str(path).startswith(('src/main/java/', 'src/test/java/', 'scripts/verify_'))
+              if change['old'] is None:
+                  assert not path.exists(), path
+                  output = change['content'].encode()
+              else:
+                  original = path.read_bytes()
+                  assert blob(original) == change['old'], (path, blob(original))
+                  lines = original.decode().splitlines(keepends=True)
+                  for start, end, text in reversed(change['edits']):
+                      lines[start:end] = [text]
+                  output = ''.join(lines).encode()
+              assert blob(output) == change['new'], (path, blob(output))
+              prepared[path] = output
+          for path, output in prepared.items():
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_bytes(output)
+              print('REVIEWED_SOURCE', blob(output), path)
+          Path('audit-evidence/reviewed-paths.json').write_text(json.dumps([str(p) for p in prepared]))
+          PY
+          git diff --check
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Run complete source invariants before formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_legacy.py . 2>&1 | tee audit-evidence/invariants.log
+      - name: Reproduce old backpack read failure without substituting a compiler error
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon
+          PROFILE='src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/ProfileDataController.java'
+          cp "$PROFILE" "$RUNNER_TEMP/fixed-profile.java"
+          trap 'cp "$RUNNER_TEMP/fixed-profile.java" "$PROFILE"' EXIT
+          test "$(git rev-parse "HEAD:$PROFILE")" = '7f03667da710fd3012adb3c0d0c4326721c136c6'
+          git show "HEAD:$PROFILE" > "$PROFILE"
+          set +e
+          ./gradlew test --tests '*InventoryReadFailureTest.failedLoadRetainsRowsBlocksSavesAndRecoversOnlyAfterCompleteRetry' --console=plain --no-daemon > audit-evidence/original-load.log 2>&1
+          STATUS=$?
+          set -e
+          test "$STATUS" -ne 0
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          file = Path('build/test-results/test/TEST-com.xzavier0722.mc.plugin.slimefun4.storage.controller.InventoryReadFailureTest.xml')
+          suite = ET.parse(file).getroot()
+          assert suite.get('tests') == '3' and suite.get('failures') == '1' and suite.get('skipped') == '0', suite.attrib
+          assert 'nothing was thrown' in file.read_text(), file.read_text()
+          Path('audit-evidence/original-load.xml').write_bytes(file.read_bytes())
+          print('Original backpack reader reproduced: corrupt item data was accepted as an empty loaded slot.')
+          PY
+      - name: Build and test corrected readers
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew spotlessApply --no-daemon
+          ./gradlew clean --console=plain --no-daemon
+          mkdir -p build/reports
+          ./gradlew build -PslimefunDeprecationReport=true --console=plain --no-daemon 2>&1 | tee build/reports/deprecation-compile.log
+          python3 scripts/summarize_deprecations.py build/reports/deprecation-compile.log --fail-on-warnings --require-successful-build
+          git diff --check
+      - name: Record actual test results
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          totals = dict.fromkeys(('tests', 'failures', 'errors', 'skipped'), 0)
+          new = 0
+          for file in Path('build/test-results/test').glob('TEST-*.xml'):
+              suite = ET.parse(file).getroot()
+              for key in totals:
+                  totals[key] += int(suite.get(key, '0'))
+              if any(name in file.name for name in ('StoredInventoryReaderTest', 'InventoryReadFailureTest')):
+                  print('Read-safety suite:', suite.attrib)
+                  assert all(int(suite.get(k, '0')) == 0 for k in ('failures', 'errors', 'skipped'))
+                  new += int(suite.get('tests', '0'))
+          assert new == 22, new
+          assert totals['failures'] == totals['errors'] == 0, totals
+          print('Full suite:', totals)
+          Path('audit-evidence/results.txt').write_text(f'New read-safety tests: {new} passed\nFull suite: {totals}\n')
+          PY
+      - name: Preserve the validated source blobs without moving refs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, json, os, subprocess
+          from pathlib import Path
+          manifest = {}
+          for path in json.loads(Path('audit-evidence/reviewed-paths.json').read_text()):
+              data = Path(path).read_bytes()
+              expected = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+              body = json.dumps({'content': base64.b64encode(data).decode(), 'encoding': 'base64'})
+              result = subprocess.run(['gh', 'api', '--method', 'POST', f"repos/{os.environ['GITHUB_REPOSITORY']}/git/blobs", '--input', '-', '--jq', '.sha'], input=body, text=True, capture_output=True, check=True)
+              assert result.stdout.strip() == expected
+              manifest[path] = expected
+              output = Path('audit-evidence/validated-source') / path
+              output.parent.mkdir(parents=True, exist_ok=True)
+              output.write_bytes(data)
+              print('VALIDATED_BLOB', expected, path)
+          Path('audit-evidence/validated-blobs.json').write_text(json.dumps(manifest, indent=2) + '\n')
+          PY
+      - name: Upload validation evidence only
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: legacy-inventory-read-safety-evidence
+          path: |
+            audit-evidence/
+            build/test-results/test/TEST-*.xml
+            build/reports/deprecation-compile.log
+            build/reports/deprecations.md
+          if-no-files-found: warn
