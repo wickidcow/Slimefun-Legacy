@@ -3,6 +3,7 @@ package com.xzavier0722.mc.plugin.slimefun4.storage.util;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -10,12 +11,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.FieldKey;
-import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordSet;
+import com.xzavier0722.mc.plugin/slimefun4/storage/common/RecordSet;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -68,6 +70,21 @@ class ItemStackDataCodecCompatibilityTest {
             assertPreserved(expected, ItemStackDataCodec.deserialize(stored));
             assertArrayEquals(original, stored, "Reading must not rewrite the stored representation");
         }
+
+        // Prove the structural assertions reject real corruption, not merely
+        // different in-memory array identities after deserialization.
+        var changedArray = expected.clone();
+        var arrayMeta = changedArray.getItemMeta();
+        arrayMeta.getPersistentDataContainer().set(key("legacyaddon:bytes"),
+                PersistentDataType.BYTE_ARRAY, new byte[] {0, -1, 43, 127});
+        changedArray.setItemMeta(arrayMeta);
+        assertThrows(AssertionError.class, () -> assertPreserved(expected, changedArray));
+
+        var changedType = expected.clone();
+        var typeMeta = changedType.getItemMeta();
+        typeMeta.getPersistentDataContainer().set(CHARGE, PersistentDataType.DOUBLE, 123.5D);
+        changedType.setItemMeta(typeMeta);
+        assertThrows(AssertionError.class, () -> assertPreserved(expected, changedType));
     }
 
     @Test
@@ -216,8 +233,32 @@ class ItemStackDataCodecCompatibilityTest {
         assertNotNull(actual);
         assertEquals(expected.getType(), actual.getType());
         assertEquals(expected.getAmount(), actual.getAmount());
-        assertEquals(expected.getItemMeta(), actual.getItemMeta(), "All metadata and typed persistent values must survive");
-        assertTrue(expected.isSimilar(actual));
+        // ItemMeta equality in a mock can compare primitive arrays by identity.
+        // Compare the entire serialized metadata tree, including keys and scalar
+        // types, and compare primitive arrays by content instead.
+        assertStoredValue(expected.getItemMeta().serialize(), actual.getItemMeta().serialize(), "ItemMeta");
+    }
+
+    private static void assertStoredValue(Object expected, Object actual, String path) {
+        if (expected instanceof byte[] bytes) {
+            assertArrayEquals(bytes, assertInstanceOf(byte[].class, actual, path), path);
+        } else if (expected instanceof int[] ints) {
+            assertArrayEquals(ints, assertInstanceOf(int[].class, actual, path), path);
+        } else if (expected instanceof long[] longs) {
+            assertArrayEquals(longs, assertInstanceOf(long[].class, actual, path), path);
+        } else if (expected instanceof Map<?, ?> map) {
+            var actualMap = assertInstanceOf(Map.class, actual, path);
+            assertEquals(map.keySet(), actualMap.keySet(), path);
+            map.forEach((key, value) -> assertStoredValue(value, actualMap.get(key), path + "." + key));
+        } else if (expected instanceof List<?> list) {
+            var actualList = assertInstanceOf(List.class, actual, path);
+            assertEquals(list.size(), actualList.size(), path);
+            for (int index = 0; index < list.size(); index++) {
+                assertStoredValue(list.get(index), actualList.get(index), path + "[" + index + "]");
+            }
+        } else {
+            assertEquals(expected, actual, path);
+        }
     }
 
     @SuppressWarnings("deprecation") // Reproduce the historical storage format, never used in production writing.
