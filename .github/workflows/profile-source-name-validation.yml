@@ -22,13 +22,17 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: gradle
-      - name: Reproduce the original controller defect with a real assertion
+      - name: Pin validation source identity before any Gradle task
+        run: |
+          echo "SOURCE_COMMIT=$GITHUB_SHA" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
+      - name: Reproduce the original controller defect
         run: |
           set -euo pipefail
           mkdir -p profile-evidence
           chmod +x gradlew
           set +e
-          ./gradlew test --tests '*ProfileSourceNameTest.keepsTheSuppliedNameWhenUuidLookupDoesNotKnowTheMachinePlayer' --no-daemon --console=plain > profile-evidence/negative-build.log 2>&1
+          ./gradlew test --tests '*ProfileSourceNameTest.keepsTheSuppliedNameWhenUuidLookupDoesNotKnowTheMachinePlayer' --no-daemon --no-build-cache --no-configuration-cache --console=plain > profile-evidence/negative-build.log 2>&1
           STATUS=$?
           set -e
           test "$STATUS" -ne 0
@@ -36,70 +40,62 @@ jobs:
           from pathlib import Path
           import shutil, xml.etree.ElementTree as ET
           paths=list(Path('build/test-results/test').glob('*ProfileSourceNameTest.xml'))
-          assert len(paths)==1, 'A compilation/setup error is not the intended negative control'
+          assert len(paths)==1, 'Compilation/setup failures are not negative-control evidence'
           root=ET.parse(paths[0]).getroot()
           assert root.attrib['tests']=='1' and root.attrib['failures']=='1' and root.attrib['errors']=='0'
-          failures=root.findall('.//failure')
-          assert len(failures)==1 and 'SE_Butcher' in failures[0].get('message',''), ET.tostring(root).decode()
-          assert failures[0].get('type')=='org.opentest4j.AssertionFailedError'
+          failure=root.find('.//failure')
+          assert failure is not None and 'SE_Butcher' in failure.get('message','')
+          assert failure.get('type')=='org.opentest4j.AssertionFailedError'
           shutil.copy2(paths[0], 'profile-evidence/negative-control.xml')
-          print('Original controller lost the supplied name; intended assertion reproduced.')
           PY
-      - name: Apply only the exact profile-name correction
+      - name: Restore only the two reviewed and previously tested source files
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY'
-          import hashlib
+          import hashlib,io,json,subprocess,zipfile
           from pathlib import Path
-          p=Path('src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/ProfileDataController.java')
-          data=p.read_bytes()
-          blob=lambda b: hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
-          assert blob(data)=='032df51e806d0945225840590fc78dff8a6f7c81'
-          old='''        key.addCondition(FieldKey.PLAYER_UUID, uuid);
-                  scheduleWriteTask(new UUIDKey(DataScope.NONE, p.getUniqueId()), key, getRecordSet(re), true);
-                  return re;'''
-          new='''        key.addCondition(FieldKey.PLAYER_UUID, uuid);
-                  var data = getRecordSet(re);
-                  // UUID-only offline lookups can lack a name for an unregistered machine player.
-                  // Retain the caller's known name so the NOT NULL parent row is not silently ignored.
-                  // When no name was supplied, preserve the existing profile-owner lookup behavior.
-                  var suppliedName = p.getName();
-                  if (suppliedName != null) {
-                      data.put(FieldKey.PLAYER_NAME, suppliedName);
-                  }
-                  scheduleWriteTask(new UUIDKey(DataScope.NONE, p.getUniqueId()), key, data, true);
-                  return re;'''
-          text=data.decode()
-          assert text.count(old)==1
-          result=text.replace(old,new).encode()
-          assert blob(result)=='3f471ce1f03789dda1051aeefb245b0f7da4d4bc'
-          p.write_bytes(result)
+          expected={
+              'src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/ProfileDataController.java':'3f471ce1f03789dda1051aeefb245b0f7da4d4bc',
+              'src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/ProfileSourceNameTest.java':'8f04798773db110aebc7a5f11ef64130498d70c2',
+          }
+          blob=lambda b:hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          production=next(iter(expected))
+          assert blob(Path(production).read_bytes())=='032df51e806d0945225840590fc78dff8a6f7c81'
+          raw=subprocess.run(['gh','api','repos/wickidcow/Slimefun-Legacy/actions/artifacts/11132925086/zip'],capture_output=True,check=True,timeout=120).stdout
+          assert hashlib.sha256(raw).hexdigest()=='1f55c210aafb9f8ffb72912f2fbaddf211d8eb6e6e0eccd2f3427407597970ec'
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              assert json.loads(z.read('reviewed-blobs.json'))==expected
+              for name,digest in expected.items():
+                  b=z.read('reviewed-source/'+name)
+                  assert blob(b)==digest,name
+                  Path(name).write_bytes(b)
+          Path('profile-evidence/reviewed-blobs.json').write_text(json.dumps(expected,indent=2)+'\n')
           PY
-      - name: Run all core invariants and the full corrected build
+          git diff --check
+      - name: Run all invariants and the full corrected uncached build
         run: |
           set -euo pipefail
-          # Match normal CI: source guards precede formatting. No verifier is disabled.
           python3 scripts/verify_legacy.py . 2>&1 | tee profile-evidence/invariants.log
-          ./gradlew spotlessApply --no-daemon
-          ./gradlew clean --no-daemon
-          ./gradlew build -PslimefunDeprecationReport=true --no-daemon --console=plain 2>&1 | tee profile-evidence/corrected-build.log
+          ./gradlew spotlessApply --no-daemon --no-build-cache --no-configuration-cache
+          ./gradlew clean --no-daemon --no-build-cache --no-configuration-cache
+          ./gradlew build -PslimefunDeprecationReport=true --no-daemon --no-build-cache --no-configuration-cache --console=plain 2>&1 | tee profile-evidence/corrected-build.log
           python3 scripts/summarize_deprecations.py profile-evidence/corrected-build.log --fail-on-warnings --require-successful-build
           python3 - <<'PY'
+          import hashlib,json,shutil,xml.etree.ElementTree as ET
           from pathlib import Path
-          import json,hashlib,shutil,xml.etree.ElementTree as ET
-          reports=list(Path('build/test-results/test').glob('*ProfileSourceNameTest.xml'))
-          assert len(reports)==1
-          root=ET.parse(reports[0]).getroot()
-          assert root.attrib['tests']=='8' and all(root.attrib[k]=='0' for k in ['failures','errors','skipped']), root.attrib
-          manifest={}
-          for name in ['src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/ProfileDataController.java','src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/ProfileSourceNameTest.java']:
+          paths=list(Path('build/test-results/test').glob('*ProfileSourceNameTest.xml'))
+          assert len(paths)==1
+          r=ET.parse(paths[0]).getroot()
+          assert r.get('tests')=='8' and all(r.get(k)=='0' for k in ['failures','errors','skipped']),r.attrib
+          for name,expected in json.loads(Path('profile-evidence/reviewed-blobs.json').read_text()).items():
               b=Path(name).read_bytes()
-              manifest[name]=hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
-              dest=Path('profile-evidence/reviewed-source')/name
-              dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(b)
-          Path('profile-evidence/reviewed-blobs.json').write_text(json.dumps(manifest,indent=2)+'\n')
+              assert hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()==expected,name
+              target=Path('profile-evidence/reviewed-source',name)
+              target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(b)
           shutil.copytree('build/test-results/test','profile-evidence/test-results',dirs_exist_ok=True)
           PY
-      - name: Check the installable core JAR
+      - name: Verify packaged source identity and Java 21 output
         run: |
           set -euo pipefail
           JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
@@ -109,29 +105,21 @@ jobs:
           mkdir -p profile-candidate
           cp "$JAR" profile-candidate/Slimefun-Legacy-profile-candidate.jar
           sha256sum profile-candidate/*.jar > profile-evidence/jar-sha256.txt
-      - name: Stage exact reviewed blobs without updating refs or publishing
+      - name: Stage reviewed blobs without moving refs or publishing
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY'
-          from pathlib import Path
           import hashlib,json,subprocess
-          manifest=json.loads(Path('profile-evidence/reviewed-blobs.json').read_text())
-          assert len(manifest)==2
-          for name,expected in manifest.items():
+          from pathlib import Path
+          files=json.loads(Path('profile-evidence/reviewed-blobs.json').read_text())
+          assert len(files)==2
+          for name,expected in files.items():
               data=Path('profile-evidence/reviewed-source',name).read_bytes()
               assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()==expected
-              result=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],
-                  input=json.dumps(dict(content=data.decode(),encoding='utf-8')),text=True,capture_output=True,check=True)
+              result=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps(dict(content=data.decode(),encoding='utf-8')),capture_output=True,text=True,check=True)
               assert json.loads(result.stdout)['sha']==expected
           PY
-      - name: Preserve actual test reports even after a failed build
-        if: always()
-        run: |
-          if test -d build/test-results/test; then
-            mkdir -p profile-evidence/final-test-results
-            cp build/test-results/test/TEST-*.xml profile-evidence/final-test-results/ || true
-          fi
       - uses: actions/upload-artifact@v7
         if: always()
         with:
