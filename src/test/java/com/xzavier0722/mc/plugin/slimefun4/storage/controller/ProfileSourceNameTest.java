@@ -1,7 +1,6 @@
 package com.xzavier0722.mc.plugin.slimefun4.storage.controller;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataScope;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.FieldKey;
@@ -10,6 +9,7 @@ import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordSet;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.ScopeKey;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -24,18 +24,21 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
 
 /** Actual profile/controller records, with captured submissions and an explicit SQLite foreign-key fixture. */
 class ProfileSourceNameTest {
     private InventoryReadTestPlugin fixture;
     private RecordingProfiles profiles;
+    private ServerMock server;
 
     @TempDir
     Path directory;
 
     @BeforeEach
     void setUp() {
-        fixture = new InventoryReadTestPlugin(MockBukkit.mock());
+        server = MockBukkit.mock();
+        fixture = new InventoryReadTestPlugin(server);
         profiles = new RecordingProfiles();
     }
 
@@ -109,8 +112,12 @@ class ProfileSourceNameTest {
 
     @Test
     void missingSuppliedNameRetainsTheExistingOwnerLookupBehavior() {
-        var profile = profiles.createProfile(source(UUID.randomUUID(), null));
-        assertEquals(profile.getOwner().getName(), profiles.writes.getFirst().data().getString(FieldKey.PLAYER_NAME));
+        // Unknown UUID lookups in MockBukkit create a differently named mock on each call.
+        // A registered owner makes the existing lookup path deterministic without inventing a fallback.
+        var knownOwner = server.addPlayer();
+        var profile = profiles.createProfile(source(knownOwner.getUniqueId(), null));
+        assertEquals(knownOwner.getName(), profiles.writes.getFirst().data().getString(FieldKey.PLAYER_NAME));
+        assertEquals(knownOwner.getUniqueId(), profile.getUUID());
     }
 
     @Test
@@ -151,10 +158,16 @@ class ProfileSourceNameTest {
     }
 
     private static OfflinePlayer source(UUID uuid, String name) {
-        var source = mock(OfflinePlayer.class);
-        when(source.getUniqueId()).thenReturn(uuid);
-        when(source.getName()).thenReturn(name);
-        return source;
+        return (OfflinePlayer) Proxy.newProxyInstance(
+                OfflinePlayer.class.getClassLoader(), new Class<?>[] {OfflinePlayer.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "getUniqueId" -> uuid;
+                    case "getName" -> name;
+                    case "toString" -> "Profile source " + uuid;
+                    case "hashCode" -> System.identityHashCode(proxy);
+                    case "equals" -> proxy == args[0];
+                    default -> throw new UnsupportedOperationException(method.toString());
+                });
     }
 
     private Connection open() throws SQLException {
