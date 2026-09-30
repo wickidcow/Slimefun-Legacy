@@ -25,6 +25,8 @@ ALLOWED = {
     "src/main/java/io/github/thebusybiscuit/slimefun4/utils/compatibility/LegacyBukkitCompatibility.java": 2,
     "src/main/java/io/github/thebusybiscuit/slimefun4/utils/compatibility/VersionedItemFlag.java": 1,
     "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/Slimefun.java": 1,
+    # Existing Networks/InfinityLib folders still implement ItemGroup.isHidden(Player).
+    "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/SurvivalSlimefunGuide.java": 1,
 }
 
 PATTERN = re.compile(r'@SuppressWarnings\s*\((?:\{[^)]*\}|[^)]*)\)')
@@ -56,6 +58,16 @@ def main() -> int:
         actual = observed.get(rel, 0)
         if actual != expected:
             failures.append(f"{rel} compatibility suppression count changed: expected {expected}, found {actual}")
+
+    guide_path = source_root / "io/github/thebusybiscuit/slimefun4/implementation/guide/SurvivalSlimefunGuide.java"
+    guide = guide_path.read_text(encoding="utf-8")
+    if not re.search(
+        r'@SuppressWarnings\("deprecation"\)\s*//[^\n]*\n\s*'
+        r'static boolean isVisibleInMainMenu\(ItemGroup group, Player player\)\s*\{\s*'
+        r'return group\.isVisible\(player\) && !group\.isHidden\(player\);\s*\}',
+        guide,
+    ):
+        failures.append("Guide hiding compatibility suppression must stay on the single legacy visibility check")
 
     if failures:
         print("Deprecation suppression verification: FAIL")

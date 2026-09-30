@@ -202,7 +202,6 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.weapons.VampireBl
 import io.github.thebusybiscuit.slimefun4.utils.ColoredMaterial;
 import io.github.thebusybiscuit.slimefun4.utils.HeadTexture;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
-import io.github.thebusybiscuit.slimefun4.utils.compatibility.VersionedPotionEffectType;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -699,7 +698,7 @@ public final class SlimefunItemSetup {
                             null,
                             new ItemStack(Material.IRON_INGOT)
                         },
-                        new PotionEffect[] {new PotionEffect(VersionedPotionEffectType.JUMP_BOOST, 300, 5)},
+                        new PotionEffect[] {new PotionEffect(PotionEffectType.JUMP_BOOST, 300, 5)},
                         SoundEffect.SLIME_BOOTS_FALL_SOUND)
                 .register(plugin);
 
@@ -2240,7 +2239,7 @@ public final class SlimefunItemSetup {
                         true,
                         true,
                         "warrior",
-                        new PotionEffect(VersionedPotionEffectType.STRENGTH, 3600, 2))
+                        new PotionEffect(PotionEffectType.STRENGTH, 3600, 2))
                 .register(plugin);
 
         new Talisman(
@@ -2278,7 +2277,7 @@ public final class SlimefunItemSetup {
                         false,
                         "caveman",
                         50,
-                        new PotionEffect(VersionedPotionEffectType.HASTE, 800, 2))
+                        new PotionEffect(PotionEffectType.HASTE, 800, 2))
                 .register(plugin);
 
         new Talisman(
@@ -2824,7 +2823,7 @@ public final class SlimefunItemSetup {
                             SlimefunItems.STEEL_PLATE,
                             new ItemStack(Material.SLIME_BALL)
                         },
-                        new PotionEffect[] {new PotionEffect(VersionedPotionEffectType.JUMP_BOOST, 300, 5)},
+                        new PotionEffect[] {new PotionEffect(PotionEffectType.JUMP_BOOST, 300, 5)},
                         SoundEffect.SLIME_BOOTS_FALL_SOUND)
                 .register(plugin);
 
@@ -7764,7 +7763,7 @@ public final class SlimefunItemSetup {
                             null,
                             new ItemStack(Material.HONEY_BLOCK)
                         },
-                        new PotionEffect[] {new PotionEffect(VersionedPotionEffectType.JUMP_BOOST, 300, 2)},
+                        new PotionEffect[] {new PotionEffect(PotionEffectType.JUMP_BOOST, 300, 2)},
                         SoundEffect.BEE_BOOTS_FALL_SOUND)
                 .register(plugin);
 
