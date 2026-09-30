@@ -1,0 +1,82 @@
+name: Runtime Configuration Failure Gate Validation
+
+on:
+  push:
+    branches: ['work/runtime-config-gate-validation-20260930']
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Apply reviewed test-only runtime gate
+        run: |
+          python3 .audit/apply_runtime_configuration_gate.py
+          bash -n scripts/full_stack_runtime_smoke.sh
+          python3 scripts/test_full_stack_runtime_error_gate.py .
+          git diff --check
+      - name: Verify all retained core invariants
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_legacy.py . 2>&1 | tee audit-evidence/invariants.log
+      - name: Prove the old gate missed the actual second-boot failures
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, importlib.util, io, json, subprocess, zipfile
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location('error_gate', 'scripts/test_full_stack_runtime_error_gate.py')
+          module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+          new = module.pattern_from(Path('scripts/full_stack_runtime_smoke.sh').read_text())
+          old = Path('audit-evidence/old-error-pattern.txt').read_text()
+          cases = [(11128970161, '1.21.11', 'e6652239ebe04da175f4bcf8772409ee0841ab82c7496a471d77046af18fc404'), (11128457937, '26.2', '48c2768e3ed7ad364ffda0c137ef54a421dc23138ab4977a3e3991d5b9aabc6a'), (11128084713, '26.3', 'ec00829c13163472c778a679f43e1e6fe8589626908c755cb52bc5e352896b22')]
+          results = []
+          for artifact, version, digest in cases:
+              raw = subprocess.run(['gh', 'api', f'repos/wickidcow/Slimefun-Legacy/actions/artifacts/{artifact}/zip'], capture_output=True, check=True, timeout=90).stdout
+              assert hashlib.sha256(raw).hexdigest() == digest
+              with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                  for cycle in ('first', 'second'):
+                      files = [name for name in archive.namelist() if name.endswith('/' + cycle + '.normalized.log')]
+                      assert len(files) == 1, files
+                      text = archive.read(files[0]).decode()
+                      legacy = subprocess.run(['grep', '-Eq', old], input=text, text=True, check=False).returncode
+                      strict = subprocess.run(['grep', '-Eq', new], input=text, text=True, check=False).returncode
+                      assert legacy == 1, (version, cycle, 'unexpected old predicate result')
+                      assert strict == (0 if cycle == 'second' else 1), (version, cycle, strict)
+                      results.append(dict(version=version, cycle=cycle, old_rejected=False, new_rejected=strict == 0))
+          Path('audit-evidence/real-log-regression.json').write_text(json.dumps(results, indent=2))
+          print('Verified all three actual configuration failures are now rejected; first boots remain accepted.')
+          PY
+      - name: Preserve only the three validated scripts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, json, os, subprocess
+          from pathlib import Path
+          manifest = json.loads(Path('audit-evidence/source-manifest.json').read_text())
+          for name, expected in manifest.items():
+              data = Path(name).read_bytes()
+              assert hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest() == expected
+              payload = json.dumps({'content': base64.b64encode(data).decode(), 'encoding': 'base64'})
+              result = subprocess.run(['gh', 'api', '--method', 'POST', f"repos/{os.environ['GITHUB_REPOSITORY']}/git/blobs", '--input', '-', '--jq', '.sha'], input=payload, text=True, capture_output=True, check=True)
+              assert result.stdout.strip() == expected
+              output = Path('audit-evidence/tested-source', name)
+              output.parent.mkdir(parents=True, exist_ok=True)
+              output.write_bytes(data)
+              print('VALIDATED_SOURCE_BLOB', expected, name)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: runtime-configuration-gate-evidence
+          path: audit-evidence/
+          retention-days: 14
+          if-no-files-found: warn
