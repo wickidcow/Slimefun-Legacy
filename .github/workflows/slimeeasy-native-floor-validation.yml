@@ -1,0 +1,138 @@
+name: SlimeEasy Native Floor Compatibility Validation
+
+on:
+  push:
+    branches: ['work/slimeeasy-native-floor-validation-20260930']
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: wickidcow/SF_SlimeEasy
+          ref: 072be6eda4ddcfd9d4df1c210979fe735fdb1fa3
+          path: addon
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Apply exact reviewed floor and native wrapper change
+        run: |
+          python3 .audit/apply_slimeeasy_floor.py
+          git -C addon diff --check
+      - name: Supply the exact tested Legacy core
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, io, json, subprocess, zipfile
+          from pathlib import Path
+          raw = subprocess.run(['gh', 'api', 'repos/wickidcow/Slimefun-Legacy/actions/artifacts/11117350932/zip'], check=True, capture_output=True).stdout
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              if 'plugin.yml' not in z.namelist():
+                  jars = [n for n in z.namelist() if n.endswith('.jar')]
+                  assert len(jars) == 1
+                  raw = z.read(jars[0])
+          assert hashlib.sha256(raw).hexdigest() == '48a4871ec83f7d7cdd0af5696ce1efb46c6437fa726575dc6805dc752c239778'
+          libs = Path('addon/libs'); libs.mkdir(exist_ok=True)
+          for path in libs.glob('*.jar'):
+              if 'slimefun' in path.name.lower(): path.unlink()
+          (libs / 'Slimefun-Legacy-Core.jar').write_bytes(raw)
+          Path('audit-evidence/core-provenance.txt').write_text('Core head 788b89e1; tested merge d600e077; SHA256 ' + hashlib.sha256(raw).hexdigest() + '\n')
+          PY
+      - name: Build all real sources on the 1.21.11 API and Java 21 target
+        working-directory: addon
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew clean build cargoRegressionJar --console=plain --no-daemon --no-configuration-cache 2>&1 | tee ../audit-evidence/floor-build.log
+          python3 - <<'PY'
+          import hashlib, json, struct, zipfile
+          from pathlib import Path
+          jar = Path('build/libs/SF_SlimeEasy1.0.5.jar')
+          with zipfile.ZipFile(jar) as z:
+              assert z.testzip() is None
+              assert "api-version: '1.21.11'" in z.read('paper-plugin.yml').decode()
+              for name in z.namelist():
+                  if name.endswith('.class'): assert struct.unpack('>H', z.read(name)[6:8])[0] <= 65, name
+          Path('../audit-evidence/jar-sha256.txt').write_text(hashlib.sha256(jar.read_bytes()).hexdigest() + '\n')
+          print('All candidate classes within Java 21 ceiling; native behavior still requires the runtime steps.')
+          PY
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Actual floor Cargo, native player, clicker, attack and banner behavior
+        working-directory: addon
+        env:
+          OUTPUT_NAME: SF_SlimeEasy1.0.5.jar
+        run: |
+          set -euo pipefail
+          mkdir -p build/regression
+          cp libs/Slimefun-Legacy-Core.jar build/regression/Slimefun-Legacy4.1.61.jar
+          RESULT=0
+          bash scripts/smoke-cargo-regression.sh 1.21.11 > ../audit-evidence/floor-runtime.log 2>&1 || RESULT=$?
+          FOLDER="$(find "$RUNNER_TEMP" -maxdepth 1 -type d -name 'slimeeasy-1.21.11.*' | head -n 1)"
+          test -n "$FOLDER"
+          cp "$FOLDER/server.log" ../audit-evidence/floor-server.log
+          cat ../audit-evidence/floor-runtime.log
+          test "$RESULT" -eq 0
+          grep -Fq SLIMEEASY_NATIVE_FLOOR_REGRESSION_PASS ../audit-evidence/floor-server.log
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Test the same unchanged floor JAR on 26.2 and 26.3
+        working-directory: addon
+        env:
+          OUTPUT_NAME: SF_SlimeEasy1.0.5.jar
+        run: |
+          set -euo pipefail
+          for VERSION in 26.2 26.3; do
+            RESULT=0
+            bash scripts/smoke-cargo-regression.sh "$VERSION" > "../audit-evidence/$VERSION-runtime.log" 2>&1 || RESULT=$?
+            FOLDER="$(find "$RUNNER_TEMP" -maxdepth 1 -type d -name "slimeeasy-$VERSION.*" | head -n 1)"
+            test -n "$FOLDER"
+            cp "$FOLDER/server.log" "../audit-evidence/$VERSION-server.log"
+            cat "../audit-evidence/$VERSION-runtime.log"
+            test "$RESULT" -eq 0
+            grep -Fq SLIMEEASY_NATIVE_FLOOR_REGRESSION_PASS "../audit-evidence/$VERSION-server.log"
+          done
+      - name: Retain exact source and failure logs
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          manifest = Path('audit-evidence/source-manifest.json')
+          if manifest.exists():
+              for name, expected in json.loads(manifest.read_text()).items():
+                  data = Path('addon', name).read_bytes()
+                  assert hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest() == expected
+                  target = Path('audit-evidence/tested-source', name)
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(data)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: slimeeasy-native-floor-evidence
+          path: audit-evidence/
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        with:
+          name: SF_SlimeEasy1.0.5-floor-candidate.jar
+          path: addon/build/libs/SF_SlimeEasy1.0.5.jar
+          archive: false
+          if-no-files-found: error
