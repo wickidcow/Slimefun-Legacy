@@ -22,8 +22,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
@@ -131,7 +131,8 @@ public final class ItemPresentationDoctor {
             itemModelInspector.inspectCandidate(item, itemId, report);
         }
         SlimefunItem sfItem = SlimefunItem.getById(itemId);
-        if (sfItem == null && Slimefun.getRegistry().getLegacySlimefunItemIdTarget(itemId).isPresent()) {
+        if (sfItem == null
+                && Slimefun.getRegistry().getLegacySlimefunItemIdTarget(itemId).isPresent()) {
             report.legacyMigrationCandidateFound(itemId);
         }
 
@@ -155,6 +156,12 @@ public final class ItemPresentationDoctor {
             return repairOrphanedPresentation(item, currentMeta, itemId, hasCjkName, hasCjkLore, repair, report);
         }
 
+        // Dynamic presentation hooks belong to addons. Never run those hooks on
+        // the live player item, including during a read-only scan.
+        ItemStack presentationItem = item.clone();
+        if (presentationItem == item) {
+            throw new IllegalStateException("Item clone did not provide an isolated presentation snapshot");
+        }
         ItemMeta canonicalMeta = sfItem.getItem().getItemMeta();
         String canonicalName = legacyName(canonicalMeta);
         String repairedName = null;
@@ -162,8 +169,8 @@ public final class ItemPresentationDoctor {
             if (canonicalName != null && !ItemDoctorText.containsCjk(canonicalName)) {
                 repairedName = canonicalName;
             } else {
-                repairedName = ItemDoctorText.preserveLeadingFormatting(
-                        currentName, ItemDoctorText.humanizeItemId(itemId));
+                repairedName =
+                        ItemDoctorText.preserveLeadingFormatting(currentName, ItemDoctorText.humanizeItemId(itemId));
             }
         }
 
@@ -179,7 +186,7 @@ public final class ItemPresentationDoctor {
                 loreStillUnresolved = true;
             } else {
                 try {
-                    state = DynamicState.capture(item, sfItem);
+                    state = DynamicState.capture(presentationItem, sfItem);
                     stateCaptured = true;
                 } catch (RuntimeException | LinkageError ex) {
                     report.failure();
@@ -235,13 +242,34 @@ public final class ItemPresentationDoctor {
             if (loreChanged) {
                 setLegacyLore(currentMeta, repairedLore == null || repairedLore.isEmpty() ? null : repairedLore);
             }
-            item.setItemMeta(currentMeta);
+            presentationItem.setItemMeta(currentMeta);
 
             if (hasCjkLore && stateCaptured && state.safelyRestorable) {
-                restoreDynamicPresentation(item, sfItem, state);
+                restoreDynamicPresentation(presentationItem, sfItem, state);
             }
 
-            ItemMeta finalMeta = item.getItemMeta();
+            if (presentationItem.getType() != item.getType()
+                    || presentationItem.getAmount() != item.getAmount()
+                    || !itemId.equals(Slimefun.getItemDataService()
+                            .getItemData(presentationItem)
+                            .orElse(null))) {
+                throw new IllegalStateException("Presentation hook changed item identity, material or amount");
+            }
+            ItemMeta presentationMeta = presentationItem.getItemMeta();
+            ItemMeta finalMeta = originalMeta.clone();
+            finalMeta.displayName(presentationMeta.displayName());
+            finalMeta.lore(presentationMeta.lore());
+            // Retain the existing legacy-lore recovery behavior for missing
+            // dynamic markers, but never overwrite a pre-existing typed value.
+            if (stateCaptured && state.safelyRestorable && state.charge != null) {
+                presentationMeta
+                        .getPersistentDataContainer()
+                        .set(Slimefun.getRegistry().getItemChargeDataKey(), PersistentDataType.FLOAT, state.charge);
+            }
+            presentationMeta.getPersistentDataContainer().copyTo(finalMeta.getPersistentDataContainer(), false);
+            if (!item.setItemMeta(finalMeta)) {
+                throw new IllegalStateException("Item rejected its repaired presentation metadata");
+            }
             String finalName = legacyName(finalMeta);
             List<String> finalLore = legacyLore(finalMeta);
             if ((finalName != null && ItemDoctorText.containsCjk(finalName))
@@ -290,9 +318,7 @@ public final class ItemPresentationDoctor {
         ItemMeta originalMeta = currentMeta.clone();
         try {
             String fallbackName = ItemDoctorText.humanizeItemId(itemId);
-            setLegacyName(
-                    currentMeta,
-                    ItemDoctorText.preserveLeadingFormatting(legacyName(currentMeta), fallbackName));
+            setLegacyName(currentMeta, ItemDoctorText.preserveLeadingFormatting(legacyName(currentMeta), fallbackName));
             item.setItemMeta(currentMeta);
             report.stackRepaired();
             return true;
@@ -330,7 +356,7 @@ public final class ItemPresentationDoctor {
             }
             ItemMeta meta = item.getItemMeta();
             List<String> existingLore = legacyLore(meta);
-        List<String> lore = existingLore == null ? new ArrayList<>() : new ArrayList<>(existingLore);
+            List<String> lore = existingLore == null ? new ArrayList<>() : new ArrayList<>(existingLore);
             if (!lore.contains(SOULBOUND_LORE)) {
                 lore.add(SOULBOUND_LORE);
                 setLegacyLore(meta, lore);
@@ -481,21 +507,17 @@ public final class ItemPresentationDoctor {
     }
 
     private static void setLegacyName(@Nonnull ItemMeta meta, @Nullable String value) {
-        meta.displayName(value == null
-                ? null
-                : LEGACY_SECTION
-                        .deserialize(value)
-                        .decoration(TextDecoration.ITALIC, false));
+        meta.displayName(
+                value == null ? null : LEGACY_SECTION.deserialize(value).decoration(TextDecoration.ITALIC, false));
     }
 
     private static void setLegacyLore(@Nonnull ItemMeta meta, @Nullable List<String> lore) {
-        meta.lore(lore == null
-                ? null
-                : lore.stream()
-                        .map(line -> LEGACY_SECTION
-                                .deserialize(line)
-                                .decoration(TextDecoration.ITALIC, false))
-                        .toList());
+        meta.lore(
+                lore == null
+                        ? null
+                        : lore.stream()
+                                .map(line -> LEGACY_SECTION.deserialize(line).decoration(TextDecoration.ITALIC, false))
+                                .toList());
     }
 
     private static final class DynamicState {
@@ -676,8 +698,7 @@ public final class ItemPresentationDoctor {
                     continue;
                 }
                 String normalized = plain.trim();
-                if (normalized.equals("\u7075\u9B42\u7ED1\u5B9A")
-                        || normalized.equals("\u9748\u9B42\u7D81\u5B9A")) {
+                if (normalized.equals("\u7075\u9B42\u7ED1\u5B9A") || normalized.equals("\u9748\u9B42\u7D81\u5B9A")) {
                     return true;
                 }
             }
