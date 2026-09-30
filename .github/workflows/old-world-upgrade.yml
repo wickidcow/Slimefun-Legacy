@@ -1,0 +1,222 @@
+name: Populated Old-Core Upgrade Compatibility
+
+on:
+  push:
+    branches: ['work/legacy-old-world-upgrade']
+
+permissions:
+  contents: read
+concurrency:
+  group: old-world-upgrade-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    outputs:
+      old_version: ${{ steps.identity.outputs.old_version }}
+      old_source: ${{ steps.identity.outputs.old_source }}
+      candidate_version: ${{ steps.identity.outputs.candidate_version }}
+      candidate_source: ${{ steps.identity.outputs.candidate_source }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - run: python3 .audit/install_upgrade_probe.py
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Resolve exact baseline and candidate
+        id: identity
+        run: |
+          python3 - <<'PY'
+          import json, os, re, subprocess
+          from pathlib import Path
+          registry = json.loads(Path('compatibility/release-baselines.json').read_text())
+          source = registry['previous_stable']['source']['ref']
+          assert re.fullmatch('[a-f0-9]{40}', source)
+          values = dict(old_version=registry['previous_stable']['version'], old_source=source,
+                        candidate_version=registry['candidate']['version'],
+                        candidate_source=subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip())
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as stream:
+              for name, value in values.items():
+                  stream.write(f'{name}={value}\n')
+          PY
+      - name: Test evidence runner and build candidate
+        run: |
+          set -euo pipefail
+          python3 scripts/test_old_world_upgrade.py
+          export SOURCE_COMMIT="$(git rev-parse HEAD)"
+          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon
+          ./gradlew build --console=plain --no-daemon
+          mkdir -p upgrade-artifacts
+          cp 'build/libs/Slimefun-${{ steps.identity.outputs.candidate_version }}.jar' upgrade-artifacts/candidate.jar
+      - name: Check out pinned previous stable
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.identity.outputs.old_source }}
+          path: baseline-source
+          persist-credentials: false
+      - name: Build old producer
+        working-directory: baseline-source
+        run: |
+          set -euo pipefail
+          export SOURCE_COMMIT="$(git rev-parse HEAD)"
+          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon
+          ./gradlew shadowJar --console=plain --no-daemon
+          cp 'build/libs/Slimefun-${{ steps.identity.outputs.old_version }}.jar' ../upgrade-artifacts/baseline.jar
+      - name: Compile one probe against old core and floor API
+        run: |
+          set -euo pipefail
+          export UPGRADE_BASELINE_JAR="$PWD/upgrade-artifacts/baseline.jar"
+          ./gradlew -I compatibility/upgrade-fixture/build-probe.init.gradle legacyUpgradeProbeJar --console=plain --no-daemon --no-configuration-cache
+          cp build/upgrade-probe/LegacyUpgradeProbe.jar upgrade-artifacts/
+          python3 - <<'PY'
+          import zipfile
+          for name in ('candidate', 'baseline'):
+              with zipfile.ZipFile(f'upgrade-artifacts/{name}.jar') as jar:
+                  assert not any('LegacyUpgradeProbe' in entry for entry in jar.namelist()), 'Probe leaked into core'
+          PY
+      - name: Preserve reviewed source blobs without changing branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import base64, gzip, hashlib, json, os, subprocess
+          from pathlib import Path
+          entries = json.loads(gzip.decompress(b''.join(Path(f'.audit/upgrade-fixture.part{i}').read_bytes() for i in range(1, 5))))
+          manifest = {}
+          for entry in entries:
+              path = entry['path']
+              data = Path(path).read_bytes()
+              expected = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+              request = json.dumps({'content': base64.b64encode(data).decode(), 'encoding': 'base64'})
+              result = subprocess.run(['gh', 'api', '--method', 'POST', f"repos/{os.environ['GITHUB_REPOSITORY']}/git/blobs", '--input', '-', '--jq', '.sha'], input=request, text=True, capture_output=True, check=True)
+              assert result.stdout.strip() == expected
+              manifest[path] = expected
+          Path('upgrade-artifacts/reviewed-source.json').write_text(json.dumps(manifest, indent=2))
+          print('Reviewed source blobs; runtime validation must still pass:', manifest)
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: old-world-upgrade-jars
+          path: upgrade-artifacts/
+          retention-days: 14
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: old-world-upgrade-build-failure
+          path: build/reports/
+          if-no-files-found: warn
+
+  producer:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - run: python3 .audit/install_upgrade_probe.py
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/download-artifact@v8
+        with:
+          name: old-world-upgrade-jars
+          path: upgrade-artifacts
+      - name: Create and restart populated old-core fixture
+        run: >-
+          python3 scripts/old_world_upgrade.py seed
+          --old-jar upgrade-artifacts/baseline.jar
+          --old-version '${{ needs.build.outputs.old_version }}'
+          --old-source '${{ needs.build.outputs.old_source }}'
+          --probe upgrade-artifacts/LegacyUpgradeProbe.jar --output build/upgrade-producer
+      - uses: actions/upload-artifact@v7
+        with:
+          name: old-world-upgrade-fixture
+          path: |
+            build/upgrade-producer/fixture.zip
+            build/upgrade-producer/fixture-provenance.json
+          retention-days: 14
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: old-world-producer-evidence
+          path: |
+            build/upgrade-producer/*.json
+            build/upgrade-producer/server/*.console.log
+            build/upgrade-producer/server/*.result.json
+            build/upgrade-producer/server/plugins/LegacyUpgradeProbe/expected.yml
+          retention-days: 14
+          if-no-files-found: warn
+
+  upgrade:
+    needs: [build, producer]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - software: paper
+            minecraft: '1.21.11'
+            java: '21'
+          - software: purpur
+            minecraft: '1.21.11'
+            java: '21'
+          - software: paper
+            minecraft: '26.2'
+            java: '25'
+          - software: paper
+            minecraft: '26.3'
+            java: '25'
+    name: Populated upgrade and restart on ${{ matrix.software }} ${{ matrix.minecraft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - run: python3 .audit/install_upgrade_probe.py
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: old-world-upgrade-jars
+          path: upgrade-artifacts
+      - uses: actions/download-artifact@v8
+        with:
+          name: old-world-upgrade-fixture
+          path: upgrade-fixture
+      - name: Check old data on upgrade restart and same-Minecraft rollback
+        run: >-
+          python3 scripts/old_world_upgrade.py upgrade
+          --fixture upgrade-fixture/fixture.zip --provenance upgrade-fixture/fixture-provenance.json
+          --candidate upgrade-artifacts/candidate.jar --version '${{ needs.build.outputs.candidate_version }}'
+          --source '${{ needs.build.outputs.candidate_source }}'
+          --old-jar upgrade-artifacts/baseline.jar --probe upgrade-artifacts/LegacyUpgradeProbe.jar
+          --software '${{ matrix.software }}' --minecraft '${{ matrix.minecraft }}'
+          --output build/upgrade-consumer
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: upgrade-evidence-${{ matrix.software }}-${{ matrix.minecraft }}
+          path: |
+            build/upgrade-consumer/*.json
+            build/upgrade-consumer/server/*.console.log
+            build/upgrade-consumer/server/*.result.json
+          retention-days: 14
+          if-no-files-found: warn
