@@ -119,6 +119,10 @@ public class SlimefunCommand implements CommandExecutor, Listener {
             sendStorageIntegrityStatus(sender);
             return;
         }
+        if (action.equals("recovery")) {
+            InventoryRecoveryDiagnostics.sendReport(sender, args);
+            return;
+        }
         if (action.equals("plan")) {
             sendStorageRepairPlan(sender, args);
             return;
@@ -133,7 +137,7 @@ public class SlimefunCommand implements CommandExecutor, Listener {
         }
         if (!action.equals("scan")) {
             sender.sendMessage(ChatColors.color(
-                    "&eUsage: /sf doctor storage <status|scan|plan|verify|repair> [page|fingerprint]"));
+                    "&eUsage: /sf doctor storage <status|scan|plan|verify|repair|recovery> [page|fingerprint]"));
             return;
         }
 
@@ -145,7 +149,8 @@ public class SlimefunCommand implements CommandExecutor, Listener {
 
         var scan = StorageIntegrityScanner.startScan(databaseManager.getBlockDataController());
         if (scan == null) {
-            sender.sendMessage(ChatColors.color("&eA storage integrity scan, verification or repair is already running."));
+            sender.sendMessage(
+                    ChatColors.color("&eA storage integrity scan, verification or repair is already running."));
             return;
         }
 
@@ -171,6 +176,7 @@ public class SlimefunCommand implements CommandExecutor, Listener {
     private void sendStorageIntegrityStatus(@Nonnull CommandSender sender) {
         sender.sendMessage(ChatColors.color("&6Slimefun Storage Integrity"));
         sendStorageRuntimeReadiness(sender);
+        InventoryRecoveryDiagnostics.sendSummary(sender);
         if (StorageIntegrityScanner.isScanRunning()) {
             sender.sendMessage(ChatColors.color("&eA storage scan, verification or repair is currently running."));
         }
@@ -195,10 +201,8 @@ public class SlimefunCommand implements CommandExecutor, Listener {
         var backup = Slimefun.getBackupService();
         boolean backupEnabled = Slimefun.getCfg().getBoolean("options.backup-data");
         boolean doctorBusy = Slimefun.getItemDoctorService().getCurrentReport() != null;
-        boolean restartReady = storage.isReady()
-                && storage.getPendingWrites() == 0
-                && pendingBackpackSaves == 0
-                && !doctorBusy;
+        boolean restartReady =
+                storage.isReady() && storage.getPendingWrites() == 0 && pendingBackpackSaves == 0 && !doctorBusy;
 
         sender.sendMessage(ChatColors.color("&7Runtime: " + (storage.isReady() ? "&aReady" : "&cNot ready")
                 + " &8| &7block &e" + storage.getBlockStorageType()
@@ -206,22 +210,21 @@ public class SlimefunCommand implements CommandExecutor, Listener {
         sender.sendMessage(ChatColors.color("&7Persistence: pending writes &e" + storage.getPendingWrites()
                 + " &8| &7backpack saves &e" + pendingBackpackSaves
                 + " &8| &7uncertain baselines " + (uncertainBackpacks == 0 ? "&a0" : "&c" + uncertainBackpacks)));
-        sender.sendMessage(ChatColors.color("&7Previous clean shutdown: "
-                + (storage.wasPreviousShutdownClean() ? "&aYes" : "&eNo")));
+        sender.sendMessage(ChatColors.color(
+                "&7Previous clean shutdown: " + (storage.wasPreviousShutdownClean() ? "&aYes" : "&eNo")));
         if (backup.isApplicable()) {
             long latest = backup.getLatestBackupModifiedMillis();
-            String latestText = latest <= 0L
-                    ? "none"
-                    : Math.max(0L, (System.currentTimeMillis() - latest) / 60_000L) + "m ago";
+            String latestText =
+                    latest <= 0L ? "none" : Math.max(0L, (System.currentTimeMillis() - latest) / 60_000L) + "m ago";
             sender.sendMessage(ChatColors.color("&7Shutdown backup: "
                     + (backupEnabled ? "&aEnabled" : "&eDisabled")
                     + " &8| &7files &e" + backup.getBackupCount() + "&7/&e" + backup.getMaximumBackups()
                     + " &8| &7newest &e" + latestText));
         } else {
-            sender.sendMessage(ChatColors.color("&7Shutdown SQLite backup: &8Not applicable to the active storage backend"));
+            sender.sendMessage(
+                    ChatColors.color("&7Shutdown SQLite backup: &8Not applicable to the active storage backend"));
         }
-        sender.sendMessage(ChatColors.color("&7Planned restart readiness: "
-                + (restartReady ? "&aREADY" : "&eWAIT")));
+        sender.sendMessage(ChatColors.color("&7Planned restart readiness: " + (restartReady ? "&aREADY" : "&eWAIT")));
         if (!restartReady) {
             sender.sendMessage(ChatColors.color(
                     "&8Wait for pending writes/backpack saves/active Doctor traversal before a planned restart."));
@@ -280,8 +283,9 @@ public class SlimefunCommand implements CommandExecutor, Listener {
                 + (snapshot.isDelayedSavingEnabled() ? "&eEnabled" : "&aDisabled")));
 
         sendStorageConfirmationStatus(sender, snapshot, StorageIntegrityScanner.getConfirmationSnapshot());
-        sender.sendMessage(ChatColors.color(
-                "&8The scan itself is observational. Only the explicit fingerprint-gated repair command can remove secondary rows."));
+        sender.sendMessage(
+                ChatColors.color(
+                        "&8The scan itself is observational. Only the explicit fingerprint-gated repair command can remove secondary rows."));
     }
 
     private void sendStorageConfirmationStatus(
@@ -316,8 +320,8 @@ public class SlimefunCommand implements CommandExecutor, Listener {
             sender.sendMessage(ChatColors.color(
                     "&eTwo-pass confirmation: 1/2. The exact candidate set changed, so confirmation restarted."));
         } else {
-            sender.sendMessage(ChatColors.color(
-                    "&eTwo-pass confirmation: 1/2. First quiet ownership snapshot recorded."));
+            sender.sendMessage(
+                    ChatColors.color("&eTwo-pass confirmation: 1/2. First quiet ownership snapshot recorded."));
         }
 
         long waitMillis = confirmation.getRemainingWaitMillis(System.currentTimeMillis());
@@ -326,15 +330,16 @@ public class SlimefunCommand implements CommandExecutor, Listener {
             sender.sendMessage(ChatColors.color("&7Wait at least &e" + waitSeconds
                     + "s &7before another matching quiet scan can become pass 2/2."));
         } else {
-            sender.sendMessage(ChatColors.color(
-                    "&7A second exact matching quiet scan can now advance confirmation to 2/2."));
+            sender.sendMessage(
+                    ChatColors.color("&7A second exact matching quiet scan can now advance confirmation to 2/2."));
         }
     }
 
     private void sendStorageRepairPlan(@Nonnull CommandSender sender, @Nonnull String[] args) {
         if (StorageIntegrityScanner.isScanRunning()) {
-            sender.sendMessage(ChatColors.color(
-                    "&eA storage scan, verification or repair is running. Wait for it to finish before rendering a plan."));
+            sender.sendMessage(
+                    ChatColors.color(
+                            "&eA storage scan, verification or repair is running. Wait for it to finish before rendering a plan."));
             return;
         }
 
@@ -355,8 +360,8 @@ public class SlimefunCommand implements CommandExecutor, Listener {
             sender.sendMessage(ChatColors.color("&eNo confirmed plan is available."));
             sender.sendMessage(ChatColors.color("&7Current confirmation: &e" + confirmation.getQuietPasses()
                     + "/2&7. Two exact matching quiet scans are required before a plan can be rendered."));
-            sender.sendMessage(ChatColors.color(
-                    "&7Run &e/sf doctor storage scan &7and inspect &e/sf doctor storage status&7."));
+            sender.sendMessage(
+                    ChatColors.color("&7Run &e/sf doctor storage scan &7and inspect &e/sf doctor storage status&7."));
             return;
         }
 
@@ -382,7 +387,8 @@ public class SlimefunCommand implements CommandExecutor, Listener {
                 + " &8| &7universal inventory &e" + plan.getUniversalInventoryOwnerCount()));
 
         if (plan.isEmpty()) {
-            sender.sendMessage(ChatColors.color("&aThe confirmed plan is empty. There are no orphan owners to remove."));
+            sender.sendMessage(
+                    ChatColors.color("&aThe confirmed plan is empty. There are no orphan owners to remove."));
         } else {
             sender.sendMessage(ChatColors.color("&7Plan entries: &e" + plan.getTotalCandidateReferences()
                     + " &8| &7page &e" + requestedPage + "&7/&e" + pageCount));
@@ -392,16 +398,18 @@ public class SlimefunCommand implements CommandExecutor, Listener {
                 sender.sendMessage(ChatColors.color(entries.get(i)));
             }
             if (pageCount > 1) {
-                sender.sendMessage(ChatColors.color("&7Use &e/sf doctor storage plan <page> &7to inspect every entry."));
+                sender.sendMessage(
+                        ChatColors.color("&7Use &e/sf doctor storage plan <page> &7to inspect every entry."));
             }
-            sender.sendMessage(ChatColors.color(
-                    "&7Final preflight: &e/sf doctor storage verify " + plan.getFingerprint()));
+            sender.sendMessage(
+                    ChatColors.color("&7Final preflight: &e/sf doctor storage verify " + plan.getFingerprint()));
         }
 
         sender.sendMessage(ChatColors.color(
                 "&8Each entry is a scope-qualified orphan owner whose secondary rows would be repair candidates."));
-        sender.sendMessage(ChatColors.color(
-                "&8Nothing was deleted, migrated, rewritten, force-loaded, or repaired. Verification is also read-only."));
+        sender.sendMessage(
+                ChatColors.color(
+                        "&8Nothing was deleted, migrated, rewritten, force-loaded, or repaired. Verification is also read-only."));
     }
 
     private void startStorageRepairVerification(@Nonnull CommandSender sender, @Nonnull String[] args) {
@@ -413,7 +421,8 @@ public class SlimefunCommand implements CommandExecutor, Listener {
 
         String fingerprint = args[3].trim().toLowerCase(Locale.ROOT);
         if (!isSha256Fingerprint(fingerprint)) {
-            sender.sendMessage(ChatColors.color("&cThe verification fingerprint must be exactly 64 hexadecimal characters."));
+            sender.sendMessage(
+                    ChatColors.color("&cThe verification fingerprint must be exactly 64 hexadecimal characters."));
             return;
         }
 
@@ -423,10 +432,11 @@ public class SlimefunCommand implements CommandExecutor, Listener {
             return;
         }
 
-        var verification = StorageIntegrityScanner.startRepairVerification(
-                databaseManager.getBlockDataController(), fingerprint);
+        var verification =
+                StorageIntegrityScanner.startRepairVerification(databaseManager.getBlockDataController(), fingerprint);
         if (verification == null) {
-            sender.sendMessage(ChatColors.color("&eA storage integrity scan, verification or repair is already running."));
+            sender.sendMessage(
+                    ChatColors.color("&eA storage integrity scan, verification or repair is already running."));
             return;
         }
 
@@ -457,13 +467,14 @@ public class SlimefunCommand implements CommandExecutor, Listener {
             case VERIFIED -> {
                 long remainingSeconds =
                         (verification.getRemainingValidityMillis(System.currentTimeMillis()) + 999L) / 1000L;
-                sender.sendMessage(ChatColors.color("&aVERIFIED: the full fingerprint still matches the exact candidate set."));
+                sender.sendMessage(
+                        ChatColors.color("&aVERIFIED: the full fingerprint still matches the exact candidate set."));
                 sender.sendMessage(ChatColors.color("&7Fingerprint: &e" + verification.getExpectedFingerprint()));
                 sender.sendMessage(ChatColors.color("&7Storage was quiet at both fresh scan boundaries."));
                 sender.sendMessage(ChatColors.color("&7Preflight validity: up to &e" + remainingSeconds
                         + "s&7. Any new integrity scan invalidates it."));
-                sender.sendMessage(ChatColors.color(
-                        "&cRepair is destructive and removes confirmed orphan secondary rows only."));
+                sender.sendMessage(
+                        ChatColors.color("&cRepair is destructive and removes confirmed orphan secondary rows only."));
                 sender.sendMessage(ChatColors.color("&7Run &e/sf doctor storage repair "
                         + verification.getExpectedFingerprint()
                         + " &7within the validity window to execute the guarded repair."));
@@ -471,11 +482,13 @@ public class SlimefunCommand implements CommandExecutor, Listener {
                         "&7For 4.1.46 destructive repair requires &edelayedWriting.enable: false &7and a restart."));
             }
             case FINGERPRINT_REJECTED -> {
-                sender.sendMessage(ChatColors.color("&cREJECTED: that fingerprint does not match the current confirmed plan."));
+                sender.sendMessage(
+                        ChatColors.color("&cREJECTED: that fingerprint does not match the current confirmed plan."));
                 sender.sendMessage(ChatColors.color("&7Render the plan again with &e/sf doctor storage plan&7."));
             }
-            case EMPTY_PLAN -> sender.sendMessage(ChatColors.color(
-                    "&aNo repair preflight is needed because the confirmed candidate plan is empty."));
+            case EMPTY_PLAN ->
+                sender.sendMessage(ChatColors.color(
+                        "&aNo repair preflight is needed because the confirmed candidate plan is empty."));
             case STORAGE_NOT_QUIET -> {
                 sender.sendMessage(ChatColors.color("&cFAILED: storage was not quiet during the revalidation scan."));
                 StorageIntegritySnapshot scan = verification.getVerificationScan();
@@ -485,18 +498,22 @@ public class SlimefunCommand implements CommandExecutor, Listener {
                             + " &8| &7deferred: &e" + formatStorageWriteCount(scan.getPendingDelayedWritesAtStart())
                             + " &8-> &e" + formatStorageWriteCount(scan.getPendingDelayedWritesAtEnd())));
                 }
-                sender.sendMessage(ChatColors.color("&7The two-pass confirmation was reset; scan again after storage is quiet."));
+                sender.sendMessage(
+                        ChatColors.color("&7The two-pass confirmation was reset; scan again after storage is quiet."));
             }
             case CANDIDATE_SET_CHANGED -> {
-                sender.sendMessage(ChatColors.color("&cFAILED: the exact orphan candidate set changed during revalidation."));
+                sender.sendMessage(
+                        ChatColors.color("&cFAILED: the exact orphan candidate set changed during revalidation."));
                 if (verification.getObservedFingerprint() != null) {
-                    sender.sendMessage(ChatColors.color("&7Observed fingerprint: &e" + verification.getObservedFingerprint()));
+                    sender.sendMessage(
+                            ChatColors.color("&7Observed fingerprint: &e" + verification.getObservedFingerprint()));
                 }
                 sender.sendMessage(ChatColors.color(
                         "&7Confirmation restarted at 1/2. Review the new scan before considering repair."));
             }
             case CONFIRMATION_INVALIDATED -> {
-                sender.sendMessage(ChatColors.color("&cFAILED: there is no longer a valid 2/2 confirmation for this plan."));
+                sender.sendMessage(
+                        ChatColors.color("&cFAILED: there is no longer a valid 2/2 confirmation for this plan."));
                 sender.sendMessage(ChatColors.color(
                         "&7Run two exact matching quiet scans again, then render a new plan and fingerprint."));
             }
@@ -506,8 +523,9 @@ public class SlimefunCommand implements CommandExecutor, Listener {
     private void startStorageRepairExecution(@Nonnull CommandSender sender, @Nonnull String[] args) {
         if (args.length < 4) {
             sender.sendMessage(ChatColors.color("&eUsage: /sf doctor storage repair <full-fingerprint>"));
-            sender.sendMessage(ChatColors.color(
-                    "&7First complete &eplan &7and &everify&7. A successful verification is valid for only 60 seconds."));
+            sender.sendMessage(
+                    ChatColors.color(
+                            "&7First complete &eplan &7and &everify&7. A successful verification is valid for only 60 seconds."));
             return;
         }
 
@@ -528,17 +546,19 @@ public class SlimefunCommand implements CommandExecutor, Listener {
                 fingerprint,
                 plugin.getDataFolder().toPath().resolve("storage-repair-backups"));
         if (repair == null) {
-            sender.sendMessage(ChatColors.color("&eA storage integrity scan, verification or repair is already running."));
+            sender.sendMessage(
+                    ChatColors.color("&eA storage integrity scan, verification or repair is already running."));
             return;
         }
 
         if (!repair.isDone()) {
             sender.sendMessage(ChatColors.color("&6Slimefun Storage Repair &8[&cDESTRUCTIVE&8]"));
-            sender.sendMessage(ChatColors.color("&eAcquiring final read/write barriers and revalidating the exact plan."));
+            sender.sendMessage(
+                    ChatColors.color("&eAcquiring final read/write barriers and revalidating the exact plan."));
             sender.sendMessage(ChatColors.color(
                     "&7A mandatory lossless backup must succeed before any secondary row is deleted."));
-            sender.sendMessage(ChatColors.color(
-                    "&7Primary BLOCK_RECORD and UNIVERSAL_RECORD rows are never repair targets."));
+            sender.sendMessage(
+                    ChatColors.color("&7Primary BLOCK_RECORD and UNIVERSAL_RECORD rows are never repair targets."));
         }
 
         repair.whenComplete((result, failure) -> Slimefun.runSync(() -> {
@@ -570,29 +590,33 @@ public class SlimefunCommand implements CommandExecutor, Listener {
                     sender.sendMessage(ChatColors.color("&7Mandatory backup: &e" + repair.getBackupPath()));
                 }
                 sender.sendMessage(ChatColors.color("&7Fingerprint: &e" + repair.getFingerprint()));
-                sender.sendMessage(ChatColors.color(
-                        "&aPrimary block and universal root records were not touched. Confirmation was reset after repair."));
+                sender.sendMessage(
+                        ChatColors.color(
+                                "&aPrimary block and universal root records were not touched. Confirmation was reset after repair."));
                 sender.sendMessage(ChatColors.color(
                         "&7Run &e/sf doctor storage scan &7again to establish a new post-repair baseline."));
             }
             case VERIFICATION_REQUIRED -> {
                 sender.sendMessage(ChatColors.color("&cREFUSED: no current verified plan matches this fingerprint."));
-                sender.sendMessage(ChatColors.color(
-                        "&7Render the plan, run &e/sf doctor storage verify <fingerprint>&7, then repair within 60 seconds."));
+                sender.sendMessage(
+                        ChatColors.color(
+                                "&7Render the plan, run &e/sf doctor storage verify <fingerprint>&7, then repair within 60 seconds."));
             }
-            case EMPTY_PLAN -> sender.sendMessage(ChatColors.color(
-                    "&aNothing to repair: the verified candidate plan is empty."));
+            case EMPTY_PLAN ->
+                sender.sendMessage(ChatColors.color("&aNothing to repair: the verified candidate plan is empty."));
             case DELAYED_SAVING_ENABLED -> {
                 sender.sendMessage(ChatColors.color(
                         "&cREFUSED: destructive repair is disabled while delayed storage writing is enabled."));
-                sender.sendMessage(ChatColors.color(
-                        "&7Set &edelayedWriting.enable: false &7in &eblock-storage.yml&7, restart, and repeat the scan/plan/verify flow."));
+                sender.sendMessage(
+                        ChatColors.color(
+                                "&7Set &edelayedWriting.enable: false &7in &eblock-storage.yml&7, restart, and repeat the scan/plan/verify flow."));
             }
             case STORAGE_BUSY -> {
                 sender.sendMessage(ChatColors.color("&cREFUSED: the final read/write storage barrier was not idle."));
                 sendStorageRepairDetail(sender, repair);
-                sender.sendMessage(ChatColors.color(
-                        "&7Wait for storage activity to settle, then run a fresh verification before retrying repair."));
+                sender.sendMessage(
+                        ChatColors.color(
+                                "&7Wait for storage activity to settle, then run a fresh verification before retrying repair."));
             }
             case CACHED_CANDIDATE -> {
                 sender.sendMessage(ChatColors.color("&cREFUSED: &e" + repair.getCachedCandidateOwners()
@@ -601,10 +625,11 @@ public class SlimefunCommand implements CommandExecutor, Listener {
                         "&7Investigate those machines/data instead of deleting their secondary storage blindly."));
             }
             case CANDIDATE_SET_CHANGED -> {
-                sender.sendMessage(ChatColors.color(
-                        "&cREFUSED: the exact orphan set changed at the final mutation barrier. Nothing was repaired."));
-                sender.sendMessage(ChatColors.color(
-                        "&7Start again with two matching quiet scans and review the new plan."));
+                sender.sendMessage(
+                        ChatColors.color(
+                                "&cREFUSED: the exact orphan set changed at the final mutation barrier. Nothing was repaired."));
+                sender.sendMessage(
+                        ChatColors.color("&7Start again with two matching quiet scans and review the new plan."));
             }
             case BACKUP_FAILED -> {
                 sender.sendMessage(ChatColors.color(
@@ -701,7 +726,8 @@ public class SlimefunCommand implements CommandExecutor, Listener {
         }
 
         if (Bukkit.getPluginCommand("ie2") == null) {
-            sender.sendMessage(ChatColors.color("&cInfinityExpansion2 is not installed or its /ie2 command is unavailable."));
+            sender.sendMessage(
+                    ChatColors.color("&cInfinityExpansion2 is not installed or its /ie2 command is unavailable."));
             return;
         }
 

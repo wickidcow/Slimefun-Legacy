@@ -82,6 +82,9 @@ class InventoryReadFailureTest {
             harness.store.put("8", bad);
             assertThrows(IllegalStateException.class, harness::load);
             harness.assertUnpublished();
+            var diagnostic = harness.recoverySnapshot();
+            assertEquals(1, diagnostic.totalEntries());
+            assertTrue(diagnostic.hasEntries());
             assertEquals(0, harness.writes.get());
             assertArrayEquals(bad, harness.store.raw("8"));
             assertArrayEquals(valid, harness.store.raw("0"));
@@ -94,6 +97,8 @@ class InventoryReadFailureTest {
             // Represents an explicit external repair/restore; the loader itself never rewrites data.
             harness.store.put("8", valid);
             ItemStack[] contents = harness.load();
+            assertFalse(harness.recoverySnapshot().hasEntries());
+            assertEquals(1, diagnostic.totalEntries(), "Old diagnostic snapshots must stay detached");
             assertEquals(37, contents[0].getAmount());
             assertEquals(37, contents[8].getAmount());
             assertEquals(StoredInventoryReaderTest.item().getItemMeta(), contents[8].getItemMeta());
@@ -225,6 +230,12 @@ class InventoryReadFailureTest {
             block = new SlimefunBlockData(location(), "READ_BLOCK");
             universal = new SlimefunUniversalData(UUID.randomUUID(), "READ_UNIVERSAL");
             universal.addTrait(UniversalDataTrait.INVENTORY);
+        }
+
+        InventoryRecoverySnapshot recoverySnapshot() {
+            return kind == Kind.BACKPACK
+                    ? profiles.getInventoryRecoverySnapshot()
+                    : blocks.getInventoryRecoverySnapshot();
         }
 
         String id() {

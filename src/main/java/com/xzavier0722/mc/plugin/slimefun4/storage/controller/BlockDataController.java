@@ -244,6 +244,25 @@ public class BlockDataController extends ADataController {
                         20L);
     }
 
+    /**
+     * Observes known read holds and pending migrations without loading worlds/items or changing
+     * guards. The bounded sample is weakly consistent with concurrent loading, not a safety barrier.
+     */
+    public InventoryRecoverySnapshot getInventoryRecoverySnapshot() {
+        var snapshot = new InventoryRecoverySnapshot.Collector();
+        incompleteInventoryLoads.forEach(owner -> snapshot.add(
+                owner.indexOf(';') >= 0
+                        ? InventoryRecoverySnapshot.Kind.BLOCK_LOAD
+                        : InventoryRecoverySnapshot.Kind.UNIVERSAL_LOAD,
+                owner,
+                null));
+        pendingUniversalMigrations.forEach((owner, pending) -> snapshot.add(
+                InventoryRecoverySnapshot.Kind.UNIVERSAL_MIGRATION,
+                owner,
+                pending.plan.destination().toString()));
+        return snapshot.build();
+    }
+
     public boolean isDelayedSavingEnabled() {
         return enableDelayedSaving;
     }

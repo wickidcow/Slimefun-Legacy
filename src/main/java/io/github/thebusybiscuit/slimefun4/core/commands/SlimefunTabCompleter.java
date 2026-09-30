@@ -122,15 +122,19 @@ class SlimefunTabCompleter implements TabCompleter {
                 if (explicitWorld != null) {
                     return createReturnList(List.of(currentChunkCoordinate(sender, explicitWorld, true)), args[2]);
                 } else if (sender instanceof Player player) {
-                    return createReturnList(List.of(String.valueOf(player.getLocation().getChunk().getZ())), args[2]);
+                    return createReturnList(
+                            List.of(String.valueOf(
+                                    player.getLocation().getChunk().getZ())),
+                            args[2]);
                 }
                 return null;
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("upgrade")) {
                 return createReturnList(List.of("status", "scan", "plan", "providers"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("storage")) {
-                return createReturnList(List.of("status", "scan", "plan", "verify", "repair"), args[2]);
+                return createReturnList(List.of("status", "scan", "plan", "verify", "repair", "recovery"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("item-models")) {
-                return createReturnList(List.of("status", "scan", "repair", "remove-resourcepack-texture-ids", "enable-pack"), args[2]);
+                return createReturnList(
+                        List.of("status", "scan", "repair", "remove-resourcepack-texture-ids", "enable-pack"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && isDoctorMigrationRoute(args[1])) {
                 return createReturnList(
                         List.of("status", "list", "unknown", "plan", "providers", "scan", "execute", "schemas"),
@@ -163,9 +167,7 @@ class SlimefunTabCompleter implements TabCompleter {
                 && args[1].equalsIgnoreCase("storage")
                 && (args[2].equalsIgnoreCase("verify") || args[2].equalsIgnoreCase("repair"))) {
             StorageIntegrityRepairPlan plan = StorageIntegrityScanner.getConfirmedRepairPlan();
-            return plan == null
-                    ? Collections.emptyList()
-                    : createReturnList(List.of(plan.getFingerprint()), args[3]);
+            return plan == null ? Collections.emptyList() : createReturnList(List.of(plan.getFingerprint()), args[3]);
         } else if (args.length == 4
                 && args[0].equalsIgnoreCase("doctor")
                 && isDoctorMigrationRoute(args[1])
@@ -252,9 +254,10 @@ class SlimefunTabCompleter implements TabCompleter {
 
     private String currentChunkCoordinate(CommandSender sender, World world, boolean xAxis) {
         if (sender instanceof Player player && player.getWorld().equals(world)) {
-            return String.valueOf(xAxis
-                    ? player.getLocation().getChunk().getX()
-                    : player.getLocation().getChunk().getZ());
+            return String.valueOf(
+                    xAxis
+                            ? player.getLocation().getChunk().getX()
+                            : player.getLocation().getChunk().getZ());
         }
         return "0";
     }
@@ -307,7 +310,8 @@ class SlimefunTabCompleter implements TabCompleter {
     @Nonnull
     private List<String> getLegacyMigrationProviders() {
         return Bukkit.getServicesManager().getRegistrations(LegacyItemMigrationProvider.class).stream()
-                .filter(registration -> registration.getPlugin() != null && registration.getPlugin().isEnabled())
+                .filter(registration -> registration.getPlugin() != null
+                        && registration.getPlugin().isEnabled())
                 .map(registration -> registration.getPlugin().getName())
                 .distinct()
                 .sorted(String.CASE_INSENSITIVE_ORDER)
@@ -317,7 +321,8 @@ class SlimefunTabCompleter implements TabCompleter {
     @Nonnull
     private List<String> getSchemaMigrationProviders() {
         return Bukkit.getServicesManager().getRegistrations(LegacyItemSchemaMigrator.class).stream()
-                .filter(registration -> registration.getPlugin() != null && registration.getPlugin().isEnabled())
+                .filter(registration -> registration.getPlugin() != null
+                        && registration.getPlugin().isEnabled())
                 .map(registration -> registration.getPlugin().getName())
                 .distinct()
                 .sorted(String.CASE_INSENSITIVE_ORDER)

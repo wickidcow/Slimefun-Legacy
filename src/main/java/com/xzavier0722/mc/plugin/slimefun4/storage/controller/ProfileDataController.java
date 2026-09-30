@@ -43,6 +43,14 @@ public class ProfileDataController extends ADataController {
     /** In-flight or failed reads must never be persisted as an empty replacement inventory. */
     private final Set<String> incompleteInventoryLoads = ConcurrentHashMap.newKeySet();
 
+    /** Read-only, bounded diagnostics; observing a backpack hold never loads it or clears it. */
+    public InventoryRecoverySnapshot getInventoryRecoverySnapshot() {
+        var snapshot = new InventoryRecoverySnapshot.Collector();
+        incompleteInventoryLoads.forEach(
+                owner -> snapshot.add(InventoryRecoverySnapshot.Kind.BACKPACK_LOAD, owner, null));
+        return snapshot.build();
+    }
+
     ProfileDataController() {
         super(DataType.PLAYER_PROFILE);
         backpackCache = new BackpackCache();

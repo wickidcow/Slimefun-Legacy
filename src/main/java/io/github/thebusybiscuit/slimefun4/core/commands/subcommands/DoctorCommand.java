@@ -23,6 +23,7 @@ import io.github.thebusybiscuit.slimefun4.api.storage.BlockDataRuntimeSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.storage.StorageRuntimeSnapshot;
 import io.github.thebusybiscuit.slimefun4.api.world.ChunkRuntimeState;
 import io.github.thebusybiscuit.slimefun4.api.world.WorldChunkRuntimeSnapshot;
+import io.github.thebusybiscuit.slimefun4.core.commands.InventoryRecoveryDiagnostics;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
 import io.github.thebusybiscuit.slimefun4.core.services.compatibility.KnownAddonCompatibilityRegistry;
@@ -100,14 +101,17 @@ final class DoctorCommand extends SubCommand {
         StorageRuntimeSnapshot storage = Slimefun.getStorageRuntimeService().getSnapshot();
         MachineRuntimeSnapshot machines = Slimefun.getMachineRuntimeService().getSnapshot();
         send(sender, "&6Slimefun Storage and Item Doctor");
+        InventoryRecoveryDiagnostics.sendSummary(sender);
         send(sender, "&7Previous clean shutdown: " + (storage.wasPreviousShutdownClean() ? "&aYes" : "&cNo"));
         send(sender, "&7Pending database writes: &e" + storage.getPendingWrites());
         var profiles = Slimefun.getDatabaseManager().getProfileDataController();
         int pendingBackpackSaves = profiles == null ? 0 : profiles.getPendingBackpackSaveChainCount();
         int uncertainBackpacks = profiles == null ? 0 : profiles.getUncertainBackpackBaselineCount();
-        send(sender, "&7Backpack persistence: active saves &e" + pendingBackpackSaves
-                + " &8| &7uncertain baselines "
-                + (uncertainBackpacks == 0 ? "&a0" : "&c" + uncertainBackpacks));
+        send(
+                sender,
+                "&7Backpack persistence: active saves &e" + pendingBackpackSaves
+                        + " &8| &7uncertain baselines "
+                        + (uncertainBackpacks == 0 ? "&a0" : "&c" + uncertainBackpacks));
         send(sender, "&7Paused machine circuits: &e" + machines.getPausedMachineCircuits());
         send(sender, "&7Currently failing machines: &e" + machines.getActiveMachineFailures());
         send(sender, "&7Observed machine failures since startup: &e" + machines.getObservedMachineFailures());
@@ -393,7 +397,9 @@ final class DoctorCommand extends SubCommand {
             }
             repair = true;
         } else {
-            send(sender, "&eUsage: /sf doctor item-models <status|scan|repair confirm|remove-resourcepack-texture-ids [confirm]|enable-pack <scan|confirm>>");
+            send(
+                    sender,
+                    "&eUsage: /sf doctor item-models <status|scan|repair confirm|remove-resourcepack-texture-ids [confirm]|enable-pack <scan|confirm>>");
             return;
         }
 
@@ -432,9 +438,11 @@ final class DoctorCommand extends SubCommand {
         int customMappings = textures.getHostedPackCustomMappingCount();
 
         send(sender, "&6Slimefun Legacy Resource-Pack Adoption");
-        send(sender, "&7Bundled mappings active: &e" + bundledMappings
-                + " &8| &7Zero mappings available: &e" + zeroMappings
-                + " &8| &7Custom mappings preserved: &e" + customMappings);
+        send(
+                sender,
+                "&7Bundled mappings active: &e" + bundledMappings
+                        + " &8| &7Zero mappings available: &e" + zeroMappings
+                        + " &8| &7Custom mappings preserved: &e" + customMappings);
 
         boolean repair = mode.equals("confirm");
         if (repair) {
@@ -443,7 +451,9 @@ final class DoctorCommand extends SubCommand {
                 return;
             }
             send(sender, "&eThis intentionally adopts Slimefun Legacy's bundled item models on an established server.");
-            send(sender, "&eRun this with players offline or the server in maintenance mode and make a full backup first.");
+            send(
+                    sender,
+                    "&eRun this with players offline or the server in maintenance mode and make a full backup first.");
             int enabled = textures.enableHostedPackMappings();
             send(sender, "&aEnabled &e" + enabled + "&a previously-zero bundled item-model mapping(s).");
             send(sender, "&8Existing custom non-zero mappings were left unchanged.");
@@ -470,24 +480,34 @@ final class DoctorCommand extends SubCommand {
             send(sender, "&cCould not start the hosted-pack Doctor traversal.");
             if (repair) {
                 send(sender, "&eThe mapping file may already contain the enabled values.");
-                send(sender, "&eWhen Doctor is idle, rerun &6/sf doctor item-models enable-pack confirm&e; it is safe to resume.");
+                send(
+                        sender,
+                        "&eWhen Doctor is idle, rerun &6/sf doctor item-models enable-pack confirm&e; it is safe to resume.");
             }
             return;
         }
 
         send(sender, "&aStarted hosted resource-pack " + (repair ? "adoption" : "adoption scan") + '.');
-        send(sender, "&7Only registered Slimefun IDs with a bundled mapping and either 0 or that exact bundled mapping are inspected.");
-        send(sender, "&7Items with a different existing first model float are reported as conflicts and never overwritten.");
+        send(
+                sender,
+                "&7Only registered Slimefun IDs with a bundled mapping and either 0 or that exact bundled mapping are inspected.");
+        send(
+                sender,
+                "&7Items with a different existing first model float are reported as conflicts and never overwritten.");
     }
 
     private void sendHostedPackProgress(CommandSender sender, ItemDoctorReport report) {
         send(sender, "&7Inventories: &e" + report.getInventories() + " &8| &7Backpacks: &e" + report.getBackpacks());
-        send(sender, "&7Stacks scanned: &e" + report.getScannedStacks() + " &8| &7Slimefun: &e"
-                + report.getSlimefunStacks());
-        send(sender, "&7Adoption candidates: &e" + report.getItemModelCandidates()
-                + " &8| &7Updated: &a" + report.getItemModelRepairs()
-                + " &8| &7Conflicts skipped: &6" + report.getItemModelConflicts()
-                + " &8| &7Failures: &c" + report.getFailures());
+        send(
+                sender,
+                "&7Stacks scanned: &e" + report.getScannedStacks() + " &8| &7Slimefun: &e"
+                        + report.getSlimefunStacks());
+        send(
+                sender,
+                "&7Adoption candidates: &e" + report.getItemModelCandidates()
+                        + " &8| &7Updated: &a" + report.getItemModelRepairs()
+                        + " &8| &7Conflicts skipped: &6" + report.getItemModelConflicts()
+                        + " &8| &7Failures: &c" + report.getFailures());
 
         int shown = 0;
         for (var entry : report.getItemModelConflictCounts().entrySet()) {
@@ -506,7 +526,9 @@ final class DoctorCommand extends SubCommand {
             send(sender, "&aNo stored Slimefun ItemStacks need hosted-pack adoption in the reachable traversal.");
         }
         if (report.getItemModelConflicts() > 0) {
-            send(sender, "&eConflicts were preserved. Review the owning custom pack/plugin before changing those model values.");
+            send(
+                    sender,
+                    "&eConflicts were preserved. Review the owning custom pack/plugin before changing those model values.");
         }
         if (report.isComplete()) {
             send(sender, "&7Duration: &e" + Math.max(1L, report.getDurationMillis() / 1000L) + " second(s)");
@@ -532,7 +554,9 @@ final class DoctorCommand extends SubCommand {
         }
 
         if (args.length < 4 || !args[3].equalsIgnoreCase("confirm")) {
-            send(sender, "&eThis resets only item-models.yml entries that still exactly match Legacy's bundled values.");
+            send(
+                    sender,
+                    "&eThis resets only item-models.yml entries that still exactly match Legacy's bundled values.");
             send(sender, "&7It works for both current Doctor pack adoption and the historical v4.1.52 migration.");
             send(sender, "&7Custom/non-matching model values are preserved.");
             send(sender, "&cIf another resource pack still relies on these exact Legacy mappings, do not remove them.");
@@ -554,11 +578,15 @@ final class DoctorCommand extends SubCommand {
 
     private void sendItemModelProgress(CommandSender sender, ItemDoctorReport report) {
         send(sender, "&7Inventories: &e" + report.getInventories() + " &8| &7Backpacks: &e" + report.getBackpacks());
-        send(sender, "&7Stacks scanned: &e" + report.getScannedStacks() + " &8| &7Slimefun: &e"
-                + report.getSlimefunStacks());
-        send(sender, "&7Bundled-model candidates: &e" + report.getItemModelCandidates()
-                + " &8| &7Repaired: &a" + report.getItemModelRepairs()
-                + " &8| &7Failures: &c" + report.getFailures());
+        send(
+                sender,
+                "&7Stacks scanned: &e" + report.getScannedStacks() + " &8| &7Slimefun: &e"
+                        + report.getSlimefunStacks());
+        send(
+                sender,
+                "&7Bundled-model candidates: &e" + report.getItemModelCandidates()
+                        + " &8| &7Repaired: &a" + report.getItemModelRepairs()
+                        + " &8| &7Failures: &c" + report.getFailures());
 
         int shown = 0;
         for (var entry : report.getItemModelCandidateCounts().entrySet()) {
@@ -1230,7 +1258,9 @@ final class DoctorCommand extends SubCommand {
             case INCOMPATIBLE -> "&cIncompatible";
             case DISABLED -> "&cDisabled";
             case UNDECLARED -> {
-                boolean sflManaged = result.getPluginName().toUpperCase(Locale.ROOT).startsWith("SF_")
+                boolean sflManaged = result.getPluginName()
+                                .toUpperCase(Locale.ROOT)
+                                .startsWith("SF_")
                         || knownAddonRegistry.find(result.getPluginName()).isPresent();
                 yield sflManaged ? "&aSFL Approved" : "&aNon-Slimefun Compatible";
             }
@@ -1416,8 +1446,10 @@ final class DoctorCommand extends SubCommand {
                 "&7Unknown IDs: &e" + report.getUnknownIds() + " &8| &7No English template: &e"
                         + report.getUnresolvedTemplates() + " &8| &7Failures: &c" + report.getFailures());
         if (!report.isRepairMode() || report.getItemModelCandidates() > 0 || report.getItemModelRepairs() > 0) {
-            send(sender, "&7Item-model candidates: &e" + report.getItemModelCandidates()
-                    + " &8| &7Model repairs: &a" + report.getItemModelRepairs());
+            send(
+                    sender,
+                    "&7Item-model candidates: &e" + report.getItemModelCandidates() + " &8| &7Model repairs: &a"
+                            + report.getItemModelRepairs());
             if (!report.isRepairMode() && report.getItemModelCandidates() > 0) {
                 send(sender, "&eReview with /sf doctor item-models scan, then repair with");
                 send(sender, "&6/sf doctor item-models repair confirm&e after a backup.");
