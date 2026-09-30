@@ -23,6 +23,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Apply hash-verified read-safety changes
+        id: apply
         shell: bash
         run: |
           set -euo pipefail
@@ -59,6 +60,7 @@ jobs:
               print('REVIEWED_SOURCE', blob(output), path)
           Path('audit-evidence/reviewed-paths.json').write_text(json.dumps([str(p) for p in prepared]))
           PY
+          python3 .audit/fix_read_test_fixture.py
           git diff --check
       - name: Set up Java 25
         uses: actions/setup-java@v5
@@ -98,6 +100,7 @@ jobs:
           print('Original backpack reader reproduced: corrupt item data was accepted as an empty loaded slot.')
           PY
       - name: Build and test corrected readers
+        if: ${{ !cancelled() && steps.apply.outcome == 'success' }}
         shell: bash
         run: |
           set -euo pipefail
