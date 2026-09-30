@@ -1,0 +1,52 @@
+name: Preservation Candidate Source Review
+
+on:
+  push:
+    branches: ['work/restart-gate-validation-20260930']
+    paths: ['.github/workflows/preservation-source-review.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  source-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 2bf5485cabd3c460ea1d68bc8ea9f529d8a54610
+          persist-credentials: false
+      - name: Archive pinned public source trees without Git credentials
+        run: |
+          set -euo pipefail
+          mkdir -p review
+          git archive --format=tar.gz --output=review/Slimefun-Legacy.tar.gz HEAD
+          python3 - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          manifest = json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text())
+          selected = {'networksexp', 'infinityexpansion2', 'supreme', 'finaltech', 'justenoughguide'}
+          records = []
+          for row in manifest['addons']:
+              if row['slug'] not in selected:
+                  continue
+              repo, sha = row['repository'], row['source_commit']
+              path = Path('source-checkouts') / row['slug']
+              subprocess.run(['git', 'clone', '--depth', '1', f'https://github.com/{repo}.git', str(path)], check=True, timeout=90)
+              subprocess.run(['git', '-C', str(path), 'fetch', '--depth', '1', 'origin', sha], check=True, timeout=90)
+              actual = subprocess.check_output(['git', '-C', str(path), 'rev-parse', 'FETCH_HEAD'], text=True).strip()
+              assert actual == sha, (repo, actual, sha)
+              output = (Path('review') / (repo.split('/')[1] + '.tar.gz')).resolve()
+              subprocess.run(['git', '-C', str(path), 'archive', '--format=tar.gz', f'--output={output}', sha], check=True)
+              records.append(dict(repository=repo, commit=sha, archive=output.name))
+          assert len(records) == 5
+          Path('review/sources.json').write_text(json.dumps(records, indent=2) + '\n')
+          PY
+          (cd review && sha256sum *.tar.gz > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v7
+        with:
+          name: preservation-source-review
+          path: review/
+          retention-days: 7
+          if-no-files-found: error
