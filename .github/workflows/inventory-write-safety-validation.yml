@@ -22,7 +22,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           persist-credentials: false
-          fetch-depth: 2
       - name: Apply source-hash-guarded inventory write correction
         run: |
           set -euo pipefail
@@ -48,7 +47,8 @@ jobs:
           RECORD='src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/common/RecordSet.java'
           cp "$RECORD" "$RUNNER_TEMP/fixed-record.java"
           trap 'cp "$RUNNER_TEMP/fixed-record.java" "$RECORD"' EXIT
-          git show '22aec969b3e5b8634737152babd5e8242dec6c6c:src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/common/RecordSet.java' > "$RECORD"
+          test "$(git rev-parse "HEAD:$RECORD")" = '5f800e4f011a89f8262905e1d813c402923cee2c'
+          git show "HEAD:$RECORD" > "$RECORD"
           set +e
           ./gradlew test --tests '*InventorySerializationFailureTest.recordSetPreservesExistingValueWhenNonEmptyPaperSerializationFails' --console=plain --no-daemon > audit-evidence/original-writer.log 2>&1
           STATUS=$?
