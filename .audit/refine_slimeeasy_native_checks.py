@@ -14,14 +14,16 @@ text = text.replace('import top.maplex.slimeEasy.machine.butcher.FakePlayerFacto
 text = text.replace('        fake.setOp(false);', '        plugin.getLogger().info("SLIMEEASY_MACHINE_PROFILE_NAMES current=" + fake.getName()\n                + " offline=" + Bukkit.getOfflinePlayer(fake.getUniqueId()).getName());\n        fake.setOp(false);')
 old = '''            fake.attack(cow);
             check(cow.getHealth() < health, "Native player attack must cause actual damage");'''
-new = '''            // Exercise the real machine implementation, not Player.attack(), which
-            // SlimeEasy's butcher does not call and requires a connected client.
-            var hit = ButcherLogic.INSTANCE.performSweep(fake, position, 3, 2, 2, 4.0, null, null);
-            check(hit.contains(cow), "Actual butcher sweep must select its target");
+new = '''            // Call the production machine API with its actual source block,
+            // supplied targets, held equipment, damage, fire and owner arguments.
+            ButcherLogic.INSTANCE.performSweep(support, java.util.List.of(cow),
+                    new ItemStack(Material.DIAMOND_SWORD), 4.0, 0,
+                    "11111111-2222-3333-4444-555555555555");
             check(Math.abs(cow.getHealth() - (health - 4.0)) < 0.0001,
                     "Configured butcher damage must remain exactly four health points");
-            check(cow.getPersistentDataContainer().has(org.bukkit.NamespacedKey.fromString("slimeeasy:butcher_killer"),
-                    org.bukkit.persistence.PersistentDataType.STRING), "Existing machine kill marker retained");'''
+            check(!cow.getPersistentDataContainer().has(org.bukkit.NamespacedKey.fromString("slimeeasy:butcher_killer"),
+                    org.bukkit.persistence.PersistentDataType.STRING),
+                    "Surviving targets must not retain a false machine-kill marker");'''
 assert text.count(old) == 1
 text = text.replace(old, new)
 path.write_text(text)
