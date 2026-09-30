@@ -57,6 +57,45 @@ old = '    private World world;'
 assert text.count(old) == 1
 text = text.replace(old, old + '\n    // Keep the named cached identity alive while the old core writes its profile.\n    private org.bukkit.OfflinePlayer fixtureOwner;')
 assert blob(text.encode()) == '282053c29b330b57697b42cafe49cfca685a2ce3'
+old = 'public final class LegacyUpgradeProbe extends JavaPlugin {'
+assert text.count(old) == 1
+text = text.replace(old, 'public final class LegacyUpgradeProbe extends JavaPlugin implements io.github.thebusybiscuit.slimefun4.api.SlimefunAddon {')
+anchor = '            require(BlockMenuPreset.getPreset(BLOCK_ID) == null, "Fixture preset already registered");'
+assert text.count(anchor) == 1
+text = text.replace(anchor, '            registerFixtureItems();\n' + anchor)
+anchor = '    private Location location(int x) { return new Location(world, x, 80, 0); }'
+helper = '''    @Override
+    public JavaPlugin getJavaPlugin() { return this; }
+    @Override
+    public String getBugTrackerURL() { return null; }
+
+    private void registerFixtureItems() {
+        require(SlimefunItem.getById(BLOCK_ID) == null && SlimefunItem.getById(UNIVERSAL_ID) == null,
+                "Fixture item IDs already registered");
+        var group = new io.github.thebusybiscuit.slimefun4.api.items.ItemGroup(
+                key("legacyupgradeprobe:fixtures"), new ItemStack(Material.CHEST));
+        new SlimefunItem(group, new io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack(
+                BLOCK_ID, new ItemStack(Material.CHEST)),
+                io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType.NULL, new ItemStack[9]).register(this);
+        new UniversalFixtureItem(group).register(this);
+    }
+
+    private static final class UniversalFixtureItem extends SlimefunItem
+            implements com.xzavier0722.mc.plugin.slimefun4.storage.controller.attributes.UniversalBlock {
+        private UniversalFixtureItem(io.github.thebusybiscuit.slimefun4.api.items.ItemGroup group) {
+            super(group, new io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack(
+                    UNIVERSAL_ID, new ItemStack(Material.CHEST)),
+                    io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType.NULL, new ItemStack[9]);
+        }
+    }
+
+'''
+assert text.count(anchor) == 1
+text = text.replace(anchor, helper + anchor)
+old = '        location(0).getChunk().load();'
+assert text.count(old) == 1
+text = text.replace(old, '        blocks.loadChunk(location(0).getChunk(), false, true);')
+assert blob(text.encode()) == '301327a79b98c5039f53253420d3141d1591b34b'
 probe.write_text(text)
 
 runner = Path('scripts/old_world_upgrade.py')
