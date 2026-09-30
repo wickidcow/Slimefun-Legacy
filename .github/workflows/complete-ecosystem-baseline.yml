@@ -1,0 +1,80 @@
+name: Complete Pinned SF Ecosystem Snapshot
+
+on:
+  push:
+    branches: ['work/sf-ecosystem-baseline-20260930']
+    paths: ['.github/workflows/complete-ecosystem-baseline.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Read the previously captured exact baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/wickidcow/Slimefun-Legacy/actions/artifacts/11126043505/zip > original.zip
+      - name: Restore omitted hidden files at their original pinned commits
+        run: |
+          python3 - <<'PY'
+          import concurrent.futures, hashlib, io, json, tarfile, urllib.request, zipfile
+          from pathlib import Path, PurePosixPath
+          raw = Path('original.zip').read_bytes()
+          assert hashlib.sha256(raw).hexdigest() == '6d3f30a2019fa9997988e7684daa43fc13b3693d835e509481b9b0ba14a189f5'
+          root = Path('complete-snapshot')
+          with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+              for entry in archive.infolist():
+                  name = PurePosixPath(entry.filename)
+                  assert not name.is_absolute() and '..' not in name.parts
+                  if entry.is_dir(): continue
+                  target = root / str(name)
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(archive.read(entry))
+          report = json.loads((root / 'ecosystem-baseline.json').read_text())
+          def blob(data):
+              return hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+          def restore(repo):
+              folder = root / 'source' / repo['repository'].split('/')[1]
+              manifest = json.loads((folder / '_audit-blob-manifest.json').read_text())
+              missing = {name: sha for name, sha in manifest.items() if not (folder / name).is_file()}
+              if missing:
+                  with urllib.request.urlopen('https://codeload.github.com/' + repo['repository'] + '/tar.gz/' + repo['source_commit'], timeout=90) as response:
+                      packed = response.read(150_000_001)
+                  assert len(packed) <= 150_000_000
+                  assert hashlib.sha256(packed).hexdigest() == repo['archive_sha256'], repo['repository']
+                  with tarfile.open(fileobj=io.BytesIO(packed), mode='r:gz') as archive:
+                      for entry in archive:
+                          name = str(PurePosixPath(*PurePosixPath(entry.name).parts[1:]))
+                          if name not in missing: continue
+                          assert entry.isfile() and entry.size <= 5_000_000
+                          path = PurePosixPath(name)
+                          assert not path.is_absolute() and '..' not in path.parts
+                          data = archive.extractfile(entry).read()
+                          assert blob(data) == missing[name]
+                          destination = folder / name
+                          destination.parent.mkdir(parents=True, exist_ok=True)
+                          destination.write_bytes(data)
+              for name, expected in manifest.items():
+                  assert blob((folder / name).read_bytes()) == expected, (repo['repository'], name)
+              return dict(repository=repo['repository'], source_commit=repo['source_commit'], verified_files=len(manifest), restored_hidden_files=len(missing))
+          with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+              checks = list(pool.map(restore, report['repositories']))
+          verification = dict(repositories=len(checks), verified_files=sum(item['verified_files'] for item in checks), restored_hidden_files=sum(item['restored_hidden_files'] for item in checks), checks=checks)
+          (root / 'source-verification.json').write_text(json.dumps(verification, indent=2))
+          with zipfile.ZipFile('sf-ecosystem-complete.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
+              for path in sorted(root.rglob('*')):
+                  if path.is_file(): archive.write(path, str(path.relative_to(root)))
+          print(json.dumps(verification, indent=2))
+          print('Complete archive SHA256', hashlib.sha256(Path('sf-ecosystem-complete.zip').read_bytes()).hexdigest())
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sf-ecosystem-complete
+          path: sf-ecosystem-complete.zip
+          retention-days: 14
+          if-no-files-found: error
