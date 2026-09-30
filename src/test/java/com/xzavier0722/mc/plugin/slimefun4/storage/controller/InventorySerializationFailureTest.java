@@ -106,8 +106,8 @@ class InventorySerializationFailureTest {
     void genuinelyEmptyInputsStillHaveTheEstablishedEmptyRepresentation() {
         ItemStack zero = new ItemStack(Material.DIAMOND, 1);
         zero.setAmount(0);
-        for (ItemStack empty : Arrays.asList(null, new ItemStack(Material.AIR),
-                new ItemStack(Material.CAVE_AIR), new ItemStack(Material.VOID_AIR), zero)) {
+        // CAVE_AIR and VOID_AIR are block states, not constructible inventory items.
+        for (ItemStack empty : Arrays.asList(null, new ItemStack(Material.AIR), zero)) {
             assertArrayEquals(new byte[0], DataUtils.serializeItemStackBytesForStorage(empty));
             assertArrayEquals(new byte[0], DataUtils.serializeItemStackBytes(empty));
         }
