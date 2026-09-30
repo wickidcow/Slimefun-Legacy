@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           persist-credentials: false
-          fetch-depth: 2
+          fetch-depth: 4
       - name: Set up Java 25
         uses: actions/setup-java@v5
         with:
@@ -58,7 +58,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Like the normal build, check committed production sources before
+          # Spotless reformats unrelated historical exact-text invariants.
+          # HEAD contains the corrected codec; this is not the original reader.
+          git restore --source=HEAD --worktree -- src/main
           python3 scripts/verify_legacy.py . > audit-evidence/invariants.log 2>&1
+          ./gradlew spotlessApply --no-daemon
           ./gradlew clean --console=plain --no-daemon
           mkdir -p build/reports
           ./gradlew build -PslimefunDeprecationReport=true --console=plain --no-daemon 2>&1 | tee build/reports/deprecation-compile.log
