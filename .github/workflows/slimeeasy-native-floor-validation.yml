@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: slimeeasy-native-floor-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -26,16 +30,17 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: gradle
-      - name: Apply exact reviewed floor and native wrapper change
+      - name: Apply exact floor correction and actual production-path regression
         run: |
           python3 .audit/apply_slimeeasy_floor.py
+          python3 .audit/refine_slimeeasy_native_checks.py
           git -C addon diff --check
       - name: Supply the exact tested Legacy core
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY'
-          import hashlib, io, json, subprocess, zipfile
+          import hashlib, io, subprocess, zipfile
           from pathlib import Path
           raw = subprocess.run(['gh', 'api', 'repos/wickidcow/Slimefun-Legacy/actions/artifacts/11117350932/zip'], check=True, capture_output=True).stdout
           with zipfile.ZipFile(io.BytesIO(raw)) as z:
@@ -50,14 +55,15 @@ jobs:
           (libs / 'Slimefun-Legacy-Core.jar').write_bytes(raw)
           Path('audit-evidence/core-provenance.txt').write_text('Core head 788b89e1; tested merge d600e077; SHA256 ' + hashlib.sha256(raw).hexdigest() + '\n')
           PY
-      - name: Build all real sources on the 1.21.11 API and Java 21 target
+      - name: Build actual 1.21.11 native sources with Java 21 output
+        id: build
         working-directory: addon
         run: |
           set -euo pipefail
           chmod +x gradlew
           ./gradlew clean build cargoRegressionJar --console=plain --no-daemon --no-configuration-cache 2>&1 | tee ../audit-evidence/floor-build.log
           python3 - <<'PY'
-          import hashlib, json, struct, zipfile
+          import hashlib, struct, zipfile
           from pathlib import Path
           jar = Path('build/libs/SF_SlimeEasy1.0.5.jar')
           with zipfile.ZipFile(jar) as z:
@@ -66,13 +72,13 @@ jobs:
               for name in z.namelist():
                   if name.endswith('.class'): assert struct.unpack('>H', z.read(name)[6:8])[0] <= 65, name
           Path('../audit-evidence/jar-sha256.txt').write_text(hashlib.sha256(jar.read_bytes()).hexdigest() + '\n')
-          print('All candidate classes within Java 21 ceiling; native behavior still requires the runtime steps.')
           PY
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
-      - name: Actual floor Cargo, native player, clicker, attack and banner behavior
+      - name: Execute floor Cargo and the actual native machine APIs
+        id: floor
         working-directory: addon
         env:
           OUTPUT_NAME: SF_SlimeEasy1.0.5.jar
@@ -85,30 +91,60 @@ jobs:
           FOLDER="$(find "$RUNNER_TEMP" -maxdepth 1 -type d -name 'slimeeasy-1.21.11.*' | head -n 1)"
           test -n "$FOLDER"
           cp "$FOLDER/server.log" ../audit-evidence/floor-server.log
-          cat ../audit-evidence/floor-runtime.log
+          export SLIMEEASY_TEST_SERVER="$FOLDER"
+          python3 - <<'PY'
+          import json, os, sqlite3
+          from pathlib import Path
+          root = Path(os.environ['SLIMEEASY_TEST_SERVER'])
+          rows = []
+          for path in root.rglob('*'):
+              if not path.is_file() or path.suffix not in {'.db', '.sqlite', '.sqlite3'}: continue
+              try:
+                  with sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True) as connection:
+                      tables = connection.execute("SELECT name, sql FROM sqlite_master WHERE type='table'").fetchall()
+                      for name, schema in tables:
+                          if name in ('player_profile', 'player_research'):
+                              columns = [r[1] for r in connection.execute('PRAGMA table_info(' + name + ')')]
+                              records = connection.execute('SELECT * FROM ' + name + ' WHERE p_uuid=?', ('5ab9c5fd-28e7-368d-b034-231adfa1d37d',)).fetchall()
+                              rows.append(dict(database=str(path.relative_to(root)), table=name, schema=schema, columns=columns, records=records))
+              except sqlite3.DatabaseError as error:
+                  rows.append(dict(database=str(path.relative_to(root)), error=str(error)))
+          Path('../audit-evidence/profile-storage-observation.json').write_text(json.dumps(rows, indent=2))
+          print(json.dumps(rows, indent=2))
+          PY
+          grep -E 'SLIMEEASY_MACHINE_PROFILE_NAMES|SLIMEEASY_NATIVE_FLOOR|CARGO_WRAPPER_REGRESSION|Successfully running SlimeEasy|This server is running' ../audit-evidence/floor-server.log || true
           test "$RESULT" -eq 0
           grep -Fq SLIMEEASY_NATIVE_FLOOR_REGRESSION_PASS ../audit-evidence/floor-server.log
+          if grep -Eq '\[.*(ERROR|SEVERE)\]|SQLITE_CONSTRAINT|One or more database writes failed' ../audit-evidence/floor-server.log; then
+            echo 'Refusing a runtime pass with failed persistence or server errors.'
+            exit 1
+          fi
       - uses: actions/setup-java@v5
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         with:
           distribution: temurin
           java-version: '25'
-      - name: Test the same unchanged floor JAR on 26.2 and 26.3
+      - name: Probe the unchanged floor JAR on newer Paper lines
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         working-directory: addon
         env:
           OUTPUT_NAME: SF_SlimeEasy1.0.5.jar
         run: |
           set -euo pipefail
+          mkdir -p build/regression
+          cp libs/Slimefun-Legacy-Core.jar build/regression/Slimefun-Legacy4.1.61.jar
+          FAILED=0
           for VERSION in 26.2 26.3; do
             RESULT=0
             bash scripts/smoke-cargo-regression.sh "$VERSION" > "../audit-evidence/$VERSION-runtime.log" 2>&1 || RESULT=$?
             FOLDER="$(find "$RUNNER_TEMP" -maxdepth 1 -type d -name "slimeeasy-$VERSION.*" | head -n 1)"
             test -n "$FOLDER"
             cp "$FOLDER/server.log" "../audit-evidence/$VERSION-server.log"
-            cat "../audit-evidence/$VERSION-runtime.log"
-            test "$RESULT" -eq 0
-            grep -Fq SLIMEEASY_NATIVE_FLOOR_REGRESSION_PASS "../audit-evidence/$VERSION-server.log"
+            grep -E 'SLIMEEASY_MACHINE_PROFILE_NAMES|SLIMEEASY_NATIVE_FLOOR|CARGO_WRAPPER_REGRESSION|Successfully running SlimeEasy|This server is running' "../audit-evidence/$VERSION-server.log" || true
+            if [ "$RESULT" -ne 0 ] || ! grep -Fq SLIMEEASY_NATIVE_FLOOR_REGRESSION_PASS "../audit-evidence/$VERSION-server.log" || grep -Eq '\[.*(ERROR|SEVERE)\]|SQLITE_CONSTRAINT|One or more database writes failed' "../audit-evidence/$VERSION-server.log"; then FAILED=1; fi
           done
-      - name: Retain exact source and failure logs
+          exit "$FAILED"
+      - name: Retain exact source and failure evidence
         if: always()
         run: |
           python3 - <<'PY'
