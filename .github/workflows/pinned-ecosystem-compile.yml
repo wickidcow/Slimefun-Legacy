@@ -1,0 +1,237 @@
+name: Pinned SF Ecosystem Candidate Compilation
+
+on:
+  push:
+    branches: ['work/pinned-ecosystem-compile-20260930']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pinned-ecosystem-compile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    outputs:
+      matrix: ${{ steps.prepare.outputs.matrix }}
+      paper: ${{ steps.prepare.outputs.paper }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: d600e077552baab2086a056d04b1cb0a6a9051a5
+          persist-credentials: false
+      - name: Pin source set and verify the exact core artifact
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p audit-inputs
+          gh api repos/wickidcow/Slimefun-Legacy/actions/artifacts/11126043505/zip > "$RUNNER_TEMP/baseline.zip"
+          gh api repos/wickidcow/Slimefun-Legacy/actions/artifacts/11117350932/zip > "$RUNNER_TEMP/core-artifact"
+          python3 - <<'PY'
+          import hashlib, io, json, os, re, urllib.request, xml.etree.ElementTree as ET, zipfile
+          from pathlib import Path
+          from scripts.paper_candidate_versions import latest_candidate
+          baseline = Path(os.environ['RUNNER_TEMP'], 'baseline.zip').read_bytes()
+          assert hashlib.sha256(baseline).hexdigest() == '6d3f30a2019fa9997988e7684daa43fc13b3693d835e509481b9b0ba14a189f5'
+          with zipfile.ZipFile(io.BytesIO(baseline)) as z:
+              data = json.loads(z.read('ecosystem-baseline.json'))
+          overrides = {
+              'wickidcow/SF_NetworksExp': 'cda26048b792900dd3dd16c1f6ca0075ed8de07b',
+              'wickidcow/SF_InfinityExpansion2': '2aa423f8a389f4c719226d974197308736620d25',
+              'wickidcow/SF_Supreme': '24ef8251528403258ba0aa271a64766748c5efb7',
+          }
+          members = []
+          for row in data['repositories']:
+              assert row['status'] == 'source-captured'
+              repo = row['repository']
+              assert repo not in data['exclusions']
+              sha = overrides.get(repo, row['source_commit'])
+              assert re.fullmatch('[0-9a-f]{40}', sha)
+              members.append(dict(repository=repo, source_commit=sha, baseline_commit=row['source_commit'], membership=row['membership'], slug=row.get('slug', 'betterstructureslink')))
+          assert len(members) == 46 and len({r['repository'] for r in members}) == 46
+          assert sum(r['membership'] == 'canonical-bundle' for r in members) == 45
+          raw = Path(os.environ['RUNNER_TEMP'], 'core-artifact').read_bytes()
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              if 'plugin.yml' not in z.namelist():
+                  jars = [name for name in z.namelist() if name.endswith('.jar')]
+                  assert len(jars) == 1
+                  raw = z.read(jars[0])
+          core_hash = hashlib.sha256(raw).hexdigest()
+          assert core_hash == '48a4871ec83f7d7cdd0af5696ce1efb46c6437fa726575dc6805dc752c239778'
+          Path('audit-inputs/Slimefun-Legacy-Core.jar').write_bytes(raw)
+          url = 'https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/maven-metadata.xml'
+          req = urllib.request.Request(url, headers={'User-Agent':'SF-Exact-Core-Addon-Audit/1.0'})
+          with urllib.request.urlopen(req, timeout=40) as response:
+              xml = ET.fromstring(response.read())
+          paper = latest_candidate([n.text.strip() for n in xml.findall('./versioning/versions/version') if n.text], '26.3')
+          assert paper and '\n' not in paper and '\r' not in paper
+          manifest = dict(core_head='788b89e17d4e8694bad2c4e0e5e9ac5b1e0662c6', core_test_merge='d600e077552baab2086a056d04b1cb0a6a9051a5', core_sha256=core_hash, paper_api=paper, sources=members, exclusions=data['exclusions'], limitations='Compilation/packaging probe only; tests are not run by the reused generic probe. This is not a stable release, live-world upgrade, full addon modernization or cross-fork rollback certificate.')
+          Path('audit-inputs/manifest.json').write_text(json.dumps(manifest, indent=2))
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write('matrix=' + json.dumps({'include': members}, separators=(',', ':')) + '\n')
+              out.write('paper=' + paper + '\n')
+          print('Pinned', len(members), 'repositories; selected API', paper)
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pinned-ecosystem-inputs
+          path: audit-inputs/
+          retention-days: 14
+          if-no-files-found: error
+
+  compile:
+    name: Compile ${{ matrix.repository }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: d600e077552baab2086a056d04b1cb0a6a9051a5
+          path: tools
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ matrix.source_commit }}
+          path: addon
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        if: matrix.slug == 'dracfunreborn'
+        with:
+          gradle-version: '9.4.1'
+      - uses: actions/download-artifact@v8
+        with:
+          name: pinned-ecosystem-inputs
+          path: audit-inputs
+      - name: Verify source and core identities before the probe
+        env:
+          SOURCE: ${{ matrix.source_commit }}
+        run: |
+          set -euo pipefail
+          test "$(git -C addon rev-parse HEAD)" = "$SOURCE"
+          echo '48a4871ec83f7d7cdd0af5696ce1efb46c6437fa726575dc6805dc752c239778  audit-inputs/Slimefun-Legacy-Core.jar' | sha256sum -c -
+          mkdir -p report
+      - name: Compile using existing compatibility tooling
+        if: matrix.slug != 'dracfunreborn'
+        env:
+          PAPER_API_VERSION: ${{ needs.prepare.outputs.paper }}
+          ORG_GRADLE_PROJECT_paperDevBundleVersion: ${{ needs.prepare.outputs.paper }}
+        run: |
+          set -euo pipefail
+          python3 tools/scripts/compile_addon_paper_26_3.py addon "$PWD/audit-inputs/Slimefun-Legacy-Core.jar" "$PAPER_API_VERSION" --report-dir "$PWD/report" 2>&1 | tee report/probe-console.log
+      - name: Compile DracFun Reborn with exact core, then emit floor bytecode
+        if: matrix.slug == 'dracfunreborn'
+        env:
+          PAPER_API_VERSION: ${{ needs.prepare.outputs.paper }}
+        run: |
+          set -euo pipefail
+          mkdir -p addon/libs
+          cp audit-inputs/Slimefun-Legacy-Core.jar addon/libs/Slimefun-Legacy.jar
+          gradle -p addon clean compileJava -Pplatform=paper -PplatformVersion="$PAPER_API_VERSION" -PreleaseJvm=25 --no-daemon 2>&1 | tee report/primary-compile.log
+          gradle -p addon clean shadowJar -Pplatform=paper -PplatformVersion=1.21.11-R0.1-SNAPSHOT -PreleaseJvm=21 --no-daemon 2>&1 | tee report/floor-build.log
+      - name: Record resulting plugin files without asserting runtime compatibility
+        env:
+          REPOSITORY: ${{ matrix.repository }}
+          SOURCE: ${{ matrix.source_commit }}
+          MEMBERSHIP: ${{ matrix.membership }}
+          API: ${{ needs.prepare.outputs.paper }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, struct, zipfile
+          from pathlib import Path
+          rows = []
+          for folder in (Path('addon/target'), Path('addon/build/libs')):
+              if not folder.exists(): continue
+              for path in sorted(folder.glob('*.jar')):
+                  if path.name.startswith('original-') or path.name.endswith(('-sources.jar', '-javadoc.jar')): continue
+                  with zipfile.ZipFile(path) as z:
+                      descriptors = [n for n in ('plugin.yml', 'paper-plugin.yml', 'paper-plugin.yaml') if n in z.namelist()]
+                      if not descriptors: continue
+                      assert z.testzip() is None
+                      majors = set()
+                      for name in z.namelist():
+                          if name.endswith('.class') and not name.startswith('META-INF/versions/'):
+                              value = z.read(name)
+                              if value[:4] == b'\xca\xfe\xba\xbe': majors.add(struct.unpack('>H', value[6:8])[0])
+                      rows.append(dict(file=path.name, sha256=hashlib.sha256(path.read_bytes()).hexdigest(), size=path.stat().st_size, class_majors=sorted(majors), descriptor=z.read(descriptors[0]).decode('utf-8', errors='replace')))
+          assert rows, 'No plugin artifact produced by successful build'
+          Path('report/artifact-metadata.json').write_text(json.dumps(dict(repository=os.environ['REPOSITORY'], source_commit=os.environ['SOURCE'], membership=os.environ['MEMBERSHIP'], paper_api=os.environ['API'], core_sha256='48a4871ec83f7d7cdd0af5696ce1efb46c6437fa726575dc6805dc752c239778', candidates=rows, stage='compile-and-package-only'), indent=2))
+          print('Recorded', len(rows), 'plugin artifact(s); no release or live-server claim.')
+          PY
+      - name: Retain each result, including failures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ecosystem-probe-${{ matrix.slug }}
+          path: report/
+          retention-days: 14
+          if-no-files-found: warn
+
+  summary:
+    needs: [prepare, compile]
+    if: ${{ always() && needs.prepare.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: pinned-ecosystem-inputs
+          path: inputs
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: ecosystem-probe-*
+          path: results
+      - name: Record complete and failed results honestly
+        env:
+          MATRIX_RESULT: ${{ needs.compile.result }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          manifest = json.loads(Path('inputs/manifest.json').read_text())
+          completed = {}
+          for path in Path('results').rglob('artifact-metadata.json'):
+              row = json.loads(path.read_text())
+              completed[row['repository']] = row
+          rows = []
+          for source in manifest['sources']:
+              result = dict(source)
+              match = completed.get(source['repository'])
+              if match:
+                  assert match['source_commit'] == source['source_commit']
+                  result.update(status='COMPILE_AND_PACKAGE_PASS', artifacts=match['candidates'])
+              else:
+                  result.update(status='NO_VERIFIED_ARTIFACT', details='Inspect this job and retained probe logs; no successful artifact claimed.')
+              rows.append(result)
+          manifest.update(matrix_result=os.environ['MATRIX_RESULT'], results=rows)
+          manifest.pop('sources')
+          Path('ecosystem-result.json').write_text(json.dumps(manifest, indent=2))
+          lines = ['# Exact-core ecosystem compilation checkpoint', '', manifest['limitations'], '', '| Repository | Exact source | Result |', '| --- | --- | --- |']
+          lines.extend('| ' + r['repository'] + ' | ' + r['source_commit'] + ' | ' + r['status'] + ' |' for r in rows)
+          Path('ecosystem-result.md').write_text('\n'.join(lines) + '\n')
+          print('Verified artifacts for', len(completed), 'of', len(rows), 'repositories.')
+          if len(completed) != len(rows) or os.environ['MATRIX_RESULT'] != 'success': raise SystemExit(1)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: pinned-ecosystem-compilation-result
+          path: |
+            ecosystem-result.json
+            ecosystem-result.md
+          retention-days: 14
+          if-no-files-found: error
