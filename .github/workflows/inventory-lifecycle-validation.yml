@@ -75,8 +75,13 @@ jobs:
                   org.bukkit.event.HandlerList.unregisterAll(listener);'''
           text = fixture.read_text()
           assert text.count(before) == 1
-          fixture.write_text(text.replace(before, after))
-          assert blob(fixture.read_bytes()) == '5a8caa9263a5c913bb03dfad1fc2e78bebb00fd0', blob(fixture.read_bytes())
+          text = text.replace(before, after)
+          assert blob(text.encode()) == '5a8caa9263a5c913bb03dfad1fc2e78bebb00fd0'
+          old_annotation = '@SuppressWarnings("deprecation") // Retain behavior'
+          new_annotation = '@SuppressWarnings({"deprecation", "removal"}) // Retain behavior'
+          assert text.count(old_annotation) == 1
+          fixture.write_text(text.replace(old_annotation, new_annotation))
+          assert blob(fixture.read_bytes()) == '1a7315acde68538cfb97fc048ebed43a3ee9b302', blob(fixture.read_bytes())
           Path('audit-evidence/reviewed-paths.json').write_text(json.dumps([str(p) for p in prepared]))
           Path('audit-evidence/baseline-reference.txt').write_text('Run 36659862162 reproduced the original chunk-cache mutation before guarded deletion. The downloaded original-lifecycle.xml records exactly one expected cache-identity assertion failure.\n')
           PY
