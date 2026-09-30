@@ -239,9 +239,9 @@ run_cycle() {
     if ! grep -Fq "Enabling Slimefun v${EXPECTED_SLIMEFUN_VERSION}" "$normalized"; then
         echo "Expected Slimefun ${EXPECTED_SLIMEFUN_VERSION} did not enable" >&2; return 1
     fi
-    if grep -Eq 'Error occurred while enabling|NoClassDefFoundError|NoSuchMethodError|AbstractMethodError|IncompatibleClassChangeError' "$normalized"; then
-        echo "Full-stack linkage/enable failure detected on ${MC_VERSION}/${label}" >&2
-        grep -E 'Error occurred while enabling|NoClassDefFoundError|NoSuchMethodError|AbstractMethodError|IncompatibleClassChangeError' "$normalized" >&2 || true
+    if grep -Eq 'Error occurred while enabling|NoClassDefFoundError|NoSuchMethodError|AbstractMethodError|IncompatibleClassChangeError|InvalidConfigurationException|Cannot load .*\.ya?ml([[:space:]]|$)' "$normalized"; then
+        echo "Full-stack linkage/enable/configuration failure detected on ${MC_VERSION}/${label}" >&2
+        grep -E 'Error occurred while enabling|NoClassDefFoundError|NoSuchMethodError|AbstractMethodError|IncompatibleClassChangeError|InvalidConfigurationException|Cannot load .*\.ya?ml([[:space:]]|$)' "$normalized" >&2 || true
         return 1
     fi
 
@@ -275,6 +275,7 @@ Cycles: 2
 All required addon enable lines: observed
 Known external hard dependencies: reported separately
 Linkage/enable failures: none
+Configuration-load failures: none
 Clean shutdown persistence: observed on second boot
 EOF
 cat "$WORK_DIR/smoke-result.txt"

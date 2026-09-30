@@ -1,0 +1,47 @@
+name: Full Stack Error Gate Regression
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/full_stack_runtime_smoke.sh'
+      - 'scripts/test_full_stack_runtime_error_gate.py'
+      - 'scripts/verify_legacy.py'
+      - '.github/workflows/full-stack-error-gate.yml'
+  push:
+    branches: ['master']
+    paths:
+      - 'scripts/full_stack_runtime_smoke.sh'
+      - 'scripts/test_full_stack_runtime_error_gate.py'
+      - 'scripts/verify_legacy.py'
+      - '.github/workflows/full-stack-error-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  error-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Exercise the actual shell gate and retained source invariants
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-gate-evidence
+          bash -n scripts/full_stack_runtime_smoke.sh
+          python3 scripts/test_full_stack_runtime_error_gate.py . | tee runtime-gate-evidence/log-cases.txt
+          python3 scripts/verify_legacy.py . | tee runtime-gate-evidence/invariants.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: runtime-error-gate-regression
+          path: runtime-gate-evidence/
+          retention-days: 14
+          if-no-files-found: warn
