@@ -32,8 +32,6 @@ jobs:
               return hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
           transport = Path('.audit/doctor-recovery-transport.gz').read_bytes()
           assert blob(transport) == '1c3121ae74d9d08db303398a91253a2088528506'
-          # Repair two verified duplicated characters introduced while transporting
-          # the compressed source review. Verify the original bytes before applying.
           text = base64.b64encode(transport).decode()
           assert text.count('LOKKzuSdg') == text.count('AV9tbGG85') == 1
           text = text.replace('LOKKzuSdg', 'LOKzuSdg').replace('AV9tbGG85', 'AV9tbG85')
@@ -61,6 +59,34 @@ jobs:
               path.parent.mkdir(parents=True, exist_ok=True)
               path.write_bytes(output)
               print('REVIEWED_SOURCE', blob(output), path)
+          helper = Path('src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/InventoryRecoveryDiagnostics.java')
+          assert blob(helper.read_bytes()) == 'e12bab6b58607dc0fc717d10e9396a78f21580ed'
+          text = helper.read_text()
+          replacements = (
+              ('import io.github.bakedlibs.dough.common.ChatColors;', 'import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;'),
+              ('sender.sendMessage(ChatColors.color(text));', 'sender.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(text));'),
+              ("|| Character.getType(character) == Character.FORMAT ? '?' : character);", "|| Character.getType(character) == Character.FORMAT\n                    || Character.getType(character) == Character.LINE_SEPARATOR\n                    || Character.getType(character) == Character.PARAGRAPH_SEPARATOR ? '?' : character);"),
+          )
+          for before, after in replacements:
+              assert text.count(before) == 1, before
+              text = text.replace(before, after)
+          helper.write_text(text)
+          assert blob(helper.read_bytes()) == 'c4f242d0ac460284d585f916332b67528d4c4f37'
+          test = Path('src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/InventoryRecoveryDiagnosticsTest.java')
+          assert blob(test.read_bytes()) == 'fe5f3e4e0de3b31be3b6dfa0bcb36304061498f7'
+          text = test.read_text()
+          replacements = (
+              ('import org.bukkit.command.CommandSender;', 'import net.kyori.adventure.text.Component;\nimport net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;\nimport org.bukkit.command.CommandSender;'),
+              ('String original = "world&a\\u00a7c\\n\\t\\u202e;1:64:2";', 'String original = "world&a\\u00a7c\\n\\t\\u202e\\u2028\\u2029;1:64:2";'),
+              ('report.contains("world?a?c???;1:64:2")', 'report.contains("world?a?c?????;1:64:2")'),
+              ('                            for (Object value : values) {\n                                if (value instanceof String text) messages.add(text);\n                                else if (value instanceof String[] lines) messages.addAll(List.of(lines));\n                            }',
+               '                            assertEquals(1, values.length);\n                            Component message = assertInstanceOf(Component.class, values[0]);\n                            messages.add(PlainTextComponentSerializer.plainText().serialize(message));'),
+          )
+          for before, after in replacements:
+              assert text.count(before) == 1, before
+              text = text.replace(before, after)
+          test.write_text(text)
+          assert blob(test.read_bytes()) == 'ecfb9b615ac6719f7298a032d04b5a3d638e7d4f'
           Path('audit-evidence/paths.json').write_text(json.dumps([str(path) for path in prepared]))
           PY
           git diff --check
