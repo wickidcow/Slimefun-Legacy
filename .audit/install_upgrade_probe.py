@@ -21,3 +21,23 @@ for entry in entries:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(entry['content'])
     print('REVIEWED_UPGRADE_FILE', entry['sha'], path)
+
+probe = Path('compatibility/upgrade-fixture/LegacyUpgradeProbe.java')
+text = probe.read_text()
+old = 'ItemStack restored = ItemStackDataCodec.deserialize(original);'
+assert text.count(old) == 1
+text = text.replace(old, 'ItemStack restored = readStoredFixture(original, format);')
+anchor = '    private static String component(Component value) {'
+helper = '''    @SuppressWarnings("deprecation") // Exercise the old String-facing API on both old and new cores.
+    private static ItemStack readStoredFixture(byte[] bytes, String format) throws Exception {
+        return format.equals("text")
+                ? com.xzavier0722.mc.plugin.slimefun4.storage.util.DataUtils.deserializeItemStack(
+                        new String(bytes, StandardCharsets.US_ASCII))
+                : ItemStackDataCodec.deserialize(bytes);
+    }
+
+'''
+assert text.count(anchor) == 1
+text = text.replace(anchor, helper + anchor)
+assert blob(text.encode()) == '22827241e322b793b605c22f275123afa52f9b23'
+probe.write_text(text)
