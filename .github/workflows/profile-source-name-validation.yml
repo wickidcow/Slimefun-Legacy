@@ -1,0 +1,124 @@
+name: Profile Source Name Preservation Validation
+
+on:
+  push:
+    branches: ['work/profile-source-name-validation-20260930']
+    paths: ['.github/workflows/profile-source-name-validation.yml']
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Reproduce the original controller defect with a real assertion
+        run: |
+          set -euo pipefail
+          mkdir -p profile-evidence
+          chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon
+          set +e
+          ./gradlew test --tests '*ProfileSourceNameTest.keepsTheSuppliedNameWhenUuidLookupDoesNotKnowTheMachinePlayer' --no-daemon --console=plain > profile-evidence/negative-build.log 2>&1
+          STATUS=$?
+          set -e
+          test "$STATUS" -ne 0
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil, xml.etree.ElementTree as ET
+          paths=list(Path('build/test-results/test').glob('*ProfileSourceNameTest.xml'))
+          assert len(paths)==1, 'A compilation/setup error is not the intended negative control'
+          root=ET.parse(paths[0]).getroot()
+          assert root.attrib['tests']=='1' and root.attrib['failures']=='1' and root.attrib['errors']=='0'
+          failures=root.findall('.//failure')
+          assert len(failures)==1 and 'SE_Butcher' in failures[0].get('message',''), ET.tostring(root).decode()
+          assert failures[0].get('type')=='org.opentest4j.AssertionFailedError'
+          shutil.copy2(paths[0], 'profile-evidence/negative-control.xml')
+          print('Original controller lost the supplied name; intended assertion reproduced.')
+          PY
+      - name: Apply only the exact profile-name correction
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          p=Path('src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/ProfileDataController.java')
+          data=p.read_bytes()
+          blob=lambda b: hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          assert blob(data)=='032df51e806d0945225840590fc78dff8a6f7c81'
+          old='''        key.addCondition(FieldKey.PLAYER_UUID, uuid);
+                  scheduleWriteTask(new UUIDKey(DataScope.NONE, p.getUniqueId()), key, getRecordSet(re), true);
+                  return re;'''
+          new='''        key.addCondition(FieldKey.PLAYER_UUID, uuid);
+                  var data = getRecordSet(re);
+                  // UUID-only offline lookups can lack a name for an unregistered machine player.
+                  // Retain the caller's known name so the NOT NULL parent row is not silently ignored.
+                  // When no name was supplied, preserve the existing profile-owner lookup behavior.
+                  var suppliedName = p.getName();
+                  if (suppliedName != null) {
+                      data.put(FieldKey.PLAYER_NAME, suppliedName);
+                  }
+                  scheduleWriteTask(new UUIDKey(DataScope.NONE, p.getUniqueId()), key, data, true);
+                  return re;'''
+          text=data.decode()
+          assert text.count(old)==1
+          result=text.replace(old,new).encode()
+          assert blob(result)=='3f471ce1f03789dda1051aeefb245b0f7da4d4bc'
+          p.write_bytes(result)
+          PY
+      - name: Run all core invariants and the full corrected build
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_legacy.py . 2>&1 | tee profile-evidence/invariants.log
+          ./gradlew spotlessApply --no-daemon
+          ./gradlew clean --no-daemon
+          ./gradlew build -PslimefunDeprecationReport=true --no-daemon --console=plain 2>&1 | tee profile-evidence/corrected-build.log
+          python3 scripts/summarize_deprecations.py profile-evidence/corrected-build.log --fail-on-warnings --require-successful-build
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,hashlib,shutil,xml.etree.ElementTree as ET
+          reports=list(Path('build/test-results/test').glob('*ProfileSourceNameTest.xml'))
+          assert len(reports)==1
+          root=ET.parse(reports[0]).getroot()
+          assert root.attrib['tests']=='8' and all(root.attrib[k]=='0' for k in ['failures','errors','skipped']), root.attrib
+          manifest={}
+          for name in ['src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/ProfileDataController.java','src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/ProfileSourceNameTest.java']:
+              b=Path(name).read_bytes()
+              manifest[name]=hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+              dest=Path('profile-evidence/reviewed-source')/name
+              dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(b)
+          Path('profile-evidence/reviewed-blobs.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          shutil.copytree('build/test-results/test','profile-evidence/test-results',dirs_exist_ok=True)
+          PY
+      - name: Check the installable core JAR
+        run: |
+          set -euo pipefail
+          JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -s "$JAR"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+          python3 scripts/verify_release_artifact.py "$JAR" --root .
+          mkdir -p profile-candidate
+          cp "$JAR" profile-candidate/Slimefun-Legacy-profile-candidate.jar
+          sha256sum profile-candidate/*.jar > profile-evidence/jar-sha256.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: profile-source-name-evidence
+          path: profile-evidence/
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        with:
+          name: profile-source-name-core-candidate
+          path: profile-candidate/
+          retention-days: 14
+          if-no-files-found: error
