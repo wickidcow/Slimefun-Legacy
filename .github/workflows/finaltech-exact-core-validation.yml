@@ -1,0 +1,131 @@
+name: FinalTECH Exact Legacy Core Validation
+
+on:
+  push:
+    branches: ['work/finaltech-exact-core-20260930']
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: wickidcow/SF_FinalTECH
+          ref: 0fedef35faee2cc54b0e8dd19ff8b2aca848952a
+          path: finaltech
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: d600e077552baab2086a056d04b1cb0a6a9051a5
+          path: core
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Verify retained source, storage, English and compatibility boundaries
+        working-directory: finaltech
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../audit-evidence
+          for SCRIPT in normalize_english_yaml.py verify_source_hygiene.py verify_part2_storage_boundaries.py test_storage_boundary_verifier.py verify_itemstack_text_compat.py verify_itemstack_type_compat.py verify_legacy_text_compat.py verify_entity_api_compat.py verify_nonnetwork_energy_compat.py verify_recipe_api_compat.py; do
+            if [ "$SCRIPT" = normalize_english_yaml.py ]; then
+              python3 "scripts/$SCRIPT" --check
+            else
+              python3 "scripts/$SCRIPT"
+            fi
+          done 2>&1 | tee ../audit-evidence/source-gates.log
+          mapfile -t OFFENDERS < <(grep -RInP '[\x{3400}-\x{4DBF}\x{4E00}-\x{9FFF}\x{F900}-\x{FAFF}]' . --exclude-dir=.git --exclude='zh-CN.yml' --exclude='zh-TW.yml' || true)
+          if (( ${#OFFENDERS[@]} > 0 )); then printf '%s\n' "${OFFENDERS[@]}"; exit 1; fi
+          python3 -m pip install --quiet --disable-pip-version-check pyyaml
+          python3 - <<'PY'
+          from pathlib import Path
+          import yaml
+          yaml.safe_load(Path('src/main/resources/language/en-US.yml').read_text())
+          print('English YAML and retained language policy passed.')
+          PY
+      - name: Publish exact tested Legacy API locally
+        working-directory: core
+        run: |
+          chmod +x gradlew
+          ./gradlew publishToMavenLocal -PprojectVersion=ALBION-SNAPSHOT -x test --console=plain --no-daemon
+      - name: Resolve and record the current Paper 26.3 API
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request, xml.etree.ElementTree as ET
+          from pathlib import Path
+          url = 'https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/maven-metadata.xml'
+          request = urllib.request.Request(url, headers={'User-Agent': 'FinalTECH-exact-core-audit/1.0'})
+          with urllib.request.urlopen(request, timeout=45) as response:
+              root = ET.fromstring(response.read())
+          versions = [v.text.strip() for v in root.findall('./versioning/versions/version') if v.text and v.text.strip().startswith('26.3')]
+          assert versions, 'No published 26.3 API returned'
+          version = versions[-1]
+          assert '\n' not in version and '\r' not in version
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write('PAPER_26_3=' + version + '\n')
+          Path('audit-evidence/provenance.json').write_text(json.dumps(dict(finaltech='0fedef35faee2cc54b0e8dd19ff8b2aca848952a', core_head='788b89e17d4e8694bad2c4e0e5e9ac5b1e0662c6', core_test_merge='d600e077552baab2086a056d04b1cb0a6a9051a5', paper_26_3=version), indent=2))
+          print('Resolved Paper 26.3 API:', version)
+          PY
+      - name: Compile and run real tests for each API line
+        working-directory: finaltech
+        shell: bash
+        run: |
+          set -euo pipefail
+          for SPEC in 'floor|1.21.11-R0.1-SNAPSHOT' 'intermediate|26.2.build.112-stable' "primary|$PAPER_26_3"; do
+            LABEL="${SPEC%%|*}"
+            API="${SPEC#*|}"
+            mkdir -p "../audit-evidence/$LABEL"
+            mvn -B --no-transfer-progress -Dpaper.version="$API" -Dslimefun.groupId=com.github.slimefun -Dslimefun.artifactId=Slimefun -Dslimefun.version=ALBION-SNAPSHOT clean package 2>&1 | tee "../audit-evidence/$LABEL/build.log"
+            cp target/surefire-reports/TEST-*.xml "../audit-evidence/$LABEL/"
+            if [ "$LABEL" = floor ]; then cp target/SF_FinalTECH3.0.2.jar ../audit-evidence/SF_FinalTECH3.0.2.jar; fi
+          done
+          git diff --exit-code
+      - name: Validate test execution and floor artifact
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, struct, xml.etree.ElementTree as ET, zipfile
+          from pathlib import Path
+          result = {}
+          for label in ('floor', 'intermediate', 'primary'):
+              totals = dict.fromkeys(('tests', 'failures', 'errors', 'skipped'), 0)
+              reports = list(Path('audit-evidence', label).glob('TEST-*.xml'))
+              assert reports, label
+              for report in reports:
+                  suite = ET.parse(report).getroot()
+                  for key in totals: totals[key] += int(suite.get(key, '0'))
+              assert totals['tests'] > 0 and totals['failures'] == totals['errors'] == totals['skipped'] == 0, (label, totals)
+              result[label] = totals
+          jar = Path('audit-evidence/SF_FinalTECH3.0.2.jar')
+          with zipfile.ZipFile(jar) as archive:
+              assert archive.testzip() is None
+              for name in archive.namelist():
+                  if name.endswith('.class'): assert struct.unpack('>H', archive.read(name)[6:8])[0] <= 65, name
+          result['jar_sha256'] = hashlib.sha256(jar.read_bytes()).hexdigest()
+          Path('audit-evidence/results.json').write_text(json.dumps(result, indent=2))
+          print(json.dumps(result, indent=2))
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: finaltech-exact-core-evidence
+          retention-days: 14
+          path: |
+            audit-evidence/*.json
+            audit-evidence/*.log
+            audit-evidence/floor/
+            audit-evidence/intermediate/
+            audit-evidence/primary/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        with:
+          name: SF_FinalTECH3.0.2-exact-core-candidate.jar
+          path: audit-evidence/SF_FinalTECH3.0.2.jar
+          archive: false
+          if-no-files-found: error
