@@ -1,0 +1,126 @@
+name: SF Ecosystem Modernization Baseline
+
+on:
+  push:
+    branches: ['work/sf-ecosystem-baseline-20260930']
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Read the tested core and bundle contract
+        uses: actions/checkout@v6
+        with:
+          ref: d600e077552baab2086a056d04b1cb0a6a9051a5
+          path: core
+          persist-credentials: false
+      - name: Collect exact source baselines and open-work references
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import concurrent.futures, hashlib, io, json, re, subprocess, tarfile, urllib.request
+          from pathlib import Path, PurePosixPath
+          from datetime import datetime, timezone
+
+          root = Path('audit-evidence')
+          root.mkdir()
+          contract = json.loads(Path('core/compatibility/sfl-addon-release-matrix.json').read_text())
+          targets = {row['repository']: dict(row, membership='canonical-bundle') for row in contract['addons']}
+          targets['wickidcow/SF_BetterStructuresLink'] = {'repository': 'wickidcow/SF_BetterStructuresLink', 'membership': 'additional-active-SF-repository'}
+          excluded = dict(contract['excluded_from_bundle'])
+          excluded.update({repo: 'Archived; do not unarchive or ship.' for repo in contract['excluded_archived']})
+          assert not (set(targets) & set(excluded))
+          (root / 'bundle-contract.json').write_text(json.dumps(contract, indent=2))
+          priority = ['wickidcow/SF_NetworksExp', 'wickidcow/SF_InfinityExpansion2', 'wickidcow/SF_Supreme', 'wickidcow/SF_FinalTECH']
+          patterns = {
+              'legacy_itemmeta_setter': r'\.(?:setDisplayName|setLore)\s*\(',
+              'legacy_bukkit_metadata': r'\.(?:setMetadata|getMetadata|hasMetadata|removeMetadata)\s*\(',
+              'legacy_storage_bridge': r'\b(?:BlockStorage|BlockDataConfigWrapper)\b',
+              'serialization_boundary': r'\b(?:serializeAsBytes|deserializeBytes|BukkitObjectInputStream|BukkitObjectOutputStream|serializeItemStackBytes)\b',
+              'reflection_boundary': r'\b(?:getDeclaredMethod|getMethod|Class\.forName)\s*\(',
+              'scheduler_boundary': r'\b(?:runTaskTimer|runTaskAsynchronously|runAt|runEntity|SchedulerService)\b',
+              'doctor_integration': r'\b(?:registerAddonDoctor|registerLegacyItem|Doctor|MigrationProvider)\b',
+          }
+          allowed = {'.java', '.kt', '.kts', '.xml', '.yaml', '.yml', '.json', '.md', '.toml', '.py', '.sh', '.properties', '.txt', '.gradle'}
+
+          def api(endpoint):
+              completed = subprocess.run(['gh', 'api', endpoint], text=True, capture_output=True, check=True, timeout=45)
+              return json.loads(completed.stdout)
+
+          def collect(item):
+              repo, row = item
+              result = dict(row)
+              try:
+                  metadata = api('repos/' + repo)
+                  assert metadata['full_name'] == repo and not metadata['archived'], repo
+                  branch = metadata['default_branch']
+                  branch_data = api('repos/' + repo + '/branches/' + urllib.parse.quote(branch, safe=''))
+                  head = branch_data['commit']['sha']
+                  sha = row.get('source_commit', head)
+                  assert re.fullmatch(r'[0-9a-f]{40}', sha)
+                  result.update(default_branch=branch, default_head=head, source_commit=sha)
+                  pulls = api('repos/' + repo + '/pulls?state=open&per_page=100')
+                  result['open_pull_requests'] = [dict(number=p['number'], title=p['title'], head=p['head']['sha'], base=p['base']['ref'], draft=p['draft']) for p in pulls]
+                  result['pull_request_listing_may_be_truncated'] = len(pulls) == 100
+                  url = 'https://codeload.github.com/' + repo + '/tar.gz/' + sha
+                  with urllib.request.urlopen(url, timeout=90) as response:
+                      archive = response.read(150_000_001)
+                  assert len(archive) <= 150_000_000, repo
+                  result['archive_sha256'] = hashlib.sha256(archive).hexdigest()
+                  destination = root / 'source' / repo.split('/')[1]
+                  file_blobs, hits = {}, {key: [] for key in patterns}
+                  with tarfile.open(fileobj=io.BytesIO(archive), mode='r:gz') as tar:
+                      for entry in tar:
+                          path = PurePosixPath(*PurePosixPath(entry.name).parts[1:])
+                          if not entry.isfile() or path.is_absolute() or '..' in path.parts or entry.size > 5_000_000:
+                              continue
+                          if path.suffix not in allowed and path.name not in {'gradlew', 'mvnw', '.editorconfig', '.gitignore'}:
+                              continue
+                          data = tar.extractfile(entry).read()
+                          out = destination / str(path)
+                          out.parent.mkdir(parents=True, exist_ok=True)
+                          out.write_bytes(data)
+                          file_blobs[str(path)] = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+                          if str(path).startswith('src/main/') and path.suffix in {'.java', '.kt'}:
+                              for line_number, line in enumerate(data.decode('utf-8', errors='replace').splitlines(), 1):
+                                  for category, pattern in patterns.items():
+                                      if re.search(pattern, line):
+                                          hits[category].append({'path': str(path), 'line': line_number, 'text': line.strip()[:300]})
+                  result.update(status='source-captured', source_file_count=len(file_blobs), candidate_counts={key: len(value) for key, value in hits.items()})
+                  (destination / '_audit-blob-manifest.json').write_text(json.dumps(file_blobs, indent=2))
+                  (destination / '_audit-candidate-locations.json').write_text(json.dumps(hits, indent=2))
+                  print(repo, sha, len(file_blobs), 'source files;', len(pulls), 'open PRs', flush=True)
+              except Exception as error:
+                  result.update(status='capture-failed', error=str(error)[:500])
+                  print(repo, 'CAPTURE FAILED', type(error).__name__, flush=True)
+              return result
+
+          with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+              results = list(pool.map(collect, sorted(targets.items())))
+          results.sort(key=lambda x: (priority.index(x['repository']) if x['repository'] in priority else len(priority), x['repository']))
+          report = dict(schema=1, captured_at=datetime.now(timezone.utc).isoformat(), core_head='788b89e17d4e8694bad2c4e0e5e9ac5b1e0662c6', tested_core_merge='d600e077552baab2086a056d04b1cb0a6a9051a5', bundle_revision=contract['bundle_revision'], exclusions=excluded, repositories=results, limitations='Read-only source inventory and lexical review candidates, not compiler warnings, runtime certification or completed addon modernization. No addon code or release matrix is modified.')
+          (root / 'ecosystem-baseline.json').write_text(json.dumps(report, indent=2))
+          lines = ['# SF addon modernization source baseline', '', report['limitations'], '', '| Repository | Exact source | Status | Open PRs |', '| --- | --- | --- | --- |']
+          for r in results:
+              lines.append('| ' + r['repository'] + ' | ' + r.get('source_commit', '-') + ' | ' + r['status'] + ' | ' + str(len(r.get('open_pull_requests', []))) + ' |')
+          (root / 'ecosystem-baseline.md').write_text('\n'.join(lines) + '\n')
+          failed = [r['repository'] for r in results if r['status'] != 'source-captured']
+          print('Captured', len(results) - len(failed), 'of', len(results), 'repositories; failures:', failed)
+          if failed:
+              raise SystemExit(1)
+          PY
+      - name: Retain exact sources and audit evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sf-ecosystem-baseline
+          path: audit-evidence/
+          retention-days: 14
+          if-no-files-found: error
