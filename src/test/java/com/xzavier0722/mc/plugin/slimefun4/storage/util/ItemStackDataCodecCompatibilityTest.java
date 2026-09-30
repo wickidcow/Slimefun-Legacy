@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.FieldKey;
-import com.xzavier0722.mc.plugin/slimefun4/storage/common/RecordSet;
+import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordSet;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
