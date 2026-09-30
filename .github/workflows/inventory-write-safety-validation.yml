@@ -1,0 +1,138 @@
+name: Legacy Inventory Write Safety Validation
+
+on:
+  push:
+    branches: ['work/legacy-inventory-write-safety']
+
+concurrency:
+  group: legacy-inventory-write-safety-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - name: Check out exact candidate inputs
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Apply source-hash-guarded inventory write correction
+        run: |
+          set -euo pipefail
+          mkdir -p audit-evidence
+          python3 .audit/apply_inventory_write_safety.py | tee audit-evidence/source-correction.txt
+          git diff --check
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Run complete invariant suite on corrected committed-style sources
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_legacy.py . | tee audit-evidence/invariants.log
+      - name: Prove the original RecordSet writer accepts a failed item as empty
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon
+          RECORD='src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/common/RecordSet.java'
+          cp "$RECORD" "$RUNNER_TEMP/fixed-record.java"
+          trap 'cp "$RUNNER_TEMP/fixed-record.java" "$RECORD"' EXIT
+          git show '22aec969b3e5b8634737152babd5e8242dec6c6c:src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/common/RecordSet.java' > "$RECORD"
+          set +e
+          ./gradlew test --tests '*InventorySerializationFailureTest.recordSetPreservesExistingValueWhenNonEmptyPaperSerializationFails' --console=plain --no-daemon > audit-evidence/original-writer.log 2>&1
+          STATUS=$?
+          set -e
+          test "$STATUS" -ne 0
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          report = Path('build/test-results/test/TEST-com.xzavier0722.mc.plugin.slimefun4.storage.controller.InventorySerializationFailureTest.xml')
+          suite = ET.parse(report).getroot()
+          assert suite.get('tests') == '1' and suite.get('failures') == '1' and suite.get('skipped') == '0', suite.attrib
+          text = report.read_text()
+          assert 'nothing was thrown' in text, text
+          Path('audit-evidence/original-writer.xml').write_text(text)
+          print('Reproduced: old RecordSet writer did not reject failed serialization of a non-empty item.')
+          PY
+      - name: Build and test the corrected writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew spotlessApply --no-daemon
+          ./gradlew clean --console=plain --no-daemon
+          mkdir -p build/reports
+          ./gradlew build -PslimefunDeprecationReport=true --console=plain --no-daemon 2>&1 | tee build/reports/deprecation-compile.log
+          python3 scripts/summarize_deprecations.py build/reports/deprecation-compile.log --fail-on-warnings --require-successful-build
+          git diff --check
+      - name: Summarize actual JUnit results
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          totals = dict.fromkeys(('tests', 'failures', 'errors', 'skipped'), 0)
+          new_count = 0
+          for file in sorted(Path('build/test-results/test').glob('TEST-*.xml')):
+              suite = ET.parse(file).getroot()
+              for key in totals:
+                  totals[key] += int(suite.get(key, '0'))
+              if 'InventorySerializationFailureTest' in file.name:
+                  print('New inventory-save suite:', suite.attrib)
+                  assert all(int(suite.get(key, '0')) == 0 for key in ('failures', 'errors', 'skipped'))
+                  new_count += int(suite.get('tests', '0'))
+          assert new_count == 19, new_count
+          assert totals['failures'] == totals['errors'] == 0, totals
+          print('Full suite:', totals)
+          Path('audit-evidence/results.txt').write_text(f'New inventory-save tests: {new_count} passed\nFull JUnit results: {totals}\n')
+          PY
+      - name: Preserve only the six validated source blobs without moving refs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, json, os, subprocess
+          from pathlib import Path
+          paths = (
+              'src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/DataUtils.java',
+              'src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/common/RecordSet.java',
+              'src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/PersistedItemStorageMaintenance.java',
+              'src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/BlockDataController.java',
+              'src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/ProfileDataController.java',
+              'src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/InventorySerializationFailureTest.java',
+          )
+          manifest = {}
+          for path in paths:
+              data = Path(path).read_bytes()
+              expected = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+              body = json.dumps({'content': base64.b64encode(data).decode('ascii'), 'encoding': 'base64'})
+              result = subprocess.run(['gh', 'api', '--method', 'POST', f"repos/{os.environ['GITHUB_REPOSITORY']}/git/blobs", '--input', '-', '--jq', '.sha'], input=body, text=True, capture_output=True, check=True)
+              actual = result.stdout.strip()
+              assert actual == expected, (path, expected, actual)
+              manifest[path] = actual
+              destination = Path('audit-evidence/validated-source') / path
+              destination.parent.mkdir(parents=True, exist_ok=True)
+              destination.write_bytes(data)
+              print(f'VALIDATED_BLOB {actual} {path}')
+          Path('audit-evidence/validated-blobs.json').write_text(json.dumps(manifest, indent=2) + '\n')
+          PY
+      - name: Upload validation evidence, not a release
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: legacy-inventory-write-safety-evidence
+          path: |
+            audit-evidence/
+            build/test-results/test/TEST-*.xml
+            build/reports/deprecation-compile.log
+            build/reports/deprecations.md
+          if-no-files-found: warn
