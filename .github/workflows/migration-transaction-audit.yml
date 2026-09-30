@@ -1,0 +1,207 @@
+name: Legacy Atomic Migration Validation
+
+on:
+  push:
+    branches: ['work/legacy-universal-migration-atomicity']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: legacy-atomic-migration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Apply exact saved source review
+        run: python3 .audit/apply_atomic_migration.py
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Pin validation source identity
+        run: |
+          echo "SOURCE_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+      - name: Run complete source invariants
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_legacy.py . 2>&1 | tee audit-evidence/invariants.log
+      - name: Full project build and native-driver regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon
+          ./gradlew clean --console=plain --no-daemon
+          mkdir -p build/reports
+          ./gradlew build -PslimefunDeprecationReport=true --console=plain --no-daemon 2>&1 | tee build/reports/deprecation-compile.log
+          python3 scripts/summarize_deprecations.py build/reports/deprecation-compile.log --fail-on-warnings --require-successful-build
+          git diff --check
+      - name: Require actual migration test execution
+        run: |
+          python3 - <<'PY'
+          import json
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          totals = dict.fromkeys(('tests', 'failures', 'errors', 'skipped'), 0)
+          suites = {}
+          for path in Path('build/test-results/test').glob('TEST-*.xml'):
+              suite = ET.parse(path).getroot()
+              for key in totals:
+                  totals[key] += int(suite.get(key, '0'))
+              suites[suite.get('name')] = suite
+          for name, count in (
+              ('com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon.SqlUniversalBlockMigrationTest', 19),
+              ('com.xzavier0722.mc.plugin.slimefun4.storage.controller.UniversalMigrationDurabilityTest', 10),
+          ):
+              suite = suites[name]
+              assert int(suite.get('tests', '0')) == count, suite.attrib
+              assert all(int(suite.get(key, '0')) == 0 for key in ('failures', 'errors', 'skipped')), suite.attrib
+              print('Native migration suite:', suite.attrib)
+          assert totals['failures'] == totals['errors'] == 0, totals
+          print('Full JUnit results:', totals)
+          Path('audit-evidence/results.json').write_text(json.dumps(totals, indent=2))
+          PY
+      - name: Check candidate packaging
+        run: |
+          set -euo pipefail
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -n "$JAR"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+          python3 scripts/verify_release_artifact.py "$JAR" --root .
+      - name: Store validated source blobs without changing branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, json, os, subprocess
+          from pathlib import Path
+          manifest = {}
+          for name in json.loads(Path('audit-evidence/reviewed-paths.json').read_text()):
+              data = Path(name).read_bytes()
+              expected = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+              body = json.dumps({'content': base64.b64encode(data).decode(), 'encoding': 'base64'})
+              result = subprocess.run(['gh', 'api', '--method', 'POST', f"repos/{os.environ['GITHUB_REPOSITORY']}/git/blobs", '--input', '-', '--jq', '.sha'], input=body, text=True, capture_output=True, check=True)
+              assert result.stdout.strip() == expected, name
+              manifest[name] = expected
+              destination = Path('audit-evidence/validated-source') / name
+              destination.parent.mkdir(parents=True, exist_ok=True)
+              destination.write_bytes(data)
+              print('VALIDATED_BLOB', expected, name)
+          Path('audit-evidence/validated-blobs.json').write_text(json.dumps(manifest, indent=2))
+          PY
+      - name: Preserve source and failure evidence
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          manifest = Path('audit-evidence/reviewed-paths.json')
+          if manifest.exists():
+              for name in json.loads(manifest.read_text()):
+                  destination = Path('audit-evidence/tested-source') / name
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+                  destination.write_bytes(Path(name).read_bytes())
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: migration-core-evidence
+          retention-days: 14
+          path: |
+            audit-evidence/
+            build/reports/
+            build/test-results/test/TEST-*.xml
+          if-no-files-found: warn
+
+  databases:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: migration_fixture
+          MYSQL_USER: migration_test
+          MYSQL_PASSWORD: local_test_only
+          MYSQL_ROOT_PASSWORD: local_root_test_only
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: migration_fixture
+          POSTGRES_USER: migration_test
+          POSTGRES_PASSWORD: local_test_only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U migration_test -d migration_fixture"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Apply exact saved source review
+        run: python3 .audit/apply_atomic_migration.py
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Add MySQL driver only to the test runtime
+        run: |
+          cat > "$RUNNER_TEMP/migration-databases.init.gradle" <<'GRADLE'
+          gradle.projectsEvaluated {
+              gradle.rootProject.dependencies.add('testRuntimeOnly', 'com.mysql:mysql-connector-j:8.4.0')
+          }
+          GRADLE
+      - name: Exercise real MySQL and PostgreSQL transactions
+        env:
+          LEGACY_MIGRATION_MYSQL_URL: jdbc:mysql://127.0.0.1:3306/migration_fixture?useSSL=false&allowPublicKeyRetrieval=true
+          LEGACY_MIGRATION_MYSQL_USER: migration_test
+          LEGACY_MIGRATION_MYSQL_PASSWORD: local_test_only
+          LEGACY_MIGRATION_POSTGRES_URL: jdbc:postgresql://127.0.0.1:5432/migration_fixture
+          LEGACY_MIGRATION_POSTGRES_USER: migration_test
+          LEGACY_MIGRATION_POSTGRES_PASSWORD: local_test_only
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          mkdir -p migration-db-evidence
+          ./gradlew -I "$RUNNER_TEMP/migration-databases.init.gradle" test --tests '*SqlUniversalBlockMigrationTest.explicitlyConfiguredExternalDatabasesUseTheSameAtomicContract' --console=plain --no-daemon --no-configuration-cache 2>&1 | tee migration-db-evidence/build.log
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          path = Path('build/test-results/test/TEST-com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon.SqlUniversalBlockMigrationTest.xml')
+          suite = ET.parse(path).getroot()
+          assert int(suite.get('tests', '0')) == 2, suite.attrib
+          assert all(int(suite.get(key, '0')) == 0 for key in ('failures', 'errors', 'skipped')), suite.attrib
+          print('Actual external database cases:', suite.attrib)
+          for case in suite.findall('testcase'):
+              print(case.attrib)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: migration-database-evidence
+          retention-days: 14
+          path: |
+            audit-evidence/
+            migration-db-evidence/
+            build/test-results/test/TEST-*.xml
+          if-no-files-found: warn
