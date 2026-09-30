@@ -15,6 +15,10 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
       - name: Apply reviewed test-only runtime gate
         run: |
           python3 .audit/apply_runtime_configuration_gate.py
@@ -39,7 +43,7 @@ jobs:
           cases = [(11128970161, '1.21.11', 'e6652239ebe04da175f4bcf8772409ee0841ab82c7496a471d77046af18fc404'), (11128457937, '26.2', '48c2768e3ed7ad364ffda0c137ef54a421dc23138ab4977a3e3991d5b9aabc6a'), (11128084713, '26.3', 'ec00829c13163472c778a679f43e1e6fe8589626908c755cb52bc5e352896b22')]
           results = []
           for artifact, version, digest in cases:
-              raw = subprocess.run(['gh', 'api', f'repos/wickidcow/Slimefun-Legacy/actions/artifacts/{artifact}/zip'], capture_output=True, check=True, timeout=90).stdout
+              raw = subprocess.run(['gh', 'api', f'repos/{os.environ["GITHUB_REPOSITORY"]}/actions/artifacts/{artifact}/zip'], capture_output=True, check=True, timeout=90).stdout
               assert hashlib.sha256(raw).hexdigest() == digest
               with zipfile.ZipFile(io.BytesIO(raw)) as archive:
                   for cycle in ('first', 'second'):
