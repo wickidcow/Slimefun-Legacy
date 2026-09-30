@@ -140,14 +140,11 @@ def main() -> int:
         "uncertain backpack persistence diagnostic counter",
     )
     require(profile, "stagedSnapshot = new InvSnapshot(contents)", "immutable staged backpack snapshot")
-    require(profile, "if (slot < 0 || slot >= re.length)", "stale resized-slot load guard")
-    require(profile, "boolean repairRequired = false", "backpack load repair tracking")
-    require(profile, "repairRequired = true", "stale/corrupt row repair marker")
-    require(
-        profile,
-        "uncertainBackpackBaselines.add(uuid)",
-        "recovered stale rows force a full reconciliation on next save",
-    )
+    require(profile, "StoredInventoryReader.read(getData(key), size,", "complete backpack decode before publication")
+    require(profile, "incompleteInventoryLoads.add(uuid)", "retain failed backpack read protection")
+    require(profile, "requireCompleteInventoryLoad(backpackId)", "reject writes after incomplete backpack reads")
+    require_absent(profile, "replaced it with air", "discarding unreadable backpack data")
+    require_absent(profile, "uncertainBackpackBaselines.add(uuid)", "treating corrupt reads as empty slots to reconcile")
     require(profile, "stageBackpackWrites(backpackId, contents)", "fully staged backpack writes")
     require(profile, "for (int slot = 0; slot < 54; slot++)", "full legal backpack recovery range")
     require(

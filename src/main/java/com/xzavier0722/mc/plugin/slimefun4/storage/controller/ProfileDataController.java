@@ -40,6 +40,8 @@ public class ProfileDataController extends ADataController {
     private final Map<String, Runnable> invalidingBackpackTasks;
     private final Map<String, CompletableFuture<Void>> backpackSaveChains;
     private final Set<String> uncertainBackpackBaselines;
+    /** In-flight or failed reads must never be persisted as an empty replacement inventory. */
+    private final Set<String> incompleteInventoryLoads = ConcurrentHashMap.newKeySet();
 
     ProfileDataController() {
         super(DataType.PLAYER_PROFILE);
@@ -258,40 +260,15 @@ public class ProfileDataController extends ADataController {
         key.addField(FieldKey.INVENTORY_ITEM);
         key.addCondition(FieldKey.BACKPACK_ID, uuid);
 
-        var invResult = getData(key);
-        var re = new ItemStack[size];
-        boolean repairRequired = false;
-
-        for (RecordSet each : invResult) {
-            var slot = each.getInt(FieldKey.INVENTORY_SLOT);
-            if (slot < 0 || slot >= re.length) {
-                repairRequired = true;
-                logger.log(
-                        Level.WARNING,
-                        "Ignoring out-of-range stored backpack slot [{0}:{1}] for inventory size {2}; "
-                                + "the next save will reconcile the full backpack storage.",
-                        new Object[] {uuid, slot, size});
-                continue;
-            }
-
-            try {
-                re[slot] = each.getItemStack(FieldKey.INVENTORY_ITEM);
-            } catch (Exception e) {
-                repairRequired = true;
-                re[slot] = null;
-                logger.log(
-                        Level.SEVERE,
-                        "Could not deserialize a player backpack item; replaced it with air [" + uuid + ":" + slot
-                                + "]. The next save will reconcile the full backpack storage.",
-                        e);
-            }
+        incompleteInventoryLoads.add(uuid);
+        try {
+            ItemStack[] inventory = StoredInventoryReader.read(getData(key), size, "backpack " + uuid);
+            incompleteInventoryLoads.remove(uuid);
+            return inventory;
+        } catch (RuntimeException | LinkageError failure) {
+            incompleteInventoryLoads.add(uuid);
+            throw failure;
         }
-
-        if (repairRequired) {
-            uncertainBackpackBaselines.add(uuid);
-        }
-
-        return re;
     }
 
     @Nonnull
@@ -456,6 +433,7 @@ public class ProfileDataController extends ADataController {
         final Map<Integer, BackpackWrite> stagedWrites;
 
         try {
+            requireCompleteInventoryLoad(backpackId);
             synchronized (bp) {
                 contents = copyBackpackContents(bp.getInventory().getContents());
                 stagedSnapshot = new InvSnapshot(contents);
@@ -468,6 +446,12 @@ public class ProfileDataController extends ADataController {
 
         return chainBackpackSave(
                 backpackId, () -> persistBackpackStage(bp, backpackId, contents, stagedSnapshot, stagedWrites));
+    }
+
+    private void requireCompleteInventoryLoad(String owner) {
+        if (incompleteInventoryLoads.contains(owner)) {
+            throw StoredInventoryReader.refused("backpack " + owner, "read not completed", null);
+        }
     }
 
     private CompletableFuture<Void> chainBackpackSave(
@@ -494,6 +478,7 @@ public class ProfileDataController extends ADataController {
             @Nonnull ItemStack[] contents,
             @Nonnull InvSnapshot stagedSnapshot,
             @Nonnull Map<Integer, BackpackWrite> stagedWrites) {
+        requireCompleteInventoryLoad(backpackId);
         final Set<Integer> changed;
 
         if (uncertainBackpackBaselines.contains(backpackId)) {

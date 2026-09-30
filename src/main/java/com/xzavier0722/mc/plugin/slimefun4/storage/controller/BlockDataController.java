@@ -81,6 +81,8 @@ public class BlockDataController extends ADataController {
     private final Map<String, CompletableFuture<Void>> inventorySaveChains;
     /** Marks persisted inventory baselines that may be partially applied after a failed batch. */
     private final Set<String> uncertainInventoryBaselines;
+    /** Retained until a complete retry succeeds; never cleared by an attempted save. */
+    private final Set<String> incompleteInventoryLoads = ConcurrentHashMap.newKeySet();
     /**
      * 全局控制器加载数据锁
      *
@@ -1066,76 +1068,54 @@ public class BlockDataController extends ADataController {
             if (blockData.isDataLoaded()) {
                 return;
             }
-
-            var sfItem = SlimefunItem.getById(blockData.getSfId());
-            var universal = sfItem instanceof UniversalBlock;
-
+            incompleteInventoryLoads.add(blockData.getKey());
             var kvData = getData(key);
-
             var menuKey = new RecordKey(DataScope.BLOCK_INVENTORY);
             menuKey.addCondition(FieldKey.LOCATION, blockData.getKey());
             menuKey.addField(FieldKey.INVENTORY_SLOT);
             menuKey.addField(FieldKey.INVENTORY_ITEM);
-
             var invData = getData(menuKey);
-
-            if (universal) {
+            // Decode before changing cached values, loaded flags, menus or ticker registration.
+            var inv = StoredInventoryReader.read(invData, 54, "block " + blockData.getKey());
+            var sfItem = SlimefunItem.getById(blockData.getSfId());
+            if (sfItem instanceof UniversalBlock) {
                 migrateUniversalData(blockData.getLocation(), blockData.getSfId(), kvData, invData);
-            } else {
-                kvData.forEach(recordSet -> blockData.setCacheInternal(
-                        recordSet.getString(FieldKey.DATA_KEY),
-                        DataUtils.blockDataDebase64(recordSet.getString(FieldKey.DATA_VALUE)),
-                        false));
-
-                blockData.setIsDataLoaded(true);
-
-                var menuPreset = BlockMenuPreset.getPreset(blockData.getSfId());
-
-                if (menuPreset != null) {
-                    var inv = new ItemStack[54];
-
-                    for (RecordSet record : invData) {
-                        var slot = record.getInt(FieldKey.INVENTORY_SLOT);
-                        if (slot < 0 || slot >= inv.length) {
-                            uncertainInventoryBaselines.add(blockData.getKey());
-                            Slimefun.logger()
-                                    .log(
-                                            Level.WARNING,
-                                            "Ignoring out-of-range stored block inventory slot [{0}:{1}]. "
-                                                    + "The next save will reconcile the legal slot range.",
-                                            new Object[] {blockData.getKey(), slot});
-                            continue;
-                        }
-
-                        try {
-                            inv[slot] = record.getItemStack(FieldKey.INVENTORY_ITEM);
-                        } catch (Exception ex) {
-                            uncertainInventoryBaselines.add(blockData.getKey());
-                            inv[slot] = null;
-                            Slimefun.logger()
-                                    .log(
-                                            Level.SEVERE,
-                                            "Failed to load the target item; check the stored data ["
-                                                    + LocationUtils.locationToString(blockData.getLocation()) + ":"
-                                                    + slot + "]. The next save will reconcile the inventory.",
-                                            ex);
-                        }
-                    }
-
-                    blockData.setBlockMenu(new BlockMenu(menuPreset, blockData.getLocation(), inv));
-
-                    var content = blockData.getMenuContents();
-                    if (content != null) {
-                        invSnapshots.put(blockData.getKey(), new InvSnapshot(content));
-                    }
-                }
+                incompleteInventoryLoads.remove(blockData.getKey());
+                return;
             }
 
+            var menuPreset = BlockMenuPreset.getPreset(blockData.getSfId());
+            if (menuPreset == null && StoredInventoryReader.hasItems(inv)) {
+                throw StoredInventoryReader.refused(blockData.getKey(), "inventory preset is unavailable", null);
+            }
+            kvData.forEach(recordSet -> blockData.setCacheInternal(
+                    recordSet.getString(FieldKey.DATA_KEY),
+                    DataUtils.blockDataDebase64(recordSet.getString(FieldKey.DATA_VALUE)),
+                    false));
+            // Historical presets may read their KV state while constructing the menu.
+            // Inventory saves remain blocked until construction and snapshotting complete.
+            blockData.setIsDataLoaded(true);
+            if (menuPreset != null) {
+                blockData.setBlockMenu(new BlockMenu(menuPreset, blockData.getLocation(), inv));
+                var content = blockData.getMenuContents();
+                if (content != null) {
+                    invSnapshots.put(blockData.getKey(), new InvSnapshot(content));
+                }
+            }
+            incompleteInventoryLoads.remove(blockData.getKey());
             if (sfItem != null && sfItem.isTicking()) {
                 Slimefun.getTickerTask().enableTicker(blockData.getLocation());
             }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to load block data: " + blockData.getKey(), e);
+        } catch (Exception | LinkageError failure) {
+            incompleteInventoryLoads.add(blockData.getKey());
+            blockData.setIsDataLoaded(false);
+            var menu = blockData.getBlockMenu();
+            if (menu != null) {
+                menu.lock();
+            }
+            blockData.setBlockMenu(null);
+            invSnapshots.remove(blockData.getKey());
+            throw StoredInventoryReader.refused("block " + blockData.getKey(), "load did not complete", failure);
         } finally {
             lock.unlock(key);
         }
@@ -1162,8 +1142,10 @@ public class BlockDataController extends ADataController {
 
     public void loadBlockDataAsync(
             List<SlimefunBlockData> blockDataList, IAsyncReadCallback<List<SlimefunBlockData>> callback) {
-        scheduleReadTask(() -> blockDataList.forEach(this::loadBlockData));
-        invokeCallback(callback, blockDataList);
+        scheduleReadTask(() -> {
+            blockDataList.forEach(this::loadBlockData);
+            invokeCallback(callback, blockDataList);
+        });
     }
 
     @ParametersAreNonnullByDefault
@@ -1171,99 +1153,66 @@ public class BlockDataController extends ADataController {
         if (uniData.isDataLoaded()) {
             return;
         }
-
-        // 构建 通用数据 kv 存储 查询条件
         var key = new RecordKey(DataScope.UNIVERSAL_DATA);
         key.addCondition(FieldKey.UNIVERSAL_UUID, uniData.getKey());
         key.addField(FieldKey.DATA_KEY);
         key.addField(FieldKey.DATA_VALUE);
-
         lock.lock(key);
-
         try {
             if (uniData.isDataLoaded()) {
                 return;
             }
-
-            getData(key)
-                    .forEach(recordSet -> uniData.setCacheInternal(
-                            recordSet.getString(FieldKey.DATA_KEY),
-                            DataUtils.blockDataDebase64(recordSet.getString(FieldKey.DATA_VALUE)),
-                            false));
-
+            incompleteInventoryLoads.add(uniData.getKey());
+            var kvData = getData(key);
+            var menuKey = new RecordKey(DataScope.UNIVERSAL_INVENTORY);
+            menuKey.addCondition(FieldKey.UNIVERSAL_UUID, uniData.getKey());
+            menuKey.addField(FieldKey.INVENTORY_SLOT);
+            menuKey.addField(FieldKey.INVENTORY_ITEM);
+            var inv = StoredInventoryReader.read(getData(menuKey), 54, "universal " + uniData.getKey());
+            var menuPreset = uniData.hasTrait(UniversalDataTrait.INVENTORY)
+                    ? UniversalMenuPreset.getPreset(uniData.getSfId())
+                    : null;
+            if (menuPreset == null && StoredInventoryReader.hasItems(inv)) {
+                throw StoredInventoryReader.refused(uniData.getKey(), "inventory trait or preset is unavailable", null);
+            }
+            kvData.forEach(recordSet -> uniData.setCacheInternal(
+                    recordSet.getString(FieldKey.DATA_KEY),
+                    DataUtils.blockDataDebase64(recordSet.getString(FieldKey.DATA_VALUE)),
+                    false));
             uniData.setIsDataLoaded(true);
-
             loadedUniversalData.putIfAbsent(uniData.getUUID(), uniData);
-
-            if (uniData instanceof SlimefunUniversalBlockData ubd) {
-                if (ubd.hasTrait(UniversalDataTrait.BLOCK)) {
-                    // Resolve the persisted position lazily. Missing worlds must not erase the stored value.
-                    var sfItem = SlimefunItem.getById(ubd.getSfId());
-
-                    if (sfItem != null && sfItem.isTicking() && ubd.getLastPresent() != null) {
-                        Slimefun.getTickerTask()
-                                .enableTicker(ubd.getLastPresent().toLocation(), ubd.getUUID());
-                    }
+            if (menuPreset != null) {
+                Location location = null;
+                if (uniData instanceof SlimefunUniversalBlockData ubd
+                        && ubd.hasTrait(UniversalDataTrait.BLOCK)
+                        && ubd.getLastPresent() != null) {
+                    location = ubd.getLastPresent().toLocation();
+                }
+                uniData.setMenu(new UniversalMenu(menuPreset, uniData.getUUID(), location, inv));
+                var content = uniData.getMenuContents();
+                if (content != null) {
+                    invSnapshots.put(uniData.getKey(), new InvSnapshot(content));
                 }
             }
-
-            if (uniData.hasTrait(UniversalDataTrait.INVENTORY)) {
-                // 加载菜单
-                var menuPreset = UniversalMenuPreset.getPreset(uniData.getSfId());
-                if (menuPreset != null) {
-                    var menuKey = new RecordKey(DataScope.UNIVERSAL_INVENTORY);
-                    menuKey.addCondition(FieldKey.UNIVERSAL_UUID, uniData.getKey());
-                    menuKey.addField(FieldKey.INVENTORY_SLOT);
-                    menuKey.addField(FieldKey.INVENTORY_ITEM);
-
-                    var inv = new ItemStack[54];
-
-                    for (RecordSet recordSet : getData(menuKey)) {
-                        var slot = recordSet.getInt(FieldKey.INVENTORY_SLOT);
-                        if (slot < 0 || slot >= inv.length) {
-                            uncertainInventoryBaselines.add(uniData.getKey());
-                            Slimefun.logger()
-                                    .log(
-                                            Level.WARNING,
-                                            "Ignoring out-of-range stored universal inventory slot [{0}:{1}]. "
-                                                    + "The next save will reconcile the legal slot range.",
-                                            new Object[] {uniData.getKey(), slot});
-                            continue;
-                        }
-
-                        try {
-                            inv[slot] = recordSet.getItemStack(FieldKey.INVENTORY_ITEM);
-                        } catch (Exception ex) {
-                            uncertainInventoryBaselines.add(uniData.getKey());
-                            inv[slot] = null;
-                            Slimefun.logger()
-                                    .log(
-                                            Level.SEVERE,
-                                            "Failed to load the target item; check the stored data [" + uniData.getKey()
-                                                    + ":" + slot + "]. The next save will reconcile the inventory.",
-                                            ex);
-                        }
-                    }
-
-                    Location location = null;
-
-                    if (uniData instanceof SlimefunUniversalBlockData ubd && ubd.hasTrait(UniversalDataTrait.BLOCK)) {
-                        if (ubd.getLastPresent() != null) {
-                            location = ubd.getLastPresent().toLocation();
-                        }
-                    }
-
-                    uniData.setMenu(new UniversalMenu(menuPreset, uniData.getUUID(), location, inv));
-
-                    var content = uniData.getMenuContents();
-
-                    if (content != null) {
-                        invSnapshots.put(uniData.getKey(), new InvSnapshot(content));
-                    }
+            incompleteInventoryLoads.remove(uniData.getKey());
+            // Publish ticking only after the entire stored inventory was decoded and installed.
+            if (uniData instanceof SlimefunUniversalBlockData ubd && ubd.hasTrait(UniversalDataTrait.BLOCK)) {
+                var sfItem = SlimefunItem.getById(ubd.getSfId());
+                if (sfItem != null && sfItem.isTicking() && ubd.getLastPresent() != null) {
+                    Slimefun.getTickerTask().enableTicker(ubd.getLastPresent().toLocation(), ubd.getUUID());
                 }
             }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to load universal data: " + uniData.getKey(), e);
+        } catch (Exception | LinkageError failure) {
+            incompleteInventoryLoads.add(uniData.getKey());
+            uniData.setIsDataLoaded(false);
+            var menu = uniData.getMenu();
+            if (menu != null) {
+                menu.lock();
+            }
+            uniData.setMenu(null);
+            invSnapshots.remove(uniData.getKey());
+            loadedUniversalData.remove(uniData.getUUID(), uniData);
+            throw StoredInventoryReader.refused("universal " + uniData.getKey(), "load did not complete", failure);
         } finally {
             lock.unlock(key);
         }
@@ -1355,6 +1304,12 @@ public class BlockDataController extends ADataController {
         });
     }
 
+    private void requireCompleteInventoryLoad(String owner) {
+        if (incompleteInventoryLoads.contains(owner)) {
+            throw StoredInventoryReader.refused(owner, "read not completed", null);
+        }
+    }
+
     public void saveBlockInventory(SlimefunBlockData blockData) {
         saveBlockInventoryAsync(blockData).whenComplete((ignored, failure) -> {
             if (failure != null) {
@@ -1369,6 +1324,7 @@ public class BlockDataController extends ADataController {
      */
     public CompletableFuture<Void> saveBlockInventoryAsync(@Nonnull SlimefunBlockData blockData) {
         try {
+            requireCompleteInventoryLoad(blockData.getKey());
             BlockMenu menu = blockData.getBlockMenu();
             long changeSequence = menu == null ? 0L : menu.captureChangeSequence();
             ItemStack[] contents = copyInventoryContents(blockData.getMenuContents());
@@ -1470,6 +1426,7 @@ public class BlockDataController extends ADataController {
      */
     public CompletableFuture<Void> saveUniversalInventoryAsync(@Nonnull SlimefunUniversalData universalData) {
         try {
+            requireCompleteInventoryLoad(universalData.getKey());
             UniversalMenu menu = universalData.getMenu();
             long changeSequence = menu == null ? 0L : menu.captureChangeSequence();
             ItemStack[] contents = copyInventoryContents(universalData.getMenuContents());
@@ -1522,6 +1479,7 @@ public class BlockDataController extends ADataController {
             @Nonnull Map<Integer, InventoryWrite> stagedWrites,
             @Nullable DirtyChestMenu menu,
             long changeSequence) {
+        requireCompleteInventoryLoad(snapshotKey);
         InvSnapshot acknowledged = invSnapshots.get(snapshotKey);
         Set<Integer> changed = uncertainInventoryBaselines.contains(snapshotKey)
                 ? new HashSet<>(stagedWrites.keySet())
@@ -1684,6 +1642,7 @@ public class BlockDataController extends ADataController {
     }
 
     private void scheduleBlockInvUpdate(ScopeKey scopeKey, RecordKey reqKey, String lKey, ItemStack[] inv, int slot) {
+        requireCompleteInventoryLoad(lKey);
         ItemStack item = snapshotInventoryItem(inv, slot);
 
         if (item == null || item.isEmpty()) {
@@ -1729,6 +1688,7 @@ public class BlockDataController extends ADataController {
 
     private void scheduleUniversalInvUpdate(
             ScopeKey scopeKey, RecordKey reqKey, String uuid, ItemStack[] inv, int slot) {
+        requireCompleteInventoryLoad(uuid);
         ItemStack item = snapshotInventoryItem(inv, slot);
 
         if (item == null || item.isEmpty()) {
@@ -1978,6 +1938,19 @@ public class BlockDataController extends ADataController {
                 return;
             }
 
+            var inv = StoredInventoryReader.read(invData, 54, "migration " + LocationUtils.getLocKey(l));
+            var preset = UniversalMenuPreset.getPreset(sfId);
+            if (preset == null && StoredInventoryReader.hasItems(inv)) {
+                throw StoredInventoryReader.refused(sfId, "migration inventory preset is unavailable", null);
+            }
+            Map<String, String> decodedData = new HashMap<>();
+            for (RecordSet record : kvData) {
+                decodedData.put(
+                        java.util.Objects.requireNonNull(record.getString(FieldKey.DATA_KEY)),
+                        java.util.Objects.requireNonNull(
+                                DataUtils.blockDataDebase64(record.getString(FieldKey.DATA_VALUE))));
+            }
+
             var universalData = createUniversalBlock(l, sfId);
 
             Slimefun.runSyncAt(
@@ -1991,41 +1964,8 @@ public class BlockDataController extends ADataController {
                     },
                     10L);
 
-            kvData.forEach(recordSet -> universalData.setData(
-                    recordSet.getString(FieldKey.DATA_KEY),
-                    DataUtils.blockDataDebase64(recordSet.getString(FieldKey.DATA_VALUE))));
-
-            var preset = UniversalMenuPreset.getPreset(sfId);
+            decodedData.forEach(universalData::setData);
             if (preset != null) {
-                final var inv = new ItemStack[54];
-
-                for (RecordSet record : invData) {
-                    var slot = record.getInt(FieldKey.INVENTORY_SLOT);
-                    if (slot < 0 || slot >= inv.length) {
-                        uncertainInventoryBaselines.add(universalData.getKey());
-                        Slimefun.logger()
-                                .log(
-                                        Level.WARNING,
-                                        "Ignoring out-of-range stored inventory slot during universal migration [{0}:{1}].",
-                                        new Object[] {universalData.getKey(), slot});
-                        continue;
-                    }
-
-                    try {
-                        inv[slot] = record.getItemStack(FieldKey.INVENTORY_ITEM);
-                    } catch (Exception ex) {
-                        uncertainInventoryBaselines.add(universalData.getKey());
-                        inv[slot] = null;
-                        Slimefun.logger()
-                                .log(
-                                        Level.SEVERE,
-                                        "Failed to load the target item; check the stored data ["
-                                                + universalData.getKey() + ":" + slot
-                                                + "]. The next save will reconcile the inventory.",
-                                        ex);
-                    }
-                }
-
                 universalData.setMenu(new UniversalMenu(preset, universalData.getUUID(), l, inv));
 
                 var content = universalData.getMenuContents();
@@ -2040,8 +1980,9 @@ public class BlockDataController extends ADataController {
                 Slimefun.getTickerTask()
                         .enableTicker(universalData.getLastPresent().toLocation(), universalData.getUUID());
             }
-        } catch (Exception e) {
-            Slimefun.logger().log(Level.WARNING, "An error occurred while migrating machine data", e);
+        } catch (Exception | LinkageError failure) {
+            throw StoredInventoryReader.refused(
+                    "migration " + LocationUtils.getLocKey(l), "migration did not complete", failure);
         }
     }
 }
