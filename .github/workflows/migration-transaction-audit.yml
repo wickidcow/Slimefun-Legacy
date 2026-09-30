@@ -21,8 +21,10 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - name: Apply exact saved source review
-        run: python3 .audit/apply_atomic_migration.py
+      - name: Apply saved source and extended database regression cases
+        run: |
+          python3 .audit/apply_atomic_migration.py
+          python3 .audit/extend_database_cases.py
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -61,16 +63,21 @@ jobs:
                   totals[key] += int(suite.get(key, '0'))
               suites[suite.get('name')] = suite
           for name, count in (
-              ('com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon.SqlUniversalBlockMigrationTest', 19),
+              ('com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon.SqlUniversalBlockMigrationTest', 20),
               ('com.xzavier0722.mc.plugin.slimefun4.storage.controller.UniversalMigrationDurabilityTest', 10),
           ):
               suite = suites[name]
               assert int(suite.get('tests', '0')) == count, suite.attrib
               assert all(int(suite.get(key, '0')) == 0 for key in ('failures', 'errors', 'skipped')), suite.attrib
-              print('Native migration suite:', suite.attrib)
+              print('Migration suite:', suite.attrib)
+          sql = suites['com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon.SqlUniversalBlockMigrationTest']
+          factory = 'explicitlyConfiguredExternalDatabasesUseTheSameAtomicContract()'
+          assert sum(case.get('name') == factory for case in sql.findall('testcase')) == 1
+          assert sum(case.get('name') != factory for case in sql.findall('testcase')) == 19
+          print('19 actual SQLite/plan cases; one empty factory report is NOT external database evidence.')
           assert totals['failures'] == totals['errors'] == 0, totals
-          print('Full JUnit results:', totals)
-          Path('audit-evidence/results.json').write_text(json.dumps(totals, indent=2))
+          print('Full JUnit reported totals:', totals)
+          Path('audit-evidence/results.json').write_text(json.dumps({'reported': totals, 'sqlite_and_plan_cases': 19, 'controller_cases': 10, 'empty_factory_reports': 1}, indent=2))
           PY
       - name: Check candidate packaging
         run: |
@@ -157,8 +164,10 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - name: Apply exact saved source review
-        run: python3 .audit/apply_atomic_migration.py
+      - name: Apply saved source and extended database regression cases
+        run: |
+          python3 .audit/apply_atomic_migration.py
+          python3 .audit/extend_database_cases.py
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -191,9 +200,9 @@ jobs:
           suite = ET.parse(path).getroot()
           assert int(suite.get('tests', '0')) == 2, suite.attrib
           assert all(int(suite.get(key, '0')) == 0 for key in ('failures', 'errors', 'skipped')), suite.attrib
+          assert {case.get('name') for case in suite.findall('testcase')} == {'MYSQL commit, rollback and replay', 'POSTGRES commit, rollback and replay'}
           print('Actual external database cases:', suite.attrib)
-          for case in suite.findall('testcase'):
-              print(case.attrib)
+          print('Each engine: seven rollback boundaries, real commit with lost acknowledgement, exact replay.')
           PY
       - uses: actions/upload-artifact@v7
         if: always()
