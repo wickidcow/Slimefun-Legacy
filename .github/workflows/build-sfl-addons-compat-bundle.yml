@@ -11,6 +11,8 @@ on:
       - 'scripts/compile_addon_paper_26_3.py'
       - 'scripts/paper_candidate_versions.py'
       - 'scripts/test_paper_candidate_versions.py'
+      - 'scripts/verify_addon_bytecode.py'
+      - 'scripts/test_verify_addon_bytecode.py'
   pull_request:
     paths:
       - 'gradle.properties'
@@ -20,6 +22,8 @@ on:
       - 'scripts/compile_addon_paper_26_3.py'
       - 'scripts/paper_candidate_versions.py'
       - 'scripts/test_paper_candidate_versions.py'
+      - 'scripts/verify_addon_bytecode.py'
+      - 'scripts/test_verify_addon_bytecode.py'
   workflow_dispatch:
   schedule:
     - cron: '17 6 * * *'
@@ -333,6 +337,8 @@ jobs:
           test -s "staged/jars/$CANONICAL"
           jar tf "staged/jars/$CANONICAL" >/dev/null
           sha256sum "staged/jars/$CANONICAL"
+          python3 tools/scripts/verify_addon_bytecode.py "staged/jars/$CANONICAL" \
+            --expected-java 21 --report "staged/evidence/${ADDON_SLUG}-bytecode.json"
       - uses: actions/upload-artifact@v7
         with:
           name: sf-addon-${{ matrix.slug }}
