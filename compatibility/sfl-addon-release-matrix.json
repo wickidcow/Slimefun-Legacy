@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 91,
+  "bundle_revision": 92,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -107,7 +107,8 @@
     },
     {
       "repository": "wickidcow/SF_FinalTECH",
-      "slug": "finaltech"
+      "slug": "finaltech",
+      "source_commit": "6a6adbe073a54c792653aca669362cf364ec853e"
     },
     {
       "repository": "wickidcow/SF_FlowerPower",
@@ -149,7 +150,8 @@
     {
       "repository": "wickidcow/SF_InfinityExpansion2",
       "slug": "infinityexpansion2",
-      "artifact_base": "InfinityExpansion"
+      "artifact_base": "InfinityExpansion",
+      "source_commit": "2aa423f8a389f4c719226d974197308736620d25"
     },
     {
       "repository": "wickidcow/SF_LiteXpansion",
@@ -162,7 +164,8 @@
     {
       "repository": "wickidcow/SF_JustEnoughGuide",
       "slug": "justenoughguide",
-      "artifact_base": "JustEnoughGuide"
+      "artifact_base": "JustEnoughGuide",
+      "source_commit": "1b0e8f7cea66d5208cb412ffaafa1bdb3d0057b2"
     },
     {
       "repository": "wickidcow/SF_MagicExpansion",
@@ -183,7 +186,8 @@
     {
       "repository": "wickidcow/SF_NetworksExp",
       "slug": "networksexp",
-      "artifact_base": "Networks"
+      "artifact_base": "Networks",
+      "source_commit": "cda26048b792900dd3dd16c1f6ca0075ed8de07b"
     },
     {
       "repository": "wickidcow/SF_RelicsOfCthonia",
@@ -233,7 +237,8 @@
     },
     {
       "repository": "wickidcow/SF_Supreme",
-      "slug": "supreme"
+      "slug": "supreme",
+      "source_commit": "24ef8251528403258ba0aa271a64766748c5efb7"
     },
     {
       "repository": "wickidcow/WorldEditSlimefun",
