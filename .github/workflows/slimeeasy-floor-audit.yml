@@ -1,0 +1,105 @@
+name: SlimeEasy Supported Floor Audit
+
+on:
+  push:
+    branches: ['work/slimeeasy-floor-audit-20260930']
+
+permissions:
+  contents: read
+
+jobs:
+  floor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: wickidcow/SF_SlimeEasy
+          ref: 072be6eda4ddcfd9d4df1c210979fe735fdb1fa3
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Supply exact tested Legacy core and record floor-only build edits
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p audit-evidence libs build/regression
+          gh api repos/wickidcow/Slimefun-Legacy/actions/artifacts/11117350932/zip > "$RUNNER_TEMP/core-artifact"
+          python3 - <<'PY'
+          import hashlib, io, os, zipfile
+          from pathlib import Path
+          raw = Path(os.environ['RUNNER_TEMP'], 'core-artifact').read_bytes()
+          with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+              if 'plugin.yml' not in archive.namelist():
+                  jars = [name for name in archive.namelist() if name.endswith('.jar')]
+                  assert len(jars) == 1
+                  raw = archive.read(jars[0])
+          assert hashlib.sha256(raw).hexdigest() == '48a4871ec83f7d7cdd0af5696ce1efb46c6437fa726575dc6805dc752c239778'
+          for jar in Path('libs').glob('*.jar'):
+              if 'slimefun' in jar.name.lower(): jar.unlink()
+          Path('libs/Slimefun-Legacy-Core.jar').write_bytes(raw)
+          Path('audit-evidence/core-provenance.txt').write_text('Core 788b89e1 / test merge d600e077; SHA256 ' + hashlib.sha256(raw).hexdigest() + '\n')
+          build = Path('build.gradle.kts')
+          text = build.read_text()
+          before = '    jvmToolchain(25)'
+          assert text.count(before) == 1
+          text = text.replace(before, before + '\n    compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)')
+          text += '\ntasks.withType<JavaCompile>().configureEach {\n    options.release.set(21)\n}\n'
+          build.write_text(text)
+          descriptor = Path('src/main/resources/paper-plugin.yml')
+          text = descriptor.read_text()
+          assert text.count("api-version: '26.2'") == 1
+          descriptor.write_text(text.replace("api-version: '26.2'", "api-version: '1.21.11'"))
+          Path('audit-evidence/build.gradle.kts').write_text(build.read_text())
+          Path('audit-evidence/paper-plugin.yml').write_text(descriptor.read_text())
+          PY
+      - name: Compile all real sources against the minimum supported Paper dev bundle
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew clean build cargoRegressionJar -PpaperDevBundleVersion=1.21.11-R0.1-SNAPSHOT --console=plain --no-daemon 2>&1 | tee audit-evidence/floor-build.log
+          python3 - <<'PY'
+          import struct, zipfile
+          from pathlib import Path
+          jar = Path('build/libs/SF_SlimeEasy1.0.5.jar')
+          with zipfile.ZipFile(jar) as archive:
+              assert archive.testzip() is None
+              for name in archive.namelist():
+                  if name.endswith('.class'):
+                      assert struct.unpack('>H', archive.read(name)[6:8])[0] <= 65, name
+          print('Floor candidate emits Java 21 class files; runtime checks remain required.')
+          PY
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Run real floor Cargo regression with the exact core
+        env:
+          OUTPUT_NAME: SF_SlimeEasy1.0.5.jar
+        run: |
+          set -euo pipefail
+          cp libs/Slimefun-Legacy-Core.jar build/regression/Slimefun-Legacy4.1.61.jar
+          bash scripts/smoke-cargo-regression.sh 1.21.11 2>&1 | tee audit-evidence/floor-runtime.log
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Verify the same floor JAR on newer Paper servers
+        env:
+          OUTPUT_NAME: SF_SlimeEasy1.0.5.jar
+        run: |
+          set -euo pipefail
+          bash scripts/smoke-cargo-regression.sh 26.2 2>&1 | tee audit-evidence/26.2-runtime.log
+          bash scripts/smoke-cargo-regression.sh 26.3 2>&1 | tee audit-evidence/26.3-runtime.log
+      - name: Retain evidence even when the minimum floor cannot compile
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: slimeeasy-supported-floor-evidence
+          path: audit-evidence/
+          retention-days: 14
+          if-no-files-found: error
