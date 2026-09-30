@@ -1,0 +1,208 @@
+name: SlimeEasy Profile and Native Runtime Validation
+
+on:
+  push:
+    branches: ['work/profile-source-name-validation-20260930']
+    paths: ['.github/workflows/slimeeasy-profile-runtime.yml']
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: wickidcow/SF_SlimeEasy
+          ref: 072be6eda4ddcfd9d4df1c210979fe735fdb1fa3
+          path: addon
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Prepare the exact reviewed native-floor candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 .audit/prepare_slimeeasy_profile_runtime.py
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          p=Path('addon/src/cargoRegression/java/top/maplex/slimeEasy/regression/CargoRegression.java')
+          text=p.read_text()
+          assert text.count('                Bukkit.shutdown();')==1
+          text=text.replace('                Bukkit.shutdown();',
+              '                // Allow the real async profile callback to enqueue its research writes before shutdown.\n'
+              '                Bukkit.getScheduler().runTaskLater(this, Bukkit::shutdown, 40L);')
+          p.write_text(text)
+          name=str(p.relative_to('addon'))
+          target=Path('combined-evidence/tested-source')/name
+          target.write_text(text)
+          manifest=Path('combined-evidence/source-manifest.json')
+          data=json.loads(manifest.read_text()); b=p.read_bytes()
+          data[name]=hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          manifest.write_text(json.dumps(data,indent=2)+'\n')
+          PY
+          git -C addon diff --check
+      - name: Supply only the successfully validated corrected core
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,io,json,subprocess,zipfile
+          from pathlib import Path
+          def api(path):
+              return subprocess.run(['gh','api',path],check=True,capture_output=True,timeout=120).stdout
+          run=json.loads(api('repos/wickidcow/Slimefun-Legacy/actions/runs/36792140189'))
+          assert run['head_sha']=='e6f371f5c2e313f3ee4de63b31a80bb0c42fde4f'
+          assert run['status']=='completed' and run['conclusion']=='success', 'Core validation must succeed before native validation'
+          artifacts=json.loads(api('repos/wickidcow/Slimefun-Legacy/actions/runs/36792140189/artifacts'))['artifacts']
+          matches=[a for a in artifacts if a['name']=='profile-source-name-core-candidate']
+          assert len(matches)==1
+          artifact=matches[0];raw=api(f"repos/wickidcow/Slimefun-Legacy/actions/artifacts/{artifact['id']}/zip")
+          assert artifact['digest']=='sha256:'+hashlib.sha256(raw).hexdigest()
+          with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+              jars=[n for n in archive.namelist() if n.endswith('.jar')]
+              assert len(jars)==1
+              jar=archive.read(jars[0])
+          libs=Path('addon/libs');libs.mkdir(exist_ok=True)
+          for path in libs.glob('*.jar'):
+              if 'slimefun' in path.name.lower(): path.unlink()
+          (libs/'Slimefun-Legacy-profile-candidate.jar').write_bytes(jar)
+          Path('combined-evidence/core-provenance.json').write_text(json.dumps(dict(
+              source_run=run['id'],validation_source=run['head_sha'],artifact_id=artifact['id'],
+              sha256=hashlib.sha256(jar).hexdigest()),indent=2)+'\n')
+          PY
+      - name: Build the actual floor addon and regression plugin
+        working-directory: addon
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew clean build cargoRegressionJar --no-daemon --no-configuration-cache --console=plain 2>&1 | tee ../combined-evidence/floor-build.log
+          mkdir -p build/regression
+          cp libs/Slimefun-Legacy-profile-candidate.jar build/regression/Slimefun-Legacy4.1.61.jar
+      - name: Verify Java 21 headers and preserve exact candidate inputs
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_addon_bytecode.py addon/build/libs/SF_SlimeEasy1.0.5.jar --expected-java 21 --report combined-evidence/bytecode.json
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,shutil,zipfile
+          manifest=json.loads(Path('combined-evidence/source-manifest.json').read_text())
+          for name,expected in manifest.items():
+              b=Path('addon',name).read_bytes()
+              assert hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()==expected,name
+          with zipfile.ZipFile('addon/build/libs/SF_SlimeEasy1.0.5.jar') as z:
+              assert z.testzip() is None
+              assert "api-version: '1.21.11'" in z.read('paper-plugin.yml').decode()
+          root=Path('native-inputs')
+          files=['build/libs/SF_SlimeEasy1.0.5.jar','build/regression/SlimeEasyCargoRegression.jar',
+                 'build/regression/Slimefun-Legacy4.1.61.jar','scripts/smoke-cargo-regression.sh']
+          hashes={}
+          for name in files:
+              target=root/name;target.parent.mkdir(parents=True,exist_ok=True)
+              shutil.copy2(Path('addon',name),target)
+              hashes[name]=hashlib.sha256(target.read_bytes()).hexdigest()
+          (root/'input-sha256.json').write_text(json.dumps(hashes,indent=2)+'\n')
+          shutil.copy2('combined-evidence/core-provenance.json',root/'core-provenance.json')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: slimeeasy-combined-build-evidence
+          path: combined-evidence/
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        with:
+          name: slimeeasy-combined-runtime-inputs
+          path: native-inputs/
+          retention-days: 14
+          if-no-files-found: error
+
+  runtime:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11', '26.2', '26.3']
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: slimeeasy-combined-runtime-inputs
+          path: addon
+      - name: Exercise the unchanged addon JAR and inspect durable SQL rows
+        working-directory: addon
+        env:
+          OUTPUT_NAME: SF_SlimeEasy1.0.5.jar
+          MC: ${{ matrix.minecraft }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          for name,digest in json.loads(Path('input-sha256.json').read_text()).items():
+              assert hashlib.sha256(Path(name).read_bytes()).hexdigest()==digest,name
+          PY
+          RESULT=0
+          bash scripts/smoke-cargo-regression.sh "$MC" > evidence/runtime.log 2>&1 || RESULT=$?
+          FOLDER="$(find "$RUNNER_TEMP" -maxdepth 1 -type d -name "slimeeasy-$MC.*" | head -n1)"
+          test -n "$FOLDER"
+          export FOLDER
+          cp "$FOLDER/server.log" evidence/server.log
+          python3 - <<'PY'
+          import json,os,sqlite3
+          from pathlib import Path
+          root=Path(os.environ['FOLDER'])
+          db=root/'data-storage/Slimefun/profile.db'
+          assert db.is_file(),'No actual runtime profile database'
+          expected_path=root/'profile-research-expected.txt'
+          assert expected_path.is_file(),'Missing expected research identity capture'
+          expected=set(expected_path.read_text().splitlines())
+          assert expected,'The runtime must exercise real enabled research rows'
+          uid='5ab9c5fd-28e7-368d-b034-231adfa1d37d'
+          with sqlite3.connect(f'file:{db}?mode=ro',uri=True) as con:
+              profiles=con.execute('SELECT p_uuid,p_name,b_num FROM player_profile WHERE p_uuid=?',(uid,)).fetchall()
+              research=con.execute('SELECT research_id FROM player_research WHERE p_uuid=?',(uid,)).fetchall()
+              foreign=con.execute('PRAGMA foreign_key_check').fetchall()
+              result=dict(profiles=profiles,research_ids=sorted(row[0] for row in research),
+                          expected_research_ids=sorted(expected),foreign_key_errors=foreign)
+              Path('evidence/profile-sql-results.json').write_text(json.dumps(result,indent=2)+'\n')
+              assert profiles==[(uid,'SE_Butcher',0)],profiles
+              assert len(research)==len(expected) and {r[0] for r in research}==expected
+              assert not foreign,foreign
+          with sqlite3.connect(f'file:{db}?mode=ro',uri=True) as con:
+              assert con.execute('SELECT p_name FROM player_profile WHERE p_uuid=?',(uid,)).fetchall()==[('SE_Butcher',)]
+              assert con.execute('SELECT count(*) FROM player_research WHERE p_uuid=?',(uid,)).fetchone()[0]==len(expected)
+          log=Path('evidence/server.log').read_text()
+          assert 'SQLITE_CONSTRAINT' not in log and 'FOREIGN KEY constraint failed' not in log
+          print(f'Actual runtime database reopened: exact machine UUID/name and all {len(expected)} expected research IDs preserved.')
+          PY
+          test "$RESULT" -eq 0
+          grep -Fq SLIMEEASY_NATIVE_FLOOR_REGRESSION_PASS evidence/server.log
+          grep -E 'This server is running|SLIMEEASY_BANNER_NATIVE_RESULT|SLIMEEASY_NATIVE_FLOOR_REGRESSION_PASS|CARGO_WRAPPER_REGRESSION_PASS' evidence/server.log
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: slimeeasy-combined-runtime-${{ matrix.minecraft }}
+          path: |
+            addon/evidence/
+            addon/core-provenance.json
+            addon/input-sha256.json
+          retention-days: 14
+          if-no-files-found: warn
