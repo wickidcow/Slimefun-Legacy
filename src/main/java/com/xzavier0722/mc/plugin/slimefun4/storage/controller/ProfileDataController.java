@@ -346,7 +346,15 @@ public class ProfileDataController extends ADataController {
 
         var key = new RecordKey(DataScope.PLAYER_PROFILE);
         key.addCondition(FieldKey.PLAYER_UUID, uuid);
-        scheduleWriteTask(new UUIDKey(DataScope.NONE, p.getUniqueId()), key, getRecordSet(re), true);
+        var data = getRecordSet(re);
+        // UUID-only offline lookups can lack a name for an unregistered machine player.
+        // Retain the caller's known name so the NOT NULL parent row is not silently ignored.
+        // When no name was supplied, preserve the existing profile-owner lookup behavior.
+        var suppliedName = p.getName();
+        if (suppliedName != null) {
+            data.put(FieldKey.PLAYER_NAME, suppliedName);
+        }
+        scheduleWriteTask(new UUIDKey(DataScope.NONE, p.getUniqueId()), key, data, true);
         return re;
     }
 
