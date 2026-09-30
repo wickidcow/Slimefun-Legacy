@@ -40,6 +40,11 @@ final class InventoryRecoveryLocations {
         return ownersByLocation.containsKey(location);
     }
 
+    synchronized boolean containsOtherOwner(String location, String owner) {
+        var owners = ownersByLocation.get(location);
+        return owners != null && owners.stream().anyMatch(value -> !value.equals(owner));
+    }
+
     synchronized Set<String> locationKeys() {
         return Set.copyOf(ownersByLocation.keySet());
     }

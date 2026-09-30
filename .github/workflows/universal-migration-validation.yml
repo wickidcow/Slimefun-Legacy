@@ -1,0 +1,117 @@
+name: Universal Migration Database Compatibility
+
+on:
+  pull_request:
+    branches: ['master']
+    paths:
+      - 'src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/**'
+      - 'src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/**'
+      - 'build.gradle.kts'
+      - 'gradle/**'
+      - '.github/workflows/universal-migration-validation.yml'
+  push:
+    branches: ['master']
+    paths:
+      - 'src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/**'
+      - 'src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/**'
+      - 'build.gradle.kts'
+      - 'gradle/**'
+      - '.github/workflows/universal-migration-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migration-databases-${{ github.ref }}
+  cancel-in-progress: true
+
+# Native SQLite, controller and interruption cases run in the normal build.
+# This independent gate must execute both real external database cases.
+jobs:
+  databases:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: migration_fixture
+          MYSQL_USER: migration_test
+          MYSQL_PASSWORD: local_test_only
+          MYSQL_ROOT_PASSWORD: local_root_test_only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: migration_fixture
+          POSTGRES_USER: migration_test
+          POSTGRES_PASSWORD: local_test_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U migration_test -d migration_fixture"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Add MySQL driver only to this test run
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/migration-databases.init.gradle" <<'GRADLE'
+          gradle.projectsEvaluated {
+              gradle.rootProject.dependencies.add('testRuntimeOnly', 'com.mysql:mysql-connector-j:8.4.0')
+          }
+          GRADLE
+      - name: Run against real disposable MySQL and PostgreSQL databases
+        env:
+          LEGACY_MIGRATION_MYSQL_URL: jdbc:mysql://127.0.0.1:3306/migration_fixture?useSSL=false&allowPublicKeyRetrieval=true
+          LEGACY_MIGRATION_MYSQL_USER: migration_test
+          LEGACY_MIGRATION_MYSQL_PASSWORD: local_test_only
+          LEGACY_MIGRATION_POSTGRES_URL: jdbc:postgresql://127.0.0.1:5432/migration_fixture
+          LEGACY_MIGRATION_POSTGRES_USER: migration_test
+          LEGACY_MIGRATION_POSTGRES_PASSWORD: local_test_only
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          mkdir -p migration-db-evidence
+          ./gradlew -I "$RUNNER_TEMP/migration-databases.init.gradle" test \
+            --tests '*SqlUniversalBlockMigrationTest.explicitlyConfiguredExternalDatabasesUseTheSameAtomicContract' \
+            --console=plain --no-daemon --no-configuration-cache 2>&1 | tee migration-db-evidence/build.log
+          python3 - <<'PYTHON'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          path = Path('build/test-results/test/TEST-com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon.SqlUniversalBlockMigrationTest.xml')
+          suite = ET.parse(path).getroot()
+          assert int(suite.get('tests', '0')) == 2, suite.attrib
+          assert all(int(suite.get(key, '0')) == 0 for key in ('failures', 'errors', 'skipped')), suite.attrib
+          assert {case.get('name') for case in suite.findall('testcase')} == {'MYSQL commit, rollback and replay', 'POSTGRES commit, rollback and replay'}
+          print('Actual external database cases:', suite.attrib)
+          for case in suite.findall('testcase'):
+              print(case.attrib)
+          PYTHON
+      - name: Preserve database evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: migration-database-evidence
+          retention-days: 14
+          path: |
+            migration-db-evidence/
+            build/test-results/test/TEST-*.xml
+          if-no-files-found: warn

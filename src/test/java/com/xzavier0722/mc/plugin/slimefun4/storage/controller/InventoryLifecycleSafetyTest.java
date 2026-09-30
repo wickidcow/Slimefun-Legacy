@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import city.norain.slimefun4.api.menu.UniversalMenu;
 import city.norain.slimefun4.api.menu.UniversalMenuPreset;
+import com.xzavier0722.mc.plugin.slimefun4.storage.common.BlockStorageMigration;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataScope;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.FieldKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordKey;
@@ -363,11 +364,13 @@ class InventoryLifecycleSafetyTest {
         var migrated = controller.getAllLoadedUniversalData().iterator().next();
         assertEquals("LIFECYCLE_UNIVERSAL", migrated.getSfId());
         assertEquals(37, migrated.getMenuContents()[8].getAmount());
-        assertEquals(1, controller.deleted.size());
+        assertEquals(0, controller.deleted.size(), "The atomic adapter contract already retired the source");
+        assertNotNull(controller.committedMigration);
         assertTrue(
                 controller.isInventoryMutationBlocked(location),
                 "Only the complete outer loader may release the source guard");
-        // This is synchronous source-preflight/control-flow coverage, NOT destination durability certification.
+        // This test intercepts the atomic adapter boundary; separate production-adapter tests exercise persistence
+        // ordering.
     }
 
     private void failBlockLoad() throws Exception {
@@ -418,6 +421,7 @@ class InventoryLifecycleSafetyTest {
         String savedLocation;
         Runnable onRead;
         Runnable beforeUniversalRecord;
+        BlockStorageMigration committedMigration;
 
         RecordingController(Store store) {
             this.store = store;
@@ -430,6 +434,21 @@ class InventoryLifecycleSafetyTest {
                 onRead = null;
                 task.run();
             }
+            if (committedMigration != null && key.getScope() == DataScope.UNIVERSAL_INVENTORY) {
+                return committedMigration.inventory().entrySet().stream()
+                        .map(entry -> StoredInventoryReaderTest.row(String.valueOf(entry.getKey()), entry.getValue()))
+                        .toList();
+            }
+            if (committedMigration != null && key.getScope() == DataScope.UNIVERSAL_DATA) {
+                return committedMigration.destinationData().entrySet().stream()
+                        .map(entry -> {
+                            var row = new RecordSet();
+                            row.put(FieldKey.DATA_KEY, entry.getKey());
+                            row.put(FieldKey.DATA_VALUE, entry.getValue());
+                            return row;
+                        })
+                        .toList();
+            }
             if (key.getScope() == DataScope.BLOCK_INVENTORY || key.getScope() == DataScope.UNIVERSAL_INVENTORY) {
                 return List.of(StoredInventoryReaderTest.row("8", store.raw()));
             }
@@ -440,6 +459,13 @@ class InventoryLifecycleSafetyTest {
                 return List.of(row);
             }
             return List.of();
+        }
+
+        @Override
+        protected CompletableFuture<Void> persistUniversalMigration(BlockStorageMigration migration) {
+            if (beforeUniversalRecord != null) beforeUniversalRecord.run();
+            committedMigration = migration;
+            return CompletableFuture.completedFuture(null);
         }
 
         @Override

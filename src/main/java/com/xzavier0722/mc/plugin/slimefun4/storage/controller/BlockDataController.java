@@ -6,6 +6,7 @@ import city.norain.slimefun4.utils.InventoryUtil;
 import city.norain.slimefun4.utils.StringUtil;
 import com.xzavier0722.mc.plugin.slimefun4.storage.adapter.IDataSourceAdapter;
 import com.xzavier0722.mc.plugin.slimefun4.storage.callback.IAsyncReadCallback;
+import com.xzavier0722.mc.plugin.slimefun4.storage.common.BlockStorageMigration;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataScope;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataType;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.FieldKey;
@@ -33,6 +34,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -85,6 +87,8 @@ public class BlockDataController extends ADataController {
     private final Set<String> incompleteInventoryLoads = ConcurrentHashMap.newKeySet();
     /** Maps known universal positions while their UUID's inventory is incomplete; never loads chunks. */
     private final InventoryRecoveryLocations inventoryRecoveryLocations = new InventoryRecoveryLocations();
+    /** Retains a destination UUID when commit acknowledgement or activation needs a retry. */
+    private final Map<String, PendingUniversalMigration> pendingUniversalMigrations = new ConcurrentHashMap<>();
     /**
      * 全局控制器加载数据锁
      *
@@ -1866,6 +1870,7 @@ public class BlockDataController extends ADataController {
     }
 
     void scheduleDelayedBlockDataUpdate(SlimefunBlockData blockData, String key) {
+        requireNoPendingUniversalMigration(blockData.getKey());
         var scopeKey = new LocationKey(DataScope.NONE, blockData.getLocation());
         var reqKey = new RecordKey(DataScope.BLOCK_DATA);
         reqKey.addCondition(FieldKey.LOCATION, blockData.getKey());
@@ -1904,6 +1909,7 @@ public class BlockDataController extends ADataController {
     }
 
     private void scheduleBlockDataUpdate(ScopeKey scopeKey, RecordKey reqKey, String lKey, String key, String val) {
+        requireNoPendingUniversalMigration(lKey);
         if (val == null) {
             scheduleDeleteTask(scopeKey, reqKey, false);
         } else {
@@ -2038,61 +2044,216 @@ public class BlockDataController extends ADataController {
             @Nonnull String sfId,
             @Nonnull List<RecordSet> kvData,
             @Nonnull List<RecordSet> invData) {
+        String source = LocationUtils.getLocKey(l);
+        PendingUniversalMigration pending = pendingUniversalMigrations.get(source);
         try {
-            if (l == null || sfId == null) {
-                return;
+            if (pending == null) {
+                var inv = StoredInventoryReader.read(invData, 54, "migration " + source);
+                var preset = UniversalMenuPreset.getPreset(sfId);
+                if (preset == null && StoredInventoryReader.hasItems(inv)) {
+                    throw StoredInventoryReader.refused(sfId, "migration inventory preset is unavailable", null);
+                }
+                Map<String, String> sourceData = new HashMap<>();
+                for (RecordSet record : kvData) {
+                    String key = java.util.Objects.requireNonNull(record.getString(FieldKey.DATA_KEY));
+                    String encoded = java.util.Objects.requireNonNull(record.getString(FieldKey.DATA_VALUE));
+                    java.util.Objects.requireNonNull(DataUtils.blockDataDebase64(encoded));
+                    if (sourceData.putIfAbsent(key, encoded) != null) {
+                        throw new IllegalStateException("Migration source contains duplicated custom-data keys");
+                    }
+                }
+                Map<Integer, byte[]> items = new HashMap<>();
+                for (RecordSet row : invData) {
+                    Object raw = row.getValue(FieldKey.INVENTORY_ITEM);
+                    items.put(
+                            row.getInt(FieldKey.INVENTORY_SLOT),
+                            raw instanceof byte[] bytes
+                                    ? bytes.clone()
+                                    : raw == null
+                                            ? null
+                                            : ((String) raw).getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+                }
+                requireNoIncompleteUniversalAt(l);
+                String storedLocation = sourceData.get(UniversalDataTrait.BLOCK.getReservedKey());
+                if (storedLocation != null
+                        && !source.equals(InventoryRecoveryLocations.canonicalLocationKey(
+                                DataUtils.blockDataDebase64(storedLocation)))) {
+                    throw StoredInventoryReader.refused(
+                            source, "stored universal location conflicts with source", null);
+                }
+                // Preserve a valid historical location representation byte-for-byte; only add
+                // the reserved location value when the source does not already contain it.
+                var plan = new BlockStorageMigration(
+                        source,
+                        LocationUtils.getChunkKey(l),
+                        sfId,
+                        UUID.randomUUID(),
+                        storedLocation == null ? DataUtils.blockDataBase64(source) : storedLocation,
+                        sourceData,
+                        items);
+                pending = new PendingUniversalMigration(plan);
+                pendingUniversalMigrations.put(source, pending);
+            }
+            var plan = pending.plan;
+            if (!sfId.equals(plan.slimefunId())
+                    || inventoryRecoveryLocations.containsOtherOwner(
+                            source, plan.destination().toString())) {
+                throw StoredInventoryReader.refused(source, "migration identity or recovery ownership changed", null);
+            }
+            incompleteInventoryLoads.add(source);
+            if (!pending.activated) {
+                incompleteInventoryLoads.add(plan.destination().toString());
+                inventoryRecoveryLocations.remember(plan.destination().toString(), source);
+            }
+            if (!pending.committed) {
+                // Queue completion is checked; merely scheduling the destination is not durable storage.
+                persistUniversalMigration(plan).join();
+                pending.committed = true;
             }
 
-            var inv = StoredInventoryReader.read(invData, 54, "migration " + LocationUtils.getLocKey(l));
-            var preset = UniversalMenuPreset.getPreset(sfId);
-            if (preset == null && StoredInventoryReader.hasItems(inv)) {
-                throw StoredInventoryReader.refused(sfId, "migration inventory preset is unavailable", null);
-            }
-            Map<String, String> decodedData = new HashMap<>();
-            for (RecordSet record : kvData) {
-                decodedData.put(
-                        java.util.Objects.requireNonNull(record.getString(FieldKey.DATA_KEY)),
-                        java.util.Objects.requireNonNull(
-                                DataUtils.blockDataDebase64(record.getString(FieldKey.DATA_VALUE))));
+            // Neither a menu nor ticker is published until the database atomically contains the
+            // complete destination and no source. The ordinary strict reader installs that state.
+            if (!pending.activated) {
+                activateCommittedUniversalMigration(plan, l);
+                pending.activated = true;
             }
 
-            requireNoIncompleteUniversalAt(l);
-            var universalData = createUniversalBlockAfterPreflight(l, sfId);
-
-            Slimefun.runSyncAt(
-                    l,
-                    () -> {
-                        if (Slimefun.getBlockDataService()
-                                .isTileEntity(l.getBlock().getType())) {
-                            Slimefun.getBlockDataService()
-                                    .updateUniversalDataUUID(l.getBlock(), String.valueOf(universalData.getUUID()));
-                        }
-                    },
-                    10L);
-
-            decodedData.forEach(universalData::setData);
-            if (preset != null) {
-                universalData.setMenu(new UniversalMenu(preset, universalData.getUUID(), l, inv));
-
-                var content = universalData.getMenuContents();
-                if (content != null) {
-                    invSnapshots.put(universalData.getKey(), new InvSnapshot(content));
+            var chunk = getChunkDataCache(l, false);
+            if (chunk != null) {
+                var removed = chunk.removeBlockDataCacheInternal(source);
+                if (removed != null) {
+                    removed.setPendingRemove(true);
+                    removed.setIsDataLoaded(false);
+                    var menu = removed.getBlockMenu();
+                    if (menu != null) menu.lock();
                 }
             }
-
-            // The source inventory/KV data above was fully decoded. Do not clear its
-            // recovery guard to call a public mutation API: that would open a bypass to
-            // other threads. The loader clears the guard only when this method returns.
-            var removed = removeChunkBlockDataAfterPreflight(getChunkDataCache(l.getChunk(), true), l);
-            finishBlockDataRemoval(l, removed);
-
-            if (Slimefun.getRegistry().getTickerBlocks().contains(universalData.getSfId())) {
-                Slimefun.getTickerTask()
-                        .enableTicker(universalData.getLastPresent().toLocation(), universalData.getUUID());
+            invSnapshots.remove(source);
+            uncertainInventoryBaselines.remove(source);
+            // This is cache retirement only. The SQL transaction already removed the source;
+            // another queued delete could otherwise erase a later replacement at this position.
+            pendingUniversalMigrations.remove(source, pending);
+            Location anchor = l.clone();
+            try {
+                Slimefun.runSyncAt(anchor, () -> {
+                    try {
+                        if (Slimefun.getBlockDataService()
+                                .isTileEntity(anchor.getBlock().getType())) {
+                            Slimefun.getBlockDataService()
+                                    .updateUniversalDataUUID(
+                                            anchor.getBlock(),
+                                            plan.destination().toString());
+                        }
+                    } catch (RuntimeException | LinkageError metadataFailure) {
+                        logger.log(
+                                Level.SEVERE,
+                                "Committed universal data was retained, but block UUID refresh failed at " + source,
+                                metadataFailure);
+                    }
+                });
+            } catch (RuntimeException | LinkageError schedulingFailure) {
+                // A world/scheduler failure after commit must not be reported as an undone database move.
+                logger.log(
+                        Level.SEVERE,
+                        "Committed universal data was retained, but block UUID refresh could not be scheduled at "
+                                + source,
+                        schedulingFailure);
             }
         } catch (Exception | LinkageError failure) {
-            throw StoredInventoryReader.refused(
-                    "migration " + LocationUtils.getLocKey(l), "migration did not complete", failure);
+            Throwable cause =
+                    failure instanceof CompletionException && failure.getCause() != null ? failure.getCause() : failure;
+            // Only a confirmed pre-commit rollback permits taking a fresh snapshot/new identity.
+            // An ambiguous commit or post-commit activation error keeps the original plan for retry.
+            if (pending != null
+                    && !pending.committed
+                    && cause instanceof BlockStorageMigration.Failure storageFailure
+                    && storageFailure.isRestagingSafe()
+                    && pendingUniversalMigrations.remove(source, pending)) {
+                incompleteInventoryLoads.remove(pending.plan.destination().toString());
+                inventoryRecoveryLocations.clear(pending.plan.destination().toString());
+            }
+            throw StoredInventoryReader.refused("migration " + source, "migration did not complete", failure);
+        }
+    }
+
+    private void activateCommittedUniversalMigration(BlockStorageMigration migration, Location location) {
+        var key = new RecordKey(DataScope.UNIVERSAL_DATA);
+        key.addCondition(FieldKey.UNIVERSAL_UUID, migration.destination().toString());
+        key.addField(FieldKey.DATA_KEY);
+        key.addField(FieldKey.DATA_VALUE);
+        lock.lock(key);
+        try {
+            var existing = loadedUniversalData.get(migration.destination());
+            if (existing != null && existing.isDataLoaded()) {
+                // The ordinary record loader may already have activated this committed UUID.
+                // Retain that live menu (including unsaved changes), not a second copy of it.
+                if (!(existing instanceof SlimefunUniversalBlockData block)
+                        || !migration.slimefunId().equals(existing.getSfId())
+                        || !migration.location().equals(block.getKnownLocationKey())) {
+                    throw StoredInventoryReader.refused(
+                            migration.location(), "committed destination cache conflicts", null);
+                }
+                incompleteInventoryLoads.remove(existing.getKey());
+                inventoryRecoveryLocations.clear(existing.getKey());
+                return;
+            }
+            var destination = new SlimefunUniversalBlockData(migration.destination(), migration.slimefunId(), location);
+            destination.initTraits();
+            loadUniversalData(destination);
+        } finally {
+            lock.unlock(key);
+        }
+    }
+
+    /** Tracks the transaction on the source's existing writer scope before activating a destination. */
+    protected CompletableFuture<Void> persistUniversalMigration(BlockStorageMigration migration) {
+        var scope = new LocationKey(DataScope.NONE, migration.location());
+        synchronized (delayedWriteTasks) {
+            if (delayedWriteTasks.keySet().stream().anyMatch(key -> scope.equals(key.getParent()))) {
+                return CompletableFuture.failedFuture(new BlockStorageMigration.Failure(
+                        "Migration source still has delayed custom-data writes; retry after they drain", null, true));
+            }
+        }
+        var inventorySave = inventorySaveChains.get("block:" + migration.location());
+        if (inventorySave != null && !inventorySave.isDone()) {
+            return CompletableFuture.failedFuture(new BlockStorageMigration.Failure(
+                    "Migration source still has an inventory save in progress", null, true));
+        }
+        // Coordination-only key: never passed to an SQL adapter. Ordinary BLOCK_RECORD writes
+        // must not compact away this transaction while sharing the same source queue.
+        var record = new RecordKey(DataScope.NONE);
+        record.addCondition(FieldKey.LOCATION, migration.location());
+        record.addCondition(FieldKey.UNIVERSAL_UUID, migration.destination().toString());
+        var confirmed = new java.util.concurrent.atomic.AtomicBoolean();
+        return scheduleWriteTaskWithCompletion(
+                        scope,
+                        record,
+                        () -> {
+                            migrateBlockToUniversal(migration);
+                            confirmed.set(true);
+                        },
+                        true)
+                .thenRun(() -> {
+                    if (!confirmed.get()) {
+                        throw new BlockStorageMigration.Failure(
+                                "Migration queue drained without confirming the exact transaction", null, false);
+                    }
+                });
+    }
+
+    private void requireNoPendingUniversalMigration(String source) {
+        if (pendingUniversalMigrations.containsKey(source)) {
+            throw StoredInventoryReader.refused(source, "universal migration has not completed", null);
+        }
+    }
+
+    private static final class PendingUniversalMigration {
+        private final BlockStorageMigration plan;
+        private boolean committed;
+        private boolean activated;
+
+        private PendingUniversalMigration(BlockStorageMigration plan) {
+            this.plan = plan;
         }
     }
 }

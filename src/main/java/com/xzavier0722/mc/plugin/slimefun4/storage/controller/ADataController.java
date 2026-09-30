@@ -4,6 +4,7 @@ import city.norain.slimefun4.utils.SlimefunPoolExecutor;
 import city.norain.slimefun4.utils.TaskTimer;
 import com.xzavier0722.mc.plugin.slimefun4.storage.adapter.IDataSourceAdapter;
 import com.xzavier0722.mc.plugin.slimefun4.storage.callback.IAsyncReadCallback;
+import com.xzavier0722.mc.plugin.slimefun4.storage.common.BlockStorageMigration;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataType;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordSet;
@@ -468,6 +469,12 @@ public abstract class ADataController {
 
     protected List<RecordSet> getData(RecordKey key, boolean distinct) {
         return dataAdapter.getData(key, distinct);
+    }
+
+    /** Executes only inside a tracked writer task; the adapter must provide the atomic contract. */
+    protected void migrateBlockToUniversal(BlockStorageMigration migration) {
+        checkDestroy();
+        dataAdapter.migrateBlockToUniversal(migration);
     }
 
     protected void setData(RecordKey key, RecordSet data) {
