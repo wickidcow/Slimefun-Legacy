@@ -22,6 +22,31 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: gradle
+      - name: Use the JDK proxy for the caller identity fixture
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/ProfileSourceNameTest.java')
+          text=p.read_text()
+          assert 'import static org.mockito.Mockito.*;' in text
+          text=text.replace('import static org.mockito.Mockito.*;\n','')
+          old='''        var source = mock(OfflinePlayer.class);
+                  when(source.getUniqueId()).thenReturn(uuid);
+                  when(source.getName()).thenReturn(name);
+                  return source;'''
+          new='''        return (OfflinePlayer) java.lang.reflect.Proxy.newProxyInstance(
+                          OfflinePlayer.class.getClassLoader(), new Class<?>[] {OfflinePlayer.class},
+                          (proxy, method, args) -> switch (method.getName()) {
+                              case "getUniqueId" -> uuid;
+                              case "getName" -> name;
+                              case "toString" -> "Profile source " + uuid;
+                              case "hashCode" -> System.identityHashCode(proxy);
+                              case "equals" -> proxy == args[0];
+                              default -> throw new UnsupportedOperationException(method.toString());
+                          });'''
+          assert text.count(old)==1
+          p.write_text(text.replace(old,new))
+          PY
       - name: Reproduce the original controller defect with a real assertion
         run: |
           set -euo pipefail
