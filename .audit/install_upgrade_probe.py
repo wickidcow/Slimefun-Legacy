@@ -14,13 +14,11 @@ for entry in entries:
     path = Path(entry['path'])
     assert not path.is_absolute() and '..' not in path.parts and not path.exists()
     assert str(path).startswith(('compatibility/upgrade-fixture/', 'scripts/old_world_upgrade.py', 'scripts/test_old_world_upgrade.py'))
-    data = entry['content'].encode()
-    assert blob(data) == entry['sha'], path
+    assert blob(entry['content'].encode()) == entry['sha'], path
 for entry in entries:
     path = Path(entry['path'])
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(entry['content'])
-    print('REVIEWED_UPGRADE_FILE', entry['sha'], path)
 
 probe = Path('compatibility/upgrade-fixture/LegacyUpgradeProbe.java')
 text = probe.read_text()
@@ -40,4 +38,50 @@ helper = '''    @SuppressWarnings("deprecation") // Exercise the old String-faci
 assert text.count(anchor) == 1
 text = text.replace(anchor, helper + anchor)
 assert blob(text.encode()) == '22827241e322b793b605c22f275123afa52f9b23'
+old = '            Bukkit.getScheduler().runTaskLater(this, this::execute, 80L);'
+new = '''            if (seed) {
+                var owner = Bukkit.getOfflinePlayer(OWNER);
+                require("LegacyFixture".equals(owner.getName()), "Missing synthetic owner cache entry");
+                Slimefun.getDatabaseManager().getProfileDataController().getOrCreateProfileAsync(owner)
+                        .whenComplete((profile, error) -> {
+                            if (error != null) finish(error);
+                            else Bukkit.getScheduler().runTaskLater(this, this::execute, 80L);
+                        });
+            } else {
+                Bukkit.getScheduler().runTaskLater(this, this::execute, 80L);
+            }'''
+assert text.count(old) == 1
+text = text.replace(old, new)
+assert blob(text.encode()) == '0eac1608dddab52ed402e27938c60c97ce4b013d'
 probe.write_text(text)
+
+runner = Path('scripts/old_world_upgrade.py')
+text = runner.read_text()
+for old, new in (
+    ('(work / "plugins" / "Slimefun").rglob("*.db")', '(work / "data-storage" / "Slimefun").rglob("*.db")'),
+    ('{"plugins", "upgrade-world",', '{"plugins", "data-storage", "upgrade-world",'),
+    ('for folder in ("plugins", "upgrade-world",', 'for folder in ("plugins", "data-storage", "upgrade-world",'),
+):
+    assert text.count(old) == 1
+    text = text.replace(old, new)
+old = 'def configure(work: Path) -> None:\n'
+new = '''def configure(work: Path) -> None:
+    # A generated offline account lets the old core create its real parent profile.
+    # No live account lookup, joined player or direct SQL insertion is required.
+    write_json(work / "usercache.json", [{"name": "LegacyFixture",
+               "uuid": "09000000-0000-4000-8000-000000000001", "expiresOn": "2099-01-01 00:00:00 +0000"}])
+'''
+assert text.count(old) == 1
+text = text.replace(old, new)
+assert blob(text.encode()) == '8b9a29e12ab64f5a8a867bb76ef182d9926c9224'
+runner.write_text(text)
+tests = Path('scripts/test_old_world_upgrade.py')
+text = tests.read_text()
+old = "root / 'plugins' / 'Slimefun' / 'fixture.db'"
+assert text.count(old) == 1
+text = text.replace(old, "root / 'data-storage' / 'Slimefun' / 'fixture.db'")
+assert blob(text.encode()) == 'd3313d2f4218f6df05dcb8a4dfe5c2b5a1baa48a'
+tests.write_text(text)
+for entry in entries:
+    path = Path(entry['path'])
+    print('REVIEWED_UPGRADE_FILE', blob(path.read_bytes()), path)
