@@ -24,7 +24,7 @@ jobs:
               ('wickidcow/SF_NetworksExp', 11127610797, 'SF_Networks1.0.45.jar', '9e588c2b74bc5f09ef25bb67db5d61c8989cb2cc14b94e5befc0f76f8be1f3e9', 'cda26048b792900dd3dd16c1f6ca0075ed8de07b'),
               ('wickidcow/SF_InfinityExpansion2', 11128381464, 'SF_InfinityExpansion2.0.10.jar', '3eee8654e7ad9da2f9b4702f4cc08a64440e663efce84b17dba64c309a37f03e', '2aa423f8a389f4c719226d974197308736620d25'),
               ('wickidcow/SF_Supreme', 11127673752, 'SF_Supreme1.0.17.jar', '0c4406c15a703797773222acaf0c4b185cf90b6cb565137f4cd5b1b34d2341cb', '24ef8251528403258ba0aa271a64766748c5efb7'),
-              ('wickidcow/Slimefun-Legacy', 11128666853, 'SF_FinalTECH3.0.2.jar', '976c00435ea377b09df7d2f9bc5b16373bb915a4a9a57a23288c70a1ca38012e', '0fedef35faee2cc54b0e8dd19ff8b2aca848952a'),
+              ('wickidcow/SF_FinalTECH', 11129132800, 'SF_FinalTECH3.0.2.jar', '216a71bd14c7e4986fd54587342a72a6a40684669811caad4f3b210c64ee01ac', '6a6adbe073a54c792653aca669362cf364ec853e'),
           ]
           root = Path('runtime-inputs'); root.mkdir()
           addons = []
@@ -40,8 +40,7 @@ jobs:
                   assert hashlib.sha256(raw).hexdigest() == digest, (repo, name)
                   with zipfile.ZipFile(io.BytesIO(raw)) as archive:
                       assert archive.testzip() is None
-                  actual_repo = 'wickidcow/SF_FinalTECH' if name.startswith('SF_FinalTECH') else repo
-                  record = dict(repository=actual_repo, artifact_repository=repo, artifact_id=artifact, jar=name, sha256=digest, commit=commit)
+                  record = dict(repository=repo, artifact_repository=repo, artifact_id=artifact, jar=name, sha256=digest, commit=commit)
                   provenance.append(record)
                   if name == 'Slimefun-Legacy-Core.jar':
                       (root / name).write_bytes(raw)
@@ -72,6 +71,17 @@ jobs:
         with:
           ref: d600e077552baab2086a056d04b1cb0a6a9051a5
           persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: 3c9ca8a1ca3f8d834d2e99c918a7829582718da2
+          path: gate-review
+          persist-credentials: false
+      - name: Use the reviewed configuration-load failure gate
+        run: |
+          cp gate-review/scripts/test_full_stack_runtime_error_gate.py scripts/test_full_stack_runtime_error_gate.py
+          python3 gate-review/.audit/apply_runtime_configuration_gate.py
+          bash -n scripts/full_stack_runtime_smoke.sh
+          python3 scripts/test_full_stack_runtime_error_gate.py .
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -80,7 +90,7 @@ jobs:
         with:
           name: priority-addon-runtime-inputs
           path: runtime-inputs
-      - name: Boot the actual candidate subset twice
+      - name: Boot all four actual candidate addons twice
         env:
           SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
           SERVER_DOWNLOAD_USER_AGENT: Slimefun-Legacy-Priority-Addon-Validation/1.0
@@ -89,11 +99,16 @@ jobs:
           bash scripts/full_stack_runtime_smoke.sh runtime-inputs/Slimefun-Legacy-Core.jar runtime-inputs/priority-addon-candidates.zip build/priority-runtime
           test ! -s build/priority-runtime/dependency-gated-addons.txt
           test "$(wc -l < build/priority-runtime/expected-addons.txt)" -eq 4
+          test -s build/priority-runtime/plugins/FinalTECH-Changed/language/en-US.yml
           python3 - <<'PY'
           from pathlib import Path
           names = {line.split('\t')[1] for line in Path('build/priority-runtime/expected-addons.txt').read_text().splitlines()}
           assert names == {'Networks', 'InfinityExpansion2', 'Supreme', 'FinalTECH-Changed'}, names
-          print('All four priority addon names were required; no dependency-gated plugin was omitted.')
+          for label in ('first', 'second'):
+              text = Path('build/priority-runtime', label + '.normalized.log').read_text()
+              assert 'InvalidConfigurationException' not in text
+              assert 'Cannot load plugins/FinalTECH-Changed/language/en-US.yml' not in text
+          print('All four addons were required in both cycles; no configuration-load error was accepted.')
           PY
       - name: Preserve exact runtime evidence
         if: always()
@@ -103,10 +118,13 @@ jobs:
           retention-days: 14
           path: |
             runtime-inputs/provenance.json
+            audit-evidence/source-manifest.json
             build/priority-runtime/*.console.log
             build/priority-runtime/*.normalized.log
             build/priority-runtime/runtime-build.txt
             build/priority-runtime/expected-addons.txt
             build/priority-runtime/dependency-gated-addons.txt
             build/priority-runtime/smoke-result.txt
+            build/priority-runtime/plugins/FinalTECH-Changed/language/en-US.yml
+          include-hidden-files: true
           if-no-files-found: warn
