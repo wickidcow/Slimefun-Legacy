@@ -20,7 +20,7 @@ new = '''            // Exercise the real machine implementation, not Player.att
             check(hit.contains(cow), "Actual butcher sweep must select its target");
             check(Math.abs(cow.getHealth() - (health - 4.0)) < 0.0001,
                     "Configured butcher damage must remain exactly four health points");
-            check(cow.getPersistentDataContainer().has(ButcherLogic.INSTANCE.getKEY_KILLER(),
+            check(cow.getPersistentDataContainer().has(org.bukkit.NamespacedKey.fromString("slimeeasy:butcher_killer"),
                     org.bukkit.persistence.PersistentDataType.STRING), "Existing machine kill marker retained");'''
 assert text.count(old) == 1
 text = text.replace(old, new)
