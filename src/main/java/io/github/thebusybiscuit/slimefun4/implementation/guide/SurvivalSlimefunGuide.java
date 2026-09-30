@@ -139,7 +139,7 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
                     if (flexItemGroup.isVisible(p, profile, visibilityMode)) {
                         groups.add(group);
                     }
-                } else if (group.isVisible(p)) {
+                } else if (isVisibleInMainMenu(group, p)) {
                     groups.add(group);
                 }
             } catch (Exception | LinkageError x) {
@@ -154,6 +154,15 @@ public class SurvivalSlimefunGuide implements SlimefunGuideImplementation {
         }
 
         return groups;
+    }
+
+    /**
+     * Honors legacy addon subfolders that remain accessible but hide themselves from the main menu.
+     * Keep this check out of item-group opening and search, where those child categories are still usable.
+     */
+    @SuppressWarnings("deprecation") // Addon compatibility: Networks/InfinityLib override isHidden(Player).
+    static boolean isVisibleInMainMenu(ItemGroup group, Player player) {
+        return group.isVisible(player) && !group.isHidden(player);
     }
 
     @Override

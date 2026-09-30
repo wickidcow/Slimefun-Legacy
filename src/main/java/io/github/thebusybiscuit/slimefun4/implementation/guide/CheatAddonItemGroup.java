@@ -101,7 +101,7 @@ public final class CheatAddonItemGroup extends FlexItemGroup {
             return flexItemGroup.isVisible(player, profile, mode);
         }
 
-        return group.isVisible(player);
+        return SurvivalSlimefunGuide.isVisibleInMainMenu(group, player);
     }
 
     @Override
