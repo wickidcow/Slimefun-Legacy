@@ -1,7 +1,6 @@
 package com.xzavier0722.mc.plugin.slimefun4.storage.util;
 
 import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Base64;
 import org.bukkit.configuration.serialization.ConfigurationSerialization;
@@ -34,7 +33,8 @@ public final class ItemStackDataCodec {
             return deserializeCurrent(Arrays.copyOfRange(itemData, FORMAT_V2.length, itemData.length));
         }
 
-        var decoded = Base64.getMimeDecoder().decode(new String(itemData, StandardCharsets.US_ASCII));
+        // Keep MIME tolerance for historical text, without a full-payload String round trip.
+        var decoded = Base64.getMimeDecoder().decode(itemData);
         // Text written by the retained String API can be returned as bytes by a
         // binary column or storage adapter. Recognize its envelope before taking
         // the historical Bukkit object-stream path. Decode exactly one layer.
@@ -58,7 +58,7 @@ public final class ItemStackDataCodec {
     static boolean isCurrent(byte[] itemData) {
         return itemData != null
                 && itemData.length >= FORMAT_V2.length
-                && Arrays.equals(FORMAT_V2, Arrays.copyOf(itemData, FORMAT_V2.length));
+                && Arrays.equals(FORMAT_V2, 0, FORMAT_V2.length, itemData, 0, FORMAT_V2.length);
     }
 
     @SuppressWarnings("deprecation") // Required only to read historical Bukkit object-stream item data.
