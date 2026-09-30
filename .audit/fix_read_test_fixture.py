@@ -21,21 +21,28 @@ helper_text = '''package com.xzavier0722.mc.plugin.slimefun4.storage.controller;
 
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.lang.reflect.Field;
+import org.bukkit.plugin.PluginDescriptionFile;
+import org.bukkit.plugin.java.JavaPluginLoader;
 import org.mockbukkit.mockbukkit.ServerMock;
 
-/** Construct the real final plugin without enabling production services; restore static state after each test. */
+/** Uses the retained test constructor: real registries, no service startup and no subclass of the final core. */
 final class InventoryReadTestPlugin implements AutoCloseable {
     private final Field instance;
     private final Object previous;
 
+    @SuppressWarnings({"deprecation", "removal"}) // Existing explicit test constructor, not production API use.
     InventoryReadTestPlugin(ServerMock server) {
         try {
             instance = Slimefun.class.getDeclaredField("instance");
             instance.setAccessible(true);
             previous = instance.get(null);
-            Slimefun plugin = (Slimefun) server.getPluginManager().loadPlugin(Slimefun.class);
+            var manager = server.getPluginManager();
+            var plugin = new Slimefun(new JavaPluginLoader(server),
+                    new PluginDescriptionFile("Slimefun", "4.1.62-test", Slimefun.class.getName()),
+                    manager.createTemporaryDirectory("Slimefun-read-fixture"),
+                    manager.createTemporaryPluginFile("Slimefun-read-fixture"));
             instance.set(null, plugin);
-        } catch (ReflectiveOperationException failure) {
+        } catch (Exception failure) {
             throw new IllegalStateException("Could not initialize the inventory-read fixture", failure);
         }
     }
@@ -50,7 +57,7 @@ final class InventoryReadTestPlugin implements AutoCloseable {
     }
 }
 '''
-assert blob(helper_text.encode()) == '5753a8964a8151d4cfc0b26f4d458d942e721e48'
+assert blob(helper_text.encode()) == '6079b0c830ad77e8d19b96f488ac5d04bca80e75'
 assert blob(text.encode()) == '1056cf0ccc2ee721b88597018430a3bd662fb6fe'
 helper.write_text(helper_text)
 test.write_text(text)
