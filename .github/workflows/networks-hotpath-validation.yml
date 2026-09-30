@@ -1,0 +1,150 @@
+name: Networks Storage Hotpath Validation
+
+on:
+  push:
+    branches: ['work/networks-hotpath-validation-20260930']
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: wickidcow/SF_NetworksExp
+          ref: d9ffb4467c8bed3b137894fe6f2862838ea36cea
+          path: networks
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Verify and apply the exact five-file Networks change
+        run: |
+          python3 - <<'PY'
+          import gzip, hashlib, json
+          from pathlib import Path
+          def blob(data):
+              return hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+          payload = b''.join(Path(f'.audit/networks-hotpath.{i}').read_bytes() for i in range(3))
+          assert blob(payload) == '1b6ca5083dd2b9a610095084636248c7cb640715'
+          entries = json.loads(gzip.decompress(payload))
+          assert len(entries) == 5
+          prepared = {}
+          for entry in entries:
+              relative = Path(entry['path'])
+              assert not relative.is_absolute() and '..' not in relative.parts
+              assert str(relative).startswith(('src/main/java/', 'src/test/java/'))
+              path = Path('networks') / relative
+              if entry['old'] is None:
+                  assert not path.exists(), path
+                  text = entry['content']
+              else:
+                  assert blob(path.read_bytes()) == entry['old'], path
+                  text = path.read_text()
+                  for old, new in entry['replacements']:
+                      assert text.count(old) == 1
+                      text = text.replace(old, new)
+              data = text.encode()
+              assert blob(data) == entry['new'], path
+              prepared[path] = data
+          for path, data in prepared.items():
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_bytes(data)
+          Path('audit-evidence').mkdir()
+          Path('audit-evidence/source-manifest.json').write_text(json.dumps({str(path.relative_to('networks')): blob(data) for path, data in prepared.items()}, indent=2))
+          PY
+          git -C networks diff --check
+      - name: Use the verified Doctor and storage core candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api repos/wickidcow/Slimefun-Legacy/actions/artifacts/11117350932/zip > "$RUNNER_TEMP/core-artifact"
+          python3 - <<'PY'
+          import hashlib, io, os, zipfile
+          from pathlib import Path
+          raw = Path(os.environ['RUNNER_TEMP'], 'core-artifact').read_bytes()
+          with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+              if 'plugin.yml' not in archive.namelist():
+                  jars = [name for name in archive.namelist() if name.endswith('.jar')]
+                  assert len(jars) == 1, jars
+                  raw = archive.read(jars[0])
+          assert hashlib.sha256(raw).hexdigest() == '48a4871ec83f7d7cdd0af5696ce1efb46c6437fa726575dc6805dc752c239778'
+          path = Path('networks/.ci/Slimefun-Legacy-Core.jar')
+          path.parent.mkdir(parents=True, exist_ok=True)
+          path.write_bytes(raw)
+          Path('audit-evidence/core-provenance.txt').write_text('Core PR head: 788b89e17d4e8694bad2c4e0e5e9ac5b1e0662c6\nTested merge: d600e077552baab2086a056d04b1cb0a6a9051a5\nSHA256: ' + hashlib.sha256(raw).hexdigest() + '\n')
+          PY
+      - name: Run all existing Networks source gates
+        working-directory: networks
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_legacy_compatibility.py 2>&1 | tee ../audit-evidence/source-invariants.log
+      - name: Build and test Networks with strict compiler checks
+        working-directory: networks
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/download_jeg.sh
+          chmod +x gradlew
+          ./gradlew clean build --console=plain --no-daemon \
+            -PslimefunCoreJar="$PWD/.ci/Slimefun-Legacy-Core.jar" \
+            -PjegJar="$PWD/.ci/jeg/SF_JustEnoughGuide2.1.67.jar" \
+            -PstrictDeprecation=true 2>&1 | tee ../audit-evidence/build.log
+          python3 scripts/verify_java21_bytecode.py build/libs/SF_Networks1.0.45.jar
+          python3 scripts/verify_universal_jar.py build/libs/SF_Networks1.0.45.jar 1.0.45
+      - name: Check actual new regression execution and preserve tested source
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, xml.etree.ElementTree as ET
+          from pathlib import Path
+          totals = dict.fromkeys(('tests', 'failures', 'errors', 'skipped'), 0)
+          seen = {}
+          for path in Path('networks/build/test-results/test').glob('TEST-*.xml'):
+              suite = ET.parse(path).getroot()
+              for key in totals:
+                  totals[key] += int(suite.get(key, '0'))
+              for suffix, count in [('PositionAccessorCacheTest', 13), ('StorageSlotLayoutTest', 7)]:
+                  if suite.get('name', '').endswith('.' + suffix):
+                      assert int(suite.get('tests', '0')) == count, suite.attrib
+                      assert all(int(suite.get(key, '0')) == 0 for key in ('failures', 'errors', 'skipped'))
+                      seen[suffix] = suite.attrib
+          assert len(seen) == 2 and totals['tests'] >= 20 and totals['failures'] == totals['errors'] == 0, totals
+          manifest = json.loads(Path('audit-evidence/source-manifest.json').read_text())
+          for name, expected in manifest.items():
+              data = Path('networks', name).read_bytes()
+              actual = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+              assert actual == expected, name
+              target = Path('audit-evidence/tested-source', name)
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_bytes(data)
+          Path('audit-evidence/results.json').write_text(json.dumps(dict(totals=totals, required=seen), indent=2))
+          print('Actual Networks test totals:', totals)
+          print('Actual new suites:', seen)
+          PY
+      - name: Preserve validation evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: networks-storage-hotpath-evidence
+          retention-days: 14
+          path: |
+            audit-evidence/
+            networks/build/test-results/test/TEST-*.xml
+          if-no-files-found: warn
+      - name: Preserve raw candidate only after successful validation
+        uses: actions/upload-artifact@v7
+        with:
+          name: SF_Networks1.0.45-hotpath-candidate.jar
+          path: networks/build/libs/SF_Networks1.0.45.jar
+          archive: false
+          if-no-files-found: error
