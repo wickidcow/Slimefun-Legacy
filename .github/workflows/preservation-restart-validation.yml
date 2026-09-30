@@ -1,0 +1,155 @@
+name: Preservation Restart Validation
+
+on:
+  push:
+    branches: ['work/restart-gate-validation-20260930']
+    paths: ['.github/workflows/preservation-restart-validation.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Verify source invariants and runtime gate regressions
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-inputs/evidence
+          python3 scripts/verify_legacy.py . 2>&1 | tee runtime-inputs/evidence/source-invariants.log
+          bash -n scripts/full_stack_runtime_smoke.sh
+          git rev-parse HEAD > runtime-inputs/evidence/validation-source.txt
+          sha256sum scripts/full_stack_runtime_smoke.sh scripts/verify_runtime_configuration.py scripts/test_verify_runtime_configuration.py scripts/verify_legacy.py > runtime-inputs/evidence/source-sha256.txt
+      - name: Verify and assemble exact priority candidates
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, io, json, re, subprocess, zipfile
+          from pathlib import Path
+          specs = [
+              ('wickidcow/Slimefun-Legacy', 11129527912, 'Slimefun-Legacy-Core.jar', '62595cf11496b39d9b9857e9b304f48957b7ec99'),
+              ('wickidcow/SF_NetworksExp', 11127610797, 'SF_Networks1.0.45.jar', 'cda26048b792900dd3dd16c1f6ca0075ed8de07b'),
+              ('wickidcow/SF_InfinityExpansion2', 11128381464, 'SF_InfinityExpansion2.0.10.jar', '2aa423f8a389f4c719226d974197308736620d25'),
+              ('wickidcow/SF_Supreme', 11127673752, 'SF_Supreme1.0.17.jar', '24ef8251528403258ba0aa271a64766748c5efb7'),
+              ('wickidcow/SF_FinalTECH', 11129132800, 'SF_FinalTECH3.0.2.jar', '6a6adbe073a54c792653aca669362cf364ec853e'),
+          ]
+          def api(path):
+              return subprocess.run(['gh', 'api', path], capture_output=True, check=True, timeout=120).stdout
+          root = Path('runtime-inputs')
+          provenance, addons = [], []
+          with zipfile.ZipFile(root / 'priority-addon-candidates.zip', 'w', zipfile.ZIP_DEFLATED) as bundle:
+              for repo, artifact, name, commit in specs:
+                  meta = json.loads(api(f'repos/{repo}/actions/artifacts/{artifact}'))
+                  assert meta['workflow_run']['head_sha'] == commit, (repo, meta['workflow_run'])
+                  assert not meta['expired'], (repo, artifact)
+                  archived = api(f'repos/{repo}/actions/artifacts/{artifact}/zip')
+                  archive_sha = hashlib.sha256(archived).hexdigest()
+                  assert meta['digest'] == 'sha256:' + archive_sha, (repo, 'artifact digest mismatch')
+                  raw = archived
+                  with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                      if 'plugin.yml' not in archive.namelist():
+                          jars = [p for p in archive.namelist() if p.endswith('.jar')]
+                          assert len(jars) == 1, (repo, jars)
+                          raw = archive.read(jars[0])
+                  with zipfile.ZipFile(io.BytesIO(raw)) as jar:
+                      assert jar.testzip() is None
+                      assert 'plugin.yml' in jar.namelist()
+                  record = dict(repository=repo, artifact_id=artifact, jar=name, commit=commit,
+                                artifact_sha256=archive_sha, sha256=hashlib.sha256(raw).hexdigest())
+                  provenance.append(record)
+                  if name == 'Slimefun-Legacy-Core.jar':
+                      (root / name).write_bytes(raw)
+                  else:
+                      bundle.writestr(name, raw)
+                      addons.append(record)
+              assert len(addons) == 4
+              bundle.writestr('SF_ADDON_MANIFEST.json', json.dumps(dict(addons=addons,
+                  scope='Four-addon development subset; not the canonical release bundle'), indent=2))
+          (root / 'provenance.json').write_text(json.dumps(provenance, indent=2) + '\n')
+
+          # Recheck the real prior second-boot failure; do not accept setup errors as the negative control.
+          archived = api('repos/wickidcow/Slimefun-Legacy/actions/artifacts/11128084713/zip')
+          assert hashlib.sha256(archived).hexdigest() == 'ec00829c13163472c778a679f43e1e6fe8589626908c755cb52bc5e352896b22'
+          results = []
+          with zipfile.ZipFile(io.BytesIO(archived)) as archive:
+              for label, expected in [('first', 0), ('second', 1)]:
+                  text = archive.read(f'build/priority-runtime/{label}.normalized.log').decode('utf-8')
+                  assert re.search('Error occurred while enabling|NoClassDefFoundError|NoSuchMethodError|AbstractMethodError|IncompatibleClassChangeError', text) is None
+                  path = root / 'evidence' / f'prior-{label}.normalized.log'
+                  path.write_text(text)
+                  result = subprocess.run(['python3', 'scripts/verify_runtime_configuration.py', str(path)], text=True, capture_output=True)
+                  assert result.returncode == expected, (label, result.stdout, result.stderr)
+                  if expected:
+                      assert 'matching lines' in result.stderr and 'InvalidConfigurationException' in result.stderr
+                  results.append(dict(cycle=label, expected=expected, observed=result.returncode, output=result.stdout + result.stderr))
+          (root / 'evidence' / 'negative-control.json').write_text(json.dumps(results, indent=2) + '\n')
+          print('Exact artifact sources/digests and real-log negative control verified.')
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: preservation-restart-inputs
+          path: runtime-inputs/
+          retention-days: 14
+          if-no-files-found: error
+
+  runtime:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11', '26.2', '26.3']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: preservation-restart-inputs
+          path: runtime-inputs
+      - name: Boot the corrected candidate subset twice
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+          SERVER_DOWNLOAD_USER_AGENT: Slimefun-Legacy-Preservation-Restart/1.0
+        run: |
+          set -euo pipefail
+          bash scripts/full_stack_runtime_smoke.sh runtime-inputs/Slimefun-Legacy-Core.jar runtime-inputs/priority-addon-candidates.zip build/preservation-runtime
+          test ! -s build/preservation-runtime/dependency-gated-addons.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          rows = Path('build/preservation-runtime/expected-addons.txt').read_text().splitlines()
+          assert len(rows) == 4
+          names = {line.split('\t')[1] for line in rows}
+          assert names == {'Networks', 'InfinityExpansion2', 'Supreme', 'FinalTECH-Changed'}, names
+          assert 'Configuration-load failures: none' in Path('build/preservation-runtime/smoke-result.txt').read_text()
+          print('All four pinned addons were required; no dependency-gated addon was omitted.')
+          PY
+      - name: Preserve actual restart evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: preservation-restart-${{ matrix.minecraft }}
+          retention-days: 14
+          path: |
+            runtime-inputs/provenance.json
+            runtime-inputs/evidence/source-invariants.log
+            runtime-inputs/evidence/source-sha256.txt
+            runtime-inputs/evidence/validation-source.txt
+            runtime-inputs/evidence/negative-control.json
+            build/preservation-runtime/*.console.log
+            build/preservation-runtime/*.normalized.log
+            build/preservation-runtime/runtime-build.txt
+            build/preservation-runtime/expected-addons.txt
+            build/preservation-runtime/dependency-gated-addons.txt
+            build/preservation-runtime/smoke-result.txt
+          if-no-files-found: warn
