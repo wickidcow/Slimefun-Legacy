@@ -96,6 +96,23 @@ old = '        location(0).getChunk().load();'
 assert text.count(old) == 1
 text = text.replace(old, '        blocks.loadChunk(location(0).getChunk(), false, true);')
 assert blob(text.encode()) == '301327a79b98c5039f53253420d3141d1591b34b'
+old = '        var item = registered.getItem().clone();'
+new = '''        // A player inventory stores Bukkit item values, not the internal definition subclass.
+        var item = new ItemStack(registered.getItem());
+        require(fingerprint(registered.getItem()).equals(fingerprint(item)), "Fixture copy changed old item metadata");'''
+assert text.count(old) == 1
+text = text.replace(old, new)
+old = '''                ItemStack restored = readStoredFixture(original, format);
+                compare("items." + i, fingerprint(restored));'''
+new = '''                try {
+                    ItemStack restored = readStoredFixture(original, format);
+                    compare("items." + i, fingerprint(restored));
+                } catch (Exception failure) {
+                    throw new IllegalStateException("Could not verify old item-" + i + "." + format, failure);
+                }'''
+assert text.count(old) == 1
+text = text.replace(old, new)
+assert blob(text.encode()) == '7dd58d0693db69a7a30f26365e31401d8a04dc39'
 probe.write_text(text)
 
 runner = Path('scripts/old_world_upgrade.py')
