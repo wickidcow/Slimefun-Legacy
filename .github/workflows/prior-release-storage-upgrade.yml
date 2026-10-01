@@ -30,7 +30,6 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = b2c68e1a0ee2cdc042ed11d72721b1054f604675
-          # Local-only branch identity matches the original PR build metadata.
           git checkout -b work/coordinated-addon-preservation-20260930
           mkdir -p candidate
           python3 - <<'PY'
@@ -45,8 +44,17 @@ jobs:
           Path('candidate/api-version.txt').write_text(selected)
           print('PINNED_SOURCE_API', selected)
           PY
+          # The git-properties plugin prefers the current workflow's branch over
+          # the checked-out branch. Reproduce only the original metadata value;
+          # exact commit/source contents and the entire JAR checksum stay enforced.
+          cat > "$RUNNER_TEMP/reproduce-branch.gradle" <<'GRADLE'
+          gradle.projectsEvaluated {
+              gradle.rootProject.extensions.getByName('gitProperties').customProperty(
+                  'git.branch', 'work/coordinated-addon-preservation-20260930')
+          }
+          GRADLE
           chmod +x gradlew
-          ./gradlew clean shadowJar -PpaperApiVersion="$(cat candidate/api-version.txt)" --console=plain --no-daemon 2>&1 | tee candidate/rebuild.log
+          ./gradlew -I "$RUNNER_TEMP/reproduce-branch.gradle" clean shadowJar -PpaperApiVersion="$(cat candidate/api-version.txt)" --console=plain --no-daemon --no-configuration-cache 2>&1 | tee candidate/rebuild.log
           JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
           test -s "$JAR"
           python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
@@ -82,6 +90,12 @@ jobs:
           echo '329e22688557fbd0e0d51dba02fdc1e2e8d9f363774b29dafb0a502f41d6024f  producer/Slimefun4.1.61.jar' | sha256sum -c -
       - name: Compile probe against the released core and floor API
         run: mvn -B -f scripts/prior-release-upgrade-probe/pom.xml package -Dcore.jar="$PWD/producer/Slimefun4.1.61.jar"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Compile probe only; the producer runtime switches to Java 21 below
+        run: java -version
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
