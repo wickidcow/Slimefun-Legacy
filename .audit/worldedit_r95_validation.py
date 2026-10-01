@@ -10,9 +10,9 @@ import zipfile
 
 CORE = 'ea4b0c47ee41b852abb5c97bacbb4f1c0ebc5126c29fb36d39e7c71747d13bdd'
 BUNDLE = '7cf9bf6ce10949d93da8dce50125d4b1a8385ddbbbac2433ab72f6e6687b0d86'
-VERSION_ID = 'VhUPP2IN'
 VERSION = '7.4.6-beta-02'
 FILENAME = 'worldedit-bukkit-7.4.6-beta-02.jar'
+URL = 'https://dev.curseforge.com/projects/worldedit/files/8962666/download'
 UA = 'Slimefun-Legacy-WorldEdit-Compatibility/1.0 (github.com/wickidcow/Slimefun-Legacy)'
 
 
@@ -35,14 +35,7 @@ def main():
         assert len(manifest['addons']) == 45
         worldedit = [x for x in manifest['addons'] if 'SFWorldEdit' in x['jar']]
         assert len(worldedit) == 1, worldedit
-    metadata = json.loads(get('https://api.modrinth.com/v2/version/' + VERSION_ID))
-    assert metadata['project_id'] == '1u6JkXh5'
-    assert metadata['version_number'] == VERSION
-    assert 'bukkit' in metadata['loaders'] and '26.3' in metadata['game_versions']
-    file = next(x for x in metadata['files'] if x['filename'] == FILENAME and x['primary'])
-    assert file['url'].startswith('https://cdn.modrinth.com/data/1u6JkXh5/versions/' + VERSION_ID + '/')
-    data = get(file['url'])
-    assert hashlib.sha512(data).hexdigest() == file['hashes']['sha512']
+    data = get(URL)
     assert hashlib.md5(data).hexdigest() == '8ce90c96cf9e01bdc6d436843c1f8b72', 'Published Bukkit file mismatch'
     dependency = evidence / FILENAME
     dependency.write_bytes(data)
@@ -51,12 +44,10 @@ def main():
         descriptor = jar.read('plugin.yml').decode()
         assert re.search(r'^name: [\'\"]?WorldEdit[\'\"]?\s*$', descriptor, re.M)
         assert 'com.sk89q.worldedit.bukkit.WorldEditPlugin' in descriptor
-    lock = {'version_id': VERSION_ID, 'version': VERSION, 'url': file['url'],
-            'sha256': hashlib.sha256(data).hexdigest(), 'sha512': file['hashes']['sha512'],
-            'filename': FILENAME, 'minecraft_versions': metadata['game_versions'],
-            'core_sha256': CORE, 'bundle_sha256': BUNDLE, 'sfworldedit': worldedit[0]}
+    lock = {'version': VERSION, 'url': URL, 'upstream_file_id': 8962666,
+            'sha256': hashlib.sha256(data).hexdigest(), 'sha512': hashlib.sha512(data).hexdigest(),
+            'filename': FILENAME, 'core_sha256': CORE, 'bundle_sha256': BUNDLE, 'sfworldedit': worldedit[0]}
     (evidence / 'dependency-lock.json').write_text(json.dumps(lock, indent=2) + '\n')
-    (evidence / 'upstream-version.json').write_text(json.dumps(metadata, indent=2) + '\n')
     print(json.dumps(lock, indent=2))
 
     path = Path('scripts/full_stack_runtime_smoke.sh')
@@ -70,7 +61,6 @@ def main():
          'test -s "${WORLD_EDIT_SMOKE_JAR:?Verified WorldEdit JAR is required}"\n'
          'cp "$WORLD_EDIT_SMOKE_JAR" "$WORK_DIR/plugins/WorldEdit.jar"'),
         ('available_plugins = {"slimefun"}', 'available_plugins = {"slimefun", "worldedit"}'),
-        ('expected = []\ngated = []', 'expected = []\ngated = []'),
         ("    printf 'sf doctor registry\\n' >&3", "    printf 'sf doctor registry\\n' >&3\n    printf 'worldedit version\\n' >&3"),
         ('    python3 "$REPO_ROOT/scripts/verify_runtime_configuration.py" "$normalized"',
          '    python3 "$REPO_ROOT/scripts/verify_runtime_configuration.py" "$normalized"\n'
@@ -80,7 +70,6 @@ def main():
     for before, after in changes:
         assert text.count(before) == 1, before
         text = text.replace(before, after)
-    # Keep the same script location so its REPO_ROOT and existing runtime checks stay intact.
     path.write_text(text)
     shutil.copy2(path, evidence / 'tested-full-stack-runtime.sh')
     with open(os.environ['GITHUB_ENV'], 'a') as env:
