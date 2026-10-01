@@ -1,0 +1,218 @@
+name: Revision 99 Exact Complete Stack
+on:
+  push:
+    branches: ['work/r99-complete-stack-20261001']
+    paths: ['.github/workflows/r99-complete-stack-validation.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 20f7c554b9b3543bc99cd9fd367f0149a784829f
+          persist-credentials: false
+      - name: Require the successful same-source canonical archive and verify every input
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p inputs evidence
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, io, json, re, subprocess, sys, time, zipfile
+          sys.path.insert(0,'scripts')
+          from verify_addon_bytecode import inspect_jar
+          repo='repos/wickidcow/Slimefun-Legacy'
+          head='20f7c554b9b3543bc99cd9fd367f0149a784829f'
+          merge='90fced3bb75f2178a447fc4c892f08b802a9bc51'
+          run_id=36859432364
+          def api(path):return subprocess.run(['gh','api',path],check=True,capture_output=True,timeout=120).stdout
+          for attempt in range(72):
+              run=json.loads(api(f'{repo}/actions/runs/{run_id}'))
+              assert run['head_sha']==head and run['path']=='.github/workflows/build-sfl-addons-compat-bundle.yml'
+              if run['status']=='completed':break
+              time.sleep(10)
+          assert run['status']=='completed' and run['conclusion']=='success',run['conclusion']
+          all_artifacts=json.loads(api(f'{repo}/actions/runs/{run_id}/artifacts?per_page=100'))['artifacts']
+          def artifact(name):
+              matches=[a for a in all_artifacts if a['name']==name and not a['expired']]
+              assert len(matches)==1,(name,len(matches))
+              meta=matches[0];assert meta['workflow_run']['head_sha']==head
+              raw=api(f"{repo}/actions/artifacts/{meta['id']}/zip")
+              assert meta['digest']=='sha256:'+hashlib.sha256(raw).hexdigest()
+              return meta,raw
+          core_meta,raw=artifact('sfl-26.3-candidate-core')
+          assert core_meta['id']==11161785514
+          assert hashlib.sha256(raw).hexdigest()=='8baf5310a21a8025dc575d4e768a0ba061cca843cd7095581f35f776c6059b39'
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              names=[n for n in z.namelist() if n.endswith('.jar')];assert len(names)==1
+              core=z.read(names[0])
+          assert hashlib.sha256(core).hexdigest()=='d1e1c8c676fdf4a3806d74a05ca7d7ac797836d3baffc825b91e76f554a823bc'
+          with zipfile.ZipFile(io.BytesIO(core)) as z:
+              assert z.testzip() is None
+              properties=z.read('git.properties').decode()
+              assert 'git.commit.id='+merge in properties and 'git.source.commit='+merge in properties
+              assert 'git.build.version=4.1.62' in properties and '1970-' not in properties
+          Path('inputs/core.jar').write_bytes(core)
+          Path('inputs/core-git.properties').write_text(properties)
+          bundle_meta,raw=artifact('SF_Addons_1.21.11-26.3')
+          with zipfile.ZipFile(io.BytesIO(raw)) as outer:
+              assert outer.testzip() is None
+              bundle=outer.read('SF_Addons_1.21.11-26.3.zip')
+          source=json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text())
+          assert source['bundle_revision']==99
+          expected={row['repository']:row['source_commit'] for row in source['addons']}
+          assert len(expected)==45 and expected['wickidcow/SF_MagicExpansion']=='4532a3c2adfef0136200fed97551433daaf11625'
+          plugins=[];reports=[]
+          Path('verify-jars').mkdir()
+          with zipfile.ZipFile(io.BytesIO(bundle)) as z:
+              assert z.testzip() is None and len(z.namelist())==len(set(z.namelist()))
+              manifest=json.loads(z.read('SF_ADDON_MANIFEST.json'))
+              assert manifest['core_source_commit']==merge
+              assert len(manifest['addons'])==45
+              assert {a['repository']:a['commit'] for a in manifest['addons']}==expected
+              assert {n for n in z.namelist() if n.endswith('.jar')}=={a['jar'] for a in manifest['addons']}
+              for row in manifest['addons']:
+                  name=row['jar'];assert Path(name).name==name
+                  data=z.read(name);assert hashlib.sha256(data).hexdigest()==row['sha256']
+                  path=Path('verify-jars',name);path.write_bytes(data)
+                  report=inspect_jar(path,21);assert report['result']=='PASS',report
+                  with zipfile.ZipFile(io.BytesIO(data)) as jar:
+                      assert jar.testzip() is None
+                      descriptor=next(n for n in ['plugin.yml','paper-plugin.yml','paper-plugin.yaml'] if n in jar.namelist())
+                      text=jar.read(descriptor).decode()
+                      found=re.search(r'''(?m)^name:\s*['"]?([^'"\r\n]+)''',text);assert found
+                      plugin=found.group(1).strip();plugins.append(plugin)
+                      assert not any(n.startswith(('org/junit/','org/mockbukkit/','audit/')) for n in jar.namelist())
+                  report.update(repository=row['repository'],commit=row['commit'],sha256=row['sha256'],plugin=plugin)
+                  reports.append(report)
+              Path('inputs/SF_ADDON_MANIFEST.json').write_bytes(z.read('SF_ADDON_MANIFEST.json'))
+          assert len(set(plugins))==45 and 'WorldEditSlimefun' in plugins and 'WorldEdit' not in plugins
+          Path('inputs/addons.zip').write_bytes(bundle)
+          # Reuse the exact previously inspected read-only state probe; its historic R98 label is not source provenance.
+          prior=api(f'{repo}/actions/artifacts/11153569015/zip')
+          assert hashlib.sha256(prior).hexdigest()=='687f17ffcb3728ae2480998d9d13655f55028d969af40de66be54dc985185c45'
+          with zipfile.ZipFile(io.BytesIO(prior)) as z:
+              probe=z.read('probe.jar')
+              assert set(z.read('r98-expected-plugins.txt').decode().splitlines())==set(plugins)
+          Path('inputs/probe.jar').write_bytes(probe)
+          Path('inputs/r98-expected-plugins.txt').write_text('\n'.join(sorted(plugins))+'\n')
+          record=dict(head=head,tested_merge=merge,canonical_run=run_id,core_artifact=core_meta,bundle_artifact=bundle_meta,core_sha256=hashlib.sha256(core).hexdigest(),bundle_sha256=hashlib.sha256(bundle).hexdigest(),probe_sha256=hashlib.sha256(probe).hexdigest(),probe_source_artifact=11153569015,release_approved=False,addons=reports)
+          Path('inputs/provenance.json').write_text(json.dumps(record,indent=2)+'\n')
+          Path('evidence/verification.json').write_text(json.dumps(record,indent=2)+'\n')
+          print('Same-source revision99 core/45-addon membership, source identity, hashes and Java21 output verified.')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: revision99-stack-preparation
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        with:
+          name: revision99-exact-stack-inputs
+          path: inputs/
+          retention-days: 14
+          if-no-files-found: error
+  runtime:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - minecraft: '1.21.11'
+            build: 132
+            channel: STABLE
+            java: '21'
+            server_sha: 5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba
+          - minecraft: '26.2'
+            build: 129
+            channel: STABLE
+            java: '25'
+            server_sha: b1d8f6bfa1b6101fa8e947b53041cb3bdf5540e7b83b6547ca19ba7edefeb083
+          - minecraft: '26.3'
+            build: 140
+            channel: BETA
+            java: '25'
+            server_sha: 98aabc113a80b9b5e183475e839a17cf99c39c915a1f46b8f35a5e89fd5de0f1
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 20f7c554b9b3543bc99cd9fd367f0149a784829f
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: revision99-exact-stack-inputs
+          path: inputs
+      - name: Preserve all smoke guards while pinning verified server binaries
+        run: |
+          mkdir -p evidence
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          path=Path('scripts/full_stack_runtime_smoke.sh');old=path.read_bytes()
+          blob=lambda b:hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          assert blob(old)=='088f636aa72de8b194efa638cabb0aac6dcb9594'
+          text=old.decode();start=text.index('BUILDS_URL="https://fill.papermc.io/');end=text.index('MANIFEST_ADDON_COUNT=',start)
+          removed=text[start:end]
+          replacement='''SERVER_BUILD="${TEST_SERVER_BUILD:?}"
+          SERVER_CHANNEL="${TEST_SERVER_CHANNEL:?}"
+          SERVER_SHA="${TEST_SERVER_SHA:?}"
+          SERVER_URL="https://fill-data.papermc.io/v1/objects/${SERVER_SHA}/paper-${MC_VERSION}-${SERVER_BUILD}.jar"
+          curl --fail-with-body -L -sS --retry 3 --retry-delay 5 --max-time 120 -H "User-Agent: ${USER_AGENT}" -o "$WORK_DIR/server.jar" "$SERVER_URL"
+          printf '%s  %s\\n' "$SERVER_SHA" "$WORK_DIR/server.jar" | sha256sum --check
+          printf 'url=%s\\nsha256=%s\\nreference_run=36808369424\\n' "$SERVER_URL" "$SERVER_SHA" > "$WORK_DIR/pinned-server.txt"
+          '''
+          text=text[:start]+replacement+text[end:]
+          needle='cp "$SLIMEFUN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-full-stack.jar"\n'
+          addition='cp inputs/probe.jar "$WORK_DIR/plugins/R98ActiveAddonProbe.jar"\ncp inputs/r98-expected-plugins.txt "$WORK_DIR/r98-expected-plugins.txt"\n'
+          assert text.count(needle)==1;text=text.replace(needle,needle+addition)
+          assert text.replace(needle+addition,needle).replace(replacement,removed).encode()==old
+          path.write_text(text)
+          Path('evidence/input-only-change.json').write_text(json.dumps(dict(original_blob=blob(old),runtime_blob=blob(text.encode()),removed=removed,replacement=replacement,probe_injection=addition,scope='Pinned official server selection and unchanged read-only plugin-state probe only; all original smoke/provider guards retained'),indent=2))
+          Path('evidence/actual-runtime-script.sh').write_text(text)
+          PY
+          bash -n scripts/full_stack_runtime_smoke.sh
+      - name: Verify all45 actual enabled states on both complete-stack boots
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+          TEST_SERVER_BUILD: ${{ matrix.build }}
+          TEST_SERVER_CHANNEL: ${{ matrix.channel }}
+          TEST_SERVER_SHA: ${{ matrix.server_sha }}
+          SERVER_DOWNLOAD_USER_AGENT: Slimefun-Legacy-Preservation/4.1.62 (https://github.com/wickidcow/Slimefun-Legacy)
+        run: |
+          set -euo pipefail
+          bash scripts/full_stack_runtime_smoke.sh inputs/core.jar inputs/addons.zip build/r99-stack
+          test ! -s build/r99-stack/dependency-gated-addons.txt
+          test "$(wc -l < build/r99-stack/expected-addons.txt)" -eq 45
+          test "$(wc -l < build/r99-stack/r98-active-addons.txt)" -eq 45
+          for CYCLE in first second; do
+            grep -Fq 'R98_ACTIVE_ADDONS_PASS count=45 provider=WorldEdit' "build/r99-stack/$CYCLE.normalized.log"
+            if grep -Fq 'R98_ACTIVE_ADDONS_FAIL' "build/r99-stack/$CYCLE.normalized.log"; then exit 1; fi
+          done
+          printf 'PASS: revision99 exact canonical core and45 addon JARs, verified WorldEdit provider, two boots, actual enabled-state checks on both boots\n' > evidence/final-result.txt
+      - name: Retain exact artifact and server evidence
+        if: always()
+        run: |
+          mkdir -p evidence/runtime
+          cp inputs/provenance.json inputs/core-git.properties inputs/SF_ADDON_MANIFEST.json evidence/ || true
+          find build/r99-stack -maxdepth 1 -type f \( -name '*.log' -o -name '*.txt' \) -exec cp {} evidence/runtime/ \; 2>/dev/null || true
+          if test -f build/r99-stack/plugins/worldedit-runtime.json; then cp build/r99-stack/plugins/worldedit-runtime.json evidence/; fi
+          if test -f build/r99-stack/plugins/WorldEdit-runtime.jar; then sha256sum build/r99-stack/plugins/WorldEdit-runtime.jar > evidence/worldedit-sha256.txt; fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: revision99-exact-stack-${{ matrix.minecraft }}
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
