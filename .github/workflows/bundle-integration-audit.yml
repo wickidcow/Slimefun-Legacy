@@ -1,0 +1,161 @@
+name: Bundle Integration and Maintained Source Audit
+on:
+  push:
+    branches: ['work/bundle-integration-20260930']
+    paths: ['.github/workflows/bundle-integration-audit.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Reproduce premature capture and apply reviewed integration
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,subprocess
+          def blob(b): return hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          expected={
+            'scripts/proxy_runtime_smoke.sh':'edd1d266c2560f91a3031f647d85a315a64c8c3a',
+            'scripts/verify_legacy.py':'79fef164241184271d2bea8760006d52a2bf5678',
+            '.github/workflows/build-sfl-addons-compat-bundle.yml':'1be20796b27c29c8845860e6cdae382724f81656',
+            '.github/workflows/paper-26.3-full-stack.yml':'14a2cfc06e8db502d0a48dd324f58210cccdcc94',
+            'compatibility/sfl-addon-release-matrix.json':'b78af0d96c1eef2216e514a1e4118a99d3b5196a'}
+          for name,sha in expected.items(): assert blob(Path(name).read_bytes())==sha, name
+          Path('audit-evidence').mkdir()
+          negative=subprocess.run(['python3','scripts/test_proxy_identity_capture.py'],capture_output=True,text=True)
+          Path('audit-evidence/proxy-negative.log').write_text(negative.stdout+negative.stderr)
+          assert negative.returncode==1 and 'FAILED (failures=2)' in negative.stderr
+          def replace(name,old,new,count=1):
+              p=Path(name);text=p.read_text();assert text.count(old)==count,(name,text.count(old));p.write_text(text.replace(old,new))
+          replace('scripts/proxy_runtime_smoke.sh','    local output="$WORK_DIR/identity-${label}.txt"\n',
+            '    local output="$WORK_DIR/identity-${label}.txt"\n    # UUID output precedes the research line; wait for the complete command report.\n    local completion_marker="Persistence research candidate:"\n    if [[ -n "$research_key" ]]; then completion_marker="Research ${research_key}:"; fi\n')
+          replace('scripts/proxy_runtime_smoke.sh','            if [[ -z "$research_key" ]] || grep -Fq "Research ${research_key}:" "$output"; then','            if grep -Fq "$completion_marker" "$output"; then')
+          replace('scripts/verify_legacy.py','        "test_verify_addon_bytecode.py",\n','        "test_verify_addon_bytecode.py",\n        "test_proxy_identity_capture.py",\n        "test_download_candidate_bundle.py",\n')
+          p=Path('compatibility/sfl-addon-release-matrix.json');matrix=json.loads(p.read_text());assert matrix['bundle_revision']==92
+          matrix['bundle_revision']=93
+          for row in matrix['addons']:
+              if row['slug']=='slimeeasy': row['source_commit']='913a609c10871afb67c57f0d2be75a77e13d1d36'
+              if row['slug']=='networksexp':
+                  assert row['source_commit']=='cda26048b792900dd3dd16c1f6ca0075ed8de07b'
+                  row['source_commit']='41befeb633baabd1e8ee6bc2fdd2b3a66694b643'
+          p.write_text(json.dumps(matrix,indent=2)+'\n')
+          workflow='.github/workflows/build-sfl-addons-compat-bundle.yml'
+          replace(workflow,"      - 'gradle.properties'\n","      - 'gradle.properties'\n      - 'src/**'\n      - 'build.gradle.kts'\n      - 'gradle/**'\n      - 'scripts/**'\n      - '.github/workflows/paper-26.3-full-stack.yml'\n",2)
+          replace(workflow,'      - name: Verify and build pinned DracFun Reborn\n', '''      - name: Rebuild native SlimeEasy against the supported floor
+                  if: matrix.slug == 'slimeeasy'
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+                    mkdir -p addon/libs report-native-floor
+                    find addon/libs -maxdepth 1 -type f -iname '*slimefun*.jar' -delete
+                    cp candidate-core/Slimefun-Legacy-candidate.jar addon/libs/Slimefun-Legacy-Core.jar
+                    chmod +x addon/gradlew
+                    # The newer-native-API build is a probe only. Never distribute its output.
+                    (cd addon && ./gradlew clean build cargoRegressionJar \\
+                      -PpaperDevBundleVersion=1.21.11-R0.1-SNAPSHOT \\
+                      --no-daemon --no-build-cache --no-configuration-cache) \\
+                      2>&1 | tee report-native-floor/compile.log
+                - name: Verify and build pinned DracFun Reborn
+          '''.replace('\n          ','\n'))
+          replace(workflow,"              'paper_26_3_api': os.environ['PAPER_API_VERSION'],\n","              'paper_26_3_api': os.environ['PAPER_API_VERSION'],\n              'distributable_api': '1.21.11-R0.1-SNAPSHOT' if slug in ('slimeeasy', 'dracfunreborn') else os.environ['PAPER_API_VERSION'],\n")
+          replace(workflow,'      - uses: actions/upload-artifact@v7\n        with:\n          name: sf-addon-${{ matrix.slug }}', '''      - name: Preserve compile and native-floor evidence
+                  if: always()
+                  run: |
+                    mkdir -p staged/evidence
+                    if test -d report; then cp -r report "staged/evidence/${{ matrix.slug }}-candidate"; fi
+                    if test -d report-native-floor; then cp -r report-native-floor "staged/evidence/${{ matrix.slug }}-floor"; fi
+                - uses: actions/upload-artifact@v7
+                  if: always()
+                  with:
+                    name: sf-addon-${{ matrix.slug }}'''.replace('\n          ','\n'))
+          workflow='.github/workflows/paper-26.3-full-stack.yml'
+          replace(workflow,"      - 'scripts/full_stack_runtime_smoke.sh'\n","      - 'scripts/full_stack_runtime_smoke.sh'\n      - 'scripts/download_candidate_bundle.py'\n      - 'scripts/test_download_candidate_bundle.py'\n",2)
+          replace(workflow,'    name: Fetch exact addon bundle under test\n    runs-on: ubuntu-latest','    name: Fetch exact addon bundle under test\n    runs-on: ubuntu-latest\n    timeout-minutes: 35')
+          replace(workflow,'          TRIGGER_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}\n','          TRIGGER_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}\n          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}\n')
+          replace(workflow,'          if [[ "$GITHUB_EVENT_NAME" == "workflow_run" ]]; then\n','          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then\n            python3 scripts/download_candidate_bundle.py \\\n              --repository "$GITHUB_REPOSITORY" --head "$PR_HEAD_SHA" \\\n              --source "$GITHUB_SHA" --output bundle\n          elif [[ "$GITHUB_EVENT_NAME" == "workflow_run" ]]; then\n')
+          replace(workflow,"        minecraft: ['26.2', '26.3']","        minecraft: ['1.21.11', '26.2', '26.3']")
+          p=Path(workflow);text=p.read_text();pos=text.index('  runtime:\n');text=text[:pos]+text[pos:].replace("          java-version: '25'","          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}",1);p.write_text(text)
+          expected_after={
+            'scripts/proxy_runtime_smoke.sh':'b008fb93d3d867f58926adccfeef77b3863ed724',
+            'scripts/verify_legacy.py':'b5922dca73d283b914463cdf8ff6d51227c8997d',
+            '.github/workflows/build-sfl-addons-compat-bundle.yml':'a91458b2a931ac5eb3b894de28795f9a6ba92427',
+            '.github/workflows/paper-26.3-full-stack.yml':'de16fb4d68b3ef430c462d3b902c7885b6b2b99b',
+            'compatibility/sfl-addon-release-matrix.json':'8f6f50a01a009b17236ff1c23c43f6bb02f4dc4d'}
+          for name,sha in expected_after.items(): assert blob(Path(name).read_bytes())==sha,(name,blob(Path(name).read_bytes()),sha)
+          for name in ['scripts/test_proxy_identity_capture.py','scripts/download_candidate_bundle.py','scripts/test_download_candidate_bundle.py']:
+              expected_after[name]=blob(Path(name).read_bytes())
+          Path('audit-evidence/reviewed-blobs.json').write_text(json.dumps(expected_after,indent=2)+'\n')
+          PY
+      - name: Run all retained guards and actual capture regression
+        run: |
+          set -euo pipefail
+          git diff --check
+          bash -n scripts/proxy_runtime_smoke.sh
+          python3 scripts/verify_legacy.py . 2>&1 | tee audit-evidence/invariants.log
+      - name: Stage only verified blobs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,subprocess
+          for name,sha in json.loads(Path('audit-evidence/reviewed-blobs.json').read_text()).items():
+              data=Path(name).read_bytes()
+              assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()==sha
+              result=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps({'content':data.decode(),'encoding':'utf-8'}),text=True,capture_output=True,check=True)
+              assert json.loads(result.stdout)['sha']==sha
+              target=Path('audit-evidence/reviewed-source')/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: bundle-integration-evidence
+          path: audit-evidence/
+          include-hidden-files: true
+          retention-days: 14
+      - name: Inventory all maintained sources without executing addon code
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import concurrent.futures,hashlib,json,subprocess,tarfile
+          matrix=json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text())
+          out=Path('maintained-sources');out.mkdir()
+          def collect(row):
+              repo=row['repository']; slug=row['slug']; target=Path('source-checkouts')/slug
+              subprocess.run(['git','clone','--depth','1',f'https://github.com/{repo}.git',str(target)],check=True,timeout=180)
+              sha=row.get('source_commit')
+              if sha:
+                  subprocess.run(['git','-C',str(target),'fetch','--depth','1','origin',sha],check=True,timeout=90)
+                  subprocess.run(['git','-C',str(target),'checkout','--detach',sha],check=True,timeout=30)
+              actual=subprocess.check_output(['git','-C',str(target),'rev-parse','HEAD'],text=True).strip()
+              assert not sha or actual==sha
+              names=subprocess.check_output(['git','-C',str(target),'ls-files','-z']).decode().split('\0')
+              names=[n for n in names if n and (Path(n).suffix in {'.java','.kt','.kts','.gradle','.xml','.yml','.yaml','.toml','.properties','.md','.py','.sh'} or n=='gradlew')]
+              archive=out/(slug+'.tar.gz')
+              with tarfile.open(archive,'w:gz') as t:
+                  for name in names:
+                      path=target/name
+                      if path.is_file() and not path.is_symlink(): t.add(path,arcname=name,recursive=False)
+              return dict(repository=repo,slug=slug,commit=actual,files=len(names),sha256=hashlib.sha256(archive.read_bytes()).hexdigest())
+          with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+              records=list(pool.map(collect,matrix['addons']))
+          assert len(records)==45
+          (out/'source-lock.json').write_text(json.dumps(records,indent=2)+'\n')
+          print('Archived all 45 exact maintained source trees for code review; no addon code executed.')
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: maintained-addon-sources
+          path: maintained-sources/
+          retention-days: 14
+          if-no-files-found: error
