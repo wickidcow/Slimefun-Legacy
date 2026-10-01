@@ -1,0 +1,161 @@
+name: Next Addon Component Preservation Validation
+
+on:
+  push:
+    branches: ['work/next-addon-components-20260930']
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: next-addon-components-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Test ${{ matrix.slug }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - slug: fnamplifications
+            repository: wickidcow/SF_FNAmplifications
+            source: 9557e2b76253ee35c7d7049c4631527d420b902c
+            patch: a2437be4db215db9222c1c66fce10bc664747937
+            new_tests: 12
+            total_tests: 13
+          - slug: litexpansion
+            repository: wickidcow/SF_LiteXpansion
+            source: a2595c1c6d5842d699e5803de846bf36e2246cf2
+            patch: bcb61a2c7d9a461085edab614f89e06f445db245
+            new_tests: 12
+            total_tests: 12
+          - slug: slimetinkerie2
+            repository: wickidcow/SF_SlimeTinkerIE2
+            source: 051a008d56bce6c1db40d93c7d5c3f3038421509
+            patch: b7da69aaf9493f4aa07f903b2dcfb5ce1be8b00c
+            new_tests: 8
+            total_tests: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Fetch exact source and candidate core
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ matrix.repository }}
+          SOURCE: ${{ matrix.source }}
+        run: |
+          set -euo pipefail
+          git clone --quiet --no-checkout "https://github.com/${REPOSITORY}.git" addon
+          git -C addon fetch --quiet --depth=1 origin "$SOURCE"
+          git -C addon checkout --quiet --detach "$SOURCE"
+          test "$(git -C addon rev-parse HEAD)" = "$SOURCE"
+          gh run download 36804275140 --repo wickidcow/Slimefun-Legacy --name sfl-26.3-candidate-core --dir candidate
+          echo '197a6d7577c4a6680de109d60e11f2035986ab3d21eea8f6f3c5271dd45c5c6b  candidate/Slimefun-Legacy-candidate.jar' | sha256sum -c -
+      - name: Apply the reviewed source patch without changing IDs or data formats
+        env:
+          SLUG: ${{ matrix.slug }}
+          PATCH_SHA: ${{ matrix.patch }}
+        run: |
+          python3 - <<'PY'
+          import gzip, hashlib, json, os
+          from pathlib import Path
+          def blob(data):
+              return hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+          raw = Path('.audit/' + os.environ['SLUG'] + '-components.gz').read_bytes()
+          assert blob(raw) == os.environ['PATCH_SHA']
+          changes = json.loads(gzip.decompress(raw))
+          prepared = {}
+          for entry in changes:
+              name = Path(entry['path'])
+              assert not name.is_absolute() and '..' not in name.parts
+              assert str(name).startswith(('src/main/java/', 'src/test/java/')) or str(name) == 'pom.xml'
+              path = Path('addon') / name
+              if entry['old'] is None:
+                  assert not path.exists(), name
+                  data = entry['content'].encode()
+              else:
+                  original = path.read_bytes()
+                  assert blob(original) == entry['old'], name
+                  lines = original.decode().splitlines(keepends=True)
+                  for start, end, replacement in reversed(entry['edits']):
+                      lines[start:end] = [replacement]
+                  data = ''.join(lines).encode()
+              assert blob(data) == entry['new'], name
+              prepared[path] = data
+          for path, data in prepared.items():
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_bytes(data)
+              print('REVIEWED_SOURCE', blob(data), path)
+          evidence = Path('evidence'); evidence.mkdir()
+          (evidence / 'source-manifest.json').write_text(json.dumps(changes, indent=2))
+          for path, data in prepared.items():
+              copy = evidence / 'reviewed-source' / path.relative_to('addon')
+              copy.parent.mkdir(parents=True, exist_ok=True)
+              copy.write_bytes(data)
+          PY
+          git -C addon diff --check
+      - name: Build against exact core using retained normalization rules
+        run: |
+          set -euo pipefail
+          python3 scripts/build_addon_against_slimefun.py addon candidate/Slimefun-Legacy-candidate.jar validation
+      - name: Run the actual full addon tests and preserve prior tests
+        env:
+          EXPECTED_TESTS: ${{ matrix.total_tests }}
+        run: |
+          set -euo pipefail
+          mvn -B -ntp -f validation/project/pom.xml clean verify -Dmaven.compiler.showDeprecation=true 2>&1 | tee evidence/test-build.log
+          python3 - <<'PY'
+          import json, os, xml.etree.ElementTree as ET
+          from pathlib import Path
+          totals = dict.fromkeys(('tests','failures','errors','skipped'),0)
+          reports = list(Path('validation/project/target/surefire-reports').glob('TEST-*.xml'))
+          assert reports, 'No actual JUnit reports'
+          for path in reports:
+              suite = ET.parse(path).getroot()
+              for key in totals:
+                  totals[key] += int(suite.get(key, '0'))
+              print('Actual suite:',suite.attrib)
+          assert totals['tests'] == int(os.environ['EXPECTED_TESTS']), totals
+          assert totals['failures'] == totals['errors'] == totals['skipped'] == 0, totals
+          Path('evidence/test-results.json').write_text(json.dumps(totals,indent=2))
+          PY
+      - name: Check plugin artifact and verify untouched source boundaries
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,shutil,sys,zipfile
+          from pathlib import Path
+          sys.path.insert(0,'scripts')
+          from compare_addon_slimefun_compatibility_base import find_built_addon_jar
+          jar=find_built_addon_jar(Path('validation/project'))
+          assert jar is not None
+          with zipfile.ZipFile(jar) as z:
+              assert z.testzip() is None
+              assert 'plugin.yml' in z.namelist()
+              assert not any(name.startswith(('org/junit/','org/mockbukkit/')) for name in z.namelist())
+          Path('evidence/jar-provenance.json').write_text(json.dumps({'jar':jar.name,'sha256':hashlib.sha256(jar.read_bytes()).hexdigest()},indent=2))
+          shutil.copyfile(jar,'evidence/candidate.jar')
+          print('Validated addon JAR:',jar)
+          PY
+          python3 scripts/verify_addon_bytecode.py evidence/candidate.jar --expected-java 21 --report evidence/bytecode.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: next-components-${{ matrix.slug }}
+          path: |
+            evidence/
+            validation/report/
+            validation/project/target/surefire-reports/
+            validation/project/pom.xml
+          if-no-files-found: warn
+          retention-days: 14
