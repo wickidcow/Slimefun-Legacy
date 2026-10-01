@@ -1,0 +1,172 @@
+name: Revision 97 Provider Complete Runtime
+
+on:
+  push:
+    branches: ['work/addon-stability-audit-r96-20260930']
+    paths: ['.github/workflows/revision97-provider-complete.yml']
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: e63c4f5bf82401e37e97922095c1cee4570af759
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Select only the successful matching revision97 archive and its exact core artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/download_candidate_bundle.py --repository "$GITHUB_REPOSITORY" \
+            --head 78ec1b049c9b54fdf7a108c59c028605af417b4f \
+            --source e63c4f5bf82401e37e97922095c1cee4570af759 --output inputs --timeout 1800
+          python3 - <<'PY'
+          import base64,hashlib,io,json,subprocess,zipfile
+          from pathlib import Path
+          def api(path):
+              return subprocess.run(['gh','api',path],capture_output=True,check=True,timeout=120).stdout
+          source=dict(line.split('=',1) for line in Path('inputs/bundle-source.txt').read_text().splitlines())
+          assert source['run_id']=='36811615380'
+          run=json.loads(api('repos/wickidcow/Slimefun-Legacy/actions/runs/36811615380'))
+          assert run['head_sha']=='78ec1b049c9b54fdf7a108c59c028605af417b4f' and run['conclusion']=='success'
+          artifacts=json.loads(api('repos/wickidcow/Slimefun-Legacy/actions/runs/36811615380/artifacts?per_page=100'))['artifacts']
+          choices=[a for a in artifacts if a['name']=='sfl-26.3-candidate-core' and not a['expired']]
+          assert len(choices)==1
+          meta=choices[0]
+          raw=api(f"repos/wickidcow/Slimefun-Legacy/actions/artifacts/{meta['id']}/zip")
+          assert meta['digest']=='sha256:'+hashlib.sha256(raw).hexdigest()
+          with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+              jars=[n for n in archive.namelist() if n.endswith('.jar')]
+              assert len(jars)==1
+              jar=archive.read(jars[0])
+          Path('inputs/Slimefun-Legacy-Core.jar').write_bytes(jar)
+          # Reuse the reviewed operation probe and dependency guard by immutable Git blob, not a moving branch.
+          files={
+              'scripts/prepare_runtime_dependencies.py':'a1958abc5eb987d5f3a96e44ab9f92fbc574668b',
+              '.audit/require_worldedit.patch':'03363cfb42578b9952e8ee8ee06ddedf5ed779fe',
+              'scripts/worldedit-runtime-probe/src/main/java/io/github/wickidcow/validation/WorldEditRuntimeProbe.java':'0a1568cbbfcd14bb146295a5a248e8b6182dde4a',
+              'scripts/worldedit-runtime-probe/pom.xml':'3421ebfb22052f6ba2e3f5182c62a15d9f3125f1'}
+          for name,sha in files.items():
+              blob=json.loads(api(f'repos/wickidcow/Slimefun-Legacy/git/blobs/{sha}'))
+              data=base64.b64decode(blob['content'])
+              assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()==sha
+              path=Path(name);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
+          Path('inputs/provenance.json').write_text(json.dumps(dict(core_artifact_id=meta['id'],core_artifact_digest=meta['digest'],core_sha256=hashlib.sha256(jar).hexdigest(),bundle=source,harness_blobs=files),indent=2)+'\n')
+          PY
+          git apply --check .audit/require_worldedit.patch
+          git apply .audit/require_worldedit.patch
+          bash -n scripts/full_stack_runtime_smoke.sh
+          python3 scripts/verify_addon_bytecode.py inputs/Slimefun-Legacy-Core.jar --expected-java 21 --report inputs/core-bytecode.json
+      - name: Resolve the fixed floor provider and preserve both publisher identities
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 2 --max-time 60 -H 'User-Agent: SFL-Provider-Complete/1.0' \
+            https://api.modrinth.com/v2/version/2YDdVDmG > inputs/worldedit-floor-publisher.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          version=json.loads(Path('inputs/worldedit-floor-publisher.json').read_text())
+          assert version['id']=='2YDdVDmG' and version['version_number']=='7.3.19'
+          assert 'bukkit' in version['loaders'] and '1.21.11' in version['game_versions']
+          file=next(f for f in version['files'] if f['primary'] and f['filename']=='worldedit-bukkit-7.3.19.jar')
+          floor=dict(project='WorldEdit',plugin_name='WorldEdit',version='7.3.19',release_type=version['version_type'],version_id=version['id'],minecraft_versions=['1.21.11'],filename=file['filename'],url=file['url'],sha512=file['hashes']['sha512'])
+          newer=dict(project='WorldEdit',plugin_name='WorldEdit',version='7.4.6-beta-02',release_type='beta',version_id='J1eeOh6C',minecraft_versions=['26.2','26.3'],filename='worldedit-bukkit-7.4.6-beta-02.jar',url='https://cdn.modrinth.com/data/1u6JkXh5/versions/J1eeOh6C/worldedit-bukkit-7.4.6-beta-02.jar',sha512='138ea8f412bf4a17104d2e090a9171e1b263c6b28a060dacda5bc78c4629e9bac1c3834cccaaa50ac87bf148a269cf9dfd46967dddedd64dc512fdf7a5db17f9')
+          for line,spec in [('1.21.11',floor),('26.2',newer),('26.3',newer)]:
+              Path(f'inputs/runtime-dependencies-{line}.json').write_text(json.dumps(dict(schema=1,dependencies=[spec]),indent=2)+'\n')
+          PY
+          python3 scripts/prepare_runtime_dependencies.py inputs/runtime-dependencies-1.21.11.json 1.21.11 dependency inputs/probe-worldedit-dependency.json
+          python3 scripts/verify_addon_bytecode.py dependency/worldedit-bukkit-7.3.19.jar --expected-java 21 --report inputs/worldedit-floor-bytecode.json
+      - name: Compile unchanged real operation probe against Java21 and the floor API
+        run: |
+          set -euo pipefail
+          mkdir -p scripts/worldedit-runtime-probe/src/main/resources
+          printf 'name: WorldEditRuntimeProbe\nversion: 1.0.0\nmain: io.github.wickidcow.validation.WorldEditRuntimeProbe\napi-version: "1.21.11"\ndepend: [Slimefun, WorldEdit, WorldEditSlimefun]\n' > scripts/worldedit-runtime-probe/src/main/resources/plugin.yml
+          mvn -B -ntp -f scripts/worldedit-runtime-probe/pom.xml package \
+            -Dcore.jar="$PWD/inputs/Slimefun-Legacy-Core.jar" -Dworldedit.jar="$PWD/dependency/worldedit-bukkit-7.3.19.jar"
+          mkdir -p inputs/probe inputs/scripts
+          cp scripts/worldedit-runtime-probe/target/WorldEditRuntimeProbe-1.0.0.jar inputs/probe/
+          cp scripts/full_stack_runtime_smoke.sh scripts/prepare_runtime_dependencies.py scripts/verify_runtime_configuration.py inputs/scripts/
+          cp gradle.properties inputs/
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          p=Path('inputs/provenance.json');data=json.loads(p.read_text())
+          data['runtime_files']={str(f.relative_to('inputs')):hashlib.sha256(f.read_bytes()).hexdigest() for f in Path('inputs').rglob('*') if f.is_file() and f.name!='provenance.json'}
+          p.write_text(json.dumps(data,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: revision97-provider-prepare-evidence
+          path: |
+            inputs/*.json
+            inputs/*.txt
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        with:
+          name: revision97-provider-inputs
+          path: inputs/
+          retention-days: 14
+          if-no-files-found: error
+
+  runtime:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11','26.2','26.3']
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: revision97-provider-inputs
+          path: inputs
+      - name: Verify unchanged inputs and require all45 addons plus the real provider on both boots
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+          RUNTIME_SMOKE_REQUIRED_MARKER: WORLDEDIT_COMPAT_PROBE PASS addons=45 native-edit undo sponge-v3 sidecar-item-state
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          p=Path('inputs');data=json.loads((p/'provenance.json').read_text())
+          for name,digest in data['runtime_files'].items():
+              assert hashlib.sha256((p/name).read_bytes()).hexdigest()==digest,name
+          PY
+          mkdir -p inputs/compatibility
+          cp 'inputs/runtime-dependencies-${{ matrix.minecraft }}.json' inputs/compatibility/runtime-dependencies.json
+          export RUNTIME_SMOKE_EXTRA_PLUGIN_DIR="$PWD/inputs/probe"
+          bash inputs/scripts/full_stack_runtime_smoke.sh inputs/Slimefun-Legacy-Core.jar inputs/SF_Addons_1.21.11-26.3.zip build/provider-complete
+          test ! -s build/provider-complete/dependency-gated-addons.txt
+          test "$(wc -l < build/provider-complete/expected-addons.txt)" -eq 45
+          grep -Fq 'PASS' build/provider-complete/plugins/WorldEditRuntimeProbe/result.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: revision97-provider-runtime-${{ matrix.minecraft }}
+          path: |
+            inputs/provenance.json
+            inputs/bundle-source.txt
+            build/provider-complete/*.log
+            build/provider-complete/*.txt
+            build/provider-complete/runtime-dependencies.json
+            build/provider-complete/plugins/WorldEditRuntimeProbe/*
+          retention-days: 14
+          if-no-files-found: warn
