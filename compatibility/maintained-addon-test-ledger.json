@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 99,
+  "bundle_revision": 100,
   "core_parent": "ed0618b442cf0b74c62f2d3990c32727ed376e78",
   "tested_core_sha256": "ffbdfcbf0eab274eaaf56916f8ddc3f12347e76a7b07fa4b8d8fe25eabac7ace",
   "summary": {
@@ -23,7 +23,8 @@
     "Deprecated APIs and broader machine/performance audits remain.",
     "Revision97 adds three exact-source followup builds on core7c832082; other rows retain their original core/run evidence. This is not one new all45 full-suite run.",
     "Revision98 updates only FNAmplifications, LiteXpansion and MagicExpansion from this three-addon exact-core test run; all other evidence retains its original run attribution. The root core hash remains historical; new row evidence records the latest exact core.",
-    "Revision99 changes only MagicExpansion: 61 tests and the retained two-process floor runtime helper against the revision98 core. Other rows retain their original source/run/core attribution; this is not a new all45 project-test run."
+    "Revision99 changes only MagicExpansion: 61 tests and the retained two-process floor runtime helper against the revision98 core. Other rows retain their original source/run/core attribution; this is not a new all45 project-test run.",
+    "Revision100 changes only the merged JEG and current GeneticChickEngineering sources. Their full builds use the versioned4.1.63 core; other source evidence retains its original core/run attribution. All45 will be rebuilt by the canonical release workflow."
   ],
   "addons": [
     {
@@ -439,7 +440,7 @@
     {
       "repository": "wickidcow/SF_GeneticChickEngineering",
       "slug": "geneticchickengineering",
-      "source_commit": "4e80814601ae9ff0b470e4ec2e4e1eb8e93fe3ba",
+      "source_commit": "000b52607a5034be2a8f361cf6a071e0b4a57901",
       "full_build_result": "PASS",
       "reported_test_entries": 0,
       "failures": 0,
@@ -447,12 +448,16 @@
       "skips": 0,
       "evidence": {
         "repository": "wickidcow/Slimefun-Legacy",
-        "run_id": 36800704863,
-        "artifact_id": 11135721640,
-        "kind": "Full project build/test audit summary"
+        "run_id": 36884557264,
+        "artifact_name": "release-addon-refresh-evidence",
+        "kind": "Full exact-source project build; zero tests are explicitly reported when the project has no test sources",
+        "tested_core_sha256": "b7063bad34f14092e08113add70861f6df54b9cb82f46dc4c13cc394f3bdc523",
+        "tested_core_version": "4.1.63"
       },
-      "setup_notes": [],
-      "coverage": "No automated test entries reported; not gameplay certification"
+      "setup_notes": [
+        "Only the core dependency was redirected to the exact4.1.63 primary-build JAR; source identities retained."
+      ],
+      "coverage": "Full build and Java21 classes; guide static guards checked; no unit suite or runtime behavior inferred from absent XML"
     },
     {
       "repository": "wickidcow/SF_HotbarPets",
@@ -551,7 +556,7 @@
     {
       "repository": "wickidcow/SF_JustEnoughGuide",
       "slug": "justenoughguide",
-      "source_commit": "1b0e8f7cea66d5208cb412ffaafa1bdb3d0057b2",
+      "source_commit": "a53d11e7abee111efe525532222c02a73d19e640",
       "full_build_result": "PASS",
       "reported_test_entries": 0,
       "failures": 0,
@@ -559,12 +564,16 @@
       "skips": 0,
       "evidence": {
         "repository": "wickidcow/Slimefun-Legacy",
-        "run_id": 36800704863,
-        "artifact_id": 11135721640,
-        "kind": "Full project build/test audit summary"
+        "run_id": 36884557264,
+        "artifact_name": "release-addon-refresh-evidence",
+        "kind": "Full exact-source project build; zero tests are explicitly reported when the project has no test sources",
+        "tested_core_sha256": "b7063bad34f14092e08113add70861f6df54b9cb82f46dc4c13cc394f3bdc523",
+        "tested_core_version": "4.1.63"
       },
-      "setup_notes": [],
-      "coverage": "No automated test entries reported; not gameplay certification"
+      "setup_notes": [
+        "Only the core dependency was redirected to the exact4.1.63 primary-build JAR; source identities retained."
+      ],
+      "coverage": "Full build and Java21 classes; guide static guards checked; no unit suite or runtime behavior inferred from absent XML"
     },
     {
       "repository": "wickidcow/SF_MagicExpansion",

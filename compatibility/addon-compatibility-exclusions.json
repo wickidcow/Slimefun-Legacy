@@ -8,11 +8,14 @@
     {
       "repository": "wickidcow/SF_WorldTaste",
       "reason": "Abandoned repository; no longer maintained or compatibility-tested"
-    }
-,
+    },
     {
       "repository": "wickidcow/SF_Magic8Ball",
       "reason": "Standalone Magic8Ball is integrated into Slimefun Legacy core; testing both plugins together would create duplicate functionality."
+    },
+    {
+      "repository": "wickidcow/SF_BetterStructuresLink",
+      "reason": "Optional multi-provider BetterStructures bridge with no Slimefun compile dependency; maintained and tested in its own repository, not a standalone addon in the45-addon release bundle. Full project verification is recorded in the4.1.63 release source audit."
     }
   ]
 }

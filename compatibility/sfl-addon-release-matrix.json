@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 99,
+  "bundle_revision": 100,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -156,7 +156,7 @@
     {
       "repository": "wickidcow/SF_GeneticChickEngineering",
       "slug": "geneticchickengineering",
-      "source_commit": "4e80814601ae9ff0b470e4ec2e4e1eb8e93fe3ba"
+      "source_commit": "000b52607a5034be2a8f361cf6a071e0b4a57901"
     },
     {
       "repository": "wickidcow/SF_HotbarPets",
@@ -188,7 +188,7 @@
       "repository": "wickidcow/SF_JustEnoughGuide",
       "slug": "justenoughguide",
       "artifact_base": "JustEnoughGuide",
-      "source_commit": "1b0e8f7cea66d5208cb412ffaafa1bdb3d0057b2"
+      "source_commit": "a53d11e7abee111efe525532222c02a73d19e640"
     },
     {
       "repository": "wickidcow/SF_MagicExpansion",
