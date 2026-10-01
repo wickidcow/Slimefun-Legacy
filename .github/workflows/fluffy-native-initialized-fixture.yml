@@ -1,0 +1,95 @@
+name: FluffyMachines initialized native preservation
+on:
+  push:
+    branches: ['work/finish-addon-drafts-20261001']
+    paths: ['.github/workflows/fluffy-native-initialized-fixture.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+          cache-dependency-path: .audit/FluffyBarrelProbe.java
+      - name: Compile the retained fixture with actual newInstance initialization
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess,yaml
+          p=Path('.audit/FluffyBarrelProbe.java');text=p.read_text()
+          old='createBlock(b.getLocation(),barrel.getId());Slimefun.getTickerTask()'
+          new='createBlock(b.getLocation(),barrel.getId());me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset.getPreset(barrel.getId()).newInstance(menu(b),b);Slimefun.getTickerTask()'
+          assert text.count(old)==1;p.write_text(text.replace(old,new))
+          w=yaml.safe_load(Path('.github/workflows/fluffy-native-preservation.yml').read_text())
+          for s in w['jobs']['prepare']['steps']:
+              if 'run' in s:
+                  print('=== '+s['name']+' ===',flush=True)
+                  subprocess.run(['bash','-euo','pipefail','-c',s['run']],check=True)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: fluffy-native-input
+          path: |
+            native-input/
+            probe/src/
+          if-no-files-found: error
+          retention-days: 14
+  runtime:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - minecraft: '1.21.11'
+            java: '21'
+          - minecraft: '26.2'
+            java: '25'
+          - minecraft: '26.3'
+            java: '25'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: fluffy-native-input
+      - name: Run retained old-addon, upgrade and restart assertions
+        env:
+          MC: ${{ matrix.minecraft }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess,yaml
+          w=yaml.safe_load(Path('.github/workflows/fluffy-native-preservation.yml').read_text())
+          for s in w['jobs']['runtime']['steps']:
+              if 'run' in s:subprocess.run(['bash','-euo','pipefail','-c',s['run']],check=True)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: fluffy-native-${{ matrix.minecraft }}
+          path: |
+            build/fluffy-native-*/result.json
+            build/fluffy-native-*/runtime-build.json
+            build/fluffy-native-*/fluffy-expectations.yml
+            build/fluffy-native-*/*.log
+          if-no-files-found: warn
+          retention-days: 14
