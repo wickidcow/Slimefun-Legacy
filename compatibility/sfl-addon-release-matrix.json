@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 96,
+  "bundle_revision": 97,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -136,7 +136,7 @@
     {
       "repository": "wickidcow/SF_FNAmplifications",
       "slug": "fnamplifications",
-      "source_commit": "9557e2b76253ee35c7d7049c4631527d420b902c"
+      "source_commit": "2eb07e7bca82d4d7621224e6f9e4942481e7e8f7"
     },
     {
       "repository": "wickidcow/SF_FoxyMachines",
@@ -177,7 +177,7 @@
     {
       "repository": "wickidcow/SF_LiteXpansion",
       "slug": "litexpansion",
-      "source_commit": "a2595c1c6d5842d699e5803de846bf36e2246cf2"
+      "source_commit": "4dc69e1ba835b897e2fa38b9eb54bcbcee644abf"
     },
     {
       "repository": "wickidcow/SF_LuckyBlocks",
