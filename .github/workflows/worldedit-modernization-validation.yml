@@ -13,61 +13,68 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  inspect:
+  runtime:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11', '26.2', '26.3']
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - name: Export exact reviewed core and addon sources
-        shell: bash
+      - name: Apply reviewed full-stack dependency requirement
         run: |
           set -euo pipefail
-          mkdir -p audit-snapshot
-          git archive --format=zip HEAD > audit-snapshot/Slimefun-Legacy-source.zip
-          git ls-tree -r HEAD > audit-snapshot/Slimefun-Legacy-blobs.txt
-          python3 - <<'PY'
-          import json, subprocess
-          from pathlib import Path
-          matrix = json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text())
-          wanted = {'WorldEditSlimefun', 'SF_FNAmplifications', 'SF_LiteXpansion', 'SF_SlimeTinkerIE2'}
-          for addon in matrix['addons']:
-              repository = addon['repository']
-              name = repository.split('/')[1]
-              if name not in wanted:
-                  continue
-              dest = Path('audit-checkouts') / name
-              subprocess.run(['git', 'clone', '--quiet', '--filter=blob:none', '--no-checkout', 'https://github.com/' + repository + '.git', str(dest)], check=True)
-              subprocess.run(['git', '-C', str(dest), 'checkout', '--quiet', '--detach', addon['source_commit']], check=True)
-              actual = subprocess.check_output(['git', '-C', str(dest), 'rev-parse', 'HEAD'], text=True).strip()
-              assert actual == addon['source_commit']
-              target = Path('audit-snapshot') / (name + '-source.zip')
-              subprocess.run(['git', '-C', str(dest), 'archive', '--format=zip', '--output=' + str(target.resolve()), 'HEAD'], check=True)
-              Path('audit-snapshot', name + '-blobs.txt').write_bytes(subprocess.check_output(['git', '-C', str(dest), 'ls-tree', '-r', 'HEAD']))
-              print(repository, actual)
-          Path('audit-snapshot/source-matrix.json').write_text(json.dumps(matrix, indent=2))
-          PY
-      - name: Capture upstream server dependency releases without selecting client mods
-        shell: bash
+          test "$(git hash-object scripts/full_stack_runtime_smoke.sh)" = 5560056611b49426f8c216987742aeb3f418624e
+          git apply --check .audit/require_worldedit.patch
+          git apply .audit/require_worldedit.patch
+          bash -n scripts/full_stack_runtime_smoke.sh
+          python3 scripts/test_prepare_runtime_dependencies.py
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Fetch the exact prior paired candidate, not a newer release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          python3 - <<'PY'
-          import json, urllib.parse, urllib.request
-          from pathlib import Path
-          for project in ('worldedit', 'fastasyncworldedit'):
-              for version in ('1.21.11', '26.2', '26.3'):
-                  query = urllib.parse.urlencode({'game_versions': json.dumps([version])})
-                  request = urllib.request.Request(f'https://api.modrinth.com/v2/project/{project}/version?{query}', headers={'User-Agent': 'Slimefun-Legacy-Compatibility/1.0 (github.com/wickidcow/Slimefun-Legacy)'})
-                  with urllib.request.urlopen(request, timeout=40) as response:
-                      versions = json.load(response)
-                  versions = [v for v in versions if set(v.get('loaders', [])) & {'bukkit', 'paper', 'spigot', 'folia', 'purpur'}]
-                  Path('audit-snapshot', f'{project}-{version}-versions.json').write_text(json.dumps(versions[:6], indent=2))
-                  print(project, version, [(v['id'], v['version_number'], v['date_published'], v['loaders']) for v in versions[:3]])
-          PY
+          set -euo pipefail
+          mkdir -p candidate bundle
+          gh run download 36801932529 --repo "$GITHUB_REPOSITORY" --name full-stack-core --dir candidate
+          gh run download 36801932529 --repo "$GITHUB_REPOSITORY" --name full-stack-addon-bundle --dir bundle
+          echo 'ea4b0c47ee41b852abb5c97bacbb4f1c0ebc5126c29fb36d39e7c71747d13bdd  candidate/Slimefun-Legacy-full-stack.jar' | sha256sum -c -
+          echo '7cf9bf6ce10949d93da8dce50125d4b1a8385ddbbbac2433ab72f6e6687b0d86  bundle/SF_Addons_1.21.11-26.3.zip' | sha256sum -c -
+      - name: Compile disposable runtime probe against exact core and WorldEdit
+        run: |
+          set -euo pipefail
+          python3 scripts/prepare_runtime_dependencies.py compatibility/runtime-dependencies.json '${{ matrix.minecraft }}' dependency dependency/manifest.json
+          mvn -B -f scripts/worldedit-runtime-probe/pom.xml package -Dcore.jar="$PWD/candidate/Slimefun-Legacy-full-stack.jar" -Dworldedit.jar="$PWD/dependency/worldedit-bukkit-7.4.6-beta-02.jar"
+          mkdir -p probe
+          cp scripts/worldedit-runtime-probe/target/WorldEditRuntimeProbe-1.0.0.jar probe/
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - name: Require all 45 addons plus WorldEdit operations on both boots
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+          RUNTIME_SMOKE_EXTRA_PLUGIN_DIR: ${{ github.workspace }}/probe
+          RUNTIME_SMOKE_REQUIRED_MARKER: WORLDEDIT_COMPAT_PROBE PASS addons=45
+        run: |
+          bash scripts/full_stack_runtime_smoke.sh candidate/Slimefun-Legacy-full-stack.jar bundle/SF_Addons_1.21.11-26.3.zip 'build/worldedit-${{ matrix.minecraft }}'
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: worldedit-modernization-source-audit
-          path: audit-snapshot/
+          name: worldedit-runtime-${{ matrix.minecraft }}
           retention-days: 14
-          if-no-files-found: error
+          path: |
+            build/worldedit-${{ matrix.minecraft }}/*.log
+            build/worldedit-${{ matrix.minecraft }}/*.txt
+            build/worldedit-${{ matrix.minecraft }}/runtime-dependencies.json
+            build/worldedit-${{ matrix.minecraft }}/plugins/WorldEditRuntimeProbe/*
+            dependency/manifest.json
+            scripts/full_stack_runtime_smoke.sh
+          if-no-files-found: warn

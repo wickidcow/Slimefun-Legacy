@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "dependencies": [
+    {
+      "project": "WorldEdit",
+      "plugin_name": "WorldEdit",
+      "version": "7.4.6-beta-02",
+      "release_type": "beta",
+      "version_id": "J1eeOh6C",
+      "minecraft_versions": ["1.21.11", "26.2", "26.3"],
+      "filename": "worldedit-bukkit-7.4.6-beta-02.jar",
+      "url": "https://cdn.modrinth.com/data/1u6JkXh5/versions/J1eeOh6C/worldedit-bukkit-7.4.6-beta-02.jar",
+      "sha512": "138ea8f412bf4a17104d2e090a9171e1b263c6b28a060dacda5bc78c4629e9bac1c3834cccaaa50ac87bf148a269cf9dfd46967dddedd64dc512fdf7a5db17f9"
+    }
+  ]
+}

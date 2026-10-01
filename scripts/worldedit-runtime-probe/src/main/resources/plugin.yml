@@ -1,0 +1,5 @@
+name: WorldEditRuntimeProbe
+version: '1.0.0'
+main: io.github.wickidcow.validation.WorldEditRuntimeProbe
+api-version: '1.21.11'
+depend: [Slimefun, WorldEdit, WorldEditSlimefun]

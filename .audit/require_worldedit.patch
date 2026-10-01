@@ -1,0 +1,60 @@
+diff --git a/scripts/full_stack_runtime_smoke.sh b/scripts/full_stack_runtime_smoke.sh
+index 5560056..327e031 100644
+--- a/scripts/full_stack_runtime_smoke.sh
++++ b/scripts/full_stack_runtime_smoke.sh
+@@ -24,8 +24,14 @@ rm -rf "$WORK_DIR"
+ mkdir -p "$WORK_DIR/plugins" "$WORK_DIR/bundle"
+ unzip -q "$ADDON_BUNDLE" -d "$WORK_DIR/bundle"
+ cp "$SLIMEFUN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-full-stack.jar"
++python3 "$REPO_ROOT/scripts/prepare_runtime_dependencies.py" \
++    "$REPO_ROOT/compatibility/runtime-dependencies.json" "$MC_VERSION" \
++    "$WORK_DIR/plugins" "$WORK_DIR/runtime-dependencies.json"
++if [[ -n "${RUNTIME_SMOKE_EXTRA_PLUGIN_DIR:-}" ]]; then
++    cp "$RUNTIME_SMOKE_EXTRA_PLUGIN_DIR"/*.jar "$WORK_DIR/plugins/"
++fi
+ 
+-python3 - "$WORK_DIR/bundle" "$WORK_DIR/plugins" "$WORK_DIR/expected-addons.txt" "$WORK_DIR/dependency-gated-addons.txt" <<'PY'
++python3 - "$WORK_DIR/bundle" "$WORK_DIR/plugins" "$WORK_DIR/expected-addons.txt" "$WORK_DIR/dependency-gated-addons.txt" "$WORK_DIR/runtime-dependencies.json" <<'PY'
+ from pathlib import Path
+ import json
+ import re
+@@ -113,7 +119,10 @@ if bundle_jars != seen_jars:
+     missing = sorted(seen_jars - bundle_jars)
+     raise SystemExit(f"Bundle/manifest JAR mismatch: extra={extra}, missing={missing}")
+ 
++dependencies = json.loads(Path(sys.argv[5]).read_text(encoding="utf-8"))["dependencies"]
+ available_plugins = {"slimefun"}
++for dependency in dependencies:
++    available_plugins.add(dependency["plugin_name"].casefold())
+ available_plugins.update(name.casefold() for _, name, _ in addons)
+ 
+ expected = []
+@@ -142,6 +151,8 @@ print(
+ )
+ for jar_name, name, missing in gated:
+     print(f"Dependency-gated addon: {name} ({jar_name}) missing external hard dependency/dependencies: {missing}")
++if gated:
++    raise SystemExit("Canonical full-stack testing requires every addon; pin its missing dependency first")
+ PY
+ 
+ printf 'eula=true\n' > "$WORK_DIR/eula.txt"
+@@ -246,6 +257,19 @@ run_cycle() {
+     fi
+ 
+     python3 "$REPO_ROOT/scripts/verify_runtime_configuration.py" "$normalized"
++    python3 - "$WORK_DIR/runtime-dependencies.json" "$normalized" <<'PY'
++import json, sys
++from pathlib import Path
++text = Path(sys.argv[2]).read_text(encoding="utf-8")
++for dep in json.loads(Path(sys.argv[1]).read_text())["dependencies"]:
++    name = dep["plugin_name"]
++    if f"Enabling {name} v" not in text:
++        raise SystemExit(f"Required external dependency did not enable: {name}")
++PY
++    if [[ -n "${RUNTIME_SMOKE_REQUIRED_MARKER:-}" ]] && ! grep -Fq "$RUNTIME_SMOKE_REQUIRED_MARKER" "$normalized"; then
++        echo "Runtime integration probe did not finish successfully: ${RUNTIME_SMOKE_REQUIRED_MARKER}" >&2
++        return 1
++    fi
+ 
+     while IFS=$'\t' read -r jar plugin; do
+         if ! grep -Fq "Enabling ${plugin} v" "$normalized"; then
