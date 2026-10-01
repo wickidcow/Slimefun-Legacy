@@ -1,0 +1,96 @@
+name: Finished addon bundle on published core
+on:
+  push:
+    branches: ['work/finish-addon-drafts-20261001']
+    paths: ['.github/workflows/finished-bundle-published-core.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 2909de53b80bfbc0cef72cdb31146fb93c94cd36
+          persist-credentials: false
+      - name: Select only the exact successful revision 102 candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/download_candidate_bundle.py --repository wickidcow/Slimefun-Legacy --head 2909de53b80bfbc0cef72cdb31146fb93c94cd36 --source de9839051dbbd4e168578a2ab6f21e9275691529 --output publication-input --timeout 1800
+          gh release download v4.1.63 --repo wickidcow/Slimefun-Legacy --pattern Slimefun-Legacy4.1.63.jar --dir publication-input
+          echo '993b257c54efe19b58cc8f4946d4d39387f7787fe263c9f27123343159344c42  publication-input/Slimefun-Legacy4.1.63.jar' | sha256sum -c -
+          python3 - <<'PY'
+          import hashlib,json,pathlib,zipfile
+          root=pathlib.Path('publication-input')
+          matrix=json.loads(pathlib.Path('compatibility/sfl-addon-release-matrix.json').read_text())
+          assert matrix['bundle_revision']==102 and len(matrix['addons'])==45
+          with zipfile.ZipFile(root/'SF_Addons_1.21.11-26.3.zip') as z:
+              manifest=json.loads(z.read('SF_ADDON_MANIFEST.json'))
+              assert len(manifest['addons'])==45
+              expected={'wickidcow/SF_BetterChests':('5c830e845d2849e0d8aea53414be8cba80af6775','SF_BetterChests1.0.3.jar'),'wickidcow/SF_BuildingStaff':('9f017f4ca4cec5997c14ccd1e564a21b21ed16a0','SF_BuildingStaff1.0.35.jar'),'wickidcow/SF_FluffyMachines':('91dc76b4e6d2024faeb1cbecace18c0a99b99aee','SF_FluffyMachines26.2.13.jar')}
+              for row in manifest['addons']:
+                  if row['repository'] in expected:assert (row['commit'],row['jar'])==expected[row['repository']],row
+          result={'bundle_sha256':hashlib.sha256((root/'SF_Addons_1.21.11-26.3.zip').read_bytes()).hexdigest(),'published_core_sha256':'993b257c54efe19b58cc8f4946d4d39387f7787fe263c9f27123343159344c42','matrix_revision':102,'matrix_head':'2909de53b80bfbc0cef72cdb31146fb93c94cd36','build_checkout':'de9839051dbbd4e168578a2ab6f21e9275691529','source_bundle_run':36939652609}
+          (root/'publication-input.json').write_text(json.dumps(result,indent=2)+'\n')
+          print(json.dumps(result),flush=True)
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: r102-published-core-input
+          path: publication-input/
+          if-no-files-found: error
+          retention-days: 30
+  runtime:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - minecraft: '1.21.11'
+            java: '21'
+          - minecraft: '26.2'
+            java: '25'
+          - minecraft: '26.3'
+            java: '25'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 2909de53b80bfbc0cef72cdb31146fb93c94cd36
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: r102-published-core-input
+          path: publication-input
+      - name: Boot all 45 final addons twice with the original published core
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+          SLIMEFUN_SMOKE_VERSION: '4.1.63'
+        run: |
+          set -euo pipefail
+          echo '993b257c54efe19b58cc8f4946d4d39387f7787fe263c9f27123343159344c42  publication-input/Slimefun-Legacy4.1.63.jar' | sha256sum -c -
+          bash scripts/full_stack_runtime_smoke.sh publication-input/Slimefun-Legacy4.1.63.jar publication-input/SF_Addons_1.21.11-26.3.zip build/published-core-stack
+          test "$(wc -l < build/published-core-stack/expected-addons.txt)" -eq 45
+          test ! -s build/published-core-stack/dependency-gated-addons.txt
+          python3 scripts/verify_runtime_configuration.py build/published-core-stack/first.normalized.log
+          python3 scripts/verify_runtime_configuration.py build/published-core-stack/second.normalized.log
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: r102-published-core-${{ matrix.minecraft }}
+          path: |
+            build/published-core-stack/*.log
+            build/published-core-stack/*.txt
+            build/published-core-stack/plugins/worldedit-runtime.json
+            publication-input/publication-input.json
+          if-no-files-found: error
+          retention-days: 30
