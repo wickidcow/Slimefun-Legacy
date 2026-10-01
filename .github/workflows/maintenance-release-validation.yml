@@ -1,0 +1,195 @@
+name: Maintenance 4.1.64 Preparation
+on:
+  push:
+    branches: ['work/release-4.1.64-validation']
+    paths: ['.github/workflows/maintenance-release-validation.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Prepare only version, source selection and release documentation
+        run: |
+          mkdir -p evidence published-addons
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          manifest_path=Path('compatibility/sfl-addon-release-matrix.json')
+          manifest=json.loads(manifest_path.read_text())
+          assert manifest['bundle_revision']==101 and len(manifest['addons'])==45
+          updates={'wickidcow/SF_HotbarPets':'ac1e2213686a83acd52d82c01434ab12b48e64f3','wickidcow/SF_SMG':'014a7e55a832255e6dd7fc4677b05480624a0fd7'}
+          previous={r['repository']:r['source_commit'] for r in manifest['addons']}
+          for row in manifest['addons']:
+              if row['repository'] in updates:row['source_commit']=updates[row['repository']]
+          assert {r['repository'] for r in manifest['addons'] if previous[r['repository']]!=r['source_commit']}==set(updates)
+          manifest['bundle_revision']=102
+          manifest_path.write_text(json.dumps(manifest,indent=2)+'\n')
+          path=Path('gradle.properties');text=path.read_text()
+          assert text.count('projectVersion=4.1.63')==1
+          text=text.replace('projectVersion=4.1.63','projectVersion=4.1.64')
+          text=text.replace('# Slimefun Legacy 4.1.63 - Existing-item preservation and coordinated addon stability','# Slimefun Legacy 4.1.64 - Cancelled-removal persistence and validated addon releases')
+          text=text.replace('# Coordinated addon source manifest revision: 100','# Coordinated addon source manifest revision: 102')
+          path.write_text(text)
+          path=Path('README.md');text=path.read_text()
+          start=text.index('Current stable release:');end=text.index('\n',start)
+          text=text[:start]+'Current published release: **4.1.63**. Maintenance candidate: **4.1.64 — Storage Correctness & Validated Addon Releases**. Check Releases for publication status. ·'+text[end:]
+          path.write_text(text)
+          path=Path('EVERYTHING_THAT_CHANGED.md');text=path.read_text()
+          assert text.startswith('# Slimefun Legacy 4.1.63')
+          notes=Path('docs/releases/4.1.64.md').read_text()
+          path.write_text(notes+'\n---\n\n'+text)
+          Path('evidence/previous-pins.json').write_text(json.dumps(previous,indent=2)+'\n')
+          PY
+          git diff --check
+          echo "SOURCE_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+      - name: Full versioned core build and source/API guards
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_legacy.py . > evidence/core-invariants.log 2>&1
+          python3 -m unittest discover -s scripts -p test_verify_published_addon_bundle.py -v > evidence/published-validator-tests.log 2>&1
+          chmod +x gradlew
+          ./gradlew build -PslimefunDeprecationReport=true --console=plain --no-daemon --no-build-cache --no-configuration-cache 2>&1 | tee evidence/core-build.log
+          python3 scripts/summarize_deprecations.py evidence/core-build.log --fail-on-warnings --require-successful-build
+          JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -s "$JAR"
+          cp "$JAR" candidate-core.jar
+          python3 scripts/check_bytecode_target.py candidate-core.jar --expected-java 21
+          python3 scripts/verify_release_artifact.py candidate-core.jar --root . --json-report evidence/core-artifact.json --summary evidence/core-artifact.md
+          mkdir -p evidence/core-tests
+          cp build/test-results/test/TEST-*.xml evidence/core-tests/
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,xml.etree.ElementTree as ET
+          roots=[ET.parse(p).getroot() for p in Path('evidence/core-tests').glob('TEST-*.xml')]
+          totals={k:sum(int(r.attrib[k]) for r in roots) for k in ['tests','failures','errors','skipped']}
+          assert totals['tests']>=512 and totals['failures']==totals['errors']==0 and totals['skipped']==1,totals
+          totals['sha256']=hashlib.sha256(Path('candidate-core.jar').read_bytes()).hexdigest()
+          Path('evidence/core-results.json').write_text(json.dumps(totals,indent=2)+'\n')
+          PY
+      - name: Download and verify actual new standalone release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,subprocess,zipfile
+          from pathlib import Path
+          records=[]
+          for repo,tag,commit,name,digest in [
+            ('wickidcow/SF_HotbarPets','v1.0.3','ac1e2213686a83acd52d82c01434ab12b48e64f3','SF_HotbarPets1.0.3.jar','d0598baad3e8b5d9f759f7b7e860291c9ef301df833174eeaedab6501cee8d64'),
+            ('wickidcow/SF_SMG','v1.0.5','014a7e55a832255e6dd7fc4677b05480624a0fd7','SF_SMG1.0.5.jar','0d6971ecaaf690139cc96a305337d00748ae07a7f195e42ce7b3e9d96be4cd91')]:
+              release=json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/releases/tags/{tag}']))
+              assert release['target_commitish']==commit and not release['draft'] and not release['prerelease']
+              matches=[a for a in release['assets'] if a['name']==name];assert len(matches)==1
+              assert matches[0]['digest']=='sha256:'+digest
+              subprocess.run(['gh','release','download',tag,'--repo',repo,'--pattern',name,'--dir','published-addons'],check=True,timeout=120)
+              path=Path('published-addons',name);assert hashlib.sha256(path.read_bytes()).hexdigest()==digest
+              with zipfile.ZipFile(path) as jar:
+                  assert jar.testzip() is None and 'plugin.yml' in jar.namelist()
+              records.append(dict(repository=repo,tag=tag,commit=commit,asset_id=matches[0]['id'],jar=name,sha256=digest))
+          Path('evidence/verified-published-addons.json').write_text(json.dumps(records,indent=2)+'\n')
+          PY
+      - name: Recheck every changed ledger source against the versioned core
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,shutil,subprocess,sys,xml.etree.ElementTree as ET
+          from pathlib import Path
+          sys.path.insert(0,str(Path('scripts').resolve()))
+          import compare_addon_slimefun_compatibility
+          import compare_addon_slimefun_compatibility_base as compat
+          manifest=json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text())
+          ledger=json.loads(Path('compatibility/maintained-addon-test-ledger.json').read_text())
+          old={r['repository']:r for r in ledger['addons']}
+          changed=[r for r in manifest['addons'] if r['source_commit']!=old[r['repository']]['source_commit']]
+          assert {r['repository'] for r in changed}=={'wickidcow/SF_HotbarPets','wickidcow/SF_SMG','wickidcow/SF_MobDrops','wickidcow/SF_RykenSlimeCustomizer','wickidcow/SF_SlimeGlue'}
+          results=[]
+          for row in changed:
+              repo,sha=row['repository'],row['source_commit'];slug=repo.split('/')[1]
+              source=Path('checkouts',slug);report=Path('evidence/addons',slug);report.mkdir(parents=True)
+              subprocess.run(['git','clone','--depth','1','--no-checkout',f'https://github.com/{repo}.git',str(source)],check=True,timeout=120)
+              subprocess.run(['git','-C',str(source),'fetch','--depth','1','origin',sha],check=True,timeout=120)
+              subprocess.run(['git','-C',str(source),'checkout','--detach',sha],check=True)
+              assert subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()==sha
+              project=Path('projects',slug).resolve();compat.copy_project(source,project)
+              assert compat.detect_build_system(project)=='maven'
+              assert compat.patch_maven_dependency(project,'Maintenance-4.1.64-CI')
+              api='26.2.build.112-stable' if slug=='SF_MobDrops' else '1.21.11-R0.1-SNAPSHOT'
+              with (report/'build.log').open('w') as log:
+                  status=compat.install_maven_jar(project=project,jar=Path('candidate-core.jar').resolve(),version='Maintenance-4.1.64-CI',env=dict(os.environ),log=log)
+                  if status==0:status=compat.stream_maven_command(['mvn','-B','-ntp',f'-Dpaper.version={api}','clean','verify'],cwd=project,env=dict(os.environ),log=log)
+              if status:
+                  print((report/'build.log').read_text()[-14000:]);raise SystemExit(status)
+              paths=list((project/'target/surefire-reports').glob('TEST-*.xml'))
+              roots=[ET.parse(p).getroot() for p in paths]
+              counts={k:sum(int(r.attrib[k]) for r in roots) for k in ['tests','failures','errors','skipped']}
+              assert all(counts[k]==0 for k in ['failures','errors','skipped']),counts
+              if slug=='SF_HotbarPets':assert counts['tests']==13
+              if slug=='SF_SMG':assert counts['tests']==11
+              if slug=='SF_MobDrops':assert counts['tests']==8
+              for p in paths:shutil.copy2(p,report/p.name)
+              jar=compat.find_built_addon_jar(project);assert jar
+              subprocess.run(['python3','scripts/verify_addon_bytecode.py',str(jar),'--expected-java','21','--report',str(report/'bytecode.json')],check=True)
+              results.append(dict(repository=repo,source_commit=sha,counts=counts,java_floor=21,paper_test_api=api,sha256=hashlib.sha256(jar.read_bytes()).hexdigest()))
+              Path('evidence/addon-results.json').write_text(json.dumps(results,indent=2)+'\n')
+          assert len(results)==5
+          core=json.loads(Path('evidence/core-results.json').read_text())
+          for result in results:
+              row=old[result['repository']];counts=result['counts']
+              row.update(source_commit=result['source_commit'],full_build_result='PASS',reported_test_entries=counts['tests'],failures=0,errors=0,skips=0)
+              row['evidence']={'repository':'wickidcow/Slimefun-Legacy','run_id':int(os.environ['GITHUB_RUN_ID']),'artifact_name':'maintenance-4.1.64-evidence','kind':'Exact-source full Maven verify against versioned maintenance core','tested_core_sha256':core['sha256'],'paper_test_api':result['paper_test_api']}
+              row['coverage']='Scoped project tests' if counts['tests'] else 'Full project build with no reported unit tests; not gameplay certification'
+              row['setup_notes']=['Only the provided core dependency was redirected to the versioned maintenance build. MobDrops uses its declared26.2 mock environment; the baseline API compilation remains separate.']
+          ledger['bundle_revision']=102
+          ledger['summary']={
+            'addons':len(ledger['addons']),'full_build_passed':sum(r['full_build_result']=='PASS' for r in ledger['addons']),
+            'reported_test_entries':sum(r['reported_test_entries'] for r in ledger['addons']),
+            'addons_with_reported_tests':sum(r['reported_test_entries']>0 for r in ledger['addons']),
+            'addons_without_reported_tests':sum(r['reported_test_entries']==0 for r in ledger['addons']),
+            'failures':sum(r['failures'] for r in ledger['addons']),'errors':sum(r['errors'] for r in ledger['addons']),'skips':sum(r['skips'] for r in ledger['addons'])}
+          ledger['limitations'].append('Revision102 rechecks all five sources that differed from the older ledger, including the two newly versioned releases. Only those five rows receive this versioned-core evidence; totals are not a fresh all45 project-test run.')
+          assert {r['repository']:r['source_commit'] for r in ledger['addons']}=={r['repository']:r['source_commit'] for r in manifest['addons']}
+          Path('compatibility/maintained-addon-test-ledger.json').write_text(json.dumps(ledger,indent=2)+'\n')
+          Path('evidence/ledger-summary.json').write_text(json.dumps(ledger['summary'],indent=2)+'\n')
+          PY
+      - name: Stage only validated release source files without moving branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/verify_legacy.py . > evidence/final-invariants.log 2>&1
+          git diff --check
+          python3 - <<'PY'
+          import hashlib,json,subprocess
+          from pathlib import Path
+          names=['gradle.properties','README.md','EVERYTHING_THAT_CHANGED.md','docs/releases/4.1.64.md','compatibility/sfl-addon-release-matrix.json','compatibility/maintained-addon-test-ledger.json']
+          records={}
+          for name in names:
+              data=Path(name).read_bytes();sha=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+              r=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps(dict(content=data.decode(),encoding='utf-8')),check=True,capture_output=True,text=True)
+              assert json.loads(r.stdout)['sha']==sha;records[name]=sha
+              target=Path('evidence/reviewed-source',name);target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
+          Path('evidence/reviewed-blobs.json').write_text(json.dumps(records,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: maintenance-4.1.64-evidence
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: verified-standalone-addon-releases
+          path: published-addons/
+          retention-days: 14
+          if-no-files-found: error
