@@ -54,3 +54,34 @@ for correction in json.loads(Path('.audit/doctor-fixture-edits.json').read_text(
     assert blob(output) == correction['new'], (path, blob(output))
     path.write_bytes(output)
     print('REVIEWED_DOCTOR_CONTROL', blob(output), path)
+path = Path('scripts/upgrade-fixture/LegacyItemUpgradeProbe.java')
+assert blob(path.read_bytes()) == 'bcef3ebf37fb9019023affc782df91df5317fd09'
+text = path.read_text()
+before = '        try {\n            Path directory = getDataFolder().toPath();'
+after = '''        if (args[0].equals("automatic")) {
+            // Accessing the old chest may load its chunk for the first time. Let
+            // the actual chunk-load listener finish on subsequent server ticks.
+            Bukkit.getWorlds().get(0).getChunkAt(0, 0);
+            Bukkit.getScheduler().runTaskLater(this, () -> executeProbe("automatic"), 20L);
+        } else {
+            executeProbe(args[0]);
+        }
+        return true;
+    }
+
+    private void executeProbe(String action) {
+        try {
+            Path directory = getDataFolder().toPath();'''
+assert text.count(before) == 1
+text = text.replace(before, after)
+for before, after in (
+    ('directory.resolve(args[0] + "-success.json")', 'directory.resolve(action + "-success.json")'),
+    ('args[0].equals("write") ? write(directory) : read(directory, args[0].equals("automatic"))', 'action.equals("write") ? write(directory) : read(directory, action.equals("automatic"))'),
+    ('report.put("automatic_presentation", args[0].equals("automatic"))', 'report.put("automatic_presentation", action.equals("automatic"))'),
+    ('        return true;\n    }\n\n    @SuppressWarnings("deprecation")', '    }\n\n    @SuppressWarnings("deprecation")'),
+):
+    assert text.count(before) == 1, before
+    text = text.replace(before, after)
+assert blob(text.encode()) == 'b1d73f6c7e9ef7a390cbdbc7918497f8badba52b'
+path.write_text(text)
+print('REVIEWED_REAL_CALLBACK_TIMING', blob(path.read_bytes()))
