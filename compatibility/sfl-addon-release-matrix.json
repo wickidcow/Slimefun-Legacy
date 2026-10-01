@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 96,
+  "bundle_revision": 97,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -146,7 +146,7 @@
     {
       "repository": "wickidcow/SF_Galactifun",
       "slug": "galactifun",
-      "source_commit": "bd7311f9f300b946be604d6be74256340bfd3892"
+      "source_commit": "82bdf5254b42a14f38c98590a8b6ebf708c5be22"
     },
     {
       "repository": "wickidcow/SF_Gastronomicon",
@@ -234,7 +234,7 @@
     {
       "repository": "wickidcow/SF_SlimefunAdvancements",
       "slug": "slimefunadvancements",
-      "source_commit": "f743082a18b1bbee1c1283145731996508e4a99a"
+      "source_commit": "279446eaac5bb7bbb2599a10b5637fa8c87b36f0"
     },
     {
       "repository": "wickidcow/SF_SlimefunWarfare",
@@ -250,7 +250,7 @@
       "repository": "wickidcow/SF_SlimeHUD",
       "slug": "slimehud",
       "artifact_base": "SlimeHUD",
-      "source_commit": "0f1bfce0723e1494ee56f744e305c61344a2dc0b"
+      "source_commit": "351e69c4e9889ac386a3db099c62d66d2b6caff3"
     },
     {
       "repository": "wickidcow/SF_SlimeTinkerIE2",
