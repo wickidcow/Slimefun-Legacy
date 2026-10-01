@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/paper-26.3-full-stack.yml'
       - 'scripts/full_stack_runtime_smoke.sh'
+      - 'scripts/download_candidate_bundle.py'
+      - 'scripts/test_download_candidate_bundle.py'
       - 'scripts/paper_candidate_versions.py'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'build.gradle.kts'
@@ -21,6 +23,8 @@ on:
     paths:
       - '.github/workflows/paper-26.3-full-stack.yml'
       - 'scripts/full_stack_runtime_smoke.sh'
+      - 'scripts/download_candidate_bundle.py'
+      - 'scripts/test_download_candidate_bundle.py'
       - 'scripts/paper_candidate_versions.py'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'build.gradle.kts'
@@ -106,6 +110,7 @@ jobs:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     name: Fetch exact addon bundle under test
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v6
         with:
@@ -115,12 +120,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TRIGGER_RUN_ID: ${{ github.event.workflow_run.id }}
           TRIGGER_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p bundle
 
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_run" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            python3 scripts/download_candidate_bundle.py \
+              --repository "$GITHUB_REPOSITORY" --head "$PR_HEAD_SHA" \
+              --source "$GITHUB_SHA" --output bundle
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_run" ]]; then
             test -n "${TRIGGER_RUN_ID:-}"
             test -n "${TRIGGER_HEAD_SHA:-}"
             echo "Downloading exact addon bundle artifact from triggering workflow run ${TRIGGER_RUN_ID}"
@@ -168,7 +178,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        minecraft: ['26.2', '26.3']
+        minecraft: ['1.21.11', '26.2', '26.3']
     steps:
       - uses: actions/checkout@v6
         with:
@@ -176,7 +186,7 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '25'
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
       - uses: actions/download-artifact@v8
         with:
           name: full-stack-core

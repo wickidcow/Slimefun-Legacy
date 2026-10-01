@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 92,
+  "bundle_revision": 93,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -187,7 +187,7 @@
       "repository": "wickidcow/SF_NetworksExp",
       "slug": "networksexp",
       "artifact_base": "Networks",
-      "source_commit": "cda26048b792900dd3dd16c1f6ca0075ed8de07b"
+      "source_commit": "41befeb633baabd1e8ee6bc2fdd2b3a66694b643"
     },
     {
       "repository": "wickidcow/SF_RelicsOfCthonia",
@@ -199,7 +199,8 @@
     },
     {
       "repository": "wickidcow/SF_SlimeEasy",
-      "slug": "slimeeasy"
+      "slug": "slimeeasy",
+      "source_commit": "913a609c10871afb67c57f0d2be75a77e13d1d36"
     },
     {
       "repository": "wickidcow/SF_SlimefunAdvancements",

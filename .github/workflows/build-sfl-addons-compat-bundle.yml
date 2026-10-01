@@ -5,6 +5,11 @@ on:
     branches: [master]
     paths:
       - 'gradle.properties'
+      - 'src/**'
+      - 'build.gradle.kts'
+      - 'gradle/**'
+      - 'scripts/**'
+      - '.github/workflows/paper-26.3-full-stack.yml'
       - 'docs/releases/**'
       - '.github/workflows/build-sfl-addons-compat-bundle.yml'
       - 'compatibility/sfl-addon-release-matrix.json'
@@ -16,6 +21,11 @@ on:
   pull_request:
     paths:
       - 'gradle.properties'
+      - 'src/**'
+      - 'build.gradle.kts'
+      - 'gradle/**'
+      - 'scripts/**'
+      - '.github/workflows/paper-26.3-full-stack.yml'
       - 'docs/releases/**'
       - '.github/workflows/build-sfl-addons-compat-bundle.yml'
       - 'compatibility/sfl-addon-release-matrix.json'
@@ -218,6 +228,20 @@ jobs:
             "$PWD/candidate-core/Slimefun-Legacy-candidate.jar" \
             "$PAPER_API_VERSION" \
             --report-dir "$PWD/report"
+      - name: Rebuild native SlimeEasy against the supported floor
+        if: matrix.slug == 'slimeeasy'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p addon/libs report-native-floor
+          find addon/libs -maxdepth 1 -type f -iname '*slimefun*.jar' -delete
+          cp candidate-core/Slimefun-Legacy-candidate.jar addon/libs/Slimefun-Legacy-Core.jar
+          chmod +x addon/gradlew
+          # The newer-native-API build is a probe only. Never distribute its output.
+          (cd addon && ./gradlew clean build cargoRegressionJar \
+            -PpaperDevBundleVersion=1.21.11-R0.1-SNAPSHOT \
+            --no-daemon --no-build-cache --no-configuration-cache) \
+            2>&1 | tee report-native-floor/compile.log
       - name: Verify and build pinned DracFun Reborn
         if: matrix.slug == 'dracfunreborn'
         env:
@@ -324,6 +348,7 @@ jobs:
               'artifact_base': base,
               'sha256': sha256,
               'paper_26_3_api': os.environ['PAPER_API_VERSION'],
+              'distributable_api': '1.21.11-R0.1-SNAPSHOT' if slug in ('slimeeasy', 'dracfunreborn') else os.environ['PAPER_API_VERSION'],
               'primary_api_target': '26.3',
               'backwards_compatible_through': '1.21.11',
               'minimum_supported': '1.21.11',
@@ -339,7 +364,14 @@ jobs:
           sha256sum "staged/jars/$CANONICAL"
           python3 tools/scripts/verify_addon_bytecode.py "staged/jars/$CANONICAL" \
             --expected-java 21 --report "staged/evidence/${ADDON_SLUG}-bytecode.json"
+      - name: Preserve compile and native-floor evidence
+        if: always()
+        run: |
+          mkdir -p staged/evidence
+          if test -d report; then cp -r report "staged/evidence/${{ matrix.slug }}-candidate"; fi
+          if test -d report-native-floor; then cp -r report-native-floor "staged/evidence/${{ matrix.slug }}-floor"; fi
       - uses: actions/upload-artifact@v7
+        if: always()
         with:
           name: sf-addon-${{ matrix.slug }}
           path: staged/

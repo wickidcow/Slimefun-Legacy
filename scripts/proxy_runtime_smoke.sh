@@ -597,12 +597,15 @@ capture_player_identity() {
     fi
 
     local output="$WORK_DIR/identity-${label}.txt"
+    # UUID output precedes the research line; wait for the complete command report.
+    local completion_marker="Persistence research candidate:"
+    if [[ -n "$research_key" ]]; then completion_marker="Research ${research_key}:"; fi
     local deadline=$((SECONDS + 15))
     while (( SECONDS < deadline )); do
         normalize_log "$BACKEND_LOG" "$BACKEND_NORMALIZED"
         tail -n "+$start_line" "$BACKEND_NORMALIZED" > "$output"
         if grep -Fq 'UUID match: Yes' "$output"; then
-            if [[ -z "$research_key" ]] || grep -Fq "Research ${research_key}:" "$output"; then
+            if grep -Fq "$completion_marker" "$output"; then
                 cat "$output"
                 return 0
             fi
