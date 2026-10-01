@@ -1,0 +1,109 @@
+diff --git a/.github/workflows/paper-26.3-full-stack.yml b/.github/workflows/paper-26.3-full-stack.yml
+index de16fb4d68b3ef430c462d3b902c7885b6b2b99b..0ae0d9fcb2f8fba0ff5a9f925fb7c413c25d4884 100644
+--- a/.github/workflows/paper-26.3-full-stack.yml
++++ b/.github/workflows/paper-26.3-full-stack.yml
+@@ -6,6 +6,9 @@ on:
+     paths:
+       - '.github/workflows/paper-26.3-full-stack.yml'
+       - 'scripts/full_stack_runtime_smoke.sh'
++      - 'scripts/prepare_worldedit_runtime.py'
++      - 'scripts/test_prepare_worldedit_runtime.py'
++      - 'scripts/test_worldedit_stack_integration.py'
+       - 'scripts/download_candidate_bundle.py'
+       - 'scripts/test_download_candidate_bundle.py'
+       - 'scripts/paper_candidate_versions.py'
+@@ -23,6 +26,9 @@ on:
+     paths:
+       - '.github/workflows/paper-26.3-full-stack.yml'
+       - 'scripts/full_stack_runtime_smoke.sh'
++      - 'scripts/prepare_worldedit_runtime.py'
++      - 'scripts/test_prepare_worldedit_runtime.py'
++      - 'scripts/test_worldedit_stack_integration.py'
+       - 'scripts/download_candidate_bundle.py'
+       - 'scripts/test_download_candidate_bundle.py'
+       - 'scripts/paper_candidate_versions.py'
+@@ -51,6 +57,8 @@ jobs:
+       - uses: actions/checkout@v6
+         with:
+           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
++      - name: Verify WorldEdit setup contracts offline
++        run: python3 -m unittest discover -s scripts -p 'test_*worldedit*.py' -v
+       - name: Resolve latest Paper 26.3 API
+         id: paper
+         shell: bash
+@@ -225,4 +233,5 @@ jobs:
+             build/full-stack-${{ matrix.minecraft }}/expected-addons.txt
+             build/full-stack-${{ matrix.minecraft }}/dependency-gated-addons.txt
+             build/full-stack-${{ matrix.minecraft }}/smoke-result.txt
++            build/full-stack-${{ matrix.minecraft }}/plugins/worldedit-runtime.json
+           if-no-files-found: warn
+diff --git a/scripts/full_stack_runtime_smoke.sh b/scripts/full_stack_runtime_smoke.sh
+index 5560056611b49426f8c216987742aeb3f418624e..088f636aa72de8b194efa638cabb0aac6dcb9594 100644
+--- a/scripts/full_stack_runtime_smoke.sh
++++ b/scripts/full_stack_runtime_smoke.sh
+@@ -25,6 +25,18 @@ mkdir -p "$WORK_DIR/plugins" "$WORK_DIR/bundle"
+ unzip -q "$ADDON_BUNDLE" -d "$WORK_DIR/bundle"
+ cp "$SLIMEFUN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-full-stack.jar"
+ 
++# A missing WorldEdit dependency must fail the lane, not exempt SFWorldEdit.
++# Beta selection is explicit and confined to the newer candidate lane.
++WORLDEDIT_OPTIONS=()
++if [[ "$MC_VERSION" == "26.3" ]]; then WORLDEDIT_OPTIONS+=(--allow-prerelease); fi
++if [[ -n "${WORLDEDIT_RUNTIME_VERSION_ID:-}" ]]; then
++    WORLDEDIT_OPTIONS+=(--version-id "$WORLDEDIT_RUNTIME_VERSION_ID")
++fi
++python3 "$REPO_ROOT/scripts/prepare_worldedit_runtime.py" \
++    --minecraft "$MC_VERSION" --output "$WORK_DIR/plugins" "${WORLDEDIT_OPTIONS[@]}"
++python3 "$REPO_ROOT/scripts/prepare_worldedit_runtime.py" \
++    --minecraft "$MC_VERSION" --output "$WORK_DIR/plugins" --check-staged "${WORLDEDIT_OPTIONS[@]}"
++
+ python3 - "$WORK_DIR/bundle" "$WORK_DIR/plugins" "$WORK_DIR/expected-addons.txt" "$WORK_DIR/dependency-gated-addons.txt" <<'PY'
+ from pathlib import Path
+ import json
+@@ -113,7 +125,13 @@ if bundle_jars != seen_jars:
+     missing = sorted(seen_jars - bundle_jars)
+     raise SystemExit(f"Bundle/manifest JAR mismatch: extra={extra}, missing={missing}")
+ 
+-available_plugins = {"slimefun"}
++# This file is created only by the verified setup above, never by an enable-list override.
++proof = json.loads((plugins / "worldedit-runtime.json").read_text(encoding="utf-8"))
++import hashlib
++if proof.get("name") != "WorldEdit" or hashlib.sha256(
++        (plugins / "WorldEdit-runtime.jar").read_bytes()).hexdigest() != proof.get("sha256"):
++    raise SystemExit("Staged WorldEdit does not match the verified dependency")
++available_plugins = {"slimefun", "worldedit"}
+ available_plugins.update(name.casefold() for _, name, _ in addons)
+ 
+ expected = []
+@@ -128,6 +146,11 @@ for jar_name, name, dependencies in addons:
+     else:
+         expected.append((jar_name, name))
+ 
++if sum(name == "WorldEditSlimefun" for _, name, _ in addons) != 1:
++    raise SystemExit("The canonical bundle must contain exactly one WorldEditSlimefun addon")
++if not any(name == "WorldEditSlimefun" for _, name in expected):
++    raise SystemExit("WorldEditSlimefun must be required-enable, never dependency-gated")
++
+ expected_out.write_text(
+     "".join(f"{jar}\t{name}\n" for jar, name in expected),
+     encoding="utf-8",
+@@ -246,6 +269,8 @@ run_cycle() {
+     fi
+ 
+     python3 "$REPO_ROOT/scripts/verify_runtime_configuration.py" "$normalized"
++    python3 "$REPO_ROOT/scripts/prepare_worldedit_runtime.py" \
++        --minecraft "$MC_VERSION" --output "$WORK_DIR/plugins" --verify-log "$normalized" "${WORLDEDIT_OPTIONS[@]}"
+ 
+     while IFS=$'\t' read -r jar plugin; do
+         if ! grep -Fq "Enabling ${plugin} v" "$normalized"; then
+@@ -275,7 +300,9 @@ Required-enable addon JARs: $(wc -l < "$WORK_DIR/expected-addons.txt")
+ Dependency-gated addon JARs: $(wc -l < "$WORK_DIR/dependency-gated-addons.txt")
+ Cycles: 2
+ All required addon enable lines: observed
+-Known external hard dependencies: reported separately
++WorldEdit provider and WorldEditSlimefun: required on both boots
++WorldEdit provenance: plugins/worldedit-runtime.json
++Other external hard dependencies: reported separately
+ Linkage/enable failures: none
+ Configuration-load failures: none
+ Clean shutdown persistence: observed on second boot
