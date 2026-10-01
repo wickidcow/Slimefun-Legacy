@@ -1,0 +1,100 @@
+name: Authorize Verified 4.1.63 Publisher
+on:
+  push:
+    branches: ['work/release-4.1.63-preparation-20261001']
+    paths: ['.github/workflows/authorize-verified-4.1.63.yml']
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: authorize-verified-4.1.63
+  cancel-in-progress: false
+jobs:
+  authorize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Require approved master source and all exact-commit push validations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence
+          python3 - <<'PY'
+          import base64,json,subprocess,time
+          from pathlib import Path
+          repo='repos/wickidcow/Slimefun-Legacy'
+          source='2703e3a500b426849f3eb7806862bb4343bb9d6a'
+          approved_head='7db27cacfb5fab56b1a06d7521bf7d6421e9b27e'
+          approved_tree='a03a0598ae8559655da39753df00021d0999fc86'
+          required={'.github/workflows/'+name for name in [
+            'build-ci.yml','build-sfl-addons-compat-bundle.yml','paper-26.3-full-stack.yml',
+            'reproducible-release.yml','addon-runtime-smoke.yml','legacy-1.21.11-compatibility.yml',
+            'paper-26.3-addon-compile.yml','paper-family-26.2-runtime-smoke.yml',
+            'proxy-runtime-smoke.yml','runtime-gameplay-correctness.yml','runtime-smoke.yml',
+            'universal-migration-validation.yml']}
+          def api(path):
+              return json.loads(subprocess.run(['gh','api',path],check=True,capture_output=True,text=True,timeout=120).stdout)
+          def master_unchanged():
+              ref=api(repo+'/git/ref/heads/master')
+              assert ref['object']['sha']==source, 'Master changed; re-review before publication'
+          master_unchanged()
+          commit=api(repo+'/git/commits/'+source)
+          assert commit['tree']['sha']==approved_tree
+          pr=api(repo+'/pulls/294')
+          assert pr['merged'] and pr['head']['sha']==approved_head and pr['merge_commit_sha']==source
+          properties=base64.b64decode(api(repo+'/contents/gradle.properties?ref='+source)['content']).decode()
+          assert 'projectVersion=4.1.63' in properties
+          manifest=json.loads(base64.b64decode(api(repo+'/contents/compatibility/sfl-addon-release-matrix.json?ref='+source)['content']))
+          assert manifest['bundle_revision']==100 and len(manifest['addons'])==45
+          assert all(len(row['source_commit'])==40 for row in manifest['addons'])
+          last_summary=None
+          for attempt in range(180):
+              payload=api(repo+'/actions/runs?event=push&head_sha='+source+'&per_page=100')
+              assert payload['total_count']<=100, 'Pagination review required'
+              latest={}
+              for row in payload['workflow_runs']:
+                  assert row['head_sha']==source and row['event']=='push'
+                  if row['head_branch']!='master':continue
+                  path=row['path']
+                  if path not in latest or row['id']>latest[path]['id']:latest[path]=row
+              summary=[{key:r[key] for key in ['id','name','path','head_sha','head_branch','event','status','conclusion','run_attempt']} for r in latest.values()]
+              Path('evidence/master-validation.json').write_text(json.dumps(summary,indent=2)+'\n')
+              failed=[r for r in latest.values() if r['path'] in required and r['status']=='completed' and r['conclusion']!='success']
+              assert not failed, 'A required exact-master workflow failed: '+json.dumps([{k:r[k] for k in ['id','name','conclusion']} for r in failed])
+              pending=sorted(path for path in required if path not in latest or latest[path]['status']!='completed')
+              if pending!=last_summary:
+                  print('Pending exact-master validations:',pending,flush=True);last_summary=pending
+              if not pending:
+                  assert all(latest[p]['conclusion']=='success' for p in required)
+                  break
+              if attempt%6==0:master_unchanged()
+              time.sleep(10)
+          else:
+              raise RuntimeError('Exact-master validation did not finish within this bounded authorization run')
+          master_unchanged()
+          # Idempotency: do not start a duplicate publisher for this immutable source.
+          dispatches=api(repo+'/actions/workflows/reproducible-release.yml/runs?event=workflow_dispatch&head_sha='+source+'&per_page=100')
+          assert dispatches['total_count']<=100
+          existing=[r for r in dispatches['workflow_runs'] if r['head_sha']==source and r['event']=='workflow_dispatch']
+          if existing:
+              current=max(existing,key=lambda r:r['id'])
+              assert current['status']!='completed' or current['conclusion']=='success', 'Existing publisher needs explicit failure review'
+              result=dict(dispatched=False,existing_run=current['id'],source=source,reason='Same-source publisher already exists')
+          else:
+              refs=api(repo+'/git/matching-refs/tags/v4.1.63')
+              exact=[r for r in refs if r['ref']=='refs/tags/v4.1.63']
+              assert not exact, 'An existing release tag requires separate review; never retarget it'
+              master_unchanged()
+              subprocess.run(['gh','api','--method','POST',repo+'/actions/workflows/reproducible-release.yml/dispatches','--input','-'],input=json.dumps({'ref':'master'}),text=True,capture_output=True,check=True,timeout=120)
+              result=dict(dispatched=True,source=source,workflow='reproducible-release.yml',ref='master',required_successful_paths=sorted(required),direct_release_write=False)
+          Path('evidence/authorization.json').write_text(json.dumps(result,indent=2)+'\n')
+          print(json.dumps(result,indent=2),flush=True)
+          print('Only the existing reproducible-release workflow was invoked. No source, tag, asset or release was written by this authorization job.')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: verified-4.1.63-publication-authorization
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
