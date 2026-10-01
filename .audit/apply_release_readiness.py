@@ -44,3 +44,13 @@ for name, expected in changes:
 Path('audit-evidence').mkdir(exist_ok=True)
 Path('audit-evidence/paths.json').write_text(json.dumps([name for name, _ in changes]))
 subprocess.run(['python3', '.audit/correct_fixture_flags.py'], check=True)
+for correction in json.loads(Path('.audit/doctor-fixture-edits.json').read_text()):
+    path = Path(correction['path'])
+    assert blob(path.read_bytes()) == correction['old'], path
+    lines = path.read_text().splitlines(keepends=True)
+    for start, end, text in reversed(correction['edits']):
+        lines[start:end] = [text]
+    output = ''.join(lines).encode()
+    assert blob(output) == correction['new'], (path, blob(output))
+    path.write_bytes(output)
+    print('REVIEWED_DOCTOR_CONTROL', blob(output), path)
