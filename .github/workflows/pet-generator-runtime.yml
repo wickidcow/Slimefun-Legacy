@@ -1,0 +1,177 @@
+name: Pet and Generator Runtime Preservation
+on:
+  push:
+    branches: ['work/ecosystem-checkpoint-20261001']
+    paths: ['.github/workflows/pet-generator-runtime.yml', 'audit/PetGeneratorProbe.java']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Require successful exact-source addon builds and verify raw input bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p inputs evidence
+          python3 - <<'PY'
+          import hashlib,io,json,subprocess,zipfile
+          from pathlib import Path
+          def api(p):return subprocess.run(['gh','api',p],capture_output=True,check=True,timeout=120).stdout
+          provenance=[]
+          for repo,run_id,sha,name in [
+            ('wickidcow/SF_HotbarPets',36933833925,'78072f454b855a88ea85549425df8a3ece05e7c9','SF_HotbarPets1.0.3.jar'),
+            ('wickidcow/SF_SMG',36933856018,'a0e3f9f60f899d6016d9e7502624610efc6a4c0f','SF_SMG1.0.5.jar')]:
+              run=json.loads(api(f'repos/{repo}/actions/runs/{run_id}'))
+              assert run['head_sha']==sha and run['status']=='completed' and run['conclusion']=='success'
+              entries=json.loads(api(f'repos/{repo}/actions/runs/{run_id}/artifacts'))['artifacts']
+              matches=[a for a in entries if a['name']==name and not a['expired']];assert len(matches)==1
+              meta=matches[0];assert meta['workflow_run']['head_sha']==sha
+              raw=api(f"repos/{repo}/actions/artifacts/{meta['id']}/zip")
+              assert meta['digest']=='sha256:'+hashlib.sha256(raw).hexdigest()
+              data=raw
+              with zipfile.ZipFile(io.BytesIO(raw)) as z:
+                  assert z.testzip() is None
+                  if 'plugin.yml' not in z.namelist():
+                      jars=[n for n in z.namelist() if n.endswith('.jar')];assert len(jars)==1;data=z.read(jars[0])
+              Path('inputs',name).write_bytes(data)
+              provenance.append(dict(repository=repo,head=sha,run_id=run_id,artifact_id=meta['id'],jar=name,sha256=hashlib.sha256(data).hexdigest()))
+          Path('inputs/provenance.json').write_text(json.dumps(provenance,indent=2)+'\n')
+          PY
+          gh release download v4.1.63 --repo wickidcow/Slimefun-Legacy --pattern Slimefun-Legacy4.1.63.jar --dir inputs
+          printf '%s  inputs/Slimefun-Legacy4.1.63.jar\n' 993b257c54efe19b58cc8f4946d4d39387f7787fe263c9f27123343159344c42 | sha256sum --check
+      - name: Compile the disposable real-server probe on the floor API
+        run: |
+          set -euo pipefail
+          mkdir -p probe-classes probe-project
+          cat > probe-project/pom.xml <<'XML'
+          <project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion><groupId>audit</groupId><artifactId>pet-generator</artifactId><version>1</version><repositories><repository><id>paper</id><url>https://repo.papermc.io/repository/maven-public/</url></repository></repositories><dependencies><dependency><groupId>io.papermc.paper</groupId><artifactId>paper-api</artifactId><version>1.21.11-R0.1-SNAPSHOT</version></dependency></dependencies></project>
+          XML
+          mvn -B -ntp -f probe-project/pom.xml dependency:build-classpath -Dmdep.outputFile=classpath.txt > evidence/probe-build.log 2>&1
+          javac --release 21 -cp "inputs/*:$(cat probe-project/classpath.txt)" -d probe-classes audit/PetGeneratorProbe.java >> evidence/probe-build.log 2>&1
+          printf "name: PetGeneratorProbe\nmain: audit.PetGeneratorProbe\nversion: '1'\napi-version: '1.21.11'\ndepend: [Slimefun, HotbarPets, SimpleMaterialGenerators]\n" > probe-classes/plugin.yml
+          jar --create --file inputs/probe.jar -C probe-classes .
+          cp audit/PetGeneratorProbe.java evidence/
+          sha256sum inputs/*.jar > inputs/input-sha256.txt
+          cp inputs/provenance.json inputs/input-sha256.txt evidence/
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: pet-generator-prepare-evidence
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pet-generator-exact-inputs
+          path: inputs/
+          retention-days: 14
+          if-no-files-found: error
+  runtime:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - minecraft: '1.21.11'
+            build: 132
+            java: '21'
+            sha: 5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba
+          - minecraft: '26.2'
+            build: 129
+            java: '25'
+            sha: b1d8f6bfa1b6101fa8e947b53041cb3bdf5540e7b83b6547ca19ba7edefeb083
+          - minecraft: '26.3'
+            build: 140
+            java: '25'
+            sha: 98aabc113a80b9b5e183475e839a17cf99c39c915a1f46b8f35a5e89fd5de0f1
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: pet-generator-exact-inputs
+          path: inputs
+      - uses: actions/setup-node@v6
+        if: matrix.minecraft == '26.2'
+        with:
+          node-version: '24'
+      - name: Prepare the retained checksum-pinned protocol client
+        if: matrix.minecraft == '26.2'
+        run: |
+          set -euo pipefail
+          mkdir -p client
+          curl -fLsS --retry 3 --max-time 90 https://github.com/Complexity-ML/node-minecraft-protocol-26.2/releases/download/complexity-26.2.3/minecraft-protocol-complexity-26.2.3.tgz -o client/protocol.tgz
+          printf '%s  client/protocol.tgz\n' 8b72d382e3cc06779b2b54fc3e402291f46df3bc28fcc2c189b1fc25b3895dab | sha256sum --check
+          (cd client && npm init -y >/dev/null && npm install --ignore-scripts --no-audit --no-fund ./protocol.tgz)
+          cat > client/client.js <<'JS'
+          const fs=require('fs');const mc=require('minecraft-protocol');let logged=false;
+          const client=mc.createClient({host:'127.0.0.1',port:25565,username:'PetAudit',auth:'offline',version:'26.2'});
+          const timer=setTimeout(()=>{console.error('Login/runtime timeout');process.exitCode=1;client.end('timeout');},90000);
+          client.on('login',()=>{logged=true;fs.writeFileSync('../evidence/connected-client.json',JSON.stringify({uuid:client.uuid,username:client.username,minecraft:'26.2'}));console.log('CONNECTED_PLAYER_PLAY_STATE');});
+          client.on('error',e=>{console.error(e);process.exitCode=1;});
+          client.on('end',()=>{clearTimeout(timer);if(!logged)process.exitCode=1;setTimeout(()=>process.exit(process.exitCode||0),50);});
+          JS
+      - name: Exercise actual generator ticks and entity data; require connected crafting on 26.2
+        env:
+          MC: ${{ matrix.minecraft }}
+          BUILD: ${{ matrix.build }}
+          SHA: ${{ matrix.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p server/plugins evidence
+          sha256sum --check inputs/input-sha256.txt
+          cp inputs/*.jar server/plugins/
+          URL="https://fill-data.papermc.io/v1/objects/$SHA/paper-$MC-$BUILD.jar"
+          curl -fLsS --retry 3 --max-time 120 -H 'User-Agent: Slimefun-Legacy-Preservation/4.1.63 (https://github.com/wickidcow/Slimefun-Legacy)' "$URL" -o server/server.jar
+          printf '%s  server/server.jar\n' "$SHA" | sha256sum --check
+          printf 'minecraft=%s\nbuild=%s\nsha256=%s\n' "$MC" "$BUILD" "$SHA" > evidence/server.txt
+          printf 'eula=true\n' > server/eula.txt
+          printf 'online-mode=false\nserver-ip=127.0.0.1\nserver-port=25565\nenforce-secure-profile=false\nview-distance=2\nsimulation-distance=2\npause-when-empty-seconds=-1\n' > server/server.properties
+          CONNECTED=false; if [[ "$MC" == 26.2 ]]; then CONNECTED=true; fi
+          (cd server && timeout --kill-after=20s 240s java -Xms512M -Xmx2G -Dpet.audit.connected="$CONNECTED" -jar server.jar --nogui > server.log 2>&1) &
+          PID=$!
+          if [[ "$CONNECTED" == true ]]; then
+            for i in $(seq 1 90); do
+              if grep -Fq PET_GENERATOR_READY server/server.log; then break; fi
+              if ! kill -0 "$PID" 2>/dev/null; then cat server/server.log; exit 1; fi
+              sleep 1
+            done
+            grep -Fq PET_GENERATOR_READY server/server.log
+            (cd client && node client.js) > evidence/client.log 2>&1 & CLIENT_PID=$!
+          fi
+          STATUS=0; wait "$PID" || STATUS=$?
+          cp server/server.log evidence/
+          test ! -f server/pet-generator-results.txt || cp server/pet-generator-results.txt evidence/
+          if [[ "$CONNECTED" == true ]]; then wait "$CLIENT_PID"; test -s evidence/connected-client.json; fi
+          test "$STATUS" -eq 0
+          grep -Fxq PET_GENERATOR_PASS evidence/pet-generator-results.txt
+          if grep -Eq 'PET_GENERATOR_FAIL|Error occurred while enabling|NoSuchMethodError|NoClassDefFoundError' server/server.log; then cat server/server.log; exit 1; fi
+          cat evidence/pet-generator-results.txt
+      - name: Preserve failures and exact provenance too
+        if: always()
+        run: |
+          mkdir -p evidence
+          cp inputs/provenance.json inputs/input-sha256.txt evidence/ || true
+          test ! -f server/server.log || cp server/server.log evidence/
+          test ! -f server/pet-generator-results.txt || cp server/pet-generator-results.txt evidence/
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: pet-generator-runtime-${{ matrix.minecraft }}
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
