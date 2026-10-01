@@ -1,0 +1,47 @@
+name: Preserve Tested Upgrade Source
+
+on:
+  push:
+    branches: ['work/preserve-upgrade-source-20261001']
+
+permissions:
+  contents: read
+
+jobs:
+  preserve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Reconstruct exact reviewed source from passing upgrade run
+        run: python3 .audit/apply_release_readiness.py
+      - name: Preserve verified Git blobs without changing branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, json, os, subprocess
+          from pathlib import Path
+          manifest = {}
+          for name in json.loads(Path('audit-evidence/paths.json').read_text()):
+              data = Path(name).read_bytes()
+              sha = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+              body = json.dumps({'content': base64.b64encode(data).decode(), 'encoding': 'base64'})
+              reply = subprocess.run(['gh', 'api', '--method', 'POST', f"repos/{os.environ['GITHUB_REPOSITORY']}/git/blobs", '--input', '-', '--jq', '.sha'], input=body, text=True, capture_output=True, check=True)
+              assert reply.stdout.strip() == sha, name
+              manifest[name] = sha
+              target = Path('audit-evidence/verified-source') / name
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_bytes(data)
+              print('VERIFIED_BLOB', sha, name)
+          Path('audit-evidence/verified-blobs.json').write_text(json.dumps(manifest, indent=2))
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tested-upgrade-source
+          path: audit-evidence/
+          retention-days: 14
