@@ -1,0 +1,56 @@
+name: Prepare finished addon bundle source
+on:
+  push:
+    branches: ['work/finish-addon-drafts-20261001']
+    paths: ['.github/workflows/prepare-finished-bundle-source.yml']
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Export exact source objects for conflict-safe bundle integration
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import base64,hashlib,json,pathlib,subprocess,zipfile
+          base='cf09e5bc04cb912604e65bfeacce9dabeda5014a'
+          subprocess.run(['git','fetch','origin',base],check=True)
+          def blob(b):return hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          def read(p):return subprocess.check_output(['git','show',base+':'+p])
+          matrix_path='compatibility/sfl-addon-release-matrix.json';data=read(matrix_path)
+          assert blob(data)=='1d8ac4b33b53113c785f16c95e7e89681959bf7c'
+          matrix=json.loads(data);assert matrix['bundle_revision']==101 and len(matrix['addons'])==45
+          changes={'wickidcow/SF_BetterChests':('96134b3ae294a8c086f467bbe8a09f842aac8949','5c830e845d2849e0d8aea53414be8cba80af6775'),'wickidcow/SF_BuildingStaff':('d9def66dd07c1e7464843a723fc997af74beb673','9f017f4ca4cec5997c14ccd1e564a21b21ed16a0'),'wickidcow/SF_FluffyMachines':('a44d7e4845430a00627739a06fdb3df70baa47e1','91dc76b4e6d2024faeb1cbecace18c0a99b99aee')}
+          for row in matrix['addons']:
+              if row['repository'] in changes:
+                  old,new=changes[row['repository']];assert row['source_commit']==old;row['source_commit']=new
+          matrix['bundle_revision']=102
+          workflow_path='.github/workflows/build-sfl-addons-compat-bundle.yml';workflow=read(workflow_path)
+          assert blob(workflow)=='7a492ab69a9cdd6490e6d30b9018b1653e2ac530'
+          old='      - name: Compile against Paper 26.3 candidate\n'
+          new="      - name: Install BuildingStaff optional compile-only provider API\n        if: matrix.slug == 'buildingstaff'\n        run: bash addon/scripts/install_rebar_api.sh\n"+old
+          assert workflow.decode().count(old)==1
+          updated=workflow.decode().replace(old,new).encode();assert blob(updated)=='1ddc697132aa345e6d793b817d04c04994920d35'
+          files={matrix_path:(json.dumps(matrix,indent=2)+'\n').encode(),workflow_path:updated}
+          out=pathlib.Path('evidence');out.mkdir()
+          manifest={'base':base,'files':{},'scope':'Only the three finished addon pins and compile-only Rebar bootstrap. No core source, release asset, branch ref or production data changed.'}
+          with zipfile.ZipFile(out/'verified-source.zip','w',zipfile.ZIP_DEFLATED) as z:
+              for name,b in files.items():
+                  response=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps({'content':base64.b64encode(b).decode(),'encoding':'base64'}),text=True,capture_output=True,check=True)
+                  sha=json.loads(response.stdout)['sha'];assert sha==blob(b);manifest['files'][name]=sha;z.writestr(name,b)
+          (out/'source-objects.json').write_text(json.dumps(manifest,indent=2)+'\n');print(json.dumps(manifest),flush=True)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: finished-bundle-source-objects
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 14
