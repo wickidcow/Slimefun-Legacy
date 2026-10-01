@@ -8,6 +8,10 @@ permissions:
   contents: read
   actions: read
 
+concurrency:
+  group: required-worldedit-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   runtime:
     name: Required WorldEdit on Paper ${{ matrix.minecraft }}
@@ -21,7 +25,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - name: Apply exact reviewed runtime verification sources
+      - name: Apply reviewed sources and preserve the Java 21 floor
         run: |
           python3 - <<'PY'
           import gzip, hashlib, json
@@ -49,6 +53,7 @@ jobs:
               path.parent.mkdir(parents=True, exist_ok=True)
               path.write_bytes(data)
           PY
+          python3 .audit/adjust_worldedit_floor.py
           git diff --check
           python3 scripts/test_prepare_worldedit_runtime.py
           bash -n scripts/full_stack_runtime_smoke.sh
