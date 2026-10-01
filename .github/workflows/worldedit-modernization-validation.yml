@@ -6,75 +6,46 @@ on:
 
 permissions:
   contents: read
-  actions: read
-
-concurrency:
-  group: worldedit-modernization-validation
-  cancel-in-progress: true
 
 jobs:
-  runtime:
+  inspect-floor:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        minecraft: ['1.21.11', '26.2', '26.3']
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - name: Apply reviewed full-stack dependency requirement
+      - name: Inspect exact publisher-listed floor binaries
         run: |
-          set -euo pipefail
-          test "$(git hash-object scripts/full_stack_runtime_smoke.sh)" = 5560056611b49426f8c216987742aeb3f418624e
-          git apply --check .audit/require_worldedit.patch
-          git apply .audit/require_worldedit.patch
-          bash -n scripts/full_stack_runtime_smoke.sh
-          python3 scripts/test_prepare_runtime_dependencies.py
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '25'
-          cache: maven
-      - name: Fetch the exact prior paired candidate, not a newer release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          mkdir -p candidate bundle
-          gh run download 36801932529 --repo "$GITHUB_REPOSITORY" --name full-stack-core --dir candidate
-          gh run download 36801932529 --repo "$GITHUB_REPOSITORY" --name full-stack-addon-bundle --dir bundle
-          echo 'ea4b0c47ee41b852abb5c97bacbb4f1c0ebc5126c29fb36d39e7c71747d13bdd  candidate/Slimefun-Legacy-full-stack.jar' | sha256sum -c -
-          echo '7cf9bf6ce10949d93da8dce50125d4b1a8385ddbbbac2433ab72f6e6687b0d86  bundle/SF_Addons_1.21.11-26.3.zip' | sha256sum -c -
-      - name: Compile disposable runtime probe against exact core and WorldEdit
-        run: |
-          set -euo pipefail
-          python3 scripts/prepare_runtime_dependencies.py compatibility/runtime-dependencies.json '${{ matrix.minecraft }}' dependency dependency/manifest.json
-          mvn -B -f scripts/worldedit-runtime-probe/pom.xml package -Dcore.jar="$PWD/candidate/Slimefun-Legacy-full-stack.jar" -Dworldedit.jar="$PWD/dependency/worldedit-bukkit-7.4.6-beta-02.jar"
-          mkdir -p probe
-          cp scripts/worldedit-runtime-probe/target/WorldEditRuntimeProbe-1.0.0.jar probe/
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
-      - name: Require all 45 addons plus WorldEdit operations on both boots
-        env:
-          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
-          RUNTIME_SMOKE_EXTRA_PLUGIN_DIR: ${{ github.workspace }}/probe
-          RUNTIME_SMOKE_REQUIRED_MARKER: WORLDEDIT_COMPAT_PROBE PASS addons=45
-        run: |
-          bash scripts/full_stack_runtime_smoke.sh candidate/Slimefun-Legacy-full-stack.jar bundle/SF_Addons_1.21.11-26.3.zip 'build/worldedit-${{ matrix.minecraft }}'
+          python3 - <<'PY'
+          import hashlib, io, json, struct, urllib.parse, urllib.request, zipfile
+          from pathlib import Path
+          def get(url):
+              request = urllib.request.Request(url, headers={'User-Agent':'Slimefun-Legacy-Compatibility/1.0'})
+              with urllib.request.urlopen(request, timeout=45) as response:
+                  return response.read(64*1024*1024)
+          query = urllib.parse.urlencode({'game_versions': json.dumps(['1.21.11']), 'loaders':json.dumps(['bukkit'])})
+          versions = json.loads(get('https://api.modrinth.com/v2/project/worldedit/version?' + query))
+          inspected = []
+          Path('evidence').mkdir()
+          for version in versions[:15]:
+              file = next(f for f in version['files'] if f['primary'] and f['filename'].startswith('worldedit-bukkit-'))
+              data = get(file['url'])
+              assert hashlib.sha512(data).hexdigest() == file['hashes']['sha512']
+              with zipfile.ZipFile(io.BytesIO(data)) as jar:
+                  assert jar.testzip() is None
+                  major = struct.unpack('>H', jar.read('com/sk89q/worldedit/bukkit/WorldEditPlugin.class')[6:8])[0]
+                  core_major = struct.unpack('>H', jar.read('com/sk89q/worldedit/world/block/BlockStateHolder.class')[6:8])[0]
+              inspected.append({'version':version['version_number'], 'id':version['id'], 'major':major, 'core_major':core_major})
+              print(inspected[-1])
+              if max(major, core_major) <= 65:
+                  Path('evidence/worldedit-java21-version.json').write_text(json.dumps(version, indent=2))
+                  break
+          else:
+              raise RuntimeError('No verified Java21 entry point among bounded publisher-listed candidates')
+          Path('evidence/inspected-versions.json').write_text(json.dumps(inspected, indent=2))
+          PY
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: worldedit-runtime-${{ matrix.minecraft }}
+          name: worldedit-java21-dependency
+          path: evidence/
+          if-no-files-found: error
           retention-days: 14
-          path: |
-            build/worldedit-${{ matrix.minecraft }}/*.log
-            build/worldedit-${{ matrix.minecraft }}/*.txt
-            build/worldedit-${{ matrix.minecraft }}/runtime-dependencies.json
-            build/worldedit-${{ matrix.minecraft }}/plugins/WorldEditRuntimeProbe/*
-            dependency/manifest.json
-            scripts/full_stack_runtime_smoke.sh
-          if-no-files-found: warn
