@@ -14,6 +14,12 @@ changes = (
     ('ItemStack item = definition.getItem().clone();', 'ItemStack item = ItemStack.deserializeBytes(definition.getItem().serializeAsBytes());\n            require(IDS[i].equals(Slimefun.getItemDataService().getItemData(item).orElse(null)),\n                    "Native player-item conversion lost its registered identity");'),
     ('        blockSlots = new ArrayList<>();\n        for (int slot = 0; slot < block.getBlockMenu().toInventory().getSize() && blockSlots.size() < items.size(); slot++) {\n            if (!block.getBlockMenu().getPreset().getPresetSlots().contains(slot)) blockSlots.add(slot);\n        }',
      '        // These are actual CargoInputNode filter slots, not its dynamic UI controls.\n        blockSlots = List.of(19, 20, 21, 28, 29);\n        for (int slot : blockSlots) {\n            require(slot < block.getBlockMenu().toInventory().getSize()\n                    && !block.getBlockMenu().getPreset().getPresetSlots().contains(slot)\n                    && block.getBlockMenu().getItemInSlot(slot) == null,\n                    "Expected an empty real cargo filter slot: " + slot);\n        }'),
+    ('        JsonObject actual = capture();',
+     '        JsonObject actual = JsonParser.parseString(JSON.toJson(capture())).getAsJsonObject();'),
+    ('        result.add("modelFloats", JSON.toJsonTree(models.getFloats()));',
+     '        result.add("modelFloats", JSON.toJsonTree(models.getFloats()));\n        result.add("modelFloatBits", JSON.toJsonTree(models.getFloats().stream()\n                .map(value -> Integer.toHexString(Float.floatToRawIntBits(value))).toList()));'),
+    ('            entry.add("value", JSON.toJsonTree(value));',
+     '            entry.add("value", JSON.toJsonTree(value));\n            if (value instanceof Float number) {\n                entry.addProperty("bits", Integer.toHexString(Float.floatToRawIntBits(number)));\n            } else if (value instanceof Double number) {\n                entry.addProperty("bits", Long.toHexString(Double.doubleToRawLongBits(number)));\n            }'),
 )
 for before, after in changes:
     assert text.count(before) == 1, before
