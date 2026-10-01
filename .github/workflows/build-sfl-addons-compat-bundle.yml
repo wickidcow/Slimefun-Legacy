@@ -160,14 +160,23 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: gradle
+      - name: Pin bundle core source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_commit="$(git rev-parse HEAD)"
+          echo "SOURCE_COMMIT=$source_commit" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct "$source_commit")" >> "$GITHUB_ENV"
       - name: Build exact candidate core
         run: |
           set -euo pipefail
           chmod +x gradlew
-          ./gradlew clean shadowJar -PpaperApiVersion='${{ needs.prepare.outputs.paper_api }}' --no-daemon
+          ./gradlew clean shadowJar -PpaperApiVersion='${{ needs.prepare.outputs.paper_api }}' --no-daemon --no-build-cache --no-configuration-cache
           JAR="$(find build/libs -maxdepth 1 -type f -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
           test -n "$JAR"
           test -s "$JAR"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+          python3 scripts/verify_release_artifact.py "$JAR" --root .
           mkdir -p candidate-core
           cp "$JAR" candidate-core/Slimefun-Legacy-candidate.jar
       - uses: actions/upload-artifact@v7

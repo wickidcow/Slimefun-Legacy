@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "bundle_revision": 98,
+  "bundle_revision": 99,
   "core_parent": "ed0618b442cf0b74c62f2d3990c32727ed376e78",
   "tested_core_sha256": "ffbdfcbf0eab274eaaf56916f8ddc3f12347e76a7b07fa4b8d8fe25eabac7ace",
   "summary": {
     "addons": 45,
     "full_build_passed": 45,
-    "reported_test_entries": 342,
+    "reported_test_entries": 385,
     "addons_with_reported_tests": 16,
     "addons_without_reported_tests": 29,
     "failures": 0,
@@ -16,13 +16,14 @@
   "limitations": [
     "Results consolidate multiple exact-source runs; not one single all-green workflow run.",
     "The final candidate bundle and full stack must independently validate this manifest.",
-    "No tests reported means no automated test coverage, not complete gameplay proof.",
+    "No reported unit-test entries does not exclude separately recorded runtime or source-invariant coverage, and never means complete gameplay proof.",
     "MobDrops tests use their declared Paper26.2/MockBukkit4.116.1 environment; baseline compile is separate.",
     "FinalTECH and final Crystamae builds used verified changed-source blobs before clean promotion.",
     "Generated old-addon storage fixtures are not captured historical player worlds.",
     "Deprecated APIs and broader machine/performance audits remain.",
     "Revision97 adds three exact-source followup builds on core7c832082; other rows retain their original core/run evidence. This is not one new all45 full-suite run.",
-    "Revision98 updates only FNAmplifications, LiteXpansion and MagicExpansion from this three-addon exact-core test run; all other evidence retains its original run attribution. The root core hash remains historical; new row evidence records the latest exact core."
+    "Revision98 updates only FNAmplifications, LiteXpansion and MagicExpansion from this three-addon exact-core test run; all other evidence retains its original run attribution. The root core hash remains historical; new row evidence records the latest exact core.",
+    "Revision99 changes only MagicExpansion: 61 tests and the retained two-process floor runtime helper against the revision98 core. Other rows retain their original source/run/core attribution; this is not a new all45 project-test run."
   ],
   "addons": [
     {
@@ -568,23 +569,24 @@
     {
       "repository": "wickidcow/SF_MagicExpansion",
       "slug": "magicexpansion",
-      "source_commit": "61a0ccfa67dcf7c74ffc2aa67bcc2bdfdbbd358e",
+      "source_commit": "4532a3c2adfef0136200fed97551433daaf11625",
       "full_build_result": "PASS",
-      "reported_test_entries": 18,
+      "reported_test_entries": 61,
       "failures": 0,
       "errors": 0,
       "skips": 0,
       "evidence": {
         "repository": "wickidcow/Slimefun-Legacy",
-        "run_id": 36845433915,
-        "artifact_name": "reconciled-addon-evidence",
-        "kind": "Full exact-source Maven verify with actual XML and Java21 JAR checks",
-        "tested_core_sha256": "90e9f5ecfe306b70f6cf26d8ca7347ed4f65a07c3e9c6667cf42b1988522ba34"
+        "run_id": 36858132668,
+        "artifact_name": "revision99-shop-preservation-evidence",
+        "kind": "Full exact-source Maven verify and retained real-Paper restart helper",
+        "tested_core_sha256": "55be5129bfb70e64fc16fbe53147c7ee6d3cccf7734844e6f1dda539444a59e0"
       },
       "setup_notes": [
-        "Only the core compile/test dependency was redirected to the exact revision97 candidate; no tests were skipped."
+        "Only the provided core dependency was selected to the exact revision98 candidate. No project tests were skipped.",
+        "Pinned MockBukkit type/equality limitations are covered as refusal cases; real Paper covers exact FLOAT, byte-array and nested-PDC success."
       ],
-      "coverage": "Permanent project tests; runtime/gameplay coverage remains separately attributable"
+      "coverage": "61 project tests plus separately attributed actual shop/editor/chat and rich-item persistence checks; no blanket concurrency or historical-world guarantee"
     },
     {
       "repository": "wickidcow/SF_MilitaryArsenal",
