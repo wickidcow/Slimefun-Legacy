@@ -1,0 +1,52 @@
+name: BuildingStaff verified provider API
+on:
+  push:
+    branches: ['work/finish-addon-drafts-20261001']
+    paths: ['.github/workflows/buildingstaff-provider-verified-api.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  provider:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+          cache-dependency-path: .audit/BuildingStaffProviderProbe.java
+      - name: Exercise the retained build and runtime harness against published providers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess,yaml
+          p=Path('.audit/BuildingStaffProviderProbe.java');text=p.read_text()
+          assert text.count('call(schema,"createNewItemStack",1)')==1
+          p.write_text(text.replace('call(schema,"createNewItemStack",1)','call(schema,"getItemStack",1)'))
+          # Execute the same four retained build/fixture/runtime commands. Only
+          # the synthetic fixture accessor changed; production source is pinned.
+          workflow=yaml.safe_load(Path('.github/workflows/buildingstaff-provider-preservation.yml').read_text())
+          for step in workflow['jobs']['provider']['steps']:
+              if 'run' in step:
+                  print('=== '+step['name']+' ===',flush=True)
+                  subprocess.run(['bash','-euo','pipefail','-c',step['run']],check=True)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: buildingstaff-provider-evidence
+          path: |
+            evidence/
+            provider-input/
+            probe/src/
+            build/buildingstaff-provider/*.log
+            build/buildingstaff-provider/result.json
+          if-no-files-found: error
+          retention-days: 14
