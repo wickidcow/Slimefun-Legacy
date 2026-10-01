@@ -1,0 +1,70 @@
+name: Maintained Addon Stability Source Audit
+
+on:
+  push:
+    branches: ['work/addon-stability-audit-r96-20260930']
+    paths: ['.github/workflows/addon-stability-source-audit.yml']
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 7c8320828f7d0f98e80246f2766e7814a8a15eca
+          persist-credentials: false
+      - name: Snapshot exact maintained source trees for independent review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p audit-sources
+          python3 - <<'PY'
+          import concurrent.futures, hashlib, json, re, subprocess
+          from pathlib import Path
+          root = Path('audit-sources').resolve()
+          manifest = json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text())
+          assert manifest['bundle_revision'] == 96 and len(manifest['addons']) == 45
+          def archive(path, sha, output):
+              args = ['git', '-C', str(path), 'archive', '--format=tar.gz', f'--output={output}', sha,
+                      '--', '.', ':!*.jar', ':!*.zip', ':!*.png', ':!*.jpg', ':!*.gif', ':!*.mp4']
+              subprocess.run(args, check=True, timeout=90)
+              return hashlib.sha256(output.read_bytes()).hexdigest()
+          core_sha = subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip()
+          records = [dict(repository='wickidcow/Slimefun-Legacy', commit=core_sha,
+                          archive='Slimefun-Legacy.tar.gz', sha256=archive(Path('.'),core_sha,root/'Slimefun-Legacy.tar.gz'))]
+          def collect(row):
+              repo, sha = row['repository'], row['source_commit']
+              assert re.fullmatch(r'wickidcow/[A-Za-z0-9_.-]+', repo)
+              assert re.fullmatch(r'[0-9a-f]{40}', sha)
+              path = Path('checkouts') / row['slug']
+              subprocess.run(['git','clone','--quiet','--depth','1',f'https://github.com/{repo}.git',str(path)],check=True,timeout=120)
+              default = subprocess.check_output(['git','-C',str(path),'rev-parse','HEAD'],text=True).strip()
+              branch = subprocess.check_output(['git','-C',str(path),'branch','--show-current'],text=True).strip()
+              subprocess.run(['git','-C',str(path),'fetch','--quiet','--depth','1','origin',sha],check=True,timeout=120)
+              assert subprocess.check_output(['git','-C',str(path),'rev-parse','FETCH_HEAD'],text=True).strip() == sha
+              name = repo.split('/')[1] + '.tar.gz'
+              digest = archive(path,sha,root/name)
+              return dict(repository=repo,commit=sha,default_head=default,default_branch=branch,archive=name,sha256=digest)
+          with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+              records.extend(pool.map(collect, manifest['addons']))
+          assert len(records)==46
+          (root/'source-lock.json').write_text(json.dumps(records,indent=2)+'\n')
+          (root/'selection.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          (root/'scope.txt').write_text('Read-only exact-source review. Binary archives/images omitted. No runtime validation or release implied.\n')
+          result = subprocess.run(['gh','api','repos/wickidcow/Slimefun-Legacy/pulls/292'],check=True,capture_output=True,text=True)
+          pr=json.loads(result.stdout)
+          (root/'coordinated-pr.json').write_text(json.dumps({k:pr[k] for k in ['number','state','head','base','body']},indent=2)+'\n')
+          print('Archived 45 pinned addon source trees and the exact core tooling; no source or release ref changed.')
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: maintained-addon-stability-sources-r96
+          path: audit-sources/
+          retention-days: 14
+          if-no-files-found: error
