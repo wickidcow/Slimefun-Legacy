@@ -1,0 +1,269 @@
+name: Revision 98 Pinned Complete Stack
+
+on:
+  push:
+    branches: ['work/r98-pinned-stack-20261001']
+    paths: ['.github/workflows/r98-pinned-stack-validation.yml']
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: b65978497a9178cdcc9c93030087c50ce02b249b
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Require and verify the complete exact-source canonical build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p inputs evidence
+          python3 - <<'PY'
+          import hashlib, io, json, re, subprocess, time, zipfile
+          from pathlib import Path
+          repo='repos/wickidcow/Slimefun-Legacy'
+          run_id=36846282733
+          head='b65978497a9178cdcc9c93030087c50ce02b249b'
+          merge='4399f5672909b6e7e2e056a4677e2cb0353dbfb5'
+          def api(path):
+              return subprocess.run(['gh','api',path],check=True,capture_output=True,timeout=120).stdout
+          for attempt in range(60):
+              run=json.loads(api(f'{repo}/actions/runs/{run_id}'))
+              assert run['head_sha']==head and run['path']=='.github/workflows/build-sfl-addons-compat-bundle.yml'
+              if run['status']=='completed': break
+              time.sleep(10)
+          assert run['status']=='completed' and run['conclusion']=='success', run['conclusion']
+          Path('evidence/canonical-run.json').write_text(json.dumps({k:run[k] for k in ['id','head_sha','path','event','status','conclusion','run_attempt']},indent=2))
+          artifacts=json.loads(api(f'{repo}/actions/runs/{run_id}/artifacts?per_page=100'))['artifacts']
+          def artifact(name, expected_id=None, expected_digest=None):
+              choices=[a for a in artifacts if a['name']==name and not a['expired']]
+              assert len(choices)==1, (name,len(choices))
+              meta=choices[0]
+              assert meta['workflow_run']['head_sha']==head
+              if expected_id is not None: assert meta['id']==expected_id
+              raw=api(f"{repo}/actions/artifacts/{meta['id']}/zip")
+              digest=hashlib.sha256(raw).hexdigest()
+              assert meta['digest']=='sha256:'+digest
+              if expected_digest is not None: assert digest==expected_digest
+              return meta,raw
+          bundle_meta,outer=artifact('SF_Addons_1.21.11-26.3')
+          with zipfile.ZipFile(io.BytesIO(outer)) as z:
+              assert z.testzip() is None
+              bundle=z.read('SF_Addons_1.21.11-26.3.zip')
+          manifest_source=json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text())
+          assert manifest_source['bundle_revision']==98
+          expected={a['repository']:a['source_commit'] for a in manifest_source['addons']}
+          assert len(expected)==45
+          plugins=[]
+          reports=[]
+          with zipfile.ZipFile(io.BytesIO(bundle)) as z:
+              assert z.testzip() is None and len(z.namelist())==len(set(z.namelist()))
+              manifest=json.loads(z.read('SF_ADDON_MANIFEST.json'))
+              assert manifest['core_source_commit']==merge
+              assert {a['repository']:a['commit'] for a in manifest['addons']}==expected
+              assert len(manifest['addons'])==45
+              assert {n for n in z.namelist() if n.endswith('.jar')}=={a['jar'] for a in manifest['addons']}
+              for row in manifest['addons']:
+                  name=row['jar']; assert Path(name).name==name
+                  raw=z.read(name); assert hashlib.sha256(raw).hexdigest()==row['sha256']
+                  with zipfile.ZipFile(io.BytesIO(raw)) as jar:
+                      assert jar.testzip() is None
+                      descriptors=[n for n in ['plugin.yml','paper-plugin.yml','paper-plugin.yaml'] if n in jar.namelist()]
+                      assert descriptors
+                      descriptor=jar.read(descriptors[0]).decode()
+                      found=re.search(r'''(?m)^name:\s*['"]?([^'"\r\n]+)''',descriptor)
+                      assert found
+                      plugin=found.group(1).strip(); plugins.append(plugin)
+                  reports.append(dict(repository=row['repository'],commit=row['commit'],jar=name,sha256=row['sha256'],plugin=plugin))
+              Path('evidence/SF_ADDON_MANIFEST.json').write_bytes(z.read('SF_ADDON_MANIFEST.json'))
+          assert len(set(plugins))==45 and 'WorldEditSlimefun' in plugins and 'WorldEdit' not in plugins
+          Path('inputs/r98-expected-plugins.txt').write_text('\n'.join(sorted(plugins))+'\n')
+          Path('inputs/addons.zip').write_bytes(bundle)
+          core_meta,outer=artifact('sfl-26.3-candidate-core',11153273058,'d7df4a5c0ccd5b1d194a0791cf9cf1df478ab1dccbb91c6a95ff218284587f83')
+          with zipfile.ZipFile(io.BytesIO(outer)) as z:
+              names=[n for n in z.namelist() if n.endswith('.jar')]; assert len(names)==1
+              core=z.read(names[0])
+          assert hashlib.sha256(core).hexdigest()=='55be5129bfb70e64fc16fbe53147c7ee6d3cccf7734844e6f1dda539444a59e0'
+          with zipfile.ZipFile(io.BytesIO(core)) as z:
+              properties=z.read('git.properties').decode()
+              assert 'git.commit.id='+merge in properties
+              # This canonical development artifact has git.source.commit=unknown; do not claim release provenance approval.
+              Path('evidence/core-git.properties').write_text(properties)
+          Path('inputs/core.jar').write_bytes(core)
+          Path('evidence/input-provenance.json').write_text(json.dumps(dict(head=head,tested_merge=merge,canonical_run=run_id,core_artifact=core_meta,bundle_artifact=bundle_meta,core_sha256=hashlib.sha256(core).hexdigest(),bundle_sha256=hashlib.sha256(bundle).hexdigest(),release_approved=False,addons=reports),indent=2))
+          print('Exact canonical source, complete45-addon membership, plugin identities and all JAR hashes verified.')
+          PY
+      - name: Compile a read-only actual plugin-state probe on the floor API
+        run: |
+          set -euo pipefail
+          mkdir -p probe-src/audit probe-classes
+          cat > probe-src/pom.xml <<'XML'
+          <project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion><groupId>audit</groupId><artifactId>r98-probe</artifactId><version>1</version><repositories><repository><id>paper</id><url>https://repo.papermc.io/repository/maven-public/</url></repository></repositories><dependencies><dependency><groupId>io.papermc.paper</groupId><artifactId>paper-api</artifactId><version>1.21.11-R0.1-SNAPSHOT</version></dependency></dependencies></project>
+          XML
+          cat > probe-src/audit/ActiveAddonProbe.java <<'JAVA'
+          package audit;
+          import java.nio.file.Files;
+          import java.nio.file.Path;
+          import java.util.ArrayList;
+          import org.bukkit.Bukkit;
+          import org.bukkit.plugin.java.JavaPlugin;
+          public final class ActiveAddonProbe extends JavaPlugin {
+              @Override public void onEnable() {
+                  Bukkit.getScheduler().runTaskLater(this, () -> {
+                      try {
+                          var names = Files.readAllLines(Path.of("r98-expected-plugins.txt"));
+                          if (names.size() != 45 || names.stream().distinct().count() != 45) {
+                              throw new IllegalStateException("Expected exactly45 distinct addon identities");
+                          }
+                          var lines = new ArrayList<String>();
+                          for (String name : names) {
+                              var plugin = Bukkit.getPluginManager().getPlugin(name);
+                              if (plugin == null || !plugin.isEnabled()) throw new IllegalStateException("Addon not active: " + name);
+                              lines.add(name + "=enabled");
+                          }
+                          for (String name : new String[] {"Slimefun", "WorldEdit"}) {
+                              var plugin = Bukkit.getPluginManager().getPlugin(name);
+                              if (plugin == null || !plugin.isEnabled()) throw new IllegalStateException("Required provider not active: " + name);
+                          }
+                          Files.write(Path.of("r98-active-addons.txt"), lines);
+                          getLogger().info("R98_ACTIVE_ADDONS_PASS count=45 provider=WorldEdit");
+                      } catch (Throwable failure) {
+                          getLogger().log(java.util.logging.Level.SEVERE, "R98_ACTIVE_ADDONS_FAIL", failure);
+                      }
+                  }, 40L);
+              }
+          }
+          JAVA
+          mvn -B -ntp -f probe-src/pom.xml dependency:build-classpath -Dmdep.outputFile=classpath.txt > evidence/probe-compile.log 2>&1
+          javac --release 21 -cp "$(cat probe-src/classpath.txt)" -d probe-classes probe-src/audit/ActiveAddonProbe.java >> evidence/probe-compile.log 2>&1
+          printf "name: R98ActiveAddonProbe\nmain: audit.ActiveAddonProbe\nversion: '1'\napi-version: '1.21.11'\ndepend: [Slimefun]\n" > probe-classes/plugin.yml
+          jar --create --file inputs/probe.jar -C probe-classes .
+          cp probe-src/audit/ActiveAddonProbe.java evidence/
+          sha256sum inputs/*.jar inputs/addons.zip > evidence/input-sha256.txt
+          cp evidence/input-provenance.json evidence/core-git.properties inputs/
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: r98-pinned-stack-preparation
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        with:
+          name: r98-pinned-stack-inputs
+          path: inputs/
+          retention-days: 14
+          if-no-files-found: error
+
+  runtime:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - minecraft: '1.21.11'
+            build: 132
+            channel: STABLE
+            java: '21'
+            server_sha: 5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba
+          - minecraft: '26.2'
+            build: 129
+            channel: STABLE
+            java: '25'
+            server_sha: b1d8f6bfa1b6101fa8e947b53041cb3bdf5540e7b83b6547ca19ba7edefeb083
+          - minecraft: '26.3'
+            build: 140
+            channel: BETA
+            java: '25'
+            server_sha: 98aabc113a80b9b5e183475e839a17cf99c39c915a1f46b8f35a5e89fd5de0f1
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: b65978497a9178cdcc9c93030087c50ce02b249b
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: r98-pinned-stack-inputs
+          path: inputs
+      - name: Pin only the server download input and add read-only state evidence
+        run: |
+          mkdir -p evidence
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          path=Path('scripts/full_stack_runtime_smoke.sh')
+          old=path.read_bytes()
+          blob=lambda b:hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          assert blob(old)=='088f636aa72de8b194efa638cabb0aac6dcb9594'
+          text=old.decode()
+          start=text.index('BUILDS_URL="https://fill.papermc.io/')
+          end=text.index('MANIFEST_ADDON_COUNT=',start)
+          replacement='''SERVER_BUILD="${R98_SERVER_BUILD:?}"
+          SERVER_CHANNEL="${R98_SERVER_CHANNEL:?}"
+          SERVER_SHA="${R98_SERVER_SHA:?}"
+          SERVER_URL="https://fill-data.papermc.io/v1/objects/${SERVER_SHA}/paper-${MC_VERSION}-${SERVER_BUILD}.jar"
+          curl --fail-with-body -L -sS --retry 3 --retry-delay 5 --max-time 120 -H "User-Agent: ${USER_AGENT}" -o "$WORK_DIR/server.jar" "$SERVER_URL"
+          printf '%s  %s\\n' "$SERVER_SHA" "$WORK_DIR/server.jar" | sha256sum --check
+          printf 'url=%s\\nsha256=%s\\nsource_run=36808369424\\n' "$SERVER_URL" "$SERVER_SHA" > "$WORK_DIR/pinned-server.txt"
+          '''
+          removed=text[start:end]
+          text=text[:start]+replacement+text[end:]
+          needle='cp "$SLIMEFUN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-full-stack.jar"\n'
+          addition='cp inputs/probe.jar "$WORK_DIR/plugins/R98ActiveAddonProbe.jar"\ncp inputs/r98-expected-plugins.txt "$WORK_DIR/r98-expected-plugins.txt"\n'
+          assert text.count(needle)==1
+          text=text.replace(needle,needle+addition)
+          reverted=text.replace(needle+addition,needle).replace(replacement,removed)
+          assert reverted.encode()==old, 'Unreviewed smoke assertion or behavior change'
+          path.write_text(text)
+          Path('evidence/smoke-input-change.json').write_text(json.dumps(dict(original_blob=blob(old),test_blob=blob(text.encode()),scope='Only explicit server download selection and disposable read-only state probe; every original guard retained',removed=removed,replacement=replacement,injection=addition),indent=2))
+          Path('evidence/actual-runtime-script.sh').write_text(text)
+          PY
+          bash -n scripts/full_stack_runtime_smoke.sh
+      - name: Boot the exact complete stack twice and verify all45 actual plugin states
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+          R98_SERVER_BUILD: ${{ matrix.build }}
+          R98_SERVER_CHANNEL: ${{ matrix.channel }}
+          R98_SERVER_SHA: ${{ matrix.server_sha }}
+          SERVER_DOWNLOAD_USER_AGENT: Slimefun-Legacy-Preservation/4.1.62 (https://github.com/wickidcow/Slimefun-Legacy)
+        run: |
+          set -euo pipefail
+          bash scripts/full_stack_runtime_smoke.sh inputs/core.jar inputs/addons.zip build/r98-stack
+          test ! -s build/r98-stack/dependency-gated-addons.txt
+          test "$(wc -l < build/r98-stack/expected-addons.txt)" -eq 45
+          test "$(wc -l < build/r98-stack/r98-active-addons.txt)" -eq 45
+          for CYCLE in first second; do
+            grep -Fq 'R98_ACTIVE_ADDONS_PASS count=45 provider=WorldEdit' "build/r98-stack/$CYCLE.normalized.log"
+            if grep -Fq 'R98_ACTIVE_ADDONS_FAIL' "build/r98-stack/$CYCLE.normalized.log"; then exit 1; fi
+          done
+          printf 'PASS: exact revision98 core and45 addon JARs, required WorldEdit provider, two boot cycles, actual enabled-state checks on both boots\n' > evidence/final-result.txt
+      - name: Preserve exact-source and server evidence
+        if: always()
+        run: |
+          cp inputs/input-provenance.json inputs/core-git.properties evidence/ || true
+          mkdir -p evidence/runtime
+          find build/r98-stack -maxdepth 1 -type f \( -name '*.log' -o -name '*.txt' \) -exec cp {} evidence/runtime/ \; 2>/dev/null || true
+          if test -f build/r98-stack/plugins/worldedit-runtime.json; then cp build/r98-stack/plugins/worldedit-runtime.json evidence/; fi
+          if test -f build/r98-stack/plugins/WorldEdit-runtime.jar; then sha256sum build/r98-stack/plugins/WorldEdit-runtime.jar > evidence/worldedit-sha256.txt; fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: r98-pinned-stack-${{ matrix.minecraft }}
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
