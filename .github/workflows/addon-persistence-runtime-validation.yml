@@ -1,0 +1,257 @@
+name: Galactifun and SlimeHUD Persistence Validation
+
+on:
+  push:
+    branches: ['work/addon-stability-audit-r96-20260930']
+    paths:
+      - '.github/workflows/addon-persistence-runtime-validation.yml'
+      - '.audit/persistence-runtime/**'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 7c8320828f7d0f98e80246f2766e7814a8a15eca
+          path: core
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Build the exact core once without depending on expiring earlier artifacts
+        working-directory: core
+        run: |
+          set -euo pipefail
+          export SOURCE_COMMIT="$(git rev-parse HEAD)"
+          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          test "$SOURCE_COMMIT" = 7c8320828f7d0f98e80246f2766e7814a8a15eca
+          mkdir -p ../core-evidence ../core-input
+          python3 scripts/verify_legacy.py . > ../core-evidence/invariants.log 2>&1
+          chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon
+          ./gradlew clean --no-daemon
+          ./gradlew build -PslimefunDeprecationReport=true --no-daemon --no-build-cache --console=plain > ../core-evidence/build.log 2>&1
+          python3 scripts/summarize_deprecations.py ../core-evidence/build.log --fail-on-warnings --require-successful-build
+          JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*sources*' ! -name '*javadoc*' -print -quit)"
+          test -s "$JAR"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+          python3 scripts/verify_release_artifact.py "$JAR" --root .
+          cp "$JAR" ../core-input/Slimefun-Legacy-Core.jar
+          printf '%s\n' "$SOURCE_COMMIT" > ../core-input/core-source.txt
+          sha256sum ../core-input/*.jar > ../core-evidence/jar-sha256.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: persistence-core-evidence
+          path: |
+            core-evidence/
+            core/build/test-results/test/TEST-*.xml
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        with:
+          name: persistence-core-input
+          path: core-input/
+          retention-days: 14
+          if-no-files-found: error
+
+  addon:
+    needs: core
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - repo: wickidcow/SF_Galactifun
+            slug: galactifun
+            generation: old
+            source: bd7311f9f300b946be604d6be74256340bfd3892
+          - repo: wickidcow/SF_Galactifun
+            slug: galactifun
+            generation: new
+            source: 82bdf5254b42a14f38c98590a8b6ebf708c5be22
+          - repo: wickidcow/SF_SlimeHUD
+            slug: slimehud
+            generation: old
+            source: 0f1bfce0723e1494ee56f744e305c61344a2dc0b
+          - repo: wickidcow/SF_SlimeHUD
+            slug: slimehud
+            generation: new
+            source: 351e69c4e9889ac386a3db099c62d66d2b6caff3
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          path: tooling
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ matrix.repo }}
+          ref: ${{ matrix.source }}
+          path: addon
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/download-artifact@v8
+        with:
+          name: persistence-core-input
+          path: core-input
+      - name: Full old/new project build and tests against the same exact core
+        env:
+          SLUG: ${{ matrix.slug }}
+          GENERATION: ${{ matrix.generation }}
+          EXPECTED_SOURCE: ${{ matrix.source }}
+        run: |
+          set -euo pipefail
+          test "$(git -C addon rev-parse HEAD)" = "$EXPECTED_SOURCE"
+          mkdir -p addon-evidence addon-input
+          CORE="$(realpath core-input/Slimefun-Legacy-Core.jar)"
+          if [[ "$SLUG" == galactifun ]]; then
+            chmod +x addon/gradlew
+            (cd addon && ./gradlew clean build -PslimefunCoreJar="$CORE" -PtargetJvm=21 --no-daemon --no-build-cache --console=plain) > addon-evidence/build.log 2>&1
+            JAR=addon/build/libs/SF_Galactifun1.0.7.jar
+          else
+            mvn -B -ntp org.apache.maven.plugins:maven-install-plugin:3.1.3:install-file -Dfile="$CORE" -DgroupId=io.github.wickidcow.validation -DartifactId=legacy-exact -Dversion=7c832082 -Dpackaging=jar -DgeneratePom=true > addon-evidence/core-install.log 2>&1
+            (cd addon && mvn -B -ntp -Dslimefun.groupId=io.github.wickidcow.validation -Dslimefun.artifactId=legacy-exact -Dslimefun.version=7c832082 clean package) > addon-evidence/build.log 2>&1
+            JAR=addon/target/SF_SlimeHUD2.0.4.jar
+          fi
+          test -s "$JAR"
+          python3 tooling/scripts/verify_addon_bytecode.py "$JAR" --expected-java 21 --report addon-evidence/bytecode.json
+          cp "$JAR" "addon-input/$SLUG-$GENERATION.jar"
+          printf '%s\n' "$EXPECTED_SOURCE" > "addon-input/$SLUG-$GENERATION.source.txt"
+          python3 - <<'PY'
+          import hashlib,json,os,shutil,xml.etree.ElementTree as ET,zipfile
+          from pathlib import Path
+          slug,generation=os.environ['SLUG'],os.environ['GENERATION']
+          jar=Path('addon-input')/f'{slug}-{generation}.jar'
+          with zipfile.ZipFile(jar) as z:
+              assert z.testzip() is None
+              assert 'plugin.yml' in z.namelist()
+              assert not any(n.startswith(('org/junit/','org/mockito/','org/mockbukkit/')) for n in z.namelist())
+          files=list(Path('addon').glob('build/test-results/test/TEST-*.xml'))+list(Path('addon').glob('target/surefire-reports/TEST-*.xml'))
+          summary={k:0 for k in ['tests','failures','errors','skipped']}
+          suites=[]
+          for p in files:
+              root=ET.parse(p).getroot()
+              for k in summary: summary[k]+=int(root.get(k,'0'))
+              suites.append(dict(name=root.get('name'),**{k:int(root.get(k,'0')) for k in summary}))
+              dest=Path('addon-evidence/tests')/p.name
+              dest.parent.mkdir(exist_ok=True);shutil.copy2(p,dest)
+          assert summary['failures']==summary['errors']==summary['skipped']==0, summary
+          if generation=='new':
+              expected=13 if slug=='galactifun' else 20
+              selected=[s for s in suites if any(k in s['name'] for k in ['StargateRegistryFileTest','PlayerSettingsFileTest','PlayerDataStoreTest'])]
+              assert sum(s['tests'] for s in selected)==expected, suites
+          source={}
+          for p in Path('addon').rglob('*'):
+              if p.is_file() and ('src' in p.parts or p.name in ['pom.xml','build.gradle.kts','AGENTS.md']) and not any(x in p.parts for x in ['.git','build','target','.gradle']):
+                  b=p.read_bytes();source[str(p.relative_to('addon'))]=hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          Path('addon-evidence/source-blobs.json').write_text(json.dumps(source,indent=2)+'\n')
+          Path('addon-evidence/results.json').write_text(json.dumps(dict(source=os.environ['EXPECTED_SOURCE'],jar=jar.name,sha256=hashlib.sha256(jar.read_bytes()).hexdigest(),summary=summary,suites=suites),indent=2)+'\n')
+          print(summary)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: persistence-${{ matrix.slug }}-${{ matrix.generation }}-evidence
+          path: addon-evidence/
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        with:
+          name: persistence-${{ matrix.slug }}-${{ matrix.generation }}-input
+          path: addon-input/
+          retention-days: 14
+          if-no-files-found: error
+
+  assemble-inputs:
+    needs: [core, addon]
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: persistence-*-input
+          merge-multiple: true
+          path: runtime-inputs
+      - name: Build the disposable Java 21 probe and record all runtime identities
+        run: |
+          set -euo pipefail
+          mkdir -p probe/classes
+          cat > probe/pom.xml <<'EOF'
+          <project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion><groupId>io.github.wickidcow.validation</groupId><artifactId>persistence-probe</artifactId><version>1</version><repositories><repository><id>papermc</id><url>https://repo.papermc.io/repository/maven-public/</url></repository></repositories><dependencies><dependency><groupId>io.papermc.paper</groupId><artifactId>paper-api</artifactId><version>1.21.11-R0.1-SNAPSHOT</version><scope>provided</scope></dependency></dependencies></project>
+          EOF
+          mvn -B -ntp -f probe/pom.xml dependency:build-classpath -Dmdep.outputFile=classpath.txt
+          javac --release 21 -cp "$(cat probe/classpath.txt)" -d probe/classes .audit/persistence-runtime/PersistenceRuntimeProbe.java
+          printf 'name: PersistenceRuntimeProbe\nversion: 1\nmain: io.github.wickidcow.validation.PersistenceRuntimeProbe\napi-version: "1.21.11"\ndepend: [Slimefun]\nsoftdepend: [Galactifun, SlimeHUD]\n' > probe/classes/plugin.yml
+          jar --create --file runtime-inputs/PersistenceRuntimeProbe.jar -C probe/classes .
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('runtime-inputs')
+          jars={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in root.glob('*.jar')}
+          assert set(jars)=={'Slimefun-Legacy-Core.jar','PersistenceRuntimeProbe.jar','galactifun-old.jar','galactifun-new.jar','slimehud-old.jar','slimehud-new.jar'},jars
+          sources={p.name:p.read_text().strip() for p in root.glob('*.txt')}
+          harness={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in Path('.audit/persistence-runtime').glob('*') if p.is_file()}
+          (root/'provenance.json').write_text(json.dumps(dict(jars=jars,sources=sources,harness=harness),indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: persistence-runtime-inputs
+          path: runtime-inputs/
+          retention-days: 14
+          if-no-files-found: error
+
+  runtime:
+    needs: assemble-inputs
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        addon: ['Galactifun', 'SlimeHUD']
+        minecraft: ['1.21.11', '26.2', '26.3']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: persistence-runtime-inputs
+          path: runtime-inputs
+      - name: Execute real producer, upgrade, restart, failed-write and corruption controls
+        run: python3 .audit/persistence-runtime/run_persistence_runtime.py --addon '${{ matrix.addon }}' --minecraft '${{ matrix.minecraft }}' --inputs runtime-inputs --output runtime-evidence
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: persistence-runtime-${{ matrix.addon }}-${{ matrix.minecraft }}
+          path: |
+            runtime-evidence/*.json
+            runtime-evidence/*.log
+            runtime-evidence/*.yml
+            runtime-evidence/*.txt
+            runtime-inputs/provenance.json
+          retention-days: 14
+          if-no-files-found: warn
