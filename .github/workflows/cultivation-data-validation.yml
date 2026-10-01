@@ -1,0 +1,139 @@
+name: Cultivation Player Data Preservation Validation
+on:
+  push:
+    branches: ['work/bundle-integration-20260930']
+    paths: ['.github/workflows/cultivation-data-validation.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: 656f569327c1d7e706cb23604dba024ddbc17c54
+          path: tools
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: wickidcow/SF_CultivationLegacy
+          ref: 4d2ad689ec70c04bfc1dfbe37c8dfd9c59a4fec0
+          path: addon
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: wickidcow/SF_CultivationLegacy
+          ref: 24b29be7f7055cf7b1975ee3a981b087dcaf72ea
+          path: old-addon
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Verify exact candidate source and core input
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,io,json,subprocess,zipfile
+          expected={
+            'src/main/java/dev/sefiraat/cultivation/managers/ConfigManager.java':'6966298af9a0a7ad4470a7eb5b35dfc89c12bf4e',
+            'src/main/java/dev/sefiraat/cultivation/managers/PlayerDataFile.java':'68ca27614ca3358e5161ce53ebc246e81a22a8db',
+            'src/test/java/dev/sefiraat/cultivation/managers/PlayerDataFileTest.java':'6eed19fb95f97d55d0bd9ed4699d11b4f01308db',
+            'pom.xml':'800ba0daa76b5b0b9ca41189efe1de7db73bf15b',
+            '.github/workflows/build.yml':'98d1e2405ab77541b53f8f79de851fa21ad3b66a',
+            'scripts/verify_player_data_safety.py':'5b1a08c9bb1e22bc80ec52be3a184112cfbd67b8'}
+          for name,sha in expected.items():
+              b=Path('addon',name).read_bytes();assert hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()==sha,name
+          root=Path('progress-inputs');root.mkdir();Path('progress-evidence').mkdir()
+          raw=subprocess.run(['gh','api','repos/wickidcow/Slimefun-Legacy/actions/artifacts/11133862255/zip'],check=True,capture_output=True,timeout=120).stdout
+          assert hashlib.sha256(raw).hexdigest()=='1c923b97938b3e6d642bfb0a3582091a9a8bb698e6c7069c9c92b0f2f939e7f1'
+          with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+              jars=[n for n in archive.namelist() if n.endswith('.jar')];assert len(jars)==1
+              (root/'core.jar').write_bytes(archive.read(jars[0]))
+          Path('progress-evidence/reviewed-blobs.json').write_text(json.dumps(expected,indent=2)+'\n')
+          PY
+      - name: Build both real addon revisions and run all candidate tests
+        run: |
+          set -euo pipefail
+          python3 addon/scripts/verify_player_data_safety.py
+          python3 tools/scripts/build_addon_against_slimefun.py old-addon progress-inputs/core.jar build/old \
+            2>&1 | tee progress-evidence/old-build.log
+          cp build/old/addon.jar progress-inputs/old.jar
+          python3 tools/scripts/build_addon_against_slimefun.py addon progress-inputs/core.jar build/new \
+            2>&1 | tee progress-evidence/new-build.log
+          (cd build/new/project && mvn -B -Dserver.api.version=1.21.11-R0.1-SNAPSHOT clean package) \
+            2>&1 | tee progress-evidence/tests.log
+          cp build/new/project/target/SF_Cultivation1.1.23.jar progress-inputs/new.jar
+          python3 tools/scripts/verify_addon_bytecode.py progress-inputs/new.jar --expected-java 21
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          path=Path('build/new/project/target/surefire-reports/TEST-dev.sefiraat.cultivation.managers.PlayerDataFileTest.xml')
+          root=ET.parse(path).getroot()
+          assert root.get('tests')=='13' and all(root.get(k)=='0' for k in ['errors','failures','skipped']),root.attrib
+          PY
+      - name: Compile the real progression API regression plugin
+        run: |
+          set -euo pipefail
+          (cd build/new/project && mvn -B dependency:build-classpath -Dmdep.outputFile=dependency-classpath.txt)
+          mkdir -p fixture-classes
+          javac --release 21 -cp "$(cat build/new/project/dependency-classpath.txt):progress-inputs/new.jar:progress-inputs/core.jar" \
+            -d fixture-classes .audit/cultivation/ProgressRuntime.java
+          printf 'name: ProgressRuntime\nversion: 1.0\nmain: io.github.wickidcow.regression.ProgressRuntime\napi-version: "1.21.11"\ndepend: [Slimefun]\nsoftdepend: [Cultivation]\n' > fixture-classes/plugin.yml
+          jar --create --file progress-inputs/ProgressRuntime.jar -C fixture-classes .
+          cp .audit/cultivation/run_progress.py progress-inputs/run_progress.py
+          sha256sum progress-inputs/*.jar > progress-inputs/input-sha256.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: cultivation-data-build-evidence
+          path: |
+            progress-evidence/
+            build/new/project/target/surefire-reports/TEST-*.xml
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cultivation-data-inputs
+          path: progress-inputs/
+          retention-days: 14
+  runtime:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11', '26.2', '26.3']
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: cultivation-data-inputs
+          path: progress-inputs
+      - name: Test each failed file and unchanged old progress on upgrade and restart
+        run: python3 progress-inputs/run_progress.py '${{ matrix.minecraft }}'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: cultivation-data-${{ matrix.minecraft }}
+          path: |
+            progress-inputs/input-sha256.txt
+            progress-runtime/results.json
+            progress-runtime/*/*.log
+            progress-runtime/*/*-exp.yml
+            progress-runtime/*/*-codex.yml
+            progress-runtime/*/plugins/Cultivation/exp.yml
+            progress-runtime/*/plugins/Cultivation/codex.yml
+            progress-runtime/*/plugins/Cultivation/config.yml
+          retention-days: 14
