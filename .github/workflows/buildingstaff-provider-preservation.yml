@@ -1,0 +1,82 @@
+name: BuildingStaff real provider preservation
+on:
+  push:
+    branches: ['work/finish-addon-drafts-20261001']
+    paths: ['.audit/BuildingStaffProviderProbe.java', '.audit/run_provider_runtime.py', '.github/workflows/buildingstaff-provider-preservation.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  provider:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+          cache-dependency-path: .audit/BuildingStaffProviderProbe.java
+      - name: Build exact reviewed addon and checksum-verified provider inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p provider-input evidence
+          git clone --filter=blob:none https://github.com/wickidcow/SF_BuildingStaff.git candidate
+          git -C candidate checkout --detach 9f017f4ca4cec5997c14ccd1e564a21b21ed16a0
+          gh release download v4.1.63 --repo wickidcow/Slimefun-Legacy --pattern Slimefun-Legacy4.1.63.jar --dir provider-input
+          echo '993b257c54efe19b58cc8f4946d4d39387f7787fe263c9f27123343159344c42  provider-input/Slimefun-Legacy4.1.63.jar' | sha256sum -c -
+          curl --fail --location --silent --show-error --retry 4 'https://github.com/pylonmc/rebar/releases/download/0.43.0-26.2/rebar-0.43.0-26.2.jar' -o provider-input/Rebar.jar
+          curl --fail --location --silent --show-error --retry 4 'https://github.com/pylonmc/pylon/releases/download/0.41.1-26.2/pylon-0.41.1-26.2.jar' -o provider-input/Pylon.jar
+          echo '1f5f935702647e8dca9844eeb8cb937170485962d00bfa2eff95f399e9867d71  provider-input/Rebar.jar' | sha256sum -c -
+          echo '960dcbf7b31cacbb4621c58e0b8834ea09841d416e30835493d4600b9b291e25  provider-input/Pylon.jar' | sha256sum -c -
+          mvn -B -ntp install:install-file -Dfile=provider-input/Rebar.jar -DgroupId=io.github.pylonmc -DartifactId=rebar -Dversion=0.43.0-26.2 -Dpackaging=jar -DgeneratePom=true
+          mvn -B -ntp install:install-file -Dfile=provider-input/Slimefun-Legacy4.1.63.jar -DgroupId=io.github.wickidcow.verified -DartifactId=Slimefun4 -Dversion=4.1.63 -Dpackaging=jar -DgeneratePom=true
+          python3 candidate/scripts/verify_custom_block_preservation.py
+          mvn -B -ntp -f candidate/pom.xml clean verify -Dslimefun.groupId=io.github.wickidcow.verified -Dslimefun.version=4.1.63 2>&1 | tee evidence/addon-build.log
+          cp candidate/target/SF_BuildingStaff1.0.35.jar provider-input/
+          cp candidate/target/surefire-reports/TEST-*.xml evidence/
+      - name: Compile the explicitly synthetic-player real-provider fixture
+        run: |
+          set -euo pipefail
+          mkdir -p probe/src/main/java/io/github/wickidcow/probe probe/src/main/resources
+          cp .audit/BuildingStaffProviderProbe.java probe/src/main/java/io/github/wickidcow/probe/
+          python3 - <<'PY'
+          from pathlib import Path
+          Path('probe/pom.xml').write_text('''<project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion><groupId>io.github.wickidcow</groupId><artifactId>BuildingStaffProviderProbe</artifactId><version>1</version><properties><maven.compiler.release>21</maven.compiler.release><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding></properties><repositories><repository><id>paper</id><url>https://repo.papermc.io/repository/maven-public/</url></repository></repositories><dependencies><dependency><groupId>io.papermc.paper</groupId><artifactId>paper-api</artifactId><version>26.2.build.129-stable</version><scope>provided</scope></dependency><dependency><groupId>io.github.wickidcow.verified</groupId><artifactId>Slimefun4</artifactId><version>4.1.63</version><scope>provided</scope></dependency><dependency><groupId>io.github.wickidcow</groupId><artifactId>probe-staff</artifactId><version>1.0.35</version><scope>provided</scope></dependency></dependencies><build><finalName>BuildingStaffProviderProbe</finalName><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.14.1</version></plugin></plugins></build></project>''')
+          Path('probe/src/main/resources/plugin.yml').write_text('name: BuildingStaffProviderProbe\nversion: "1"\nmain: io.github.wickidcow.probe.BuildingStaffProviderProbe\napi-version: "1.21.11"\ndepend: [Slimefun, BuildingStaff, Rebar, Pylon]\n')
+          PY
+          mvn -B -ntp install:install-file -Dfile=provider-input/SF_BuildingStaff1.0.35.jar -DgroupId=io.github.wickidcow -DartifactId=probe-staff -Dversion=1.0.35 -Dpackaging=jar -DgeneratePom=true
+          mvn -B -ntp -f probe/pom.xml clean package
+          cp probe/target/BuildingStaffProviderProbe.jar provider-input/
+          python3 - <<'PY'
+          import hashlib,json,pathlib,xml.etree.ElementTree as ET,zipfile,struct
+          reports=[ET.parse(p).getroot() for p in pathlib.Path('evidence').glob('TEST-*.xml')]
+          assert sum(int(r.get('tests','0')) for r in reports)==21
+          assert all(int(r.get(k,'0'))==0 for r in reports for k in ('failures','errors','skipped'))
+          with zipfile.ZipFile('provider-input/SF_BuildingStaff1.0.35.jar') as z:
+              for n in z.namelist():
+                  assert not n.startswith(('io/github/pylonmc/','org/junit/','org/mockito/','xyz/xenondevs/invui/')),n
+                  if n.endswith('.class') and not n.startswith('META-INF/versions/'):
+                      b=z.read(n);minor,major=struct.unpack('>HH',b[4:8]);assert major<=65 and minor!=65535,(n,major)
+          meta={'source':'9f017f4ca4cec5997c14ccd1e564a21b21ed16a0','jars':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in pathlib.Path('provider-input').glob('*.jar')}}
+          pathlib.Path('provider-input/inputs.json').write_text(json.dumps(meta,indent=2)+'\n')
+          PY
+      - name: Exercise provider transactions and separate-process persistence
+        run: python3 .audit/run_provider_runtime.py
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: buildingstaff-provider-evidence
+          path: |
+            evidence/
+            provider-input/
+            probe/src/
+            build/buildingstaff-provider/*.log
+            build/buildingstaff-provider/result.json
+          if-no-files-found: error
+          retention-days: 14
