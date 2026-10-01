@@ -224,6 +224,9 @@ jobs:
             git -C addon checkout --detach "$SOURCE_COMMIT"
           fi
           git -C addon rev-parse HEAD
+      - name: Install BuildingStaff optional compile-only provider API
+        if: matrix.slug == 'buildingstaff'
+        run: bash addon/scripts/install_rebar_api.sh
       - name: Compile against Paper 26.3 candidate
         if: matrix.slug != 'dracfunreborn'
         env:
