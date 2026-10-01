@@ -1,0 +1,56 @@
+name: Stage Reviewed 4.1.63 Source
+on:
+  push:
+    branches: ['work/release-4.1.63-preparation-20261001']
+    paths: ['.github/workflows/stage-reviewed-4.1.63.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 20f7c554b9b3543bc99cd9fd367f0149a784829f
+          persist-credentials: false
+      - name: Verify actual full-build reports and stage only reviewed source files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence
+          python3 - <<'PY'
+          import hashlib,io,json,subprocess,tarfile,xml.etree.ElementTree as ET,zipfile
+          from pathlib import Path
+          raw=subprocess.run(['gh','api','repos/wickidcow/Slimefun-Legacy/actions/artifacts/11171842258/zip'],check=True,capture_output=True,timeout=120).stdout
+          assert hashlib.sha256(raw).hexdigest()=='290b3ce66d5b038185f745510aa3c611cd8db10e14fd6399a737b30ba01fb4ef'
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              assert 'BUILD SUCCESSFUL' in z.read('core-build.log').decode()
+              roots=[ET.fromstring(z.read(n)) for n in z.namelist() if n.startswith('latest-tests/TEST-') and n.endswith('.xml')]
+              counts={k:sum(int(r.get(k,0)) for r in roots) for k in ['tests','failures','errors','skipped']}
+              assert counts==dict(tests=498,failures=0,errors=0,skipped=1),counts
+              names=json.loads(z.read('prepared-paths.json'));assert len(names)==len(set(names))
+              expected=z.read('prepared-tree.txt').decode().strip();assert expected=='21ac872588c676e6e0513224437da0c856ae970b'
+              entries=[]
+              with tarfile.open(fileobj=io.BytesIO(z.read('prepared-source.tar.gz'))) as archive:
+                  for name in names:
+                      assert '..' not in Path(name).parts and not name.startswith(('.audit/','.github/workflows/prepare-'))
+                      member=archive.getmember(name);assert member.isfile()
+                      data=archive.extractfile(member).read()
+                      mode='100755' if member.mode & 0o111 else '100644'
+                      entries.append(dict(path=name,mode=mode,type='blob',content=data.decode()))
+              Path('evidence/prepared-source.tar.gz').write_bytes(z.read('prepared-source.tar.gz'))
+          base=subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip()
+          assert base=='2c3e609ce462269e17ec3c5a91c1af50fb93305c'
+          response=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/trees','--input','-'],input=json.dumps(dict(base_tree=base,tree=entries)),check=True,text=True,capture_output=True)
+          result=json.loads(response.stdout);assert result['sha']==expected
+          Path('evidence/staged-tree.json').write_text(json.dumps(dict(tree=expected,parents=['20f7c554b9b3543bc99cd9fd367f0149a784829f','914aa81e74289a5729ebf8821902e08a7899bb3e'],version='4.1.63',paths=names,tests=counts,artifact_provenance_approved=False,release_approved=False,notes='Two preparation builds passed; their harness provenance did not match the temporary source checkout. Commit the reviewed tree and use normal exact-commit CI; do not publish preparation JARs.'),indent=2))
+          print('Reviewed source staged; no branch, commit or release created by this workflow.')
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: reviewed-4.1.63-source
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
