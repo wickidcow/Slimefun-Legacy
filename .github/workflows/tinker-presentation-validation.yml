@@ -1,0 +1,137 @@
+name: SlimeTinker Presentation Validation
+
+on:
+  push:
+    branches: ['work/tinker-presentation-validation']
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Retrieve exact candidate inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 36810814614 --repo wickidcow/Slimefun-Legacy --name sfl-26.3-candidate-core --dir candidate
+          gh run download 36810814614 --repo wickidcow/Slimefun-Legacy --name SF_Addons_1.21.11-26.3 --dir bundle
+          echo 'c004d5c57f73988c4c82033d6492884d6633d1e3235e7a1b84627fe7f7b3c33c  candidate/Slimefun-Legacy-candidate.jar' | sha256sum -c -
+          echo '8d32d9602dec152ef430e9cda0bf0141695ee540c7f41919211d9eb52d7fdc0f  bundle/SF_Addons_1.21.11-26.3.zip' | sha256sum -c -
+          git clone --depth 1 https://github.com/wickidcow/SF_SlimeTinkerIE2.git addon
+          git -C addon fetch --depth 1 origin 051a008d56bce6c1db40d93c7d5c3f3038421509
+          git -C addon checkout --detach 051a008d56bce6c1db40d93c7d5c3f3038421509
+      - name: Apply reviewed presentation and test-enablement changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .audit/apply_tinker_presentation.py
+      - name: Compile and run actual tests on all three API lanes
+        run: |
+          set -euo pipefail
+          for API in '1.21.11-R0.1-SNAPSHOT' '26.2.build.123-stable' '26.3-rc-3.build.1-alpha'; do
+            LANE="$(echo "$API" | tr '.-' '__')"
+            cp audit-evidence/proposed-source/pom.xml addon/pom.xml
+            python3 scripts/compile_addon_paper_26_3.py addon "$PWD/candidate/Slimefun-Legacy-candidate.jar" "$API" --report-dir "$PWD/audit-evidence/$LANE-compile"
+            (cd addon && mvn --batch-mode clean verify -DskipTests=false -Dmaven.test.skip=false) 2>&1 | tee "audit-evidence/$LANE-tests.log"
+            mkdir -p "audit-evidence/$LANE-junit"
+            cp addon/target/surefire-reports/TEST-*.xml "audit-evidence/$LANE-junit/"
+            python3 - "$LANE" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          from pathlib import Path
+          path=Path('audit-evidence')/(sys.argv[1]+'-junit')/'TEST-io.github.sefiraat.slimetinker.utils.ItemPresentationTest.xml'
+          suite=ET.parse(path).getroot()
+          assert int(suite.get('tests','0'))==18, suite.attrib
+          assert all(int(suite.get(key,'0'))==0 for key in ('failures','errors','skipped')), suite.attrib
+          print('ACTUAL_TINKER_TESTS',sys.argv[1],suite.attrib)
+          PY
+          done
+      - name: Build a native comparison probe from the exact tested helper
+        run: |
+          set -euo pipefail
+          cp addon/src/main/java/io/github/sefiraat/slimetinker/utils/ItemPresentation.java .audit/tinker-probe/src/main/java/io/github/sefiraat/slimetinker/utils/ItemPresentation.java
+          test "$(git hash-object .audit/tinker-probe/src/main/java/io/github/sefiraat/slimetinker/utils/ItemPresentation.java)" = 2578390b9361c91113dfac79b0ad773b19753598
+          mvn --batch-mode -f .audit/tinker-probe/pom.xml clean package
+          mkdir -p probe
+          cp .audit/tinker-probe/target/tinker-presentation-probe-1.0.jar probe/TinkerPresentationProbe.jar
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tinker-native-inputs
+          path: |
+            candidate/Slimefun-Legacy-candidate.jar
+            bundle/SF_Addons_1.21.11-26.3.zip
+            probe/TinkerPresentationProbe.jar
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: tinker-source-and-test-evidence
+          path: audit-evidence/
+          if-no-files-found: warn
+
+  native:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11', '26.2', '26.3']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: tinker-native-inputs
+          path: inputs
+      - name: Add only the disposable native helper probe
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          path=Path('scripts/full_stack_runtime_smoke.sh'); data=path.read_bytes()
+          assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()=='088f636aa72de8b194efa638cabb0aac6dcb9594'
+          old='cp "$SLIMEFUN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-full-stack.jar"'
+          text=data.decode(); assert text.count(old)==1
+          path.write_text(text.replace(old,old+'\ncp "$PROBE_JAR" "$WORK_DIR/plugins/TinkerPresentationProbe.jar"'))
+          PY
+      - name: Compare actual legacy and component setters on two server boots
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+        run: |
+          set -euo pipefail
+          export PROBE_JAR="$PWD/inputs/probe/TinkerPresentationProbe.jar"
+          bash scripts/full_stack_runtime_smoke.sh inputs/candidate/Slimefun-Legacy-candidate.jar inputs/bundle/SF_Addons_1.21.11-26.3.zip "build/native-tinker-${{ matrix.minecraft }}"
+          for CYCLE in first second; do
+            LOG="build/native-tinker-${{ matrix.minecraft }}/${CYCLE}.normalized.log"
+            grep -Fq 'TINKER_NATIVE_PRESENTATION_PASS comparisons=1002' "$LOG"
+            if grep -Fq 'TINKER_NATIVE_PRESENTATION_FAIL' "$LOG"; then exit 1; fi
+          done
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: tinker-native-${{ matrix.minecraft }}
+          path: |
+            build/native-tinker-${{ matrix.minecraft }}/*.console.log
+            build/native-tinker-${{ matrix.minecraft }}/*.normalized.log
+            build/native-tinker-${{ matrix.minecraft }}/runtime-build.txt
+            build/native-tinker-${{ matrix.minecraft }}/smoke-result.txt
+            build/native-tinker-${{ matrix.minecraft }}/plugins/worldedit-runtime.json
+            build/native-tinker-${{ matrix.minecraft }}/plugins/TinkerPresentationProbe/native-presentation.txt
+          if-no-files-found: warn

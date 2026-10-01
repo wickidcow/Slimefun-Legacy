@@ -1,0 +1,6 @@
+name: TinkerPresentationProbe
+version: '1.0'
+main: io.github.sefiraat.slimetinker.utils.TinkerPresentationProbe
+api-version: '1.21'
+depend: [Slimefun]
+description: Disposable native metadata conversion checks, not a maintained plugin.
