@@ -15,29 +15,8 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - name: Resolve the explicit offline fixture identity and registered node ID
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import hashlib
-          p = Path('scripts/prior-release-upgrade-probe/src/main/java/io/github/wickidcow/validation/PriorReleaseUpgradeProbe.java')
-          data = p.read_bytes()
-          assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest() == 'c975b5fc39c6105615f3cf11b871a38a122fc922'
-          text = data.decode()
-          changes = (
-              ('11111111-2222-3333-4444-555555555555','2bda0049-361f-3b4d-b1b6-f0ca8ea55afb'),
-              ('var owner = Bukkit.getOfflinePlayer(OWNER);','var owner = Bukkit.getOfflinePlayer("LegacyFixture");\n        require(OWNER.equals(owner.getUniqueId()), "Offline fixture UUID did not match its name");'),
-              ('private static final String BLOCK_ID = "CARGO_INPUT_NODE";','private static final String BLOCK_ID = "CARGO_NODE_INPUT";'),
-          )
-          for before, after in changes:
-              assert text.count(before) == 1, before
-              text = text.replace(before, after)
-          p.write_text(text)
-          p = Path('scripts/run_prior_release_upgrade.py')
-          text = p.read_text()
-          assert text.count('11111111-2222-3333-4444-555555555555') == 1
-          p.write_text(text.replace('11111111-2222-3333-4444-555555555555','2bda0049-361f-3b4d-b1b6-f0ca8ea55afb'))
-          PY
+      - name: Prepare the hash-checked disposable player-item fixture
+        run: python3 .audit/prepare_prior_release_probe.py
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -50,15 +29,13 @@ jobs:
           curl --fail --location --silent --show-error 'https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.61/Slimefun-Legacy4.1.61.jar' -o producer/Slimefun4.1.61.jar
           echo '329e22688557fbd0e0d51dba02fdc1e2e8d9f363774b29dafb0a502f41d6024f  producer/Slimefun4.1.61.jar' | sha256sum -c -
       - name: Compile probe against the released core and floor API
-        run: |
-          mvn -B -f scripts/prior-release-upgrade-probe/pom.xml package -Dcore.jar="$PWD/producer/Slimefun4.1.61.jar"
+        run: mvn -B -f scripts/prior-release-upgrade-probe/pom.xml package -Dcore.jar="$PWD/producer/Slimefun4.1.61.jar"
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
       - name: Generate storage with 4.1.61 and verify its first clean restart
-        run: |
-          python3 scripts/run_prior_release_upgrade.py produce --core producer/Slimefun4.1.61.jar --probe scripts/prior-release-upgrade-probe/target/PriorReleaseUpgradeProbe-1.0.0.jar
+        run: python3 scripts/run_prior_release_upgrade.py produce --core producer/Slimefun4.1.61.jar --probe scripts/prior-release-upgrade-probe/target/PriorReleaseUpgradeProbe-1.0.0.jar
       - name: Freeze the stopped generated world and databases
         run: |
           mkdir -p fixture
@@ -119,8 +96,7 @@ jobs:
           sha256sum -c fixture/SHA256SUMS.txt
           tar -xzf fixture/prior-release-world.tar.gz -C build/prior-release-fixture
       - name: Upgrade, compare original items, resave and verify another process restart
-        run: |
-          python3 scripts/run_prior_release_upgrade.py upgrade --core candidate/Slimefun-Legacy-full-stack.jar --probe fixture/PriorReleaseUpgradeProbe-1.0.0.jar --software '${{ matrix.software }}' --minecraft '${{ matrix.minecraft }}'
+        run: python3 scripts/run_prior_release_upgrade.py upgrade --core candidate/Slimefun-Legacy-full-stack.jar --probe fixture/PriorReleaseUpgradeProbe-1.0.0.jar --software '${{ matrix.software }}' --minecraft '${{ matrix.minecraft }}'
       - uses: actions/upload-artifact@v7
         if: always()
         with:
