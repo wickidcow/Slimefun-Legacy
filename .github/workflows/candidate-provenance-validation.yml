@@ -53,7 +53,7 @@ jobs:
           python3 ../tooling/.audit/fix_candidate_provenance.py
           git diff --check
           git diff --stat
-      - name: Verify the retained source guards and14 independent regression controls
+      - name: Verify the retained source guards and sixteen independent regression controls
         working-directory: candidate
         run: |
           set -euo pipefail
@@ -65,7 +65,7 @@ jobs:
           tokens=[
               'export SOURCE_COMMIT="$(git rev-parse HEAD)"',
               'export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"',
-              'test "$SOURCE_COMMIT" = "$GITHUB_SHA"',
+              'test "$SOURCE_COMMIT" = "$EXPECTED_SOURCE"',
               '--no-build-cache --no-configuration-cache',
               'python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21',
               'python3 scripts/verify_release_artifact.py "$JAR" --root .']
@@ -87,12 +87,16 @@ jobs:
                   result=subprocess.run(['python3','scripts/verify_phase1l_release_artifact.py','.'],text=True,capture_output=True)
                   assert result.returncode==1 and 'source identity must be set before Gradle' in result.stdout,result.stdout
                   rows.append(dict(workflow=name,mutation='source export after Gradle',result='rejected'))
+                  path.write_text(original.replace('EXPECTED_SOURCE:','UNUSED_SOURCE:'))
+                  result=subprocess.run(['python3','scripts/verify_phase1l_release_artifact.py','.'],text=True,capture_output=True)
+                  assert result.returncode==1 and 'expected source does not match checkout event' in result.stdout,result.stdout
+                  rows.append(dict(workflow=name,mutation='missing event-aware expected-source declaration',result='rejected'))
               finally:path.write_text(original)
-          assert len(rows)==14
+          assert len(rows)==16
           result=subprocess.run(['python3','scripts/verify_phase1l_release_artifact.py','.'],text=True,capture_output=True)
           assert result.returncode==0,result.stdout
           Path('../evidence/source-negative-controls.json').write_text(json.dumps(rows,indent=2)+'\n')
-          print('Both restored workflow guards pass; all14 unsafe regression controls are rejected.')
+          print('Both restored workflow guards pass; all16 unsafe regression controls are rejected.')
           PY
       - name: Build the same production source and prove only git.properties changed
         working-directory: candidate
