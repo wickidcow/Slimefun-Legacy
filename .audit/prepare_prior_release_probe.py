@@ -12,6 +12,8 @@ changes = (
     ('var owner = Bukkit.getOfflinePlayer(OWNER);', 'var owner = Bukkit.getOfflinePlayer("LegacyFixture");\n        require(OWNER.equals(owner.getUniqueId()), "Offline fixture UUID did not match its name");'),
     ('private static final String BLOCK_ID = "CARGO_INPUT_NODE";', 'private static final String BLOCK_ID = "CARGO_NODE_INPUT";'),
     ('ItemStack item = definition.getItem().clone();', 'ItemStack item = ItemStack.deserializeBytes(definition.getItem().serializeAsBytes());\n            require(IDS[i].equals(Slimefun.getItemDataService().getItemData(item).orElse(null)),\n                    "Native player-item conversion lost its registered identity");'),
+    ('        blockSlots = new ArrayList<>();\n        for (int slot = 0; slot < block.getBlockMenu().toInventory().getSize() && blockSlots.size() < items.size(); slot++) {\n            if (!block.getBlockMenu().getPreset().getPresetSlots().contains(slot)) blockSlots.add(slot);\n        }',
+     '        // These are actual CargoInputNode filter slots, not its dynamic UI controls.\n        blockSlots = List.of(19, 20, 21, 28, 29);\n        for (int slot : blockSlots) {\n            require(slot < block.getBlockMenu().toInventory().getSize()\n                    && !block.getBlockMenu().getPreset().getPresetSlots().contains(slot)\n                    && block.getBlockMenu().getItemInSlot(slot) == null,\n                    "Expected an empty real cargo filter slot: " + slot);\n        }'),
 )
 for before, after in changes:
     assert text.count(before) == 1, before
