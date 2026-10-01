@@ -122,6 +122,7 @@ def main() -> int:
         "test_verify_addon_bytecode.py",
         "test_proxy_identity_capture.py",
         "test_download_candidate_bundle.py",
+        "test_canonical_core_build_dependency.py",
         "verify_chatcolor_compatibility.py",
         "verify_curios_adventure_formatting.py",
         "verify_presentation_api_modernization.py",

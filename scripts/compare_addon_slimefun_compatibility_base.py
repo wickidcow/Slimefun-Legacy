@@ -238,7 +238,8 @@ def isCoreSlimefunDependency(dependency) {
     def artifact = (dependency.name ?: '').toLowerCase()
     def coreArtifact = artifact == 'slimefun' || artifact == 'slimefun4'
     def coreGroup = group.contains('slimefun') || group.contains('thebusybiscuit')
-    return coreArtifact && coreGroup
+    def canonicalLegacy = group == 'com.github.wickidcow' && artifact == 'slimefun-legacy'
+    return canonicalLegacy || (coreArtifact && coreGroup)
 }
 allprojects {
     afterEvaluate { p ->

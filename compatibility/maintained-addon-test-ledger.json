@@ -1,0 +1,860 @@
+{
+  "schema": 1,
+  "bundle_revision": 96,
+  "core_parent": "ed0618b442cf0b74c62f2d3990c32727ed376e78",
+  "tested_core_sha256": "ffbdfcbf0eab274eaaf56916f8ddc3f12347e76a7b07fa4b8d8fe25eabac7ace",
+  "summary": {
+    "addons": 45,
+    "full_build_passed": 45,
+    "reported_test_entries": 227,
+    "addons_with_reported_tests": 12,
+    "addons_without_reported_tests": 33,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0
+  },
+  "limitations": [
+    "Results consolidate multiple exact-source runs; not one single all-green workflow run.",
+    "The final candidate bundle and full stack must independently validate this manifest.",
+    "No tests reported means no automated test coverage, not complete gameplay proof.",
+    "MobDrops tests use their declared Paper26.2/MockBukkit4.116.1 environment; baseline compile is separate.",
+    "FinalTECH and final Crystamae builds used verified changed-source blobs before clean promotion.",
+    "Generated old-addon storage fixtures are not captured historical player worlds.",
+    "Deprecated APIs and broader machine/performance audits remain."
+  ],
+  "addons": [
+    {
+      "repository": "wickidcow/SF_AlchimiaVitae",
+      "slug": "alchimiavitae",
+      "source_commit": "f858ab053acb03599c9d30c7692f550b6c56f02d",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_BetterChests",
+      "slug": "betterchests",
+      "source_commit": "96134b3ae294a8c086f467bbe8a09f842aac8949",
+      "full_build_result": "PASS",
+      "reported_test_entries": 10,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "Existing automated test entries"
+    },
+    {
+      "repository": "wickidcow/SF_BetterFarming",
+      "slug": "betterfarming",
+      "source_commit": "ba363e64d6401c89e3bd9c765bac273e0fa8b40a",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_BuildingStaff",
+      "slug": "buildingstaff",
+      "source_commit": "d9def66dd07c1e7464843a723fc997af74beb673",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_CultivationLegacy",
+      "slug": "cultivationlegacy",
+      "source_commit": "4d2ad689ec70c04bfc1dfbe37c8dfd9c59a4fec0",
+      "full_build_result": "PASS",
+      "reported_test_entries": 13,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "Existing automated test entries"
+    },
+    {
+      "repository": "wickidcow/SF_CrystamaeHistoria",
+      "slug": "crystamaehistoria",
+      "source_commit": "0ab1916025ffcdca48e36623b5a1752a4757ebf5",
+      "full_build_result": "PASS",
+      "reported_test_entries": 13,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/SF_CrystamaeHistoria",
+        "run_id": 36802165446,
+        "artifact_id": 11135822494,
+        "sha256": "80c4f498bbf7c45afac83117d37e51383a96faaa2d1d411d452b920810d5fd3e",
+        "kind": "Full exact-core build and XML; promoted changed-source blobs verified",
+        "source_blobs": {
+          "src/main/java/io/github/sefiraat/crystamaehistoria/CrystamaeHistoria.java": "eadebd03ba9b1410d4525ae75e1e53759a7a72cb",
+          "scripts/verify_persisted_data_safety.py": "82e7858d4b7f5407d9b8766f7a3894ff545f0305"
+        }
+      },
+      "setup_notes": [],
+      "coverage": "Existing automated test entries"
+    },
+    {
+      "repository": "wickidcow/SF_DankTech2",
+      "slug": "danktech2",
+      "source_commit": "1566348da2bb319aa178dd331e2ca2c4ca3d26ce",
+      "full_build_result": "PASS",
+      "reported_test_entries": 12,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "Existing automated test entries"
+    },
+    {
+      "repository": "wickidcow/SF_DracFun2",
+      "slug": "dracfunreborn",
+      "source_commit": "080aad927cb0f24d3c3a294a2683c35528ddb032",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36802625180,
+        "artifact_id": 11136448295,
+        "sha256": "78e79b5f3dc05cb11266d4e53a84b847ed995ce4f289ddcfba0de963e0d995b2",
+        "kind": "Full build plus individually checked XML"
+      },
+      "setup_notes": [
+        "Use declared Gradle9.4.1 for the Java25 compiler instead of incompatible global Gradle8."
+      ],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_DynaTech",
+      "slug": "dynatech",
+      "source_commit": "8dbc4a4967b943cfddd1d0677713a932a8ce45ba",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_ElectricSpawners",
+      "slug": "electricspawners",
+      "source_commit": "60d40ed661a8cb25d6bf77c73f188cb5651c9ca5",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_ExoticGarden",
+      "slug": "exoticgarden",
+      "source_commit": "05dc15a2bd5137369ebdf320be4219c1e3bb6734",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_ExtraHeads",
+      "slug": "extraheads",
+      "source_commit": "a6fc482c66a0cdebb02c3819cfcba054d0eeb131",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_FastMachines",
+      "slug": "fastmachines",
+      "source_commit": "695ac4e5a8a0b3dcfc114c97b6a4f43c6254d1b6",
+      "full_build_result": "PASS",
+      "reported_test_entries": 4,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "Existing automated test entries"
+    },
+    {
+      "repository": "wickidcow/SF_FinalTECH",
+      "slug": "finaltech",
+      "source_commit": "7392ee61f4af3cbd779ee3c5267131d721311b67",
+      "full_build_result": "PASS",
+      "reported_test_entries": 34,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/SF_FinalTECH",
+        "run_id": 36801120276,
+        "artifact_id": 11135622265,
+        "sha256": "eb6e48c6235f3c24eedbc8d5df1a4f0ee074a9a614bce2ca4affb4da7a339568",
+        "kind": "Full exact-core build and XML; promoted changed-source blobs verified",
+        "source_blobs": {
+          "src/main/java/io/taraxacum/libs/plugin/util/ComponentLore.java": "2704fd58844d60782ee440c25b27719966355655",
+          "src/main/java/io/taraxacum/libs/plugin/util/ItemStackUtil.java": "cd0752cff3a9d728045bd3ee5a117435c8cbf9be",
+          "src/test/java/io/taraxacum/libs/plugin/util/ComponentLoreTest.java": "dcf7f0299431bb61b18686e980adccd6535d65f8"
+        }
+      },
+      "setup_notes": [],
+      "coverage": "Existing automated test entries"
+    },
+    {
+      "repository": "wickidcow/SF_FlowerPower",
+      "slug": "flowerpower",
+      "source_commit": "65f441e6a540d12193fe792ec46d03961f2690ad",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_FluffyMachines",
+      "slug": "fluffymachines",
+      "source_commit": "a44d7e4845430a00627739a06fdb3df70baa47e1",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_FNAmplifications",
+      "slug": "fnamplifications",
+      "source_commit": "9557e2b76253ee35c7d7049c4631527d420b902c",
+      "full_build_result": "PASS",
+      "reported_test_entries": 1,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "Existing automated test entries"
+    },
+    {
+      "repository": "wickidcow/SF_FoxyMachines",
+      "slug": "foxymachines",
+      "source_commit": "4222cd4a6aaaface032bd5f7fc20cbb5b927092f",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_Galactifun",
+      "slug": "galactifun",
+      "source_commit": "bd7311f9f300b946be604d6be74256340bfd3892",
+      "full_build_result": "PASS",
+      "reported_test_entries": 12,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "Existing automated test entries"
+    },
+    {
+      "repository": "wickidcow/SF_Gastronomicon",
+      "slug": "gastronomicon",
+      "source_commit": "9a30f11ac7dcde5b2d0d04523ca84d2e28891575",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_GeneticChickEngineering",
+      "slug": "geneticchickengineering",
+      "source_commit": "4e80814601ae9ff0b470e4ec2e4e1eb8e93fe3ba",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_HotbarPets",
+      "slug": "hotbarpets",
+      "source_commit": "1434e5f6dccb2b15812626d17435e74982bf7229",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_IDreamOfEasy",
+      "slug": "idreamofeasy",
+      "source_commit": "303b09694f577dc960052e7ae962515e043c27e5",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_InfinityExpansion2",
+      "slug": "infinityexpansion2",
+      "source_commit": "41318f5930b9af12059bd85a7057db7a05aa0691",
+      "full_build_result": "PASS",
+      "reported_test_entries": 18,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36802625180,
+        "artifact_id": 11135473622,
+        "sha256": "c974c6d8a506ca7e4febb3ed9e7bb94f624f61144d48060acc9a6b29ae6f1a0b",
+        "kind": "Full build plus individually checked XML"
+      },
+      "setup_notes": [],
+      "coverage": "Existing automated test entries"
+    },
+    {
+      "repository": "wickidcow/SF_LiteXpansion",
+      "slug": "litexpansion",
+      "source_commit": "a2595c1c6d5842d699e5803de846bf36e2246cf2",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_LuckyBlocks",
+      "slug": "luckyblocks",
+      "source_commit": "5ed11f1bf31efee8ca4b4e2fb5c1bc10d9483cc0",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_JustEnoughGuide",
+      "slug": "justenoughguide",
+      "source_commit": "1b0e8f7cea66d5208cb412ffaafa1bdb3d0057b2",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_MagicExpansion",
+      "slug": "magicexpansion",
+      "source_commit": "760a8f9aff48ececff434f6ef5c2175f9e118af7",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36803033374,
+        "artifact_id": 11136900056,
+        "sha256": "6b90259ba61f31c41b317de103c6fb99137554a64f5069186d9fe712e5d2f0e0",
+        "kind": "Full build plus individually checked XML"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_MilitaryArsenal",
+      "slug": "militaryarsenal",
+      "source_commit": "3b01f9df260406770190eb942da04fdf420d3e2e",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36803033374,
+        "artifact_id": 11136098280,
+        "sha256": "f81fb0e36c7333e11f48651298244fd2754e803e7c78fa939f877274535e4245",
+        "kind": "Full build plus individually checked XML"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_MobCapturer",
+      "slug": "mobcapturer",
+      "source_commit": "f884ac5cb8cd4624b28c427e445ef06d6025c065",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_MobDrops",
+      "slug": "mobdrops",
+      "source_commit": "999a9e88d3770b092f1f898c409d220e4615bfcd",
+      "full_build_result": "PASS",
+      "reported_test_entries": 8,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36803033374,
+        "artifact_id": 11136083439,
+        "sha256": "b328666267b37027669acdd78a5dd14ad4ca882a5afb71c61de7cc2c8a26bf5e",
+        "kind": "Full build plus individually checked XML"
+      },
+      "setup_notes": [
+        "Use the declared Paper26.2 test API; retain original MockBukkit4.116.1 and all test assertions. Separate baseline compile is retained."
+      ],
+      "coverage": "Existing automated test entries"
+    },
+    {
+      "repository": "wickidcow/SF_NetworksExp",
+      "slug": "networksexp",
+      "source_commit": "5bc81686aa8e98275872d18e0ed39f83a3667c7c",
+      "full_build_result": "PASS",
+      "reported_test_entries": 81,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36802625180,
+        "artifact_id": 11136600886,
+        "sha256": "8a5c4128abb722bfe4be3b3ee632d0a2c2ae9792ea3e208e7d5f07e8f709835d",
+        "kind": "Full build plus individually checked XML"
+      },
+      "setup_notes": [],
+      "coverage": "Existing automated test entries"
+    },
+    {
+      "repository": "wickidcow/SF_RelicsOfCthonia",
+      "slug": "relicsofcthonia",
+      "source_commit": "8fabd949d68ba0385a9de7050ce3a82ddf3b4425",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_RykenSlimeCustomizer",
+      "slug": "rykenslimecustomizer",
+      "source_commit": "6b165f9efafad8e016e80cb3b146127c6314d6c6",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36803033374,
+        "artifact_id": 11136478789,
+        "sha256": "f8b97270c1c88d264bc43ed57e056a6e26fd6480601dbbb9536d6aca153812c5",
+        "kind": "Full build plus individually checked XML"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_SlimeEasy",
+      "slug": "slimeeasy",
+      "source_commit": "913a609c10871afb67c57f0d2be75a77e13d1d36",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_SlimefunAdvancements",
+      "slug": "slimefunadvancements",
+      "source_commit": "f743082a18b1bbee1c1283145731996508e4a99a",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_SlimefunWarfare",
+      "slug": "slimefunwarfare",
+      "source_commit": "8984425c56d12ec11ca9ae7d5a084a97b0f990d2",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_SlimeGlue",
+      "slug": "slimeglue",
+      "source_commit": "b15da0fa38befcccf58271177c7477dc664c09f7",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_SlimeHUD",
+      "slug": "slimehud",
+      "source_commit": "0f1bfce0723e1494ee56f744e305c61344a2dc0b",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_SlimeTinkerIE2",
+      "slug": "slimetinkerie2",
+      "source_commit": "051a008d56bce6c1db40d93c7d5c3f3038421509",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_SlimyTreeTaps",
+      "slug": "slimytreetaps",
+      "source_commit": "ac1680260503ae7ba8070797069923f983d080c6",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_SMG",
+      "slug": "smg",
+      "source_commit": "b0579092ed81b643c778357cb7890a69643907e2",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_SoulJars",
+      "slug": "souljars",
+      "source_commit": "43121c07131e9b2baf4f1b6672fa03cdd3dfe196",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    },
+    {
+      "repository": "wickidcow/SF_Supreme",
+      "slug": "supreme",
+      "source_commit": "d315b7ee3e495e215ddf22eb4686d8a088c25f4f",
+      "full_build_result": "PASS",
+      "reported_test_entries": 21,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36802625180,
+        "artifact_id": 11136104481,
+        "sha256": "01b4e0f9487be3038a6f3a7fe1bfc0f430bcb9271d325d7974ec3282f1447556",
+        "kind": "Full build plus individually checked XML"
+      },
+      "setup_notes": [],
+      "coverage": "Existing automated test entries"
+    },
+    {
+      "repository": "wickidcow/WorldEditSlimefun",
+      "slug": "worldeditslimefun",
+      "source_commit": "c1d4d98d4a2796debb9d01055a5011d793f69aea",
+      "full_build_result": "PASS",
+      "reported_test_entries": 0,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "evidence": {
+        "repository": "wickidcow/Slimefun-Legacy",
+        "run_id": 36800704863,
+        "artifact_id": 11135721640,
+        "kind": "Full project build/test audit summary"
+      },
+      "setup_notes": [],
+      "coverage": "No automated test entries reported; not gameplay certification"
+    }
+  ]
+}
