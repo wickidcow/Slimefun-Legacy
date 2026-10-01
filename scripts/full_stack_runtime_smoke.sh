@@ -6,6 +6,7 @@ ADDON_BUNDLE="${2:?Usage: full_stack_runtime_smoke.sh <slimefun-jar> <addon-bund
 WORK_DIR="${3:-build/full-stack-runtime-smoke}"
 MC_VERSION="${SERVER_MINECRAFT_VERSION:-26.3}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$REPO_ROOT/scripts/runtime_download.sh"
 EXPECTED_SLIMEFUN_VERSION="${SLIMEFUN_SMOKE_VERSION:-$(sed -n 's/^projectVersion=//p' "$REPO_ROOT/gradle.properties" | head -n 1 | tr -d '\r')}"
 USER_AGENT="${SERVER_DOWNLOAD_USER_AGENT:-Slimefun-Legacy-Full-Stack/${EXPECTED_SLIMEFUN_VERSION} (https://github.com/wickidcow/Slimefun-Legacy)}"
 STARTUP_TIMEOUT_SECONDS="${SERVER_SMOKE_STARTUP_TIMEOUT:-420}"
@@ -182,7 +183,7 @@ motd=Slimefun Legacy full-stack runtime smoke
 PROPERTIES
 
 BUILDS_URL="https://fill.papermc.io/v3/projects/paper/versions/${MC_VERSION}/builds"
-BUILDS_RESPONSE="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "$BUILDS_URL")"
+BUILDS_RESPONSE="$(runtime_download "$BUILDS_URL")"
 if jq -e '.ok == false' >/dev/null 2>&1 <<<"$BUILDS_RESPONSE"; then
     jq -r '.message // "Paper downloads service returned an unknown error"' <<<"$BUILDS_RESPONSE" >&2
     exit 1
@@ -202,7 +203,7 @@ if [[ -z "$SERVER_URL" || -z "$SERVER_BUILD" ]]; then
     exit 1
 fi
 
-curl --fail-with-body -L -sS -H "User-Agent: ${USER_AGENT}" -o "$WORK_DIR/server.jar" "$SERVER_URL"
+runtime_download "$SERVER_URL" "$WORK_DIR/server.jar"
 MANIFEST_ADDON_COUNT=$(( $(wc -l < "$WORK_DIR/expected-addons.txt") + $(wc -l < "$WORK_DIR/dependency-gated-addons.txt") ))
 printf 'Minecraft: %s\nPaper build: %s\nChannel: %s\nManifest addons: %s\nRequired-enable addons: %s\nDependency-gated addons: %s\n' \
     "$MC_VERSION" "$SERVER_BUILD" "$SERVER_CHANNEL" "$MANIFEST_ADDON_COUNT" \

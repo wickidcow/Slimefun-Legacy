@@ -7,6 +7,7 @@ RUNTIME_PLUGIN="${3:?Usage: addon_runtime_smoke.sh <slimefun-jar> <addon-jar> <r
 WORK_DIR="${4:-build/addon-runtime-smoke}"
 MC_VERSION="${PAPER_MINECRAFT_VERSION:-26.2}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$REPO_ROOT/scripts/runtime_download.sh"
 EXPECTED_SLIMEFUN_VERSION="${SLIMEFUN_SMOKE_VERSION:-$(sed -n 's/^projectVersion=//p' "$REPO_ROOT/gradle.properties" | head -n 1 | tr -d '\r')}"
 USER_AGENT="${PAPER_DOWNLOAD_USER_AGENT:-Slimefun-Legacy-CI/${EXPECTED_SLIMEFUN_VERSION} (https://github.com/wickidcow/Slimefun-Legacy)}"
 STARTUP_TIMEOUT_SECONDS="${PAPER_SMOKE_STARTUP_TIMEOUT:-240}"
@@ -51,7 +52,7 @@ motd=Slimefun Legacy addon runtime smoke
 PROPERTIES
 
 BUILDS_URL="https://fill.papermc.io/v3/projects/paper/versions/${MC_VERSION}/builds"
-BUILDS_RESPONSE="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "$BUILDS_URL")"
+BUILDS_RESPONSE="$(runtime_download "$BUILDS_URL")"
 if jq -e '.ok == false' >/dev/null 2>&1 <<<"$BUILDS_RESPONSE"; then
     jq -r '.message // "Paper downloads service returned an unknown error"' <<<"$BUILDS_RESPONSE" >&2
     exit 1
@@ -66,7 +67,7 @@ fi
 
 printf 'Minecraft: %s\nPaper stable build: %s\nDownload: %s\nAddon: %s\n' \
     "$MC_VERSION" "$PAPER_BUILD" "$PAPER_URL" "$RUNTIME_PLUGIN" > "$WORK_DIR/paper-build.txt"
-curl --fail-with-body -L -sS -H "User-Agent: ${USER_AGENT}" -o "$WORK_DIR/paper.jar" "$PAPER_URL"
+runtime_download "$PAPER_URL" "$WORK_DIR/paper.jar"
 test -s "$WORK_DIR/paper.jar"
 
 normalize_log() {

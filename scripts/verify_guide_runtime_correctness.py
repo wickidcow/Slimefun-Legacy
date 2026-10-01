@@ -165,6 +165,21 @@ def main() -> int:
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/SurvivalSlimefunGuide.java",
     )
+    require(classic, "else if (isVisibleInMainMenu(group, p))", "standard-guide addon folder visibility")
+    require(
+        method_body(classic, "isVisibleInMainMenu"),
+        "group.isVisible(player) && !group.isHidden(player)",
+        "legacy addon hiding hook without bypassing normal visibility",
+    )
+    cheat_folders = read(
+        root,
+        "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/CheatAddonItemGroup.java",
+    )
+    require(
+        cheat_folders,
+        "SurvivalSlimefunGuide.isVisibleInMainMenu(group, player)",
+        "cheat addon-folder visibility compatibility",
+    )
     enhanced = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/enhanced/EnhancedSurvivalSlimefunGuide.java",

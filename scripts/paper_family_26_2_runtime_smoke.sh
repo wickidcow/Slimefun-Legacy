@@ -6,6 +6,7 @@ WORK_DIR="${2:-build/paper-family-26.2-runtime-smoke}"
 SOFTWARE="${SERVER_SOFTWARE:-purpur}"
 MC_VERSION="${SERVER_MINECRAFT_VERSION:-26.2}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$REPO_ROOT/scripts/runtime_download.sh"
 EXPECTED_PLUGIN_VERSION="${SLIMEFUN_SMOKE_VERSION:-$(sed -n 's/^projectVersion=//p' "$REPO_ROOT/gradle.properties" | head -n 1 | tr -d '\r')}"
 USER_AGENT="${SERVER_DOWNLOAD_USER_AGENT:-Slimefun-Legacy-CI/${EXPECTED_PLUGIN_VERSION} (https://github.com/wickidcow/Slimefun-Legacy)}"
 STARTUP_TIMEOUT_SECONDS="${SERVER_SMOKE_STARTUP_TIMEOUT:-240}"
@@ -66,7 +67,7 @@ SERVER_CHANNEL=""
 
 if [[ "$SOFTWARE" == "purpur" ]]; then
     PURPUR_META_URL="https://api.purpurmc.org/v2/purpur/${MC_VERSION}"
-    PURPUR_META="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "$PURPUR_META_URL")"
+    PURPUR_META="$(runtime_download "$PURPUR_META_URL")"
     SERVER_BUILD="$(jq -r '.builds.latest // empty' <<<"$PURPUR_META")"
     if [[ -z "$SERVER_BUILD" ]]; then
         echo "Purpur downloads service did not report a latest build for Minecraft ${MC_VERSION}." >&2
@@ -76,7 +77,7 @@ if [[ "$SOFTWARE" == "purpur" ]]; then
     SERVER_CHANNEL="latest"
 elif [[ "$SOFTWARE" == "leaf" ]]; then
     LEAF_VERSION_URL="https://api.leafmc.one/v2/projects/leaf/versions/${MC_VERSION}"
-    LEAF_VERSION="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "$LEAF_VERSION_URL")"
+    LEAF_VERSION="$(runtime_download "$LEAF_VERSION_URL")"
     SERVER_BUILD="$(jq -r '(.builds // []) | max // empty' <<<"$LEAF_VERSION")"
     if [[ -z "$SERVER_BUILD" ]]; then
         echo "Leaf downloads service did not report a build for Minecraft ${MC_VERSION}." >&2
@@ -84,7 +85,7 @@ elif [[ "$SOFTWARE" == "leaf" ]]; then
     fi
 
     LEAF_BUILD_URL="https://api.leafmc.one/v2/projects/leaf/versions/${MC_VERSION}/builds/${SERVER_BUILD}"
-    LEAF_BUILD="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "$LEAF_BUILD_URL")"
+    LEAF_BUILD="$(runtime_download "$LEAF_BUILD_URL")"
     LEAF_FILENAME="$(jq -r '.downloads.application.name // ([.downloads[]? | .name] | first) // empty' <<<"$LEAF_BUILD")"
     SERVER_CHANNEL="$(jq -r '.channel // "unknown"' <<<"$LEAF_BUILD")"
     if [[ -z "$LEAF_FILENAME" ]]; then
@@ -94,7 +95,7 @@ elif [[ "$SOFTWARE" == "leaf" ]]; then
     SERVER_URL="https://api.leafmc.one/v2/projects/leaf/versions/${MC_VERSION}/builds/${SERVER_BUILD}/downloads/${LEAF_FILENAME}"
 else
     BUILDS_URL="https://fill.papermc.io/v3/projects/folia/versions/${MC_VERSION}/builds"
-    BUILDS_RESPONSE="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "$BUILDS_URL")"
+    BUILDS_RESPONSE="$(runtime_download "$BUILDS_URL")"
 
     if jq -e '.ok == false' >/dev/null 2>&1 <<<"$BUILDS_RESPONSE"; then
         jq -r '.message // "PaperMC downloads service returned an unknown error"' <<<"$BUILDS_RESPONSE" >&2
@@ -114,7 +115,7 @@ printf 'Software: %s\nMinecraft: %s\nBuild: %s\nChannel: %s\nDownload: %s\nJava:
     "$SOFTWARE_NAME" "$MC_VERSION" "$SERVER_BUILD" "$SERVER_CHANNEL" "$SERVER_URL" "$(java -version 2>&1 | head -n 1)" \
     > "$WORK_DIR/runtime-build.txt"
 
-curl --fail-with-body -L -sS -H "User-Agent: ${USER_AGENT}" -o "$WORK_DIR/server.jar" "$SERVER_URL"
+runtime_download "$SERVER_URL" "$WORK_DIR/server.jar"
 test -s "$WORK_DIR/server.jar"
 
 stop_process() {

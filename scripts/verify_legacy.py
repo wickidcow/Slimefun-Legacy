@@ -54,6 +54,7 @@ def main() -> int:
         return result
 
     scripts = (
+        "test_runtime_download.py",
         "verify_english.py",
         "verify_localization_keys.py",
         "verify_chunk_load_threading.py",

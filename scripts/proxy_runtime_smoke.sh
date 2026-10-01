@@ -6,6 +6,7 @@ PROXY_KIND="${2:?Usage: proxy_runtime_smoke.sh <slimefun-jar> <velocity|waterfal
 WORK_DIR="${3:-build/proxy-runtime-smoke-${PROXY_KIND}}"
 MC_VERSION="${SERVER_MINECRAFT_VERSION:-26.2}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$REPO_ROOT/scripts/runtime_download.sh"
 if [[ "$WORK_DIR" != /* ]]; then
     WORK_DIR="$REPO_ROOT/$WORK_DIR"
 fi
@@ -116,7 +117,7 @@ trap cleanup EXIT
 download_paper() {
     local builds_url="https://fill.papermc.io/v3/projects/paper/versions/${MC_VERSION}/builds"
     local response
-    response="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "$builds_url")"
+    response="$(runtime_download "$builds_url")"
     if jq -e '.ok == false' >/dev/null 2>&1 <<<"$response"; then
         jq -r '.message // "Paper downloads service returned an unknown error"' <<<"$response" >&2
         return 1
@@ -137,7 +138,7 @@ download_paper() {
         return 1
     fi
 
-    curl --fail-with-body -L -sS -H "User-Agent: ${USER_AGENT}" -o "$BACKEND_DIR/paper.jar" "$PAPER_URL"
+    runtime_download "$PAPER_URL" "$BACKEND_DIR/paper.jar"
     test -s "$BACKEND_DIR/paper.jar"
 }
 
@@ -233,13 +234,13 @@ PY
 
 download_velocity() {
     local project_json version builds
-    project_json="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" https://fill.papermc.io/v3/projects/velocity)"
+    project_json="$(runtime_download https://fill.papermc.io/v3/projects/velocity)"
     version="$(jq -r '.versions | to_entries[].value[] | select(contains("SNAPSHOT") | not)' <<<"$project_json" | head -n 1)"
     if [[ -z "$version" || "$version" == "null" ]]; then
         echo "Could not resolve a non-snapshot Velocity version." >&2
         return 1
     fi
-    builds="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "https://fill.papermc.io/v3/projects/velocity/versions/${version}/builds")"
+    builds="$(runtime_download "https://fill.papermc.io/v3/projects/velocity/versions/${version}/builds")"
     VELOCITY_URL="$(jq -r '
       ([.[] | select((.channel | ascii_upcase) == "RECOMMENDED")] | if length > 0 then max_by(.id) else null end) //
       ([.[] | select((.channel | ascii_upcase) == "STABLE")] | if length > 0 then max_by(.id) else null end) //
@@ -263,7 +264,7 @@ download_velocity() {
         echo "Could not resolve a usable Velocity build for $version." >&2
         return 1
     fi
-    curl --fail-with-body -L -sS -H "User-Agent: ${USER_AGENT}" -o "$PROXY_DIR/proxy.jar" "$VELOCITY_URL"
+    runtime_download "$VELOCITY_URL" "$PROXY_DIR/proxy.jar"
     test -s "$PROXY_DIR/proxy.jar"
 }
 
@@ -358,7 +359,7 @@ download_waterfall() {
     fi
     local expected_sha256="5eda8bfd0691e5088701f87020c68964299586df0faba289a634122d282d598c"
     local url="https://fill-data.papermc.io/v1/objects/${expected_sha256}/waterfall-1.21-615.jar"
-    curl --fail-with-body -L -sS -H "User-Agent: ${USER_AGENT}" -o "$PROXY_DIR/proxy.jar" "$url"
+    runtime_download "$url" "$PROXY_DIR/proxy.jar"
     test -s "$PROXY_DIR/proxy.jar"
     printf '%s  %s\n' "$expected_sha256" "$PROXY_DIR/proxy.jar" | sha256sum --check --status
 }
