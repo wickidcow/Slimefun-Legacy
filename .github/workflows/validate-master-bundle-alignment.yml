@@ -1,0 +1,62 @@
+name: Validate Master Bundle Alignment
+on:
+  push:
+    branches: ['work/release-4.1.63-preparation-20261001']
+    paths: ['.github/workflows/validate-master-bundle-alignment.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 6f96b99026b7fd9051202c43e4c320c8276f7b81
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Reproduce old selection failure and apply only the reviewed patch
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          git fetch --depth=1 origin 7fc9face3e17dc379ffd9ddf085c63e0ef026130
+          git show 7fc9face3e17dc379ffd9ddf085c63e0ef026130:.audit/apply_master_push_bundle.py > "$RUNNER_TEMP/apply-master-bundle.py"
+          python3 "$RUNNER_TEMP/apply-master-bundle.py"
+          git diff --check
+          python3 scripts/test_download_candidate_bundle.py > evidence/bundle-selector-tests.log 2>&1
+          python3 -m unittest discover -s scripts -p 'test_*worldedit*.py' -v > evidence/worldedit-tests.log 2>&1
+          python3 scripts/verify_legacy.py . > evidence/core-invariants.log 2>&1
+          git diff --full-index > evidence/reviewed.patch
+      - name: Stage only the exact validated source objects
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,subprocess
+          from pathlib import Path
+          expected={
+              'scripts/download_candidate_bundle.py':'94e857edbaa730bdcdc238d7eb9f2889e6018293',
+              'scripts/test_download_candidate_bundle.py':'820c548295c9ed1b13418fd9d3a2d44e539f4f2b',
+              '.github/workflows/paper-26.3-full-stack.yml':'7b88058ab5099533b00193df5ee7a4d47d4952e7'}
+          for name,sha in expected.items():
+              data=Path(name).read_bytes()
+              assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()==sha,name
+              response=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps(dict(content=data.decode(),encoding='utf-8')),text=True,capture_output=True,check=True)
+              assert json.loads(response.stdout)['sha']==sha
+              target=Path('evidence/reviewed-source')/name
+              target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
+          Path('evidence/reviewed-blobs.json').write_text(json.dumps(expected,indent=2)+'\n')
+          print('Same-head/event selection, source metadata and retained core/provider guards passed. No branch or release was modified.')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: master-bundle-alignment-evidence
+          path: evidence/
+          include-hidden-files: true
+          retention-days: 14
+          if-no-files-found: error
