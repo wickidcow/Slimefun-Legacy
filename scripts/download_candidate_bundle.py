@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Download only the successful bundle for this PR head and verify its tested source.
+"""Download only the successful bundle for this exact head/event and tested source.
 
 Never fall back to a release archive when a candidate build fails or is absent.
 GitHub run head_sha identifies the PR head; core_source_commit identifies the
-actual merge checkout tested by the build. Both identities are required.
+actual checkout tested by the build. Push builds use the same head/source; PR
+builds retain their distinct merge source. Both identities and the event are required.
 """
 from __future__ import annotations
 
@@ -20,10 +21,12 @@ WORKFLOW = '.github/workflows/build-sfl-addons-compat-bundle.yml'
 BUNDLE = 'SF_Addons_1.21.11-26.3.zip'
 
 
-def select_run(payload: dict, head: str) -> dict | None:
+def select_run(payload: dict, head: str, event: str = 'pull_request') -> dict | None:
+    if event not in {'pull_request', 'push'}:
+        raise ValueError('Only pull_request and push bundle events are supported')
     matches = [row for row in payload['workflow_runs']
                if row.get('path') == WORKFLOW and row.get('head_sha') == head
-               and row.get('event') == 'pull_request']
+               and row.get('event') == event]
     return max(matches, key=lambda row: row['id']) if matches else None
 
 
@@ -62,6 +65,7 @@ def main() -> int:
     parser.add_argument('--repository', required=True)
     parser.add_argument('--head', required=True)
     parser.add_argument('--source', required=True)
+    parser.add_argument('--event', choices=['pull_request', 'push'], default='pull_request')
     parser.add_argument('--matrix', type=Path, default=Path('compatibility/sfl-addon-release-matrix.json'))
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--timeout', type=int, default=1800)
@@ -79,9 +83,9 @@ def main() -> int:
     deadline = time.monotonic() + args.timeout
     while time.monotonic() < deadline:
         result = subprocess.run(['gh', 'api',
-            f'repos/{args.repository}/actions/runs?event=pull_request&head_sha={args.head}&per_page=100'],
+            f'repos/{args.repository}/actions/runs?event={args.event}&head_sha={args.head}&per_page=100'],
             capture_output=True, text=True, check=True, timeout=45)
-        run = select_run(json.loads(result.stdout), args.head)
+        run = select_run(json.loads(result.stdout), args.head, args.event)
         if run and run['status'] == 'completed':
             if run['conclusion'] != 'success':
                 raise RuntimeError(f"Candidate bundle run {run['id']} finished with {run['conclusion']}; no release fallback")
@@ -90,8 +94,9 @@ def main() -> int:
                            check=True, timeout=180)
             manifest = verify_bundle(target, json.loads(args.matrix.read_text()), args.source)
             digest = hashlib.sha256(target.read_bytes()).hexdigest()
+            source_kind = 'matching-pr-artifact' if args.event == 'pull_request' else 'matching-push-artifact'
             (args.output / 'bundle-source.txt').write_text(
-                f"source=matching-pr-artifact\nrun_id={run['id']}\nhead_sha={args.head}\n"
+                f"source={source_kind}\nrun_id={run['id']}\nhead_sha={args.head}\n"
                 f'core_source_commit={args.source}\nsha256={digest}\n')
             print(f"Verified {len(manifest['addons'])} addons from exact candidate run {run['id']}", flush=True)
             return 0

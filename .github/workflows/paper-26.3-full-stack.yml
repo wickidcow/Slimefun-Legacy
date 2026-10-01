@@ -102,10 +102,13 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x gradlew
-          ./gradlew clean shadowJar -PpaperApiVersion="$PAPER_API_VERSION" --no-daemon
+          export SOURCE_COMMIT="$(git rev-parse HEAD)"
+          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          ./gradlew clean shadowJar -PpaperApiVersion="$PAPER_API_VERSION" --no-daemon --no-build-cache --no-configuration-cache
           JAR="$(find build/libs -maxdepth 1 -type f -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
           test -s "$JAR"
           python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+          python3 scripts/verify_release_artifact.py "$JAR" --root .
           mkdir -p candidate
           cp "$JAR" candidate/Slimefun-Legacy-full-stack.jar
       - uses: actions/upload-artifact@v7
@@ -137,6 +140,10 @@ jobs:
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
             python3 scripts/download_candidate_bundle.py \
               --repository "$GITHUB_REPOSITORY" --head "$PR_HEAD_SHA" \
+              --source "$GITHUB_SHA" --output bundle
+          elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            python3 scripts/download_candidate_bundle.py \
+              --repository "$GITHUB_REPOSITORY" --event push --head "$GITHUB_SHA" \
               --source "$GITHUB_SHA" --output bundle
           elif [[ "$GITHUB_EVENT_NAME" == "workflow_run" ]]; then
             test -n "${TRIGGER_RUN_ID:-}"
