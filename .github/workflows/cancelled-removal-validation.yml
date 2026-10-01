@@ -1,0 +1,267 @@
+name: Cancelled Removal Persistence Validation
+on:
+  push:
+    branches: ['test/cancelled-removal-persistence-20261001']
+    paths: ['.github/workflows/cancelled-removal-validation.yml']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 273ac8ac28fd5a944e8c8e0b83370c085f5d8eca
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Pin source identity and reproduce the released-code assertion failure
+        run: |
+          set -euo pipefail
+          mkdir -p evidence inputs
+          echo "SOURCE_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+          FILE=src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/ASlimefunDataContainer.java
+          cp "$FILE" "$RUNNER_TEMP/fixed-container.java"
+          git fetch --depth=1 origin 2703e3a500b426849f3eb7806862bb4343bb9d6a
+          git show 2703e3a500b426849f3eb7806862bb4343bb9d6a:"$FILE" > "$FILE"
+          test "$(git hash-object "$FILE")" = 6fa9379ff7d4e5283ee2c34f01ef90f6d53890af
+          chmod +x gradlew
+          STATUS=0
+          ./gradlew test --tests '*PendingRemovalReplayTest.cancellationSubmitsDeletionEvenWhenTheCacheIsAlreadyEmpty' --no-daemon --no-build-cache --no-configuration-cache --console=plain > evidence/original-build.log 2>&1 || STATUS=$?
+          cp "$RUNNER_TEMP/fixed-container.java" "$FILE"
+          test "$STATUS" -ne 0
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil,xml.etree.ElementTree as ET
+          reports=list(Path('build/test-results/test').glob('*PendingRemovalReplayTest.xml'))
+          assert len(reports)==1,'Compilation/setup failure is not the required negative control'
+          root=ET.parse(reports[0]).getroot()
+          assert root.attrib['tests']=='1' and root.attrib['failures']=='1' and root.attrib['errors']=='0',root.attrib
+          failure=root.find('.//failure')
+          assert failure.get('type')=='org.opentest4j.AssertionFailedError'
+          assert 'Cancellation must submit the pending deletion' in failure.get('message','')
+          shutil.copy2(reports[0],'evidence/original-negative-control.xml')
+          PY
+      - name: Run the complete corrected project and verify the actual JAR
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_legacy.py . > evidence/invariants.log 2>&1
+          ./gradlew spotlessApply --no-daemon > evidence/format.log 2>&1
+          ./gradlew clean --no-daemon > evidence/clean.log 2>&1
+          ./gradlew build -PslimefunDeprecationReport=true --no-daemon --no-build-cache --no-configuration-cache --console=plain 2>&1 | tee evidence/corrected-build.log
+          python3 scripts/summarize_deprecations.py evidence/corrected-build.log --fail-on-warnings --require-successful-build
+          JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+          python3 scripts/verify_release_artifact.py "$JAR" --root .
+          cp "$JAR" inputs/candidate.jar
+          cp -r build/test-results/test evidence/corrected-tests
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,xml.etree.ElementTree as ET
+          report=next(Path('evidence/corrected-tests').glob('*PendingRemovalReplayTest.xml'))
+          root=ET.parse(report).getroot()
+          assert root.attrib['tests']=='14' and all(root.attrib[k]=='0' for k in ['failures','errors','skipped'])
+          names=['src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/ASlimefunDataContainer.java','src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/PendingRemovalReplayTest.java']
+          records={}
+          for name in names:
+              data=Path(name).read_bytes()
+              records[name]=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+              path=Path('evidence/reviewed-source',name);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
+          Path('evidence/reviewed-blobs.json').write_text(json.dumps(records,indent=2))
+          PY
+      - name: Obtain the checksum-pinned released core for old-data controls
+        run: |
+          curl -fLsS --retry 3 --max-time 180 -o inputs/original.jar https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.63/Slimefun-Legacy4.1.63.jar
+          echo '993b257c54efe19b58cc8f4946d4d39387f7787fe263c9f27123343159344c42  inputs/original.jar' | sha256sum --check
+      - name: Compile the real persistence probe without shipping it in either core
+        run: |
+          set -euo pipefail
+          mkdir -p probe/audit probe-classes
+          cat > probe/audit/PendingRemovalProbe.java <<'JAVA'
+          package audit;
+          import com.xzavier0722.mc.plugin.slimefun4.storage.controller.BlockDataConfigWrapper;
+          import com.xzavier0722.mc.plugin.slimefun4.storage.controller.SlimefunBlockData;
+          import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
+          import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+          import java.nio.file.Files;
+          import java.nio.file.Path;
+          import java.util.LinkedHashMap;
+          import java.util.Map;
+          import java.util.Objects;
+          import org.bukkit.Bukkit;
+          import org.bukkit.Location;
+          import org.bukkit.plugin.java.JavaPlugin;
+          public final class PendingRemovalProbe extends JavaPlugin {
+              private static final String ID="CARGO_NODE";
+              private static final String[] REMOVED={"audit:erase","audit:write-delete","audit:wrapper-delete"};
+              private static Map<String,String> baseline() {
+                  var data=new LinkedHashMap<String,String>();
+                  for(String key:REMOVED)data.put(key,"old-persisted-value");
+                  data.put("audit:delete-write","old-replacement");
+                  data.put("audit:owner","2f017f3a-8442-4ef2-9fba-456789abcdef");
+                  data.put("audit:opaque","{\"item\":\"UNREGISTERED_OLD_ID\",\"count\":\"9007199254740993\"}");
+                  data.put("audit:empty","");
+                  return data;
+              }
+              @Override public void onEnable() {
+                  Bukkit.getScheduler().runTaskLater(this,()->{
+                      try { execute(); }
+                      catch(Throwable failure){getLogger().log(java.util.logging.Level.SEVERE,"PENDING_REMOVAL_FAIL",failure);}
+                      finally {Bukkit.shutdown();}
+                  },60L);
+              }
+              @SuppressWarnings("deprecation")
+              private void execute() throws Exception {
+                  String phase=System.getProperty("pending.phase");
+                  boolean original=Boolean.getBoolean("pending.original");
+                  var controller=Slimefun.getDatabaseManager().getBlockDataController();
+                  var world=Bukkit.getWorlds().getFirst();
+                  Location target=new Location(world,8,90,8), neighbor=new Location(world,9,90,8);
+                  target.getChunk().load();
+                  if("seed".equals(phase)) {
+                      var item=Objects.requireNonNull(SlimefunItem.getById(ID));
+                      for(Location loc:new Location[]{target,neighbor}) {
+                          loc.getBlock().setType(item.getItem().getType());
+                          var data=controller.createBlock(loc,ID);
+                          controller.loadBlockData(data);
+                          baseline().forEach(data::setData);
+                      }
+                  } else {
+                      var data=Objects.requireNonNull(controller.getBlockData(target),"Missing original target record");
+                      var other=Objects.requireNonNull(controller.getBlockData(neighbor),"Missing original neighbor record");
+                      controller.loadBlockData(data);controller.loadBlockData(other);
+                      check(data.getSfId().equals(ID)&&other.getSfId().equals(ID),"Existing block identity changed");
+                      for(var entry:baseline().entrySet()) check(Objects.equals(entry.getValue(),other.getData(entry.getKey())),"Neighbor changed: "+entry.getKey());
+                      if("mutate".equals(phase)) {
+                          for(var entry:baseline().entrySet())check(Objects.equals(entry.getValue(),data.getData(entry.getKey())),"Seed was not durable: "+entry.getKey());
+                          data.setPendingRemove(true);
+                          data.removeData("audit:erase");
+                          data.setData("audit:write-delete","temporary-value");
+                          data.removeData("audit:write-delete");
+                          new BlockDataConfigWrapper(data).setValue("audit:wrapper-delete",null);
+                          data.removeData("audit:delete-write");
+                          data.setData("audit:delete-write","replacement-survives");
+                          data.setPendingRemove(false);
+                          for(String key:REMOVED)check(data.getData(key)==null,"Deletion absent from live cache: "+key);
+                      } else {
+                          check("verify".equals(phase),"Unexpected phase");
+                          for(String key:REMOVED) {
+                              String expected=original?"old-persisted-value":null;
+                              check(Objects.equals(expected,data.getData(key)),"Persisted deletion mismatch: "+key+" value="+data.getData(key));
+                          }
+                          check("replacement-survives".equals(data.getData("audit:delete-write")),"Normal pending write was lost");
+                          for(String key:new String[]{"audit:owner","audit:opaque","audit:empty"})check(Objects.equals(baseline().get(key),data.getData(key)),"Untouched data changed: "+key);
+                      }
+                      Files.writeString(Path.of("observed-"+phase+".txt"),data.getAllData().toString()+"\nneighbor="+other.getAllData()+"\n");
+                  }
+                  String marker="PENDING_REMOVAL_PASS phase="+phase+" original="+original;
+                  Files.writeString(Path.of("result-"+phase+".txt"),marker+"\n");getLogger().info(marker);
+              }
+              private static void check(boolean valid,String message){if(!valid)throw new AssertionError(message);}
+          }
+          JAVA
+          cat > probe-classpath.gradle <<'GRADLE'
+          allprojects {
+              tasks.register('pendingProbeClasspath') {
+                  doLast { file('probe/classpath.txt').text = configurations.compileClasspath.asPath }
+              }
+          }
+          GRADLE
+          ./gradlew -I probe-classpath.gradle pendingProbeClasspath --no-daemon --no-configuration-cache > evidence/probe-build.log 2>&1
+          javac --release 21 -cp "inputs/candidate.jar:$(cat probe/classpath.txt)" -d probe-classes probe/audit/PendingRemovalProbe.java >> evidence/probe-build.log 2>&1
+          printf "name: PendingRemovalProbe\nmain: audit.PendingRemovalProbe\nversion: '1'\napi-version: '1.21.11'\ndepend: [Slimefun]\n" > probe-classes/plugin.yml
+          jar --create --file inputs/probe.jar -C probe-classes .
+          cp probe/audit/PendingRemovalProbe.java evidence/
+          sha256sum inputs/*.jar > inputs/SHA256SUMS.txt
+          cp inputs/SHA256SUMS.txt evidence/
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: pending-removal-build-evidence
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pending-removal-runtime-inputs
+          path: inputs/
+          retention-days: 14
+          if-no-files-found: error
+  runtime:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - minecraft: '1.21.11'
+            java: '21'
+            build: 132
+            sha: 5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba
+          - minecraft: '26.2'
+            java: '25'
+            build: 129
+            sha: b1d8f6bfa1b6101fa8e947b53041cb3bdf5540e7b83b6547ca19ba7edefeb083
+          - minecraft: '26.3'
+            java: '25'
+            build: 140
+            sha: 98aabc113a80b9b5e183475e839a17cf99c39c915a1f46b8f35a5e89fd5de0f1
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: pending-removal-runtime-inputs
+          path: inputs
+      - name: Verify released data through original and corrected lifecycle restarts
+        env:
+          MC: ${{ matrix.minecraft }}
+          BUILD: ${{ matrix.build }}
+          SERVER_SHA: ${{ matrix.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence seed/plugins
+          sha256sum --check inputs/SHA256SUMS.txt
+          URL="https://fill-data.papermc.io/v1/objects/${SERVER_SHA}/paper-${MC}-${BUILD}.jar"
+          curl -fLsS --retry 3 --max-time 180 -H 'User-Agent: Slimefun-Legacy-Preservation (https://github.com/wickidcow/Slimefun-Legacy)' "$URL" -o seed/server.jar
+          printf '%s  seed/server.jar\n' "$SERVER_SHA" | sha256sum --check
+          printf 'minecraft=%s\nbuild=%s\nurl=%s\nsha256=%s\n' "$MC" "$BUILD" "$URL" "$SERVER_SHA" > evidence/server-provenance.txt
+          cp inputs/SHA256SUMS.txt evidence/
+          cp inputs/original.jar seed/plugins/Slimefun.jar
+          cp inputs/probe.jar seed/plugins/PendingRemovalProbe.jar
+          printf 'eula=true\n' > seed/eula.txt
+          printf 'online-mode=false\nserver-ip=127.0.0.1\nserver-port=0\nview-distance=2\nsimulation-distance=2\nspawn-protection=0\npause-when-empty-seconds=-1\n' > seed/server.properties
+          cycle() {
+            local DIR="$1" PHASE="$2" ORIGINAL="$3" STATUS=0
+            (cd "$DIR" && timeout --kill-after=20s 240s java -Xms512M -Xmx2G -Dpending.phase="$PHASE" -Dpending.original="$ORIGINAL" -jar server.jar --nogui > "$PHASE.log" 2>&1) || STATUS=$?
+            mkdir -p "evidence/$DIR"
+            cp "$DIR/$PHASE.log" "evidence/$DIR/"
+            if test -f "$DIR/result-$PHASE.txt"; then cp "$DIR/result-$PHASE.txt" "evidence/$DIR/"; fi
+            if test -f "$DIR/observed-$PHASE.txt"; then cp "$DIR/observed-$PHASE.txt" "evidence/$DIR/"; fi
+            if [[ "$STATUS" != 0 ]] || ! grep -Fxq "PENDING_REMOVAL_PASS phase=$PHASE original=$ORIGINAL" "$DIR/result-$PHASE.txt"; then tail -n 100 "$DIR/$PHASE.log"; return 1; fi
+            if grep -Eq 'PENDING_REMOVAL_FAIL|Error occurred while enabling|NoSuchMethodError|NoClassDefFoundError|SQLITE_CONSTRAINT' "$DIR/$PHASE.log"; then tail -n 100 "$DIR/$PHASE.log"; return 1; fi
+          }
+          cycle seed seed true
+          for KIND in original candidate; do
+            cp -a seed "$KIND"
+            cp "inputs/$KIND.jar" "$KIND/plugins/Slimefun.jar"
+            ORIGINAL=true; if [[ "$KIND" == candidate ]]; then ORIGINAL=false; fi
+            cycle "$KIND" mutate "$ORIGINAL"
+            cycle "$KIND" verify "$ORIGINAL"
+          done
+          printf 'PASS: real released data; original stale-key return reproduced; corrected deletions survived restart; neighbor and block IDs unchanged\n' > evidence/result.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: pending-removal-runtime-${{ matrix.minecraft }}
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
