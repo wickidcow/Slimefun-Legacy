@@ -1,0 +1,140 @@
+name: DankTech Pack Registry Preservation Validation
+on:
+  push:
+    branches: ['work/bundle-integration-20260930']
+    paths: ['.github/workflows/danktech-registry-validation.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: 656f569327c1d7e706cb23604dba024ddbc17c54
+          path: tools
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: wickidcow/SF_DankTech2
+          ref: 1566348da2bb319aa178dd331e2ca2c4ca3d26ce
+          path: addon
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: wickidcow/SF_DankTech2
+          ref: 6a15470602b63cdc8eccaa0bce5587f850921e88
+          path: old-addon
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Verify exact core input and all reviewed source blobs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,io,json,subprocess,zipfile
+          expected={
+            'pom.xml':'373ec538078f26af85768f8e86c53b61e793fb01',
+            'src/main/java/io/github/sefiraat/danktech2/DankTech2.java':'ffb648c168496d7141987737e2b932bb2f548eaa',
+            'src/main/java/io/github/sefiraat/danktech2/managers/ConfigManager.java':'213dab6321a3afeb81ee4e6d638cc6028097ab6a',
+            'src/main/java/io/github/sefiraat/danktech2/managers/PackRegistryFile.java':'2ff8bca18e5a58a6b18559f6c72b97c93ee84466',
+            'src/test/java/io/github/sefiraat/danktech2/managers/PackRegistryFileTest.java':'e7077dcb6a8987983f7e7b6155a6eba513ff232f',
+            'scripts/verify_pack_registry_safety.py':'ce4b60ee36c59ae8083099da4ecdba1fbb3faad0',
+            '.github/workflows/maven.yml':'48dd95d59a266fe0168bdae8122273f38b267962'}
+          for name,sha in expected.items():
+              b=Path('addon',name).read_bytes()
+              assert hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()==sha,name
+          root=Path('registry-inputs');root.mkdir()
+          Path('registry-evidence').mkdir()
+          raw=subprocess.run(['gh','api','repos/wickidcow/Slimefun-Legacy/actions/artifacts/11133862255/zip'],capture_output=True,check=True,timeout=120).stdout
+          assert hashlib.sha256(raw).hexdigest()=='1c923b97938b3e6d642bfb0a3582091a9a8bb698e6c7069c9c92b0f2f939e7f1'
+          with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+              jars=[name for name in archive.namelist() if name.endswith('.jar')];assert len(jars)==1
+              (root/'core.jar').write_bytes(archive.read(jars[0]))
+          Path('registry-evidence/reviewed-blobs.json').write_text(json.dumps(expected,indent=2)+'\n')
+          PY
+      - name: Build original and corrected projects against the exact core
+        run: |
+          set -euo pipefail
+          python3 addon/scripts/verify_pack_registry_safety.py
+          python3 tools/scripts/build_addon_against_slimefun.py old-addon registry-inputs/core.jar build/old \
+            2>&1 | tee registry-evidence/old-build.log
+          cp build/old/addon.jar registry-inputs/old.jar
+          python3 tools/scripts/build_addon_against_slimefun.py addon registry-inputs/core.jar build/new \
+            2>&1 | tee registry-evidence/new-build.log
+          (cd build/new/project && mvn -B -Dpaper.version=1.21.11-R0.1-SNAPSHOT clean package) \
+            2>&1 | tee registry-evidence/tests.log
+          cp build/new/project/target/SF_DankTech21.1.02.jar registry-inputs/new.jar
+          python3 tools/scripts/verify_addon_bytecode.py registry-inputs/new.jar --expected-java 21
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          path=Path('build/new/project/target/surefire-reports/TEST-io.github.sefiraat.danktech2.managers.PackRegistryFileTest.xml')
+          root=ET.parse(path).getroot()
+          assert root.get('tests')=='12' and all(root.get(k)=='0' for k in ['failures','errors','skipped']),root.attrib
+          PY
+      - name: Build the actual Paper fixture without shipping it in the addon
+        run: |
+          set -euo pipefail
+          (cd build/new/project && mvn -B dependency:build-classpath -Dmdep.outputFile=dependency-classpath.txt)
+          mkdir -p fixture-classes
+          javac --release 21 -cp "$(cat build/new/project/dependency-classpath.txt):registry-inputs/new.jar:registry-inputs/core.jar" \
+            -d fixture-classes .audit/danktech/RegistryRuntime.java
+          printf 'name: RegistryRuntime\nversion: 1.0\nmain: io.github.wickidcow.regression.RegistryRuntime\napi-version: "1.21.11"\ndepend: [Slimefun]\nsoftdepend: [DankTech2]\n' > fixture-classes/plugin.yml
+          jar --create --file registry-inputs/RegistryRuntime.jar -C fixture-classes .
+          cp .audit/danktech/run_registry.py registry-inputs/run_registry.py
+          sha256sum registry-inputs/*.jar > registry-evidence/input-sha256.txt
+          cp registry-evidence/input-sha256.txt registry-inputs/input-sha256.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: danktech-registry-build-evidence
+          path: |
+            registry-evidence/
+            build/new/project/target/surefire-reports/TEST-*.xml
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        with:
+          name: danktech-registry-inputs
+          path: registry-inputs/
+          retention-days: 14
+  runtime:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11', '26.2', '26.3']
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: danktech-registry-inputs
+          path: registry-inputs
+      - name: Reproduce old registry loss and test safe upgrade and restart
+        run: python3 registry-inputs/run_registry.py '${{ matrix.minecraft }}'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: danktech-registry-${{ matrix.minecraft }}
+          path: |
+            registry-inputs/input-sha256.txt
+            registry-runtime/results.json
+            registry-runtime/*/*.log
+            registry-runtime/*/plugins/DankTech2/dank_packs.yml
+            registry-runtime/upgrade/plugins/RegistryRuntime/expected-item.bin
+          retention-days: 14
