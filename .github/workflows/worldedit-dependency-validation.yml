@@ -26,6 +26,7 @@ jobs:
           git apply .audit/worldedit-wiring.patch
           test "$(git hash-object .github/workflows/paper-26.3-full-stack.yml)" = '0ae0d9fcb2f8fba0ff5a9f925fb7c413c25d4884'
           test "$(git hash-object scripts/full_stack_runtime_smoke.sh)" = '088f636aa72de8b194efa638cabb0aac6dcb9594'
+          python3 .audit/select_worldedit_java.py
           git diff --check
       - name: Run dependency and wiring regression tests
         run: |
@@ -47,7 +48,7 @@ jobs:
           from pathlib import Path
           names = ('.github/workflows/paper-26.3-full-stack.yml', 'scripts/full_stack_runtime_smoke.sh',
                    'scripts/prepare_worldedit_runtime.py', 'scripts/test_prepare_worldedit_runtime.py',
-                   'scripts/test_worldedit_stack_integration.py')
+                   'scripts/test_worldedit_stack_integration.py', 'scripts/test_worldedit_java_selection.py')
           manifest = {}
           for name in names:
               data = Path(name).read_bytes()
