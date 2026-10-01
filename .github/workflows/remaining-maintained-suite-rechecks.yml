@@ -1,0 +1,110 @@
+name: Remaining Maintained Test Suite Rechecks
+on:
+  push:
+    branches: ['work/bundle-integration-20260930']
+    paths: ['.github/workflows/remaining-maintained-suite-rechecks.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - repository: wickidcow/SF_MagicExpansion
+            slug: magicexpansion
+            commit: 760a8f9aff48ececff434f6ef5c2175f9e118af7
+          - repository: wickidcow/SF_MilitaryArsenal
+            slug: militaryarsenal
+            commit: 3b01f9df260406770190eb942da04fdf420d3e2e
+          - repository: wickidcow/SF_MobDrops
+            slug: mobdrops
+            commit: 999a9e88d3770b092f1f898c409d220e4615bfcd
+          - repository: wickidcow/SF_RykenSlimeCustomizer
+            slug: rykenslimecustomizer
+            commit: 6b165f9efafad8e016e80cb3b146127c6314d6c6
+    name: Full test ${{ matrix.slug }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: d3e620de1ea0d842414283848b3c94f525d56679
+          path: tools
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ matrix.commit }}
+          path: addon
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+          cache-disabled: true
+      - name: Restore verified exact-core tooling and test configuration
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ADDON_SLUG: ${{ matrix.slug }}
+          EXPECTED_COMMIT: ${{ matrix.commit }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,io,json,os,subprocess,zipfile
+          raw=subprocess.run(['gh','api','repos/wickidcow/Slimefun-Legacy/actions/artifacts/11135398645/zip'],capture_output=True,check=True,timeout=180).stdout
+          assert hashlib.sha256(raw).hexdigest()=='e08125567b0e038d586af131594ba8e5fc231c7fdeba1895ee015867341243c3'
+          root=Path('suite-inputs');root.mkdir()
+          with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+              manifest=json.loads(archive.read('coordinate-blobs.json'))
+              (root/'core.jar').write_bytes(archive.read('core.jar'))
+              for name,sha in manifest.items():
+                  data=archive.read('tooling/'+name)
+                  assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()==sha
+                  Path('tools',name).write_bytes(data)
+          # These three exact refs come from the original 45-addon test summary.
+          # Ryken is the explicit reviewed replacement build-source candidate.
+          actual=subprocess.check_output(['git','-C','addon','rev-parse','HEAD'],text=True).strip()
+          assert actual==os.environ['EXPECTED_COMMIT']
+          notes=[]
+          if os.environ['ADDON_SLUG']=='mobdrops':
+              assert '<mockbukkit.version>4.116.1</mockbukkit.version>' in Path('addon/pom.xml').read_text()
+              assert '-Dpaper.version=26.2.build.112-stable' in Path('addon/.github/workflows/build.yml').read_text()
+              p=Path('.audit/run_maintained_suite.py');text=p.read_text();needle="report['build_system']='maven'";assert text.count(needle)==1
+              p.write_text(text.replace(needle,needle+"\n        command += ['-Dpaper.version=26.2.build.112-stable']"))
+              notes.append('Use the declared Paper26.2 test API; retain original MockBukkit4.116.1 and all test assertions. Separate baseline compile is retained.')
+          Path('suite-evidence').mkdir()
+          Path('suite-evidence/setup-adapters.json').write_text(json.dumps(notes,indent=2)+'\n')
+          PY
+      - name: Execute full tests and verify build without skipped test flags
+        env:
+          MAVEN_OPTS: '--sun-misc-unsafe-memory-access=allow'
+        run: python3 .audit/run_maintained_suite.py '${{ matrix.repository }}' '${{ matrix.commit }}' '${{ matrix.slug }}'
+      - name: Verify Ryken did not bundle its guide API
+        if: matrix.slug == 'rykenslimecustomizer'
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile
+          jars=list(Path('suite-build/project/build/libs').glob('SF_RykenSlimeCustomizer*.jar'))
+          assert len(jars)==1
+          with zipfile.ZipFile(jars[0]) as jar:
+              assert jar.testzip() is None
+              assert not any(name.startswith('com/balugaq/jeg/') for name in jar.namelist())
+              assert not any(name.endswith('/JustEnoughGuide.class') for name in jar.namelist())
+          print('Final Ryken JAR excludes compile-only guide implementation classes.')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: suite-final-${{ matrix.slug }}
+          path: suite-evidence/
+          retention-days: 14
