@@ -19,6 +19,7 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: maven
+          cache-dependency-path: .audit/BetterChestsProbe.java
       - name: Download exact old and candidate plugins
         env:
           GH_TOKEN: ${{ github.token }}
