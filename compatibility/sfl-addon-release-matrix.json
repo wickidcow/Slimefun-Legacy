@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 101,
+  "bundle_revision": 102,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -214,7 +214,7 @@
       "repository": "wickidcow/SF_NetworksExp",
       "slug": "networksexp",
       "artifact_base": "Networks",
-      "source_commit": "5bc81686aa8e98275872d18e0ed39f83a3667c7c"
+      "source_commit": "ba79e6e36bd4798d37f7b8988efb414e7f041927"
     },
     {
       "repository": "wickidcow/SF_RelicsOfCthonia",

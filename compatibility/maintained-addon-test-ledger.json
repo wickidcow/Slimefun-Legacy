@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "bundle_revision": 100,
+  "bundle_revision": 102,
   "core_parent": "ed0618b442cf0b74c62f2d3990c32727ed376e78",
   "tested_core_sha256": "ffbdfcbf0eab274eaaf56916f8ddc3f12347e76a7b07fa4b8d8fe25eabac7ace",
   "summary": {
     "addons": 45,
     "full_build_passed": 45,
-    "reported_test_entries": 385,
+    "reported_test_entries": 402,
     "addons_with_reported_tests": 16,
     "addons_without_reported_tests": 29,
     "failures": 0,
@@ -24,7 +24,8 @@
     "Revision97 adds three exact-source followup builds on core7c832082; other rows retain their original core/run evidence. This is not one new all45 full-suite run.",
     "Revision98 updates only FNAmplifications, LiteXpansion and MagicExpansion from this three-addon exact-core test run; all other evidence retains its original run attribution. The root core hash remains historical; new row evidence records the latest exact core.",
     "Revision99 changes only MagicExpansion: 61 tests and the retained two-process floor runtime helper against the revision98 core. Other rows retain their original source/run/core attribution; this is not a new all45 project-test run.",
-    "Revision100 changes only the merged JEG and current GeneticChickEngineering sources. Their full builds use the versioned4.1.63 core; other source evidence retains its original core/run attribution. All45 will be rebuilt by the canonical release workflow."
+    "Revision100 changes only the merged JEG and current GeneticChickEngineering sources. Their full builds use the versioned4.1.63 core; other source evidence retains its original core/run attribution. All45 will be rebuilt by the canonical release workflow.",
+    "Revision102 refreshes only Networks using 98 normal-PR test entries and an identical merged source tree. Other rows retain earlier evidence; pre-existing selected/tested-source differences are recorded in the resume checkpoint and are not relabeled as newly tested."
   ],
   "addons": [
     {
@@ -658,21 +659,25 @@
     {
       "repository": "wickidcow/SF_NetworksExp",
       "slug": "networksexp",
-      "source_commit": "5bc81686aa8e98275872d18e0ed39f83a3667c7c",
+      "source_commit": "ba79e6e36bd4798d37f7b8988efb414e7f041927",
       "full_build_result": "PASS",
-      "reported_test_entries": 81,
+      "reported_test_entries": 98,
       "failures": 0,
       "errors": 0,
       "skips": 0,
       "evidence": {
-        "repository": "wickidcow/Slimefun-Legacy",
-        "run_id": 36802625180,
-        "artifact_id": 11136600886,
-        "sha256": "8a5c4128abb722bfe4be3b3ee632d0a2c2ae9792ea3e208e7d5f07e8f709835d",
-        "kind": "Full build plus individually checked XML"
+        "repository": "wickidcow/SF_NetworksExp",
+        "run_id": 36938589126,
+        "artifact_id": 11199396152,
+        "tested_commit": "a2e10dc92bb348b1b823ea2a45bcff61d6bf26ef",
+        "selected_commit_same_tree": "4a9062f3fd95f892ade078b68cebde2df45b7e4f",
+        "tested_core_sha256": "17914e0f208a68d9b41b84733936d702742df291b41cff35d706e7bf52f31d7c",
+        "kind": "Actual normal cross-core project build XML; merged source tree identical to tested head"
       },
-      "setup_notes": [],
-      "coverage": "Existing automated test entries"
+      "setup_notes": [
+        "Only this row is refreshed in revision102; other addon test evidence retains its original source/core attribution."
+      ],
+      "coverage": "98 passing project tests, including 17 new grid navigation/cache regressions; no live-client or populated-world certificate"
     },
     {
       "repository": "wickidcow/SF_RelicsOfCthonia",
