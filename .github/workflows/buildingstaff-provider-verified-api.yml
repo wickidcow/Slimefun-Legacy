@@ -20,7 +20,7 @@ jobs:
           java-version: '25'
           cache: maven
           cache-dependency-path: .audit/BuildingStaffProviderProbe.java
-      - name: Exercise the retained build and runtime harness against published providers
+      - name: Exercise retained build and actual provider fixtures
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -29,9 +29,20 @@ jobs:
           import subprocess,yaml
           p=Path('.audit/BuildingStaffProviderProbe.java');text=p.read_text()
           assert text.count('call(schema,"createNewItemStack",1)')==1
-          p.write_text(text.replace('call(schema,"createNewItemStack",1)','call(schema,"getItemStack",1)'))
-          # Execute the same four retained build/fixture/runtime commands. Only
-          # the synthetic fixture accessor changed; production source is pinned.
+          text=text.replace('call(schema,"createNewItemStack",1)','call(schema,"getItemStack",1)')
+          old='stock(tank,1);research(false);String denied=place(block(11),tank);research(true);'
+          new='''Class<?> researchType=Class.forName("io.github.pylonmc.rebar.item.research.Research");
+                  Object tankSchema=call(registry,"getOrThrow",NamespacedKey.fromString("pylon:portable_fluid_tank_wood"));
+                  if(call(tankSchema,"getResearch")==null) {
+                      Object fixtureResearch=researchType.getConstructor(NamespacedKey.class,ItemStack.class,net.kyori.adventure.text.Component.class,Long.class,Set.class)
+                          .newInstance(new NamespacedKey("provider_probe","tank_gate"),new ItemStack(Material.PAPER),net.kyori.adventure.text.Component.text("Fixture research gate"),Long.valueOf(1),Set.of(NamespacedKey.fromString("pylon:portable_fluid_tank_wood")));
+                      call(fixtureResearch,"register");
+                  }
+                  check(call(tankSchema,"getResearch")!=null,"fixture has actual registered research gate");
+                  stock(tank,1);research(false);
+                  check(!((Boolean)call(researchType,"canPlayerUse",player,tankSchema,false)),"actual provider rejects unresearched fixture before staff call");
+                  String denied=place(block(11),tank);research(true);'''
+          assert text.count(old)==1;p.write_text(text.replace(old,new))
           workflow=yaml.safe_load(Path('.github/workflows/buildingstaff-provider-preservation.yml').read_text())
           for step in workflow['jobs']['provider']['steps']:
               if 'run' in step:
