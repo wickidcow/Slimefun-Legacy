@@ -1,0 +1,156 @@
+name: Refresh 4.1.63 Addon Sources
+on:
+  push:
+    branches: ['work/release-4.1.63-preparation-20261001']
+    paths: ['.github/workflows/refresh-release-addon-sources.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ff3bdf8ca1cdfaf569acfcf2b3696b50541cf738
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Require the exact successful 4.1.63 primary build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence inputs
+          python3 - <<'PY'
+          import hashlib,io,json,subprocess,zipfile
+          from pathlib import Path
+          def api(p):return subprocess.run(['gh','api',p],check=True,capture_output=True,timeout=120).stdout
+          run=json.loads(api('repos/wickidcow/Slimefun-Legacy/actions/runs/36883266029'))
+          assert run['head_sha']=='ff3bdf8ca1cdfaf569acfcf2b3696b50541cf738' and run['conclusion']=='success'
+          raw=api('repos/wickidcow/Slimefun-Legacy/actions/artifacts/11173590470/zip')
+          assert hashlib.sha256(raw).hexdigest()=='b7063bad34f14092e08113add70861f6df54b9cb82f46dc4c13cc394f3bdc523'
+          with zipfile.ZipFile(io.BytesIO(raw)) as jar:
+              assert jar.testzip() is None and 'plugin.yml' in jar.namelist()
+              props=jar.read('git.properties').decode()
+              assert 'git.commit.id=4611ec98f707acd901a7fc5f8267ec3477f54bdd' in props
+              assert 'git.source.commit=4611ec98f707acd901a7fc5f8267ec3477f54bdd' in props
+              assert 'git.build.version=4.1.63' in props
+          Path('inputs/core.jar').write_bytes(raw)
+          Path('evidence/core.json').write_text(json.dumps(dict(head=run['head_sha'],run=run['id'],artifact=11173590470,sha256=hashlib.sha256(raw).hexdigest(),tested_merge='4611ec98f707acd901a7fc5f8267ec3477f54bdd',release_approved=False),indent=2))
+          PY
+      - name: Full project verification for the two refreshed exact source trees
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,shutil,subprocess,sys,xml.etree.ElementTree as ET
+          from pathlib import Path
+          sys.path.insert(0,str(Path('scripts').resolve()))
+          import compare_addon_slimefun_compatibility
+          import compare_addon_slimefun_compatibility_base as helper
+          selections={
+              'wickidcow/SF_JustEnoughGuide':'a53d11e7abee111efe525532222c02a73d19e640',
+              'wickidcow/SF_GeneticChickEngineering':'000b52607a5034be2a8f361cf6a071e0b4a57901'}
+          results=[]
+          for repo,sha in selections.items():
+              slug=repo.split('/')[1];project=(Path('projects')/slug).resolve();report=Path('evidence')/slug;report.mkdir(parents=True)
+              subprocess.run(['git','clone','--depth','1',f'https://github.com/{repo}.git',str(project)],check=True,timeout=120)
+              subprocess.run(['git','-C',str(project),'fetch','--depth','1','origin',sha],check=True,timeout=120)
+              subprocess.run(['git','-C',str(project),'checkout','--detach',sha],check=True)
+              assert subprocess.check_output(['git','-C',str(project),'rev-parse','HEAD'],text=True).strip()==sha
+              env=dict(os.environ)
+              with (report/'build.log').open('w') as log:
+                  if helper.detect_build_system(project)=='maven':
+                      assert helper.patch_maven_dependency(project,'Legacy-Release-4.1.63-CI')
+                      assert helper.install_maven_jar(project=project,jar=Path('inputs/core.jar').resolve(),version='Legacy-Release-4.1.63-CI',env=env,log=log)==0
+                      status=helper.stream_maven_command(['mvn','-B','-ntp','clean','verify'],cwd=project,env=env,log=log)
+                      xml=list((project/'target/surefire-reports').glob('TEST-*.xml'))
+                  else:
+                      init=helper.write_gradle_init_script(project)
+                      env['SLIMEFUN_COMPATIBILITY_JAR']=str(Path('inputs/core.jar').resolve())
+                      wrapper=project/'gradlew';wrapper.chmod(0o755)
+                      status=helper.stream_command([str(wrapper),'clean','build','shadowJar','-PjegDeprecationReport=true','-I',str(init),'--no-daemon','--no-build-cache','--console=plain'],cwd=project,env=env,log=log)
+                      xml=list((project/'build/test-results').glob('**/TEST-*.xml'))
+              assert status==0,(repo,(report/'build.log').read_text()[-12000:])
+              roots=[ET.parse(p).getroot() for p in xml]
+              counts={k:sum(int(r.get(k,0)) for r in roots) for k in ['tests','failures','errors','skipped']}
+              assert counts['failures']==counts['errors']==counts['skipped']==0,(repo,counts)
+              for p in xml:shutil.copy2(p,report/p.name)
+              if slug=='SF_JustEnoughGuide':
+                  for script in ['verify_legacy_menu_deprecation_boundary.py','test_summarize_deprecations.py']:
+                      subprocess.run(['python3',str(project/'scripts'/script)],cwd=project,check=True)
+                  subprocess.run(['python3',str(project/'scripts/summarize_deprecations.py'),str((report/'build.log').resolve()),'--fail-on-warnings'],cwd=project,check=True)
+              jar=helper.find_built_addon_jar(project);assert jar is not None
+              subprocess.run(['python3','scripts/verify_addon_bytecode.py',str(jar),'--expected-java','21','--report',str(report/'bytecode.json')],check=True)
+              result=dict(repository=repo,source_commit=sha,counts=counts,jar=jar.name,jar_sha256=hashlib.sha256(jar.read_bytes()).hexdigest(),has_reported_tests=bool(xml))
+              results.append(result)
+              Path('evidence/refreshed-results.json').write_text(json.dumps(results,indent=2)+'\n')
+          PY
+      - name: Verify the separately maintained optional BetterStructures bridge
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/wickidcow/SF_BetterStructuresLink.git bridge
+          git -C bridge fetch --depth 1 origin 5ac9c5fbd756eea5ec4cb65a18b9c544f540e839
+          git -C bridge checkout --detach 5ac9c5fbd756eea5ec4cb65a18b9c544f540e839
+          (cd bridge && mvn -B -ntp clean verify) > evidence/optional-bridge-build.log 2>&1
+          mkdir -p evidence/optional-bridge-tests
+          cp bridge/target/surefire-reports/TEST-*.xml evidence/optional-bridge-tests/
+          python3 - <<'PY'
+          import json,xml.etree.ElementTree as ET
+          from pathlib import Path
+          roots=[ET.parse(p).getroot() for p in Path('evidence/optional-bridge-tests').glob('TEST-*.xml')]
+          counts={k:sum(int(r.get(k,0)) for r in roots) for k in ['tests','failures','errors','skipped']}
+          assert counts['tests']>0 and counts['failures']==counts['errors']==counts['skipped']==0,counts
+          Path('evidence/optional-bridge-result.json').write_text(json.dumps(dict(repository='wickidcow/SF_BetterStructuresLink',source='5ac9c5fbd756eea5ec4cb65a18b9c544f540e839',counts=counts,bundled=False),indent=2))
+          PY
+      - name: Pin only verified source refreshes and preserve historical evidence attribution
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,subprocess
+          from pathlib import Path
+          mp=Path('compatibility/sfl-addon-release-matrix.json');lp=Path('compatibility/maintained-addon-test-ledger.json')
+          manifest=json.loads(mp.read_text());ledger=json.loads(lp.read_text());assert manifest['bundle_revision']==ledger['bundle_revision']==99
+          results={r['repository']:r for r in json.loads(Path('evidence/refreshed-results.json').read_text())}
+          old={r['repository']:r['source_commit'] for r in manifest['addons']};assert len(old)==45
+          for row in manifest['addons']:
+              if row['repository'] in results:row['source_commit']=results[row['repository']]['source_commit']
+          new={r['repository']:r['source_commit'] for r in manifest['addons']};assert {k for k in old if old[k]!=new[k]}==set(results)
+          for row in ledger['addons']:
+              if row['repository'] not in results:continue
+              result=results[row['repository']];counts=result['counts']
+              row.update(source_commit=result['source_commit'],full_build_result='PASS',reported_test_entries=counts['tests'],failures=0,errors=0,skips=0)
+              row['evidence']={'repository':'wickidcow/Slimefun-Legacy','run_id':int(os.environ['GITHUB_RUN_ID']),'artifact_name':'release-addon-refresh-evidence','kind':'Full exact-source project build; zero tests are explicitly reported when the project has no test sources','tested_core_sha256':'b7063bad34f14092e08113add70861f6df54b9cb82f46dc4c13cc394f3bdc523','tested_core_version':'4.1.63'}
+              row['coverage']='Full build and Java21 classes; guide static guards checked; no unit suite or runtime behavior inferred from absent XML'
+              row['setup_notes']=['Only the core dependency was redirected to the exact4.1.63 primary-build JAR; source identities retained.']
+          manifest['bundle_revision']=ledger['bundle_revision']=100
+          ledger['summary']={'addons':len(ledger['addons']),'full_build_passed':sum(r['full_build_result']=='PASS' for r in ledger['addons']),'reported_test_entries':sum(r['reported_test_entries'] for r in ledger['addons']),'addons_with_reported_tests':sum(r['reported_test_entries']>0 for r in ledger['addons']),'addons_without_reported_tests':sum(r['reported_test_entries']==0 for r in ledger['addons']),'failures':sum(r['failures'] for r in ledger['addons']),'errors':sum(r['errors'] for r in ledger['addons']),'skips':sum(r['skips'] for r in ledger['addons'])}
+          ledger['limitations'].append('Revision100 changes only the merged JEG and current GeneticChickEngineering sources. Their full builds use the versioned4.1.63 core; other source evidence retains its original core/run attribution. All45 will be rebuilt by the canonical release workflow.')
+          assert {r['repository']:r['source_commit'] for r in ledger['addons']}==new
+          mp.write_text(json.dumps(manifest,indent=2)+'\n');lp.write_text(json.dumps(ledger,indent=2)+'\n')
+          # This optional multi-provider bridge has no Slimefun compile dependency. Keep its own
+          # verified project CI separate instead of forcing it into the45 standalone-addon archive.
+          ep=Path('compatibility/addon-compatibility-exclusions.json');ex=json.loads(ep.read_text())
+          assert not any(r['repository']=='wickidcow/SF_BetterStructuresLink' for r in ex['exclusions'])
+          ex['exclusions'].append({'repository':'wickidcow/SF_BetterStructuresLink','reason':'Optional multi-provider BetterStructures bridge with no Slimefun compile dependency; maintained and tested in its own repository, not a standalone addon in the45-addon release bundle. Full project verification is recorded in the4.1.63 release source audit.'})
+          ep.write_text(json.dumps(ex,indent=2)+'\n')
+          names=[str(mp),str(lp),str(ep)];records={}
+          for name in names:
+              data=Path(name).read_bytes();sha=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+              response=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps(dict(content=data.decode(),encoding='utf-8')),check=True,text=True,capture_output=True)
+              assert json.loads(response.stdout)['sha']==sha;records[name]=sha
+              p=Path('evidence/reviewed-source')/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(data)
+          Path('evidence/reviewed-blobs.json').write_text(json.dumps(records,indent=2)+'\n')
+          PY
+          python3 scripts/verify_legacy.py . > evidence/core-invariants.log 2>&1
+          python3 scripts/verify_wickidcow_addon_coverage.py compatibility/addon-compatibility-matrix.json --owner wickidcow > evidence/fork-coverage.log 2>&1
+          git diff --check
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-addon-refresh-evidence
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
