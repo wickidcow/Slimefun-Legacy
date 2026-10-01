@@ -1,0 +1,73 @@
+name: WorldEdit and Addon Modernization Validation
+
+on:
+  push:
+    branches: ['work/worldedit-modernization-validation']
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: worldedit-modernization-validation
+  cancel-in-progress: true
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Export exact reviewed core and addon sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p audit-snapshot
+          git archive --format=zip HEAD > audit-snapshot/Slimefun-Legacy-source.zip
+          git ls-tree -r HEAD > audit-snapshot/Slimefun-Legacy-blobs.txt
+          python3 - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          matrix = json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text())
+          wanted = {'WorldEditSlimefun', 'SF_FNAmplifications', 'SF_LiteXpansion', 'SF_SlimeTinkerIE2'}
+          for addon in matrix['addons']:
+              repository = addon['repository']
+              name = repository.split('/')[1]
+              if name not in wanted:
+                  continue
+              dest = Path('audit-checkouts') / name
+              subprocess.run(['git', 'clone', '--quiet', '--filter=blob:none', '--no-checkout', 'https://github.com/' + repository + '.git', str(dest)], check=True)
+              subprocess.run(['git', '-C', str(dest), 'checkout', '--quiet', '--detach', addon['source_commit']], check=True)
+              actual = subprocess.check_output(['git', '-C', str(dest), 'rev-parse', 'HEAD'], text=True).strip()
+              assert actual == addon['source_commit']
+              target = Path('audit-snapshot') / (name + '-source.zip')
+              subprocess.run(['git', '-C', str(dest), 'archive', '--format=zip', '--output=' + str(target.resolve()), 'HEAD'], check=True)
+              Path('audit-snapshot', name + '-blobs.txt').write_bytes(subprocess.check_output(['git', '-C', str(dest), 'ls-tree', '-r', 'HEAD']))
+              print(repository, actual)
+          Path('audit-snapshot/source-matrix.json').write_text(json.dumps(matrix, indent=2))
+          PY
+      - name: Capture upstream server dependency releases without selecting client mods
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, urllib.parse, urllib.request
+          from pathlib import Path
+          for project in ('worldedit', 'fastasyncworldedit'):
+              for version in ('1.21.11', '26.2', '26.3'):
+                  query = urllib.parse.urlencode({'game_versions': json.dumps([version])})
+                  request = urllib.request.Request(f'https://api.modrinth.com/v2/project/{project}/version?{query}', headers={'User-Agent': 'Slimefun-Legacy-Compatibility/1.0 (github.com/wickidcow/Slimefun-Legacy)'})
+                  with urllib.request.urlopen(request, timeout=40) as response:
+                      versions = json.load(response)
+                  versions = [v for v in versions if set(v.get('loaders', [])) & {'bukkit', 'paper', 'spigot', 'folia', 'purpur'}]
+                  Path('audit-snapshot', f'{project}-{version}-versions.json').write_text(json.dumps(versions[:6], indent=2))
+                  print(project, version, [(v['id'], v['version_number'], v['date_published'], v['loaders']) for v in versions[:3]])
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: worldedit-modernization-source-audit
+          path: audit-snapshot/
+          retention-days: 14
+          if-no-files-found: error
