@@ -6,46 +6,95 @@ on:
 
 permissions:
   contents: read
+  actions: read
+
+concurrency:
+  group: worldedit-modernization-validation
+  cancel-in-progress: true
 
 jobs:
-  inspect-floor:
+  floor:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
-      - name: Inspect exact publisher-listed floor binaries
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Resolve only the fixed publisher-listed Java 21 Bukkit version
+        shell: bash
         run: |
-          python3 - <<'PY'
-          import hashlib, io, json, struct, urllib.parse, urllib.request, zipfile
+          set -euo pipefail
+          mkdir -p evidence dependency
+          curl --fail-with-body --location --silent --show-error --connect-timeout 15 --max-time 60 --retry 2 \
+            -H 'User-Agent: Slimefun-Legacy-Compatibility/1.0' \
+            https://api.modrinth.com/v2/version/2YDdVDmG > evidence/worldedit-floor-version.json
+          python3 -u - <<'PY'
+          import json
           from pathlib import Path
-          def get(url):
-              request = urllib.request.Request(url, headers={'User-Agent':'Slimefun-Legacy-Compatibility/1.0'})
-              with urllib.request.urlopen(request, timeout=45) as response:
-                  return response.read(64*1024*1024)
-          query = urllib.parse.urlencode({'game_versions': json.dumps(['1.21.11']), 'loaders':json.dumps(['bukkit'])})
-          versions = json.loads(get('https://api.modrinth.com/v2/project/worldedit/version?' + query))
-          inspected = []
-          Path('evidence').mkdir()
-          for version in versions[:15]:
-              file = next(f for f in version['files'] if f['primary'] and f['filename'].startswith('worldedit-bukkit-'))
-              data = get(file['url'])
-              assert hashlib.sha512(data).hexdigest() == file['hashes']['sha512']
-              with zipfile.ZipFile(io.BytesIO(data)) as jar:
-                  assert jar.testzip() is None
-                  major = struct.unpack('>H', jar.read('com/sk89q/worldedit/bukkit/WorldEditPlugin.class')[6:8])[0]
-                  core_major = struct.unpack('>H', jar.read('com/sk89q/worldedit/world/block/BlockStateHolder.class')[6:8])[0]
-              inspected.append({'version':version['version_number'], 'id':version['id'], 'major':major, 'core_major':core_major})
-              print(inspected[-1])
-              if max(major, core_major) <= 65:
-                  Path('evidence/worldedit-java21-version.json').write_text(json.dumps(version, indent=2))
-                  break
-          else:
-              raise RuntimeError('No verified Java21 entry point among bounded publisher-listed candidates')
-          Path('evidence/inspected-versions.json').write_text(json.dumps(inspected, indent=2))
+          version = json.loads(Path('evidence/worldedit-floor-version.json').read_text())
+          assert version['id'] == '2YDdVDmG' and version['version_number'] == '7.3.19'
+          assert 'bukkit' in version['loaders'] and '1.21.11' in version['game_versions']
+          file = next(f for f in version['files'] if f['primary'] and f['filename'] == 'worldedit-bukkit-7.3.19.jar')
+          spec = {'project':'WorldEdit', 'plugin_name':'WorldEdit', 'version':version['version_number'],
+                  'release_type':version['version_type'], 'version_id':version['id'],
+                  'minecraft_versions':['1.21.11'], 'filename':file['filename'], 'url':file['url'],
+                  'sha512':file['hashes']['sha512']}
+          Path('compatibility/runtime-dependencies.json').write_text(json.dumps({'schema':1,'dependencies':[spec]}, indent=2)+'\n')
+          print(json.dumps(spec, indent=2), flush=True)
           PY
+          git apply --check .audit/require_worldedit.patch
+          git apply .audit/require_worldedit.patch
+          bash -n scripts/full_stack_runtime_smoke.sh
+          python3 scripts/test_prepare_runtime_dependencies.py
+          python3 -u scripts/prepare_runtime_dependencies.py compatibility/runtime-dependencies.json 1.21.11 dependency evidence/runtime-dependencies.json
+          python3 - <<'PY'
+          import struct, zipfile
+          with zipfile.ZipFile('dependency/worldedit-bukkit-7.3.19.jar') as jar:
+              for name in ('com/sk89q/worldedit/bukkit/WorldEditPlugin.class', 'com/sk89q/worldedit/world/block/BlockStateHolder.class'):
+                  major=struct.unpack('>H', jar.read(name)[6:8])[0]
+                  assert major<=65, (name,major)
+                  print('Java21 compatible:', name, major)
+          PY
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Fetch the exact r95 paired candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 36801932529 --repo "$GITHUB_REPOSITORY" --name full-stack-core --dir candidate
+          gh run download 36801932529 --repo "$GITHUB_REPOSITORY" --name full-stack-addon-bundle --dir bundle
+          echo 'ea4b0c47ee41b852abb5c97bacbb4f1c0ebc5126c29fb36d39e7c71747d13bdd  candidate/Slimefun-Legacy-full-stack.jar' | sha256sum -c -
+          echo '7cf9bf6ce10949d93da8dce50125d4b1a8385ddbbbac2433ab72f6e6687b0d86  bundle/SF_Addons_1.21.11-26.3.zip' | sha256sum -c -
+      - name: Compile the same operation probe against the floor dependency
+        run: |
+          mvn -B -f scripts/worldedit-runtime-probe/pom.xml package -Dcore.jar="$PWD/candidate/Slimefun-Legacy-full-stack.jar" -Dworldedit.jar="$PWD/dependency/worldedit-bukkit-7.3.19.jar"
+          mkdir -p probe
+          cp scripts/worldedit-runtime-probe/target/WorldEditRuntimeProbe-1.0.0.jar probe/
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verify all addons and actual WorldEdit operations on both floor boots
+        env:
+          SERVER_MINECRAFT_VERSION: '1.21.11'
+          RUNTIME_SMOKE_EXTRA_PLUGIN_DIR: ${{ github.workspace }}/probe
+          RUNTIME_SMOKE_REQUIRED_MARKER: WORLDEDIT_COMPAT_PROBE PASS addons=45
+        run: |
+          bash scripts/full_stack_runtime_smoke.sh candidate/Slimefun-Legacy-full-stack.jar bundle/SF_Addons_1.21.11-26.3.zip build/worldedit-floor
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: worldedit-java21-dependency
-          path: evidence/
-          if-no-files-found: error
+          name: worldedit-floor-verified
+          path: |
+            evidence/
+            compatibility/runtime-dependencies.json
+            build/worldedit-floor/*.log
+            build/worldedit-floor/*.txt
+            build/worldedit-floor/runtime-dependencies.json
+            build/worldedit-floor/plugins/WorldEditRuntimeProbe/*
+          if-no-files-found: warn
           retention-days: 14
