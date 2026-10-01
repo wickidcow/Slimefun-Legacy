@@ -1,0 +1,109 @@
+name: Prior Release Stored Item Upgrade
+on:
+  push:
+    branches: ['work/prior-release-storage-upgrade-r96']
+permissions:
+  contents: read
+concurrency:
+  group: prior-release-upgrade-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  produce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Fetch the exact released producer, not a rebuilt approximation
+        run: |
+          set -euo pipefail
+          mkdir -p producer
+          curl --fail --location --silent --show-error 'https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.61/Slimefun-Legacy4.1.61.jar' -o producer/Slimefun4.1.61.jar
+          echo '329e22688557fbd0e0d51dba02fdc1e2e8d9f363774b29dafb0a502f41d6024f  producer/Slimefun4.1.61.jar' | sha256sum -c -
+      - name: Compile probe against the released core and floor API
+        run: |
+          mvn -B -f scripts/prior-release-upgrade-probe/pom.xml package -Dcore.jar="$PWD/producer/Slimefun4.1.61.jar"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Generate storage with 4.1.61 and verify its first clean restart
+        run: |
+          python3 scripts/run_prior_release_upgrade.py produce --core producer/Slimefun4.1.61.jar --probe scripts/prior-release-upgrade-probe/target/PriorReleaseUpgradeProbe-1.0.0.jar
+      - name: Freeze the stopped generated world and databases
+        run: |
+          mkdir -p fixture
+          tar -C build/prior-release-fixture --exclude='*.jar' --exclude='./libraries' --exclude='./cache' --exclude='./versions' --exclude='./logs' -czf fixture/prior-release-world.tar.gz .
+          cp scripts/prior-release-upgrade-probe/target/PriorReleaseUpgradeProbe-1.0.0.jar fixture/
+          sha256sum fixture/* > fixture/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: generated-previous-release-fixture
+          path: fixture/
+          retention-days: 14
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: prior-release-producer-evidence
+          path: |
+            build/prior-release-fixture/*.log
+            build/prior-release-fixture/*result.json
+            build/prior-release-fixture/runtime.json
+            build/prior-release-fixture/plugins/PriorReleaseUpgradeProbe/
+          if-no-files-found: warn
+          retention-days: 14
+  upgrade:
+    needs: produce
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {software: paper, minecraft: '1.21.11', java: '21'}
+          - {software: purpur, minecraft: '1.21.11', java: '21'}
+          - {software: paper, minecraft: '26.2', java: '25'}
+          - {software: paper, minecraft: '26.3', java: '25'}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: generated-previous-release-fixture
+          path: fixture
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - name: Fetch the exact revision-96 candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p candidate build/prior-release-fixture
+          gh run download 36804275144 --repo wickidcow/Slimefun-Legacy --name full-stack-core --dir candidate
+          echo '197a6d7577c4a6680de109d60e11f2035986ab3d21eea8f6f3c5271dd45c5c6b  candidate/Slimefun-Legacy-full-stack.jar' | sha256sum -c -
+          sha256sum -c fixture/SHA256SUMS.txt
+          tar -xzf fixture/prior-release-world.tar.gz -C build/prior-release-fixture
+      - name: Upgrade, compare original items, resave and verify another process restart
+        run: |
+          python3 scripts/run_prior_release_upgrade.py upgrade --core candidate/Slimefun-Legacy-full-stack.jar --probe fixture/PriorReleaseUpgradeProbe-1.0.0.jar --software '${{ matrix.software }}' --minecraft '${{ matrix.minecraft }}'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: prior-release-upgrade-${{ matrix.software }}-${{ matrix.minecraft }}
+          path: |
+            build/prior-release-fixture/*.log
+            build/prior-release-fixture/*result.json
+            build/prior-release-fixture/runtime.json
+            build/prior-release-fixture/plugins/PriorReleaseUpgradeProbe/
+          if-no-files-found: warn
+          retention-days: 14

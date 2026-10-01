@@ -1,0 +1,6 @@
+name: PriorReleaseUpgradeProbe
+version: 1.0.0
+main: io.github.wickidcow.validation.PriorReleaseUpgradeProbe
+api-version: '1.21.11'
+depend: [Slimefun]
+description: Disposable generated-prior-release fixture test; not for production installation.
