@@ -4,6 +4,7 @@ on:
     branches: ['work/prior-release-storage-upgrade-r96']
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: prior-release-upgrade-${{ github.ref }}
   cancel-in-progress: true
