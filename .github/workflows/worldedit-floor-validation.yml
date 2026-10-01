@@ -1,0 +1,85 @@
+name: Complete Stack WorldEdit Java 21 Floor
+on:
+  push:
+    branches: ['work/bundle-integration-20260930']
+    paths: ['.github/workflows/worldedit-floor-validation.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 656f569327c1d7e706cb23604dba024ddbc17c54
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Retain every maintained JAR and select the actual Java 21 WorldEdit provider
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,io,json,subprocess,urllib.request,zipfile
+          from pathlib import Path
+          raw=subprocess.run(['gh','api','repos/wickidcow/Slimefun-Legacy/actions/artifacts/11134905289/zip'],check=True,capture_output=True,timeout=180).stdout
+          assert hashlib.sha256(raw).hexdigest()=='6e4773a007a1f2ce6ca066baeba1f100087f4883863937890a1cabc624a05db5'
+          out=Path('floor-inputs');out.mkdir()
+          with zipfile.ZipFile(io.BytesIO(raw)) as outer:
+              (out/'core.jar').write_bytes(outer.read('core.jar'))
+              stack=outer.read('runtime-stack.zip')
+          headers={'User-Agent':'Slimefun-Legacy-WorldEdit-Floor-Validation/1.0'}
+          with urllib.request.urlopen(urllib.request.Request('https://api.modrinth.com/v2/version/2YDdVDmG',headers=headers),timeout=60) as response:
+              version=json.load(response)
+          assert version['project_id']=='1u6JkXh5' and version['version_number']=='7.3.19'
+          assert '1.21.11' in version['game_versions'] and 'bukkit' in version['loaders']
+          files=[f for f in version['files'] if f['filename']=='worldedit-bukkit-7.3.19.jar'];assert len(files)==1
+          file=files[0]
+          with urllib.request.urlopen(urllib.request.Request(file['url'],headers=headers),timeout=90) as response: provider=response.read()
+          assert hashlib.sha512(provider).hexdigest()==file['hashes']['sha512']
+          (out/'WorldEdit-provider.jar').write_bytes(provider)
+          subprocess.run(['python3','scripts/verify_addon_bytecode.py',str(out/'WorldEdit-provider.jar'),'--expected-java','21','--report',str(out/'provider-bytecode.json')],check=True)
+          with zipfile.ZipFile(io.BytesIO(stack)) as archive,zipfile.ZipFile(out/'runtime-stack.zip','w',zipfile.ZIP_DEFLATED) as combined:
+              manifest=json.loads(archive.read('SF_ADDON_MANIFEST.json'))
+              assert len(manifest['addons'])==46
+              original=[row for row in manifest['addons'] if row['repository']!='EngineHub/WorldEdit'];assert len(original)==45
+              for row in original:
+                  content=archive.read(row['jar']);assert hashlib.sha256(content).hexdigest()==row['sha256']
+                  combined.writestr(row['jar'],content)
+              record=dict(repository='EngineHub/WorldEdit',jar='WorldEdit-provider.jar',version='7.3.19',version_id=version['id'],sha256=hashlib.sha256(provider).hexdigest(),sha512=file['hashes']['sha512'],source_url=file['url'],scope='External floor runtime dependency; not a maintained bundle addition')
+              manifest['addons']=original+[record]
+              combined.writestr('WorldEdit-provider.jar',provider)
+              combined.writestr('SF_ADDON_MANIFEST.json',json.dumps(manifest,indent=2))
+          (out/'provider-provenance.json').write_text(json.dumps(record,indent=2)+'\n')
+          PY
+      - name: Require all 45 maintained addons on both Java 21 boots
+        env:
+          SERVER_MINECRAFT_VERSION: '1.21.11'
+        run: |
+          set -euo pipefail
+          bash scripts/full_stack_runtime_smoke.sh floor-inputs/core.jar floor-inputs/runtime-stack.zip build/floor-complete
+          test ! -s build/floor-complete/dependency-gated-addons.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('build/floor-complete');rows=(root/'expected-addons.txt').read_text().splitlines()
+          assert len(rows)==46
+          assert {'WorldEdit','WorldEditSlimefun'} <= {row.split('\t')[1] for row in rows}
+          for cycle in ['first','second']:
+              text=(root/f'{cycle}.normalized.log').read_text()
+              assert 'ERROR]' not in text and 'UnknownDependencyException' not in text
+          print('All 45 maintained addons and the compatible WorldEdit provider passed two Java 21 boots.')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: complete-stack-worldedit-floor
+          path: |
+            floor-inputs/provider-provenance.json
+            floor-inputs/provider-bytecode.json
+            build/floor-complete/*.log
+            build/floor-complete/*.txt
+          retention-days: 14
