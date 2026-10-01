@@ -1,0 +1,127 @@
+name: Native FN Item State Validation
+
+on:
+  push:
+    branches: ['work/fn-native-item-r97-validation']
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Compile the probe against the 1.21.11 API
+        run: |
+          set -euo pipefail
+          mvn -B -f .audit/fn-native-probe/pom.xml clean package
+          mkdir -p probe
+          cp .audit/fn-native-probe/target/fn-native-state-probe-1.0.jar probe/FNStateProbe.jar
+      - name: Obtain only the matching core and addon bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/download_candidate_bundle.py --repository "$GITHUB_REPOSITORY" \
+            --head 7d6e06b4f7dad9060453bc4597df6225dee503fa \
+            --source 7af2d271f7f88c6c185d9229f3abf9b86b8fa245 --output bundle
+          RUN="$(sed -n 's/^run_id=//p' bundle/bundle-source.txt)"
+          test "$RUN" = 36810814614
+          gh run download "$RUN" --repo "$GITHUB_REPOSITORY" --name sfl-26.3-candidate-core --dir candidate
+          sha256sum candidate/Slimefun-Legacy-candidate.jar bundle/SF_Addons_1.21.11-26.3.zip > bundle/native-probe-input-sha256.txt
+          python3 - <<'PY'
+          import hashlib, json, zipfile
+          from pathlib import Path
+          with zipfile.ZipFile('bundle/SF_Addons_1.21.11-26.3.zip') as archive:
+              manifest=json.loads(archive.read('SF_ADDON_MANIFEST.json'))
+              rows={r['repository']:r for r in manifest['addons']}
+              assert len(rows)==45
+              assert rows['wickidcow/SF_FNAmplifications']['commit']=='2eb07e7bca82d4d7621224e6f9e4942481e7e8f7'
+              assert manifest['core_source_commit']=='7af2d271f7f88c6c185d9229f3abf9b86b8fa245'
+              Path('bundle/native-probe-manifest.json').write_text(json.dumps(manifest,indent=2))
+              print('Native tests use exact FN candidate and complete paired bundle')
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-fn-test-inputs
+          path: |
+            probe/FNStateProbe.jar
+            candidate/Slimefun-Legacy-candidate.jar
+            bundle/
+          if-no-files-found: error
+
+  native:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11', '26.2', '26.3']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: native-fn-test-inputs
+          path: inputs
+      - name: Add the validation-only probe to the disposable stack
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          path=Path('scripts/full_stack_runtime_smoke.sh')
+          data=path.read_bytes()
+          sha=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+          assert sha=='088f636aa72de8b194efa638cabb0aac6dcb9594',sha
+          old='cp "$SLIMEFUN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-full-stack.jar"'
+          new=old+'\ncp "$PROBE_JAR" "$WORK_DIR/plugins/FNStateProbe.jar"'
+          text=data.decode()
+          assert text.count(old)==1
+          path.write_text(text.replace(old,new))
+          PY
+      - name: Execute real native item checks in both boot cycles
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+        run: |
+          set -euo pipefail
+          export PROBE_JAR="$PWD/inputs/probe/FNStateProbe.jar"
+          bash scripts/full_stack_runtime_smoke.sh inputs/candidate/Slimefun-Legacy-candidate.jar \
+            inputs/bundle/SF_Addons_1.21.11-26.3.zip "build/native-fn-${{ matrix.minecraft }}"
+          for CYCLE in first second; do
+            LOG="build/native-fn-${{ matrix.minecraft }}/${CYCLE}.normalized.log"
+            grep -Fq 'FN_NATIVE_ITEM_PROBE_PASS cases=16' "$LOG"
+            test "$(grep -c 'FN_NATIVE_CASE_PASS ' "$LOG")" = 16
+            if grep -Fq 'FN_NATIVE_ITEM_PROBE_FAIL' "$LOG"; then exit 1; fi
+          done
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: native-fn-state-${{ matrix.minecraft }}
+          path: |
+            build/native-fn-${{ matrix.minecraft }}/*.console.log
+            build/native-fn-${{ matrix.minecraft }}/*.normalized.log
+            build/native-fn-${{ matrix.minecraft }}/runtime-build.txt
+            build/native-fn-${{ matrix.minecraft }}/smoke-result.txt
+            build/native-fn-${{ matrix.minecraft }}/expected-addons.txt
+            build/native-fn-${{ matrix.minecraft }}/dependency-gated-addons.txt
+            build/native-fn-${{ matrix.minecraft }}/plugins/worldedit-runtime.json
+            build/native-fn-${{ matrix.minecraft }}/plugins/FNStateProbe/native-item-results.txt
+            inputs/bundle/bundle-source.txt
+            inputs/bundle/native-probe-input-sha256.txt
+          if-no-files-found: warn

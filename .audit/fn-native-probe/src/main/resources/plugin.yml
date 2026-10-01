@@ -1,0 +1,6 @@
+name: FNStateProbe
+version: '1.0'
+main: io.github.wickidcow.validation.FNStateProbe
+api-version: '1.21'
+depend: [Slimefun, FNAmplifications]
+description: Disposable native item-state validation; not a maintained addon or release artifact.
