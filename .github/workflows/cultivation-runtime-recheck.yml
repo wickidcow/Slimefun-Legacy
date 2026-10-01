@@ -39,18 +39,21 @@ jobs:
               for name in ['old.jar','new.jar','core.jar','run_progress.py','input-sha256.txt']:
                   (root/name).write_bytes(archive.read(name))
           p=Path('.audit/cultivation/ProgressRuntime.java');text=p.read_text()
-          old='''                    check(Cultivation.getConfigManager() == null, "Incomplete manager was published");
-                              check(Cultivation.getPlantRegistry() == null, "Plant registry initialized after failed data load");
-                              check(Cultivation.getRunnableManager() == null, "Tasks initialized after failed data load");'''.replace('\n          ','\n')
-          # Paper removes disabled plugins from normal cross-plugin class lookup.
-          # Inspect the actual retained instance, without loading replacement classes.
+          # Failed startup closes the addon loader. Assert actual global state instead
+          # of resolving previously unused field types from a closed plugin JAR.
           start=text.index('                    check(Cultivation.getConfigManager() == null,')
           end=text.index('\n                } else {',start)
-          text=text[:start]+'''                    for (String name : new String[] {"configManager", "registry", "taskManager"}) {
-                                  var field = addon.getClass().getDeclaredField(name);
-                                  field.setAccessible(true);
-                                  check(field.get(addon) == null, "Failed startup initialized " + name);
-                              }'''.replace('\n          ','\n')+text[end:]
+          replacement='''                    check(io.github.thebusybiscuit.slimefun4.implementation.Slimefun.getRegistry()
+                                  .getAllSlimefunItems().stream().noneMatch(item -> item.getAddon() == addon),
+                                  "Failed startup registered Cultivation items");
+                              check(Bukkit.getScheduler().getPendingTasks().stream().noneMatch(task -> task.getOwner() == addon),
+                                  "Failed startup retained scheduled work");
+                              check(org.bukkit.event.HandlerList.getRegisteredListeners(addon).isEmpty(),
+                                  "Failed startup retained event listeners");'''.replace('\n          ','\n')
+          text=text[:start]+replacement+text[end:]
+          needle='                    check(addon.isEnabled(), "Expected enabled Cultivation");'
+          assert text.count(needle)==1
+          text=text.replace(needle,needle+'\n                    check(io.github.thebusybiscuit.slimefun4.implementation.Slimefun.getRegistry().getAllSlimefunItems().stream().anyMatch(item -> item.getAddon() == addon), "Healthy control must register actual addon items");')
           p.write_text(text)
           PY
       - name: Compile only the corrected assertion fixture
