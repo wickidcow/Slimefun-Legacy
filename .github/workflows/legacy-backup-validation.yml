@@ -1,0 +1,96 @@
+name: Legacy Source Backup Validation
+
+on:
+  push:
+    branches: ['work/legacy-source-backup-safety']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: legacy-backup-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Run unchanged source/API boundaries and full real build
+        run: |
+          set -euo pipefail
+          mkdir -p audit-evidence
+          python3 scripts/verify_legacy.py . 2>&1 | tee audit-evidence/invariants.log
+          chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon
+          ./gradlew clean --no-daemon
+          mkdir -p build/reports
+          ./gradlew build -PslimefunDeprecationReport=true --console=plain --no-daemon 2>&1 | tee build/reports/deprecation-compile.log
+          python3 scripts/summarize_deprecations.py build/reports/deprecation-compile.log --fail-on-warnings --require-successful-build
+          git diff --check
+      - name: Require all real filesystem backup cases
+        run: |
+          python3 - <<'PY'
+          import json, xml.etree.ElementTree as ET
+          from pathlib import Path
+          totals = dict.fromkeys(('tests', 'failures', 'errors', 'skipped'), 0)
+          new = 0
+          for path in Path('build/test-results/test').glob('TEST-*.xml'):
+              suite = ET.parse(path).getroot()
+              for key in totals:
+                  totals[key] += int(suite.get(key, '0'))
+              if path.name.endswith('.LegacyDataBackupTest.xml'):
+                  assert suite.get('tests') == '20', suite.attrib
+                  assert all(int(suite.get(key, '0')) == 0 for key in ('failures', 'errors', 'skipped')), suite.attrib
+                  new += 20
+                  print('Real backup suite:', suite.attrib)
+          assert new == 20 and totals['failures'] == totals['errors'] == 0, totals
+          Path('audit-evidence/results.json').write_text(json.dumps(totals, indent=2))
+          print('Full JUnit report:', totals)
+          PY
+      - name: Preserve verified formatted blobs without updating branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, json, os, subprocess
+          from pathlib import Path
+          paths = (
+            'src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/migrator/LegacyDataBackup.java',
+            'src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/migrator/MigratorUtil.java',
+            'src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/migrator/LegacyDataBackupTest.java',
+          )
+          manifest = {}
+          for name in paths:
+              data = Path(name).read_bytes()
+              sha = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+              body = json.dumps({'content': base64.b64encode(data).decode(), 'encoding': 'base64'})
+              reply = subprocess.run(['gh', 'api', '--method', 'POST', f"repos/{os.environ['GITHUB_REPOSITORY']}/git/blobs", '--input', '-', '--jq', '.sha'], input=body, text=True, capture_output=True, check=True)
+              assert reply.stdout.strip() == sha, name
+              manifest[name] = sha
+              target = Path('audit-evidence/validated-source') / name
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_bytes(data)
+          Path('audit-evidence/validated-blobs.json').write_text(json.dumps(manifest, indent=2))
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: legacy-backup-evidence
+          retention-days: 14
+          path: |
+            audit-evidence/
+            build/reports/deprecation-compile.log
+            build/reports/deprecations.md
+            build/test-results/test/TEST-*.xml
+          if-no-files-found: warn
