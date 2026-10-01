@@ -5,9 +5,13 @@ on:
     branches: [master]
     paths:
       - '.github/workflows/publish-sfl-addon-release-jars.yml'
+      - 'scripts/verify_published_addon_bundle.py'
+      - 'scripts/test_verify_published_addon_bundle.py'
   pull_request:
     paths:
       - '.github/workflows/publish-sfl-addon-release-jars.yml'
+      - 'scripts/verify_published_addon_bundle.py'
+      - 'scripts/test_verify_published_addon_bundle.py'
   workflow_run:
     workflows: ['Build SF Addons 1.21.11-26.3 Bundle']
     types: [completed]
@@ -22,91 +26,74 @@ concurrency:
 
 jobs:
   validate:
-    name: Validate 1.21.11-26.3 addon JARs
+    name: Validate published addon JARs
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Resolve latest Slimefun Legacy release
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Run public-name and archive safety regressions
+        run: python3 -m unittest discover -s scripts -p 'test_verify_published_addon_bundle.py' -v
+      - name: Resolve the latest stable release
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: bash
         run: |
           set -euo pipefail
-          TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 20 --json tagName,isDraft --jq '[.[] | select(.isDraft == false)][0].tagName')"
-          test -n "$TAG"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "Validating addon bundle attached to $TAG"
-
-      - name: Download verified 1.21.11-26.3 addon bundle
+          mkdir -p download
+          gh api "repos/$GITHUB_REPOSITORY/releases/latest" > download/release.json
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          release = json.loads(Path('download/release.json').read_text())
+          assert not release['draft'] and not release['prerelease']
+          assert re.fullmatch(r'v[0-9]+(?:\.[0-9]+)+', release['tag_name'])
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('tag=' + release['tag_name'] + '\n')
+          PY
+      - name: Download and verify the published asset checksum
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.release.outputs.tag }}
-        shell: bash
         run: |
           set -euo pipefail
-          mkdir -p download verified
-          gh release download "$TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern 'SF_Addons_1.21.11-26.3.zip' \
-            --dir download \
-            --clobber
-          test -s download/SF_Addons_1.21.11-26.3.zip
-          unzip -q download/SF_Addons_1.21.11-26.3.zip -d verified
-
-      - name: Verify exact matrix-approved JAR set
-        shell: bash
-        run: |
-          set -euo pipefail
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'SF_Addons_1.21.11-26.3.zip' --dir download
           python3 - <<'PY'
-          import json, re
+          import hashlib, json, re
           from pathlib import Path
-
-          root = Path('verified')
-          manifest_path = root / 'SF_ADDON_MANIFEST.json'
-          if not manifest_path.is_file():
-              raise SystemExit('Verified addon bundle is missing SF_ADDON_MANIFEST.json')
-
-          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
-          records = manifest.get('addons', [])
-          expected = sorted(record['jar'] for record in records)
-          actual = sorted(path.name for path in root.glob('*.jar'))
-
-          if not expected:
-              raise SystemExit('Verified addon manifest contains no addon JARs')
-          if len(expected) != len(set(expected)):
-              raise SystemExit('Verified addon manifest contains duplicate JAR names')
-          if actual != expected:
-              raise SystemExit(f'Verified addon JAR set mismatch:\nexpected={expected}\nactual={actual}')
-
-          versions = manifest.get('compatibility', {}).get('minecraft_versions', {})
-          supported = versions.get('supported', [])
-          if versions.get('minimum') != '1.21.11' or '26.3' not in supported:
-              raise SystemExit(f'Unexpected compatibility range in verified manifest: {versions}')
-
-          def valid_public_name(name):
-              standard = re.fullmatch(r'(?:SF_[A-Za-z0-9]+|SFL_DracFun-Reborn)\d+(?:\.\d+)+\.jar', name)
-              worldedit = re.fullmatch(r'SF_SFWorldEdit\d+(?:\.\d+)+_\(1\.21\.11-26\.2\)\.jar', name)
-              return bool(standard or worldedit)
-
-          invalid = [name for name in expected if not valid_public_name(name)]
-          if invalid:
-              raise SystemExit(f'Invalid public addon JAR names: {invalid}')
-
-          print(f'Verified {len(expected)} matrix-approved addon JARs for 1.21.11-26.3')
+          name = 'SF_Addons_1.21.11-26.3.zip'
+          release = json.loads(Path('download/release.json').read_text())
+          matches = [asset for asset in release['assets'] if asset['name'] == name]
+          assert len(matches) == 1 and matches[0]['state'] == 'uploaded'
+          digest = matches[0].get('digest')
+          assert isinstance(digest, str) and re.fullmatch(r'sha256:[0-9a-f]{64}', digest), 'Published asset has no verifiable SHA-256'
+          assert digest == 'sha256:' + hashlib.sha256(Path('download', name).read_bytes()).hexdigest(), 'Published ZIP checksum mismatch'
           PY
-
-      - name: Publish summary
-        shell: bash
+      - name: Verify complete JAR membership, names, checksums and archives
+        run: python3 scripts/verify_published_addon_bundle.py download/SF_Addons_1.21.11-26.3.zip > download/validation.json
+      - name: Publish validation summary
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
         run: |
-          COUNT="$(find verified -maxdepth 1 -type f -name '*.jar' | wc -l | tr -d ' ')"
-          {
-            echo '## Verified Slimefun addon bundle'
-            echo
-            echo "- Release: ${{ steps.release.outputs.tag }}"
-            echo "- Verified addon JARs inside bundle: $COUNT"
-            echo '- Source: SF_Addons_1.21.11-26.3.zip manifest'
-            echo '- Compatibility: Minecraft 1.21.11 through 26.3'
-            echo '- Individual addon JARs are intentionally NOT published to the Slimefun Legacy release'
-          } >> "$GITHUB_STEP_SUMMARY"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          result = json.loads(Path('download/validation.json').read_text())
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as output:
+              output.write('## Verified published addon bundle\n\n')
+              output.write(f"Release: {os.environ['TAG']}\n\n")
+              output.write(f"Validated {result['addon_count']} JARs for the declared {result['minimum']} through {result['primary']} range.\n\n")
+              output.write('No files were extracted, modified or published. Archive validation is not a new gameplay test.\n')
+          PY
+      - name: Retain published-asset verification evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: published-addon-validation
+          path: |
+            download/release.json
+            download/validation.json
+          retention-days: 14
+          if-no-files-found: warn
