@@ -1,0 +1,136 @@
+name: Bundle Core Provenance Correction Validation
+on:
+  push:
+    branches: ['work/shop-safety-r99-validation-20261001']
+    paths: ['.github/workflows/bundle-core-provenance-validation.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Add the missing bundle-core source and artifact guard
+        run: |
+          mkdir -p evidence
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,subprocess
+          blob=lambda b:hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          guard=Path('scripts/verify_phase1l_release_artifact.py')
+          assert blob(guard.read_bytes())=='585f80f1fba21824c80591eb10c8d3355c86b63b'
+          text=guard.read_text()
+          needle='        for token in (\n            "name: Reproducible Release",'
+          inserted='''        require("\\n  core:\\n" in bundle_workflow and "\\n  compile-addons:\\n" in bundle_workflow,
+                "Addon bundle core job boundary is missing", failures)
+          bundle_core = bundle_workflow.split("\\n  core:\\n", 1)[-1].split("\\n  compile-addons:\\n", 1)[0]
+          for token in (
+              "Pin bundle core source identity",
+              'source_commit="$(git rev-parse HEAD)"',
+              'echo "SOURCE_COMMIT=$source_commit" >> "$GITHUB_ENV"',
+              'echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct "$source_commit")" >> "$GITHUB_ENV"',
+              '--no-build-cache --no-configuration-cache',
+              'python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21',
+              'python3 scripts/verify_release_artifact.py "$JAR" --root .',
+          ):
+              require(token in bundle_core, f"Addon bundle core provenance invariant missing: {token}", failures)
+          pin = bundle_core.find("Pin bundle core source identity")
+          build_at = bundle_core.find("./gradlew clean shadowJar")
+          verify_at = bundle_core.find("python3 scripts/verify_release_artifact.py")
+          upload_at = bundle_core.find("uses: actions/upload-artifact")
+          require(0 <= pin < build_at < verify_at < upload_at,
+                  "Addon bundle core must pin identity before building and verify its JAR before upload", failures)
+
+          '''
+          # Match the existing main() indentation without changing other guard bodies.
+          lines=inserted.splitlines(True)
+          inserted=lines[0]+''.join('      '+line if line.strip() else line for line in lines[1:])
+          assert text.count(needle)==1
+          guard.write_text(text.replace(needle,inserted+needle))
+          probe=subprocess.run(['python3',str(guard),'.'],capture_output=True,text=True)
+          Path('evidence/original-negative-control.txt').write_text(probe.stdout+probe.stderr)
+          assert probe.returncode==1 and 'Addon bundle core provenance invariant missing:' in probe.stdout,probe.stdout+probe.stderr
+          workflow=Path('.github/workflows/build-sfl-addons-compat-bundle.yml')
+          assert blob(workflow.read_bytes())=='a91458b2a931ac5eb3b894de28795f9a6ba92427'
+          text=workflow.read_text()
+          needle='      - name: Build exact candidate core\n'
+          addition='''      - name: Pin bundle core source identity
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+                    source_commit="$(git rev-parse HEAD)"
+                    echo "SOURCE_COMMIT=$source_commit" >> "$GITHUB_ENV"
+                    echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct "$source_commit")" >> "$GITHUB_ENV"
+          '''
+          addition=addition.splitlines(True)[0]+''.join(line[10:] if line.startswith('          ') else line for line in addition.splitlines(True)[1:])
+          assert text.count(needle)==1;text=text.replace(needle,addition+needle)
+          needle="          ./gradlew clean shadowJar -PpaperApiVersion='${{ needs.prepare.outputs.paper_api }}' --no-daemon"
+          # This quoted expression is only an anchor in the source file, not a dependency of this validation job.
+          assert text.count(needle)==1;text=text.replace(needle,needle+' --no-build-cache --no-configuration-cache')
+          needle='          test -s "$JAR"\n          mkdir -p candidate-core\n'
+          replace='          test -s "$JAR"\n          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21\n          python3 scripts/verify_release_artifact.py "$JAR" --root .\n          mkdir -p candidate-core\n'
+          assert text.count(needle)==1;text=text.replace(needle,replace)
+          workflow.write_text(text)
+          subprocess.run(['python3',str(guard),'.'],check=True)
+          PY
+          git diff --check
+      - name: Pin actual validation source before Gradle execution
+        run: |
+          echo "SOURCE_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+      - name: Full core build, metadata validation and independent second build
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_legacy.py . > evidence/core-invariants.log 2>&1
+          chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon --no-build-cache --no-configuration-cache > evidence/format.log 2>&1
+          ./gradlew clean --no-daemon --no-build-cache --no-configuration-cache > evidence/clean.log 2>&1
+          ./gradlew build -PslimefunDeprecationReport=true --console=plain --no-daemon --no-build-cache --no-configuration-cache 2>&1 | tee evidence/first-build.log
+          python3 scripts/summarize_deprecations.py evidence/first-build.log --fail-on-warnings --require-successful-build
+          JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+          python3 scripts/verify_release_artifact.py "$JAR" --root .
+          cp "$JAR" "$RUNNER_TEMP/first-provenance.jar"
+          mkdir -p evidence/tests
+          cp build/test-results/test/TEST-*.xml evidence/tests/
+          cp build/reports/release-artifact.* evidence/ || true
+          ./gradlew clean shadowJar --console=plain --no-daemon --no-build-cache --no-configuration-cache 2>&1 | tee evidence/second-build.log
+          JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+          python3 scripts/verify_release_artifact.py "$JAR" --root .
+          cmp "$RUNNER_TEMP/first-provenance.jar" "$JAR"
+          sha256sum "$RUNNER_TEMP/first-provenance.jar" "$JAR" > evidence/reproducible-sha256.txt
+          unzip -p "$JAR" git.properties > evidence/git.properties
+          git diff -- .github/workflows/build-sfl-addons-compat-bundle.yml scripts/verify_phase1l_release_artifact.py > evidence/source-change.patch
+      - name: Stage only checked workflow and invariant files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,subprocess
+          records={}
+          for name in ['.github/workflows/build-sfl-addons-compat-bundle.yml','scripts/verify_phase1l_release_artifact.py']:
+              data=Path(name).read_bytes();sha=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+              r=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps(dict(content=data.decode(),encoding='utf-8')),check=True,capture_output=True,text=True)
+              assert json.loads(r.stdout)['sha']==sha;records[name]=sha
+              p=Path('evidence/reviewed-source')/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(data)
+          Path('evidence/reviewed-blobs.json').write_text(json.dumps(records,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: bundle-core-provenance-evidence
+          path: evidence/
+          include-hidden-files: true
+          retention-days: 14
+          if-no-files-found: error
