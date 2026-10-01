@@ -1,0 +1,59 @@
+name: Addon draft source snapshot
+on:
+  push:
+    branches: ['work/finish-addon-drafts-20261001']
+    paths: ['.github/workflows/addon-draft-source-snapshot.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Collect exact sources and public provider API references
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p snapshots sources
+          python3 - <<'PY'
+          import json, pathlib, subprocess
+          rows = [
+            ('wickidcow/SF_BetterChests','96134b3ae294a8c086f467bbe8a09f842aac8949','0f21e835d09cb2e016696713ca2bca897b6e03a1'),
+            ('wickidcow/SF_BuildingStaff','d9def66dd07c1e7464843a723fc997af74beb673','f788fefc736b577c43081c6b8540f56c31bcc89e'),
+            ('wickidcow/SF_FluffyMachines','a44d7e4845430a00627739a06fdb3df70baa47e1','75550c9fce67503d859810934c7a4c577272b5a8'),
+            ('wickidcow/Slimefun-Legacy','fb9b50ead76f611efebca46ccc749f2d21361d23',None),
+            ('pylonmc/rebar',None,None),
+            ('pylonmc/pylon',None,None),
+          ]
+          manifest=[]
+          for repo,base,head in rows:
+              name=repo.split('/')[-1]
+              dest=pathlib.Path('sources')/name
+              subprocess.run(['git','clone','--filter=blob:none','--no-checkout','https://github.com/'+repo+'.git',str(dest)],check=True)
+              def git(*args): return subprocess.check_output(['git','-C',str(dest),*args],text=True).strip()
+              if base is None: base=git('rev-parse','HEAD')
+              refs={'main':base}
+              if head:
+                  refs['draft']=head
+                  refs['merge-base']=git('merge-base',base,head)
+              for label,sha in refs.items():
+                  subprocess.run(['git','-C',str(dest),'archive','--format=zip','--output',str(pathlib.Path('snapshots',name+'-'+label+'.zip').resolve()),sha],check=True)
+              manifest.append({'repository':repo,'refs':refs})
+              if repo.startswith('pylonmc/'):
+                  pathlib.Path('snapshots',name+'-releases.json').write_text(subprocess.check_output(['gh','api','repos/'+repo+'/releases?per_page=10'],text=True))
+          pathlib.Path('snapshots/source-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          PY
+          gh release download v4.1.63 --repo wickidcow/Slimefun-Legacy --pattern Slimefun-Legacy4.1.63.jar --dir snapshots
+          echo '993b257c54efe19b58cc8f4946d4d39387f7787fe263c9f27123343159344c42  snapshots/Slimefun-Legacy4.1.63.jar' | sha256sum -c -
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: addon-draft-source-snapshot
+          path: snapshots/
+          if-no-files-found: error
+          retention-days: 14
