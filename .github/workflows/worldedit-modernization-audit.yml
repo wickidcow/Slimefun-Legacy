@@ -1,0 +1,63 @@
+name: WorldEdit and Next Addon Audit
+
+on:
+  push:
+    branches: ['work/worldedit-modernization-audit-20260930']
+
+permissions:
+  contents: read
+
+jobs:
+  sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 7c8320828f7d0f98e80246f2766e7814a8a15eca
+          persist-credentials: false
+      - name: Export exact public sources and official dependency metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p audit
+          git archive --format=zip HEAD > audit/core-source.zip
+          git ls-tree -r HEAD > audit/core-blobs.txt
+          python3 - <<'PY'
+          import concurrent.futures, hashlib, json, subprocess, urllib.parse, urllib.request
+          from pathlib import Path
+          matrix = json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text())
+          wanted = {'worldeditslimefun', 'fnamplifications', 'litexpansion', 'slimetinkerie2'}
+          selected = [entry for entry in matrix['addons'] if entry['slug'] in wanted]
+          assert len(selected) == 4
+          def collect(entry):
+              folder = Path('audit') / entry['slug']
+              subprocess.run(['git', 'clone', '--quiet', '--filter=blob:none', '--no-checkout', 'https://github.com/' + entry['repository'] + '.git', str(folder)], check=True)
+              subprocess.run(['git', '-C', str(folder), 'fetch', '--quiet', '--depth=1', 'origin', entry['source_commit']], check=True)
+              subprocess.run(['git', '-C', str(folder), 'archive', '--format=zip', '--output=' + str(folder.resolve()) + '.zip', entry['source_commit']], check=True)
+              tree = subprocess.check_output(['git', '-C', str(folder), 'ls-tree', '-r', entry['source_commit']])
+              Path(str(folder) + '-blobs.txt').write_bytes(tree)
+              return dict(entry, archive_sha256=hashlib.sha256(Path(str(folder) + '.zip').read_bytes()).hexdigest())
+          with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+              results = list(pool.map(collect, selected))
+          Path('audit/source-manifest.json').write_text(json.dumps({'core': '7c8320828f7d0f98e80246f2766e7814a8a15eca', 'addons': results}, indent=2))
+          def get_json(url):
+              req = urllib.request.Request(url, headers={'User-Agent': 'Slimefun-Legacy-Compatibility-Audit/1.0 (github.com/wickidcow/Slimefun-Legacy)'})
+              with urllib.request.urlopen(req, timeout=45) as response:
+                  return json.load(response)
+          for project in ('worldedit', 'fastasyncworldedit'):
+              versions = get_json('https://api.modrinth.com/v2/project/' + project + '/version')
+              selected = [v for v in versions if set(v['loaders']) & {'bukkit', 'paper', 'spigot'} and set(v['game_versions']) & {'1.21.11', '26.2', '26.3'}]
+              Path('audit/' + project + '-versions.json').write_text(json.dumps(selected, indent=2))
+              print(project, [(v['version_number'], v['version_type'], v['game_versions']) for v in selected[:6]])
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: pinned-worldedit-next-addon-sources
+          path: |
+            audit/*.zip
+            audit/*.json
+            audit/*-blobs.txt
+          if-no-files-found: error
+          retention-days: 7
