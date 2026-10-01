@@ -1,0 +1,134 @@
+name: Revision 96 Complete Maintained Stack
+on:
+  push:
+    branches: ['work/bundle-integration-20260930']
+    paths: ['.github/workflows/revision96-complete-stack.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 7c8320828f7d0f98e80246f2766e7814a8a15eca
+          persist-credentials: false
+      - name: Require the successful exact-source candidate bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/download_candidate_bundle.py --repository wickidcow/Slimefun-Legacy \
+            --head 7c8320828f7d0f98e80246f2766e7814a8a15eca \
+            --source b2c68e1a0ee2cdc042ed11d72721b1054f604675 --output revision96-inputs
+      - name: Verify matching core and fixed real dependency provider bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,io,json,subprocess,urllib.request,zipfile
+          root=Path('revision96-inputs')
+          def api(path):return subprocess.run(['gh','api',path],capture_output=True,check=True,timeout=180).stdout
+          artifacts=json.loads(api('repos/wickidcow/Slimefun-Legacy/actions/runs/36804275144/artifacts?per_page=100'))['artifacts']
+          selected=[a for a in artifacts if a['name']=='full-stack-core' and not a['expired']]
+          assert len(selected)==1
+          record=selected[0]
+          assert record['workflow_run']['head_sha']=='7c8320828f7d0f98e80246f2766e7814a8a15eca'
+          raw=api(f"repos/wickidcow/Slimefun-Legacy/actions/artifacts/{record['id']}/zip")
+          assert 'sha256:'+hashlib.sha256(raw).hexdigest()==record['digest']
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              jars=[n for n in z.namelist() if n.endswith('.jar')];assert len(jars)==1
+              core=z.read(jars[0])
+          with zipfile.ZipFile(io.BytesIO(core)) as z:
+              assert z.testzip() is None
+              props=z.read('git.properties').decode()
+              assert 'git.source.commit=b2c68e1a0ee2cdc042ed11d72721b1054f604675' in props
+          (root/'core.jar').write_bytes(core)
+          providers=[
+            dict(line='floor',version='7.3.19',version_id='2YDdVDmG',sha256='639f7df29a4ec739885f19a101f497318ddc8e3da20473939908dff834e540df',url='https://cdn.modrinth.com/data/1u6JkXh5/versions/2YDdVDmG/worldedit-bukkit-7.3.19.jar'),
+            dict(line='newer',version='7.4.6-beta-02',version_id='J1eeOh6C',sha256='166365c44bad4cd916200b288cf391d3770e3197d1eca84ff74f3914d933e289',url='https://cdn.modrinth.com/data/1u6JkXh5/versions/J1eeOh6C/worldedit-bukkit-7.4.6-beta-02.jar')]
+          for provider in providers:
+              request=urllib.request.Request(provider['url'],headers={'User-Agent':'Slimefun-Legacy-Revision96-Stack/1.0'})
+              with urllib.request.urlopen(request,timeout=120) as response:data=response.read()
+              assert hashlib.sha256(data).hexdigest()==provider['sha256']
+              (root/f"WorldEdit-{provider['line']}.jar").write_bytes(data)
+          (root/'provider-provenance.json').write_text(json.dumps(providers,indent=2)+'\n')
+          (root/'core-provenance.json').write_text(json.dumps(dict(head='7c8320828f7d0f98e80246f2766e7814a8a15eca',tested_merge='b2c68e1a0ee2cdc042ed11d72721b1054f604675',artifact_id=record['id'],archive_digest=record['digest'],jar_sha256=hashlib.sha256(core).hexdigest()),indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: revision96-complete-stack-inputs
+          path: revision96-inputs/
+          retention-days: 14
+  runtime:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11', '26.2', '26.3']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 7c8320828f7d0f98e80246f2766e7814a8a15eca
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: revision96-complete-stack-inputs
+          path: revision96-inputs
+      - name: Add only the required external WorldEdit provider to the disposable runtime stack
+        env:
+          MINECRAFT: ${{ matrix.minecraft }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,os,zipfile
+          root=Path('revision96-inputs')
+          line='floor' if os.environ['MINECRAFT']=='1.21.11' else 'newer'
+          record=next(p for p in json.loads((root/'provider-provenance.json').read_text()) if p['line']==line)
+          provider=(root/f'WorldEdit-{line}.jar').read_bytes();assert hashlib.sha256(provider).hexdigest()==record['sha256']
+          with zipfile.ZipFile(root/'SF_Addons_1.21.11-26.3.zip') as archive,zipfile.ZipFile(root/'runtime-stack.zip','w',zipfile.ZIP_DEFLATED) as combined:
+              manifest=json.loads(archive.read('SF_ADDON_MANIFEST.json'))
+              assert len(manifest['addons'])==45 and manifest['core_source_commit']=='b2c68e1a0ee2cdc042ed11d72721b1054f604675'
+              for addon in manifest['addons']:
+                  data=archive.read(addon['jar']);assert hashlib.sha256(data).hexdigest()==addon['sha256']
+                  combined.writestr(addon['jar'],data)
+              manifest['addons'].append(dict(repository='EngineHub/WorldEdit',jar='WorldEdit-provider.jar',sha256=record['sha256'],version=record['version'],scope='External runtime dependency only; not a maintained release-bundle addition'))
+              combined.writestr('WorldEdit-provider.jar',provider)
+              combined.writestr('SF_ADDON_MANIFEST.json',json.dumps(manifest,indent=2))
+          PY
+      - name: Require all 45 addons and their provider through two clean boots
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+        run: |
+          set -euo pipefail
+          bash scripts/full_stack_runtime_smoke.sh revision96-inputs/core.jar revision96-inputs/runtime-stack.zip build/revision96-complete
+          test ! -s build/revision96-complete/dependency-gated-addons.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('build/revision96-complete')
+          rows=(root/'expected-addons.txt').read_text().splitlines();assert len(rows)==46
+          assert {'WorldEdit','WorldEditSlimefun'} <= {row.split('\t')[1] for row in rows}
+          for cycle in ['first','second']:
+              text=(root/f'{cycle}.normalized.log').read_text()
+              assert 'UnknownDependencyException' not in text and 'ERROR]' not in text
+          print('Exact revision96: all45 maintained addons and real external provider passed both boots with no omissions.')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: revision96-complete-stack-${{ matrix.minecraft }}
+          path: |
+            revision96-inputs/bundle-source.txt
+            revision96-inputs/core-provenance.json
+            revision96-inputs/provider-provenance.json
+            build/revision96-complete/*.log
+            build/revision96-complete/*.txt
+          retention-days: 14
