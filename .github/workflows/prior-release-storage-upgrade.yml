@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - name: Resolve the explicit offline fixture identity
+      - name: Resolve the explicit offline fixture identity and registered node ID
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -24,10 +24,14 @@ jobs:
           data = p.read_bytes()
           assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest() == 'c975b5fc39c6105615f3cf11b871a38a122fc922'
           text = data.decode()
-          assert text.count('11111111-2222-3333-4444-555555555555') == 1
-          assert text.count('var owner = Bukkit.getOfflinePlayer(OWNER);') == 1
-          text = text.replace('11111111-2222-3333-4444-555555555555','2bda0049-361f-3b4d-b1b6-f0ca8ea55afb')
-          text = text.replace('var owner = Bukkit.getOfflinePlayer(OWNER);', 'var owner = Bukkit.getOfflinePlayer("LegacyFixture");\n        require(OWNER.equals(owner.getUniqueId()), "Offline fixture UUID did not match its name");')
+          changes = (
+              ('11111111-2222-3333-4444-555555555555','2bda0049-361f-3b4d-b1b6-f0ca8ea55afb'),
+              ('var owner = Bukkit.getOfflinePlayer(OWNER);','var owner = Bukkit.getOfflinePlayer("LegacyFixture");\n        require(OWNER.equals(owner.getUniqueId()), "Offline fixture UUID did not match its name");'),
+              ('private static final String BLOCK_ID = "CARGO_INPUT_NODE";','private static final String BLOCK_ID = "CARGO_NODE_INPUT";'),
+          )
+          for before, after in changes:
+              assert text.count(before) == 1, before
+              text = text.replace(before, after)
           p.write_text(text)
           p = Path('scripts/run_prior_release_upgrade.py')
           text = p.read_text()
