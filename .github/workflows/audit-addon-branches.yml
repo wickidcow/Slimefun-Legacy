@@ -1,0 +1,53 @@
+name: Read-only Addon Branch Inventory
+
+on:
+  push:
+    branches: ['audit/addon-branch-inventory-20261001']
+    paths:
+      - 'scripts/audit_addon_branches.py'
+      - 'scripts/test_audit_addon_branches.py'
+      - '.github/workflows/audit-addon-branches.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: read-only-addon-branch-audit-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Test conservative branch classification
+        run: python3 -m unittest discover -s scripts -p test_audit_addon_branches.py -v
+      - name: Inventory repositories one by one without writing any refs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/audit_addon_branches.py --output branch-audit \
+            --extra wickidcow/SF_BetterStructuresLink \
+            --extra wickidcow/SF_Magic8Ball \
+            --extra wickidcow/SF_Magic_RSC \
+            --extra wickidcow/SF_ExtraTools \
+            --extra wickidcow/SF_WorldTaste
+      - name: Preserve completed or partial audit evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: SF-addon-branch-audit-20261001
+          path: branch-audit/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Publish inventory summary
+        if: always()
+        run: |
+          if [ -f branch-audit/branch-audit.md ]; then
+            cat branch-audit/branch-audit.md >> "$GITHUB_STEP_SUMMARY"
+          fi
