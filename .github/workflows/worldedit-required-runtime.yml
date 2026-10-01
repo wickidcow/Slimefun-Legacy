@@ -1,0 +1,121 @@
+name: Exact Bundle With Required WorldEdit
+
+on:
+  push:
+    branches: ['work/worldedit-required-runtime-20260930']
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  runtime:
+    name: Required WorldEdit on Paper ${{ matrix.minecraft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11', '26.2', '26.3']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Apply exact reviewed runtime verification sources
+        run: |
+          python3 - <<'PY'
+          import gzip, hashlib, json
+          from pathlib import Path
+          def blob(data):
+              return hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+          packed = Path('.audit/worldedit-required-runtime.gz').read_bytes()
+          assert blob(packed) == '8c47ed58bda1dc7fb083cf41211b90ec0b98d519'
+          changes = json.loads(gzip.decompress(packed))
+          assert len(changes) == 5
+          for entry in changes:
+              path = Path(entry['path'])
+              assert not path.is_absolute() and '..' not in path.parts
+              if entry['old'] is None:
+                  assert not path.exists()
+                  data = entry['content'].encode()
+              else:
+                  original = path.read_bytes()
+                  assert blob(original) == entry['old'], path
+                  lines = original.decode().splitlines(keepends=True)
+                  for start, end, replacement in reversed(entry['edits']):
+                      lines[start:end] = [replacement]
+                  data = ''.join(lines).encode()
+              assert blob(data) == entry['new'], path
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_bytes(data)
+          PY
+          git diff --check
+          python3 scripts/test_prepare_worldedit_runtime.py
+          bash -n scripts/full_stack_runtime_smoke.sh
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - name: Fetch the exact paired core and 45-addon candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api 'repos/wickidcow/Slimefun-Legacy/actions/runs/36804275140' > source-run.json
+          python3 - <<'PY'
+          import json
+          run=json.load(open('source-run.json'))
+          assert run['head_sha']=='7c8320828f7d0f98e80246f2766e7814a8a15eca'
+          assert run['status']=='completed' and run['conclusion']=='success', (run['status'],run['conclusion'])
+          PY
+          gh run download 36804275140 --repo wickidcow/Slimefun-Legacy --name sfl-26.3-candidate-core --dir candidate
+          gh run download 36804275140 --repo wickidcow/Slimefun-Legacy --name SF_Addons_1.21.11-26.3 --dir bundle
+          python3 - <<'PY'
+          import hashlib,json,zipfile
+          from pathlib import Path
+          from scripts.download_candidate_bundle import verify_bundle
+          expected='b2c68e1a0ee2cdc042ed11d72721b1054f604675'
+          matrix=json.load(open('compatibility/sfl-addon-release-matrix.json'))
+          manifest=verify_bundle(Path('bundle/SF_Addons_1.21.11-26.3.zip'),matrix,expected)
+          assert len(manifest['addons'])==45
+          jar=Path('candidate/Slimefun-Legacy-candidate.jar')
+          with zipfile.ZipFile(jar) as z:
+              assert z.testzip() is None
+              assert 'git.commit.id='+expected in z.read('git.properties').decode()
+          hashes={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in (jar,Path('bundle/SF_Addons_1.21.11-26.3.zip'))}
+          Path('paired-artifact-hashes.json').write_text(json.dumps(hashes,indent=2))
+          print('Verified exact candidate core and all 45 pinned addon sources:',hashes)
+          PY
+      - name: Require all 45 addons plus WorldEdit through both boots
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+        run: |
+          set -euo pipefail
+          bash scripts/full_stack_runtime_smoke.sh candidate/Slimefun-Legacy-candidate.jar bundle/SF_Addons_1.21.11-26.3.zip build/worldedit-required
+          test "$(wc -l < build/worldedit-required/expected-addons.txt)" -eq 45
+          test ! -s build/worldedit-required/dependency-gated-addons.txt
+      - name: Record exact tested source files
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import gzip,json,shutil
+          from pathlib import Path
+          for entry in json.loads(gzip.decompress(Path('.audit/worldedit-required-runtime.gz').read_bytes())):
+              source=Path(entry['path'])
+              target=Path('evidence-source')/source
+              target.parent.mkdir(parents=True,exist_ok=True)
+              if source.exists(): shutil.copyfile(source,target)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: required-worldedit-${{ matrix.minecraft }}
+          retention-days: 14
+          path: |
+            build/worldedit-required/*.log
+            build/worldedit-required/*.txt
+            build/worldedit-required/*.json
+            evidence-source/
+            source-run.json
+            paired-artifact-hashes.json
+          if-no-files-found: warn
