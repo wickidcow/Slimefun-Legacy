@@ -12,24 +12,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
+  core:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - name: Preserve exact tracked source for independent review
-        run: |
-          mkdir -p "$RUNNER_TEMP/source-review"
-          git archive --format=zip HEAD > "$RUNNER_TEMP/source-review/source.zip"
-          git ls-tree -r HEAD > "$RUNNER_TEMP/source-review/git-blob-manifest.txt"
-          git rev-parse HEAD > "$RUNNER_TEMP/source-review/source-commit.txt"
-      - uses: actions/upload-artifact@v7
-        with:
-          name: release-readiness-source
-          path: ${{ runner.temp }}/source-review/
-          retention-days: 7
+      - name: Apply the hash-checked runtime and historical-fixture changes
+        run: python3 .audit/apply_release_readiness.py
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -39,12 +30,11 @@ jobs:
         run: |
           echo "SOURCE_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
-      - name: Verify retained invariants
+      - name: Verify retained invariants and actual download fault cases
         run: |
           set -euo pipefail
-          mkdir -p audit-evidence
           python3 scripts/verify_legacy.py . 2>&1 | tee audit-evidence/invariants.log
-      - name: Build and inspect actual release candidate metadata
+      - name: Run the full real project build and release verifier
         run: |
           set -euo pipefail
           chmod +x gradlew
@@ -55,18 +45,131 @@ jobs:
           python3 scripts/summarize_deprecations.py build/reports/deprecation-compile.log --fail-on-warnings --require-successful-build
           JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
           test -n "$JAR"
-          cp "$JAR" audit-evidence/candidate.jar
           python3 scripts/verify_release_artifact.py "$JAR" --root .
-      - name: Preserve diagnostic and build evidence
+          cp "$JAR" audit-evidence/core.jar
+          cp -r build/test-results audit-evidence/
+          cp -r build/reports audit-evidence/
+      - name: Independently rebuild without caches and compare exact JAR bytes
+        run: |
+          set -euo pipefail
+          ./gradlew clean shadowJar --no-daemon --no-build-cache --no-configuration-cache --console=plain > audit-evidence/rebuild.log 2>&1
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          python3 scripts/verify_release_artifact.py "$JAR" --root .
+          cmp audit-evidence/core.jar "$JAR"
+          sha256sum audit-evidence/core.jar "$JAR" | tee audit-evidence/reproducibility.sha256
+      - uses: actions/upload-artifact@v7
+        with:
+          name: exact-upgrade-core
+          path: audit-evidence/core.jar
+          retention-days: 14
+      - name: Preserve source and actual evidence
         if: always()
-        uses: actions/upload-artifact@v7
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          paths = Path('audit-evidence/paths.json')
+          if paths.exists():
+              for name in json.loads(paths.read_text()):
+                  target = Path('audit-evidence/tested-source') / name
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(Path(name).read_bytes())
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
         with:
           name: release-readiness-evidence
           retention-days: 14
           path: |
             audit-evidence/
-            build/reports/deprecation-compile.log
-            build/reports/deprecations.md
-            build/reports/release-artifact.*
+            build/reports/
             build/test-results/test/TEST-*.xml
+          if-no-files-found: warn
+
+  historical-writer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - run: python3 .audit/apply_release_readiness.py
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Create item bytes and a world chest on actual Paper 1.20.6
+        env:
+          SERVER_MINECRAFT_VERSION: 1.20.6
+          SERVER_SOFTWARE: paper
+        run: bash scripts/legacy_item_upgrade_probe.sh write build/historical-writer
+      - uses: actions/upload-artifact@v7
+        with:
+          name: historical-item-world-fixture
+          path: build/historical-writer/fixture-1.20.6.tar.gz
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: historical-writer-evidence
+          retention-days: 14
+          path: |
+            build/historical-writer/evidence/
+            build/historical-writer/fixture.sha256
+            build/historical-writer/plugins/LegacyItemUpgradeProbe/*.json
+          if-no-files-found: warn
+
+  upgrade:
+    needs: [core, historical-writer]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - software: paper
+            minecraft: '1.21.11'
+            java: '21'
+          - software: paper
+            minecraft: '26.2'
+            java: '25'
+          - software: paper
+            minecraft: '26.3'
+            java: '25'
+          - software: purpur
+            minecraft: '1.21.11'
+            java: '21'
+          - software: purpur
+            minecraft: '26.3'
+            java: '25'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - run: python3 .audit/apply_release_readiness.py
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: exact-upgrade-core
+          path: candidate
+      - uses: actions/download-artifact@v8
+        with:
+          name: historical-item-world-fixture
+          path: historical
+      - name: Upgrade actual old items, exercise Doctor, and repeat after clean restart
+        env:
+          SERVER_SOFTWARE: ${{ matrix.software }}
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+        run: bash scripts/legacy_item_upgrade_probe.sh read build/upgrade candidate/core.jar historical/fixture-1.20.6.tar.gz
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: upgrade-${{ matrix.software }}-${{ matrix.minecraft }}
+          retention-days: 14
+          path: |
+            build/upgrade/evidence/
+            build/upgrade/plugins/LegacyItemUpgradeProbe/*.json
           if-no-files-found: warn
