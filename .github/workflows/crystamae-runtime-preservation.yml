@@ -1,0 +1,95 @@
+name: Crystamae Managed Data Runtime Preservation
+on:
+  push:
+    branches: ['work/bundle-integration-20260930']
+    paths: ['.github/workflows/crystamae-runtime-preservation.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: wickidcow/SF_CrystamaeHistoria
+          ref: dfe5b99b7104c343b9469f938a2f66ed5b524d66
+          path: addon
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Verify the exact original and corrected build inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,io,subprocess,zipfile
+          raw=subprocess.run(['gh','api','repos/wickidcow/SF_CrystamaeHistoria/actions/artifacts/11135660117/zip'],check=True,capture_output=True,timeout=120).stdout
+          assert hashlib.sha256(raw).hexdigest()=='dc1cbc96a6259b80e2cdc475af15285f15efe6a5fa5b80e20d8f161ae7d76a33'
+          root=Path('cryst-inputs');root.mkdir()
+          with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+              for name in ['core.jar','old.jar','new.jar']:(root/name).write_bytes(archive.read(name))
+          assert hashlib.sha256((root/'new.jar').read_bytes()).hexdigest()=='d58ffe64591f737ae17b0cf1a3e04764abac45add6f4379b961b3c6e874c685c'
+          text=Path('.audit/crystamae/run_progress.py').read_text()
+          # Keep report scenario names separate from per-file loop variables.
+          for old,new in [('name=kind+','scenario=kind+'),('work=root/name;','work=root/scenario;'),('scenario=name,mode=mode','scenario=scenario,mode=mode')]:
+              assert text.count(old)==1; text=text.replace(old,new)
+          (root/'run_progress.py').write_text(text)
+          PY
+      - name: Compile the actual spell and story progression regression
+        env:
+          MAVEN_OPTS: '--sun-misc-unsafe-memory-access=allow'
+        run: |
+          set -euo pipefail
+          mvn -B install:install-file -Dfile=cryst-inputs/core.jar -DgroupId=com.github.SlimefunGuguProject -DartifactId=Slimefun4 -Dversion=2025.1.2 -Dpackaging=jar -DgeneratePom=true
+          (cd addon && mvn -B dependency:build-classpath -Dmdep.outputFile=dependency-classpath.txt)
+          mkdir -p fixture-classes
+          javac --release 21 -cp "$(cat addon/dependency-classpath.txt):cryst-inputs/new.jar:cryst-inputs/core.jar" \
+            -d fixture-classes .audit/crystamae/CrystRuntime.java
+          printf 'name: CrystRuntime\nversion: 1.0\nmain: io.github.wickidcow.regression.CrystRuntime\napi-version: "1.21.11"\ndepend: [Slimefun]\nsoftdepend: [CrystamaeHistoria]\n' > fixture-classes/plugin.yml
+          jar --create --file cryst-inputs/CrystRuntime.jar -C fixture-classes .
+          sha256sum cryst-inputs/*.jar > cryst-inputs/input-sha256.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: crystamae-runtime-regression-inputs
+          path: cryst-inputs/
+          retention-days: 14
+  runtime:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11', '26.2', '26.3']
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: crystamae-runtime-regression-inputs
+          path: cryst-inputs
+      - name: Reproduce old loss and verify exact old state through upgrade and restart
+        run: python3 cryst-inputs/run_progress.py '${{ matrix.minecraft }}'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: crystamae-progress-${{ matrix.minecraft }}
+          path: |
+            cryst-inputs/input-sha256.txt
+            cryst-runtime/results.json
+            cryst-runtime/*/*.log
+            cryst-runtime/*/*-player_stats.yml
+            cryst-runtime/*/*-spells.yml
+            cryst-runtime/*/plugins/CrystamaeHistoria/*.yml
+          retention-days: 14
