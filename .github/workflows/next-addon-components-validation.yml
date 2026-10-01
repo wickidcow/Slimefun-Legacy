@@ -48,6 +48,7 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: maven
+          cache-dependency-path: .audit/${{ matrix.slug }}-components.gz
       - name: Fetch exact source and candidate core
         env:
           GH_TOKEN: ${{ github.token }}
