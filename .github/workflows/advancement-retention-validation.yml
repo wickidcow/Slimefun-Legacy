@@ -1,0 +1,163 @@
+name: Advancement Definition Retention Validation
+
+on:
+  push:
+    branches: ['work/addon-stability-audit-r96-20260930']
+    paths:
+      - '.github/workflows/advancement-retention-validation.yml'
+      - '.audit/advancement-runtime/**'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          path: tooling
+      - uses: actions/checkout@v6
+        with:
+          repository: wickidcow/SF_SlimefunAdvancements
+          ref: f743082a18b1bbee1c1283145731996508e4a99a
+          path: old
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: wickidcow/SF_SlimefunAdvancements
+          ref: 279446eaac5bb7bbb2599a10b5637fa8c87b36f0
+          path: new
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Supply the successfully tested exact core
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,io,json,subprocess,zipfile
+          from pathlib import Path
+          def api(path):
+              return subprocess.run(['gh','api',path],check=True,capture_output=True,timeout=120).stdout
+          run=json.loads(api('repos/wickidcow/Slimefun-Legacy/actions/runs/36809109648'))
+          assert run['conclusion']=='success' and run['head_sha']=='c57913990b22489daf38b5c85445cf879bd7cd92'
+          meta=json.loads(api('repos/wickidcow/Slimefun-Legacy/actions/artifacts/11139465571'))
+          assert not meta['expired'] and meta['workflow_run']['id']==36809109648
+          raw=api('repos/wickidcow/Slimefun-Legacy/actions/artifacts/11139465571/zip')
+          assert hashlib.sha256(raw).hexdigest()=='fb10edbdb962e2aa5352dedc1a1cf1b3436e2d0ce04523880458573a69db5df8'
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              data=z.read('Slimefun-Legacy-Core.jar')
+              assert z.read('core-source.txt').decode().strip()=='7c8320828f7d0f98e80246f2766e7814a8a15eca'
+          assert hashlib.sha256(data).hexdigest()=='90ae41d7dc78a92d53803802c81877bbac01f3ac4f7be8b72005597d3ade0853'
+          Path('runtime-inputs').mkdir()
+          Path('build-evidence').mkdir()
+          Path('runtime-inputs/Slimefun-Legacy-Core.jar').write_bytes(data)
+          Path('build-evidence/core-source.json').write_text(json.dumps(dict(source='7c8320828f7d0f98e80246f2766e7814a8a15eca',run_id=36809109648,artifact_id=11139465571,sha256=hashlib.sha256(data).hexdigest()),indent=2)+'\n')
+          PY
+          mvn -B -ntp org.apache.maven.plugins:maven-install-plugin:3.1.3:install-file -Dfile="$(realpath runtime-inputs/Slimefun-Legacy-Core.jar)" -DgroupId=io.github.wickidcow.validation -DartifactId=legacy-exact -Dversion=7c832082 -Dpackaging=jar -DgeneratePom=true > build-evidence/core-install.log 2>&1
+      - name: Build both real addon revisions and execute every current test
+        run: |
+          set -euo pipefail
+          for GENERATION in old new; do
+            (cd "$GENERATION" && mvn -B -ntp -Dslimefun.groupId=io.github.wickidcow.validation -Dslimefun.artifactId=legacy-exact -Dslimefun.version=7c832082 clean package) > "build-evidence/$GENERATION-build.log" 2>&1
+            JAR="$GENERATION/target/SF_SlimefunAdvancements1.0.7.jar"
+            test -s "$JAR"
+            python3 tooling/scripts/verify_addon_bytecode.py "$JAR" --expected-java 21 --report "build-evidence/$GENERATION-bytecode.json"
+            cp "$JAR" "runtime-inputs/advancements-$GENERATION.jar"
+          done
+          python3 - <<'PY'
+          import hashlib,json,shutil,subprocess,xml.etree.ElementTree as ET,zipfile
+          from pathlib import Path
+          reports=list(Path('new/target/surefire-reports').glob('TEST-*.xml'))
+          total={k:0 for k in ['tests','failures','errors','skipped']}
+          for p in reports:
+              r=ET.parse(p).getroot()
+              for k in total: total[k]+=int(r.get(k,'0'))
+              dst=Path('build-evidence/tests')/p.name
+              dst.parent.mkdir(exist_ok=True);shutil.copy2(p,dst)
+          assert total==dict(tests=14,failures=0,errors=0,skipped=0),total
+          sources={}
+          for p in Path('new/src').rglob('*'):
+              if p.is_file():
+                  b=p.read_bytes();sources[str(p.relative_to('new'))]=hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          Path('build-evidence/new-source-blobs.json').write_text(json.dumps(sources,indent=2)+'\n')
+          info={}
+          for generation in ['old','new']:
+              jar=Path('runtime-inputs')/f'advancements-{generation}.jar'
+              with zipfile.ZipFile(jar) as z:
+                  assert z.testzip() is None and 'plugin.yml' in z.namelist()
+                  assert not any(n.startswith(('org/junit/','org/mockbukkit/','org/mockito/')) for n in z.namelist())
+              info[generation]=dict(source=subprocess.check_output(['git','-C',generation,'rev-parse','HEAD'],text=True).strip(),sha256=hashlib.sha256(jar.read_bytes()).hexdigest())
+          Path('build-evidence/results.json').write_text(json.dumps(dict(tests=total,addons=info),indent=2)+'\n')
+          PY
+      - name: Compile the actual-API probe with Java21 output
+        run: |
+          set -euo pipefail
+          (cd old && mvn -B -ntp -Dslimefun.groupId=io.github.wickidcow.validation -Dslimefun.artifactId=legacy-exact -Dslimefun.version=7c832082 dependency:build-classpath -Dmdep.outputFile=probe-classpath.txt) > build-evidence/probe-dependencies.log 2>&1
+          mkdir -p probe/classes
+          javac --release 21 -cp "old/target/classes:$(cat old/probe-classpath.txt)" -d probe/classes tooling/.audit/advancement-runtime/AdvancementRetentionProbe.java
+          printf 'name: AdvancementRetentionProbe\nversion: 1\nmain: io.github.wickidcow.validation.AdvancementRetentionProbe\napi-version: "1.21.11"\ndepend: [Slimefun, SlimefunAdvancements]\n' > probe/classes/plugin.yml
+          jar --create --file runtime-inputs/AdvancementRetentionProbe.jar -C probe/classes .
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('runtime-inputs')
+          jars={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in root.glob('*.jar')}
+          assert set(jars)=={'Slimefun-Legacy-Core.jar','advancements-old.jar','advancements-new.jar','AdvancementRetentionProbe.jar'}
+          (root/'provenance.json').write_text(json.dumps(dict(jars=jars,core_sha256=jars['Slimefun-Legacy-Core.jar'],addons=json.loads(Path('build-evidence/results.json').read_text())['addons'],harness_source=__import__('subprocess').check_output(['git','-C','tooling','rev-parse','HEAD'],text=True).strip()),indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: advancement-retention-build-evidence
+          path: |
+            build-evidence/
+            new/target/surefire-reports/TEST-*.xml
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        with:
+          name: advancement-retention-inputs
+          path: runtime-inputs/
+          retention-days: 14
+          if-no-files-found: error
+
+  runtime:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11', '26.2', '26.3']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: advancement-retention-inputs
+          path: runtime-inputs
+      - name: Original producer, missing definitions, restored usable progress and original loss control
+        run: python3 .audit/advancement-runtime/run_advancement_retention.py --minecraft '${{ matrix.minecraft }}' --inputs runtime-inputs --output runtime-evidence
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: advancement-retention-runtime-${{ matrix.minecraft }}
+          path: |
+            runtime-evidence/*.json
+            runtime-evidence/*.log
+            runtime-evidence/*.txt
+            runtime-inputs/provenance.json
+          retention-days: 14
+          if-no-files-found: warn
