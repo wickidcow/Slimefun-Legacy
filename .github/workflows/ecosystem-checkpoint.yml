@@ -1,0 +1,100 @@
+name: Maintained Ecosystem Checkpoint
+on:
+  push:
+    branches: ['work/ecosystem-checkpoint-20261001']
+    paths: ['.github/workflows/ecosystem-checkpoint.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: a11e736c64407f089f9b976dc7270e3febbcf85c
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Read repository state without mutating refs or release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import datetime, json, subprocess, time
+          from pathlib import Path
+          from urllib.parse import quote
+          root=Path('evidence');root.mkdir()
+          def api(path, optional=False):
+              for attempt in range(3):
+                  r=subprocess.run(['gh','api',path],capture_output=True,text=True,timeout=120)
+                  if r.returncode==0:return json.loads(r.stdout)
+                  if 'HTTP 404' in r.stderr and optional:return None
+                  if attempt<2:time.sleep(2*(attempt+1))
+              raise RuntimeError(path+': '+r.stderr[-700:])
+          def pages(path):
+              rows=[]
+              for page in range(1,21):
+                  batch=api(path+('&' if '?' in path else '?')+f'per_page=100&page={page}')
+                  if not isinstance(batch,list):raise ValueError(path)
+                  rows.extend(batch)
+                  if len(batch)<100:return rows
+              raise RuntimeError('Pagination limit reached: '+path)
+          manifest=json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text())
+          selected={r['repository']:r['source_commit'] for r in manifest['addons']}
+          assert len(selected)==45 and manifest['bundle_revision']==101
+          discovery=api('search/repositories?q='+quote('user:wickidcow SF_ in:name')+'&per_page=100')
+          assert not discovery['incomplete_results'] and discovery['total_count']<=100
+          extras={r['full_name'] for r in discovery['items'] if r['name'].startswith('SF_')}
+          fae=api('search/repositories?q='+quote('user:wickidcow fae in:name')+'&per_page=100')
+          extras.update(r['full_name'] for r in fae['items'])
+          repos=['wickidcow/Slimefun-Legacy']+sorted(set(selected)|extras)
+          results=[]
+          for repo in repos:
+              assert repo.startswith('wickidcow/')
+              meta=api('repos/'+repo)
+              branch=meta['default_branch']
+              head=api(f'repos/{repo}/branches/'+quote(branch,safe=''))['commit']['sha']
+              branches=pages(f'repos/{repo}/branches')
+              prs=pages(f'repos/{repo}/pulls?state=open')
+              issues=pages(f'repos/{repo}/issues?state=open')
+              runs=api(f'repos/{repo}/actions/runs?per_page=50')['workflow_runs']
+              releases=pages(f'repos/{repo}/releases')
+              release=next((r for r in releases if not r['draft'] and not r['prerelease']),None)
+              row=dict(repository=repo,archived=meta['archived'],canonical=repo in selected,default_branch=branch,default_sha=head,
+                pinned_sha=selected.get(repo),branches=[dict(name=b['name'],sha=b['commit']['sha'],protected=b['protected']) for b in branches],
+                open_prs=[dict(number=p['number'],title=p['title'],head=p['head']['sha'],head_ref=p['head']['ref'],head_repository=p['head']['repo']['full_name'] if p['head']['repo'] else None,base=p['base']['ref'],draft=p['draft'],updated_at=p['updated_at']) for p in prs],
+                open_issues=[dict(number=i['number'],title=i['title'],updated_at=i['updated_at']) for i in issues if 'pull_request' not in i],
+                recent_runs=[{k:r[k] for k in ['id','name','path','head_sha','head_branch','event','status','conclusion','created_at']} for r in runs],
+                latest_release=None if release is None else dict(tag=release['tag_name'],target=release['target_commitish'],published_at=release['published_at'],assets=[{k:a.get(k) for k in ['id','name','size','digest','browser_download_url']} for a in release['assets']]))
+              results.append(row)
+              (root/'repositories.json').write_text(json.dumps(results,indent=2)+'\n')
+              print(repo,head[:8],len(prs),'open PRs',len(row['open_issues']),'issues',len(branches),'branches')
+          summary=dict(captured_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),core_snapshot='a11e736c64407f089f9b976dc7270e3febbcf85c',manifest_revision=101,canonical_count=len(selected),repository_count=len(results),limitations=['Read-only metadata checkpoint, not code review or a test execution.','Last 50 Actions runs per repository; absence there does not establish complete historical success.','No branch deletion or automatic inclusion of excluded/experimental addons.'])
+          (root/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
+          Path('evidence/sources').mkdir()
+          source_repos={'wickidcow/SF_NetworksExp','wickidcow/SF_JustEnoughGuide','wickidcow/SF_ExtraHeads','wickidcow/SF_SlimeEasy','wickidcow/SF_FinalTECH','wickidcow/SF_FluffyMachines','wickidcow/SF_BetterChests','wickidcow/SF_MobCapturer','wickidcow/SF_Supreme'}
+          sources=[]
+          # Export only tracked repository files. No .git directories, credentials or live-server data.
+          subprocess.run(['git','archive','--format=tar.gz','--output=evidence/sources/Slimefun-Legacy.tar.gz','HEAD'],check=True)
+          for row in results:
+              if row['repository'] not in source_repos:continue
+              repo=row['repository'];dest=Path('checkouts')/repo.split('/')[1]
+              subprocess.run(['git','clone','--depth','1','--no-checkout',f'https://github.com/{repo}.git',str(dest)],check=True,timeout=120)
+              shas=[row['default_sha']]
+              if row['pinned_sha'] and row['pinned_sha'] not in shas:shas.append(row['pinned_sha'])
+              for sha in shas:
+                  subprocess.run(['git','-C',str(dest),'fetch','--depth','1','origin',sha],check=True,timeout=120)
+                  assert subprocess.check_output(['git','-C',str(dest),'rev-parse','FETCH_HEAD'],text=True).strip()==sha
+                  output=(root/'sources'/f'{repo.split("/")[1]}-{sha[:12]}.tar.gz').resolve()
+                  subprocess.run(['git','-C',str(dest),'archive','--format=tar.gz',f'--output={output}',sha],check=True)
+                  sources.append(dict(repository=repo,commit=sha,archive=output.name))
+          (root/'sources.json').write_text(json.dumps(sources,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: maintained-ecosystem-checkpoint
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
