@@ -1,0 +1,142 @@
+name: All Maintained Addon Test Suites
+on:
+  push:
+    branches: ['work/bundle-integration-20260930']
+    paths: ['.github/workflows/maintained-addon-full-tests.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Resolve the complete exact source set and verified core
+        id: matrix
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,io,json,os,subprocess,zipfile
+          def artifact(id,sha):
+              raw=subprocess.run(['gh','api',f'repos/wickidcow/Slimefun-Legacy/actions/artifacts/{id}/zip'],check=True,capture_output=True,timeout=180).stdout
+              assert hashlib.sha256(raw).hexdigest()==sha
+              return zipfile.ZipFile(io.BytesIO(raw))
+          root=Path('suite-inputs');root.mkdir()
+          with artifact(11133584571,'c1583fb0deadcc2b7cfa2be959e1f36255e56f3e62038ef1792658022adbc102') as outer:
+              payload=outer.read('SF_Addons_1.21.11-26.3.zip')
+          assert hashlib.sha256(payload).hexdigest()=='095f3719d72da0a7885801bbf397be122fc70a17f260e6752004fa14f422b622'
+          with zipfile.ZipFile(io.BytesIO(payload)) as archive:manifest=json.loads(archive.read('SF_ADDON_MANIFEST.json'))
+          assert manifest['core_source_commit']=='9e8de71adf70e9a361a74c21afe5e7006c85faf6' and len(manifest['addons'])==45
+          overrides={'wickidcow/SF_DankTech2':'1566348da2bb319aa178dd331e2ca2c4ca3d26ce',
+                     'wickidcow/SF_CultivationLegacy':'4d2ad689ec70c04bfc1dfbe37c8dfd9c59a4fec0',
+                     'wickidcow/SF_CrystamaeHistoria':'dfe5b99b7104c343b9469f938a2f66ed5b524d66'}
+          rows=[]
+          for row in manifest['addons']:
+              rows.append(dict(repository=row['repository'],slug=row['slug'],commit=overrides.get(row['repository'],row['commit'])))
+          assert len({row['repository'] for row in rows})==45
+          (root/'source-lock.json').write_text(json.dumps(rows,indent=2)+'\n')
+          with artifact(11133862255,'1c923b97938b3e6d642bfb0a3582091a9a8bb698e6c7069c9c92b0f2f939e7f1') as core:
+              names=[n for n in core.namelist() if n.endswith('.jar')];assert len(names)==1
+              (root/'core.jar').write_bytes(core.read(names[0]))
+          (root/'scope.txt').write_text('Exact 45-addon full-test audit with three explicit preservation candidates. Not a released bundle or historical-world certificate.\n')
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:output.write('matrix='+json.dumps({'include':rows})+'\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: maintained-suite-inputs
+          path: suite-inputs/
+          retention-days: 14
+  tests:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    name: Test ${{ matrix.slug }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: 656f569327c1d7e706cb23604dba024ddbc17c54
+          path: tools
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ matrix.commit }}
+          path: addon
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.3'
+          cache-disabled: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: maintained-suite-inputs
+          path: suite-inputs
+      - name: Execute existing full project build and tests without skip flags
+        env:
+          MAVEN_OPTS: '--sun-misc-unsafe-memory-access=allow'
+        run: python3 .audit/run_maintained_suite.py '${{ matrix.repository }}' '${{ matrix.commit }}' '${{ matrix.slug }}'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: suite-result-${{ matrix.slug }}
+          path: suite-evidence/
+          retention-days: 14
+          if-no-files-found: warn
+  summarize:
+    if: always() && needs.prepare.result == 'success'
+    needs: [prepare, tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: maintained-suite-inputs
+          path: suite-inputs
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: suite-result-*
+          path: results
+      - name: Report every addon including failures and absent test coverage
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,os
+          expected=json.loads(Path('suite-inputs/source-lock.json').read_text())
+          rows=[json.loads(p.read_text()) for p in Path('results').rglob('result.json')]
+          index={row['repository']:row for row in rows}
+          assert len(index)==len(rows)
+          output=[]
+          for spec in expected:
+              row=index.get(spec['repository'],dict(**spec,result='MISSING',coverage='No usable test evidence'))
+              assert row['commit']==spec['commit']
+              output.append(row)
+          Path('maintained-test-results.json').write_text(json.dumps(output,indent=2)+'\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as summary:
+              summary.write('| Addon | Full build | Reported test entries | Failures/errors | Skips |\n|---|---|---:|---:|---:|\n')
+              for row in output:summary.write(f"| {row['slug']} | {row['result']} | {row.get('reported_entries',0)} | {row.get('failures',0)+row.get('errors',0)} | {row.get('skips',0)} |\n")
+              summary.write('\nZero reported tests means missing automated test coverage, not complete gameplay validation.\n')
+          failed=[r['slug'] for r in output if r['result']!='PASS']
+          print('Failed or missing:',failed)
+          if failed:raise SystemExit(1)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: maintained-test-summary
+          path: maintained-test-results.json
+          retention-days: 14
