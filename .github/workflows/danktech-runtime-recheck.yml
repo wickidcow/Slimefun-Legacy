@@ -1,0 +1,102 @@
+name: DankTech Actual Inventory Item Recheck
+on:
+  push:
+    branches: ['work/bundle-integration-20260930']
+    paths: ['.github/workflows/danktech-runtime-recheck.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: wickidcow/SF_DankTech2
+          ref: 1566348da2bb319aa178dd331e2ca2c4ca3d26ce
+          path: addon
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Reuse the exact already-tested original and corrected plugin JARs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,io,subprocess,zipfile
+          from pathlib import Path
+          raw=subprocess.run(['gh','api','repos/wickidcow/Slimefun-Legacy/actions/artifacts/11133844076/zip'],check=True,capture_output=True,timeout=120).stdout
+          assert hashlib.sha256(raw).hexdigest()=='6291a3cda054518a48302bf2cbef3d76ea834d9408cdc123b4dc9acf053ae262'
+          root=Path('registry-inputs');root.mkdir()
+          with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+              for name in ['old.jar','new.jar','core.jar','run_registry.py','input-sha256.txt']:
+                  (root/name).write_bytes(archive.read(name))
+          # Seed the concrete Bukkit item a player inventory contains, rather than a registry template subclass.
+          p=Path('.audit/danktech/RegistryRuntime.java');text=p.read_text()
+          old='ItemStack pack = registered.getItem().clone();';assert text.count(old)==1
+          text=text.replace(old, 'ItemStack pack = ItemStack.deserializeBytes(registered.getItem().serializeAsBytes());')
+          old='ConfigManager.getInstance().saveAll();\n        check(!ConfigManager.getInstance().checkDankDeletion(ID), "Seed pack must be present");'
+          new='''ConfigManager.getInstance().saveAll();
+                  check(!ConfigManager.getInstance().checkDankDeletion(ID), "Seed pack must be present");
+                  var saved = ConfigManager.getInstance().getAllPacks();
+                  check(saved.size() == 1 && saved.getFirst().equals(pack), "Seed was not saved intact before restart");
+                  getLogger().info("Seed concrete item class: " + pack.getClass().getName());'''
+          assert text.count(old)==1;text=text.replace(old,new);p.write_text(text)
+          p=root/'run_registry.py';text=p.read_text()
+          old="text=log.read_text(errors='replace')";assert text.count(old)==1
+          text=text.replace(old, old+"\n        if registry.exists(): shutil.copy2(registry,work/f'{index}-{mode}-registry.yml')")
+          p.write_text(text)
+          PY
+      - name: Compile only the corrected runtime fixture
+        run: |
+          set -euo pipefail
+          (cd addon && mvn -B dependency:build-classpath -Dmdep.outputFile=dependency-classpath.txt)
+          mkdir -p fixture-classes
+          javac --release 21 -cp "$(cat addon/dependency-classpath.txt):registry-inputs/new.jar:registry-inputs/core.jar" \
+            -d fixture-classes .audit/danktech/RegistryRuntime.java
+          printf 'name: RegistryRuntime\nversion: 1.0\nmain: io.github.wickidcow.regression.RegistryRuntime\napi-version: "1.21.11"\ndepend: [Slimefun]\nsoftdepend: [DankTech2]\n' > fixture-classes/plugin.yml
+          jar --create --file registry-inputs/RegistryRuntime.jar -C fixture-classes .
+          sha256sum registry-inputs/*.jar > registry-inputs/recheck-sha256.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: danktech-inventory-runtime-inputs
+          path: registry-inputs/
+          retention-days: 14
+  runtime:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11', '26.2', '26.3']
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: danktech-inventory-runtime-inputs
+          path: registry-inputs
+      - name: Reproduce old loss and preserve an actual inventory pack across upgrades
+        run: python3 registry-inputs/run_registry.py '${{ matrix.minecraft }}'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: danktech-inventory-registry-${{ matrix.minecraft }}
+          path: |
+            registry-inputs/recheck-sha256.txt
+            registry-runtime/results.json
+            registry-runtime/*/*.log
+            registry-runtime/*/*-registry.yml
+            registry-runtime/*/plugins/DankTech2/dank_packs.yml
+            registry-runtime/upgrade/plugins/RegistryRuntime/expected-item.bin
+          retention-days: 14
