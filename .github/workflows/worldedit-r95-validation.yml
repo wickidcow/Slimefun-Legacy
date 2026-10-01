@@ -1,0 +1,69 @@
+name: WorldEdit 26.3 Exact Bundle Validation
+
+on:
+  push:
+    branches: ['work/worldedit-26.3-r95']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: worldedit-r95-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runtime:
+    name: WorldEdit and all 45 addons on Paper ${{ matrix.minecraft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11', '26.2', '26.3']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - name: Download the exact already-built revision 95 pair
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 36801932529 --repo wickidcow/Slimefun-Legacy --name full-stack-core --dir candidate
+          gh run download 36801932529 --repo wickidcow/Slimefun-Legacy --name full-stack-addon-bundle --dir bundle
+      - name: Verify the pair and pinned official WorldEdit dependency
+        run: python3 .audit/worldedit_r95_validation.py
+      - name: Boot complete dependency-enabled stack twice
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+        run: |
+          set -euo pipefail
+          bash scripts/full_stack_runtime_smoke.sh "$PAIRED_CORE" "$PAIRED_BUNDLE" "build/worldedit-${{ matrix.minecraft }}"
+          test "$(wc -l < build/worldedit-${{ matrix.minecraft }}/expected-addons.txt)" -eq 45
+          test ! -s build/worldedit-${{ matrix.minecraft }}/dependency-gated-addons.txt
+          cat build/worldedit-${{ matrix.minecraft }}/smoke-result.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Record source provenance
+        if: always()
+        run: |
+          mkdir -p worldedit-evidence
+          git rev-parse HEAD > worldedit-evidence/validation-commit.txt
+          git diff -- scripts/full_stack_runtime_smoke.sh > worldedit-evidence/harness-change.patch
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: worldedit-r95-${{ matrix.minecraft }}
+          retention-days: 14
+          path: |
+            worldedit-evidence/*.json
+            worldedit-evidence/*.txt
+            worldedit-evidence/*.patch
+            worldedit-evidence/*.sh
+            build/worldedit-${{ matrix.minecraft }}/*.log
+            build/worldedit-${{ matrix.minecraft }}/*.txt
+          if-no-files-found: warn
