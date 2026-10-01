@@ -1,0 +1,107 @@
+name: FluffyMachines native preservation
+on:
+  push:
+    branches: ['work/finish-addon-drafts-20261001']
+    paths: ['.audit/FluffyBarrelProbe.java', '.github/workflows/fluffy-native-preservation.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+          cache-dependency-path: .audit/FluffyBarrelProbe.java
+      - name: Stage exact old-addon and verified new-addon inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p native-input old evidence probe/src/main/java/io/github/wickidcow/probe probe/src/main/resources
+          gh release download v4.1.63 --repo wickidcow/Slimefun-Legacy --pattern Slimefun-Legacy4.1.63.jar --pattern SF_Addons_1.21.11-26.3.zip --dir old
+          echo '993b257c54efe19b58cc8f4946d4d39387f7787fe263c9f27123343159344c42  old/Slimefun-Legacy4.1.63.jar' | sha256sum -c -
+          echo '9d517d0e1d62adb34397aa6a151c7433b7f483a33e3a96fe60adc8a60bdd6470  old/SF_Addons_1.21.11-26.3.zip' | sha256sum -c -
+          gh run download 36938052859 --repo wickidcow/SF_FluffyMachines --name fluffymachines-finished-candidate-evidence --dir evidence
+          cp old/Slimefun-Legacy4.1.63.jar native-input/
+          cp evidence/dist/SF_FluffyMachines26.2.13.jar native-input/
+          echo '1defdb2f306c481d2901b94e585bcf4200944951bc7f26aae8ea6b1c81f23795  native-input/SF_FluffyMachines26.2.13.jar' | sha256sum -c -
+          unzip -p old/SF_Addons_1.21.11-26.3.zip SF_FluffyMachines26.2.12.jar > native-input/SF_FluffyMachines26.2.12.jar
+      - name: Build the real-world fixture outside distributed plugins
+        run: |
+          set -euo pipefail
+          cp .audit/FluffyBarrelProbe.java probe/src/main/java/io/github/wickidcow/probe/
+          python3 - <<'PY'
+          from pathlib import Path
+          Path('probe/pom.xml').write_text('''<project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion><groupId>io.github.wickidcow</groupId><artifactId>FluffyBarrelProbe</artifactId><version>1</version><properties><maven.compiler.release>21</maven.compiler.release><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding></properties><repositories><repository><id>paper</id><url>https://repo.papermc.io/repository/maven-public/</url></repository></repositories><dependencies><dependency><groupId>io.papermc.paper</groupId><artifactId>paper-api</artifactId><version>1.21.11-R0.1-SNAPSHOT</version><scope>provided</scope></dependency><dependency><groupId>io.github.wickidcow</groupId><artifactId>probe-core</artifactId><version>4.1.63</version><scope>provided</scope></dependency><dependency><groupId>io.github.wickidcow</groupId><artifactId>probe-fluffy</artifactId><version>26.2.13</version><scope>provided</scope></dependency></dependencies><build><finalName>FluffyBarrelProbe</finalName><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.14.1</version></plugin></plugins></build></project>''')
+          Path('probe/src/main/resources/plugin.yml').write_text('name: FluffyBarrelProbe\nversion: "1"\nmain: io.github.wickidcow.probe.FluffyBarrelProbe\napi-version: "1.21.11"\ndepend: [Slimefun, FluffyMachines]\n')
+          PY
+          mvn -B -ntp install:install-file -Dfile=native-input/Slimefun-Legacy4.1.63.jar -DgroupId=io.github.wickidcow -DartifactId=probe-core -Dversion=4.1.63 -Dpackaging=jar -DgeneratePom=true
+          mvn -B -ntp install:install-file -Dfile=native-input/SF_FluffyMachines26.2.13.jar -DgroupId=io.github.wickidcow -DartifactId=probe-fluffy -Dversion=26.2.13 -Dpackaging=jar -DgeneratePom=true
+          mvn -B -ntp -f probe/pom.xml clean package
+          cp probe/target/FluffyBarrelProbe.jar native-input/
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: fluffy-native-input
+          path: |
+            native-input/
+            probe/src/
+          if-no-files-found: error
+          retention-days: 14
+  runtime:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - minecraft: '1.21.11'
+            java: '21'
+          - minecraft: '26.2'
+            java: '25'
+          - minecraft: '26.3'
+            java: '25'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: fluffy-native-input
+      - name: Run old producer, upgrade and separate restart with identical checks
+        env:
+          MC: ${{ matrix.minecraft }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os,subprocess
+          text=Path('.audit/run_bc_runtime.py').read_text()
+          replacements={'betterchests-native':'fluffy-native','SF_BetterChests1.0.3.jar':'SF_FluffyMachines26.2.13.jar','SF_BetterChests1.0.2.jar':'SF_FluffyMachines26.2.12.jar','BetterChestsProbe.jar':'FluffyBarrelProbe.jar','plugins/BetterChests.jar':'plugins/FluffyMachines.jar','d78d0ce8b0fc20b2d882931d3ee988fd681cddc3bcb4d638b56abac54165d818':'1defdb2f306c481d2901b94e585bcf4200944951bc7f26aae8ea6b1c81f23795','probe-expectations':'fluffy-expectations'}
+          for old,new in replacements.items():text=text.replace(old,new)
+          Path('.audit/run_fluffy_runtime.py').write_text(text)
+          subprocess.run(['python3','.audit/run_fluffy_runtime.py',os.environ['MC']],check=True)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: fluffy-native-${{ matrix.minecraft }}
+          path: |
+            build/fluffy-native-*/result.json
+            build/fluffy-native-*/runtime-build.json
+            build/fluffy-native-*/fluffy-expectations.yml
+            build/fluffy-native-*/*.log
+          if-no-files-found: warn
+          retention-days: 14
