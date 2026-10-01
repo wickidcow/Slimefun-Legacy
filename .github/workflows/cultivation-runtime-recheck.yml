@@ -1,0 +1,104 @@
+name: Cultivation Failed-Startup and Progress Recheck
+on:
+  push:
+    branches: ['work/bundle-integration-20260930']
+    paths: ['.github/workflows/cultivation-runtime-recheck.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: wickidcow/SF_CultivationLegacy
+          ref: 4d2ad689ec70c04bfc1dfbe37c8dfd9c59a4fec0
+          path: addon
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Retain the original and corrected plugin JARs unchanged
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,io,subprocess,zipfile
+          raw=subprocess.run(['gh','api','repos/wickidcow/Slimefun-Legacy/actions/artifacts/11134774125/zip'],check=True,capture_output=True,timeout=120).stdout
+          assert hashlib.sha256(raw).hexdigest()=='892001022869d1a90fc0c7ff6b07eb2272c00ba7f475492825c3e1468d686fec'
+          root=Path('progress-inputs');root.mkdir()
+          with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+              for name in ['old.jar','new.jar','core.jar','run_progress.py','input-sha256.txt']:
+                  (root/name).write_bytes(archive.read(name))
+          p=Path('.audit/cultivation/ProgressRuntime.java');text=p.read_text()
+          old='''                    check(Cultivation.getConfigManager() == null, "Incomplete manager was published");
+                              check(Cultivation.getPlantRegistry() == null, "Plant registry initialized after failed data load");
+                              check(Cultivation.getRunnableManager() == null, "Tasks initialized after failed data load");'''.replace('\n          ','\n')
+          # Paper removes disabled plugins from normal cross-plugin class lookup.
+          # Inspect the actual retained instance, without loading replacement classes.
+          start=text.index('                    check(Cultivation.getConfigManager() == null,')
+          end=text.index('\n                } else {',start)
+          text=text[:start]+'''                    for (String name : new String[] {"configManager", "registry", "taskManager"}) {
+                                  var field = addon.getClass().getDeclaredField(name);
+                                  field.setAccessible(true);
+                                  check(field.get(addon) == null, "Failed startup initialized " + name);
+                              }'''.replace('\n          ','\n')+text[end:]
+          p.write_text(text)
+          PY
+      - name: Compile only the corrected assertion fixture
+        run: |
+          set -euo pipefail
+          mvn -B install:install-file -Dfile=progress-inputs/core.jar -DgroupId=com.github.slimefun -DartifactId=Slimefun -Dversion=4.1.29 -Dpackaging=jar -DgeneratePom=true
+          (cd addon && mvn -B dependency:build-classpath -Dmdep.outputFile=dependency-classpath.txt)
+          mkdir -p fixture-classes
+          javac --release 21 -cp "$(cat addon/dependency-classpath.txt):progress-inputs/new.jar:progress-inputs/core.jar" \
+            -d fixture-classes .audit/cultivation/ProgressRuntime.java
+          printf 'name: ProgressRuntime\nversion: 1.0\nmain: io.github.wickidcow.regression.ProgressRuntime\napi-version: "1.21.11"\ndepend: [Slimefun]\nsoftdepend: [Cultivation]\n' > fixture-classes/plugin.yml
+          jar --create --file progress-inputs/ProgressRuntime.jar -C fixture-classes .
+          sha256sum progress-inputs/*.jar > progress-inputs/recheck-sha256.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cultivation-progress-recheck-inputs
+          path: progress-inputs/
+          retention-days: 14
+  runtime:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11', '26.2', '26.3']
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: cultivation-progress-recheck-inputs
+          path: progress-inputs
+      - name: Verify failed-load containment and exact old progress after upgrade and restart
+        run: python3 progress-inputs/run_progress.py '${{ matrix.minecraft }}'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: cultivation-progress-${{ matrix.minecraft }}
+          path: |
+            progress-inputs/recheck-sha256.txt
+            progress-runtime/results.json
+            progress-runtime/*/*.log
+            progress-runtime/*/*-exp.yml
+            progress-runtime/*/*-codex.yml
+            progress-runtime/*/plugins/Cultivation/exp.yml
+            progress-runtime/*/plugins/Cultivation/codex.yml
+            progress-runtime/*/plugins/Cultivation/config.yml
+          retention-days: 14
