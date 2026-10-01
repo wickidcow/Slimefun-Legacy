@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 100,
+  "bundle_revision": 101,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -161,7 +161,7 @@
     {
       "repository": "wickidcow/SF_HotbarPets",
       "slug": "hotbarpets",
-      "source_commit": "1434e5f6dccb2b15812626d17435e74982bf7229"
+      "source_commit": "20b83bf0fa39522647c92be38abbd24688cb5b1b"
     },
     {
       "repository": "wickidcow/SF_IDreamOfEasy",
@@ -208,7 +208,7 @@
     {
       "repository": "wickidcow/SF_MobDrops",
       "slug": "mobdrops",
-      "source_commit": "999a9e88d3770b092f1f898c409d220e4615bfcd"
+      "source_commit": "8943594f006a443ce8a77113f76709c871d03697"
     },
     {
       "repository": "wickidcow/SF_NetworksExp",
@@ -224,7 +224,7 @@
     {
       "repository": "wickidcow/SF_RykenSlimeCustomizer",
       "slug": "rykenslimecustomizer",
-      "source_commit": "6b165f9efafad8e016e80cb3b146127c6314d6c6"
+      "source_commit": "9fc2dc5f9cf3bf650602b70095da44a57f42172b"
     },
     {
       "repository": "wickidcow/SF_SlimeEasy",
@@ -244,7 +244,7 @@
     {
       "repository": "wickidcow/SF_SlimeGlue",
       "slug": "slimeglue",
-      "source_commit": "b15da0fa38befcccf58271177c7477dc664c09f7"
+      "source_commit": "32db74f9b50317aab96163642ad4b5ed2d62471f"
     },
     {
       "repository": "wickidcow/SF_SlimeHUD",
@@ -266,7 +266,7 @@
     {
       "repository": "wickidcow/SF_SMG",
       "slug": "smg",
-      "source_commit": "b0579092ed81b643c778357cb7890a69643907e2"
+      "source_commit": "eecf6c5a0a09c9391fd654c95f80b02e2123c571"
     },
     {
       "repository": "wickidcow/SF_SoulJars",
