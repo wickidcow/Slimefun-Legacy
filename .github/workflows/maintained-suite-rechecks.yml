@@ -1,0 +1,170 @@
+name: Maintained Suite Configuration and Updated-Source Rechecks
+on:
+  push:
+    branches: ['work/bundle-integration-20260930']
+    paths: ['.github/workflows/maintained-suite-rechecks.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: d3e620de1ea0d842414283848b3c94f525d56679
+          path: tools
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Reproduce the comparator defect and run every retained source guard
+        run: |
+          set -euo pipefail
+          python3 .audit/apply_core_coordinate.py
+          python3 tools/scripts/verify_legacy.py tools 2>&1 | tee coordinate-evidence/invariants.log
+      - name: Stage exact reviewed tooling and immutable runtime dependencies
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,io,json,subprocess,zipfile
+          root=Path('suite-inputs');root.mkdir()
+          def artifact(id,sha):
+              raw=subprocess.run(['gh','api',f'repos/wickidcow/Slimefun-Legacy/actions/artifacts/{id}/zip'],capture_output=True,check=True,timeout=180).stdout
+              assert hashlib.sha256(raw).hexdigest()==sha
+              return zipfile.ZipFile(io.BytesIO(raw))
+          with artifact(11133862255,'1c923b97938b3e6d642bfb0a3582091a9a8bb698e6c7069c9c92b0f2f939e7f1') as archive:
+              jars=[n for n in archive.namelist() if n.endswith('.jar')];assert len(jars)==1
+              (root/'core.jar').write_bytes(archive.read(jars[0]))
+          with artifact(11133584571,'c1583fb0deadcc2b7cfa2be959e1f36255e56f3e62038ef1792658022adbc102') as archive:
+              data=archive.read('SF_Addons_1.21.11-26.3.zip')
+          with zipfile.ZipFile(io.BytesIO(data)) as bundle:
+              content=bundle.read('SF_JustEnoughGuide2.1.69.jar')
+              assert hashlib.sha256(content).hexdigest()=='6d1d663b0f43a01c6179e8bd48f566590100744f32197f15ab06ea795e2b18e1'
+              (root/'jeg.jar').write_bytes(content)
+          for name,sha in json.loads(Path('coordinate-evidence/reviewed-blobs.json').read_text()).items():
+              data=Path('tools',name).read_bytes();assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()==sha
+              result=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps(dict(content=data.decode(),encoding='utf-8')),text=True,capture_output=True,check=True)
+              assert json.loads(result.stdout)['sha']==sha
+              dest=Path('coordinate-evidence/reviewed-source')/name;dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(data)
+              dest=root/'tooling'/name;dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(data)
+          (root/'coordinate-blobs.json').write_text(Path('coordinate-evidence/reviewed-blobs.json').read_text())
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: canonical-core-coordinate-evidence
+          path: coordinate-evidence/
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        with:
+          name: maintained-recheck-inputs
+          path: suite-inputs/
+          retention-days: 14
+  tests:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        include:
+          - repository: wickidcow/SF_DracFun2
+            slug: dracfunreborn
+            commit: 080aad927cb0f24d3c3a294a2683c35528ddb032
+          - repository: wickidcow/SF_MagicExpansion
+            slug: magicexpansion
+            commit: b7c5c81fe88192bc5b37e3466764948dbdc89fb5
+          - repository: wickidcow/SF_MilitaryArsenal
+            slug: militaryarsenal
+            commit: 79a6b2af0727d6611c3f470922057543d1b34c0c
+          - repository: wickidcow/SF_MobDrops
+            slug: mobdrops
+            commit: bb114a217d921ee4b14b3d1b41c098b3254114c9
+          - repository: wickidcow/SF_RykenSlimeCustomizer
+            slug: rykenslimecustomizer
+            commit: e5d43b5a4721a97943ed8b3a785c77e54fe25c5b
+          - repository: wickidcow/SF_NetworksExp
+            slug: networksexp
+            commit: 5bc81686aa8e98275872d18e0ed39f83a3667c7c
+          - repository: wickidcow/SF_InfinityExpansion2
+            slug: infinityexpansion2
+            commit: 41318f5930b9af12059bd85a7057db7a05aa0691
+          - repository: wickidcow/SF_Supreme
+            slug: supreme
+            commit: d315b7ee3e495e215ddf22eb4686d8a088c25f4f
+    name: Recheck ${{ matrix.slug }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: d3e620de1ea0d842414283848b3c94f525d56679
+          path: tools
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ matrix.commit }}
+          path: addon
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+          cache-disabled: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: maintained-recheck-inputs
+          path: suite-inputs
+      - name: Keep build setup consistent with the declared addon test environment
+        env:
+          ADDON_SLUG: ${{ matrix.slug }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,os,shutil
+          for name,sha in json.loads(Path('suite-inputs/coordinate-blobs.json').read_text()).items():
+              data=Path('suite-inputs/tooling',name).read_bytes()
+              assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()==sha
+              Path('tools',name).write_bytes(data)
+          adapters=[]
+          if os.environ['ADDON_SLUG']=='mobdrops':
+              p=Path('.audit/run_maintained_suite.py');text=p.read_text()
+              needle="report['build_system']='maven'";assert text.count(needle)==1
+              text=text.replace(needle,needle+"\n        command += ['-Dpaper.version=26.2.build.112-stable', '-Dmockbukkit.version=4.126.1']")
+              p.write_text(text)
+              adapters.append('Run existing MockBukkit tests using their declared Paper26.2 profile; baseline compile remains a separate check.')
+          if os.environ['ADDON_SLUG']=='rykenslimecustomizer':
+              p=Path('addon/build.gradle.kts');text=p.read_text()
+              needle='compileOnly(libs.justenoughguide)';assert text.count(needle)==1
+              # Supply the actual pinned maintained API, never a stub or a shaded replacement.
+              replacement='compileOnly(files("'+str(Path('suite-inputs/jeg.jar').resolve())+'"))'
+              p.write_text(text.replace(needle,replacement))
+              adapters.append('Replace unavailable upstream JitPack guide dependency only in disposable build copy with exact maintained JEG1b0e8f7c JAR; normal repository dependency remains a follow-up.')
+          if os.environ['ADDON_SLUG']=='dracfunreborn':adapters.append('Use declared Gradle9.4.1 for the Java25 compiler instead of incompatible global Gradle8.')
+          Path('suite-evidence').mkdir(exist_ok=True)
+          Path('suite-evidence/setup-adapters.json').write_text(json.dumps(adapters,indent=2)+'\n')
+          PY
+      - name: Execute complete project tests and build
+        env:
+          MAVEN_OPTS: '--sun-misc-unsafe-memory-access=allow'
+        run: python3 .audit/run_maintained_suite.py '${{ matrix.repository }}' '${{ matrix.commit }}' '${{ matrix.slug }}'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: suite-recheck-${{ matrix.slug }}
+          path: suite-evidence/
+          retention-days: 14
