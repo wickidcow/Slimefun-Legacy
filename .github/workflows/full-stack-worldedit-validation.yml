@@ -1,0 +1,124 @@
+name: Complete Maintained Stack with WorldEdit
+on:
+  push:
+    branches: ['work/bundle-integration-20260930']
+    paths: ['.github/workflows/full-stack-worldedit-validation.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 656f569327c1d7e706cb23604dba024ddbc17c54
+          persist-credentials: false
+      - name: Verify candidate bundle and add only the pinned external runtime dependency
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,io,json,subprocess,urllib.request,zipfile
+          from pathlib import Path
+          def artifact(id,digest):
+              raw=subprocess.run(['gh','api',f'repos/wickidcow/Slimefun-Legacy/actions/artifacts/{id}/zip'],capture_output=True,check=True,timeout=120).stdout
+              assert hashlib.sha256(raw).hexdigest()==digest
+              return zipfile.ZipFile(io.BytesIO(raw))
+          out=Path('worldedit-inputs');out.mkdir()
+          with artifact(11133584571,'c1583fb0deadcc2b7cfa2be959e1f36255e56f3e62038ef1792658022adbc102') as outer:
+              original=outer.read('SF_Addons_1.21.11-26.3.zip')
+          assert hashlib.sha256(original).hexdigest()=='095f3719d72da0a7885801bbf397be122fc70a17f260e6752004fa14f422b622'
+          with artifact(11133677831,'100d344253d661dacd1def90ce4e0034fdf5e6b3d2578e76681e57b1a8856add') as core:
+              names=[n for n in core.namelist() if n.endswith('.jar')];assert len(names)==1
+              (out/'core.jar').write_bytes(core.read(names[0]))
+          headers={'User-Agent':'Slimefun-Legacy-Complete-Stack-Validation/1.0 (https://github.com/wickidcow/Slimefun-Legacy)'}
+          request=urllib.request.Request('https://api.modrinth.com/v2/project/worldedit/version',headers=headers)
+          with urllib.request.urlopen(request,timeout=60) as response: versions=json.load(response)
+          matches=[v for v in versions if v['version_number']=='7.4.6-beta-02' and 'bukkit' in v['loaders']]
+          assert len(matches)==1, [(v['version_number'],v['loaders']) for v in versions[:12]]
+          version=matches[0]
+          assert version['project_id']=='1u6JkXh5'
+          assert {'1.21.11','26.2','26.3'} <= set(version['game_versions'])
+          files=[f for f in version['files'] if f['filename']=='worldedit-bukkit-7.4.6-beta-02.jar']
+          assert len(files)==1
+          file=files[0]
+          with urllib.request.urlopen(urllib.request.Request(file['url'],headers=headers),timeout=90) as response: provider=response.read()
+          assert hashlib.sha512(provider).hexdigest()==file['hashes']['sha512']
+          with zipfile.ZipFile(io.BytesIO(provider)) as jar:
+              assert jar.testzip() is None and 'name: WorldEdit' in jar.read('plugin.yml').decode()
+          with zipfile.ZipFile(io.BytesIO(original)) as archive, zipfile.ZipFile(out/'runtime-stack.zip','w',zipfile.ZIP_DEFLATED) as combined:
+              manifest=json.loads(archive.read('SF_ADDON_MANIFEST.json'))
+              assert manifest['core_source_commit']=='9e8de71adf70e9a361a74c21afe5e7006c85faf6' and len(manifest['addons'])==45
+              for row in manifest['addons']:
+                  contents=archive.read(row['jar'])
+                  assert hashlib.sha256(contents).hexdigest()==row['sha256']
+                  combined.writestr(row['jar'],contents)
+              record={'repository':'EngineHub/WorldEdit','jar':'WorldEdit-provider.jar','version':'7.4.6-beta-02',
+                      'source_version_id':version['id'],'sha256':hashlib.sha256(provider).hexdigest(),
+                      'sha512':file['hashes']['sha512'],'source_url':file['url'],
+                      'scope':'External runtime dependency only; not a maintained addon or release-bundle addition'}
+              manifest['addons'].append(record)
+              combined.writestr(record['jar'],provider)
+              combined.writestr('SF_ADDON_MANIFEST.json',json.dumps(manifest,indent=2))
+          (out/'provider-provenance.json').write_text(json.dumps(record,indent=2)+'\n')
+          (out/'source-bundle-sha256.txt').write_text(hashlib.sha256(original).hexdigest()+'\n')
+          print(json.dumps(record,indent=2))
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: complete-worldedit-stack-inputs
+          path: worldedit-inputs/
+          retention-days: 14
+  runtime:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11', '26.2', '26.3']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 656f569327c1d7e706cb23604dba024ddbc17c54
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: complete-worldedit-stack-inputs
+          path: worldedit-inputs
+      - name: Require every maintained addon and the real provider over both boots
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+        run: |
+          set -euo pipefail
+          bash scripts/full_stack_runtime_smoke.sh worldedit-inputs/core.jar worldedit-inputs/runtime-stack.zip build/complete-runtime
+          test ! -s build/complete-runtime/dependency-gated-addons.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('build/complete-runtime')
+          rows=(root/'expected-addons.txt').read_text().splitlines()
+          assert len(rows)==46
+          names={line.split('\t')[1] for line in rows}
+          assert {'WorldEdit','WorldEditSlimefun'} <= names
+          for cycle in ['first','second']:
+              text=(root/f'{cycle}.normalized.log').read_text()
+              assert 'UnknownDependencyException' not in text
+              assert 'ERROR]' not in text, '\n'.join(l for l in text.splitlines() if 'ERROR]' in l)
+          print('All 45 maintained addons plus WorldEdit required; none dependency-gated.')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: complete-stack-worldedit-${{ matrix.minecraft }}
+          path: |
+            worldedit-inputs/provider-provenance.json
+            worldedit-inputs/source-bundle-sha256.txt
+            build/complete-runtime/*.log
+            build/complete-runtime/*.txt
+          retention-days: 14
