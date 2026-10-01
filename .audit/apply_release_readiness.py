@@ -43,3 +43,4 @@ for name, expected in changes:
     print('REVIEWED_SOURCE', expected, name)
 Path('audit-evidence').mkdir(exist_ok=True)
 Path('audit-evidence/paths.json').write_text(json.dumps([name for name, _ in changes]))
+subprocess.run(['python3', '.audit/correct_fixture_flags.py'], check=True)
