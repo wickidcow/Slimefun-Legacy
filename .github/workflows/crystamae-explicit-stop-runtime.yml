@@ -1,0 +1,71 @@
+name: Crystamae Explicit Stop and Progress Preservation
+on:
+  push:
+    branches: ['work/bundle-integration-20260930']
+    paths: ['.github/workflows/crystamae-explicit-stop-runtime.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Retain the validated fixture and replace only the guarded candidate JAR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,io,json,subprocess,zipfile
+          def fetch(repo,id,sha):
+              raw=subprocess.run(['gh','api',f'repos/{repo}/actions/artifacts/{id}/zip'],capture_output=True,check=True,timeout=120).stdout
+              assert hashlib.sha256(raw).hexdigest()==sha
+              return zipfile.ZipFile(io.BytesIO(raw))
+          root=Path('cryst-inputs');root.mkdir()
+          with fetch('wickidcow/Slimefun-Legacy',11136212243,'803bf18bfc35db7603e46705a36b44e863cc2782c91892f15f63640f635525d9') as old:
+              for name in ['core.jar','old.jar','CrystRuntime.jar','CrystRuntime.java','run_progress.py']:
+                  (root/name).write_bytes(old.read(name))
+          with fetch('wickidcow/SF_CrystamaeHistoria',11135642561,'d10639018b1bc9d5987850921e0ba297efa90b29e09274761472788e6d4ffa67') as guarded:
+              for name in ['core.jar','old.jar']:assert guarded.read(name)==(root/name).read_bytes()
+              (root/'new.jar').write_bytes(guarded.read('new.jar'))
+          assert hashlib.sha256((root/'new.jar').read_bytes()).hexdigest()=='0f01cd9d9ac84abc4e0a87a92d05767fdc35f372e990115fc77c1ef72d504ec5'
+          hashes={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in root.glob('*.jar')}
+          (root/'input-sha256.json').write_text(json.dumps(hashes,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: crystamae-explicit-stop-runtime-inputs
+          path: cryst-inputs/
+          retention-days: 14
+  runtime:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11', '26.2', '26.3']
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: crystamae-explicit-stop-runtime-inputs
+          path: cryst-inputs
+      - name: Verify bad-file containment and old-addon progress over upgrade and restart
+        run: python3 cryst-inputs/run_progress.py '${{ matrix.minecraft }}'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: crystamae-guarded-progress-${{ matrix.minecraft }}
+          path: |
+            cryst-inputs/input-sha256.json
+            cryst-runtime/results.json
+            cryst-runtime/*/*.log
+            cryst-runtime/*/*-player_stats.yml
+            cryst-runtime/*/*-spells.yml
+            cryst-runtime/*/plugins/CrystamaeHistoria/*.yml
+          retention-days: 14
