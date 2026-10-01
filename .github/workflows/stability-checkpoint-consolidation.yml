@@ -1,0 +1,54 @@
+name: Stability Checkpoint Consolidation
+on:
+  push:
+    branches: ['work/bundle-integration-20260930']
+    paths: ['.github/workflows/stability-checkpoint-consolidation.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: ed0618b442cf0b74c62f2d3990c32727ed376e78
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Verify actual evidence and exact source-set consistency
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .audit/consolidate_stability_checkpoint.py
+      - name: Run every retained source guard with the new build comparator tests
+        run: |
+          set -euo pipefail
+          python3 candidate/scripts/verify_legacy.py candidate 2>&1 | tee checkpoint-evidence/invariants.log
+          git -C candidate diff --check
+      - name: Stage only the reviewed passing source blobs without moving branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,subprocess
+          for name,expected in json.loads(Path('checkpoint-evidence/reviewed-blobs.json').read_text()).items():
+              data=Path('candidate',name).read_bytes()
+              assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()==expected,name
+              result=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps(dict(content=data.decode(),encoding='utf-8')),text=True,capture_output=True,check=True)
+              assert json.loads(result.stdout)['sha']==expected
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: stability-checkpoint-evidence
+          path: checkpoint-evidence/
+          retention-days: 14
+          if-no-files-found: warn
