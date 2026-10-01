@@ -1,0 +1,101 @@
+name: BetterChests native preservation
+on:
+  push:
+    branches: ['work/finish-addon-drafts-20261001']
+    paths: ['.audit/BetterChestsProbe.java', '.audit/run_bc_runtime.py', '.github/workflows/betterchests-native-preservation.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Download exact old and candidate plugins
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p native-input evidence old probe/src/main/java/io/github/wickidcow/probe probe/src/main/resources
+          gh release download v4.1.63 --repo wickidcow/Slimefun-Legacy --pattern Slimefun-Legacy4.1.63.jar --pattern SF_Addons_1.21.11-26.3.zip --dir old
+          echo '993b257c54efe19b58cc8f4946d4d39387f7787fe263c9f27123343159344c42  old/Slimefun-Legacy4.1.63.jar' | sha256sum -c -
+          echo '9d517d0e1d62adb34397aa6a151c7433b7f483a33e3a96fe60adc8a60bdd6470  old/SF_Addons_1.21.11-26.3.zip' | sha256sum -c -
+          gh run download 36933337824 --repo wickidcow/SF_BetterChests --name betterchests-finished-candidate-evidence --dir evidence
+          cp old/Slimefun-Legacy4.1.63.jar native-input/
+          cp evidence/dist/SF_BetterChests1.0.3.jar native-input/
+          echo 'd78d0ce8b0fc20b2d882931d3ee988fd681cddc3bcb4d638b56abac54165d818  native-input/SF_BetterChests1.0.3.jar' | sha256sum -c -
+          unzip -p old/SF_Addons_1.21.11-26.3.zip SF_BetterChests1.0.2.jar > native-input/SF_BetterChests1.0.2.jar
+      - name: Compile the real API fixture outside distributable plugins
+        run: |
+          set -euo pipefail
+          cp .audit/BetterChestsProbe.java probe/src/main/java/io/github/wickidcow/probe/
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('probe/src/main/java/io/github/wickidcow/probe/BetterChestsProbe.java')
+          t=p.read_text()
+          # The fixture seeds an offline-style corrupt record after disabling only
+          # this test block's ticker. The next processes must load it normally.
+          t=t.replace('damaged.setData("stored","not-a-number-preserve");','Slimefun.getTickerTask().disableTicker(corrupt.getLocation());\n            damaged.setData("stored","not-a-number-preserve");')
+          p.write_text(t)
+          Path('probe/pom.xml').write_text('''<project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion><groupId>io.github.wickidcow</groupId><artifactId>BetterChestsProbe</artifactId><version>1</version><properties><maven.compiler.release>21</maven.compiler.release><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding></properties><repositories><repository><id>paper</id><url>https://repo.papermc.io/repository/maven-public/</url></repository></repositories><dependencies><dependency><groupId>io.papermc.paper</groupId><artifactId>paper-api</artifactId><version>1.21.11-R0.1-SNAPSHOT</version><scope>provided</scope></dependency><dependency><groupId>io.github.wickidcow</groupId><artifactId>probe-core</artifactId><version>4.1.63</version><scope>provided</scope></dependency><dependency><groupId>io.github.wickidcow</groupId><artifactId>probe-betterchests</artifactId><version>1.0.3</version><scope>provided</scope></dependency></dependencies><build><finalName>BetterChestsProbe</finalName><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.14.1</version></plugin></plugins></build></project>''')
+          Path('probe/src/main/resources/plugin.yml').write_text('name: BetterChestsProbe\nversion: "1"\nmain: io.github.wickidcow.probe.BetterChestsProbe\napi-version: "1.21.11"\ndepend: [Slimefun, BetterChests]\n')
+          PY
+          mvn -B -ntp install:install-file -Dfile=native-input/Slimefun-Legacy4.1.63.jar -DgroupId=io.github.wickidcow -DartifactId=probe-core -Dversion=4.1.63 -Dpackaging=jar -DgeneratePom=true
+          mvn -B -ntp install:install-file -Dfile=native-input/SF_BetterChests1.0.3.jar -DgroupId=io.github.wickidcow -DartifactId=probe-betterchests -Dversion=1.0.3 -Dpackaging=jar -DgeneratePom=true
+          mvn -B -ntp -f probe/pom.xml clean package
+          cp probe/target/BetterChestsProbe.jar native-input/
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: betterchests-native-input
+          path: |
+            native-input/
+            probe/src/
+          if-no-files-found: error
+          retention-days: 14
+  runtime:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - minecraft: '1.21.11'
+            java: '21'
+          - minecraft: '26.2'
+            java: '25'
+          - minecraft: '26.3'
+            java: '25'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: betterchests-native-input
+      - name: Execute old-addon seed and corrected upgrade/restart
+        run: python3 .audit/run_bc_runtime.py '${{ matrix.minecraft }}'
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: betterchests-native-${{ matrix.minecraft }}
+          path: |
+            build/betterchests-native-*/result.json
+            build/betterchests-native-*/runtime-build.json
+            build/betterchests-native-*/probe-expectations.yml
+            build/betterchests-native-*/*.log
+          if-no-files-found: warn
+          retention-days: 14
