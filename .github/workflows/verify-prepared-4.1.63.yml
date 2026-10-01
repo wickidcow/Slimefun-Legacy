@@ -1,0 +1,100 @@
+name: Verify Prepared Slimefun Legacy 4.1.63
+on:
+  push:
+    branches: ['work/release-4.1.63-preparation-20261001']
+    paths: ['.github/workflows/verify-prepared-4.1.63.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 20f7c554b9b3543bc99cd9fd367f0149a784829f
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Restore only the reviewed source tree from the successful build evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence inputs
+          python3 - <<'PY'
+          import hashlib,io,json,subprocess,tarfile,zipfile
+          from pathlib import Path
+          raw=subprocess.run(['gh','api','repos/wickidcow/Slimefun-Legacy/actions/artifacts/11171842258/zip'],check=True,capture_output=True,timeout=120).stdout
+          assert hashlib.sha256(raw).hexdigest()=='290b3ce66d5b038185f745510aa3c611cd8db10e14fd6399a737b30ba01fb4ef'
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              assert 'BUILD SUCCESSFUL' in z.read('core-build.log').decode()
+              names=json.loads(z.read('prepared-paths.json'));assert len(names)==len(set(names))
+              expected=z.read('prepared-tree.txt').decode().strip();assert expected=='21ac872588c676e6e0513224437da0c856ae970b'
+              with tarfile.open(fileobj=io.BytesIO(z.read('prepared-source.tar.gz'))) as archive:
+                  for name in names:
+                      assert '..' not in Path(name).parts and not name.startswith(('.audit/', '.github/workflows/prepare-'))
+                      member=archive.getmember(name);assert member.isfile()
+                      path=Path(name);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(archive.extractfile(member).read());path.chmod(member.mode)
+          subprocess.run(['git','add','--',*names],check=True)
+          tree=subprocess.check_output(['git','write-tree'],text=True).strip();assert tree==expected
+          Path('evidence/prepared-paths.json').write_text(json.dumps(names,indent=2))
+          Path('evidence/prepared-tree.txt').write_text(tree+'\n')
+          subprocess.run(['git','archive','--format=tar.gz','--output=evidence/prepared-source.tar.gz',tree],check=True)
+          PY
+          git diff --cached --check
+          echo "SOURCE_COMMIT=$GITHUB_SHA" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+      - name: Full versioned build and supported artifact checks
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_legacy.py . 2>&1 | tee evidence/invariants.log
+          chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon --no-build-cache --no-configuration-cache > evidence/format.log 2>&1
+          ./gradlew clean build -PslimefunDeprecationReport=true --no-daemon --no-build-cache --no-configuration-cache --console=plain 2>&1 | tee evidence/build.log
+          python3 scripts/summarize_deprecations.py evidence/build.log --fail-on-warnings --require-successful-build
+          JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+          python3 scripts/verify_release_artifact.py "$JAR" --root .
+          cp "$JAR" inputs/Slimefun-Legacy4.1.63-preparation.jar
+          mkdir -p evidence/tests
+          cp build/test-results/test/TEST-*.xml evidence/tests/
+          cp build/reports/release-artifact.* evidence/
+          sha256sum inputs/*.jar > evidence/jar-sha256.txt
+      - name: Stage the checked source tree without changing any branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json,subprocess,xml.etree.ElementTree as ET
+          from pathlib import Path
+          roots=[ET.parse(p).getroot() for p in Path('evidence/tests').glob('TEST-*.xml')]
+          counts={k:sum(int(r.get(k,0)) for r in roots) for k in ['tests','failures','errors','skipped']}
+          assert counts['tests']>=493 and counts['failures']==counts['errors']==0 and counts['skipped']<=1,counts
+          entries=[]
+          for name in json.loads(Path('evidence/prepared-paths.json').read_text()):
+              content=subprocess.check_output(['git','show',':'+name]).decode()
+              mode=subprocess.check_output(['git','ls-files','-s','--',name],text=True).split()[0]
+              entries.append(dict(path=name,mode=mode,type='blob',content=content))
+          base=subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip()
+          response=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/trees','--input','-'],input=json.dumps(dict(base_tree=base,tree=entries)),check=True,text=True,capture_output=True)
+          result=json.loads(response.stdout);assert result['sha']==Path('evidence/prepared-tree.txt').read_text().strip()
+          Path('evidence/staged-tree.json').write_text(json.dumps(dict(tree=result['sha'],base='20f7c554b9b3543bc99cd9fd367f0149a784829f',master='914aa81e74289a5729ebf8821902e08a7899bb3e',version='4.1.63',paths=[r['path'] for r in entries],tests=counts,published=False),indent=2))
+          print(counts)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: verified-4.1.63-preparation
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: verified-4.1.63-core
+          path: inputs/
+          retention-days: 14
+          if-no-files-found: error
