@@ -1,0 +1,157 @@
+name: Candidate Core Provenance Correction Validation
+
+on:
+  push:
+    branches: ['work/addon-stability-audit-r96-20260930']
+    paths: ['.github/workflows/candidate-provenance-validation.yml']
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: tooling
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: e63c4f5bf82401e37e97922095c1cee4570af759
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Reproduce the actual incomplete artifact metadata with the existing release verifier
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python3 - <<'PY'
+          import hashlib,io,json,os,subprocess,zipfile
+          from pathlib import Path
+          raw=subprocess.run(['gh','api','repos/wickidcow/Slimefun-Legacy/actions/artifacts/11139836205/zip'],capture_output=True,check=True).stdout
+          assert hashlib.sha256(raw).hexdigest()=='57af798a23dcc35eb322b91f2bbeac20cd5276cc0e61a75fba1d1d8851ca9d73'
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:data=z.read('Slimefun-Legacy-candidate.jar')
+          Path('evidence/original-core.jar').write_bytes(data)
+          env=dict(os.environ,SOURCE_COMMIT='e63c4f5bf82401e37e97922095c1cee4570af759')
+          result=subprocess.run(['python3','scripts/verify_release_artifact.py','../evidence/original-core.jar','--root','.','--json-report','../evidence/negative-artifact.json','--summary','../evidence/negative-artifact.md'],cwd='candidate',env=env,text=True,capture_output=True)
+          Path('evidence/negative-artifact.log').write_text(result.stdout+result.stderr)
+          assert result.returncode==1 and 'git.source.commit is unknown, expected source commit e63c4f5bf82401e37e97922095c1cee4570af759' in result.stdout,result
+          print(result.stdout)
+          PY
+      - name: Apply only the reviewed workflow/guard/source-ledger changes
+        working-directory: candidate
+        run: |
+          python3 ../tooling/.audit/fix_candidate_provenance.py
+          git diff --check
+          git diff --stat
+      - name: Verify the retained source guards and14 independent regression controls
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_legacy.py . > ../evidence/source-invariants.log 2>&1
+          python3 - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          rows=[]
+          tokens=[
+              'export SOURCE_COMMIT="$(git rev-parse HEAD)"',
+              'export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"',
+              'test "$SOURCE_COMMIT" = "$GITHUB_SHA"',
+              '--no-build-cache --no-configuration-cache',
+              'python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21',
+              'python3 scripts/verify_release_artifact.py "$JAR" --root .']
+          for name in ['.github/workflows/build-sfl-addons-compat-bundle.yml','.github/workflows/paper-26.3-full-stack.yml']:
+              path=Path(name);original=path.read_text()
+              try:
+                  for token in tokens:
+                      assert original.count(token)==1,(name,token)
+                      path.write_text(original.replace(token,''))
+                      result=subprocess.run(['python3','scripts/verify_phase1l_release_artifact.py','.'],text=True,capture_output=True)
+                      assert result.returncode==1 and 'Candidate core provenance invariant missing in '+name in result.stdout,result.stdout
+                      rows.append(dict(workflow=name,removed=token,result='rejected'))
+                  source='          '+tokens[0]+'\n'
+                  changed=original.replace(source,'')
+                  start=changed.index('./gradlew clean shadowJar')
+                  end=changed.index('\n',start)+1
+                  changed=changed[:end]+source+changed[end:]
+                  path.write_text(changed)
+                  result=subprocess.run(['python3','scripts/verify_phase1l_release_artifact.py','.'],text=True,capture_output=True)
+                  assert result.returncode==1 and 'source identity must be set before Gradle' in result.stdout,result.stdout
+                  rows.append(dict(workflow=name,mutation='source export after Gradle',result='rejected'))
+              finally:path.write_text(original)
+          assert len(rows)==14
+          result=subprocess.run(['python3','scripts/verify_phase1l_release_artifact.py','.'],text=True,capture_output=True)
+          assert result.returncode==0,result.stdout
+          Path('../evidence/source-negative-controls.json').write_text(json.dumps(rows,indent=2)+'\n')
+          print('Both restored workflow guards pass; all14 unsafe regression controls are rejected.')
+          PY
+      - name: Build the same production source and prove only git.properties changed
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          export SOURCE_COMMIT="$(git rev-parse HEAD)"
+          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          test "$SOURCE_COMMIT" = e63c4f5bf82401e37e97922095c1cee4570af759
+          chmod +x gradlew
+          ./gradlew clean shadowJar -PpaperApiVersion=26.3-rc-3.build.1-alpha --no-daemon --no-build-cache --no-configuration-cache > ../evidence/corrected-build.log 2>&1
+          JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -s "$JAR"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+          python3 scripts/verify_release_artifact.py "$JAR" --root . --json-report ../evidence/corrected-artifact.json --summary ../evidence/corrected-artifact.md
+          cp "$JAR" ../evidence/corrected-core.jar
+          python3 - <<'PY'
+          import hashlib,json,zipfile
+          from pathlib import Path
+          old=Path('../evidence/original-core.jar');new=Path('../evidence/corrected-core.jar')
+          with zipfile.ZipFile(old) as a,zipfile.ZipFile(new) as b:
+              assert set(a.namelist())==set(b.namelist()),'Archive members changed'
+              changed=[n for n in a.namelist() if a.read(n)!=b.read(n)]
+              assert changed==['git.properties'],changed
+              before=a.read('git.properties').decode();after=b.read('git.properties').decode()
+              assert 'git.source.commit=unknown' in before
+              assert 'git.source.commit=e63c4f5bf82401e37e97922095c1cee4570af759' in after
+              assert 'git.build.time=1970-' not in after
+              count=len(a.namelist())
+          Path('../evidence/metadata-only-comparison.json').write_text(json.dumps(dict(old_sha256=hashlib.sha256(old.read_bytes()).hexdigest(),new_sha256=hashlib.sha256(new.read_bytes()).hexdigest(),archive_members=count,changed_members=changed,old_metadata=before,new_metadata=after),indent=2)+'\n')
+          print('All production classes and other packaged resources remain byte-for-byte identical.')
+          PY
+      - name: Stage only verified source files without moving refs or publishing
+        working-directory: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,subprocess
+          from pathlib import Path
+          manifest=json.loads(Path('provenance-reviewed-blobs.json').read_text())
+          assert len(manifest)==5
+          for name,expected in manifest.items():
+              data=Path(name).read_bytes()
+              assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()==expected,name
+              response=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps(dict(content=data.decode(),encoding='utf-8')),text=True,capture_output=True,check=True)
+              assert json.loads(response.stdout)['sha']==expected
+              path=Path('../evidence/reviewed-source')/name
+              path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
+          Path('../evidence/reviewed-blobs.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: candidate-provenance-correction-evidence
+          path: |
+            evidence/*.json
+            evidence/*.md
+            evidence/*.log
+            evidence/reviewed-source/
+          include-hidden-files: true
+          retention-days: 14
+          if-no-files-found: warn
