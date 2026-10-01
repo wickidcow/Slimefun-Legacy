@@ -1,0 +1,166 @@
+name: Ecosystem Resume Checkpoint
+on:
+  push:
+    branches: ['audit/ecosystem-resume-20261001']
+    paths: ['.github/workflows/ecosystem-resume-audit.yml']
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: cf09e5bc04cb912604e65bfeacce9dabeda5014a
+          persist-credentials: false
+      - name: Read current repository state without changing branches or releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence
+          python3 - <<'PY'
+          import datetime,json,subprocess
+          from pathlib import Path
+          manifest=json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text())
+          assert manifest['bundle_revision']==101 and len(manifest['addons'])==45
+          def api(path, optional=False):
+              result=subprocess.run(['gh','api',path],capture_output=True,text=True,timeout=90)
+              if result.returncode:
+                  if optional and 'HTTP 404' in result.stderr:return None
+                  raise RuntimeError(result.stderr[-1000:])
+              return json.loads(result.stdout)
+          def pages(path):
+              result=[]
+              for page in range(1,101):
+                  data=api(path+('&' if '?' in path else '?')+f'per_page=100&page={page}')
+                  assert isinstance(data,list)
+                  result.extend(data)
+                  if len(data)<100:return result
+              raise RuntimeError('Pagination exceeded limit; do not report partial data as complete')
+          records=[]
+          for selected in manifest['addons']:
+              repo=selected['repository']; prefix=f'repos/{repo}'
+              row={'repository':repo,'selected_commit':selected['source_commit']}
+              try:
+                  metadata=api(prefix);default=metadata['default_branch']
+                  branches=pages(prefix+'/branches')
+                  head=next(b['commit']['sha'] for b in branches if b['name']==default)
+                  issues=pages(prefix+'/issues?state=open')
+                  prs=pages(prefix+'/pulls?state=open')
+                  runs=api(prefix+f'/actions/runs?head_sha={head}&per_page=20')['workflow_runs']
+                  release=api(prefix+'/releases/latest',optional=True)
+                  row.update(default_branch=default,head=head,archived=metadata['archived'],
+                      branches=[{'name':b['name'],'sha':b['commit']['sha'],'protected':b['protected']} for b in branches],
+                      issues=[{'number':i['number'],'title':i['title'],'url':i['html_url']} for i in issues if 'pull_request' not in i],
+                      pull_requests=[{'number':p['number'],'title':p['title'],'head':p['head']['sha'],'base':p['base']['ref'],'draft':p['draft'],'url':p['html_url']} for p in prs],
+                      current_head_runs=[{k:r.get(k) for k in ['id','name','head_sha','event','status','conclusion','html_url']} for r in runs],
+                      release=None if release is None else {'tag':release['tag_name'],'target':release['target_commitish'],'published_at':release['published_at'],'assets':[{'name':a['name'],'size':a['size'],'digest':a.get('digest')} for a in release['assets']]})
+              except Exception as error: row['read_error']=str(error)
+              records.append(row)
+              Path('evidence/addon-state.json').write_text(json.dumps({'observed_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'core_source':'cf09e5bc04cb912604e65bfeacce9dabeda5014a','manifest_revision':101,'scope':'Read-only metadata snapshot, not gameplay validation or a simultaneous atomic snapshot','addons':records},indent=2)+'\n')
+              print(repo,'ERROR' if 'read_error' in row else f"branches={len(row['branches'])} open_prs={len(row['pull_requests'])} issues={len(row['issues'])}",flush=True)
+          assert len(records)==45
+          assert not any('read_error' in r for r in records),'Some repository reads failed; inspect retained evidence'
+          PY
+      - name: Prove Networks branch ancestry before proposing any cleanup
+        run: |
+          git clone --quiet --filter=blob:none --no-checkout https://github.com/wickidcow/SF_NetworksExp.git network-graph
+          python3 - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          report=json.loads(Path('evidence/addon-state.json').read_text())
+          row=next(a for a in report['addons'] if a['repository']=='wickidcow/SF_NetworksExp')
+          actual=subprocess.check_output(['git','-C','network-graph','rev-parse','origin/master'],text=True).strip()
+          assert actual==row['head'],'Networks advanced during snapshot; redo ancestry before deletion'
+          records=[]
+          for branch in row['branches']:
+              status=subprocess.run(['git','-C','network-graph','merge-base','--is-ancestor',branch['sha'],actual]).returncode
+              assert status in (0,1)
+              records.append({**branch,'contained_in_default':status==0})
+          Path('evidence/networks-branch-ancestry.json').write_text(json.dumps({'head':actual,'branches':records,'action':'None; proof for human review only. Do not delete unique or archival work.'},indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ecosystem-resume-state
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
+  networks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: wickidcow/SF_NetworksExp
+          ref: cf25f72dea946439fc3b9656c00a4e38ed4d0e3c
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Use checksum-verified published Legacy and maintained JEG APIs
+        run: |
+          set -euo pipefail
+          mkdir -p evidence inputs
+          curl --fail --location --silent --show-error --retry 3 --max-time 180 https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.63/Slimefun-Legacy4.1.63.jar -o inputs/core.jar
+          printf '%s  inputs/core.jar\n' 993b257c54efe19b58cc8f4946d4d39387f7787fe263c9f27123343159344c42 | sha256sum --check
+          bash scripts/download_jeg.sh
+          echo "SLIMEFUN_CORE_JAR=$PWD/inputs/core.jar" >> "$GITHUB_ENV"
+          echo "JEG_JAR=$PWD/.ci/jeg/SF_JustEnoughGuide2.1.67.jar" >> "$GITHUB_ENV"
+          sha256sum inputs/core.jar .ci/jeg/SF_JustEnoughGuide2.1.67.jar > evidence/dependency-sha256.txt
+      - name: Reproduce the original grid defects with the permanent tests
+        run: |
+          set -euo pipefail
+          FILE=src/main/java/io/github/sefiraat/networks/slimefun/network/grid/GridCache.java
+          cp "$FILE" "$RUNNER_TEMP/GridCache.fixed.java"
+          trap 'cp "$RUNNER_TEMP/GridCache.fixed.java" "$FILE"' EXIT
+          git show "5dec0d55fb6cd6e1de369f7d0422d9e430856443:$FILE" > "$FILE"
+          chmod +x gradlew
+          STATUS=0
+          ./gradlew clean test --tests '*GridCacheTest' --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PjegJar="$JEG_JAR" > evidence/original-grid.log 2>&1 || STATUS=$?
+          test "$STATUS" -ne 0
+          mkdir -p evidence/original-tests
+          cp build/test-results/test/TEST-*.xml evidence/original-tests/
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          roots=[ET.parse(p).getroot() for p in Path('evidence/original-tests').glob('TEST-*GridCacheTest.xml')]
+          assert len(roots)==1
+          root=roots[0]
+          assert int(root.attrib['tests'])==17 and int(root.attrib['failures'])>0 and int(root.attrib['errors'])==0
+          names={case.attrib['name'] for case in root.findall('testcase') if case.find('failure') is not None}
+          assert any('forwardCycleIncludesTheFourthMode' in n for n in names)
+          assert any('filterChangeInvalidates' in n for n in names)
+          print('Original behavior failed actual assertions:',sorted(names))
+          PY
+      - name: Build corrected project and verify all actual reports and output classes
+        run: |
+          set -euo pipefail
+          git diff --exit-code -- src/main/java src/test/java
+          python3 scripts/verify_legacy_compatibility.py > evidence/source-invariants.log 2>&1
+          ./gradlew clean build --no-daemon -PslimefunCoreJar="$SLIMEFUN_CORE_JAR" -PjegJar="$JEG_JAR" -PstrictDeprecation=true 2>&1 | tee evidence/corrected-build.log
+          mkdir -p evidence/corrected-tests
+          cp build/test-results/test/TEST-*.xml evidence/corrected-tests/
+          python3 scripts/verify_java21_bytecode.py build/libs/SF_Networks1.0.46.jar
+          python3 scripts/verify_universal_jar.py build/libs/SF_Networks1.0.46.jar 1.0.46
+          python3 - <<'PY'
+          import hashlib,json,xml.etree.ElementTree as ET
+          from pathlib import Path
+          roots=[ET.parse(p).getroot() for p in Path('evidence/corrected-tests').glob('TEST-*.xml')]
+          totals={k:sum(int(r.attrib[k]) for r in roots) for k in ['tests','failures','errors','skipped']}
+          assert totals['tests']>=17 and totals['failures']==totals['errors']==0
+          grid=next(r for r in roots if r.attrib['name'].endswith('.GridCacheTest'))
+          assert all(int(grid.attrib[k])==v for k,v in {'tests':17,'failures':0,'errors':0,'skipped':0}.items())
+          jar=Path('build/libs/SF_Networks1.0.46.jar')
+          Path('evidence/results.json').write_text(json.dumps({'source':'cf25f72dea946439fc3b9656c00a4e38ed4d0e3c','totals':totals,'new_tests':17,'jar_sha256':hashlib.sha256(jar.read_bytes()).hexdigest(),'release_published':False},indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: networks-grid-regression-evidence
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
