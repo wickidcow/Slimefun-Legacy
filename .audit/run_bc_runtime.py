@@ -1,5 +1,5 @@
 from pathlib import Path
-import hashlib,json,os,re,shutil,subprocess,sys,time,urllib.request
+import hashlib,json,os,re,shutil,subprocess,sys,time
 version=sys.argv[1]
 root=Path('build')/('betterchests-native-'+version)
 assert not root.exists(), 'Refuse to overwrite an existing runtime directory'
@@ -23,7 +23,7 @@ new=Path('native-input/SF_BetterChests1.0.3.jar');assert hashlib.sha256(new.read
 old=Path('native-input/SF_BetterChests1.0.2.jar');assert old.is_file()
 shutil.copy2(core,root/'plugins/Slimefun.jar');shutil.copy2('native-input/BetterChestsProbe.jar',root/'plugins/BetterChestsProbe.jar')
 (root/'eula.txt').write_text('eula=true\n')
-(root/'server.properties').write_text('online-mode=false\nlevel-name=probe-world\nlevel-type=minecraft:flat\nmax-players=1\nview-distance=2\nsimulation-distance=2\nspawn-protection=0\npause-when-empty-seconds=-1\nserver-ip=127.0.0.1\nserver-port=25571\nenable-query=false\nenable-rcon=false\n')
+(root/'server.properties').write_text('online-mode=false\nlevel-name=probe-world\nlevel-type=minecraft:normal\nmax-players=1\nview-distance=2\nsimulation-distance=2\nspawn-protection=0\npause-when-empty-seconds=-1\nserver-ip=127.0.0.1\nserver-port=25571\nenable-query=false\nenable-rcon=false\n')
 results=[]
 for phase,plugin in (('seed',old),('upgrade',new),('restart',new)):
     shutil.copy2(plugin,root/'plugins/BetterChests.jar')
@@ -38,12 +38,16 @@ for phase,plugin in (('seed',old),('upgrade',new),('restart',new)):
                 if 'PROBE_PASS '+phase in text:passed=True;break
                 time.sleep(1)
             if process.poll() is None:
+                if passed:
+                    process.stdin.write('sf doctor status\n');process.stdin.flush()
+                    time.sleep(3)
                 process.stdin.write('stop\n');process.stdin.flush()
             process.wait(timeout=90)
         finally:
             if process.poll() is None:process.kill();process.wait()
     text=log.read_text(errors='replace')
     normalized=re.sub(r'\x1b\[[0-9;?]*[ -/]*[@-~]','',text)
+    normalized=re.sub(r'§[0-9A-FK-ORa-fk-or]','',normalized)
     (root/(phase+'.normalized.log')).write_text(normalized)
     assert passed and process.returncode==0,(phase,text[-16000:])
     assert not re.search(r'PROBE_FAIL|NoClassDefFoundError|NoSuchMethodError|IncompatibleClassChangeError|InvalidConfigurationException|Error occurred while enabling',normalized),(phase,text[-16000:])
