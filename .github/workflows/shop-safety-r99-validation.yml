@@ -1,0 +1,146 @@
+name: Revision 99 Shop Preservation Integration
+on:
+  push:
+    branches: ['work/shop-safety-r99-validation-20261001']
+    paths: ['.github/workflows/shop-safety-r99-validation.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: echo "SHOP_TEST_JAVA=$JAVA_HOME/bin/java" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Verify normal addon PR and exact core inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence inputs
+          python3 - <<'PY'
+          import hashlib,io,json,subprocess,zipfile
+          from pathlib import Path
+          def api(p):return subprocess.run(['gh','api',p],check=True,capture_output=True,timeout=120).stdout
+          run=json.loads(api('repos/wickidcow/SF_MagicExpansion/actions/runs/36857851831'))
+          assert run['head_sha']=='4532a3c2adfef0136200fed97551433daaf11625' and run['conclusion']=='success'
+          assert run['path']=='.github/workflows/build.yml'
+          Path('evidence/normal-addon-run.json').write_text(json.dumps({k:run[k] for k in ['id','head_sha','path','conclusion','event']},indent=2))
+          raw=api('repos/wickidcow/Slimefun-Legacy/actions/artifacts/11153273058/zip')
+          assert hashlib.sha256(raw).hexdigest()=='d7df4a5c0ccd5b1d194a0791cf9cf1df478ab1dccbb91c6a95ff218284587f83'
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              names=[n for n in z.namelist() if n.endswith('.jar')];assert len(names)==1;core=z.read(names[0])
+          digest=hashlib.sha256(core).hexdigest();assert digest=='55be5129bfb70e64fc16fbe53147c7ee6d3cccf7734844e6f1dda539444a59e0'
+          Path('inputs/core.jar').write_bytes(core)
+          Path('evidence/core-sha256.txt').write_text(digest+'\n')
+          PY
+      - name: Build exact clean addon source with every project test
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/wickidcow/SF_MagicExpansion.git addon
+          git -C addon fetch --depth 1 origin 4532a3c2adfef0136200fed97551433daaf11625
+          git -C addon checkout --detach 4532a3c2adfef0136200fed97551433daaf11625
+          test "$(git -C addon rev-parse HEAD)" = 4532a3c2adfef0136200fed97551433daaf11625
+          mvn -B -ntp org.apache.maven.plugins:maven-install-plugin:3.1.3:install-file -Dfile=inputs/core.jar -DgroupId=com.github.wickidcow -DartifactId=Slimefun-Legacy -Dversion=4.1.62-safety-audit -Dpackaging=jar -DgeneratePom=true > evidence/install.log 2>&1
+          (cd addon && mvn -B -ntp -Dslimefun.version=4.1.62-safety-audit clean verify) 2>&1 | tee evidence/addon-build.log
+          mkdir -p evidence/tests
+          cp addon/target/surefire-reports/TEST-*.xml evidence/tests/
+          python3 scripts/verify_addon_bytecode.py addon/target/SF_MagicExpansion1.1.7.jar --expected-java 21 --report evidence/bytecode.json
+          python3 - <<'PY'
+          import json,xml.etree.ElementTree as ET
+          from pathlib import Path
+          roots=[ET.parse(p).getroot() for p in Path('evidence/tests').glob('TEST-*.xml')]
+          counts={k:sum(int(r.attrib[k]) for r in roots) for k in ['tests','failures','errors','skipped']}
+          assert counts==dict(tests=61,failures=0,errors=0,skipped=0)
+          Path('evidence/tests.json').write_text(json.dumps(counts,indent=2))
+          PY
+      - name: Execute retained restart helper with real floor server and rich items
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          SHA=5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba
+          curl -fLsS --retry 3 --max-time 120 -H 'User-Agent: Slimefun-Legacy-Preservation/4.1.62 (https://github.com/wickidcow/Slimefun-Legacy)' "https://fill-data.papermc.io/v1/objects/$SHA/paper-1.21.11-132.jar" -o inputs/paper.jar
+          printf '%s  inputs/paper.jar\n' "$SHA" | sha256sum --check
+          bash addon/scripts/smoke_shop_safety.sh inputs/core.jar addon/target/SF_MagicExpansion1.1.7.jar inputs/paper.jar 2>&1 | tee evidence/retained-helper.log
+          grep -Fq 'SHOP_SAFETY_SECOND_BOOT_PASS' evidence/retained-helper.log
+      - name: Update only the tested addon pin and its evidence row
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import copy,hashlib,json,os,subprocess
+          from pathlib import Path
+          blob=lambda b:hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          manifest_path=Path('compatibility/sfl-addon-release-matrix.json')
+          ledger_path=Path('compatibility/maintained-addon-test-ledger.json')
+          assert blob(manifest_path.read_bytes())=='2ff06b95adbb6999d708d16fb953ae85d34fb985'
+          assert blob(ledger_path.read_bytes())=='0c603225cf31f6e1f8899ce9c46a2fa63c6a006f'
+          manifest=json.loads(manifest_path.read_text());ledger=json.loads(ledger_path.read_text())
+          assert manifest['bundle_revision']==ledger['bundle_revision']==98
+          old_pins={a['repository']:a['source_commit'] for a in manifest['addons']}
+          assert len(old_pins)==45 and old_pins['wickidcow/SF_MagicExpansion']=='61a0ccfa67dcf7c74ffc2aa67bcc2bdfdbbd358e'
+          for row in manifest['addons']:
+              if row['repository']=='wickidcow/SF_MagicExpansion':row['source_commit']='4532a3c2adfef0136200fed97551433daaf11625'
+          manifest['bundle_revision']=99
+          new_pins={a['repository']:a['source_commit'] for a in manifest['addons']}
+          assert {k for k in old_pins if old_pins[k]!=new_pins[k]}=={'wickidcow/SF_MagicExpansion'}
+          for row in ledger['addons']:
+              if row['repository']!='wickidcow/SF_MagicExpansion':continue
+              assert row['reported_test_entries']==18
+              row.update(source_commit='4532a3c2adfef0136200fed97551433daaf11625',full_build_result='PASS',reported_test_entries=61,failures=0,errors=0,skips=0)
+              row['evidence']={'repository':'wickidcow/Slimefun-Legacy','run_id':int(os.environ['GITHUB_RUN_ID']),'artifact_name':'revision99-shop-preservation-evidence','kind':'Full exact-source Maven verify and retained real-Paper restart helper','tested_core_sha256':Path('evidence/core-sha256.txt').read_text().strip()}
+              row['coverage']='61 project tests plus separately attributed actual shop/editor/chat and rich-item persistence checks; no blanket concurrency or historical-world guarantee'
+              row['setup_notes']=['Only the provided core dependency was selected to the exact revision98 candidate. No project tests were skipped.','Pinned MockBukkit type/equality limitations are covered as refusal cases; real Paper covers exact FLOAT, byte-array and nested-PDC success.']
+          ledger['bundle_revision']=99
+          ledger['limitations']=[('No reported unit-test entries does not exclude separately recorded runtime or source-invariant coverage, and never means complete gameplay proof.' if s=='No tests reported means no automated test coverage, not complete gameplay proof.' else s) for s in ledger['limitations']]
+          ledger['limitations'].append('Revision99 changes only MagicExpansion: 61 tests and the retained two-process floor runtime helper against the revision98 core. Other rows retain their original source/run/core attribution; this is not a new all45 project-test run.')
+          ledger['summary']['reported_test_entries']=sum(r['reported_test_entries'] for r in ledger['addons'])
+          assert ledger['summary']['reported_test_entries']==385
+          assert {a['repository']:a['source_commit'] for a in ledger['addons']}==new_pins
+          manifest_path.write_text(json.dumps(manifest,indent=2)+'\n');ledger_path.write_text(json.dumps(ledger,indent=2)+'\n')
+          Path('evidence/ledger-summary.json').write_text(json.dumps(ledger['summary'],indent=2)+'\n')
+          PY
+          python3 scripts/verify_legacy.py . > evidence/core-invariants.log 2>&1
+          git diff --check
+      - name: Stage checked metadata files without moving refs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,subprocess
+          from pathlib import Path
+          records={}
+          for name in ['compatibility/sfl-addon-release-matrix.json','compatibility/maintained-addon-test-ledger.json']:
+              data=Path(name).read_bytes();sha=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+              r=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps(dict(content=data.decode(),encoding='utf-8')),check=True,capture_output=True,text=True)
+              assert json.loads(r.stdout)['sha']==sha;records[name]=sha
+              path=Path('evidence/reviewed-source')/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
+          Path('evidence/reviewed-blobs.json').write_text(json.dumps(records,indent=2)+'\n')
+          PY
+      - name: Retain helper evidence even on a failed attempt
+        if: always()
+        run: |
+          mkdir -p evidence/helper
+          for DIR in "$RUNNER_TEMP"/magic-shop-safety.*; do
+            test -d "$DIR" || continue
+            find "$DIR" -maxdepth 2 -type f \( -name '*.log' -o -name '*.txt' \) -exec cp --parents {} evidence/helper/ \;
+            for SNAPSHOT in "$DIR"/shops-*; do test ! -d "$SNAPSHOT" || cp -r "$SNAPSHOT" evidence/helper/; done
+          done
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: revision99-shop-preservation-evidence
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
