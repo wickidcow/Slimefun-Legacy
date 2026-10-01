@@ -1,0 +1,83 @@
+name: Release 4.1.63 Source Inspection
+on:
+  push:
+    branches: ['work/release-4.1.63-preparation-20261001']
+    paths: ['.github/workflows/release-4.1.63-inspection.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 20f7c554b9b3543bc99cd9fd367f0149a784829f
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reconcile the current master only in the inspection workspace
+        run: |
+          set -euo pipefail
+          mkdir -p release-inspection
+          git fetch origin master
+          test "$(git rev-parse origin/master)" = 914aa81e74289a5729ebf8821902e08a7899bb3e
+          git config user.name wickidcow
+          git config user.email 185013218+wickidcow@users.noreply.github.com
+          git merge --no-ff --no-commit 914aa81e74289a5729ebf8821902e08a7899bb3e
+          git diff --cached --check
+          git diff --cached --stat > release-inspection/master-integration-stat.txt
+          git diff --cached --full-index > release-inspection/master-integration.patch
+          TREE="$(git write-tree)"
+          printf '%s\n' "$TREE" > release-inspection/merged-tree.txt
+          git archive --format=tar.gz "$TREE" > release-inspection/merged-source.tar.gz
+      - name: Read exact addon branches and open work without changing selections
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json,subprocess,time
+          from pathlib import Path
+          manifest=json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text())
+          assert manifest['bundle_revision']==99 and len(manifest['addons'])==45
+          rows=manifest['addons'];result=[]
+          for start in range(0,len(rows),15):
+              group=rows[start:start+15];fields=[]
+              for i,row in enumerate(group):
+                  owner,name=row['repository'].split('/')
+                  fields.append('r%d:repository(owner:%s,name:%s){nameWithOwner defaultBranchRef{name target{oid ... on Commit{messageHeadline committedDate}}} pullRequests(first:20,states:OPEN,orderBy:{field:UPDATED_AT,direction:DESC}){pageInfo{hasNextPage endCursor} nodes{number title headRefName headRefOid baseRefName isDraft}}}'%(i,json.dumps(owner),json.dumps(name)))
+              payload=json.dumps({'query':'query{'+' '.join(fields)+'}'})
+              response=subprocess.run(['gh','api','graphql','--input','-'],input=payload,text=True,capture_output=True,check=True,timeout=120)
+              data=json.loads(response.stdout);assert not data.get('errors'),data
+              for i,row in enumerate(group):
+                  record=data['data']['r%d'%i];assert record and record['nameWithOwner']==row['repository']
+                  record['pinned_commit']=row['source_commit'];result.append(record)
+              time.sleep(2)
+          Path('release-inspection/addon-branches.json').write_text(json.dumps(result,indent=2)+'\n')
+          # Read-only comparisons only when the default head differs from the tested source.
+          comparisons=[]
+          for record in result:
+              default=record['defaultBranchRef']['target']['oid'];pinned=record['pinned_commit']
+              if default==pinned:continue
+              repo=record['nameWithOwner']
+              raw=subprocess.run(['gh','api',f'repos/{repo}/compare/{pinned}...{default}'],check=True,text=True,capture_output=True,timeout=90)
+              diff=json.loads(raw.stdout)
+              comparisons.append(dict(repository=repo,pinned=pinned,default=default,status=diff['status'],ahead_by=diff['ahead_by'],behind_by=diff['behind_by'],commits=[dict(sha=c['sha'],message=c['commit']['message']) for c in diff.get('commits',[])],files=[{k:f.get(k) for k in ['filename','status','additions','deletions','patch']} for f in diff.get('files',[])]))
+              time.sleep(1)
+          Path('release-inspection/default-branch-differences.json').write_text(json.dumps(comparisons,indent=2)+'\n')
+          core=json.loads(subprocess.check_output(['gh','api','repos/wickidcow/Slimefun-Legacy/pulls?state=open&per_page=100']))
+          Path('release-inspection/core-open-pulls.json').write_text(json.dumps([dict(number=p['number'],title=p['title'],head=p['head']['sha'],head_ref=p['head']['ref'],base=p['base']['ref'],draft=p['draft'],body=p['body']) for p in core],indent=2)+'\n')
+          print('Read all45 selected addon source identities; no pin, branch, PR or release was modified.')
+          print('Default heads differ from tested pins:',len(comparisons))
+          PY
+      - name: Record hashes of the inspected archive and metadata
+        if: always()
+        run: |
+          find release-inspection -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > release-inspection/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-4.1.63-source-inspection
+          path: release-inspection/
+          retention-days: 14
+          if-no-files-found: error
