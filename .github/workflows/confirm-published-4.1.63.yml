@@ -1,0 +1,75 @@
+name: Confirm Published 4.1.63 Assets
+on:
+  push:
+    branches: ['work/release-4.1.63-preparation-20261001']
+    paths: ['.github/workflows/confirm-published-4.1.63.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  confirm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify actual published downloads and update only completed release-note wording
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence downloads
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,subprocess,zipfile
+          repo='repos/wickidcow/Slimefun-Legacy'
+          source='2703e3a500b426849f3eb7806862bb4343bb9d6a'
+          expected={'Slimefun-Legacy4.1.63.jar':'993b257c54efe19b58cc8f4946d4d39387f7787fe263c9f27123343159344c42',
+                    'SF_Addons_1.21.11-26.3.zip':'9d517d0e1d62adb34397aa6a151c7433b7f483a33e3a96fe60adc8a60bdd6470'}
+          def api(path):return json.loads(subprocess.run(['gh','api',path],text=True,check=True,capture_output=True,timeout=120).stdout)
+          run=api(repo+'/actions/runs/36891603210')
+          assert run['head_sha']==source and run['event']=='workflow_dispatch' and run['path']=='.github/workflows/reproducible-release.yml' and run['conclusion']=='success'
+          tag=api(repo+'/git/ref/tags/v4.1.63');assert tag['object']=={'sha':source,'type':'commit','url':'https://api.github.com/'+repo+'/git/commits/'+source}
+          release=api(repo+'/releases/tags/v4.1.63')
+          assert release['id']==401149535 and release['target_commitish']==source and not release['draft'] and not release['prerelease']
+          before={a['name']:(a['id'],a['digest'],a['size']) for a in release['assets']}
+          assert set(before)==set(expected)
+          for name,sha in expected.items():assert before[name][1]=='sha256:'+sha
+          subprocess.run(['gh','release','download','v4.1.63','--repo','wickidcow/Slimefun-Legacy','--dir','downloads','--pattern','Slimefun-Legacy4.1.63.jar','--pattern','SF_Addons_1.21.11-26.3.zip'],check=True,timeout=180)
+          for name,sha in expected.items():
+              data=Path('downloads',name).read_bytes();assert hashlib.sha256(data).hexdigest()==sha and len(data)==before[name][2]
+              with zipfile.ZipFile(Path('downloads',name)) as z:assert z.testzip() is None
+          with zipfile.ZipFile('downloads/Slimefun-Legacy4.1.63.jar') as core:
+              props=core.read('git.properties').decode()
+              assert 'git.source.commit='+source in props and 'git.build.version=4.1.63' in props
+          with zipfile.ZipFile('downloads/SF_Addons_1.21.11-26.3.zip') as bundle:
+              manifest=json.loads(bundle.read('SF_ADDON_MANIFEST.json'))
+              assert manifest['core_source_commit']==source and len(manifest['addons'])==45
+              assert {n for n in bundle.namelist() if n.endswith('.jar')}=={r['jar'] for r in manifest['addons']}
+              for row in manifest['addons']:assert hashlib.sha256(bundle.read(row['jar'])).hexdigest()==row['sha256']
+          body=release['body']
+          body=body.replace('This release candidate combines','This release combines',1)
+          body=body.replace('Do not treat a candidate version or a passing compile as permission to skip backups and staging-server verification.','The versioned release checks passed; full backups and staging-server verification are still required before upgrading a production server.',1)
+          body=body.replace('Rebuild all 45 maintained addon JARs from the exact source manifest against this release core.','All 45 maintained addon JARs were rebuilt from the exact source manifest against this release core.',1)
+          body=body.replace('any further verified addon refresh is recorded before publication.','this release uses source-manifest revision 100.',1)
+          body=body.replace("Require the new version's own full core tests, public API checks, canonical 45-addon build, provider-complete restart checks and reproducible-release workflow.","The release passed its versioned core and public API checks, canonical 45-addon build, provider-complete restart checks and reproducible-release workflow.",1)
+          marker='## Published artifact verification'
+          if marker not in body:
+              body+='\n'+marker+'\n\nPublished from commit `'+source+'` after all 16 release-PR workflow groups and all 12 exact-master workflow groups passed. The official publisher repeated the two clean builds, required byte-identical core output, and selected the matching same-commit addon archive. The published core and ZIP were downloaded and checksum-verified independently.\n\n- Core SHA-256: `'+expected['Slimefun-Legacy4.1.63.jar']+'`\n- Addon ZIP SHA-256: `'+expected['SF_Addons_1.21.11-26.3.zip']+'`\n\nCore project reports contain 498 entries, zero failures/errors and one existing historical-database-fixture skip. The 45-addon complete stack passed two boots on Paper 1.21.11, 26.2 and 26.3 (the tested 26.3 server was beta build 141). Generated historical-format fixtures and individually attributed addon tests remain distinct from exhaustive customer-world, machine and concurrency coverage.\n'
+          current=api(repo+'/releases/401149535')
+          assert current['body']==release['body'] and {a['name']:(a['id'],a['digest'],a['size']) for a in current['assets']}==before
+          result=subprocess.run(['gh','api','--method','PATCH',repo+'/releases/401149535','--input','-'],input=json.dumps({'body':body}),text=True,capture_output=True,check=True,timeout=120)
+          after=json.loads(result.stdout)
+          assert after['body']==body and after['tag_name']=='v4.1.63' and after['target_commitish']==source
+          assert not after['draft'] and not after['prerelease']
+          assert {a['name']:(a['id'],a['digest'],a['size']) for a in after['assets']}==before
+          assert api(repo+'/git/ref/tags/v4.1.63')['object']['sha']==source
+          record=dict(release_id=401149535,source=source,publisher_run=36891603210,published_at=after['published_at'],draft=after['draft'],prerelease=after['prerelease'],asset_count=2,downloaded_hashes=expected,addon_count=45,body_only_changed=True,tag_or_asset_changed=False)
+          Path('evidence/published-verification.json').write_text(json.dumps(record,indent=2)+'\n')
+          Path('evidence/release-notes.md').write_text(body)
+          print(json.dumps(record,indent=2))
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: published-4.1.63-verification
+          path: evidence/
+          retention-days: 30
+          if-no-files-found: error
