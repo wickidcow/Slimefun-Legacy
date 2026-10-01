@@ -9,6 +9,57 @@ concurrency:
   group: prior-release-upgrade-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: b2c68e1a0ee2cdc042ed11d72721b1054f604675
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Reproduce the exact previously tested candidate source and binary
+        env:
+          SOURCE_DATE_EPOCH: '0'
+          SOURCE_COMMIT: unknown
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = b2c68e1a0ee2cdc042ed11d72721b1054f604675
+          # Local-only branch identity matches the original PR build metadata.
+          git checkout -b work/coordinated-addon-preservation-20260930
+          mkdir -p candidate
+          python3 - <<'PY'
+          import urllib.request, xml.etree.ElementTree as ET
+          from pathlib import Path
+          from scripts.paper_candidate_versions import latest_candidate
+          request = urllib.request.Request('https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/maven-metadata.xml', headers={'User-Agent':'Slimefun-Legacy-Prior-Release-Test/1.0'})
+          with urllib.request.urlopen(request, timeout=60) as response:
+              root = ET.fromstring(response.read())
+          selected = latest_candidate([node.text.strip() for node in root.findall('./versioning/versions/version') if node.text], '26.3')
+          assert selected, 'No supported Paper 26.3 API found'
+          Path('candidate/api-version.txt').write_text(selected)
+          print('PINNED_SOURCE_API', selected)
+          PY
+          chmod +x gradlew
+          ./gradlew clean shadowJar -PpaperApiVersion="$(cat candidate/api-version.txt)" --console=plain --no-daemon 2>&1 | tee candidate/rebuild.log
+          JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -s "$JAR"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+          cp "$JAR" candidate/Slimefun-Legacy-full-stack.jar
+          sha256sum candidate/Slimefun-Legacy-full-stack.jar
+          echo '197a6d7577c4a6680de109d60e11f2035986ab3d21eea8f6f3c5271dd45c5c6b  candidate/Slimefun-Legacy-full-stack.jar' | sha256sum -c -
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: exact-prior-release-test-candidate
+          path: candidate/
+          retention-days: 14
+          if-no-files-found: error
   produce:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -63,7 +114,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
   upgrade:
-    needs: produce
+    needs: [produce, candidate]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -82,17 +133,18 @@ jobs:
         with:
           name: generated-previous-release-fixture
           path: fixture
+      - uses: actions/download-artifact@v8
+        with:
+          name: exact-prior-release-test-candidate
+          path: candidate
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
-      - name: Fetch the exact revision-96 candidate
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Verify the unchanged candidate and stopped-world artifact
         run: |
           set -euo pipefail
-          mkdir -p candidate build/prior-release-fixture
-          gh run download 36804275144 --repo wickidcow/Slimefun-Legacy --name full-stack-core --dir candidate
+          mkdir -p build/prior-release-fixture
           echo '197a6d7577c4a6680de109d60e11f2035986ab3d21eea8f6f3c5271dd45c5c6b  candidate/Slimefun-Legacy-full-stack.jar' | sha256sum -c -
           sha256sum -c fixture/SHA256SUMS.txt
           tar -xzf fixture/prior-release-world.tar.gz -C build/prior-release-fixture
