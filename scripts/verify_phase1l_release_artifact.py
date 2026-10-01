@@ -153,6 +153,26 @@ def main() -> int:
         ):
             require(token in bundle_workflow, f"Addon bundle source-identity invariant missing: {token}", failures)
 
+        require("\n  core:\n" in bundle_workflow and "\n  compile-addons:\n" in bundle_workflow,
+                "Addon bundle core job boundary is missing", failures)
+        bundle_core = bundle_workflow.split("\n  core:\n", 1)[-1].split("\n  compile-addons:\n", 1)[0]
+        for token in (
+            "Pin bundle core source identity",
+            'source_commit="$(git rev-parse HEAD)"',
+            'echo "SOURCE_COMMIT=$source_commit" >> "$GITHUB_ENV"',
+            'echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct "$source_commit")" >> "$GITHUB_ENV"',
+            '--no-build-cache --no-configuration-cache',
+            'python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21',
+            'python3 scripts/verify_release_artifact.py "$JAR" --root .',
+        ):
+            require(token in bundle_core, f"Addon bundle core provenance invariant missing: {token}", failures)
+        pin = bundle_core.find("Pin bundle core source identity")
+        build_at = bundle_core.find("./gradlew clean shadowJar")
+        verify_at = bundle_core.find("python3 scripts/verify_release_artifact.py")
+        upload_at = bundle_core.find("uses: actions/upload-artifact")
+        require(0 <= pin < build_at < verify_at < upload_at,
+                "Addon bundle core must pin identity before building and verify its JAR before upload", failures)
+
         for token in (
             "name: Reproducible Release",
             "workflow_dispatch:",

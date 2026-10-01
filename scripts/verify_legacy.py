@@ -54,6 +54,7 @@ def main() -> int:
         return result
 
     scripts = (
+        "test_runtime_download.py",
         "verify_english.py",
         "verify_localization_keys.py",
         "verify_chunk_load_threading.py",
@@ -118,6 +119,11 @@ def main() -> int:
         "verify_legacy_bukkit_shims.py",
         "verify_supported_platform_floor.py",
         "test_summarize_deprecations.py",
+        "test_verify_runtime_configuration.py",
+        "test_verify_addon_bytecode.py",
+        "test_proxy_identity_capture.py",
+        "test_download_candidate_bundle.py",
+        "test_canonical_core_build_dependency.py",
         "verify_chatcolor_compatibility.py",
         "verify_curios_adventure_formatting.py",
         "verify_presentation_api_modernization.py",

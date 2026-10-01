@@ -6,6 +6,7 @@ WORK_DIR="${2:-build/legacy-1.21.11-runtime-smoke}"
 SOFTWARE="${SERVER_SOFTWARE:-paper}"
 MC_VERSION="${SERVER_MINECRAFT_VERSION:-1.21.11}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$REPO_ROOT/scripts/runtime_download.sh"
 EXPECTED_PLUGIN_VERSION="${SLIMEFUN_SMOKE_VERSION:-$(sed -n 's/^projectVersion=//p' "$REPO_ROOT/gradle.properties" | head -n 1 | tr -d '\r')}"
 USER_AGENT="${SERVER_DOWNLOAD_USER_AGENT:-Slimefun-Legacy-CI/${EXPECTED_PLUGIN_VERSION} (https://github.com/wickidcow/Slimefun-Legacy)}"
 STARTUP_TIMEOUT_SECONDS="${SERVER_SMOKE_STARTUP_TIMEOUT:-240}"
@@ -64,7 +65,7 @@ SERVER_URL=""
 
 if [[ "$SOFTWARE" == "paper" ]]; then
     BUILDS_URL="https://fill.papermc.io/v3/projects/paper/versions/${MC_VERSION}/builds"
-    BUILDS_RESPONSE="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "$BUILDS_URL")"
+    BUILDS_RESPONSE="$(runtime_download "$BUILDS_URL")"
 
     if jq -e '.ok == false' >/dev/null 2>&1 <<<"$BUILDS_RESPONSE"; then
         jq -r '.message // "Paper downloads service returned an unknown error"' <<<"$BUILDS_RESPONSE" >&2
@@ -79,7 +80,7 @@ if [[ "$SOFTWARE" == "paper" ]]; then
     fi
 else
     PURPUR_META_URL="https://api.purpurmc.org/v2/purpur/${MC_VERSION}"
-    PURPUR_META="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "$PURPUR_META_URL")"
+    PURPUR_META="$(runtime_download "$PURPUR_META_URL")"
     SERVER_BUILD="$(jq -r '.builds.latest // empty' <<<"$PURPUR_META")"
     if [[ -z "$SERVER_BUILD" ]]; then
         echo "Purpur downloads service did not report a latest build for Minecraft ${MC_VERSION}." >&2
@@ -92,7 +93,7 @@ printf 'Software: %s\nMinecraft: %s\nBuild: %s\nDownload: %s\nJava: %s\n' \
     "$SOFTWARE_NAME" "$MC_VERSION" "$SERVER_BUILD" "$SERVER_URL" "$(java -version 2>&1 | head -n 1)" \
     > "$WORK_DIR/runtime-build.txt"
 
-curl --fail-with-body -L -sS -H "User-Agent: ${USER_AGENT}" -o "$WORK_DIR/server.jar" "$SERVER_URL"
+runtime_download "$SERVER_URL" "$WORK_DIR/server.jar"
 test -s "$WORK_DIR/server.jar"
 
 stop_process() {

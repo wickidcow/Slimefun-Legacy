@@ -88,7 +88,14 @@ def normalize_property_backed_core_dependency(project: Path) -> None:
         resolved_group = resolve_property(raw_group, properties)
         resolved_artifact = resolve_property(raw_artifact, properties)
 
-        if not base.is_core_slimefun_dependency(resolved_group, resolved_artifact):
+        # The maintained core has a distinct, exact coordinate; do not broaden
+        # matching to arbitrary addons whose names merely contain "Slimefun".
+        canonical_legacy = (resolved_group.lower(), resolved_artifact.lower()) == (
+            "com.github.wickidcow", "slimefun-legacy"
+        )
+        if canonical_legacy:
+            resolved_group, resolved_artifact = "com.github.slimefun", "Slimefun"
+        elif not base.is_core_slimefun_dependency(resolved_group, resolved_artifact):
             continue
 
         if raw_group.strip() != resolved_group:

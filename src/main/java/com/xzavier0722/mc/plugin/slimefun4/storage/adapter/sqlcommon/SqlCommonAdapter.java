@@ -3,11 +3,12 @@ package com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon;
 import static com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon.SqlConstants.FIELD_TABLE_METADATA_KEY;
 import static com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon.SqlConstants.FIELD_TABLE_METADATA_VALUE;
 import static com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon.SqlConstants.LEGACY_FIELD_TABLE_VERSION;
-import static com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon.SqlConstants.METADATA_VERSION;
 import static com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon.SqlConstants.LEGACY_TABLE_NAME_TABLE_INFORMATION;
+import static com.xzavier0722.mc.plugin.slimefun4.storage.adapter.sqlcommon.SqlConstants.METADATA_VERSION;
 
 import city.norain.slimefun4.timings.entry.SQLEntry;
 import com.xzavier0722.mc.plugin.slimefun4.storage.adapter.IDataSourceAdapter;
+import com.xzavier0722.mc.plugin.slimefun4.storage.common.BlockStorageMigration;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataScope;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.FieldKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordSet;
@@ -39,6 +40,19 @@ public abstract class SqlCommonAdapter<T extends ISqlCommonConfig> implements ID
     public void prepare(T config) {
         this.config = config;
         ds = config.createDataSource();
+    }
+
+    @Override
+    public void migrateBlockToUniversal(BlockStorageMigration migration) {
+        String prefix = config instanceof SqlCommonConfig common ? common.tablePrefix() : "";
+        try (var connection = ds.getConnection()) {
+            SqlUniversalBlockMigration.execute(connection, prefix, migration);
+        } catch (SQLException failure) {
+            // Acquisition/cleanup errors may not prove whether a commit reached the server.
+            // Preserve the same destination identity so a retry can verify the exact result.
+            throw new BlockStorageMigration.Failure(
+                    "Atomic universal migration could not be confirmed", failure, false);
+        }
     }
 
     protected void executeSql(String sql) {
@@ -114,8 +128,8 @@ public abstract class SqlCommonAdapter<T extends ISqlCommonConfig> implements ID
         if (query.isEmpty()) {
             try {
                 var prefix = config instanceof SqlCommonConfig sqc ? sqc.tablePrefix() : "";
-                var fallbackQuery = executeQuery(
-                        "SELECT (" + LEGACY_FIELD_TABLE_VERSION + ") FROM " + (prefix + LEGACY_TABLE_NAME_TABLE_INFORMATION));
+                var fallbackQuery = executeQuery("SELECT (" + LEGACY_FIELD_TABLE_VERSION + ") FROM "
+                        + (prefix + LEGACY_TABLE_NAME_TABLE_INFORMATION));
 
                 if (fallbackQuery.isEmpty()) {
                     return 0;

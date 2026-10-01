@@ -6,6 +6,7 @@ ADDON_BUNDLE="${2:?Usage: full_stack_runtime_smoke.sh <slimefun-jar> <addon-bund
 WORK_DIR="${3:-build/full-stack-runtime-smoke}"
 MC_VERSION="${SERVER_MINECRAFT_VERSION:-26.3}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$REPO_ROOT/scripts/runtime_download.sh"
 EXPECTED_SLIMEFUN_VERSION="${SLIMEFUN_SMOKE_VERSION:-$(sed -n 's/^projectVersion=//p' "$REPO_ROOT/gradle.properties" | head -n 1 | tr -d '\r')}"
 USER_AGENT="${SERVER_DOWNLOAD_USER_AGENT:-Slimefun-Legacy-Full-Stack/${EXPECTED_SLIMEFUN_VERSION} (https://github.com/wickidcow/Slimefun-Legacy)}"
 STARTUP_TIMEOUT_SECONDS="${SERVER_SMOKE_STARTUP_TIMEOUT:-420}"
@@ -24,6 +25,18 @@ rm -rf "$WORK_DIR"
 mkdir -p "$WORK_DIR/plugins" "$WORK_DIR/bundle"
 unzip -q "$ADDON_BUNDLE" -d "$WORK_DIR/bundle"
 cp "$SLIMEFUN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-full-stack.jar"
+
+# A missing WorldEdit dependency must fail the lane, not exempt SFWorldEdit.
+# Beta selection is explicit and confined to the newer candidate lane.
+WORLDEDIT_OPTIONS=()
+if [[ "$MC_VERSION" == "26.3" ]]; then WORLDEDIT_OPTIONS+=(--allow-prerelease); fi
+if [[ -n "${WORLDEDIT_RUNTIME_VERSION_ID:-}" ]]; then
+    WORLDEDIT_OPTIONS+=(--version-id "$WORLDEDIT_RUNTIME_VERSION_ID")
+fi
+python3 "$REPO_ROOT/scripts/prepare_worldedit_runtime.py" \
+    --minecraft "$MC_VERSION" --output "$WORK_DIR/plugins" "${WORLDEDIT_OPTIONS[@]}"
+python3 "$REPO_ROOT/scripts/prepare_worldedit_runtime.py" \
+    --minecraft "$MC_VERSION" --output "$WORK_DIR/plugins" --check-staged "${WORLDEDIT_OPTIONS[@]}"
 
 python3 - "$WORK_DIR/bundle" "$WORK_DIR/plugins" "$WORK_DIR/expected-addons.txt" "$WORK_DIR/dependency-gated-addons.txt" <<'PY'
 from pathlib import Path
@@ -113,7 +126,13 @@ if bundle_jars != seen_jars:
     missing = sorted(seen_jars - bundle_jars)
     raise SystemExit(f"Bundle/manifest JAR mismatch: extra={extra}, missing={missing}")
 
-available_plugins = {"slimefun"}
+# This file is created only by the verified setup above, never by an enable-list override.
+proof = json.loads((plugins / "worldedit-runtime.json").read_text(encoding="utf-8"))
+import hashlib
+if proof.get("name") != "WorldEdit" or hashlib.sha256(
+        (plugins / "WorldEdit-runtime.jar").read_bytes()).hexdigest() != proof.get("sha256"):
+    raise SystemExit("Staged WorldEdit does not match the verified dependency")
+available_plugins = {"slimefun", "worldedit"}
 available_plugins.update(name.casefold() for _, name, _ in addons)
 
 expected = []
@@ -127,6 +146,11 @@ for jar_name, name, dependencies in addons:
         gated.append((jar_name, name, ",".join(missing_dependencies)))
     else:
         expected.append((jar_name, name))
+
+if sum(name == "WorldEditSlimefun" for _, name, _ in addons) != 1:
+    raise SystemExit("The canonical bundle must contain exactly one WorldEditSlimefun addon")
+if not any(name == "WorldEditSlimefun" for _, name in expected):
+    raise SystemExit("WorldEditSlimefun must be required-enable, never dependency-gated")
 
 expected_out.write_text(
     "".join(f"{jar}\t{name}\n" for jar, name in expected),
@@ -159,7 +183,7 @@ motd=Slimefun Legacy full-stack runtime smoke
 PROPERTIES
 
 BUILDS_URL="https://fill.papermc.io/v3/projects/paper/versions/${MC_VERSION}/builds"
-BUILDS_RESPONSE="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "$BUILDS_URL")"
+BUILDS_RESPONSE="$(runtime_download "$BUILDS_URL")"
 if jq -e '.ok == false' >/dev/null 2>&1 <<<"$BUILDS_RESPONSE"; then
     jq -r '.message // "Paper downloads service returned an unknown error"' <<<"$BUILDS_RESPONSE" >&2
     exit 1
@@ -179,7 +203,7 @@ if [[ -z "$SERVER_URL" || -z "$SERVER_BUILD" ]]; then
     exit 1
 fi
 
-curl --fail-with-body -L -sS -H "User-Agent: ${USER_AGENT}" -o "$WORK_DIR/server.jar" "$SERVER_URL"
+runtime_download "$SERVER_URL" "$WORK_DIR/server.jar"
 MANIFEST_ADDON_COUNT=$(( $(wc -l < "$WORK_DIR/expected-addons.txt") + $(wc -l < "$WORK_DIR/dependency-gated-addons.txt") ))
 printf 'Minecraft: %s\nPaper build: %s\nChannel: %s\nManifest addons: %s\nRequired-enable addons: %s\nDependency-gated addons: %s\n' \
     "$MC_VERSION" "$SERVER_BUILD" "$SERVER_CHANNEL" "$MANIFEST_ADDON_COUNT" \
@@ -245,6 +269,10 @@ run_cycle() {
         return 1
     fi
 
+    python3 "$REPO_ROOT/scripts/verify_runtime_configuration.py" "$normalized"
+    python3 "$REPO_ROOT/scripts/prepare_worldedit_runtime.py" \
+        --minecraft "$MC_VERSION" --output "$WORK_DIR/plugins" --verify-log "$normalized" "${WORLDEDIT_OPTIONS[@]}"
+
     while IFS=$'\t' read -r jar plugin; do
         if ! grep -Fq "Enabling ${plugin} v" "$normalized"; then
             echo "Expected addon did not enable: ${plugin} (${jar})" >&2
@@ -273,8 +301,11 @@ Required-enable addon JARs: $(wc -l < "$WORK_DIR/expected-addons.txt")
 Dependency-gated addon JARs: $(wc -l < "$WORK_DIR/dependency-gated-addons.txt")
 Cycles: 2
 All required addon enable lines: observed
-Known external hard dependencies: reported separately
+WorldEdit provider and WorldEditSlimefun: required on both boots
+WorldEdit provenance: plugins/worldedit-runtime.json
+Other external hard dependencies: reported separately
 Linkage/enable failures: none
+Configuration-load failures: none
 Clean shutdown persistence: observed on second boot
 EOF
 cat "$WORK_DIR/smoke-result.txt"

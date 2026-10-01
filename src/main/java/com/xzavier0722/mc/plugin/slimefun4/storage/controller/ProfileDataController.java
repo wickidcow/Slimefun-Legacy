@@ -40,6 +40,16 @@ public class ProfileDataController extends ADataController {
     private final Map<String, Runnable> invalidingBackpackTasks;
     private final Map<String, CompletableFuture<Void>> backpackSaveChains;
     private final Set<String> uncertainBackpackBaselines;
+    /** In-flight or failed reads must never be persisted as an empty replacement inventory. */
+    private final Set<String> incompleteInventoryLoads = ConcurrentHashMap.newKeySet();
+
+    /** Read-only, bounded diagnostics; observing a backpack hold never loads it or clears it. */
+    public InventoryRecoverySnapshot getInventoryRecoverySnapshot() {
+        var snapshot = new InventoryRecoverySnapshot.Collector();
+        incompleteInventoryLoads.forEach(
+                owner -> snapshot.add(InventoryRecoverySnapshot.Kind.BACKPACK_LOAD, owner, null));
+        return snapshot.build();
+    }
 
     ProfileDataController() {
         super(DataType.PLAYER_PROFILE);
@@ -258,40 +268,15 @@ public class ProfileDataController extends ADataController {
         key.addField(FieldKey.INVENTORY_ITEM);
         key.addCondition(FieldKey.BACKPACK_ID, uuid);
 
-        var invResult = getData(key);
-        var re = new ItemStack[size];
-        boolean repairRequired = false;
-
-        for (RecordSet each : invResult) {
-            var slot = each.getInt(FieldKey.INVENTORY_SLOT);
-            if (slot < 0 || slot >= re.length) {
-                repairRequired = true;
-                logger.log(
-                        Level.WARNING,
-                        "Ignoring out-of-range stored backpack slot [{0}:{1}] for inventory size {2}; "
-                                + "the next save will reconcile the full backpack storage.",
-                        new Object[] {uuid, slot, size});
-                continue;
-            }
-
-            try {
-                re[slot] = each.getItemStack(FieldKey.INVENTORY_ITEM);
-            } catch (Exception e) {
-                repairRequired = true;
-                re[slot] = null;
-                logger.log(
-                        Level.SEVERE,
-                        "Could not deserialize a player backpack item; replaced it with air [" + uuid + ":" + slot
-                                + "]. The next save will reconcile the full backpack storage.",
-                        e);
-            }
+        incompleteInventoryLoads.add(uuid);
+        try {
+            ItemStack[] inventory = StoredInventoryReader.read(getData(key), size, "backpack " + uuid);
+            incompleteInventoryLoads.remove(uuid);
+            return inventory;
+        } catch (RuntimeException | LinkageError failure) {
+            incompleteInventoryLoads.add(uuid);
+            throw failure;
         }
-
-        if (repairRequired) {
-            uncertainBackpackBaselines.add(uuid);
-        }
-
-        return re;
     }
 
     @Nonnull
@@ -361,7 +346,15 @@ public class ProfileDataController extends ADataController {
 
         var key = new RecordKey(DataScope.PLAYER_PROFILE);
         key.addCondition(FieldKey.PLAYER_UUID, uuid);
-        scheduleWriteTask(new UUIDKey(DataScope.NONE, p.getUniqueId()), key, getRecordSet(re), true);
+        var data = getRecordSet(re);
+        // UUID-only offline lookups can lack a name for an unregistered machine player.
+        // Retain the caller's known name so the NOT NULL parent row is not silently ignored.
+        // When no name was supplied, preserve the existing profile-owner lookup behavior.
+        var suppliedName = p.getName();
+        if (suppliedName != null) {
+            data.put(FieldKey.PLAYER_NAME, suppliedName);
+        }
+        scheduleWriteTask(new UUIDKey(DataScope.NONE, p.getUniqueId()), key, data, true);
         return re;
     }
 
@@ -456,19 +449,25 @@ public class ProfileDataController extends ADataController {
         final Map<Integer, BackpackWrite> stagedWrites;
 
         try {
+            requireCompleteInventoryLoad(backpackId);
             synchronized (bp) {
                 contents = copyBackpackContents(bp.getInventory().getContents());
                 stagedSnapshot = new InvSnapshot(contents);
                 stagedWrites = stageBackpackWrites(backpackId, contents);
             }
         } catch (RuntimeException | LinkageError failure) {
-            Slimefun.logger()
-                    .log(Level.WARNING, "Could not stage backpack " + backpackId + " for persistence", failure);
+            logger.log(Level.WARNING, "Could not stage backpack " + backpackId + " for persistence", failure);
             return CompletableFuture.failedFuture(failure);
         }
 
         return chainBackpackSave(
                 backpackId, () -> persistBackpackStage(bp, backpackId, contents, stagedSnapshot, stagedWrites));
+    }
+
+    private void requireCompleteInventoryLoad(String owner) {
+        if (incompleteInventoryLoads.contains(owner)) {
+            throw StoredInventoryReader.refused("backpack " + owner, "read not completed", null);
+        }
     }
 
     private CompletableFuture<Void> chainBackpackSave(
@@ -495,6 +494,7 @@ public class ProfileDataController extends ADataController {
             @Nonnull ItemStack[] contents,
             @Nonnull InvSnapshot stagedSnapshot,
             @Nonnull Map<Integer, BackpackWrite> stagedWrites) {
+        requireCompleteInventoryLoad(backpackId);
         final Set<Integer> changed;
 
         if (uncertainBackpackBaselines.contains(backpackId)) {
@@ -532,8 +532,7 @@ public class ProfileDataController extends ADataController {
             completions.add(CompletableFuture.failedFuture(failure));
         }
 
-        CompletableFuture<Void> batch =
-                CompletableFuture.allOf(completions.toArray(CompletableFuture[]::new));
+        CompletableFuture<Void> batch = CompletableFuture.allOf(completions.toArray(CompletableFuture[]::new));
         return batch.whenComplete((ignored, failure) -> {
             if (failure == null) {
                 synchronized (backpack) {
@@ -546,8 +545,7 @@ public class ProfileDataController extends ADataController {
         });
     }
 
-    private Map<Integer, BackpackWrite> stageBackpackWrites(
-            @Nonnull String backpackId, @Nonnull ItemStack[] contents) {
+    private Map<Integer, BackpackWrite> stageBackpackWrites(@Nonnull String backpackId, @Nonnull ItemStack[] contents) {
         Map<Integer, BackpackWrite> staged = new HashMap<>(54);
 
         // Stage the full legal backpack slot range. Normal saves submit only the
@@ -560,7 +558,7 @@ public class ProfileDataController extends ADataController {
             key.addField(FieldKey.INVENTORY_ITEM);
 
             ItemStack item = slot < contents.length ? contents[slot] : null;
-            if (item == null) {
+            if (item == null || item.isEmpty()) {
                 staged.put(slot, new BackpackWrite(key, null));
             } else {
                 var data = new RecordSet();
@@ -584,7 +582,8 @@ public class ProfileDataController extends ADataController {
         return copy;
     }
 
-    private record BackpackWrite(@Nonnull RecordKey key, @Nullable RecordSet data) {}
+    private record BackpackWrite(
+            @Nonnull RecordKey key, @Nullable RecordSet data) {}
 
     @Deprecated(forRemoval = true)
     public void saveBackpackInventory(PlayerBackpack bp, Integer... slots) {
@@ -702,19 +701,18 @@ public class ProfileDataController extends ADataController {
             return;
         }
 
-        CompletableFuture.allOf(pending.toArray(CompletableFuture[]::new))
-                .whenComplete((ignored, failure) -> {
-                    if (failure != null || hasUncertainBackpackBaseline(backpackIds)) {
-                        logger.log(
-                                Level.WARNING,
-                                "Keeping backpack cache for disconnected owner " + pUuid
-                                        + " because a persistence barrier failed.",
-                                failure);
-                        return;
-                    }
+        CompletableFuture.allOf(pending.toArray(CompletableFuture[]::new)).whenComplete((ignored, failure) -> {
+            if (failure != null || hasUncertainBackpackBaseline(backpackIds)) {
+                logger.log(
+                        Level.WARNING,
+                        "Keeping backpack cache for disconnected owner " + pUuid
+                                + " because a persistence barrier failed.",
+                        failure);
+                return;
+            }
 
-                    backpackCache.invalidateAfterPersistence(pUuid);
-                });
+            backpackCache.invalidateAfterPersistence(pUuid);
+        });
     }
 
     public int getPendingBackpackSaveChainCount() {

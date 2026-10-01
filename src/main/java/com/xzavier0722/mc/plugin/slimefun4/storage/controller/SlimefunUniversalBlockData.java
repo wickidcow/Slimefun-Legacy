@@ -41,6 +41,17 @@ public class SlimefunUniversalBlockData extends SlimefunUniversalData {
         setLastPresent(new BlockPosition(l));
     }
 
+    // Recovery checks must not call getLastPresent(): it can repair metadata or hide
+    // the known position while the inventory is deliberately marked not loaded.
+    String getKnownLocationKey() {
+        var known = lastPresent;
+        if (known == null) {
+            return null;
+        }
+        var location = known.toLocation();
+        return location == null || location.getWorld() == null ? null : LocationUtils.getLocKey(location);
+    }
+
     public BlockPosition getLastPresent() {
         if (!isDataLoaded()) {
             return null;

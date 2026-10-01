@@ -81,6 +81,8 @@ public class BlockDataConfigWrapper extends Config {
     public void setValue(@Nonnull String path, Object value) {
         if (value == null) {
             blockData.removeData(path);
+            // Null is the legacy deletion sentinel, not an unsupported value type.
+            return;
         }
 
         if (!(value instanceof String str)) {

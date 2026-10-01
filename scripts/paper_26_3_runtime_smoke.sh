@@ -5,6 +5,7 @@ PLUGIN_JAR="${1:?Usage: paper_26_3_runtime_smoke.sh <slimefun-jar> [work-directo
 WORK_DIR="${2:-build/paper-26.3-runtime-smoke}"
 MC_VERSION="${SERVER_MINECRAFT_VERSION:-26.3}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$REPO_ROOT/scripts/runtime_download.sh"
 EXPECTED_PLUGIN_VERSION="${SLIMEFUN_SMOKE_VERSION:-$(sed -n 's/^projectVersion=//p' "$REPO_ROOT/gradle.properties" | head -n 1 | tr -d '\r')}"
 USER_AGENT="${SERVER_DOWNLOAD_USER_AGENT:-Slimefun-Legacy-26.3-Preflight/${EXPECTED_PLUGIN_VERSION} (https://github.com/wickidcow/Slimefun-Legacy)}"
 STARTUP_TIMEOUT_SECONDS="${SERVER_SMOKE_STARTUP_TIMEOUT:-300}"
@@ -28,7 +29,7 @@ if [[ ! -s "$PLUGIN_JAR" ]]; then
 fi
 
 BUILDS_URL="https://fill.papermc.io/v3/projects/paper/versions/${MC_VERSION}/builds"
-BUILDS_RESPONSE="$(curl --fail-with-body -sS -H "User-Agent: ${USER_AGENT}" "$BUILDS_URL")"
+BUILDS_RESPONSE="$(runtime_download "$BUILDS_URL")"
 if jq -e '.ok == false' >/dev/null 2>&1 <<<"$BUILDS_RESPONSE"; then
     jq -r '.message // "PaperMC downloads service returned an unknown error"' <<<"$BUILDS_RESPONSE" >&2
     exit 1
@@ -63,7 +64,7 @@ printf 'Software: Paper\nMinecraft: %s\nBuild: %s\nChannel: %s\nDownload: %s\nJa
     "$MC_VERSION" "$SERVER_BUILD" "$SERVER_CHANNEL" "$SERVER_URL" "$(java -version 2>&1 | head -n 1)" \
     > "$WORK_DIR/runtime-build.txt"
 
-curl --fail-with-body -L -sS -H "User-Agent: ${USER_AGENT}" -o "$WORK_DIR/server.jar" "$SERVER_URL"
+runtime_download "$SERVER_URL" "$WORK_DIR/server.jar"
 test -s "$WORK_DIR/server.jar"
 
 stop_process() {

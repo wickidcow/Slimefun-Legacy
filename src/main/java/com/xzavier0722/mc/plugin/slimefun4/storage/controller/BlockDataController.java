@@ -6,6 +6,7 @@ import city.norain.slimefun4.utils.InventoryUtil;
 import city.norain.slimefun4.utils.StringUtil;
 import com.xzavier0722.mc.plugin.slimefun4.storage.adapter.IDataSourceAdapter;
 import com.xzavier0722.mc.plugin.slimefun4.storage.callback.IAsyncReadCallback;
+import com.xzavier0722.mc.plugin.slimefun4.storage.common.BlockStorageMigration;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataScope;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataType;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.FieldKey;
@@ -33,6 +34,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -81,6 +83,12 @@ public class BlockDataController extends ADataController {
     private final Map<String, CompletableFuture<Void>> inventorySaveChains;
     /** Marks persisted inventory baselines that may be partially applied after a failed batch. */
     private final Set<String> uncertainInventoryBaselines;
+    /** Retained until a complete retry succeeds; never cleared by an attempted save. */
+    private final Set<String> incompleteInventoryLoads = ConcurrentHashMap.newKeySet();
+    /** Maps known universal positions while their UUID's inventory is incomplete; never loads chunks. */
+    private final InventoryRecoveryLocations inventoryRecoveryLocations = new InventoryRecoveryLocations();
+    /** Retains a destination UUID when commit acknowledgement or activation needs a retry. */
+    private final Map<String, PendingUniversalMigration> pendingUniversalMigrations = new ConcurrentHashMap<>();
     /**
      * 全局控制器加载数据锁
      *
@@ -236,6 +244,25 @@ public class BlockDataController extends ADataController {
                         20L);
     }
 
+    /**
+     * Observes known read holds and pending migrations without loading worlds/items or changing
+     * guards. The bounded sample is weakly consistent with concurrent loading, not a safety barrier.
+     */
+    public InventoryRecoverySnapshot getInventoryRecoverySnapshot() {
+        var snapshot = new InventoryRecoverySnapshot.Collector();
+        incompleteInventoryLoads.forEach(owner -> snapshot.add(
+                owner.indexOf(';') >= 0
+                        ? InventoryRecoverySnapshot.Kind.BLOCK_LOAD
+                        : InventoryRecoverySnapshot.Kind.UNIVERSAL_LOAD,
+                owner,
+                null));
+        pendingUniversalMigrations.forEach((owner, pending) -> snapshot.add(
+                InventoryRecoverySnapshot.Kind.UNIVERSAL_MIGRATION,
+                owner,
+                pending.plan.destination().toString()));
+        return snapshot.build();
+    }
+
     public boolean isDelayedSavingEnabled() {
         return enableDelayedSaving;
     }
@@ -266,6 +293,7 @@ public class BlockDataController extends ADataController {
     @Nonnull
     public SlimefunBlockData createBlock(Location l, String sfId) {
         checkDestroy();
+        requireMutableBlockLocation(l);
         var sfItem = SlimefunItem.getById(sfId);
 
         if (sfItem instanceof UniversalBlock) {
@@ -303,6 +331,7 @@ public class BlockDataController extends ADataController {
     @Nonnull
     public SlimefunUniversalData createUniversalData(UUID uuid, String sfId) {
         checkDestroy();
+        requireCompleteInventoryLoad(uuid.toString());
 
         if (getUniversalDataFromCache(uuid) != null || getUniversalData(uuid) != null) {
             throw new IllegalArgumentException("A universal data with this UUID already exists: " + uuid);
@@ -330,7 +359,13 @@ public class BlockDataController extends ADataController {
     @ParametersAreNonnullByDefault
     public SlimefunUniversalBlockData createUniversalBlock(Location l, String sfId) {
         checkDestroy();
+        requireMutableBlockLocation(l);
+        return createUniversalBlockAfterPreflight(l, sfId);
+    }
 
+    // Private to the controller: the normal API checks recovery state first. The migration
+    // caller has separately decoded its source and must keep that source's read guard active.
+    private SlimefunUniversalBlockData createUniversalBlockAfterPreflight(Location l, String sfId) {
         var uuid = UUID.randomUUID();
         var uniData = new SlimefunUniversalBlockData(uuid, sfId, l);
 
@@ -361,6 +396,7 @@ public class BlockDataController extends ADataController {
     }
 
     void saveNewBlock(Location l, String sfId) {
+        requireMutableBlockLocation(l);
         var lKey = LocationUtils.getLocKey(l);
 
         var key = new RecordKey(DataScope.BLOCK_RECORD);
@@ -382,6 +418,7 @@ public class BlockDataController extends ADataController {
      * @param universalData 欲写入数据库保存的通用数据
      */
     void saveUniversalData(SlimefunUniversalData universalData) {
+        requireCompleteInventoryLoad(universalData.getKey());
         var uuid = universalData.getKey();
         var sfId = universalData.getSfId();
         var traitsStr = StringUtil.getTraitsStr(universalData.getTraits());
@@ -405,6 +442,7 @@ public class BlockDataController extends ADataController {
      */
     public void removeBlock(Location l) {
         checkDestroy();
+        requireMutableBlockLocation(l);
 
         var removed = getChunkDataCache(l.getChunk(), true).removeBlockData(l);
 
@@ -437,9 +475,13 @@ public class BlockDataController extends ADataController {
      */
     public void removeBlockData(Location l) {
         checkDestroy();
+        requireMutableBlockLocation(l);
 
         var removed = getChunkDataCache(l.getChunk(), true).removeBlockData(l);
+        finishBlockDataRemoval(l, removed);
+    }
 
+    private void finishBlockDataRemoval(Location l, @Nullable SlimefunBlockData removed) {
         if (removed == null || !removed.isDataLoaded()) {
             return;
         }
@@ -461,6 +503,7 @@ public class BlockDataController extends ADataController {
      */
     public void removeUniversalBlockData(Location l) {
         checkDestroy();
+        requireMutableBlockLocation(l);
 
         var toRemove = getUniversalBlockDataFromCache(l);
 
@@ -478,6 +521,7 @@ public class BlockDataController extends ADataController {
      */
     public void removeUniversalBlockData(UUID uuid) {
         checkDestroy();
+        requireCompleteInventoryLoad(uuid.toString());
 
         var toRemove = loadedUniversalData.get(uuid);
 
@@ -512,6 +556,11 @@ public class BlockDataController extends ADataController {
 
     void removeBlockDirectly(Location l) {
         checkDestroy();
+        requireMutableBlockLocation(l);
+        deleteBlockRecordAfterPreflight(l);
+    }
+
+    private void deleteBlockRecordAfterPreflight(Location l) {
         var scopeKey = new LocationKey(DataScope.NONE, l);
         removeDelayedDataUpdates(scopeKey);
 
@@ -522,12 +571,30 @@ public class BlockDataController extends ADataController {
 
     void removeUniversalBlockDirectly(UUID uuid) {
         checkDestroy();
+        requireCompleteInventoryLoad(uuid.toString());
         var scopeKey = new UUIDKey(DataScope.NONE, uuid);
         removeDelayedDataUpdates(scopeKey);
 
         var key = new RecordKey(DataScope.UNIVERSAL_RECORD);
         key.addCondition(FieldKey.UNIVERSAL_UUID, uuid.toString());
         scheduleDeleteTask(scopeKey, key, true);
+    }
+
+    SlimefunBlockData removeChunkBlockData(SlimefunChunkData chunk, Location location) {
+        checkDestroy();
+        requireMutableBlockLocation(location);
+        return removeChunkBlockDataAfterPreflight(chunk, location);
+    }
+
+    private SlimefunBlockData removeChunkBlockDataAfterPreflight(SlimefunChunkData chunk, Location location) {
+        var removed = chunk.removeBlockDataCacheInternal(LocationUtils.getLocKey(location));
+        if (removed == null && chunk.isDataLoaded()) {
+            return null;
+        }
+        // Preserve the existing cache tombstone and record-cascade behavior. Only a
+        // private, fully preflighted migration may reach this with its source guard set.
+        deleteBlockRecordAfterPreflight(location);
+        return removed;
     }
 
     /**
@@ -739,6 +806,9 @@ public class BlockDataController extends ADataController {
     }
 
     private void move(SlimefunBlockData blockData, Location target) {
+        checkDestroy();
+        requireMutableBlockLocation(blockData.getLocation());
+        requireMutableBlockLocation(target);
         if (LocationUtils.isSameLoc(blockData.getLocation(), target)) {
             return;
         }
@@ -813,12 +883,16 @@ public class BlockDataController extends ADataController {
     }
 
     private void move(SlimefunUniversalBlockData uniData, Location target) {
+        checkDestroy();
+        requireCompleteInventoryLoad(uniData.getKey());
+        requireMutableBlockLocation(target);
         var lastPresent = uniData.getLastPresent();
         if (lastPresent == null) {
             uniData.setLastPresent(target);
             return;
         }
         var loc = lastPresent.toLocation();
+        requireMutableBlockLocation(loc);
 
         if (LocationUtils.isSameLoc(loc, target)) {
             return;
@@ -1066,76 +1140,54 @@ public class BlockDataController extends ADataController {
             if (blockData.isDataLoaded()) {
                 return;
             }
-
-            var sfItem = SlimefunItem.getById(blockData.getSfId());
-            var universal = sfItem instanceof UniversalBlock;
-
+            incompleteInventoryLoads.add(blockData.getKey());
             var kvData = getData(key);
-
             var menuKey = new RecordKey(DataScope.BLOCK_INVENTORY);
             menuKey.addCondition(FieldKey.LOCATION, blockData.getKey());
             menuKey.addField(FieldKey.INVENTORY_SLOT);
             menuKey.addField(FieldKey.INVENTORY_ITEM);
-
             var invData = getData(menuKey);
-
-            if (universal) {
+            // Decode before changing cached values, loaded flags, menus or ticker registration.
+            var inv = StoredInventoryReader.read(invData, 54, "block " + blockData.getKey());
+            var sfItem = SlimefunItem.getById(blockData.getSfId());
+            if (sfItem instanceof UniversalBlock) {
                 migrateUniversalData(blockData.getLocation(), blockData.getSfId(), kvData, invData);
-            } else {
-                kvData.forEach(recordSet -> blockData.setCacheInternal(
-                        recordSet.getString(FieldKey.DATA_KEY),
-                        DataUtils.blockDataDebase64(recordSet.getString(FieldKey.DATA_VALUE)),
-                        false));
-
-                blockData.setIsDataLoaded(true);
-
-                var menuPreset = BlockMenuPreset.getPreset(blockData.getSfId());
-
-                if (menuPreset != null) {
-                    var inv = new ItemStack[54];
-
-                    for (RecordSet record : invData) {
-                        var slot = record.getInt(FieldKey.INVENTORY_SLOT);
-                        if (slot < 0 || slot >= inv.length) {
-                            uncertainInventoryBaselines.add(blockData.getKey());
-                            Slimefun.logger()
-                                    .log(
-                                            Level.WARNING,
-                                            "Ignoring out-of-range stored block inventory slot [{0}:{1}]. "
-                                                    + "The next save will reconcile the legal slot range.",
-                                            new Object[] {blockData.getKey(), slot});
-                            continue;
-                        }
-
-                        try {
-                            inv[slot] = record.getItemStack(FieldKey.INVENTORY_ITEM);
-                        } catch (Exception ex) {
-                            uncertainInventoryBaselines.add(blockData.getKey());
-                            inv[slot] = null;
-                            Slimefun.logger()
-                                    .log(
-                                            Level.SEVERE,
-                                            "Failed to load the target item; check the stored data ["
-                                                    + LocationUtils.locationToString(blockData.getLocation()) + ":"
-                                                    + slot + "]. The next save will reconcile the inventory.",
-                                            ex);
-                        }
-                    }
-
-                    blockData.setBlockMenu(new BlockMenu(menuPreset, blockData.getLocation(), inv));
-
-                    var content = blockData.getMenuContents();
-                    if (content != null) {
-                        invSnapshots.put(blockData.getKey(), new InvSnapshot(content));
-                    }
-                }
+                incompleteInventoryLoads.remove(blockData.getKey());
+                return;
             }
 
+            var menuPreset = BlockMenuPreset.getPreset(blockData.getSfId());
+            if (menuPreset == null && StoredInventoryReader.hasItems(inv)) {
+                throw StoredInventoryReader.refused(blockData.getKey(), "inventory preset is unavailable", null);
+            }
+            kvData.forEach(recordSet -> blockData.setCacheInternal(
+                    recordSet.getString(FieldKey.DATA_KEY),
+                    DataUtils.blockDataDebase64(recordSet.getString(FieldKey.DATA_VALUE)),
+                    false));
+            // Historical presets may read their KV state while constructing the menu.
+            // Inventory saves remain blocked until construction and snapshotting complete.
+            blockData.setIsDataLoaded(true);
+            if (menuPreset != null) {
+                blockData.setBlockMenu(new BlockMenu(menuPreset, blockData.getLocation(), inv));
+                var content = blockData.getMenuContents();
+                if (content != null) {
+                    invSnapshots.put(blockData.getKey(), new InvSnapshot(content));
+                }
+            }
+            incompleteInventoryLoads.remove(blockData.getKey());
             if (sfItem != null && sfItem.isTicking()) {
                 Slimefun.getTickerTask().enableTicker(blockData.getLocation());
             }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to load block data: " + blockData.getKey(), e);
+        } catch (Exception | LinkageError failure) {
+            incompleteInventoryLoads.add(blockData.getKey());
+            blockData.setIsDataLoaded(false);
+            var menu = blockData.getBlockMenu();
+            if (menu != null) {
+                menu.lock();
+            }
+            blockData.setBlockMenu(null);
+            invSnapshots.remove(blockData.getKey());
+            throw StoredInventoryReader.refused("block " + blockData.getKey(), "load did not complete", failure);
         } finally {
             lock.unlock(key);
         }
@@ -1162,8 +1214,10 @@ public class BlockDataController extends ADataController {
 
     public void loadBlockDataAsync(
             List<SlimefunBlockData> blockDataList, IAsyncReadCallback<List<SlimefunBlockData>> callback) {
-        scheduleReadTask(() -> blockDataList.forEach(this::loadBlockData));
-        invokeCallback(callback, blockDataList);
+        scheduleReadTask(() -> {
+            blockDataList.forEach(this::loadBlockData);
+            invokeCallback(callback, blockDataList);
+        });
     }
 
     @ParametersAreNonnullByDefault
@@ -1171,99 +1225,80 @@ public class BlockDataController extends ADataController {
         if (uniData.isDataLoaded()) {
             return;
         }
-
-        // 构建 通用数据 kv 存储 查询条件
         var key = new RecordKey(DataScope.UNIVERSAL_DATA);
         key.addCondition(FieldKey.UNIVERSAL_UUID, uniData.getKey());
         key.addField(FieldKey.DATA_KEY);
         key.addField(FieldKey.DATA_VALUE);
-
         lock.lock(key);
-
         try {
             if (uniData.isDataLoaded()) {
                 return;
             }
-
-            getData(key)
-                    .forEach(recordSet -> uniData.setCacheInternal(
-                            recordSet.getString(FieldKey.DATA_KEY),
-                            DataUtils.blockDataDebase64(recordSet.getString(FieldKey.DATA_VALUE)),
-                            false));
-
+            incompleteInventoryLoads.add(uniData.getKey());
+            if (uniData instanceof SlimefunUniversalBlockData block) {
+                inventoryRecoveryLocations.remember(uniData.getKey(), block.getKnownLocationKey());
+            }
+            var kvData = getData(key);
+            if (uniData.hasTrait(UniversalDataTrait.BLOCK)) {
+                for (RecordSet row : kvData) {
+                    if (UniversalDataTrait.BLOCK.getReservedKey().equals(row.getString(FieldKey.DATA_KEY))) {
+                        inventoryRecoveryLocations.remember(
+                                uniData.getKey(),
+                                InventoryRecoveryLocations.canonicalLocationKey(
+                                        DataUtils.blockDataDebase64(row.getString(FieldKey.DATA_VALUE))));
+                    }
+                }
+            }
+            var menuKey = new RecordKey(DataScope.UNIVERSAL_INVENTORY);
+            menuKey.addCondition(FieldKey.UNIVERSAL_UUID, uniData.getKey());
+            menuKey.addField(FieldKey.INVENTORY_SLOT);
+            menuKey.addField(FieldKey.INVENTORY_ITEM);
+            var inv = StoredInventoryReader.read(getData(menuKey), 54, "universal " + uniData.getKey());
+            var menuPreset = uniData.hasTrait(UniversalDataTrait.INVENTORY)
+                    ? UniversalMenuPreset.getPreset(uniData.getSfId())
+                    : null;
+            if (menuPreset == null && StoredInventoryReader.hasItems(inv)) {
+                throw StoredInventoryReader.refused(uniData.getKey(), "inventory trait or preset is unavailable", null);
+            }
+            kvData.forEach(recordSet -> uniData.setCacheInternal(
+                    recordSet.getString(FieldKey.DATA_KEY),
+                    DataUtils.blockDataDebase64(recordSet.getString(FieldKey.DATA_VALUE)),
+                    false));
             uniData.setIsDataLoaded(true);
-
             loadedUniversalData.putIfAbsent(uniData.getUUID(), uniData);
-
-            if (uniData instanceof SlimefunUniversalBlockData ubd) {
-                if (ubd.hasTrait(UniversalDataTrait.BLOCK)) {
-                    // Resolve the persisted position lazily. Missing worlds must not erase the stored value.
-                    var sfItem = SlimefunItem.getById(ubd.getSfId());
-
-                    if (sfItem != null && sfItem.isTicking() && ubd.getLastPresent() != null) {
-                        Slimefun.getTickerTask()
-                                .enableTicker(ubd.getLastPresent().toLocation(), ubd.getUUID());
-                    }
+            if (menuPreset != null) {
+                Location location = null;
+                if (uniData instanceof SlimefunUniversalBlockData ubd
+                        && ubd.hasTrait(UniversalDataTrait.BLOCK)
+                        && ubd.getLastPresent() != null) {
+                    location = ubd.getLastPresent().toLocation();
+                }
+                uniData.setMenu(new UniversalMenu(menuPreset, uniData.getUUID(), location, inv));
+                var content = uniData.getMenuContents();
+                if (content != null) {
+                    invSnapshots.put(uniData.getKey(), new InvSnapshot(content));
                 }
             }
-
-            if (uniData.hasTrait(UniversalDataTrait.INVENTORY)) {
-                // 加载菜单
-                var menuPreset = UniversalMenuPreset.getPreset(uniData.getSfId());
-                if (menuPreset != null) {
-                    var menuKey = new RecordKey(DataScope.UNIVERSAL_INVENTORY);
-                    menuKey.addCondition(FieldKey.UNIVERSAL_UUID, uniData.getKey());
-                    menuKey.addField(FieldKey.INVENTORY_SLOT);
-                    menuKey.addField(FieldKey.INVENTORY_ITEM);
-
-                    var inv = new ItemStack[54];
-
-                    for (RecordSet recordSet : getData(menuKey)) {
-                        var slot = recordSet.getInt(FieldKey.INVENTORY_SLOT);
-                        if (slot < 0 || slot >= inv.length) {
-                            uncertainInventoryBaselines.add(uniData.getKey());
-                            Slimefun.logger()
-                                    .log(
-                                            Level.WARNING,
-                                            "Ignoring out-of-range stored universal inventory slot [{0}:{1}]. "
-                                                    + "The next save will reconcile the legal slot range.",
-                                            new Object[] {uniData.getKey(), slot});
-                            continue;
-                        }
-
-                        try {
-                            inv[slot] = recordSet.getItemStack(FieldKey.INVENTORY_ITEM);
-                        } catch (Exception ex) {
-                            uncertainInventoryBaselines.add(uniData.getKey());
-                            inv[slot] = null;
-                            Slimefun.logger()
-                                    .log(
-                                            Level.SEVERE,
-                                            "Failed to load the target item; check the stored data [" + uniData.getKey()
-                                                    + ":" + slot + "]. The next save will reconcile the inventory.",
-                                            ex);
-                        }
-                    }
-
-                    Location location = null;
-
-                    if (uniData instanceof SlimefunUniversalBlockData ubd && ubd.hasTrait(UniversalDataTrait.BLOCK)) {
-                        if (ubd.getLastPresent() != null) {
-                            location = ubd.getLastPresent().toLocation();
-                        }
-                    }
-
-                    uniData.setMenu(new UniversalMenu(menuPreset, uniData.getUUID(), location, inv));
-
-                    var content = uniData.getMenuContents();
-
-                    if (content != null) {
-                        invSnapshots.put(uniData.getKey(), new InvSnapshot(content));
-                    }
+            // Publish ticking only after the entire stored inventory was decoded and installed.
+            if (uniData instanceof SlimefunUniversalBlockData ubd && ubd.hasTrait(UniversalDataTrait.BLOCK)) {
+                var sfItem = SlimefunItem.getById(ubd.getSfId());
+                if (sfItem != null && sfItem.isTicking() && ubd.getLastPresent() != null) {
+                    Slimefun.getTickerTask().enableTicker(ubd.getLastPresent().toLocation(), ubd.getUUID());
                 }
             }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to load universal data: " + uniData.getKey(), e);
+            incompleteInventoryLoads.remove(uniData.getKey());
+            inventoryRecoveryLocations.clear(uniData.getKey());
+        } catch (Exception | LinkageError failure) {
+            incompleteInventoryLoads.add(uniData.getKey());
+            uniData.setIsDataLoaded(false);
+            var menu = uniData.getMenu();
+            if (menu != null) {
+                menu.lock();
+            }
+            uniData.setMenu(null);
+            invSnapshots.remove(uniData.getKey());
+            loadedUniversalData.remove(uniData.getUUID(), uniData);
+            throw StoredInventoryReader.refused("universal " + uniData.getKey(), "load did not complete", failure);
         } finally {
             lock.unlock(key);
         }
@@ -1355,6 +1390,50 @@ public class BlockDataController extends ADataController {
         });
     }
 
+    private void requireCompleteInventoryLoad(String owner) {
+        if (incompleteInventoryLoads.contains(owner)) {
+            throw StoredInventoryReader.refused(owner, "read not completed", null);
+        }
+    }
+
+    /**
+     * Reports whether a known incomplete inventory load protects this block position.
+     * This read-only check does not fetch data, resolve chunks, or clear recovery state.
+     * Callers handling player events should cancel before producing drops or changing blocks.
+     */
+    public boolean isInventoryMutationBlocked(@Nonnull Location location) {
+        if (incompleteInventoryLoads.isEmpty() && inventoryRecoveryLocations.isEmpty()) {
+            return false;
+        }
+        String key = LocationUtils.getLocKey(location);
+        return incompleteInventoryLoads.contains(key) || inventoryRecoveryLocations.containsLocation(key);
+    }
+
+    void requireMutableBlockLocation(Location location) {
+        requireCompleteInventoryLoad(LocationUtils.getLocKey(location));
+        requireNoIncompleteUniversalAt(location);
+    }
+
+    private void requireNoIncompleteUniversalAt(Location location) {
+        String key = LocationUtils.getLocKey(location);
+        if (inventoryRecoveryLocations.containsLocation(key)) {
+            throw StoredInventoryReader.refused(key, "a universal inventory at this location needs recovery", null);
+        }
+    }
+
+    private void requireMutableScope(World world, @Nullable Chunk chunk) {
+        String prefix = world.getName() + ";";
+        Set<String> protectedLocations = new HashSet<>(incompleteInventoryLoads);
+        protectedLocations.addAll(inventoryRecoveryLocations.locationKeys());
+        for (String key : protectedLocations) {
+            if (key.startsWith(prefix)
+                    && (chunk == null
+                            || InventoryRecoveryLocations.isInChunk(key, prefix, chunk.getX(), chunk.getZ()))) {
+                throw StoredInventoryReader.refused(key, "bulk removal includes an incomplete inventory", null);
+            }
+        }
+    }
+
     public void saveBlockInventory(SlimefunBlockData blockData) {
         saveBlockInventoryAsync(blockData).whenComplete((ignored, failure) -> {
             if (failure != null) {
@@ -1368,25 +1447,32 @@ public class BlockDataController extends ADataController {
      * changed-slot write batch has reached the database queue completion boundary.
      */
     public CompletableFuture<Void> saveBlockInventoryAsync(@Nonnull SlimefunBlockData blockData) {
-        BlockMenu menu = blockData.getBlockMenu();
-        long changeSequence = menu == null ? 0L : menu.captureChangeSequence();
-        ItemStack[] contents = copyInventoryContents(blockData.getMenuContents());
-        String snapshotKey = blockData.getKey();
-        String chainKey = "block:" + snapshotKey;
-        InvSnapshot stagedSnapshot = contents == null ? null : new InvSnapshot(contents);
-        Map<Integer, InventoryWrite> stagedWrites =
-                stageInventoryWrites(DataScope.BLOCK_INVENTORY, FieldKey.LOCATION, snapshotKey, contents);
+        try {
+            requireCompleteInventoryLoad(blockData.getKey());
+            BlockMenu menu = blockData.getBlockMenu();
+            long changeSequence = menu == null ? 0L : menu.captureChangeSequence();
+            ItemStack[] contents = copyInventoryContents(blockData.getMenuContents());
+            String snapshotKey = blockData.getKey();
+            String chainKey = "block:" + snapshotKey;
+            InvSnapshot stagedSnapshot = contents == null ? null : new InvSnapshot(contents);
+            Map<Integer, InventoryWrite> stagedWrites =
+                    stageInventoryWrites(DataScope.BLOCK_INVENTORY, FieldKey.LOCATION, snapshotKey, contents);
 
-        return chainInventorySave(
-                chainKey,
-                () -> persistInventoryStage(
-                        snapshotKey,
-                        new LocationKey(DataScope.NONE, blockData.getLocation()),
-                        contents,
-                        stagedSnapshot,
-                        stagedWrites,
-                        menu,
-                        changeSequence));
+            return chainInventorySave(
+                    chainKey,
+                    () -> persistInventoryStage(
+                            snapshotKey,
+                            new LocationKey(DataScope.NONE, blockData.getLocation()),
+                            contents,
+                            stagedSnapshot,
+                            stagedWrites,
+                            menu,
+                            changeSequence));
+        } catch (RuntimeException | LinkageError failure) {
+            // No write has been submitted and no dirty token/snapshot was acknowledged.
+            // Keep the previous persisted baseline and let a later save retry this state.
+            return CompletableFuture.failedFuture(failure);
+        }
     }
 
     public void saveBlockInventorySlot(SlimefunBlockData blockData, int slot) {
@@ -1405,6 +1491,8 @@ public class BlockDataController extends ADataController {
     }
 
     public void removeAllDataInChunk(Chunk chunk) {
+        checkDestroy();
+        requireMutableScope(chunk.getWorld(), chunk);
         var cKey = LocationUtils.getChunkKey(chunk);
         var cache = loadedChunk.remove(cKey);
 
@@ -1422,6 +1510,8 @@ public class BlockDataController extends ADataController {
     }
 
     public void removeAllDataInWorld(World world) {
+        checkDestroy();
+        requireMutableScope(world, null);
         // 1. remove block cache
         var loadedBlockData = new HashSet<SlimefunBlockData>();
         for (var chunkData : getAllLoadedChunkData(world)) {
@@ -1451,7 +1541,9 @@ public class BlockDataController extends ADataController {
         saveUniversalInventoryAsync(universalData).whenComplete((ignored, failure) -> {
             if (failure != null) {
                 logger.log(
-                        Level.SEVERE, "Failed to persist Slimefun universal inventory " + universalData.getKey(), failure);
+                        Level.SEVERE,
+                        "Failed to persist Slimefun universal inventory " + universalData.getKey(),
+                        failure);
             }
         });
     }
@@ -1461,25 +1553,32 @@ public class BlockDataController extends ADataController {
      * for the same UUID so acknowledgements cannot complete out of order.
      */
     public CompletableFuture<Void> saveUniversalInventoryAsync(@Nonnull SlimefunUniversalData universalData) {
-        UniversalMenu menu = universalData.getMenu();
-        long changeSequence = menu == null ? 0L : menu.captureChangeSequence();
-        ItemStack[] contents = copyInventoryContents(universalData.getMenuContents());
-        String snapshotKey = universalData.getKey();
-        String chainKey = "universal:" + snapshotKey;
-        InvSnapshot stagedSnapshot = contents == null ? null : new InvSnapshot(contents);
-        Map<Integer, InventoryWrite> stagedWrites = stageInventoryWrites(
-                DataScope.UNIVERSAL_INVENTORY, FieldKey.UNIVERSAL_UUID, universalData.getKey(), contents);
+        try {
+            requireCompleteInventoryLoad(universalData.getKey());
+            UniversalMenu menu = universalData.getMenu();
+            long changeSequence = menu == null ? 0L : menu.captureChangeSequence();
+            ItemStack[] contents = copyInventoryContents(universalData.getMenuContents());
+            String snapshotKey = universalData.getKey();
+            String chainKey = "universal:" + snapshotKey;
+            InvSnapshot stagedSnapshot = contents == null ? null : new InvSnapshot(contents);
+            Map<Integer, InventoryWrite> stagedWrites = stageInventoryWrites(
+                    DataScope.UNIVERSAL_INVENTORY, FieldKey.UNIVERSAL_UUID, universalData.getKey(), contents);
 
-        return chainInventorySave(
-                chainKey,
-                () -> persistInventoryStage(
-                        snapshotKey,
-                        new UUIDKey(DataScope.NONE, universalData.getKey()),
-                        contents,
-                        stagedSnapshot,
-                        stagedWrites,
-                        menu,
-                        changeSequence));
+            return chainInventorySave(
+                    chainKey,
+                    () -> persistInventoryStage(
+                            snapshotKey,
+                            new UUIDKey(DataScope.NONE, universalData.getKey()),
+                            contents,
+                            stagedSnapshot,
+                            stagedWrites,
+                            menu,
+                            changeSequence));
+        } catch (RuntimeException | LinkageError failure) {
+            // No write has been submitted and no dirty token/snapshot was acknowledged.
+            // Keep the previous persisted baseline and let a later save retry this state.
+            return CompletableFuture.failedFuture(failure);
+        }
     }
 
     private CompletableFuture<Void> chainInventorySave(
@@ -1508,6 +1607,7 @@ public class BlockDataController extends ADataController {
             @Nonnull Map<Integer, InventoryWrite> stagedWrites,
             @Nullable DirtyChestMenu menu,
             long changeSequence) {
+        requireCompleteInventoryLoad(snapshotKey);
         InvSnapshot acknowledged = invSnapshots.get(snapshotKey);
         Set<Integer> changed = uncertainInventoryBaselines.contains(snapshotKey)
                 ? new HashSet<>(stagedWrites.keySet())
@@ -1586,7 +1686,7 @@ public class BlockDataController extends ADataController {
             key.addField(FieldKey.INVENTORY_ITEM);
 
             ItemStack item = contents == null || slot >= contents.length ? null : contents[slot];
-            if (item == null) {
+            if (item == null || item.isEmpty()) {
                 staged.put(slot, new InventoryWrite(key, null));
             } else {
                 var data = new RecordSet();
@@ -1623,7 +1723,8 @@ public class BlockDataController extends ADataController {
         return item == null ? null : item.clone();
     }
 
-    private record InventoryWrite(@Nonnull RecordKey key, @Nullable RecordSet data) {}
+    private record InventoryWrite(
+            @Nonnull RecordKey key, @Nullable RecordSet data) {}
 
     public Set<SlimefunChunkData> getAllLoadedChunkData(World world) {
         var prefix = world.getName() + ";";
@@ -1669,6 +1770,7 @@ public class BlockDataController extends ADataController {
     }
 
     private void scheduleBlockInvUpdate(ScopeKey scopeKey, RecordKey reqKey, String lKey, ItemStack[] inv, int slot) {
+        requireCompleteInventoryLoad(lKey);
         ItemStack item = snapshotInventoryItem(inv, slot);
 
         if (item == null || item.isEmpty()) {
@@ -1680,8 +1782,12 @@ public class BlockDataController extends ADataController {
                 data.put(FieldKey.INVENTORY_SLOT, slot + "");
                 data.put(FieldKey.INVENTORY_ITEM, item);
                 scheduleWriteTask(scopeKey, reqKey, data, true);
-            } catch (IllegalArgumentException e) {
-                Slimefun.logger().log(Level.WARNING, e.getMessage());
+            } catch (RuntimeException | LinkageError failure) {
+                logger.log(
+                        Level.WARNING,
+                        "Could not serialize inventory slot " + lKey + ":" + slot
+                                + "; the existing stored value was retained.",
+                        failure);
             }
         }
     }
@@ -1710,6 +1816,7 @@ public class BlockDataController extends ADataController {
 
     private void scheduleUniversalInvUpdate(
             ScopeKey scopeKey, RecordKey reqKey, String uuid, ItemStack[] inv, int slot) {
+        requireCompleteInventoryLoad(uuid);
         ItemStack item = snapshotInventoryItem(inv, slot);
 
         if (item == null || item.isEmpty()) {
@@ -1721,8 +1828,12 @@ public class BlockDataController extends ADataController {
                 data.put(FieldKey.INVENTORY_SLOT, slot + "");
                 data.put(FieldKey.INVENTORY_ITEM, item);
                 scheduleWriteTask(scopeKey, reqKey, data, true);
-            } catch (IllegalArgumentException e) {
-                Slimefun.logger().log(Level.WARNING, e.getMessage());
+            } catch (RuntimeException | LinkageError failure) {
+                logger.log(
+                        Level.WARNING,
+                        "Could not serialize inventory slot " + uuid + ":" + slot
+                                + "; the existing stored value was retained.",
+                        failure);
             }
         }
     }
@@ -1778,6 +1889,7 @@ public class BlockDataController extends ADataController {
     }
 
     void scheduleDelayedBlockDataUpdate(SlimefunBlockData blockData, String key) {
+        requireNoPendingUniversalMigration(blockData.getKey());
         var scopeKey = new LocationKey(DataScope.NONE, blockData.getLocation());
         var reqKey = new RecordKey(DataScope.BLOCK_DATA);
         reqKey.addCondition(FieldKey.LOCATION, blockData.getKey());
@@ -1816,6 +1928,7 @@ public class BlockDataController extends ADataController {
     }
 
     private void scheduleBlockDataUpdate(ScopeKey scopeKey, RecordKey reqKey, String lKey, String key, String val) {
+        requireNoPendingUniversalMigration(lKey);
         if (val == null) {
             scheduleDeleteTask(scopeKey, reqKey, false);
         } else {
@@ -1950,74 +2063,216 @@ public class BlockDataController extends ADataController {
             @Nonnull String sfId,
             @Nonnull List<RecordSet> kvData,
             @Nonnull List<RecordSet> invData) {
+        String source = LocationUtils.getLocKey(l);
+        PendingUniversalMigration pending = pendingUniversalMigrations.get(source);
         try {
-            if (l == null || sfId == null) {
+            if (pending == null) {
+                var inv = StoredInventoryReader.read(invData, 54, "migration " + source);
+                var preset = UniversalMenuPreset.getPreset(sfId);
+                if (preset == null && StoredInventoryReader.hasItems(inv)) {
+                    throw StoredInventoryReader.refused(sfId, "migration inventory preset is unavailable", null);
+                }
+                Map<String, String> sourceData = new HashMap<>();
+                for (RecordSet record : kvData) {
+                    String key = java.util.Objects.requireNonNull(record.getString(FieldKey.DATA_KEY));
+                    String encoded = java.util.Objects.requireNonNull(record.getString(FieldKey.DATA_VALUE));
+                    java.util.Objects.requireNonNull(DataUtils.blockDataDebase64(encoded));
+                    if (sourceData.putIfAbsent(key, encoded) != null) {
+                        throw new IllegalStateException("Migration source contains duplicated custom-data keys");
+                    }
+                }
+                Map<Integer, byte[]> items = new HashMap<>();
+                for (RecordSet row : invData) {
+                    Object raw = row.getValue(FieldKey.INVENTORY_ITEM);
+                    items.put(
+                            row.getInt(FieldKey.INVENTORY_SLOT),
+                            raw instanceof byte[] bytes
+                                    ? bytes.clone()
+                                    : raw == null
+                                            ? null
+                                            : ((String) raw).getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+                }
+                requireNoIncompleteUniversalAt(l);
+                String storedLocation = sourceData.get(UniversalDataTrait.BLOCK.getReservedKey());
+                if (storedLocation != null
+                        && !source.equals(InventoryRecoveryLocations.canonicalLocationKey(
+                                DataUtils.blockDataDebase64(storedLocation)))) {
+                    throw StoredInventoryReader.refused(
+                            source, "stored universal location conflicts with source", null);
+                }
+                // Preserve a valid historical location representation byte-for-byte; only add
+                // the reserved location value when the source does not already contain it.
+                var plan = new BlockStorageMigration(
+                        source,
+                        LocationUtils.getChunkKey(l),
+                        sfId,
+                        UUID.randomUUID(),
+                        storedLocation == null ? DataUtils.blockDataBase64(source) : storedLocation,
+                        sourceData,
+                        items);
+                pending = new PendingUniversalMigration(plan);
+                pendingUniversalMigrations.put(source, pending);
+            }
+            var plan = pending.plan;
+            if (!sfId.equals(plan.slimefunId())
+                    || inventoryRecoveryLocations.containsOtherOwner(
+                            source, plan.destination().toString())) {
+                throw StoredInventoryReader.refused(source, "migration identity or recovery ownership changed", null);
+            }
+            incompleteInventoryLoads.add(source);
+            if (!pending.activated) {
+                incompleteInventoryLoads.add(plan.destination().toString());
+                inventoryRecoveryLocations.remember(plan.destination().toString(), source);
+            }
+            if (!pending.committed) {
+                // Queue completion is checked; merely scheduling the destination is not durable storage.
+                persistUniversalMigration(plan).join();
+                pending.committed = true;
+            }
+
+            // Neither a menu nor ticker is published until the database atomically contains the
+            // complete destination and no source. The ordinary strict reader installs that state.
+            if (!pending.activated) {
+                activateCommittedUniversalMigration(plan, l);
+                pending.activated = true;
+            }
+
+            var chunk = getChunkDataCache(l, false);
+            if (chunk != null) {
+                var removed = chunk.removeBlockDataCacheInternal(source);
+                if (removed != null) {
+                    removed.setPendingRemove(true);
+                    removed.setIsDataLoaded(false);
+                    var menu = removed.getBlockMenu();
+                    if (menu != null) menu.lock();
+                }
+            }
+            invSnapshots.remove(source);
+            uncertainInventoryBaselines.remove(source);
+            // This is cache retirement only. The SQL transaction already removed the source;
+            // another queued delete could otherwise erase a later replacement at this position.
+            pendingUniversalMigrations.remove(source, pending);
+            Location anchor = l.clone();
+            try {
+                Slimefun.runSyncAt(anchor, () -> {
+                    try {
+                        if (Slimefun.getBlockDataService()
+                                .isTileEntity(anchor.getBlock().getType())) {
+                            Slimefun.getBlockDataService()
+                                    .updateUniversalDataUUID(
+                                            anchor.getBlock(),
+                                            plan.destination().toString());
+                        }
+                    } catch (RuntimeException | LinkageError metadataFailure) {
+                        logger.log(
+                                Level.SEVERE,
+                                "Committed universal data was retained, but block UUID refresh failed at " + source,
+                                metadataFailure);
+                    }
+                });
+            } catch (RuntimeException | LinkageError schedulingFailure) {
+                // A world/scheduler failure after commit must not be reported as an undone database move.
+                logger.log(
+                        Level.SEVERE,
+                        "Committed universal data was retained, but block UUID refresh could not be scheduled at "
+                                + source,
+                        schedulingFailure);
+            }
+        } catch (Exception | LinkageError failure) {
+            Throwable cause =
+                    failure instanceof CompletionException && failure.getCause() != null ? failure.getCause() : failure;
+            // Only a confirmed pre-commit rollback permits taking a fresh snapshot/new identity.
+            // An ambiguous commit or post-commit activation error keeps the original plan for retry.
+            if (pending != null
+                    && !pending.committed
+                    && cause instanceof BlockStorageMigration.Failure storageFailure
+                    && storageFailure.isRestagingSafe()
+                    && pendingUniversalMigrations.remove(source, pending)) {
+                incompleteInventoryLoads.remove(pending.plan.destination().toString());
+                inventoryRecoveryLocations.clear(pending.plan.destination().toString());
+            }
+            throw StoredInventoryReader.refused("migration " + source, "migration did not complete", failure);
+        }
+    }
+
+    private void activateCommittedUniversalMigration(BlockStorageMigration migration, Location location) {
+        var key = new RecordKey(DataScope.UNIVERSAL_DATA);
+        key.addCondition(FieldKey.UNIVERSAL_UUID, migration.destination().toString());
+        key.addField(FieldKey.DATA_KEY);
+        key.addField(FieldKey.DATA_VALUE);
+        lock.lock(key);
+        try {
+            var existing = loadedUniversalData.get(migration.destination());
+            if (existing != null && existing.isDataLoaded()) {
+                // The ordinary record loader may already have activated this committed UUID.
+                // Retain that live menu (including unsaved changes), not a second copy of it.
+                if (!(existing instanceof SlimefunUniversalBlockData block)
+                        || !migration.slimefunId().equals(existing.getSfId())
+                        || !migration.location().equals(block.getKnownLocationKey())) {
+                    throw StoredInventoryReader.refused(
+                            migration.location(), "committed destination cache conflicts", null);
+                }
+                incompleteInventoryLoads.remove(existing.getKey());
+                inventoryRecoveryLocations.clear(existing.getKey());
                 return;
             }
+            var destination = new SlimefunUniversalBlockData(migration.destination(), migration.slimefunId(), location);
+            destination.initTraits();
+            loadUniversalData(destination);
+        } finally {
+            lock.unlock(key);
+        }
+    }
 
-            var universalData = createUniversalBlock(l, sfId);
-
-            Slimefun.runSyncAt(
-                    l,
-                    () -> {
-                        if (Slimefun.getBlockDataService()
-                                .isTileEntity(l.getBlock().getType())) {
-                            Slimefun.getBlockDataService()
-                                    .updateUniversalDataUUID(l.getBlock(), String.valueOf(universalData.getUUID()));
-                        }
-                    },
-                    10L);
-
-            kvData.forEach(recordSet -> universalData.setData(
-                    recordSet.getString(FieldKey.DATA_KEY), DataUtils.blockDataDebase64(recordSet.getString(FieldKey.DATA_VALUE))));
-
-            var preset = UniversalMenuPreset.getPreset(sfId);
-            if (preset != null) {
-                final var inv = new ItemStack[54];
-
-                for (RecordSet record : invData) {
-                    var slot = record.getInt(FieldKey.INVENTORY_SLOT);
-                    if (slot < 0 || slot >= inv.length) {
-                        uncertainInventoryBaselines.add(universalData.getKey());
-                        Slimefun.logger()
-                                .log(
-                                        Level.WARNING,
-                                        "Ignoring out-of-range stored inventory slot during universal migration [{0}:{1}].",
-                                        new Object[] {universalData.getKey(), slot});
-                        continue;
-                    }
-
-                    try {
-                        inv[slot] = record.getItemStack(FieldKey.INVENTORY_ITEM);
-                    } catch (Exception ex) {
-                        uncertainInventoryBaselines.add(universalData.getKey());
-                        inv[slot] = null;
-                        Slimefun.logger()
-                                .log(
-                                        Level.SEVERE,
-                                        "Failed to load the target item; check the stored data ["
-                                                + universalData.getKey() + ":" + slot
-                                                + "]. The next save will reconcile the inventory.",
-                                        ex);
-                    }
-                }
-
-                universalData.setMenu(new UniversalMenu(preset, universalData.getUUID(), l, inv));
-
-                var content = universalData.getMenuContents();
-                if (content != null) {
-                    invSnapshots.put(universalData.getKey(), new InvSnapshot(content));
-                }
+    /** Tracks the transaction on the source's existing writer scope before activating a destination. */
+    protected CompletableFuture<Void> persistUniversalMigration(BlockStorageMigration migration) {
+        var scope = new LocationKey(DataScope.NONE, migration.location());
+        synchronized (delayedWriteTasks) {
+            if (delayedWriteTasks.keySet().stream().anyMatch(key -> scope.equals(key.getParent()))) {
+                return CompletableFuture.failedFuture(new BlockStorageMigration.Failure(
+                        "Migration source still has delayed custom-data writes; retry after they drain", null, true));
             }
+        }
+        var inventorySave = inventorySaveChains.get("block:" + migration.location());
+        if (inventorySave != null && !inventorySave.isDone()) {
+            return CompletableFuture.failedFuture(new BlockStorageMigration.Failure(
+                    "Migration source still has an inventory save in progress", null, true));
+        }
+        // Coordination-only key: never passed to an SQL adapter. Ordinary BLOCK_RECORD writes
+        // must not compact away this transaction while sharing the same source queue.
+        var record = new RecordKey(DataScope.NONE);
+        record.addCondition(FieldKey.LOCATION, migration.location());
+        record.addCondition(FieldKey.UNIVERSAL_UUID, migration.destination().toString());
+        var confirmed = new java.util.concurrent.atomic.AtomicBoolean();
+        return scheduleWriteTaskWithCompletion(
+                        scope,
+                        record,
+                        () -> {
+                            migrateBlockToUniversal(migration);
+                            confirmed.set(true);
+                        },
+                        true)
+                .thenRun(() -> {
+                    if (!confirmed.get()) {
+                        throw new BlockStorageMigration.Failure(
+                                "Migration queue drained without confirming the exact transaction", null, false);
+                    }
+                });
+    }
 
-            removeBlockData(l);
+    private void requireNoPendingUniversalMigration(String source) {
+        if (pendingUniversalMigrations.containsKey(source)) {
+            throw StoredInventoryReader.refused(source, "universal migration has not completed", null);
+        }
+    }
 
-            if (Slimefun.getRegistry().getTickerBlocks().contains(universalData.getSfId())) {
-                Slimefun.getTickerTask()
-                        .enableTicker(universalData.getLastPresent().toLocation(), universalData.getUUID());
-            }
-        } catch (Exception e) {
-            Slimefun.logger().log(Level.WARNING, "An error occurred while migrating machine data", e);
+    private static final class PendingUniversalMigration {
+        private final BlockStorageMigration plan;
+        private boolean committed;
+        private boolean activated;
+
+        private PendingUniversalMigration(BlockStorageMigration plan) {
+            this.plan = plan;
         }
     }
 }

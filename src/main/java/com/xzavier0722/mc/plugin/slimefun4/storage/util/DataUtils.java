@@ -43,26 +43,8 @@ public class DataUtils {
      * @return versioned binary data, or an empty array for null/empty/failed items
      */
     public static byte[] serializeItemStackBytes(ItemStack itemStack) {
-        if (isEmptyItemStack(itemStack)) {
-            return new byte[0];
-        }
-
-        Debug.log(TestCase.BACKPACK, "Serializing itemstack: " + itemStack);
-
         try {
-            var itemData = ItemStackDataCodec.serialize(itemStack);
-
-            if (!Slimefun.getConfigManager().isBypassItemLengthCheck()
-                    && Slimefun.getDatabaseManager().getBlockDataStorageType() == StorageType.MYSQL
-                    && itemData.length > MYSQL_MEDIUMBLOB_MAX_BYTES) {
-                throw new IllegalArgumentException(
-                        "Detected an oversized item. Please contact the plugin developer responsible for that item: "
-                                + StringUtil.itemStackToString(itemStack)
-                                + ", size = "
-                                + itemData.length);
-            }
-
-            return itemData;
+            return serializeItemStackBytesForStorage(itemStack);
         } catch (IllegalArgumentException e) {
             // The inventory save path can observe an ItemStack while another server task
             // is emptying the same stack. Paper performs its own native emptiness check
@@ -75,24 +57,57 @@ public class DataUtils {
             Slimefun.logger()
                     .log(
                             Level.SEVERE,
-                            "An error occurred while serializing an item; an empty value will be stored.",
+                            "An error occurred while serializing an item; no encoded item data was produced.",
                             e);
             return new byte[0];
         } catch (Throwable e) {
             Slimefun.logger()
                     .log(
                             Level.SEVERE,
-                            "An error occurred while serializing an item; an empty value will be stored.",
+                            "An error occurred while serializing an item; no encoded item data was produced.",
                             e);
             return new byte[0];
         }
     }
 
+    /**
+     * Encodes an inventory value without converting a failed non-empty item into an empty slot.
+     *
+     * <p>Persistent writers must use this method and finish staging the complete inventory before
+     * submitting writes. The historical tolerant serializer remains available to addons. Both
+     * methods use the same native codec, identifiers and size policy. Only genuinely empty inputs
+     * return an empty payload here; even Paper's empty-item exception is propagated if it occurs
+     * after a non-empty snapshot was observed, so the caller can retry rather than erase saved data.
+     *
+     * @param itemStack item snapshot to serialize, or null for an empty slot
+     * @return existing versioned binary representation, or empty bytes for an empty input
+     * @throws RuntimeException if serialization or the existing storage size check fails
+     */
+    public static byte[] serializeItemStackBytesForStorage(@Nullable ItemStack itemStack) {
+        if (isEmptyItemStack(itemStack)) {
+            return new byte[0];
+        }
+
+        Debug.log(TestCase.BACKPACK, "Serializing itemstack: " + itemStack);
+        var itemData = ItemStackDataCodec.serialize(itemStack);
+
+        // The configured MySQL limit cannot apply to a smaller payload. Avoid consulting
+        // global configuration on the overwhelmingly common normal-sized item path.
+        if (itemData.length > MYSQL_MEDIUMBLOB_MAX_BYTES
+                && !Slimefun.getConfigManager().isBypassItemLengthCheck()
+                && Slimefun.getDatabaseManager().getBlockDataStorageType() == StorageType.MYSQL) {
+            throw new IllegalArgumentException(
+                    "Detected an oversized item. Please contact the plugin developer responsible for that item: "
+                            + StringUtil.itemStackToString(itemStack)
+                            + ", size = "
+                            + itemData.length);
+        }
+
+        return itemData;
+    }
+
     static boolean isEmptyItemStack(@Nullable ItemStack itemStack) {
-        return itemStack == null
-                || itemStack.isEmpty()
-                || itemStack.getType().isAir()
-                || itemStack.getAmount() <= 0;
+        return itemStack == null || itemStack.isEmpty() || itemStack.getType().isAir() || itemStack.getAmount() <= 0;
     }
 
     static boolean isPaperEmptyItemSerializationFailure(IllegalArgumentException exception) {

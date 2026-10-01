@@ -153,21 +153,11 @@ def main() -> int:
         "if (item == null || item.isEmpty())",
         "delayed inventory writes delete Paper-empty stacks",
     )
-    require(
-        storage,
-        "if (slot < 0 || slot >= inv.length)",
-        "stored inventory slot bounds guards",
-    )
-    require(
-        storage,
-        "uncertainInventoryBaselines.add(blockData.getKey())",
-        "block load corruption forces reconciliation",
-    )
-    require(
-        storage,
-        "uncertainInventoryBaselines.add(uniData.getKey())",
-        "universal load corruption forces reconciliation",
-    )
+    require(storage, "StoredInventoryReader.read(", "complete stored inventory decode")
+    require(storage, "private final Set<String> incompleteInventoryLoads", "incomplete read save guard")
+    require(storage, "requireCompleteInventoryLoad(snapshotKey)", "queued write read-safety guard")
+    forbid(storage, "uncertainInventoryBaselines.add(blockData.getKey())", "corrupt block read reconciliation")
+    forbid(storage, "uncertainInventoryBaselines.add(uniData.getKey())", "corrupt universal read reconciliation")
     require(
         storage,
         "invSnapshots.remove(snapshotKey)",
