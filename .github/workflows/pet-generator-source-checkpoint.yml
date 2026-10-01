@@ -1,0 +1,35 @@
+name: Pet and Generator Source Checkpoint
+on:
+  push:
+    branches: ['work/ecosystem-checkpoint-20261001']
+    paths: ['.github/workflows/pet-generator-source-checkpoint.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Archive tracked files at the observed source commits
+        run: |
+          set -euo pipefail
+          mkdir -p sources
+          python3 - <<'PY'
+          import hashlib,json,subprocess
+          from pathlib import Path
+          records=[]
+          for name,sha in [('SF_HotbarPets','099b2a6089465efc7d2d3801ddf80828f58777ce'),('SF_SMG','7dd470296cfa1ccddb668accc732cb4adac9fbce')]:
+              subprocess.run(['git','clone','--depth','1','--no-checkout',f'https://github.com/wickidcow/{name}.git',name],check=True,timeout=90)
+              subprocess.run(['git','-C',name,'fetch','--depth','1','origin',sha],check=True,timeout=90)
+              assert subprocess.check_output(['git','-C',name,'rev-parse','FETCH_HEAD'],text=True).strip()==sha
+              output=Path('sources',name+'.tar.gz').resolve()
+              subprocess.run(['git','-C',name,'archive','--format=tar.gz',f'--output={output}',sha],check=True)
+              records.append(dict(repository='wickidcow/'+name,source_commit=sha,sha256=hashlib.sha256(output.read_bytes()).hexdigest(),archive=output.name))
+          Path('sources/provenance.json').write_text(json.dumps(records,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pet-generator-sources
+          path: sources/
+          retention-days: 14
+          if-no-files-found: error
