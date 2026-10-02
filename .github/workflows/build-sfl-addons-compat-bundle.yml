@@ -254,6 +254,39 @@ jobs:
             -PpaperDevBundleVersion=1.21.11-R0.1-SNAPSHOT \
             --no-daemon --no-build-cache --no-configuration-cache) \
             2>&1 | tee report-native-floor/compile.log
+      - name: Rebuild JEG against the supported API floor
+        if: matrix.slug == 'justenoughguide'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Keep the same exact-core inputs when invoking the generated Gradle init script directly.
+          export SLIMEFUN_COMPATIBILITY_JAR="$PWD/candidate-core/Slimefun-Legacy-candidate.jar"
+          export SLIMEFUN_CORE_JAR="$SLIMEFUN_COMPATIBILITY_JAR"
+          export SLIMEFUN_LEGACY_JAR="$SLIMEFUN_COMPATIBILITY_JAR"
+          # The 26.3 compilation above is a compatibility probe, not the distributable.
+          python3 tools/scripts/compile_addon_paper_26_3.py \
+            addon "$SLIMEFUN_COMPATIBILITY_JAR" \
+            1.21.11-R0.1-SNAPSHOT --report-dir "$PWD/report-native-floor"
+          (cd addon && PAPER_API_VERSION=1.21.11-R0.1-SNAPSHOT ./gradlew build \
+            --no-daemon --no-build-cache --no-configuration-cache \
+            -I .slimefun-paper-26.3.init.gradle) \
+            2>&1 | tee report-native-floor/tests.log
+          # Resolve an independent floor API classpath, not the addon's transitive compile graph.
+          cat > report-native-floor/linkage-pom.xml <<'XML'
+          <project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion><groupId>audit</groupId><artifactId>jeg-floor-linkage</artifactId><version>1</version><repositories><repository><id>paper</id><url>https://repo.papermc.io/repository/maven-public/</url></repository></repositories><dependencies><dependency><groupId>io.papermc.paper</groupId><artifactId>paper-api</artifactId><version>1.21.11-R0.1-SNAPSHOT</version></dependency></dependencies></project>
+          XML
+          mvn --batch-mode --no-transfer-progress -f report-native-floor/linkage-pom.xml \
+            dependency:build-classpath "-Dmdep.outputFile=$PWD/report-native-floor/classpath.txt" \
+            > report-native-floor/classpath.log 2>&1
+          mapfile -t JEG_JARS < <(find addon/build/libs -maxdepth 1 -type f -name 'SF_JustEnoughGuide*.jar' \
+            ! -name '*-sources.jar' ! -name '*-javadoc.jar' | sort)
+          test "${#JEG_JARS[@]}" -eq 1
+          mkdir -p report-native-floor/linkage-classes
+          javac --release 21 -cp "$(cat report-native-floor/classpath.txt)" \
+            -d report-native-floor/linkage-classes tools/tests/runtime/JegClipboardLinkageProbe.java
+          java -cp "report-native-floor/linkage-classes:${JEG_JARS[0]}:candidate-core/Slimefun-Legacy-candidate.jar:$(cat report-native-floor/classpath.txt)" \
+            JegClipboardLinkageProbe | tee report-native-floor/linkage.log
+          grep -Fxq 'JEG_CLIPBOARD_FLOOR_PASS methods=2 scenarios=6' report-native-floor/linkage.log
       - name: Verify and build pinned DracFun Reborn
         if: matrix.slug == 'dracfunreborn'
         env:
@@ -360,7 +393,7 @@ jobs:
               'artifact_base': base,
               'sha256': sha256,
               'paper_26_3_api': os.environ['PAPER_API_VERSION'],
-              'distributable_api': '1.21.11-R0.1-SNAPSHOT' if slug in ('slimeeasy', 'dracfunreborn') else os.environ['PAPER_API_VERSION'],
+              'distributable_api': '1.21.11-R0.1-SNAPSHOT' if slug in ('slimeeasy', 'dracfunreborn', 'justenoughguide') else os.environ['PAPER_API_VERSION'],
               'primary_api_target': '26.3',
               'backwards_compatible_through': '1.21.11',
               'minimum_supported': '1.21.11',

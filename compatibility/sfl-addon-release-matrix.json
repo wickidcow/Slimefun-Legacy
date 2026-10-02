@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 105,
+  "bundle_revision": 106,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -131,7 +131,7 @@
     {
       "repository": "wickidcow/SF_FluffyMachines",
       "slug": "fluffymachines",
-      "source_commit": "91dc76b4e6d2024faeb1cbecace18c0a99b99aee"
+      "source_commit": "394de0dbfe770ae13256aa1cfbe747fc26b55a3a"
     },
     {
       "repository": "wickidcow/SF_FNAmplifications",
@@ -188,7 +188,7 @@
       "repository": "wickidcow/SF_JustEnoughGuide",
       "slug": "justenoughguide",
       "artifact_base": "JustEnoughGuide",
-      "source_commit": "a53d11e7abee111efe525532222c02a73d19e640"
+      "source_commit": "89ce9a8b0e8ef9d1939256f1d80917af63e439e2"
     },
     {
       "repository": "wickidcow/SF_MagicExpansion",
