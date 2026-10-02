@@ -285,6 +285,48 @@ class InventorySerializationFailureTest {
         }
     }
 
+    @ParameterizedTest(name = "{displayName} [{index}] {arguments}")
+    @EnumSource(Kind.class)
+    void exportedBaselineCannotHideAnUnpersistedQuantityChange(Kind kind) throws Exception {
+        try (var harness = new Harness(kind)) {
+            harness.set(0, oldItem(37));
+            harness.saveAndComplete();
+            var snapshot =
+                    (com.xzavier0722.mc.plugin.slimefun4.storage.util.InvSnapshot) harness.acknowledgedSnapshot();
+            var exported = snapshot.getSnapshot().getFirst();
+            exported.getFirstValue().setAmount(12);
+            exported.setSecondValue(12);
+            harness.set(0, oldItem(12));
+            int submitted = harness.store.submitted;
+            harness.saveAndComplete();
+            assertTrue(harness.store.submitted > submitted, "Changed quantity must actually be submitted");
+            harness.store.reopen();
+            assertEquals(oldItem(12), harness.store.item(0));
+        }
+    }
+
+    @ParameterizedTest(name = "{displayName} [{index}] {arguments}")
+    @EnumSource(Kind.class)
+    void exportedBaselineCannotHideAnUnpersistedMetadataChange(Kind kind) throws Exception {
+        try (var harness = new Harness(kind)) {
+            harness.set(0, oldItem(37));
+            harness.saveAndComplete();
+            ItemStack changed = oldItem(37);
+            var meta = changed.getItemMeta();
+            meta.getPersistentDataContainer().set(ITEM_ID, PersistentDataType.STRING, "UNREGISTERED_OLD_ID");
+            changed.setItemMeta(meta);
+            var snapshot =
+                    (com.xzavier0722.mc.plugin.slimefun4.storage.util.InvSnapshot) harness.acknowledgedSnapshot();
+            snapshot.getSnapshot().getFirst().setFirstValue(changed.clone());
+            harness.set(0, changed);
+            int submitted = harness.store.submitted;
+            harness.saveAndComplete();
+            assertTrue(harness.store.submitted > submitted, "Changed metadata must actually be submitted");
+            harness.store.reopen();
+            assertEquals(changed, harness.store.item(0));
+        }
+    }
+
     private static ItemStack oldItem(int amount) {
         var item = new ItemStack(Material.COAL, amount);
         var meta = item.getItemMeta();
