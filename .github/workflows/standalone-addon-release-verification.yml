@@ -1,0 +1,67 @@
+name: Standalone Addon Release Verification
+on:
+  push:
+    branches: ['audit/reconcile-four-addons-r103']
+    paths: ['.github/workflows/standalone-addon-release-verification.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download and inspect all45 raw release JARs matching the published selection
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence downloads
+          python3 - <<'PY'
+          import concurrent.futures,hashlib,io,json,re,subprocess,zipfile
+          from pathlib import Path
+          def api(path):return json.loads(subprocess.check_output(['gh','api',path],timeout=120))
+          def get(url,path):
+              subprocess.run(['curl','-fLsS','--retry','3','--max-time','180',url,'-o',str(path)],check=True,timeout=600)
+              return path.read_bytes()
+          release=api('repos/wickidcow/Slimefun-Legacy/releases/tags/v4.1.63')
+          asset=next(a for a in release['assets'] if a['name']=='SF_Addons_1.21.11-26.3.zip')
+          assert asset['id']==604420179
+          bundle=get(asset['browser_download_url'],Path('downloads/bundle.zip'))
+          assert hashlib.sha256(bundle).hexdigest()=='28a09e13888c2fbe5f3761bf6c7fa24288e8ae100e3623a25f2513a5df44a3f8'
+          with zipfile.ZipFile(io.BytesIO(bundle)) as z:
+              manifest=json.loads(z.read('SF_ADDON_MANIFEST.json'));records=manifest['addons'];assert len(records)==45
+              expected={r['repository']:z.read(r['jar']) for r in records}
+          def descriptor(data):
+              with zipfile.ZipFile(io.BytesIO(data)) as z:
+                  assert z.testzip() is None
+                  n=next(n for n in ['plugin.yml','paper-plugin.yml','paper-plugin.yaml'] if n in z.namelist())
+                  text=z.read(n).decode('utf-8')
+                  field=lambda key:re.search(r'''(?m)^'''+key+r''':\s*['"]?([^'"\r\n]+)''',text).group(1).strip()
+                  majors=[int.from_bytes(z.read(n)[6:8],'big') for n in z.namelist() if n.endswith('.class') and not n.startswith('META-INF/versions/')]
+                  return dict(name=field('name'),version=field('version'),max_base_major=max(majors),classes=len(majors),test_packages=any(n.startswith(('org/junit/','org/mockbukkit/','org/mockito/','audit/')) for n in z.namelist()))
+          def inspect(row):
+              repo=row['repository'];result=dict(repository=repo,selected_commit=row['commit'],bundle_version=row['version'])
+              try:
+                  tag='v'+row['version'];rel=api('repos/'+repo+'/releases/tags/'+tag)
+                  assert not rel['draft'] and not rel['prerelease']
+                  jars=[a for a in rel['assets'] if a['name'].endswith('.jar') and not a['name'].endswith(('-sources.jar','-javadoc.jar'))]
+                  assert len(jars)==1,(repo,[a['name'] for a in jars])
+                  a=jars[0];raw=get(a['browser_download_url'],Path('downloads',repo.split('/')[1]+'.jar'))
+                  digest=hashlib.sha256(raw).hexdigest();assert a['digest']=='sha256:'+digest and len(raw)==a['size']
+                  pub=descriptor(raw);bundled=descriptor(expected[repo])
+                  assert pub['name']==bundled['name'] and pub['version']==row['version'] and not pub['test_packages'],(pub,bundled)
+                  result.update(status='PASS',tag=tag,asset_id=a['id'],filename=a['name'],sha256=digest,descriptor=pub,java21_bytecode=pub['max_base_major']<=65,bundle_sha256=hashlib.sha256(expected[repo]).hexdigest(),byte_identical_to_bundle=raw==expected[repo])
+              except Exception as error:result.update(status='FAIL',error=str(error))
+              return result
+          with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:results=list(pool.map(inspect,records))
+          summary=dict(bundle_asset=asset['id'],bundle_sha256=hashlib.sha256(bundle).hexdigest(),records=results,passed=sum(r['status']=='PASS' for r in results),failed=sum(r['status']!='PASS' for r in results),java21_incompatible=[r['repository'] for r in results if r.get('java21_bytecode') is False],scope='Actual raw release identity/hash/archive/bytecode checks, not runtime or same-byte guarantee for separately rebuilt Maven JARs')
+          Path('evidence/standalone-releases.json').write_text(json.dumps(summary,indent=2)+'\n')
+          print(json.dumps({k:v for k,v in summary.items() if k!='records'},indent=2))
+          assert summary['failed']==0,'See exact failed release identities in evidence; no source or release changed'
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: standalone-addon-release-evidence
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
