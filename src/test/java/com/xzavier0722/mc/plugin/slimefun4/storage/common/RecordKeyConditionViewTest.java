@@ -81,7 +81,8 @@ class RecordKeyConditionViewTest {
         assertThrows(UnsupportedOperationException.class, view::clear);
         assertThrows(UnsupportedOperationException.class, () -> view.replaceAll(pair -> pair));
         assertThrows(UnsupportedOperationException.class, () -> view.sort((left, right) -> 0));
-        assertThrows(UnsupportedOperationException.class, () -> view.subList(0, 0).clear());
+        assertThrows(
+                UnsupportedOperationException.class, () -> view.subList(0, 0).clear());
         assertThrows(UnsupportedOperationException.class, () -> view.reversed().add(condition("new")));
     }
 
