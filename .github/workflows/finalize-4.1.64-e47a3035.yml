@@ -1,0 +1,149 @@
+name: Finalize Verified 4.1.64 e47a3035
+
+on:
+  push:
+    branches: ['validation/finalize-4.1.64-e47a3035']
+    paths: ['.github/workflows/finalize-4.1.64-e47a3035.yml']
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: dispatch-verified-slimefun-4.1.64
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Validate the combined source and every final gate before dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, json, os, subprocess, time
+          from pathlib import Path
+          REPO='wickidcow/Slimefun-Legacy'
+          SOURCE='e47a3035b35dfb93325d22ba03b2a69dd6cd6992'
+          REF='release/verified-4.1.64-e47a3035'
+          MATRIX_HASH='314d6a83931f887d7dbe17271c44327d3d39f5feb7792ab48c38a40f7a7e1f36'
+          REQUIRED={
+              'Build Slimefun Legacy', 'Build SF Addons 1.21.11-26.3 Bundle',
+              'Paper 26.2 / 26.3 Full Stack Smoke', 'Reproducible Release',
+              'Proxy Runtime Smoke', 'Paper/Purpur 1.21.11 Compatibility',
+              'Paper 26.2 Runtime Smoke', 'Required Addon Runtime Smoke',
+              'Paper 26.3 Maintained Addon Compile', 'Purpur/Folia/Leaf 26.2 Runtime Smoke',
+          }
+          def require(value, message):
+              if not value: raise RuntimeError(message)
+          def api(path, absent_ok=False):
+              p=subprocess.run(['gh','api','--method','GET',f'repos/{REPO}/{path}'],capture_output=True,text=True,timeout=90)
+              if p.returncode:
+                  if absent_ok and 'HTTP 404' in p.stderr: return None
+                  raise RuntimeError(f'GitHub read failed for {path}: {p.stderr}')
+              return json.loads(p.stdout)
+          def content(path, ref=SOURCE):
+              return base64.b64decode(api(f'contents/{path}?ref={ref}')['content'])
+          def refs():
+              require(api('git/ref/heads/master')['object']['sha']==SOURCE,'Master advanced; reconcile before publication')
+              require(api('git/ref/heads/'+REF)['object']['sha']==SOURCE,'Frozen release ref changed')
+          def runs(head, event):
+              data=api(f'actions/runs?head_sha={head}&event={event}&per_page=100')
+              require(data['total_count']<=100,'Uninspected workflow pagination')
+              latest={}
+              for r in data['workflow_runs']:
+                  require(r['head_sha']==head and r['event']==event,'Unexpected run identity')
+                  if r['path'] not in latest or r['id']>latest[r['path']]['id']: latest[r['path']]=r
+              return list(latest.values())
+          def jobs(run):
+              result=[]
+              for page in range(1,21):
+                  data=api(f"actions/runs/{run['id']}/jobs?filter=latest&per_page=100&page={page}")
+                  result.extend(data['jobs'])
+                  if len(result)>=data['total_count']: break
+              require(len(result)==data['total_count'] and len({j['id'] for j in result})==len(result),'Uninspected or duplicate jobs')
+              require(all(j['status']=='completed' and j['conclusion'] in {'success','skipped'} for j in result),f"Unsuccessful child job in run {run['id']}")
+              return result
+          require(os.environ.get('GITHUB_REPOSITORY')==REPO,'Wrong repository')
+          Path('dispatch-evidence').mkdir()
+          refs()
+          matrix_bytes=content('compatibility/sfl-addon-release-matrix.json')
+          require(hashlib.sha256(matrix_bytes).hexdigest()==MATRIX_HASH,'Revision104 matrix changed')
+          matrix=json.loads(matrix_bytes)
+          require(matrix['bundle_revision']==104 and len(matrix['addons'])==45,'Wrong addon membership')
+          require('projectVersion=4.1.64\n' in content('gradle.properties').decode(),'Wrong version')
+          require(api(f'contents/.github/workflows/reproducible-release.yml?ref={SOURCE}')['sha']=='5928b5bd190c7005931abd75b111576aac0e4d4c','Existing publisher changed')
+          changes=api('compare/d40e4482eefc52c0a52bd5be59ae82471a6b0e65...'+SOURCE)
+          require(changes['status']=='ahead' and {f['filename'] for f in changes['files']}=={
+              '.github/workflows/paper-26.3-addon-compile.yml','gradle.properties','scripts/test_addon_provider_bootstrap.py'
+          },'Provider merge changed production code or addon selections')
+          pr_evidence=[]
+          for number,head,min_runs in (
+              (300,'b708e6c8eab266c00e65441bc0f44c9670f14610',14),
+              (302,'24ba067054549fd7b2df83ee068e842c4ea72031',11),
+              (303,'5ebeedbac5f9b91322d55635c515b41361b2b895',12),
+          ):
+              pr=api(f'pulls/{number}')
+              require(pr['merged'] and pr['head']['sha']==head,f'PR{number} changed or not merged')
+              relation=api(f'compare/{pr["merge_commit_sha"]}...{SOURCE}')
+              require(relation['status'] in {'ahead','identical'},f'PR{number} not retained')
+              checked=runs(head,'pull_request')
+              require(len(checked)>=min_runs and all(r['status']=='completed' and r['conclusion']=='success' for r in checked),f'PR{number} gates incomplete')
+              pr_evidence.append({'number':number,'head':head,'merge':pr['merge_commit_sha'],'runs':checked})
+          deadline=time.monotonic()+1800
+          while True:
+              refs()
+              current=runs(SOURCE,'push')
+              require(all(r['head_branch']=='master' for r in current),'Unexpected master build branch')
+              failed=[r for r in current if r['status']=='completed' and r['conclusion']!='success']
+              require(not failed, 'Final source checks failed: '+str([(r['name'],r['conclusion']) for r in failed]))
+              Path('dispatch-evidence/current-runs.json').write_text(json.dumps(current,indent=2))
+              if REQUIRED.issubset({r['name'] for r in current}) and all(r['status']=='completed' and r['conclusion']=='success' for r in current): break
+              require(time.monotonic()<deadline,'Exact-source checks did not finish within this bounded run')
+              print('Final checks:',[(r['name'],r['status']) for r in current],flush=True)
+              time.sleep(20)
+          child_jobs={r['name']:jobs(r) for r in current}
+          expected={r['repository'] for r in matrix['addons']}
+          compiler=child_jobs['Paper 26.3 Maintained Addon Compile']
+          prefix='Primary 26.3 compile - '
+          targets=[j for j in compiler if j['name'].startswith(prefix)]
+          require(len(targets)==45 and {j['name'][len(prefix):] for j in targets}==expected,'Full 45-addon compiler scope not verified')
+          require(all(j['conclusion']=='success' for j in targets),'An addon compiler was skipped or failed')
+          bundle=child_jobs['Build SF Addons 1.21.11-26.3 Bundle']
+          targets=[j for j in bundle if j['name'].startswith('Verify ')]
+          require(len(targets)==45 and {j['name'][7:] for j in targets}==expected and all(j['conclusion']=='success' for j in targets),'Canonical addon set not fully built')
+          require(any(j['name']=='Package canonical addon bundle' and j['conclusion']=='success' for j in bundle),'Bundle packaging missing')
+          full=child_jobs['Paper 26.2 / 26.3 Full Stack Smoke']
+          for name in ('Full stack Paper 1.21.11','Full stack Paper 26.2','Full stack Paper 26.3'):
+              require(any(j['name']==name and j['conclusion']=='success' for j in full),'Missing successful '+name)
+          old=api('releases/tags/v4.1.63')
+          assets={a['name']:a for a in old['assets']}
+          require(len(assets)==len(old['assets'])==2,'Previous release asset set changed')
+          for name,aid,digest in (
+              ('Slimefun-Legacy4.1.63.jar',603654347,'993b257c54efe19b58cc8f4946d4d39387f7787fe263c9f27123343159344c42'),
+              ('SF_Addons_1.21.11-26.3.zip',604494714,'e6ba58c00d843f445d8292435645fc3bda0902cfa38fd986fc2e6a9e3ca87ca8'),
+          ):
+              require(assets[name]['id']==aid and assets[name]['digest']=='sha256:'+digest,'Previous release bytes changed')
+          require(api('git/ref/tags/v4.1.63')['object']['sha']=='2703e3a500b426849f3eb7806862bb4343bb9d6a','Previous tag changed')
+          require(api('releases/tags/v4.1.64',absent_ok=True) is None,'4.1.64 already published; do not overwrite')
+          require(api('git/ref/tags/v4.1.64',absent_ok=True) is None,'4.1.64 tag already exists; inspect first')
+          active=runs(SOURCE,'workflow_dispatch')
+          require(not any(r['path']=='.github/workflows/reproducible-release.yml' for r in active),'An existing publisher run must be inspected first')
+          refs()
+          evidence={'release_source':SOURCE,'release_ref':REF,'matrix_sha256':MATRIX_HASH,'addon_count':45,'pr_evidence':pr_evidence,'master_runs':current,'child_jobs':child_jobs,'previous_release':old}
+          Path('dispatch-evidence/verified-gates.json').write_text(json.dumps(evidence,indent=2))
+          subprocess.run(['gh','workflow','run','reproducible-release.yml','--repo',REPO,'--ref',REF],check=True,timeout=90)
+          Path('dispatch-evidence/dispatch.txt').write_text('Dispatched existing reproducible-release.yml at '+SOURCE+'\n')
+          print('Verified gates passed. Existing publisher dispatched at the frozen source.',flush=True)
+          PY
+      - name: Retain complete gate results and dispatch receipt
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-4.1.64-finalization-e47a3035
+          path: dispatch-evidence/
+          if-no-files-found: error
+          retention-days: 90
