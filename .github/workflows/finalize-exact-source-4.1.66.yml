@@ -1,0 +1,99 @@
+name: Finalize 4.1.66 With Exact Source API Gates
+on:
+  push:
+    branches: ['audit/finalize-4.1.66-20261002']
+    paths: ['.github/workflows/finalize-exact-source-4.1.66.yml']
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: finalize-slimefun-4.1.66-exact-source
+  cancel-in-progress: false
+jobs:
+  verify-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Run missing manual API gates without dropping any original publication assertion
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence release-files
+          python3 - <<'PY'
+          import ast, hashlib, json, subprocess, textwrap, time
+          from pathlib import Path
+          path=Path('.github/workflows/finalize-4.1.66.yml')
+          data=path.read_bytes()
+          assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()=='8ec6a8e12f20a0226d472fd5fa41efd0429d5929'
+          text=data.decode()
+          assert text.count("          python3 - <<'PY'\n")==1
+          original=textwrap.dedent(text.split("          python3 - <<'PY'\n",1)[1].split('\n          PY\n',1)[0])
+          ast.parse(original)
+
+          # The original dispatcher requires three PR/manual-only workflow names among
+          # push runs. Keep those gates and dispatch them at the identical frozen SHA.
+          source=original
+          def replace(old,new):
+              global source
+              assert source.count(old)==1,(old,source.count(old))
+              source=source.replace(old,new)
+          injection='''MANUAL_WORKFLOWS = {
+              '.github/workflows/api-compatibility.yml': 'Public API Compatibility',
+              '.github/workflows/compatibility-ci.yml': 'Slimefun Compatibility',
+              '.github/workflows/paper-26.3-preflight.yml': 'Paper 26.3 Primary Preflight',
+          }
+          old_dispatcher=api(f'{API}/actions/runs/37062641750')
+          assert old_dispatcher['head_sha']=='ff879e63e58739f0f4a9e9aa29cc964c030a2de0'
+          assert old_dispatcher['path']=='.github/workflows/finalize-4.1.66.yml'
+          assert api(f'{API}/releases/tags/v{VERSION}',missing=True) is None
+          if old_dispatcher['status']!='completed':
+              api(f'{API}/actions/runs/37062641750/cancel',{})
+              for cancel_attempt in range(30):
+                  if api(f'{API}/actions/runs/37062641750')['status']=='completed':break
+                  time.sleep(2)
+              else:raise RuntimeError('Prior dispatcher still active; do not run two publishers')
+          write('prior-dispatcher.json',dict(run=37062641750,reason='It waits for PR/manual-only workflows in a push-only query; no failed production check was removed.'))
+          for workflow,name in MANUAL_WORKFLOWS.items():
+              api(f'{API}/actions/workflows/{workflow.rsplit("/",1)[1]}/dispatches',{'ref':REF})
+          write('extra-source-gates.json',dict(source=SHA,ref=REF,workflows=MANUAL_WORKFLOWS,
+              preserved_master_push_groups=12,required_extra_groups=3))
+          '''
+          replace('latest = {}\nfor attempt in range(120):',textwrap.dedent(injection)+'\nlatest = {}\nfor attempt in range(120):')
+          needle="    runs = pages(f'{API}/actions/runs?head_sha={SHA}&branch=master&event=push', 'workflow_runs')"
+          addition="\n    manual = pages(f'{API}/actions/runs?head_sha={SHA}&branch={quote(REF, safe=\"\")}&event=workflow_dispatch', 'workflow_runs')\n    runs += [r for r in manual if r['path'] in MANUAL_WORKFLOWS]"
+          replace(needle,needle+addition)
+          replace("        assert run['head_sha'] == SHA and run['head_branch'] == 'master' and run['event'] == 'push'",
+                  "        assert run['head_sha'] == SHA and ((run['head_branch'] == 'master' and run['event'] == 'push') or (run['head_branch'] == REF and run['event'] == 'workflow_dispatch' and run['path'] in MANUAL_WORKFLOWS))")
+          replace("('id', 'name', 'path', 'head_sha', 'status', 'conclusion', 'run_attempt')",
+                  "('id', 'name', 'path', 'head_sha', 'status', 'conclusion', 'run_attempt', 'event', 'head_branch')")
+          replace('if len(latest) >= 12 and required_names <= set(latest)',
+                  'if len(latest) >= 15 and required_names <= set(latest)')
+          replace('master_workflows=len(latest),',
+                  "source_workflows=len(latest), master_push_workflows=sum(r['event']=='push' for r in latest.values()), extra_manual_workflows=sum(r['event']=='workflow_dispatch' for r in latest.values()),")
+          ast.parse(source)
+          Path('evidence/executed-publication-verifier.py').write_text(source+'\n')
+          Path('evidence/verification-adaptation.json').write_text(json.dumps(dict(
+              original_blob='8ec6a8e12f20a0226d472fd5fa41efd0429d5929',
+              original_script_sha256=hashlib.sha256(original.encode()).hexdigest(),
+              executed_script_sha256=hashlib.sha256(source.encode()).hexdigest(),
+              scope='Run the three required PR/manual-only API checks on the frozen release commit, accept only those exact-source manual runs alongside all 12 successful push groups, and preserve every artifact/child-job/publication/previous-release assertion.'),indent=2))
+          exec(compile(source,'executed-publication-verifier.py','exec'),{'__name__':'__main__'})
+          PY
+      - name: Retain source-gate and publication receipt
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-4.1.66-exact-source-verification
+          path: evidence/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Retain downloaded verified release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: published-4.1.66-assets-verified
+          path: release-files/
+          retention-days: 30
+          if-no-files-found: error
