@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 103,
+  "bundle_revision": 104,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -256,7 +256,7 @@
       "repository": "wickidcow/SF_SlimeTinkerIE2",
       "slug": "slimetinkerie2",
       "artifact_base": "SlimeTinker",
-      "source_commit": "051a008d56bce6c1db40d93c7d5c3f3038421509"
+      "source_commit": "bdb2ba51ad946de686c50dc1745ba89053b4535d"
     },
     {
       "repository": "wickidcow/SF_SlimyTreeTaps",
