@@ -42,7 +42,7 @@ jobs:
               }
           }
           GRADLE
-          ./gradlew -I inputs/probe-classpath.gradle writeDelayedProbeClasspath --no-daemon > evidence/classpath.log 2>&1
+          ./gradlew -I inputs/probe-classpath.gradle writeDelayedProbeClasspath --no-daemon --no-configuration-cache > evidence/classpath.log 2>&1
           mkdir -p probe-classes
           javac --release 21 -cp "inputs/candidate.jar:$(cat inputs/classpath.txt)" -d probe-classes .audit/delayed-save/DelayedSaveProbe.java > evidence/probe-build.log 2>&1
           printf "name: DelayedSaveProbe\nmain: audit.DelayedSaveProbe\nversion: '1'\napi-version: '1.21.11'\ndepend: [Slimefun]\n" > probe-classes/plugin.yml
