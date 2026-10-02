@@ -1,0 +1,45 @@
+name: Guarded 4.1.65 Publication and Receipt
+on:
+  push:
+    branches: ['audit/publish-4.1.65-20261002']
+    paths: ['.github/workflows/guarded-4.1.65-publication.yml', 'audit-publication/publish_4_1_65.py']
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: guarded-publication-4.1.65
+  cancel-in-progress: false
+jobs:
+  publication:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Validate dispatcher syntax before any remote change
+        run: python3 -m py_compile audit-publication/publish_4_1_65.py
+      - name: Verify exact merged source, dispatch the unchanged publisher and inspect public assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p publication-evidence published-files
+          python3 -u audit-publication/publish_4_1_65.py 2>&1 | tee publication-evidence/dispatcher.log
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: slimefun-4.1.65-publication-receipt
+          path: publication-evidence/
+          retention-days: 30
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        with:
+          name: slimefun-4.1.65-published-files
+          path: published-files/
+          retention-days: 30
+          if-no-files-found: error
