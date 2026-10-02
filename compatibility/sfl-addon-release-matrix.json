@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 101,
+  "bundle_revision": 103,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -59,7 +59,7 @@
     {
       "repository": "wickidcow/SF_BetterChests",
       "slug": "betterchests",
-      "source_commit": "96134b3ae294a8c086f467bbe8a09f842aac8949"
+      "source_commit": "5c830e845d2849e0d8aea53414be8cba80af6775"
     },
     {
       "repository": "wickidcow/SF_BetterFarming",
@@ -69,7 +69,7 @@
     {
       "repository": "wickidcow/SF_BuildingStaff",
       "slug": "buildingstaff",
-      "source_commit": "d9def66dd07c1e7464843a723fc997af74beb673"
+      "source_commit": "9f017f4ca4cec5997c14ccd1e564a21b21ed16a0"
     },
     {
       "repository": "wickidcow/SF_CultivationLegacy",
@@ -131,7 +131,7 @@
     {
       "repository": "wickidcow/SF_FluffyMachines",
       "slug": "fluffymachines",
-      "source_commit": "a44d7e4845430a00627739a06fdb3df70baa47e1"
+      "source_commit": "91dc76b4e6d2024faeb1cbecace18c0a99b99aee"
     },
     {
       "repository": "wickidcow/SF_FNAmplifications",
@@ -214,7 +214,7 @@
       "repository": "wickidcow/SF_NetworksExp",
       "slug": "networksexp",
       "artifact_base": "Networks",
-      "source_commit": "5bc81686aa8e98275872d18e0ed39f83a3667c7c"
+      "source_commit": "ba79e6e36bd4798d37f7b8988efb414e7f041927"
     },
     {
       "repository": "wickidcow/SF_RelicsOfCthonia",
