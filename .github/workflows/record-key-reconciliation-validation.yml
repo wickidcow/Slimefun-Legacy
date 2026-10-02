@@ -1,0 +1,157 @@
+name: Record Key Reconciliation Validation
+on:
+  push:
+    branches: ['audit/record-key-reconciliation-20261002']
+    paths: ['.github/workflows/record-key-reconciliation-validation.yml']
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Preserve invariants and format only promoted test evidence
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/source evidence/negative evidence/corrected
+          python3 scripts/verify_legacy.py . > evidence/source-invariants.log 2>&1
+          chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon > evidence/format.log 2>&1
+          FILE=src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/common/RecordKey.java
+          cp "$FILE" "$RUNNER_TEMP/corrected-RecordKey.java"
+          git fetch --depth=1 origin a21f77de30831d3ca69ef92b137771e115014376
+          git show a21f77de30831d3ca69ef92b137771e115014376:"$FILE" > "$FILE"
+      - name: Require the original subview regression to fail by assertion
+        run: |
+          set -euo pipefail
+          STATUS=0
+          ./gradlew test --tests '*RecordKeyConditionViewTest' --no-daemon --no-build-cache --no-configuration-cache > evidence/negative.log 2>&1 || STATUS=$?
+          test "$STATUS" -ne 0
+          cp build/test-results/test/TEST-*.xml evidence/negative/
+          python3 - <<'PY'
+          import json, xml.etree.ElementTree as ET
+          from pathlib import Path
+          roots=[ET.parse(p).getroot() for p in Path('evidence/negative').glob('TEST-*.xml')]
+          totals={k:sum(int(r.attrib[k]) for r in roots) for k in ['tests','failures','errors','skipped']}
+          assert totals==dict(tests=8,failures=4,errors=0,skipped=0),totals
+          for root in roots:
+              for failure in root.iter('failure'):
+                  assert failure.get('type')=='org.opentest4j.AssertionFailedError',failure.attrib
+          Path('evidence/negative-result.json').write_text(json.dumps(totals,indent=2)+'\n')
+          PY
+      - name: Restore the fix and verify all condition and collection tests
+        run: |
+          set -euo pipefail
+          cp "$RUNNER_TEMP/corrected-RecordKey.java" src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/common/RecordKey.java
+          ./gradlew test --tests '*RecordKey*Test' --no-daemon --no-build-cache --no-configuration-cache > evidence/corrected.log 2>&1
+          cp build/test-results/test/TEST-*.xml evidence/corrected/
+          python3 - <<'PY'
+          import json,xml.etree.ElementTree as ET
+          from pathlib import Path
+          roots=[ET.parse(p).getroot() for p in Path('evidence/corrected').glob('TEST-*.xml')]
+          totals={k:sum(int(r.attrib[k]) for r in roots) for k in ['tests','failures','errors','skipped']}
+          assert totals==dict(tests=40,failures=0,errors=0,skipped=0),totals
+          Path('evidence/corrected-result.json').write_text(json.dumps(totals,indent=2)+'\n')
+          PY
+          cp src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/common/RecordKeyConditionViewTest.java evidence/source/
+      - name: Prepare only the next version's metadata without publishing
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,subprocess
+          from pathlib import Path
+          # Work from the exact unformatted commit again. Do not promote incidental formatting.
+          subprocess.run(['git','restore','.'],check=True)
+          paths=['README.md','gradle.properties','compatibility/addon-compatibility-matrix.json','compatibility/core-api-registry.json','compatibility/cross-fork-api-matrix.json','compatibility/support-contract.json','compatibility/release-baselines.json']
+          for name in paths:
+              path=Path(name)
+              text=path.read_text()
+              if name=='compatibility/release-baselines.json':
+                  document=json.loads(text)
+                  assert document['candidate']['version']=='4.1.65'
+                  assert document['previous_stable']['version']=='4.1.64'
+                  assert document['previous_stable']['source']['ref']=='e47a3035b35dfb93325d22ba03b2a69dd6cd6992'
+                  document['candidate']['version']='4.1.66'
+                  document['previous_stable']['version']='4.1.65'
+                  document['previous_stable']['source']['ref']='82427167200e1b349b53c8c81f2373a5b36e340f'
+                  text=json.dumps(document,indent=2)+'\n'
+              elif name.startswith('compatibility/'):
+                  assert text.count('"release": "4.1.65"')==1
+                  text=text.replace('"release": "4.1.65"','"release": "4.1.66"')
+              else:
+                  assert '4.1.65' in text
+                  text=text.replace('4.1.65','4.1.66').replace('4.1.64','4.1.65')
+                  text=text.replace('Inventory Snapshot & Record-Key Safety','Record Condition Ownership Safety')
+                  text=text.replace('Inventory snapshot and record-key ownership safety','Record condition ownership and retained-view safety')
+              path.write_text(text)
+          notes=Path('docs/releases/4.1.66.md')
+          notes.write_text('''# Slimefun Legacy 4.1.66
+
+This maintenance release isolates mutable query-condition entries from record-key identity while preserving the complete 45-addon revision-106 selection. The previous published stable baseline is 4.1.65 at `82427167200e1b349b53c8c81f2373a5b36e340f`.
+
+## Record selection safety
+
+An externally changed condition pair could redirect a generated SQL condition while the cached key still described the original record. RecordKey now owns constructor entries and returns detached entries through its structurally read-only live view. Explicit addCondition operations, condition order, duplicate and opaque values, public descriptors, and normal key equality/text rules remain intact. A caller can edit an exported pair without modifying the underlying query.
+
+Retained sublists delegate structural-change checks to the real linked backing list. Root views remain live and fresh sublists remain available after supported additions. This preserves single-threaded invalidation behavior, not a guarantee for concurrent mutation of query keys.
+
+## Existing data and addons
+
+No item/research IDs, field names or types, inventory codecs, SQL schemas, backpack/storage identities, recipes, menus, capacities, machine output rates, transfer priorities, save cadence or migration defaults change. No data conversion or repair is automatically enabled, and this fix cannot reconstruct earlier misdirected operations.
+
+All 45 revision-106 addon source selections remain unchanged and must be rebuilt against the exact release core. Existing standalone addon versions are retained; no new addon version is invented merely to refresh the aggregate ZIP. The core is published as a raw drop-in JAR and the full addon set as SF_Addons_1.21.11-26.3.zip.
+
+## Validation scope
+
+The correction has focused ownership/view regression tests, original-code negative controls and generated JDBC SQLite SELECT/UPDATE/DELETE tests using the actual SQL renderer and reopened disk stores. Its release requires the versioned core/API checks, full maintained compiler, matching 45-addon build, supported-platform restart checks and byte-identical clean-build publication checks. Earlier patch or PR evidence is not relabeled as the release's results.
+
+These tests do not certify every captured customer world, populated machine, live-client interaction, MySQL/PostgreSQL deployment, Folia region interaction, crash, future server API or cross-fork rollback. Minecraft 1.21.11 remains the runtime floor, not the age limit of saved items. Paper 26.3 remains the primary target with Paper/Purpur prioritized and derivative-server safety qualified. No measured TPS gain is claimed.
+
+## Installation
+
+Stop the server normally and back up worlds, player data, plugin directories and databases. Test the matching core and intended addons on a disposable copy. Replace existing JARs rather than leaving duplicate old/new files, and do not use live reload. Keep existing registrations and migration settings unless deliberately changing them. Review startup logs and /sf doctor before optional repairs; unreadable records are recovery tasks, not empty inventories to overwrite.
+''')
+          paths.append(str(notes))
+          base='6a927285cb2d7a73e72818289d7b0cd5f9e05b8f'
+          for path in ['src/main','src/test','compatibility/sfl-addon-release-matrix.json','compatibility/maintained-addon-test-ledger.json']:
+              assert not subprocess.check_output(['git','diff',base,'--',path]),path
+          for name in paths:
+              target=Path('evidence/release-source')/name
+              target.parent.mkdir(parents=True,exist_ok=True)
+              target.write_bytes(Path(name).read_bytes())
+          Path('evidence/release-paths.json').write_text(json.dumps(paths,indent=2)+'\n')
+          PY
+          python3 scripts/verify_legacy.py . > evidence/release-invariants.log 2>&1
+          git diff --check
+      - name: Stage tested source and checked metadata blobs without moving refs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,subprocess
+          paths=json.loads(Path('evidence/release-paths.json').read_text())
+          records={}
+          for name in paths+['src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/common/RecordKeyConditionViewTest.java']:
+              path=Path('evidence/source/RecordKeyConditionViewTest.java') if name.startswith('src/test/') else Path(name)
+              data=path.read_bytes()
+              sha=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+              result=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps(dict(content=data.decode(),encoding='utf-8')),capture_output=True,text=True,check=True)
+              assert json.loads(result.stdout)['sha']==sha
+              records[name]=sha
+          Path('evidence/reviewed-blobs.json').write_text(json.dumps(records,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: record-key-reconciliation-evidence
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
