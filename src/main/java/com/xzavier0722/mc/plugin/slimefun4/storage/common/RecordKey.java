@@ -18,19 +18,20 @@ public class RecordKey extends ScopeKey {
 
     @ParametersAreNonnullByDefault
     public RecordKey(DataScope scope) {
-        this(scope, new HashSet<>());
+        this(scope, Collections.emptySet());
     }
 
     @ParametersAreNonnullByDefault
     public RecordKey(DataScope scope, Set<FieldKey> fields) {
-        this(scope, fields, new LinkedList<>());
+        this(scope, fields, Collections.emptyList());
     }
 
     @ParametersAreNonnullByDefault
     public RecordKey(DataScope scope, Set<FieldKey> fields, List<Pair<FieldKey, String>> conditions) {
         super(scope);
-        this.fields = fields.isEmpty() ? fields : new HashSet<>(fields);
-        this.conditions = conditions.isEmpty() ? conditions : new LinkedList<>(conditions);
+        // Own both collections even when a caller supplies an empty or immutable input.
+        this.fields = fields.isEmpty() ? new HashSet<>() : new HashSet<>(fields);
+        this.conditions = conditions.isEmpty() ? new LinkedList<>() : new LinkedList<>(conditions);
     }
 
     @ParametersAreNonnullByDefault
