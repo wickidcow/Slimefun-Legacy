@@ -1,0 +1,237 @@
+name: Revision 106 Published Core and Native Stack
+on:
+  push:
+    branches: ['audit/reconcile-addon-r106']
+    paths: ['.github/workflows/r106-published-core-validation.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: 4df8de0cc8c31c8600ed1161a729ce30e177cc34
+          path: tooling
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Verify the successful exact-source bundle and immutable published core
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p inputs evidence verify-jars
+          python3 - <<'PY'
+          import hashlib, io, json, re, subprocess, sys, time, zipfile
+          from pathlib import Path
+          sys.path.insert(0,'tooling/scripts')
+          from verify_addon_bytecode import inspect_jar
+          repo='repos/wickidcow/Slimefun-Legacy'
+          head='4df8de0cc8c31c8600ed1161a729ce30e177cc34'
+          merge='72f2130c1cee0db4f5f32e862858a2273b8e973c'
+          run_id=36959561527
+          def api(path):
+              return subprocess.run(['gh','api',path],check=True,capture_output=True,timeout=120).stdout
+          for attempt in range(108):
+              run=json.loads(api(f'{repo}/actions/runs/{run_id}'))
+              assert run['head_sha']==head and run['path']=='.github/workflows/build-sfl-addons-compat-bundle.yml'
+              if run['status']=='completed': break
+              time.sleep(10)
+          assert run['status']=='completed' and run['conclusion']=='success',run['conclusion']
+          artifacts=json.loads(api(f'{repo}/actions/runs/{run_id}/artifacts?per_page=100'))['artifacts']
+          selected=[a for a in artifacts if a['name']=='SF_Addons_1.21.11-26.3' and not a['expired']]
+          assert len(selected)==1
+          meta=selected[0]
+          assert meta['workflow_run']['head_sha']==head
+          raw=api(f"{repo}/actions/artifacts/{meta['id']}/zip")
+          assert meta['digest']=='sha256:'+hashlib.sha256(raw).hexdigest()
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              assert z.testzip() is None
+              bundle=z.read('SF_Addons_1.21.11-26.3.zip')
+          source=json.loads(Path('tooling/compatibility/sfl-addon-release-matrix.json').read_text())
+          assert source['bundle_revision']==106
+          expected={a['repository']:a['source_commit'] for a in source['addons']}
+          assert len(expected)==45
+          required_versions={'wickidcow/SF_JustEnoughGuide':'2.1.70','wickidcow/SF_ExtraHeads':'1.0.4','wickidcow/SF_FluffyMachines':'26.2.14'}
+          names=[];reports=[]
+          with zipfile.ZipFile(io.BytesIO(bundle)) as z:
+              assert z.testzip() is None and len(z.namelist())==len(set(z.namelist()))
+              manifest=json.loads(z.read('SF_ADDON_MANIFEST.json'))
+              assert manifest['core_source_commit']==merge
+              assert len(manifest['addons'])==45
+              assert {a['repository']:a['commit'] for a in manifest['addons']}==expected
+              assert {n for n in z.namelist() if n.endswith('.jar')}=={a['jar'] for a in manifest['addons']}
+              for row in manifest['addons']:
+                  name=row['jar'];assert Path(name).name==name
+                  data=z.read(name);assert hashlib.sha256(data).hexdigest()==row['sha256']
+                  path=Path('verify-jars',name);path.write_bytes(data)
+                  report=inspect_jar(path,21);assert report['result']=='PASS',report
+                  with zipfile.ZipFile(io.BytesIO(data)) as jar:
+                      assert jar.testzip() is None
+                      descriptor=next(n for n in ['plugin.yml','paper-plugin.yml','paper-plugin.yaml'] if n in jar.namelist())
+                      text=jar.read(descriptor).decode()
+                      get=lambda key:re.search(r'''(?m)^'''+key+r''':\s*['"]?([^'"\r\n]+)''',text).group(1).strip()
+                      plugin,version=get('name'),get('version')
+                      assert '\t' not in plugin+version
+                      if row['repository'] in required_versions:assert version==required_versions[row['repository']]
+                      assert not any(n.startswith(('org/junit/','org/mockbukkit/','audit/')) for n in jar.namelist())
+                      if row['repository']=='wickidcow/SF_JustEnoughGuide':
+                          assert 'com/balugaq/jeg/utils/clickhandler/OnDisplay$ItemGroup.class' in jar.namelist()
+                  names.append((plugin,version))
+                  report.update(repository=row['repository'],commit=row['commit'],sha256=row['sha256'],plugin=plugin,version=version)
+                  reports.append(report)
+              Path('inputs/SF_ADDON_MANIFEST.json').write_bytes(z.read('SF_ADDON_MANIFEST.json'))
+          assert len({name for name,version in names})==45
+          Path('inputs/expected-addon-versions.tsv').write_text(''.join(name+'\t'+version+'\n' for name,version in sorted(names)))
+          Path('inputs/addons.zip').write_bytes(bundle)
+          release=json.loads(api(f'{repo}/releases/tags/v4.1.64'))
+          assert release['id']==401503556 and not release['draft'] and not release['prerelease']
+          assert release['target_commitish']=='e47a3035b35dfb93325d22ba03b2a69dd6cd6992'
+          asset=next(a for a in release['assets'] if a['name']=='Slimefun-Legacy4.1.64.jar')
+          assert asset['id']==604656009 and asset['digest']=='sha256:316b308139e90981ed037d82ddc57b62b354d8e0a41804d5ebf3bb2b8f896d80'
+          subprocess.run(['curl','--fail','--location','--silent','--show-error','--retry','3','--max-time','180',asset['browser_download_url'],'-o','inputs/core.jar'],check=True)
+          core_sha=hashlib.sha256(Path('inputs/core.jar').read_bytes()).hexdigest()
+          assert 'sha256:'+core_sha==asset['digest']
+          with zipfile.ZipFile('inputs/core.jar') as z:
+              assert z.testzip() is None
+              properties=z.read('git.properties').decode()
+              assert 'git.source.commit=e47a3035b35dfb93325d22ba03b2a69dd6cd6992' in properties
+              Path('inputs/core-git.properties').write_text(properties)
+          # Exact native probe is reused, not recompiled or substituted into the release ZIP.
+          prior=api(f'{repo}/actions/artifacts/11207535252/zip')
+          assert hashlib.sha256(prior).hexdigest()=='4f0cc9e39964cc2e62bc58b8a2821909ca353f95613ef4814a737e581ac60815'
+          with zipfile.ZipFile(io.BytesIO(prior)) as z:probe=z.read('CrafterProbe.jar')
+          assert hashlib.sha256(probe).hexdigest()=='c36f46080f3881c5db411811f5c770b8118b19eeaa4b998ebf03082802e014df'
+          Path('inputs/CrafterProbe.jar').write_bytes(probe)
+          record=dict(head=head,tested_merge=merge,canonical_run=run_id,bundle_artifact=meta,bundle_sha256=hashlib.sha256(bundle).hexdigest(),core_asset=asset,core_sha256=core_sha,native_probe_sha256=hashlib.sha256(probe).hexdigest(),addons=reports,release_approved=False)
+          Path('inputs/provenance.json').write_text(json.dumps(record,indent=2)+'\n')
+          Path('evidence/provenance.json').write_text(json.dumps(record,indent=2)+'\n')
+          print('Exact combined45-addon archive and original published4.1.64 core verified.')
+          PY
+      - name: Compile read-only state probe against the supported API floor
+        run: |
+          mkdir -p probe-build/classes
+          cat > probe-build/pom.xml <<'XML'
+          <project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion><groupId>audit</groupId><artifactId>bundle-state-probe</artifactId><version>1</version><repositories><repository><id>paper</id><url>https://repo.papermc.io/repository/maven-public/</url></repository></repositories><dependencies><dependency><groupId>io.papermc.paper</groupId><artifactId>paper-api</artifactId><version>1.21.11-R0.1-SNAPSHOT</version></dependency></dependencies></project>
+          XML
+          mvn -B -ntp -f probe-build/pom.xml dependency:build-classpath -Dmdep.outputFile=classpath.txt > evidence/probe-compile.log 2>&1
+          javac --release 21 -cp "$(cat probe-build/classpath.txt)" -d probe-build/classes audit-r106/BundleValidationProbe.java >> evidence/probe-compile.log 2>&1
+          printf "name: BundleValidationProbe\nmain: audit.BundleValidationProbe\nversion: '1'\napi-version: '1.21.11'\ndepend: [Slimefun]\n" > probe-build/classes/plugin.yml
+          jar --create --file inputs/BundleValidationProbe.jar -C probe-build/classes .
+          cp audit-r106/BundleValidationProbe.java evidence/
+          sha256sum inputs/*.jar inputs/addons.zip > inputs/SHA256SUMS
+          cp inputs/SHA256SUMS evidence/
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: revision106-published-core-preparation
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        with:
+          name: revision106-published-core-inputs
+          path: inputs/
+          retention-days: 14
+          if-no-files-found: error
+  runtime:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11','26.2','26.3']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 4df8de0cc8c31c8600ed1161a729ce30e177cc34
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: revision106-published-core-inputs
+          path: inputs
+      - name: Retain all runtime guards and wait for actual native and state completion
+        run: |
+          mkdir -p evidence
+          sha256sum -c inputs/SHA256SUMS
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          p=Path('scripts/full_stack_runtime_smoke.sh');old=p.read_bytes()
+          blob=lambda data:hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+          assert blob(old)=='95ca1d7ad860a4a14ad70be31cf4e11ad07e0690'
+          s=old.decode();anchor='cp "$SLIMEFUN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-full-stack.jar"\n'
+          inject='cp inputs/CrafterProbe.jar "$WORK_DIR/plugins/CrafterProbe.jar"\ncp inputs/BundleValidationProbe.jar "$WORK_DIR/plugins/BundleValidationProbe.jar"\ncp inputs/expected-addon-versions.tsv "$WORK_DIR/expected-addon-versions.tsv"\n'
+          assert s.count(anchor)==1;s=s.replace(anchor,anchor+inject)
+          anchor2='    sleep 8\n    stop_process "$pid" 3\n'
+          replacement='''    sleep 8
+              local probe_phase=initial
+              if [[ "$label" == second ]]; then probe_phase=restart; fi
+              local native_marker="CRAFTER_NATIVE_PASS mode=updated phase=$probe_phase"
+              local state_marker="R106_PLUGIN_STATE_PASS count=45 core=4.1.64 guideRenderer=linked"
+              local probe_deadline=$((SECONDS + 120))
+              while kill -0 "$pid" >/dev/null 2>&1 && (( SECONDS < probe_deadline )); do
+                  if grep -Eq 'CRAFTER_NATIVE_FAIL|R106_PLUGIN_STATE_FAIL' "$console"; then break; fi
+                  if grep -Fq "$native_marker" "$console" && grep -Fq "$state_marker" "$console"; then break; fi
+                  sleep 1
+              done
+              if ! grep -Fq "$native_marker" "$console" || ! grep -Fq "$state_marker" "$console" || grep -Eq 'CRAFTER_NATIVE_FAIL|R106_PLUGIN_STATE_FAIL' "$console"; then
+                  stop_process "$pid" 3; wait "$pid" >/dev/null 2>&1 || true; exec 3>&-
+                  cat "$console" >&2
+                  echo "Combined native/state validation did not complete: $label" >&2
+                  return 1
+              fi
+              stop_process "$pid" 3
+          '''
+          replacement='\n'.join(line[10:] if line.startswith('          ') else line for line in replacement.split('\n'))
+          assert s.count(anchor2)==1;s=s.replace(anchor2,replacement)
+          assert s.replace(anchor+inject,anchor).replace(replacement,anchor2).encode()==old
+          p.write_text(s)
+          Path('evidence/runtime-script.sh').write_text(s)
+          Path('evidence/scope.json').write_text(json.dumps(dict(original_blob=blob(old),runtime_blob=blob(s.encode()),change='Only disposable probe injection and bounded native/state completion wait; original guards and production JARs unchanged'),indent=2))
+          PY
+          bash -n scripts/full_stack_runtime_smoke.sh
+      - name: Run the exact combined stack with published4.1.64 and real machine fixtures
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+          SLIMEFUN_SMOKE_VERSION: '4.1.64'
+          MODE: updated
+        run: |
+          set -euo pipefail
+          bash scripts/full_stack_runtime_smoke.sh inputs/core.jar inputs/addons.zip build/revision106-stack
+          test "$(wc -l < build/revision106-stack/expected-addons.txt)" -eq 45
+          test ! -s build/revision106-stack/dependency-gated-addons.txt
+          for CYCLE in first second; do
+            grep -F 'R106_PLUGIN_STATE_PASS count=45 core=4.1.64 guideRenderer=linked' "build/revision106-stack/$CYCLE.normalized.log"
+          done
+          grep -F 'CRAFTER_NATIVE_PASS mode=updated phase=initial' build/revision106-stack/first.normalized.log
+          grep -F 'CRAFTER_NATIVE_PASS mode=updated phase=restart' build/revision106-stack/second.normalized.log
+          if grep -E 'CRAFTER_NATIVE_FAIL|R106_PLUGIN_STATE_FAIL|ERROR|SEVERE' build/revision106-stack/*.normalized.log; then exit 1; fi
+          printf 'PASS: complete combined archive, published4.1.64 core, all45 actual versions/enabled states, linked JEG renderer, real crafter checks and separate restart\n' > evidence/result.txt
+      - name: Preserve logs and exact input evidence even after failure
+        if: always()
+        run: |
+          mkdir -p evidence/runtime
+          cp inputs/provenance.json inputs/core-git.properties inputs/SF_ADDON_MANIFEST.json inputs/SHA256SUMS evidence/ || true
+          find build/revision106-stack -maxdepth 1 -type f \( -name '*.log' -o -name '*.txt' \) -exec cp {} evidence/runtime/ \; 2>/dev/null || true
+          if test -d build/revision106-stack/plugins/CrafterProbe; then cp -r build/revision106-stack/plugins/CrafterProbe evidence/; fi
+          if test -f build/revision106-stack/plugins/worldedit-runtime.json; then cp build/revision106-stack/plugins/worldedit-runtime.json evidence/; fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: revision106-published-core-${{ matrix.minecraft }}
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
