@@ -1,0 +1,34 @@
+name: Inspect Exact 4.1.66 Gate State
+on:
+  push:
+    branches: ['audit/finalize-4.1.66-20261002']
+    paths: ['.github/workflows/inspect-release-gates-4.1.66.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Read exact-source workflow state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence
+          gh api 'repos/wickidcow/Slimefun-Legacy/actions/runs?head_sha=22ae22c4e32fd3b086565922f4427206d0f4b065&branch=master&event=push&per_page=100' > evidence/raw.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('evidence/raw.json').read_text())
+          assert data['total_count']==len(data['workflow_runs'])
+          rows=[{k:r.get(k) for k in ['id','name','path','status','conclusion','event','head_sha','head_branch']} for r in data['workflow_runs']]
+          Path('evidence/summary.json').write_text(json.dumps(rows,indent=2))
+          print(json.dumps(rows,indent=2))
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: exact-master-gate-state-4.1.66
+          path: evidence/summary.json
+          retention-days: 7
+          if-no-files-found: error
