@@ -1,6 +1,8 @@
 package io.github.wickidcow.validation;
 
 import io.github.sefiraat.slimetinker.utils.Ids;
+import io.github.sefiraat.slimetinker.items.tinkermaterials.TinkerMaterialManager;
+import io.github.sefiraat.slimetinker.events.friend.TraitPartType;
 import io.github.sefiraat.slimetinker.utils.ItemUtils;
 import io.github.sefiraat.slimetinker.utils.Keys;
 import java.nio.file.Files;
@@ -49,6 +51,10 @@ public final class TinkerProbe extends JavaPlugin {
     }
 
     private ItemStack fixture(boolean armour, String identity) {
+        // Leather owns binder/gambeson traits; metal-only IRON is not a valid fixture for those roles.
+        check(TinkerMaterialManager.getTraitName(Ids.IRON, armour ? TraitPartType.PLATES : TraitPartType.HEAD) != null, "fixture primary trait registered");
+        check(TinkerMaterialManager.getTraitName(Ids.LEATHER, armour ? TraitPartType.GAMBESON : TraitPartType.BINDER) != null, "fixture soft-material trait registered");
+        check(TinkerMaterialManager.getTraitName(armour ? Ids.IRON : Ids.COPPER, armour ? TraitPartType.LINKS : TraitPartType.ROD) != null, "fixture joining trait registered");
         ItemStack stack = new ItemStack(armour ? Material.DIAMOND_HELMET : Material.DIAMOND_PICKAXE);
         ItemMeta meta = stack.getItemMeta();
         ((Damageable) meta).setDamage(17);
@@ -73,13 +79,13 @@ public final class TinkerProbe extends JavaPlugin {
         if (armour) {
             pdc.set(Keys.ARMOUR_INFO_ARMOUR_TYPE, PersistentDataType.STRING, "helmet");
             pdc.set(Keys.ARMOUR_INFO_PLATE_MATERIAL, PersistentDataType.STRING, Ids.IRON);
-            pdc.set(Keys.ARMOUR_INFO_GAMBESON_MATERIAL, PersistentDataType.STRING, Ids.IRON);
+            pdc.set(Keys.ARMOUR_INFO_GAMBESON_MATERIAL, PersistentDataType.STRING, Ids.LEATHER);
             pdc.set(Keys.ARMOUR_INFO_LINKS_MATERIAL, PersistentDataType.STRING, Ids.IRON);
             pdc.set(Keys.ST_MOD_LEVEL_OBSIDIAN, PersistentDataType.INTEGER, 1);
         } else {
             pdc.set(Keys.TOOL_INFO_TOOL_TYPE, PersistentDataType.STRING, "pickaxe");
             pdc.set(Keys.TOOL_INFO_HEAD_MATERIAL, PersistentDataType.STRING, Ids.IRON);
-            pdc.set(Keys.TOOL_INFO_BINDER_MATERIAL, PersistentDataType.STRING, Ids.IRON);
+            pdc.set(Keys.TOOL_INFO_BINDER_MATERIAL, PersistentDataType.STRING, Ids.LEATHER);
             pdc.set(Keys.TOOL_INFO_ROD_MATERIAL, PersistentDataType.STRING, Ids.COPPER);
             pdc.set(Keys.ST_MOD_LEVEL_LAPIS, PersistentDataType.INTEGER, 1);
         }
