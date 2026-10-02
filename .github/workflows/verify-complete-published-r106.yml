@@ -1,0 +1,111 @@
+name: Verify and Complete Published Addon Revision 106
+on:
+  push:
+    branches: ['audit/reconcile-addon-r106']
+    paths: ['.github/workflows/verify-complete-published-r106.yml']
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: addon-only-release-v4.1.64
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Verify uploaded bytes through public and asset-specific downloads, then finish release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git hash-object .release/publish_combined_r106.py)" = 54d82421424a628aa986d64fd384de3dbc8e551c
+          python3 - <<'PY'
+          import ast, hashlib, importlib.util, io, json, os, subprocess, time, zipfile
+          from pathlib import Path
+          spec=importlib.util.spec_from_file_location('publisher','.release/publish_combined_r106.py')
+          p=importlib.util.module_from_spec(spec);spec.loader.exec_module(p)
+          Path('publication/downloaded').mkdir(parents=True,exist_ok=True)
+          Path('candidate').mkdir(exist_ok=True)
+          checks=p.gates()
+          p.write_json('publication/gates.json',checks)
+          def artifact(number,digest):
+              raw=p.command(['gh','api',f'repos/{p.REPO}/actions/artifacts/{number}/zip'])
+              p.require(p.sha(raw)==digest,f'Wrong evidence artifact {number}')
+              z=zipfile.ZipFile(io.BytesIO(raw));p.require(z.testzip() is None,'Invalid evidence archive')
+              return z
+          with artifact(11223827864,'3fc2f896f85e5b37ea3890a207d1b40dc2e14289a98bc9525648abbdb939f10d') as z:
+              before=json.loads(z.read('before-release.json'))
+              p.require(p.sha(z.read('backup/'+p.ZIP))==p.OLD_ZIP_SHA,'Prior ZIP recovery invalid')
+              p.require(p.sha(z.read('backup/'+p.CORE))==p.CORE_SHA,'Core recovery invalid')
+              p.write_json('publication/before-release.json',before)
+          with artifact(11223698236,'1733b6d35610be077a0fc0aaa3147037722540082de3cda80c80fc0e6bfde503') as z:
+              stale=p.sha(z.read('downloaded/'+p.ZIP))
+              p.require(stale==p.OLD_ZIP_SHA,'Earlier download was not the known previous ZIP')
+          with artifact(p.INPUT_ARTIFACT,p.INPUT_SHA) as z:
+              (Path('candidate')/p.ZIP).write_bytes(z.read('addons.zip'))
+              (Path('candidate')/p.CORE).write_bytes(z.read('core.jar'))
+              Path('publication/validation-provenance.json').write_bytes(z.read('provenance.json'))
+          p.verify_candidate(checks['selection'])
+          release=p.api(f'releases/{p.RELEASE_ID}')
+          assets=p.release_guard(release,605462520,p.NEW_ZIP_SHA)
+          p.tag_guard()
+          p.require(release['body']==before['body'],'Concurrent release-note change')
+          # The filename URL previously returned the exact old ZIP. Address the new asset
+          # independently and bypass a cached filename redirect without replacing it again.
+          blob=p.command(['gh','api','-H','Accept: application/octet-stream',f'repos/{p.REPO}/releases/assets/605462520'])
+          p.require(p.sha(blob)==p.NEW_ZIP_SHA,'Asset-specific download differs from tested ZIP')
+          fresh_url=assets[p.ZIP]['browser_download_url']+'?revision=106&asset_id=605462520'
+          downloaded=Path('publication/downloaded')/p.ZIP
+          observed=[]
+          for attempt in range(3):
+              p.command(['curl','-fLsS','--retry','3','--max-time','180','-H','Cache-Control: no-cache',fresh_url,'-o',str(downloaded)])
+              observed.append(p.sha(downloaded.read_bytes()))
+              if observed[-1]==p.NEW_ZIP_SHA:break
+              time.sleep(3)
+          p.require(downloaded.read_bytes()==blob==(Path('candidate')/p.ZIP).read_bytes(),
+                    'Public and asset-specific downloads do not match the exact tested archive')
+          current=p.api(f'releases/{p.RELEASE_ID}')
+          p.release_guard(current,605462520,p.NEW_ZIP_SHA);p.tag_guard()
+          p.require(current['body']==before['body'],'Concurrent release-note change before update')
+          # Reuse the reviewed literal notes from the exact pinned publisher source.
+          tree=ast.parse(Path('.release/publish_combined_r106.py').read_text())
+          assignments=[n for n in ast.walk(tree) if isinstance(n,ast.Assign)
+                       and any(isinstance(t,ast.Name) and t.id=='note' for t in n.targets)]
+          p.require(len(assignments)==1,'Publisher notes are ambiguous')
+          note=eval(compile(ast.Expression(assignments[0].value),'reviewed-release-notes','eval'),p.__dict__,{'checks':checks})
+          p.require('## Addon-only refresh: combined revision 106' not in current['body'],'Notes already changed')
+          body=current['body']+note
+          p.command(['gh','api','--method','PATCH',f'repos/{p.REPO}/releases/{p.RELEASE_ID}','--input','-'],
+                    input=json.dumps({'body':body}).encode())
+          final=p.api(f'releases/{p.RELEASE_ID}')
+          p.release_guard(final,605462520,p.NEW_ZIP_SHA);p.tag_guard()
+          p.require(final['body']==body,'Release notes verification failed')
+          p.write_json('publication/after-release.json',final)
+          p.write_json('publication/download-verification.json',dict(
+              earlier_filename_download_sha256=stale,asset_specific_sha256=p.sha(blob),
+              fresh_public_url=fresh_url,fresh_public_attempt_sha256=observed,
+              uploaded_asset_id=605462520,no_binary_reupload=True))
+          p.write_json('publication/receipt.json',dict(
+              release=final['html_url'],bundle_revision=106,zip_sha256=p.NEW_ZIP_SHA,
+              previous_zip_sha256=p.OLD_ZIP_SHA,zip_asset_id=605462520,
+              unchanged_core_asset_id=604656009,unchanged_core_sha256=p.CORE_SHA,
+              unchanged_tag_commit=p.TAG_COMMIT,selection_head=p.HEAD,canonical_checkout=p.CHECKOUT,
+              merged=checks['merged'],canonical_run=36963866434,validation_run=p.FINAL_RUN,
+              validation_head=p.FINAL_HEAD,publication_run=37001090701,
+              completion_run=int(os.environ['GITHUB_RUN_ID']),
+              publication_run_note='Upload succeeded; original verification stopped after filename URL returned the exact previous ZIP. This completion verifies the new asset and fresh public URL without reuploading.',
+              downloaded_public_bytes_match=True,addons=p.SELECTIONS,
+              recovery_artifact=11223827864,recovery_sha256='3fc2f896f85e5b37ea3890a207d1b40dc2e14289a98bc9525648abbdb939f10d'))
+          print('Published revision106 verified through asset-specific and fresh public downloads; notes complete; no core/tag or binary changes in this verification.')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: r106-final-publication-verification
+          path: publication/
+          retention-days: 90
+          if-no-files-found: error
