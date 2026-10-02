@@ -2,7 +2,7 @@ name: Revision 106 JEG Floor Build Correction
 on:
   push:
     branches: ['audit/reconcile-addon-r106']
-    paths: ['.github/workflows/r106-jeg-floor-correction.yml']
+    paths: ['.github/workflows/r106-jeg-floor-correction.yml', 'audit-r106/apply-jeg-floor.py', 'audit-r106/test_jeg_bundle_floor.py', 'audit-r106/JegClipboardLinkageProbe.java']
 permissions:
   contents: write
   actions: read
@@ -33,6 +33,7 @@ jobs:
           mkdir -p evidence tools/tests/runtime
           cp audit-r106/JegClipboardLinkageProbe.java tools/tests/runtime/
           cp audit-r106/test_jeg_bundle_floor.py tools/scripts/
+          python3 -m py_compile tools/scripts/test_jeg_bundle_floor.py
           set +e
           python3 tools/scripts/test_jeg_bundle_floor.py > evidence/original-workflow-tests.log 2>&1
           STATUS=$?
