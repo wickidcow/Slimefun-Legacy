@@ -120,6 +120,7 @@ def main() -> int:
         "verify_supported_platform_floor.py",
         "test_summarize_deprecations.py",
         "test_verify_runtime_configuration.py",
+        "test_jeg_bundle_floor.py",
         "test_verify_addon_bytecode.py",
         "test_proxy_identity_capture.py",
         "test_download_candidate_bundle.py",

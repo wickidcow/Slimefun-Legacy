@@ -1,0 +1,254 @@
+name: Refresh v4.1.64 addon bundle with ExtraHeads 1.0.4
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/refresh-v4.1.64-extraheads-1.0.4.yml'
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/refresh-v4.1.64-extraheads-1.0.4.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    if: github.event_name == 'pull_request' || contains(github.event.head_commit.message, 'Publish 4.1.64 addon bundle revision 105')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RELEASE_TAG: v4.1.64
+      RELEASE_CORE_COMMIT: e47a3035b35dfb93325d22ba03b2a69dd6cd6992
+      CORE_JAR: Slimefun-Legacy4.1.64.jar
+      EXPECTED_CORE_SHA256: 316b308139e90981ed037d82ddc57b62b354d8e0a41804d5ebf3bb2b8f896d80
+      BUNDLE_NAME: SF_Addons_1.21.11-26.3.zip
+      EXPECTED_OLD_BUNDLE_SHA256: ce28b417b2632e99a7b7699e5e0b22e8cc677bb610f65114b3e631d7625b574f
+      OLD_EXTRAHEADS_JAR: SF_ExtraHeads1.0.3.jar
+      OLD_EXTRAHEADS_COMMIT: a6fc482c66a0cdebb02c3819cfcba054d0eeb131
+      NEW_EXTRAHEADS_JAR: SF_ExtraHeads1.0.4.jar
+      NEW_EXTRAHEADS_SHA256: 9d6b16f1d47caf2f47b31199bbe5681bd1437955e9ed31282a91f9c5e04bfc99
+      NEW_EXTRAHEADS_COMMIT: 72e7d9bc3ee2ac01bd75b147df39f018bffe544d
+      EXPECTED_ADDONS: '45'
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Verify bundle revision and ExtraHeads source pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text(encoding='utf-8'))
+          if data.get('bundle_revision') != 105:
+              raise SystemExit(f"Expected bundle revision 105, got {data.get('bundle_revision')}")
+          rows = [row for row in data.get('addons', []) if row.get('repository') == 'wickidcow/SF_ExtraHeads']
+          if len(rows) != 1:
+              raise SystemExit(f'Expected exactly one ExtraHeads source row, found {len(rows)}')
+          expected = '72e7d9bc3ee2ac01bd75b147df39f018bffe544d'
+          if rows[0].get('source_commit') != expected:
+              raise SystemExit(f'ExtraHeads source pin mismatch: {rows[0]}')
+          PY
+
+      - name: Download and verify current published 4.1.64 assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/current work/original work/updated work/new
+
+          TARGET="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.target_commitish')"
+          test "$TARGET" = "$RELEASE_CORE_COMMIT"
+
+          CORE_DIGEST="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | select(.name=="'"$CORE_JAR"'") | .digest')"
+          BUNDLE_DIGEST="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | select(.name=="'"$BUNDLE_NAME"'") | .digest')"
+          test "$CORE_DIGEST" = "sha256:$EXPECTED_CORE_SHA256"
+          test "$BUNDLE_DIGEST" = "sha256:$EXPECTED_OLD_BUNDLE_SHA256"
+
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$BUNDLE_NAME" --dir work/current
+          test -s "work/current/$BUNDLE_NAME"
+          test "$(sha256sum "work/current/$BUNDLE_NAME" | awk '{print $1}')" = "$EXPECTED_OLD_BUNDLE_SHA256"
+
+          unzip -q "work/current/$BUNDLE_NAME" -d work/original
+          cp -a work/original/. work/updated/
+          (cd work/original && sha256sum -c SHA256SUMS.txt)
+
+      - name: Verify published ExtraHeads 1.0.3 provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path('work/original')
+          manifest = json.loads((root / 'SF_ADDON_MANIFEST.json').read_text(encoding='utf-8'))
+          if manifest.get('core_source_commit') != os.environ['RELEASE_CORE_COMMIT']:
+              raise SystemExit(f"Unexpected release-core provenance: {manifest.get('core_source_commit')}")
+          rows = [r for r in manifest.get('addons', []) if r.get('repository') == 'wickidcow/SF_ExtraHeads']
+          if len(rows) != 1:
+              raise SystemExit(f'Expected one ExtraHeads manifest record, found {len(rows)}')
+          row = rows[0]
+          if row.get('commit') != os.environ['OLD_EXTRAHEADS_COMMIT']:
+              raise SystemExit(f'Unexpected old ExtraHeads commit: {row}')
+          if row.get('jar') != os.environ['OLD_EXTRAHEADS_JAR'] or row.get('version') != '1.0.3':
+              raise SystemExit(f'Unexpected old ExtraHeads identity: {row}')
+          jar = root / os.environ['OLD_EXTRAHEADS_JAR']
+          if not jar.is_file():
+              raise SystemExit(f'Missing old ExtraHeads JAR: {jar}')
+          digest = hashlib.sha256(jar.read_bytes()).hexdigest()
+          if row.get('sha256') != digest:
+              raise SystemExit(f'Old ExtraHeads manifest/file digest mismatch: manifest={row.get("sha256")} file={digest}')
+          if len(manifest.get('addons', [])) != int(os.environ['EXPECTED_ADDONS']):
+              raise SystemExit('Unexpected addon manifest member count')
+          PY
+
+      - name: Download and verify ExtraHeads 1.0.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-all-errors             "https://github.com/wickidcow/SF_ExtraHeads/releases/download/v1.0.4/$NEW_EXTRAHEADS_JAR"             -o "work/new/$NEW_EXTRAHEADS_JAR"
+          test -s "work/new/$NEW_EXTRAHEADS_JAR"
+          test "$(sha256sum "work/new/$NEW_EXTRAHEADS_JAR" | awk '{print $1}')" = "$NEW_EXTRAHEADS_SHA256"
+          jar tf "work/new/$NEW_EXTRAHEADS_JAR" >/dev/null
+          unzip -p "work/new/$NEW_EXTRAHEADS_JAR" plugin.yml > work/new/plugin.yml
+          grep -Eq "^version:[[:space:]]*['\"]?1\\.0\\.4['\"]?$" work/new/plugin.yml
+          javap -verbose -classpath "work/new/$NEW_EXTRAHEADS_JAR" io.github.thebusybiscuit.extraheads.ExtraHeads > work/new/extraheads-javap.txt
+          grep -Fq 'major version: 65' work/new/extraheads-javap.txt
+
+      - name: Replace only ExtraHeads and update bundle metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm "work/updated/$OLD_EXTRAHEADS_JAR"
+          cp "work/new/$NEW_EXTRAHEADS_JAR" "work/updated/$NEW_EXTRAHEADS_JAR"
+
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path('work/updated')
+          manifest_path = root / 'SF_ADDON_MANIFEST.json'
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          rows = [r for r in manifest.get('addons', []) if r.get('repository') == 'wickidcow/SF_ExtraHeads']
+          if len(rows) != 1:
+              raise SystemExit(f'Expected one ExtraHeads manifest record, found {len(rows)}')
+          row = rows[0]
+          row.update({
+              'commit': os.environ['NEW_EXTRAHEADS_COMMIT'],
+              'jar': os.environ['NEW_EXTRAHEADS_JAR'],
+              'source_jar': os.environ['NEW_EXTRAHEADS_JAR'],
+              'version': '1.0.4',
+              'sha256': os.environ['NEW_EXTRAHEADS_SHA256'],
+          })
+          manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+
+          jars = sorted(root.glob('*.jar'), key=lambda p: p.name)
+          (root / 'SHA256SUMS.txt').write_text(
+              ''.join(f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n" for p in jars),
+              encoding='utf-8',
+          )
+          PY
+
+      - name: Prove all other addon JARs are unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+
+          old = Path('work/original')
+          new = Path('work/updated')
+          old_map = {
+              p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+              for p in old.glob('*.jar') if not p.name.startswith('SF_ExtraHeads')
+          }
+          new_map = {
+              p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+              for p in new.glob('*.jar') if not p.name.startswith('SF_ExtraHeads')
+          }
+          if old_map != new_map:
+              missing = sorted(set(old_map) - set(new_map))
+              added = sorted(set(new_map) - set(old_map))
+              changed = sorted(k for k in set(old_map) & set(new_map) if old_map[k] != new_map[k])
+              raise SystemExit(f'Non-ExtraHeads bundle contents changed: missing={missing}, added={added}, changed={changed}')
+          if len(new_map) != int(os.environ['EXPECTED_ADDONS']) - 1:
+              raise SystemExit(f'Expected 44 unchanged non-ExtraHeads addons, found {len(new_map)}')
+          print('Verified 44 non-ExtraHeads addon JARs are byte-for-byte unchanged.')
+          PY
+
+      - name: Rebuild and validate refreshed bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd work/updated && sha256sum -c SHA256SUMS.txt)
+          test ! -e "work/updated/$OLD_EXTRAHEADS_JAR"
+          test -s "work/updated/$NEW_EXTRAHEADS_JAR"
+
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path('work/updated')
+          manifest = json.loads((root / 'SF_ADDON_MANIFEST.json').read_text(encoding='utf-8'))
+          jars = sorted(p.name for p in root.glob('*.jar'))
+          expected = sorted(r['jar'] for r in manifest.get('addons', []))
+          if len(jars) != int(os.environ['EXPECTED_ADDONS']) or jars != expected:
+              raise SystemExit(f'Bundle/manifest mismatch: jars={len(jars)}, records={len(expected)}')
+          row = next(r for r in manifest['addons'] if r.get('repository') == 'wickidcow/SF_ExtraHeads')
+          if row.get('jar') != os.environ['NEW_EXTRAHEADS_JAR'] or row.get('commit') != os.environ['NEW_EXTRAHEADS_COMMIT']:
+              raise SystemExit(f'Refreshed ExtraHeads manifest record is wrong: {row}')
+          PY
+
+          rm -f "work/$BUNDLE_NAME"
+          (cd work/updated && zip -9 -q "../$BUNDLE_NAME" ./*)
+          unzip -tqq "work/$BUNDLE_NAME"
+          sha256sum "work/$BUNDLE_NAME" | tee work/new-bundle.sha256
+
+      - name: Upload candidate refreshed bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: SF_Addons_1.21.11-26.3-r105-extraheads-1.0.4
+          path: work/${{ env.BUNDLE_NAME }}
+          if-no-files-found: error
+
+      - name: Replace only the v4.1.64 addon ZIP asset
+        if: github.event_name == 'push' && contains(github.event.head_commit.message, 'Publish 4.1.64 addon bundle revision 105')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" "work/$BUNDLE_NAME" --repo "$GITHUB_REPOSITORY" --clobber
+          LOCAL="sha256:$(sha256sum "work/$BUNDLE_NAME" | awk '{print $1}')"
+          REMOTE="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | select(.name=="'"$BUNDLE_NAME"'") | .digest')"
+          CORE="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | select(.name=="'"$CORE_JAR"'") | .digest')"
+          test "$REMOTE" = "$LOCAL"
+          test "$CORE" = "sha256:$EXPECTED_CORE_SHA256"
+          echo "Published $BUNDLE_NAME with digest $REMOTE"
+          echo "Core asset remains unchanged at $CORE"
+
+      - name: Publish revision-105 release notes
+        if: github.event_name == 'push' && contains(github.event.head_commit.message, 'Publish 4.1.64 addon bundle revision 105')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"             --title "Slimefun Legacy 4.1.64"             --notes-file docs/releases/4.1.64.md
