@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Offline canonical-workflow regressions; the retained Java probe checks actual linkage."""
 from pathlib import Path
-import sys
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -49,7 +48,7 @@ class JegBundleFloorTest(unittest.TestCase):
 
     def test_nonshipped_probe_exercises_both_real_overloads(self):
         source = (ROOT / 'tests/runtime/JegClipboardLinkageProbe.java').read_text()
-        self.assertEqual(2, source.count('getMethod("makeComponentPaper"')))
+        self.assertEqual(2, source.count('getMethod("makeComponentPaper"'))
         self.assertIn('ClickEvent.Action.COPY_TO_CLIPBOARD', source)
         self.assertIn('component.hoverEvent() == null', source)
         self.assertIn('Class.forName("com.balugaq.jeg.utils.ClipboardUtil")', source)
