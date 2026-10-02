@@ -22,7 +22,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test "$(git hash-object .release/publish_combined_r106.py)" = b4e57bc52b2a6ec77d0a54c81703d3694248a740
+          test "$(git hash-object .release/publish_combined_r106.py)" = 54d82421424a628aa986d64fd384de3dbc8e551c
           python3 -m py_compile .release/publish_combined_r106.py
           python3 .release/publish_combined_r106.py prepare
       - name: Save the actual current revision105 release before replacing anything
