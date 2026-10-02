@@ -122,8 +122,10 @@ jobs:
           test -s "work/new/$NEW_EXTRAHEADS_JAR"
           test "$(sha256sum "work/new/$NEW_EXTRAHEADS_JAR" | awk '{print $1}')" = "$NEW_EXTRAHEADS_SHA256"
           jar tf "work/new/$NEW_EXTRAHEADS_JAR" >/dev/null
-          unzip -p "work/new/$NEW_EXTRAHEADS_JAR" plugin.yml | grep -Eq '^version:[[:space:]]*1\.0\.4$'
-          javap -verbose -classpath "work/new/$NEW_EXTRAHEADS_JAR" io.github.thebusybiscuit.extraheads.ExtraHeads             | grep -Fq 'major version: 65'
+          unzip -p "work/new/$NEW_EXTRAHEADS_JAR" plugin.yml > work/new/plugin.yml
+          grep -Eq "^version:[[:space:]]*['\"]?1\\.0\\.4['\"]?$" work/new/plugin.yml
+          javap -verbose -classpath "work/new/$NEW_EXTRAHEADS_JAR" io.github.thebusybiscuit.extraheads.ExtraHeads > work/new/extraheads-javap.txt
+          grep -Fq 'major version: 65' work/new/extraheads-javap.txt
 
       - name: Replace only ExtraHeads and update bundle metadata
         shell: bash
