@@ -140,7 +140,9 @@ def gates():
     canonical_jobs = jobs(36963866434)
     require(len(canonical_jobs) >= 45 and all(j['conclusion'] in ('success', 'skipped') for j in canonical_jobs),
             'Canonical child job failed')
-    require(sum(s['name'] == 'Compile against Paper 26.3 candidate' and s['conclusion'] == 'success'
+    # DracFun has its own pinned builder; it deliberately skips the generic compile step.
+    compile_steps = ('Compile against Paper 26.3 candidate', 'Verify and build pinned DracFun Reborn')
+    require(sum(s['name'] in compile_steps and s['conclusion'] == 'success'
                 for j in canonical_jobs for s in j.get('steps', [])) == 45, 'Incomplete canonical45-addon compilation')
     require(sum(s['name'] == 'Rebuild JEG against the supported API floor' and s['conclusion'] == 'success'
                 for j in canonical_jobs for s in j.get('steps', [])) == 1, 'JEG floor packaging not verified')
