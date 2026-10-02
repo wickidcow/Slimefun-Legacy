@@ -237,11 +237,7 @@ public class BlockDataController extends ADataController {
         enableDelayedSaving = true;
         this.delayedSecond = delayedSecond;
         looperTask = Slimefun.getSchedulerService()
-                .runAsyncAtFixedRate(
-                        new DelayedSavingLooperTask(
-                                forceSavePeriod, () -> new HashMap<>(delayedWriteTasks), delayedWriteTasks::remove),
-                        20L,
-                        20L);
+                .runAsyncAtFixedRate(createDelayedSavingLooper(forceSavePeriod), 20L, 20L);
     }
 
     /**
@@ -265,6 +261,14 @@ public class BlockDataController extends ADataController {
 
     public boolean isDelayedSavingEnabled() {
         return enableDelayedSaving;
+    }
+
+    /** Creates the same looper used by delayed saving, with replacement-safe queue completion. */
+    DelayedSavingLooperTask createDelayedSavingLooper(int forceSavePeriod) {
+        return DelayedSavingLooperTask.withTaskCompletion(
+                forceSavePeriod,
+                () -> new HashMap<>(delayedWriteTasks),
+                (key, completedTask) -> delayedWriteTasks.remove(key, completedTask));
     }
 
     /**
