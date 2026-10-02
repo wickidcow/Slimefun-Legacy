@@ -1,0 +1,53 @@
+name: Verify 4.1.64 Master State
+
+on:
+  push:
+    branches: ['validation/4.1.64-final-checkpoint']
+    paths: ['.github/workflows/verify-4.1.64-master-state.yml']
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Capture actual master workflow state without changing refs or dispatching
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import importlib.util, json
+          from pathlib import Path
+          spec=importlib.util.spec_from_file_location('release_gate','.release/dispatch_4164.py')
+          gate=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(gate)
+          source='d1ac11a1c6891ac6768dff935bcc8de7d149b7a5'
+          root=Path('master-state');root.mkdir()
+          payload=gate.api(f'actions/runs?head_sha={source}&event=push&branch=master&per_page=100')
+          assert payload['total_count']==len(payload['workflow_runs'])
+          rows=[{k:r.get(k) for k in ('id','name','path','head_sha','head_branch','event','status','conclusion','html_url')} for r in payload['workflow_runs']]
+          assert all(r['head_sha']==source and r['head_branch']=='master' and r['event']=='push' for r in rows)
+          assert gate.REQUIRED_MASTER_NAMES.issubset({r['name'] for r in rows})
+          tested=gate.api(f'git/commits/{gate.PR_CHECKOUT}')['tree']['sha']
+          merged=gate.api(f'git/commits/{source}')['tree']['sha']
+          assert tested==merged
+          result={'source':source,'tested_pr_checkout':gate.PR_CHECKOUT,'identical_tree':merged,'workflows':rows,
+                  'all_complete_and_successful':all(r['status']=='completed' and r['conclusion']=='success' for r in rows)}
+          (root/'snapshot.json').write_text(json.dumps(result,indent=2)+'\n')
+          (root/'previous-release.json').write_text(json.dumps(gate.api('releases/tags/v4.1.63'),indent=2))
+          print(json.dumps(result,indent=2))
+          print('Read-only observation; unfinished workflows are not relabeled as passed.')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-4.1.64-master-state
+          path: master-state/
+          if-no-files-found: error
+          retention-days: 90
