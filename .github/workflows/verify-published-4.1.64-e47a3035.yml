@@ -1,0 +1,63 @@
+name: Verify Published 4.1.64 e47a3035
+
+on:
+  push:
+    branches: ['validation/finalize-4.1.64-e47a3035']
+    paths: ['.github/workflows/verify-published-4.1.64-e47a3035.yml']
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Require successful finalization and publication at the frozen source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json, subprocess, time
+          REPO='wickidcow/Slimefun-Legacy'
+          SOURCE='e47a3035b35dfb93325d22ba03b2a69dd6cd6992'
+          def api(path):
+              p=subprocess.run(['gh','api','--method','GET',f'repos/{REPO}/{path}'],check=True,capture_output=True,text=True,timeout=90)
+              return json.loads(p.stdout)
+          deadline=time.monotonic()+2100
+          last=None
+          while time.monotonic()<deadline:
+              gate=api('actions/runs/36956053336')
+              if gate['status']=='completed' and gate['conclusion']!='success':
+                  raise RuntimeError('Finalization did not pass; no publication verification is implied')
+              result=api(f'actions/runs?head_sha={SOURCE}&event=workflow_dispatch&per_page=100')
+              if result['total_count']>100: raise RuntimeError('Inspect workflow pagination')
+              candidates=[r for r in result['workflow_runs'] if r['path']=='.github/workflows/reproducible-release.yml']
+              pub=max(candidates,key=lambda r:r['id']) if candidates else None
+              state=(gate['status'],pub['status'] if pub else 'not-dispatched')
+              if state!=last:
+                  print('Finalization/publisher:',state,flush=True)
+                  last=state
+              if pub and pub['status']=='completed':
+                  if pub['conclusion']!='success': raise RuntimeError('Publisher failed; keep original assets intact')
+                  if gate['status']!='completed' or gate['conclusion']!='success': raise RuntimeError('Finalization evidence missing')
+                  break
+              time.sleep(20)
+          else: raise RuntimeError('Publisher did not finish within bounded verification run')
+          PY
+      - name: Independently verify downloaded public release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .release/verify_published_4164.py
+      - name: Retain public bytes and verification receipt
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Slimefun-4.1.64-published-verification-e47a3035
+          path: verified-release/
+          if-no-files-found: warn
+          retention-days: 90
