@@ -1,0 +1,109 @@
+name: Inventory Snapshot Ownership Validation
+on:
+  push:
+    branches: ['audit/inventory-snapshot-ownership-20261002']
+    paths: ['src/**', 'audit-snapshot/**', '.github/workflows/inventory-snapshot-ownership-validation.yml']
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Prepare exact controller regressions and source identity
+        run: |
+          mkdir -p evidence/candidate-source
+          python3 audit-snapshot/prepare.py
+          git diff --check
+          echo "SOURCE_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+          for NAME in InvSnapshot InvStorageUtils; do
+            cp "src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/$NAME.java" "evidence/candidate-source/$NAME.java"
+          done
+      - name: Prove the existing code can conceal pending inventory writes
+        run: |
+          set -euo pipefail
+          for NAME in InvSnapshot InvStorageUtils; do
+            FILE="src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/$NAME.java"
+            git show "a194ab1d0d5dd1cfc72caada225961ba0852ab87:$FILE" > "$FILE"
+          done
+          chmod +x gradlew
+          STATUS=0
+          ./gradlew test --tests '*InvSnapshotOwnershipTest' --tests '*InventorySerializationFailureTest.exportedBaseline*' --no-daemon --no-build-cache --no-configuration-cache > evidence/original-test.log 2>&1 || STATUS=$?
+          test "$STATUS" -ne 0
+          mkdir -p evidence/original-tests
+          cp build/test-results/test/TEST-*.xml evidence/original-tests/
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, xml.etree.ElementTree as ET
+          roots=[ET.parse(p).getroot() for p in Path('evidence/original-tests').glob('TEST-*.xml')]
+          totals={k:sum(int(r.get(k,'0')) for r in roots) for k in ['tests','failures','errors','skipped']}
+          assert totals['tests']==20 and totals['failures']>=6 and totals['errors']==totals['skipped']==0,totals
+          failed={c.attrib['name'] for r in roots for c in r.findall('testcase') if c.find('failure') is not None}
+          assert sum('exportedBaselineCannotHide' in name for name in failed)==6,failed
+          Path('evidence/original-result.json').write_text(json.dumps(totals,indent=2)+'\n')
+          print(totals)
+          PY
+          for NAME in InvSnapshot InvStorageUtils; do
+            cp "evidence/candidate-source/$NAME.java" "src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/$NAME.java"
+          done
+      - name: Full corrected build and all existing source and artifact guards
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_legacy.py . > evidence/source-invariants.log 2>&1
+          ./gradlew spotlessApply --no-daemon --no-build-cache --no-configuration-cache > evidence/format.log 2>&1
+          ./gradlew clean build -PslimefunDeprecationReport=true --console=plain --no-daemon --no-build-cache --no-configuration-cache 2>&1 | tee evidence/build.log
+          python3 scripts/summarize_deprecations.py evidence/build.log --fail-on-warnings --require-successful-build
+          JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+          python3 scripts/verify_release_artifact.py "$JAR" --root .
+          mkdir -p evidence/corrected-tests
+          cp build/test-results/test/TEST-*.xml evidence/corrected-tests/
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,xml.etree.ElementTree as ET
+          roots=[ET.parse(p).getroot() for p in Path('evidence/corrected-tests').glob('TEST-*.xml')]
+          totals={k:sum(int(r.get(k,'0')) for r in roots) for k in ['tests','failures','errors','skipped']}
+          assert totals['failures']==totals['errors']==0,totals
+          ownership=next(r for r in roots if r.get('name','').endswith('InvSnapshotOwnershipTest'))
+          assert int(ownership.get('tests'))==14 and int(ownership.get('skipped'))==0
+          sql=[c for r in roots for c in r.findall('testcase') if 'exportedBaselineCannotHide' in c.get('name','')]
+          assert len(sql)==6 and all(c.find('failure') is None and c.find('skipped') is None for c in sql)
+          Path('evidence/corrected-result.json').write_text(json.dumps(totals,indent=2)+'\n')
+          PY
+      - name: Export only reviewed scoped production and permanent test files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,subprocess
+          files=['src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/InvSnapshot.java','src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/InvStorageUtils.java','src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/util/InvSnapshotOwnershipTest.java','src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/InventorySerializationFailureTest.java']
+          records={}
+          for name in files:
+              data=Path(name).read_bytes();sha=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+              result=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps(dict(content=data.decode(),encoding='utf-8')),capture_output=True,text=True,check=True)
+              assert json.loads(result.stdout)['sha']==sha
+              records[name]=sha
+              output=Path('evidence/reviewed-source')/name;output.parent.mkdir(parents=True,exist_ok=True);output.write_bytes(data)
+          Path('evidence/reviewed-blobs.json').write_text(json.dumps(records,indent=2)+'\n')
+          PY
+      - name: Keep failures inspectable
+        if: always()
+        run: |
+          mkdir -p evidence/last-test-results
+          if test -d build/test-results/test; then cp build/test-results/test/TEST-*.xml evidence/last-test-results/ || true; fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: inventory-snapshot-ownership-evidence
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error

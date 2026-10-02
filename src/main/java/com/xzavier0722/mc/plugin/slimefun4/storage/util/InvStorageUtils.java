@@ -16,7 +16,10 @@ public class InvStorageUtils {
     private static final Pair<ItemStack, Integer> emptyPair = new Pair<>(null, 0);
 
     public static Set<Integer> getChangedSlots(InvSnapshot snapshot, ItemStack[] currContent) {
-        return getChangedSlots(snapshot == null ? null : snapshot.getSnapshot(), currContent);
+        // Use the owned baseline directly; the public snapshot getter deliberately makes a deep copy.
+        return snapshot == null
+                ? getChangedSlots((List<Pair<ItemStack, Integer>>) null, currContent)
+                : snapshot.getChangedSlots(currContent);
     }
 
     public static Set<Integer> getChangedSlots(List<Pair<ItemStack, Integer>> snapshot, ItemStack[] currContent) {
@@ -74,7 +77,8 @@ public class InvStorageUtils {
         for (var each : invContents) {
             // fix: in case some addons directly manipulate origin ItemStack
             // fix: # 1099 bundles may change their meta internally without a new itemstack instance
-            re.add(each == null ? emptyPair : new Pair<>(each.clone(), each.getAmount()));
+            // Publicly returned empty entries must not expose the shared comparison sentinel.
+            re.add(each == null ? new Pair<>(null, 0) : new Pair<>(each.clone(), each.getAmount()));
         }
 
         return re;
