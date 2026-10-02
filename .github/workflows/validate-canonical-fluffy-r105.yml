@@ -1,0 +1,139 @@
+name: Canonical Revision 105 Published Core Validation
+on:
+  push:
+    branches: ['validation/fluffy-crafter-r105']
+    paths: ['.github/workflows/validate-canonical-fluffy-r105.yml']
+permissions:
+  contents: read
+  actions: read
+env:
+  CANDIDATE_HEAD: 65e6b177eae9dc2de04dee8db48c1415d07964c2
+  CANDIDATE_SOURCE: 2ae2ace62ce0731a18ae2c7108dbaf4b0abfdeb1
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.CANDIDATE_HEAD }}
+          persist-credentials: false
+      - name: Select exact canonical archive and independently verified native fixture
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/download_candidate_bundle.py --repository "$GITHUB_REPOSITORY" --head "$CANDIDATE_HEAD" --source "$CANDIDATE_SOURCE" --output candidate --timeout 1800
+          gh run download 36958632334 --repo "$GITHUB_REPOSITORY" --name fluffy-native-inputs --dir original/inputs
+          (cd original; sha256sum -c inputs/SHA256SUMS)
+          cp original/inputs/Slimefun-Legacy4.1.64.jar original/inputs/CrafterProbe.jar original/inputs/CrafterProbe.java candidate/
+          echo '316b308139e90981ed037d82ddc57b62b354d8e0a41804d5ebf3bb2b8f896d80  candidate/Slimefun-Legacy4.1.64.jar' | sha256sum -c -
+          cp compatibility/sfl-addon-release-matrix.json candidate/source-matrix.json
+          python3 - <<'PY'
+          import hashlib,io,json,zipfile
+          from pathlib import Path
+          matrix=json.loads(Path('candidate/source-matrix.json').read_text())
+          assert matrix['bundle_revision']==105 and len(matrix['addons'])==45
+          with zipfile.ZipFile('candidate/SF_Addons_1.21.11-26.3.zip') as z:
+              row=next(r for r in json.loads(z.read('SF_ADDON_MANIFEST.json'))['addons'] if r['repository']=='wickidcow/SF_FluffyMachines')
+              assert row['commit']=='394de0dbfe770ae13256aa1cfbe747fc26b55a3a' and row['jar']=='SF_FluffyMachines26.2.14.jar'
+              jar=z.read(row['jar'])
+          def classes(data):
+              with zipfile.ZipFile(io.BytesIO(data)) as z:return {n:hashlib.sha256(z.read(n)).hexdigest() for n in z.namelist() if n.endswith('.class')}
+          audited=Path('original/inputs/SF_FluffyMachines26.2.14.jar').read_bytes()
+          assert classes(jar)==classes(audited), 'Canonical addon class files differ from the native-control candidate'
+          Path('candidate/addon-class-comparison.json').write_text(json.dumps({'class_count':len(classes(jar)),'identical':True,'audit_sha256':hashlib.sha256(audited).hexdigest(),'canonical_sha256':hashlib.sha256(jar).hexdigest()},indent=2))
+          PY
+          sha256sum candidate/SF_Addons_1.21.11-26.3.zip candidate/Slimefun-Legacy4.1.64.jar candidate/CrafterProbe.jar > candidate/SHA256SUMS
+      - uses: actions/upload-artifact@v7
+        with:
+          name: r105-canonical-published-core-inputs
+          path: candidate/
+          if-no-files-found: error
+          retention-days: 30
+  native:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - minecraft: '1.21.11'
+            java: '21'
+          - minecraft: '26.2'
+            java: '25'
+          - minecraft: '26.3'
+            java: '25'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.CANDIDATE_HEAD }}
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: r105-canonical-published-core-inputs
+          path: candidate
+      - name: Exercise the complete canonical stack and native machine twice
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+          SLIMEFUN_SMOKE_VERSION: '4.1.64'
+          MODE: updated
+        run: |
+          set -euo pipefail
+          sha256sum -c candidate/SHA256SUMS
+          export CRAFTER_PROBE="$PWD/candidate/CrafterProbe.jar"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/full_stack_runtime_smoke.sh');s=p.read_text()
+          anchor='cp "$SLIMEFUN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-full-stack.jar"\n'
+          assert s.count(anchor)==1
+          s=s.replace(anchor,anchor+'cp "$CRAFTER_PROBE" "$WORK_DIR/plugins/CrafterProbe.jar"\n')
+          anchor="    printf 'sf doctor status\\n' >&3\n"
+          assert s.count(anchor)==1
+          wait='''    local probe_phase=initial
+              if [[ "$label" == second ]]; then probe_phase=restart; fi
+              local probe_deadline=$((SECONDS + 90))
+              while kill -0 "$pid" >/dev/null 2>&1 && (( SECONDS < probe_deadline )); do
+                  if grep -Fq "CRAFTER_NATIVE_PASS mode=${MODE} phase=${probe_phase} " "$console"; then break; fi
+                  if grep -Fq 'CRAFTER_NATIVE_FAIL' "$console"; then break; fi
+                  sleep 1
+              done
+              if ! grep -Fq "CRAFTER_NATIVE_PASS mode=${MODE} phase=${probe_phase} " "$console"; then
+                  stop_process "$pid" 3; wait "$pid" >/dev/null 2>&1 || true; exec 3>&-
+                  normalize_log "$console" "$normalized"
+                  cat "$normalized" >&2
+                  return 1
+              fi
+          '''
+          p.write_text(s.replace(anchor,wait+anchor))
+          PY
+          WORK="build/canonical-${SERVER_MINECRAFT_VERSION}"
+          bash scripts/full_stack_runtime_smoke.sh "$PWD/candidate/Slimefun-Legacy4.1.64.jar" "$PWD/candidate/SF_Addons_1.21.11-26.3.zip" "$WORK"
+          test "$(wc -l < "$WORK/expected-addons.txt")" -eq 45
+          test ! -s "$WORK/dependency-gated-addons.txt"
+          grep -F 'CRAFTER_NATIVE_PASS mode=updated phase=initial' "$WORK/first.normalized.log"
+          grep -F 'CRAFTER_NATIVE_PASS mode=updated phase=restart' "$WORK/second.normalized.log"
+          if grep -E 'CRAFTER_NATIVE_FAIL|ERROR|SEVERE' "$WORK/first.normalized.log" "$WORK/second.normalized.log"; then exit 1; fi
+          git diff -- scripts/full_stack_runtime_smoke.sh > "$WORK/fixture-runner.patch"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: r105-canonical-native-${{ matrix.minecraft }}
+          path: |
+            candidate/bundle-source.txt
+            candidate/SHA256SUMS
+            candidate/addon-class-comparison.json
+            build/canonical-*/*.log
+            build/canonical-*/runtime-build.txt
+            build/canonical-*/smoke-result.txt
+            build/canonical-*/expected-addons.txt
+            build/canonical-*/dependency-gated-addons.txt
+            build/canonical-*/fixture-runner.patch
+            build/canonical-*/plugins/CrafterProbe/
+          if-no-files-found: error
+          retention-days: 30
