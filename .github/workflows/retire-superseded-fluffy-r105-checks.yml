@@ -1,0 +1,55 @@
+name: Retire Superseded Fluffy-only Checks
+on:
+  push:
+    branches: ['validation/fluffy-crafter-r105']
+    paths: ['.github/workflows/retire-superseded-fluffy-r105-checks.yml']
+permissions:
+  contents: read
+  actions: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Confirm combined source preserves this proposal before retiring duplicate checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import base64,json,os,subprocess
+          from pathlib import Path
+          repo='wickidcow/Slimefun-Legacy'
+          assert os.environ['GITHUB_REPOSITORY']==repo
+          def api(path):return json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/{path}'],text=True,timeout=45))
+          combined=api('pulls/308')['head']['sha']
+          comparison=api(f'compare/65e6b177eae9dc2de04dee8db48c1415d07964c2...{combined}')
+          assert comparison['behind_by']==0, 'Combined proposal does not preserve the old history'
+          matrix=json.loads(base64.b64decode(api(f'contents/compatibility/sfl-addon-release-matrix.json?ref={combined}')['content']))
+          assert matrix['bundle_revision']>=106 and len(matrix['addons'])==45
+          selected={r['repository']:r['source_commit'] for r in matrix['addons']}
+          assert selected['wickidcow/SF_FluffyMachines']=='394de0dbfe770ae13256aa1cfbe747fc26b55a3a'
+          runs={n:'65e6b177eae9dc2de04dee8db48c1415d07964c2' for n in [36958927625,36958927607,36958927621,36958927595,36958927617,36958927654,36958927951,36958927515,36958927618,36958927659,36958927651]}
+          runs[36959223894]='4e9c8e4a70d4a75651cf61b37c7e5fe981326279'
+          receipt={'superseded_proposal':306,'retained_combined_proposal':308,'combined_head':combined,'runs':[]}
+          for number,sha in runs.items():
+              run=api(f'actions/runs/{number}')
+              assert run['head_sha']==sha
+              assert run['head_branch'] in ('maintenance/fluffy-crafter-r105','validation/fluffy-crafter-r105')
+              result='already completed; left unchanged'
+              if run['status'] in ('queued','in_progress','waiting','pending','requested'):
+                  cancelled=subprocess.run(['gh','api','--method','POST',f'repos/{repo}/actions/runs/{number}/cancel'],text=True,capture_output=True,timeout=45)
+                  if cancelled.returncode:
+                      latest=api(f'actions/runs/{number}')
+                      assert latest['status']=='completed', cancelled.stderr
+                      result='completed during check; left unchanged'
+                  else:result='cancellation requested: superseded single-addon proposal'
+              receipt['runs'].append({'id':number,'head_sha':sha,'previous_status':run['status'],'result':result})
+              print(number,result)
+          Path('retirement.json').write_text(json.dumps(receipt,indent=2))
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: superseded-fluffy-r105-checks
+          path: retirement.json
+          if-no-files-found: warn
