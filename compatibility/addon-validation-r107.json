@@ -1,0 +1,158 @@
+{
+  "schema": 1,
+  "bundle_revision": 107,
+  "base_revision": 106,
+  "source_core": "22ae22c4e32fd3b086565922f4427206d0f4b065",
+  "validation_run": 37063708114,
+  "artifact_name": "addon-r107-validation-evidence",
+  "addons": [
+    {
+      "repository": "wickidcow/SF_HotbarPets",
+      "source_commit": "ac1e2213686a83acd52d82c01434ab12b48e64f3",
+      "previous_selection": "20b83bf0fa39522647c92be38abbd24688cb5b1b",
+      "version": "1.0.3",
+      "core_source": "22ae22c4e32fd3b086565922f4427206d0f4b065",
+      "core_sha256": "c601f4589de0d4243b3ea02cfca7d25bc02b6eb7579730a3cd3285dbddaff73b",
+      "counts": {
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "compiled_apis": [
+        "1.21.11-R0.1-SNAPSHOT",
+        "26.2.build.112-stable",
+        "26.3.build.140-beta"
+      ],
+      "tested_api": "1.21.11-R0.1-SNAPSHOT",
+      "published_asset": {
+        "url": "https://api.github.com/repos/wickidcow/SF_HotbarPets/releases/assets/604247146",
+        "id": 604247146,
+        "node_id": "RA_kwDOUUKBLs4kBBRq",
+        "name": "SF_HotbarPets1.0.3.jar",
+        "label": "",
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "node_id": "MDM6Qm90NDE4OTgyODI=",
+          "avatar_url": "https://avatars.githubusercontent.com/in/15368?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/github-actions%5Bbot%5D",
+          "html_url": "https://github.com/apps/github-actions",
+          "followers_url": "https://api.github.com/users/github-actions%5Bbot%5D/followers",
+          "following_url": "https://api.github.com/users/github-actions%5Bbot%5D/following{/other_user}",
+          "gists_url": "https://api.github.com/users/github-actions%5Bbot%5D/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/github-actions%5Bbot%5D/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/github-actions%5Bbot%5D/subscriptions",
+          "organizations_url": "https://api.github.com/users/github-actions%5Bbot%5D/orgs",
+          "repos_url": "https://api.github.com/users/github-actions%5Bbot%5D/repos",
+          "events_url": "https://api.github.com/users/github-actions%5Bbot%5D/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/github-actions%5Bbot%5D/received_events",
+          "type": "Bot",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "content_type": "application/java-archive",
+        "state": "uploaded",
+        "size": 104253,
+        "digest": "sha256:d0598baad3e8b5d9f759f7b7e860291c9ef301df833174eeaedab6501cee8d64",
+        "download_count": 0,
+        "created_at": "2026-10-01T22:23:04Z",
+        "updated_at": "2026-10-01T22:23:04Z",
+        "browser_download_url": "https://github.com/wickidcow/SF_HotbarPets/releases/download/v1.0.3/SF_HotbarPets1.0.3.jar"
+      },
+      "rebuilt_sha256": "d0598baad3e8b5d9f759f7b7e860291c9ef301df833174eeaedab6501cee8d64",
+      "bytecode": {
+        "jar": "SF_HotbarPets1.0.3.jar",
+        "maximum_java": 21,
+        "maximum_major": 65,
+        "result": "PASS",
+        "base_classes": 57,
+        "checked_classes": 57,
+        "ignored_versioned_classes": 0,
+        "multi_release": false,
+        "class_major_histogram": {
+          "52": 14,
+          "65": 43
+        },
+        "incompatible_classes": []
+      },
+      "reproducible": true,
+      "limitations": "API compilation and generated project fixtures are not complete real-player, populated-world, Folia or crash tests."
+    },
+    {
+      "repository": "wickidcow/SF_SMG",
+      "source_commit": "014a7e55a832255e6dd7fc4677b05480624a0fd7",
+      "previous_selection": "eecf6c5a0a09c9391fd654c95f80b02e2123c571",
+      "version": "1.0.5",
+      "core_source": "22ae22c4e32fd3b086565922f4427206d0f4b065",
+      "core_sha256": "c601f4589de0d4243b3ea02cfca7d25bc02b6eb7579730a3cd3285dbddaff73b",
+      "counts": {
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "compiled_apis": [
+        "1.21.11-R0.1-SNAPSHOT",
+        "26.2.build.112-stable",
+        "26.3.build.140-beta"
+      ],
+      "tested_api": "1.21.11-R0.1-SNAPSHOT",
+      "published_asset": {
+        "url": "https://api.github.com/repos/wickidcow/SF_SMG/releases/assets/604249049",
+        "id": 604249049,
+        "node_id": "RA_kwDOUUKDjc4kBBvZ",
+        "name": "SF_SMG1.0.5.jar",
+        "label": "",
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "node_id": "MDM6Qm90NDE4OTgyODI=",
+          "avatar_url": "https://avatars.githubusercontent.com/in/15368?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/github-actions%5Bbot%5D",
+          "html_url": "https://github.com/apps/github-actions",
+          "followers_url": "https://api.github.com/users/github-actions%5Bbot%5D/followers",
+          "following_url": "https://api.github.com/users/github-actions%5Bbot%5D/following{/other_user}",
+          "gists_url": "https://api.github.com/users/github-actions%5Bbot%5D/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/github-actions%5Bbot%5D/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/github-actions%5Bbot%5D/subscriptions",
+          "organizations_url": "https://api.github.com/users/github-actions%5Bbot%5D/orgs",
+          "repos_url": "https://api.github.com/users/github-actions%5Bbot%5D/repos",
+          "events_url": "https://api.github.com/users/github-actions%5Bbot%5D/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/github-actions%5Bbot%5D/received_events",
+          "type": "Bot",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "content_type": "application/java-archive",
+        "state": "uploaded",
+        "size": 24489,
+        "digest": "sha256:0d6971ecaaf690139cc96a305337d00748ae07a7f195e42ce7b3e9d96be4cd91",
+        "download_count": 0,
+        "created_at": "2026-10-01T22:24:26Z",
+        "updated_at": "2026-10-01T22:24:26Z",
+        "browser_download_url": "https://github.com/wickidcow/SF_SMG/releases/download/v1.0.5/SF_SMG1.0.5.jar"
+      },
+      "rebuilt_sha256": "0d6971ecaaf690139cc96a305337d00748ae07a7f195e42ce7b3e9d96be4cd91",
+      "bytecode": {
+        "jar": "SF_SMG1.0.5.jar",
+        "maximum_java": 21,
+        "maximum_major": 65,
+        "result": "PASS",
+        "base_classes": 9,
+        "checked_classes": 9,
+        "ignored_versioned_classes": 0,
+        "multi_release": false,
+        "class_major_histogram": {
+          "65": 9
+        },
+        "incompatible_classes": []
+      },
+      "reproducible": true,
+      "limitations": "API compilation and generated project fixtures are not complete real-player, populated-world, Folia or crash tests."
+    }
+  ],
+  "scope": "Only two newly selected sources were retested. The existing historical aggregate ledger is unchanged; do not relabel its old rows or counts."
+}
