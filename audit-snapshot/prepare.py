@@ -2,13 +2,12 @@ from pathlib import Path
 import hashlib
 import subprocess
 
-# checkout is shallow; explicitly fetch the pinned original before git-show comparisons.
 subprocess.run(['git', 'fetch', '--depth', '1', 'origin', 'a194ab1d0d5dd1cfc72caada225961ba0852ab87'], check=True)
 root = Path('src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage')
 path = root / 'controller/InventorySerializationFailureTest.java'
 data = path.read_bytes()
 assert hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest() == 'b84c00c6d6537a053cd216b072b40ee57009acc6'
-addition = '''    @ParameterizedTest
+addition = '''    @ParameterizedTest(name = "{displayName} [{index}] {arguments}")
     @EnumSource(Kind.class)
     void exportedBaselineCannotHideAnUnpersistedQuantityChange(Kind kind) throws Exception {
         try (var harness = new Harness(kind)) {
@@ -28,7 +27,7 @@ addition = '''    @ParameterizedTest
         }
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "{displayName} [{index}] {arguments}")
     @EnumSource(Kind.class)
     void exportedBaselineCannotHideAnUnpersistedMetadataChange(Kind kind) throws Exception {
         try (var harness = new Harness(kind)) {
