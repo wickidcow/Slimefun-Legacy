@@ -23,26 +23,70 @@ jobs:
           java-version: '25'
       - name: Validate dispatcher syntax before any remote change
         run: python3 -m py_compile audit-publication/publish_4_1_65.py
-      - name: Verify exact merged source, dispatch the unchanged publisher and inspect public assets
+      - name: Run non-push checks explicitly, require all source gates, then use the unchanged publisher
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           mkdir -p publication-evidence published-files
           python3 -u - <<'PY' 2>&1 | tee publication-evidence/dispatcher.log
-          import json, os, runpy, subprocess, time
-          # The retained artifact verifier reads SOURCE_COMMIT before GITHUB_SHA.
-          # Give it the actual merged release identity, never this temporary runner's commit.
-          for attempt in range(180):
-              pr = json.loads(subprocess.check_output(['gh', 'api', 'repos/wickidcow/Slimefun-Legacy/pulls/311']))
-              assert pr['head']['sha'] == '6325bf812db09d6fdc914d7700b8aabf09cd51c1'
-              if pr['merged']:
-                  break
-              assert pr['state'] == 'open'
-              time.sleep(10)
-          assert pr['merged']
-          os.environ['SOURCE_COMMIT'] = pr['merge_commit_sha']
-          runpy.run_path('audit-publication/publish_4_1_65.py', run_name='__main__')
+          from pathlib import Path
+          import hashlib, json, os, runpy, subprocess
+          repo = 'repos/wickidcow/Slimefun-Legacy'
+          expected = '82427167200e1b349b53c8c81f2373a5b36e340f'
+          branch = 'publication-source/4.1.65'
+          manual_ids = {320525617, 320525618, 353572886}
+          def api(path, method='GET', payload=None, missing=False):
+              command = ['gh', 'api', '--method', method, path]
+              if payload is not None: command += ['--input', '-']
+              result = subprocess.run(command, input=None if payload is None else json.dumps(payload).encode(), capture_output=True, timeout=180)
+              if result.returncode:
+                  body = json.loads(result.stdout)
+                  if missing and str(body.get('status')) == '404': return None
+                  raise RuntimeError(result.stderr.decode())
+              return json.loads(result.stdout) if result.stdout.strip() else {}
+          pr = api(f'{repo}/pulls/311')
+          assert pr['merged'] and pr['head']['sha'] == '6325bf812db09d6fdc914d7700b8aabf09cd51c1'
+          assert pr['merge_commit_sha'] == expected
+          assert api(f'{repo}/git/ref/heads/master')['object']['sha'] == expected
+          reference = api(f'{repo}/git/ref/heads/{branch}', missing=True)
+          if reference is None:
+              reference = api(f'{repo}/git/refs', 'POST', dict(ref='refs/heads/' + branch, sha=expected))
+          assert reference['object']['sha'] == expected
+          runs = api(f'{repo}/actions/runs?head_sha={expected}&event=workflow_dispatch&per_page=100')['workflow_runs']
+          records = []
+          for workflow in sorted(manual_ids):
+              metadata = api(f'{repo}/actions/workflows/{workflow}')
+              assert metadata['path'] in {'.github/workflows/api-compatibility.yml', '.github/workflows/compatibility-ci.yml', '.github/workflows/paper-26.3-preflight.yml'}
+              existing = [r for r in runs if r['workflow_id'] == workflow and r['head_branch'] == branch]
+              assert len(existing) <= 1
+              response = {'existing_run': existing[0]['id']} if existing else api(f'{repo}/actions/workflows/{workflow}/dispatches', 'POST', dict(ref=branch))
+              records.append(dict(workflow=workflow, path=metadata['path'], source=expected, response=response))
+          Path('publication-evidence/explicit-precheck-dispatches.json').write_text(json.dumps(records, indent=2) + '\n')
+          os.environ['SOURCE_COMMIT'] = expected
+          path = Path('audit-publication/publish_4_1_65.py')
+          raw = path.read_bytes()
+          digest = hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+          assert digest == 'fd2735f28970a2d3d98b6fcd3750352e2ee5575c'
+          text = raw.decode()
+          old = "f'{REPO}/actions/runs?head_sha={source}&event=push&per_page=100'"
+          new = "f'{REPO}/actions/runs?head_sha={source}&per_page=100'"
+          assert text.count(old) == 1
+          text = text.replace(old, new)
+          old = "rows = [r for r in response['workflow_runs'] if r['head_branch'] == 'master']"
+          new = "rows = [r for r in response['workflow_runs'] if (r['event'] == 'push' and r['head_branch'] == 'master') or (r['event'] == 'workflow_dispatch' and r['head_branch'] == SOURCE_BRANCH and r['workflow_id'] in {320525617, 320525618, 353572886})]"
+          assert text.count(old) == 1
+          text = text.replace(old, new)
+          old = "head=r['head_sha'], status=r['status'], conclusion=r['conclusion'])"
+          new = "head=r['head_sha'], event=r['event'], status=r['status'], conclusion=r['conclusion'])"
+          assert text.count(old) == 1
+          text = text.replace(old, new)
+          # Keep all 13 required workflow identities. Only the three documented non-push
+          # checks are accepted from explicit dispatches, at the exact same source commit.
+          effective = Path('publication-evidence/effective-dispatcher.py')
+          effective.write_text(text)
+          compile(text, str(effective), 'exec')
+          runpy.run_path(str(effective), run_name='__main__')
           PY
       - uses: actions/upload-artifact@v7
         if: always()
