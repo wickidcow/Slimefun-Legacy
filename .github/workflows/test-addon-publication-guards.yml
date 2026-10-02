@@ -1,0 +1,32 @@
+name: Test Addon Publication Safety Guards
+on:
+  push:
+    branches: ['audit/addon-r107-validation-20261002']
+    paths: ['.github/workflows/test-addon-publication-guards.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Run the actual publisher's offline mutation-boundary tests
+        env:
+          PUBLISHED_CORE_RUNTIME_RUN: '37066237709'
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python3 -m py_compile audit-r107/publish.py audit-r107/test_publish.py
+          python3 audit-r107/test_publish.py -v 2>&1 | tee evidence/test-results.txt
+          sha256sum audit-r107/publish.py audit-r107/test_publish.py > evidence/tested-source-sha256.txt
+          printf 'Fourteen mocked publication guards; no network call, release write or plugin code is executed by this test run.\n' > evidence/scope.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: addon-publication-guard-tests
+          path: evidence/
+          retention-days: 30
+          if-no-files-found: error
