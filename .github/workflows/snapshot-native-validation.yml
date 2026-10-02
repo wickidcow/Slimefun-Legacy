@@ -1,0 +1,161 @@
+name: Snapshot Native Item Preservation
+on:
+  push:
+    branches: ['audit/snapshot-native-validation-20261002']
+    paths: ['audit-snapshot-native/**', '.github/workflows/snapshot-native-validation.yml']
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: ad07df9c0ebe74df212d02d1e65c50fe82537577
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Build the exact candidate source and verify published original bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p inputs evidence
+          (
+            cd candidate
+            export SOURCE_COMMIT="$(git rev-parse HEAD)"
+            export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+            test "$SOURCE_COMMIT" = ad07df9c0ebe74df212d02d1e65c50fe82537577
+            chmod +x gradlew
+            ./gradlew clean shadowJar --no-daemon --no-build-cache --no-configuration-cache
+            JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+            python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+            python3 scripts/verify_release_artifact.py "$JAR" --root .
+            cp "$JAR" ../inputs/candidate.jar
+          ) > evidence/candidate-build.log 2>&1
+          python3 - <<'PY'
+          import hashlib,json,subprocess,zipfile
+          from pathlib import Path
+          source='ad07df9c0ebe74df212d02d1e65c50fe82537577'
+          release=json.loads(subprocess.check_output(['gh','api','repos/wickidcow/Slimefun-Legacy/releases/tags/v4.1.64']))
+          asset=next(a for a in release['assets'] if a['name']=='Slimefun-Legacy4.1.64.jar')
+          assert asset['id']==604656009
+          expected='316b308139e90981ed037d82ddc57b62b354d8e0a41804d5ebf3bb2b8f896d80'
+          assert asset['digest']=='sha256:'+expected
+          subprocess.run(['curl','-fLsS','--retry','3','--max-time','180',asset['browser_download_url'],'-o','inputs/original.jar'],check=True)
+          assert hashlib.sha256(Path('inputs/original.jar').read_bytes()).hexdigest()==expected
+          records={}
+          for kind in ['original','candidate']:
+              path=Path('inputs',kind+'.jar')
+              with zipfile.ZipFile(path) as jar:
+                  assert jar.testzip() is None
+                  properties=jar.read('git.properties').decode()
+                  if kind=='candidate': assert 'git.source.commit='+source in properties
+                  Path('evidence',kind+'-git.properties').write_text(properties)
+              records[kind]=hashlib.sha256(path.read_bytes()).hexdigest()
+          Path('inputs/provenance.json').write_text(json.dumps(dict(candidate_source=source,original_release_asset=asset,sha256=records),indent=2)+'\n')
+          PY
+      - name: Compile the probe against the real supported-floor API
+        run: |
+          mkdir -p probe/classes
+          cat > probe/pom.xml <<'XML'
+          <project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion><groupId>audit</groupId><artifactId>snapshot-probe</artifactId><version>1</version><repositories><repository><id>paper</id><url>https://repo.papermc.io/repository/maven-public/</url></repository></repositories><dependencies><dependency><groupId>io.papermc.paper</groupId><artifactId>paper-api</artifactId><version>1.21.11-R0.1-SNAPSHOT</version></dependency></dependencies></project>
+          XML
+          mvn -B -ntp -f probe/pom.xml dependency:build-classpath -Dmdep.outputFile=classpath.txt > evidence/probe-compile.log 2>&1
+          javac --release 21 -cp "$(cat probe/classpath.txt)" -d probe/classes audit-snapshot-native/SnapshotNativeProbe.java >> evidence/probe-compile.log 2>&1
+          printf "name: SnapshotNativeProbe\nmain: audit.SnapshotNativeProbe\nversion: '1'\napi-version: '1.21.11'\ndepend: [Slimefun]\n" > probe/classes/plugin.yml
+          jar --create --file inputs/probe.jar -C probe/classes .
+          cp audit-snapshot-native/SnapshotNativeProbe.java inputs/
+          sha256sum inputs/*.jar > inputs/SHA256SUMS
+          cp inputs/provenance.json inputs/SHA256SUMS evidence/
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: snapshot-native-build-evidence
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: snapshot-native-inputs
+          path: inputs/
+          retention-days: 14
+          if-no-files-found: error
+  runtime:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - minecraft: '1.21.11'
+            build: 132
+            java: '21'
+            sha256: 5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba
+          - minecraft: '26.2'
+            build: 129
+            java: '25'
+            sha256: b1d8f6bfa1b6101fa8e947b53041cb3bdf5540e7b83b6547ca19ba7edefeb083
+          - minecraft: '26.3'
+            build: 140
+            java: '25'
+            sha256: 98aabc113a80b9b5e183475e839a17cf99c39c915a1f46b8f35a5e89fd5de0f1
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: snapshot-native-inputs
+          path: inputs
+      - name: Exercise actual original and corrected native snapshots
+        env:
+          MC: ${{ matrix.minecraft }}
+          BUILD: ${{ matrix.build }}
+          HASH: ${{ matrix.sha256 }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          sha256sum -c inputs/SHA256SUMS
+          URL="https://fill-data.papermc.io/v1/objects/${HASH}/paper-${MC}-${BUILD}.jar"
+          curl -fLsS --retry 3 --max-time 180 -H 'User-Agent: Slimefun-Legacy-Snapshot-Preservation (https://github.com/wickidcow/Slimefun-Legacy)' "$URL" -o server.jar
+          printf '%s  server.jar\n' "$HASH" | sha256sum --check
+          printf 'url=%s\nsha256=%s\n' "$URL" "$HASH" > evidence/server.txt
+          cp inputs/provenance.json inputs/SHA256SUMS inputs/SnapshotNativeProbe.java evidence/
+          for KIND in original candidate; do
+            mkdir -p "$KIND/plugins"
+            cp server.jar "$KIND/server.jar"
+            cp "inputs/$KIND.jar" "$KIND/plugins/Slimefun.jar"
+            cp inputs/probe.jar "$KIND/plugins/SnapshotNativeProbe.jar"
+            printf 'eula=true\n' > "$KIND/eula.txt"
+            printf 'online-mode=false\nserver-ip=127.0.0.1\nserver-port=0\nview-distance=2\nsimulation-distance=2\nspawn-protection=0\npause-when-empty-seconds=-1\n' > "$KIND/server.properties"
+            ORIGINAL=false; MARKER=SNAPSHOT_NATIVE_OWNERSHIP_PASS
+            if [[ "$KIND" == original ]]; then ORIGINAL=true; MARKER=SNAPSHOT_ORIGINAL_ALIAS_REPRODUCED; fi
+            STATUS=0
+            (cd "$KIND" && timeout --kill-after=20s 240s java -Xms512M -Xmx2G -Dsnapshot.original="$ORIGINAL" -jar server.jar --nogui > server.log 2>&1) || STATUS=$?
+            mkdir -p "evidence/$KIND"
+            cp "$KIND/server.log" "evidence/$KIND/"
+            if test -f "$KIND/snapshot-result.txt"; then cp "$KIND/snapshot-result.txt" "evidence/$KIND/"; fi
+            if test -f "$KIND/native-old-item.bin"; then cp "$KIND/native-old-item.bin" "evidence/$KIND/"; fi
+            if [[ "$STATUS" != 0 ]] || ! grep -Fxq "$MARKER" "$KIND/snapshot-result.txt"; then tail -n 120 "$KIND/server.log"; exit 1; fi
+            test "$(wc -l < "$KIND/snapshot-result.txt")" -eq 7
+            if grep -Eq 'SNAPSHOT_NATIVE_FAIL|Error occurred while enabling|NoClassDefFoundError|NoSuchMethodError' "$KIND/server.log"; then tail -n 120 "$KIND/server.log"; exit 1; fi
+            cat "$KIND/snapshot-result.txt"
+          done
+          printf 'PASS: original aliases reproduced; corrected snapshot isolation and native typed item preservation on %s\n' "$MC" > evidence/result.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: snapshot-native-${{ matrix.minecraft }}
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
