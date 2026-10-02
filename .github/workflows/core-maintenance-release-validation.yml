@@ -66,6 +66,9 @@ jobs:
           set -euo pipefail
           python3 scripts/verify_legacy.py . > evidence/invariants.log 2>&1
           chmod +x gradlew
+          # Match the existing build-ci.yml preprocessing, without disabling Spotless or tests.
+          ./gradlew spotlessApply --no-daemon --no-build-cache --no-configuration-cache > evidence/formatting.log 2>&1
+          git diff -- src > evidence/existing-formatter-normalization.patch
           ./gradlew clean build -PslimefunDeprecationReport=true --console=plain --no-daemon --no-build-cache --no-configuration-cache 2>&1 | tee evidence/full-build.log
           python3 scripts/summarize_deprecations.py evidence/full-build.log --fail-on-warnings --require-successful-build > evidence/deprecations.txt
           JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
@@ -83,7 +86,7 @@ jobs:
           cmp "$RUNNER_TEMP/core-first.jar" "$JAR"
           sha256sum "$RUNNER_TEMP/core-first.jar" "$JAR" > evidence/reproducible-sha256.txt
           git diff --check
-          test -z "$(git diff --name-only -- src)"
+          git diff -- src | cmp evidence/existing-formatter-normalization.patch -
       - name: Record actual reports and stage only synchronized version metadata
         env:
           GH_TOKEN: ${{ github.token }}
@@ -101,7 +104,7 @@ jobs:
               assert json.loads(r.stdout)['sha']==sha;blobs[name]=sha
               p=Path('evidence/reviewed-source')/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(data)
           Path('evidence/reviewed-blobs.json').write_text(json.dumps(blobs,indent=2)+'\n')
-          Path('evidence/result.json').write_text(json.dumps(dict(tests=counts,version='4.1.64',production_source='cf09e5bc04cb912604e65bfeacce9dabeda5014a',published=False,scope='Pre-promotion metadata test; final committed source requires its own normal CI'),indent=2)+'\n')
+          Path('evidence/result.json').write_text(json.dumps(dict(tests=counts,version='4.1.64',production_source='cf09e5bc04cb912604e65bfeacce9dabeda5014a',published=False,scope='Pre-promotion metadata test with existing normal-CI formatter preprocessing; no formatted Java files promoted'),indent=2)+'\n')
           print(counts)
           PY
       - uses: actions/upload-artifact@v7
