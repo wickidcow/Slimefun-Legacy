@@ -1,0 +1,162 @@
+name: SlimeTinker Revision 104 Native Validation
+
+on:
+  push:
+    branches: ['validation/slimetinker-r104-published-core']
+    paths: ['.github/workflows/validate-slimetinker-r104.yml', 'validation/slimetinker/**']
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: slimetinker-r104-native-validation
+  cancel-in-progress: true
+
+env:
+  SOURCE_HEAD: 9da61742de73978c0ed108227f3d3318598dda08
+  SOURCE_MERGE: 9131a89fbfafcec5c32146d052d2f9960f35a949
+  TINKER_HEAD: bdb2ba51ad946de686c50dc1745ba89053b4535d
+  CORE_SHA256: 993b257c54efe19b58cc8f4946d4d39387f7787fe263c9f27123343159344c42
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_HEAD }}
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: probe-source
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: wickidcow/SF_SlimeTinkerIE2
+          ref: ${{ env.TINKER_HEAD }}
+          path: tinker-source
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Obtain the exact candidate and unchanged published core
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/download_candidate_bundle.py --repository "$GITHUB_REPOSITORY" --head "$SOURCE_HEAD" --source "$SOURCE_MERGE" --output candidate --timeout 1800
+          gh release download v4.1.63 --repo "$GITHUB_REPOSITORY" --pattern Slimefun-Legacy4.1.63.jar --dir candidate
+          echo "$CORE_SHA256  candidate/Slimefun-Legacy4.1.63.jar" | sha256sum -c -
+          cp compatibility/sfl-addon-release-matrix.json candidate/source-matrix.json
+          git show 56491fb98dd13113b3372fe964821ce591a0d28d:compatibility/sfl-addon-release-matrix.json > candidate/previous-matrix.json
+          python3 - <<'PY'
+          import json, os, zipfile
+          from pathlib import Path
+          old=json.loads(Path('candidate/previous-matrix.json').read_text())
+          new=json.loads(Path('candidate/source-matrix.json').read_text())
+          assert old['bundle_revision']==103 and new['bundle_revision']==104
+          assert len(old['addons'])==len(new['addons'])==45
+          expected=json.loads(json.dumps(old))
+          expected['bundle_revision']=104
+          for row in expected['addons']:
+              if row['repository']=='wickidcow/SF_SlimeTinkerIE2': row['source_commit']=os.environ['TINKER_HEAD']
+          assert expected==new, 'An unrelated addon selection changed'
+          with zipfile.ZipFile('candidate/SF_Addons_1.21.11-26.3.zip') as z:
+              manifest=json.loads(z.read('SF_ADDON_MANIFEST.json'))
+              row=next(r for r in manifest['addons'] if r['repository']=='wickidcow/SF_SlimeTinkerIE2')
+              assert row['commit']==os.environ['TINKER_HEAD']
+              assert row['jar']=='SF_SlimeTinker2.0.7.jar'
+              Path('candidate/SlimeTinker.jar').write_bytes(z.read(row['jar']))
+          PY
+      - name: Compile a disposable probe against actual baseline APIs
+        run: |
+          set -euo pipefail
+          (cd tinker-source; bash scripts/install_release_apis.sh; mvn -B -ntp dependency:build-classpath -Dslimefun.groupId=com.github.wickidcow -Dslimefun.artifactId=Slimefun-Legacy -Dslimefun.version=4.1.63 -Dpaper.version=1.21.11-R0.1-SNAPSHOT -Dmdep.outputFile=classpath.txt)
+          mkdir -p probe-classes
+          javac --release 21 -cp "$PWD/candidate/SlimeTinker.jar:$(cat tinker-source/classpath.txt)" -d probe-classes probe-source/validation/slimetinker/TinkerProbe.java
+          printf 'name: SlimeTinkerPresentationProbe\nversion: 1.0\nmain: io.github.wickidcow.validation.TinkerProbe\napi-version: "1.21"\ndepend: [Slimefun, SlimeTinker]\n' > probe-classes/plugin.yml
+          jar --create --file candidate/SlimeTinkerPresentationProbe.jar -C probe-classes .
+          sha256sum candidate/SF_Addons_1.21.11-26.3.zip candidate/Slimefun-Legacy4.1.63.jar candidate/SlimeTinkerPresentationProbe.jar > candidate/inputs.sha256
+          cp probe-source/validation/slimetinker/TinkerProbe.java candidate/TinkerProbe.java
+      - uses: actions/upload-artifact@v7
+        with:
+          name: r104-published-core-inputs
+          path: candidate/
+          if-no-files-found: error
+          retention-days: 30
+  runtime:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - minecraft: '1.21.11'
+            java: '21'
+          - minecraft: '26.2'
+            java: '25'
+          - minecraft: '26.3'
+            java: '25'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_HEAD }}
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: r104-published-core-inputs
+          path: candidate
+      - name: Run the complete stack and actual item operations twice
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+          SLIMEFUN_SMOKE_VERSION: '4.1.63'
+        run: |
+          set -euo pipefail
+          sha256sum -c candidate/inputs.sha256
+          export SLIMETINKER_PROBE_JAR="$PWD/candidate/SlimeTinkerPresentationProbe.jar"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/full_stack_runtime_smoke.sh')
+          s=p.read_text()
+          anchor='cp "$SLIMEFUN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-full-stack.jar"\n'
+          assert s.count(anchor)==1
+          s=s.replace(anchor, anchor+'cp "$SLIMETINKER_PROBE_JAR" "$WORK_DIR/plugins/SlimeTinkerPresentationProbe.jar"\n')
+          p.write_text(s)
+          PY
+          WORK="build/published-core-${SERVER_MINECRAFT_VERSION}"
+          bash scripts/full_stack_runtime_smoke.sh "$PWD/candidate/Slimefun-Legacy4.1.63.jar" "$PWD/candidate/SF_Addons_1.21.11-26.3.zip" "$WORK"
+          test "$(wc -l < "$WORK/expected-addons.txt")" -eq 45
+          test ! -s "$WORK/dependency-gated-addons.txt"
+          grep -F 'TINKER_NATIVE_PASS phase=initial' "$WORK/first.normalized.log"
+          grep -F 'TINKER_NATIVE_PASS phase=restart' "$WORK/second.normalized.log"
+          if grep -E 'TINKER_NATIVE_FAIL|ERROR|SEVERE' "$WORK/first.normalized.log" "$WORK/second.normalized.log"; then exit 1; fi
+          git diff -- scripts/full_stack_runtime_smoke.sh > "$WORK/probe-runner.patch"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: r104-native-runtime-${{ matrix.minecraft }}
+          path: |
+            candidate/bundle-source.txt
+            candidate/inputs.sha256
+            candidate/source-matrix.json
+            build/published-core-*/smoke-result.txt
+            build/published-core-*/runtime-build.txt
+            build/published-core-*/expected-addons.txt
+            build/published-core-*/dependency-gated-addons.txt
+            build/published-core-*/*.log
+            build/published-core-*/probe-runner.patch
+            build/published-core-*/plugins/SlimeTinkerPresentationProbe/
+            build/published-core-*/plugins/worldedit-runtime.json
+          if-no-files-found: error
+          retention-days: 30
