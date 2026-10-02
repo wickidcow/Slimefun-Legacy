@@ -1,0 +1,101 @@
+name: Record Condition Ownership Regression
+on:
+  push:
+    branches: ['audit/condition-ownership-20261002']
+    paths: ['.github/workflows/condition-ownership-validation.yml']
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 3b81c252f327b114b9a34e1d5db9d732794f15b9
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Reproduce the original ownership failures without accepting setup errors
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/original
+          FILE=src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/common/RecordKey.java
+          cp "$FILE" "$RUNNER_TEMP/RecordKey.corrected.java"
+          git show "82427167200e1b349b53c8c81f2373a5b36e340f:$FILE" > "$FILE"
+          test "$(git hash-object "$FILE")" = c2f32181a4367a8eba2cfeaac8eb98b742f4558b
+          chmod +x gradlew
+          STATUS=0
+          ./gradlew test --tests 'com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordKeyConditionOwnershipTest' --no-daemon --no-build-cache --no-configuration-cache > evidence/original/build.log 2>&1 || STATUS=$?
+          test "$STATUS" -ne 0
+          cp build/test-results/test/TEST-*.xml evidence/original/
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,xml.etree.ElementTree as ET
+          files=list(Path('evidence/original').glob('TEST-*.xml'))
+          assert len(files)==1, files
+          root=ET.parse(files[0]).getroot()
+          counts={key:int(root.attrib[key]) for key in ['tests','failures','errors','skipped']}
+          assert counts['tests']==19 and counts['failures']>0 and counts['errors']==counts['skipped']==0,counts
+          for name in ['constructorAliasCannotRedirectARealSqliteUpdate','returnedPairCannotRedirectARealSqliteDeletion','querySelectionAfterCallerMutationReadsTheIntendedRecord']:
+              case=root.find(f"testcase[@name='{name}()']")
+              if case is None: case=root.find(f"testcase[@name='{name}']")
+              assert case is not None and case.find('failure') is not None,name
+              assert case.find('failure').attrib['type']=='org.opentest4j.AssertionFailedError'
+          Path('evidence/original/counts.json').write_text(json.dumps(counts,indent=2)+'\n')
+          print(counts)
+          PY
+      - name: Verify corrected conditions and unchanged collection contracts
+        run: |
+          set -euo pipefail
+          FILE=src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/common/RecordKey.java
+          cp "$RUNNER_TEMP/RecordKey.corrected.java" "$FILE"
+          python3 scripts/verify_legacy.py . > evidence/invariants.log 2>&1
+          ./gradlew spotlessApply --no-daemon --no-build-cache --no-configuration-cache > evidence/format.log 2>&1
+          ./gradlew test --tests 'com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordKey*Test' --no-daemon --no-build-cache --no-configuration-cache > evidence/corrected-build.log 2>&1
+          mkdir -p evidence/corrected
+          cp build/test-results/test/TEST-*.xml evidence/corrected/
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,xml.etree.ElementTree as ET
+          roots=[ET.parse(p).getroot() for p in Path('evidence/corrected').glob('TEST-*.xml')]
+          counts={key:sum(int(r.attrib[key]) for r in roots) for key in ['tests','failures','errors','skipped']}
+          assert counts['tests']>=32 and counts['failures']==counts['errors']==counts['skipped']==0,counts
+          Path('evidence/corrected/counts.json').write_text(json.dumps(counts,indent=2)+'\n')
+          print(counts)
+          PY
+      - name: Preserve formatted tested source blobs without modifying branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,subprocess
+          records={}
+          for name in ['src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/common/RecordKey.java','src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/common/RecordKeyConditionOwnershipTest.java']:
+              data=Path(name).read_bytes()
+              sha=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+              result=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps(dict(content=data.decode(),encoding='utf-8')),text=True,capture_output=True,check=True)
+              assert json.loads(result.stdout)['sha']==sha
+              records[name]=sha
+              target=Path('evidence/formatted-source')/name
+              target.parent.mkdir(parents=True,exist_ok=True)
+              target.write_bytes(data)
+          Path('evidence/formatted-blobs.json').write_text(json.dumps(records,indent=2)+'\n')
+          PY
+      - name: Retain last reports on failures too
+        if: always()
+        run: |
+          mkdir -p evidence/last-reports
+          if test -d build/test-results/test; then cp build/test-results/test/TEST-*.xml evidence/last-reports/ || true; fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: record-condition-ownership-evidence
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
