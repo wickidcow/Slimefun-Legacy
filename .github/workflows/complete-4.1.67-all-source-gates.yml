@@ -1,0 +1,116 @@
+name: Complete 4.1.67 With Every Source Gate
+on:
+  push:
+    branches: ['audit/finalize-4.1.67-scoped-lock-20261002']
+    paths: ['.github/workflows/complete-4.1.67-all-source-gates.yml']
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: verified-release-publication-4.1.67-resumed
+  cancel-in-progress: false
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_SOURCE: '5cb1e47c35a2b85ccc342dbf4121fac4bf9a1969'
+    steps:
+      - name: Check out the reviewed verifier
+        uses: actions/checkout@v6
+        with:
+          ref: 32d68596ba7ae2e5e711a7457fffa639472477b8
+          path: verifier-source
+          persist-credentials: false
+      - name: Check out the same immutable release source
+        uses: actions/checkout@v6
+        with:
+          ref: 5cb1e47c35a2b85ccc342dbf4121fac4bf9a1969
+          path: release-source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Stop only the earlier waiting publication verifier
+        working-directory: release-source
+        run: |
+          set -euo pipefail
+          mkdir -p evidence release-files
+          python3 - <<'PY'
+          import json,subprocess,time
+          from pathlib import Path
+          endpoint='repos/wickidcow/Slimefun-Legacy/actions/runs/37076570338'
+          def get():return json.loads(subprocess.check_output(['gh','api',endpoint]))
+          row=get()
+          assert row['head_sha']=='d3d75b3da89fa1afb77c70b497b6d687da3305fd'
+          assert row['path']=='.github/workflows/finalize-4.1.67-publication.yml'
+          assert row['head_branch']=='audit/finalize-4.1.67-scoped-lock-20261002'
+          assert row['conclusion']!='success', 'Previous publisher already succeeded; do not repeat publication'
+          if row['status']!='completed':
+              result=subprocess.run(['gh','api','--method','POST',endpoint+'/cancel'],capture_output=True,text=True)
+              if result.returncode:
+                  assert get()['status']=='completed',result.stderr
+          for attempt in range(30):
+              row=get()
+              if row['status']=='completed':break
+              time.sleep(2)
+          assert row['status']=='completed' and row['conclusion']!='success'
+          Path('evidence/previous-verifier.json').write_text(json.dumps({k:row[k] for k in ['id','head_sha','path','status','conclusion']},indent=2)+'\n')
+          PY
+      - name: Add the two omitted triggers without removing any validation
+        working-directory: release-source
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import ast,hashlib,json,os
+          source=Path(os.environ['GITHUB_WORKSPACE'])/'verifier-source/audit-release/finalize.py'
+          original=source.read_text()
+          assert hashlib.sha256(original.encode()).hexdigest()=='a233e796c272f2ec0aca5c3d30a875149f1a6cbea46fd6402ffb6a71ac98c50d'
+          old="    'Reproducible Release'}"
+          new="""    'Reproducible Release', 'Runtime Gameplay Correctness',
+              'Universal Migration Database Compatibility', 'Paper/Purpur 1.21.11 Compatibility',
+              'Paper 26.2 Runtime Smoke', 'Purpur/Folia/Leaf 26.2 Runtime Smoke',
+              'Proxy Runtime Smoke', 'Required Addon Runtime Smoke'}"""
+          new=new.replace('\n          ','\n')
+          assert original.count(old)==1
+          changed=original.replace(old,new)
+          anchor="    '.github/workflows/paper-26.3-preflight.yml': 'Paper 26.3 Primary Preflight',\n"
+          extra="    '.github/workflows/runtime-gameplay-correctness.yml': 'Runtime Gameplay Correctness',\n    '.github/workflows/universal-migration-validation.yml': 'Universal Migration Database Compatibility',\n"
+          assert changed.count(anchor)==1
+          changed=changed.replace(anchor,anchor+extra)
+          old_comment='# Reuse existing exact-source runs; dispatch each missing API gate at most once.'
+          new_comment='# Reuse exact-source runs; explicitly run gameplay/database gates omitted by metadata-only push filters.'
+          changed=changed.replace(old_comment,new_comment)
+          assert changed.replace(new,old).replace(anchor+extra,anchor).replace(new_comment,old_comment)==original
+          assert hashlib.sha256(changed.encode()).hexdigest()=='c19bde6e856c630c7cff4df35e819ed849f54f646594f2ccb5340d02db014b86'
+          tree=ast.parse(changed)
+          definitions={n.targets[0].id:ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign) and isinstance(n.targets[0],ast.Name) and n.targets[0].id in ('required_names','MANUAL_WORKFLOWS')}
+          assert len(definitions['required_names'])==15 and len(definitions['MANUAL_WORKFLOWS'])==5
+          assert set(definitions['MANUAL_WORKFLOWS'].values())<=definitions['required_names']
+          for name in ['runtime-gameplay-correctness.yml','universal-migration-validation.yml']:
+              assert '  workflow_dispatch:' in Path('.github/workflows',name).read_text()
+          script=Path(os.environ['RUNNER_TEMP'])/'finalize-all-gates.py'
+          script.write_text(changed)
+          Path('evidence/actual-publication-verifier.py').write_text(changed)
+          Path('evidence/gate-completion-scope.json').write_text(json.dumps(dict(release_source=os.environ['RELEASE_SOURCE'],original_verifier_sha256=hashlib.sha256(original.encode()).hexdigest(),actual_verifier_sha256=hashlib.sha256(changed.encode()).hexdigest(),required_gates=sorted(definitions['required_names']),manual_workflows=definitions['MANUAL_WORKFLOWS'],scope='Add exact-source gameplay and external-database runs omitted by metadata-only push filters; retain every existing validation and publication guard'),indent=2)+'\n')
+          PY
+      - name: Verify every exact-source gate and publish only through the original reproducible workflow
+        working-directory: release-source
+        run: |
+          set -euo pipefail
+          python3 -u "$RUNNER_TEMP/finalize-all-gates.py" 2>&1 | tee evidence/finalizer.log
+      - name: Retain successful or failed verification evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-4.1.67-final-publication-evidence
+          path: release-source/evidence/
+          retention-days: 90
+          if-no-files-found: error
+      - name: Retain actual downloaded and verified published assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-4.1.67-final-verified-assets
+          path: release-source/release-files/
+          retention-days: 30
+          if-no-files-found: error
