@@ -1,0 +1,126 @@
+name: Legacy Item Text Release Validation
+on:
+  push:
+    branches: ['audit/reconcile-four-addons-r103']
+    paths: ['.github/workflows/legacy-text-release-validation.yml']
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: af96b56689c57eafe659cfced75d2290d25a7899
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Add actual legacy-oracle cases and preserve ASCII-only alternate codes
+        run: |
+          mkdir -p evidence
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          src=Path('src/main/java/io/github/thebusybiscuit/slimefun4/api/items/SlimefunItemStack.java')
+          old=src.read_text();Path('evidence/original-item-stack.java').write_text(old)
+          test=Path('src/test/java/io/github/thebusybiscuit/slimefun4/api/items/SlimefunItemStackLegacyTextTest.java')
+          text=test.read_text()
+          text=text.replace('import org.junit.jupiter.api.Test;','import org.junit.jupiter.api.Test;\nimport org.junit.jupiter.params.ParameterizedTest;\nimport org.junit.jupiter.params.provider.ValueSource;\nimport net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;\nimport net.kyori.adventure.text.format.TextDecoration;\nimport org.bukkit.ChatColor;')
+          pos=text.rfind('}')
+          addition='''
+              @SuppressWarnings("deprecation") // Historical behavior oracle only; not production API use.
+              @ParameterizedTest
+              @ValueSource(strings = {
+                  "&aGreen", "&AGreen", "\\u00a7bOld &cNew", "\\u00a7x\\u00a76\\u00a7B\\u00a7E\\u00a7E\\u00a7D\\u00a71Gradient",
+                  "&x&6&B&E&E&D&1Gradient", "&X&6&B&E&E&D&1Gradient", "&lBold&rReset",
+                  "&kHidden", "&&aGreen", "Unchanged &g value &", "&\\u212aNotAColor", "", "Plain name"
+              })
+              void matchesHistoricalAlternateCodeAndSectionParsing(String input) {
+                  Component expected = LegacyComponentSerializer.legacySection()
+                          .deserialize(ChatColor.translateAlternateColorCodes('&', input))
+                          .decoration(TextDecoration.ITALIC, false);
+                  assertEquals(expected, SlimefunItemStack.legacyText(input));
+              }
+
+              @Test
+              void doesNotEnableImplicitItalics() {
+                  assertEquals(TextDecoration.State.FALSE,
+                          SlimefunItemStack.legacyText("&aName").decoration(TextDecoration.ITALIC));
+              }
+          '''
+          test.write_text(text[:pos]+addition+text[pos:])
+          needle='''            char code = Character.toLowerCase(chars[i + 1]);
+                      if ("0123456789abcdefklmnorx".indexOf(code) >= 0) {
+                          chars[i] = '\u00a7';
+                          chars[i + 1] = code;
+                      }'''
+          # Normalize indentation of this literal to the reviewed source shape.
+          needle='            char code = Character.toLowerCase(chars[i + 1]);\n            if ("0123456789abcdefklmnorx".indexOf(code) >= 0) {\n                chars[i] = \'\u00a7\';\n                chars[i + 1] = code;\n            }'
+          replacement='            char code = chars[i + 1];\n            if ("0123456789AaBbCcDdEeFfKkLlMmNnOoRrXx".indexOf(code) >= 0) {\n                chars[i] = \'\u00a7\';\n                chars[i + 1] = Character.toLowerCase(code);\n            }'
+          assert old.count(needle)==1
+          Path('evidence/corrected-item-stack.java').write_text(old.replace(needle,replacement))
+          PY
+          echo "SOURCE_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+      - name: Require the intended original Unicode-whitelist regression
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          STATUS=0
+          ./gradlew test --tests '*SlimefunItemStackLegacyTextTest' --console=plain --no-daemon --no-build-cache --no-configuration-cache > evidence/original-test.log 2>&1 || STATUS=$?
+          test "$STATUS" -ne 0
+          mkdir -p evidence/original-tests
+          cp build/test-results/test/TEST-*.xml evidence/original-tests/
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          roots=[ET.parse(p).getroot() for p in Path('evidence/original-tests').glob('TEST-*.xml')]
+          assert sum(int(r.attrib['errors']) for r in roots)==0
+          failed=[case for r in roots for case in r.findall('testcase') if case.find('failure') is not None]
+          assert len(failed)==1 and 'matchesHistoricalAlternateCodeAndSectionParsing' in failed[0].attrib['name'],[(f.attrib,ET.tostring(f).decode()) for f in failed]
+          assert 'org.opentest4j.AssertionFailedError' in failed[0].find('failure').attrib.get('type','')
+          PY
+      - name: Full corrected build and old-data source invariants
+        run: |
+          set -euo pipefail
+          cp evidence/corrected-item-stack.java src/main/java/io/github/thebusybiscuit/slimefun4/api/items/SlimefunItemStack.java
+          ./gradlew spotlessApply --no-daemon --no-build-cache --no-configuration-cache > evidence/format.log 2>&1
+          python3 scripts/verify_legacy.py . > evidence/invariants.log 2>&1
+          ./gradlew clean build -PslimefunDeprecationReport=true --console=plain --no-daemon --no-build-cache --no-configuration-cache 2>&1 | tee evidence/corrected-build.log
+          python3 scripts/summarize_deprecations.py evidence/corrected-build.log --fail-on-warnings --require-successful-build > evidence/deprecations.txt
+          JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21 > evidence/bytecode.txt
+          python3 scripts/verify_release_artifact.py "$JAR" --root . --json-report evidence/artifact.json --summary evidence/artifact.md
+          mkdir -p evidence/corrected-tests
+          cp build/test-results/test/TEST-*.xml evidence/corrected-tests/
+      - name: Stage only the two verified production/test files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,subprocess,xml.etree.ElementTree as ET
+          from pathlib import Path
+          roots=[ET.parse(p).getroot() for p in Path('evidence/corrected-tests').glob('TEST-*.xml')]
+          totals={k:sum(int(r.attrib[k]) for r in roots) for k in ['tests','failures','errors','skipped']}
+          assert totals['tests']>=528 and totals['failures']==totals['errors']==0 and totals['skipped']==1,totals
+          text=next(r for r in roots if r.attrib['name'].endswith('SlimefunItemStackLegacyTextTest'))
+          assert int(text.attrib['tests'])==16 and int(text.attrib['failures'])==int(text.attrib['errors'])==int(text.attrib['skipped'])==0,text.attrib
+          blobs={}
+          for name in ['src/main/java/io/github/thebusybiscuit/slimefun4/api/items/SlimefunItemStack.java','src/test/java/io/github/thebusybiscuit/slimefun4/api/items/SlimefunItemStackLegacyTextTest.java']:
+              data=Path(name).read_bytes();sha=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+              result=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps(dict(content=data.decode(),encoding='utf-8')),text=True,capture_output=True,check=True)
+              assert json.loads(result.stdout)['sha']==sha;blobs[name]=sha
+              p=Path('evidence/reviewed-source')/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(data)
+          Path('evidence/result.json').write_text(json.dumps(dict(totals=totals,text_tests=16,reviewed_blobs=blobs,source='af96b56689c57eafe659cfced75d2290d25a7899',published=False),indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: legacy-text-release-evidence
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
