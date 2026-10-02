@@ -18,11 +18,13 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: gradle
-      - name: Apply hash-checked preservation changes
+      - name: Apply hash-checked preservation changes and run all source invariants
         run: |
           set -euo pipefail
           mkdir -p evidence
           python3 .audit/delayed-save/apply.py
+          # Match normal build-ci.yml: textual source guards run before Spotless normalization.
+          python3 scripts/verify_legacy.py . > evidence/source-invariants.log 2>&1
           chmod +x gradlew
           ./gradlew spotlessApply --no-daemon > evidence/format.log 2>&1
           git diff --check
@@ -60,10 +62,9 @@ jobs:
               assert any(name.startswith(prefix) for name in failed),(prefix,failed)
           Path('evidence/negative-control-summary.json').write_text(json.dumps(dict(counts=counts,failed=sorted(failed),scope='Original key-only removal behavior restored in the real controller factory; infrastructure errors are not accepted'),indent=2)+'\n')
           PY
-      - name: Full corrected source invariants build tests and artifact verification
+      - name: Full corrected build tests and artifact verification
         run: |
           set -euo pipefail
-          python3 scripts/verify_legacy.py . > evidence/source-invariants.log 2>&1
           ./gradlew clean build -PslimefunDeprecationReport=true --console=plain --no-daemon --no-build-cache --no-configuration-cache 2>&1 | tee evidence/build.log
           python3 scripts/summarize_deprecations.py evidence/build.log --fail-on-warnings --require-successful-build
           JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
