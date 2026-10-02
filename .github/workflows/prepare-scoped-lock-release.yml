@@ -1,0 +1,121 @@
+name: Prepare 4.1.67 Scoped Lock Maintenance
+on:
+  push:
+    branches: ['audit/prepare-4.1.67-scoped-lock-20261002']
+    paths: ['.github/workflows/prepare-scoped-lock-release.yml']
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 46cb57bd75623a62743039f1d933970c11ac1a3d
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Update only release identity, baseline and notes
+        run: |
+          mkdir -p evidence
+          python3 - <<'PY'
+          import copy,hashlib,json,subprocess,textwrap
+          from pathlib import Path
+          base='46cb57bd75623a62743039f1d933970c11ac1a3d'
+          assert subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()==base
+          manifest=Path('compatibility/sfl-addon-release-matrix.json').read_bytes()
+          assert json.loads(manifest)['bundle_revision']==107 and len(json.loads(manifest)['addons'])==45
+          for name in ['addon-compatibility-matrix.json','core-api-registry.json','cross-fork-api-matrix.json','support-contract.json']:
+              path=Path('compatibility',name)
+              original=json.loads(path.read_text())
+              assert original['release']=='4.1.66'
+              changed=copy.deepcopy(original);changed['release']='4.1.67'
+              assert dict(changed,release='4.1.66')==original
+              path.write_text(json.dumps(changed,indent=2)+'\n')
+          path=Path('compatibility/release-baselines.json')
+          original=json.loads(path.read_text());changed=copy.deepcopy(original)
+          assert original['candidate']['version']=='4.1.66'
+          assert original['previous_stable']['version']=='4.1.65'
+          assert original['previous_stable']['source']['ref']=='82427167200e1b349b53c8c81f2373a5b36e340f'
+          changed['candidate']['version']='4.1.67'
+          changed['previous_stable']['version']='4.1.66'
+          changed['previous_stable']['source']['ref']='22ae22c4e32fd3b086565922f4427206d0f4b065'
+          control=copy.deepcopy(changed);control['candidate']=original['candidate'];control['previous_stable']=original['previous_stable']
+          assert control==original
+          path.write_text(json.dumps(changed,indent=2)+'\n')
+          path=Path('gradle.properties');text=path.read_text()
+          assert text.count('projectVersion=4.1.66')==1 and text.count('Coordinated addon source manifest revision: 106')==1
+          text=text.replace('# Slimefun Legacy 4.1.66 - Record condition ownership and retained-view safety','# Slimefun Legacy 4.1.67 - Scoped storage lock lifetime safety')
+          text=text.replace('projectVersion=4.1.66','projectVersion=4.1.67').replace('Coordinated addon source manifest revision: 106','Coordinated addon source manifest revision: 107')
+          path.write_text(text)
+          path=Path('README.md');text=path.read_text()
+          assert '4.1.66 — Record Condition Ownership Safety' in text and '__NEXT_RELEASE__' not in text
+          text=text.replace('4.1.66','__NEXT_RELEASE__').replace('4.1.65','4.1.66').replace('__NEXT_RELEASE__','4.1.67')
+          text=text.replace('4.1.67 — Record Condition Ownership Safety','4.1.67 — Scoped Storage Lock Safety')
+          path.write_text(text)
+          path=Path('docs/releases/4.1.67.md');assert not path.exists()
+          path.write_text(textwrap.dedent('''\
+          # Slimefun Legacy 4.1.67
+
+          This maintenance release keeps one storage lock registered until every caller holding or waiting for it has finished. It retains all 45 revision-107 addon selections, including HotbarPets 1.0.3 and SimpleMaterialGenerators 1.0.5. The previous published stable regression baseline is 4.1.66 at `22ae22c4e32fd3b086565922f4427206d0f4b065`.
+
+          ## Scoped storage safety
+
+          An unlocked lock can still have callers that already obtained its reference. The previous cleanup could remove that registration, allowing a later caller to create a second lock for the same scope. Controlled tests reproduced simultaneous entry into a supposedly exclusive storage section.
+
+          The corrected helper reserves each acquisition before waiting and retires its entry only after all held and waiting acquisitions have released it. Blocking acquisition stays outside the atomic map callback, so unrelated hash-colliding scopes can still progress. Reentrancy, default non-fair locking, interrupt-status behavior, wrong-owner exceptions and missing-unlock behavior are preserved. Unused scope entries are reclaimed rather than kept forever.
+
+          ## Existing items and addons
+
+          No item/research IDs, saved field names or types, inventory codecs, database schemas, block/backpack/storage identities, recipes, menus, capacities, machine rates, transfer priorities, save cadence or migration defaults change. No migration or data rewrite is required or enabled. The lock fix cannot reconstruct data lost before installation.
+
+          The complete 45-addon revision-107 source selection is retained unchanged and rebuilt against the exact versioned core. Existing standalone addon versions are preserved. The core is supplied as a raw drop-in JAR; SF_Addons_1.21.11-26.3.zip is the aggregate addon bundle. This release does not replace old core release assets or tags.
+
+          ## Validation scope
+
+          The correction includes twelve permanent real-thread regression scenarios, deterministic original-binary failure controls, reentrant contention, unrelated equal-hash scopes, 16,000 protected updates and cleanup of 4,000 completed scopes. The versioned source must independently pass core/API/platform checks, the full maintained compiler, its matching 45-addon build and restart checks, plus byte-identical clean-build publication checks. Earlier development results are not relabeled as final release results.
+
+          These tests do not certify every populated customer world, live-client interaction, database deployment, crash, external addon concurrency, Folia region interaction, future API or cross-fork rollback. The reproduced issue is a helper-level race, not a diagnosis that a particular customer's world was damaged. Scope keys must remain stable while acquired, and hasLock remains a registry snapshot rather than an atomic maintenance barrier. No measured TPS improvement is claimed.
+
+          Minecraft 1.21.11 is the runtime floor, not an age cutoff for saved items. Paper 26.3 is the primary target, with Paper/Purpur prioritized and derivative-server safety qualified. Java 21 plugin bytecode is retained while current builds use Java 25.
+
+          ## Installation
+
+          Stop the server normally and back up worlds, player data, plugin directories and databases. Test the matching core and intended addon JARs on a disposable copy first. Replace existing JARs without leaving duplicate versions, and do not use live reload. Keep existing registrations and migration settings unless deliberately changing them. Review startup logs and /sf doctor before optional repairs; unreadable records are recovery tasks, not empty inventories to overwrite.
+          '''))
+          assert Path('compatibility/sfl-addon-release-matrix.json').read_bytes()==manifest
+          assert subprocess.check_output(['git','diff','--name-only','--','src/'],text=True)==''
+          expected={'README.md','gradle.properties','docs/releases/4.1.67.md','compatibility/release-baselines.json'}|{'compatibility/'+n for n in ['addon-compatibility-matrix.json','core-api-registry.json','cross-fork-api-matrix.json','support-contract.json']}
+          changed=set(subprocess.check_output(['git','diff','--name-only'],text=True).splitlines())|{'docs/releases/4.1.67.md'}
+          assert changed==expected,(changed,expected)
+          Path('evidence/scope.json').write_text(json.dumps(dict(base=base,version='4.1.67',previous_stable='4.1.66',previous_stable_source='22ae22c4e32fd3b086565922f4427206d0f4b065',unchanged_source_and_test_trees=True,unchanged_addon_pins=45,bundle_revision=107,manifest_sha256=hashlib.sha256(manifest).hexdigest(),changed_files=sorted(expected)),indent=2)+'\n')
+          PY
+          git diff --check
+          python3 scripts/verify_legacy.py . > evidence/core-invariants.log 2>&1
+      - name: Stage reviewed metadata blobs without moving a release ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,subprocess
+          scope=json.loads(Path('evidence/scope.json').read_text());records={}
+          for name in scope['changed_files']:
+              data=Path(name).read_bytes()
+              sha=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+              result=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps(dict(content=data.decode(),encoding='utf-8')),check=True,capture_output=True,text=True)
+              assert json.loads(result.stdout)['sha']==sha
+              records[name]=sha
+              target=Path('evidence/reviewed-source')/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
+          Path('evidence/reviewed-blobs.json').write_text(json.dumps(records,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-4.1.67-metadata-evidence
+          path: evidence/
+          retention-days: 30
+          if-no-files-found: error
