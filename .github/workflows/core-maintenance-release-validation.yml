@@ -1,0 +1,114 @@
+name: Core Maintenance Release Validation
+on:
+  push:
+    branches: ['audit/reconcile-four-addons-r103']
+    paths: ['.github/workflows/core-maintenance-release-validation.yml']
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: cf09e5bc04cb912604e65bfeacce9dabeda5014a
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Apply only reviewed addon metadata and synchronized release contracts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence
+          python3 - <<'PY'
+          import base64,hashlib,json,subprocess
+          from pathlib import Path
+          originals={}
+          files=['gradle.properties','README.md','compatibility/support-contract.json','compatibility/addon-compatibility-matrix.json','compatibility/cross-fork-api-matrix.json','compatibility/core-api-registry.json','compatibility/release-baselines.json']
+          for name in files:originals[name]=Path(name).read_bytes()
+          selected={'compatibility/sfl-addon-release-matrix.json':'a623a78bc777ecd2b0f78c5632be850f2fe5d184','compatibility/maintained-addon-test-ledger.json':'22942422745bcc390162fe54e8f12e6dfc5d1f23','.github/workflows/build-sfl-addons-compat-bundle.yml':'1ddc697132aa345e6d793b817d04c04994920d35'}
+          for name,sha in selected.items():
+              r=json.loads(subprocess.check_output(['gh','api','repos/wickidcow/Slimefun-Legacy/git/blobs/'+sha]))
+              data=base64.b64decode(r['content']);assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()==sha
+              Path(name).write_bytes(data)
+          p=Path('gradle.properties');text=p.read_text();assert text.count('projectVersion=4.1.63')==1
+          text=text.replace('projectVersion=4.1.63','projectVersion=4.1.64').replace('# Slimefun Legacy 4.1.63 - Existing-item preservation and coordinated addon stability','# Slimefun Legacy 4.1.64 - Cancelled-removal persistence and coordinated addon updates').replace('# Coordinated addon source manifest revision: 100','# Coordinated addon source manifest revision: 103')
+          p.write_text(text)
+          p=Path('README.md');text=p.read_text()
+          old='Current stable release: **4.1.61 — Performance, Guide Cleanup & Compatibility Modernization**. Development candidate: **4.1.63 — Existing-Item Preservation & Addon Stability**.'
+          new='Maintenance release line: **4.1.64 — Storage Deletion Safety & Coordinated Addon Updates**. The previous published stable baseline is **4.1.63**. Use [GitHub Releases](https://github.com/wickidcow/Slimefun-Legacy/releases) for publication status and verified drop-in JARs.'
+          assert text.count(old)==1;text=text.replace(old,new)
+          text=text.replace('Slimefun Legacy 4.1.63 development builds retain','Slimefun Legacy 4.1.64 maintenance builds retain')
+          old='Slimefun Legacy 4.1.63 is tested primarily against **Paper 26.3 / Minecraft 26.3 on Java 25**. This is the active development candidate; 4.1.61 remains the current published stable release until 4.1.63 passes its release gates.'
+          new='Slimefun Legacy 4.1.64 is tested primarily against **Paper 26.3 / Minecraft 26.3 on Java 25**. The previous stable regression baseline is 4.1.63. Runtime reports identify beta builds explicitly; an API target is not a claim that upstream has declared its server stable.'
+          assert text.count(old)==1;text=text.replace(old,new)
+          text=text.replace('| Paper 26.2 / Minecraft 26.2 | ✅ Primary supported line |','| Paper 26.3 / Minecraft 26.3 | ✅ Primary API/support target; record the tested server channel |\n| Paper 26.2 / Minecraft 26.2 | ✅ Supported backwards-compatibility line |')
+          text=text.replace('| **Java runtime** | Java 25 |','| **Java runtime** | Java 25 for 26.2/26.3; Java 21 remains the 1.21.11 floor |')
+          p.write_text(text)
+          for name in files[2:-1]:
+              p=Path(name);data=json.loads(p.read_text());assert data['release']=='4.1.63'
+              data['release']='4.1.64';p.write_text(json.dumps(data,indent=2)+'\n')
+          p=Path(files[-1]);data=json.loads(p.read_text());assert data['candidate']['version']=='4.1.63'
+          data['candidate']['version']='4.1.64';data['previous_stable']['version']='4.1.63';data['previous_stable']['source']['ref']='2703e3a500b426849f3eb7806862bb4343bb9d6a'
+          p.write_text(json.dumps(data,indent=2)+'\n')
+          Path('evidence/version-files.json').write_text(json.dumps(files,indent=2))
+          Path('evidence/original-version-sha256.json').write_text(json.dumps({n:hashlib.sha256(b).hexdigest() for n,b in originals.items()},indent=2))
+          PY
+          echo "SOURCE_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+          git diff --check
+      - name: Full uncached core tests and unchanged preservation invariants
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_legacy.py . > evidence/invariants.log 2>&1
+          chmod +x gradlew
+          ./gradlew clean build -PslimefunDeprecationReport=true --console=plain --no-daemon --no-build-cache --no-configuration-cache 2>&1 | tee evidence/full-build.log
+          python3 scripts/summarize_deprecations.py evidence/full-build.log --fail-on-warnings --require-successful-build > evidence/deprecations.txt
+          JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21 > evidence/bytecode.txt
+          python3 scripts/verify_release_artifact.py "$JAR" --root . --json-report evidence/artifact-first.json --summary evidence/artifact-first.md
+          cp "$JAR" "$RUNNER_TEMP/core-first.jar"
+          mkdir -p evidence/tests
+          cp build/test-results/test/TEST-*.xml evidence/tests/
+      - name: Require byte-identical second clean build
+        run: |
+          set -euo pipefail
+          ./gradlew clean shadowJar --console=plain --no-daemon --no-build-cache --no-configuration-cache > evidence/second-build.log 2>&1
+          JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          python3 scripts/verify_release_artifact.py "$JAR" --root . --json-report evidence/artifact-second.json --summary evidence/artifact-second.md
+          cmp "$RUNNER_TEMP/core-first.jar" "$JAR"
+          sha256sum "$RUNNER_TEMP/core-first.jar" "$JAR" > evidence/reproducible-sha256.txt
+          git diff --check
+          test -z "$(git diff --name-only -- src)"
+      - name: Record actual reports and stage only synchronized version metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,subprocess,xml.etree.ElementTree as ET
+          roots=[ET.parse(p).getroot() for p in Path('evidence/tests').glob('TEST-*.xml')]
+          counts={k:sum(int(r.attrib[k]) for r in roots) for k in ['tests','failures','errors','skipped']}
+          assert counts['tests']>=512 and counts['failures']==counts['errors']==0 and counts['skipped']==1,counts
+          blobs={}
+          for name in json.loads(Path('evidence/version-files.json').read_text()):
+              data=Path(name).read_bytes();sha=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+              r=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps(dict(content=data.decode(),encoding='utf-8')),text=True,capture_output=True,check=True)
+              assert json.loads(r.stdout)['sha']==sha;blobs[name]=sha
+              p=Path('evidence/reviewed-source')/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(data)
+          Path('evidence/reviewed-blobs.json').write_text(json.dumps(blobs,indent=2)+'\n')
+          Path('evidence/result.json').write_text(json.dumps(dict(tests=counts,version='4.1.64',production_source='cf09e5bc04cb912604e65bfeacce9dabeda5014a',published=False,scope='Pre-promotion metadata test; final committed source requires its own normal CI'),indent=2)+'\n')
+          print(counts)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: core-maintenance-release-evidence
+          path: evidence/
+          include-hidden-files: true
+          retention-days: 14
+          if-no-files-found: error
