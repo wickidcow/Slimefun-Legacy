@@ -1,0 +1,54 @@
+name: Clean Completed Preservation Branches
+on:
+  push:
+    branches: ['audit/publish-addon-r107-verified-20261002']
+    paths: ['.github/workflows/cleanup-merged-314-315.yml']
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify merged ancestry and delete only the unchanged completed refs
+        run: |
+          set -euo pipefail
+          mkdir -p cleanup-evidence
+          gh auth setup-git
+          python3 - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          repo='wickidcow/Slimefun-Legacy'
+          selected=[(314,'fix/addon-release-selection-r107','974e55dc763aa3e3e55fc2c4547abeebcd0dff16'),(315,'fix/scoped-lock-waiter-lifetime','46cb57bd75623a62743039f1d933970c11ac1a3d')]
+          subprocess.run(['git','fetch','origin','master'],check=True)
+          master=subprocess.check_output(['git','rev-parse','origin/master'],text=True).strip()
+          records=[]
+          for number,branch,expected in selected:
+              pr=json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/pulls/{number}']))
+              assert pr['merged'] and pr['head']['sha']==expected and pr['head']['ref']==branch
+              assert pr['base']['ref']=='master' and pr['head']['repo']['full_name']==repo
+              subprocess.run(['git','merge-base','--is-ancestor',expected,'origin/master'],check=True)
+              ref='refs/heads/'+branch
+              before=subprocess.check_output(['git','ls-remote','--heads','origin',ref],text=True).strip()
+              if before:
+                  assert before.split()[0]==expected,(branch,'new or unfinished commits must be preserved')
+                  # Compare-and-delete at the Git server; any concurrent new commit rejects this deletion.
+                  subprocess.run(['git','push','--force-with-lease='+ref+':'+expected,'origin',':'+ref],check=True)
+              assert not subprocess.check_output(['git','ls-remote','--heads','origin',ref],text=True).strip()
+              records.append(dict(pr=number,branch=branch,head=expected,master_checked=master,result='deleted' if before else 'already absent',unique_work_discarded=False))
+              Path('cleanup-evidence/results.json').write_text(json.dumps(records,indent=2)+'\n')
+          print(json.dumps(records,indent=2))
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: completed-preservation-branch-cleanup
+          path: cleanup-evidence/
+          retention-days: 30
+          if-no-files-found: error
