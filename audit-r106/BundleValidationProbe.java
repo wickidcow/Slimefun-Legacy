@@ -59,10 +59,10 @@ public final class BundleValidationProbe extends JavaPlugin {
                     Object detailed = clipboard.getMethod("makeComponentPaper", Component.class, Component.class, String.class)
                             .invoke(null, label, hover, value);
                     for (Object result : List.of(simple, detailed)) {
+                        // Equality checks both action and exact payload without linking a retired enum field.
                         if (!(result instanceof Component component)
                                 || component.clickEvent() == null
-                                || component.clickEvent().action() != ClickEvent.Action.COPY_TO_CLIPBOARD
-                                || !value.equals(component.clickEvent().value())
+                                || !ClickEvent.copyToClipboard(value).equals(component.clickEvent())
                                 || component.hoverEvent() == null) {
                             throw new AssertionError("Packaged guide clipboard payload or hover changed");
                         }
