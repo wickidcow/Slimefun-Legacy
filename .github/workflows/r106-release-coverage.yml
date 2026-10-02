@@ -1,0 +1,76 @@
+name: Revision 106 Standalone Coverage Audit
+on:
+  push:
+    branches: ['audit/reconcile-addon-r106']
+    paths: ['.github/workflows/r106-release-coverage.yml']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 4df8de0cc8c31c8600ed1161a729ce30e177cc34
+          persist-credentials: false
+      - name: Inspect release assets and exact tag ancestry without repository mutations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence
+          python3 - <<'PY'
+          import concurrent.futures,datetime,json,subprocess,urllib.parse
+          from pathlib import Path
+          manifest=json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text())
+          assert manifest['bundle_revision']==106 and len(manifest['addons'])==45
+          def api(path):
+              result=subprocess.run(['gh','api',path],capture_output=True,text=True,timeout=90)
+              if result.returncode:
+                  raise RuntimeError(result.stderr.strip()[:500])
+              return json.loads(result.stdout)
+          def inspect(row):
+              repo,source=row['repository'],row['source_commit']
+              record=dict(repository=repo,selected_source=source)
+              try:
+                  release=api(f'repos/{repo}/releases/latest')
+                  jars=[{k:a.get(k) for k in ['id','name','size','digest','state','browser_download_url','updated_at']} for a in release['assets'] if a['name'].endswith('.jar')]
+                  record.update(release_id=release['id'],tag=release['tag_name'],published_at=release['published_at'],draft=release['draft'],prerelease=release['prerelease'],raw_jars=jars,raw_jar_available=bool(jars))
+                  tag=urllib.parse.quote(release['tag_name'],safe='')
+                  obj=api(f'repos/{repo}/git/ref/tags/{tag}')['object']
+                  for _ in range(4):
+                      if obj['type']=='commit': break
+                      if obj['type']!='tag':raise ValueError('Tag does not identify a commit')
+                      obj=api(f"repos/{repo}/git/tags/{obj['sha']}")['object']
+                  if obj['type']!='commit':raise ValueError('Annotated tag depth exceeded')
+                  target=obj['sha'];record['release_commit']=target
+                  if target==source:
+                      record.update(source_relation='exact',changed_files=[])
+                  else:
+                      compared=api(f'repos/{repo}/compare/{source}...{target}')
+                      files=[f['filename'] for f in compared.get('files',[])]
+                      record.update(source_relation=compared['status'],ahead_by=compared['ahead_by'],behind_by=compared['behind_by'],changed_files=files,comparison_may_be_truncated=len(files)>=300)
+                      if compared['status'] in {'identical','ahead'} and not files:record['source_relation']='same-tree'
+                  record['status']='inspected'
+              except Exception as error:
+                  record.update(status='unresolved',error=str(error))
+              return record
+          with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
+              records=list(pool.map(inspect,manifest['addons']))
+          assert len(records)==45 and len({r['repository'] for r in records})==45
+          summary=dict(repositories=45,inspected=sum(r['status']=='inspected' for r in records),raw_jar_available=sum(bool(r.get('raw_jar_available')) for r in records),same_source_tree=sum(r.get('source_relation') in {'exact','same-tree'} for r in records),unresolved=sum(r['status']=='unresolved' for r in records))
+          report=dict(checked_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),manifest_head='4df8de0cc8c31c8600ed1161a729ce30e177cc34',revision=106,summary=summary,limitations=['Release metadata and tag/source comparison only; this does not download or certify every JAR or execute every addon.','A differing tag/source requires review; differences may be documentation or packaging rather than gameplay.','Read failures are unresolved coverage, not proof of no release.'],addons=records)
+          Path('evidence/standalone-coverage.json').write_text(json.dumps(report,indent=2)+'\n')
+          lines=['# Standalone release coverage — revision106','', '| Repository | Latest release | Raw JAR | Source comparison |','| --- | --- | --- | --- |']
+          for row in records:
+              lines.append('| '+row['repository']+' | '+row.get('tag','unresolved')+' | '+('yes' if row.get('raw_jar_available') else 'unresolved or absent')+' | '+row.get('source_relation','unresolved')+' |')
+          lines.extend(['','This is metadata coverage, not binary, gameplay or upgrade certification.'])
+          Path('evidence/standalone-coverage.md').write_text('\n'.join(lines)+'\n')
+          print(json.dumps(summary,indent=2))
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: revision106-standalone-coverage
+          path: evidence/
+          retention-days: 30
+          if-no-files-found: error
