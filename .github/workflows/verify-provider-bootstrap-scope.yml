@@ -1,0 +1,80 @@
+name: Verify Provider Bootstrap Scope
+on:
+  push:
+    branches: ['validation/4.1.64-final-checkpoint']
+    paths: ['.github/workflows/verify-provider-bootstrap-scope.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 5ebeedbac5f9b91322d55635c515b41361b2b895
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Confirm unchanged runtime source and exercise old/fixed CI controls
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,subprocess
+          base='d1ac11a1c6891ac6768dff935bcc8de7d149b7a5'
+          def git(*args):return subprocess.check_output(['git',*args]).decode().strip()
+          Path('provider-evidence').mkdir()
+          for name in ('src/main','src/test','compatibility'):
+              assert git('rev-parse',base+':'+name)==git('rev-parse','HEAD:'+name),name
+          changed=set(git('diff','--name-only',base,'HEAD').splitlines())
+          assert changed=={'.github/workflows/paper-26.3-addon-compile.yml','scripts/test_addon_provider_bootstrap.py','gradle.properties'},changed
+          def properties(text):return [l for l in text.splitlines() if l.strip() and not l.startswith('#')]
+          assert properties(subprocess.check_output(['git','show',base+':gradle.properties']).decode())==properties(Path('gradle.properties').read_text())
+          wf=Path('.github/workflows/paper-26.3-addon-compile.yml')
+          fixed=wf.read_bytes()
+          try:
+              wf.write_bytes(subprocess.check_output(['git','show',base+':'+str(wf)]))
+              old=subprocess.run(['python3','scripts/test_addon_provider_bootstrap.py','-v'],text=True,capture_output=True)
+              Path('provider-evidence/old-control.log').write_text(old.stdout+old.stderr)
+              assert old.returncode!=0 and 'FAILED (failures=4)' in old.stderr,old.stderr
+          finally:
+              wf.write_bytes(fixed)
+          new=subprocess.run(['python3','scripts/test_addon_provider_bootstrap.py','-v'],text=True,capture_output=True)
+          Path('provider-evidence/fixed-tests.log').write_text(new.stdout+new.stderr)
+          assert new.returncode==0 and 'Ran 8 tests' in new.stderr,new.stderr
+          report={'base':base,'head':git('rev-parse','HEAD'),'runtime_test_and_compatibility_trees_unchanged':True,'gradle_values_unchanged':True,'old_control_failures':4,'fixed_tests':8,'matrix_sha256':hashlib.sha256(Path('compatibility/sfl-addon-release-matrix.json').read_bytes()).hexdigest()}
+          Path('provider-evidence/scope.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps(report,indent=2))
+          print(new.stderr)
+          PY
+          git diff --exit-code
+      - name: Inspect every job in the held master compile and dispatcher
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          Path('provider-evidence').mkdir(exist_ok=True)
+          def api(path):return json.loads(subprocess.check_output(['gh','api','--method','GET','repos/wickidcow/Slimefun-Legacy/'+path],text=True))
+          jobs=[];page=1
+          while True:
+              result=api(f'actions/runs/36952466796/jobs?per_page=100&page={page}')
+              jobs.extend(result['jobs'])
+              if len(jobs)>=result['total_count']:break
+              assert result['jobs']
+              page+=1
+          brief=[{k:j.get(k) for k in ('id','name','status','conclusion')} for j in jobs]
+          failed=[j for j in brief if j['conclusion'] not in ('success','skipped')]
+          report={'run':36952466796,'jobs':brief,'non_successful_jobs':failed,'dispatcher':api('actions/runs/36953613791')}
+          Path('provider-evidence/held-run.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps({'total_jobs':len(jobs),'non_successful_jobs':failed,'dispatcher_conclusion':report['dispatcher']['conclusion']},indent=2))
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: provider-bootstrap-scope
+          path: provider-evidence/
+          if-no-files-found: error
+          retention-days: 90
