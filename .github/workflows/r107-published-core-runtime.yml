@@ -21,7 +21,7 @@ jobs:
         run: |
           mkdir -p inputs evidence
           python3 - <<'PY'
-          import hashlib,io,json,subprocess,sys,time,zipfile
+          import hashlib,io,json,re,subprocess,sys,time,zipfile
           from pathlib import Path
           sys.path.insert(0,'scripts')
           from verify_addon_bytecode import inspect_jar
@@ -60,6 +60,7 @@ jobs:
           assert source['bundle_revision']==107 and len(source['addons'])==45
           expected={a['repository']:a['source_commit'] for a in source['addons']}
           reports=[];Path('verify-jars').mkdir()
+          plugin_names=set()
           with zipfile.ZipFile(io.BytesIO(bundle)) as z:
               assert z.testzip() is None and len(z.namelist())==len(set(z.namelist()))
               manifest=json.loads(z.read('SF_ADDON_MANIFEST.json'))
@@ -72,9 +73,24 @@ jobs:
                   path=Path('verify-jars',a['jar']);path.write_bytes(data)
                   checked=inspect_jar(path,21);assert checked['result']=='PASS'
                   with zipfile.ZipFile(io.BytesIO(data)) as jar:
-                      assert jar.testzip() is None and 'plugin.yml' in jar.namelist()
+                      assert jar.testzip() is None
+                      # Native Paper plugins such as SlimeEasy intentionally use paper-plugin.yml.
+                      descriptors=[n for n in ('plugin.yml','paper-plugin.yml','paper-plugin.yaml') if n in jar.namelist()]
+                      assert descriptors, ('Missing plugin descriptor',a['jar'])
+                      identities=[]
+                      for descriptor in descriptors:
+                          text=jar.read(descriptor).decode('utf-8')
+                          name=re.search(r'''(?m)^name:\s*['"]?([^'"\r\n]+)''',text)
+                          version=re.search(r'''(?m)^version:\s*['"]?([^'"\s]+)''',text)
+                          assert name and version,(a['jar'],descriptor)
+                          assert version.group(1)==a['version'],(a['jar'],version.group(1),a['version'])
+                          identities.append(name.group(1).strip())
+                      assert len(set(identities))==1,(a['jar'],identities)
+                      assert identities[0] not in plugin_names,identities[0]
+                      plugin_names.add(identities[0])
                       assert not any(n.startswith(('org/junit/','org/mockbukkit/','org/mockito/','audit/')) for n in jar.namelist())
-                  reports.append(dict(repository=a['repository'],commit=a['commit'],jar=a['jar'],sha256=a['sha256'],checked_classes=checked['checked_classes']))
+                  reports.append(dict(repository=a['repository'],commit=a['commit'],jar=a['jar'],sha256=a['sha256'],checked_classes=checked['checked_classes'],descriptors=descriptors,plugin=identities[0]))
+              assert len(plugin_names)==45
               assert next(a for a in manifest['addons'] if a['repository']=='wickidcow/SF_HotbarPets')['version']=='1.0.3'
               assert next(a for a in manifest['addons'] if a['repository']=='wickidcow/SF_SMG')['version']=='1.0.5'
           for attempt in range(120):
