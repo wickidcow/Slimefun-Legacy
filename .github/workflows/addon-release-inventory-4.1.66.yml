@@ -1,0 +1,123 @@
+name: Maintained Addon Release Inventory for 4.1.66
+on:
+  push:
+    branches: ['audit/finalize-4.1.66-20261002']
+    paths: ['.github/workflows/addon-release-inventory-4.1.66.yml']
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 22ae22c4e32fd3b086565922f4427206d0f4b065
+          persist-credentials: false
+      - name: Inspect each selected source, open work and standalone release metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence
+          python3 - <<'PY'
+          import concurrent.futures, datetime, json, subprocess
+          from pathlib import Path
+          from urllib.parse import quote
+
+          def api(path, optional=False):
+              r = subprocess.run(['gh', 'api', path], capture_output=True, timeout=90)
+              if r.returncode:
+                  try: error = json.loads(r.stdout)
+                  except (ValueError, UnicodeError): error = {}
+                  if optional and str(error.get('status')) == '404': return None
+                  raise RuntimeError(path + ': ' + r.stderr.decode(errors='replace'))
+              return json.loads(r.stdout)
+
+          def collection(path):
+              rows = []
+              for page in range(1, 11):
+                  data = api(path + ('&' if '?' in path else '?') + f'per_page=100&page={page}')
+                  assert isinstance(data, list)
+                  rows.extend(data)
+                  if len(data) < 100: return rows
+              raise RuntimeError('Pagination limit reached; not treating this as a complete listing: ' + path)
+
+          manifest = json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text())
+          assert manifest['bundle_revision'] == 106 and len(manifest['addons']) == 45
+          # Use canonical source/version metadata from the already verified same release PR build.
+          source_file = api('repos/wickidcow/Slimefun-Legacy/contents/compatibility/sfl-addon-release-matrix.json?ref=22ae22c4e32fd3b086565922f4427206d0f4b065')
+          assert source_file['type'] == 'file'
+
+          def inspect(row):
+              repo = row['repository']; prefix = 'repos/' + repo
+              data = api(prefix)
+              branch = data['default_branch']
+              head = api(prefix + '/git/ref/heads/' + quote(branch, safe=''))['object']['sha']
+              comparison = api(prefix + '/compare/' + row['source_commit'] + '...' + head)
+              issues = collection(prefix + '/issues?state=open')
+              branches = collection(prefix + '/branches')
+              release = api(prefix + '/releases/latest', optional=True)
+              workflows = api(prefix + '/actions/runs?head_sha=' + head + '&per_page=100')
+              latest = {}
+              for run in workflows['workflow_runs']:
+                  key = run['path']
+                  if key not in latest or run['id'] > latest[key]['id']: latest[key] = run
+              checks = [{k: r.get(k) for k in ('id','name','path','head_sha','event','status','conclusion')}
+                  for r in latest.values()]
+              release_meta = None if release is None else {
+                  'id': release['id'], 'tag': release['tag_name'], 'published_at': release['published_at'],
+                  'target_commitish': release['target_commitish'],
+                  'assets': [{k: a.get(k) for k in ('id','name','content_type','size','state','digest','browser_download_url')}
+                      for a in release['assets']]}
+              result = dict(repository=repo, selected_commit=row['source_commit'], default_branch=branch,
+                  default_head=head, selected_vs_default={k:comparison[k] for k in ('status','ahead_by','behind_by')},
+                  open_issues=[{'number':x['number'],'title':x['title'],'updated_at':x['updated_at'],'url':x['html_url']}
+                      for x in issues if 'pull_request' not in x],
+                  open_pull_requests=[{'number':x['number'],'title':x['title'],'updated_at':x['updated_at'],'url':x['html_url']}
+                      for x in issues if 'pull_request' in x],
+                  branches=[{'name':b['name'],'sha':b['commit']['sha'],'protected':b['protected']} for b in branches],
+                  latest_standalone_release=release_meta,
+                  default_head_workflows=checks, workflow_listing_total=workflows['total_count'],
+                  workflow_listing_returned=len(workflows['workflow_runs']))
+              result['release_has_raw_jar'] = bool(release_meta and any(a['name'].endswith('.jar') and a['size'] > 0
+                  and a['state'] == 'uploaded' for a in release_meta['assets']))
+              result['source_ancestry_confirmed'] = comparison['status'] in ('identical','ahead')
+              result['limitations'] = 'Release assets inspected as metadata only; branch uniqueness, runtime behavior and artifact byte integrity are not certified by this inventory.'
+              return result
+
+          rows=[]; failures=[]
+          with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+              pending={executor.submit(inspect,row):row['repository'] for row in manifest['addons']}
+              for future in concurrent.futures.as_completed(pending):
+                  repo=pending[future]
+                  try:
+                      result=future.result();rows.append(result)
+                      print(repo, 'raw_jar=' + str(result['release_has_raw_jar']),
+                          'open_prs=' + str(len(result['open_pull_requests'])),
+                          'source=' + result['selected_vs_default']['status'], flush=True)
+                  except Exception as error:
+                      failures.append({'repository':repo,'error':str(error)})
+                  Path('evidence/addon-inventory.json').write_text(json.dumps(dict(
+                      source='22ae22c4e32fd3b086565922f4427206d0f4b065',bundle_revision=106,
+                      observed_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                      addons=sorted(rows,key=lambda r:r['repository']),failures=failures),indent=2)+'\n')
+          summary=dict(selected_addons=45,inspected=len(rows),failures=failures,
+              missing_raw_jar=[r['repository'] for r in rows if not r['release_has_raw_jar']],
+              source_not_ancestral=[r['repository'] for r in rows if not r['source_ancestry_confirmed']],
+              open_prs={r['repository']:r['open_pull_requests'] for r in rows if r['open_pull_requests']},
+              open_issues={r['repository']:r['open_issues'] for r in rows if r['open_issues']},
+              failed_default_head_workflows={r['repository']:[x for x in r['default_head_workflows']
+                  if x['status']=='completed' and x['conclusion'] not in ('success','skipped')]
+                  for r in rows if any(x['status']=='completed' and x['conclusion'] not in ('success','skipped')
+                      for x in r['default_head_workflows'])})
+          Path('evidence/summary.json').write_text(json.dumps(summary,indent=2)+'\n')
+          print(json.dumps(summary,indent=2))
+          assert len(rows)==45 and not failures, 'Inventory incomplete; preserve the partial results and errors'
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: maintained-addon-release-inventory-4.1.66
+          path: evidence/
+          retention-days: 30
+          if-no-files-found: error
