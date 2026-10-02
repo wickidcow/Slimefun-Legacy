@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 104,
+  "bundle_revision": 105,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -111,7 +111,7 @@
     {
       "repository": "wickidcow/SF_ExtraHeads",
       "slug": "extraheads",
-      "source_commit": "a6fc482c66a0cdebb02c3819cfcba054d0eeb131"
+      "source_commit": "72e7d9bc3ee2ac01bd75b147df39f018bffe544d"
     },
     {
       "repository": "wickidcow/SF_FastMachines",
