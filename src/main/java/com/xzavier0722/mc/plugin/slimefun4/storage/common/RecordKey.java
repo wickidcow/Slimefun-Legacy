@@ -87,6 +87,11 @@ public class RecordKey extends ScopeKey {
         }
 
         @Override
+        public List<Pair<FieldKey, String>> subList(int fromIndex, int toIndex) {
+            return new ConditionView(source.subList(fromIndex, toIndex));
+        }
+
+        @Override
         public ListIterator<Pair<FieldKey, String>> listIterator(int index) {
             var iterator = source.listIterator(index);
             return new ListIterator<>() {
