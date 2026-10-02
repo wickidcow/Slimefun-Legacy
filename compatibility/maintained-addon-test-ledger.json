@@ -1,14 +1,14 @@
 {
   "schema": 1,
-  "bundle_revision": 102,
+  "bundle_revision": 103,
   "core_parent": "ed0618b442cf0b74c62f2d3990c32727ed376e78",
   "tested_core_sha256": "ffbdfcbf0eab274eaaf56916f8ddc3f12347e76a7b07fa4b8d8fe25eabac7ace",
   "summary": {
     "addons": 45,
     "full_build_passed": 45,
-    "reported_test_entries": 402,
-    "addons_with_reported_tests": 16,
-    "addons_without_reported_tests": 29,
+    "reported_test_entries": 463,
+    "addons_with_reported_tests": 18,
+    "addons_without_reported_tests": 27,
     "failures": 0,
     "errors": 0,
     "skips": 0
@@ -25,7 +25,8 @@
     "Revision98 updates only FNAmplifications, LiteXpansion and MagicExpansion from this three-addon exact-core test run; all other evidence retains its original run attribution. The root core hash remains historical; new row evidence records the latest exact core.",
     "Revision99 changes only MagicExpansion: 61 tests and the retained two-process floor runtime helper against the revision98 core. Other rows retain their original source/run/core attribution; this is not a new all45 project-test run.",
     "Revision100 changes only the merged JEG and current GeneticChickEngineering sources. Their full builds use the versioned4.1.63 core; other source evidence retains its original core/run attribution. All45 will be rebuilt by the canonical release workflow.",
-    "Revision102 refreshes only Networks using 98 normal-PR test entries and an identical merged source tree. Other rows retain earlier evidence; pre-existing selected/tested-source differences are recorded in the resume checkpoint and are not relabeled as newly tested."
+    "Revision102 refreshes only Networks using 98 normal-PR test entries and an identical merged source tree. Other rows retain earlier evidence; pre-existing selected/tested-source differences are recorded in the resume checkpoint and are not relabeled as newly tested.",
+    "Revision103 reconciles PR297 and PR298. BetterChests, BuildingStaff and FluffyMachines full project tests were rerun against published4.1.63; Networks retains its independently verified98-test evidence. Other records retain their original attribution. This is not one fresh all45 test run."
   ],
   "addons": [
     {
@@ -49,20 +50,23 @@
     {
       "repository": "wickidcow/SF_BetterChests",
       "slug": "betterchests",
-      "source_commit": "96134b3ae294a8c086f467bbe8a09f842aac8949",
+      "source_commit": "5c830e845d2849e0d8aea53414be8cba80af6775",
       "full_build_result": "PASS",
-      "reported_test_entries": 10,
+      "reported_test_entries": 30,
       "failures": 0,
       "errors": 0,
       "skips": 0,
       "evidence": {
         "repository": "wickidcow/Slimefun-Legacy",
-        "run_id": 36800704863,
-        "artifact_id": 11135721640,
-        "kind": "Full project build/test audit summary"
+        "run_id": 36944318814,
+        "artifact_name": "reconciled-r103-evidence",
+        "kind": "Full exact-source Maven clean verify; actual XML and Java21 output checks",
+        "tested_core_sha256": "993b257c54efe19b58cc8f4946d4d39387f7787fe263c9f27123343159344c42"
       },
-      "setup_notes": [],
-      "coverage": "Existing automated test entries"
+      "setup_notes": [
+        "Only the Slimefun compile/test dependency was redirected to the checksum-verified published4.1.63 core. BuildingStaff also uses its existing optional-provider API installer. No tests skipped."
+      ],
+      "coverage": "Permanent project regressions; separately attributed native runtime fixtures do not imply exhaustive gameplay coverage"
     },
     {
       "repository": "wickidcow/SF_BetterFarming",
@@ -85,20 +89,23 @@
     {
       "repository": "wickidcow/SF_BuildingStaff",
       "slug": "buildingstaff",
-      "source_commit": "d9def66dd07c1e7464843a723fc997af74beb673",
+      "source_commit": "9f017f4ca4cec5997c14ccd1e564a21b21ed16a0",
       "full_build_result": "PASS",
-      "reported_test_entries": 0,
+      "reported_test_entries": 21,
       "failures": 0,
       "errors": 0,
       "skips": 0,
       "evidence": {
         "repository": "wickidcow/Slimefun-Legacy",
-        "run_id": 36800704863,
-        "artifact_id": 11135721640,
-        "kind": "Full project build/test audit summary"
+        "run_id": 36944318814,
+        "artifact_name": "reconciled-r103-evidence",
+        "kind": "Full exact-source Maven clean verify; actual XML and Java21 output checks",
+        "tested_core_sha256": "993b257c54efe19b58cc8f4946d4d39387f7787fe263c9f27123343159344c42"
       },
-      "setup_notes": [],
-      "coverage": "No automated test entries reported; not gameplay certification"
+      "setup_notes": [
+        "Only the Slimefun compile/test dependency was redirected to the checksum-verified published4.1.63 core. BuildingStaff also uses its existing optional-provider API installer. No tests skipped."
+      ],
+      "coverage": "Permanent project regressions; separately attributed native runtime fixtures do not imply exhaustive gameplay coverage"
     },
     {
       "repository": "wickidcow/SF_CultivationLegacy",
@@ -315,20 +322,23 @@
     {
       "repository": "wickidcow/SF_FluffyMachines",
       "slug": "fluffymachines",
-      "source_commit": "a44d7e4845430a00627739a06fdb3df70baa47e1",
+      "source_commit": "91dc76b4e6d2024faeb1cbecace18c0a99b99aee",
       "full_build_result": "PASS",
-      "reported_test_entries": 0,
+      "reported_test_entries": 20,
       "failures": 0,
       "errors": 0,
       "skips": 0,
       "evidence": {
         "repository": "wickidcow/Slimefun-Legacy",
-        "run_id": 36800704863,
-        "artifact_id": 11135721640,
-        "kind": "Full project build/test audit summary"
+        "run_id": 36944318814,
+        "artifact_name": "reconciled-r103-evidence",
+        "kind": "Full exact-source Maven clean verify; actual XML and Java21 output checks",
+        "tested_core_sha256": "993b257c54efe19b58cc8f4946d4d39387f7787fe263c9f27123343159344c42"
       },
-      "setup_notes": [],
-      "coverage": "No automated test entries reported; not gameplay certification"
+      "setup_notes": [
+        "Only the Slimefun compile/test dependency was redirected to the checksum-verified published4.1.63 core. BuildingStaff also uses its existing optional-provider API installer. No tests skipped."
+      ],
+      "coverage": "Permanent project regressions; separately attributed native runtime fixtures do not imply exhaustive gameplay coverage"
     },
     {
       "repository": "wickidcow/SF_FNAmplifications",
