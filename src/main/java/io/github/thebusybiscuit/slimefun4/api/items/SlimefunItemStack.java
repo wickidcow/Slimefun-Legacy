@@ -299,10 +299,33 @@ public class SlimefunItemStack extends ItemStack {
         return displayName == null ? null : LegacyComponentSerializer.legacySection().serialize(displayName);
     }
 
-    private static @Nonnull Component legacyText(@Nonnull String value) {
-        return LegacyComponentSerializer.legacyAmpersand()
-                .deserialize(value)
+    static @Nonnull Component legacyText(@Nonnull String value) {
+        return LegacyComponentSerializer.legacySection()
+                .deserialize(translateAlternateColorCodes(value))
                 .decoration(TextDecoration.ITALIC, false);
+    }
+
+    /**
+     * Preserves the legacy constructor behavior without relying on Bukkit's deprecated
+     * ChatColor#translateAlternateColorCodes method. Existing section-sign formatting is left intact,
+     * while valid ampersand-prefixed legacy codes are translated to section-sign codes before Adventure parses them.
+     */
+    private static @Nonnull String translateAlternateColorCodes(@Nonnull String value) {
+        char[] chars = value.toCharArray();
+
+        for (int i = 0; i < chars.length - 1; i++) {
+            if (chars[i] != '&') {
+                continue;
+            }
+
+            char code = Character.toLowerCase(chars[i + 1]);
+            if (code == 'x' || LegacyComponentSerializer.parseChar(code) != null) {
+                chars[i] = LegacyComponentSerializer.SECTION_CHAR;
+                chars[i + 1] = code;
+            }
+        }
+
+        return new String(chars);
     }
 
     private static @Nonnull ItemStack getSkull(@Nonnull String id, @Nonnull String texture) {
