@@ -1,0 +1,75 @@
+name: Revision 106 Standalone Release Verification
+on:
+  push:
+    branches: ['audit/reconcile-addon-r106']
+    paths: ['.github/workflows/r106-standalone-validation.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 4df8de0cc8c31c8600ed1161a729ce30e177cc34
+          persist-credentials: false
+      - name: Download the exact released standalone artifacts and check their contents
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence jars
+          python3 - <<'PY'
+          import hashlib,json,re,subprocess,sys,zipfile
+          from pathlib import Path
+          sys.path.insert(0,'scripts')
+          from verify_addon_bytecode import inspect_jar
+          specs=[
+            ('wickidcow/SF_JustEnoughGuide','v2.1.70','SF_JustEnoughGuide2.1.70.jar',604659170,'4f45bd1d7c3615b48f750a2dec3ae877d5539c1fe1c57fddee3b35144e4ef335','89ce9a8b0e8ef9d1939256f1d80917af63e439e2'),
+            ('wickidcow/SF_ExtraHeads','v1.0.4','SF_ExtraHeads1.0.4.jar',604239300,'9d6b16f1d47caf2f47b31199bbe5681bd1437955e9ed31282a91f9c5e04bfc99','72e7d9bc3ee2ac01bd75b147df39f018bffe544d'),
+            ('wickidcow/SF_FluffyMachines','v26.2.14','SF_FluffyMachines26.2.14.jar',604717208,'d5665bd6b3230f8d5bdeef6585af4009b48486c085af21a26d834f97c4c6a764','394de0dbfe770ae13256aa1cfbe747fc26b55a3a'),
+          ]
+          manifest=json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text())
+          selected={row['repository']:row['source_commit'] for row in manifest['addons']}
+          def api(path):return json.loads(subprocess.run(['gh','api',path],capture_output=True,check=True,text=True,timeout=120).stdout)
+          results=[]
+          for repo,tag,name,asset_id,digest,source in specs:
+              assert selected[repo]==source
+              release=api(f'repos/{repo}/releases/tags/{tag}')
+              assert not release['draft'] and not release['prerelease']
+              asset=next(a for a in release['assets'] if a['name']==name)
+              assert asset['id']==asset_id and asset['state']=='uploaded' and asset['digest']=='sha256:'+digest
+              # Releases may target the reviewed source or a merge with an identical tree.
+              comparison=api(f"repos/{repo}/compare/{source}...{release['target_commitish']}")
+              assert comparison['status'] in {'identical','ahead'} and not comparison['files'],(repo,comparison['status'])
+              path=Path('jars',name)
+              subprocess.run(['curl','--fail','--location','--silent','--show-error','--retry','3','--max-time','180',asset['browser_download_url'],'-o',str(path)],check=True)
+              assert hashlib.sha256(path.read_bytes()).hexdigest()==digest
+              report=inspect_jar(path,21);assert report['result']=='PASS',report
+              with zipfile.ZipFile(path) as jar:
+                  assert jar.testzip() is None and len(jar.namelist())==len(set(jar.namelist()))
+                  text=jar.read('plugin.yml').decode()
+                  version=re.search(r'''(?m)^version:\s*['"]?([^'"\r\n]+)''',text).group(1).strip()
+                  assert version==tag.removeprefix('v'),(name,version)
+                  assert not any(n.startswith(('org/junit/','org/mockbukkit/','audit/')) for n in jar.namelist())
+                  classes={n:hashlib.sha256(jar.read(n)).hexdigest() for n in jar.namelist() if n.endswith('.class')}
+                  if repo.endswith('SF_JustEnoughGuide'):
+                      assert 'com/balugaq/jeg/utils/clickhandler/OnDisplay$ItemGroup.class' in classes
+              results.append(dict(repository=repo,selected_source=source,released_source=release['target_commitish'],release_id=release['id'],tag=tag,asset_id=asset_id,jar=name,sha256=digest,bytecode=report,classes=classes))
+          Path('evidence/standalone-release-verification.json').write_text(json.dumps(results,indent=2)+'\n')
+          Path('evidence/SHA256SUMS.txt').write_text(''.join(r['sha256']+'  '+r['jar']+'\n' for r in results))
+          print('All three actual standalone JARs match the selected source trees, versions, published hashes and Java21 floor.')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: revision106-standalone-release-evidence
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: revision106-verified-standalone-jars
+          path: jars/*.jar
+          retention-days: 14
+          if-no-files-found: error
