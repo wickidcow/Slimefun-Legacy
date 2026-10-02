@@ -1,0 +1,158 @@
+name: JEG Revision 105 Published Core Validation
+on:
+  push:
+    branches: ['audit/jeg-r105-published-core-20261001']
+    paths: ['.github/workflows/jeg-r105-published-core-validation.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: e25e395e216d0fbee3da5e1cf64f005d88abf756
+          persist-credentials: false
+      - name: Verify canonical source selection and every actual plugin JAR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p inputs evidence
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,io,json,subprocess,sys,time,zipfile
+          sys.path.insert(0,'scripts')
+          from verify_addon_bytecode import inspect_jar
+          repo='repos/wickidcow/Slimefun-Legacy'
+          head='e25e395e216d0fbee3da5e1cf64f005d88abf756'
+          merge='0f521697310b494135eced045daf5d241b6f7105'
+          def api(p):return subprocess.run(['gh','api',p],capture_output=True,check=True,timeout=120).stdout
+          for attempt in range(72):
+              run=json.loads(api(f'{repo}/actions/runs/36957523399'))
+              assert run['head_sha']==head and run['path']=='.github/workflows/build-sfl-addons-compat-bundle.yml'
+              if run['status']=='completed':break
+              time.sleep(10)
+          assert run['status']=='completed' and run['conclusion']=='success',run['conclusion']
+          artifacts=json.loads(api(f'{repo}/actions/runs/36957523399/artifacts?per_page=100'))['artifacts']
+          selected=[a for a in artifacts if a['name']=='SF_Addons_1.21.11-26.3' and not a['expired']]
+          assert len(selected)==1
+          metadata=selected[0];assert metadata['workflow_run']['head_sha']==head
+          raw=api(f"{repo}/actions/artifacts/{metadata['id']}/zip")
+          assert metadata['digest']=='sha256:'+hashlib.sha256(raw).hexdigest()
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              assert z.testzip() is None
+              data=z.read('SF_Addons_1.21.11-26.3.zip')
+          source=json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text())
+          assert source['bundle_revision']==105 and len(source['addons'])==45
+          expected={r['repository']:r['source_commit'] for r in source['addons']}
+          assert expected['wickidcow/SF_JustEnoughGuide']=='89ce9a8b0e8ef9d1939256f1d80917af63e439e2'
+          reports=[];Path('verify-jars').mkdir()
+          with zipfile.ZipFile(io.BytesIO(data)) as z:
+              assert z.testzip() is None and len(z.namelist())==len(set(z.namelist()))
+              manifest=json.loads(z.read('SF_ADDON_MANIFEST.json'))
+              assert manifest['core_source_commit']==merge
+              assert len(manifest['addons'])==45
+              assert {a['repository']:a['commit'] for a in manifest['addons']}==expected
+              assert {n for n in z.namelist() if n.endswith('.jar')}=={a['jar'] for a in manifest['addons']}
+              for row in manifest['addons']:
+                  name=row['jar'];assert Path(name).name==name
+                  payload=z.read(name);assert hashlib.sha256(payload).hexdigest()==row['sha256']
+                  path=Path('verify-jars',name);path.write_bytes(payload)
+                  report=inspect_jar(path,21);assert report['result']=='PASS',report
+                  with zipfile.ZipFile(io.BytesIO(payload)) as jar:
+                      assert jar.testzip() is None
+                      assert not any(n.startswith(('org/junit/','org/mockbukkit/','audit/')) for n in jar.namelist())
+                      if row['repository']=='wickidcow/SF_JustEnoughGuide':
+                          assert name=='SF_JustEnoughGuide2.1.70.jar'
+                          assert 'com/balugaq/jeg/utils/clickhandler/OnDisplay$ItemGroup.class' in jar.namelist()
+                          assert 'com/balugaq/jeg/utils/GuideRuntimeClasses.class' in jar.namelist()
+                  report.update(repository=row['repository'],commit=row['commit'],sha256=row['sha256'])
+                  reports.append(report)
+              Path('inputs/SF_ADDON_MANIFEST.json').write_bytes(z.read('SF_ADDON_MANIFEST.json'))
+          Path('inputs/addons.zip').write_bytes(data)
+          # The exact previously tested no-network guide probe is not shipped in the bundle.
+          raw=api('repos/wickidcow/SF_JustEnoughGuide/actions/artifacts/11205329046/zip')
+          assert hashlib.sha256(raw).hexdigest()=='028790533ea596dfd405c9cb51b2feef0a77dcd25cb1c6158f98a14733e519cf'
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:probe=z.read('probe.jar')
+          Path('inputs/guide-probe.jar').write_bytes(probe)
+          record=dict(head=head,tested_merge=merge,canonical_run=36957523399,bundle_artifact=metadata,bundle_sha256=hashlib.sha256(data).hexdigest(),guide_probe_sha256=hashlib.sha256(probe).hexdigest(),guide_probe_source_artifact=11205329046,addons=reports,publication_approved=False)
+          Path('inputs/provenance.json').write_text(json.dumps(record,indent=2)+'\n')
+          Path('evidence/bundle-verification.json').write_text(json.dumps(record,indent=2)+'\n')
+          PY
+      - name: Download only the exact already-published core
+        run: |
+          curl -fLsS --retry 3 --max-time 180 https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.64/Slimefun-Legacy4.1.64.jar -o inputs/core.jar
+          printf '%s  inputs/core.jar\n' 316b308139e90981ed037d82ddc57b62b354d8e0a41804d5ebf3bb2b8f896d80 | sha256sum --check
+          sha256sum inputs/*.jar inputs/addons.zip > inputs/SHA256SUMS.txt
+          cp inputs/SHA256SUMS.txt evidence/
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: jeg-r105-published-core-preparation
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        with:
+          name: jeg-r105-published-core-inputs
+          path: inputs/
+          retention-days: 14
+          if-no-files-found: error
+  runtime:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11','26.2','26.3']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: e25e395e216d0fbee3da5e1cf64f005d88abf756
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: jeg-r105-published-core-inputs
+          path: inputs
+      - name: Boot the complete stack twice with published 4.1.64
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          sha256sum --check inputs/SHA256SUMS.txt
+          bash scripts/full_stack_runtime_smoke.sh inputs/core.jar inputs/addons.zip build/jeg-r105
+          test ! -s build/jeg-r105/dependency-gated-addons.txt
+          test "$(wc -l < build/jeg-r105/expected-addons.txt)" -eq 45
+          grep -Fq 'Configuration-load failures: none' build/jeg-r105/smoke-result.txt
+      - name: Exercise actual guide-history and category rendering with all addons loaded
+        run: |
+          set -euo pipefail
+          cp inputs/guide-probe.jar build/jeg-r105/plugins/GuideRendererProbe.jar
+          STATUS=0
+          (cd build/jeg-r105 && timeout --kill-after=20s 240s java -Xms768M -Xmx3G -jar server.jar --nogui > guide.console.log 2>&1) || STATUS=$?
+          if [[ "$STATUS" != 0 ]] || ! grep -Fxq 'GUIDE_HISTORY_AND_GROUPS_PASS' build/jeg-r105/guide-result.txt; then tail -n 120 build/jeg-r105/guide.console.log; exit 1; fi
+          grep -Fxq 'menus=4' build/jeg-r105/guide-result.txt
+          if grep -Eq 'GUIDE_RENDERER_PROBE_FAILED|Slimefun Guide action failed|NoClassDefFoundError|ClassNotFoundException|Error occurred while enabling' build/jeg-r105/guide.console.log; then tail -n 120 build/jeg-r105/guide.console.log; exit 1; fi
+          printf 'PASS: published4.1.64, exact revision105 all45-addon stack, two normal boots and four actual guide menus on third boot\n' > evidence/final-result.txt
+      - name: Retain observed logs and provenance on success or failure
+        if: always()
+        run: |
+          mkdir -p evidence/runtime
+          cp inputs/provenance.json inputs/SF_ADDON_MANIFEST.json inputs/SHA256SUMS.txt evidence/ || true
+          find build/jeg-r105 -maxdepth 1 -type f \( -name '*.log' -o -name '*.txt' \) -exec cp {} evidence/runtime/ \; 2>/dev/null || true
+          test ! -f build/jeg-r105/plugins/worldedit-runtime.json || cp build/jeg-r105/plugins/worldedit-runtime.json evidence/
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: jeg-r105-published-core-${{ matrix.minecraft }}
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
