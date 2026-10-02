@@ -1,0 +1,63 @@
+name: Finalize Verified 4.1.67 Publication
+on:
+  push:
+    branches: ['audit/finalize-4.1.67-scoped-lock-20261002']
+    paths: ['.github/workflows/finalize-4.1.67-publication.yml']
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: verified-release-publication-4.1.67
+  cancel-in-progress: false
+jobs:
+  verify-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_SOURCE: '5cb1e47c35a2b85ccc342dbf4121fac4bf9a1969'
+    steps:
+      - name: Check out the exact reviewed publication verifier
+        uses: actions/checkout@v6
+        with:
+          ref: 32d68596ba7ae2e5e711a7457fffa639472477b8
+          path: verifier-source
+          persist-credentials: false
+      - name: Check out the immutable intended release source
+        uses: actions/checkout@v6
+        with:
+          ref: 5cb1e47c35a2b85ccc342dbf4121fac4bf9a1969
+          path: release-source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate exact source and tested verifier identity
+        working-directory: release-source
+        run: |
+          set -euo pipefail
+          mkdir -p evidence release-files
+          test "$(git rev-parse HEAD)" = "$RELEASE_SOURCE"
+          SCRIPT="$GITHUB_WORKSPACE/verifier-source/audit-release/finalize.py"
+          printf '%s  %s\n' a233e796c272f2ec0aca5c3d30a875149f1a6cbea46fd6402ffb6a71ac98c50d "$SCRIPT" | sha256sum --check
+          python3 -m py_compile "$SCRIPT"
+          cp "$SCRIPT" evidence/actual-publication-verifier.py
+          printf 'release_source=%s\nverifier_commit=32d68596ba7ae2e5e711a7457fffa639472477b8\nverifier_blob=0978a0ea62108781254e61e1aa882628ae10fef8\n' "$RELEASE_SOURCE" > evidence/source-identities.txt
+      - name: Require complete master checks and run the existing reproducible publisher
+        working-directory: release-source
+        run: |
+          set -euo pipefail
+          python3 -u "$GITHUB_WORKSPACE/verifier-source/audit-release/finalize.py" 2>&1 | tee evidence/finalizer.log
+      - name: Retain exact gate, artifact, runtime and publication evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-4.1.67-publication-evidence
+          path: release-source/evidence/
+          retention-days: 90
+          if-no-files-found: error
+      - name: Retain actual downloaded and checksum-verified published JAR and addon ZIP
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-4.1.67-verified-assets
+          path: release-source/release-files/
+          retention-days: 30
+          if-no-files-found: error
