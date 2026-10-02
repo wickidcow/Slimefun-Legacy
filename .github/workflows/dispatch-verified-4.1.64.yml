@@ -1,0 +1,51 @@
+name: Dispatch Verified Slimefun 4.1.64 Release
+
+on:
+  push:
+    branches: ['validation/4.1.64-final-checkpoint']
+    paths: ['.github/workflows/dispatch-verified-4.1.64.yml']
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: dispatch-verified-slimefun-4.1.64
+  cancel-in-progress: false
+
+env:
+  RELEASE_SHA: d1ac11a1c6891ac6768dff935bcc8de7d149b7a5
+  RELEASE_REF: release/verified-4.1.64
+  EXPECTED_MASTER_RUN_IDS: '[36952466852,36952466842,36952466787,36952466794,36952466759,36952466796,36952466788,36952466758,36952466797,36952466801]'
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Require successful completion of the remaining exact master runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for RUN in 36952466759 36952466796 36952466794 36952466787; do
+            gh run watch "$RUN" --repo "$GITHUB_REPOSITORY" --exit-status --interval 15
+          done
+      - name: Recheck all fourteen PR gates, all ten master gates, source identity and recovery assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -m py_compile .release/dispatch_4164.py
+          python3 .release/dispatch_4164.py
+      - name: Retain the exact dispatch evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-4.1.64-dispatch-evidence
+          path: dispatch-evidence/
+          if-no-files-found: warn
+          retention-days: 90
