@@ -1,0 +1,153 @@
+name: Fluffy AutoCrafter Native Controls
+on:
+  push:
+    branches: ['validation/fluffy-crafter-r105']
+    paths: ['.github/workflows/validate-fluffy-crafter-r105.yml', 'validation/fluffy/**']
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: fluffy-crafter-native-controls
+  cancel-in-progress: true
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: wickidcow/SF_FluffyMachines
+          ref: 394de0dbfe770ae13256aa1cfbe747fc26b55a3a
+          path: addon-source
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Verify immutable binaries and derive isolated test bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p inputs
+          gh run download 36958160599 --repo wickidcow/SF_FluffyMachines --name fluffy-crafter-cache-audit --dir audit
+          cp audit/dist/SF_FluffyMachines26.2.14.jar inputs/
+          echo 'e6d21b955864625249146832652b90e705b3a351d5451f723925bfc5e3915b97  inputs/SF_FluffyMachines26.2.14.jar' | sha256sum -c -
+          gh release download v4.1.64 --repo "$GITHUB_REPOSITORY" --pattern Slimefun-Legacy4.1.64.jar --pattern SF_Addons_1.21.11-26.3.zip --dir inputs
+          echo '316b308139e90981ed037d82ddc57b62b354d8e0a41804d5ebf3bb2b8f896d80  inputs/Slimefun-Legacy4.1.64.jar' | sha256sum -c -
+          echo 'ce28b417b2632e99a7b7699e5e0b22e8cc677bb610f65114b3e631d7625b574f  inputs/SF_Addons_1.21.11-26.3.zip' | sha256sum -c -
+          python3 - <<'PY'
+          import hashlib,json,subprocess,zipfile
+          from pathlib import Path
+          matrix=Path('compatibility/sfl-addon-release-matrix.json').read_bytes()
+          assert hashlib.sha256(matrix).hexdigest()=='314d6a83931f887d7dbe17271c44327d3d39f5feb7792ab48c38a40f7a7e1f36'
+          newer=matrix.decode().replace('"bundle_revision": 104','"bundle_revision": 105').replace('91dc76b4e6d2024faeb1cbecace18c0a99b99aee','394de0dbfe770ae13256aa1cfbe747fc26b55a3a')
+          old,new=json.loads(matrix),json.loads(newer)
+          assert len(old['addons'])==len(new['addons'])==45
+          diffs=[r['repository'] for r,s in zip(old['addons'],new['addons']) if r!=s]
+          assert diffs==['wickidcow/SF_FluffyMachines']
+          blob=json.loads(subprocess.check_output(['gh','api','--method','POST',f'repos/{__import__("os").environ["GITHUB_REPOSITORY"]}/git/blobs','--input','-'],input=json.dumps({'content':newer,'encoding':'utf-8'}).encode()))
+          assert blob['sha']==hashlib.sha1(b'blob '+str(len(newer.encode())).encode()+b'\0'+newer.encode()).hexdigest()
+          Path('inputs/source-matrix.json').write_text(newer)
+          Path('inputs/matrix-blob.json').write_text(json.dumps(blob,indent=2))
+          with zipfile.ZipFile('inputs/SF_Addons_1.21.11-26.3.zip') as z:
+              assert z.testzip() is None
+              entries={n:z.read(n) for n in z.namelist()}
+          manifest=json.loads(entries['SF_ADDON_MANIFEST.json'])
+          row=next(r for r in manifest['addons'] if r['repository']=='wickidcow/SF_FluffyMachines')
+          del entries[row['jar']]
+          jar='SF_FluffyMachines26.2.14.jar'
+          entries[jar]=Path('inputs',jar).read_bytes()
+          row.update(jar=jar,source_jar=jar,version='26.2.14',commit='394de0dbfe770ae13256aa1cfbe747fc26b55a3a',sha256=hashlib.sha256(entries[jar]).hexdigest(),distributable_api='1.21.11-R0.1-SNAPSHOT')
+          entries['SF_ADDON_MANIFEST.json']=(json.dumps(manifest,indent=2)+'\n').encode()
+          entries['SHA256SUMS.txt']=''.join(f"{r['sha256']}  {r['jar']}\n" for r in sorted(manifest['addons'],key=lambda r:r['jar'])).encode()
+          with zipfile.ZipFile('inputs/updated-test-only.zip','w',zipfile.ZIP_DEFLATED) as z:
+              for name,data in entries.items():z.writestr(name,data)
+          Path('inputs/TEST_ONLY.txt').write_text('Derived native fixture input; not the canonical release build. Only FluffyMachines bytes replaced.\n')
+          PY
+      - name: Compile external native probe against the actual baseline API
+        run: |
+          set -euo pipefail
+          mvn -B -ntp install:install-file -Dfile=inputs/Slimefun-Legacy4.1.64.jar -DgroupId=com.github.wickidcow -DartifactId=Slimefun-Legacy -Dversion=4.1.64 -Dpackaging=jar -DgeneratePom=true
+          (cd addon-source; mvn -B -ntp dependency:build-classpath -Dslimefun.groupId=com.github.wickidcow -Dslimefun.artifactId=Slimefun-Legacy -Dslimefun.version=4.1.64 -Dpaper.version=1.21.11-R0.1-SNAPSHOT -Dmdep.outputFile=classpath.txt)
+          mkdir -p probe-classes
+          javac --release 21 -cp "$PWD/inputs/SF_FluffyMachines26.2.14.jar:$(cat addon-source/classpath.txt)" -d probe-classes validation/fluffy/CrafterProbe.java
+          printf 'name: CrafterProbe\nversion: 1.0\nmain: io.github.wickidcow.validation.CrafterProbe\napi-version: "1.21"\ndepend: [Slimefun, FluffyMachines]\n' > probe-classes/plugin.yml
+          jar --create --file inputs/CrafterProbe.jar -C probe-classes .
+          sha256sum inputs/*.jar inputs/*.zip > inputs/SHA256SUMS
+          cp validation/fluffy/CrafterProbe.java inputs/
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: fluffy-native-inputs
+          path: inputs/
+          if-no-files-found: error
+  native:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [baseline, updated]
+        include:
+          - minecraft: '1.21.11'
+            java: '21'
+          - minecraft: '26.2'
+            java: '25'
+          - minecraft: '26.3'
+            java: '25'
+        minecraft: ['1.21.11', '26.2', '26.3']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: fluffy-native-inputs
+          path: inputs
+      - name: Run original or updated production crafter and restart
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+          MODE: ${{ matrix.mode }}
+          SLIMEFUN_SMOKE_VERSION: '4.1.64'
+        run: |
+          set -euo pipefail
+          sha256sum -c inputs/SHA256SUMS
+          export CRAFTER_PROBE="$PWD/inputs/CrafterProbe.jar"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/full_stack_runtime_smoke.sh');s=p.read_text()
+          anchor='cp "$SLIMEFUN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-full-stack.jar"\n'
+          assert s.count(anchor)==1
+          p.write_text(s.replace(anchor,anchor+'cp "$CRAFTER_PROBE" "$WORK_DIR/plugins/CrafterProbe.jar"\n'))
+          PY
+          ZIP="$PWD/inputs/SF_Addons_1.21.11-26.3.zip"
+          if [[ "$MODE" == updated ]]; then ZIP="$PWD/inputs/updated-test-only.zip"; fi
+          WORK="build/crafter-${MODE}-${SERVER_MINECRAFT_VERSION}"
+          bash scripts/full_stack_runtime_smoke.sh "$PWD/inputs/Slimefun-Legacy4.1.64.jar" "$ZIP" "$WORK"
+          test "$(wc -l < "$WORK/expected-addons.txt")" -eq 45
+          test ! -s "$WORK/dependency-gated-addons.txt"
+          grep -F "CRAFTER_NATIVE_PASS mode=$MODE phase=initial" "$WORK/first.normalized.log"
+          grep -F "CRAFTER_NATIVE_PASS mode=$MODE phase=restart" "$WORK/second.normalized.log"
+          if grep -E 'CRAFTER_NATIVE_FAIL|ERROR|SEVERE' "$WORK/first.normalized.log" "$WORK/second.normalized.log"; then exit 1; fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: fluffy-native-${{ matrix.mode }}-${{ matrix.minecraft }}
+          path: |
+            build/crafter-*/*.log
+            build/crafter-*/runtime-build.txt
+            build/crafter-*/smoke-result.txt
+            build/crafter-*/expected-addons.txt
+            build/crafter-*/dependency-gated-addons.txt
+            build/crafter-*/plugins/CrafterProbe/
+          if-no-files-found: error
