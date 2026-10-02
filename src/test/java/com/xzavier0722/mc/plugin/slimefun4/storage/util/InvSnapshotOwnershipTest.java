@@ -243,6 +243,44 @@ class InvSnapshotOwnershipTest {
         assertThrows(IllegalStateException.class, () -> new InvSnapshot(new ItemStack[] {failure}));
     }
 
+    @Test
+    void exportedListCanStillBeEditedWithoutChangingTheBaseline() {
+        var snapshot = new InvSnapshot(new ItemStack[] {richItem(37), null});
+        var exported = snapshot.getSnapshot();
+        exported.clear();
+        exported.add(new Pair<>(richItem(12), 12));
+        assertTrue(
+                snapshot.getChangedSlots(new ItemStack[] {richItem(37), null}).isEmpty());
+        assertEquals(2, snapshot.getSnapshot().size());
+    }
+
+    @Test
+    void staticComparatorRetainsCustomSubclassGetterDispatch() {
+        var snapshot = new InvSnapshot(new ItemStack[] {richItem(37)}) {
+            @Override
+            public List<Pair<ItemStack, Integer>> getSnapshot() {
+                return List.of(new Pair<>(richItem(12), 12));
+            }
+        };
+        var current = new ItemStack[] {richItem(12)};
+        assertTrue(InvStorageUtils.getChangedSlots(snapshot, current).isEmpty());
+        // The historical instance method compares its own baseline, not the overridden export.
+        assertEquals(Set.of(0), snapshot.getChangedSlots(current));
+    }
+
+    @Test
+    void staticComparatorDoesNotNewlyDispatchSubclassComparisonOverrides() {
+        var snapshot = new InvSnapshot(new ItemStack[] {richItem(37)}) {
+            @Override
+            public Set<Integer> getChangedSlots(ItemStack[] current) {
+                throw new AssertionError("The historical static comparator must not call this override");
+            }
+        };
+        assertTrue(InvStorageUtils.getChangedSlots(snapshot, new ItemStack[] {richItem(37)})
+                .isEmpty());
+        assertEquals(Set.of(0), InvStorageUtils.getChangedSlots(snapshot, new ItemStack[] {richItem(12)}));
+    }
+
     private static class CountingItem extends ItemStack {
         private final AtomicInteger clones;
 

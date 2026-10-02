@@ -16,10 +16,12 @@ public class InvStorageUtils {
     private static final Pair<ItemStack, Integer> emptyPair = new Pair<>(null, 0);
 
     public static Set<Integer> getChangedSlots(InvSnapshot snapshot, ItemStack[] currContent) {
-        // Use the owned baseline directly; the public snapshot getter deliberately makes a deep copy.
-        return snapshot == null
-                ? getChangedSlots((List<Pair<ItemStack, Integer>>) null, currContent)
-                : snapshot.getChangedSlots(currContent);
+        if (snapshot != null && snapshot.getClass() == InvSnapshot.class) {
+            // Avoid copying the core's owned baseline for each ordinary save comparison.
+            return snapshot.getChangedSlots(currContent);
+        }
+        // Retain historical getter dispatch for addon-defined snapshot subclasses.
+        return getChangedSlots(snapshot == null ? null : snapshot.getSnapshot(), currContent);
     }
 
     public static Set<Integer> getChangedSlots(List<Pair<ItemStack, Integer>> snapshot, ItemStack[] currContent) {

@@ -14,7 +14,7 @@ public class InvSnapshot {
     private final List<Pair<ItemStack, Integer>> snapshot;
 
     public InvSnapshot(List<Pair<ItemStack, Integer>> snapshot) {
-        this.snapshot = copySnapshot(snapshot);
+        this.snapshot = List.copyOf(copySnapshot(snapshot));
     }
 
     public InvSnapshot(Inventory inventory) {
@@ -25,7 +25,7 @@ public class InvSnapshot {
         this.snapshot = InvStorageUtils.getInvSnapshot(list);
     }
 
-    /** Returns detached pairs and items, never the baseline used by inventory save comparisons. */
+    /** Returns an editable detached list of pairs and items, never the saved comparison baseline. */
     @Nonnull
     public List<Pair<ItemStack, Integer>> getSnapshot() {
         return copySnapshot(snapshot);
@@ -46,6 +46,6 @@ public class InvSnapshot {
             // Preserve the independently recorded amount, including historical non-normalized pairs.
             copy.add(new Pair<>(item == null ? null : item.clone(), entry.getSecondValue()));
         }
-        return List.copyOf(copy);
+        return copy;
     }
 }
