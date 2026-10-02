@@ -12,9 +12,13 @@ step = '''      - name: Rebuild JEG against the supported API floor
         shell: bash
         run: |
           set -euo pipefail
+          # Keep the same exact-core inputs when invoking the generated Gradle init script directly.
+          export SLIMEFUN_COMPATIBILITY_JAR="$PWD/candidate-core/Slimefun-Legacy-candidate.jar"
+          export SLIMEFUN_CORE_JAR="$SLIMEFUN_COMPATIBILITY_JAR"
+          export SLIMEFUN_LEGACY_JAR="$SLIMEFUN_COMPATIBILITY_JAR"
           # The 26.3 compilation above is a compatibility probe, not the distributable.
           python3 tools/scripts/compile_addon_paper_26_3.py \\
-            addon "$PWD/candidate-core/Slimefun-Legacy-candidate.jar" \\
+            addon "$SLIMEFUN_COMPATIBILITY_JAR" \\
             1.21.11-R0.1-SNAPSHOT --report-dir "$PWD/report-native-floor"
           (cd addon && PAPER_API_VERSION=1.21.11-R0.1-SNAPSHOT ./gradlew build \\
             --no-daemon --no-build-cache --no-configuration-cache \\
