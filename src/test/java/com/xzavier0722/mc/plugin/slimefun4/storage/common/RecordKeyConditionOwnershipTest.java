@@ -45,7 +45,8 @@ class RecordKeyConditionOwnershipTest {
         assertEquals(expected, key);
         assertEquals(text, key.toString());
         assertEquals(hash, key.hashCode());
-        assertEquals(SqlUtils.buildConditionStr(expected.getConditions()), SqlUtils.buildConditionStr(key.getConditions()));
+        assertEquals(
+                SqlUtils.buildConditionStr(expected.getConditions()), SqlUtils.buildConditionStr(key.getConditions()));
     }
 
     @Test
@@ -119,8 +120,13 @@ class RecordKeyConditionOwnershipTest {
         key.addCondition(FieldKey.DATA_KEY, "owner");
         key.addCondition(FieldKey.DATA_VALUE, true);
         key.addCondition(FieldKey.DATA_VALUE, false);
-        assertEquals(List.of(condition(FIRST), new Pair<>(FieldKey.DATA_KEY, "owner"),
-                new Pair<>(FieldKey.DATA_VALUE, "1"), new Pair<>(FieldKey.DATA_VALUE, "0")), view);
+        assertEquals(
+                List.of(
+                        condition(FIRST),
+                        new Pair<>(FieldKey.DATA_KEY, "owner"),
+                        new Pair<>(FieldKey.DATA_VALUE, "1"),
+                        new Pair<>(FieldKey.DATA_VALUE, "0")),
+                view);
     }
 
     @Test
@@ -137,7 +143,8 @@ class RecordKeyConditionOwnershipTest {
         assertThrows(UnsupportedOperationException.class, iterator::remove);
         assertThrows(UnsupportedOperationException.class, () -> iterator.set(condition(NEIGHBOR)));
         assertThrows(UnsupportedOperationException.class, () -> iterator.add(condition(NEIGHBOR)));
-        assertThrows(UnsupportedOperationException.class, () -> view.subList(0, 1).clear());
+        assertThrows(
+                UnsupportedOperationException.class, () -> view.subList(0, 1).clear());
         assertThrows(UnsupportedOperationException.class, () -> view.reversed().add(condition(NEIGHBOR)));
     }
 
@@ -160,8 +167,7 @@ class RecordKeyConditionOwnershipTest {
 
     @Test
     void inputOrderDuplicateConditionsAndOpaqueValuesAreNotNormalized() {
-        var conditions = List.of(condition(""), condition("owner's:opaque/%"),
-                condition(FIRST), condition(FIRST));
+        var conditions = List.of(condition(""), condition("owner's:opaque/%"), condition(FIRST), condition(FIRST));
         var key = key(conditions);
         assertEquals(conditions, key.getConditions());
         assertEquals(SqlUtils.buildConditionStr(conditions), SqlUtils.buildConditionStr(key.getConditions()));
@@ -223,7 +229,9 @@ class RecordKeyConditionOwnershipTest {
         }
         shared.setSecondValue(NEIGHBOR);
         for (int index = 0; index < keys.size(); index++) {
-            assertEquals(expected.get(index), SqlUtils.buildConditionStr(keys.get(index).getConditions()));
+            assertEquals(
+                    expected.get(index),
+                    SqlUtils.buildConditionStr(keys.get(index).getConditions()));
         }
     }
 
@@ -236,9 +244,11 @@ class RecordKeyConditionOwnershipTest {
         supplied.setSecondValue(NEIGHBOR);
         try (var connection = DriverManager.getConnection(url)) {
             try (var statement = connection.createStatement()) {
-                assertEquals(1, statement.executeUpdate("UPDATE preservation_rows SET "
-                        + SqlUtils.buildKvStr(FieldKey.DATA_VALUE, (Object) "updated")
-                        + SqlUtils.buildConditionStr(key.getConditions())));
+                assertEquals(
+                        1,
+                        statement.executeUpdate("UPDATE preservation_rows SET "
+                                + SqlUtils.buildKvStr(FieldKey.DATA_VALUE, (Object) "updated")
+                                + SqlUtils.buildConditionStr(key.getConditions())));
             }
         }
         assertEquals(Map.of(FIRST, "updated", NEIGHBOR, "neighbor-value"), reopen(url));
@@ -252,8 +262,10 @@ class RecordKeyConditionOwnershipTest {
         key.getConditions().getFirst().setSecondValue(NEIGHBOR);
         try (var connection = DriverManager.getConnection(url);
                 var statement = connection.createStatement()) {
-            assertEquals(1, statement.executeUpdate(
-                    "DELETE FROM preservation_rows" + SqlUtils.buildConditionStr(key.getConditions())));
+            assertEquals(
+                    1,
+                    statement.executeUpdate(
+                            "DELETE FROM preservation_rows" + SqlUtils.buildConditionStr(key.getConditions())));
         }
         assertEquals(Map.of(NEIGHBOR, "neighbor-value"), reopen(url));
     }
