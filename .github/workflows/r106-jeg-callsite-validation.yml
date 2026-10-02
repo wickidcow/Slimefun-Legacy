@@ -1,0 +1,94 @@
+name: Revision 106 JEG Clipboard Linkage
+on:
+  push:
+    branches: ['audit/reconcile-addon-r106']
+    paths: ['.github/workflows/r106-jeg-callsite-validation.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verify and extract the exact bundled and standalone JEG binaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p inputs evidence
+          python3 - <<'PY'
+          import hashlib,io,json,subprocess,zipfile
+          from pathlib import Path
+          def artifact(ident,digest):
+              raw=subprocess.run(['gh','api',f'repos/wickidcow/Slimefun-Legacy/actions/artifacts/{ident}/zip'],capture_output=True,check=True,timeout=120).stdout
+              assert hashlib.sha256(raw).hexdigest()==digest
+              return zipfile.ZipFile(io.BytesIO(raw))
+          with artifact(11208575293,'8639ab3bf6070c71f92658624585a635c65f826707f52e91763f60b3093f3be8') as outer:
+              with zipfile.ZipFile(io.BytesIO(outer.read('SF_Addons_1.21.11-26.3.zip'))) as bundle:
+                  bundled=bundle.read('SF_JustEnoughGuide2.1.70.jar')
+          with artifact(11207504731,'b9d09522e082b6683e253611c2ec648892efe0af635a81d4e2f21c7f9aff8e42') as standalone:
+              released=standalone.read('SF_JustEnoughGuide2.1.70.jar')
+          with artifact(11207535252,'4f0cc9e39964cc2e62bc58b8a2821909ca353f95613ef4814a737e581ac60815') as prior:
+              core=prior.read('Slimefun-Legacy4.1.64.jar')
+          expected={'bundle':('7aaf171134e2a08c7d86003331a75bdbf571f7d8afc978b0e84978106b984686',bundled),'standalone':('4f45bd1d7c3615b48f750a2dec3ae877d5539c1fe1c57fddee3b35144e4ef335',released),'core':('316b308139e90981ed037d82ddc57b62b354d8e0a41804d5ebf3bb2b8f896d80',core)}
+          for name,(digest,data) in expected.items():
+              assert hashlib.sha256(data).hexdigest()==digest
+              Path('inputs',name+'.jar').write_bytes(data)
+          Path('evidence/input-hashes.json').write_text(json.dumps({k:v[0] for k,v in expected.items()},indent=2))
+          PY
+      - name: Execute the real JEG clipboard methods with unmodified floor API dependencies
+        run: |
+          set -euo pipefail
+          cat > pom.xml <<'XML'
+          <project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion><groupId>audit</groupId><artifactId>jeg-floor-callsite</artifactId><version>1</version><repositories><repository><id>paper</id><url>https://repo.papermc.io/repository/maven-public/</url></repository></repositories><dependencies><dependency><groupId>io.papermc.paper</groupId><artifactId>paper-api</artifactId><version>1.21.11-R0.1-SNAPSHOT</version></dependency></dependencies></project>
+          XML
+          mvn -B -ntp dependency:build-classpath -Dmdep.outputFile=classpath.txt > evidence/dependencies.log 2>&1
+          cat > ClipboardProbe.java <<'JAVA'
+          import java.lang.reflect.InvocationTargetException;
+          import java.util.List;
+          import net.kyori.adventure.text.Component;
+          import net.kyori.adventure.text.event.ClickEvent;
+          public class ClipboardProbe {
+              public static void main(String[] args) throws Exception {
+                  Class<?> type=Class.forName("com.balugaq.jeg.utils.ClipboardUtil");
+                  for (String value:List.of("slimefun:OLD_ITEM_ID", "", "owner's text & literal")) {
+                      Component label=Component.text("Existing item");
+                      Component hover=Component.text("Existing owner lore");
+                      Object simple=type.getMethod("makeComponentPaper",Component.class,String.class).invoke(null,label,value);
+                      Object detailed=type.getMethod("makeComponentPaper",Component.class,Component.class,String.class).invoke(null,label,hover,value);
+                      for(Object result:List.of(simple,detailed)) {
+                          if (!(result instanceof Component component)
+                              || component.clickEvent()==null
+                              || component.clickEvent().action()!=ClickEvent.Action.COPY_TO_CLIPBOARD
+                              || !value.equals(component.clickEvent().value())
+                              || component.hoverEvent()==null) {
+                              throw new AssertionError("Clipboard payload, hover, or component was not retained");
+                          }
+                      }
+                  }
+                  System.out.println("JEG_CLIPBOARD_FLOOR_PASS methods=2 scenarios=6");
+              }
+          }
+          JAVA
+          javac --release 21 -cp "$(cat classpath.txt)" ClipboardProbe.java
+          STATUS=0
+          for KIND in standalone bundle; do
+            if java -cp ".:inputs/$KIND.jar:inputs/core.jar:$(cat classpath.txt)" ClipboardProbe > "evidence/$KIND.log" 2>&1; then
+              grep -Fxq 'JEG_CLIPBOARD_FLOOR_PASS methods=2 scenarios=6' "evidence/$KIND.log"
+            else
+              cat "evidence/$KIND.log"; STATUS=1
+            fi
+          done
+          cp ClipboardProbe.java classpath.txt evidence/
+          exit "$STATUS"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: revision106-jeg-clipboard-evidence
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
