@@ -20,7 +20,8 @@ jobs:
           cache: gradle
       - name: Stage the permanent regression class and pin the actual source identity
         run: |
-          mkdir -p evidence
+          mkdir -p evidence src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/common
+          git rev-parse HEAD > evidence/validation-source.txt
           cp .audit/RecordKeyCollectionOwnershipTest.java src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/common/RecordKeyCollectionOwnershipTest.java
           echo "SOURCE_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
