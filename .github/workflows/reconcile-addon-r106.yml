@@ -1,0 +1,99 @@
+name: Reconcile Addon Revision 106
+on:
+  push:
+    branches: ['audit/reconcile-addon-r106']
+    paths: ['.github/workflows/reconcile-addon-r106.yml']
+permissions:
+  contents: write
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: e47a3035b35dfb93325d22ba03b2a69dd6cd6992
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Combine exact proposals without losing any other selection
+        run: |
+          mkdir -p evidence
+          python3 - <<'PY'
+          import copy, hashlib, json, subprocess
+          from pathlib import Path
+          base='e47a3035b35dfb93325d22ba03b2a69dd6cd6992'
+          path='compatibility/sfl-addon-release-matrix.json'
+          blob=lambda data:hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+          original=Path(path).read_bytes()
+          assert blob(original)=='20ff35f3bb4eb0e6eed87fab79660e0586e8f9db'
+          manifest=json.loads(original)
+          assert manifest['bundle_revision']==104 and len(manifest['addons'])==45
+          proposals=[
+            ('e25e395e216d0fbee3da5e1cf64f005d88abf756','wickidcow/SF_JustEnoughGuide','89ce9a8b0e8ef9d1939256f1d80917af63e439e2',{'docs/coordinated-addon-r105.md'}),
+            ('5c2d195fba3a37c61d43ba95b72d82af78d35712','wickidcow/SF_ExtraHeads','72e7d9bc3ee2ac01bd75b147df39f018bffe544d',{'docs/releases/4.1.64.md'}),
+            ('65e6b177eae9dc2de04dee8db48c1415d07964c2','wickidcow/SF_FluffyMachines','394de0dbfe770ae13256aa1cfbe747fc26b55a3a',set()),
+          ]
+          combined=copy.deepcopy(manifest)
+          evidence=[]
+          for sha,repository,source,docs in proposals:
+              subprocess.run(['git','fetch','--depth=20','origin',sha],check=True)
+              subprocess.run(['git','merge-base','--is-ancestor',base,sha],check=True)
+              changed=set(subprocess.check_output(['git','diff','--name-only',base,sha],text=True).splitlines())
+              assert changed=={path}|docs,(sha,changed)
+              candidate=json.loads(subprocess.check_output(['git','show',f'{sha}:{path}']))
+              expected=copy.deepcopy(manifest);expected['bundle_revision']=105
+              matches=[row for row in expected['addons'] if row['repository']==repository]
+              assert len(matches)==1
+              before=matches[0]['source_commit'];matches[0]['source_commit']=source
+              assert candidate==expected,(sha,'Unexpected proposal content')
+              next(row for row in combined['addons'] if row['repository']==repository)['source_commit']=source
+              evidence.append(dict(proposal=sha,repository=repository,previous_source=before,selected_source=source))
+          combined['bundle_revision']=106
+          old={a['repository']:a for a in manifest['addons']};new={a['repository']:a for a in combined['addons']}
+          assert old.keys()==new.keys() and len(new)==45
+          changed={key for key in old if old[key]!=new[key]}
+          assert changed=={row[1] for row in proposals}
+          for key in manifest:
+              if key not in {'addons','bundle_revision'}:assert combined[key]==manifest[key]
+          Path(path).write_text(json.dumps(combined,indent=2)+'\n')
+          # Retain JEG's original evidence verbatim as a historical proposal checkpoint.
+          doc='docs/coordinated-addon-r105.md'
+          Path(doc).write_bytes(subprocess.check_output(['git','show',f'{proposals[0][0]}:{doc}']))
+          # Keep ExtraHeads' source proposal in history; replace its pending single-update
+          # release paragraph with an explicitly pending combined selection, not a false publication claim.
+          release=Path('docs/releases/4.1.64.md')
+          release.write_text(release.read_text()+'''\n\n## Pending addon-only refresh: combined revision 106\n\nThree independent revision-105 proposals are reconciled without losing their selections: JustEnoughGuide 2.1.70, ExtraHeads 1.0.4 and FluffyMachines 26.2.14. The other 42 source selections, all 45 addon members and every exclusion remain unchanged from the published revision-104 bundle. The published Slimefun Legacy 4.1.64 core JAR and tag are not replaced.\n\nJEG retains the guide recovery and complete renderer archive checks. ExtraHeads advances its completed normal-mob head coverage while retaining existing IDs and drop behavior. FluffyMachines invalidates positive and negative auto-crafter recipe results when the provider's recipe-count generation changes and clears cached templates on an empty enabled grid, retaining machine rates, energy costs, crafting rules and barrel protections.\n\nThis is a source-selection checkpoint, not a claim that the released ZIP has been replaced. The exact combined canonical archive must pass supported-server restarts with the unchanged published core before an addon-only refresh is published. Existing standalone, native-control and project-test evidence stays attributed to its original source and core; it is not relabeled as new whole-stack coverage.\n''')
+          Path('docs/coordinated-addon-r106.md').write_text('''# Coordinated addon revision 106\n\nBased on published 4.1.64 source `e47a3035b35dfb93325d22ba03b2a69dd6cd6992`. Reconcile core PR304, PR305 and PR306, each of which independently proposed revision105. Their source histories and non-conflicting evidence are preserved; no unfinished addon branch is reset or deleted.\n\n| Addon | Selected source | Version |\n| --- | --- | --- |\n| JustEnoughGuide | `89ce9a8b0e8ef9d1939256f1d80917af63e439e2` | 2.1.70 |\n| ExtraHeads | `72e7d9bc3ee2ac01bd75b147df39f018bffe544d` | 1.0.4 |\n| FluffyMachines | `394de0dbfe770ae13256aa1cfbe747fc26b55a3a` | 26.2.14 |\n\nThe other42 source pins, all45 members, exclusions, core production code, version values, existing IDs/data formats and migration defaults remain unchanged. The historical addon test ledger remains historical; no test counts are invented for metadata-only reconciliation. See each addon PR for its separately attributed implementation and tests.\n\n## Required release evidence\n\nVerify this exact combined source's canonical archive, every manifest identity/JAR/version/checksum, and three supported Paper restart lanes with the unchanged published4.1.64 core. Require all45 addons and the actual WorldEdit provider. Exercise available native crafter and guide probes separately without replacing production JARs with test stubs. Fix or explain failed controls before claiming them complete.\n\nOnly after those checks succeed, merge the combined selection, close superseded proposal PRs, retain any unique unfinished branches, and refresh only the4.1.64 addon ZIP. Back up the current release ZIP and metadata, verify the replacement bytes, and confirm the core asset and tag remain unchanged. All standalone addon JAR releases must remain available. No publication, runtime guarantee or final release approval is implied by creating this candidate.\n''')
+          Path('evidence/reconciliation.json').write_text(json.dumps(dict(base=base,revision=106,addons=45,unchanged_addons=42,changes=evidence,published=False),indent=2)+'\n')
+          print('All three intended selections retained; all42 others and bundle policy unchanged.')
+          PY
+          git diff --check
+          python3 scripts/verify_legacy.py . > evidence/source-invariants.log 2>&1
+      - name: Stage only reviewed text blobs without changing branches or release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,subprocess
+          from pathlib import Path
+          records={}
+          names=['compatibility/sfl-addon-release-matrix.json','docs/coordinated-addon-r105.md','docs/coordinated-addon-r106.md','docs/releases/4.1.64.md']
+          assert set(subprocess.check_output(['git','diff','--name-only'],text=True).splitlines()) <= set(names)
+          for name in names:
+              data=Path(name).read_bytes();sha=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+              result=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps(dict(content=data.decode(),encoding='utf-8')),capture_output=True,text=True,check=True)
+              assert json.loads(result.stdout)['sha']==sha
+              records[name]=sha
+              target=Path('evidence/reviewed-source')/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
+          Path('evidence/reviewed-blobs.json').write_text(json.dumps(records,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: revision106-reconciliation-evidence
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
