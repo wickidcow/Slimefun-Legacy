@@ -1,0 +1,125 @@
+name: Final Snapshot Native Preservation
+on:
+  push:
+    branches: ['audit/snapshot-native-validation-20261002']
+    paths: ['.github/workflows/snapshot-final-native.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - minecraft: '1.21.11'
+            build: 132
+            java: '21'
+            sha256: 5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba
+          - minecraft: '26.2'
+            build: 129
+            java: '25'
+            sha256: b1d8f6bfa1b6101fa8e947b53041cb3bdf5540e7b83b6547ca19ba7edefeb083
+          - minecraft: '26.3'
+            build: 140
+            java: '25'
+            sha256: 98aabc113a80b9b5e183475e839a17cf99c39c915a1f46b8f35a5e89fd5de0f1
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - name: Verify the exact final normal-build JAR and unchanged original/control fixture
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p inputs evidence
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,io,json,subprocess,time,zipfile
+          repo='repos/wickidcow/Slimefun-Legacy'
+          head='09749545fa878d9c9ca63730cba048390c61ad3c'
+          def api(path):return subprocess.run(['gh','api',path],check=True,capture_output=True,timeout=120).stdout
+          for attempt in range(60):
+              rows=json.loads(api(f'{repo}/actions/runs?head_sha={head}&event=pull_request&per_page=100'))['workflow_runs']
+              found=[r for r in rows if r['path']=='.github/workflows/build-ci.yml']
+              if found and found[0]['status']=='completed':break
+              time.sleep(10)
+          assert found and found[0]['status']=='completed' and found[0]['conclusion']=='success'
+          run=found[0];assert run['head_sha']==head
+          artifacts=json.loads(api(f"{repo}/actions/runs/{run['id']}/artifacts?per_page=100"))['artifacts']
+          choices=[a for a in artifacts if a['name']=='Slimefun-Legacy4.1.64.jar' and not a['expired']]
+          assert len(choices)==1
+          meta=choices[0];assert meta['workflow_run']['head_sha']==head
+          raw=api(f"{repo}/actions/artifacts/{meta['id']}/zip")
+          assert meta['digest']=='sha256:'+hashlib.sha256(raw).hexdigest()
+          candidate=raw
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              if 'plugin.yml' not in z.namelist():
+                  jars=[n for n in z.namelist() if n.endswith('.jar')];assert len(jars)==1
+                  candidate=z.read(jars[0])
+          pr=json.loads(api(f'{repo}/pulls/310'))
+          assert pr['head']['sha']==head and not pr['merged']
+          with zipfile.ZipFile(io.BytesIO(candidate)) as z:
+              assert z.testzip() is None
+              properties=z.read('git.properties').decode()
+              assert 'git.source.commit='+pr['merge_commit_sha'] in properties
+              assert 'git.commit.id='+pr['merge_commit_sha'] in properties
+              Path('evidence/candidate-git.properties').write_text(properties)
+          Path('inputs/candidate.jar').write_bytes(candidate)
+          # Original published core and probe classes are copied unchanged from the verified first native run.
+          archived=api(f'{repo}/actions/artifacts/11223408768/zip')
+          assert hashlib.sha256(archived).hexdigest()=='f0b0312e2a30efd0109328d6ba6507bd1f017437abab0c816a2e5705ed3b87a3'
+          with zipfile.ZipFile(io.BytesIO(archived)) as z:
+              sums={Path(line.split(None,1)[1]).name:line.split(None,1)[0] for line in z.read('SHA256SUMS').decode().splitlines()}
+              for name in ['original.jar','probe.jar']:
+                  data=z.read(name);assert hashlib.sha256(data).hexdigest()==sums[name]
+                  Path('inputs',name).write_bytes(data)
+              Path('evidence/SnapshotNativeProbe.java').write_bytes(z.read('SnapshotNativeProbe.java'))
+          assert hashlib.sha256(Path('inputs/original.jar').read_bytes()).hexdigest()=='316b308139e90981ed037d82ddc57b62b354d8e0a41804d5ebf3bb2b8f896d80'
+          hashes={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in Path('inputs').glob('*.jar')}
+          Path('evidence/provenance.json').write_text(json.dumps(dict(head=head,tested_merge=pr['merge_commit_sha'],normal_build=run['id'],candidate_artifact=meta,control_artifact=11223408768,sha256=hashes),indent=2))
+          print('Exact final tested head, artifact digests, metadata and unchanged native control verified.')
+          PY
+      - name: Compare original and final snapshot behavior using actual native items
+        env:
+          MC: ${{ matrix.minecraft }}
+          BUILD: ${{ matrix.build }}
+          HASH: ${{ matrix.sha256 }}
+        run: |
+          set -euo pipefail
+          URL="https://fill-data.papermc.io/v1/objects/${HASH}/paper-${MC}-${BUILD}.jar"
+          curl -fLsS --retry 3 --max-time 180 -H 'User-Agent: Slimefun-Legacy-Snapshot-Preservation (https://github.com/wickidcow/Slimefun-Legacy)' "$URL" -o server.jar
+          printf '%s  server.jar\n' "$HASH" | sha256sum --check
+          printf 'url=%s\nsha256=%s\n' "$URL" "$HASH" > evidence/server.txt
+          for KIND in original candidate; do
+            mkdir -p "$KIND/plugins"
+            cp server.jar "$KIND/server.jar"
+            cp "inputs/$KIND.jar" "$KIND/plugins/Slimefun.jar"
+            cp inputs/probe.jar "$KIND/plugins/SnapshotNativeProbe.jar"
+            printf 'eula=true\n' > "$KIND/eula.txt"
+            printf 'online-mode=false\nserver-ip=127.0.0.1\nserver-port=0\nview-distance=2\nsimulation-distance=2\nspawn-protection=0\npause-when-empty-seconds=-1\n' > "$KIND/server.properties"
+            ORIGINAL=false; MARKER=SNAPSHOT_NATIVE_OWNERSHIP_PASS
+            if [[ "$KIND" == original ]]; then ORIGINAL=true; MARKER=SNAPSHOT_ORIGINAL_ALIAS_REPRODUCED; fi
+            STATUS=0
+            (cd "$KIND" && timeout --kill-after=20s 240s java -Xms512M -Xmx2G -Dsnapshot.original="$ORIGINAL" -jar server.jar --nogui > server.log 2>&1) || STATUS=$?
+            mkdir -p "evidence/$KIND"
+            cp "$KIND/server.log" "evidence/$KIND/"
+            if test -f "$KIND/snapshot-result.txt"; then cp "$KIND/snapshot-result.txt" "evidence/$KIND/"; fi
+            if test -f "$KIND/native-old-item.bin"; then cp "$KIND/native-old-item.bin" "evidence/$KIND/"; fi
+            if [[ "$STATUS" != 0 ]] || ! grep -Fxq "$MARKER" "$KIND/snapshot-result.txt"; then tail -n 120 "$KIND/server.log"; exit 1; fi
+            test "$(wc -l < "$KIND/snapshot-result.txt")" -eq 7
+            if grep -Eq 'SNAPSHOT_NATIVE_FAIL|Error occurred while enabling|NoClassDefFoundError|NoSuchMethodError' "$KIND/server.log"; then tail -n 120 "$KIND/server.log"; exit 1; fi
+            cat "$KIND/snapshot-result.txt"
+          done
+          cmp original/native-old-item.bin candidate/native-old-item.bin
+          printf 'PASS: final normal-build artifact, original alias controls, six native cases and identical old item bytes on %s\n' "$MC" > evidence/result.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: snapshot-final-native-${{ matrix.minecraft }}
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
