@@ -1,0 +1,111 @@
+name: Revision 103 Published Core Validation
+
+on:
+  push:
+    branches: ['release/publish-addon-r103']
+    paths: ['.github/workflows/validate-addon-r103-published-core.yml']
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: validate-addon-r103-published-core
+  cancel-in-progress: false
+
+env:
+  SOURCE_HEAD: 10d1fb8ab3379f2b16bc27c2ade76fe08f5fbe3b
+  SOURCE_MERGE: d23eb116221f74079f3637ba801aeeb98d93de13
+  CORE_SHA256: 993b257c54efe19b58cc8f4946d4d39387f7787fe263c9f27123343159344c42
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_HEAD }}
+          persist-credentials: false
+      - name: Fetch only the exact combined candidate and published core
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = wickidcow/Slimefun-Legacy
+          python3 scripts/download_candidate_bundle.py --repository "$GITHUB_REPOSITORY" --head "$SOURCE_HEAD" --source "$SOURCE_MERGE" --output candidate --timeout 1800
+          gh release download v4.1.63 --repo "$GITHUB_REPOSITORY" --pattern Slimefun-Legacy4.1.63.jar --dir candidate
+          echo "$CORE_SHA256  candidate/Slimefun-Legacy4.1.63.jar" | sha256sum -c -
+          cp compatibility/sfl-addon-release-matrix.json candidate/source-matrix.json
+          sha256sum candidate/SF_Addons_1.21.11-26.3.zip | tee candidate/bundle.sha256
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          matrix=json.loads(Path('candidate/source-matrix.json').read_text())
+          assert matrix['bundle_revision']==103
+          assert len(matrix['addons'])==45
+          expected={'wickidcow/SF_BetterChests':'5c830e845d2849e0d8aea53414be8cba80af6775','wickidcow/SF_BuildingStaff':'9f017f4ca4cec5997c14ccd1e564a21b21ed16a0','wickidcow/SF_FluffyMachines':'91dc76b4e6d2024faeb1cbecace18c0a99b99aee','wickidcow/SF_NetworksExp':'ba79e6e36bd4798d37f7b8988efb414e7f041927'}
+          actual={row['repository']:row['source_commit'] for row in matrix['addons']}
+          assert all(actual[repo]==sha for repo,sha in expected.items())
+          print('All four finished sources retained in the 45-addon archive.')
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: r103-published-core-inputs
+          path: candidate/
+          if-no-files-found: error
+          retention-days: 30
+  runtime:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - minecraft: '1.21.11'
+            java: '21'
+          - minecraft: '26.2'
+            java: '25'
+          - minecraft: '26.3'
+            java: '25'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_HEAD }}
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: r103-published-core-inputs
+          path: candidate
+      - name: Test all 45 addons twice using the published core binary
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+          SLIMEFUN_SMOKE_VERSION: '4.1.63'
+        run: |
+          set -euo pipefail
+          echo "$CORE_SHA256  candidate/Slimefun-Legacy4.1.63.jar" | sha256sum -c -
+          sha256sum -c candidate/bundle.sha256
+          bash scripts/full_stack_runtime_smoke.sh "$PWD/candidate/Slimefun-Legacy4.1.63.jar" "$PWD/candidate/SF_Addons_1.21.11-26.3.zip" "build/published-core-${SERVER_MINECRAFT_VERSION}"
+          test "$(wc -l < "build/published-core-${SERVER_MINECRAFT_VERSION}/expected-addons.txt")" -eq 45
+          test ! -s "build/published-core-${SERVER_MINECRAFT_VERSION}/dependency-gated-addons.txt"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: r103-published-core-runtime-${{ matrix.minecraft }}
+          path: |
+            candidate/bundle-source.txt
+            candidate/bundle.sha256
+            candidate/source-matrix.json
+            build/published-core-*/smoke-result.txt
+            build/published-core-*/runtime-build.txt
+            build/published-core-*/expected-addons.txt
+            build/published-core-*/dependency-gated-addons.txt
+            build/published-core-*/*.log
+            build/published-core-*/plugins/worldedit-runtime.json
+          if-no-files-found: error
+          retention-days: 30
