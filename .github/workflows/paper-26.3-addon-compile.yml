@@ -9,6 +9,7 @@ on:
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'scripts/compile_addon_paper_26_3.py'
       - 'scripts/test_compile_addon_paper_26_3.py'
+      - 'scripts/test_addon_provider_bootstrap.py'
       - 'scripts/paper_candidate_versions.py'
       - 'scripts/test_paper_candidate_versions.py'
       - 'build.gradle.kts'
@@ -20,6 +21,7 @@ on:
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'scripts/compile_addon_paper_26_3.py'
       - 'scripts/test_compile_addon_paper_26_3.py'
+      - 'scripts/test_addon_provider_bootstrap.py'
       - 'scripts/paper_candidate_versions.py'
       - 'scripts/test_paper_candidate_versions.py'
       - 'build.gradle.kts'
@@ -45,6 +47,7 @@ jobs:
         run: |
           python3 scripts/test_compile_addon_paper_26_3.py
           python3 scripts/test_paper_candidate_versions.py
+          python3 scripts/test_addon_provider_bootstrap.py
 
   detect-paper-api:
     name: Resolve Paper 26.3 primary API
@@ -211,6 +214,10 @@ jobs:
                   and addon.get('tier') == 'required'
                   and addon.get('compile_enabled', True)
               ]
+              # Exercise the optional-provider bootstrap before changes reach master.
+              if not any(addon.get('repository') == 'wickidcow/SF_BuildingStaff' for addon in source):
+                  source.extend(addon for addon in release.get('addons', [])
+                                if addon.get('repository') == 'wickidcow/SF_BuildingStaff')
           else:
               source = release.get('addons', [])
 
@@ -245,7 +252,7 @@ jobs:
             echo '- Mode: `${{ steps.matrix.outputs.mode }}`'
             echo '- Targets: **${{ steps.matrix.outputs.count }}**'
             if [[ '${{ github.event_name }}' == 'pull_request' ]]; then
-              echo '- Pull requests compile the release-blocking `required` tier only to keep validation bounded.'
+              echo '- Pull requests compile the release-blocking `required` tier and the BuildingStaff provider-bootstrap smoke target.'
               echo '- Scheduled/manual runs compile every addon in the canonical release-bundle matrix.'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
@@ -279,6 +286,9 @@ jobs:
         run: |
           set -euo pipefail
           git clone --depth 1 "https://github.com/${ADDON_REPOSITORY}.git" addon
+      - name: Install BuildingStaff optional compile-only provider API
+        if: matrix.repository == 'wickidcow/SF_BuildingStaff'
+        run: bash addon/scripts/install_rebar_api.sh
       - name: Compile addon against candidate stack
         id: probe
         env:
