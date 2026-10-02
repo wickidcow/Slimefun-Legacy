@@ -1,6 +1,9 @@
 from pathlib import Path
 import hashlib
+import subprocess
 
+# checkout is shallow; explicitly fetch the pinned original before git-show comparisons.
+subprocess.run(['git', 'fetch', '--depth', '1', 'origin', 'a194ab1d0d5dd1cfc72caada225961ba0852ab87'], check=True)
 root = Path('src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage')
 path = root / 'controller/InventorySerializationFailureTest.java'
 data = path.read_bytes()
@@ -35,7 +38,7 @@ addition = '''    @ParameterizedTest
             var meta = changed.getItemMeta();
             meta.getPersistentDataContainer().set(ITEM_ID, PersistentDataType.STRING, "UNREGISTERED_OLD_ID");
             changed.setItemMeta(meta);
-            var snapshot = (com.xzavier0722.mc.plugin/slimefun4/storage/util/InvSnapshot)
+            var snapshot = (com.xzavier0722.mc.plugin.slimefun4.storage.util.InvSnapshot)
                     harness.acknowledgedSnapshot();
             snapshot.getSnapshot().getFirst().setFirstValue(changed.clone());
             harness.set(0, changed);
@@ -47,7 +50,7 @@ addition = '''    @ParameterizedTest
         }
     }
 
-'''.replace('mc.plugin/slimefun4/storage/util/InvSnapshot', 'mc.plugin.slimefun4.storage.util.InvSnapshot')
+'''
 needle = '    private static ItemStack oldItem(int amount) {'
 text = data.decode()
 assert text.count(needle) == 1
