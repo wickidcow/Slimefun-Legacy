@@ -8,7 +8,7 @@ permissions:
   actions: write
 concurrency:
   group: guarded-publication-4.1.65
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   publication:
     runs-on: ubuntu-latest
@@ -29,7 +29,21 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p publication-evidence published-files
-          python3 -u audit-publication/publish_4_1_65.py 2>&1 | tee publication-evidence/dispatcher.log
+          python3 -u - <<'PY' 2>&1 | tee publication-evidence/dispatcher.log
+          import json, os, runpy, subprocess, time
+          # The retained artifact verifier reads SOURCE_COMMIT before GITHUB_SHA.
+          # Give it the actual merged release identity, never this temporary runner's commit.
+          for attempt in range(180):
+              pr = json.loads(subprocess.check_output(['gh', 'api', 'repos/wickidcow/Slimefun-Legacy/pulls/311']))
+              assert pr['head']['sha'] == '6325bf812db09d6fdc914d7700b8aabf09cd51c1'
+              if pr['merged']:
+                  break
+              assert pr['state'] == 'open'
+              time.sleep(10)
+          assert pr['merged']
+          os.environ['SOURCE_COMMIT'] = pr['merge_commit_sha']
+          runpy.run_path('audit-publication/publish_4_1_65.py', run_name='__main__')
+          PY
       - uses: actions/upload-artifact@v7
         if: always()
         with:
