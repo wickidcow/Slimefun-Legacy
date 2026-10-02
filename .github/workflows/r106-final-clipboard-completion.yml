@@ -1,0 +1,154 @@
+name: Revision 106 Final Clipboard and Crafter Validation
+on:
+  push:
+    branches: ['audit/reconcile-addon-r106']
+    paths: ['.github/workflows/r106-final-clipboard-completion.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Reuse the exact corrected canonical archive and published core
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p inputs evidence probe-build/classes
+          python3 - <<'PY'
+          import hashlib,io,json,subprocess,zipfile
+          from pathlib import Path
+          raw=subprocess.check_output(['gh','api','repos/wickidcow/Slimefun-Legacy/actions/artifacts/11208549137/zip'],timeout=120)
+          assert hashlib.sha256(raw).hexdigest()=='15221a1f0c64c55112d583dd7dbd8a379cd13d0b66797b357712f0eb16175430'
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              assert z.testzip() is None
+              for name in z.namelist():
+                  assert Path(name).name==name
+                  Path('inputs',name).write_bytes(z.read(name))
+          for name,expected in {'addons.zip':'65a4f9ac5d05b97be58f032d8e7c09cd2ac4f15f004f75274965b7323f243f3d','core.jar':'316b308139e90981ed037d82ddc57b62b354d8e0a41804d5ebf3bb2b8f896d80','CrafterProbe.jar':'c36f46080f3881c5db411811f5c770b8118b19eeaa4b998ebf03082802e014df'}.items():
+              assert hashlib.sha256(Path('inputs',name).read_bytes()).hexdigest()==expected
+          old=subprocess.check_output(['git','show','HEAD:audit-r106/BundleValidationProbe.java'])
+          assert b'ClickEvent.Action.COPY_TO_CLIPBOARD' not in old
+          assert b'!ClickEvent.copyToClipboard(value).equals(component.clickEvent())' in old
+          Path('evidence/BundleValidationProbe.java').write_bytes(old)
+          Path('evidence/input-artifact.json').write_text(json.dumps({'artifact':11208549137,'original_run':36964027857,'sha256':hashlib.sha256(raw).hexdigest(),'change':'Disposable clipboard assertion only. Addon ZIP, core and native crafter probe unchanged.'},indent=2))
+          PY
+          cat > probe-build/pom.xml <<'XML'
+          <project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion><groupId>audit</groupId><artifactId>bundle-state-probe</artifactId><version>1</version><repositories><repository><id>paper</id><url>https://repo.papermc.io/repository/maven-public/</url></repository></repositories><dependencies><dependency><groupId>io.papermc.paper</groupId><artifactId>paper-api</artifactId><version>1.21.11-R0.1-SNAPSHOT</version></dependency></dependencies></project>
+          XML
+          mvn -B -ntp -f probe-build/pom.xml dependency:build-classpath -Dmdep.outputFile=classpath.txt > evidence/probe-compile.log 2>&1
+          javac --release 21 -cp "$(cat probe-build/classpath.txt)" -d probe-build/classes audit-r106/BundleValidationProbe.java >> evidence/probe-compile.log 2>&1
+          printf "name: BundleValidationProbe\nmain: audit.BundleValidationProbe\nversion: '1'\napi-version: '1.21.11'\ndepend: [Slimefun]\n" > probe-build/classes/plugin.yml
+          jar --create --file inputs/BundleValidationProbe.jar -C probe-build/classes .
+          sha256sum inputs/*.jar inputs/addons.zip > inputs/SHA256SUMS
+          cp inputs/provenance.json evidence/
+      - uses: actions/upload-artifact@v7
+        with:
+          name: r106-final-inputs
+          path: inputs/
+          retention-days: 90
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: r106-final-preparation
+          path: evidence/
+          retention-days: 90
+          if-no-files-found: error
+  runtime:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11','26.2','26.3']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 44b0f5bd5f53b5226ef12a4cb5c83353545c313f
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: r106-final-inputs
+          path: inputs
+      - name: Keep original runtime guards and require completed native assertions
+        run: |
+          mkdir -p evidence
+          sha256sum -c inputs/SHA256SUMS
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('scripts/full_stack_runtime_smoke.sh');old=p.read_text()
+          data=old.encode();assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()=='95ca1d7ad860a4a14ad70be31cf4e11ad07e0690'
+          anchor='cp "$SLIMEFUN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-full-stack.jar"\n'
+          added='cp inputs/CrafterProbe.jar "$WORK_DIR/plugins/CrafterProbe.jar"\ncp inputs/BundleValidationProbe.jar "$WORK_DIR/plugins/BundleValidationProbe.jar"\ncp inputs/expected-addon-versions.tsv "$WORK_DIR/expected-addon-versions.tsv"\n'
+          anchor2='    sleep 8\n    stop_process "$pid" 3\n'
+          wait='''    sleep 8
+              local probe_phase=initial
+              if [[ "$label" == second ]]; then probe_phase=restart; fi
+              local native_marker="CRAFTER_NATIVE_PASS mode=updated phase=$probe_phase"
+              local state_marker="R106_PLUGIN_STATE_PASS count=45 core=4.1.64 guideRenderer=linked clipboard=6"
+              local probe_deadline=$((SECONDS + 120))
+              while kill -0 "$pid" >/dev/null 2>&1 && (( SECONDS < probe_deadline )); do
+                  if grep -Eq 'CRAFTER_NATIVE_FAIL|R106_PLUGIN_STATE_FAIL' "$console"; then break; fi
+                  if grep -Fq "$native_marker" "$console" && grep -Fq "$state_marker" "$console"; then break; fi
+                  sleep 1
+              done
+              if ! grep -Fq "$native_marker" "$console" || ! grep -Fq "$state_marker" "$console" || grep -Eq 'CRAFTER_NATIVE_FAIL|R106_PLUGIN_STATE_FAIL' "$console"; then
+                  stop_process "$pid" 3; wait "$pid" >/dev/null 2>&1 || true; exec 3>&-
+                  cat "$console" >&2
+                  return 1
+              fi
+              stop_process "$pid" 3
+          '''
+          assert old.count(anchor)==1 and old.count(anchor2)==1
+          new=old.replace(anchor,anchor+added).replace(anchor2,wait)
+          assert new.replace(anchor+added,anchor).replace(wait,anchor2)==old
+          p.write_text(new);Path('evidence/runtime-script.sh').write_text(new)
+          PY
+          bash -n scripts/full_stack_runtime_smoke.sh
+      - name: Exercise every addon version, real clipboard methods and native crafter on two boots
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+          SLIMEFUN_SMOKE_VERSION: '4.1.64'
+          MODE: updated
+        run: |
+          set -euo pipefail
+          bash scripts/full_stack_runtime_smoke.sh inputs/core.jar inputs/addons.zip build/r106-final
+          test "$(wc -l < build/r106-final/expected-addons.txt)" -eq 45
+          test ! -s build/r106-final/dependency-gated-addons.txt
+          for CYCLE in first second; do
+            grep -F 'R106_PLUGIN_STATE_PASS count=45 core=4.1.64 guideRenderer=linked clipboard=6' "build/r106-final/$CYCLE.normalized.log"
+          done
+          grep -F 'CRAFTER_NATIVE_PASS mode=updated phase=initial assertions=29' build/r106-final/first.normalized.log
+          grep -F 'CRAFTER_NATIVE_PASS mode=updated phase=restart assertions=36' build/r106-final/second.normalized.log
+          if grep -E 'CRAFTER_NATIVE_FAIL|R106_PLUGIN_STATE_FAIL|ERROR|SEVERE' build/r106-final/*.normalized.log; then exit 1; fi
+          printf 'PASS: exact corrected revision106 ZIP, published4.1.64 core, all45 enabled versions, six clipboard scenarios and native crafter on both boots\n' > evidence/result.txt
+      - name: Retain input identities and complete runtime evidence
+        if: always()
+        run: |
+          mkdir -p evidence/runtime
+          cp inputs/provenance.json inputs/core-git.properties inputs/SF_ADDON_MANIFEST.json inputs/SHA256SUMS evidence/ || true
+          find build/r106-final -maxdepth 1 -type f \( -name '*.log' -o -name '*.txt' \) -exec cp {} evidence/runtime/ \; 2>/dev/null || true
+          if test -d build/r106-final/plugins/CrafterProbe; then cp -r build/r106-final/plugins/CrafterProbe evidence/; fi
+          if test -f build/r106-final/plugins/worldedit-runtime.json; then cp build/r106-final/plugins/worldedit-runtime.json evidence/; fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: r106-final-runtime-${{ matrix.minecraft }}
+          path: evidence/
+          retention-days: 90
+          if-no-files-found: error
