@@ -1,0 +1,168 @@
+name: Revision 107 Published Core Runtime
+on:
+  push:
+    branches: ['audit/addon-r107-validation-20261002']
+    paths: ['.github/workflows/r107-published-core-runtime.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 974e55dc763aa3e3e55fc2c4547abeebcd0dff16
+          persist-credentials: false
+      - name: Verify exact canonical bundle and actual published core
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p inputs evidence
+          python3 - <<'PY'
+          import hashlib,io,json,subprocess,sys,time,zipfile
+          from pathlib import Path
+          sys.path.insert(0,'scripts')
+          from verify_addon_bytecode import inspect_jar
+          repo='repos/wickidcow/Slimefun-Legacy'
+          head='974e55dc763aa3e3e55fc2c4547abeebcd0dff16'
+          merge='72aea0f45c434f43d23774f92597c60bfbe90fc8'
+          core_source='22ae22c4e32fd3b086565922f4427206d0f4b065'
+          def api(path,optional=False):
+              r=subprocess.run(['gh','api',path],capture_output=True,timeout=120)
+              if r.returncode:
+                  try: e=json.loads(r.stdout)
+                  except (ValueError,UnicodeError): e={}
+                  if optional and str(e.get('status'))=='404':return None
+                  raise RuntimeError(path+': '+r.stderr.decode(errors='replace'))
+              return json.loads(r.stdout)
+          def digest(data):return hashlib.sha256(data).hexdigest()
+          run=None
+          for attempt in range(120):
+              run=api(repo+'/actions/runs/37064167645')
+              assert run['head_sha']==head and run['path']=='.github/workflows/build-sfl-addons-compat-bundle.yml'
+              if run['status']=='completed':
+                  assert run['conclusion']=='success',run['conclusion'];break
+              time.sleep(10)
+          else:raise RuntimeError('Canonical candidate not complete; no result asserted')
+          rows=api(repo+'/actions/runs/37064167645/artifacts?per_page=100')
+          assert rows['total_count']==len(rows['artifacts'])
+          artifacts=[a for a in rows['artifacts'] if a['name']=='SF_Addons_1.21.11-26.3' and not a['expired']]
+          assert len(artifacts)==1
+          meta=artifacts[0];assert meta['workflow_run']['head_sha']==head
+          raw=subprocess.run(['gh','api',f"{repo}/actions/artifacts/{meta['id']}/zip"],check=True,capture_output=True,timeout=120).stdout
+          assert meta['digest']=='sha256:'+digest(raw)
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              assert z.testzip() is None
+              bundle=z.read('SF_Addons_1.21.11-26.3.zip')
+          source=json.loads(Path('compatibility/sfl-addon-release-matrix.json').read_text())
+          assert source['bundle_revision']==107 and len(source['addons'])==45
+          expected={a['repository']:a['source_commit'] for a in source['addons']}
+          reports=[];Path('verify-jars').mkdir()
+          with zipfile.ZipFile(io.BytesIO(bundle)) as z:
+              assert z.testzip() is None and len(z.namelist())==len(set(z.namelist()))
+              manifest=json.loads(z.read('SF_ADDON_MANIFEST.json'))
+              assert manifest['core_source_commit']==merge and len(manifest['addons'])==45
+              assert {a['repository']:a['commit'] for a in manifest['addons']}==expected
+              assert {n for n in z.namelist() if n.endswith('.jar')}=={a['jar'] for a in manifest['addons']}
+              for a in manifest['addons']:
+                  assert Path(a['jar']).name==a['jar']
+                  data=z.read(a['jar']);assert digest(data)==a['sha256']
+                  path=Path('verify-jars',a['jar']);path.write_bytes(data)
+                  checked=inspect_jar(path,21);assert checked['result']=='PASS'
+                  with zipfile.ZipFile(io.BytesIO(data)) as jar:
+                      assert jar.testzip() is None and 'plugin.yml' in jar.namelist()
+                      assert not any(n.startswith(('org/junit/','org/mockbukkit/','org/mockito/','audit/')) for n in jar.namelist())
+                  reports.append(dict(repository=a['repository'],commit=a['commit'],jar=a['jar'],sha256=a['sha256'],checked_classes=checked['checked_classes']))
+              assert next(a for a in manifest['addons'] if a['repository']=='wickidcow/SF_HotbarPets')['version']=='1.0.3'
+              assert next(a for a in manifest['addons'] if a['repository']=='wickidcow/SF_SMG')['version']=='1.0.5'
+          for attempt in range(120):
+              release=api(repo+'/releases/tags/v4.1.66',optional=True)
+              if release is not None:break
+              time.sleep(10)
+          else:raise RuntimeError('4.1.66 is not published; do not substitute a development core')
+          assert release['target_commitish']==core_source and not release['draft'] and not release['prerelease']
+          core_meta=[a for a in release['assets'] if a['name']=='Slimefun-Legacy4.1.66.jar']
+          assert len(core_meta)==1 and core_meta[0]['state']=='uploaded'
+          subprocess.run(['gh','release','download','v4.1.66','--repo','wickidcow/Slimefun-Legacy',
+              '--pattern','Slimefun-Legacy4.1.66.jar','--dir','inputs'],check=True,timeout=180)
+          core=Path('inputs/Slimefun-Legacy4.1.66.jar').read_bytes()
+          assert core_meta[0]['digest']=='sha256:'+digest(core) and len(core)==core_meta[0]['size']
+          with zipfile.ZipFile(io.BytesIO(core)) as z:
+              props=z.read('git.properties').decode()
+              assert 'git.commit.id='+core_source in props and 'git.source.commit='+core_source in props
+          Path('inputs/addons.zip').write_bytes(bundle)
+          record=dict(candidate_head=head,canonical_run=37064167645,canonical_merge=merge,
+              bundle_artifact=meta,bundle_sha256=digest(bundle),published_core_source=core_source,
+              published_core_asset=core_meta[0],core_sha256=digest(core),addons=reports)
+          Path('inputs/provenance.json').write_text(json.dumps(record,indent=2)+'\n')
+          Path('evidence/provenance.json').write_text(json.dumps(record,indent=2)+'\n')
+          print('Verified all 45 candidate JARs and downloaded the actual published 4.1.66 core.',flush=True)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: r107-published-core-preparation
+          path: evidence/
+          retention-days: 30
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        with:
+          name: r107-published-core-inputs
+          path: inputs/
+          retention-days: 30
+          if-no-files-found: error
+  runtime:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['1.21.11','26.2','26.3']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 974e55dc763aa3e3e55fc2c4547abeebcd0dff16
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: r107-published-core-inputs
+          path: inputs
+      - name: Run unchanged provider-complete two-boot checks
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+          SERVER_DOWNLOAD_USER_AGENT: Slimefun-Legacy-Addon-Refresh/4.1.66 (https://github.com/wickidcow/Slimefun-Legacy)
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          p=json.loads(Path('inputs/provenance.json').read_text())
+          assert hashlib.sha256(Path('inputs/addons.zip').read_bytes()).hexdigest()==p['bundle_sha256']
+          assert hashlib.sha256(Path('inputs/Slimefun-Legacy4.1.66.jar').read_bytes()).hexdigest()==p['core_sha256']
+          PY
+          bash scripts/full_stack_runtime_smoke.sh inputs/Slimefun-Legacy4.1.66.jar inputs/addons.zip build/r107-published-core
+          test ! -s build/r107-published-core/dependency-gated-addons.txt
+          test "$(wc -l < build/r107-published-core/expected-addons.txt)" -eq 45
+          printf 'PASS: actual published 4.1.66 core and exact revision107 archive, all45 addons required, real WorldEdit provider and two normal boot/shutdown cycles\n' > evidence/result.txt
+      - name: Preserve actual result and provenance
+        if: always()
+        run: |
+          mkdir -p evidence/runtime
+          cp inputs/provenance.json evidence/ || true
+          find build/r107-published-core -maxdepth 1 -type f \( -name '*.log' -o -name '*.txt' \) -exec cp {} evidence/runtime/ \; 2>/dev/null || true
+          if test -f build/r107-published-core/plugins/worldedit-runtime.json; then cp build/r107-published-core/plugins/worldedit-runtime.json evidence/; fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: r107-published-core-${{ matrix.minecraft }}
+          path: evidence/
+          retention-days: 30
+          if-no-files-found: error
