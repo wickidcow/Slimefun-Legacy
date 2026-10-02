@@ -1,0 +1,100 @@
+name: Fluffy AutoCrafter Native Completion Checks
+on:
+  push:
+    branches: ['validation/fluffy-crafter-r105']
+    paths: ['.github/workflows/validate-fluffy-crafter-r105-completion.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [baseline, updated]
+        minecraft: ['1.21.11', '26.2', '26.3']
+        include:
+          - minecraft: '1.21.11'
+            java: '21'
+          - minecraft: '26.2'
+            java: '25'
+          - minecraft: '26.3'
+            java: '25'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: e47a3035b35dfb93325d22ba03b2a69dd6cd6992
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: 36958632334
+          name: fluffy-native-inputs
+          path: inputs
+      - name: Require unchanged inputs and fixture completion before shutdown
+        env:
+          SERVER_MINECRAFT_VERSION: ${{ matrix.minecraft }}
+          MODE: ${{ matrix.mode }}
+          SLIMEFUN_SMOKE_VERSION: '4.1.64'
+        run: |
+          set -euo pipefail
+          sha256sum -c inputs/SHA256SUMS
+          echo '316b308139e90981ed037d82ddc57b62b354d8e0a41804d5ebf3bb2b8f896d80  inputs/Slimefun-Legacy4.1.64.jar' | sha256sum -c -
+          echo 'ce28b417b2632e99a7b7699e5e0b22e8cc677bb610f65114b3e631d7625b574f  inputs/SF_Addons_1.21.11-26.3.zip' | sha256sum -c -
+          echo 'e6d21b955864625249146832652b90e705b3a351d5451f723925bfc5e3915b97  inputs/SF_FluffyMachines26.2.14.jar' | sha256sum -c -
+          export CRAFTER_PROBE="$PWD/inputs/CrafterProbe.jar"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/full_stack_runtime_smoke.sh');s=p.read_text()
+          anchor='cp "$SLIMEFUN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-full-stack.jar"\n'
+          assert s.count(anchor)==1
+          s=s.replace(anchor,anchor+'cp "$CRAFTER_PROBE" "$WORK_DIR/plugins/CrafterProbe.jar"\n')
+          anchor="    printf 'sf doctor status\\n' >&3\n"
+          assert s.count(anchor)==1
+          wait='''    local probe_phase=initial
+              if [[ "$label" == second ]]; then probe_phase=restart; fi
+              local probe_deadline=$((SECONDS + 90))
+              while kill -0 "$pid" >/dev/null 2>&1 && (( SECONDS < probe_deadline )); do
+                  if grep -Fq "CRAFTER_NATIVE_PASS mode=${MODE} phase=${probe_phase} " "$console"; then break; fi
+                  if grep -Fq 'CRAFTER_NATIVE_FAIL' "$console"; then break; fi
+                  sleep 1
+              done
+              if ! grep -Fq "CRAFTER_NATIVE_PASS mode=${MODE} phase=${probe_phase} " "$console"; then
+                  stop_process "$pid" 3; wait "$pid" >/dev/null 2>&1 || true; exec 3>&-
+                  normalize_log "$console" "$normalized"
+                  cat "$normalized" >&2
+                  return 1
+              fi
+          '''
+          s=s.replace(anchor,wait+anchor)
+          p.write_text(s)
+          PY
+          ZIP="$PWD/inputs/SF_Addons_1.21.11-26.3.zip"
+          if [[ "$MODE" == updated ]]; then ZIP="$PWD/inputs/updated-test-only.zip"; fi
+          WORK="build/crafter-${MODE}-${SERVER_MINECRAFT_VERSION}"
+          bash scripts/full_stack_runtime_smoke.sh "$PWD/inputs/Slimefun-Legacy4.1.64.jar" "$ZIP" "$WORK"
+          test "$(wc -l < "$WORK/expected-addons.txt")" -eq 45
+          test ! -s "$WORK/dependency-gated-addons.txt"
+          grep -F "CRAFTER_NATIVE_PASS mode=$MODE phase=initial" "$WORK/first.normalized.log"
+          grep -F "CRAFTER_NATIVE_PASS mode=$MODE phase=restart" "$WORK/second.normalized.log"
+          if grep -E 'CRAFTER_NATIVE_FAIL|ERROR|SEVERE' "$WORK/first.normalized.log" "$WORK/second.normalized.log"; then exit 1; fi
+          git diff -- scripts/full_stack_runtime_smoke.sh > "$WORK/fixture-runner.patch"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: fluffy-native-completed-${{ matrix.mode }}-${{ matrix.minecraft }}
+          path: |
+            build/crafter-*/*.log
+            build/crafter-*/runtime-build.txt
+            build/crafter-*/smoke-result.txt
+            build/crafter-*/expected-addons.txt
+            build/crafter-*/dependency-gated-addons.txt
+            build/crafter-*/fixture-runner.patch
+            build/crafter-*/plugins/CrafterProbe/
+          if-no-files-found: error
