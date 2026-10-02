@@ -64,11 +64,13 @@ def main():
     run_ids=json.loads(os.environ['EXPECTED_MASTER_RUN_IDS'])
     require(isinstance(run_ids,list) and all(isinstance(n,int) for n in run_ids),'Invalid master run set')
     master_runs=[checked_run(number,source,'push') for number in run_ids]
+    require(all(r['head_branch']=='master' for r in master_runs),'A selected master run belongs to another branch')
     require(REQUIRED_MASTER_NAMES.issubset({r['name'] for r in master_runs}),'Missing required master gates')
-    current=api(f'actions/runs?head_sha={source}&event=push&per_page=100')
+    current=api(f'actions/runs?head_sha={source}&event=push&branch=master&per_page=100')
     require(current['total_count']<=100,'Pagination required before approving master gates')
     latest={}
     for run in current['workflow_runs']:
+        require(run['head_branch']=='master' and run['head_sha']==source,'Unexpected filtered master run')
         key=run['path']
         if key not in latest or run['id']>latest[key]['id']:latest[key]=run
     require(all(r['status']=='completed' and r['conclusion']=='success' for r in latest.values()),'A current master workflow is incomplete or unsuccessful')
@@ -77,6 +79,7 @@ def main():
     require(hashlib.sha256(matrix).hexdigest()==MATRIX_SHA256,'Addon selections changed')
     version=base64.b64decode(api(f'contents/gradle.properties?ref={source}')['content']).decode()
     require('projectVersion=4.1.64\n' in version,'Wrong release version')
+    require(api(f'contents/.github/workflows/reproducible-release.yml?ref={source}')['sha']=='5928b5bd190c7005931abd75b111576aac0e4d4c','The existing publisher changed')
     previous=api('releases/tags/v4.1.63')
     assets={a['name']:a for a in previous['assets']}
     require(len(assets)==len(previous['assets'])==2,'Previous asset set changed')
