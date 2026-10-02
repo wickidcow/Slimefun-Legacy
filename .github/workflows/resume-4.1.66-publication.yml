@@ -1,0 +1,93 @@
+name: Resume Verified 4.1.66 Publication
+on:
+  push:
+    branches: ['audit/finalize-4.1.66-20261002']
+    paths: ['.github/workflows/resume-4.1.66-publication.yml']
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: finalize-slimefun-4.1.66-exact-source
+  cancel-in-progress: false
+jobs:
+  verify-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Resume the same verification using existing exact-source API runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence release-files
+          python3 - <<'PY'
+          import ast, hashlib, io, json, subprocess, zipfile
+          from pathlib import Path
+          repository='repos/wickidcow/Slimefun-Legacy'
+          def request(path):
+              return json.loads(subprocess.run(['gh','api',path],check=True,capture_output=True,timeout=120).stdout)
+          previous=request(repository+'/actions/runs/37064718699')
+          assert previous['head_sha']=='5a29ecec7f3fcde3be01ce02d0fb9622645d5556'
+          assert previous['status']=='completed' and previous['conclusion']=='failure'
+          raw=subprocess.run(['gh','api',repository+'/actions/artifacts/11253527150/zip'],
+              check=True,capture_output=True,timeout=120).stdout
+          assert hashlib.sha256(raw).hexdigest()=='52b896b97cf89c6cb4b25a3d79bd3a9153fa8594cb3972be759c4902b1adc8dc'
+          with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+              assert archive.testzip() is None
+              assert 'dispatch.json' not in archive.namelist()
+              assert 'publication-result.json' not in archive.namelist()
+              original=archive.read('executed-publication-verifier.py').decode()
+              original_gates=json.loads(archive.read('master-gates.json'))
+          assert len(original_gates)==15
+          assert sum(r['status']=='completed' and r['conclusion']=='success' for r in original_gates)==14
+          outstanding=[r for r in original_gates if r['status']!='completed']
+          assert len(outstanding)==1 and outstanding[0]['id']==37064779939
+          ast.parse(original)
+          source=original
+          start=source.index("old_dispatcher=api(f'{API}/actions/runs/37062641750')")
+          end=source.index('\nlatest = {}\nfor attempt in range(120):',start)
+          removed=source[start:end]
+          assert 'MANUAL_WORKFLOWS.items()' in removed
+          replacement='''# Reuse the three original exact-source runs rather than dispatching duplicate matrices.
+          existing_runs = {
+              37064777500: '.github/workflows/api-compatibility.yml',
+              37064779939: '.github/workflows/compatibility-ci.yml',
+              37064781921: '.github/workflows/paper-26.3-preflight.yml',
+          }
+          for run_id, workflow in existing_runs.items():
+              existing_run = api(f'{API}/actions/runs/{run_id}')
+              assert existing_run['head_sha'] == SHA and existing_run['head_branch'] == REF
+              assert existing_run['event'] == 'workflow_dispatch' and existing_run['path'] == workflow
+          write('resumed-gates.json', dict(previous_attempt=37064718699, existing_runs=existing_runs,
+              scope='Only reuse the already dispatched checks; every source, child-job, artifact, publication and old-release identity assertion is retained.'))
+          '''
+          import textwrap
+          replacement=textwrap.dedent(replacement)
+          source=source[:start]+replacement+source[end:]
+          assert source.replace(replacement,removed,1)==original
+          ast.parse(source)
+          Path('evidence/resumed-publication-verifier.py').write_text(source)
+          Path('evidence/resumption.json').write_text(json.dumps(dict(previous_attempt=37064718699,
+              previous_evidence_sha256=hashlib.sha256(raw).hexdigest(),
+              original_script_sha256=hashlib.sha256(original.encode()).hexdigest(),
+              resumed_script_sha256=hashlib.sha256(source.encode()).hexdigest(),
+              change='Remove only the duplicate manual dispatch/cancellation block; reuse original exact-source run identities.'),indent=2)+'\n')
+          exec(compile(source,'resumed-publication-verifier.py','exec'),{'__name__':'__main__'})
+          PY
+      - name: Retain exact-source verification and publication receipt
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-4.1.66-exact-source-verification
+          path: evidence/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Retain downloaded verified release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: published-4.1.66-assets-verified
+          path: release-files/
+          retention-days: 30
+          if-no-files-found: error
