@@ -1,0 +1,79 @@
+name: Publish Revision 107 Verified Addon Bundle
+on:
+  push:
+    branches: ['audit/publish-addon-r107-verified-20261002']
+    paths: ['.github/workflows/publish-r107-verified-receipt.yml']
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: addon-only-publication-4.1.66
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PUBLISHED_CORE_RUNTIME_RUN: '37066237709'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Use the independently verified successful publication receipt
+        run: |
+          set -euo pipefail
+          mkdir -p publication/evidence
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,subprocess
+          path=Path('audit-r107/publish.py')
+          original=path.read_bytes()
+          blob=lambda data:hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+          assert blob(original)=='ffc12201d010e18ac319dff17b2588a7a15f891b'
+          tests=Path('audit-r107/test_publish.py').read_bytes()
+          assert blob(tests)=='afb78b80278c5286133b0b4e4ed44cd84e06cf80'
+          old=b'FINALIZER_RUN = 37064718699'
+          new=b'FINALIZER_RUN = 37068338048'
+          assert original.count(old)==1
+          corrected=original.replace(old,new)
+          assert corrected.replace(new,old)==original
+          path.write_bytes(corrected)
+          run=json.loads(subprocess.check_output(['gh','api','repos/wickidcow/Slimefun-Legacy/actions/runs/37068338048']))
+          assert run['head_sha']=='0439d619726c9b98429e73a61d897322ee931b1d'
+          assert run['path']=='.github/workflows/resume-4.1.66-publication.yml'
+          assert run['status']=='completed' and run['conclusion']=='success'
+          Path('publication/evidence/receipt-source-correction.json').write_text(json.dumps(dict(original_publisher_blob=blob(original),actual_publisher_blob=blob(corrected),original_receipt_run=37064718699,verified_receipt_run=37068338048,scope='Only the successful receipt reference changes; all publication and backup guards are identical'),indent=2)+'\n')
+          Path('publication/evidence/actual-publisher.py').write_bytes(corrected)
+          PY
+          python3 -m py_compile audit-r107/publish.py audit-r107/test_publish.py
+          python3 audit-r107/test_publish.py -v 2>&1 | tee publication/evidence/publication-guard-tests.txt
+      - name: Verify merged selection, exact artifacts, runtime results and backup inputs
+        run: python3 audit-r107/publish.py prepare
+      - name: Retain the previous ZIP, original core and release metadata before any replacement
+        id: backup
+        uses: actions/upload-artifact@v7
+        with:
+          name: revision107-prior-release-backup
+          path: publication/backup/
+          retention-days: 90
+          if-no-files-found: error
+      - name: Replace only the addon ZIP and verify downloaded results
+        env:
+          BACKUP_UPLOAD_ID: ${{ steps.backup.outputs.artifact-id }}
+        run: python3 audit-r107/publish.py publish
+      - name: Retain actual publication evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: revision107-verified-publication
+          path: publication/evidence/
+          retention-days: 90
+          if-no-files-found: error
+      - name: Retain the exact downloaded and verified published assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: revision107-published-assets-verified
+          path: publication/downloaded/
+          retention-days: 30
+          if-no-files-found: error
