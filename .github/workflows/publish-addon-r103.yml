@@ -1,0 +1,65 @@
+name: Publish Verified Revision 103 Addon ZIP
+
+on:
+  push:
+    branches: ['release/publish-addon-r103']
+    paths: ['.github/workflows/publish-addon-r103.yml']
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: publish-addon-r103-exact
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_ZIP_SHA256: 28a09e13888c2fbe5f3761bf6c7fa24288e8ae100e3623a25f2513a5df44a3f8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Download the exact inputs already tested with the published core
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = wickidcow/Slimefun-Legacy
+          gh run download 36944258839 --repo "$GITHUB_REPOSITORY" --name r103-published-core-inputs --dir candidate
+          python3 -m py_compile .release/publish_r103.py
+      - name: Require exact successful gates and verify recovery copies
+        run: python3 .release/publish_r103.py prepare
+      - name: Preserve original release bytes before any replacement
+        uses: actions/upload-artifact@v7
+        with:
+          name: r103-original-release-recovery
+          path: |
+            publication/backup/
+            publication/before-release.json
+            publication/before-tag.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Publish only the verified addon ZIP and verify downloaded bytes
+        run: python3 .release/publish_r103.py publish
+      - name: Retain publication receipt and exact uploaded ZIP
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: r103-publication-verification
+          path: |
+            publication/before-release.json
+            publication/before-tag.json
+            publication/after-release.json
+            publication/receipt.json
+            publication/downloaded/
+            candidate/source-matrix.json
+            candidate/bundle-source.txt
+            candidate/bundle.sha256
+          if-no-files-found: error
+          retention-days: 90
