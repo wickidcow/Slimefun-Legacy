@@ -319,8 +319,8 @@ public class SlimefunItemStack extends ItemStack {
             }
 
             char code = Character.toLowerCase(chars[i + 1]);
-            if (code == 'x' || LegacyComponentSerializer.parseChar(code) != null) {
-                chars[i] = LegacyComponentSerializer.SECTION_CHAR;
+            if ("0123456789abcdefklmnorx".indexOf(code) >= 0) {
+                chars[i] = '§';
                 chars[i + 1] = code;
             }
         }
