@@ -1,0 +1,64 @@
+name: Publish Verified Revision 104 Addon ZIP
+
+on:
+  push:
+    branches: ['validation/slimetinker-r104-published-core']
+    paths: ['.github/workflows/publish-addon-r104.yml']
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: addon-only-release-v4.1.63
+  cancel-in-progress: false
+
+env:
+  EXPECTED_ZIP_SHA256: e6ba58c00d843f445d8292435645fc3bda0902cfa38fd986fc2e6a9e3ca87ca8
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Obtain the exact archive and published core used by successful native validation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 36949120294 --repo "$GITHUB_REPOSITORY" --name r104-published-core-inputs --dir candidate
+          python3 -m py_compile .release/publish_r104.py
+          echo "$EXPECTED_ZIP_SHA256  candidate/SF_Addons_1.21.11-26.3.zip" | sha256sum -c -
+          echo '993b257c54efe19b58cc8f4946d4d39387f7787fe263c9f27123343159344c42  candidate/Slimefun-Legacy4.1.63.jar' | sha256sum -c -
+      - name: Verify exact gates and prepare original release recovery
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .release/publish_r104.py prepare
+      - name: Retain original release before any replacement
+        uses: actions/upload-artifact@v7
+        with:
+          name: r104-original-release-recovery
+          path: |
+            publication/backup/
+            publication/before-release.json
+            publication/before-tag.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Upload only the tested addon ZIP and independently download it again
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .release/publish_r104.py publish
+      - name: Retain the publication receipt and uploaded bytes
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: r104-publication-verification
+          path: |
+            publication/receipt.json
+            publication/after-release.json
+            publication/downloaded/
+          if-no-files-found: warn
+          retention-days: 90
