@@ -1,0 +1,55 @@
+name: Publish Verified Combined Addon Revision 106
+on:
+  push:
+    branches: ['audit/reconcile-addon-r106']
+    paths: ['.github/workflows/publish-combined-addon-r106.yml']
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: addon-only-release-v4.1.64
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Validate exact merged source, all gates and the native-tested archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .release/publish_combined_r106.py
+          python3 .release/publish_combined_r106.py prepare
+      - name: Save the actual current revision105 release before replacing anything
+        uses: actions/upload-artifact@v7
+        with:
+          name: r106-revision105-release-recovery
+          path: |
+            publication/backup/
+            publication/before-release.json
+            publication/before-tag.json
+            publication/gates.json
+          retention-days: 90
+          if-no-files-found: error
+      - name: Replace only the addon ZIP and download the published bytes again
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .release/publish_combined_r106.py publish
+      - name: Preserve publication receipt, downloaded archive and validation records
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: r106-combined-publication-verification
+          path: |
+            publication/receipt.json
+            publication/after-release.json
+            publication/manifest.json
+            publication/validation-provenance.json
+            publication/downloaded/
+            publication/gates.json
+          retention-days: 90
+          if-no-files-found: warn
