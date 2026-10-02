@@ -55,7 +55,6 @@ public final class DelayedSaveProbe extends JavaPlugin {
 
     private static void writeControlledRace(BlockDataController controller, Location location, Location neighbor,
             boolean original) throws Exception {
-        // The disposable server starts with no other machines. Keep initial seed writes immediate.
         controller.setDelayedSavingEnable(false);
         location.getBlock().setType(Material.CRAFTING_TABLE);
         neighbor.getBlock().setType(Material.CRAFTING_TABLE);
@@ -64,11 +63,12 @@ public final class DelayedSaveProbe extends JavaPlugin {
         data.setData("owner", OWNER);
         data.setData("opaque-count", "9007199254740993");
         data.setData("empty-value", "");
+        data.setData("latest-value", "seed");
+        data.setData("latest-empty", "seed");
+        data.setData("deleted-value", "seed");
         other.setData("owner", "neighbor-unchanged");
         other.setData("latest-value", "neighbor-value");
 
-        // Disable only the automatically installed looper in this disposable fixture, then
-        // use the real initialization path with delays longer than the controlled test.
         var looperField = BlockDataController.class.getDeclaredField("looperTask");
         looperField.setAccessible(true);
         TaskHandle prior = (TaskHandle) looperField.get(controller);
@@ -76,15 +76,23 @@ public final class DelayedSaveProbe extends JavaPlugin {
         controller.initDelayedSaving(Slimefun.instance(), 300, 300);
 
         Map<LinkedKey, DelayedTask> tasks = queue(controller);
-        data.setData("latest-value", "first-snapshot");
-        data.setData("deleted-value", "first-snapshot");
+        // Actual write submission adds DATA_VALUE to its mutable RecordKey; an earlier
+        // deletion does not. Use deletion-to-write transitions so the old and replacement
+        // queue keys genuinely remain equal through the observed completion window.
+        data.removeData("latest-value");
+        data.removeData("latest-empty");
+        data.removeData("deleted-value");
         LinkedKey updatedKey = key(location, data.getKey(), "latest-value");
+        LinkedKey emptyKey = key(location, data.getKey(), "latest-empty");
         LinkedKey deletedKey = key(location, data.getKey(), "deleted-value");
         wrap(tasks, updatedKey, () -> data.setData("latest-value", "second-snapshot"));
-        wrap(tasks, deletedKey, () -> data.removeData("deleted-value"));
+        wrap(tasks, emptyKey, () -> data.setData("latest-empty", ""));
+        wrap(tasks, deletedKey, () -> {
+            data.setData("deleted-value", "temporary");
+            data.removeData("deleted-value");
+        });
         DelayedSavingLooperTask looper;
         if (original) {
-            // This is the exact historical controller completion wiring.
             looper = new DelayedSavingLooperTask(0, () -> new HashMap<>(tasks), tasks::remove);
         } else {
             var factory = BlockDataController.class.getDeclaredMethod("createDelayedSavingLooper", int.class);
@@ -93,12 +101,15 @@ public final class DelayedSaveProbe extends JavaPlugin {
         }
         looper.run();
         require(tasks.containsKey(updatedKey) == !original, "Unexpected replacement-write queue state");
-        require(tasks.containsKey(deletedKey) == !original, "Unexpected replacement-deletion queue state");
+        require(tasks.containsKey(emptyKey) == !original, "Unexpected empty-string replacement queue state");
+        require(tasks.containsKey(deletedKey) == !original, "Unexpected coalesced deletion queue state");
         looper.run();
-        require(!tasks.containsKey(updatedKey) && !tasks.containsKey(deletedKey), "Deferred replacements did not drain");
+        require(!tasks.containsKey(updatedKey) && !tasks.containsKey(emptyKey) && !tasks.containsKey(deletedKey),
+                "Deferred replacements did not drain");
         require("second-snapshot".equals(data.getData("latest-value")), "Fixture did not update the live cache");
+        require("".equals(data.getData("latest-empty")), "Fixture did not store the live empty value");
         require(data.getData("deleted-value") == null, "Fixture did not remove the live cache value");
-        // Normal Slimefun shutdown drains/acknowledges the actual database writer.
+        // Normal Slimefun shutdown drains the actual database writer.
     }
 
     private static void wrap(Map<LinkedKey, DelayedTask> tasks, LinkedKey key, Runnable replace) {
@@ -118,23 +129,26 @@ public final class DelayedSaveProbe extends JavaPlugin {
         require(ID.equals(data.getSfId()) && ID.equals(other.getSfId()), "Block identities changed");
         require(OWNER.equals(data.getData("owner")), "Owner value changed");
         require("9007199254740993".equals(data.getData("opaque-count")), "Opaque old value changed");
-        require("".equals(data.getData("empty-value")), "Empty string was confused with deletion");
+        require("".equals(data.getData("empty-value")), "Unrelated empty string changed");
         require("neighbor-unchanged".equals(other.getData("owner")), "Neighbor owner changed");
         require("neighbor-value".equals(other.getData("latest-value")), "Neighbor value changed");
-        require((original ? "first-snapshot" : "second-snapshot").equals(data.getData("latest-value")),
+        require(Objects.equals(original ? null : "second-snapshot", data.getData("latest-value")),
                 "Persisted replacement write differs from the expected original/corrected behavior");
-        require(Objects.equals(original ? "first-snapshot" : null, data.getData("deleted-value")),
-                "Persisted replacement deletion differs from the expected original/corrected behavior");
+        require(Objects.equals(original ? null : "", data.getData("latest-empty")),
+                "Persisted empty-string replacement differs from the expected original/corrected behavior");
+        require(data.getData("deleted-value") == null, "Intentional deletion was resurrected");
         Files.writeString(Path.of("delayed-database-observation.txt"),
                 "id=" + data.getSfId() + "\nowner=" + data.getData("owner")
                 + "\nlatest-value=" + data.getData("latest-value")
+                + "\nlatest-empty=" + data.getData("latest-empty")
+                + "\nlatest-empty-present=" + data.getDataKeys().contains("latest-empty")
                 + "\ndeleted-value=" + data.getData("deleted-value")
                 + "\nopaque-count=" + data.getData("opaque-count")
                 + "\nempty-value=" + data.getData("empty-value")
                 + "\nneighbor=" + other.getAllData() + "\n");
     }
 
-    @SuppressWarnings("unchecked") // Read only the known controller field in a disposable regression server.
+    @SuppressWarnings("unchecked") // Known controller field in a disposable regression server only.
     private static Map<LinkedKey, DelayedTask> queue(BlockDataController controller) throws Exception {
         var field = BlockDataController.class.getDeclaredField("delayedWriteTasks");
         field.setAccessible(true);
