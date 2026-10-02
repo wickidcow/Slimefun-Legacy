@@ -1,0 +1,114 @@
+name: Fluffy Baseline Completion Control
+on:
+  push:
+    branches: ['audit/reconcile-addon-r106']
+    paths: ['.github/workflows/fluffy-control-completion.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: e47a3035b35dfb93325d22ba03b2a69dd6cd6992
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verify the exact prior baseline inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p inputs evidence
+          python3 - <<'PY'
+          import hashlib,io,json,subprocess,zipfile
+          from pathlib import Path
+          endpoint='repos/wickidcow/Slimefun-Legacy/actions/artifacts/11207535252'
+          def api(path):return subprocess.run(['gh','api',path],capture_output=True,check=True,timeout=120).stdout
+          meta=json.loads(api(endpoint))
+          assert meta['workflow_run']['id']==36958632334
+          data=api(endpoint+'/zip')
+          digest=hashlib.sha256(data).hexdigest()
+          assert digest=='4f0cc9e39964cc2e62bc58b8a2821909ca353f95613ef4814a737e581ac60815'
+          assert meta['digest']=='sha256:'+digest
+          selected=['CrafterProbe.jar','Slimefun-Legacy4.1.64.jar','SF_Addons_1.21.11-26.3.zip']
+          records={}
+          with zipfile.ZipFile(io.BytesIO(data)) as z:
+              assert z.testzip() is None
+              for name in selected:
+                  raw=z.read(name);Path('inputs',name).write_bytes(raw)
+                  records[name]=hashlib.sha256(raw).hexdigest()
+          assert records['Slimefun-Legacy4.1.64.jar']=='316b308139e90981ed037d82ddc57b62b354d8e0a41804d5ebf3bb2b8f896d80'
+          assert records['SF_Addons_1.21.11-26.3.zip']=='ce28b417b2632e99a7b7699e5e0b22e8cc677bb610f65114b3e631d7625b574f'
+          Path('evidence/inputs.json').write_text(json.dumps(dict(source_artifact=11207535252,source_run=36958632334,artifact_sha256=digest,files=records),indent=2)+'\n')
+          PY
+      - name: Add a bounded marker wait without changing runtime assertions or probe classes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          path=Path('scripts/full_stack_runtime_smoke.sh');old=path.read_bytes()
+          blob=lambda b:hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          assert blob(old)=='95ca1d7ad860a4a14ad70be31cf4e11ad07e0690'
+          text=old.decode()
+          anchor='cp "$SLIMEFUN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-full-stack.jar"\n'
+          addition='cp inputs/CrafterProbe.jar "$WORK_DIR/plugins/CrafterProbe.jar"\n'
+          assert text.count(anchor)==1;text=text.replace(anchor,anchor+addition)
+          anchor2='    sleep 8\n    stop_process "$pid" 3\n'
+          wait='''    sleep 8
+              local probe_phase=initial
+              if [[ "$label" == second ]]; then probe_phase=restart; fi
+              local probe_marker="CRAFTER_NATIVE_PASS mode=baseline phase=$probe_phase"
+              local probe_deadline=$((SECONDS + 120))
+              while kill -0 "$pid" >/dev/null 2>&1 && (( SECONDS < probe_deadline )); do
+                  if grep -Fq 'CRAFTER_NATIVE_FAIL' "$console"; then break; fi
+                  if grep -Fq "$probe_marker" "$console"; then break; fi
+                  sleep 1
+              done
+              if ! grep -Fq "$probe_marker" "$console" || grep -Fq 'CRAFTER_NATIVE_FAIL' "$console"; then
+                  stop_process "$pid" 3; wait "$pid" >/dev/null 2>&1 || true; exec 3>&-
+                  cat "$console" >&2
+                  echo "Native baseline control did not complete: $label" >&2
+                  return 1
+              fi
+              stop_process "$pid" 3
+          '''
+          # Normalize only this literal block's presentation indentation.
+          wait='\n'.join(line[10:] if line.startswith('          ') else line for line in wait.split('\n'))
+          assert text.count(anchor2)==1;text=text.replace(anchor2,wait)
+          assert text.replace(anchor+addition,anchor).replace(wait,anchor2).encode()==old
+          path.write_text(text)
+          Path('evidence/runtime-script.sh').write_text(text)
+          Path('evidence/scope.json').write_text(json.dumps(dict(original_blob=blob(old),runtime_blob=blob(text.encode()),change='Only probe injection and bounded wait for the actual phase-specific completion marker. All original guards retained; probe and addon classes unchanged.'),indent=2))
+          PY
+          bash -n scripts/full_stack_runtime_smoke.sh
+      - name: Run the original crafter and verify the independent restart control
+        env:
+          SERVER_MINECRAFT_VERSION: '1.21.11'
+          SLIMEFUN_SMOKE_VERSION: '4.1.64'
+          MODE: baseline
+        run: |
+          set -euo pipefail
+          bash scripts/full_stack_runtime_smoke.sh inputs/Slimefun-Legacy4.1.64.jar inputs/SF_Addons_1.21.11-26.3.zip build/fluffy-baseline-completion
+          test "$(wc -l < build/fluffy-baseline-completion/expected-addons.txt)" -eq 45
+          test ! -s build/fluffy-baseline-completion/dependency-gated-addons.txt
+          grep -F 'CRAFTER_NATIVE_PASS mode=baseline phase=initial' build/fluffy-baseline-completion/first.normalized.log
+          grep -F 'CRAFTER_NATIVE_PASS mode=baseline phase=restart' build/fluffy-baseline-completion/second.normalized.log
+          if grep -E 'CRAFTER_NATIVE_FAIL|ERROR|SEVERE' build/fluffy-baseline-completion/*.normalized.log; then exit 1; fi
+      - name: Keep logs and native observations on failure too
+        if: always()
+        run: |
+          mkdir -p evidence/runtime
+          find build/fluffy-baseline-completion -maxdepth 1 -type f \( -name '*.log' -o -name '*.txt' \) -exec cp {} evidence/runtime/ \; 2>/dev/null || true
+          if test -d build/fluffy-baseline-completion/plugins/CrafterProbe; then cp -r build/fluffy-baseline-completion/plugins/CrafterProbe evidence/; fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: fluffy-baseline-completion-evidence
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
