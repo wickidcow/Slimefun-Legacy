@@ -1,0 +1,168 @@
+name: Validate Revision 107 Released Addon Updates
+on:
+  push:
+    branches: ['audit/addon-r107-validation-20261002']
+    paths: ['.github/workflows/validate-addon-r107.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 22ae22c4e32fd3b086565922f4427206d0f4b065
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Verify existing published JARs and rebuild their exact sources
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence inputs sources
+          python3 - <<'PY'
+          import hashlib, io, json, os, re, shutil, subprocess, sys, xml.etree.ElementTree as ET, zipfile
+          from pathlib import Path
+          sys.path.insert(0, 'scripts')
+          from verify_addon_bytecode import inspect_jar
+
+          CORE_SHA = '22ae22c4e32fd3b086565922f4427206d0f4b065'
+          def api(path):
+              return json.loads(subprocess.run(['gh', 'api', path], check=True, capture_output=True, timeout=120).stdout)
+          def digest(data):
+              return hashlib.sha256(data).hexdigest()
+          meta = api('repos/wickidcow/Slimefun-Legacy/actions/artifacts/11250818006')
+          assert meta['workflow_run']['head_sha'] == CORE_SHA and not meta['expired']
+          raw = subprocess.run(['gh','api','repos/wickidcow/Slimefun-Legacy/actions/artifacts/11250818006/zip'],
+              check=True,capture_output=True,timeout=120).stdout
+          assert digest(raw) == '91fb65863edad039d4f852997cfba2295446ee71c69bf505eb4c661db6748029'
+          assert meta['digest'] == 'sha256:' + digest(raw)
+          with zipfile.ZipFile(io.BytesIO(raw)) as z:
+              names = [n for n in z.namelist() if n.endswith('.jar')]
+              assert len(names) == 1 and z.testzip() is None
+              core = z.read(names[0])
+          with zipfile.ZipFile(io.BytesIO(core)) as z:
+              props = z.read('git.properties').decode()
+              assert 'git.commit.id=' + CORE_SHA in props and 'git.source.commit=' + CORE_SHA in props
+          Path('inputs/core.jar').write_bytes(core)
+          core_digest = digest(core)
+          Path('evidence/core.json').write_text(json.dumps(dict(source=CORE_SHA,artifact=meta,jar_sha256=core_digest),indent=2))
+          subprocess.run(['mvn','-B','-ntp','org.apache.maven.plugins:maven-install-plugin:3.1.3:install-file',
+              '-Dfile=inputs/core.jar','-DgroupId=com.github.slimefun','-DartifactId=Slimefun',
+              '-Dversion=4.1.66-validation','-Dpackaging=jar','-DgeneratePom=true'],check=True)
+
+          candidates = [
+              dict(repository='wickidcow/SF_HotbarPets', old='20b83bf0fa39522647c92be38abbd24688cb5b1b',
+                  source='ac1e2213686a83acd52d82c01434ab12b48e64f3',version='1.0.3',tests=13,
+                  published_sha256='d0598baad3e8b5d9f759f7b7e860291c9ef301df833174eeaedab6501cee8d64'),
+              dict(repository='wickidcow/SF_SMG',old='eecf6c5a0a09c9391fd654c95f80b02e2123c571',
+                  source='014a7e55a832255e6dd7fc4677b05480624a0fd7',version='1.0.5',tests=11,
+                  published_sha256='0d6971ecaaf690139cc96a305337d00748ae07a7f195e42ce7b3e9d96be4cd91')]
+          results = []
+          for candidate in candidates:
+              repo = candidate['repository']; name = repo.split('/')[1]
+              report = Path('evidence', name); report.mkdir()
+              source = Path('sources', name).resolve()
+              subprocess.run(['git','clone','--depth','1',f'https://github.com/{repo}.git',str(source)],check=True,timeout=120)
+              subprocess.run(['git','-C',str(source),'fetch','--depth','1','origin',candidate['source']],check=True,timeout=120)
+              subprocess.run(['git','-C',str(source),'checkout','--detach',candidate['source']],check=True)
+              assert subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip() == candidate['source']
+              release = api(f"repos/{repo}/releases/tags/v{candidate['version']}")
+              jar_name = name + candidate['version'] + '.jar'
+              assets = [a for a in release['assets'] if a['name'] == jar_name]
+              assert len(assets) == 1 and assets[0]['digest'] == 'sha256:' + candidate['published_sha256']
+              subprocess.run(['gh','release','download','v'+candidate['version'],'--repo',repo,
+                  '--pattern',jar_name,'--dir',str(report)],check=True,timeout=120)
+              published = report / jar_name
+              assert digest(published.read_bytes()) == candidate['published_sha256']
+              assert inspect_jar(published,21)['result'] == 'PASS'
+
+              def build(api_version, goals, label, skip=False):
+                  command = ['mvn','-B','-ntp','-Dslimefun.version=4.1.66-validation',
+                      '-Dpaper.version='+api_version]
+                  if skip: command.append('-DskipTests')
+                  command += goals
+                  with (report / (label+'.log')).open('w') as log:
+                      outcome = subprocess.run(command,cwd=source,stdout=log,stderr=subprocess.STDOUT,timeout=480)
+                  if outcome.returncode:
+                      print((report/(label+'.log')).read_text()[-12000:],flush=True)
+                      raise RuntimeError(repo+' '+label+' failed')
+
+              for version in ['1.21.11-R0.1-SNAPSHOT','26.2.build.112-stable','26.3.build.140-beta']:
+                  build(version,['clean','package'],'compile-'+version,skip=True)
+              build('1.21.11-R0.1-SNAPSHOT',['clean','verify'],'full-baseline-tests')
+              reports = list((source/'target/surefire-reports').glob('TEST-*.xml'))
+              counts = {k:sum(int(ET.parse(p).getroot().attrib[k]) for p in reports)
+                  for k in ('tests','failures','errors','skipped')}
+              assert counts == dict(tests=candidate['tests'],failures=0,errors=0,skipped=0), (repo,counts)
+              for p in reports: shutil.copy2(p,report/p.name)
+              built = source/'target'/jar_name
+              original = built.read_bytes()
+              with zipfile.ZipFile(io.BytesIO(original)) as z:
+                  assert z.testzip() is None
+                  descriptor = z.read('plugin.yml').decode()
+                  assert re.search(r'''(?m)^version:\s*['"]?'''+re.escape(candidate['version'])+r'''['"]?\s*$''',descriptor)
+                  for filename in z.namelist():
+                      assert not filename.startswith(('org/junit/','org/mockbukkit/','org/mockito/','net/bytebuddy/','audit/','io/github/thebusybiscuit/slimefun4/')),filename
+              bytecode = inspect_jar(built,21); assert bytecode['result']=='PASS'
+              build('1.21.11-R0.1-SNAPSHOT',['clean','package'],'independent-baseline-build',skip=True)
+              assert built.read_bytes() == original, repo+' reproducibility changed'
+              Path('inputs',jar_name).write_bytes(original)
+              row=dict(repository=repo,source_commit=candidate['source'],previous_selection=candidate['old'],
+                  version=candidate['version'],core_source=CORE_SHA,core_sha256=core_digest,
+                  counts=counts,compiled_apis=['1.21.11-R0.1-SNAPSHOT','26.2.build.112-stable','26.3.build.140-beta'],
+                  tested_api='1.21.11-R0.1-SNAPSHOT',published_asset=assets[0],
+                  rebuilt_sha256=digest(original),bytecode=bytecode,reproducible=True,
+                  limitations='API compilation and generated project fixtures are not complete real-player, populated-world, Folia or crash tests.')
+              results.append(row)
+              Path('evidence/results.json').write_text(json.dumps(results,indent=2)+'\n')
+              print(repo,counts,'Java21 and two identical baseline builds passed',flush=True)
+
+          manifest_path=Path('compatibility/sfl-addon-release-matrix.json')
+          raw=manifest_path.read_bytes()
+          blob=lambda b:hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          assert blob(raw)=='2b5b762949e7b3ec4d9fa413b13c9ad7cce02dd2'
+          manifest=json.loads(raw);before={a['repository']:a['source_commit'] for a in manifest['addons']}
+          assert manifest['bundle_revision']==106 and len(before)==45
+          replacements={r['repository']:r['source_commit'] for r in results}
+          for c in candidates: assert before[c['repository']]==c['old']
+          for row in manifest['addons']:
+              if row['repository'] in replacements: row['source_commit']=replacements[row['repository']]
+          manifest['bundle_revision']=107
+          after={a['repository']:a['source_commit'] for a in manifest['addons']}
+          assert {k for k in before if before[k]!=after[k]}==set(replacements)
+          manifest_path.write_text(json.dumps(manifest,indent=2)+'\n')
+          report_path=Path('compatibility/addon-validation-r107.json')
+          report_path.write_text(json.dumps(dict(schema=1,bundle_revision=107,base_revision=106,
+              source_core=CORE_SHA,validation_run=int(os.environ['GITHUB_RUN_ID']),
+              artifact_name='addon-r107-validation-evidence',addons=results,
+              scope='Only two newly selected sources were retested. The existing historical aggregate ledger is unchanged; do not relabel its old rows or counts.'),indent=2)+'\n')
+          subprocess.run(['python3','scripts/verify_legacy.py','.'],check=True)
+          subprocess.run(['git','diff','--check'],check=True)
+          blobs={}
+          for path in [manifest_path,report_path]:
+              data=path.read_bytes();expected=blob(data)
+              r=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],
+                  input=json.dumps(dict(content=data.decode(),encoding='utf-8')).encode(),check=True,capture_output=True)
+              assert json.loads(r.stdout)['sha']==expected
+              blobs[str(path)]=expected
+              target=Path('evidence/reviewed-source')/path;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
+          Path('evidence/reviewed-blobs.json').write_text(json.dumps(blobs,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: addon-r107-validation-evidence
+          path: evidence/
+          retention-days: 30
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: addon-r107-tested-inputs
+          path: inputs/
+          retention-days: 30
+          if-no-files-found: error
