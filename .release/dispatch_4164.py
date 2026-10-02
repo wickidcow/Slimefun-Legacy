@@ -15,17 +15,21 @@ import subprocess
 
 REPO='wickidcow/Slimefun-Legacy'
 PR_HEAD='b708e6c8eab266c00e65441bc0f44c9670f14610'
+PR_CHECKOUT='c0c862c6c28277917ca964869a0864f8aaa5252e'
 PR_RUNS=(36950771795,36950771806,36950771845,36950771826,36950771914,
          36950771794,36950771827,36950771920,36950771797,36950771800,
          36950771846,36950771931,36950771872,36950771902)
 SCOPE_RUN=36951226978
 SCOPE_HEAD='bf9faa6f634e9e70d246c8adb5e57d8ef2956a2d'
 MATRIX_SHA256='314d6a83931f887d7dbe17271c44327d3d39f5feb7792ab48c38a40f7a7e1f36'
+# These are the ten workflows actually triggered by the release master push.
+# PR-only/path-filtered API checks remain mandatory above, with tree equality
+# enforced below; they are not falsely reported as fresh master executions.
 REQUIRED_MASTER_NAMES={
     'Build Slimefun Legacy', 'Build SF Addons 1.21.11-26.3 Bundle',
-    'Paper 26.2 / 26.3 Full Stack Smoke', 'Public API Compatibility',
-    'Slimefun Compatibility', 'Paper/Purpur 1.21.11 Compatibility',
-    'Paper 26.2 Runtime Smoke', 'Paper 26.3 Primary Preflight',
+    'Paper 26.2 / 26.3 Full Stack Smoke', 'Reproducible Release',
+    'Proxy Runtime Smoke', 'Paper/Purpur 1.21.11 Compatibility',
+    'Paper 26.2 Runtime Smoke', 'Required Addon Runtime Smoke',
     'Paper 26.3 Maintained Addon Compile', 'Purpur/Folia/Leaf 26.2 Runtime Smoke',
 }
 
@@ -59,6 +63,8 @@ def main():
     require(api('git/ref/heads/'+ref)['object']['sha']==source,'Frozen ref changed')
     pr=api('pulls/300')
     require(pr['merged'] and pr['head']['sha']==PR_HEAD and pr['merge_commit_sha']==source,'Wrong merged release PR')
+    source_tree=api(f'git/commits/{source}')['tree']['sha']
+    require(source_tree==api(f'git/commits/{PR_CHECKOUT}')['tree']['sha'],'The merged source differs from the tested PR checkout')
     checks=[checked_run(number,PR_HEAD,'pull_request') for number in PR_RUNS]
     checks.append(checked_run(SCOPE_RUN,SCOPE_HEAD,'push'))
     run_ids=json.loads(os.environ['EXPECTED_MASTER_RUN_IDS'])
@@ -91,7 +97,7 @@ def main():
     require(api('git/ref/heads/'+ref)['object']['sha']==source,'Frozen ref moved before dispatch')
     require(api('git/ref/heads/master')['object']['sha']==source,'Master moved before dispatch')
     Path('dispatch-evidence').mkdir(exist_ok=True)
-    Path('dispatch-evidence/gates.json').write_text(json.dumps({'release_source':source,'frozen_ref':ref,'pr_runs':checks,'master_runs':master_runs,'previous_release':previous},indent=2))
+    Path('dispatch-evidence/gates.json').write_text(json.dumps({'release_source':source,'frozen_ref':ref,'tested_pr_checkout':PR_CHECKOUT,'identical_source_tree':source_tree,'pr_runs':checks,'master_runs':master_runs,'previous_release':previous},indent=2))
     output=command(['gh','workflow','run','reproducible-release.yml','--repo',REPO,'--ref',ref])
     Path('dispatch-evidence/dispatch.txt').write_text(output+'\nRequested existing reproducible-release.yml at '+source+'\n')
     print('Existing publisher dispatched; publication completion must be checked separately.')
