@@ -1,0 +1,81 @@
+name: Core 4.1.64 Preparation
+on:
+  push:
+    branches: ['audit/reconcile-four-addons-r103']
+    paths: ['.github/workflows/core-4.1.64-preparation.yml']
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: cf09e5bc04cb912604e65bfeacce9dabeda5014a
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Stage the maintenance version without changing production Java
+        run: |
+          mkdir -p evidence
+          git archive --format=zip --output=evidence/core-source.zip HEAD
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('gradle.properties');data=p.read_bytes()
+          assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()=='4f105d3f11bb40552f4203f6366ecfe1c07091f6'
+          p.write_text('org.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8\norg.gradle.configuration-cache=true\norg.gradle.caching=true\n# Slimefun Legacy 4.1.64 - Cancelled-removal persistence and coordinated addon updates\n# Coordinated addon source manifest revision: 103\n# Full-stack release checks require this commit\'s canonical addon bundle.\nprojectVersion=4.1.64\n')
+          PY
+          echo "SOURCE_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+      - name: Full uncached core tests and retained invariants
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_legacy.py . > evidence/invariants.log 2>&1
+          chmod +x gradlew
+          ./gradlew clean build -PslimefunDeprecationReport=true --console=plain --no-daemon --no-build-cache --no-configuration-cache 2>&1 | tee evidence/full-build.log
+          python3 scripts/summarize_deprecations.py evidence/full-build.log --fail-on-warnings --require-successful-build > evidence/deprecations.txt
+          JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21 > evidence/bytecode.txt
+          python3 scripts/verify_release_artifact.py "$JAR" --root . --json-report evidence/artifact-first.json --summary evidence/artifact-first.md
+          cp "$JAR" "$RUNNER_TEMP/core-first.jar"
+          mkdir -p evidence/tests
+          cp build/test-results/test/TEST-*.xml evidence/tests/
+      - name: Require byte-identical second clean core build
+        run: |
+          set -euo pipefail
+          ./gradlew clean shadowJar --console=plain --no-daemon --no-build-cache --no-configuration-cache > evidence/second-build.log 2>&1
+          JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          python3 scripts/verify_release_artifact.py "$JAR" --root . --json-report evidence/artifact-second.json --summary evidence/artifact-second.md
+          cmp "$RUNNER_TEMP/core-first.jar" "$JAR"
+          sha256sum "$RUNNER_TEMP/core-first.jar" "$JAR" > evidence/reproducible-sha256.txt
+          git diff --check
+          test "$(git diff --name-only)" = gradle.properties
+      - name: Record actual reports and stage only the version file
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,subprocess,xml.etree.ElementTree as ET
+          roots=[ET.parse(p).getroot() for p in Path('evidence/tests').glob('TEST-*.xml')]
+          counts={k:sum(int(r.attrib[k]) for r in roots) for k in ['tests','failures','errors','skipped']}
+          assert counts['tests']>=512 and counts['failures']==counts['errors']==0 and counts['skipped']==1,counts
+          p=Path('gradle.properties');data=p.read_bytes();sha=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+          r=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps(dict(content=data.decode(),encoding='utf-8')),text=True,capture_output=True,check=True)
+          assert json.loads(r.stdout)['sha']==sha
+          Path('evidence/gradle.properties').write_bytes(data)
+          Path('evidence/result.json').write_text(json.dumps(dict(tests=counts,version_blob=sha,production_source='cf09e5bc04cb912604e65bfeacce9dabeda5014a',version='4.1.64',published=False,scope='Version-only preparation; final combined source requires independent CI and publication'),indent=2)+'\n')
+          print(counts)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: core-4.1.64-preparation-evidence
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
