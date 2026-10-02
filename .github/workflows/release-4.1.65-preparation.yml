@@ -2,7 +2,7 @@ name: Slimefun 4.1.65 Release Preparation
 on:
   push:
     branches: ['audit/release-4.1.65-preparation-20261002']
-    paths: ['.github/workflows/release-4.1.65-preparation.yml', 'audit-release/prepare_4_1_65.py']
+    paths: ['.github/workflows/release-4.1.65-preparation.yml', 'audit-release/**']
 permissions:
   contents: write
   actions: read
@@ -34,7 +34,7 @@ jobs:
           assert core['id']==604656009 and core['digest']=='sha256:316b308139e90981ed037d82ddc57b62b354d8e0a41804d5ebf3bb2b8f896d80'
           Path('evidence/previous-stable.json').write_text(json.dumps(dict(tag=release['tag_name'],source=release['target_commitish'],core_asset=core['id'],core_sha256=core['digest']),indent=2)+'\n')
           PY
-          python3 audit-release/prepare_4_1_65.py
+          python3 audit-release/prepare_4_1_65_complete.py
           git diff --check
           git diff --exit-code -- src/main src/test compatibility/sfl-addon-release-matrix.json compatibility/maintained-addon-test-ledger.json
           echo "SOURCE_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
