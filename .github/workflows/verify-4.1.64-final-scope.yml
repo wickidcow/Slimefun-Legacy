@@ -18,6 +18,10 @@ jobs:
           ref: b708e6c8eab266c00e65441bc0f44c9670f14610
           fetch-depth: 0
           persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
       - name: Verify unchanged production, addon selections and deliberate release metadata
         run: |
           set -euo pipefail
