@@ -31,14 +31,16 @@ class JegBundleFloorTest(unittest.TestCase):
         self.assertIn('candidate-core/Slimefun-Legacy-candidate.jar', self.step)
         self.assertIn('1.21.11-R0.1-SNAPSHOT --report-dir', self.step)
 
-    def test_project_verification_is_not_skipped(self):
-        self.assertIn('-DskipTests=false verify', self.step)
-        self.assertNotIn('-DskipTests=true', self.step)
+    def test_gradle_project_checks_are_not_skipped(self):
+        self.assertIn('PAPER_API_VERSION=1.21.11-R0.1-SNAPSHOT ./gradlew build', self.step)
+        self.assertIn('--no-build-cache --no-configuration-cache', self.step)
+        self.assertNotIn('-x test', self.step)
 
-    def test_packaged_methods_are_executed_with_the_floor_classpath(self):
+    def test_packaged_methods_are_executed_with_independent_floor_dependencies(self):
         self.assertIn('dependency:build-classpath', self.step)
+        self.assertIn('<version>1.21.11-R0.1-SNAPSHOT</version>', self.step)
         self.assertIn('javac --release 21', self.step)
-        self.assertIn('${JEG_JARS[0]}:$(cat report-native-floor/classpath.txt)', self.step)
+        self.assertIn('${JEG_JARS[0]}:candidate-core/Slimefun-Legacy-candidate.jar:', self.step)
         self.assertIn('JegClipboardLinkageProbe', self.step)
         self.assertIn('JEG_CLIPBOARD_FLOOR_PASS methods=2 scenarios=6', self.step)
         self.assertIn('set -euo pipefail', self.step)

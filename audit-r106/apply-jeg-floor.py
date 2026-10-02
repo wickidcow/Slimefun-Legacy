@@ -16,18 +16,24 @@ step = '''      - name: Rebuild JEG against the supported API floor
           python3 tools/scripts/compile_addon_paper_26_3.py \\
             addon "$PWD/candidate-core/Slimefun-Legacy-candidate.jar" \\
             1.21.11-R0.1-SNAPSHOT --report-dir "$PWD/report-native-floor"
-          (cd addon && mvn --batch-mode --no-transfer-progress -DskipTests=false verify) \\
+          (cd addon && PAPER_API_VERSION=1.21.11-R0.1-SNAPSHOT ./gradlew build \\
+            --no-daemon --no-build-cache --no-configuration-cache \\
+            -I .slimefun-paper-26.3.init.gradle) \\
             2>&1 | tee report-native-floor/tests.log
-          (cd addon && mvn --batch-mode --no-transfer-progress dependency:build-classpath \\
-            "-Dmdep.outputFile=$PWD/../report-native-floor/classpath.txt") \\
+          # Resolve an independent floor API classpath, not the addon's transitive compile graph.
+          cat > report-native-floor/linkage-pom.xml <<'XML'
+          <project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion><groupId>audit</groupId><artifactId>jeg-floor-linkage</artifactId><version>1</version><repositories><repository><id>paper</id><url>https://repo.papermc.io/repository/maven-public/</url></repository></repositories><dependencies><dependency><groupId>io.papermc.paper</groupId><artifactId>paper-api</artifactId><version>1.21.11-R0.1-SNAPSHOT</version></dependency></dependencies></project>
+          XML
+          mvn --batch-mode --no-transfer-progress -f report-native-floor/linkage-pom.xml \\
+            dependency:build-classpath "-Dmdep.outputFile=$PWD/report-native-floor/classpath.txt" \\
             > report-native-floor/classpath.log 2>&1
-          mapfile -t JEG_JARS < <(find addon/target -maxdepth 1 -type f -name 'SF_JustEnoughGuide*.jar' \\
+          mapfile -t JEG_JARS < <(find addon/build/libs -maxdepth 1 -type f -name 'SF_JustEnoughGuide*.jar' \\
             ! -name '*-sources.jar' ! -name '*-javadoc.jar' | sort)
           test "${#JEG_JARS[@]}" -eq 1
           mkdir -p report-native-floor/linkage-classes
           javac --release 21 -cp "$(cat report-native-floor/classpath.txt)" \\
             -d report-native-floor/linkage-classes tools/tests/runtime/JegClipboardLinkageProbe.java
-          java -cp "report-native-floor/linkage-classes:${JEG_JARS[0]}:$(cat report-native-floor/classpath.txt)" \\
+          java -cp "report-native-floor/linkage-classes:${JEG_JARS[0]}:candidate-core/Slimefun-Legacy-candidate.jar:$(cat report-native-floor/classpath.txt)" \\
             JegClipboardLinkageProbe | tee report-native-floor/linkage.log
           grep -Fxq 'JEG_CLIPBOARD_FLOOR_PASS methods=2 scenarios=6' report-native-floor/linkage.log
 '''
@@ -36,10 +42,7 @@ text = text.replace(anchor, step + anchor)
 old = "if slug in ('slimeeasy', 'dracfunreborn') else os.environ['PAPER_API_VERSION']"
 new = "if slug in ('slimeeasy', 'dracfunreborn', 'justenoughguide') else os.environ['PAPER_API_VERSION']"
 assert text.count(old) == 1
-text = text.replace(old, new)
-workflow.write_text(text)
-
-# Register the new offline workflow contract tests in every normal core invariant run.
+workflow.write_text(text.replace(old, new))
 runner = Path('scripts/verify_legacy.py')
 original = runner.read_text()
 anchor = '        "test_verify_runtime_configuration.py",\n'

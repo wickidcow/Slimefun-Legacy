@@ -83,17 +83,17 @@ jobs:
           Path('evidence/exact-jeg-floor-step.sh').write_text(script)
           PY
           bash evidence/exact-jeg-floor-step.sh > evidence/floor-build.log 2>&1
-          "$FLOOR_JAVA" -cp "report-native-floor/linkage-classes:addon/target/SF_JustEnoughGuide2.1.70.jar:$(cat report-native-floor/classpath.txt)" JegClipboardLinkageProbe > evidence/java21-corrected.log 2>&1
+          "$FLOOR_JAVA" -cp "report-native-floor/linkage-classes:addon/build/libs/SF_JustEnoughGuide2.1.70.jar:candidate-core/Slimefun-Legacy-candidate.jar:$(cat report-native-floor/classpath.txt)" JegClipboardLinkageProbe > evidence/java21-corrected.log 2>&1
           grep -Fxq 'JEG_CLIPBOARD_FLOOR_PASS methods=2 scenarios=6' evidence/java21-corrected.log
           set +e
-          "$FLOOR_JAVA" -cp "report-native-floor/linkage-classes:originals/jeg.jar:$(cat report-native-floor/classpath.txt)" JegClipboardLinkageProbe > evidence/java21-original.log 2>&1
+          "$FLOOR_JAVA" -cp "report-native-floor/linkage-classes:originals/jeg.jar:candidate-core/Slimefun-Legacy-candidate.jar:$(cat report-native-floor/classpath.txt)" JegClipboardLinkageProbe > evidence/java21-original.log 2>&1
           STATUS=$?
           set -e
           test "$STATUS" -ne 0
           grep -Fq 'NoSuchMethodError' evidence/java21-original.log
           grep -Fq 'TextComponent$Builder.build()' evidence/java21-original.log
-          python3 tools/scripts/verify_addon_bytecode.py addon/target/SF_JustEnoughGuide2.1.70.jar --expected-java 21 --report evidence/bytecode.json
-          sha256sum candidate-core/Slimefun-Legacy-candidate.jar originals/jeg.jar addon/target/SF_JustEnoughGuide2.1.70.jar > evidence/jar-hashes.txt
+          python3 tools/scripts/verify_addon_bytecode.py addon/build/libs/SF_JustEnoughGuide2.1.70.jar --expected-java 21 --report evidence/bytecode.json
+          sha256sum candidate-core/Slimefun-Legacy-candidate.jar originals/jeg.jar addon/build/libs/SF_JustEnoughGuide2.1.70.jar > evidence/jar-hashes.txt
           cp -r report-native-floor evidence/
       - name: Stage only checked build and permanent guard files
         env:
@@ -123,6 +123,6 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: revision106-jeg-floor-corrected-jar
-          path: addon/target/SF_JustEnoughGuide2.1.70.jar
+          path: addon/build/libs/SF_JustEnoughGuide2.1.70.jar
           retention-days: 14
           if-no-files-found: error
