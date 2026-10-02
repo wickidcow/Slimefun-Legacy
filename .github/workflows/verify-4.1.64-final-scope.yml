@@ -1,0 +1,93 @@
+name: Verify 4.1.64 Final Release Scope
+
+on:
+  push:
+    branches: ['validation/4.1.64-final-checkpoint']
+    paths: ['.github/workflows/verify-4.1.64-final-scope.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: b708e6c8eab266c00e65441bc0f44c9670f14610
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify unchanged production, addon selections and deliberate release metadata
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, subprocess
+          BASE='2bcaa53f2f1c7695cdb18cbf003d2516fdab6d79'
+          HEAD='b708e6c8eab266c00e65441bc0f44c9670f14610'
+          def git(*args): return subprocess.check_output(['git',*args]).decode().strip()
+          assert git('rev-parse','HEAD')==HEAD
+          for subtree in ('src/main','src/test'):
+              assert git('rev-parse',f'{BASE}:{subtree}')==git('rev-parse',f'HEAD:{subtree}'), subtree
+          path='compatibility/sfl-addon-release-matrix.json'
+          assert subprocess.check_output(['git','show',f'{BASE}:{path}'])==Path(path).read_bytes()
+          matrix=json.loads(Path(path).read_text())
+          assert matrix['bundle_revision']==104 and len(matrix['addons'])==45
+          assert next(r for r in matrix['addons'] if r['slug']=='slimetinkerie2')['source_commit']=='bdb2ba51ad946de686c50dc1745ba89053b4535d'
+          assert 'projectVersion=4.1.64\n' in Path('gradle.properties').read_text()
+          for contract in ('addon-compatibility-matrix','core-api-registry','cross-fork-api-matrix','support-contract'):
+              assert json.loads(Path(f'compatibility/{contract}.json').read_text())['release']=='4.1.64', contract
+          baseline=json.loads(Path('compatibility/release-baselines.json').read_text())
+          assert baseline['candidate']['version']=='4.1.64'
+          assert baseline['previous_stable']['version']=='4.1.63'
+          assert baseline['previous_stable']['source']['ref']=='2703e3a500b426849f3eb7806862bb4343bb9d6a'
+          workflow=Path('.github/workflows/paper-26.3-full-stack.yml')
+          original=subprocess.check_output(['git','show',f'{BASE}:{workflow}']).decode()
+          updated=workflow.read_text()
+          assert original.count("      - 'build.gradle.kts'\n")==2
+          assert updated==original.replace("      - 'build.gradle.kts'\n", "      - 'build.gradle.kts'\n      - 'gradle.properties'\n")
+          report={'base':BASE,'head':HEAD,'production_and_tests_tree_unchanged':True,
+                  'addon_matrix_byte_identical':True,'bundle_revision':104,'addons':45,
+                  'matrix_sha256':hashlib.sha256(Path(path).read_bytes()).hexdigest(),
+                  'release':'4.1.64','previous_stable':'4.1.63',
+                  'workflow_change':'Only two gradle.properties trigger entries'}
+          Path('evidence/source-scope.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps(report,indent=2))
+          PY
+      - name: Exercise old-code control and corrected trigger regressions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          workflow=Path('.github/workflows/paper-26.3-full-stack.yml')
+          original=workflow.read_bytes()
+          invocation=['python3','-m','unittest','discover','-s','scripts','-p','test_worldedit_release_version_trigger.py','-v']
+          try:
+              text=original.decode()
+              assert text.count("      - 'gradle.properties'\n")==2
+              workflow.write_text(text.replace("      - 'gradle.properties'\n",''))
+              control=subprocess.run(invocation,capture_output=True,text=True)
+              Path('evidence/old-trigger-control.log').write_text(control.stdout+control.stderr)
+              assert control.returncode!=0 and 'FAILED (failures=2)' in control.stderr, control.stderr
+          finally:
+              workflow.write_bytes(original)
+          fixed=subprocess.run(invocation,capture_output=True,text=True)
+          Path('evidence/fixed-trigger-tests.log').write_text(fixed.stdout+fixed.stderr)
+          print(fixed.stdout+fixed.stderr)
+          assert fixed.returncode==0 and 'Ran 3 tests' in fixed.stderr
+          assert workflow.read_bytes()==original
+          PY
+          git diff --exit-code
+      - name: Run existing release source invariants without weakening checks
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_legacy.py . 2>&1 | tee evidence/source-invariants.log
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-4.1.64-source-scope
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 90
