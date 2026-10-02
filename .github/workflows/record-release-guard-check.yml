@@ -1,0 +1,62 @@
+name: Record Release Guard Read-Only Check
+on:
+  push:
+    branches: ['audit/record-key-reconciliation-20261002']
+    paths: ['.github/workflows/record-release-guard-check.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Compile the orchestrator and test refused validation states without writes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p guard-evidence
+          python3 -m py_compile audit-release/publish_record_release.py
+          python3 - <<'PY'
+          import importlib.util,json
+          from pathlib import Path
+          spec=importlib.util.spec_from_file_location('guard','audit-release/publish_record_release.py')
+          guard=importlib.util.module_from_spec(spec);spec.loader.exec_module(guard)
+          cases=[]
+          def check(name,rows,accepted):
+              guard.pages=lambda path,field:rows
+              try:
+                  result=guard.jobs_verified({'id':1,'name':'fixture'})
+              except AssertionError:
+                  assert not accepted,name
+              else:
+                  assert accepted and result==rows,name
+              cases.append(name)
+          success=dict(name='build',status='completed',conclusion='success',steps=[dict(conclusion='success')])
+          check('empty job list refused',[],False)
+          check('all skipped jobs refused',[dict(name='x',status='completed',conclusion='skipped',steps=[])],False)
+          check('failed child refused',[dict(name='x',status='completed',conclusion='failure',steps=[])],False)
+          check('cancelled child refused',[dict(name='x',status='completed',conclusion='cancelled',steps=[])],False)
+          check('incomplete child refused',[dict(name='x',status='in_progress',conclusion=None,steps=[])],False)
+          check('soft-failed step refused',[dict(success,steps=[dict(conclusion='failure')])],False)
+          check('successful job accepted',[success],True)
+          check('nonapplicable job with real success accepted',[success,dict(name='optional',status='completed',conclusion='skipped',steps=[])],True)
+          # Exercise the live pre-existing release read only. No dispatcher is invoked.
+          prior=guard.previous_identity()
+          assert prior['tag']==guard.PREVIOUS
+          Path('guard-evidence/results.json').write_text(json.dumps(dict(cases=cases,result='PASS',previous_release=prior,no_dispatch=True),indent=2)+'\n')
+          print('Eight job-gate cases passed; previous release identity verified. No write or dispatch.')
+          PY
+          cp audit-release/publish_record_release.py guard-evidence/
+          sha256sum audit-release/publish_record_release.py > guard-evidence/script-sha256.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: record-release-guard-evidence
+          path: guard-evidence/
+          retention-days: 14
+          if-no-files-found: error
