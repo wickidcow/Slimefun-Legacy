@@ -14,6 +14,7 @@ on:
       - 'scripts/paper_candidate_versions.py'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'build.gradle.kts'
+      - 'gradle.properties'
       - 'gradle/**'
       - 'src/**'
   workflow_dispatch:
@@ -34,6 +35,7 @@ on:
       - 'scripts/paper_candidate_versions.py'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'build.gradle.kts'
+      - 'gradle.properties'
       - 'gradle/**'
       - 'src/**'
 
