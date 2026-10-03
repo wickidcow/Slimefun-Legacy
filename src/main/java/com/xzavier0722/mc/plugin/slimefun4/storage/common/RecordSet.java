@@ -70,9 +70,11 @@ public class RecordSet {
     /**
      * Returns a structurally read-only live view with detached binary values.
      *
-     * <p>Supported puts remain visible until {@link #readonly()} is called. Reading a byte array
-     * never exposes the record's owned buffer, including through entries, values and callbacks.
-     * Fields and immutable text can be inspected without copying every binary payload.
+     * <p>Supported puts remain visible until {@link #readonly()} is called. Each view owns the
+     * binary values it exports: editing one can affect that view, never the stored record or a
+     * newly requested view. A binary value retains its identity within a view until replaced by
+     * a supported put, preserving normal array-valued map equality and hashing behavior.
+     * Keys and immutable text can be inspected without copying every binary payload.
      */
     @ParametersAreNonnullByDefault
     public Map<FieldKey, Object> getAllValues() {
@@ -148,27 +150,41 @@ public class RecordSet {
         return value instanceof byte[] bytes ? bytes.clone() : value;
     }
 
-    /** Copies only values that leave the record; key traversal does not copy item buffers. */
+    /** Copies only exported values, once per source buffer and view, not during key traversal. */
     private static final class BinaryValueView extends AbstractMap<FieldKey, Object> {
         private final Map<FieldKey, Object> source;
+        private Map<FieldKey, BinaryExport> binaries;
 
         private BinaryValueView(Map<FieldKey, Object> source) {
             this.source = source;
         }
 
+        private Object exportValue(Object key, Object value) {
+            if (value instanceof byte[] bytes) {
+                if (binaries == null) {
+                    binaries = new HashMap<>();
+                }
+                var exported = binaries.get(key);
+                if (exported == null || exported.source() != bytes) {
+                    exported = new BinaryExport(bytes, bytes.clone());
+                    binaries.put((FieldKey) key, exported);
+                }
+                return exported.value();
+            }
+            if (binaries != null) {
+                binaries.remove(key);
+            }
+            return value;
+        }
+
         @Override
         public Object get(Object key) {
-            return copyValue(source.get(key));
+            return exportValue(key, source.get(key));
         }
 
         @Override
         public boolean containsKey(Object key) {
             return source.containsKey(key);
-        }
-
-        @Override
-        public boolean containsValue(Object value) {
-            return source.containsValue(value);
         }
 
         @Override
@@ -201,13 +217,15 @@ public class RecordSet {
                         @Override
                         public Entry<FieldKey, Object> next() {
                             var entry = entries.next();
-                            return new SimpleImmutableEntry<>(entry.getKey(), copyValue(entry.getValue()));
+                            return new SimpleImmutableEntry<>(entry.getKey(), exportValue(entry.getKey(), entry.getValue()));
                         }
                     };
                 }
             };
         }
     }
+
+    private record BinaryExport(byte[] source, byte[] value) {}
 
     @Nullable private static String valueAsString(@Nullable Object value) {
         if (value == null) {
