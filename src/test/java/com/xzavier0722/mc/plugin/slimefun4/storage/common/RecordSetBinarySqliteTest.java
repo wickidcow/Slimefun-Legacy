@@ -88,7 +88,7 @@ class RecordSetBinarySqliteTest {
         }
 
         @Override
-        protected void executeSql(String sql) {
+        public void executeSql(String sql) {
             try (var statement = connection.createStatement()) {
                 statement.execute(sql);
             } catch (SQLException failure) {
