@@ -81,6 +81,7 @@ class SlimefunTabCompleter implements TabCompleter {
                                 "inventory",
                                 "scan",
                                 "item-models",
+                                "resource-pack",
                                 "addons",
                                 "compatibility",
                                 "runtime",
@@ -132,6 +133,8 @@ class SlimefunTabCompleter implements TabCompleter {
                 return createReturnList(List.of("status", "scan", "plan", "providers"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("storage")) {
                 return createReturnList(List.of("status", "scan", "plan", "verify", "repair", "recovery"), args[2]);
+            } else if (args[0].equalsIgnoreCase("doctor") && isResourcePackDoctor(args[1])) {
+                return createReturnList(List.of("status", "install", "uninstall", "resume"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("item-models")) {
                 return createReturnList(
                         List.of("status", "scan", "repair", "remove-resourcepack-texture-ids", "enable-pack"), args[2]);
@@ -145,6 +148,11 @@ class SlimefunTabCompleter implements TabCompleter {
             return null;
         } else if (args.length == 4 && args[0].equalsIgnoreCase("give")) {
             return createReturnList(Arrays.asList("1", "2", "4", "8", "16", "32", "64"), args[3]);
+        } else if (args.length == 4
+                && args[0].equalsIgnoreCase("doctor")
+                && isResourcePackDoctor(args[1])
+                && (args[2].equalsIgnoreCase("install") || args[2].equalsIgnoreCase("uninstall"))) {
+            return createReturnList(List.of("scan", "confirm"), args[3]);
         } else if (args.length == 4
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("item-models")
@@ -327,5 +335,11 @@ class SlimefunTabCompleter implements TabCompleter {
                 .distinct()
                 .sorted(String.CASE_INSENSITIVE_ORDER)
                 .toList();
+    }
+
+    private boolean isResourcePackDoctor(String route) {
+        return route.equalsIgnoreCase("resource-pack")
+                || route.equalsIgnoreCase("resourcepack")
+                || route.equalsIgnoreCase("rp");
     }
 }

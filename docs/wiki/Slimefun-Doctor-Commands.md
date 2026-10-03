@@ -47,6 +47,12 @@ texture metadata**.
 
 | Command | Changes data? | What it does |
 | --- | --- | --- |
+| `/sf doctor resource-pack status` | No | Shows saved install/uninstall progress, sender ownership and backup location. |
+| `/sf doctor resource-pack install scan` | No | Previews ID-pack installation and known numeric-model cleanup. |
+| `/sf doctor resource-pack install confirm` | **Yes** | Backs up settings/items, resets matching Legacy mappings, pins the ID-pack preview and resumes cleanup after any required restart. |
+| `/sf doctor resource-pack uninstall scan` | No | Previews sender removal and known numeric-model cleanup. |
+| `/sf doctor resource-pack uninstall confirm` | **Yes** | Removes Legacy delivery and matching model overrides; preserves external ownership and custom models. |
+| `/sf doctor resource-pack resume` | **Yes** | Retries only an already confirmed operation; offline players and vanilla containers finish on join/load. |
 | `/sf doctor item-models status` | No | Summarizes item-model repair/adoption state and candidate counts. |
 | `/sf doctor item-models scan` | No | Finds stale exact Legacy bundled model values on reachable stored Slimefun items. |
 | `/sf doctor item-models repair confirm` | **Yes** | Repairs only eligible stale exact bundled model data on reachable stored items. Custom/non-matching model data is preserved. |

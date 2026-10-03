@@ -36,7 +36,7 @@ Minecraft clients receive only the ZIP. The YAML is never sent as the resource p
 
 Slimefun Legacy retains the bundled non-zero mapping as a reference for explicit adoption and historical recovery. **All missing server mappings default to `0`**, including on a clean install and when an existing file lacks an entry. Existing saved zero and non-zero values are preserved. Pack delivery does not opt items into model metadata, even when the sender is enabled or a server uses ItemsAdder.
 
-Resource packs can instead match an item's existing `slimefun:slimefun_item` identity using modern client component predicates. Such a pack does not require model-number adoption or a saved-item conversion. This requires a compatible pack and client; it does not retroactively fix mismatched metadata already on items. The companion pack change must pass its own client testing before publication.
+Resource packs can instead match an item's existing `slimefun:slimefun_item` identity using modern client component predicates. Such a pack does not require model-number adoption or a saved-item conversion. This requires a compatible pack and client; it does not retroactively fix mismatched metadata already on items. The companion pack preview must pass its own client testing before a stable release.
 
 Only when deliberately adopting a pack that requires the bundled numeric model values, use `/sf doctor item-models enable-pack scan` followed by the separate confirmed adoption workflow. That workflow changes metadata and does not cover offline player inventories, unloaded physical containers or arbitrary addon-owned storage. Do not describe a clean reachable scan as a complete world conversion.
 
@@ -150,7 +150,7 @@ The official client pack is published separately at:
 
 `https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip`
 
-The client ZIP and the server-side `plugins/Slimefun/item-models.yml` mapping must stay synchronized. Slimefun Legacy bundles the matching non-zero model IDs, but existing zero mappings are preserved unless the owner explicitly adopts the pack through the guarded `enable-pack` Doctor workflow. Existing non-zero server customizations are preserved.
+For numeric packs, the client ZIP and the server-side `plugins/Slimefun/item-models.yml` mapping must stay synchronized. Slimefun Legacy bundles the matching non-zero model IDs, but existing zero mappings are preserved unless the owner explicitly adopts the pack through the guarded `enable-pack` Doctor workflow. Existing non-zero server customizations are preserved. The ID-pack preview described below uses existing item identities with mappings at zero.
 
 On modern Paper/Minecraft, Slimefun Legacy stores the historical numeric model ID as the first float in Minecraft's CustomModelData component. Additional component floats, flags, strings, and colors supplied by other integrations are preserved.
 
@@ -164,3 +164,67 @@ After that migration, known retired Slimefun Legacy pack URLs are normalized to 
 ### v4.1.52 storage compatibility recovery
 
 v4.1.52 briefly upgraded existing zero item-model placeholders to the bundled hosted-pack map. That behavior has been removed. Affected servers can audit with `/sf doctor item-models remove-resourcepack-texture-ids` (the historical `rollback-v52` alias still works); after an explicit confirmed rollback and clean restart, use `/sf doctor item-models scan` followed by `/sf doctor item-models repair confirm` to normalize reachable stored ItemStacks. Custom non-matching model values are preserved.
+
+## Doctor install and uninstall using existing item IDs
+
+The ID pack reads existing Slimefun identity data. These commands reset exact bundled numeric mappings to `0`
+and remove matching stale first model floats, preserving custom mappings and the remaining item metadata.
+They never replace items with fresh templates.
+
+```text
+/sf doctor resource-pack install scan
+/sf doctor resource-pack install confirm
+/sf doctor resource-pack uninstall scan
+/sf doctor resource-pack uninstall confirm
+/sf doctor resource-pack status
+/sf doctor resource-pack resume
+```
+
+Omitting the mode starts a read-only scan. `confirm` saves authorization for initial cleanup, restart continuation
+and future join/load cleanup. Ordinary resource-pack delivery toggles do not authorize item changes.
+Use a maintenance window and a full server backup before confirming.
+
+Install pins the official GitHub `v4.1.0-id-preview.1` ZIP with SHA-1
+`0d667fe74db4a9456aa5a603d71921bfc5a0d6fe`. That preview still needs client and combined ItemsAdder testing.
+An existing `external` pack owner remains external with Legacy delivery disabled; merge the ID definitions through
+that manager. Confirming either operation also resets matching Legacy mappings used by a numeric combined pack.
+Uninstall removes only Legacy's resource-pack UUID and its eligible numeric metadata.
+
+If runtime item or guide templates still contain old bundled values, Doctor pauses and saves an `awaiting-restart`
+checkpoint. Stop normally and restart. The authorized cleanup resumes after registration with fresh templates.
+Later restarts and `resume` retry cleanup without overwriting subsequent sender, ownership or URL choices.
+
+| Storage | Coverage |
+| --- | --- |
+| Online players | Inventories including armor/offhand, ender chests, cursor and open backpacks |
+| Loaded containers | World containers, inventory-holder entities and dropped items |
+| Slimefun backpacks | All persisted profiles, cache ownership guard and acknowledged saves |
+| Slimefun machines/storage | Loaded block/universal menus and guarded rewrites of unloaded inventory rows |
+| Nested items | Bundles and container item metadata, up to four nested levels |
+| Offline players | Deferred until join; player files are not rewritten |
+| Unloaded vanilla containers | Deferred until chunk load; generated chunks are not force-loaded |
+| Addon-private storage | Requires its owning addon's adapter; arbitrary private databases are untouched |
+
+Unavailable IDs and unreadable records remain intact. Unfinished/pending-removal inventories are preserved and
+reported for a later resume. On Folia, gameplay-owned cached backpacks require an online owner's open inventory;
+ownerless mutation requires an exclusive maintenance guard. Loaded universal and virtual menus without a safe
+owner are deferred on Folia. Unloaded universal rows remain eligible for the guarded database pass.
+Item-frame/display/equipment-only entities and deeper nesting are outside this inventory traversal.
+
+Each changed item is backed up before mutation in
+`plugins/Slimefun/backups/resource-pack-doctor/<operation-id>/items.tsv`. Exact binary/text database before-images
+are journaled in `rows.tsv`; configuration snapshots share that directory. The durable checkpoint is
+`resource-pack-doctor.yml`. Backup failure prevents the affected change. Stale, loaded or missing database rows
+are skipped and reported. These journals support manual recovery and do not replace a complete world backup.
+
+### Native verification
+
+`scripts/resource_pack_doctor_probe.py` creates a disposable server directory from a cached Paper installation's
+code dependencies and runs synthetic fixtures across three normal boots. It refuses to replace an existing
+directory. The fixture plugin is for this probe only and must not be installed on a production server.
+
+The final candidate passed on Paper `26.3-143-ff3655a` with Java `25.0.4.1`: read-only preview, restart checkpoint,
+install, nested containers, backpack and unloaded SQLite inventory rewrites, deferred chunk cleanup, uninstall,
+and preservation of later external ownership. Native item equality checks preserve opaque ItemsAdder-style PDC,
+charge, identity, quantities and unrelated model-component lanes. This does not validate client rendering, a real
+ItemsAdder installation, historical production-world data, or the Folia/Purpur/minimum-version runtime matrix.

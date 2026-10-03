@@ -11,6 +11,7 @@ import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataType;
 
@@ -26,16 +27,15 @@ public final class ExternalResourcePackService {
     private static final String CONFIG_ROOT = "resource-pack.";
     private static final String DEFAULT_PACK_URL =
             "https://github.com/wickidcow/SFL_RP_Official/releases/latest/download/SlimefunLegacyRP.zip";
-    private static final String PREVIOUS_HOSTED_PACK_URL =
-            "http://overlord.kicks-ass.org:8163/SlimefunLegacyRP.zip";
+    private static final String PREVIOUS_HOSTED_PACK_URL = "http://overlord.kicks-ass.org:8163/SlimefunLegacyRP.zip";
     private static final String PREVIOUS_UNOFFICIAL_PACK_URL =
             "https://github.com/wickidcow/SFL_ResourePack_UnOfficial/releases/latest/download/SlimefunLegacyRP.zip";
     private static final String PREVIOUS_LEGACY_REPO_PACK_URL =
             "https://github.com/wickidcow/Slimefun-Legacy/releases/latest/download/SlimefunLegacy-ResourcePack-1.21.11-26.3.zip";
     private static final String RETIRED_DEFAULT_PACK_URL =
             "https://cdn.modrinth.com/data/TznkVJky/versions/nwij66MR/Slimefun-ResourcePack.zip";
-    private static final UUID PACK_ID = UUID.nameUUIDFromBytes(
-            "slimefun-legacy:external-resource-pack".getBytes(StandardCharsets.UTF_8));
+    private static final UUID PACK_ID =
+            UUID.nameUUIDFromBytes("slimefun-legacy:external-resource-pack".getBytes(StandardCharsets.UTF_8));
 
     private final Slimefun plugin;
     private final NamespacedKey playerOptOutKey;
@@ -61,8 +61,7 @@ public final class ExternalResourcePackService {
 
     /** Returns the configured resource-pack ownership mode. */
     public @Nonnull ResourcePackOwnershipMode getOwnershipMode() {
-        return ResourcePackOwnershipMode.parse(
-                CuriositiesConfig.getConfig().getString(CONFIG_ROOT + "ownership-mode"));
+        return ResourcePackOwnershipMode.parse(CuriositiesConfig.getConfig().getString(CONFIG_ROOT + "ownership-mode"));
     }
 
     /** Returns the raw legacy sender flag before ownership-mode safety is applied. */
@@ -78,7 +77,9 @@ public final class ExternalResourcePackService {
      */
     public boolean isDeliveryEnabled() {
         ResourcePackOwnershipMode mode = getOwnershipMode();
-        return isSenderFlagEnabled() && mode != ResourcePackOwnershipMode.EXTERNAL && mode != ResourcePackOwnershipMode.NONE;
+        return isSenderFlagEnabled()
+                && mode != ResourcePackOwnershipMode.EXTERNAL
+                && mode != ResourcePackOwnershipMode.NONE;
     }
 
     /** Returns whether ownership mode and the raw Legacy sender flag disagree. */
@@ -122,11 +123,12 @@ public final class ExternalResourcePackService {
      * delivery. This never changes item-model mappings or stored Slimefun items.</p>
      */
     public boolean setOwnershipMode(@Nonnull ResourcePackOwnershipMode mode) {
-        boolean senderEnabled = switch (mode) {
-            case LEGACY -> true;
-            case EXTERNAL, NONE -> false;
-            case AUTO -> isSenderFlagEnabled();
-        };
+        boolean senderEnabled =
+                switch (mode) {
+                    case LEGACY -> true;
+                    case EXTERNAL, NONE -> false;
+                    case AUTO -> isSenderFlagEnabled();
+                };
 
         if (!CuriositiesConfig.getConfig().setResourcePackOwnershipAndSender(mode, senderEnabled)) {
             return false;
@@ -137,15 +139,17 @@ public final class ExternalResourcePackService {
     }
 
     private void applyDeliveryState() {
-        boolean enabled = isDeliveryEnabled();
+        boolean enabled = this.isDeliveryEnabled();
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (enabled) {
-                if (isRequired() || isPlayerEnabled(player)) {
-                    sendConfiguredPack(player);
+            Slimefun.getSchedulerService().runFor((Entity) player, () -> {
+                if (enabled) {
+                    if (this.isRequired() || this.isPlayerEnabled(player)) {
+                        this.sendConfiguredPack(player);
+                    }
+                } else {
+                    this.removeConfiguredPack(player);
                 }
-            } else {
-                removeConfiguredPack(player);
-            }
+            });
         }
     }
 
@@ -168,7 +172,8 @@ public final class ExternalResourcePackService {
 
     /** Returns whether a SHA-1 was explicitly configured for the current pack. */
     public boolean hasConfiguredSha1() {
-        return !trim(CuriositiesConfig.getConfig().getString(CONFIG_ROOT + "sha1")).isEmpty();
+        return !trim(CuriositiesConfig.getConfig().getString(CONFIG_ROOT + "sha1"))
+                .isEmpty();
     }
 
     /**
@@ -257,10 +262,11 @@ public final class ExternalResourcePackService {
             player.removeResourcePack(PACK_ID);
             return true;
         } catch (LinkageError ex) {
-            plugin.getLogger().log(
-                    Level.WARNING,
-                    "Resource-pack removal is unavailable on this server implementation. Slimefun will continue normally.",
-                    ex);
+            plugin.getLogger()
+                    .log(
+                            Level.WARNING,
+                            "Resource-pack removal is unavailable on this server implementation. Slimefun will continue normally.",
+                            ex);
             return false;
         }
     }
@@ -272,13 +278,13 @@ public final class ExternalResourcePackService {
         String url = normalizeLegacyResourcePackUrl(configuredUrl);
         boolean normalizedLegacyUrl = !configuredUrl.equals(url);
         if (normalizedLegacyUrl) {
-            warnOnce(
-                    "An older Slimefun Legacy resource-pack URL was detected. Slimefun Legacy is using the current "
-                            + "GitHub-hosted pack instead: " + DEFAULT_PACK_URL);
+            warnOnce("An older Slimefun Legacy resource-pack URL was detected. Slimefun Legacy is using the current "
+                    + "GitHub-hosted pack instead: " + DEFAULT_PACK_URL);
         }
 
         if (!isValidResourcePackUrl(url)) {
-            warnOnce("External resource-pack delivery is enabled, but configSFLAddons.yml resource-pack.url is not a valid HTTP(S) URL.");
+            warnOnce(
+                    "External resource-pack delivery is enabled, but configSFLAddons.yml resource-pack.url is not a valid HTTP(S) URL.");
             return false;
         }
 
@@ -286,7 +292,8 @@ public final class ExternalResourcePackService {
         String configuredHash = normalizedLegacyUrl ? "" : trim(config.getString(CONFIG_ROOT + "sha1"));
         byte[] hash = parseSha1(configuredHash);
         if (!configuredHash.isEmpty() && hash == null) {
-            warnOnce("External resource-pack delivery is enabled, but configSFLAddons.yml resource-pack.sha1 is not a 40-character SHA-1 hash.");
+            warnOnce(
+                    "External resource-pack delivery is enabled, but configSFLAddons.yml resource-pack.sha1 is not a 40-character SHA-1 hash.");
             return false;
         }
 
@@ -305,10 +312,11 @@ public final class ExternalResourcePackService {
         } catch (IllegalArgumentException ex) {
             warnOnce("Could not send the configured external resource pack: " + ex.getMessage());
         } catch (LinkageError ex) {
-            plugin.getLogger().log(
-                    Level.WARNING,
-                    "External resource-pack delivery is unavailable on this server implementation. Slimefun will continue without sending a pack.",
-                    ex);
+            plugin.getLogger()
+                    .log(
+                            Level.WARNING,
+                            "External resource-pack delivery is unavailable on this server implementation. Slimefun will continue without sending a pack.",
+                            ex);
         }
 
         return false;
@@ -364,5 +372,9 @@ public final class ExternalResourcePackService {
     @Nonnull
     private static String trim(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    public void refreshDelivery() {
+        this.applyDeliveryState();
     }
 }

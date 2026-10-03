@@ -3,11 +3,23 @@ package io.github.thebusybiscuit.slimefun4.core.services;
 import io.github.bakedlibs.dough.config.Config;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
+import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuideImplementation;
+import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuideMode;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringReader;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileAttribute;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -459,6 +471,73 @@ public class CustomTextureService {
 
             component.setFloats(floats);
             im.setCustomModelDataComponent(component);
+        }
+    }
+
+    public int removeHostedPackMappingsChecked(@Nonnull Path backupDirectory) throws IOException {
+        YamlConfiguration staged = YamlConfiguration.loadConfiguration(
+                (Reader) new StringReader(this.config.getConfiguration().saveToString()));
+        this.writeAtomically(backupDirectory.resolve("item-models-current.yml"), staged.saveToString());
+        FileConfiguration bundled = this.loadBundledModelConfiguration();
+        ArrayList<String> reset = new ArrayList<String>();
+        for (String id2 : bundled.getKeys(false)) {
+            int model = bundled.getInt(id2);
+            if (model == 0 || staged.getInt(id2) != model) continue;
+            staged.set(id2, (Object) 0);
+            reset.add(id2);
+        }
+        if (!reset.isEmpty()) {
+            this.writeAtomically(this.config.getFile().toPath(), staged.saveToString());
+            reset.forEach(id -> this.config.setValue((String) id, 0));
+        }
+        return reset.size();
+    }
+
+    public int getHostedPackTemplateMismatchCount() {
+        FileConfiguration bundled = this.loadBundledModelConfiguration();
+        int mismatches = 0;
+        for (String id : bundled.getKeys(false)) {
+            SlimefunItem definition = SlimefunItem.getById(id);
+            if (definition == null
+                    || this.config.getInt(id) != 0
+                    || !this.hasBundledFloat(definition.getItem(), bundled.getInt(id))) continue;
+            ++mismatches;
+        }
+        for (SlimefunGuideMode mode : SlimefunGuideMode.values()) {
+            SlimefunGuideImplementation guide = Slimefun.getRegistry().getSlimefunGuide(mode);
+            if (guide == null
+                    || this.config.getInt("SLIMEFUN_GUIDE") != 0
+                    || !this.hasBundledFloat(guide.getItem(), bundled.getInt("SLIMEFUN_GUIDE"))) continue;
+            ++mismatches;
+        }
+        return mismatches;
+    }
+
+    private boolean hasBundledFloat(ItemStack item, int bundledModel) {
+        if (bundledModel == 0 || item == null || !item.hasItemMeta()) {
+            return false;
+        }
+        ItemMeta meta = item.getItemMeta();
+        List floats = meta.getCustomModelDataComponent().getFloats();
+        return meta.hasCustomModelDataComponent()
+                && !floats.isEmpty()
+                && Float.compare(((Float) floats.get(0)).floatValue(), bundledModel) == 0;
+    }
+
+    private void writeAtomically(Path file, String text) throws IOException {
+        Path temporary =
+                Files.createTempFile(file.toAbsolutePath().getParent(), "item-models-", ".tmp", new FileAttribute[0]);
+        try {
+            try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE); ) {
+                ByteBuffer bytes = StandardCharsets.UTF_8.encode(text);
+                while (bytes.hasRemaining()) {
+                    channel.write(bytes);
+                }
+                channel.force(true);
+            }
+            Files.move(temporary, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } finally {
+            Files.deleteIfExists(temporary);
         }
     }
 }

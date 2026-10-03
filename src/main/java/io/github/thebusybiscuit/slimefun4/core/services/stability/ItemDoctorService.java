@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.services.stability;
 
+import city.norain.slimefun4.api.menu.UniversalMenu;
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.BlockDataController;
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.ProfileDataController;
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.SlimefunBlockData;
@@ -15,11 +16,13 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -50,6 +53,7 @@ public final class ItemDoctorService implements Listener {
     private static final long CHUNK_MENU_RETRY_DELAY_TICKS = 2L;
 
     private final Slimefun plugin;
+    private final ResourcePackDoctorService resourcePackDoctor;
     private final ItemPresentationDoctor doctor = new ItemPresentationDoctor();
     private final BlockPresentationDoctor blockDoctor = new BlockPresentationDoctor();
     private final ItemDoctorReport automaticReport = new ItemDoctorReport(true);
@@ -61,10 +65,12 @@ public final class ItemDoctorService implements Listener {
 
     public ItemDoctorService(@Nonnull Slimefun plugin) {
         this.plugin = plugin;
+        resourcePackDoctor = new ResourcePackDoctorService(plugin, this);
     }
 
     public void register() {
         Bukkit.getPluginManager().registerEvents(this, plugin);
+        resourcePackDoctor.register();
         if (isEnabled()) {
             plugin.getLogger().info("Slimefun item doctor is enabled for safe English presentation repair.");
         } else {
@@ -82,6 +88,7 @@ public final class ItemDoctorService implements Listener {
 
     public void shutdown() {
         shuttingDown = true;
+        resourcePackDoctor.shutdown();
         ServerRun run = activeRun;
         if (run != null) {
             run.abort();
@@ -152,8 +159,7 @@ public final class ItemDoctorService implements Listener {
      * @return {@code false} when another server-wide run is already active or Doctor is unavailable
      */
     public boolean startSchemaMigrationRun(
-            @Nonnull LegacyItemSchemaMigrationExecutor executor,
-            @Nonnull Consumer<ItemDoctorReport> completion) {
+            @Nonnull LegacyItemSchemaMigrationExecutor executor, @Nonnull Consumer<ItemDoctorReport> completion) {
         return startServerRun(true, false, executor, completion);
     }
 
@@ -172,7 +178,9 @@ public final class ItemDoctorService implements Listener {
             boolean enableSchemaProbes,
             @Nullable ItemDoctorTraversalExecutor traversalExecutor,
             @Nonnull Consumer<ItemDoctorReport> completion) {
-        if (shuttingDown || !isEnabled() || !serverRunActive.compareAndSet(false, true)) {
+        if (shuttingDown
+                || (!isEnabled() && !(traversalExecutor instanceof ResourcePackModelExecutor))
+                || !serverRunActive.compareAndSet(false, true)) {
             return false;
         }
 
@@ -417,7 +425,8 @@ public final class ItemDoctorService implements Listener {
             this.report = report;
             this.completion = completion;
             this.traversalExecutor = traversalExecutor;
-            this.schemaExecutor = traversalExecutor instanceof LegacyItemSchemaMigrationExecutor executor ? executor : null;
+            this.schemaExecutor =
+                    traversalExecutor instanceof LegacyItemSchemaMigrationExecutor executor ? executor : null;
         }
 
         private void collectLoadedInventories() {
@@ -450,55 +459,95 @@ public final class ItemDoctorService implements Listener {
         }
 
         private void collectSlimefunChunk(SlimefunChunkData chunkData) {
+            if (traversalExecutor instanceof ResourcePackModelExecutor && !chunkData.isDataLoaded()) {
+                deferModelInventory("chunk " + chunkData.getKey());
+                return;
+            }
             BlockDataController controller = Slimefun.getDatabaseManager().getBlockDataController();
             for (SlimefunBlockData blockData : chunkData.getAllBlockData()) {
-                // Explicit schema migration runs must not perform presentation repair as a side effect.
+                if (traversalExecutor instanceof ResourcePackModelExecutor
+                        && (!blockData.isDataLoaded()
+                                || blockData.isPendingRemove()
+                                || controller.isInventoryMutationBlocked(blockData.getLocation()))) {
+                    deferModelInventory("block " + blockData.getKey());
+                    continue;
+                }
+                // Specialized item-only traversals must not perform placed-block presentation repair.
                 if (schemaExecutor == null) {
-                    // Other specialized item-only Doctor traversals (such as item-model cleanup) also
-                    // skip placed-block presentation work.
                     if (traversalExecutor == null) {
                         inspectSlimefunBlock(blockData.getLocation(), report.isRepairMode(), report);
                     }
                 }
-
                 BlockMenu menu = blockData.getBlockMenu();
                 if (menu != null) {
                     addInventory(
                             menu.toInventory(),
-                            () -> controller.saveBlockInventory(blockData),
+                            () -> controller.saveBlockInventoryAsync(blockData),
                             null,
-                            blockData.getLocation());
+                            blockData.getLocation(),
+                            "BLOCK_INVENTORY:" + blockData.getKey());
                 }
             }
         }
 
         private void collectUniversalData(SlimefunUniversalData data) {
-            var menu = data.getMenu();
+            if (this.traversalExecutor instanceof ResourcePackModelExecutor
+                    && (!data.isDataLoaded()
+                            || data.isPendingRemove()
+                            || Slimefun.getSchedulerService().isFolia())) {
+                this.deferModelInventory("universal " + data.getKey());
+                return;
+            }
+            UniversalMenu menu = data.getMenu();
             if (menu != null) {
                 BlockDataController controller = Slimefun.getDatabaseManager().getBlockDataController();
-                addInventory(menu.toInventory(), () -> controller.saveUniversalInventory(data), null, null);
+                this.addInventory(
+                        menu.toInventory(),
+                        () -> controller.saveUniversalInventoryAsync(data),
+                        null,
+                        null,
+                        "UNIVERSAL_INVENTORY:" + data.getKey());
             }
+        }
+
+        private void deferModelInventory(String identity) {
+            this.report.failure();
+            ItemDoctorService.this
+                    .plugin
+                    .getLogger()
+                    .warning(
+                            "Resource-pack Doctor deferred " + identity
+                                    + "; its inventory is unfinished, pending removal, or has no safe maintenance owner. Use resume when ready.");
         }
 
         private void addInventory(
                 Inventory inventory,
-                @Nullable Runnable saveAction,
+                @Nullable Supplier<CompletableFuture<Void>> saveAction,
                 @Nullable Entity ownerEntity,
                 @Nullable Location ownerLocation) {
+            this.addInventory(inventory, saveAction, ownerEntity, ownerLocation, null);
+        }
+
+        private void addInventory(
+                Inventory inventory,
+                @Nullable Supplier<CompletableFuture<Void>> saveAction,
+                @Nullable Entity ownerEntity,
+                @Nullable Location ownerLocation,
+                @Nullable String identity) {
             if (inventory == null) {
                 return;
             }
-
-            synchronized (inventoryTargets) {
-                InventoryTarget existing = inventoryTargets.get(inventory);
+            Map<Inventory, InventoryTarget> map = this.inventoryTargets;
+            synchronized (map) {
+                InventoryTarget existing = this.inventoryTargets.get(inventory);
                 if (existing != null) {
-                    existing.merge(saveAction, ownerEntity, ownerLocation);
+                    existing.merge(saveAction, ownerEntity, ownerLocation, identity);
                     return;
                 }
-
-                InventoryTarget target = new InventoryTarget(inventory, saveAction, ownerEntity, ownerLocation);
-                inventoryTargets.put(inventory, target);
-                inventories.add(target);
+                InventoryTarget target =
+                        new InventoryTarget(inventory, saveAction, ownerEntity, ownerLocation, identity);
+                this.inventoryTargets.put(inventory, target);
+                this.inventories.add(target);
             }
         }
 
@@ -520,6 +569,23 @@ public final class ItemDoctorService implements Listener {
                         if (player.isOnline()) {
                             addInventory(player.getInventory(), null, player, null);
                             addInventory(player.getEnderChest(), null, player, null);
+                            if (traversalExecutor instanceof ResourcePackModelExecutor models) {
+                                Inventory opened = player.getOpenInventory().getTopInventory();
+                                if (opened.getHolder() instanceof PlayerBackpack backpack) {
+                                    addInventory(
+                                            opened,
+                                            () -> Slimefun.getDatabaseManager()
+                                                    .getProfileDataController()
+                                                    .saveBackpackInventoryAsync(backpack),
+                                            player,
+                                            null,
+                                            "backpack:" + backpack.getUniqueId());
+                                }
+                                ItemStack cursor = player.getItemOnCursor();
+                                if (models.inspectItem(cursor, report, "player:" + player.getUniqueId() + ":cursor")) {
+                                    player.setItemOnCursor(cursor);
+                                }
+                            }
                         }
                     });
                     continue;
@@ -657,10 +723,11 @@ public final class ItemDoctorService implements Listener {
             try {
                 boolean changed = traversalExecutor == null
                         ? doctor.repairInventory(target.inventory(), report.isRepairMode(), report)
-                        : traversalExecutor.inspectInventory(target.inventory(), report);
-                if (changed && target.saveAction() != null) {
-                    target.saveAction().run();
-                }
+                        : traversalExecutor instanceof ResourcePackModelExecutor models && target.identity != null
+                                ? models.inspectInventory(target.inventory(), report, target.identity)
+                                : traversalExecutor.inspectInventory(target.inventory(), report);
+                if (changed && target.saveAction() != null)
+                    awaitSave(target.saveAction().get(), () -> {});
             } catch (RuntimeException ex) {
                 report.failure();
                 plugin.getLogger().log(Level.WARNING, "Item doctor failed to inspect an inventory.", ex);
@@ -669,16 +736,14 @@ public final class ItemDoctorService implements Listener {
 
         private void inspectDroppedItem(Item itemEntity) {
             try {
-                if (!itemEntity.isValid()) {
-                    return;
-                }
+                if (!itemEntity.isValid()) return;
                 ItemStack item = itemEntity.getItemStack();
                 boolean changed = traversalExecutor == null
                         ? doctor.inspectItem(item, report.isRepairMode(), report)
-                        : traversalExecutor.inspectItem(item, report);
-                if (changed) {
-                    itemEntity.setItemStack(item);
-                }
+                        : traversalExecutor instanceof ResourcePackModelExecutor models
+                                ? models.inspectItem(item, report, "entity:" + itemEntity.getUniqueId())
+                                : traversalExecutor.inspectItem(item, report);
+                if (changed) itemEntity.setItemStack(item);
             } catch (RuntimeException ex) {
                 report.failure();
                 plugin.getLogger().log(Level.WARNING, "Item doctor failed to inspect a dropped item.", ex);
@@ -711,37 +776,62 @@ public final class ItemDoctorService implements Listener {
         }
 
         private void processNextBackpack() {
-            if (aborted || shuttingDown) {
+            if (this.aborted || ItemDoctorService.this.shuttingDown) {
                 return;
             }
-            if (!backpackIds.hasNext()) {
-                backpacksDone = true;
-                finishIfReady();
+            if (!this.backpackIds.hasNext()) {
+                this.backpacksDone = true;
+                this.finishIfReady();
                 return;
             }
-
-            String id = backpackIds.next();
+            String id = this.backpackIds.next();
             ProfileDataController controller = Slimefun.getDatabaseManager().getProfileDataController();
             controller.getBackpackForMaintenanceAsync(id).whenComplete((loadedBackpack, error) -> {
-                if (aborted || shuttingDown) {
-                    releaseMaintenanceBackpack(controller, loadedBackpack);
+                if (this.aborted || ItemDoctorService.this.shuttingDown) {
+                    this.releaseMaintenanceBackpack(
+                            controller, (ProfileDataController.MaintenanceBackpack) loadedBackpack);
                     return;
                 }
                 TaskHandle scheduled = Slimefun.getSchedulerService().run(() -> {
-                    if (aborted || shuttingDown) {
-                        releaseMaintenanceBackpack(controller, loadedBackpack);
+                    if (this.aborted || ItemDoctorService.this.shuttingDown) {
+                        this.releaseMaintenanceBackpack(
+                                controller, (ProfileDataController.MaintenanceBackpack) loadedBackpack);
                         return;
                     }
                     if (error != null) {
-                        report.failure();
-                        plugin.getLogger().log(Level.WARNING, "Item doctor could not load backpack " + id + '.', error);
+                        this.report.failure();
+                        ItemDoctorService.this
+                                .plugin
+                                .getLogger()
+                                .log(Level.WARNING, "Item doctor could not load backpack " + id + ".", (Throwable)
+                                        error);
                     } else if (loadedBackpack != null) {
-                        repairBackpack(controller, loadedBackpack.backpack(), loadedBackpack.maintenanceOwned());
+                        if (this.traversalExecutor instanceof ResourcePackModelExecutor
+                                && Slimefun.getSchedulerService().isFolia()) {
+                            boolean inspected = controller.runWhileMaintenanceBackpackOwned(
+                                    loadedBackpack.backpack(),
+                                    () -> this.repairBackpack(
+                                            controller, loadedBackpack.backpack(), loadedBackpack.maintenanceOwned()));
+                            if (!inspected) {
+                                this.report.failure();
+                                this.releaseMaintenanceBackpack(
+                                        controller, (ProfileDataController.MaintenanceBackpack) loadedBackpack);
+                                ItemDoctorService.this
+                                        .plugin
+                                        .getLogger()
+                                        .warning("Resource-pack Doctor deferred a gameplay-owned backpack on Folia: "
+                                                + id);
+                            }
+                        } else {
+                            this.repairBackpack(
+                                    controller, loadedBackpack.backpack(), loadedBackpack.maintenanceOwned());
+                        }
                     }
-                    processNextBackpack();
+                    this.processNextBackpack();
                 });
-                if (scheduled.isCancelled() && !plugin.isEnabled()) {
-                    releaseMaintenanceBackpack(controller, loadedBackpack);
+                if (scheduled.isCancelled() && !ItemDoctorService.this.plugin.isEnabled()) {
+                    this.releaseMaintenanceBackpack(
+                            controller, (ProfileDataController.MaintenanceBackpack) loadedBackpack);
                 }
             });
         }
@@ -755,16 +845,22 @@ public final class ItemDoctorService implements Listener {
 
         private void repairBackpack(
                 ProfileDataController controller, PlayerBackpack backpack, boolean maintenanceLoaded) {
+            boolean saveStarted = false;
             try {
-                if (backpack.isInvalid()) {
-                    return;
-                }
+                if (backpack.isInvalid()) return;
                 report.backpackScanned();
                 boolean changed = traversalExecutor == null
                         ? doctor.repairInventory(backpack.getInventory(), report.isRepairMode(), report)
-                        : traversalExecutor.inspectInventory(backpack.getInventory(), report);
+                        : traversalExecutor instanceof ResourcePackModelExecutor models
+                                ? models.inspectInventory(
+                                        backpack.getInventory(), report, "backpack:" + backpack.getUniqueId())
+                                : traversalExecutor.inspectInventory(backpack.getInventory(), report);
                 if (changed) {
-                    controller.saveBackpackInventory(backpack);
+                    CompletableFuture<Void> save = controller.saveBackpackInventoryAsync(backpack);
+                    saveStarted = true;
+                    awaitSave(save, () -> {
+                        if (maintenanceLoaded) controller.releaseMaintenanceBackpack(backpack);
+                    });
                 }
             } catch (RuntimeException ex) {
                 report.failure();
@@ -774,10 +870,28 @@ public final class ItemDoctorService implements Listener {
                                 "Item doctor failed to inspect backpack " + backpack.getUniqueId() + '.',
                                 ex);
             } finally {
-                if (maintenanceLoaded) {
-                    controller.releaseMaintenanceBackpack(backpack);
-                }
+                if (maintenanceLoaded && !saveStarted) controller.releaseMaintenanceBackpack(backpack);
             }
+        }
+
+        private void awaitSave(CompletableFuture<Void> save, Runnable release) {
+            this.pendingOwnedWork.incrementAndGet();
+            save.whenComplete((ignored, failure) -> {
+                if (failure != null) {
+                    this.report.failure();
+                    ItemDoctorService.this
+                            .plugin
+                            .getLogger()
+                            .log(Level.WARNING, "Item Doctor could not persist a repaired inventory.", (Throwable)
+                                    failure);
+                }
+                try {
+                    release.run();
+                } finally {
+                    this.pendingOwnedWork.decrementAndGet();
+                    this.finishIfReady();
+                }
+            });
         }
 
         private synchronized void abort() {
@@ -797,20 +911,26 @@ public final class ItemDoctorService implements Listener {
         }
 
         private synchronized void finishIfReady() {
-            if (aborted || !inventoriesDone || !backpacksDone || report.isComplete()) {
+            if (this.aborted
+                    || !this.inventoriesDone
+                    || !this.backpacksDone
+                    || this.pendingOwnedWork.get() != 0
+                    || this.report.isComplete()) {
                 return;
             }
-
-            report.markComplete();
-            currentReport = null;
-            lastReport = report;
-            activeRun = null;
-            serverRunActive.set(false);
-            logCompletion(report);
+            this.report.markComplete();
+            ItemDoctorService.this.currentReport = null;
+            ItemDoctorService.this.lastReport = this.report;
+            ItemDoctorService.this.activeRun = null;
+            ItemDoctorService.this.serverRunActive.set(false);
+            ItemDoctorService.this.logCompletion(this.report);
             try {
-                completion.accept(report);
+                this.completion.accept(this.report);
             } catch (RuntimeException ex) {
-                plugin.getLogger().log(Level.WARNING, "Item doctor completion callback failed.", ex);
+                ItemDoctorService.this
+                        .plugin
+                        .getLogger()
+                        .log(Level.WARNING, "Item doctor completion callback failed.", ex);
             }
         }
     }
@@ -846,59 +966,72 @@ public final class ItemDoctorService implements Listener {
 
     private static final class InventoryTarget {
         private final Inventory inventory;
-        private volatile Runnable saveAction;
+        private volatile Supplier<CompletableFuture<Void>> saveAction;
         private volatile Entity ownerEntity;
         private volatile Location ownerLocation;
+        private volatile String identity;
 
         private InventoryTarget(
                 Inventory inventory,
-                @Nullable Runnable saveAction,
+                @Nullable Supplier<CompletableFuture<Void>> saveAction,
                 @Nullable Entity ownerEntity,
-                @Nullable Location ownerLocation) {
+                @Nullable Location ownerLocation,
+                @Nullable String identity) {
             this.inventory = inventory;
             this.saveAction = saveAction;
             this.ownerEntity = ownerEntity;
             this.ownerLocation = ownerLocation;
+            this.identity = identity;
         }
 
         private Inventory inventory() {
-            return inventory;
+            return this.inventory;
         }
 
-        private @Nullable Runnable saveAction() {
-            return saveAction;
+        @Nullable private Supplier<CompletableFuture<Void>> saveAction() {
+            return this.saveAction;
         }
 
-        private @Nullable Entity ownerEntity() {
-            return ownerEntity;
+        @Nullable private Entity ownerEntity() {
+            return this.ownerEntity;
         }
 
-        private @Nullable Location ownerLocation() {
-            return ownerLocation;
+        @Nullable private Location ownerLocation() {
+            return this.ownerLocation;
         }
 
         private synchronized void merge(
-                @Nullable Runnable additionalAction,
+                @Nullable Supplier<CompletableFuture<Void>> additionalAction,
                 @Nullable Entity additionalEntity,
-                @Nullable Location additionalLocation) {
-            if (additionalAction != null && additionalAction != saveAction) {
-                if (saveAction == null) {
-                    saveAction = additionalAction;
+                @Nullable Location additionalLocation,
+                @Nullable String identity) {
+            if (identity != null) {
+                this.identity = identity;
+            }
+            if (additionalAction != null && additionalAction != this.saveAction) {
+                if (this.saveAction == null) {
+                    this.saveAction = additionalAction;
                 } else {
-                    Runnable previousAction = saveAction;
-                    saveAction = () -> {
-                        previousAction.run();
-                        additionalAction.run();
-                    };
+                    Supplier<CompletableFuture<Void>> previousAction = this.saveAction;
+                    this.saveAction = () -> CompletableFuture.allOf(
+                            (CompletableFuture) previousAction.get(), (CompletableFuture) additionalAction.get());
                 }
             }
-
-            if (ownerEntity == null && additionalEntity != null) {
-                ownerEntity = additionalEntity;
-                ownerLocation = null;
-            } else if (ownerEntity == null && ownerLocation == null && additionalLocation != null) {
-                ownerLocation = additionalLocation;
+            if (this.ownerEntity == null && additionalEntity != null) {
+                this.ownerEntity = additionalEntity;
+                this.ownerLocation = null;
+            } else if (this.ownerEntity == null && this.ownerLocation == null && additionalLocation != null) {
+                this.ownerLocation = additionalLocation;
             }
         }
+    }
+
+    public ResourcePackDoctorService getResourcePackDoctor() {
+        return this.resourcePackDoctor;
+    }
+
+    boolean startResourcePackRun(
+            ResourcePackModelExecutor executor, boolean repair, Consumer<ItemDoctorReport> completion) {
+        return this.startServerRun(repair, false, executor, completion);
     }
 }

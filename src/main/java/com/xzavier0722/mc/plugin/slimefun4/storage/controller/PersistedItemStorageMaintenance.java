@@ -143,8 +143,9 @@ public final class PersistedItemStorageMaintenance {
                     continue;
                 }
 
-                writeValue(current, request.replacement());
                 applied.add(current);
+                // An adapter may commit before its acknowledgement throws.
+                writeValue(current, request.replacement());
             }
             return new RewriteSummary(false, applied.size(), stale, loaded, missing, 0, true);
         } catch (RuntimeException | LinkageError failure) {
@@ -196,17 +197,24 @@ public final class PersistedItemStorageMaintenance {
     }
 
     private void writeValue(PersistedItemRecord record, StoredItemValue value) {
+        FieldKey ownerField;
         RecordSet data = new RecordSet();
+        RecordKey key = new RecordKey(record.scope());
         if (record.scope() == DataScope.BLOCK_INVENTORY) {
-            data.put(FieldKey.LOCATION, record.ownerKey());
+            ownerField = FieldKey.LOCATION;
         } else if (record.scope() == DataScope.UNIVERSAL_INVENTORY) {
-            data.put(FieldKey.UNIVERSAL_UUID, record.ownerKey());
+            ownerField = FieldKey.UNIVERSAL_UUID;
         } else {
-            throw new IllegalArgumentException("Unsupported persisted item scope: " + record.scope());
+            throw new IllegalArgumentException(
+                    "Unsupported persisted item scope: " + String.valueOf((Object) record.scope()));
         }
+        key.addCondition(ownerField, record.ownerKey());
+        key.addCondition(FieldKey.INVENTORY_SLOT, record.slotKey());
+        key.addField(FieldKey.INVENTORY_ITEM);
+        data.put(ownerField, record.ownerKey());
         data.put(FieldKey.INVENTORY_SLOT, record.slotKey());
         value.put(data, FieldKey.INVENTORY_ITEM);
-        controller.setData(new RecordKey(record.scope()), data);
+        this.controller.setData(key, data);
     }
 
     private Set<String> loadedBlockKeys() {
