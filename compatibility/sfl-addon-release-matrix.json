@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 108,
+  "bundle_revision": 109,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -85,7 +85,7 @@
     {
       "repository": "wickidcow/SF_DankTech2",
       "slug": "danktech2",
-      "source_commit": "1566348da2bb319aa178dd331e2ca2c4ca3d26ce"
+      "source_commit": "d7113f001f57d2ff8076023a454fd4b49985a341"
     },
     {
       "repository": "wickidcow/SF_DracFun2",
