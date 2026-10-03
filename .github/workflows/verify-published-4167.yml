@@ -1,0 +1,110 @@
+name: Verify Published 4.1.67 Assets
+
+on:
+  push:
+    branches: ['audit/release-4.1.67-recovery-20261002']
+    paths: ['.github/workflows/verify-published-4167.yml']
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Download actual published binaries and verify their source and previous-release isolation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence dist
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64,hashlib,io,json,re,subprocess,time,zipfile
+          ROOT='repos/wickidcow/Slimefun-Legacy'
+          SOURCE='5cb1e47c35a2b85ccc342dbf4121fac4bf9a1969'
+          def raw(path):return subprocess.run(['gh','api',path],check=True,capture_output=True,timeout=120).stdout
+          def api(path):return json.loads(raw(path))
+          for attempt in range(36):
+              run=api(f'{ROOT}/actions/runs/37089208001')
+              assert run['head_sha']==SOURCE and run['event']=='workflow_dispatch' and run['path']=='.github/workflows/reproducible-release.yml'
+              if run['status']=='completed':break
+              time.sleep(10)
+          assert run['status']=='completed' and run['conclusion']=='success',run['conclusion']
+          jobs=api(f'{ROOT}/actions/runs/37089208001/jobs?per_page=100')['jobs']
+          assert len(jobs)==1 and jobs[0]['conclusion']=='success'
+          steps={s['name']:s for s in jobs[0]['steps']}
+          for name in ('Require byte-for-byte reproducibility','Require exact-source validated canonical addon bundle','Publish reproducible release assets','Normalize and verify release assets'):
+              assert steps[name]['conclusion']=='success',name
+          receipt=raw(f'{ROOT}/actions/artifacts/11261706810/zip')
+          assert hashlib.sha256(receipt).hexdigest()=='ba4782337de340e7ece2ed102ccd73426222aa3f24005f5c6b950bffc15e9a7b'
+          with zipfile.ZipFile(io.BytesIO(receipt)) as z:
+              previous=json.loads(z.read('previous-release.json'))
+              expected=json.loads(z.read('verified-dispatch-input.json'))
+          old=api(f'{ROOT}/releases/tags/v4.1.66')
+          old_assets={a['name']:{k:a[k] for k in ('id','size','digest','browser_download_url')} for a in old['assets']}
+          assert old['id']==previous['release_id'] and old_assets==previous['assets']
+          assert api(f'{ROOT}/git/ref/tags/v4.1.66')['object']==previous['tag']
+          release=api(f'{ROOT}/releases/tags/v4.1.67')
+          assert release['tag_name']=='v4.1.67' and not release['draft'] and not release['prerelease']
+          assert api(f'{ROOT}/git/ref/tags/v4.1.67')['object']['sha']==SOURCE
+          assets={a['name']:a for a in release['assets']}
+          assert set(assets)=={'Slimefun-Legacy4.1.67.jar','SF_Addons_1.21.11-26.3.zip'}
+          for name,asset in assets.items():
+              assert asset['state']=='uploaded' and asset['browser_download_url'].startswith('https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.67/')
+              path=Path('dist',name)
+              subprocess.run(['curl','--fail','--location','--silent','--show-error','--retry','3','--max-time','180',asset['browser_download_url'],'--output',str(path)],check=True)
+              data=path.read_bytes()
+              assert len(data)==asset['size'] and asset['digest']=='sha256:'+hashlib.sha256(data).hexdigest()
+          core=Path('dist/Slimefun-Legacy4.1.67.jar').read_bytes()
+          classes=0
+          with zipfile.ZipFile(io.BytesIO(core)) as z:
+              assert z.testzip() is None and 'plugin.yml' in z.namelist()
+              assert re.search(r'''(?m)^version:\s*['"]?4\.1\.67['"]?\s*$''',z.read('plugin.yml').decode())
+              properties=z.read('git.properties').decode()
+              assert 'git.commit.id='+SOURCE in properties and 'git.source.commit='+SOURCE in properties
+              assert 'git.build.version=4.1.67' in properties and '1970-' not in properties
+              for name in z.namelist():
+                  assert not name.startswith(('audit/','org/junit/','org/mockbukkit/'))
+                  if name.endswith('.class') and not name.startswith('META-INF/versions/'):
+                      data=z.read(name);assert data[:4]==b'\xca\xfe\xba\xbe'
+                      assert int.from_bytes(data[6:8],'big')<=65 and int.from_bytes(data[4:6],'big')!=65535
+                      classes+=1
+              Path('evidence/git.properties').write_text(properties)
+          bundle=Path('dist/SF_Addons_1.21.11-26.3.zip').read_bytes()
+          assert hashlib.sha256(bundle).hexdigest()==expected['bundle_sha256']
+          source=json.loads(base64.b64decode(api(f'{ROOT}/contents/compatibility/sfl-addon-release-matrix.json?ref={SOURCE}')['content']))
+          assert source['bundle_revision']==107
+          with zipfile.ZipFile(io.BytesIO(bundle)) as z:
+              assert z.testzip() is None and len(z.namelist())==len(set(z.namelist()))
+              manifest=json.loads(z.read('SF_ADDON_MANIFEST.json'))
+              assert manifest['core_source_commit']==SOURCE and len(manifest['addons'])==45
+              assert {a['repository']:a['commit'] for a in manifest['addons']}=={a['repository']:a['source_commit'] for a in source['addons']}
+              assert {n for n in z.namelist() if n.endswith('.jar')}=={a['jar'] for a in manifest['addons']}
+              for row in manifest['addons']:
+                  assert hashlib.sha256(z.read(row['jar'])).hexdigest()==row['sha256']
+              for line in z.read('SHA256SUMS.txt').decode().splitlines():
+                  digest,name=line.split(None,1);name=name.lstrip('*');assert '/' not in name
+                  assert hashlib.sha256(z.read(name)).hexdigest()==digest
+              Path('evidence/SF_ADDON_MANIFEST.json').write_bytes(z.read('SF_ADDON_MANIFEST.json'))
+          result=dict(source=SOURCE,version='4.1.67',published_release_id=release['id'],published_at=release['published_at'],publisher_run=37089208001,core_sha256=hashlib.sha256(core).hexdigest(),core_base_classes=classes,bundle_sha256=hashlib.sha256(bundle).hexdigest(),addon_count=45,bundle_revision=107,previous_release_unchanged=True,recordset_pr317_included=False)
+          Path('evidence/result.json').write_text(json.dumps(result,indent=2)+'\n')
+          Path('evidence/release.json').write_text(json.dumps(release,indent=2)+'\n')
+          Path('evidence/previous-release-check.json').write_text(json.dumps(previous,indent=2)+'\n')
+          Path('evidence/publisher-jobs.json').write_text(json.dumps(jobs,indent=2)+'\n')
+          print(json.dumps(result,indent=2))
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: verified-published-4167-evidence
+          path: evidence/
+          retention-days: 30
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7
+        with:
+          name: verified-published-4167-downloads
+          path: dist/
+          retention-days: 30
+          if-no-files-found: error
