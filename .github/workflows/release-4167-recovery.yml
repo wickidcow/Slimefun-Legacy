@@ -1,0 +1,146 @@
+name: Recover Pinned 4.1.67 Publication
+
+on:
+  push:
+    branches: ['audit/release-4.1.67-recovery-20261002']
+    paths: ['.github/workflows/release-4167-recovery.yml']
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: recover-pinned-release-4.1.67
+  cancel-in-progress: false
+
+jobs:
+  verify-and-dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Verify exact source, every required workflow, full compiler membership and archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p evidence
+          python3 - <<'PY'
+          import base64,hashlib,io,json,re,subprocess,time,zipfile
+          from pathlib import Path
+          ROOT='repos/wickidcow/Slimefun-Legacy'
+          SOURCE='5cb1e47c35a2b85ccc342dbf4121fac4bf9a1969'
+          BRANCH='publication-source/4.1.67'
+          def raw(path):
+              return subprocess.run(['gh','api',path],check=True,capture_output=True,timeout=120).stdout
+          def api(path):return json.loads(raw(path))
+          def ref(name):return api(f'{ROOT}/git/ref/heads/{name}')['object']['sha']
+          def file(name):return base64.b64decode(api(f'{ROOT}/contents/{name}?ref={SOURCE}')['content'])
+          def pages(path,field):
+              result=[]
+              for page in range(1,11):
+                  body=api(path+('&' if '?' in path else '?')+f'per_page=100&page={page}')
+                  rows=body[field];result.extend(rows)
+                  if len(rows)<100:return result
+              raise AssertionError('Pagination exceeded the explicit bound')
+          assert ref('master')==ref(BRANCH)==SOURCE
+          assert re.search(rb'(?m)^projectVersion=4\.1\.67\r?$',file('gradle.properties'))
+          assert file('docs/releases/4.1.67.md')
+          source_manifest=file('compatibility/sfl-addon-release-matrix.json')
+          assert hashlib.sha256(source_manifest).hexdigest()=='9f55ffcc4a7b32b58a522772a067080a5974341e4ec4cdb2c7046518fea93da2'
+          manifest=json.loads(source_manifest)
+          assert manifest['bundle_revision']==107
+          expected={row['repository']:row['source_commit'] for row in manifest['addons']}
+          assert len(expected)==45
+          required_names={
+              'Build Slimefun Legacy','Public API Compatibility','Slimefun Compatibility',
+              'Runtime Gameplay Correctness','Universal Migration Database Compatibility',
+              'Paper/Purpur 1.21.11 Compatibility','Paper 26.2 Runtime Smoke',
+              'Purpur/Folia/Leaf 26.2 Runtime Smoke','Paper 26.3 Primary Preflight',
+              'Build SF Addons 1.21.11-26.3 Bundle','Required Addon Runtime Smoke',
+              'Paper 26.2 / 26.3 Full Stack Smoke','Proxy Runtime Smoke','Reproducible Release'}
+          selected={}
+          for attempt in range(40):
+              runs=pages(f'{ROOT}/actions/runs?head_sha={SOURCE}','workflow_runs')
+              selected={}
+              for run in sorted(runs,key=lambda r:r['id']):
+                  if run['event'] in ('push','workflow_dispatch') and run['head_branch'] in ('master',BRANCH):
+                      assert run['head_sha']==SOURCE
+                      selected[run['path']]=run
+              summary=[{k:r[k] for k in ('id','name','path','head_sha','head_branch','event','status','conclusion','run_attempt')} for r in selected.values()]
+              Path('evidence/workflow-summary.json').write_text(json.dumps(summary,indent=2)+'\n')
+              missing=required_names-{r['name'] for r in selected.values()}
+              assert not missing,('Missing exact-source required groups',missing)
+              failed=[r for r in summary if r['status']=='completed' and r['conclusion']!='success']
+              assert not failed,('Completed release gate failed',failed)
+              if all(r['status']=='completed' for r in summary):break
+              time.sleep(10)
+          assert all(r['status']=='completed' and r['conclusion']=='success' for r in selected.values())
+          job_evidence=[];full_compilers=[]
+          for run in selected.values():
+              jobs=pages(f"{ROOT}/actions/runs/{run['id']}/jobs",'jobs')
+              assert jobs and all(j['status']=='completed' and j['conclusion'] in ('success','skipped') for j in jobs),(run['name'],'failed child job')
+              compact=[{k:j[k] for k in ('id','name','status','conclusion')} for j in jobs]
+              job_evidence.append(dict(workflow=run['name'],run_id=run['id'],jobs=compact))
+              matched=set()
+              for job in jobs:
+                  identities=set(re.findall(r'wickidcow/[A-Za-z0-9_.-]+',job['name'])) & set(expected)
+                  if identities:
+                      assert job['conclusion']=='success',(run['name'],job['name'])
+                      matched |= identities
+              if matched==set(expected):full_compilers.append(run['name'])
+              if run['name']=='Paper 26.2 / 26.3 Full Stack Smoke':
+                  for version in ('1.21.11','26.2','26.3'):
+                      found=[j for j in jobs if j['name']=='Full stack Paper '+version]
+                      assert len(found)==1 and found[0]['conclusion']=='success',(version,found)
+          Path('evidence/child-jobs.json').write_text(json.dumps(job_evidence,indent=2)+'\n')
+          assert 'Build SF Addons 1.21.11-26.3 Bundle' in full_compilers
+          assert any(name!='Build SF Addons 1.21.11-26.3 Bundle' for name in full_compilers),('No independent full45 compiler',full_compilers)
+          bundle_run=next(r for r in selected.values() if r['name']=='Build SF Addons 1.21.11-26.3 Bundle')
+          artifacts=pages(f"{ROOT}/actions/runs/{bundle_run['id']}/artifacts",'artifacts')
+          matches=[a for a in artifacts if a['name']=='SF_Addons_1.21.11-26.3' and not a['expired']]
+          assert len(matches)==1
+          artifact=matches[0];assert artifact['workflow_run']['head_sha']==SOURCE
+          outer=raw(f"{ROOT}/actions/artifacts/{artifact['id']}/zip")
+          assert artifact['digest']=='sha256:'+hashlib.sha256(outer).hexdigest()
+          with zipfile.ZipFile(io.BytesIO(outer)) as archive:
+              assert archive.testzip() is None
+              bundle=archive.read('SF_Addons_1.21.11-26.3.zip')
+          with zipfile.ZipFile(io.BytesIO(bundle)) as archive:
+              assert archive.testzip() is None and len(archive.namelist())==len(set(archive.namelist()))
+              actual=json.loads(archive.read('SF_ADDON_MANIFEST.json'))
+              assert actual['core_source_commit']==SOURCE
+              assert len(actual['addons'])==45 and {a['repository']:a['commit'] for a in actual['addons']}==expected
+              assert {n for n in archive.namelist() if n.endswith('.jar')}=={a['jar'] for a in actual['addons']}
+              for row in actual['addons']:
+                  name=row['jar'];assert Path(name).name==name
+                  data=archive.read(name);assert hashlib.sha256(data).hexdigest()==row['sha256']
+                  with zipfile.ZipFile(io.BytesIO(data)) as jar:
+                      assert jar.testzip() is None
+                      assert any(n in jar.namelist() for n in ('plugin.yml','paper-plugin.yml','paper-plugin.yaml'))
+                      assert not any(n.startswith(('org/junit/','org/mockbukkit/','audit/')) for n in jar.namelist())
+              for line in archive.read('SHA256SUMS.txt').decode().splitlines():
+                  digest,name=line.split(None,1);name=name.lstrip('*')
+                  assert Path(name).name==name and hashlib.sha256(archive.read(name)).hexdigest()==digest
+          previous=api(f'{ROOT}/releases/tags/v4.1.66')
+          previous_assets={a['name']:{k:a[k] for k in ('id','size','digest','browser_download_url')} for a in previous['assets']}
+          assert previous_assets['Slimefun-Legacy4.1.66.jar']['digest']=='sha256:514730d71bd276b5ddcd6f46a665605be122e568f838458f66527ad396c22649'
+          previous_tag=api(f'{ROOT}/git/ref/tags/v4.1.66')['object']
+          Path('evidence/previous-release.json').write_text(json.dumps(dict(release_id=previous['id'],tag=previous_tag,assets=previous_assets),indent=2)+'\n')
+          # Refuse to replace an existing release. An independently completed publication is not ours to overwrite.
+          check=subprocess.run(['gh','api',f'{ROOT}/releases/tags/v4.1.67'],capture_output=True,text=True,timeout=60)
+          assert check.returncode!=0 and '404' in check.stderr,'4.1.67 already exists or cannot be checked safely'
+          assert ref('master')==ref(BRANCH)==SOURCE
+          receipt=dict(source=SOURCE,publication_branch=BRANCH,full_compilers=full_compilers,canonical_run=bundle_run['id'],artifact_id=artifact['id'],artifact_sha256=hashlib.sha256(outer).hexdigest(),bundle_sha256=hashlib.sha256(bundle).hexdigest(),addon_count=45,required_group_count=len(required_names),verified_group_count=len(selected),previous_release_untouched=True)
+          Path('evidence/verified-dispatch-input.json').write_text(json.dumps(receipt,indent=2)+'\n')
+          print(json.dumps(receipt,indent=2))
+          # Dispatch the existing reviewed publisher at the immutable source branch, never this audit branch.
+          result=subprocess.run(['gh','api','--method','POST',f'{ROOT}/actions/workflows/reproducible-release.yml/dispatches','--input','-'],input=json.dumps(dict(ref=BRANCH)),check=True,capture_output=True,text=True,timeout=60)
+          Path('evidence/dispatch-response.json').write_text(result.stdout or '{}\n')
+          print('Dispatched the existing reproducible publisher; publication success must be checked separately.')
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-4167-recovery-evidence
+          path: evidence/
+          retention-days: 30
+          if-no-files-found: error
