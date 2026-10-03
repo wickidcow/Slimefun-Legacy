@@ -15,6 +15,8 @@ permissions:
 
 env:
   CANONICAL_ADDON_BUNDLE: SF_Addons_1.21.11-26.3.zip
+  CANONICAL_RESOURCE_PACK: SlimefunLegacyRP.zip
+  RESOURCE_PACK_PIN: compatibility/resource-pack-release.json
 
 concurrency:
   group: reproducible-release-${{ github.ref }}
@@ -191,6 +193,42 @@ jobs:
           echo "Canonical addon bundle source: exact release commit $GITHUB_SHA (Actions run ${RUN_ID})" >> "$GITHUB_STEP_SUMMARY"
           echo "Canonical addon bundle SHA-256: ${BUNDLE_SHA}" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Require pinned official resource pack
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PIN="$RESOURCE_PACK_PIN"
+          PACK_REPO="$(jq -r '.repository' "$PIN")"
+          PACK_TAG="$(jq -r '.release_tag' "$PIN")"
+          PACK_ASSET="$(jq -r '.asset_name' "$PIN")"
+          PACK_SHA256="$(jq -r '.sha256' "$PIN")"
+          PACK_SIZE="$(jq -r '.size' "$PIN")"
+          test "$PACK_ASSET" = "$CANONICAL_RESOURCE_PACK"
+
+          rm -rf resource-pack-artifact
+          mkdir -p resource-pack-artifact
+          gh api "repos/${PACK_REPO}/releases/tags/${PACK_TAG}" > "$RUNNER_TEMP/resource-pack-release.json"
+          python3 scripts/verify_release_resource_pack.py . \
+            --pin "$PIN" \
+            --release-json "$RUNNER_TEMP/resource-pack-release.json"
+
+          gh release download "$PACK_TAG" \
+            --repo "$PACK_REPO" \
+            --pattern "$PACK_ASSET" \
+            --dir resource-pack-artifact
+          PACK="resource-pack-artifact/$PACK_ASSET"
+          test -s "$PACK"
+          python3 scripts/verify_release_resource_pack.py . --pin "$PIN" --zip "$PACK"
+          cp "$PACK" "dist/$CANONICAL_RESOURCE_PACK"
+
+          {
+            echo "Official resource pack source: ${PACK_REPO} ${PACK_TAG}"
+            echo "Official resource pack SHA-256: ${PACK_SHA256}"
+            echo "Official resource pack bytes: ${PACK_SIZE}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload raw reproducible JAR artifact
         uses: actions/upload-artifact@v7
         with:
@@ -218,6 +256,7 @@ jobs:
           TAG="v${LEGACY_ARTIFACT_VERSION}"
           JAR="dist/${OUTPUT_NAME}"
           BUNDLE="dist/${CANONICAL_ADDON_BUNDLE}"
+          RESOURCE_PACK="dist/${CANONICAL_RESOURCE_PACK}"
           NOTES_FILE="docs/releases/${LEGACY_ARTIFACT_VERSION}.md"
           TITLE="Slimefun Legacy ${LEGACY_ARTIFACT_VERSION}"
 
@@ -232,7 +271,7 @@ jobs:
                 exit 1
               fi
             fi
-            gh release upload "$TAG" "$JAR" "$BUNDLE" --repo "$GITHUB_REPOSITORY" --clobber
+            gh release upload "$TAG" "$JAR" "$BUNDLE" "$RESOURCE_PACK" --repo "$GITHUB_REPOSITORY" --clobber
             if [[ -f "$NOTES_FILE" ]]; then
               gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TITLE" --notes-file "$NOTES_FILE"
             else
@@ -247,9 +286,9 @@ jobs:
               fi
             fi
             if [[ -f "$NOTES_FILE" ]]; then
-              gh release create "$TAG" "$JAR" "$BUNDLE" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --notes-file "$NOTES_FILE" --title "$TITLE"
+              gh release create "$TAG" "$JAR" "$BUNDLE" "$RESOURCE_PACK" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --notes-file "$NOTES_FILE" --title "$TITLE"
             else
-              gh release create "$TAG" "$JAR" "$BUNDLE" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --generate-notes --title "$TITLE"
+              gh release create "$TAG" "$JAR" "$BUNDLE" "$RESOURCE_PACK" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --generate-notes --title "$TITLE"
             fi
           fi
 
@@ -263,12 +302,13 @@ jobs:
           TAG="v${LEGACY_ARTIFACT_VERSION}"
           CORE_JAR="${OUTPUT_NAME}"
           BUNDLE="$CANONICAL_ADDON_BUNDLE"
+          RESOURCE_PACK="$CANONICAL_RESOURCE_PACK"
 
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' > assets-before.txt
 
           while IFS= read -r asset; do
             case "$asset" in
-              SF_*.jar|SFL_DracFun-Reborn*.jar|SFL_AddonsNDependencies.zip|SFL_AddonsNDependencies.sha256|SFL_Addons_1.21.11-26.3.zip)
+              SF_*.jar|SFL_DracFun-Reborn*.jar|SFL_AddonsNDependencies.zip|SFL_AddonsNDependencies.sha256|SFL_Addons_1.21.11-26.3.zip|SlimefunLegacy-ResourcePack-*.zip)
                 echo "Removing obsolete/non-core release asset: $asset"
                 gh release delete-asset "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" -y
                 ;;
@@ -278,6 +318,7 @@ jobs:
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | sort > assets-after.txt
           grep -Fxq "$CORE_JAR" assets-after.txt
           grep -Fxq "$BUNDLE" assets-after.txt
+          grep -Fxq "$RESOURCE_PACK" assets-after.txt
 
           if grep -Eq '^SF_.*\.jar$' assets-after.txt; then
             echo 'Raw addon JARs remain on the Slimefun Legacy release.' >&2
@@ -291,8 +332,8 @@ jobs:
           fi
 
           ASSET_COUNT="$(wc -l < assets-after.txt | tr -d ' ')"
-          if [[ "$ASSET_COUNT" -ne 2 ]]; then
-            echo "Expected exactly two release assets (core + canonical addon bundle); found ${ASSET_COUNT}." >&2
+          if [[ "$ASSET_COUNT" -ne 3 ]]; then
+            echo "Expected exactly three release assets (core + canonical addon bundle + resource pack); found ${ASSET_COUNT}." >&2
             cat assets-after.txt >&2
             exit 1
           fi
@@ -302,7 +343,8 @@ jobs:
             echo
             echo "- Core: ${CORE_JAR}"
             echo "- Addon bundle: ${BUNDLE}"
+            echo "- Resource pack: ${RESOURCE_PACK}"
             echo '- Individual addon JARs: not published here'
             echo '- Obsolete SFL_Addons* bundles: removed'
-            echo '- Release assets: exactly two'
+            echo '- Release assets: exactly three'
           } >> "$GITHUB_STEP_SUMMARY"

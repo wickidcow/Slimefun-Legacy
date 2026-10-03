@@ -1,0 +1,155 @@
+name: Mirror official resource pack to Slimefun release
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/mirror-resource-pack-release.yml'
+      - '.github/workflows/reproducible-release.yml'
+      - 'compatibility/resource-pack-release.json'
+      - 'scripts/verify_release_resource_pack.py'
+      - 'scripts/verify_legacy.py'
+      - 'docs/RESOURCE_PACK.md'
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/mirror-resource-pack-release.yml'
+      - '.github/workflows/reproducible-release.yml'
+      - 'compatibility/resource-pack-release.json'
+      - 'scripts/verify_release_resource_pack.py'
+      - 'scripts/verify_legacy.py'
+      - 'docs/RESOURCE_PACK.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror-resource-pack-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  RESOURCE_PACK_PIN: compatibility/resource-pack-release.json
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Verify release wiring and pin
+        run: python3 scripts/verify_release_resource_pack.py .
+
+      - name: Download exact pinned stable resource pack
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PIN="$RESOURCE_PACK_PIN"
+          PACK_REPO="$(jq -r '.repository' "$PIN")"
+          PACK_TAG="$(jq -r '.release_tag' "$PIN")"
+          PACK_ASSET="$(jq -r '.asset_name' "$PIN")"
+
+          mkdir -p work/resource-pack
+          gh api "repos/${PACK_REPO}/releases/tags/${PACK_TAG}" > work/source-release.json
+          python3 scripts/verify_release_resource_pack.py . \
+            --pin "$PIN" \
+            --release-json work/source-release.json
+
+          gh release download "$PACK_TAG" \
+            --repo "$PACK_REPO" \
+            --pattern "$PACK_ASSET" \
+            --dir work/resource-pack
+          python3 scripts/verify_release_resource_pack.py . \
+            --pin "$PIN" \
+            --zip "work/resource-pack/$PACK_ASSET"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pinned-slimefun-resource-pack
+          path: work/resource-pack/SlimefunLegacyRP.zip
+          if-no-files-found: error
+
+  publish-current-release:
+    needs: validate
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: pinned-slimefun-resource-pack
+          path: work/resource-pack
+
+      - name: Mirror verified pack into current Slimefun release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(sed -n 's/^projectVersion=//p' gradle.properties | head -n 1 | tr -d '\r')"
+          TARGET_TAG="v${VERSION}"
+          PIN="$RESOURCE_PACK_PIN"
+          PACK_ASSET="$(jq -r '.asset_name' "$PIN")"
+          PACK_SHA256="$(jq -r '.sha256' "$PIN")"
+          PACK_SIZE="$(jq -r '.size' "$PIN")"
+          PACK="work/resource-pack/$PACK_ASSET"
+
+          python3 scripts/verify_release_resource_pack.py . --pin "$PIN" --zip "$PACK"
+
+          if ! gh release view "$TARGET_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Slimefun release ${TARGET_TAG} does not exist yet; future normal publication will include the pinned resource pack."
+            exit 0
+          fi
+
+          gh api "repos/$GITHUB_REPOSITORY/releases/latest" > work/latest.json
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TARGET_TAG" > work/current.json
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          version = next(
+              line.split("=", 1)[1].strip()
+              for line in Path("gradle.properties").read_text().splitlines()
+              if line.startswith("projectVersion=")
+          )
+          target = "v" + version
+          latest = json.loads(Path("work/latest.json").read_text())
+          current = json.loads(Path("work/current.json").read_text())
+          if latest.get("tag_name") != target:
+              raise SystemExit(
+                  f"Latest Slimefun release advanced to {latest.get('tag_name')}; refusing to change {target}."
+              )
+          assets = {asset["name"]: asset for asset in current.get("assets", [])}
+          if not any(name.startswith("Slimefun-Legacy") and name.endswith(".jar") for name in assets):
+              raise SystemExit("Target release has no Slimefun Legacy core JAR.")
+          if "SF_Addons_1.21.11-26.3.zip" not in assets:
+              raise SystemExit("Target release has no canonical addon bundle.")
+          PY
+
+          gh release upload "$TARGET_TAG" "$PACK" --repo "$GITHUB_REPOSITORY" --clobber
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TARGET_TAG" > work/published.json
+
+          PACK_ASSET="$PACK_ASSET" PACK_SHA256="$PACK_SHA256" PACK_SIZE="$PACK_SIZE" python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          published = json.loads(Path("work/published.json").read_text())
+          assets = {asset["name"]: asset for asset in published.get("assets", [])}
+          name = os.environ["PACK_ASSET"]
+          asset = assets.get(name)
+          if not asset:
+              raise SystemExit(f"Published Slimefun release is missing {name}")
+          if asset.get("digest") != "sha256:" + os.environ["PACK_SHA256"]:
+              raise SystemExit("Published Slimefun release resource-pack digest mismatch")
+          if asset.get("size") != int(os.environ["PACK_SIZE"]):
+              raise SystemExit("Published Slimefun release resource-pack size mismatch")
+          print(f"Verified {name} on {published['tag_name']}: {asset['digest']}")
+          PY

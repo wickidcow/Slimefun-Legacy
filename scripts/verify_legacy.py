@@ -99,6 +99,7 @@ def main() -> int:
         "verify_storage_migration_scope_coverage.py",
         "verify_inventory_persistence_correctness.py",
         "verify_resource_pack_migration.py",
+        "verify_release_resource_pack.py",
         "verify_documentation_consolidation.py",
         "verify_upstream_health_gate.py",
         "verify_paper_purpur_compat.py",
