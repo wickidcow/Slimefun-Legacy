@@ -72,10 +72,11 @@ class StoredInventoryReaderTest {
     void rejectsInvalidSlotWithoutPublishingOrChangingRows(String slot) {
         RecordSet valid = row("0", ItemStackDataCodec.serialize(item()));
         RecordSet invalid = row(slot, ItemStackDataCodec.serialize(item()));
-        Object original = invalid.getValue(FieldKey.INVENTORY_ITEM);
+        byte[] original = ((byte[]) invalid.getValue(FieldKey.INVENTORY_ITEM)).clone();
         assertThrows(
                 IllegalStateException.class, () -> StoredInventoryReader.read(List.of(valid, invalid), 9, "owner"));
-        assertSame(original, invalid.getValue(FieldKey.INVENTORY_ITEM));
+        // Exports are detached; exact contents, not a shared mutable reference, define preservation.
+        assertArrayEquals(original, (byte[]) invalid.getValue(FieldKey.INVENTORY_ITEM));
     }
 
     @Test

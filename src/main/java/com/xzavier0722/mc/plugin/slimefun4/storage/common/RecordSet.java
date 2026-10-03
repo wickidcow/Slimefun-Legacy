@@ -1,10 +1,14 @@
 package com.xzavier0722.mc.plugin.slimefun4.storage.common;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.DataUtils;
+import java.util.AbstractMap;
+import java.util.AbstractSet;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -63,9 +67,18 @@ public class RecordSet {
         return Collections.unmodifiableMap(values);
     }
 
+    /**
+     * Returns a structurally read-only live view with detached binary values.
+     *
+     * <p>Supported puts remain visible until {@link #readonly()} is called. Each view owns the
+     * binary values it exports: editing one can affect that view, never the stored record or a
+     * newly requested view. A binary value retains its identity within a view until replaced by
+     * a supported put, preserving normal array-valued map equality and hashing behavior.
+     * Keys and immutable text can be inspected without copying every binary payload.
+     */
     @ParametersAreNonnullByDefault
     public Map<FieldKey, Object> getAllValues() {
-        return Collections.unmodifiableMap(data);
+        return Collections.unmodifiableMap(new BinaryValueView(data));
     }
 
     /**
@@ -86,9 +99,10 @@ public class RecordSet {
         return valueAsString(data.get(key));
     }
 
+    /** Returns an immutable scalar or a detached copy of the stored binary value. */
     @Nullable @ParametersAreNonnullByDefault
     public Object getValue(FieldKey key) {
-        return data.get(key);
+        return copyValue(data.get(key));
     }
 
     @ParametersAreNonnullByDefault
@@ -131,6 +145,90 @@ public class RecordSet {
         }
         return value;
     }
+
+    @Nullable private static Object copyValue(@Nullable Object value) {
+        return value instanceof byte[] bytes ? bytes.clone() : value;
+    }
+
+    /** Copies only exported values, once per source buffer and view, not during key traversal. */
+    private static final class BinaryValueView extends AbstractMap<FieldKey, Object> {
+        private final Map<FieldKey, Object> source;
+        private Map<FieldKey, BinaryExport> binaries;
+
+        private BinaryValueView(Map<FieldKey, Object> source) {
+            this.source = source;
+        }
+
+        // Protect lazy exports when a safely published, frozen record view is read by several callers.
+        // This does not make concurrent puts or edits to an exported array thread-safe.
+        private synchronized Object exportValue(Object key, Object value) {
+            if (value instanceof byte[] bytes) {
+                if (binaries == null) {
+                    binaries = new HashMap<>();
+                }
+                var exported = binaries.get(key);
+                if (exported == null || exported.source() != bytes) {
+                    exported = new BinaryExport(bytes, bytes.clone());
+                    binaries.put((FieldKey) key, exported);
+                }
+                return exported.value();
+            }
+            if (binaries != null) {
+                binaries.remove(key);
+            }
+            return value;
+        }
+
+        @Override
+        public Object get(Object key) {
+            return exportValue(key, source.get(key));
+        }
+
+        @Override
+        public boolean containsKey(Object key) {
+            return source.containsKey(key);
+        }
+
+        @Override
+        public int size() {
+            return source.size();
+        }
+
+        @Override
+        public Set<FieldKey> keySet() {
+            return Collections.unmodifiableSet(source.keySet());
+        }
+
+        @Override
+        public Set<Entry<FieldKey, Object>> entrySet() {
+            return new AbstractSet<>() {
+                @Override
+                public int size() {
+                    return source.size();
+                }
+
+                @Override
+                public Iterator<Entry<FieldKey, Object>> iterator() {
+                    var entries = source.entrySet().iterator();
+                    return new Iterator<>() {
+                        @Override
+                        public boolean hasNext() {
+                            return entries.hasNext();
+                        }
+
+                        @Override
+                        public Entry<FieldKey, Object> next() {
+                            var entry = entries.next();
+                            return new SimpleImmutableEntry<>(
+                                    entry.getKey(), exportValue(entry.getKey(), entry.getValue()));
+                        }
+                    };
+                }
+            };
+        }
+    }
+
+    private record BinaryExport(byte[] source, byte[] value) {}
 
     @Nullable private static String valueAsString(@Nullable Object value) {
         if (value == null) {
