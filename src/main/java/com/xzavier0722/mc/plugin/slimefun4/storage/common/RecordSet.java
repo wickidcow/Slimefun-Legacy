@@ -159,7 +159,9 @@ public class RecordSet {
             this.source = source;
         }
 
-        private Object exportValue(Object key, Object value) {
+        // Protect lazy exports when a safely published, frozen record view is read by several callers.
+        // This does not make concurrent puts or edits to an exported array thread-safe.
+        private synchronized Object exportValue(Object key, Object value) {
             if (value instanceof byte[] bytes) {
                 if (binaries == null) {
                     binaries = new HashMap<>();
