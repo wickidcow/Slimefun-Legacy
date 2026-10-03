@@ -40,7 +40,7 @@ jobs:
           REMOVED=0
           while IFS= read -r asset; do
             case "$asset" in
-              SF_*.jar|SFL_AddonsNDependencies.zip|SFL_AddonsNDependencies.sha256|SFL_Addons_1.21.11-26.3.zip)
+              SF_*.jar|SFL_AddonsNDependencies.zip|SFL_AddonsNDependencies.sha256|SFL_Addons_1.21.11-26.3.zip|SlimefunLegacy-ResourcePack-*.zip)
                 echo "Removing obsolete/non-core release asset: $asset"
                 gh release delete-asset "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" -y
                 REMOVED=$((REMOVED + 1))
@@ -75,14 +75,24 @@ jobs:
           fi
 
           ASSET_COUNT="$(wc -l < assets-after.txt | tr -d ' ')"
-          if [[ "$ASSET_COUNT" -ne 2 ]]; then
-            echo "Expected exactly two Slimefun Legacy release assets; found ${ASSET_COUNT}." >&2
+          if [[ "$ASSET_COUNT" -ne 2 && "$ASSET_COUNT" -ne 3 ]]; then
+            echo "Expected two base assets or the final three-asset Slimefun Legacy release layout; found ${ASSET_COUNT}." >&2
             cat assets-after.txt >&2
             exit 1
           fi
 
+          if [[ "$ASSET_COUNT" -eq 3 ]]; then
+            if ! grep -Fxq 'SlimefunLegacyRP.zip' assets-after.txt; then
+              echo 'A third release asset exists, but it is not the canonical SlimefunLegacyRP.zip.' >&2
+              cat assets-after.txt >&2
+              exit 1
+            fi
+            echo 'Verified final release layout: one core JAR + canonical addon bundle + resource pack.'
+          else
+            echo 'Verified base release layout: core + addon bundle. Resource-pack mirror may still be pending.'
+          fi
+
           echo "Removed ${REMOVED} obsolete/non-core assets from ${TAG}"
-          echo 'Verified exact release layout: one core JAR + canonical addon bundle.'
           cat assets-after.txt
 
       - name: Publish summary
@@ -93,8 +103,9 @@ jobs:
             echo
             echo '- Exactly one `Slimefun-Legacy*.jar` core asset is required'
             echo '- `SF_Addons_1.21.11-26.3.zip` is retained'
+            echo '- `SlimefunLegacyRP.zip` is retained when present'
             echo '- Raw `SF_*.jar` addon assets are removed'
-            echo '- Obsolete `SFL_Addons*` bundle assets are removed'
-            echo '- Total release assets must equal exactly two'
+            echo '- Obsolete `SFL_Addons*` bundles and legacy resource-pack names are removed'
+            echo '- Two base assets are allowed while the mirror is pending; final releases contain exactly three'
             echo '- Individual addon releases remain the responsibility of their own repositories'
           } >> "$GITHUB_STEP_SUMMARY"
