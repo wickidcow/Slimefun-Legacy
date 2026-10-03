@@ -219,7 +219,8 @@ public class RecordSet {
                         @Override
                         public Entry<FieldKey, Object> next() {
                             var entry = entries.next();
-                            return new SimpleImmutableEntry<>(entry.getKey(), exportValue(entry.getKey(), entry.getValue()));
+                            return new SimpleImmutableEntry<>(
+                                    entry.getKey(), exportValue(entry.getKey(), entry.getValue()));
                         }
                     };
                 }

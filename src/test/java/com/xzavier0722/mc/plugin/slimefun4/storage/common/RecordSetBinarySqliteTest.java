@@ -48,9 +48,10 @@ class RecordSetBinarySqliteTest {
             record.put(FieldKey.INVENTORY_SLOT, "3");
             record.put(FieldKey.INVENTORY_ITEM, expected);
             record.readonly();
-            byte[] exported = (byte[]) (mapExport
-                    ? record.getAllValues().get(FieldKey.INVENTORY_ITEM)
-                    : record.getValue(FieldKey.INVENTORY_ITEM));
+            byte[] exported = (byte[])
+                    (mapExport
+                            ? record.getAllValues().get(FieldKey.INVENTORY_ITEM)
+                            : record.getValue(FieldKey.INVENTORY_ITEM));
             Arrays.fill(exported, (byte) 99);
             // The actual production setData path consumes this RecordSet through both map/key APIs.
             adapter.setData(key, record);
@@ -65,10 +66,13 @@ class RecordSetBinarySqliteTest {
             assertThrows(IllegalStateException.class, () -> loaded.put(FieldKey.INVENTORY_SLOT, "4"));
             byte[] exported = (byte[]) loaded.getAllValues().entrySet().stream()
                     .filter(entry -> entry.getKey() == FieldKey.INVENTORY_ITEM)
-                    .findFirst().orElseThrow().getValue();
+                    .findFirst()
+                    .orElseThrow()
+                    .getValue();
             Arrays.fill(exported, (byte) 0);
             assertArrayEquals(expected, (byte[]) loaded.getValue(FieldKey.INVENTORY_ITEM));
-            assertArrayEquals(expected, (byte[]) adapter.getData(key, false).getFirst().getValue(FieldKey.INVENTORY_ITEM));
+            assertArrayEquals(
+                    expected, (byte[]) adapter.getData(key, false).getFirst().getValue(FieldKey.INVENTORY_ITEM));
         }
     }
 

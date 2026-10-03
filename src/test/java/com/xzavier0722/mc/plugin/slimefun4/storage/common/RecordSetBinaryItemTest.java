@@ -45,9 +45,10 @@ class RecordSetBinaryItemTest {
         record.put(FieldKey.INVENTORY_ITEM, item);
         record.readonly();
         String before = record.getString(FieldKey.INVENTORY_ITEM);
-        byte[] exported = (byte[]) (mapExport
-                ? record.getAllValues().get(FieldKey.INVENTORY_ITEM)
-                : record.getValue(FieldKey.INVENTORY_ITEM));
+        byte[] exported = (byte[])
+                (mapExport
+                        ? record.getAllValues().get(FieldKey.INVENTORY_ITEM)
+                        : record.getValue(FieldKey.INVENTORY_ITEM));
         Arrays.fill(exported, (byte) 0);
         assertEquals(before, record.getString(FieldKey.INVENTORY_ITEM), "The stored item bytes changed");
         ItemStack restored = record.getItemStack(FieldKey.INVENTORY_ITEM);
@@ -58,9 +59,12 @@ class RecordSetBinaryItemTest {
         assertEquals(meta.lore(), restored.getItemMeta().lore());
         var actual = restored.getItemMeta().getPersistentDataContainer();
         assertEquals("UNREGISTERED_OLD_ID", actual.get(key("slimefun:slimefun_item"), PersistentDataType.STRING));
-        assertEquals(Float.floatToRawIntBits(123.4567F), Float.floatToRawIntBits(
-                Objects.requireNonNull(actual.get(key("slimefun:item_charge"), PersistentDataType.FLOAT))));
-        assertEquals(Long.valueOf(9_007_199_254_740_993L), actual.get(key("other:large_count"), PersistentDataType.LONG));
+        assertEquals(
+                Float.floatToRawIntBits(123.4567F),
+                Float.floatToRawIntBits(
+                        Objects.requireNonNull(actual.get(key("slimefun:item_charge"), PersistentDataType.FLOAT))));
+        assertEquals(
+                Long.valueOf(9_007_199_254_740_993L), actual.get(key("other:large_count"), PersistentDataType.LONG));
         assertArrayEquals(new byte[] {0, -1, 4}, actual.get(key("other:opaque"), PersistentDataType.BYTE_ARRAY));
     }
 

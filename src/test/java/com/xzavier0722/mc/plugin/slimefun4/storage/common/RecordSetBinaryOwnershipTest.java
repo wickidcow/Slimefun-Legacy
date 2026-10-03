@@ -43,7 +43,8 @@ class RecordSetBinaryOwnershipTest {
                 case DIRECT -> (byte[]) record.getValue(ITEM);
                 case MAP_GET -> (byte[]) view.get(ITEM);
                 case MAP_DEFAULT -> (byte[]) view.getOrDefault(ITEM, null);
-                case ENTRY_ITERATOR -> (byte[]) view.entrySet().iterator().next().getValue();
+                case ENTRY_ITERATOR ->
+                    (byte[]) view.entrySet().iterator().next().getValue();
                 case VALUE_ITERATOR -> (byte[]) view.values().iterator().next();
                 case MAP_CALLBACK -> {
                     var found = new AtomicReference<byte[]>();
@@ -60,7 +61,8 @@ class RecordSetBinaryOwnershipTest {
                     view.values().forEach(value -> found.set((byte[]) value));
                     yield found.get();
                 }
-                case ENTRY_STREAM -> (byte[]) view.entrySet().stream().findFirst().orElseThrow().getValue();
+                case ENTRY_STREAM ->
+                    (byte[]) view.entrySet().stream().findFirst().orElseThrow().getValue();
                 case VALUE_STREAM -> (byte[]) view.values().stream().findFirst().orElseThrow();
                 case ENTRY_ARRAY -> (byte[]) ((Map.Entry<?, ?>) view.entrySet().toArray()[0]).getValue();
                 case VALUE_ARRAY -> (byte[]) view.values().toArray()[0];
@@ -162,7 +164,9 @@ class RecordSetBinaryOwnershipTest {
         assertThrows(UnsupportedOperationException.class, map::clear);
         assertThrows(UnsupportedOperationException.class, () -> map.compute(ITEM, (key, value) -> null));
         assertThrows(UnsupportedOperationException.class, () -> map.replaceAll((key, value) -> null));
-        assertThrows(UnsupportedOperationException.class, () -> map.entrySet().iterator().next().setValue(null));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> map.entrySet().iterator().next().setValue(null));
         assertThrows(UnsupportedOperationException.class, () -> map.keySet().remove(ITEM));
         assertThrows(UnsupportedOperationException.class, () -> map.values().removeIf(value -> true));
         var entries = map.entrySet().iterator();
