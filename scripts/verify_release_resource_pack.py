@@ -60,6 +60,7 @@ def load_pin(path: Path) -> dict:
 def verify_static(root: Path, pin: dict) -> None:
     release_workflow = (root / ".github/workflows/reproducible-release.yml").read_text(encoding="utf-8")
     mirror_workflow = (root / ".github/workflows/mirror-resource-pack-release.yml").read_text(encoding="utf-8")
+    cleanup_workflow = (root / ".github/workflows/cleanup-sfl-release-assets.yml").read_text(encoding="utf-8")
     docs = (root / "docs/RESOURCE_PACK.md").read_text(encoding="utf-8")
 
     checks = {
@@ -72,6 +73,9 @@ def verify_static(root: Path, pin: dict) -> None:
         "release layout requires three assets": 'if [[ "$ASSET_COUNT" -ne 3 ]]' in release_workflow,
         "mirror workflow uploads pack": 'gh release upload "$TARGET_TAG" "$PACK"' in mirror_workflow,
         "mirror workflow verifies published digest": "Published Slimefun release resource-pack digest mismatch" in mirror_workflow,
+        "cleanup preserves canonical pack": "`SlimefunLegacyRP.zip` is retained when present" in cleanup_workflow,
+        "cleanup recognizes final three-asset layout": 'if [[ "$ASSET_COUNT" -ne 2 && "$ASSET_COUNT" -ne 3 ]]' in cleanup_workflow,
+        "cleanup rejects unknown third asset": "it is not the canonical SlimefunLegacyRP.zip" in cleanup_workflow,
         "docs describe separate asset": "separate** `SlimefunLegacyRP.zip` asset" in docs,
         "docs identify pin": "`compatibility/resource-pack-release.json`" in docs,
     }
