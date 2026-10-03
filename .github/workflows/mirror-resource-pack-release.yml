@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/mirror-resource-pack-release.yml'
       - '.github/workflows/reproducible-release.yml'
+      - '.github/workflows/cleanup-sfl-release-assets.yml'
+      - '.github/workflows/cleanup-sfl-release-assets.yml'
       - 'compatibility/resource-pack-release.json'
       - 'scripts/verify_release_resource_pack.py'
       - 'scripts/verify_legacy.py'
