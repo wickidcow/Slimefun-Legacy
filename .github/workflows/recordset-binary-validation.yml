@@ -19,7 +19,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@v6
         with:
-          ref: 358c520ad1f7c74d21c955cfae1c4bda8b186bf3
+          ref: 762a6f8e7596a6920a08bb01fd6b35d61d11ecca
           fetch-depth: 0
           path: core
           persist-credentials: false
@@ -34,7 +34,7 @@ jobs:
           cd core
           export SOURCE_COMMIT="$(git rev-parse HEAD)"
           export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
-          test "$SOURCE_COMMIT" = 358c520ad1f7c74d21c955cfae1c4bda8b186bf3
+          test "$SOURCE_COMMIT" = 762a6f8e7596a6920a08bb01fd6b35d61d11ecca
           python3 scripts/verify_legacy.py . > ../evidence/invariants.log 2>&1
           chmod +x gradlew
           ./gradlew spotlessApply --no-daemon --no-configuration-cache > ../evidence/format.log 2>&1
