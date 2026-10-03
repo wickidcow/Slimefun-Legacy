@@ -76,6 +76,11 @@ require("MAX_CONTAINER_DEPTH = 4" in enable_executor
 
 reject("migrateHostedPackModels" in textures,
        "item-model startup must never force-upgrade existing zero mappings to bundled hosted-pack values")
+startup_defaults = textures[textures.find("private void loadDefaultValues()"):textures.find("private void migrateAccidentalDeepcorePaxelMappings()")]
+require("config.setValue(key, 0)" in startup_defaults,
+        "missing mappings must default to zero without implicitly opting into texture metadata")
+reject("config.setValue(key, bundledModel)" in startup_defaults,
+       "startup must not populate absent mappings with bundled model numbers")
 require("wasHostedPackModelMigrationApplied()" in textures
         and "getHostedPackRollbackCandidateCount()" in textures
         and "rollbackHostedPackMigrationMappings()" in textures,

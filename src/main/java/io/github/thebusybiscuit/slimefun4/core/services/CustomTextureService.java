@@ -40,9 +40,7 @@ public class CustomTextureService {
     private static final String HOSTED_PACK_MODEL_MIGRATION =
             "_SLIMEFUN_LEGACY_MIGRATIONS.HOSTED_PACK_MODEL_MAP_2026_09";
     private static final String[] DEEPCORE_PAXEL_IDS = {
-        "ADVENTURERS_DEEPCORE_PAXEL_3X3",
-        "ADVENTURERS_DEEPCORE_PAXEL_5X5",
-        "ADVENTURERS_DEEPCORE_PAXEL_9X9"
+        "ADVENTURERS_DEEPCORE_PAXEL_3X3", "ADVENTURERS_DEEPCORE_PAXEL_5X5", "ADVENTURERS_DEEPCORE_PAXEL_9X9"
     };
 
     /**
@@ -81,11 +79,13 @@ public class CustomTextureService {
                         "to give items custom textures.",
                         "0 means there is no data assigned to that item.",
                         "",
-                        "Slimefun Legacy can optionally use the official resource pack configured in config.yml."))
+                        "New mappings default to 0. Existing mappings are preserved.",
+                        "Pack delivery is configured separately in configSFLAddons.yml."))
                 .parseComments(true);
 
-        // SlimefunItemStack applies configured model data while the stack is constructed. Load bundled mappings
-        // before core or addon items are created so those immutable templates are correct from the beginning.
+        // SlimefunItemStack reads mappings while constructing templates. Missing mappings must remain
+        // disabled: adding a bundled model here would make new stacks differ from existing untextured items,
+        // even on servers that never enabled Legacy's resource-pack sender.
         loadDefaultValues();
         migrateAccidentalDeepcorePaxelMappings();
     }
@@ -132,10 +132,8 @@ public class CustomTextureService {
             FileConfiguration cfg = YamlConfiguration.loadConfiguration(reader);
 
             for (String key : cfg.getKeys(false)) {
-                int bundledModel = cfg.getInt(key);
-
                 if (!config.contains(key)) {
-                    config.setValue(key, bundledModel);
+                    config.setValue(key, 0);
                 }
             }
 
