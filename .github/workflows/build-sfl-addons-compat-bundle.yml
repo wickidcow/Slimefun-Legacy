@@ -421,6 +421,8 @@ jobs:
           name: sf-addon-${{ matrix.slug }}
           path: staged/
           if-no-files-found: error
+          # A retry must replace any evidence-only artifact from its failed attempt.
+          overwrite: true
 
   package:
     name: Package canonical addon bundle
