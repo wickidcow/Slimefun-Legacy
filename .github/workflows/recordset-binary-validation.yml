@@ -1,0 +1,228 @@
+name: RecordSet Binary Ownership Validation
+
+on:
+  push:
+    branches: ['audit/recordset-binary-control-20261002']
+    paths: ['.github/workflows/recordset-binary-validation.yml']
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: 358c520ad1f7c74d21c955cfae1c4bda8b186bf3
+          fetch-depth: 0
+          path: core
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Build the exact candidate and run every new test
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/candidate-tests inputs
+          cd core
+          export SOURCE_COMMIT="$(git rev-parse HEAD)"
+          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          test "$SOURCE_COMMIT" = 358c520ad1f7c74d21c955cfae1c4bda8b186bf3
+          python3 scripts/verify_legacy.py . > ../evidence/invariants.log 2>&1
+          chmod +x gradlew
+          ./gradlew spotlessApply --no-daemon --no-configuration-cache > ../evidence/format.log 2>&1
+          ./gradlew test --tests 'com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordSetBinary*Test' shadowJar --no-daemon --no-build-cache --no-configuration-cache 2>&1 | tee ../evidence/candidate.log
+          cp build/test-results/test/TEST-*.xml ../evidence/candidate-tests/
+          JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+          cp "$JAR" ../inputs/candidate.jar
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,xml.etree.ElementTree as ET
+          roots=[ET.parse(p).getroot() for p in Path('../evidence/candidate-tests').glob('TEST-*.xml')]
+          counts={k:sum(int(r.attrib[k]) for r in roots) for k in ['tests','failures','errors','skipped']}
+          assert counts==dict(tests=51,failures=0,errors=0,skipped=0),counts
+          Path('../evidence/candidate-counts.json').write_text(json.dumps(counts,indent=2)+'\n')
+          files=['src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/common/RecordSet.java']
+          files += [str(p) for p in Path('src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/common').glob('RecordSetBinary*Test.java')]
+          assert len(files)==5
+          blobs={}
+          for name in files:
+              data=Path(name).read_bytes()
+              blobs[name]=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+              target=Path('../evidence/formatted-source')/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
+          Path('../evidence/formatted-blobs.json').write_text(json.dumps(blobs,indent=2)+'\n')
+          PY
+      - name: Compile the non-shipped native item probe
+        run: |
+          set -euo pipefail
+          cat > inputs/classpath.init.gradle <<'GROOVY'
+          allprojects {
+              afterEvaluate {
+                  if (plugins.hasPlugin('java')) {
+                      tasks.register('writeRecordSetAuditClasspath') {
+                          doLast { file('build/recordset-classpath.txt').text = sourceSets.test.runtimeClasspath.asPath }
+                      }
+                  }
+              }
+          }
+          GROOVY
+          (cd core && ./gradlew -I ../inputs/classpath.init.gradle writeRecordSetAuditClasspath --no-daemon --no-configuration-cache) > evidence/probe-classpath.log 2>&1
+          mkdir -p probe-classes
+          javac --release 21 -cp "inputs/candidate.jar:$(cat core/build/recordset-classpath.txt)" -d probe-classes audit-runtime/RecordSetBinaryProbe.java > evidence/probe-compile.log 2>&1
+          printf "name: RecordSetBinaryProbe\nmain: audit.RecordSetBinaryProbe\nversion: '1'\napi-version: '1.21.11'\ndepend: [Slimefun]\n" > probe-classes/plugin.yml
+          jar --create --file inputs/probe.jar -C probe-classes .
+          cp audit-runtime/RecordSetBinaryProbe.java evidence/
+      - name: Reproduce the original failures without substituting setup errors
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/original-tests
+          cd core
+          git show 5cb1e47c35a2b85ccc342dbf4121fac4bf9a1969:src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/common/RecordSet.java > src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/common/RecordSet.java
+          STATUS=0
+          ./gradlew test --tests 'com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordSetBinary*Test' --rerun-tasks --no-daemon --no-build-cache --no-configuration-cache > ../evidence/original.log 2>&1 || STATUS=$?
+          test "$STATUS" -ne 0
+          cp build/test-results/test/TEST-*.xml ../evidence/original-tests/
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,xml.etree.ElementTree as ET
+          roots=[ET.parse(p).getroot() for p in Path('../evidence/original-tests').glob('TEST-*.xml')]
+          counts={k:sum(int(r.attrib[k]) for r in roots) for k in ['tests','failures','errors','skipped']}
+          assert counts['tests']==51 and counts['failures']>=38 and counts['errors']==counts['skipped']==0,counts
+          for root in roots:
+              for case in root.findall('testcase'):
+                  for failure in case.findall('failure'):
+                      assert failure.attrib['type']=='org.opentest4j.AssertionFailedError',failure.attrib
+          sqlite=[r for r in roots if r.attrib['name'].endswith('RecordSetBinarySqliteTest')]
+          assert len(sqlite)==1 and int(sqlite[0].attrib['failures'])==6
+          Path('../evidence/original-counts.json').write_text(json.dumps(counts,indent=2)+'\n')
+          print(counts)
+          PY
+      - name: Verify the published original core and stage reviewed formatted source objects
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 --max-time 180 -H 'User-Agent: Slimefun-Legacy-RecordSet-Validation' https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.66/Slimefun-Legacy4.1.66.jar -o inputs/original.jar
+          printf '514730d71bd276b5ddcd6f46a665605be122e568f838458f66527ad396c22649  inputs/original.jar\n' | sha256sum --check
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,subprocess,zipfile
+          for name,sha in json.loads(Path('evidence/formatted-blobs.json').read_text()).items():
+              data=Path('evidence/formatted-source',name).read_bytes()
+              assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()==sha
+              result=subprocess.run(['gh','api','--method','POST','repos/wickidcow/Slimefun-Legacy/git/blobs','--input','-'],input=json.dumps(dict(content=data.decode(),encoding='utf-8')),check=True,capture_output=True,text=True)
+              assert json.loads(result.stdout)['sha']==sha
+          hashes={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in Path('inputs').glob('*.jar')}
+          with zipfile.ZipFile('inputs/candidate.jar') as jar:
+              assert jar.testzip() is None
+              assert not any(n.startswith(('audit/','org/junit/','org/mockbukkit/')) for n in jar.namelist())
+          Path('inputs/jar-hashes.json').write_text(json.dumps(hashes,indent=2)+'\n')
+          Path('evidence/jar-hashes.json').write_text(json.dumps(hashes,indent=2)+'\n')
+          PY
+      - name: Retain actual test reports on failures too
+        if: always()
+        run: |
+          mkdir -p evidence/last-tests
+          cp core/build/test-results/test/TEST-*.xml evidence/last-tests/ 2>/dev/null || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: recordset-binary-control-evidence
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: recordset-binary-inputs
+          path: |
+            inputs/*.jar
+            inputs/jar-hashes.json
+          retention-days: 14
+          if-no-files-found: error
+
+  native:
+    needs: controls
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - minecraft: '1.21.11'
+            build: 132
+            java: '21'
+            sha: 5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba
+          - minecraft: '26.2'
+            build: 129
+            java: '25'
+            sha: b1d8f6bfa1b6101fa8e947b53041cb3bdf5540e7b83b6547ca19ba7edefeb083
+          - minecraft: '26.3'
+            build: 140
+            java: '25'
+            sha: 98aabc113a80b9b5e183475e839a17cf99c39c915a1f46b8f35a5e89fd5de0f1
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: recordset-binary-inputs
+          path: inputs
+      - name: Verify the original escape and exact corrected items in separate server processes
+        env:
+          MC: ${{ matrix.minecraft }}
+          BUILD: ${{ matrix.build }}
+          SHA: ${{ matrix.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          for name,sha in json.loads(Path('inputs/jar-hashes.json').read_text()).items():
+              assert hashlib.sha256(Path('inputs',name).read_bytes()).hexdigest()==sha
+          PY
+          curl -fLsS --retry 3 --max-time 120 -H 'User-Agent: Slimefun-Legacy-Preservation/4.1.66' "https://fill-data.papermc.io/v1/objects/${SHA}/paper-${MC}-${BUILD}.jar" -o server.jar
+          printf '%s  server.jar\n' "$SHA" | sha256sum --check
+          printf 'minecraft=%s\nbuild=%s\nserver_sha256=%s\n' "$MC" "$BUILD" "$SHA" > evidence/server.txt
+          cp inputs/jar-hashes.json evidence/
+          for KIND in original candidate; do
+            mkdir -p "$KIND/plugins"
+            cp server.jar "$KIND/server.jar"
+            cp "inputs/$KIND.jar" "$KIND/plugins/Slimefun.jar"
+            cp inputs/probe.jar "$KIND/plugins/RecordSetBinaryProbe.jar"
+            printf 'eula=true\n' > "$KIND/eula.txt"
+            printf 'online-mode=false\nserver-ip=127.0.0.1\nserver-port=0\nview-distance=2\nsimulation-distance=2\npause-when-empty-seconds=-1\n' > "$KIND/server.properties"
+          done
+          for CYCLE in original first second; do
+            KIND=candidate; ORIGINAL=false; RESTART=false; MARKER=RECORDSET_NATIVE_WRITE_PASS
+            if [[ "$CYCLE" == original ]]; then KIND=original; ORIGINAL=true; MARKER=RECORDSET_ORIGINAL_ESCAPE_REPRODUCED; fi
+            if [[ "$CYCLE" == second ]]; then RESTART=true; MARKER=RECORDSET_NATIVE_RESTART_PASS; fi
+            rm -f "$KIND/recordset-result.txt"
+            STATUS=0
+            (cd "$KIND" && timeout --kill-after=20s 240s java -Xms512M -Xmx2G -Drecordset.audit.original="$ORIGINAL" -Drecordset.audit.restart="$RESTART" -jar server.jar --nogui > "$CYCLE.log" 2>&1) || STATUS=$?
+            mkdir -p "evidence/$CYCLE"
+            cp "$KIND/$CYCLE.log" "evidence/$CYCLE/"
+            cp "$KIND/recordset-result.txt" "evidence/$CYCLE/" 2>/dev/null || true
+            cp -r "$KIND/recordset-fixtures" "evidence/$CYCLE/" 2>/dev/null || true
+            if [[ "$STATUS" != 0 ]] || ! grep -Fxq "$MARKER paths=3" "$KIND/recordset-result.txt"; then tail -n 120 "$KIND/$CYCLE.log"; exit 1; fi
+            if grep -Eq 'RECORDSET_NATIVE_FAIL|Error occurred while enabling|NoSuchMethodError|NoClassDefFoundError' "$KIND/$CYCLE.log"; then tail -n 120 "$KIND/$CYCLE.log"; exit 1; fi
+            cat "$KIND/recordset-result.txt"
+          done
+          printf 'PASS: original buffer escapes reproduced; exact native item data retained through export attempts and a second JVM\n' > evidence/result.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: recordset-native-${{ matrix.minecraft }}
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: error
