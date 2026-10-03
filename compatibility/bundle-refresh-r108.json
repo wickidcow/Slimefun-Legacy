@@ -1,0 +1,22 @@
+{
+  "release_tag": "v4.1.67",
+  "core_source_commit": "5cb1e47c35a2b85ccc342dbf4121fac4bf9a1969",
+  "core_jar": "Slimefun-Legacy4.1.67.jar",
+  "core_sha256": "011d1181c5684d048425078d519100d46fb0867f053ff4b3312fd69c9cedf816",
+  "bundle_name": "SF_Addons_1.21.11-26.3.zip",
+  "old_bundle_sha256": "be38b1040d1a651fd69bd138a000644c79f25a915c21096d04685b3da6c9ef67",
+  "bundle_revision": 108,
+  "expected_addons": 45,
+  "repository": "wickidcow/SF_MagicExpansion",
+  "slug": "magicexpansion",
+  "old_jar": "SF_MagicExpansion1.1.7.jar",
+  "old_commit": "4532a3c2adfef0136200fed97551433daaf11625",
+  "new_jar": "SF_MagicExpansion1.1.8.jar",
+  "new_commit": "3a22d9e7944a60b647c9f498b821ede783072813",
+  "new_version": "1.1.8",
+  "new_sha256": "3c52e719450c167ccf8ec8872747f3749d923e5e91bf4f768f5566eaee735349",
+  "new_distributable_api": "1.21.11-R0.1-SNAPSHOT",
+  "new_build_core_version": "4.1.61",
+  "new_paper_26_3_api": "26.3-rc-3.build.1-alpha",
+  "compatibility_note": "Bundle refresh r108: MagicExpansion 1.1.8 is the checksum-verified standalone release JAR, built on the Paper 1.21.11 / Slimefun 4.1.61 baseline. Its source was also compiled against Slimefun 4.1.67 and Paper 26.3; the published JAR passed two-boot cargo, sword, and shop checks on Paper 26.3 beta 143 / Slimefun 4.1.67. The other 44 addon JARs and the release core are unchanged. These checks do not certify every historical world, live-client combat, concurrency, or Folia behavior."
+}

@@ -1,0 +1,135 @@
+name: Refresh v4.1.67 addon bundle with MagicExpansion 1.1.8
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/refresh-v4.1.67-magicexpansion-1.1.8.yml'
+      - 'compatibility/bundle-refresh-r108.json'
+      - 'scripts/refresh_release_addon.py'
+      - 'scripts/test_refresh_release_addon.py'
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/refresh-v4.1.67-magicexpansion-1.1.8.yml'
+      - 'compatibility/bundle-refresh-r108.json'
+      - 'scripts/refresh_release_addon.py'
+      - 'scripts/test_refresh_release_addon.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-v4.1.67-addon-bundle
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.event_name == 'pull_request' || contains(github.event.head_commit.message, 'Publish addon bundle r108 with MagicExpansion 1.1.8')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      digest: ${{ steps.refresh.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify refresh and archive guards
+        run: PYTHONPATH=scripts python3 -m unittest scripts/test_refresh_release_addon.py scripts/test_verify_published_addon_bundle.py scripts/test_verify_addon_bytecode.py
+      - name: Download pinned release inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/current work/new
+          gh release download v4.1.67 --repo "$GITHUB_REPOSITORY" \
+            --pattern SF_Addons_1.21.11-26.3.zip --pattern Slimefun-Legacy4.1.67.jar --dir work/current
+          gh release download v1.1.8 --repo wickidcow/SF_MagicExpansion \
+            --pattern SF_MagicExpansion1.1.8.jar --dir work/new
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          config = json.loads(Path('compatibility/bundle-refresh-r108.json').read_text())
+          core = Path('work/current') / config['core_jar']
+          assert hashlib.sha256(core.read_bytes()).hexdigest() == config['core_sha256'], 'Published core changed'
+          PY
+      - name: Create and validate the targeted refresh
+        id: refresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/refresh_release_addon.py \
+            --config compatibility/bundle-refresh-r108.json \
+            --matrix compatibility/sfl-addon-release-matrix.json \
+            --original work/current/SF_Addons_1.21.11-26.3.zip \
+            --addon work/new/SF_MagicExpansion1.1.8.jar \
+            --output work/SF_Addons_1.21.11-26.3.zip | tee work/validation.json
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          report = json.loads(Path('work/validation.json').read_text())
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('digest=' + report['bundle_sha256'] + '\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: addon-bundle-r108-candidate
+          path: |
+            work/SF_Addons_1.21.11-26.3.zip
+            work/validation.json
+          if-no-files-found: error
+
+  publish:
+    needs: prepare
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, 'Publish addon bundle r108 with MagicExpansion 1.1.8')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          name: addon-bundle-r108-candidate
+          path: work
+      - name: Recheck live release and replace the addon ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_DIGEST: ${{ needs.prepare.outputs.digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/releases/latest" > work/latest.json
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v4.1.67" > work/release.json
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          config = json.loads(Path('compatibility/bundle-refresh-r108.json').read_text())
+          current = json.loads(Path('work/release.json').read_text())
+          latest = json.loads(Path('work/latest.json').read_text())
+          assert latest['tag_name'] == config['release_tag'], 'Latest core release advanced; refresh must be rebased'
+          assert current['target_commitish'] == config['core_source_commit'], 'Release target changed'
+          assets = {asset['name']: asset for asset in current['assets']}
+          assert assets[config['core_jar']]['digest'] == 'sha256:' + config['core_sha256'], 'Release core changed'
+          assert assets[config['bundle_name']]['digest'] == 'sha256:' + config['old_bundle_sha256'], 'Live bundle changed; refusing to overwrite another update'
+          digest = hashlib.sha256((Path('work') / config['bundle_name']).read_bytes()).hexdigest()
+          assert digest == os.environ['CANDIDATE_DIGEST'], 'Candidate artifact changed'
+          PY
+          gh release upload v4.1.67 work/SF_Addons_1.21.11-26.3.zip --repo "$GITHUB_REPOSITORY" --clobber
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v4.1.67" > work/published.json
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          config = json.loads(Path('compatibility/bundle-refresh-r108.json').read_text())
+          published = json.loads(Path('work/published.json').read_text())
+          assets = {asset['name']: asset for asset in published['assets']}
+          assert assets[config['bundle_name']]['digest'] == 'sha256:' + os.environ['CANDIDATE_DIGEST']
+          assert assets[config['core_jar']]['digest'] == 'sha256:' + config['core_sha256']
+          body = published.get('body') or ''
+          marker = '## Addon bundle refresh — revision 108'
+          note = Path('docs/addon-bundle-r108.md').read_text()
+          assert marker in note
+          if marker not in body:
+              body = body.rstrip() + '\n\n' + note
+          Path('work/release-notes.md').write_text(body)
+          print('Published revision 108; core and other addon JARs remain unchanged.')
+          PY
+          gh release edit v4.1.67 --repo "$GITHUB_REPOSITORY" --notes-file work/release-notes.md
