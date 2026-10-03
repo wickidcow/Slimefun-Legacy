@@ -1,0 +1,22 @@
+{
+  "release_tag": "v4.1.68",
+  "core_source_commit": "54937520cb8c0f7cd63f96365085e2a15981ce9f",
+  "core_jar": "Slimefun-Legacy4.1.68.jar",
+  "core_sha256": "6f934cbdd17cf5a51b9bbace691d7adc45da33c65aaf9fb75c52adbc7c7e50fa",
+  "bundle_name": "SF_Addons_1.21.11-26.3.zip",
+  "old_bundle_sha256": "c073a02928af712d8372c10a28d94cf338c7d2cf75bc7762122295ba404035e5",
+  "bundle_revision": 110,
+  "expected_addons": 45,
+  "repository": "wickidcow/SF_MagicExpansion",
+  "slug": "magicexpansion",
+  "old_jar": "SF_MagicExpansion1.1.8.jar",
+  "old_commit": "3a22d9e7944a60b647c9f498b821ede783072813",
+  "new_jar": "SF_MagicExpansion1.1.9.jar",
+  "new_commit": "d24e2d1458010ba2082db95e5c6103a267aab406",
+  "new_version": "1.1.9",
+  "new_sha256": "0707803cf7d1e375cea6df3ba47fdfdd725887223812889077a07d6ad8b7b44e",
+  "new_distributable_api": "1.21.11-R0.1-SNAPSHOT",
+  "new_build_core_version": "4.1.61",
+  "new_paper_26_3_api": "26.3-rc-3.build.1-alpha",
+  "compatibility_note": "Bundle refresh r110: MagicExpansion 1.1.9 adds automatic coexistence with dedicated fishing plugins. This is the checksum-verified standalone JAR built against Paper 1.21.11 / Slimefun 4.1.61. All 97 tests also passed against published Slimefun 4.1.68; binary linkage and two Paper 26.3 build 143 boots passed. The published classes, config.yml and language.yml byte-match the runtime-tested candidate. The other 44 addon JARs and release core are unchanged. Third-party plugin JAR combinations, live-client fishing, historical worlds, arbitrary concurrency and Folia behavior are not certified."
+}
