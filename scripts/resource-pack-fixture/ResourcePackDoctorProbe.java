@@ -4,16 +4,20 @@ import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataScope;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.FieldKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordSet;
+import com.xzavier0722.mc.plugin.slimefun4.storage.controller.attributes.UniversalDataTrait;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.DataUtils;
+import com.xzavier0722.mc.plugin.slimefun4.storage.util.LocationUtils;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerBackpack;
 import io.github.thebusybiscuit.slimefun4.core.config.CuriositiesConfig;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
@@ -39,6 +43,7 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
     private static final String UNIVERSAL = "bbbbbbbb-cccc-dddd-eeee-ffffffffffff";
     private static final String LEGACY_UNIVERSAL = "cccccccc-dddd-eeee-ffff-111111111111";
     private static final String HELD_BACKPACK = "dddddddd-eeee-ffff-1111-222222222222";
+    private static final String VIRTUAL_MENU = "eeeeeeee-ffff-1111-2222-333333333333";
     private static final float MODEL = 2200080F;
     private static final int FAR_CHUNK = 512;
     private static final int FAR_BLOCK = FAR_CHUNK << 4;
@@ -69,6 +74,28 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
                     case "preview" -> verifyPreview();
                     case "checkpoint" -> verifyCheckpoint();
                     case "installed" -> verifyInstalled();
+                    case "menus-prepare" -> {
+                        prepareMachine(10, 8);
+                        prepareVirtualMenu();
+                        at(FAR_CHUNK, FAR_CHUNK, 1L, () -> {
+                            prepareMachine(FAR_BLOCK + 2, FAR_BLOCK);
+                            pass("menus-prepare");
+                        });
+                        return;
+                    }
+                    case "menus-verified" -> {
+                        idle();
+                        verifyMachine(10, 8);
+                        verifyVirtualMenu();
+                        require(
+                                Slimefun.getItemDoctorService().getLastReport().getFailures() == virtualDeferrals(),
+                                "Unexpected failure count in loaded-menu cleanup");
+                        at(FAR_CHUNK, FAR_CHUNK, 1L, () -> {
+                            verifyMachine(FAR_BLOCK + 2, FAR_BLOCK);
+                            pass("menus-verified");
+                        });
+                        return;
+                    }
                     case "ownership-prepare" -> {
                         prepareOwnedBackpack();
                         return;
@@ -92,7 +119,7 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
                                     Slimefun.getItemDoctorService()
                                                     .getLastReport()
                                                     .getFailures()
-                                            == 0,
+                                            == virtualDeferrals(),
                                     "Restart still reports a deferred backpack");
                         }
                         require(
@@ -213,7 +240,7 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         var blocks = Slimefun.getDatabaseManager().getBlockDataController();
         RecordSet blockRecord = new RecordSet();
         blockRecord.put(FieldKey.LOCATION, machineOwner());
-        blockRecord.put(FieldKey.CHUNK, world.getName() + ";128;128");
+        blockRecord.put(FieldKey.CHUNK, world.getName() + ";128:128");
         blockRecord.put(FieldKey.SLIMEFUN_ID, "ELECTRIC_FURNACE");
         setData(blocks, new RecordKey(DataScope.BLOCK_RECORD), blockRecord);
         write(blocks, DataScope.BLOCK_INVENTORY, FieldKey.LOCATION, machineOwner(), old, true);
@@ -307,6 +334,20 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
     }
 
     private void verifyContents() throws Exception {
+        if (Files.exists(getDataFolder().toPath().resolve("menus-prepare.pass"))) {
+            verifyMachine(10, 8);
+            verifyVirtualMenu();
+            require(
+                    expected("clean-0")
+                            .equals(readSlot(
+                                            Slimefun.getDatabaseManager().getBlockDataController(),
+                                            DataScope.BLOCK_INVENTORY,
+                                            FieldKey.LOCATION,
+                                            machineLocation(FAR_BLOCK + 2, FAR_BLOCK),
+                                            24)
+                                    .getItemStack(FieldKey.INVENTORY_ITEM)),
+                    "Distant machine contents did not remain durable");
+        }
         for (int slot = 0; slot < 7; slot++) {
             require(
                     expected("clean-" + slot)
@@ -403,8 +444,8 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
                                 HELD_BACKPACK)),
                 "Doctor rewrote the gameplay-owned backpack row");
         require(
-                Slimefun.getItemDoctorService().getLastReport().getFailures() == 1,
-                "Expected exactly the reported gameplay-backpack deferral");
+                Slimefun.getItemDoctorService().getLastReport().getFailures() == 1 + virtualDeferrals(),
+                "Expected only the gameplay-backpack and ownerless-menu deferrals");
         require(
                 Slimefun.getItemDoctorService().getLastReport().getItemModelRepairs() == 0,
                 "Deferral pass unexpectedly repaired a stack");
@@ -414,8 +455,101 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         require(!Slimefun.getItemDoctorService().getResourcePackDoctor().isSweepActive(), "Doctor pass still running");
     }
 
+    private String machineLocation(int x, int z) {
+        return LocationUtils.getLocKey(new Location(Bukkit.getWorlds().getFirst(), x, 80, z));
+    }
+
+    private void prepareMachine(int x, int z) throws Exception {
+        var location = new Location(Bukkit.getWorlds().getFirst(), x, 80, z);
+        require(Bukkit.isOwnedByCurrentRegion(location), "Machine seed is outside its region");
+        location.getBlock().setType(Material.FURNACE);
+        var blocks = Slimefun.getDatabaseManager().getBlockDataController();
+        var data = blocks.createBlock(location, "ELECTRIC_FURNACE");
+        require(data.isDataLoaded() && data.getBlockMenu() != null, "Machine menu did not initialize");
+        // An output slot keeps the fixture independent of smelting and energy behavior.
+        data.getBlockMenu().replaceExistingItem(24, expected("old-0"));
+        blocks.saveBlockInventoryAsync(data).get(10, TimeUnit.SECONDS);
+        require(
+                expected("old-0")
+                        .equals(readSlot(
+                                        blocks, DataScope.BLOCK_INVENTORY, FieldKey.LOCATION, machineLocation(x, z), 24)
+                                .getItemStack(FieldKey.INVENTORY_ITEM)),
+                "Machine fixture was not persisted before cleanup");
+    }
+
+    private void verifyMachine(int x, int z) throws Exception {
+        var location = new Location(Bukkit.getWorlds().getFirst(), x, 80, z);
+        require(Bukkit.isOwnedByCurrentRegion(location), "Machine assertion is outside its region");
+        var blocks = Slimefun.getDatabaseManager().getBlockDataController();
+        var data = blocks.getBlockDataFromCache(location);
+        require(
+                data != null && data.isDataLoaded() && data.getBlockMenu() != null,
+                "Loaded machine inventory is unavailable");
+        require(
+                expected("clean-0").equals(data.getBlockMenu().getItemInSlot(24)),
+                "Loaded machine menu retained or lost item metadata");
+        require(
+                expected("clean-0")
+                        .equals(readSlot(
+                                        blocks, DataScope.BLOCK_INVENTORY, FieldKey.LOCATION, machineLocation(x, z), 24)
+                                .getItemStack(FieldKey.INVENTORY_ITEM)),
+                "Loaded machine cleanup was not saved");
+    }
+
+    private void prepareVirtualMenu() throws Exception {
+        var blocks = Slimefun.getDatabaseManager().getBlockDataController();
+        RecordSet record = new RecordSet();
+        record.put(FieldKey.UNIVERSAL_UUID, VIRTUAL_MENU);
+        record.put(FieldKey.SLIMEFUN_ID, "PROGRAMMABLE_ANDROID");
+        record.put(FieldKey.UNIVERSAL_TRAITS, "INVENTORY");
+        setData(blocks, new RecordKey(DataScope.UNIVERSAL_RECORD), record);
+        RecordSet row = new RecordSet();
+        row.put(FieldKey.UNIVERSAL_UUID, VIRTUAL_MENU);
+        row.put(FieldKey.INVENTORY_SLOT, "20");
+        byte[] original = DataUtils.serializeItemStackBytesForStorage(expected("old-0"));
+        row.put(FieldKey.INVENTORY_ITEM, original);
+        setData(blocks, new RecordKey(DataScope.UNIVERSAL_INVENTORY), row);
+        Files.write(getDataFolder().toPath().resolve("virtual-original.bin"), original);
+        // Use the existing Android menu preset without a block trait/location. This
+        // exercises the production ownerless universal inventory path without a player.
+        var data = blocks.getUniversalData(UUID.fromString(VIRTUAL_MENU));
+        require(data != null, "Virtual menu record is missing");
+        blocks.loadUniversalData(data);
+        require(data.isDataLoaded() && data.getMenu() != null, "Virtual menu did not load");
+        require(expected("old-0").equals(data.getMenu().getItemInSlot(20)), "Virtual menu changed while loading");
+    }
+
+    private int virtualDeferrals() {
+        return Slimefun.getSchedulerService().isFolia() ? 1 : 0;
+    }
+
+    private void verifyVirtualMenu() throws Exception {
+        var blocks = Slimefun.getDatabaseManager().getBlockDataController();
+        var data = blocks.getUniversalDataFromCache(UUID.fromString(VIRTUAL_MENU));
+        require(
+                data != null && data.isDataLoaded() && data.getMenu() != null,
+                "Virtual menu was dropped from the loaded cache");
+        require(
+                !data.hasTrait(UniversalDataTrait.BLOCK)
+                        && data.getMenu().toInventory().getLocation() == null,
+                "Virtual fixture unexpectedly acquired a block owner");
+        ItemStack expected = expected(virtualDeferrals() == 1 ? "old-0" : "clean-0");
+        require(expected.equals(data.getMenu().getItemInSlot(20)), "Virtual menu cleanup policy mismatch");
+        RecordSet row = readSlot(blocks, DataScope.UNIVERSAL_INVENTORY, FieldKey.UNIVERSAL_UUID, VIRTUAL_MENU, 20);
+        require(expected.equals(row.getItemStack(FieldKey.INVENTORY_ITEM)), "Virtual menu row mismatch");
+        if (virtualDeferrals() == 1) {
+            Object value = row.getValue(FieldKey.INVENTORY_ITEM);
+            require(
+                    value instanceof byte[] bytes
+                            && Arrays.equals(
+                                    bytes,
+                                    Files.readAllBytes(getDataFolder().toPath().resolve("virtual-original.bin"))),
+                    "Ownerless Folia row was rewritten instead of deferred");
+        }
+    }
+
     private String machineOwner() {
-        return Bukkit.getWorlds().getFirst().getName() + ";2048;80;2048";
+        return machineLocation(2048, 2048);
     }
 
     private void write(
@@ -440,8 +574,19 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
             FieldKey ownerField,
             String owner)
             throws Exception {
+        return readSlot(controller, scope, ownerField, owner, 0).getItemStack(FieldKey.INVENTORY_ITEM);
+    }
+
+    private RecordSet readSlot(
+            com.xzavier0722.mc.plugin.slimefun4.storage.controller.ADataController controller,
+            DataScope scope,
+            FieldKey ownerField,
+            String owner,
+            int slot)
+            throws Exception {
         RecordKey key = new RecordKey(scope);
         key.addCondition(ownerField, owner);
+        key.addCondition(FieldKey.INVENTORY_SLOT, Integer.toString(slot));
         key.addField(FieldKey.INVENTORY_ITEM);
         var method = com.xzavier0722.mc.plugin.slimefun4.storage.controller.ADataController.class.getDeclaredMethod(
                 "getData", RecordKey.class);
@@ -449,7 +594,7 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         @SuppressWarnings("unchecked")
         var rows = (List<RecordSet>) method.invoke(controller, key);
         require(rows.size() == 1, "Expected one inventory fixture row");
-        return rows.getFirst().getItemStack(FieldKey.INVENTORY_ITEM);
+        return rows.getFirst();
     }
 
     private void setData(

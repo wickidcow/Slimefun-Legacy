@@ -130,6 +130,10 @@ def main() -> None:
         time.sleep(4)
         probe(process, 2, "installed")
         probe(process, 2, "deferred")
+        probe(process, 2, "menus-prepare")
+        command(process, "sf doctor resource-pack resume")
+        time.sleep(3)
+        probe(process, 2, "menus-verified")
         if args.expect_folia:
             probe(process, 2, "ownership-prepare")
         command(process, "sf doctor resource-pack resume")

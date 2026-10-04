@@ -4,7 +4,7 @@ The Doctor probe exercises actual install/uninstall commands against disposable
 Paper, Purpur and Folia servers. It starts from a fresh directory and runs three normal
 boots, including the restart checkpoint before changing existing items.
 
-## Verified native matrix
+## Initial verified native matrix
 
 The expanded fixture passed locally against core source
 `d9cbfb10df075cbc08b4a1e9b140b0dbd9f9237f`, with core JAR SHA-256
@@ -24,6 +24,7 @@ The exact runtime downloads and SHA-256 hashes are pinned in
 [`resource-pack-doctor-runtimes.json`](../compatibility/resource-pack-doctor-runtimes.json).
 The local phase results, runtime Java versions and artifact hashes are retained in
 [`resource-pack-doctor-evidence.json`](../compatibility/resource-pack-doctor-evidence.json).
+Later fixture expansions and their separate results are described below.
 
 ## What the probe checks
 
@@ -54,16 +55,48 @@ both axes so these checks exercise separate regions. Dropped-item assertions als
 verify entity ownership. The disposable Folia configuration uses two tick threads.
 
 The Folia lane loads an additional old-model backpack through the normal gameplay
-API. A confirmed resume and uninstall must each report exactly one deferral while
+API. A confirmed resume and uninstall must each report its deferral while
 preserving both its cached stack and its database row. After a normal restart
 releases the gameplay cache claim, the authorized maintenance pass must clean the
-stored item with no failures. Exact item equality checks retain the original
+stored item without a backpack deferral. In the expanded menu fixture below, the
+ownerless virtual menu contributes another expected deferral. Exact item equality checks retain the original
 quantity, name, lore, identities, charge and opaque PDC.
 
 This follow-up passed locally on Folia 26.2-7, with regression runs on Paper
 1.21.11-132/Java 21 and Paper 26.3-145/Java 25. The follow-up results are recorded
 separately in the evidence JSON. It changes the fixture and CI coverage, not
 production Java or migration policy.
+
+## Loaded machine and virtual menu checks
+
+The expanded fixture creates two actual Electric Furnace block menus in the
+separate regions, seeds an existing old-model stack in each output slot and waits
+for the normal inventory-save acknowledgement before starting cleanup. A confirmed
+resume must clean both loaded menus and persist their exact expected contents.
+Uninstall and the third normal boot verify that the saved contents remain intact.
+The nearby machine is also checked through its reloaded live menu after restart.
+
+An additional universal inventory uses the existing Android menu preset with an
+inventory trait but no block trait or location. Paper cleans its loaded inventory
+and saves it. Folia reports it as deferred and preserves its cached item and exact
+original database bytes, including through uninstall and restart. This exercises
+the rule that a loaded ownerless menu cannot be repaired by global Folia work.
+Once the gameplay-owned backpack is added, Folia reports two expected deferrals;
+after restart only the ownerless virtual menu remains deferred.
+
+Both location and chunk keys in the unloaded block fixture now use the canonical
+storage syntax. The earlier fixture used noncanonical semicolon-separated
+coordinates; its previous result demonstrated stored-item rewriting but did not
+exercise a valid unloaded block-record key.
+
+| Follow-up runtime | Normal boots | Probe checkpoints |
+| --- | --- | --- |
+| Paper 26.3 build 145 | 3 passed | 9 passed |
+| Folia 26.2 build 7 | 3 passed | 11 passed |
+
+These local results use the same core JAR listed above and are recorded under
+`loaded_menu_followup` in the evidence JSON. Every CI runtime now includes the
+loaded-machine and virtual-menu phases. No production implementation changed.
 
 ## Reproduction and CI
 
@@ -98,8 +131,9 @@ probe even if a phase marker was already written.
 This matrix does not validate client rendering, a real combined ItemsAdder pack,
 captured historical production-world data or addon-private storage. Folia coverage
 now includes region-owned containers/drops, unloaded inventory rows, maintenance
-backpacks and gameplay-cache deferral. Real connected-player join/open/pickup,
-teleport/retirement races, loaded Slimefun machine menus and ownerless universal
-menu scenarios still need dedicated native coverage. Ordinary Folia startup
+backpacks, gameplay-cache deferral, loaded Electric Furnace menus and an ownerless
+Android universal menu. Real connected-player join/open/pickup and
+teleport/retirement races still need dedicated native coverage; this fixture does
+not certify every addon or menu implementation. Ordinary Folia startup
 checks are separate evidence. Passing this fixture does not certify every stored
 item or every external pack installation.
