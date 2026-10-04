@@ -269,5 +269,70 @@
         }
       }
     ]
+  },
+  "cancelled_event_followup": {
+    "scope": "Native LOWEST-priority open/pickup cancellation with unchanged backpack bytes and same-item positive controls; disconnect before delayed join cleanup, scheduler retirement/offline handling, reconnect preservation and later cleanup on Paper/Folia 26.2",
+    "results": [
+      {
+        "runtime": "paper-26.2-129",
+        "result": "PASS",
+        "boots": 3,
+        "folia_ownership_checks": false,
+        "connected_player_checks": true,
+        "core_sha256": "a58799aa12b1e21d17c1ad6c4670ae41d049766ebd4289e8338247ccbb694973",
+        "server_sha256": "b1d8f6bfa1b6101fa8e947b53041cb3bdf5540e7b83b6547ca19ba7edefeb083",
+        "java": "openjdk version \"25.0.4.1\" 2026-08-18 LTS\nOpenJDK Runtime Environment Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS, mixed mode, sharing)",
+        "phases": {
+          "checkpoint": "RESOURCE_PACK_DOCTOR_PROBE_PASS checkpoint | 26.2-129-9240f58 (MC: 26.2)",
+          "deferred": "RESOURCE_PACK_DOCTOR_PROBE_PASS deferred | 26.2-129-9240f58 (MC: 26.2)",
+          "installed": "RESOURCE_PACK_DOCTOR_PROBE_PASS installed | 26.2-129-9240f58 (MC: 26.2)",
+          "menus-prepare": "RESOURCE_PACK_DOCTOR_PROBE_PASS menus-prepare | 26.2-129-9240f58 (MC: 26.2)",
+          "menus-verified": "RESOURCE_PACK_DOCTOR_PROBE_PASS menus-verified | 26.2-129-9240f58 (MC: 26.2)",
+          "player-cancel-open": "RESOURCE_PACK_DOCTOR_PROBE_PASS player-cancel-open | 26.2-129-9240f58 (MC: 26.2)",
+          "player-cancel-pickup": "RESOURCE_PACK_DOCTOR_PROBE_PASS player-cancel-pickup | 26.2-129-9240f58 (MC: 26.2)",
+          "player-join": "RESOURCE_PACK_DOCTOR_PROBE_PASS player-join | 26.2-129-9240f58 (MC: 26.2)",
+          "player-open": "RESOURCE_PACK_DOCTOR_PROBE_PASS player-open | 26.2-129-9240f58 (MC: 26.2)",
+          "player-pickup": "RESOURCE_PACK_DOCTOR_PROBE_PASS player-pickup | 26.2-129-9240f58 (MC: 26.2)",
+          "player-restart": "RESOURCE_PACK_DOCTOR_PROBE_PASS player-restart | 26.2-129-9240f58 (MC: 26.2)",
+          "player-retire": "RESOURCE_PACK_DOCTOR_PROBE_PASS player-retire | 26.2-129-9240f58 (MC: 26.2)",
+          "player-seed": "RESOURCE_PACK_DOCTOR_PROBE_PASS player-seed | 26.2-129-9240f58 (MC: 26.2)",
+          "prepare": "RESOURCE_PACK_DOCTOR_PROBE_PASS prepare | 26.2-129-9240f58 (MC: 26.2)",
+          "preview": "RESOURCE_PACK_DOCTOR_PROBE_PASS preview | 26.2-129-9240f58 (MC: 26.2)",
+          "restarted": "RESOURCE_PACK_DOCTOR_PROBE_PASS restarted | 26.2-129-9240f58 (MC: 26.2)",
+          "uninstalled": "RESOURCE_PACK_DOCTOR_PROBE_PASS uninstalled | 26.2-129-9240f58 (MC: 26.2)"
+        }
+      },
+      {
+        "runtime": "folia-26.2-7",
+        "result": "PASS",
+        "boots": 3,
+        "folia_ownership_checks": true,
+        "connected_player_checks": true,
+        "core_sha256": "a58799aa12b1e21d17c1ad6c4670ae41d049766ebd4289e8338247ccbb694973",
+        "server_sha256": "128a634192261cd38bb4a5dc54075018a0f896fd6c6f529e37dca6e99e32b3b3",
+        "java": "openjdk version \"25.0.4.1\" 2026-08-18 LTS\nOpenJDK Runtime Environment Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS, mixed mode, sharing)",
+        "phases": {
+          "checkpoint": "RESOURCE_PACK_DOCTOR_PROBE_PASS checkpoint | 26.2-7-14b7fee (MC: 26.2)",
+          "deferred": "RESOURCE_PACK_DOCTOR_PROBE_PASS deferred | 26.2-7-14b7fee (MC: 26.2)",
+          "installed": "RESOURCE_PACK_DOCTOR_PROBE_PASS installed | 26.2-7-14b7fee (MC: 26.2)",
+          "menus-prepare": "RESOURCE_PACK_DOCTOR_PROBE_PASS menus-prepare | 26.2-7-14b7fee (MC: 26.2)",
+          "menus-verified": "RESOURCE_PACK_DOCTOR_PROBE_PASS menus-verified | 26.2-7-14b7fee (MC: 26.2)",
+          "ownership-deferred": "RESOURCE_PACK_DOCTOR_PROBE_PASS ownership-deferred | 26.2-7-14b7fee (MC: 26.2)",
+          "ownership-prepare": "RESOURCE_PACK_DOCTOR_PROBE_PASS ownership-prepare | 26.2-7-14b7fee (MC: 26.2)",
+          "player-cancel-open": "RESOURCE_PACK_DOCTOR_PROBE_PASS player-cancel-open | 26.2-7-14b7fee (MC: 26.2)",
+          "player-cancel-pickup": "RESOURCE_PACK_DOCTOR_PROBE_PASS player-cancel-pickup | 26.2-7-14b7fee (MC: 26.2)",
+          "player-join": "RESOURCE_PACK_DOCTOR_PROBE_PASS player-join | 26.2-7-14b7fee (MC: 26.2)",
+          "player-open": "RESOURCE_PACK_DOCTOR_PROBE_PASS player-open | 26.2-7-14b7fee (MC: 26.2)",
+          "player-pickup": "RESOURCE_PACK_DOCTOR_PROBE_PASS player-pickup | 26.2-7-14b7fee (MC: 26.2)",
+          "player-restart": "RESOURCE_PACK_DOCTOR_PROBE_PASS player-restart | 26.2-7-14b7fee (MC: 26.2)",
+          "player-retire": "RESOURCE_PACK_DOCTOR_PROBE_PASS player-retire | 26.2-7-14b7fee (MC: 26.2)",
+          "player-seed": "RESOURCE_PACK_DOCTOR_PROBE_PASS player-seed | 26.2-7-14b7fee (MC: 26.2)",
+          "prepare": "RESOURCE_PACK_DOCTOR_PROBE_PASS prepare | 26.2-7-14b7fee (MC: 26.2)",
+          "preview": "RESOURCE_PACK_DOCTOR_PROBE_PASS preview | 26.2-7-14b7fee (MC: 26.2)",
+          "restarted": "RESOURCE_PACK_DOCTOR_PROBE_PASS restarted | 26.2-7-14b7fee (MC: 26.2)",
+          "uninstalled": "RESOURCE_PACK_DOCTOR_PROBE_PASS uninstalled | 26.2-7-14b7fee (MC: 26.2)"
+        }
+      }
+    ]
   }
 }

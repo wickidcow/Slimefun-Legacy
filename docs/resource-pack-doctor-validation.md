@@ -150,6 +150,43 @@ These local results use the unchanged core JAR listed above and are recorded und
 addon pin changed. The other four native runtime lanes retain their existing
 coverage; connected-player results are specific to the two 26.2 builds above.
 
+## Cancelled events and disconnect follow-up
+
+The two connected-player lanes now include three more native phases:
+
+- A fixture listener cancels backpack opening at `LOWEST`, before Doctor's open
+  handler. The menu stays closed; the live backpack, player inventory and cursor
+  retain their old model data, and the persisted backpack payload stays byte-for-byte
+  identical. Removing cancellation and opening that same backpack then exercises
+  the existing successful cleanup and persistence checks.
+- A naturally colliding item has its pickup cancelled at `LOWEST`, before Doctor's
+  pickup handler. The original item entity and exact stack remain in the world,
+  and the player's inventory stays empty. The next phase allows that same entity
+  to be collected and requires one cleaned stack with no loss or duplication.
+- After the install restart, a real player reconnects with the old saved inventory
+  and ender chest, then is disconnected after two ticks, before the 20-tick join
+  cleanup delay. A parallel probe through the same scheduler contract confirms
+  Folia retirement or Paper execution with an offline player. After 40 global
+  ticks, the fixture verifies that this work settled and the player is gone.
+  Reconnecting again must still expose the old saved stacks at the join event,
+  followed by successful authorized cleanup.
+
+The test client accepts a server-initiated disconnect only in the explicit
+retirement phase; server-side completion and a clean client exit are still
+required. Each connection has a separate retained log. These are controlled
+cancellation and disconnect cases, not a claim about every possible event order
+or entity-lifecycle race. In particular, cancellation after Doctor's handler and
+teleports between scheduling and execution are not covered here.
+
+| Follow-up runtime | Normal boots | Total probe checkpoints | Player checkpoints |
+| --- | --- | --- | --- |
+| Paper 26.2 build 129 | 3 passed | 17 passed | 8 passed |
+| Folia 26.2 build 7 | 3 passed | 19 passed | 8 passed |
+
+The local results, using the same unchanged core JAR, are recorded under
+`cancelled_event_followup` in the evidence JSON. These phases are part of the
+permanent Paper/Folia 26.2 CI lanes. No production implementation changed.
+
 ## Reproduction and CI
 
 `Resource Pack Doctor Migration` builds one core JAR for the exact checked-out
@@ -180,8 +217,9 @@ probe even if a phase marker was already written.
 
 For the connected-player phases on a 26.2 runtime, also pass
 `--protocol-module /path/to/pinned-client/node_modules/minecraft-protocol` and make
-Node available on PATH. The harness selects a temporary loopback port, starts and
-stops one test client per boot, and retains client logs with the server evidence.
+Node available on PATH. The harness selects a temporary loopback port, connects
+one test client at a time, and retains each connection's log with the server
+evidence. Boot two includes a forced disconnect and another reconnect.
 
 ## Remaining release evidence
 
@@ -190,9 +228,10 @@ captured historical production-world data or addon-private storage. Folia covera
 now includes region-owned containers/drops, unloaded inventory rows, maintenance
 backpacks, gameplay-cache deferral, loaded Electric Furnace menus and an ownerless
 Android universal menu. Native connected-player join, backpack-open and pickup
-now have coverage on Paper/Folia 26.2. Connected players on 1.21.11 and 26.3,
-teleport/retirement races, cancelled events and concurrent viewers still need
-dedicated native coverage; this fixture does not certify every addon or menu
+now have coverage on Paper/Folia 26.2, including early event cancellation and a
+disconnect before delayed join cleanup. Connected players on 1.21.11 and 26.3,
+teleport/chunk-unload races, late event cancellation and concurrent viewers still
+need dedicated native coverage; this fixture does not certify every addon or menu
 implementation. Ordinary Folia startup
 checks are separate evidence. Passing this fixture does not certify every stored
 item or every external pack installation.

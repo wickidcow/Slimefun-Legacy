@@ -2,9 +2,9 @@
 'use strict'
 
 const readline = require('node:readline')
-const [modulePath, portText] = process.argv.slice(2)
-if (!modulePath || !/^\d+$/.test(portText || '')) {
-  throw new Error('Usage: resource_pack_doctor_client.js <pinned-protocol-module> <loopback-port>')
+const [modulePath, portText, disconnectMode = 'client'] = process.argv.slice(2)
+if (!modulePath || !/^\d+$/.test(portText || '') || !['client', 'retire'].includes(disconnectMode)) {
+  throw new Error('Usage: resource_pack_doctor_client.js <pinned-protocol-module> <loopback-port> [client|retire]')
 }
 const version = require(modulePath + '/package.json').version
 if (version !== '1.66.2+complexity.26.2.3') throw new Error('Unexpected protocol fixture version: ' + version)
@@ -41,7 +41,7 @@ client.on('disconnect', packet => console.error('Server disconnect:', JSON.strin
 client.on('end', reason => {
   clearTimeout(deadline)
   clearInterval(ticks)
-  if (!joined || !requestedQuit) {
+  if (!joined || (!requestedQuit && disconnectMode !== 'retire')) {
     console.error('Unexpected client disconnect:', reason)
     process.exitCode = 1
   }

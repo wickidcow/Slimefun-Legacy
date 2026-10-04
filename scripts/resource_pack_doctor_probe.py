@@ -120,19 +120,22 @@ def main() -> None:
             (proof / name).unlink(missing_ok=True)
         (proof / "player-stage.txt").write_text(stage, encoding="utf-8")
         path = root / f"console-{number}.log"
-        client_log = (root / f"client-{number}.log").open("w", encoding="utf-8")
+        client_log = (root / f"client-{number}-{stage}.log").open("w", encoding="utf-8")
         client = subprocess.Popen(["node", str(repo / "scripts/resource_pack_doctor_client.js"),
-            str(args.protocol_module.resolve()), str(port)], stdin=subprocess.PIPE,
+            str(args.protocol_module.resolve()), str(port), "retire" if stage == "retire" else "client"], stdin=subprocess.PIPE,
             stdout=client_log, stderr=subprocess.STDOUT, text=True)
         clients.append(client)
         wait(lambda: (proof / "player-connected.ready").is_file(), client, path)
         if stage != "seed":
-            wait(lambda: (proof / f"player-{stage}.pass").is_file(), client, path)
+            # The retirement phase completes after the client has disconnected.
+            observed_process = process if stage == "retire" else client
+            wait(lambda: (proof / f"player-{stage}.pass").is_file(), observed_process, path)
             print((proof / f"player-{stage}.pass").read_text().strip(), flush=True)
         return client, client_log
 
-    def disconnect_player(client, client_log, process, number):
-        command(client, "quit")
+    def disconnect_player(client, client_log, process, number, retired=False):
+        if not retired:
+            command(client, "quit")
         client.wait(timeout=15)
         client_log.close()
         if client.returncode != 0:
@@ -181,8 +184,12 @@ def main() -> None:
         if args.expect_folia:
             probe(process, 2, "ownership-deferred")
         if args.protocol_module:
+            client, client_log = connect_player(process, 2, "retire")
+            disconnect_player(client, client_log, process, 2, retired=True)
             client, client_log = connect_player(process, 2, "join")
+            probe(process, 2, "player-cancel-open")
             probe(process, 2, "player-open")
+            probe(process, 2, "player-cancel-pickup")
             probe(process, 2, "player-pickup")
             disconnect_player(client, client_log, process, 2)
         command(process, "sf doctor resource-pack uninstall confirm")

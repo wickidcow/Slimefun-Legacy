@@ -9,6 +9,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
@@ -29,6 +30,10 @@ final class ResourcePackPlayerProbe implements Listener {
     private Item pickup;
     private boolean opened;
     private boolean pickupObserved;
+    private boolean cancelOpen;
+    private boolean cancelledOpenObserved;
+    private boolean cancelPickup;
+    private volatile boolean disconnectedWorkSettled;
     private String stage;
 
     ResourcePackPlayerProbe(ResourcePackDoctorProbe plugin) {
@@ -46,7 +51,7 @@ final class ResourcePackPlayerProbe implements Listener {
             player.setInvulnerable(true);
             player.setAllowFlight(true);
             player.setFlying(true);
-            if (stage.equals("join")) {
+            if (stage.equals("join") || stage.equals("retire")) {
                 verifySavedPlayer(player, false);
             } else if (stage.equals("restart")) {
                 verifyPickedUp(player);
@@ -54,6 +59,10 @@ final class ResourcePackPlayerProbe implements Listener {
             Files.writeString(
                     plugin.getDataFolder().toPath().resolve("player-connected.ready"),
                     player.getUniqueId().toString());
+            if (stage.equals("retire")) {
+                disconnectBeforeCleanup(player);
+                return;
+            }
             if (!stage.equals("seed")) {
                 later(player, 60L, () -> {
                     if (stage.equals("join")) verifySavedPlayer(player, true);
@@ -85,6 +94,25 @@ final class ResourcePackPlayerProbe implements Listener {
         try {
             owned(event.getPlayer());
             Files.writeString(plugin.getDataFolder().toPath().resolve("player-disconnected.ready"), stage);
+            if (stage.equals("retire")) {
+                verifySavedPlayer(event.getPlayer(), false);
+                var uuid = event.getPlayer().getUniqueId();
+                Bukkit.getGlobalRegionScheduler()
+                        .runDelayed(
+                                plugin,
+                                ignored -> {
+                                    try {
+                                        require(Bukkit.getPlayer(uuid) == null, "Retirement player is still connected");
+                                        require(
+                                                disconnectedWorkSettled,
+                                                "Delayed player work did not settle after disconnect");
+                                        plugin.pass("player-retire");
+                                    } catch (Throwable failure) {
+                                        plugin.fail(failure);
+                                    }
+                                },
+                                40L);
+            }
         } catch (Throwable failure) {
             plugin.fail(failure);
         }
@@ -111,12 +139,40 @@ final class ResourcePackPlayerProbe implements Listener {
                         plugin.pass(action);
                     });
                 }
+                case "player-cancel-open" -> cancelledOpen(player);
                 case "player-open" -> openBackpack(player);
+                case "player-cancel-pickup" -> cancelledPickup(player);
                 case "player-pickup" -> pickup(player);
                 default -> throw new IllegalArgumentException("Unknown player probe phase: " + action);
             }
         });
         return true;
+    }
+
+    private void disconnectBeforeCleanup(Player player) {
+        // Exercise the same delayed entity scheduling contract as the join listener.
+        // Folia retires this task; ordinary Paper executes it with the player offline.
+        var task = Slimefun.getSchedulerService()
+                .runForLater(
+                        player,
+                        () -> {
+                            try {
+                                require(
+                                        !Slimefun.getSchedulerService().isFolia(),
+                                        "Retired Folia player task executed");
+                                require(!player.isOnline(), "Disconnect did not beat the cleanup delay");
+                                disconnectedWorkSettled = true;
+                            } catch (Throwable failure) {
+                                plugin.fail(failure);
+                            }
+                        },
+                        () -> disconnectedWorkSettled = true,
+                        20L);
+        require(!task.isCancelled(), "Could not queue the retirement probe");
+        later(player, 2L, () -> {
+            verifySavedPlayer(player, false);
+            player.kick(Component.text("Doctor retirement probe"));
+        });
     }
 
     private void verifySavedPlayer(Player player, boolean cleaned) throws Exception {
@@ -129,7 +185,7 @@ final class ResourcePackPlayerProbe implements Listener {
                 "Unknown addon item changed on join");
     }
 
-    private void openBackpack(Player player) throws Exception {
+    private void prepareBackpack(Player player) throws Exception {
         var profiles = Slimefun.getDatabaseManager().getProfileDataController();
         backpack = profiles.createBackpack(player, "Connected Doctor fixture", 77, 9);
         backpack.getInventory().setItem(0, plugin.expected("old-0"));
@@ -137,6 +193,54 @@ final class ResourcePackPlayerProbe implements Listener {
         Files.writeString(
                 plugin.getDataFolder().toPath().resolve("player-backpack.uuid"),
                 backpack.getUniqueId().toString());
+    }
+
+    private byte[] backpackBytes() throws Exception {
+        Object value = plugin.readSlot(
+                        Slimefun.getDatabaseManager().getProfileDataController(),
+                        DataScope.BACKPACK_INVENTORY,
+                        FieldKey.BACKPACK_ID,
+                        backpack.getUniqueId().toString(),
+                        0)
+                .getValue(FieldKey.INVENTORY_ITEM);
+        require(value instanceof byte[], "Expected the native backpack payload");
+        return ((byte[]) value).clone();
+    }
+
+    private void cancelledOpen(Player player) throws Exception {
+        prepareBackpack(player);
+        byte[] original = backpackBytes();
+        cancelOpen = true;
+        require(player.openInventory(backpack.getInventory()) == null, "Cancelled backpack unexpectedly opened");
+        player.getInventory().setItem(0, plugin.expected("old-0"));
+        player.setItemOnCursor(plugin.expected("old-0"));
+        later(player, 40L, () -> {
+            require(cancelledOpenObserved && !opened, "Backpack open did not remain cancelled");
+            require(
+                    !player.getOpenInventory().getTopInventory().equals(backpack.getInventory()),
+                    "Cancelled menu is visible");
+            ItemStack expected = plugin.expected("old-0");
+            require(expected.equals(backpack.getInventory().getItem(0)), "Cancelled open changed the backpack");
+            require(expected.equals(player.getInventory().getItem(0)), "Cancelled open changed the player inventory");
+            require(expected.equals(player.getItemOnCursor()), "Cancelled open changed the cursor");
+            require(Arrays.equals(original, backpackBytes()), "Cancelled open rewrote the backpack row");
+            player.setItemOnCursor(null);
+            cancelOpen = false;
+            plugin.pass("player-cancel-open");
+        });
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void cancelOpen(InventoryOpenEvent event) {
+        if (cancelOpen && backpack != null && event.getInventory().getHolder() == backpack) {
+            event.setCancelled(true);
+            cancelledOpenObserved = true;
+        }
+    }
+
+    private void openBackpack(Player player) throws Exception {
+        require(backpack != null && cancelledOpenObserved, "Missing cancelled backpack fixture");
+        var profiles = Slimefun.getDatabaseManager().getProfileDataController();
         require(player.openInventory(backpack.getInventory()) != null, "Backpack open was cancelled");
         player.getInventory().setItem(0, plugin.expected("old-0"));
         player.setItemOnCursor(plugin.expected("old-0"));
@@ -173,11 +277,33 @@ final class ResourcePackPlayerProbe implements Listener {
         }
     }
 
-    private void pickup(Player player) throws Exception {
+    private void cancelledPickup(Player player) throws Exception {
         player.getInventory().clear();
         pickup = player.getWorld().dropItem(player.getLocation(), plugin.expected("old-0"));
         pickup.setGravity(false);
         pickup.setVelocity(new org.bukkit.util.Vector());
+        cancelPickup = true;
+        pickup.setPickupDelay(0);
+        later(player, 40L, () -> {
+            require(pickupObserved, "Cancelled native pickup was not observed");
+            require(pickup.isValid() && Bukkit.isOwnedByCurrentRegion(pickup), "Cancelled pickup lost its item entity");
+            require(
+                    plugin.expected("old-0").equals(pickup.getItemStack()),
+                    "Cancelled pickup changed the dropped stack");
+            require(
+                    Arrays.stream(player.getInventory().getStorageContents())
+                            .allMatch(item -> item == null || item.getType().isAir()),
+                    "Cancelled pickup moved an item into the inventory");
+            // Keep the same entity out of reach until the positive-control phase.
+            pickup.setPickupDelay(32767);
+            plugin.pass("player-cancel-pickup");
+        });
+    }
+
+    private void pickup(Player player) throws Exception {
+        require(pickup != null && pickup.isValid() && cancelPickup, "Missing cancelled pickup fixture");
+        cancelPickup = false;
+        pickupObserved = false;
         pickup.setPickupDelay(0);
         later(player, 60L, () -> {
             require(pickupObserved, "Native player pickup event was not observed");
@@ -200,6 +326,7 @@ final class ResourcePackPlayerProbe implements Listener {
                     plugin.expected("old-0").equals(pickup.getItemStack()),
                     "Pickup fixture was cleaned before its event");
             pickupObserved = true;
+            if (cancelPickup) event.setCancelled(true);
         } catch (Throwable failure) {
             plugin.fail(failure);
         }

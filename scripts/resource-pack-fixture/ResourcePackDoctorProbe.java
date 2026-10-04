@@ -588,7 +588,7 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         return readSlot(controller, scope, ownerField, owner, 0).getItemStack(FieldKey.INVENTORY_ITEM);
     }
 
-    private RecordSet readSlot(
+    RecordSet readSlot(
             com.xzavier0722.mc.plugin.slimefun4.storage.controller.ADataController controller,
             DataScope scope,
             FieldKey ownerField,
