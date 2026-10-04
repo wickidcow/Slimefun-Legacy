@@ -21,6 +21,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.curios.Expedition
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.ExplorersSpyglass;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.FieldRepairKit;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.GeigerCounter;
+import io.github.thebusybiscuit.slimefun4.implementation.items.curios.HologramDisplayProjector;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.MinersCanary;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.RescueWhistle;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.SalvagersMagnet;
@@ -151,6 +152,17 @@ final class AdventurersCuriosSetup {
                 "",
                 "&8Ignores small falls",
                 "&8Cooldown: 60 seconds");
+
+        SlimefunItemStack hologramDisplayProjector = new SlimefunItemStack(
+                "ADVENTURERS_HOLOGRAM_DISPLAY_PROJECTOR",
+                Material.POLISHED_BLACKSTONE_SLAB,
+                "&6Hologram Display Projector",
+                "&7An upgraded Hologram Projector that",
+                "&7can project both text and an item.",
+                "",
+                "&eRight Click &7to configure",
+                "&8Drop an item into its display slot",
+                "&8Toggle item above/below text or hide either layer");
 
         SlimefunItemStack resonanceBeacon = new SlimefunItemStack(
                 "BEACON_PLUS",
@@ -487,6 +499,23 @@ final class AdventurersCuriosSetup {
                 });
         parachute.register(plugin);
         parachute.registerListener(plugin);
+
+        new HologramDisplayProjector(
+                        fieldCuriosities,
+                        hologramDisplayProjector,
+                        RecipeType.ENHANCED_CRAFTING_TABLE,
+                        new ItemStack[] {
+                            new ItemStack(Material.AMETHYST_SHARD),
+                            SlimefunItems.POWER_CRYSTAL,
+                            new ItemStack(Material.AMETHYST_SHARD),
+                            new ItemStack(Material.POLISHED_BLACKSTONE_SLAB),
+                            SlimefunItems.HOLOGRAM_PROJECTOR,
+                            new ItemStack(Material.POLISHED_BLACKSTONE_SLAB),
+                            new ItemStack(Material.REDSTONE),
+                            new ItemStack(Material.ENDER_EYE),
+                            new ItemStack(Material.REDSTONE)
+                        })
+                .register(plugin);
 
         new BeaconPlus(fieldCuriosities, resonanceBeacon, RecipeType.ENHANCED_CRAFTING_TABLE, new ItemStack[] {
                     new ItemStack(Material.ECHO_SHARD),
