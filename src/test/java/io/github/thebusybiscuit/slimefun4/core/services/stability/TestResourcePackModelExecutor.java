@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.services.stability;
 
+import com.xzavier0722.mc.plugin.slimefun4.storage.controller.InventoryReadTestPlugin;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.DataUtils;
 import io.github.bakedlibs.dough.config.Config;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
@@ -24,7 +25,6 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
-import org.bukkit.Server;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
@@ -34,8 +34,6 @@ import org.bukkit.inventory.meta.components.CustomModelDataComponent;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.plugin.PluginDescriptionFile;
-import org.bukkit.plugin.java.JavaPluginLoader;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,13 +41,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
-import org.mockbukkit.mockbukkit.plugin.PluginManagerMock;
 
 class TestResourcePackModelExecutor {
     private static final String ID = "STEEL_INGOT";
     private static final float MODEL = 2200080.0f;
-    private Field instance;
-    private Object previous;
+    private InventoryReadTestPlugin fixture;
     private Slimefun plugin;
     private Config mappings;
 
@@ -61,16 +57,8 @@ class TestResourcePackModelExecutor {
     @BeforeEach
     void setUp() throws Exception {
         ServerMock server = MockBukkit.mock();
-        PluginManagerMock manager = server.getPluginManager();
-        this.plugin = new Slimefun(
-                new JavaPluginLoader((Server) server),
-                new PluginDescriptionFile("Slimefun", "4.1.68-test", Slimefun.class.getName()),
-                manager.createTemporaryDirectory("resource-pack-doctor"),
-                manager.createTemporaryPluginFile("resource-pack-doctor"));
-        this.instance = Slimefun.class.getDeclaredField("instance");
-        this.instance.setAccessible(true);
-        this.previous = this.instance.get(null);
-        this.instance.set(null, this.plugin);
+        this.fixture = new InventoryReadTestPlugin(server);
+        this.plugin = Slimefun.instance();
         Field field = CustomTextureService.class.getDeclaredField("config");
         field.setAccessible(true);
         this.mappings = new Config(
@@ -98,8 +86,8 @@ class TestResourcePackModelExecutor {
     @AfterEach
     void tearDown() throws Exception {
         try {
-            if (this.instance != null) {
-                this.instance.set(null, this.previous);
+            if (this.fixture != null) {
+                this.fixture.close();
             }
         } finally {
             MockBukkit.unmock();

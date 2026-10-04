@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "repository": "wickidcow/SFL_RP_Official",
+  "release_tag": "v3.0.0",
+  "release_id": 391880793,
+  "asset_name": "SlimefunLegacyRP.zip",
+  "asset_id": 573869414,
+  "size": 7441100,
+  "sha256": "c2c08909186ab96a2eeb14e825de92db06ffb9c2b87399feefc05df3506f15cd",
+  "minecraft_minimum": "1.21.11",
+  "minecraft_supported_through": "26.3",
+  "stability": "stable",
+  "note": "Pinned stable official resource-pack release for Slimefun Legacy release mirroring. Prerelease previews are intentionally excluded until explicitly reviewed."
+}
