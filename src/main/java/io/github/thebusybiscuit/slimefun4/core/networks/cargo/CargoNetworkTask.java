@@ -183,6 +183,10 @@ class CargoNetworkTask implements Runnable {
             return false;
         }
 
+        if (previousSlot < 0) {
+            return false;
+        }
+
         Inventory inv = getLiveSourceInventory(inputTarget);
         if (inv != null && inv.getItem(previousSlot) == null) {
             inv.setItem(previousSlot, item);
@@ -217,6 +221,10 @@ class CargoNetworkTask implements Runnable {
                 return null;
             }
 
+            return item;
+        }
+
+        if (previousSlot < 0) {
             return item;
         }
 
