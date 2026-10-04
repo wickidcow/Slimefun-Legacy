@@ -37,7 +37,22 @@ Owner keys are retained exactly in the snapshot. Only displayed copies are sanit
 
 ## Recovering an affected inventory
 
-Retain the backup and original records. Identify the exact failure from the console and the relevant addon/preset/ID from the report. Use an applicable supported repair or restore an intact copy while the server is stopped; do not modify the live database alongside running inventory writes. Then use normal complete loading to revalidate the inventory. The existing loader releases its own hold only after that load succeeds. This command deliberately offers no force-clear action.
+Retain the backup and original records. Identify the exact failure from the console and the relevant addon/preset/ID from the report. Use an applicable supported repair or restore an intact copy while the server is stopped; do not modify the live database alongside running inventory writes. Then use normal complete loading to revalidate the inventory. The existing loader releases its own hold only after that load succeeds. There is no force-clear action for load guards.
+
+### Removed dependency: quarantine unreadable backpack rows
+
+If a backpack is held because Minecraft itself can no longer deserialize one or more stored items after a datapack, mod or plugin registry entry was permanently removed, restoring the exact missing dependency remains the preferred recovery. When that is impossible and the server owner explicitly accepts losing only the unreadable item rows, Doctor provides a narrowly scoped destructive lane:
+
+```text
+/sf doctor storage backpacks scan <backpack-uuid>
+/sf doctor storage backpacks quarantine <backpack-uuid> <full-fingerprint>
+```
+
+The scan reads the stored backpack profile and rows directly without publishing a partial inventory or populating the gameplay cache. It reports every row that fails the same basic slot/payload/usability checks used by the normal backpack reader. Its SHA-256 fingerprint covers the complete stored backpack inventory state, including healthy rows, so unrelated storage changes invalidate the authorization.
+
+Quarantine is allowed only while the backpack still has an incomplete-load hold, is not cached/live and has no active backpack save chain. Execution re-scans first and requires the exact fingerprint. Before deleting anything, it writes the exact raw payload of every targeted unreadable row to `data-storage/Slimefun/recovery/backpacks/` as a ZIP containing a manifest and one binary entry per slot. If the archive cannot be written, no row is deleted. Only the unreadable inventory rows are removed; the backpack profile, UUID, owner, name, size and healthy rows are retained.
+
+The load hold is intentionally not cleared by quarantine. Retry normal loading afterwards and verify `/sf doctor storage recovery`. The existing loader releases the hold only after the remaining backpack contents decode completely. A newly exposed unreadable row requires a new scan and new fingerprint.
 
 For a pending universal migration, record both source and destination IDs. An ambiguous acknowledgement may mean the transaction already committed. Do not remove one side or allocate a new destination. Existing retry logic retains and verifies the same destination identity. Queue-idle/clean-shutdown status alone does not prove that every held inventory recovered.
 
