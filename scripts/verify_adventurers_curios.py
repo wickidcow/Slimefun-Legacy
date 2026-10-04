@@ -86,7 +86,7 @@ def main() -> int:
 
         hologram_display = read(root, files["hologram_display"])
         for token in (
-            "DISPLAY_ITEM_SLOT = 13", "ItemDisplay", "POLISHED_BLACKSTONE", "TEXT_VISIBLE_KEY",
+            "DISPLAY_ITEM_SLOT = 13", "ItemDisplay", "TEXT_VISIBLE_KEY",
             "ITEM_VISIBLE_KEY", "Item Position:", "ABOVE", "BELOW", "Text Height:", "Item Height:",
             "menu.dropItems(block.getLocation(), DISPLAY_ITEM_SLOT)", "getSlotsAccessedByItemTransport",
             "return new int[0]", "setBillboard(Display.Billboard.CENTER)",
