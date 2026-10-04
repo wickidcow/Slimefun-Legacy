@@ -131,7 +131,8 @@ class SlimefunTabCompleter implements TabCompleter {
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("upgrade")) {
                 return createReturnList(List.of("status", "scan", "plan", "providers"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("storage")) {
-                return createReturnList(List.of("status", "scan", "plan", "verify", "repair", "recovery"), args[2]);
+                return createReturnList(
+                        List.of("status", "scan", "plan", "verify", "repair", "recovery", "backpacks"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("item-models")) {
                 return createReturnList(
                         List.of("status", "scan", "repair", "remove-resourcepack-texture-ids", "enable-pack"), args[2]);
@@ -145,6 +146,11 @@ class SlimefunTabCompleter implements TabCompleter {
             return null;
         } else if (args.length == 4 && args[0].equalsIgnoreCase("give")) {
             return createReturnList(Arrays.asList("1", "2", "4", "8", "16", "32", "64"), args[3]);
+        } else if (args.length == 4
+                && args[0].equalsIgnoreCase("doctor")
+                && args[1].equalsIgnoreCase("storage")
+                && (args[2].equalsIgnoreCase("backpacks") || args[2].equalsIgnoreCase("backpack"))) {
+            return createReturnList(List.of("scan", "quarantine"), args[3]);
         } else if (args.length == 4
                 && args[0].equalsIgnoreCase("doctor")
                 && args[1].equalsIgnoreCase("item-models")

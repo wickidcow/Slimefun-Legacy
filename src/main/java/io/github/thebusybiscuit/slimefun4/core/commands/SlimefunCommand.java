@@ -123,6 +123,10 @@ public class SlimefunCommand implements CommandExecutor, Listener {
             InventoryRecoveryDiagnostics.sendReport(sender, args);
             return;
         }
+        if (action.equals("backpacks") || action.equals("backpack")) {
+            BackpackRecoveryCommand.execute(sender, args);
+            return;
+        }
         if (action.equals("plan")) {
             sendStorageRepairPlan(sender, args);
             return;
@@ -137,7 +141,7 @@ public class SlimefunCommand implements CommandExecutor, Listener {
         }
         if (!action.equals("scan")) {
             sender.sendMessage(ChatColors.color(
-                    "&eUsage: /sf doctor storage <status|scan|plan|verify|repair|recovery> [page|fingerprint]"));
+                    "&eUsage: /sf doctor storage <status|scan|plan|verify|repair|recovery|backpacks> [args]"));
             return;
         }
 

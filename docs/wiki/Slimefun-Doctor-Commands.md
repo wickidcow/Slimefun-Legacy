@@ -106,12 +106,17 @@ The storage integrity lane is intentionally stricter than ordinary Doctor repair
 | Command | Changes data? | What it does |
 | --- | --- | --- |
 | `/sf doctor storage status` | No | Shows the last scan, write boundary, two-pass confirmation state, preflight and last repair result. |
+| `/sf doctor storage recovery [page]` | No | Reports current block, universal and backpack load holds plus pending universal migration identities. |
+| `/sf doctor storage backpacks scan <backpack-uuid>` | No | Inspects one held backpack row-by-row, reports only unreadable stored rows and prints a whole-backpack SHA-256 fingerprint. It does not load, cache, rewrite or clear the backpack. |
+| `/sf doctor storage backpacks quarantine <backpack-uuid> <full-fingerprint>` | **Yes — destructive** | Revalidates the exact backpack state, writes every unreadable raw row to a recovery ZIP, then deletes only those unreadable rows. Requires an existing failed-load hold and refuses cached/live or actively-saving backpacks. |
 | `/sf doctor storage scan` | No | Starts a read-only backend ownership/integrity scan. |
 | `/sf doctor storage plan [page]` | No | Shows the exact scope-qualified orphan-owner plan produced by confirmed scans. |
 | `/sf doctor storage verify <full-fingerprint>` | No | Revalidates the exact SHA-256 plan and quiet-write boundary before repair. |
 | `/sf doctor storage repair <full-fingerprint>` | **Yes — destructive** | Executes the currently verified exact storage repair plan. |
 
 Do not shorten or reuse a storage repair fingerprint. If state changes, scan and verify again.
+
+For a backpack that cannot load because Minecraft no longer recognizes a removed datapack/mod/plugin item component or enchantment, prefer restoring the missing dependency. If that is impossible and the owner explicitly accepts losing only the unreadable item rows, use the backpack scan/quarantine lane above. The quarantine command archives the exact removed payloads under `data-storage/Slimefun/recovery/backpacks/` before deletion. It intentionally leaves the incomplete-load hold in place; a later normal complete backpack load must succeed before the hold is released.
 
 ## Upgrade readiness
 
