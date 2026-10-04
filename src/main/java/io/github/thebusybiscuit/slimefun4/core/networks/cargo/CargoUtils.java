@@ -43,6 +43,8 @@ import org.bukkit.inventory.ItemStack;
  */
 final class CargoUtils {
 
+    static final int VIRTUAL_TRANSPORT_SLOT = -1;
+
     /**
      * These are the slots where our filter items sit.
      */
@@ -132,6 +134,15 @@ final class CargoUtils {
 
         ItemStackWrapper wrapperTemplate = ItemStackWrapper.wrap(template);
 
+        if (menu.getPreset().supportsVirtualItemTransport(menu)) {
+            return menu.getPreset().withdrawByItemTransport(
+                    menu,
+                    template,
+                    candidate -> SlimefunUtils.isItemSimilar(
+                                    ItemStackWrapper.wrap(candidate), wrapperTemplate, true)
+                            && matchesFilter(network, node, candidate));
+        }
+
         for (int slot : menu.getPreset().getSlotsAccessedByItemTransport(menu, ItemTransportFlow.WITHDRAW, null)) {
             ItemStack is = menu.getItemInSlot(slot);
             if (is == null || is.getType().isAir()) {
@@ -203,6 +214,12 @@ final class CargoUtils {
             menu = getChestMenu(target);
             if (menu == null) {
                 return null;
+            }
+
+            if (menu.getPreset().supportsVirtualItemTransport(menu)) {
+                ItemStack withdrawn = menu.getPreset().withdrawByItemTransport(
+                        menu, null, candidate -> matchesFilter(network, node, candidate));
+                return withdrawn == null ? null : new ItemStackAndInteger(withdrawn, VIRTUAL_TRANSPORT_SLOT);
             }
 
             for (int slot : menu.getPreset().getSlotsAccessedByItemTransport(menu, ItemTransportFlow.WITHDRAW, null)) {
@@ -298,6 +315,10 @@ final class CargoUtils {
         menu = getChestMenu(target);
         if (menu == null) {
             return stack;
+        }
+
+        if (menu.getPreset().supportsVirtualItemTransport(menu)) {
+            return menu.getPreset().insertByItemTransport(menu, stack);
         }
 
         for (int slot : menu.getPreset().getSlotsAccessedByItemTransport(menu, ItemTransportFlow.INSERT, wrapper)) {
