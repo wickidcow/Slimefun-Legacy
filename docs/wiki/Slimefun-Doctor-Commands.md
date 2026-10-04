@@ -101,15 +101,14 @@ Slimefun core does not guess addon-specific persistence formats. Addon Doctor pr
 
 ## Storage integrity
 
-| `/sf doctor storage recovery [page]` | No | Reports current block, universal and backpack load holds plus pending universal migration identities. |
-| `/sf doctor storage backpacks scan <backpack-uuid>` | No | Inspects one held backpack row-by-row, reports only unreadable stored rows and prints a whole-backpack SHA-256 fingerprint. It does not load, cache, rewrite or clear the backpack. |
-| `/sf doctor storage backpacks quarantine <backpack-uuid> <full-fingerprint>` | **Yes — destructive** | Revalidates the exact backpack state, writes every unreadable raw row to a recovery ZIP, then deletes only those unreadable rows. Requires an existing failed-load hold and refuses cached/live or actively-saving backpacks. |
-
 The storage integrity lane is intentionally stricter than ordinary Doctor repair.
 
 | Command | Changes data? | What it does |
 | --- | --- | --- |
 | `/sf doctor storage status` | No | Shows the last scan, write boundary, two-pass confirmation state, preflight and last repair result. |
+| `/sf doctor storage recovery [page]` | No | Reports current block, universal and backpack load holds plus pending universal migration identities. |
+| `/sf doctor storage backpacks scan <backpack-uuid>` | No | Inspects one held backpack row-by-row, reports only unreadable stored rows and prints a whole-backpack SHA-256 fingerprint. It does not load, cache, rewrite or clear the backpack. |
+| `/sf doctor storage backpacks quarantine <backpack-uuid> <full-fingerprint>` | **Yes — destructive** | Revalidates the exact backpack state, writes every unreadable raw row to a recovery ZIP, then deletes only those unreadable rows. Requires an existing failed-load hold and refuses cached/live or actively-saving backpacks. |
 | `/sf doctor storage scan` | No | Starts a read-only backend ownership/integrity scan. |
 | `/sf doctor storage plan [page]` | No | Shows the exact scope-qualified orphan-owner plan produced by confirmed scans. |
 | `/sf doctor storage verify <full-fingerprint>` | No | Revalidates the exact SHA-256 plan and quiet-write boundary before repair. |
