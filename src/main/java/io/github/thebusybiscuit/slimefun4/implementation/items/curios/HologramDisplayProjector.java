@@ -1,8 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.curios;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
-import io.github.bakedlibs.dough.items.CustomItemStack;
-import io.github.bakedlibs.dough.protection.Interaction;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
@@ -15,6 +13,7 @@ import io.github.thebusybiscuit.slimefun4.utils.ArmorStandUtils;
 import io.github.thebusybiscuit.slimefun4.utils.ChatUtils;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import io.github.thebusybiscuit.slimefun4.utils.NumberUtils;
+import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -23,6 +22,8 @@ import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 import me.mrCookieSlime.Slimefun.api.inventory.DirtyChestMenu;
 import me.mrCookieSlime.Slimefun.api.item_transport.ItemTransportFlow;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -35,6 +36,7 @@ import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 /**
@@ -47,6 +49,7 @@ import org.bukkit.persistence.PersistentDataType;
 public final class HologramDisplayProjector extends SlimefunItem {
 
     private static final LegacyComponentSerializer LEGACY_SECTION = LegacyComponentSerializer.legacySection();
+    private static final LegacyComponentSerializer LEGACY_AMPERSAND = LegacyComponentSerializer.legacyAmpersand();
 
     private static final int DISPLAY_ITEM_SLOT = 13;
 
@@ -80,7 +83,7 @@ public final class HologramDisplayProjector extends SlimefunItem {
                     if (slot != DISPLAY_ITEM_SLOT) {
                         addItem(
                                 slot,
-                                new CustomItemStack(Material.GRAY_STAINED_GLASS_PANE, " "),
+                                menuItem(Material.GRAY_STAINED_GLASS_PANE, " ", List.of()),
                                 ChestMenuUtils.getEmptyClickHandler());
                     }
                 }
@@ -112,9 +115,9 @@ public final class HologramDisplayProjector extends SlimefunItem {
 
                 String owner = StorageCacheUtils.getData(block.getLocation(), OWNER_KEY);
                 return player.getUniqueId().toString().equals(owner)
-                        && HologramDisplayProjector.this.canUse(player, false)
-                        && Slimefun.getProtectionManager()
-                                .hasPermission(player, block.getLocation(), Interaction.INTERACT_BLOCK);
+                        && (player.hasPermission("slimefun.inventory.bypass")
+                                || Slimefun.getIntegrations().canInteractBlock(player, block)
+                                        && HologramDisplayProjector.this.canUse(player, false));
             }
 
             @Override
@@ -167,13 +170,10 @@ public final class HologramDisplayProjector extends SlimefunItem {
     private void updateMenu(@Nonnull BlockMenu menu, @Nonnull Block block) {
         menu.replaceExistingItem(
                 3,
-                new CustomItemStack(
+                menuItem(
                         Material.NAME_TAG,
                         "&eDisplayed Text",
-                        "",
-                        "&7" + storedText(block),
-                        "",
-                        "&eClick &7to edit"));
+                        List.of("", "&7" + storedText(block), "", "&eClick &7to edit")));
         menu.addMenuClickHandler(3, (player, slot, item, action) -> {
             player.closeInventory();
             player.sendMessage(LEGACY_SECTION.deserialize(
@@ -199,14 +199,15 @@ public final class HologramDisplayProjector extends SlimefunItem {
 
         menu.replaceExistingItem(
                 5,
-                new CustomItemStack(
+                menuItem(
                         Material.CLOCK,
                         "&eText Height: &f"
                                 + NumberUtils.reparseDouble(readTextOffset(block) + TEXT_RENDER_OFFSET),
-                        "",
-                        "&fLeft Click: &7raise +0.1",
-                        "&fRight Click: &7lower -0.1",
-                        "&8The item moves with the text"));
+                        List.of(
+                                "",
+                                "&fLeft Click: &7raise +0.1",
+                                "&fRight Click: &7lower -0.1",
+                                "&8The item moves with the text")));
         menu.addMenuClickHandler(5, (player, slot, item, action) -> {
             double delta = action.isRightClicked() ? -0.1D : 0.1D;
             double textOffset = NumberUtils.reparseDouble(readTextOffset(block) + delta);
@@ -221,11 +222,10 @@ public final class HologramDisplayProjector extends SlimefunItem {
         boolean textVisible = readBoolean(block, TEXT_VISIBLE_KEY, true);
         menu.replaceExistingItem(
                 10,
-                new CustomItemStack(
+                menuItem(
                         textVisible ? Material.LIME_DYE : Material.GRAY_DYE,
                         textVisible ? "&aText Visible" : "&7Text Hidden",
-                        "",
-                        "&eClick &7to " + (textVisible ? "hide" : "show") + " the text"));
+                        List.of("", "&eClick &7to " + (textVisible ? "hide" : "show") + " the text")));
         menu.addMenuClickHandler(10, (player, slot, item, action) -> {
             StorageCacheUtils.setData(
                     block.getLocation(), TEXT_VISIBLE_KEY, Boolean.toString(!readBoolean(block, TEXT_VISIBLE_KEY, true)));
@@ -236,24 +236,26 @@ public final class HologramDisplayProjector extends SlimefunItem {
 
         menu.replaceExistingItem(
                 12,
-                new CustomItemStack(
+                menuItem(
                         Material.ITEM_FRAME,
                         "&eDisplay Item",
-                        "",
-                        "&7Drop any item into the empty",
-                        "&7center slot to project a copy.",
-                        "",
-                        "&8The real item remains stored safely."));
+                        List.of(
+                                "",
+                                "&7Drop any item into the empty",
+                                "&7center slot to project a copy.",
+                                "",
+                                "&8The real item remains stored safely.")));
 
         boolean above = isItemAboveText(block);
         menu.replaceExistingItem(
                 14,
-                new CustomItemStack(
+                menuItem(
                         Material.ARROW,
                         "&eItem Position: &f" + (above ? "ABOVE" : "BELOW"),
-                        "",
-                        "&eClick &7to move it " + (above ? "below" : "above") + " the text",
-                        "&8Keeps the current distance from the text"));
+                        List.of(
+                                "",
+                                "&eClick &7to move it " + (above ? "below" : "above") + " the text",
+                                "&8Keeps the current distance from the text")));
         menu.addMenuClickHandler(14, (player, slot, item, action) -> {
             double textHeight = visibleTextHeight(block);
             double itemHeight = readItemOffset(block);
@@ -268,13 +270,14 @@ public final class HologramDisplayProjector extends SlimefunItem {
 
         menu.replaceExistingItem(
                 16,
-                new CustomItemStack(
+                menuItem(
                         Material.CLOCK,
                         "&eItem Height: &f" + NumberUtils.reparseDouble(readItemOffset(block)),
-                        "",
-                        "&fLeft Click: &7raise +0.1",
-                        "&fRight Click: &7lower -0.1",
-                        "&8Independent of text height"));
+                        List.of(
+                                "",
+                                "&fLeft Click: &7raise +0.1",
+                                "&fRight Click: &7lower -0.1",
+                                "&8Independent of text height")));
         menu.addMenuClickHandler(16, (player, slot, item, action) -> {
             double offset =
                     NumberUtils.reparseDouble(readItemOffset(block) + (action.isRightClicked() ? -0.1D : 0.1D));
@@ -287,11 +290,12 @@ public final class HologramDisplayProjector extends SlimefunItem {
         boolean itemVisible = readBoolean(block, ITEM_VISIBLE_KEY, true);
         menu.replaceExistingItem(
                 22,
-                new CustomItemStack(
+                menuItem(
                         itemVisible ? Material.ENDER_EYE : Material.ENDER_PEARL,
                         itemVisible ? "&aItem Visible" : "&7Item Hidden",
-                        "",
-                        "&eClick &7to " + (itemVisible ? "hide" : "show") + " the projected item"));
+                        List.of(
+                                "",
+                                "&eClick &7to " + (itemVisible ? "hide" : "show") + " the projected item")));
         menu.addMenuClickHandler(22, (player, slot, item, action) -> {
             StorageCacheUtils.setData(
                     block.getLocation(), ITEM_VISIBLE_KEY, Boolean.toString(!readBoolean(block, ITEM_VISIBLE_KEY, true)));
@@ -510,6 +514,20 @@ public final class HologramDisplayProjector extends SlimefunItem {
 
         StorageCacheUtils.setData(block.getLocation(), key, Boolean.toString(fallback));
         return fallback;
+    }
+
+    private static @Nonnull ItemStack menuItem(
+            @Nonnull Material material, @Nonnull String displayName, @Nonnull List<String> lore) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(legacyText(displayName));
+        meta.lore(lore.stream().map(HologramDisplayProjector::legacyText).toList());
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private static @Nonnull Component legacyText(@Nonnull String value) {
+        return LEGACY_AMPERSAND.deserialize(value).decoration(TextDecoration.ITALIC, false);
     }
 
     private static @Nonnull String marker(@Nonnull Block block) {
