@@ -786,4 +786,8 @@ public class ProfileDataController extends ADataController {
                     backpackSaveChains.size());
         }
     }
+
+    public boolean runWhileMaintenanceBackpackOwned(@Nonnull PlayerBackpack backpack, @Nonnull Runnable action) {
+        return this.backpackCache.runWhileMaintenanceOwned(backpack, action);
+    }
 }

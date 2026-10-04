@@ -21,6 +21,35 @@ WORKFLOW = '.github/workflows/build-sfl-addons-compat-bundle.yml'
 BUNDLE = 'SF_Addons_1.21.11-26.3.zip'
 
 
+def query_runs(repository: str, head: str, event: str, deadline: float) -> dict:
+    """Retry only temporary query failures within the existing overall deadline."""
+    command = ['gh', 'api',
+               f'repos/{repository}/actions/runs?event={event}&head_sha={head}&per_page=100']
+    for attempt in range(1, 4):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError('Candidate workflow query deadline expired; no release fallback')
+        try:
+            result = subprocess.run(command, capture_output=True, text=True,
+                                    check=True, timeout=min(45, remaining))
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as failure:
+            detail = str(failure.stderr or '')
+            temporary = isinstance(failure, subprocess.TimeoutExpired) or re.search(
+                r'HTTP (?:429|5\d\d)\b|TLS handshake timeout|i/o timeout|'
+                r'connection reset|connection timed out|temporary failure in name resolution|'
+                r'unexpected EOF', detail, re.IGNORECASE)
+            if not temporary or attempt == 3:
+                raise RuntimeError(
+                    f'Candidate workflow query failed after {attempt} attempt(s); '
+                    f'no release fallback: {detail.strip() or type(failure).__name__}') from failure
+            print(f'Temporary GitHub workflow query failure (attempt {attempt}/3); retrying', flush=True)
+            time.sleep(min(5 * attempt, max(0, deadline - time.monotonic())))
+        else:
+            # A malformed successful response is not a transient transport failure.
+            return json.loads(result.stdout)
+    raise AssertionError('Unreachable retry state')
+
+
 def select_run(payload: dict, head: str, event: str = 'pull_request') -> dict | None:
     if event not in {'pull_request', 'push'}:
         raise ValueError('Only pull_request and push bundle events are supported')
@@ -82,10 +111,7 @@ def main() -> int:
         raise RuntimeError('Refusing to reuse an existing candidate bundle')
     deadline = time.monotonic() + args.timeout
     while time.monotonic() < deadline:
-        result = subprocess.run(['gh', 'api',
-            f'repos/{args.repository}/actions/runs?event={args.event}&head_sha={args.head}&per_page=100'],
-            capture_output=True, text=True, check=True, timeout=45)
-        run = select_run(json.loads(result.stdout), args.head, args.event)
+        run = select_run(query_runs(args.repository, args.head, args.event, deadline), args.head, args.event)
         if run and run['status'] == 'completed':
             if run['conclusion'] != 'success':
                 raise RuntimeError(f"Candidate bundle run {run['id']} finished with {run['conclusion']}; no release fallback")

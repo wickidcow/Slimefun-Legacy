@@ -4,8 +4,13 @@ import io.github.thebusybiscuit.slimefun4.core.services.ResourcePackOwnershipMod
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.Set;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
@@ -250,14 +255,14 @@ public final class CuriositiesConfig {
             updated = updated.substring(0, insertAt) + guide + updated.substring(insertAt);
         }
 
-        if (!java.util.regex.Pattern.compile("(?m)^\\s{2}ownership-mode\\s*:").matcher(updated).find()) {
+        if (!java.util.regex.Pattern.compile("(?m)^\\s{2}ownership-mode\\s*:")
+                .matcher(updated)
+                .find()) {
             var rootPattern = java.util.regex.Pattern.compile("(?m)^resource-pack\\s*:\\s*$");
             var rootMatcher = rootPattern.matcher(updated);
             if (rootMatcher.find()) {
                 int insertAt = rootMatcher.end();
-                updated = updated.substring(0, insertAt)
-                        + "\n  ownership-mode: auto"
-                        + updated.substring(insertAt);
+                updated = updated.substring(0, insertAt) + "\n  ownership-mode: auto" + updated.substring(insertAt);
             }
         }
 
@@ -467,5 +472,40 @@ public final class CuriositiesConfig {
      */
     public static boolean isEnabled() {
         return getConfig().getBoolean("enabled");
+    }
+    /** Explicit Doctor transaction; failed persistence restores the in-memory settings. */
+    public synchronized boolean setDoctorResourcePack(
+            @Nonnull ResourcePackOwnershipMode mode, boolean enabled, @Nonnull String url, @Nonnull String sha1) {
+        var before = yaml.getConfigurationSection(LEGACY_RESOURCE_PACK_ROOT).getValues(true);
+        setValue(LEGACY_RESOURCE_PACK_ROOT + ".ownership-mode", mode.configValue());
+        setValue(LEGACY_RESOURCE_PACK_ROOT + ".enabled", enabled);
+        setValue(LEGACY_RESOURCE_PACK_ROOT + ".url", url);
+        setValue(LEGACY_RESOURCE_PACK_ROOT + ".sha1", sha1);
+        Path temporary = null;
+        try {
+            temporary = Files.createTempFile(file.toPath().getParent(), "resource-pack-", ".tmp");
+            try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE)) {
+                ByteBuffer bytes = StandardCharsets.UTF_8.encode(yaml.saveToString());
+                while (bytes.hasRemaining()) channel.write(bytes);
+                channel.force(true);
+            }
+            Files.move(temporary, file.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            dirty = false;
+            return true;
+        } catch (IOException failure) {
+            plugin.getLogger().log(Level.SEVERE, "Could not persist Doctor resource-pack settings.", failure);
+        } finally {
+            if (temporary != null) {
+                try {
+                    Files.deleteIfExists(temporary);
+                } catch (IOException failure) {
+                    plugin.getLogger().log(Level.WARNING, "Could not remove temporary config.", failure);
+                }
+            }
+        }
+        yaml.set(LEGACY_RESOURCE_PACK_ROOT, null);
+        before.forEach((key, value) -> yaml.set(LEGACY_RESOURCE_PACK_ROOT + "." + key, value));
+        dirty = true;
+        return false;
     }
 }

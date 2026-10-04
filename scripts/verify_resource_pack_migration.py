@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 def require(text: str, needle: str, label: str) -> None:
-    if needle not in text:
+    if " ".join(needle.split()) not in " ".join(text.split()):
         raise SystemExit(f"Resource-pack migration verification failed: missing {label}: {needle}")
 
 

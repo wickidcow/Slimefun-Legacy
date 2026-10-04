@@ -1,6 +1,8 @@
 package io.github.thebusybiscuit.slimefun4.core.services.stability;
 
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
+import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuideImplementation;
+import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuideMode;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -15,6 +17,7 @@ import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Container;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -25,6 +28,7 @@ import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.BundleMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.components.CustomModelDataComponent;
+import org.bukkit.persistence.PersistentDataType;
 
 /**
  * Detects and removes only Slimefun Legacy's bundled item-model value from items whose server mapping
@@ -38,10 +42,22 @@ final class ItemModelRepairExecutor extends ItemDoctorTraversalExecutor {
     private static final int MAX_CONTAINER_DEPTH = 4;
 
     private final boolean repair;
+    private final boolean previewMappingRemoval;
+    private final boolean requireFreshTemplates;
     private final Map<String, Integer> bundledModels;
 
     ItemModelRepairExecutor(boolean repair) {
+        this(repair, false, false);
+    }
+
+    ItemModelRepairExecutor(boolean repair, boolean previewMappingRemoval) {
+        this(repair, previewMappingRemoval, false);
+    }
+
+    ItemModelRepairExecutor(boolean repair, boolean previewMappingRemoval, boolean requireFreshTemplates) {
         this.repair = repair;
+        this.previewMappingRemoval = previewMappingRemoval;
+        this.requireFreshTemplates = requireFreshTemplates;
         this.bundledModels = loadBundledModels();
     }
 
@@ -72,21 +88,22 @@ final class ItemModelRepairExecutor extends ItemDoctorTraversalExecutor {
         if (item == null || item.getType() == Material.AIR) {
             return false;
         }
-
         report.stackScanned();
         boolean changed = false;
         try {
             Optional<String> storedId = Slimefun.getItemDataService().getItemData(item);
             if (storedId.isPresent()) {
                 report.slimefunStackFound();
-                changed = inspectCandidate(item, storedId.get(), report);
+                changed = this.inspectCandidate(item, storedId.get(), report);
+            } else if (this.guideMode(item) != null) {
+                report.slimefunStackFound();
+                changed = this.inspectCandidate(item, "SLIMEFUN_GUIDE", report);
             }
-
-            if (depth < MAX_CONTAINER_DEPTH) {
-                changed |= inspectNestedItems(item, report, depth + 1);
+            if (depth < 4) {
+                changed |= this.inspectNestedItems(item, report, depth + 1);
             }
             return changed;
-        } catch (RuntimeException | LinkageError exception) {
+        } catch (LinkageError | RuntimeException exception) {
             report.failure();
             Slimefun.logger().log(Level.WARNING, "Item-model Doctor skipped a failing ItemStack.", exception);
             return changed;
@@ -94,42 +111,41 @@ final class ItemModelRepairExecutor extends ItemDoctorTraversalExecutor {
     }
 
     boolean inspectCandidate(ItemStack item, String slimefunId, ItemDoctorReport report) {
-        if (SlimefunItem.getById(slimefunId) == null) {
+        String guideMode;
+        String string = guideMode = slimefunId.equals("SLIMEFUN_GUIDE") ? this.guideMode(item) : null;
+        if (SlimefunItem.getById(slimefunId) == null && guideMode == null) {
             return false;
         }
-
-        // A non-zero current mapping means the server still intentionally wants Slimefun's model.
-        if (Slimefun.getItemTextureService().getModelData(slimefunId) != 0) {
-            return false;
-        }
-
-        int bundledModel = bundledModels.getOrDefault(slimefunId, 0);
+        int bundledModel = this.bundledModels.getOrDefault(slimefunId, 0);
         if (bundledModel == 0) {
             return false;
         }
-
+        if (Slimefun.getItemTextureService().getModelData(slimefunId) != 0
+                && (!this.previewMappingRemoval
+                        || this.repair
+                        || Slimefun.getItemTextureService().getModelData(slimefunId) != bundledModel)) {
+            return false;
+        }
+        if (this.repair && this.requireFreshTemplates && this.templateHasBundledModel(slimefunId, bundledModel)) {
+            report.itemModelConflictFound(slimefunId);
+            return false;
+        }
         ItemMeta currentMeta = item.getItemMeta();
         if (!currentMeta.hasCustomModelDataComponent()) {
             return false;
         }
-
         CustomModelDataComponent component = currentMeta.getCustomModelDataComponent();
         List<Float> floats = new ArrayList<>(component.getFloats());
         if (floats.isEmpty() || Float.compare(floats.get(0), (float) bundledModel) != 0) {
             return false;
         }
-
         report.itemModelCandidateFound(slimefunId);
-        if (!repair) {
+        if (!this.repair) {
             return false;
         }
-
         ItemMeta originalMeta = currentMeta.clone();
         try {
             floats.remove(0);
-
-            // Remove the component completely when Slimefun's float was the only content. This restores
-            // equality with pre-model-map items instead of leaving an empty custom-model-data component behind.
             if (floats.isEmpty()
                     && component.getFlags().isEmpty()
                     && component.getStrings().isEmpty()
@@ -139,32 +155,34 @@ final class ItemModelRepairExecutor extends ItemDoctorTraversalExecutor {
                 component.setFloats(floats);
                 currentMeta.setCustomModelDataComponent(component);
             }
-
             item.setItemMeta(currentMeta);
-
             Optional<String> resultingId = Slimefun.getItemDataService().getItemData(item);
-            if (resultingId.isEmpty() || !slimefunId.equals(resultingId.get())) {
+            if (guideMode != null
+                    ? !guideMode.equals(this.guideMode(item))
+                    : resultingId.isEmpty() || !slimefunId.equals(resultingId.get())) {
                 item.setItemMeta(originalMeta);
                 report.failure();
-                Slimefun.logger().warning(
-                        "Item-model Doctor refused a repair because the Slimefun item ID changed unexpectedly.");
+                Slimefun.logger()
+                        .warning(
+                                "Item-model Doctor refused a repair because the Slimefun item ID changed unexpectedly.");
                 return false;
             }
-
             report.itemModelRepaired();
             report.stackRepaired();
             return true;
-        } catch (RuntimeException | LinkageError exception) {
+        } catch (LinkageError | RuntimeException exception) {
             try {
                 item.setItemMeta(originalMeta);
-            } catch (RuntimeException | LinkageError rollbackError) {
+            } catch (LinkageError | RuntimeException rollbackError) {
                 exception.addSuppressed(rollbackError);
             }
             report.failure();
-            Slimefun.logger().log(
-                    Level.WARNING,
-                    "Item-model Doctor could not safely remove the bundled model value from " + slimefunId + '.',
-                    exception);
+            Slimefun.logger()
+                    .log(
+                            Level.WARNING,
+                            "Item-model Doctor could not safely remove the bundled model value from " + slimefunId
+                                    + ".",
+                            exception);
             return false;
         }
     }
@@ -189,7 +207,8 @@ final class ItemModelRepairExecutor extends ItemDoctorTraversalExecutor {
         meta = item.getItemMeta();
         if (meta instanceof BlockStateMeta blockStateMeta && blockStateMeta.hasBlockState()) {
             BlockState blockState = blockStateMeta.getBlockState();
-            if (blockState instanceof Container container && inspectInventory(container.getInventory(), report, depth)) {
+            if (blockState instanceof Container container
+                    && inspectInventory(container.getInventory(), report, depth)) {
                 blockStateMeta.setBlockState(container);
                 item.setItemMeta(blockStateMeta);
                 changed = true;
@@ -216,9 +235,43 @@ final class ItemModelRepairExecutor extends ItemDoctorTraversalExecutor {
                 }
             }
         } catch (RuntimeException | java.io.IOException exception) {
-            Slimefun.logger().log(Level.SEVERE, "Item-model Doctor could not load bundled item-model mappings.", exception);
+            Slimefun.logger()
+                    .log(Level.SEVERE, "Item-model Doctor could not load bundled item-model mappings.", exception);
         }
 
         return Map.copyOf(models);
+    }
+
+    private String guideMode(ItemStack item) {
+        NamespacedKey key = Slimefun.getRegistry().getGuideDataKey();
+        if (key == null || !item.hasItemMeta()) {
+            return null;
+        }
+        String mode = (String) item.getItemMeta().getPersistentDataContainer().get(key, PersistentDataType.STRING);
+        return "SURVIVAL_MODE".equals(mode) || "CHEAT_MODE".equals(mode) ? mode : null;
+    }
+
+    private boolean templateHasBundledModel(String id, int bundledModel) {
+        SlimefunItem definition = SlimefunItem.getById(id);
+        if (definition != null && this.hasBundledModel(definition.getItem(), bundledModel)) {
+            return true;
+        }
+        if (id.equals("SLIMEFUN_GUIDE")) {
+            for (SlimefunGuideMode mode : SlimefunGuideMode.values()) {
+                SlimefunGuideImplementation guide = Slimefun.getRegistry().getSlimefunGuide(mode);
+                if (guide == null || !this.hasBundledModel(guide.getItem(), bundledModel)) continue;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasBundledModel(ItemStack item, int bundledModel) {
+        ItemMeta meta = item.getItemMeta();
+        if (!meta.hasCustomModelDataComponent()) {
+            return false;
+        }
+        List<Float> floats = meta.getCustomModelDataComponent().getFloats();
+        return !floats.isEmpty() && Float.compare(floats.get(0), (float) bundledModel) == 0;
     }
 }

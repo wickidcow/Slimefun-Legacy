@@ -7,12 +7,12 @@ import org.bukkit.plugin.java.JavaPluginLoader;
 import org.mockbukkit.mockbukkit.ServerMock;
 
 /** Uses the retained test constructor: real registries, no service startup and no subclass of the final core. */
-final class InventoryReadTestPlugin implements AutoCloseable {
+public final class InventoryReadTestPlugin implements AutoCloseable {
     private final Field instance;
     private final Object previous;
 
     @SuppressWarnings({"deprecation", "removal"}) // Existing explicit test constructor, not production API use.
-    InventoryReadTestPlugin(ServerMock server) {
+    public InventoryReadTestPlugin(ServerMock server) {
         try {
             instance = Slimefun.class.getDeclaredField("instance");
             instance.setAccessible(true);
