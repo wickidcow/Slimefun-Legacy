@@ -92,6 +92,7 @@ def main() -> int:
     require(restore_original, "DirtyChestMenu menu = CargoUtils.getChestMenu(inputTarget)", "custom-menu rollback priority")
     require(restore_original, "previousSlot == CargoUtils.VIRTUAL_TRANSPORT_SLOT", "virtual source rollback sentinel")
     require(restore_original, "restoreByItemTransport(menu, item)", "virtual source rollback hook")
+    require(restore_original, "if (previousSlot < 0) { return false; }", "stale virtual source rollback guard")
     require(restore_original, "menu.getItemInSlot(previousSlot) == null", "custom-menu original-slot check")
     require(restore_original, "menu.replaceExistingItem(previousSlot, item)", "custom-menu exact-slot restore")
     require(restore_original, "Inventory inv = getLiveSourceInventory(inputTarget)", "live vanilla source restore")
@@ -107,6 +108,7 @@ def main() -> int:
     require(return_to_source, "DirtyChestMenu menu = CargoUtils.getChestMenu(inputTarget)", "custom-menu remainder handling")
     require(return_to_source, "previousSlot == CargoUtils.VIRTUAL_TRANSPORT_SLOT", "virtual source normal-return sentinel")
     require(return_to_source, "restoreByItemTransport(menu, item)", "virtual source normal-return hook")
+    require(return_to_source, "if (previousSlot < 0) { return item; }", "stale virtual source return guard")
     require(return_to_source, "Inventory inv = getLiveSourceInventory(inputTarget)", "live source inventory revalidation")
     require_before(
         return_to_source,
