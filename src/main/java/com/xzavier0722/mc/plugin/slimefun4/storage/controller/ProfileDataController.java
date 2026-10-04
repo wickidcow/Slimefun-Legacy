@@ -13,10 +13,21 @@ import io.github.thebusybiscuit.slimefun4.api.player.PlayerBackpack;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
 import io.github.thebusybiscuit.slimefun4.api.researches.Research;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import java.io.BufferedOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -27,6 +38,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.bukkit.Bukkit;
@@ -40,6 +53,7 @@ public class ProfileDataController extends ADataController {
     private final Map<String, Runnable> invalidingBackpackTasks;
     private final Map<String, CompletableFuture<Void>> backpackSaveChains;
     private final Set<String> uncertainBackpackBaselines;
+    private final Set<String> backpackRecoveryOperations = ConcurrentHashMap.newKeySet();
     /** In-flight or failed reads must never be persisted as an empty replacement inventory. */
     private final Set<String> incompleteInventoryLoads = ConcurrentHashMap.newKeySet();
 
@@ -229,6 +243,358 @@ public class ProfileDataController extends ADataController {
     }
 
     public record MaintenanceBackpack(@Nonnull PlayerBackpack backpack, boolean maintenanceOwned) {}
+
+    /**
+     * One raw backpack row that cannot be decoded safely by the normal inventory reader.
+     *
+     * <p>The command surface exposes only the slot, payload digest and bounded failure summary.
+     * Original bytes stay inside the controller until an explicit quarantine execution writes
+     * them to the recovery archive.
+     */
+    public record BackpackRecoveryCandidate(int slot, @Nonnull String payloadSha256, @Nonnull String failure) {}
+
+    /**
+     * Read-only fingerprinted view of one held backpack.
+     *
+     * <p>The fingerprint covers the complete stored inventory state, not only unreadable rows, so
+     * execution fails closed if any row changes between scan and quarantine.
+     */
+    public record BackpackRecoveryScan(
+            @Nonnull String backpackId,
+            @Nonnull String ownerUuid,
+            int backpackSize,
+            int storedRows,
+            boolean loadHeld,
+            boolean cached,
+            boolean savePending,
+            @Nonnull List<BackpackRecoveryCandidate> unreadableRows,
+            @Nonnull String fingerprint) {
+        public BackpackRecoveryScan {
+            unreadableRows = List.copyOf(unreadableRows);
+        }
+
+        public boolean isEligibleForQuarantine() {
+            return loadHeld && !cached && !savePending && !unreadableRows.isEmpty();
+        }
+    }
+
+    /** Result returned only after the quarantine archive exists and every targeted delete completed. */
+    public record BackpackRecoveryExecution(
+            @Nonnull BackpackRecoveryScan scan, int quarantinedRows, @Nonnull String archivePath) {}
+
+    private record RawBackpackRecoveryRow(
+            int slot,
+            @Nonnull String representation,
+            @Nonnull byte[] payload,
+            @Nonnull String payloadSha256,
+            @Nonnull String failure) {
+        private RawBackpackRecoveryRow {
+            payload = payload.clone();
+        }
+
+        @Override
+        public byte[] payload() {
+            return payload.clone();
+        }
+    }
+
+    private record BackpackRecoveryInspection(
+            @Nonnull BackpackRecoveryScan scan, @Nonnull List<RawBackpackRecoveryRow> unreadableRows) {
+        private BackpackRecoveryInspection {
+            unreadableRows = List.copyOf(unreadableRows);
+        }
+    }
+
+    /**
+     * Inspects one backpack without loading it into gameplay state.
+     *
+     * <p>This is deliberately read-only. It does not clear the incomplete-load guard, populate the
+     * backpack cache, retry a normal load or rewrite any stored item.
+     */
+    public CompletableFuture<BackpackRecoveryScan> scanBackpackRecoveryAsync(@Nonnull String backpackId) {
+        checkDestroy();
+        return CompletableFuture.supplyAsync(() -> inspectBackpackRecovery(backpackId).scan(), readExecutor);
+    }
+
+    /**
+     * Quarantines only the exact unreadable rows authorized by a fresh scan fingerprint.
+     *
+     * <p>The raw bytes are written to a ZIP before deletion. The existing load hold is retained;
+     * only a later complete normal backpack load may release it.
+     */
+    public CompletableFuture<BackpackRecoveryExecution> quarantineUnreadableBackpackRowsAsync(
+            @Nonnull String backpackId, @Nonnull String expectedFingerprint) {
+        checkDestroy();
+        if (!backpackRecoveryOperations.add(backpackId)) {
+            return CompletableFuture.failedFuture(
+                    new IllegalStateException("A backpack recovery operation is already running for " + backpackId));
+        }
+
+        return CompletableFuture.supplyAsync(
+                        () -> quarantineUnreadableBackpackRows(backpackId, expectedFingerprint), readExecutor)
+                .whenComplete((ignored, failure) -> backpackRecoveryOperations.remove(backpackId));
+    }
+
+    BackpackRecoveryScan scanBackpackRecovery(@Nonnull String backpackId) {
+        return inspectBackpackRecovery(backpackId).scan();
+    }
+
+    BackpackRecoveryExecution quarantineUnreadableBackpackRows(
+            @Nonnull String backpackId, @Nonnull String expectedFingerprint) {
+        BackpackRecoveryInspection inspection = inspectBackpackRecovery(backpackId);
+        BackpackRecoveryScan scan = inspection.scan();
+
+        if (!scan.loadHeld()) {
+            throw new IllegalStateException(
+                    "Backpack is not under an incomplete-load hold. Trigger and inspect the real load failure first.");
+        }
+        if (scan.cached()) {
+            throw new IllegalStateException("Backpack is currently cached/live; quarantine refuses to write behind it.");
+        }
+        if (scan.savePending()) {
+            throw new IllegalStateException("Backpack has a pending persistence chain; wait for it before recovery.");
+        }
+        if (scan.unreadableRows().isEmpty()) {
+            throw new IllegalStateException("No unreadable backpack rows are present.");
+        }
+        if (!scan.fingerprint().equalsIgnoreCase(expectedFingerprint)) {
+            throw new IllegalStateException(
+                    "Backpack state changed after the scan; run a new scan and use its exact fingerprint.");
+        }
+
+        Path archive = writeBackpackRecoveryArchive(inspection);
+        UUID owner = UUID.fromString(scan.ownerUuid());
+        var completions = new ArrayList<CompletableFuture<Void>>(inspection.unreadableRows().size());
+        for (RawBackpackRecoveryRow row : inspection.unreadableRows()) {
+            var key = new RecordKey(DataScope.BACKPACK_INVENTORY);
+            key.addCondition(FieldKey.BACKPACK_ID, backpackId);
+            key.addCondition(FieldKey.INVENTORY_SLOT, Integer.toString(row.slot()));
+            completions.add(scheduleDeleteTaskWithCompletion(new UUIDKey(DataScope.NONE, owner), key, false));
+        }
+
+        try {
+            CompletableFuture.allOf(completions.toArray(CompletableFuture[]::new)).join();
+        } catch (RuntimeException failure) {
+            throw new IllegalStateException(
+                    "Quarantine archive was written, but one or more backpack row deletions failed. Archive: "
+                            + archive,
+                    failure);
+        }
+
+        return new BackpackRecoveryExecution(scan, inspection.unreadableRows().size(), archive.toString());
+    }
+
+    private BackpackRecoveryInspection inspectBackpackRecovery(@Nonnull String backpackId) {
+        try {
+            UUID.fromString(backpackId);
+        } catch (IllegalArgumentException invalid) {
+            throw new IllegalArgumentException("Backpack ID must be a UUID.", invalid);
+        }
+
+        var backpackKey = new RecordKey(DataScope.BACKPACK_PROFILE);
+        backpackKey.addField(FieldKey.PLAYER_UUID);
+        backpackKey.addField(FieldKey.BACKPACK_SIZE);
+        backpackKey.addCondition(FieldKey.BACKPACK_ID, backpackId);
+        var backpackRows = getData(backpackKey);
+        if (backpackRows.isEmpty()) {
+            throw new IllegalStateException("No stored backpack profile exists for " + backpackId);
+        }
+        if (backpackRows.size() != 1) {
+            throw new IllegalStateException("Backpack profile identity is not unique; automatic recovery refuses.");
+        }
+
+        RecordSet backpack = backpackRows.getFirst();
+        String ownerUuid = backpack.getString(FieldKey.PLAYER_UUID);
+        int size = backpack.getInt(FieldKey.BACKPACK_SIZE);
+        if (ownerUuid == null || size < 1 || size > 54) {
+            throw new IllegalStateException("Backpack profile metadata is incomplete or invalid.");
+        }
+        UUID.fromString(ownerUuid);
+
+        var inventoryKey = new RecordKey(DataScope.BACKPACK_INVENTORY);
+        inventoryKey.addField(FieldKey.INVENTORY_SLOT);
+        inventoryKey.addField(FieldKey.INVENTORY_ITEM);
+        inventoryKey.addCondition(FieldKey.BACKPACK_ID, backpackId);
+        List<RecordSet> stored = getData(inventoryKey);
+
+        var stateEntries = new ArrayList<String>(stored.size());
+        var unreadable = new ArrayList<RawBackpackRecoveryRow>();
+        var seenSlots = new HashSet<Integer>();
+
+        for (RecordSet row : stored) {
+            String slotText = row.getString(FieldKey.INVENTORY_SLOT);
+            if (slotText == null) {
+                throw new IllegalStateException("Backpack contains a row with no slot identity; automatic recovery refuses.");
+            }
+
+            final int slot;
+            try {
+                slot = Integer.parseInt(slotText);
+            } catch (NumberFormatException invalid) {
+                throw new IllegalStateException(
+                        "Backpack contains malformed slot identity '" + bounded(slotText)
+                                + "'; automatic quarantine refuses.",
+                        invalid);
+            }
+
+            Object raw = row.getValue(FieldKey.INVENTORY_ITEM);
+            String representation;
+            byte[] payload;
+            if (raw instanceof byte[] bytes) {
+                representation = "binary";
+                payload = bytes.clone();
+            } else if (raw instanceof String text) {
+                representation = "text-utf8";
+                payload = text.getBytes(StandardCharsets.UTF_8);
+            } else if (raw == null) {
+                representation = "null";
+                payload = new byte[0];
+            } else {
+                representation = raw.getClass().getName();
+                payload = String.valueOf(raw).getBytes(StandardCharsets.UTF_8);
+            }
+
+            String payloadSha256 = sha256Hex(payload);
+            stateEntries.add(slot + "\u0000" + representation + "\u0000" + payloadSha256);
+
+            Throwable rowFailure = null;
+            try {
+                if (slot < 0 || slot >= size || !seenSlots.add(slot)) {
+                    throw new IllegalArgumentException("Stored slot is out of range or duplicated");
+                }
+                if (raw == null
+                        || raw instanceof byte[] bytes && bytes.length == 0
+                        || raw instanceof String text && text.isBlank()) {
+                    continue;
+                }
+                if (!(raw instanceof byte[]) && !(raw instanceof String)) {
+                    throw new IllegalArgumentException("Unsupported stored item representation");
+                }
+                ItemStack item = row.getItemStack(FieldKey.INVENTORY_ITEM);
+                if (item == null || item.isEmpty() || item.getType().isAir() || item.getAmount() <= 0) {
+                    throw new IllegalStateException("Non-empty item data did not decode to a usable item");
+                }
+            } catch (RuntimeException | LinkageError failure) {
+                rowFailure = failure;
+            }
+
+            if (rowFailure != null) {
+                unreadable.add(new RawBackpackRecoveryRow(
+                        slot, representation, payload, payloadSha256, summarizeFailure(rowFailure)));
+            }
+        }
+
+        stateEntries.sort(String::compareTo);
+        unreadable.sort(Comparator.comparingInt(RawBackpackRecoveryRow::slot));
+
+        String state = String.join("\n", stateEntries);
+        String fingerprint = sha256Hex((backpackId
+                        + "\n"
+                        + ownerUuid
+                        + "\n"
+                        + size
+                        + "\n"
+                        + stored.size()
+                        + "\n"
+                        + state)
+                .getBytes(StandardCharsets.UTF_8));
+
+        boolean savePending;
+        synchronized (backpackSaveChains) {
+            savePending = backpackSaveChains.containsKey(backpackId);
+        }
+
+        List<BackpackRecoveryCandidate> publicRows = unreadable.stream()
+                .map(row -> new BackpackRecoveryCandidate(row.slot(), row.payloadSha256(), row.failure()))
+                .toList();
+        var scan = new BackpackRecoveryScan(
+                backpackId,
+                ownerUuid,
+                size,
+                stored.size(),
+                incompleteInventoryLoads.contains(backpackId),
+                backpackCache.peek(backpackId) != null,
+                savePending,
+                publicRows,
+                fingerprint);
+        return new BackpackRecoveryInspection(scan, unreadable);
+    }
+
+    protected Path getBackpackRecoveryDirectory() {
+        return Path.of("data-storage", "Slimefun", "recovery", "backpacks");
+    }
+
+    private Path writeBackpackRecoveryArchive(@Nonnull BackpackRecoveryInspection inspection) {
+        BackpackRecoveryScan scan = inspection.scan();
+        Path directory = getBackpackRecoveryDirectory();
+        String shortFingerprint = scan.fingerprint().substring(0, 12);
+        Path archive = directory.resolve(
+                "backpack-" + scan.backpackId() + "-" + System.currentTimeMillis() + "-" + shortFingerprint + ".zip");
+
+        try {
+            Files.createDirectories(directory);
+            try (var zip = new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(archive)))) {
+                var manifest = new StringBuilder();
+                manifest.append("Slimefun Legacy backpack quarantine\n")
+                        .append("created=").append(Instant.now()).append('\n')
+                        .append("backpack=").append(scan.backpackId()).append('\n')
+                        .append("owner=").append(scan.ownerUuid()).append('\n')
+                        .append("size=").append(scan.backpackSize()).append('\n')
+                        .append("storedRows=").append(scan.storedRows()).append('\n')
+                        .append("fingerprint=").append(scan.fingerprint()).append('\n')
+                        .append("quarantinedRows=").append(inspection.unreadableRows().size()).append("\n\n");
+
+                for (RawBackpackRecoveryRow row : inspection.unreadableRows()) {
+                    String entryName = "slots/slot-" + row.slot() + ".bin";
+                    manifest.append("slot=").append(row.slot())
+                            .append(" representation=").append(row.representation())
+                            .append(" sha256=").append(row.payloadSha256())
+                            .append(" entry=").append(entryName)
+                            .append(" failure=").append(row.failure())
+                            .append('\n');
+                    zip.putNextEntry(new ZipEntry(entryName));
+                    zip.write(row.payload());
+                    zip.closeEntry();
+                }
+
+                zip.putNextEntry(new ZipEntry("manifest.txt"));
+                zip.write(manifest.toString().getBytes(StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+        } catch (IOException failure) {
+            try {
+                Files.deleteIfExists(archive);
+            } catch (IOException ignored) {
+                // Preserve the original archive failure.
+            }
+            throw new IllegalStateException("Could not write backpack quarantine archive; no rows were deleted.", failure);
+        }
+
+        return archive;
+    }
+
+    private static String summarizeFailure(@Nonnull Throwable failure) {
+        Throwable root = failure;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+        String message = root.getMessage();
+        return root.getClass().getSimpleName()
+                + (message == null || message.isBlank() ? "" : ": " + bounded(message));
+    }
+
+    private static String bounded(@Nonnull String text) {
+        String clean = text.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ');
+        return clean.length() <= 180 ? clean : clean.substring(0, 177) + "...";
+    }
+
+    private static String sha256Hex(@Nonnull byte[] bytes) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is unavailable", impossible);
+        }
+    }
 
     @Nullable public PlayerBackpack getBackpack(String uuid) {
         checkDestroy();
