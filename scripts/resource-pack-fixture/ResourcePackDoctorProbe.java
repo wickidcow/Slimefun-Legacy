@@ -5,6 +5,7 @@ import com.xzavier0722.mc.plugin.slimefun4.storage.common.FieldKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordSet;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.DataUtils;
+import io.github.thebusybiscuit.slimefun4.api.player.PlayerBackpack;
 import io.github.thebusybiscuit.slimefun4.core.config.CuriositiesConfig;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.ByteArrayOutputStream;
@@ -16,6 +17,7 @@ import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Chest;
@@ -30,88 +32,147 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.io.BukkitObjectOutputStream;
 
-/** Synthetic fixture on real Paper; never install on a production server. */
+/** Synthetic fixture on real Paper/Folia; never install on a production server. */
 public final class ResourcePackDoctorProbe extends JavaPlugin {
     private static final String OWNER = "11111111-2222-3333-4444-555555555555";
     private static final String BACKPACK = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
     private static final String UNIVERSAL = "bbbbbbbb-cccc-dddd-eeee-ffffffffffff";
     private static final String LEGACY_UNIVERSAL = "cccccccc-dddd-eeee-ffff-111111111111";
+    private static final String HELD_BACKPACK = "dddddddd-eeee-ffff-1111-222222222222";
     private static final float MODEL = 2200080F;
+    private static final int FAR_CHUNK = 512;
+    private static final int FAR_BLOCK = FAR_CHUNK << 4;
+    private PlayerBackpack heldBackpack;
 
     @Override
     public void onEnable() {
         // Empty Paper servers need not retain spawn chunks. Keep only the near fixture
         // loaded before Doctor resumes; the far fixture stays unloaded until requested.
-        Bukkit.getWorlds().getFirst().getChunkAt(0, 0).addPluginChunkTicket(this);
+        at(0, 0, 1L, () -> Bukkit.getWorlds().getFirst().getChunkAt(0, 0).addPluginChunkTicket(this));
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length != 1) return false;
-        Bukkit.getScheduler()
-                .runTaskLater(
-                        this,
-                        () -> {
-                            try {
-                                Files.createDirectories(getDataFolder().toPath());
-                                switch (args[0]) {
-                                    case "prepare" -> prepare();
-                                    case "preview" -> verifyPreview();
-                                    case "checkpoint" -> verifyCheckpoint();
-                                    case "installed" -> verifyInstalled();
-                                    case "uninstalled" -> verifyUninstalled();
-                                    case "restarted" -> {
-                                        idle();
-                                        verifyContents();
-                                        require(
-                                                !CuriositiesConfig.getConfig().getBoolean("resource-pack.enabled"),
-                                                "Restart re-enabled Legacy delivery");
-                                        require(
-                                                "external"
-                                                        .equals(CuriositiesConfig.getConfig()
-                                                                .getString("resource-pack.ownership-mode")),
-                                                "Restart replaced the external pack owner");
-                                    }
-                                    case "deferred" -> {
-                                        var world = Bukkit.getWorlds().getFirst();
-                                        require(
-                                                !world.isChunkLoaded(64, 64),
-                                                "Deferred vanilla fixture must start unloaded");
-                                        world.getChunkAt(64, 64);
-                                        Bukkit.getScheduler()
-                                                .runTaskLater(
-                                                        this,
-                                                        () -> {
-                                                            try {
-                                                                require(
-                                                                        expected("clean-0")
-                                                                                .equals(chest(1024, 1024)
-                                                                                        .getBlockInventory()
-                                                                                        .getItem(0)),
-                                                                        "Chunk-load cleanup did not repair the deferred chest");
-                                                                pass("deferred");
-                                                            } catch (Throwable failure) {
-                                                                fail(failure);
-                                                            }
-                                                        },
-                                                        20L);
-                                        return;
-                                    }
-                                    default -> throw new IllegalArgumentException("Unknown probe action");
+        at(0, 0, 20L, () -> {
+            try {
+                Files.createDirectories(getDataFolder().toPath());
+                switch (args[0]) {
+                    case "prepare" -> {
+                        prepare();
+                        at(FAR_CHUNK, FAR_CHUNK, 1L, () -> {
+                            chest(FAR_BLOCK, FAR_BLOCK).getBlockInventory().setItem(0, expected("old-0"));
+                            pass("prepare");
+                        });
+                        return;
+                    }
+                    case "preview" -> verifyPreview();
+                    case "checkpoint" -> verifyCheckpoint();
+                    case "installed" -> verifyInstalled();
+                    case "ownership-prepare" -> {
+                        prepareOwnedBackpack();
+                        return;
+                    }
+                    case "ownership-deferred" -> verifyOwnedBackpackDeferred();
+                    case "uninstalled" -> verifyUninstalled();
+                    case "restarted" -> {
+                        idle();
+                        verifyContents();
+                        if (Files.exists(getDataFolder().toPath().resolve("ownership-prepare.pass"))) {
+                            require(
+                                    expected("clean-0")
+                                            .equals(read(
+                                                    Slimefun.getDatabaseManager()
+                                                            .getProfileDataController(),
+                                                    DataScope.BACKPACK_INVENTORY,
+                                                    FieldKey.BACKPACK_ID,
+                                                    HELD_BACKPACK)),
+                                    "Restart did not safely repair the previously gameplay-owned backpack");
+                            require(
+                                    Slimefun.getItemDoctorService()
+                                                    .getLastReport()
+                                                    .getFailures()
+                                            == 0,
+                                    "Restart still reports a deferred backpack");
+                        }
+                        require(
+                                !CuriositiesConfig.getConfig().getBoolean("resource-pack.enabled"),
+                                "Restart re-enabled Legacy delivery");
+                        require(
+                                "external"
+                                        .equals(CuriositiesConfig.getConfig()
+                                                .getString("resource-pack.ownership-mode")),
+                                "Restart replaced the external pack owner");
+                    }
+                    case "deferred" -> {
+                        var world = Bukkit.getWorlds().getFirst();
+                        require(
+                                !world.isChunkLoaded(FAR_CHUNK, FAR_CHUNK),
+                                "Deferred vanilla fixture must start unloaded");
+                        at(FAR_CHUNK, FAR_CHUNK, 1L, () -> {
+                            world.getChunkAt(FAR_CHUNK, FAR_CHUNK).addPluginChunkTicket(this);
+                            at(FAR_CHUNK, FAR_CHUNK, 20L, () -> {
+                                try {
+                                    require(
+                                            expected("clean-0")
+                                                    .equals(chest(FAR_BLOCK, FAR_BLOCK)
+                                                            .getBlockInventory()
+                                                            .getItem(0)),
+                                            "Chunk-load cleanup did not repair the deferred chest");
+                                    pass("deferred");
+                                } catch (Throwable failure) {
+                                    fail(failure);
                                 }
-                                pass(args[0]);
+                            });
+                        });
+                        return;
+                    }
+                    default -> throw new IllegalArgumentException("Unknown probe action");
+                }
+                pass(args[0]);
+            } catch (Throwable failure) {
+                fail(failure);
+            }
+        });
+        return true;
+    }
+
+    private void at(int chunkX, int chunkZ, long delay, ProbeAction action) {
+        var world = Bukkit.getWorlds().getFirst();
+        Bukkit.getRegionScheduler()
+                .runDelayed(
+                        this,
+                        world,
+                        chunkX,
+                        chunkZ,
+                        task -> {
+                            try {
+                                require(
+                                        Bukkit.isOwnedByCurrentRegion(world, chunkX, chunkZ),
+                                        "Probe ran outside its owning region");
+                                if (Slimefun.getSchedulerService().isFolia()) {
+                                    require(!Bukkit.isGlobalTickThread(), "Folia probe ran on the global thread");
+                                    int other = chunkX == 0 ? FAR_CHUNK : 0;
+                                    require(
+                                            !Bukkit.isOwnedByCurrentRegion(world, other, other),
+                                            "Distant fixtures share an owner");
+                                }
+                                action.run();
                             } catch (Throwable failure) {
                                 fail(failure);
                             }
                         },
-                        20L);
-        return true;
+                        delay);
+    }
+
+    @FunctionalInterface
+    private interface ProbeAction {
+        void run() throws Exception;
     }
 
     private void prepare() throws Exception {
         require(!Files.exists(file("clean-0")), "Refusing to replace a previous probe fixture");
         var world = Bukkit.getWorlds().getFirst();
-        world.setSpawnLocation(0, 80, 0);
         ItemStack clean = item("STEEL_INGOT");
         ItemStack old = modeled(clean, List.of(MODEL), false);
         var near = chest(8, 8).getBlockInventory();
@@ -140,17 +201,14 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         guide.setItemMeta(guideMeta);
         near.setItem(6, modeled(guide, List.of(2200001F), false));
         save("clean-6", guide);
-        Item dropped = world.dropItem(world.getSpawnLocation().clone().add(2, 1, 2), old.clone());
+        Item dropped = world.dropItem(new Location(world, 2, 81, 2), old.clone());
         dropped.setGravity(false);
         dropped.setUnlimitedLifetime(true);
         Files.writeString(
                 getDataFolder().toPath().resolve("drop.uuid"),
                 dropped.getUniqueId().toString());
-        chest(1024, 1024).getBlockInventory().setItem(0, old.clone());
-        world.save();
-        // Paper may retain a newly generated chunk's ticket until a later tick. The clean
-        // restart below is the unload boundary; the deferred probe verifies it is unloaded.
-        world.unloadChunkRequest(64, 64);
+        // A normal stop saves both independent regions. The clean restart below is the
+        // unload boundary; the deferred probe verifies the distant chest starts unloaded.
 
         var blocks = Slimefun.getDatabaseManager().getBlockDataController();
         RecordSet blockRecord = new RecordSet();
@@ -274,6 +332,9 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
                 "Backpack row mismatch");
         UUID drop = UUID.fromString(Files.readString(getDataFolder().toPath().resolve("drop.uuid")));
         require(
+                Bukkit.getEntity(drop) != null && Bukkit.isOwnedByCurrentRegion(Bukkit.getEntity(drop)),
+                "Dropped-item assertion ran outside its entity owner");
+        require(
                 Bukkit.getEntity(drop) instanceof Item dropped
                         && expected("clean-0").equals(dropped.getItemStack()),
                 "Dropped stack mismatch");
@@ -282,6 +343,7 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
     private void verifyUninstalled() throws Exception {
         idle();
         verifyContents();
+        if (heldBackpack != null) verifyOwnedBackpackDeferred();
         require(
                 !CuriositiesConfig.getConfig().getBoolean("resource-pack.enabled"),
                 "Uninstall left the sender enabled");
@@ -291,6 +353,61 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         require(
                 Slimefun.getItemDoctorService().getLastReport().getItemModelRepairs() == 0,
                 "Repeated cleanup was not idempotent");
+    }
+
+    private void prepareOwnedBackpack() throws Exception {
+        idle();
+        require(Slimefun.getSchedulerService().isFolia(), "Ownership-deferral probe requires Folia");
+        var profiles = Slimefun.getDatabaseManager().getProfileDataController();
+        RecordSet profile = new RecordSet();
+        profile.put(FieldKey.BACKPACK_ID, HELD_BACKPACK);
+        profile.put(FieldKey.PLAYER_UUID, OWNER);
+        profile.put(FieldKey.BACKPACK_SIZE, "9");
+        profile.put(FieldKey.BACKPACK_NUMBER, "2");
+        profile.put(FieldKey.BACKPACK_NAME, "R2FtZXBsYXkgb3duZWQgYmFja3BhY2s=");
+        setData(profiles, new RecordKey(DataScope.BACKPACK_PROFILE), profile);
+        write(profiles, DataScope.BACKPACK_INVENTORY, FieldKey.BACKPACK_ID, HELD_BACKPACK, expected("old-0"), false);
+        // The normal gameplay API claims this cache entry. Maintenance must not mutate
+        // it globally merely because this synthetic server has no connected viewer.
+        profiles.getBackpackAsync(HELD_BACKPACK).whenComplete((backpack, failure) -> {
+            if (failure != null) {
+                fail(failure);
+                return;
+            }
+            at(0, 0, 1L, () -> {
+                require(backpack != null, "Gameplay backpack did not load");
+                heldBackpack = backpack;
+                require(
+                        !profiles.runWhileMaintenanceBackpackOwned(backpack, () -> {}),
+                        "Gameplay backpack was incorrectly marked maintenance-owned");
+                require(
+                        expected("old-0").equals(backpack.getInventory().getItem(0)),
+                        "Gameplay backpack changed before cleanup");
+                pass("ownership-prepare");
+            });
+        });
+    }
+
+    private void verifyOwnedBackpackDeferred() throws Exception {
+        idle();
+        require(heldBackpack != null, "Missing gameplay-owned backpack fixture");
+        require(
+                expected("old-0").equals(heldBackpack.getInventory().getItem(0)),
+                "Doctor mutated a gameplay-owned backpack without an entity owner");
+        require(
+                expected("old-0")
+                        .equals(read(
+                                Slimefun.getDatabaseManager().getProfileDataController(),
+                                DataScope.BACKPACK_INVENTORY,
+                                FieldKey.BACKPACK_ID,
+                                HELD_BACKPACK)),
+                "Doctor rewrote the gameplay-owned backpack row");
+        require(
+                Slimefun.getItemDoctorService().getLastReport().getFailures() == 1,
+                "Expected exactly the reported gameplay-backpack deferral");
+        require(
+                Slimefun.getItemDoctorService().getLastReport().getItemModelRepairs() == 0,
+                "Deferral pass unexpectedly repaired a stack");
     }
 
     private void idle() {

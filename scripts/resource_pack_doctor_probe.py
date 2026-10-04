@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Disposable Paper/Purpur migration probe; never reuse an existing world."""
+"""Disposable Paper/Purpur/Folia migration probe; never reuse an existing world."""
 from __future__ import annotations
 
 import argparse
@@ -22,6 +22,8 @@ def main() -> None:
                         help="Optional Paperclip download cache for --server-jar")
     parser.add_argument("--runtime-java-home", type=Path,
                         help="Server JVM; defaults to the Java home used to compile the fixture")
+    parser.add_argument("--expect-folia", action="store_true",
+                        help="Require Folia and test live-inventory ownership deferrals")
     args = parser.parse_args()
     if args.server_cache and not args.server_jar:
         parser.error("--server-cache requires --server-jar")
@@ -43,6 +45,10 @@ def main() -> None:
             subprocess.run([str(runtime_java), "-jar", "server.jar", "--version"],
                            cwd=root, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=240)
     (root / "eula.txt").write_text("eula=true\n", encoding="utf-8")
+    if args.expect_folia:
+        (root / "config").mkdir(exist_ok=True)
+        (root / "config/paper-global.yml").write_text(
+            "threaded-regions:\n  threads: 2\n", encoding="utf-8")
     (root / "plugins/Slimefun").mkdir(parents=True)
     core = root / "plugins/Slimefun.jar"
     shutil.copy2(args.core.resolve(), core)
@@ -103,6 +109,12 @@ def main() -> None:
         log.close()
         if process.returncode != 0:
             raise RuntimeError(f"Server exited with {process.returncode}")
+        output = Path(log.name).read_text()
+        for failure in ("RESOURCE_PACK_DOCTOR_PROBE_FAIL", "Thread failed main thread check",
+                        "Thread failed region check", "Region task for Slimefun",
+                        "Entity task for Slimefun"):
+            if failure in output:
+                raise RuntimeError("Native probe reported a task/ownership failure; inspect " + log.name)
 
     try:
         process, log = boot(1)
@@ -118,8 +130,12 @@ def main() -> None:
         time.sleep(4)
         probe(process, 2, "installed")
         probe(process, 2, "deferred")
+        if args.expect_folia:
+            probe(process, 2, "ownership-prepare")
         command(process, "sf doctor resource-pack resume")
         time.sleep(3)
+        if args.expect_folia:
+            probe(process, 2, "ownership-deferred")
         command(process, "sf doctor resource-pack uninstall confirm")
         time.sleep(3)
         probe(process, 2, "uninstalled")
@@ -138,7 +154,7 @@ def main() -> None:
         result += "\nserver SHA-256: " + hashlib.sha256((root / "server.jar").read_bytes()).hexdigest() + "\n"
         (root / "PASS.txt").write_text(result)
         evidence = {
-            "result": "PASS", "boots": 3,
+            "result": "PASS", "boots": 3, "folia_ownership_checks": args.expect_folia,
             "core_sha256": hashlib.sha256(core.read_bytes()).hexdigest(),
             "server_sha256": hashlib.sha256((root / "server.jar").read_bytes()).hexdigest(),
             "java": subprocess.run([str(runtime_java), "-version"], capture_output=True,

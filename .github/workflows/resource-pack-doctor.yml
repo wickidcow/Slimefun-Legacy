@@ -108,7 +108,7 @@ jobs:
             --core candidate/Slimefun-Legacy-doctor.jar \
             --java-home "$JAVA_HOME" \
             --runtime-java-home "$DOCTOR_RUNTIME_JAVA_HOME" \
-            --work-dir "$RUNNER_TEMP/resource-pack-doctor"
+            --work-dir "$RUNNER_TEMP/resource-pack-doctor" ${{ matrix.folia && '--expect-folia' || '' }}
       - name: Publish migration result
         if: always()
         run: |

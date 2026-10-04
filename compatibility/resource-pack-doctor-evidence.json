@@ -87,5 +87,66 @@
         "uninstalled": "RESOURCE_PACK_DOCTOR_PROBE_PASS uninstalled | 26.3-145-6bc56ab (MC: 26.3)"
       }
     }
-  ]
+  ],
+  "folia_followup": {
+    "scope": "Separate-region checks and gameplay-owned backpack deferral/restart; no connected-player or loaded machine/universal menu coverage",
+    "results": [
+      {
+        "runtime": "folia-26.2-7",
+        "result": "PASS",
+        "boots": 3,
+        "folia_ownership_checks": true,
+        "core_sha256": "a58799aa12b1e21d17c1ad6c4670ae41d049766ebd4289e8338247ccbb694973",
+        "server_sha256": "128a634192261cd38bb4a5dc54075018a0f896fd6c6f529e37dca6e99e32b3b3",
+        "java": "openjdk version \"25.0.4.1\" 2026-08-18 LTS\nOpenJDK Runtime Environment Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS, mixed mode, sharing)",
+        "phases": {
+          "checkpoint": "RESOURCE_PACK_DOCTOR_PROBE_PASS checkpoint | 26.2-7-14b7fee (MC: 26.2)",
+          "deferred": "RESOURCE_PACK_DOCTOR_PROBE_PASS deferred | 26.2-7-14b7fee (MC: 26.2)",
+          "installed": "RESOURCE_PACK_DOCTOR_PROBE_PASS installed | 26.2-7-14b7fee (MC: 26.2)",
+          "ownership-deferred": "RESOURCE_PACK_DOCTOR_PROBE_PASS ownership-deferred | 26.2-7-14b7fee (MC: 26.2)",
+          "ownership-prepare": "RESOURCE_PACK_DOCTOR_PROBE_PASS ownership-prepare | 26.2-7-14b7fee (MC: 26.2)",
+          "prepare": "RESOURCE_PACK_DOCTOR_PROBE_PASS prepare | 26.2-7-14b7fee (MC: 26.2)",
+          "preview": "RESOURCE_PACK_DOCTOR_PROBE_PASS preview | 26.2-7-14b7fee (MC: 26.2)",
+          "restarted": "RESOURCE_PACK_DOCTOR_PROBE_PASS restarted | 26.2-7-14b7fee (MC: 26.2)",
+          "uninstalled": "RESOURCE_PACK_DOCTOR_PROBE_PASS uninstalled | 26.2-7-14b7fee (MC: 26.2)"
+        }
+      },
+      {
+        "runtime": "paper-1.21.11-132",
+        "result": "PASS",
+        "boots": 3,
+        "folia_ownership_checks": false,
+        "core_sha256": "a58799aa12b1e21d17c1ad6c4670ae41d049766ebd4289e8338247ccbb694973",
+        "server_sha256": "5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba",
+        "java": "openjdk version \"21.0.12.1\" 2026-08-18 LTS\nOpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)\nOpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)",
+        "phases": {
+          "checkpoint": "RESOURCE_PACK_DOCTOR_PROBE_PASS checkpoint | 1.21.11-132-c5eb079 (MC: 1.21.11)",
+          "deferred": "RESOURCE_PACK_DOCTOR_PROBE_PASS deferred | 1.21.11-132-c5eb079 (MC: 1.21.11)",
+          "installed": "RESOURCE_PACK_DOCTOR_PROBE_PASS installed | 1.21.11-132-c5eb079 (MC: 1.21.11)",
+          "prepare": "RESOURCE_PACK_DOCTOR_PROBE_PASS prepare | 1.21.11-132-c5eb079 (MC: 1.21.11)",
+          "preview": "RESOURCE_PACK_DOCTOR_PROBE_PASS preview | 1.21.11-132-c5eb079 (MC: 1.21.11)",
+          "restarted": "RESOURCE_PACK_DOCTOR_PROBE_PASS restarted | 1.21.11-132-c5eb079 (MC: 1.21.11)",
+          "uninstalled": "RESOURCE_PACK_DOCTOR_PROBE_PASS uninstalled | 1.21.11-132-c5eb079 (MC: 1.21.11)"
+        }
+      },
+      {
+        "runtime": "paper-26.3-145",
+        "result": "PASS",
+        "boots": 3,
+        "folia_ownership_checks": false,
+        "core_sha256": "a58799aa12b1e21d17c1ad6c4670ae41d049766ebd4289e8338247ccbb694973",
+        "server_sha256": "64bc3219f7ee2a23ad79690c911bfc35767b2ce7383c78aa191980f7e383426a",
+        "java": "openjdk version \"25.0.4.1\" 2026-08-18 LTS\nOpenJDK Runtime Environment Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS, mixed mode, sharing)",
+        "phases": {
+          "checkpoint": "RESOURCE_PACK_DOCTOR_PROBE_PASS checkpoint | 26.3-145-6bc56ab (MC: 26.3)",
+          "deferred": "RESOURCE_PACK_DOCTOR_PROBE_PASS deferred | 26.3-145-6bc56ab (MC: 26.3)",
+          "installed": "RESOURCE_PACK_DOCTOR_PROBE_PASS installed | 26.3-145-6bc56ab (MC: 26.3)",
+          "prepare": "RESOURCE_PACK_DOCTOR_PROBE_PASS prepare | 26.3-145-6bc56ab (MC: 26.3)",
+          "preview": "RESOURCE_PACK_DOCTOR_PROBE_PASS preview | 26.3-145-6bc56ab (MC: 26.3)",
+          "restarted": "RESOURCE_PACK_DOCTOR_PROBE_PASS restarted | 26.3-145-6bc56ab (MC: 26.3)",
+          "uninstalled": "RESOURCE_PACK_DOCTOR_PROBE_PASS uninstalled | 26.3-145-6bc56ab (MC: 26.3)"
+        }
+      }
+    ]
+  }
 }
