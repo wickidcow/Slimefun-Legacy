@@ -90,6 +90,8 @@ def main() -> int:
     require_absent(recovery, "returnItemToSource", "normal multi-slot insertion during exceptional rollback")
 
     require(restore_original, "DirtyChestMenu menu = CargoUtils.getChestMenu(inputTarget)", "custom-menu rollback priority")
+    require(restore_original, "previousSlot == CargoUtils.VIRTUAL_TRANSPORT_SLOT", "virtual source rollback sentinel")
+    require(restore_original, "restoreByItemTransport(menu, item)", "virtual source rollback hook")
     require(restore_original, "menu.getItemInSlot(previousSlot) == null", "custom-menu original-slot check")
     require(restore_original, "menu.replaceExistingItem(previousSlot, item)", "custom-menu exact-slot restore")
     require(restore_original, "Inventory inv = getLiveSourceInventory(inputTarget)", "live vanilla source restore")
@@ -103,6 +105,8 @@ def main() -> int:
     )
 
     require(return_to_source, "DirtyChestMenu menu = CargoUtils.getChestMenu(inputTarget)", "custom-menu remainder handling")
+    require(return_to_source, "previousSlot == CargoUtils.VIRTUAL_TRANSPORT_SLOT", "virtual source normal-return sentinel")
+    require(return_to_source, "restoreByItemTransport(menu, item)", "virtual source normal-return hook")
     require(return_to_source, "Inventory inv = getLiveSourceInventory(inputTarget)", "live source inventory revalidation")
     require_before(
         return_to_source,
@@ -128,6 +132,17 @@ def main() -> int:
     require(attached, "!isLocationAccessible(targetLocation) || !isChunkLoaded(targetLocation)", "attached target chunk guard")
     require_before(attached, "!isChunkLoaded(targetLocation)", "targetLocation.getBlock()", "target chunk check before block access")
 
+    preset = compact(
+        read(
+            root,
+            "src/main/java/me/mrCookieSlime/Slimefun/api/inventory/BlockMenuPreset.java",
+        )
+    )
+    require(preset, "supportsVirtualItemTransport", "virtual transport capability hook")
+    require(preset, "insertByItemTransport", "virtual transport insert hook")
+    require(preset, "withdrawByItemTransport", "virtual transport withdraw hook")
+    require(preset, "restoreByItemTransport", "virtual transport rollback hook")
+
     utils_source = read(
         root,
         "src/main/java/io/github/thebusybiscuit/slimefun4/core/networks/cargo/CargoUtils.java",
@@ -140,6 +155,10 @@ def main() -> int:
     require(utils, "getSlotsAccessedByItemTransport(menu, ItemTransportFlow.INSERT, wrapper)", "insert slot contract")
     require(utils, "new CargoWithdrawEvent(node, target", "withdraw event")
     require(utils, "new CargoInsertEvent(node, target", "insert event")
+    require(utils, "VIRTUAL_TRANSPORT_SLOT = -1", "virtual source sentinel")
+    require(utils, "supportsVirtualItemTransport(menu)", "virtual transport capability check")
+    require(utils, "withdrawByItemTransport(", "virtual transport withdrawal path")
+    require(utils, "insertByItemTransport(menu, stack)", "virtual transport insertion path")
     require(utils, "if (event.isCancelled()) { return null; }", "cancelled custom-menu withdrawal guard")
     require(utils, "if (event.isCancelled()) { return stack; }", "cancelled custom-menu insertion guard")
     require_before(
