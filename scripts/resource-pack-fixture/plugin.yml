@@ -7,7 +7,7 @@ commands:
   rpdoctorprobe:
     permission: rpdoctorprobe.run
     description: Synthetic disposable-server resource-pack migration probe
-    usage: /rpdoctorprobe <prepare|preview|checkpoint|installed|deferred|uninstalled>
+    usage: /rpdoctorprobe <prepare|preview|checkpoint|installed|deferred|uninstalled|restarted>
 permissions:
   rpdoctorprobe.run:
     default: op

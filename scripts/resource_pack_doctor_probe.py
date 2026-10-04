@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Disposable real-Paper migration probe using a cached server's code dependencies."""
+"""Disposable Paper/Purpur migration probe; never reuse an existing world."""
 from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -12,17 +13,36 @@ import time
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("server-template", "core", "work-dir", "java-home"):
+    for name in ("core", "work-dir", "java-home"):
         parser.add_argument("--" + name, type=Path, required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--server-template", type=Path)
+    source.add_argument("--server-jar", type=Path)
+    parser.add_argument("--server-cache", type=Path,
+                        help="Optional Paperclip download cache for --server-jar")
+    parser.add_argument("--runtime-java-home", type=Path,
+                        help="Server JVM; defaults to the Java home used to compile the fixture")
     args = parser.parse_args()
+    if args.server_cache and not args.server_jar:
+        parser.error("--server-cache requires --server-jar")
+    runtime_java = (args.runtime_java_home or args.java_home).resolve() / "bin/java"
     root = args.work_dir.resolve()
     root.mkdir(parents=True, exist_ok=False)  # Never replace an existing world.
-    template = args.server_template.resolve()
     repo = Path(__file__).resolve().parent.parent
-    for name in ("libraries", "cache", "versions"):
-        shutil.copytree(template / name, root / name)
-    for name in ("server.jar", "eula.txt"):
-        shutil.copy2(template / name, root / name)
+    if args.server_template:
+        template = args.server_template.resolve()
+        for name in ("libraries", "cache", "versions"):
+            shutil.copytree(template / name, root / name)
+        shutil.copy2(template / "server.jar", root / "server.jar")
+    else:
+        shutil.copy2(args.server_jar.resolve(), root / "server.jar")
+        if args.server_cache:
+            shutil.copytree(args.server_cache.resolve(), root / "cache")
+        # Paperclip downloads/patches its exact runtime before handling --version.
+        with (root / "bootstrap.log").open("w", encoding="utf-8") as log:
+            subprocess.run([str(runtime_java), "-jar", "server.jar", "--version"],
+                           cwd=root, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=240)
+    (root / "eula.txt").write_text("eula=true\n", encoding="utf-8")
     (root / "plugins/Slimefun").mkdir(parents=True)
     core = root / "plugins/Slimefun.jar"
     shutil.copy2(args.core.resolve(), core)
@@ -63,13 +83,13 @@ def main() -> None:
     def boot(number):
         path = root / f"console-{number}.log"
         log = path.open("w", encoding="utf-8")
-        process = subprocess.Popen([str(args.java_home / "bin/java"), "-Xms256M", "-Xmx768M",
+        process = subprocess.Popen([str(runtime_java), "-Xms256M", "-Xmx768M",
             "-Dterminal.jline=false", "-Dterminal.ansi=false", "-jar", "server.jar", "--nogui"],
             cwd=root, stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT, text=True)
         processes.append(process)
         wait(lambda: "Done (" in path.read_text(), process, path)
         time.sleep(4)
-        print(f"Paper boot {number} ready", flush=True)
+        print(f"Server boot {number} ready", flush=True)
         return process, log
 
     def probe(process, number, action):
@@ -112,10 +132,20 @@ def main() -> None:
         time.sleep(1)
         if "ownership-mode: external" not in config_file.read_text():
             raise RuntimeError("Cleanup checkpoint overwrote a later ownership choice")
+        probe(process, 3, "restarted")
         stop(process, log)
         result = "Native resource-pack Doctor probe PASS\ncore SHA-256: " + hashlib.sha256(core.read_bytes()).hexdigest()
         result += "\nserver SHA-256: " + hashlib.sha256((root / "server.jar").read_bytes()).hexdigest() + "\n"
         (root / "PASS.txt").write_text(result)
+        evidence = {
+            "result": "PASS", "boots": 3,
+            "core_sha256": hashlib.sha256(core.read_bytes()).hexdigest(),
+            "server_sha256": hashlib.sha256((root / "server.jar").read_bytes()).hexdigest(),
+            "java": subprocess.run([str(runtime_java), "-version"], capture_output=True,
+                                   text=True, check=True).stderr.strip(),
+            "phases": {p.stem: p.read_text().strip() for p in sorted(proof.glob("*.pass"))},
+        }
+        (root / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
         print(result, flush=True)
     finally:
         for process in processes:

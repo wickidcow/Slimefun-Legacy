@@ -7,6 +7,7 @@ import com.xzavier0722.mc.plugin.slimefun4.storage.common.RecordSet;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.DataUtils;
 import io.github.thebusybiscuit.slimefun4.core.config.CuriositiesConfig;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
@@ -27,12 +28,14 @@ import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.BundleMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.util.io.BukkitObjectOutputStream;
 
 /** Synthetic fixture on real Paper; never install on a production server. */
 public final class ResourcePackDoctorProbe extends JavaPlugin {
     private static final String OWNER = "11111111-2222-3333-4444-555555555555";
     private static final String BACKPACK = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
     private static final String UNIVERSAL = "bbbbbbbb-cccc-dddd-eeee-ffffffffffff";
+    private static final String LEGACY_UNIVERSAL = "cccccccc-dddd-eeee-ffff-111111111111";
     private static final float MODEL = 2200080F;
 
     @Override
@@ -57,6 +60,18 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
                                     case "checkpoint" -> verifyCheckpoint();
                                     case "installed" -> verifyInstalled();
                                     case "uninstalled" -> verifyUninstalled();
+                                    case "restarted" -> {
+                                        idle();
+                                        verifyContents();
+                                        require(
+                                                !CuriositiesConfig.getConfig().getBoolean("resource-pack.enabled"),
+                                                "Restart re-enabled Legacy delivery");
+                                        require(
+                                                "external"
+                                                        .equals(CuriositiesConfig.getConfig()
+                                                                .getString("resource-pack.ownership-mode")),
+                                                "Restart replaced the external pack owner");
+                                    }
                                     case "deferred" -> {
                                         var world = Bukkit.getWorlds().getFirst();
                                         require(
@@ -145,6 +160,14 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         setData(blocks, new RecordKey(DataScope.BLOCK_RECORD), blockRecord);
         write(blocks, DataScope.BLOCK_INVENTORY, FieldKey.LOCATION, machineOwner(), old, true);
         write(blocks, DataScope.UNIVERSAL_INVENTORY, FieldKey.UNIVERSAL_UUID, UNIVERSAL, old, false);
+        // Retained Bukkit object-stream envelope, distinct from today's SF2 writer.
+        RecordSet legacy = new RecordSet();
+        legacy.put(FieldKey.UNIVERSAL_UUID, LEGACY_UNIVERSAL);
+        legacy.put(FieldKey.INVENTORY_SLOT, "0");
+        byte[] oldEnvelope = legacyBytes(old);
+        Files.write(getDataFolder().toPath().resolve("legacy-envelope.bin"), oldEnvelope);
+        legacy.put(FieldKey.INVENTORY_ITEM, oldEnvelope);
+        setData(blocks, new RecordKey(DataScope.UNIVERSAL_INVENTORY), legacy);
         var profiles = Slimefun.getDatabaseManager().getProfileDataController();
         RecordSet playerRecord = new RecordSet();
         playerRecord.put(FieldKey.PLAYER_UUID, OWNER);
@@ -201,6 +224,31 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
                 io.github.thebusybiscuit.slimefun4.core.services.stability.ResourcePackDoctorService.ID_PACK_SHA1
                         .equals(CuriositiesConfig.getConfig().getString("resource-pack.sha1")),
                 "Install did not pin the matching pack hash");
+        verifyContents();
+        var backup = Slimefun.getItemDoctorService().getResourcePackDoctor().backupPath();
+        require(
+                backup != null && Files.isRegularFile(backup.resolve("item-models-current.yml")),
+                "Config backup missing");
+        boolean oldStackBackedUp = false;
+        for (String line : Files.readAllLines(backup.resolve("items.tsv"))) {
+            String[] fields = line.split("\t");
+            ItemStack original =
+                    DataUtils.deserializeItemStack(Base64.getDecoder().decode(fields[2]));
+            require(original != null, "Unreadable item journal entry");
+            oldStackBackedUp |= expected("old-0").equals(original);
+        }
+        require(oldStackBackedUp, "Original native model component missing from before-image journal");
+        List<String> rows = Files.readAllLines(backup.resolve("rows.tsv"));
+        require(rows.size() >= 3, "Unloaded database before-images missing");
+        String legacyPayload = Base64.getEncoder()
+                .encodeToString(Files.readAllBytes(getDataFolder().toPath().resolve("legacy-envelope.bin")));
+        require(
+                rows.stream().anyMatch(line -> line.endsWith("\tB\t" + legacyPayload)),
+                "Original legacy object-stream envelope was not backed up byte-for-byte");
+        require(Slimefun.getItemDoctorService().getLastReport().getFailures() == 0, "Doctor reported failures");
+    }
+
+    private void verifyContents() throws Exception {
         for (int slot = 0; slot < 7; slot++) {
             require(
                     expected("clean-" + slot)
@@ -215,6 +263,10 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
                 expected("clean-0")
                         .equals(read(blocks, DataScope.UNIVERSAL_INVENTORY, FieldKey.UNIVERSAL_UUID, UNIVERSAL)),
                 "Universal row mismatch");
+        require(
+                expected("clean-0")
+                        .equals(read(blocks, DataScope.UNIVERSAL_INVENTORY, FieldKey.UNIVERSAL_UUID, LEGACY_UNIVERSAL)),
+                "Historical object-stream row mismatch");
         var profiles = Slimefun.getDatabaseManager().getProfileDataController();
         require(
                 expected("clean-0")
@@ -225,25 +277,11 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
                 Bukkit.getEntity(drop) instanceof Item dropped
                         && expected("clean-0").equals(dropped.getItemStack()),
                 "Dropped stack mismatch");
-        var backup = Slimefun.getItemDoctorService().getResourcePackDoctor().backupPath();
-        require(
-                backup != null && Files.isRegularFile(backup.resolve("item-models-current.yml")),
-                "Config backup missing");
-        boolean oldStackBackedUp = false;
-        for (String line : Files.readAllLines(backup.resolve("items.tsv"))) {
-            String[] fields = line.split("\t");
-            ItemStack original =
-                    DataUtils.deserializeItemStack(Base64.getDecoder().decode(fields[2]));
-            require(original != null, "Unreadable item journal entry");
-            oldStackBackedUp |= expected("old-0").equals(original);
-        }
-        require(oldStackBackedUp, "Original native model component missing from before-image journal");
-        require(Files.readAllLines(backup.resolve("rows.tsv")).size() >= 2, "Unloaded database before-images missing");
-        require(Slimefun.getItemDoctorService().getLastReport().getFailures() == 0, "Doctor reported failures");
     }
 
     private void verifyUninstalled() throws Exception {
         idle();
+        verifyContents();
         require(
                 !CuriositiesConfig.getConfig().getBoolean("resource-pack.enabled"),
                 "Uninstall left the sender enabled");
@@ -368,6 +406,15 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
 
     private void save(String name, ItemStack item) throws Exception {
         Files.write(file(name), item.serializeAsBytes());
+    }
+
+    private byte[] legacyBytes(ItemStack item) throws Exception {
+        try (var bytes = new ByteArrayOutputStream();
+                var output = new BukkitObjectOutputStream(bytes)) {
+            output.writeObject(item);
+            output.flush();
+            return Base64.getEncoder().encode(bytes.toByteArray());
+        }
     }
 
     private ItemStack expected(String name) throws Exception {

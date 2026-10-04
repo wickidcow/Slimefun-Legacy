@@ -2,6 +2,9 @@
 
 Slimefun Legacy supports custom item model IDs independently from resource-pack delivery. Legacy-specific delivery settings live in `configSFLAddons.yml`.
 
+For the exact native Doctor test matrix, reproduction steps and remaining validation
+limits, see [resource-pack Doctor validation](resource-pack-doctor-validation.md).
+
 ## Default behavior
 
 Resource-pack delivery is **disabled by default**. Slimefun Legacy does not upload, host, download or force a resource pack unless a server owner explicitly enables the external sender in `plugins/Slimefun/configSFLAddons.yml`. The resource-pack section is independent of the top-level Curiosities/additions `enabled` switch.

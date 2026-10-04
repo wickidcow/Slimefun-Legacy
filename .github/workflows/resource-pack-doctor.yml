@@ -1,0 +1,128 @@
+name: Resource Pack Doctor Migration
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'build.gradle.kts'
+      - 'gradle/**'
+      - 'gradle.properties'
+      - 'scripts/resource_pack_doctor_probe.py'
+      - 'scripts/resource-pack-fixture/**'
+      - 'scripts/runtime_download.sh'
+      - 'compatibility/resource-pack-doctor-runtimes.json'
+      - '.github/workflows/resource-pack-doctor.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'src/**'
+      - 'build.gradle.kts'
+      - 'gradle/**'
+      - 'gradle.properties'
+      - 'scripts/resource_pack_doctor_probe.py'
+      - 'scripts/resource-pack-fixture/**'
+      - 'scripts/runtime_download.sh'
+      - 'compatibility/resource-pack-doctor-runtimes.json'
+      - '.github/workflows/resource-pack-doctor.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: resource-pack-doctor-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      matrix: ${{ steps.matrix.outputs.value }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Read pinned runtime matrix
+        id: matrix
+        run: echo "value=$(jq -c '{include:.runtimes}' compatibility/resource-pack-doctor-runtimes.json)" >> "$GITHUB_OUTPUT"
+      - name: Build the exact core under test
+        run: |
+          set -euo pipefail
+          export SOURCE_COMMIT="$(git rev-parse HEAD)"
+          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          ./gradlew shadowJar --no-daemon
+          JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+          python3 scripts/verify_release_artifact.py "$JAR" --root .
+          mkdir candidate
+          cp "$JAR" candidate/Slimefun-Legacy-doctor.jar
+      - uses: actions/upload-artifact@v7
+        with:
+          name: resource-pack-doctor-core
+          path: candidate/Slimefun-Legacy-doctor.jar
+          if-no-files-found: error
+
+  migration:
+    name: Doctor migration on ${{ matrix.label }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.build.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          name: resource-pack-doctor-core
+          path: candidate
+      - name: Set up runtime Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - name: Remember the runtime JVM
+        run: echo "DOCTOR_RUNTIME_JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
+      - name: Set up fixture compiler
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Download the pinned server
+        env:
+          DOCTOR_SERVER_URL: ${{ matrix.url }}
+          DOCTOR_SERVER_SHA256: ${{ matrix.sha256 }}
+        run: |
+          set -euo pipefail
+          source scripts/runtime_download.sh
+          runtime_download "$DOCTOR_SERVER_URL" candidate/server.jar
+          printf '%s  candidate/server.jar\n' "$DOCTOR_SERVER_SHA256" | sha256sum --check --strict
+      - name: Exercise install, uninstall and three normal boots
+        run: |
+          python3 scripts/resource_pack_doctor_probe.py \
+            --server-jar candidate/server.jar \
+            --core candidate/Slimefun-Legacy-doctor.jar \
+            --java-home "$JAVA_HOME" \
+            --runtime-java-home "$DOCTOR_RUNTIME_JAVA_HOME" \
+            --work-dir "$RUNNER_TEMP/resource-pack-doctor"
+      - name: Publish migration result
+        if: always()
+        run: |
+          if [[ -f "$RUNNER_TEMP/resource-pack-doctor/PASS.txt" ]]; then
+            cat "$RUNNER_TEMP/resource-pack-doctor/PASS.txt" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload disposable fixture evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: resource-pack-doctor-${{ matrix.label }}
+          path: |
+            ${{ runner.temp }}/resource-pack-doctor/*.log
+            ${{ runner.temp }}/resource-pack-doctor/PASS.txt
+            ${{ runner.temp }}/resource-pack-doctor/evidence.json
+            ${{ runner.temp }}/resource-pack-doctor/plugins/ResourcePackDoctorProbe/*.pass
+          if-no-files-found: warn
