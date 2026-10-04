@@ -464,6 +464,9 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         require(Bukkit.isOwnedByCurrentRegion(location), "Machine seed is outside its region");
         location.getBlock().setType(Material.FURNACE);
         var blocks = Slimefun.getDatabaseManager().getBlockDataController();
+        // An existing empty chunk may not have a loaded Slimefun data container on
+        // Folia. Complete its normal load before claiming this is a ready live menu.
+        require(blocks.getChunkData(location.getChunk()).isDataLoaded(), "Machine chunk data did not load");
         var data = blocks.createBlock(location, "ELECTRIC_FURNACE");
         require(data.isDataLoaded() && data.getBlockMenu() != null, "Machine menu did not initialize");
         // An output slot keeps the fixture independent of smelting and energy behavior.

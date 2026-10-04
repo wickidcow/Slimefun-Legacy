@@ -98,6 +98,15 @@ These local results use the same core JAR listed above and are recorded under
 `loaded_menu_followup` in the evidence JSON. Every CI runtime now includes the
 loaded-machine and virtual-menu phases. No production implementation changed.
 
+The first expanded CI run passed all five Paper/Purpur lanes but exposed a fixture
+setup gap on Folia: an existing empty chunk could still have an unfinished
+Slimefun data container when the machine was created. Doctor correctly deferred
+that chunk. The fixture now completes and asserts the normal chunk-data load on
+the owning region before creating the machine, so this phase exercises ready
+loaded menus deterministically. A fresh local Folia run with this preparation
+passed all three boots and eleven checkpoints; its evidence is recorded in
+`folia_chunk_readiness_recheck`.
+
 ## Reproduction and CI
 
 `Resource Pack Doctor Migration` builds one core JAR for the exact checked-out

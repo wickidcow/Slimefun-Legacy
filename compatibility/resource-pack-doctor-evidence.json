@@ -194,6 +194,15 @@
           "uninstalled": "RESOURCE_PACK_DOCTOR_PROBE_PASS uninstalled | 26.2-7-14b7fee (MC: 26.2)"
         }
       }
-    ]
+    ],
+    "folia_chunk_readiness_recheck": {
+      "runtime": "folia-26.2-7",
+      "setup": "Complete and assert normal Slimefun chunk-data loading on its owning region before creating each machine",
+      "result": "PASS",
+      "boots": 3,
+      "phase_checkpoints": 11,
+      "core_sha256": "a58799aa12b1e21d17c1ad6c4670ae41d049766ebd4289e8338247ccbb694973",
+      "server_sha256": "128a634192261cd38bb4a5dc54075018a0f896fd6c6f529e37dca6e99e32b3b3"
+    }
   }
 }
