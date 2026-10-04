@@ -20,7 +20,6 @@ import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
-import me.mrCookieSlime.Slimefun.api.inventory.DirtyChestMenu;
 import me.mrCookieSlime.Slimefun.api.item_transport.ItemTransportFlow;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -93,18 +92,6 @@ public final class HologramDisplayProjector extends SlimefunItem {
             public void newInstance(@Nonnull BlockMenu menu, @Nonnull Block block) {
                 updateMenu(menu, block);
                 refreshVisuals(block);
-            }
-
-            @Override
-            protected @Nullable ItemStack onItemStackChange(
-                    @Nonnull DirtyChestMenu menu,
-                    int slot,
-                    @Nullable ItemStack previous,
-                    @Nullable ItemStack next) {
-                if (slot == DISPLAY_ITEM_SLOT && menu instanceof BlockMenu blockMenu) {
-                    scheduleItemRefresh(blockMenu);
-                }
-                return next;
             }
 
             @Override
@@ -303,20 +290,7 @@ public final class HologramDisplayProjector extends SlimefunItem {
             return false;
         });
 
-        // Slot 13 remains a real inventory slot. Allow ordinary click behavior, then refresh next tick.
-        menu.addMenuClickHandler(DISPLAY_ITEM_SLOT, (player, slot, item, action) -> {
-            menu.markDirty();
-            scheduleItemRefresh(menu);
-            return true;
-        });
-
-        // Shift-clicks originate from the player's inventory, so schedule the same next-tick refresh there too.
-        menu.addPlayerInventoryClickHandler((player, slot, item, action) -> {
-            menu.markDirty();
-            scheduleItemRefresh(menu);
-            return true;
-        });
-
+        // Slot 13 intentionally has no click handler so normal click, shift-click and drag/drop behavior works.
         menu.addMenuCloseHandler(player -> {
             menu.markDirty();
             scheduleItemRefresh(menu);
