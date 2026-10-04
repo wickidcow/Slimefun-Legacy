@@ -115,9 +115,8 @@ public final class HologramDisplayProjector extends SlimefunItem {
 
                 String owner = StorageCacheUtils.getData(block.getLocation(), OWNER_KEY);
                 return player.getUniqueId().toString().equals(owner)
-                        && (player.hasPermission("slimefun.inventory.bypass")
-                                || Slimefun.getIntegrations().canInteractBlock(player, block)
-                                        && HologramDisplayProjector.this.canUse(player, false));
+                        && Slimefun.getIntegrations().canInteractBlock(player, block)
+                        && HologramDisplayProjector.this.canUse(player, false);
             }
 
             @Override
