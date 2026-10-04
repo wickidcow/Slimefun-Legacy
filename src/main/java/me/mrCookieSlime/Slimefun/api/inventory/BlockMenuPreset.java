@@ -6,6 +6,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Predicate;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
@@ -93,6 +94,53 @@ public abstract class BlockMenuPreset extends ChestMenu {
     public int[] getSlotsAccessedByItemTransport(DirtyChestMenu menu, ItemTransportFlow flow, ItemStack item) {
         // This method will default to that method, it can be overridden by subclasses though
         return getSlotsAccessedByItemTransport(flow);
+    }
+
+    /**
+     * Returns whether this menu provides virtual item transport that is not backed by physical inventory slots.
+     * Cargo will use the direct transport methods below instead of mutating menu slots when this returns true.
+     *
+     * @param menu the live menu instance
+     * @return whether this menu handles Cargo through direct virtual storage operations
+     */
+    public boolean supportsVirtualItemTransport(@Nonnull DirtyChestMenu menu) {
+        return false;
+    }
+
+    /**
+     * Inserts an item stack into virtual storage.
+     *
+     * @param menu the live menu instance
+     * @param item the stack Cargo is attempting to insert
+     * @return the unaccepted remainder, or {@code null} when the full stack was accepted
+     */
+    @Nullable public ItemStack insertByItemTransport(@Nonnull DirtyChestMenu menu, @Nonnull ItemStack item) {
+        return item;
+    }
+
+    /**
+     * Withdraws one transport stack from virtual storage.
+     *
+     * @param menu the live menu instance
+     * @param template an optional requested item template, or {@code null} for the first matching item
+     * @param filter a Cargo-provided predicate that must accept the withdrawn item
+     * @return the withdrawn stack, or {@code null} when no matching item is available
+     */
+    @Nullable public ItemStack withdrawByItemTransport(
+            @Nonnull DirtyChestMenu menu, @Nullable ItemStack template, @Nonnull Predicate<ItemStack> filter) {
+        return null;
+    }
+
+    /**
+     * Restores a stack previously withdrawn through virtual item transport.
+     * Implementations may bypass normal insertion restrictions here because this method is used for Cargo rollback.
+     *
+     * @param menu the live menu instance
+     * @param item the stack that must be restored
+     * @return the unrestored remainder, or {@code null} when rollback fully succeeded
+     */
+    @Nullable public ItemStack restoreByItemTransport(@Nonnull DirtyChestMenu menu, @Nonnull ItemStack item) {
+        return insertByItemTransport(menu, item);
     }
 
     @Override

@@ -163,11 +163,27 @@ class CargoNetworkTask implements Runnable {
     private boolean restoreOriginalSlot(Block inputTarget, int previousSlot, ItemStack item) {
         DirtyChestMenu menu = CargoUtils.getChestMenu(inputTarget);
         if (menu != null) {
+            if (previousSlot == CargoUtils.VIRTUAL_TRANSPORT_SLOT
+                    && menu.getPreset().supportsVirtualItemTransport(menu)) {
+                ItemStack remainder = menu.getPreset().restoreByItemTransport(menu, item);
+                if (remainder == null || remainder.getType().isAir() || remainder.getAmount() <= 0) {
+                    return true;
+                }
+                item.setAmount(remainder.getAmount());
+                return false;
+            }
+            if (previousSlot < 0) {
+                return false;
+            }
             if (menu.getItemInSlot(previousSlot) == null) {
                 menu.replaceExistingItem(previousSlot, item);
                 return true;
             }
 
+            return false;
+        }
+
+        if (previousSlot < 0) {
             return false;
         }
 
@@ -193,11 +209,22 @@ class CargoNetworkTask implements Runnable {
     private ItemStack returnItemToSource(Block inputTarget, int previousSlot, ItemStack item) {
         DirtyChestMenu menu = CargoUtils.getChestMenu(inputTarget);
         if (menu != null) {
+            if (previousSlot == CargoUtils.VIRTUAL_TRANSPORT_SLOT
+                    && menu.getPreset().supportsVirtualItemTransport(menu)) {
+                return menu.getPreset().restoreByItemTransport(menu, item);
+            }
+            if (previousSlot < 0) {
+                return item;
+            }
             if (menu.getItemInSlot(previousSlot) == null) {
                 menu.replaceExistingItem(previousSlot, item);
                 return null;
             }
 
+            return item;
+        }
+
+        if (previousSlot < 0) {
             return item;
         }
 
