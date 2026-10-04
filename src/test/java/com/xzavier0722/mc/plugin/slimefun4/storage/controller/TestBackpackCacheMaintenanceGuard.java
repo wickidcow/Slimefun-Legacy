@@ -1,14 +1,19 @@
 package com.xzavier0722.mc.plugin.slimefun4.storage.controller;
 
+import io.github.thebusybiscuit.slimefun4.api.player.PlayerBackpack;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.bukkit.Bukkit;
+import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockbukkit.mockbukkit.MockBukkit;
 
 class TestBackpackCacheMaintenanceGuard {
 
@@ -47,8 +52,8 @@ class TestBackpackCacheMaintenanceGuard {
             });
 
             Assertions.assertTrue(loaderEntered.await(2, TimeUnit.SECONDS));
-            Future<Boolean> maintenance = executor.submit(
-                    () -> cache.runIfAllUncached(List.of("backpack-a"), batchRan::countDown));
+            Future<Boolean> maintenance =
+                    executor.submit(() -> cache.runIfAllUncached(List.of("backpack-a"), batchRan::countDown));
 
             Assertions.assertFalse(maintenance.get(500, TimeUnit.MILLISECONDS));
             Assertions.assertEquals(1L, batchRan.getCount());
@@ -128,6 +133,71 @@ class TestBackpackCacheMaintenanceGuard {
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(exception);
+        }
+    }
+
+    @Test
+    void gameplayAdoptionPreventsOwnerlessInventoryMaintenance() throws Exception {
+        try (InventoryReadTestPlugin fixture = new InventoryReadTestPlugin(MockBukkit.mock()); ) {
+            BackpackCache cache = new BackpackCache();
+            try {
+                PlayerBackpack backpack = new PlayerBackpack(
+                        Bukkit.getOfflinePlayer((UUID) UUID.randomUUID()),
+                        UUID.randomUUID(),
+                        "Existing backpack",
+                        1,
+                        9,
+                        new ItemStack[9]);
+                Assertions.assertTrue(
+                        (boolean) cache.putForMaintenance(backpack).maintenanceOwned());
+                AtomicInteger inspected = new AtomicInteger();
+                Assertions.assertTrue((boolean) cache.runWhileMaintenanceOwned(backpack, inspected::incrementAndGet));
+                Assertions.assertSame((Object) backpack, (Object)
+                        cache.get(backpack.getUniqueId().toString()));
+                Assertions.assertFalse((boolean) cache.runWhileMaintenanceOwned(backpack, inspected::incrementAndGet));
+                Assertions.assertEquals((int) 1, (int) inspected.get());
+                cache.releaseMaintenance(backpack);
+                Assertions.assertSame((Object) backpack, (Object)
+                        cache.peek(backpack.getUniqueId().toString()));
+            } finally {
+                cache.clean();
+            }
+        } finally {
+            MockBukkit.unmock();
+        }
+    }
+
+    @Test
+    void failedInventoryCallbackReleasesMaintenanceGate() throws Exception {
+        try (InventoryReadTestPlugin fixture = new InventoryReadTestPlugin(MockBukkit.mock()); ) {
+            BackpackCache cache = new BackpackCache();
+            try {
+                PlayerBackpack backpack = new PlayerBackpack(
+                        Bukkit.getOfflinePlayer((UUID) UUID.randomUUID()),
+                        UUID.randomUUID(),
+                        "Existing backpack",
+                        1,
+                        9,
+                        new ItemStack[9]);
+                cache.putForMaintenance(backpack);
+                Assertions.assertThrows(
+                        IllegalStateException.class,
+                        () -> cache.runWhileMaintenanceOwned(backpack, () -> {
+                            throw new IllegalStateException("backup failed");
+                        }));
+                ExecutorService executor = Executors.newSingleThreadExecutor();
+                try {
+                    Assertions.assertSame((Object) backpack, (Object) executor.submit(
+                                    () -> cache.get(backpack.getUniqueId().toString()))
+                            .get(500L, TimeUnit.MILLISECONDS));
+                } finally {
+                    executor.shutdownNow();
+                }
+            } finally {
+                cache.clean();
+            }
+        } finally {
+            MockBukkit.unmock();
         }
     }
 }

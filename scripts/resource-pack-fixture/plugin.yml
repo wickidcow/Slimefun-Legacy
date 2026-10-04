@@ -1,0 +1,14 @@
+name: ResourcePackDoctorProbe
+version: '1.0'
+main: io.github.wickidcow.validation.ResourcePackDoctorProbe
+api-version: '1.21.11'
+folia-supported: true
+depend: [Slimefun]
+commands:
+  rpdoctorprobe:
+    permission: rpdoctorprobe.run
+    description: Synthetic disposable-server resource-pack migration probe
+    usage: /rpdoctorprobe <prepare|preview|checkpoint|installed|deferred|menus-prepare|menus-verified|ownership-prepare|ownership-deferred|player-seed|player-cancel-open|player-open|player-cancel-pickup|player-pickup|uninstalled|restarted>
+permissions:
+  rpdoctorprobe.run:
+    default: op

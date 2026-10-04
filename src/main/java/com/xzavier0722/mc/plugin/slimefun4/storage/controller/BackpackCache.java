@@ -278,6 +278,20 @@ public class BackpackCache {
         });
     }
 
+    boolean runWhileMaintenanceOwned(PlayerBackpack backpack, Runnable action) {
+        Lock maintenance = maintenanceLock.writeLock();
+        if (!maintenance.tryLock()) return false;
+        try {
+            synchronized (this) {
+                if (maintenanceOwned.get(backpack.getUniqueId().toString()) != backpack) return false;
+                action.run();
+                return true;
+            }
+        } finally {
+            maintenance.unlock();
+        }
+    }
+
     void clean() {
         Lock maintenance = maintenanceLock.writeLock();
         maintenance.lock();

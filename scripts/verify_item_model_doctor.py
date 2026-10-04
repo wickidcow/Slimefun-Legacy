@@ -48,6 +48,33 @@ docs = read("docs/wiki/Doctor-and-Diagnostics.md")
 command_wiki = read("docs/wiki/Slimefun-Doctor-Commands.md")
 test = read("src/test/java/io/github/thebusybiscuit/slimefun4/core/services/stability/TestItemDoctorReportItemModels.java")
 
+pack_doctor = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ResourcePackDoctorService.java")
+pack_backup = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ResourcePackDoctorBackup.java")
+pack_executor = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ResourcePackModelExecutor.java")
+pack_command = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorResourcePackCommand.java")
+pack_listener = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/ResourcePackDoctorListener.java")
+gateway = read("src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/controller/PersistedItemStorageMaintenance.java")
+require('case "resource-pack", "resourcepack", "rp" -> DoctorResourcePackCommand.run(plugin, sender, args);' in command,
+        "resource-pack Doctor and its aliases must route to the install/uninstall command")
+require('mode.equals("confirm")' in pack_command and 'service.begin(action' in pack_command,
+        "install/uninstall changes require explicit confirm")
+require('"prepared"' in pack_doctor and '"awaiting-restart"' in pack_doctor and 'getHostedPackTemplateMismatchCount' in pack_doctor,
+        "confirmed cleanup must persist restart authorization and wait for fresh templates")
+require('if (!this.job.phase().equals("active"))' in pack_doctor,
+        "active cleanup resumes must preserve later sender/ownership/URL choices")
+require("PersistedItemStorageMaintenance" in pack_doctor and "maintenance.rewrite(requests)" in pack_doctor,
+        "unloaded inventory rewrites must use the guarded storage gateway")
+require(pack_executor.index("backup.save(identity, item.clone())") < pack_executor.index("item.setItemMeta(staged.getItemMeta())"),
+        "live model cleanup must back up the original before publishing metadata")
+require("channel.force(true)" in pack_backup and "original.equals" in pack_backup,
+        "item journals require durable, round-trip-checked original payloads")
+require("service.deferredExecutor()" in pack_listener and "new ResourcePackModelExecutor(true" in pack_doctor,
+        "join/load continuation must depend on a confirmed saved operation")
+require("key.addCondition(ownerField, record.ownerKey())" in gateway
+        and "key.addCondition(FieldKey.INVENTORY_SLOT, record.slotKey())" in gateway
+        and "key.addField(FieldKey.INVENTORY_ITEM)" in gateway,
+        "SQLite rewrites must update the existing owner/slot rather than perform insert-only writes")
+
 require("SlimefunItem.getById(slimefunId) == null" in executor,
         "item-model cleanup must require a currently registered Slimefun ID")
 require("getModelData(slimefunId) != 0" in executor,
@@ -76,6 +103,11 @@ require("MAX_CONTAINER_DEPTH = 4" in enable_executor
 
 reject("migrateHostedPackModels" in textures,
        "item-model startup must never force-upgrade existing zero mappings to bundled hosted-pack values")
+startup_defaults = textures[textures.find("private void loadDefaultValues()"):textures.find("private void migrateAccidentalDeepcorePaxelMappings()")]
+require("config.setValue(key, 0)" in startup_defaults,
+        "missing mappings must default to zero without implicitly opting into texture metadata")
+reject("config.setValue(key, bundledModel)" in startup_defaults,
+       "startup must not populate absent mappings with bundled model numbers")
 require("wasHostedPackModelMigrationApplied()" in textures
         and "getHostedPackRollbackCandidateCount()" in textures
         and "rollbackHostedPackMigrationMappings()" in textures,
