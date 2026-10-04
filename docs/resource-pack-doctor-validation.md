@@ -107,6 +107,49 @@ loaded menus deterministically. A fresh local Folia run with this preparation
 passed all three boots and eleven checkpoints; its evidence is recorded in
 `folia_chunk_readiness_recheck`.
 
+## Connected-player follow-up
+
+The Paper 26.2 build 129 and Folia 26.2 build 7 lanes now use a real offline-mode
+socket client against their disposable loopback server. The client reuses the
+protocol implementation already pinned by the proxy identity workflow:
+`1.66.2+complexity.26.2.3`, release archive SHA-256
+`8b72d382e3cc06779b2b54fc3e402291f46df3bc28fcc2c189b1fc25b3895dab`.
+Its package version is checked before connecting. CI verifies the archive checksum
+and installs it with lifecycle scripts disabled.
+
+The additional phases verify:
+
+- Before authorization, a connected player's seeded inventory and ender chest
+  retain their old model data. The client disconnects and the server stops normally.
+- After install and restart, the reconnecting player's saved stacks are still
+  old when the join event arrives, then the authorized delayed handler cleans them.
+  External models and unknown-addon stacks remain exactly unchanged.
+- Opening a real `PlayerBackpack` through the connected player's normal inventory
+  API fires the native open event. The backpack, player inventory and cursor are
+  cleaned, and the existing backpack UUID's database row is saved.
+- A naturally colliding dropped item fires the native pickup event with its old
+  metadata still present. The player receives exactly one expected cleaned stack,
+  with its original amount and metadata, and the item entity disappears.
+- After uninstall, disconnect and another normal server boot, the client reconnects
+  and verifies the player inventory, ender chest and saved backpack contents.
+
+The fixture observes actual join/open/pickup/quit events; it never calls the event
+handlers directly or synthesizes Bukkit events. Every player assertion requires
+the entity's owning thread, and Folia assertions reject the global tick thread.
+Inventory opening is initiated through the server API; this is not a graphical
+client click or resource-pack rendering test. The disposable server allows two
+slots because Folia's pending login was rejected with the previous one-slot limit.
+
+| Connected-player runtime | Normal boots | Total probe checkpoints | Player checkpoints |
+| --- | --- | --- | --- |
+| Paper 26.2 build 129 | 3 passed | 14 passed | 5 passed |
+| Folia 26.2 build 7 | 3 passed | 16 passed | 5 passed |
+
+These local results use the unchanged core JAR listed above and are recorded under
+`connected_player_followup` in the evidence JSON. No production implementation or
+addon pin changed. The other four native runtime lanes retain their existing
+coverage; connected-player results are specific to the two 26.2 builds above.
+
 ## Reproduction and CI
 
 `Resource Pack Doctor Migration` builds one core JAR for the exact checked-out
@@ -135,14 +178,21 @@ Add `--expect-folia` for the Folia lane; it also requires the native ownership a
 gameplay-backpack deferral checks. Task/ownership failures in any boot log fail the
 probe even if a phase marker was already written.
 
+For the connected-player phases on a 26.2 runtime, also pass
+`--protocol-module /path/to/pinned-client/node_modules/minecraft-protocol` and make
+Node available on PATH. The harness selects a temporary loopback port, starts and
+stops one test client per boot, and retains client logs with the server evidence.
+
 ## Remaining release evidence
 
 This matrix does not validate client rendering, a real combined ItemsAdder pack,
 captured historical production-world data or addon-private storage. Folia coverage
 now includes region-owned containers/drops, unloaded inventory rows, maintenance
 backpacks, gameplay-cache deferral, loaded Electric Furnace menus and an ownerless
-Android universal menu. Real connected-player join/open/pickup and
-teleport/retirement races still need dedicated native coverage; this fixture does
-not certify every addon or menu implementation. Ordinary Folia startup
+Android universal menu. Native connected-player join, backpack-open and pickup
+now have coverage on Paper/Folia 26.2. Connected players on 1.21.11 and 26.3,
+teleport/retirement races, cancelled events and concurrent viewers still need
+dedicated native coverage; this fixture does not certify every addon or menu
+implementation. Ordinary Folia startup
 checks are separate evidence. Passing this fixture does not certify every stored
 item or every external pack installation.

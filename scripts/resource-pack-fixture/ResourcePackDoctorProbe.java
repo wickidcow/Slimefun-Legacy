@@ -48,9 +48,14 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
     private static final int FAR_CHUNK = 512;
     private static final int FAR_BLOCK = FAR_CHUNK << 4;
     private PlayerBackpack heldBackpack;
+    private ResourcePackPlayerProbe playerProbe;
 
     @Override
     public void onEnable() {
+        if (Files.exists(getDataFolder().toPath().resolve("players.enabled"))) {
+            playerProbe = new ResourcePackPlayerProbe(this);
+            Bukkit.getPluginManager().registerEvents(playerProbe, this);
+        }
         // Empty Paper servers need not retain spawn chunks. Keep only the near fixture
         // loaded before Doctor resumes; the far fixture stays unloaded until requested.
         at(0, 0, 1L, () -> Bukkit.getWorlds().getFirst().getChunkAt(0, 0).addPluginChunkTicket(this));
@@ -59,6 +64,9 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length != 1) return false;
+        if (args[0].startsWith("player-")) {
+            return playerProbe != null && playerProbe.command(args[0]);
+        }
         at(0, 0, 20L, () -> {
             try {
                 Files.createDirectories(getDataFolder().toPath());
@@ -571,7 +579,7 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         setData(controller, new RecordKey(scope), row);
     }
 
-    private ItemStack read(
+    ItemStack read(
             com.xzavier0722.mc.plugin.slimefun4.storage.controller.ADataController controller,
             DataScope scope,
             FieldKey ownerField,
@@ -682,7 +690,7 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         }
     }
 
-    private ItemStack expected(String name) throws Exception {
+    ItemStack expected(String name) throws Exception {
         return ItemStack.deserializeBytes(Files.readAllBytes(file(name)));
     }
 
@@ -690,17 +698,17 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         return NamespacedKey.fromString(key);
     }
 
-    private static void require(boolean value, String message) {
+    static void require(boolean value, String message) {
         if (!value) throw new IllegalStateException(message);
     }
 
-    private void pass(String phase) throws Exception {
+    void pass(String phase) throws Exception {
         String proof = "RESOURCE_PACK_DOCTOR_PROBE_PASS " + phase + " | " + Bukkit.getVersion();
         Files.writeString(getDataFolder().toPath().resolve(phase + ".pass"), proof + '\n');
         getLogger().info(proof);
     }
 
-    private void fail(Throwable failure) {
+    void fail(Throwable failure) {
         getLogger().log(java.util.logging.Level.SEVERE, "RESOURCE_PACK_DOCTOR_PROBE_FAIL", failure);
     }
 }

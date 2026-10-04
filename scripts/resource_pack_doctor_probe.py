@@ -7,6 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import socket
 import subprocess
 import time
 
@@ -24,6 +25,8 @@ def main() -> None:
                         help="Server JVM; defaults to the Java home used to compile the fixture")
     parser.add_argument("--expect-folia", action="store_true",
                         help="Require Folia and test live-inventory ownership deferrals")
+    parser.add_argument("--protocol-module", type=Path,
+                        help="Pinned Minecraft 26.2 client module; enables real connected-player checks")
     args = parser.parse_args()
     if args.server_cache and not args.server_jar:
         parser.error("--server-cache requires --server-jar")
@@ -50,11 +53,20 @@ def main() -> None:
         (root / "config/paper-global.yml").write_text(
             "threaded-regions:\n  threads: 2\n", encoding="utf-8")
     (root / "plugins/Slimefun").mkdir(parents=True)
+    proof = root / "plugins/ResourcePackDoctorProbe"
+    if args.protocol_module:
+        proof.mkdir()
+        (proof / "players.enabled").touch()
     core = root / "plugins/Slimefun.jar"
     shutil.copy2(args.core.resolve(), core)
+    port = 0
+    if args.protocol_module:
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1", 0))
+            port = reservation.getsockname()[1]
     (root / "server.properties").write_text(
-        "online-mode=false\nserver-ip=127.0.0.1\nserver-port=0\nlevel-name=rp-doctor-world\n"
-        "level-type=minecraft:flat\ngenerate-structures=false\nmax-players=1\nview-distance=2\n"
+        f"online-mode=false\nserver-ip=127.0.0.1\nserver-port={port}\nlevel-name=rp-doctor-world\n"
+        "level-type=minecraft:flat\ngenerate-structures=false\nmax-players=2\nview-distance=2\n"
         "simulation-distance=2\nspawn-protection=0\npause-when-empty-seconds=-1\n"
         "enable-query=false\nenable-rcon=false\n", encoding="utf-8")
     (root / "bukkit.yml").write_text("settings:\n  allow-end: false\n", encoding="utf-8")
@@ -66,12 +78,12 @@ def main() -> None:
     classes.mkdir()
     classpath = [str(core)] + [str(p) for p in (root / "libraries").rglob("*.jar")]
     subprocess.run([str(args.java_home / "bin/javac"), "--release", "21", "-cp", ":".join(classpath),
-                    "-d", str(classes), str(repo / "scripts/resource-pack-fixture/ResourcePackDoctorProbe.java")], check=True)
+                    "-d", str(classes), *map(str, sorted((repo / "scripts/resource-pack-fixture").glob("*.java")))], check=True)
     shutil.copy2(repo / "scripts/resource-pack-fixture/plugin.yml", classes / "plugin.yml")
     subprocess.run([str(args.java_home / "bin/jar"), "cf", str(root / "plugins/ResourcePackDoctorProbe.jar"),
                     "-C", str(classes), "."], check=True)
-    proof = root / "plugins/ResourcePackDoctorProbe"
     processes = []
+    clients = []
 
     def command(process, text):
         process.stdin.write(text + "\n")
@@ -103,6 +115,30 @@ def main() -> None:
         wait(lambda: (proof / f"{action}.pass").is_file(), process, root / f"console-{number}.log")
         print((proof / f"{action}.pass").read_text().strip(), flush=True)
 
+    def connect_player(process, number, stage):
+        for name in ("player-connected.ready", "player-disconnected.ready"):
+            (proof / name).unlink(missing_ok=True)
+        (proof / "player-stage.txt").write_text(stage, encoding="utf-8")
+        path = root / f"console-{number}.log"
+        client_log = (root / f"client-{number}.log").open("w", encoding="utf-8")
+        client = subprocess.Popen(["node", str(repo / "scripts/resource_pack_doctor_client.js"),
+            str(args.protocol_module.resolve()), str(port)], stdin=subprocess.PIPE,
+            stdout=client_log, stderr=subprocess.STDOUT, text=True)
+        clients.append(client)
+        wait(lambda: (proof / "player-connected.ready").is_file(), client, path)
+        if stage != "seed":
+            wait(lambda: (proof / f"player-{stage}.pass").is_file(), client, path)
+            print((proof / f"player-{stage}.pass").read_text().strip(), flush=True)
+        return client, client_log
+
+    def disconnect_player(client, client_log, process, number):
+        command(client, "quit")
+        client.wait(timeout=15)
+        client_log.close()
+        if client.returncode != 0:
+            raise RuntimeError("Connected-player client failed; inspect client log")
+        wait(lambda: (proof / "player-disconnected.ready").is_file(), process, root / f"console-{number}.log")
+
     def stop(process, log):
         command(process, "stop")
         process.wait(timeout=60)
@@ -119,6 +155,10 @@ def main() -> None:
     try:
         process, log = boot(1)
         probe(process, 1, "prepare")
+        if args.protocol_module:
+            client, client_log = connect_player(process, 1, "seed")
+            probe(process, 1, "player-seed")
+            disconnect_player(client, client_log, process, 1)
         command(process, "sf doctor resource-pack install scan")
         time.sleep(3)
         probe(process, 1, "preview")
@@ -140,6 +180,11 @@ def main() -> None:
         time.sleep(3)
         if args.expect_folia:
             probe(process, 2, "ownership-deferred")
+        if args.protocol_module:
+            client, client_log = connect_player(process, 2, "join")
+            probe(process, 2, "player-open")
+            probe(process, 2, "player-pickup")
+            disconnect_player(client, client_log, process, 2)
         command(process, "sf doctor resource-pack uninstall confirm")
         time.sleep(3)
         probe(process, 2, "uninstalled")
@@ -153,12 +198,16 @@ def main() -> None:
         if "ownership-mode: external" not in config_file.read_text():
             raise RuntimeError("Cleanup checkpoint overwrote a later ownership choice")
         probe(process, 3, "restarted")
+        if args.protocol_module:
+            client, client_log = connect_player(process, 3, "restart")
+            disconnect_player(client, client_log, process, 3)
         stop(process, log)
         result = "Native resource-pack Doctor probe PASS\ncore SHA-256: " + hashlib.sha256(core.read_bytes()).hexdigest()
         result += "\nserver SHA-256: " + hashlib.sha256((root / "server.jar").read_bytes()).hexdigest() + "\n"
         (root / "PASS.txt").write_text(result)
         evidence = {
             "result": "PASS", "boots": 3, "folia_ownership_checks": args.expect_folia,
+            "connected_player_checks": bool(args.protocol_module),
             "core_sha256": hashlib.sha256(core.read_bytes()).hexdigest(),
             "server_sha256": hashlib.sha256((root / "server.jar").read_bytes()).hexdigest(),
             "java": subprocess.run([str(runtime_java), "-version"], capture_output=True,
@@ -168,6 +217,10 @@ def main() -> None:
         (root / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
         print(result, flush=True)
     finally:
+        for client in clients:
+            if client.poll() is None:
+                client.terminate()
+                client.wait(timeout=15)
         for process in processes:
             if process.poll() is None:
                 command(process, "stop")

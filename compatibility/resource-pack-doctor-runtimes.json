@@ -14,6 +14,7 @@
     },
     {
       "label": "paper-26.2-129",
+      "connected_players": true,
       "java": "25",
       "url": "https://fill-data.papermc.io/v1/objects/b1d8f6bfa1b6101fa8e947b53041cb3bdf5540e7b83b6547ca19ba7edefeb083/paper-26.2-129.jar",
       "sha256": "b1d8f6bfa1b6101fa8e947b53041cb3bdf5540e7b83b6547ca19ba7edefeb083"
@@ -32,6 +33,7 @@
     },
     {
       "label": "folia-26.2-7",
+      "connected_players": true,
       "java": "25",
       "folia": true,
       "url": "https://fill-data.papermc.io/v1/objects/128a634192261cd38bb4a5dc54075018a0f896fd6c6f529e37dca6e99e32b3b3/folia-26.2-7.jar",
