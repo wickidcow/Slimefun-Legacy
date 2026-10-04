@@ -341,6 +341,18 @@ public class ProfileDataController extends ADataController {
 
     BackpackRecoveryExecution quarantineUnreadableBackpackRows(
             @Nonnull String backpackId, @Nonnull String expectedFingerprint) {
+        final BackpackRecoveryExecution[] result = new BackpackRecoveryExecution[1];
+        boolean acquired = backpackCache.runIfAllUncached(
+                Set.of(backpackId), () -> result[0] = quarantineUnreadableBackpackRowsLocked(backpackId, expectedFingerprint));
+        if (!acquired) {
+            throw new IllegalStateException(
+                    "Backpack cache state is busy or live; quarantine could not acquire the exclusive recovery gate.");
+        }
+        return result[0];
+    }
+
+    private BackpackRecoveryExecution quarantineUnreadableBackpackRowsLocked(
+            @Nonnull String backpackId, @Nonnull String expectedFingerprint) {
         BackpackRecoveryInspection inspection = inspectBackpackRecovery(backpackId);
         BackpackRecoveryScan scan = inspection.scan();
 
@@ -488,6 +500,9 @@ public class ProfileDataController extends ADataController {
         unreadable.sort(Comparator.comparingInt(RawBackpackRecoveryRow::slot));
 
         String state = String.join("\n", stateEntries);
+        String candidateState = unreadable.stream()
+                .map(row -> row.slot() + "\u0000" + row.payloadSha256())
+                .collect(Collectors.joining("\n"));
         String fingerprint = sha256Hex((backpackId
                         + "\n"
                         + ownerUuid
@@ -496,7 +511,9 @@ public class ProfileDataController extends ADataController {
                         + "\n"
                         + stored.size()
                         + "\n"
-                        + state)
+                        + state
+                        + "\n--unreadable--\n"
+                        + candidateState)
                 .getBytes(StandardCharsets.UTF_8));
 
         boolean savePending;
