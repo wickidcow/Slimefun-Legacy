@@ -2,11 +2,84 @@
 """Pure fixture tests for candidate selection and byte/source identity enforcement."""
 import hashlib
 import json
+import subprocess
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
-from download_candidate_bundle import WORKFLOW, select_run, verify_bundle
+from unittest.mock import patch
+from download_candidate_bundle import WORKFLOW, query_runs, select_run, verify_bundle
+
+
+class CandidateQueryTest(unittest.TestCase):
+    def setUp(self):
+        self.clock = patch('download_candidate_bundle.time.monotonic', return_value=100).start()
+        self.sleep = patch('download_candidate_bundle.time.sleep').start()
+        self.run = patch('download_candidate_bundle.subprocess.run').start()
+        self.addCleanup(patch.stopall)
+        self.head = '1' * 40
+        self.response = subprocess.CompletedProcess([], 0, '{"workflow_runs": []}', '')
+
+    def query(self, deadline=200):
+        return query_runs('wickidcow/Slimefun-Legacy', self.head, 'pull_request', deadline)
+
+    def test_temporary_http_failure_retries_identical_query(self):
+        for detail in ('gh: Bad Gateway (HTTP 502)', 'gh: Too Many Requests (HTTP 429)',
+                       'read: connection reset by peer'):
+            with self.subTest(detail=detail):
+                self.run.reset_mock()
+                self.run.side_effect = [subprocess.CalledProcessError(1, [], stderr=detail), self.response]
+                self.assertEqual({'workflow_runs': []}, self.query())
+                self.assertEqual(2, self.run.call_count)
+                self.assertEqual(self.run.call_args_list[0], self.run.call_args_list[1])
+                command = self.run.call_args.args[0]
+                self.assertEqual(['gh', 'api'], command[:2])
+                self.assertIn('head_sha=' + self.head, command[2])
+                self.assertIn('event=pull_request', command[2])
+
+    def test_timeout_retry_is_bounded_by_overall_deadline(self):
+        self.clock.side_effect = [100, 101, 102]
+        self.run.side_effect = [subprocess.TimeoutExpired([], 2), self.response]
+        with self.assertRaisesRegex(TimeoutError, 'deadline expired'):
+            self.query(deadline=102)
+        self.assertEqual(1, self.run.call_count)
+        self.assertEqual(2, self.run.call_args.kwargs['timeout'])
+        self.sleep.assert_called_once_with(1)
+
+    def test_repeated_transient_errors_fail_with_diagnostic(self):
+        self.run.side_effect = subprocess.CalledProcessError(1, [], stderr='gh: HTTP 503')
+        with self.assertRaisesRegex(RuntimeError, '3 attempt.*no release fallback: gh: HTTP 503'):
+            self.query()
+        self.assertEqual(3, self.run.call_count)
+        self.assertEqual([5, 10], [call.args[0] for call in self.sleep.call_args_list])
+
+    def test_auth_permission_and_unknown_failures_do_not_retry(self):
+        for detail in ('gh: HTTP 401', 'gh: HTTP 403', 'gh: HTTP 404', 'invalid flag'):
+            with self.subTest(detail=detail):
+                self.run.reset_mock()
+                self.run.side_effect = subprocess.CalledProcessError(1, [], stderr=detail)
+                with self.assertRaisesRegex(RuntimeError, '1 attempt'):
+                    self.query()
+                self.assertEqual(1, self.run.call_count)
+        self.sleep.assert_not_called()
+
+    def test_invalid_success_response_is_not_retried(self):
+        self.run.return_value = subprocess.CompletedProcess([], 0, '<html>gateway</html>', '')
+        with self.assertRaises(json.JSONDecodeError):
+            self.query()
+        self.run.assert_called_once()
+        self.sleep.assert_not_called()
+
+    def test_expired_deadline_does_not_issue_another_request(self):
+        with self.assertRaisesRegex(TimeoutError, 'deadline expired'):
+            self.query(deadline=100)
+        self.run.assert_not_called()
+
+    def test_timeout_then_success_uses_exact_request(self):
+        self.run.side_effect = [subprocess.TimeoutExpired([], 45), self.response]
+        self.assertEqual({'workflow_runs': []}, self.query())
+        self.assertEqual(2, self.run.call_count)
+        self.assertEqual(self.run.call_args_list[0], self.run.call_args_list[1])
 
 
 class CandidateBundleTest(unittest.TestCase):

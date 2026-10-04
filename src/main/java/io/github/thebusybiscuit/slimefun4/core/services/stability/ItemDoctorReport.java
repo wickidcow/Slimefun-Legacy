@@ -59,11 +59,25 @@ public final class ItemDoctorReport {
         this.repairMode = repairMode;
     }
 
-    void inventoryScanned() { inventories.incrementAndGet(); }
-    void backpackScanned() { backpacks.incrementAndGet(); }
-    void blockScanned() { scannedBlocks.incrementAndGet(); }
-    void cjkBlockFound() { cjkBlocks.incrementAndGet(); }
-    void blockRepaired() { repairedBlocks.incrementAndGet(); }
+    void inventoryScanned() {
+        inventories.incrementAndGet();
+    }
+
+    void backpackScanned() {
+        backpacks.incrementAndGet();
+    }
+
+    void blockScanned() {
+        scannedBlocks.incrementAndGet();
+    }
+
+    void cjkBlockFound() {
+        cjkBlocks.incrementAndGet();
+    }
+
+    void blockRepaired() {
+        repairedBlocks.incrementAndGet();
+    }
 
     /** Records a persisted block ID that is declared legacy or currently resolves through an alias. */
     void legacyBlockIdFound(@Nonnull String itemId) {
@@ -77,10 +91,21 @@ public final class ItemDoctorReport {
         addSample(unknownBlockIdSamples, itemId);
     }
 
-    void stackScanned() { scannedStacks.incrementAndGet(); }
-    void slimefunStackFound() { slimefunStacks.incrementAndGet(); }
-    void cjkStackFound() { cjkStacks.incrementAndGet(); }
-    void stackRepaired() { repairedStacks.incrementAndGet(); }
+    void stackScanned() {
+        scannedStacks.incrementAndGet();
+    }
+
+    void slimefunStackFound() {
+        slimefunStacks.incrementAndGet();
+    }
+
+    void cjkStackFound() {
+        cjkStacks.incrementAndGet();
+    }
+
+    void stackRepaired() {
+        repairedStacks.incrementAndGet();
+    }
 
     void unknownIdFound(@Nonnull String itemId) {
         unknownIds.incrementAndGet();
@@ -94,28 +119,35 @@ public final class ItemDoctorReport {
 
     void itemModelCandidateFound(@Nonnull String itemId) {
         itemModelCandidates.incrementAndGet();
-        itemModelCandidateCounts.computeIfAbsent(itemId, ignored -> new AtomicLong()).incrementAndGet();
+        itemModelCandidateCounts
+                .computeIfAbsent(itemId, ignored -> new AtomicLong())
+                .incrementAndGet();
     }
 
-    void itemModelRepaired() { itemModelRepairs.incrementAndGet(); }
+    void itemModelRepaired() {
+        itemModelRepairs.incrementAndGet();
+    }
 
     void itemModelConflictFound(@Nonnull String itemId) {
         itemModelConflicts.incrementAndGet();
-        itemModelConflictCounts.computeIfAbsent(itemId, ignored -> new AtomicLong()).incrementAndGet();
+        itemModelConflictCounts
+                .computeIfAbsent(itemId, ignored -> new AtomicLong())
+                .incrementAndGet();
     }
 
     /** Records an executable legacy-ID candidate encountered during the full Doctor traversal. */
     void legacyMigrationCandidateFound(@Nonnull String legacyId) {
         legacyMigrationCandidates.incrementAndGet();
-        legacyMigrationCandidateCounts.computeIfAbsent(legacyId, ignored -> new AtomicLong()).incrementAndGet();
+        legacyMigrationCandidateCounts
+                .computeIfAbsent(legacyId, ignored -> new AtomicLong())
+                .incrementAndGet();
     }
 
     void enableSchemaProbeSession(@Nonnull LegacyItemSchemaProbeService.Session session) {
         schemaProbeSession = session;
     }
 
-    @Nullable
-    LegacyItemSchemaProbeService.Session getSchemaProbeSession() {
+    @Nullable LegacyItemSchemaProbeService.Session getSchemaProbeSession() {
         return schemaProbeSession;
     }
 
@@ -133,7 +165,9 @@ public final class ItemDoctorReport {
                 candidate.getReadiness(),
                 candidate.getDetail(),
                 candidate.getValidationClaim() != null);
-        schemaMigrationCandidateCounts.computeIfAbsent(key, ignored -> new AtomicLong()).incrementAndGet();
+        schemaMigrationCandidateCounts
+                .computeIfAbsent(key, ignored -> new AtomicLong())
+                .incrementAndGet();
     }
 
     void schemaValidationFound(
@@ -148,16 +182,13 @@ public final class ItemDoctorReport {
         }
         schemaValidatedCandidates.addAndGet(candidateCount);
         SchemaValidationKey key = new SchemaValidationKey(
-                providerId,
-                migrationName,
-                slimefunId,
-                candidateType,
-                validation.getStatus(),
-                validation.getDetail());
+                providerId, migrationName, slimefunId, candidateType, validation.getStatus(), validation.getDetail());
         schemaValidationCounts.computeIfAbsent(key, ignored -> new AtomicLong()).addAndGet(candidateCount);
     }
 
-    void failure() { failures.incrementAndGet(); }
+    void failure() {
+        failures.incrementAndGet();
+    }
 
     void markComplete() {
         if (complete.compareAndSet(false, true)) {
@@ -165,25 +196,81 @@ public final class ItemDoctorReport {
         }
     }
 
-    public boolean isRepairMode() { return repairMode; }
-    public @Nonnull String getModeName() { return repairMode ? "repair" : "scan"; }
-    public boolean isComplete() { return complete.get(); }
-    public long getInventories() { return inventories.get(); }
-    public long getBackpacks() { return backpacks.get(); }
-    public long getScannedBlocks() { return scannedBlocks.get(); }
-    public long getCjkBlocks() { return cjkBlocks.get(); }
-    public long getRepairedBlocks() { return repairedBlocks.get(); }
-    public long getLegacyBlockIds() { return legacyBlockIds.get(); }
-    public long getUnknownBlockIds() { return unknownBlockIds.get(); }
-    public long getScannedStacks() { return scannedStacks.get(); }
-    public long getSlimefunStacks() { return slimefunStacks.get(); }
-    public long getCjkStacks() { return cjkStacks.get(); }
-    public long getRepairedStacks() { return repairedStacks.get(); }
-    public long getUnknownIds() { return unknownIds.get(); }
-    public long getUnresolvedTemplates() { return unresolvedTemplates.get(); }
-    public long getItemModelCandidates() { return itemModelCandidates.get(); }
-    public long getItemModelRepairs() { return itemModelRepairs.get(); }
-    public long getItemModelConflicts() { return itemModelConflicts.get(); }
+    public boolean isRepairMode() {
+        return repairMode;
+    }
+
+    public @Nonnull String getModeName() {
+        return repairMode ? "repair" : "scan";
+    }
+
+    public boolean isComplete() {
+        return complete.get();
+    }
+
+    public long getInventories() {
+        return inventories.get();
+    }
+
+    public long getBackpacks() {
+        return backpacks.get();
+    }
+
+    public long getScannedBlocks() {
+        return scannedBlocks.get();
+    }
+
+    public long getCjkBlocks() {
+        return cjkBlocks.get();
+    }
+
+    public long getRepairedBlocks() {
+        return repairedBlocks.get();
+    }
+
+    public long getLegacyBlockIds() {
+        return legacyBlockIds.get();
+    }
+
+    public long getUnknownBlockIds() {
+        return unknownBlockIds.get();
+    }
+
+    public long getScannedStacks() {
+        return scannedStacks.get();
+    }
+
+    public long getSlimefunStacks() {
+        return slimefunStacks.get();
+    }
+
+    public long getCjkStacks() {
+        return cjkStacks.get();
+    }
+
+    public long getRepairedStacks() {
+        return repairedStacks.get();
+    }
+
+    public long getUnknownIds() {
+        return unknownIds.get();
+    }
+
+    public long getUnresolvedTemplates() {
+        return unresolvedTemplates.get();
+    }
+
+    public long getItemModelCandidates() {
+        return itemModelCandidates.get();
+    }
+
+    public long getItemModelRepairs() {
+        return itemModelRepairs.get();
+    }
+
+    public long getItemModelConflicts() {
+        return itemModelConflicts.get();
+    }
 
     public @Nonnull Map<String, Long> getItemModelCandidateCounts() {
         List<Map.Entry<String, AtomicLong>> entries = new ArrayList<>(itemModelCandidateCounts.entrySet());
@@ -206,7 +293,9 @@ public final class ItemDoctorReport {
     }
 
     /** Returns the exact number of stacks whose stored ID matched a declared legacy-ID mapping. */
-    public long getLegacyMigrationCandidates() { return legacyMigrationCandidates.get(); }
+    public long getLegacyMigrationCandidates() {
+        return legacyMigrationCandidates.get();
+    }
 
     /** Exact per-ID counts for declared legacy migration candidates encountered by this run. */
     public @Nonnull Map<String, Long> getLegacyMigrationCandidateCounts() {
@@ -220,11 +309,14 @@ public final class ItemDoctorReport {
     }
 
     /** Returns the number of current-ID items whose addon reported an older metadata/schema format. */
-    public long getSchemaMigrationCandidates() { return schemaMigrationCandidates.get(); }
+    public long getSchemaMigrationCandidates() {
+        return schemaMigrationCandidates.get();
+    }
 
     /** Returns immutable exact aggregates for addon-owned same-ID schema migration candidates. */
     public @Nonnull List<LegacyItemSchemaCandidateSummary> getSchemaMigrationCandidateSummaries() {
-        List<Map.Entry<SchemaMigrationKey, AtomicLong>> entries = new ArrayList<>(schemaMigrationCandidateCounts.entrySet());
+        List<Map.Entry<SchemaMigrationKey, AtomicLong>> entries =
+                new ArrayList<>(schemaMigrationCandidateCounts.entrySet());
         entries.sort((left, right) -> {
             int provider = left.getKey().providerId.compareToIgnoreCase(right.getKey().providerId);
             if (provider != 0) return provider;
@@ -253,7 +345,9 @@ public final class ItemDoctorReport {
     }
 
     /** Number of candidate stacks represented by completed persistent-state validation results. */
-    public long getSchemaValidatedCandidates() { return schemaValidatedCandidates.get(); }
+    public long getSchemaValidatedCandidates() {
+        return schemaValidatedCandidates.get();
+    }
 
     /** Exact, non-sensitive aggregates of persistent-state validation results. */
     public @Nonnull List<LegacyItemSchemaValidationSummary> getSchemaValidationSummaries() {
@@ -282,17 +376,30 @@ public final class ItemDoctorReport {
         return Collections.unmodifiableList(summaries);
     }
 
-    public long getFailures() { return failures.get(); }
+    public long getFailures() {
+        return failures.get();
+    }
 
     public long getDurationMillis() {
         long end = isComplete() ? completedAtNanos : System.nanoTime();
         return Math.max(0L, (end - startedAtNanos) / 1_000_000L);
     }
 
-    public @Nonnull List<String> getLegacyBlockIdSamples() { return snapshot(legacyBlockIdSamples); }
-    public @Nonnull List<String> getUnknownBlockIdSamples() { return snapshot(unknownBlockIdSamples); }
-    public @Nonnull List<String> getUnknownIdSamples() { return snapshot(unknownIdSamples); }
-    public @Nonnull List<String> getUnresolvedTemplateSamples() { return snapshot(unresolvedTemplateSamples); }
+    public @Nonnull List<String> getLegacyBlockIdSamples() {
+        return snapshot(legacyBlockIdSamples);
+    }
+
+    public @Nonnull List<String> getUnknownBlockIdSamples() {
+        return snapshot(unknownBlockIdSamples);
+    }
+
+    public @Nonnull List<String> getUnknownIdSamples() {
+        return snapshot(unknownIdSamples);
+    }
+
+    public @Nonnull List<String> getUnresolvedTemplateSamples() {
+        return snapshot(unresolvedTemplateSamples);
+    }
 
     private static void addSample(Set<String> samples, String value) {
         synchronized (samples) {
@@ -322,4 +429,24 @@ public final class ItemDoctorReport {
             String candidateType,
             LegacyItemSchemaValidation.Status status,
             String detail) {}
+
+    void mergeItemModels(ItemDoctorReport staged, boolean applied) {
+        this.scannedStacks.addAndGet(staged.getScannedStacks());
+        this.slimefunStacks.addAndGet(staged.getSlimefunStacks());
+        this.itemModelCandidates.addAndGet(staged.getItemModelCandidates());
+        this.itemModelConflicts.addAndGet(staged.getItemModelConflicts());
+        this.failures.addAndGet(staged.getFailures());
+        staged.getItemModelCandidateCounts()
+                .forEach((id, count) -> this.itemModelCandidateCounts
+                        .computeIfAbsent((String) id, ignored -> new AtomicLong())
+                        .addAndGet((long) count));
+        staged.getItemModelConflictCounts()
+                .forEach((id, count) -> this.itemModelConflictCounts
+                        .computeIfAbsent((String) id, ignored -> new AtomicLong())
+                        .addAndGet((long) count));
+        if (applied) {
+            this.itemModelRepairs.addAndGet(staged.getItemModelRepairs());
+            this.repairedStacks.addAndGet(staged.getRepairedStacks());
+        }
+    }
 }
