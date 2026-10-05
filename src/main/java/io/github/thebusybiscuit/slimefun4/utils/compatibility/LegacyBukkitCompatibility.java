@@ -32,12 +32,16 @@ public final class LegacyBukkitCompatibility {
     /**
      * Returns the representative stack supplied by a generic {@link RecipeChoice}.
      *
-     * <p>Concrete choice types expose newer accessors, but the generic interface has no non-deprecated method that
-     * can produce the representative stack for every supported choice implementation, including newer predicate
-     * choices. Keeping the bridge here avoids degrading guide recipe displays.
+     * <p>Exact choices expose the same first-stack clone through their modern accessor. Other choice types still
+     * need the generic fallback, including MaterialChoice's historical wildcard durability and predicate choices.
      */
     @SuppressWarnings("deprecation")
     public static @Nonnull ItemStack getRecipeChoiceRepresentative(@Nonnull RecipeChoice choice) {
+        // Older supported APIs may allow subclasses with a custom representative.
+        // Use the modern path only for the concrete Bukkit exact-choice implementation.
+        if (choice.getClass() == RecipeChoice.ExactChoice.class) {
+            return ((RecipeChoice.ExactChoice) choice).getChoices().getFirst().clone();
+        }
         return choice.getItemStack();
     }
 }
