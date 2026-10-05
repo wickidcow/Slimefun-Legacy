@@ -25,6 +25,7 @@ def main() -> int:
         "setup": "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/setup/AdventurersCuriosSetup.java",
         "canary": base + "MinersCanary.java",
         "parachute": base + "EmergencyParachute.java",
+        "hologram_display": base + "HologramDisplayProjector.java",
         "beacon": base + "BeaconPlus.java",
         "effect": base + "BeaconPlusEffect.java",
         "runtime": base + "BeaconPlusRuntime.java",
@@ -57,7 +58,9 @@ def main() -> int:
         for token in (
             '"adventurers_curios"', '"adventurers_curios_field"', '"containment_armor"',
             '"ADVENTURERS_MINERS_CANARY"', '"ADVENTURERS_TRAVELERS_BEDROLL"',
-            '"ADVENTURERS_EMERGENCY_PARACHUTE"', '"BEACON_PLUS"', '"&6&lResonance Beacon"',
+            '"ADVENTURERS_EMERGENCY_PARACHUTE"', '"ADVENTURERS_HOLOGRAM_DISPLAY_PROJECTOR"',
+            "Material.POLISHED_BLACKSTONE_SLAB", "new HologramDisplayProjector(",
+            '"BEACON_PLUS"', '"&6&lResonance Beacon"',
             'with 29 configurable three-tier powers.', "SlimefunItems.ESSENCE_OF_AFTERLIFE",
             "SlimefunItems.MAGICAL_GLASS", "SlimefunItems.BLISTERING_INGOT_3",
             "SlimefunItems.SYNTHETIC_DIAMOND", "canary.registerListener(plugin)",
@@ -80,6 +83,17 @@ def main() -> int:
         parachute = read(root, files["parachute"])
         for token in ("EntityDamageEvent", "FALL", "registerListener", "60"):
             req(token in parachute, f"Emergency Parachute invariant missing: {token}", failures)
+
+        hologram_display = read(root, files["hologram_display"])
+        for token in (
+            "DISPLAY_ITEM_SLOT = 13", "ItemDisplay", "TEXT_VISIBLE_KEY",
+            "ITEM_VISIBLE_KEY", "Item Position:", "ABOVE", "BELOW", "Text Height:", "Item Height:",
+            "menu.dropItems(block.getLocation(), DISPLAY_ITEM_SLOT)", "getSlotsAccessedByItemTransport",
+            "return new int[0]", "setBillboard(Display.Billboard.CENTER)",
+        ):
+            req(token in hologram_display, f"Hologram Display Projector invariant missing: {token}", failures)
+        req("ArmorStandUtils.spawnArmorStand" in hologram_display,
+            "Hologram Display Projector must retain classic text-projector behavior", failures)
 
         effects = read(root, files["effect"])
         approved = (
@@ -282,6 +296,7 @@ def main() -> int:
         "Adventurer's Curios verification: PASS\n"
         "- current Curiosities and containment content remain integrated on the master baseline\n"
         "- Dungeon Chalk is removed and Miner's Canary remains a bounded passive danger alarm\n"
+        "- Hologram Display Projector retains text while adding a persisted item display with independent visibility/height controls\n"
         "- Resonance Beacon retains BEACON_PLUS only as its migration-safe internal id\n"
         "- exactly 29 administrator-controlled powers support three-tier progression\n"
         "- Radiation Absorber suppresses symptoms and scrubs 25/50/all exposure by tier\n"

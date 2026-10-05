@@ -39,6 +39,17 @@ A portable Slimefun bed that can be placed and slept in like a normal bed while 
 ### Emergency Parachute
 Event-driven carried fall saver with a 60-second cooldown. It prevents dangerous/lethal fall damage and has no repeating task.
 
+### Hologram Display Projector
+An upgraded version of the classic Hologram Projector, represented by a **Polished Blackstone Slab** for 1.21.11+ compatibility.
+
+- Retains editable floating hologram text.
+- Adds one real persisted display-item slot; the stored item keeps its full metadata and is returned when the projector is broken.
+- Projects a one-item visual copy using a modern item display entity; the projected copy cannot be picked up or duplicated.
+- The projected item can be toggled **above** or **below** the text.
+- Text and item visibility can be toggled independently.
+- Text height and item height can both be raised or lowered in 0.1-block increments.
+- Item transport is intentionally disabled for the display slot so Cargo/hoppers cannot silently reconfigure decorative projectors.
+
 ## Containment
 
 The existing Curiosities containment section remains part of the category. It includes the Containment Trap, Advanced Hazmat gear, and Netherite Containment armor for radioactive/hazardous material handling. These current master-branch features are retained by the Resonance Beacon update.
