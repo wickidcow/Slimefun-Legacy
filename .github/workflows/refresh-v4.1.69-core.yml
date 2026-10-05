@@ -17,6 +17,7 @@ jobs:
     timeout-minutes: 20
     env:
       SOURCE_SHA: d430eda74525b31328660bc3d3e36e13c9869353
+      SOURCE_COMMIT: d430eda74525b31328660bc3d3e36e13c9869353
       BUILD_RUN_ID: '37246059980'
       TAG: v4.1.69
       CORE_ASSET: Slimefun-Legacy4.1.69.jar
