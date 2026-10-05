@@ -145,18 +145,7 @@ public class ChestMenu extends SlimefunInventoryHolder {
      * @return The ChestMenu Instance
      */
     public ChestMenu addItem(int slot, ItemStack item) {
-        // do shallow copy due to Paper ItemStack system change
-        // See also: https://github.com/PaperMC/Paper/pull/10852
-        ItemStack actual = item;
-        if (item instanceof SlimefunItemStack) {
-            ItemStack clone = new ItemStack(item.getType(), item.getAmount());
-
-            if (item.hasItemMeta()) {
-                clone.setItemMeta(item.getItemMeta());
-            }
-
-            actual = clone;
-        }
+        ItemStack actual = prepareItemForInventory(item);
 
         setSize((int) (Math.max(getSize(), Math.ceil((slot + 1) / 9d) * 9)));
 
@@ -299,7 +288,28 @@ public class ChestMenu extends SlimefunInventoryHolder {
      */
     public void replaceExistingItem(int slot, ItemStack item) {
         setup();
-        this.inventory.setItem(slot, item);
+        this.inventory.setItem(slot, prepareItemForInventory(item));
+    }
+
+    /**
+     * Paper's 1.21+ inventory implementation requires inventory writes to receive
+     * Bukkit/Craft ItemStacks rather than Slimefun's ItemStack subclass.
+     *
+     * <p>Keep the historical shallow-copy behavior used by {@link #addItem(int, ItemStack)}
+     * so menu replacements preserve the complete ItemMeta while avoiding
+     * {@link ClassCastException}s inside CraftInventory#setItem.
+     */
+    private static ItemStack prepareItemForInventory(ItemStack item) {
+        if (!(item instanceof SlimefunItemStack)) {
+            return item;
+        }
+
+        ItemStack clone = new ItemStack(item.getType(), item.getAmount());
+        if (item.hasItemMeta()) {
+            clone.setItemMeta(item.getItemMeta());
+        }
+
+        return clone;
     }
 
     /**
