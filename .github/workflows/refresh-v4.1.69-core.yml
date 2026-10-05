@@ -60,20 +60,36 @@ jobs:
           print('Required projector-source CI is green.')
           PY
 
-      - name: Download exact built v4.1.69 JAR
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Check out exact projector source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          path: source
+          fetch-depth: 1
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Build and verify exact v4.1.69 JAR
         shell: bash
         run: |
           set -euo pipefail
+          pushd source
+          chmod +x gradlew
+          python3 scripts/verify_legacy.py .
+          ./gradlew clean shadowJar -PprojectVersion=4.1.69 --no-daemon --no-build-cache --no-configuration-cache
+          JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -n "$JAR"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+          python3 scripts/verify_release_artifact.py "$JAR" --root .
+          popd
           rm -rf dist
           mkdir -p dist
-          gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$CORE_ASSET" --dir dist
-          JAR="$(find dist -type f -name "$CORE_ASSET" -print -quit)"
-          test -n "$JAR"
-          if [[ "$JAR" != "dist/$CORE_ASSET" ]]; then
-            cp "$JAR" "dist/$CORE_ASSET"
-          fi
+          cp "source/$JAR" "dist/$CORE_ASSET"
           python3 - <<'PY'
           import os
           import zipfile
