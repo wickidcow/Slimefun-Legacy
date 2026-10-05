@@ -1,0 +1,130 @@
+name: Refresh v4.1.69 core asset
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/refresh-v4.1.69-core.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  refresh-v4-1-69:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SOURCE_SHA: d430eda74525b31328660bc3d3e36e13c9869353
+      BUILD_RUN_ID: '37246059980'
+      TAG: v4.1.69
+      CORE_ASSET: Slimefun-Legacy4.1.69.jar
+      ADDON_ASSET: SF_Addons_1.21.11-26.3.zip
+      PACK_ASSET: SlimefunLegacyRP.zip
+    steps:
+      - name: Check out release-note update
+        uses: actions/checkout@v6
+
+      - name: Require validated projector source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SOURCE_SHA&per_page=100" > source-runs.json
+          python3 - <<'PY'
+          import json
+          runs = json.load(open('source-runs.json'))['workflow_runs']
+          required = [
+              'Build Slimefun Legacy',
+              'Runtime Gameplay Correctness',
+              'Paper/Purpur 1.21.11 Compatibility',
+              'Paper 26.2 Runtime Smoke',
+              'Purpur/Folia/Leaf 26.2 Runtime Smoke',
+              'Resource Pack Doctor Migration',
+              'Proxy Runtime Smoke',
+              'Required Addon Runtime Smoke',
+              'Build SF Addons 1.21.11-26.3 Bundle',
+          ]
+          by_name = {}
+          for run in runs:
+              if run['name'] not in by_name or run['id'] > by_name[run['name']]['id']:
+                  by_name[run['name']] = run
+          missing = [name for name in required if name not in by_name]
+          bad = [(name, by_name[name]['status'], by_name[name]['conclusion'])
+                 for name in required if name in by_name
+                 and not (by_name[name]['status'] == 'completed' and by_name[name]['conclusion'] == 'success')]
+          if missing or bad:
+              raise SystemExit(f'Projector source is not fully validated: missing={missing}, bad={bad}')
+          print('Required projector-source CI is green.')
+          PY
+
+      - name: Download exact built v4.1.69 JAR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf dist
+          mkdir -p dist
+          gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$CORE_ASSET" --dir dist
+          JAR="$(find dist -type f -name "$CORE_ASSET" -print -quit)"
+          test -n "$JAR"
+          if [[ "$JAR" != "dist/$CORE_ASSET" ]]; then
+            cp "$JAR" "dist/$CORE_ASSET"
+          fi
+          unzip -Z1 "dist/$CORE_ASSET" | grep -Fxq 'io/github/thebusybiscuit/slimefun4/implementation/items/curios/HologramDisplayProjector.class'
+          unzip -p "dist/$CORE_ASSET" 'io/github/thebusybiscuit/slimefun4/implementation/setup/AdventurersCuriosSetup.class' | grep -aFq 'ADVENTURERS_HOLOGRAM_DISPLAY_PROJECTOR'
+          sha256sum "dist/$CORE_ASSET" | tee refreshed-core.sha256
+
+      - name: Snapshot existing release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" > before.json
+
+      - name: Replace only the v4.1.69 core JAR and update notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" "dist/$CORE_ASSET" --repo "$GITHUB_REPOSITORY" --clobber
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title 'Slimefun Legacy 4.1.69' --notes-file docs/releases/4.1.69.md
+
+      - name: Verify addon bundle and resource pack were untouched
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" > after.json
+          python3 - <<'PY'
+          import json, os
+          before = json.load(open('before.json'))
+          after = json.load(open('after.json'))
+          core = os.environ['CORE_ASSET']
+          protected = [os.environ['ADDON_ASSET'], os.environ['PACK_ASSET']]
+          def assets(doc):
+              return {a['name']: a for a in doc['assets']}
+          b, a = assets(before), assets(after)
+          expected = {core, *protected}
+          if set(a) != expected:
+              raise SystemExit(f'Unexpected release assets after refresh: {sorted(a)}')
+          for name in protected:
+              if b[name]['id'] != a[name]['id'] or b[name].get('digest') != a[name].get('digest'):
+                  raise SystemExit(f'{name} changed during core-only refresh')
+          if b[core].get('digest') == a[core].get('digest'):
+              raise SystemExit('Core JAR digest did not change')
+          print('Core JAR replaced; addon bundle and resource pack are unchanged.')
+          print('New core digest:', a[core].get('digest'))
+          PY
+          {
+            echo '## v4.1.69 post-release core refresh'
+            echo
+            echo "- Projector source: `$SOURCE_SHA`"
+            echo "- Core asset: `$CORE_ASSET`"
+            echo "- Addon bundle preserved: `$ADDON_ASSET`"
+            echo "- Resource pack preserved: `$PACK_ASSET`"
+            echo "- Release notes updated from `docs/releases/4.1.69.md`"
+          } >> "$GITHUB_STEP_SUMMARY"
