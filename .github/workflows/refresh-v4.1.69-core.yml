@@ -74,8 +74,21 @@ jobs:
           if [[ "$JAR" != "dist/$CORE_ASSET" ]]; then
             cp "$JAR" "dist/$CORE_ASSET"
           fi
-          unzip -Z1 "dist/$CORE_ASSET" | grep -Fxq 'io/github/thebusybiscuit/slimefun4/implementation/items/curios/HologramDisplayProjector.class'
-          unzip -p "dist/$CORE_ASSET" 'io/github/thebusybiscuit/slimefun4/implementation/setup/AdventurersCuriosSetup.class' | grep -aFq 'ADVENTURERS_HOLOGRAM_DISPLAY_PROJECTOR'
+          python3 - <<'PY'
+          import os
+          import zipfile
+          from pathlib import Path
+          jar = Path('dist') / os.environ['CORE_ASSET']
+          projector = 'io/github/thebusybiscuit/slimefun4/implementation/items/curios/HologramDisplayProjector.class'
+          setup = 'io/github/thebusybiscuit/slimefun4/implementation/setup/AdventurersCuriosSetup.class'
+          with zipfile.ZipFile(jar) as zf:
+              names = set(zf.namelist())
+              if projector not in names:
+                  raise SystemExit('Built JAR is missing HologramDisplayProjector.class')
+              if b'ADVENTURERS_HOLOGRAM_DISPLAY_PROJECTOR' not in zf.read(setup):
+                  raise SystemExit('Built JAR is missing the Curios projector registration ID')
+          print('Verified Curios hologram projector in built JAR.')
+          PY
           sha256sum "dist/$CORE_ASSET" | tee refreshed-core.sha256
 
       - name: Snapshot existing release assets
