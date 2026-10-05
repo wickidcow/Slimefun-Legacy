@@ -449,6 +449,14 @@ public class ProfileDataController extends ADataController {
                         invalid);
             }
 
+            // Deletion uses the exact canonical slot key. Never authorize a row such as
+            // "08" or "+8" as slot "8", or choose between rows with the same identity.
+            if (!Integer.toString(slot).equals(slotText) || !seenSlots.add(slot)) {
+                throw new IllegalStateException(
+                        "Backpack contains non-canonical or duplicate slot identity '" + bounded(slotText)
+                                + "'; automatic quarantine refuses.");
+            }
+
             Object raw = row.getValue(FieldKey.INVENTORY_ITEM);
             String representation;
             byte[] payload;
@@ -471,8 +479,8 @@ public class ProfileDataController extends ADataController {
 
             Throwable rowFailure = null;
             try {
-                if (slot < 0 || slot >= size || !seenSlots.add(slot)) {
-                    throw new IllegalArgumentException("Stored slot is out of range or duplicated");
+                if (slot < 0 || slot >= size) {
+                    throw new IllegalArgumentException("Stored slot is out of range");
                 }
                 if (raw == null
                         || raw instanceof byte[] bytes && bytes.length == 0

@@ -200,6 +200,7 @@ class ItemFilter implements Predicate<ItemStack> {
 
         // The amount of potential matches with that item.
         int potentialMatches = 0;
+        Material subjectType = item.getType();
 
         /*
          * This is a first check for materials to see if we might even have any match.
@@ -207,9 +208,14 @@ class ItemFilter implements Predicate<ItemStack> {
          * intense operation .getItemMeta()
          */
         for (ItemStackWrapper stack : items) {
-            if (stack.getType() == item.getType()) {
+            if (stack.getType() == subjectType) {
                 // We found a potential match based on the Material
                 potentialMatches++;
+                // Only zero, one, or multiple matches matter for wrapper selection.
+                // Keep the later comparison pass intact for addon virtual-item handlers.
+                if (potentialMatches == 2) {
+                    break;
+                }
             }
         }
 
