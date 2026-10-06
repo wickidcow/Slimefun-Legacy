@@ -192,6 +192,36 @@ positions vary by migration lane; do not guess them.
 
 Doctor never prints the Velocity forwarding secret.
 
+## SmartSpawner replacement
+
+This one-time compatibility lane replaces registered SmartSpawner blocks with InfinityExpansion2 Mob Simulation
+Chambers while SmartSpawner is still installed.
+
+| Command | Changes data? | What it does |
+| --- | --- | --- |
+| `/sf doctor smartspawners status` | No | Verifies SmartSpawner's public API and the IE2 Mob Simulation Chamber target, then summarizes registered spawners. |
+| `/sf doctor smartspawners scan` | No | Reads all SmartSpawner records without force-loading chunks, resolves matching Mob Data Cards, and creates a short-lived fingerprint. |
+| `/sf doctor smartspawners replace <fingerprint>` | **Yes** | Revalidates each exact SmartSpawner record, removes it through SmartSpawner's public API, and installs the corresponding Mob Simulation Chamber. |
+
+Matching mob types receive their registered `IE_MOB_DATA_CARD_*` card. Unsupported mobs and SmartSpawner item-spawners
+become **empty Mob Simulation Chambers**. If the block immediately above a converted chamber is air, Doctor places a
+tagged sign with these four lines:
+
+```text
+Spawner Migrated
+Replaced with a
+Mob Simulation
+Chamber
+```
+
+The scan reports stacked SmartSpawner blocks, and the migration manifest records each original stack size. One
+SmartSpawner block becomes one chamber; stack size is not silently turned into hidden chamber throughput.
+
+Before replacement, collect any loot and XP currently stored inside SmartSpawner and make an offline backup.
+SmartSpawner's public API exposes the registered spawner identity/type/location/stack size but not the current
+stored-loot/XP balances, so Doctor does not pretend it can migrate those balances. Keep SmartSpawner installed until
+the follow-up scan reports no remaining records.
+
 ## InfinityExpansion2 convenience bridge
 
 When InfinityExpansion2 is installed, Slimefun Legacy can route to its Doctor migration bridge:
