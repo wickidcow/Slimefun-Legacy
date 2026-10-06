@@ -11,6 +11,7 @@ import org.bukkit.command.CommandSender;
 final class DoctorMachineRouterCommand extends SubCommand {
     private final DoctorRouterCommand delegate;
     private final DoctorBlockMigrationCommand machines;
+    private final DoctorSmartSpawnerCommand smartSpawners;
 
     DoctorMachineRouterCommand(
             @Nonnull Slimefun plugin,
@@ -19,10 +20,22 @@ final class DoctorMachineRouterCommand extends SubCommand {
         super(plugin, cmd, "doctor", true);
         this.delegate = Objects.requireNonNull(delegate, "delegate");
         machines = new DoctorBlockMigrationCommand(plugin);
+        smartSpawners = new DoctorSmartSpawnerCommand(plugin);
     }
 
     @Override
     public void onExecute(@Nonnull CommandSender sender, @Nonnull String[] args) {
+        if (args.length > 1
+                && (args[1].equalsIgnoreCase("smartspawners")
+                        || args[1].equalsIgnoreCase("smartspawner"))) {
+            if (!sender.hasPermission("slimefun.command.doctor")) {
+                Slimefun.getLocalization().sendMessage(sender, "messages.no-permission", true);
+                return;
+            }
+            smartSpawners.execute(sender, args);
+            return;
+        }
+
         if (args.length > 2
                 && (args[1].equalsIgnoreCase("migrations") || args[1].equalsIgnoreCase("migration"))
                 && (args[2].equalsIgnoreCase("blocks") || args[2].equalsIgnoreCase("block")

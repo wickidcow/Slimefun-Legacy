@@ -91,7 +91,8 @@ class SlimefunTabCompleter implements TabCompleter {
                                 "migrate",
                                 "migrations",
                                 "repair",
-                                "ie2"),
+                                "ie2",
+                                "smartspawners"),
                         args[1]);
             }
             return null;
@@ -145,8 +146,15 @@ class SlimefunTabCompleter implements TabCompleter {
                         args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("ie2")) {
                 return createReturnList(List.of("status", "scan", "migrate", "refresh"), args[2]);
+            } else if (args[0].equalsIgnoreCase("doctor") && isSmartSpawnerDoctor(args[1])) {
+                return createReturnList(List.of("status", "scan", "replace"), args[2]);
             }
             return null;
+        } else if (args.length == 4
+                && args[0].equalsIgnoreCase("doctor")
+                && isSmartSpawnerDoctor(args[1])
+                && args[2].equalsIgnoreCase("replace")) {
+            return Collections.emptyList();
         } else if (args.length == 4 && args[0].equalsIgnoreCase("give")) {
             return createReturnList(Arrays.asList("1", "2", "4", "8", "16", "32", "64"), args[3]);
         } else if (args.length == 4
@@ -258,6 +266,10 @@ class SlimefunTabCompleter implements TabCompleter {
             return Collections.emptyList();
         }
         return null;
+    }
+
+    private static boolean isSmartSpawnerDoctor(@Nonnull String route) {
+        return route.equalsIgnoreCase("smartspawners") || route.equalsIgnoreCase("smartspawner");
     }
 
     static boolean isDoctorMigrationRoute(@Nonnull String action) {
