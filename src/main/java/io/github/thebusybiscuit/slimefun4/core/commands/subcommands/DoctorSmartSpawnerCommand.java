@@ -1,7 +1,9 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
+import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import net.kyori.adventure.text.Component;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -22,7 +24,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import me.mrCookieSlime.Slimefun.api.BlockStorage;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -31,9 +32,9 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
-import org.bukkit.block.TileState;
+import org.bukkit.block.sign.Side;
+import org.bukkit.block.sign.SignSide;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -537,7 +538,7 @@ final class DoctorSmartSpawnerCommand {
                     process(index + 1);
                     return;
                 }
-                if (BlockStorage.hasBlockInfo(location)) {
+                if (StorageCacheUtils.hasSlimefunBlock(location)) {
                     skipped(candidate, "location already has Slimefun block data");
                     process(index + 1);
                     return;
@@ -596,7 +597,7 @@ final class DoctorSmartSpawnerCommand {
                     process(index + 1);
                     return;
                 }
-                if (BlockStorage.hasBlockInfo(location)) {
+                if (StorageCacheUtils.hasSlimefunBlock(location)) {
                     failure(candidate, "SmartSpawner was removed but Slimefun data appeared at the location");
                     process(index + 1);
                     return;
@@ -604,14 +605,15 @@ final class DoctorSmartSpawnerCommand {
 
                 block.setType(chamberMaterial, false);
                 try {
-                    BlockStorage.addBlockInfo(location, "id", CHAMBER_ID);
-                    BlockStorage.addBlockInfo(location, "smartspawner-migration-id", candidate.source().id());
-                    BlockStorage.addBlockInfo(
-                            location, "smartspawner-migration-type", candidate.source().displayType());
-                    BlockStorage.addBlockInfo(
-                            location, "smartspawner-migration-stack-size", String.valueOf(candidate.source().stackSize()));
+                    var blockData = Slimefun.getDatabaseManager()
+                            .getBlockDataController()
+                            .createBlock(location, CHAMBER_ID);
+                    blockData.setData("smartspawner-migration-id", candidate.source().id());
+                    blockData.setData("smartspawner-migration-type", candidate.source().displayType());
+                    blockData.setData(
+                            "smartspawner-migration-stack-size", String.valueOf(candidate.source().stackSize()));
 
-                    BlockMenu menu = BlockStorage.getInventory(location);
+                    BlockMenu menu = blockData.getBlockMenu();
                     if (menu == null) {
                         throw new IllegalStateException("Mob Simulation Chamber BlockMenu was not created");
                     }
@@ -623,8 +625,8 @@ final class DoctorSmartSpawnerCommand {
                     }
                 } catch (RuntimeException placementFailure) {
                     // Do not leave a vanilla block masquerading as a Slimefun machine after a failed registration.
-                    if (BlockStorage.hasBlockInfo(location)) {
-                        BlockStorage.clearBlockInfo(location);
+                    if (StorageCacheUtils.hasSlimefunBlock(location)) {
+                        Slimefun.getDatabaseManager().getBlockDataController().removeBlock(location);
                     }
                     block.setType(Material.AIR, false);
                     throw placementFailure;
@@ -661,20 +663,18 @@ final class DoctorSmartSpawnerCommand {
             }
 
             signBlock.setType(Material.OAK_SIGN, false);
-            BlockState state = signBlock.getState();
-            if (!(state instanceof Sign sign)) {
+            if (!(signBlock.getState() instanceof Sign sign)) {
                 signBlock.setType(Material.AIR, false);
                 return false;
             }
 
-            sign.setLine(0, "Spawner Migrated");
-            sign.setLine(1, "Replaced with a");
-            sign.setLine(2, "Mob Simulation");
-            sign.setLine(3, "Chamber");
-            if (state instanceof TileState tileState) {
-                tileState.getPersistentDataContainer().set(migrationSignKey, PersistentDataType.BYTE, (byte) 1);
-            }
-            return state.update(true, false);
+            SignSide front = sign.getSide(Side.FRONT);
+            front.line(0, Component.text("Spawner Migrated"));
+            front.line(1, Component.text("Replaced with a"));
+            front.line(2, Component.text("Mob Simulation"));
+            front.line(3, Component.text("Chamber"));
+            sign.getPersistentDataContainer().set(migrationSignKey, PersistentDataType.BYTE, (byte) 1);
+            return sign.update(true, false);
         }
 
         private void skipped(Candidate candidate, String detail) {
