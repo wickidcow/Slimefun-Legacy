@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Keep only version milestones
+      - name: Keep one successful release milestone per version
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -25,26 +25,38 @@ jobs:
           awk -F '\t' '$1 ~ /^v?[0-9]+([.][0-9A-Za-z]+)*([_-][0-9A-Za-z.-]+)?$/ {print $1}' /tmp/tags > /tmp/versions || true
           cat /tmp/releases /tmp/versions | sed '/^$/d' | sort -u > /tmp/keep_tags
           awk -F '\t' 'NR==FNR{k[$1]=1;next}($1 in k){print $2}' /tmp/keep_tags /tmp/tags | sort -u > /tmp/keep_shas
-          list(){ gh api --paginate "repos/$REPO/actions/runs?per_page=100" --jq '.workflow_runs[] | [.id,.status,(.conclusion//""),.event,(.head_branch//""),(.head_sha//""),(.name//"")] | @tsv'; }
-          keep(){
-            local status="$1" conclusion="$2" event="$3" branch="$4" sha="$5" name="$6"
-            [[ "$status" == completed && "$conclusion" == success ]] || return 1
-            printf '%s\n' "$name" | grep -Eiq 'test|smoke|compat|validat|verif|audit|check|doctor|runtime|regression|lint|benchmark|coverage|matrix|compile|cleanup|clean[[:space:]_-]*asset|(^|[^a-z])ci([^a-z]|$)' && return 1
-            [[ "$event" == release ]] && return 0
-            local tagged=false
-            [[ -n "$branch" ]] && grep -Fxq -- "$branch" /tmp/keep_tags && tagged=true
-            [[ -n "$sha" ]] && grep -Fxq -- "$sha" /tmp/keep_shas && tagged=true
-            [[ "$tagged" == true ]] || return 1
-            printf '%s\n' "$name" | grep -Eiq 'release|publish|version|milestone|build|bundle|package'
+
+          list_runs(){ gh api --paginate "repos/$REPO/actions/runs?per_page=100" --jq '.workflow_runs[] | [.id,.status,(.conclusion//""),(.head_branch//""),(.head_sha//""),(.name//"")] | @tsv'; }
+          milestone_name(){
+            [[ "$1" == "Build Slimefun Legacy" || "$1" == "Reproducible Release" || "$1" == Build\ SF\ Addons*Bundle* ]]
           }
-          while IFS=$'\t' read -r id status conclusion event branch sha name; do
+          tagged(){
+            local branch="$1" sha="$2"
+            [[ -n "$branch" ]] && grep -Fxq -- "$branch" /tmp/keep_tags && return 0
+            [[ -n "$sha" ]] && grep -Fxq -- "$sha" /tmp/keep_shas && return 0
+            return 1
+          }
+
+          while IFS=$'\t' read -r id status conclusion branch sha name; do
             [[ -z "$id" || "$id" == "$CURRENT_RUN_ID" ]] && continue
-            keep "$status" "$conclusion" "$event" "$branch" "$sha" "$name" && continue
+            if [[ "$status" == completed && "$conclusion" == success ]] && milestone_name "$name" && tagged "$branch" "$sha"; then
+              continue
+            fi
             [[ "$status" == completed ]] || gh api --method POST "repos/$REPO/actions/runs/$id/force-cancel" >/dev/null 2>&1 || true
-          done < <(list)
+          done < <(list_runs)
+
           sleep 20
-          while IFS=$'\t' read -r id status conclusion event branch sha name; do
+          declare -A seen=()
+          while IFS=$'\t' read -r id status conclusion branch sha name; do
             [[ -z "$id" || "$id" == "$CURRENT_RUN_ID" ]] && continue
-            keep "$status" "$conclusion" "$event" "$branch" "$sha" "$name" && continue
+            keep=false
+            if [[ "$status" == completed && "$conclusion" == success ]] && milestone_name "$name" && tagged "$branch" "$sha"; then
+              key="$sha|$name"
+              if [[ -z "${seen[$key]+x}" ]]; then
+                seen[$key]=1
+                keep=true
+              fi
+            fi
+            [[ "$keep" == true ]] && continue
             gh api --method DELETE "repos/$REPO/actions/runs/$id" >/dev/null 2>&1 || true
-          done < <(list)
+          done < <(list_runs)
