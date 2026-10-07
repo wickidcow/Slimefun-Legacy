@@ -52,50 +52,52 @@ jobs:
           text = path.read_text(encoding="utf-8")
 
           old_download = (
-              "- **SlimefunLegacyRP.zip**: Slimefun Legacy Resource Pack **v4.0.0**, "
-              "refreshed with the standalone Minecraft 26.3 sprite-alias fix. It corrects "
-              "missing-texture rendering for affected Slimefun models, including Farmer, "
-              "Caveman and Wise talismans and their Ender variants. SHA-256: "
-              "`5a70f9fa0fcee4523ec8bbbcc0d8201e1e66c00f180d86e6dde3ab07fda593a3`. "
-              "Pack delivery is still not enabled automatically."
-          )
-          new_download = (
-              "- **SlimefunLegacyRP.zip**: Slimefun Legacy Resource Pack **v4.0.2**, "
+              "- **SlimefunLegacyRP.zip**: Slimefun Legacy Resource Pack **v4.0.1**, "
               "a scoped Minecraft 26.3 talisman hotfix based directly on the known-good "
               "v3.0.0 pack. Only Farmer, Caveman and Wise talisman model JSONs and their "
               "Ender variants differ from that source. The broad v4.0.0 alias rewrite was "
               "retired after additional carrier-item rendering regressions were reported. "
+              "SHA-256: `a2cfbd4940312cd85e298ce233d07e9aae190cda6addbd2c0fbef603545729d1`. "
+              "Pack delivery is still not enabled automatically."
+          )
+          new_download = (
+              "- **SlimefunLegacyRP.zip**: Slimefun Legacy Resource Pack **v4.0.2**, "
+              "the recovered owner-confirmed working generation structure. It restores the "
+              "reviewed carrier definitions for armor, tools and dynamic vanilla items, keeps "
+              "oak planks on the 3D block-model fallback, and retains the clean Farmer/Caveman/"
+              "Wise talisman model paths. The v3-derived v4.0.0/v4.0.1 experiments are retired. "
               "SHA-256: `b5aa3859764a5d0d11007af4cfc7d7b239ae8316c27db9ab2fe8edd8c0842740`. "
               "Pack delivery is still not enabled automatically."
           )
 
           old_hotfix = (
               "The optional companion pack attached to this release has been refreshed to "
-              "**SFL RP v4.0.0**. The exact promoted candidate repairs the modern item-atlas "
-              "sprite aliases used by standalone Minecraft 26.3 clients. The repair changed "
-              "703 Slimefun model JSON files / 764 texture references and explicitly covers "
-              "Farmer, Caveman and Wise talismans plus their Ender variants. No non-model "
-              "files were changed by the repair."
-          )
-          new_hotfix = (
-              "The optional companion pack attached to this release has been refreshed to "
-              "**SFL RP v4.0.2**. This scoped correction is built directly from the known-good "
+              "**SFL RP v4.0.1**. This scoped correction is built directly from the known-good "
               "v3.0.0 pack. Only six Slimefun model JSON files changed: Farmer, Caveman and "
               "Wise talismans plus their Ender variants. Every other source file is preserved "
               "from v3.0.0 before ZIP recompression, restoring the previous rendering path for "
               "the other armor/tool carriers and oak-plank-related assets affected by the broad "
               "v4.0.0 rewrite."
           )
+          new_hotfix = (
+              "The optional companion pack attached to this release has been refreshed to "
+              "**SFL RP v4.0.2**. This release is regenerated from the owner-confirmed working "
+              "v4 baseline structure recovered from the reviewed identity-preview build. The "
+              "carrier definitions for leather/chainmail/iron/gold/diamond/netherite armor, "
+              "wooden hoe, chest, compass, clock, trident, crossbow and oak planks are "
+              "regression-checked against the working reference. Farmer, Caveman and Wise "
+              "talismans and their Ender variants use the clean working model/texture paths."
+          )
 
           if old_download in text:
               text = text.replace(old_download, new_download)
           elif new_download not in text:
-              raise SystemExit("Could not find the v4.0.0 download note to replace")
+              raise SystemExit("Could not find the v4.0.1 download note to replace")
 
           if old_hotfix in text:
               text = text.replace(old_hotfix, new_hotfix)
           elif new_hotfix not in text:
-              raise SystemExit("Could not find the v4.0.0 hotfix note to replace")
+              raise SystemExit("Could not find the v4.0.1 hotfix note to replace")
 
           path.write_text(text, encoding="utf-8")
           PY
