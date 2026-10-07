@@ -88,8 +88,9 @@ def main() -> int:
         for token in (
             "DISPLAY_ITEM_SLOT = 13", "ItemDisplay", "TEXT_VISIBLE_KEY",
             "ITEM_VISIBLE_KEY", "Item Position:", "ABOVE", "BELOW", "Text Height:", "Item Height:",
-            "menu.dropItems(block.getLocation(), DISPLAY_ITEM_SLOT)", "getSlotsAccessedByItemTransport",
-            "return new int[0]", "setBillboard(Display.Billboard.CENTER)",
+            "Material.YELLOW_STAINED_GLASS_PANE", '"&ePlace Display Item Here"', "isDisplaySlotPlaceholder",
+            "AdvancedMenuClickHandler", "menu.dropItems(block.getLocation(), DISPLAY_ITEM_SLOT)",
+            "getSlotsAccessedByItemTransport", "return new int[0]", "setBillboard(Display.Billboard.CENTER)",
         ):
             req(token in hologram_display, f"Hologram Display Projector invariant missing: {token}", failures)
         req("ArmorStandUtils.spawnArmorStand" in hologram_display,
@@ -296,7 +297,7 @@ def main() -> int:
         "Adventurer's Curios verification: PASS\n"
         "- current Curiosities and containment content remain integrated on the master baseline\n"
         "- Dungeon Chalk is removed and Miner's Canary remains a bounded passive danger alarm\n"
-        "- Hologram Display Projector retains text while adding a persisted item display with independent visibility/height controls\n"
+        "- Hologram Display Projector retains text while adding a persisted item display, a yellow guided input slot, and independent visibility/height controls\n"
         "- Resonance Beacon retains BEACON_PLUS only as its migration-safe internal id\n"
         "- exactly 29 administrator-controlled powers support three-tier progression\n"
         "- Radiation Absorber suppresses symptoms and scrubs 25/50/all exposure by tier\n"
