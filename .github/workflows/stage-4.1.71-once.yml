@@ -1,0 +1,56 @@
+name: Stage coordinated 4.1.71 candidate
+
+on:
+  push:
+    branches: ['ops/stage-4.1.71-revision126']
+    paths: ['.github/workflows/stage-4.1.71-once.yml']
+
+# Branch-only operation: create a NEW candidate ref, never merge or publish.
+permissions:
+  contents: write
+concurrency:
+  group: stage-coordinated-4.1.71-once
+  cancel-in-progress: false
+
+jobs:
+  stage:
+    if: github.repository == 'wickidcow/Slimefun-Legacy'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out reviewed operational helper
+        uses: actions/checkout@v6
+        with:
+          ref: 3354104e4b81047b18b45678574d50e84328a4b5
+          path: helper
+          persist-credentials: false
+      - name: Check out frozen release input
+        uses: actions/checkout@v6
+        with:
+          ref: 3f6999445ba14557b9d472e86e19c45999b6a6ac
+          path: source
+          persist-credentials: false
+      - name: Verify and create the new metadata-only candidate branch
+        working-directory: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ../helper/ops-stage-4.1.71.py 2>&1 | tee "$RUNNER_TEMP/staging.log"
+      - name: Preserve the exact preparation evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p evidence
+          cp "$RUNNER_TEMP/staging.log" evidence/ 2>/dev/null || true
+          git -C source diff -- > evidence/release-preparation.patch
+          if [ -f source/staging-result.json ]; then cp source/staging-result.json evidence/; fi
+          if [ -f source/docs/release-candidates/4.1.71.md ]; then cp source/docs/release-candidates/4.1.71.md evidence/readiness.md; fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-4.1.71-preparation-evidence
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 30
