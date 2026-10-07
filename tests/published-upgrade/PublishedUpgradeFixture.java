@@ -142,7 +142,7 @@ public final class PublishedUpgradeFixture extends JavaPlugin {
             List<String> ids = new ArrayList<>();
             for (SlimefunItem item : selected) {
                 // Normalize a copied template through the real server codec, never alter its registry template.
-                ItemStack sample = ItemStack.deserializeBytes(new ItemStack(item.getItem()).serializeAsBytes());
+                ItemStack sample = ItemStack.deserializeBytes(detachedTemplate(item.getItem()).serializeAsBytes());
                 sample.setAmount(Math.min(sample.getMaxStackSize(), samples.size() % 7 + 1));
                 var meta = sample.getItemMeta();
                 meta.getPersistentDataContainer().set(new NamespacedKey("sflupgradefixture", "opaque"),
@@ -170,7 +170,7 @@ public final class PublishedUpgradeFixture extends JavaPlugin {
         heldBackpacks.add(child);
         SlimefunItem backpackItem = SlimefunItem.getById("SMALL_BACKPACK");
         require(backpackItem != null, "SMALL_BACKPACK fixture carrier is missing");
-        ItemStack childCarrier = new ItemStack(backpackItem.getItem());
+        ItemStack childCarrier = detachedTemplate(backpackItem.getItem());
         PlayerBackpack.bindItem(childCarrier, child);
         require(PlayerBackpack.getBackpackUUID(childCarrier.getItemMeta()).orElse("")
                 .equals(child.getUniqueId().toString()), "Child carrier is not bound to stored backpack UUID");
@@ -333,6 +333,14 @@ public final class PublishedUpgradeFixture extends JavaPlugin {
         }
         require(block.getState() instanceof Barrel, "Stored fixture barrel missing: " + index);
         return (Barrel) block.getState();
+    }
+
+    private static ItemStack detachedTemplate(ItemStack template) {
+        // Paper 1.21.11's copy constructor can retain a custom ItemStack delegate.
+        // Start with a fresh material stack, then preserve its complete ItemMeta and amount.
+        ItemStack copy = new ItemStack(template.getType(), template.getAmount());
+        require(copy.setItemMeta(template.getItemMeta().clone()), "Unable to detach fixture template metadata");
+        return copy;
     }
 
     private ProfileDataController controller() { return Slimefun.getDatabaseManager().getProfileDataController(); }
