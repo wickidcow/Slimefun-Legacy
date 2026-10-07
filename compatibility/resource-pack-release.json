@@ -1,14 +1,14 @@
 {
   "schema": 1,
   "repository": "wickidcow/SFL_RP_Official",
-  "release_tag": "v4.0.0",
-  "release_id": 405992604,
+  "release_tag": "v4.0.1",
+  "release_id": 406001432,
   "asset_name": "SlimefunLegacyRP.zip",
-  "asset_id": 619311918,
-  "size": 7443200,
-  "sha256": "5a70f9fa0fcee4523ec8bbbcc0d8201e1e66c00f180d86e6dde3ab07fda593a3",
+  "asset_id": 619339502,
+  "size": 7441121,
+  "sha256": "a2cfbd4940312cd85e298ce233d07e9aae190cda6addbd2c0fbef603545729d1",
   "minecraft_minimum": "1.21.11",
   "minecraft_supported_through": "26.3",
   "stability": "stable",
-  "note": "Pinned stable official resource-pack release with the standalone 26.3 Slimefun sprite-alias repair."
+  "note": "Scoped 26.3 talisman hotfix based directly on v3.0.0; broad v4.0.0 alias rewrite retired after carrier-item rendering regressions."
 }
