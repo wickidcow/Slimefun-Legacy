@@ -204,7 +204,14 @@ Chambers while SmartSpawner is still installed.
 | `/sf doctor smartspawners replace <fingerprint>` | **Yes** | Revalidates each exact SmartSpawner record, removes it through SmartSpawner's public API, and installs the corresponding Mob Simulation Chamber. |
 
 Matching mob types receive their registered `IE_MOB_DATA_CARD_*` card. Unsupported mobs and SmartSpawner item-spawners
-become **empty Mob Simulation Chambers**. If the block immediately above a converted chamber is air, Doctor places a
+become **empty Mob Simulation Chambers**. The scan lists **every mob/item type in alphabetical order**, including its
+block count and the exact card ID. Missing cards show `not registered`; cards registered but disabled in Slimefun show
+`disabled`. An IE2 card disabled in its own mob-simulation configuration may never register, so `not registered` can
+also mean that the installed addon configuration skipped the card. The report includes the installed card provider
+name/version to help identify an older addon build. Install or enable the needed cards, restart, and run a **fresh
+scan** before replacing spawners; an existing plan retains its original card choices.
+
+If the block immediately above a converted chamber is air, Doctor places a
 tagged sign with these four lines:
 
 ```text
