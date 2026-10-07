@@ -1,0 +1,148 @@
+name: Refresh Slimefun Legacy release resource pack
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/refresh-resource-pack-v4.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    name: Replace v4.1.70 companion pack with RP v4.0.0
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Wait for published RP v4.0.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://github.com/wickidcow/SFL_RP_Official/releases/download/v4.0.0/SlimefunLegacyRP.zip"
+          EXPECTED="5a70f9fa0fcee4523ec8bbbcc0d8201e1e66c00f180d86e6dde3ab07fda593a3"
+          for attempt in $(seq 1 60); do
+            if curl --fail --location --silent --show-error "$URL" --output SlimefunLegacyRP.zip; then
+              ACTUAL="$(sha256sum SlimefunLegacyRP.zip | awk '{print $1}')"
+              if [[ "$ACTUAL" == "$EXPECTED" ]]; then
+                exit 0
+              fi
+              echo "RP v4.0.0 exists but checksum is not the validated candidate yet: $ACTUAL"
+            fi
+            echo "Waiting for RP v4.0.0 publication ($attempt/60)..."
+            sleep 5
+          done
+          echo "Timed out waiting for exact RP v4.0.0 candidate." >&2
+          exit 1
+
+      - name: Validate resource pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "5a70f9fa0fcee4523ec8bbbcc0d8201e1e66c00f180d86e6dde3ab07fda593a3  SlimefunLegacyRP.zip" | sha256sum --check -
+          unzip -tq SlimefunLegacyRP.zip
+
+      - name: Replace v4.1.70 release asset
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release upload v4.1.70 SlimefunLegacyRP.zip --clobber
+
+      - name: Update v4.1.70 release notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release view v4.1.70 --json body -q .body > release-notes.md
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("release-notes.md")
+          text = path.read_text(encoding="utf-8")
+          old = "- **SlimefunLegacyRP.zip**: the existing hash-pinned stable optional companion pack. No preview pack has been promoted and pack delivery is not enabled automatically."
+          new = "- **SlimefunLegacyRP.zip**: Slimefun Legacy Resource Pack **v4.0.0**, refreshed with the standalone Minecraft 26.3 sprite-alias fix. It corrects missing-texture rendering for affected Slimefun models, including Farmer, Caveman and Wise talismans and their Ender variants. SHA-256: `5a70f9fa0fcee4523ec8bbbcc0d8201e1e66c00f180d86e6dde3ab07fda593a3`. Pack delivery is still not enabled automatically."
+          if old in text:
+              text = text.replace(old, new)
+          elif new not in text:
+              marker = "### Included addon milestones"
+              block = (
+                  "### Resource-pack hotfix\n\n"
+                  "The optional companion pack attached to this release has been refreshed to **SFL RP v4.0.0**. "
+                  "The exact promoted candidate repairs the modern item-atlas sprite aliases used by standalone Minecraft 26.3 clients. "
+                  "The repair changed 703 Slimefun model JSON files / 764 texture references and explicitly covers Farmer, Caveman and Wise talismans plus their Ender variants. "
+                  "No non-model files were changed by the repair.\n\n"
+              )
+              text = text.replace(marker, block + marker, 1) if marker in text else text + "\n\n" + block
+
+          if "### Resource-pack hotfix" not in text:
+              marker = "### Included addon milestones"
+              block = (
+                  "### Resource-pack hotfix\n\n"
+                  "The optional companion pack attached to this release has been refreshed to **SFL RP v4.0.0**. "
+                  "The exact promoted candidate repairs the modern item-atlas sprite aliases used by standalone Minecraft 26.3 clients. "
+                  "The repair changed 703 Slimefun model JSON files / 764 texture references and explicitly covers Farmer, Caveman and Wise talismans plus their Ender variants. "
+                  "No non-model files were changed by the repair.\n\n"
+              )
+              text = text.replace(marker, block + marker, 1) if marker in text else text + "\n\n" + block
+
+          path.write_text(text, encoding="utf-8")
+          PY
+          gh release edit v4.1.70 --notes-file release-notes.md
+
+      - name: Update pinned RP metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error             "https://api.github.com/repos/wickidcow/SFL_RP_Official/releases/tags/v4.0.0"             --output rp-release.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          release = json.loads(Path("rp-release.json").read_text(encoding="utf-8"))
+          asset = next(a for a in release["assets"] if a["name"] == "SlimefunLegacyRP.zip")
+          expected = "5a70f9fa0fcee4523ec8bbbcc0d8201e1e66c00f180d86e6dde3ab07fda593a3"
+          digest = asset.get("digest", "")
+          if digest and digest != "sha256:" + expected:
+              raise SystemExit(f"Unexpected RP release digest: {digest}")
+
+          data = {
+              "schema": 1,
+              "repository": "wickidcow/SFL_RP_Official",
+              "release_tag": "v4.0.0",
+              "release_id": release["id"],
+              "asset_name": "SlimefunLegacyRP.zip",
+              "asset_id": asset["id"],
+              "size": asset["size"],
+              "sha256": expected,
+              "minecraft_minimum": "1.21.11",
+              "minecraft_supported_through": "26.3",
+              "stability": "stable",
+              "note": "Pinned stable official resource-pack release with the standalone 26.3 Slimefun sprite-alias repair."
+          }
+          Path("compatibility/resource-pack-release.json").write_text(
+              json.dumps(data, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add compatibility/resource-pack-release.json
+          if ! git diff --cached --quiet; then
+            git commit -m "release: pin resource-pack v4.0.0 [skip ci]"
+            git push
+          fi
+
+      - name: Verify refreshed Legacy release asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3             "https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.70/SlimefunLegacyRP.zip"             --output published.zip
+          echo "5a70f9fa0fcee4523ec8bbbcc0d8201e1e66c00f180d86e6dde3ab07fda593a3  published.zip" | sha256sum --check -
