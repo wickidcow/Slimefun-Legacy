@@ -13,21 +13,21 @@ permissions:
 
 jobs:
   refresh:
-    name: Replace v4.1.70 companion pack with RP v4.0.1
+    name: Replace v4.1.70 companion pack with RP v4.0.2
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Download exact RP v4.0.1
+      - name: Download exact RP v4.0.2
         shell: bash
         run: |
           set -euo pipefail
           curl --fail --location --retry 3 --retry-delay 2 \
-            "https://github.com/wickidcow/SFL_RP_Official/releases/download/v4.0.1/SlimefunLegacyRP.zip" \
+            "https://github.com/wickidcow/SFL_RP_Official/releases/download/v4.0.2/SlimefunLegacyRP.zip" \
             --output SlimefunLegacyRP.zip
-          echo "a2cfbd4940312cd85e298ce233d07e9aae190cda6addbd2c0fbef603545729d1  SlimefunLegacyRP.zip" | sha256sum --check -
+          echo "b5aa3859764a5d0d11007af4cfc7d7b239ae8316c27db9ab2fe8edd8c0842740  SlimefunLegacyRP.zip" | sha256sum --check -
           unzip -tq SlimefunLegacyRP.zip
 
       - name: Replace v4.1.70 release asset
@@ -60,12 +60,12 @@ jobs:
               "Pack delivery is still not enabled automatically."
           )
           new_download = (
-              "- **SlimefunLegacyRP.zip**: Slimefun Legacy Resource Pack **v4.0.1**, "
+              "- **SlimefunLegacyRP.zip**: Slimefun Legacy Resource Pack **v4.0.2**, "
               "a scoped Minecraft 26.3 talisman hotfix based directly on the known-good "
               "v3.0.0 pack. Only Farmer, Caveman and Wise talisman model JSONs and their "
               "Ender variants differ from that source. The broad v4.0.0 alias rewrite was "
               "retired after additional carrier-item rendering regressions were reported. "
-              "SHA-256: `a2cfbd4940312cd85e298ce233d07e9aae190cda6addbd2c0fbef603545729d1`. "
+              "SHA-256: `b5aa3859764a5d0d11007af4cfc7d7b239ae8316c27db9ab2fe8edd8c0842740`. "
               "Pack delivery is still not enabled automatically."
           )
 
@@ -79,7 +79,7 @@ jobs:
           )
           new_hotfix = (
               "The optional companion pack attached to this release has been refreshed to "
-              "**SFL RP v4.0.1**. This scoped correction is built directly from the known-good "
+              "**SFL RP v4.0.2**. This scoped correction is built directly from the known-good "
               "v3.0.0 pack. Only six Slimefun model JSON files changed: Farmer, Caveman and "
               "Wise talismans plus their Ender variants. Every other source file is preserved "
               "from v3.0.0 before ZIP recompression, restoring the previous rendering path for "
@@ -106,24 +106,24 @@ jobs:
         run: |
           set -euo pipefail
           curl --fail --location --silent --show-error \
-            "https://api.github.com/repos/wickidcow/SFL_RP_Official/releases/tags/v4.0.1" \
+            "https://api.github.com/repos/wickidcow/SFL_RP_Official/releases/tags/v4.0.2" \
             --output rp-release.json
 
           python - <<'PY'
           import json
           from pathlib import Path
 
-          expected = "a2cfbd4940312cd85e298ce233d07e9aae190cda6addbd2c0fbef603545729d1"
+          expected = "b5aa3859764a5d0d11007af4cfc7d7b239ae8316c27db9ab2fe8edd8c0842740"
           release = json.loads(Path("rp-release.json").read_text(encoding="utf-8"))
           asset = next(a for a in release["assets"] if a["name"] == "SlimefunLegacyRP.zip")
           digest = asset.get("digest", "")
           if digest != "sha256:" + expected:
-              raise SystemExit(f"Unexpected RP v4.0.1 digest: {digest}")
+              raise SystemExit(f"Unexpected RP v4.0.2 digest: {digest}")
 
           data = {
               "schema": 1,
               "repository": "wickidcow/SFL_RP_Official",
-              "release_tag": "v4.0.1",
+              "release_tag": "v4.0.2",
               "release_id": release["id"],
               "asset_name": "SlimefunLegacyRP.zip",
               "asset_id": asset["id"],
@@ -132,7 +132,7 @@ jobs:
               "minecraft_minimum": "1.21.11",
               "minecraft_supported_through": "26.3",
               "stability": "stable",
-              "note": "Scoped 26.3 talisman hotfix based directly on v3.0.0; broad v4.0.0 alias rewrite retired after carrier-item rendering regressions."
+              "note": "Recovered owner-confirmed working RP generation structure; carrier/armor/oak-planks/talisman regressions guarded and v3-derived experiments retired."
           }
           Path("compatibility/resource-pack-release.json").write_text(
               json.dumps(data, indent=2) + "\n",
@@ -144,7 +144,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add compatibility/resource-pack-release.json
           if ! git diff --cached --quiet; then
-            git commit -m "release: pin scoped resource-pack v4.0.1 [skip ci]"
+            git commit -m "release: pin scoped resource-pack v4.0.2 [skip ci]"
             git push
           fi
 
@@ -155,4 +155,4 @@ jobs:
           curl --fail --location --retry 3 \
             "https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.70/SlimefunLegacyRP.zip" \
             --output published.zip
-          echo "a2cfbd4940312cd85e298ce233d07e9aae190cda6addbd2c0fbef603545729d1  published.zip" | sha256sum --check -
+          echo "b5aa3859764a5d0d11007af4cfc7d7b239ae8316c27db9ab2fe8edd8c0842740  published.zip" | sha256sum --check -
