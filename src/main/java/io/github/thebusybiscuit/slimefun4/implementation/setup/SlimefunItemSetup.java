@@ -30,6 +30,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.armor.ElytraCap;
 import io.github.thebusybiscuit.slimefun4.implementation.items.armor.EnderBoots;
 import io.github.thebusybiscuit.slimefun4.implementation.items.armor.FarmerShoes;
 import io.github.thebusybiscuit.slimefun4.implementation.items.armor.HazmatArmorPiece;
+import io.github.thebusybiscuit.slimefun4.implementation.items.armor.LegacyShulkerHelmet;
 import io.github.thebusybiscuit.slimefun4.implementation.items.armor.LongFallBoots;
 import io.github.thebusybiscuit.slimefun4.implementation.items.armor.Parachute;
 import io.github.thebusybiscuit.slimefun4.implementation.items.armor.RainbowArmorPiece;
@@ -233,6 +234,9 @@ public final class SlimefunItemSetup {
 
         registeredItems = true;
         DefaultItemGroups itemGroups = new DefaultItemGroups();
+
+        // Restore the orphaned EnderPanda helmet without rewriting existing item data.
+        LegacyShulkerHelmet.register(plugin, itemGroups.armor);
 
         // @formatter:off (We will need to refactor this one day)
         new SlimefunItem(
