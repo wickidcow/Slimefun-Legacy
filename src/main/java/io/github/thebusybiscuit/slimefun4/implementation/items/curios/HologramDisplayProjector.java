@@ -18,6 +18,8 @@ import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu.AdvancedMenuClickHandler;
+import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ClickAction;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 import me.mrCookieSlime.Slimefun.api.item_transport.ItemTransportFlow;
@@ -34,6 +36,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
@@ -68,6 +71,8 @@ public final class HologramDisplayProjector extends SlimefunItem {
             new NamespacedKey(Objects.requireNonNull(Slimefun.instance()), "curios_hologram_projector_text");
     private final NamespacedKey itemMarkerKey =
             new NamespacedKey(Objects.requireNonNull(Slimefun.instance()), "curios_hologram_projector_item");
+    private final NamespacedKey displaySlotPlaceholderKey =
+            new NamespacedKey(Objects.requireNonNull(Slimefun.instance()), "curios_hologram_projector_placeholder");
 
     @ParametersAreNonnullByDefault
     public HologramDisplayProjector(
@@ -144,7 +149,12 @@ public final class HologramDisplayProjector extends SlimefunItem {
             public void onBlockBreak(@Nonnull Block block) {
                 BlockMenu menu = StorageCacheUtils.getMenu(block.getLocation());
                 if (menu != null) {
-                    menu.dropItems(block.getLocation(), DISPLAY_ITEM_SLOT);
+                    ItemStack stored = menu.getItemInSlot(DISPLAY_ITEM_SLOT);
+                    if (isDisplaySlotPlaceholder(stored)) {
+                        menu.replaceExistingItem(DISPLAY_ITEM_SLOT, null);
+                    } else {
+                        menu.dropItems(block.getLocation(), DISPLAY_ITEM_SLOT);
+                    }
                 }
 
                 removeTextStand(block);
@@ -154,6 +164,8 @@ public final class HologramDisplayProjector extends SlimefunItem {
     }
 
     private void updateMenu(@Nonnull BlockMenu menu, @Nonnull Block block) {
+        configureDisplayItemSlot(menu);
+
         menu.replaceExistingItem(
                 3,
                 menuItem(
@@ -227,9 +239,10 @@ public final class HologramDisplayProjector extends SlimefunItem {
                         "&eDisplay Item",
                         List.of(
                                 "",
-                                "&7Drop any item into the empty",
-                                "&7center slot to project a copy.",
+                                "&7Click the yellow center slot with",
+                                "&7any item to project a copy.",
                                 "",
+                                "&8The yellow pane is only a guide.",
                                 "&8The real item remains stored safely.")));
 
         boolean above = isItemAboveText(block);
@@ -290,11 +303,78 @@ public final class HologramDisplayProjector extends SlimefunItem {
             return false;
         });
 
-        // Slot 13 intentionally has no click handler so normal click, shift-click and drag/drop behavior works.
         menu.addMenuCloseHandler(player -> {
             menu.markDirty();
             scheduleItemRefresh(menu);
         });
+    }
+
+    private void configureDisplayItemSlot(@Nonnull BlockMenu menu) {
+        ensureDisplaySlotPlaceholder(menu);
+
+        menu.addMenuClickHandler(DISPLAY_ITEM_SLOT, new AdvancedMenuClickHandler() {
+            @Override
+            public boolean onClick(Player player, int slot, ItemStack cursor, ClickAction action) {
+                return false;
+            }
+
+            @Override
+            public boolean onClick(
+                    InventoryClickEvent event, Player player, int slot, ItemStack cursor, ClickAction action) {
+                ItemStack current = menu.getItemInSlot(DISPLAY_ITEM_SLOT);
+
+                if (isDisplaySlotPlaceholder(current)) {
+                    if (cursor == null || cursor.getType().isAir()) {
+                        return false;
+                    }
+
+                    ItemStack inserted = cursor.clone();
+                    if (action.isRightClicked() && cursor.getAmount() > 1) {
+                        inserted.setAmount(1);
+                        ItemStack remainder = cursor.clone();
+                        remainder.setAmount(cursor.getAmount() - 1);
+                        player.setItemOnCursor(remainder);
+                    } else {
+                        player.setItemOnCursor(null);
+                    }
+
+                    menu.replaceExistingItem(DISPLAY_ITEM_SLOT, inserted);
+                    menu.markDirty();
+                    scheduleItemRefresh(menu);
+                    return false;
+                }
+
+                // Allow normal take/swap behavior for a real stored item, then restore the guide if emptied.
+                scheduleItemRefresh(menu);
+                return true;
+            }
+        });
+    }
+
+    private void ensureDisplaySlotPlaceholder(@Nonnull BlockMenu menu) {
+        ItemStack current = menu.getItemInSlot(DISPLAY_ITEM_SLOT);
+        if (current == null || current.isEmpty() || current.getType().isAir()) {
+            menu.replaceExistingItem(DISPLAY_ITEM_SLOT, displaySlotPlaceholder());
+        }
+    }
+
+    private @Nonnull ItemStack displaySlotPlaceholder() {
+        ItemStack item = menuItem(
+                Material.YELLOW_STAINED_GLASS_PANE,
+                "&ePlace Display Item Here",
+                List.of("", "&7Click this slot with the item", "&7you want the projector to show."));
+        ItemMeta meta = item.getItemMeta();
+        meta.getPersistentDataContainer().set(displaySlotPlaceholderKey, PersistentDataType.BYTE, (byte) 1);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private boolean isDisplaySlotPlaceholder(@Nullable ItemStack item) {
+        return item != null
+                && item.hasItemMeta()
+                && item.getItemMeta()
+                        .getPersistentDataContainer()
+                        .has(displaySlotPlaceholderKey, PersistentDataType.BYTE);
     }
 
     private void scheduleItemRefresh(@Nonnull BlockMenu menu) {
@@ -303,6 +383,7 @@ public final class HologramDisplayProjector extends SlimefunItem {
                 location,
                 () -> {
                     if (StorageCacheUtils.isBlock(location, getId())) {
+                        ensureDisplaySlotPlaceholder(menu);
                         refreshItemDisplay(location.getBlock());
                     }
                 },
@@ -338,7 +419,11 @@ public final class HologramDisplayProjector extends SlimefunItem {
 
         BlockMenu menu = StorageCacheUtils.getMenu(block.getLocation());
         ItemStack stored = menu == null ? null : menu.getItemInSlot(DISPLAY_ITEM_SLOT);
-        if (stored == null || stored.isEmpty() || stored.getType().isAir() || stored.getAmount() <= 0) {
+        if (stored == null
+                || stored.isEmpty()
+                || stored.getType().isAir()
+                || stored.getAmount() <= 0
+                || isDisplaySlotPlaceholder(stored)) {
             removeItemDisplay(block);
             return;
         }
