@@ -15,44 +15,19 @@ jobs:
   refresh:
     name: Replace v4.1.70 companion pack with RP v4.0.1
     runs-on: ubuntu-latest
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Wait for published RP v4.0.1
+      - name: Download exact RP v4.0.1
         shell: bash
         run: |
           set -euo pipefail
-          URL="https://github.com/wickidcow/SFL_RP_Official/releases/download/v4.0.1/SlimefunLegacyRP.zip"
-          for attempt in $(seq 1 60); do
-            if curl --fail --location --silent --show-error "$URL" --output SlimefunLegacyRP.zip; then
-              curl --fail --location --silent --show-error                 "https://api.github.com/repos/wickidcow/SFL_RP_Official/releases/tags/v4.0.1"                 --output rp-release.json
-              EXPECTED="$(python - <<'PY'
-import json
-data=json.load(open("rp-release.json",encoding="utf-8"))
-asset=next(a for a in data["assets"] if a["name"]=="SlimefunLegacyRP.zip")
-print(asset["digest"].split(":",1)[1])
-PY
-)"
-              ACTUAL="$(sha256sum SlimefunLegacyRP.zip | awk '{print $1}')"
-              if [[ "$ACTUAL" == "$EXPECTED" ]]; then
-                echo "$EXPECTED" > rp.sha256
-                exit 0
-              fi
-              echo "RP v4.0.1 exists but checksum is not the published candidate yet: $ACTUAL"
-            fi
-            echo "Waiting for RP v4.0.1 publication ($attempt/60)..."
-            sleep 5
-          done
-          echo "Timed out waiting for exact RP v4.0.1 candidate." >&2
-          exit 1
-
-      - name: Validate resource pack
-        shell: bash
-        run: |
-          set -euo pipefail
-          EXPECTED="$(cat rp.sha256)"
-          echo "$EXPECTED  SlimefunLegacyRP.zip" | sha256sum --check -
+          curl --fail --location --retry 3 --retry-delay 2 \
+            "https://github.com/wickidcow/SFL_RP_Official/releases/download/v4.0.1/SlimefunLegacyRP.zip" \
+            --output SlimefunLegacyRP.zip
+          echo "a2cfbd4940312cd85e298ce233d07e9aae190cda6addbd2c0fbef603545729d1  SlimefunLegacyRP.zip" | sha256sum --check -
           unzip -tq SlimefunLegacyRP.zip
 
       - name: Replace v4.1.70 release asset
@@ -75,31 +50,52 @@ PY
 
           path = Path("release-notes.md")
           text = path.read_text(encoding="utf-8")
-          old = "- **SlimefunLegacyRP.zip**: the existing hash-pinned stable optional companion pack. No preview pack has been promoted and pack delivery is not enabled automatically."
-          new = "- **SlimefunLegacyRP.zip**: Slimefun Legacy Resource Pack **v4.0.1**, a scoped Minecraft 26.3 talisman hotfix based directly on the known-good v3.0.0 pack. Only Farmer, Caveman and Wise talisman model JSONs and their Ender variants differ from that source. The broader v4.0.0 alias rewrite was retired after it caused additional carrier-item rendering regressions. SHA-256: `$(cat rp.sha256)`. Pack delivery is still not enabled automatically."
-          if old in text:
-              text = text.replace(old, new)
-          elif new not in text:
-              marker = "### Included addon milestones"
-              block = (
-                  "### Resource-pack hotfix\n\n"
-                  "The optional companion pack attached to this release has been refreshed to **SFL RP v4.0.1**. "
-                  "The exact promoted candidate repairs the modern item-atlas sprite aliases used by standalone Minecraft 26.3 clients. "
-                  "The repair changed 703 Slimefun model JSON files / 764 texture references and explicitly covers Farmer, Caveman and Wise talismans plus their Ender variants. "
-                  "No non-model files were changed by the repair.\n\n"
-              )
-              text = text.replace(marker, block + marker, 1) if marker in text else text + "\n\n" + block
 
-          if "### Resource-pack hotfix" not in text:
-              marker = "### Included addon milestones"
-              block = (
-                  "### Resource-pack hotfix\n\n"
-                  "The optional companion pack attached to this release has been refreshed to **SFL RP v4.0.1**. "
-                  "The exact promoted candidate repairs the modern item-atlas sprite aliases used by standalone Minecraft 26.3 clients. "
-                  "The repair changed 703 Slimefun model JSON files / 764 texture references and explicitly covers Farmer, Caveman and Wise talismans plus their Ender variants. "
-                  "No non-model files were changed by the repair.\n\n"
-              )
-              text = text.replace(marker, block + marker, 1) if marker in text else text + "\n\n" + block
+          old_download = (
+              "- **SlimefunLegacyRP.zip**: Slimefun Legacy Resource Pack **v4.0.0**, "
+              "refreshed with the standalone Minecraft 26.3 sprite-alias fix. It corrects "
+              "missing-texture rendering for affected Slimefun models, including Farmer, "
+              "Caveman and Wise talismans and their Ender variants. SHA-256: "
+              "`5a70f9fa0fcee4523ec8bbbcc0d8201e1e66c00f180d86e6dde3ab07fda593a3`. "
+              "Pack delivery is still not enabled automatically."
+          )
+          new_download = (
+              "- **SlimefunLegacyRP.zip**: Slimefun Legacy Resource Pack **v4.0.1**, "
+              "a scoped Minecraft 26.3 talisman hotfix based directly on the known-good "
+              "v3.0.0 pack. Only Farmer, Caveman and Wise talisman model JSONs and their "
+              "Ender variants differ from that source. The broad v4.0.0 alias rewrite was "
+              "retired after additional carrier-item rendering regressions were reported. "
+              "SHA-256: `a2cfbd4940312cd85e298ce233d07e9aae190cda6addbd2c0fbef603545729d1`. "
+              "Pack delivery is still not enabled automatically."
+          )
+
+          old_hotfix = (
+              "The optional companion pack attached to this release has been refreshed to "
+              "**SFL RP v4.0.0**. The exact promoted candidate repairs the modern item-atlas "
+              "sprite aliases used by standalone Minecraft 26.3 clients. The repair changed "
+              "703 Slimefun model JSON files / 764 texture references and explicitly covers "
+              "Farmer, Caveman and Wise talismans plus their Ender variants. No non-model "
+              "files were changed by the repair."
+          )
+          new_hotfix = (
+              "The optional companion pack attached to this release has been refreshed to "
+              "**SFL RP v4.0.1**. This scoped correction is built directly from the known-good "
+              "v3.0.0 pack. Only six Slimefun model JSON files changed: Farmer, Caveman and "
+              "Wise talismans plus their Ender variants. Every other source file is preserved "
+              "from v3.0.0 before ZIP recompression, restoring the previous rendering path for "
+              "the other armor/tool carriers and oak-plank-related assets affected by the broad "
+              "v4.0.0 rewrite."
+          )
+
+          if old_download in text:
+              text = text.replace(old_download, new_download)
+          elif new_download not in text:
+              raise SystemExit("Could not find the v4.0.0 download note to replace")
+
+          if old_hotfix in text:
+              text = text.replace(old_hotfix, new_hotfix)
+          elif new_hotfix not in text:
+              raise SystemExit("Could not find the v4.0.0 hotfix note to replace")
 
           path.write_text(text, encoding="utf-8")
           PY
@@ -109,17 +105,20 @@ PY
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --location --silent --show-error             "https://api.github.com/repos/wickidcow/SFL_RP_Official/releases/tags/v4.0.1"             --output rp-release.json
+          curl --fail --location --silent --show-error \
+            "https://api.github.com/repos/wickidcow/SFL_RP_Official/releases/tags/v4.0.1" \
+            --output rp-release.json
+
           python - <<'PY'
           import json
           from pathlib import Path
 
+          expected = "a2cfbd4940312cd85e298ce233d07e9aae190cda6addbd2c0fbef603545729d1"
           release = json.loads(Path("rp-release.json").read_text(encoding="utf-8"))
           asset = next(a for a in release["assets"] if a["name"] == "SlimefunLegacyRP.zip")
-          expected = "$(cat rp.sha256)"
           digest = asset.get("digest", "")
-          if digest and digest != "sha256:" + expected:
-              raise SystemExit(f"Unexpected RP release digest: {digest}")
+          if digest != "sha256:" + expected:
+              raise SystemExit(f"Unexpected RP v4.0.1 digest: {digest}")
 
           data = {
               "schema": 1,
@@ -133,7 +132,7 @@ PY
               "minecraft_minimum": "1.21.11",
               "minecraft_supported_through": "26.3",
               "stability": "stable",
-              "note": "Pinned stable scoped 26.3 talisman resource-pack hotfix. v4.0.0 broad alias rewrite retired after carrier-item rendering regressions."
+              "note": "Scoped 26.3 talisman hotfix based directly on v3.0.0; broad v4.0.0 alias rewrite retired after carrier-item rendering regressions."
           }
           Path("compatibility/resource-pack-release.json").write_text(
               json.dumps(data, indent=2) + "\n",
@@ -145,7 +144,7 @@ PY
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add compatibility/resource-pack-release.json
           if ! git diff --cached --quiet; then
-            git commit -m "release: pin resource-pack v4.0.1 [skip ci]"
+            git commit -m "release: pin scoped resource-pack v4.0.1 [skip ci]"
             git push
           fi
 
@@ -153,6 +152,7 @@ PY
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --location --retry 3             "https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.70/SlimefunLegacyRP.zip"             --output published.zip
-          EXPECTED="$(cat rp.sha256)"
-          echo "$EXPECTED  published.zip" | sha256sum --check -
+          curl --fail --location --retry 3 \
+            "https://github.com/wickidcow/Slimefun-Legacy/releases/download/v4.1.70/SlimefunLegacyRP.zip" \
+            --output published.zip
+          echo "a2cfbd4940312cd85e298ce233d07e9aae190cda6addbd2c0fbef603545729d1  published.zip" | sha256sum --check -
