@@ -1,14 +1,14 @@
 {
   "schema": 1,
   "repository": "wickidcow/SFL_RP_Official",
-  "release_tag": "v4.0.2",
-  "release_id": 406015505,
+  "release_tag": "v4.0.1",
+  "release_id": 406001432,
   "asset_name": "SlimefunLegacyRP.zip",
-  "asset_id": 619380445,
-  "size": 9140740,
-  "sha256": "b5aa3859764a5d0d11007af4cfc7d7b239ae8316c27db9ab2fe8edd8c0842740",
+  "asset_id": 619496149,
+  "size": 9143959,
+  "sha256": "1b856fff90fe78b7d5964a86a8ed281517d073a082db485d73f31cd07aa64a83",
   "minecraft_minimum": "1.21.11",
   "minecraft_supported_through": "26.3",
   "stability": "stable",
-  "note": "Recovered owner-confirmed working RP generation structure; carrier/armor/oak-planks/talisman regressions guarded and v3-derived experiments retired."
+  "note": "Manually approved RP baseline with the final 256x256 root pack.png; use this exact v4.0.1 asset for future Slimefun Legacy releases."
 }
