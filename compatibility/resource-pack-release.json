@@ -1,14 +1,14 @@
 {
   "schema": 1,
   "repository": "wickidcow/SFL_RP_Official",
-  "release_tag": "v4.0.1",
-  "release_id": 406001432,
+  "release_tag": "v4.0.2",
+  "release_id": 406015505,
   "asset_name": "SlimefunLegacyRP.zip",
-  "asset_id": 619339502,
-  "size": 7441121,
-  "sha256": "a2cfbd4940312cd85e298ce233d07e9aae190cda6addbd2c0fbef603545729d1",
+  "asset_id": 619380445,
+  "size": 9140740,
+  "sha256": "b5aa3859764a5d0d11007af4cfc7d7b239ae8316c27db9ab2fe8edd8c0842740",
   "minecraft_minimum": "1.21.11",
   "minecraft_supported_through": "26.3",
   "stability": "stable",
-  "note": "Scoped 26.3 talisman hotfix based directly on v3.0.0; broad v4.0.0 alias rewrite retired after carrier-item rendering regressions."
+  "note": "Recovered owner-confirmed working RP generation structure; carrier/armor/oak-planks/talisman regressions guarded and v3-derived experiments retired."
 }
