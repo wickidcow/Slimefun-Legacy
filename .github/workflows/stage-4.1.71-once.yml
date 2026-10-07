@@ -30,6 +30,11 @@ jobs:
           ref: 3f6999445ba14557b9d472e86e19c45999b6a6ac
           path: source
           persist-credentials: false
+      - name: Select the repository build toolchain
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
       - name: Verify and create the new metadata-only candidate branch
         working-directory: source
         env:
