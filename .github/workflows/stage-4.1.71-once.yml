@@ -17,6 +17,8 @@ jobs:
     if: github.repository == 'wickidcow/Slimefun-Legacy'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - name: Check out reviewed operational helper
         uses: actions/checkout@v6
@@ -50,6 +52,8 @@ jobs:
           mkdir -p evidence
           cp "$RUNNER_TEMP/staging.log" evidence/ 2>/dev/null || true
           git -C source diff -- > evidence/release-preparation.patch
+          git -C source status --porcelain=v1 > evidence/worktree-status.txt
+          git -C source ls-files --others --exclude-standard > evidence/untracked-paths.txt
           if [ -f source/staging-result.json ]; then cp source/staging-result.json evidence/; fi
           if [ -f source/docs/release-candidates/4.1.71.md ]; then cp source/docs/release-candidates/4.1.71.md evidence/readiness.md; fi
       - uses: actions/upload-artifact@v7
