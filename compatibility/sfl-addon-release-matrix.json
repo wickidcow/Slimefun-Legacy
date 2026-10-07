@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 124,
+  "bundle_revision": 125,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -121,7 +121,7 @@
     {
       "repository": "wickidcow/SF_FinalTECH",
       "slug": "finaltech",
-      "source_commit": "6b828b394f38476efb0c1e4089465adf737df0e2"
+      "source_commit": "6b22072b7977366aa8690b17523ece96f9fba085"
     },
     {
       "repository": "wickidcow/SF_FlowerPower",
