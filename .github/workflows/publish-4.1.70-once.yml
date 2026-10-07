@@ -1,0 +1,115 @@
+name: Publish validated 4.1.70 once
+
+on:
+  push:
+    branches: ['ops/publish-4.1.70-once']
+    paths: ['.github/workflows/publish-4.1.70-once.yml']
+
+# A branch-only launcher. Do not merge it into master.
+# It cannot alter content or assets. The original release workflow performs publication.
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: publish-validated-4.1.70-once
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    if: github.repository == 'wickidcow/Slimefun-Legacy'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate frozen source and dispatch original release workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: python
+        run: |
+          """Dispatch only the validated 4.1.70 source; never publish or modify assets here."""
+          import base64
+          import json
+          import os
+          import re
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          
+          REPO = 'wickidcow/Slimefun-Legacy'
+          SOURCE = '682f26ef1c6a71c905091fb178bf4b3763bc1652'
+          REF = 'release/4.1.70-publish-source'
+          WORKFLOW = 'reproducible-release.yml'
+          REQUIRED_RUNS = {37606605293, 37606605244, 37607766012}
+          
+          
+          def api(path, payload=None, allow_missing=False):
+              url = f'https://api.github.com/repos/{REPO}/{path}'
+              headers = {
+                  'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
+                  'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2026-03-10',
+                  'User-Agent': 'Slimefun-Legacy-4.1.70-release-launcher',
+              }
+              data = None if payload is None else json.dumps(payload).encode('utf-8')
+              if data is not None:
+                  headers['Content-Type'] = 'application/json'
+              request = urllib.request.Request(url, data=data, headers=headers,
+                                               method='GET' if payload is None else 'POST')
+              try:
+                  with urllib.request.urlopen(request, timeout=45) as response:
+                      raw = response.read()
+                      return json.loads(raw) if raw else {}
+              except urllib.error.HTTPError as error:
+                  if allow_missing and error.code == 404:
+                      return None
+                  raise RuntimeError(f'GitHub API request failed with HTTP {error.code}; no automatic retry') from None
+          
+          
+          def require(condition, message):
+              if not condition:
+                  raise RuntimeError(message)
+          
+          
+          def main():
+              require(os.environ.get('GITHUB_REPOSITORY') == REPO, 'Unexpected repository')
+              source_ref = api('git/ref/heads/' + REF)
+              require(source_ref['object']['type'] == 'commit' and source_ref['object']['sha'] == SOURCE,
+                      'Publication source branch moved; refusing dispatch')
+              params = urllib.parse.urlencode({'ref': REF})
+              props = api('contents/gradle.properties?' + params)
+              text = base64.b64decode(props['content']).decode('utf-8')
+              require(re.search(r'^projectVersion=4\.1\.70$', text, re.M) is not None,
+                      'Publication source is not version 4.1.70')
+              matrix = api('contents/compatibility/sfl-addon-release-matrix.json?' + params)
+              matrix = json.loads(base64.b64decode(matrix['content']))
+              require(matrix['bundle_revision'] == 125 and len(matrix['addons']) == 45,
+                      'Frozen revision-125 / 45-addon set changed')
+              require(next(r['source_commit'] for r in matrix['addons']
+                           if r['repository'] == 'wickidcow/SF_FinalTECH') ==
+                      '6b22072b7977366aa8690b17523ece96f9fba085', 'FinalTECH pin changed')
+              runs = api('actions/runs?' + urllib.parse.urlencode({'head_sha': SOURCE, 'per_page': 100}))
+              entries = runs['workflow_runs']
+              require(runs['total_count'] == len(entries), 'Incomplete workflow evidence; refusing dispatch')
+              require(REQUIRED_RUNS.issubset({r['id'] for r in entries}), 'Required exact-source runs missing')
+              require(all(r['head_sha'] == SOURCE and r['status'] == 'completed' and
+                          r['conclusion'] == 'success' for r in entries),
+                      'Exact-source validation is not entirely successful')
+              require(api('releases/tags/v4.1.70', allow_missing=True) is None,
+                      '4.1.70 release already exists; refusing to overwrite it')
+              tags = api('git/matching-refs/tags/v4.1.70')
+              require(not any(t['ref'] == 'refs/tags/v4.1.70' for t in tags),
+                      '4.1.70 tag already exists; inspect before publication')
+              prior = api('actions/workflows/' + WORKFLOW + '/runs?' +
+                          urllib.parse.urlencode({'event': 'workflow_dispatch', 'head_sha': SOURCE,
+                                                  'per_page': 100}))
+              require(prior['total_count'] == 0, 'Publication already dispatched; inspect instead of duplicating')
+              require(api('git/ref/heads/' + REF)['object']['sha'] == SOURCE,
+                      'Publication source moved during preflight')
+              result = api('actions/workflows/' + WORKFLOW + '/dispatches', {'ref': REF})
+              print('DISPATCH_REQUEST_ACCEPTED source=' + SOURCE + ' ref=' + REF)
+              print(json.dumps(result, sort_keys=True))
+              print('The existing release workflow must complete its own rebuild, bundle, pack and publication gates.')
+          
+          
+          if __name__ == '__main__':
+              main()
