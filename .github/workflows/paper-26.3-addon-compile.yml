@@ -4,6 +4,8 @@ on:
   push:
     branches: [master]
     paths:
+      - 'gradle.properties'
+      - 'compatibility/release-baselines.json'
       - '.github/workflows/paper-26.3-addon-compile.yml'
       - 'compatibility/addon-compatibility-matrix.json'
       - 'compatibility/sfl-addon-release-matrix.json'
@@ -16,6 +18,8 @@ on:
       - 'gradle/**'
   pull_request:
     paths:
+      - 'gradle.properties'
+      - 'compatibility/release-baselines.json'
       - '.github/workflows/paper-26.3-addon-compile.yml'
       - 'compatibility/addon-compatibility-matrix.json'
       - 'compatibility/sfl-addon-release-matrix.json'

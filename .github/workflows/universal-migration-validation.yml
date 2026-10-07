@@ -4,6 +4,8 @@ on:
   pull_request:
     branches: ['master']
     paths:
+      - 'gradle.properties'
+      - 'compatibility/release-baselines.json'
       - 'src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/**'
       - 'src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/**'
       - 'build.gradle.kts'
@@ -12,6 +14,8 @@ on:
   push:
     branches: ['master']
     paths:
+      - 'gradle.properties'
+      - 'compatibility/release-baselines.json'
       - 'src/main/java/com/xzavier0722/mc/plugin/slimefun4/storage/**'
       - 'src/test/java/com/xzavier0722/mc/plugin/slimefun4/storage/**'
       - 'build.gradle.kts'

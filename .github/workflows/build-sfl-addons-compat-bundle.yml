@@ -547,7 +547,7 @@ jobs:
           Canonical addon filename format:
           - SF_<AddonName><numeric version>.jar
           - DracFun Reborn exception: SFL_DracFun-Reborn<version>.jar
-          - WorldEditSlimefun exception: SF_SFWorldEdit<version>_(1.21.11-26.2).jar
+          - WorldEditSlimefun exception: SF_SFWorldEdit<version>_(1.21.11-26.3).jar
           - WorldEditSlimefun requires WorldEdit or FAWE and is explicitly labeled for 1.21.11 through 26.3
           - Magic Legacy is intentionally excluded from this bundle and can be installed separately if needed
           - RykenSlimeCustomizer remains bundled and only probes legacy external recipe types when the matching plugin is installed

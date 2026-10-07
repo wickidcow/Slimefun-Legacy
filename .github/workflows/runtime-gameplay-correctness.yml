@@ -3,6 +3,8 @@ name: Runtime Gameplay Correctness
 on:
   pull_request:
     paths:
+      - 'gradle.properties'
+      - 'compatibility/release-baselines.json'
       - 'src/main/**'
       - 'src/test/**'
       - 'scripts/verify_core_correctness.py'
@@ -34,6 +36,8 @@ on:
       - master
       - main
     paths:
+      - 'gradle.properties'
+      - 'compatibility/release-baselines.json'
       - 'src/main/**'
       - 'src/test/**'
       - 'scripts/verify_core_correctness.py'
