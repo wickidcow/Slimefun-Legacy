@@ -39,7 +39,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 /** Test-only plugin. Never ship this JAR in a server addon bundle. */
 public final class PublishedUpgradeFixture extends JavaPlugin {
-    private static final UUID OWNER = UUID.fromString("58817a00-e7e5-4ca2-bb8f-cb0e674bb230");
+    private static final String OWNER_NAME = "SFLTestFixture";
+    private static final UUID OWNER = UUID.nameUUIDFromBytes(("OfflinePlayer:" + OWNER_NAME).getBytes(StandardCharsets.UTF_8));
     private static final String WORLD = "sfl-upgrade-fixture";
     private static final NamespacedKey ROUNDTRIP = new NamespacedKey("sflupgradefixture", "roundtrip");
     private final Path expectedFile = Path.of("fixture-expected.properties");
@@ -62,6 +63,7 @@ public final class PublishedUpgradeFixture extends JavaPlugin {
         require(Bukkit.isPrimaryThread(), "Inventory operations must run on the primary thread");
         require("disposable-only".equals(System.getProperty("sfl.upgrade.fixture")), "Missing JVM authorization");
         require("127.0.0.1".equals(Bukkit.getIp()), "Fixture must bind only to loopback");
+        require(!Bukkit.getOnlineMode(), "Fixture requires offline-mode synthetic identity");
         require(Bukkit.getOnlinePlayers().isEmpty(), "Fixture refuses real online players");
         require(Files.readString(Path.of("fixture-authorization.txt")).trim().equals(OWNER.toString()),
                 "Missing synthetic fixture marker");
@@ -80,8 +82,11 @@ public final class PublishedUpgradeFixture extends JavaPlugin {
                     ? "4.1.69" : "4.1.70"), "Wrong running core version: " + Slimefun.getVersion());
             started = true;
             verifyPlugins();
-            OfflinePlayer owner = Bukkit.getOfflinePlayer(OWNER);
-            require("SFLTestFixture".equals(owner.getName()), "Synthetic usercache owner was not resolved");
+            // The UUID-only lookup creates a nameless never-joined profile on Paper.
+            // Resolve the test name through the real offline-mode API, then verify its deterministic identity.
+            OfflinePlayer owner = Bukkit.getOfflinePlayer(OWNER_NAME);
+            require(OWNER.equals(owner.getUniqueId()) && OWNER_NAME.equals(owner.getName()),
+                    "Synthetic offline owner name/UUID did not resolve exactly");
             ProfileDataController controller = controller();
             CompletableFuture<PlayerProfile> future = phase.equals("seed")
                     ? controller.getOrCreateProfileAsync(owner) : controller.getProfileAsync(owner);

@@ -24,3 +24,9 @@ The offline Python tests exercise driver failure detection and archive/download 
 Only a completed `status: PASS` report with all four phases is a pass. Failed/missing phases and missing reports fail the job. Existing published release checks do not count as a pass for this new lane. Full console/compile logs and compact JSON/count/coverage evidence are retained, not synthetic worlds or any owner data.
 
 This lane does **not** complete the optional `slimefun.realDatabase` owner-database test; no such database was supplied. It does not exercise all item IDs, every dynamic addon schema, placed-machine execution, Cargo/Networks transfer conservation, player GUI actions, Folia or cross-fork rollback. It supplements the earlier full-stack startup/restart and unit-test evidence, without erasing those limitations.
+
+## Initial harness failure and correction
+
+The first run (`37635153412`) compiled the fixture against the genuine APIs but stopped during the old-release seed phase. The inspected Paper 26.2 console log reported `Synthetic usercache owner was not resolved`: the UUID-only lookup creates a nameless never-joined offline player even when a separate name cache was seeded. This is test initialization failure, not a demonstrated 4.1.70 upgrade regression.
+
+The fixture now uses the public name-based offline-player lookup on its explicitly offline-mode, loopback server and verifies the deterministic offline UUID derived from `OfflinePlayer:SFLTestFixture`. It no longer pre-populates the internal usercache file. The synthetic identity and all later owner/item/persistence assertions remain mandatory; the owner-database skip remains untouched. The added offline tooling check verifies the cross-language owner identity and guard wiring, not Paper runtime behavior. New server results are still required.

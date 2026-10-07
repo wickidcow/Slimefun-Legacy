@@ -18,9 +18,12 @@ import shutil
 import subprocess
 import time
 import urllib.request
+import uuid
 import zipfile
 
-OWNER = "58817a00-e7e5-4ca2-bb8f-cb0e674bb230"
+OWNER_NAME = "SFLTestFixture"
+# Match Java UUID.nameUUIDFromBytes used by Minecraft offline-mode identity.
+OWNER = str(uuid.UUID(bytes=hashlib.md5(("OfflinePlayer:" + OWNER_NAME).encode("utf-8")).digest(), version=3))
 ROOT = Path(__file__).resolve().parents[1]
 USER_AGENT = "Slimefun-Legacy-Published-Upgrade-Fixture/1.0 (https://github.com/wickidcow/Slimefun-Legacy)"
 SOURCE = "682f26ef1c6a71c905091fb178bf4b3763bc1652"
@@ -242,8 +245,6 @@ def main() -> None:
         'generator-settings={"layers":[{"block":"minecraft:bedrock","height":1},{"block":"minecraft:dirt","height":2},{"block":"minecraft:grass_block","height":1}],"biome":"minecraft:plains"}\n'
         "max-players=1\nspawn-protection=0\nview-distance=2\nsimulation-distance=2\npause-when-empty-seconds=-1\n"
         "enable-query=false\nenable-rcon=false\nallow-nether=false\n")
-    (server / "usercache.json").write_text(json.dumps([{"name": "SFLTestFixture", "uuid": OWNER,
-                                                       "expiresOn": "2099-12-31 00:00:00 +0000"}]))
     (server / "fixture-authorization.txt").write_text(OWNER)
     (plugins / "Slimefun").mkdir()
     (plugins / "Slimefun/config.yml").write_text("options:\n  auto-update: false\n  language: en\n  enable-translations: false\n")

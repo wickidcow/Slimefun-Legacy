@@ -50,6 +50,13 @@ class DriverTests(unittest.TestCase):
         file.write_bytes(bundle_bytes(modify))
         return subject.inspect_bundle(file, subject.SOURCE)
 
+    def test_synthetic_owner_matches_java_offline_identity(self):
+        self.assertEqual("25f6dfb6-6d6b-3e4b-bdbe-1d7334f736eb", subject.OWNER)
+        java = (subject.ROOT / "tests/published-upgrade/PublishedUpgradeFixture.java").read_text()
+        self.assertIn('UUID.nameUUIDFromBytes(("OfflinePlayer:" + OWNER_NAME).getBytes(StandardCharsets.UTF_8))', java)
+        self.assertIn('Bukkit.getOfflinePlayer(OWNER_NAME)', java)
+        self.assertIn('!Bukkit.getOnlineMode()', java)
+
     def test_exact_synthetic_bundle_is_accepted(self):
         manifest, jars, plugins = self.inspect()
         self.assertEqual(45, len(jars))
