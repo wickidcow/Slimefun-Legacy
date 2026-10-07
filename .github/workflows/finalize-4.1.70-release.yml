@@ -1,0 +1,184 @@
+name: Verify published 4.1.70 and finalize notes
+
+on:
+  push:
+    branches: ['ops/publish-4.1.70-once']
+    paths: ['.github/workflows/finalize-4.1.70-release.yml']
+
+# Operational branch only; never merge into master.
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: finalize-published-4.1.70
+  cancel-in-progress: false
+
+jobs:
+  verify-publication:
+    if: github.repository == 'wickidcow/Slimefun-Legacy'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify public release files and update only its notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: python
+        run: |
+          import hashlib
+          import json
+          import os
+          import urllib.request
+          import zipfile
+          from pathlib import Path
+
+          REPO = 'wickidcow/Slimefun-Legacy'
+          SOURCE = '682f26ef1c6a71c905091fb178bf4b3763bc1652'
+          RELEASE_ID = 405740640
+          EXPECTED = {
+              'Slimefun-Legacy4.1.70.jar': ('c3fc4bb3b983a285ec9c553418153aeb02a7bd9fb501e79d95320059d1dff9e7', 8647469),
+              'SF_Addons_1.21.11-26.3.zip': ('bca8554156b85b98c985910c4bfe6673fb34f67de002145fed98ded6f1680ecc', 24310288),
+              'SlimefunLegacyRP.zip': ('c2c08909186ab96a2eeb14e825de92db06ffb9c2b87399feefc05df3506f15cd', 7441100),
+          }
+
+          def require(ok, message):
+              if not ok:
+                  raise RuntimeError(message)
+
+          def api(path, body=None):
+              headers = {
+                  'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
+                  'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2026-03-10',
+                  'User-Agent': 'Slimefun-Legacy-Publication-Verification',
+              }
+              data = None if body is None else json.dumps(body).encode()
+              if data is not None:
+                  headers['Content-Type'] = 'application/json'
+              request = urllib.request.Request(
+                  f'https://api.github.com/repos/{REPO}/{path}', data=data,
+                  headers=headers, method='GET' if body is None else 'PATCH')
+              with urllib.request.urlopen(request, timeout=45) as response:
+                  return json.load(response)
+
+          require(os.environ.get('GITHUB_REPOSITORY') == REPO, 'Unexpected repository')
+          run = api('actions/runs/37621101613')
+          require(run['head_sha'] == SOURCE and run['status'] == 'completed' and
+                  run['conclusion'] == 'success', 'Publication workflow has not succeeded')
+          release = api(f'releases/{RELEASE_ID}')
+          require(release['tag_name'] == 'v4.1.70' and release['target_commitish'] == SOURCE and
+                  not release['draft'] and not release['prerelease'], 'Unexpected release identity')
+          tag = api('git/ref/tags/v4.1.70')
+          require(tag['object']['type'] == 'commit' and tag['object']['sha'] == SOURCE,
+                  'Release tag source mismatch')
+          require({a['name'] for a in release['assets']} == set(EXPECTED), 'Unexpected asset set')
+          dist = Path('dist')
+          dist.mkdir()
+          evidence = {'release_id': RELEASE_ID, 'tag': 'v4.1.70', 'source': SOURCE,
+                      'publication_run': 37621101613, 'assets': []}
+          for asset in release['assets']:
+              name = asset['name']
+              digest, size = EXPECTED[name]
+              require(asset['digest'] == 'sha256:' + digest and asset['size'] == size,
+                      f'Published metadata changed: {name}')
+              require(asset['browser_download_url'] ==
+                      f'https://github.com/{REPO}/releases/download/v4.1.70/{name}',
+                      'Unexpected public download destination')
+              # Public URL downloads intentionally carry no Authorization header.
+              request = urllib.request.Request(asset['browser_download_url'],
+                                                headers={'User-Agent': 'Slimefun-Legacy-Publication-Verification'})
+              with urllib.request.urlopen(request, timeout=90) as response:
+                  data = response.read(size + 1)
+              require(len(data) == size and hashlib.sha256(data).hexdigest() == digest,
+                      f'Public bytes do not match expected digest: {name}')
+              (dist / name).write_bytes(data)
+              with zipfile.ZipFile(dist / name) as archive:
+                  require(archive.testzip() is None, f'CRC failure: {name}')
+              evidence['assets'].append({'name': name, 'size': size, 'sha256': digest})
+              print('PUBLIC_ASSET_VERIFIED', name, size, digest)
+          with zipfile.ZipFile(dist / 'Slimefun-Legacy4.1.70.jar') as core:
+              props = core.read('git.properties').decode()
+              require('git.source.commit=' + SOURCE in props and
+                      'git.build.version=4.1.70' in props, 'Core embedded source/version mismatch')
+          with zipfile.ZipFile(dist / 'SF_Addons_1.21.11-26.3.zip') as bundle:
+              manifest = json.loads(bundle.read('SF_ADDON_MANIFEST.json'))
+              require(manifest['core_source_commit'] == SOURCE and manifest['bundle_revision'] == 125,
+                      'Bundle embedded source/revision mismatch')
+              records = manifest['addons']
+              require(len(records) == 45 and
+                      sorted(r['jar'] for r in records) == sorted(n for n in bundle.namelist() if n.endswith('.jar')),
+                      'Bundle must contain precisely the 45 manifest JARs')
+              for record in records:
+                  require(hashlib.sha256(bundle.read(record['jar'])).hexdigest() == record['sha256'],
+                          'Addon checksum mismatch: ' + record['jar'])
+          (dist / 'PUBLICATION_VERIFICATION.json').write_text(json.dumps(evidence, indent=2) + '\n')
+          (dist / 'SHA256SUMS.txt').write_text(''.join(
+              f'{EXPECTED[name][0]}  {name}\n' for name in sorted(EXPECTED)))
+
+          notes = '''# Slimefun Legacy 4.1.70
+
+          ## Coordinated stable maintenance release
+
+          Slimefun Legacy **4.1.70** is published together with **45 maintained addons** in canonical bundle revision **125**. The release source is `682f26ef1c6a71c905091fb178bf4b3763bc1652`; the core and addon manifest identify that same source. This is the coordinated stabilization release, not another isolated addon version increment.
+
+          ### Downloads
+
+          - **Slimefun-Legacy4.1.70.jar**: the Slimefun core plugin.
+          - **SF_Addons_1.21.11-26.3.zip**: 45 pinned addon JARs with an exact-source manifest and per-JAR checksums. Install only the addons needed by your server.
+          - **SlimefunLegacyRP.zip**: the existing hash-pinned stable optional companion pack. No preview pack has been promoted and pack delivery is not enabled automatically.
+
+          ### Included addon milestones
+
+          | Addon | Version |
+          | --- | --- |
+          | FinalTECH | 3.0.15 |
+          | Networks | 1.0.49 |
+          | InfinityExpansion | 2.0.11 |
+          | Supreme | 1.0.20 |
+          | JustEnoughGuide | 2.1.71 |
+          | MagicExpansion | 1.1.9 |
+
+          The ZIP's `SF_ADDON_MANIFEST.json` is authoritative for all 45 versions and source commits. FinalTECH includes the bounded lock-waiter failure recovery and task-drain snapshot fixes. Existing item/research identities, saved formats, addon source pins and migration defaults were not changed by the release-preparation batch.
+
+          ### Verification completed
+
+          - All **17 candidate workflows** passed before PR #347 was merged. All **16 returned merged-source workflows** subsequently passed before publication was requested.
+          - Candidate core reports recorded **704 successful test executions**, zero failures/errors, and **one skipped optional historical-owner-database test**. The explicit deprecation/removal warning report was clean.
+          - The separately configured real MySQL and PostgreSQL commit/rollback/replay tests both executed successfully, with no skips.
+          - The final-source full-stack run enabled **45/45 addons on both boots**, with **zero dependency-gated exclusions**, on Paper 1.21.11 build 132 STABLE, 26.2 build 132 STABLE, and 26.3 build 159 BETA. The reports recorded no linkage/enable/configuration-load failures and observed clean-shutdown state on the second boot.
+          - The final addon archive was independently inspected: **45 JARs and 12,365 class files**, matching checksums and manifest identities, valid plugin entrypoints, no duplicate plugin names, and no preview or above-Java-21 bytecode.
+          - The publication workflow repeated two clean core builds, required byte-for-byte equality, validated the exact-source addon bundle and pinned pack, then published and verified the complete asset set.
+          - After publication, all three public assets were downloaded again and checked against their expected SHA-256, size and archive CRC; the core and bundle embedded source identities were also verified.
+
+          Evidence: [merged-source full stack](https://github.com/wickidcow/Slimefun-Legacy/actions/runs/37607766012), [canonical bundle](https://github.com/wickidcow/Slimefun-Legacy/actions/runs/37606605244), [publication](https://github.com/wickidcow/Slimefun-Legacy/actions/runs/37621101613), and [candidate review](https://github.com/wickidcow/Slimefun-Legacy/pull/347).
+
+          ### Compatibility and upgrade
+
+          Minecraft **1.21.11** remains the minimum runtime target and **26.3** the primary API target, retaining **26.2** compatibility. Plugin bytecode targets Java 21; use the Java version required by the server generation. **The tested 26.3 server and its WorldEdit provider were beta builds**, not a claim that upstream has released a stable 26.3 server.
+
+          Paper and Purpur remain primary platforms. Folia remains experimental and addon-specific; core smoke coverage does not make every bundled addon Folia-safe.
+
+          The regression baseline is the actually delivered **4.1.69 core refresh** at `d430eda74525b31328660bc3d3e36e13c9869353`, including the Hologram Display Projector, rather than the earlier original 4.1.69 tag. The previous release and its assets are preserved.
+
+          **Stop the server and take a complete backup before replacing JARs.** Preserve existing configuration, worlds, databases and addon data; remove superseded duplicate plugin JARs. Test the selected set on a disposable copy of your server, including old/nested backpacks, custom items, machine inventories, Cargo/Networks item counts, menus and a save/restart cycle. Do not use reload or destructive Doctor confirmation/quarantine commands as routine upgrade steps.
+
+          The WorldEdit bridge requires a compatible WorldEdit API provider, such as the supported WorldEdit or FAWE setup. That external provider is not supplied in the addon ZIP. `SF_BetterStructuresLink` remains a separate BetterStructures-dependent development bridge, not one of these 45 addons. Magic Legacy remains separately installed when needed; MagicExpansion is included. Integrated Magic8Ball, archived ExtraTools/WorldTaste and historical superseded DracFun are not reintroduced.
+
+          **Testing limits:** no copied production-world playthrough or supplied historical-owner-database test was completed. Automated builds, archive checks and two-boot smoke tests do not establish every machine interaction, old-world upgrade, Folia combination or cross-fork rollback. No live-server data was changed by publication.
+          '''
+          # Triple-quoted text is flush-left after the YAML block indentation is removed.
+          notes = '\n'.join(line[10:] if line.startswith('          ') else line for line in notes.splitlines()) + '\n'
+          refreshed = api(f'releases/{RELEASE_ID}')
+          require(refreshed['tag_name'] == 'v4.1.70' and refreshed['target_commitish'] == SOURCE and
+                  {a['name']: a['digest'] for a in refreshed['assets']} ==
+                  {name: 'sha256:' + values[0] for name, values in EXPECTED.items()},
+                  'Release changed during verification; refusing notes update')
+          updated = api(f'releases/{RELEASE_ID}', {'body': notes})
+          require(updated['body'] == notes, 'Release notes update was not confirmed')
+          print('PUBLICATION_NOTES_FINALIZED release=' + str(RELEASE_ID))
+      - name: Preserve independently verified public files
+        uses: actions/upload-artifact@v7
+        with:
+          name: Slimefun-Legacy4.1.70-published-files
+          path: dist/
+          if-no-files-found: error
+          retention-days: 90
