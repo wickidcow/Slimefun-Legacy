@@ -3,7 +3,6 @@ package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import net.kyori.adventure.text.Component;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -14,17 +13,18 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -56,7 +56,7 @@ final class DoctorSmartSpawnerCommand {
     private static final String CARD_PREFIX = "IE_MOB_DATA_CARD_";
     private static final int CARD_INPUT_SLOT = 1;
     private static final long PLAN_TTL_MILLIS = 10L * 60L * 1000L;
-    private static final int MAX_DETAIL_LINES = 20;
+    private static final int MAX_REPLACEMENT_DETAIL_LINES = 20;
 
     private final Slimefun plugin;
     private final NamespacedKey migrationSignKey;
@@ -98,13 +98,21 @@ final class DoctorSmartSpawnerCommand {
 
         try {
             List<SpawnerSnapshot> spawners = bridge.getAll();
-            long itemSpawners = spawners.stream().filter(SpawnerSnapshot::itemSpawner).count();
+            long itemSpawners =
+                    spawners.stream().filter(SpawnerSnapshot::itemSpawner).count();
             long stacked = spawners.stream().filter(s -> s.stackSize() > 1).count();
-            long compatible = spawners.stream().filter(s -> resolveCardId(s) != null).count();
+            long compatible =
+                    spawners.stream().filter(s -> resolveCardId(s) != null).count();
             send(sender, "&7SmartSpawner version: &e" + bridge.pluginVersion());
+            send(
+                    sender,
+                    "&7Mob Data Card provider: &e" + chamber.getAddon().getName() + " "
+                            + chamber.getAddon().getPluginVersion());
             send(sender, "&7Registered SmartSpawners: &e" + spawners.size());
-            send(sender, "&7Card-compatible: &a" + compatible
-                    + " &8| &7empty-chamber fallback: &e" + (spawners.size() - compatible));
+            send(
+                    sender,
+                    "&7Card-compatible: &a" + compatible + " &8| &7empty-chamber fallback: &e"
+                            + (spawners.size() - compatible));
             send(sender, "&7Item spawners: &e" + itemSpawners + " &8| &7stacked blocks: &e" + stacked);
 
             MigrationPlan plan = currentPlan();
@@ -159,9 +167,11 @@ final class DoctorSmartSpawnerCommand {
 
         if (candidates.isEmpty()) {
             send(sender, "&6SmartSpawner Migration Scan");
-            send(sender, malformed == 0
-                    ? "&aNo SmartSpawner records were found."
-                    : "&eNo executable records were found; malformed/stale records: &c" + malformed);
+            send(
+                    sender,
+                    malformed == 0
+                            ? "&aNo SmartSpawner records were found."
+                            : "&eNo executable records were found; malformed/stale records: &c" + malformed);
             send(sender, "&8No chunks were force-loaded and no data was changed.");
             return;
         }
@@ -169,51 +179,51 @@ final class DoctorSmartSpawnerCommand {
         long now = System.currentTimeMillis();
         String fingerprint = fingerprint(bridge.pluginVersion(), candidates);
         MigrationPlan plan = new MigrationPlan(
-                fingerprint,
-                bridge.pluginVersion(),
-                now,
-                now + PLAN_TTL_MILLIS,
-                List.copyOf(candidates));
+                fingerprint, bridge.pluginVersion(), now, now + PLAN_TTL_MILLIS, List.copyOf(candidates));
         preparedPlan = plan;
 
         long compatible = candidates.stream().filter(c -> c.cardId() != null).count();
         long empty = candidates.size() - compatible;
-        long itemSpawners = candidates.stream().filter(c -> c.source().itemSpawner()).count();
-        long stacked = candidates.stream().filter(c -> c.source().stackSize() > 1).count();
+        long itemSpawners =
+                candidates.stream().filter(c -> c.source().itemSpawner()).count();
+        long stacked =
+                candidates.stream().filter(c -> c.source().stackSize() > 1).count();
         long stackedUnits = candidates.stream()
                 .filter(c -> c.source().stackSize() > 1)
                 .mapToLong(c -> c.source().stackSize())
                 .sum();
 
-        Map<String, Long> byType = new LinkedHashMap<>();
+        Map<String, List<Candidate>> byType = new TreeMap<>();
         for (Candidate candidate : candidates) {
             String type = candidate.source().displayType();
-            byType.merge(type, 1L, Long::sum);
+            byType.computeIfAbsent(type, ignored -> new ArrayList<>()).add(candidate);
         }
 
         send(sender, "&6SmartSpawner -> Mob Simulation Plan");
+        send(
+                sender,
+                "&7Mob Data Card provider: &e" + chamber.getAddon().getName() + " "
+                        + chamber.getAddon().getPluginVersion());
         send(sender, "&7Exact SmartSpawner blocks: &e" + candidates.size());
-        send(sender, "&7With matching Mob Data Card: &a" + compatible
-                + " &8| &7empty chambers: &e" + empty);
+        send(sender, "&7With matching Mob Data Card: &a" + compatible + " &8| &7empty chambers: &e" + empty);
         send(sender, "&7Item spawners -> empty chambers: &e" + itemSpawners);
         if (malformed > 0) {
             send(sender, "&7Malformed/stale records excluded: &c" + malformed);
         }
         if (stacked > 0) {
             send(sender, "&eStacked SmartSpawner blocks: " + stacked + " (" + stackedUnits + " source units).");
-            send(sender, "&eEach SmartSpawner BLOCK becomes one chamber. The original stack size is recorded in the migration manifest.");
+            send(
+                    sender,
+                    "&eEach SmartSpawner BLOCK becomes one chamber. The original stack size is recorded in the"
+                            + " migration manifest.");
         }
 
-        int shown = 0;
-        for (Map.Entry<String, Long> entry : byType.entrySet()) {
-            if (shown++ >= MAX_DETAIL_LINES) {
-                send(sender, "&8... " + (byType.size() - MAX_DETAIL_LINES) + " more mob/item type(s)");
-                break;
-            }
-            String cardId = resolveCardIdForEntity(entry.getKey());
-            boolean hasCard = cardId != null && SlimefunItem.getById(cardId) != null;
-            send(sender, "&8- &f" + entry.getKey() + " &8x&e" + entry.getValue()
-                    + (hasCard ? " &8-> &aMob Data Card" : " &8-> &eempty chamber"));
+        send(sender, "&7All mob/item types: &e" + byType.size());
+        for (Map.Entry<String, List<Candidate>> entry : byType.entrySet()) {
+            send(
+                    sender,
+                    "&8- &f" + entry.getKey() + " &8x&e" + entry.getValue().size() + " &8-> "
+                            + describeCard(entry.getValue().getFirst()));
         }
 
         long ttlMinutes = Math.max(1L, PLAN_TTL_MILLIS / 60_000L);
@@ -225,7 +235,10 @@ final class DoctorSmartSpawnerCommand {
         send(sender, "&fSpawner Migrated &8/ &fReplaced with a &8/ &fMob Simulation &8/ &fChamber");
         send(sender, "&7After an offline backup, execute:");
         send(sender, "&6/sf doctor smartspawners replace " + fingerprint);
-        send(sender, "&8Scan only: SmartSpawner records were read through its public API; no chunks were loaded and no blocks changed.");
+        send(
+                sender,
+                "&8Scan only: SmartSpawner records were read through its public API; no chunks were loaded and no"
+                        + " blocks changed.");
     }
 
     private void replace(@Nonnull CommandSender sender, @Nonnull String[] args) {
@@ -285,7 +298,9 @@ final class DoctorSmartSpawnerCommand {
         // Single-use once mutation is authorized.
         preparedPlan = null;
         send(sender, "&6SmartSpawner Replacement");
-        send(sender, "&ePlan consumed. Every exact record will be revalidated before SmartSpawner is asked to remove it.");
+        send(
+                sender,
+                "&ePlan consumed. Every exact record will be revalidated before SmartSpawner is asked to remove it.");
         send(sender, "&7Migration manifest: &f" + relativeToDataFolder(manifest));
         send(sender, "&7Candidates: &e" + plan.candidates().size());
         new MigrationRun(sender, bridge, plan).start();
@@ -335,19 +350,43 @@ final class DoctorSmartSpawnerCommand {
     }
 
     private @Nullable String resolveCardIdForEntity(String entityName) {
+        String id = expectedCardIdForEntity(entityName);
+        if (id == null) {
+            return null;
+        }
+        SlimefunItem item = SlimefunItem.getById(id);
+        return item == null || item.isDisabled() ? null : id;
+    }
+
+    static @Nullable String expectedCardIdForEntity(@Nullable String entityName) {
         if (entityName == null || entityName.isBlank() || entityName.equalsIgnoreCase("ITEM")) {
             return null;
         }
-        String suffix = entityName.trim()
+        String suffix = entityName
+                .trim()
                 .toUpperCase(Locale.ROOT)
                 .replaceAll("[^A-Z0-9]+", "_")
                 .replaceAll("^_+|_+$", "");
         if (suffix.isBlank()) {
             return null;
         }
-        String id = CARD_PREFIX + suffix;
-        SlimefunItem item = SlimefunItem.getById(id);
-        return item == null || item.isDisabled() ? null : id;
+        return CARD_PREFIX + suffix;
+    }
+
+    private String describeCard(Candidate candidate) {
+        if (candidate.cardId() != null) {
+            return "&aMob Data Card &8(" + candidate.cardId() + ")";
+        }
+        if (candidate.source().itemSpawner()) {
+            return "&eempty chamber &8(item spawner)";
+        }
+        String expectedId = expectedCardIdForEntity(candidate.source().entityType());
+        if (expectedId == null) {
+            return "&eempty chamber &8(no mob type)";
+        }
+        SlimefunItem card = SlimefunItem.getById(expectedId);
+        String reason = card == null ? "not registered" : card.isDisabled() ? "disabled" : "not selected; rescan";
+        return "&eempty chamber &8(" + expectedId + ": " + reason + ")";
     }
 
     private String fingerprint(String smartSpawnerVersion, List<Candidate> candidates) {
@@ -390,8 +429,10 @@ final class DoctorSmartSpawnerCommand {
             throw new IOException("Could not create " + folder);
         }
 
-        File file = new File(folder, Instant.ofEpochMilli(plan.createdAt()).toString().replace(':', '-') + "-"
-                + plan.fingerprint() + ".yml");
+        File file = new File(
+                folder,
+                Instant.ofEpochMilli(plan.createdAt()).toString().replace(':', '-') + "-" + plan.fingerprint()
+                        + ".yml");
         YamlConfiguration yaml = new YamlConfiguration();
         yaml.set("format", 1);
         yaml.set("created-at", Instant.ofEpochMilli(plan.createdAt()).toString());
@@ -399,17 +440,22 @@ final class DoctorSmartSpawnerCommand {
         yaml.set("smartspawner-version", plan.smartSpawnerVersion());
         yaml.set("target-chamber", CHAMBER_ID);
         yaml.set("candidate-count", plan.candidates().size());
-        yaml.set("notes", List.of(
-                "This is a migration manifest, not a SmartSpawner database backup.",
-                "Collect stored SmartSpawner loot/XP before executing; the public API does not expose those balances.",
-                "Unsupported mob/item spawners are replaced with empty Mob Simulation Chambers."));
+        yaml.set(
+                "notes",
+                List.of(
+                        "This is a migration manifest, not a SmartSpawner database backup.",
+                        "Collect stored SmartSpawner loot/XP before executing; the public API does not expose those"
+                                + " balances.",
+                        "Unsupported mob/item spawners are replaced with empty Mob Simulation Chambers."));
 
         int index = 0;
         for (Candidate candidate : plan.candidates()) {
             SpawnerSnapshot source = candidate.source();
             String base = "spawners." + index++;
             yaml.set(base + ".id", source.id());
-            yaml.set(base + ".world-uuid", source.worldId() == null ? null : source.worldId().toString());
+            yaml.set(
+                    base + ".world-uuid",
+                    source.worldId() == null ? null : source.worldId().toString());
             yaml.set(base + ".world", source.worldName());
             yaml.set(base + ".x", source.x());
             yaml.set(base + ".y", source.y());
@@ -487,7 +533,9 @@ final class DoctorSmartSpawnerCommand {
             try {
                 current = bridge.getById(candidate.source().id());
             } catch (ReflectiveOperationException | RuntimeException ex) {
-                failure(candidate, "SmartSpawner revalidation threw " + ex.getClass().getSimpleName());
+                failure(
+                        candidate,
+                        "SmartSpawner revalidation threw " + ex.getClass().getSimpleName());
                 process(index + 1);
                 return;
             }
@@ -515,7 +563,9 @@ final class DoctorSmartSpawnerCommand {
             world.getChunkAtAsync(location.getBlockX() >> 4, location.getBlockZ() >> 4, true)
                     .whenComplete((chunk, error) -> {
                         if (error != null) {
-                            failure(candidate, "chunk load failed: " + error.getClass().getSimpleName());
+                            failure(
+                                    candidate,
+                                    "chunk load failed: " + error.getClass().getSimpleName());
                             process(index + 1);
                             return;
                         }
@@ -565,18 +615,20 @@ final class DoctorSmartSpawnerCommand {
 
                 Material chamberMaterial = chamber.getRecipeOutput().getType();
                 ItemStack plannedCard = card == null ? null : card.clone();
-                CompletableFuture<Boolean> removal = bridge.remove(candidate.source().id());
+                CompletableFuture<Boolean> removal =
+                        bridge.remove(candidate.source().id());
                 removal.whenComplete((removed, error) -> {
                     if (error != null || !Boolean.TRUE.equals(removed)) {
                         String detail = error == null
                                 ? "SmartSpawner refused removal"
-                                : "SmartSpawner removal failed: " + error.getClass().getSimpleName();
+                                : "SmartSpawner removal failed: "
+                                        + error.getClass().getSimpleName();
                         failure(candidate, detail);
                         process(index + 1);
                         return;
                     }
-                    Slimefun.runSyncAt(location, () ->
-                            placeReplacement(index, candidate, location, chamberMaterial, plannedCard));
+                    Slimefun.runSyncAt(
+                            location, () -> placeReplacement(index, candidate, location, chamberMaterial, plannedCard));
                 });
             } catch (ReflectiveOperationException | RuntimeException ex) {
                 failure(candidate, "preflight failed: " + ex.getClass().getSimpleName());
@@ -585,15 +637,13 @@ final class DoctorSmartSpawnerCommand {
         }
 
         private void placeReplacement(
-                int index,
-                Candidate candidate,
-                Location location,
-                Material chamberMaterial,
-                @Nullable ItemStack card) {
+                int index, Candidate candidate, Location location, Material chamberMaterial, @Nullable ItemStack card) {
             try {
                 Block block = location.getBlock();
                 if (!block.getType().isAir()) {
-                    failure(candidate, "SmartSpawner was removed but replacement location is occupied by " + block.getType());
+                    failure(
+                            candidate,
+                            "SmartSpawner was removed but replacement location is occupied by " + block.getType());
                     process(index + 1);
                     return;
                 }
@@ -608,10 +658,13 @@ final class DoctorSmartSpawnerCommand {
                     var blockData = Slimefun.getDatabaseManager()
                             .getBlockDataController()
                             .createBlock(location, CHAMBER_ID);
-                    blockData.setData("smartspawner-migration-id", candidate.source().id());
-                    blockData.setData("smartspawner-migration-type", candidate.source().displayType());
                     blockData.setData(
-                            "smartspawner-migration-stack-size", String.valueOf(candidate.source().stackSize()));
+                            "smartspawner-migration-id", candidate.source().id());
+                    blockData.setData(
+                            "smartspawner-migration-type", candidate.source().displayType());
+                    blockData.setData(
+                            "smartspawner-migration-stack-size",
+                            String.valueOf(candidate.source().stackSize()));
 
                     BlockMenu menu = blockData.getBlockMenu();
                     if (menu == null) {
@@ -645,13 +698,16 @@ final class DoctorSmartSpawnerCommand {
                                 ? " (source stack " + candidate.source().stackSize() + " recorded)"
                                 : ""));
             } catch (RuntimeException ex) {
-                failure(candidate, "replacement placement failed after SmartSpawner removal: "
-                        + ex.getClass().getSimpleName() + " - " + safeMessage(ex));
-                plugin.getLogger().log(
-                        java.util.logging.Level.SEVERE,
-                        "SmartSpawner was removed but Mob Simulation replacement failed at "
-                                + candidate.source().locationKey(),
-                        ex);
+                failure(
+                        candidate,
+                        "replacement placement failed after SmartSpawner removal: "
+                                + ex.getClass().getSimpleName() + " - " + safeMessage(ex));
+                plugin.getLogger()
+                        .log(
+                                java.util.logging.Level.SEVERE,
+                                "SmartSpawner was removed but Mob Simulation replacement failed at "
+                                        + candidate.source().locationKey(),
+                                ex);
             }
             process(index + 1);
         }
@@ -688,7 +744,7 @@ final class DoctorSmartSpawnerCommand {
         }
 
         private void addDetail(String detail) {
-            if (details.size() < MAX_DETAIL_LINES) {
+            if (details.size() < MAX_REPLACEMENT_DETAIL_LINES) {
                 details.add(detail);
             }
         }
@@ -697,18 +753,23 @@ final class DoctorSmartSpawnerCommand {
             migrationActive.set(false);
             long migrated = migratedWithCard + migratedEmpty;
             sendAsync(sender, "&6SmartSpawner Replacement Report");
-            sendAsync(sender, "&7Migrated: &a" + migrated
-                    + " &8| &7with card: &a" + migratedWithCard
-                    + " &8| &7empty: &e" + migratedEmpty);
-            sendAsync(sender, "&7Changed/skipped: &e" + skippedChanged
-                    + " &8| &7failures: &c" + failures);
-            sendAsync(sender, "&7Migration signs: &a" + signsPlaced
-                    + " &8| &7skipped because above block was occupied/unavailable: &e" + signsSkipped);
+            sendAsync(
+                    sender,
+                    "&7Migrated: &a" + migrated
+                            + " &8| &7with card: &a" + migratedWithCard
+                            + " &8| &7empty: &e" + migratedEmpty);
+            sendAsync(sender, "&7Changed/skipped: &e" + skippedChanged + " &8| &7failures: &c" + failures);
+            sendAsync(
+                    sender,
+                    "&7Migration signs: &a" + signsPlaced
+                            + " &8| &7skipped because above block was occupied/unavailable: &e" + signsSkipped);
             for (String detail : details) {
                 sendAsync(sender, "&8- &7" + detail);
             }
             if (plan.candidates().size() > details.size()) {
-                sendAsync(sender, "&8Only the first " + MAX_DETAIL_LINES + " per-location details are shown.");
+                sendAsync(
+                        sender,
+                        "&8Only the first " + MAX_REPLACEMENT_DETAIL_LINES + " per-location details are shown.");
             }
             if (failures > 0L) {
                 sendAsync(sender, "&cReview the console and migration manifest before removing SmartSpawner.");
@@ -724,7 +785,8 @@ final class DoctorSmartSpawnerCommand {
         }
     }
 
-    private record Candidate(@Nonnull SpawnerSnapshot source, @Nullable String cardId) {}
+    private record Candidate(
+            @Nonnull SpawnerSnapshot source, @Nullable String cardId) {}
 
     private record MigrationPlan(
             @Nonnull String fingerprint,
@@ -799,11 +861,7 @@ final class DoctorSmartSpawnerCommand {
         private final Method removeSpawner;
 
         private SmartSpawnerBridge(
-                Plugin smartSpawner,
-                Object api,
-                Method getAllSpawners,
-                Method getSpawnerById,
-                Method removeSpawner) {
+                Plugin smartSpawner, Object api, Method getAllSpawners, Method getSpawnerById, Method removeSpawner) {
             this.smartSpawner = smartSpawner;
             this.api = api;
             this.getAllSpawners = getAllSpawners;
