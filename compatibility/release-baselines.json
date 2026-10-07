@@ -2,16 +2,16 @@
   "schema": 1,
   "project": "Slimefun Legacy",
   "candidate": {
-    "version": "4.1.70"
+    "version": "4.1.71"
   },
   "previous_stable": {
-    "version": "4.1.69",
+    "version": "4.1.70",
     "source": {
       "mode": "git-ref",
-      "ref": "d430eda74525b31328660bc3d3e36e13c9869353"
+      "ref": "682f26ef1c6a71c905091fb178bf4b3763bc1652"
     },
     "release_blocking": true,
-    "purpose": "Primary regression baseline: the published 4.1.69 core refresh including the Hologram Display Projector, not the original release tag. Required addons that work here but fail against the candidate block release."
+    "purpose": "Primary regression baseline: the published 4.1.70 core, not newer master builds. Required addons that work here but fail against the candidate block release."
   },
   "legacy_floor": {
     "version": "4.1.15",
