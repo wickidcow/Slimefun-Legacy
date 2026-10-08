@@ -11,7 +11,7 @@
       "ref": "682f26ef1c6a71c905091fb178bf4b3763bc1652"
     },
     "release_blocking": true,
-    "purpose": "Primary regression baseline: the published 4.1.70 core, not newer master builds. Required addons that work here but fail against the candidate block release."
+    "purpose": "Primary regression baseline: the published 4.1.70 core at its exact source commit, not newer master builds. Required addons that work here but fail against the candidate block release. Historical 4.1.69 refresh upgrade evidence remains separately preserved."
   },
   "legacy_floor": {
     "version": "4.1.15",

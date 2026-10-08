@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 126,
+  "bundle_revision": 127,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -172,7 +172,7 @@
       "repository": "wickidcow/SF_InfinityExpansion2",
       "slug": "infinityexpansion2",
       "artifact_base": "InfinityExpansion",
-      "source_commit": "557e549e21c9fd670b56683209b7465cc4c1661b"
+      "source_commit": "a66a534406bf81222549458213313816dbdfb98f"
     },
     {
       "repository": "wickidcow/SF_LiteXpansion",
@@ -182,7 +182,7 @@
     {
       "repository": "wickidcow/SF_LuckyBlocks",
       "slug": "luckyblocks",
-      "source_commit": "5ed11f1bf31efee8ca4b4e2fb5c1bc10d9483cc0"
+      "source_commit": "02b12f2e9249a548017150302b7c281aac55cf09"
     },
     {
       "repository": "wickidcow/SF_JustEnoughGuide",
