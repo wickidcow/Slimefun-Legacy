@@ -29,7 +29,9 @@ if [[ ! -s "$PLUGIN_JAR" ]]; then
 fi
 
 rm -rf "$WORK_DIR"
-mkdir -p "$WORK_DIR/plugins"
+mkdir -p "$WORK_DIR/plugins/bStats"
+# Keep bStats telemetry disabled in this disposable test server.
+printf 'enabled: false\n' > "$WORK_DIR/plugins/bStats/config.yml"
 cp "$PLUGIN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-smoke.jar"
 printf 'eula=true\n' > "$WORK_DIR/eula.txt"
 cat > "$WORK_DIR/server.properties" <<'PROPERTIES'
