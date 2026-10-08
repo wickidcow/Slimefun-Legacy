@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 127,
+  "bundle_revision": 128,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -131,7 +131,7 @@
     {
       "repository": "wickidcow/SF_FluffyMachines",
       "slug": "fluffymachines",
-      "source_commit": "394de0dbfe770ae13256aa1cfbe747fc26b55a3a"
+      "source_commit": "bea7728a3b6ac607c8edcad5c9d42edb71b777b1"
     },
     {
       "repository": "wickidcow/SF_FNAmplifications",

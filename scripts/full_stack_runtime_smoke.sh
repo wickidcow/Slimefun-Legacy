@@ -22,7 +22,9 @@ done
 test -s "$SLIMEFUN_JAR"
 test -s "$ADDON_BUNDLE"
 rm -rf "$WORK_DIR"
-mkdir -p "$WORK_DIR/plugins" "$WORK_DIR/bundle"
+mkdir -p "$WORK_DIR/plugins/bStats" "$WORK_DIR/bundle"
+# Keep bStats telemetry disabled in this disposable test server.
+printf 'enabled: false\n' > "$WORK_DIR/plugins/bStats/config.yml"
 unzip -q "$ADDON_BUNDLE" -d "$WORK_DIR/bundle"
 cp "$SLIMEFUN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-full-stack.jar"
 

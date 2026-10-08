@@ -34,7 +34,9 @@ if [[ -z "$EXPECTED_SLIMEFUN_VERSION" ]]; then
 fi
 
 rm -rf "$WORK_DIR"
-mkdir -p "$WORK_DIR/plugins"
+mkdir -p "$WORK_DIR/plugins/bStats"
+# Keep bStats telemetry disabled in this disposable test server.
+printf 'enabled: false\n' > "$WORK_DIR/plugins/bStats/config.yml"
 cp "$SLIMEFUN_JAR" "$WORK_DIR/plugins/Slimefun-Legacy-runtime-smoke.jar"
 cp "$ADDON_JAR" "$WORK_DIR/plugins/${RUNTIME_PLUGIN}-runtime-smoke.jar"
 printf 'eula=true\n' > "$WORK_DIR/eula.txt"
