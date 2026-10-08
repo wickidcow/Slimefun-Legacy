@@ -78,3 +78,11 @@ Prepared provider plans expire after 10 minutes. Missing targets, unsafe or conf
 ## Cross-core compatibility
 
 These APIs are optional and unique to Slimefun Legacy. Addons that also target Original Slimefun, Slimefun United or Slimefun Gugu should isolate registration behind a class-presence check or a reflective bridge. The addon must not directly link Legacy-only diagnostics APIs from classes that load on every supported core.
+
+## Historical item recovery catalog (read-only)
+
+The historical-ID catalog used by `/sf doctor scan` now identifies the nine original EnderPanda IDs, including `SHULKER_HELMET`, and the four registered LuckyBlocks IDs (`LUCKY_BLOCK`, `LUCKY_BLOCK_LUCKY`, `LUCKY_BLOCK_UNLUCKY`, `PANDORAS_BOX`). These records are diagnostic evidence only: they do not register an item, migrate stored IDs, or rewrite inventories. If the same ID is already registered, Doctor does not report it as an orphan.
+
+LuckyBlocks' Lucky Armor and weapons are enchanted vanilla drops rather than registered Slimefun item IDs. Their Chinese-name restoration is intentionally handled separately by `/luckyrestore check` and `/luckyrestore hand` in SF_LuckyBlocks v1.0.4. The command matches item type, original enchantments and Chinese display text; do not infer any Lucky Armor Slimefun IDs.
+
+For orphaned EnderPanda items, install a compatible owning addon or use a deliberately verified restoration. Only `SHULKER_HELMET` is currently restored in Slimefun Legacy core; the other eight EnderPanda IDs remain identification-only unless a compatible addon is installed.
