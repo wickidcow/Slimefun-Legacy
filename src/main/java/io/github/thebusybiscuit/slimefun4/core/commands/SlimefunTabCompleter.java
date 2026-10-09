@@ -142,7 +142,7 @@ class SlimefunTabCompleter implements TabCompleter {
                         List.of("status", "scan", "repair", "remove-resourcepack-texture-ids", "enable-pack"), args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && isDoctorMigrationRoute(args[1])) {
                 return createReturnList(
-                        List.of("status", "list", "unknown", "plan", "providers", "scan", "execute", "schemas"),
+                        List.of("status", "list", "unknown", "recovery", "plan", "providers", "scan", "execute", "schemas"),
                         args[2]);
             } else if (args[0].equalsIgnoreCase("doctor") && args[1].equalsIgnoreCase("ie2")) {
                 return createReturnList(List.of("status", "scan", "migrate", "refresh"), args[2]);
