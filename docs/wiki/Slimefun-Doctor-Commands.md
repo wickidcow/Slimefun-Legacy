@@ -147,6 +147,7 @@ Canonical route: `/sf doctor migrations ...` (`migrate` and `migration` are acce
 | `/sf doctor migrations status` | No | Summarizes declared legacy ID mappings, registered targets and migration providers. |
 | `/sf doctor migrations list [page]` | No | Lists declared old-ID → current-ID replacements. |
 | `/sf doctor migrations unknown` | No | Correlates unknown IDs from the latest Doctor scan with declared mappings. |
+| `/sf doctor migrations recovery [page]` | No | Groups observed legacy IDs by source addon, distinguishes exact declared counts from sampled unknown IDs, and suggests safe recovery steps without rewriting data. |
 | `/sf doctor migrations plan` | No | Builds a dry-run plan from the latest Doctor scan. |
 | `/sf doctor migrations providers` | No | Lists enabled legacy-ID migration providers and validation state. |
 | `/sf doctor migrations scan <plugin>` | No | Runs one provider's read-only migration scan and, when clean, creates a short-lived fingerprint. |
