@@ -3,7 +3,6 @@ package io.github.thebusybiscuit.slimefun4.core.services.github;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -93,7 +92,7 @@ class ContributionsConnector extends GitHubConnector {
         if (response.isJsonArray()) {
             computeContributors(response.getAsJsonArray());
         } else {
-            Slimefun.logger()
+            github.getLogger()
                     .log(Level.WARNING, "Received an unusual answer from GitHub, possibly a timeout? ({0})", response);
         }
     }

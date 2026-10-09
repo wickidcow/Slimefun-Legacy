@@ -3,17 +3,19 @@ package io.github.thebusybiscuit.slimefun4.core.services.github;
 import io.github.bakedlibs.dough.skins.CustomGameProfile;
 import io.github.bakedlibs.dough.skins.PlayerSkin;
 import io.github.bakedlibs.dough.skins.UUIDLookup;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -46,9 +48,14 @@ class GitHubTask implements Runnable {
 
     @Override
     public void run() {
+        if (!canContinue()) {
+            return;
+        }
 
         if (Bukkit.isPrimaryThread()) {
-            Slimefun.logger().log(Level.SEVERE, "The contributors task may never run on the main Thread!");
+            gitHubService.runIfActive(() -> gitHubService
+                    .getLogger()
+                    .log(Level.SEVERE, "The contributors task may never run on the main Thread!"));
             return;
         }
 
@@ -57,7 +64,12 @@ class GitHubTask implements Runnable {
     }
 
     private void connectAndCache() {
-        gitHubService.getConnectors().forEach(GitHubConnector::download);
+        for (GitHubConnector connector : gitHubService.getConnectors()) {
+            if (!canContinue()) {
+                return;
+            }
+            connector.download();
+        }
     }
 
     /**
@@ -65,6 +77,10 @@ class GitHubTask implements Runnable {
      * the {@link UUID} and received skin inside a local cache {@link File}.
      */
     private void grabTextures() {
+        if (!canContinue()) {
+            return;
+        }
+
         /**
          * Store all queried usernames to prevent 429 responses for pinging
          * the same URL twice in one run.
@@ -73,6 +89,9 @@ class GitHubTask implements Runnable {
         int requests = 0;
 
         for (Contributor contributor : gitHubService.getContributors().values()) {
+            if (!canContinue()) {
+                return;
+            }
             int newRequests = requestTexture(contributor, skins);
 
             requests += newRequests;
@@ -82,11 +101,13 @@ class GitHubTask implements Runnable {
             }
         }
 
-        if (requests >= MAX_REQUESTS_PER_MINUTE
-                && Slimefun.instance() != null
-                && Slimefun.instance().isEnabled()) {
-            // Slow down API requests and wait a minute after more than x requests were made
-            Slimefun.getSchedulerService().runAsyncLater(this::grabTextures, 2L * 60L * 20L);
+        if (!canContinue()) {
+            return;
+        }
+
+        if (requests >= MAX_REQUESTS_PER_MINUTE) {
+            // Slow down API requests after more than x requests were made.
+            gitHubService.runAsyncLater(this::grabTextures, 2L * 60L * 20L);
         }
 
         for (GitHubConnector connector : gitHubService.getConnectors()) {
@@ -101,10 +122,14 @@ class GitHubTask implements Runnable {
          * This will run multiple times but thats okay, this way we get as much
          * data as possible stored.
          */
-        gitHubService.saveCache();
+        gitHubService.runIfActive(gitHubService::saveCache);
     }
 
     private int requestTexture(@Nonnull Contributor contributor, @Nonnull Map<String, String> skins) {
+        if (!canContinue()) {
+            return -1;
+        }
+
         if (!contributor.hasTexture()) {
             if (!shouldResolveOnline(contributor)) {
                 return 0;
@@ -112,32 +137,45 @@ class GitHubTask implements Runnable {
 
             try {
                 if (skins.containsKey(contributor.getMinecraftName())) {
-                    contributor.setTexture(skins.get(contributor.getMinecraftName()));
+                    if (!gitHubService.runIfActive(
+                            () -> contributor.setTexture(skins.get(contributor.getMinecraftName())))) {
+                        return -1;
+                    }
                 } else {
-                    contributor.setTexture(pullTexture(contributor, skins));
+                    String texture = pullTexture(contributor, skins);
+                    if (!gitHubService.runIfActive(() -> contributor.setTexture(texture))) {
+                        return -1;
+                    }
                     return contributor.getUniqueId().isPresent() ? 1 : 2;
                 }
             } catch (IllegalArgumentException x) {
                 // There cannot be a texture found because it is not a valid MC username
-                contributor.setTexture(null);
+                gitHubService.runIfActive(() -> contributor.setTexture(null));
             } catch (InterruptedException x) {
-                Slimefun.logger().log(Level.WARNING, "The contributors thread was interrupted!");
                 Thread.currentThread().interrupt();
+                return -1;
             } catch (Exception x) {
+                if (!canContinue()) {
+                    return -1;
+                }
+
                 // Too many requests or an unavailable profile service. Contributor heads are cosmetic,
                 // so never let this affect the server's main gameplay loop.
-                Slimefun.logger()
-                        .log(
-                                Level.WARNING,
-                                "Attempted to refresh skin cache, got this response: {0}: {1}",
-                                new Object[] {x.getClass().getSimpleName(), x.getMessage()});
+                gitHubService.runIfActive(() -> {
+                    gitHubService
+                            .getLogger()
+                            .log(
+                                    Level.WARNING,
+                                    "Attempted to refresh skin cache, got this response: {0}: {1}",
+                                    new Object[] {x.getClass().getSimpleName(), x.getMessage()});
 
-                String msg = x.getMessage();
+                    String msg = x.getMessage();
 
-                // Retry after 5 minutes if it was just rate-limiting
-                if (msg != null && msg.contains("429")) {
-                    Slimefun.getSchedulerService().runAsyncLater(this::grabTextures, 5L * 60L * 20L);
-                }
+                    // Retry after 5 minutes if it was just rate-limiting.
+                    if (msg != null && msg.contains("429")) {
+                        gitHubService.runAsyncLater(this::grabTextures, 5L * 60L * 20L);
+                    }
+                });
 
                 return -1;
             }
@@ -147,14 +185,14 @@ class GitHubTask implements Runnable {
     }
 
     private boolean shouldResolveOnline(@Nonnull Contributor contributor) {
-        if (!Slimefun.getCfg().getBoolean(RESOLVE_ONLINE_PATH)) {
+        if (!gitHubService.getConfig().getBoolean(RESOLVE_ONLINE_PATH)) {
             return false;
         }
 
         String githubName = contributor.getName().toLowerCase(Locale.ROOT);
         String minecraftName = contributor.getMinecraftName().toLowerCase(Locale.ROOT);
 
-        for (String configuredName : Slimefun.getCfg().getStringList(BLOCKED_NAMES_PATH)) {
+        for (String configuredName : gitHubService.getConfig().getStringList(BLOCKED_NAMES_PATH)) {
             String blockedName = configuredName.trim().toLowerCase(Locale.ROOT);
             if (!blockedName.isEmpty() && (blockedName.equals(githubName) || blockedName.equals(minecraftName))) {
                 return false;
@@ -165,7 +203,7 @@ class GitHubTask implements Runnable {
     }
 
     private int getLookupTimeoutSeconds() {
-        int configured = Slimefun.getCfg().getInt(LOOKUP_TIMEOUT_PATH);
+        int configured = gitHubService.getConfig().getInt(LOOKUP_TIMEOUT_PATH);
         if (configured <= 0) {
             return DEFAULT_LOOKUP_TIMEOUT_SECONDS;
         }
@@ -179,21 +217,58 @@ class GitHubTask implements Runnable {
         int timeoutSeconds = getLookupTimeoutSeconds();
 
         if (!uuid.isPresent()) {
-            CompletableFuture<UUID> future =
-                    UUIDLookup.getUuidFromUsername(Slimefun.instance(), contributor.getMinecraftName());
-
-            uuid = Optional.ofNullable(future.get(timeoutSeconds, TimeUnit.SECONDS));
-            uuid.ifPresent(contributor::setUniqueId);
+            UUID resolved = awaitLookup(() -> lookupUuid(contributor.getMinecraftName()), timeoutSeconds);
+            if (!gitHubService.runIfActive(() -> {
+                if (resolved != null) {
+                    contributor.setUniqueId(resolved);
+                }
+            })) {
+                throw new CancellationException("GitHub service stopped before UUID publication");
+            }
+            uuid = Optional.ofNullable(resolved);
         }
 
         if (uuid.isPresent()) {
-            CompletableFuture<PlayerSkin> future = PlayerSkin.fromPlayerUUID(Slimefun.instance(), uuid.get());
-            Optional<String> skin = Optional.ofNullable(
-                    CustomGameProfile.getBase64Texture(future.get(timeoutSeconds, TimeUnit.SECONDS).getProfile()));
-            skins.put(contributor.getMinecraftName(), skin.orElse(""));
+            UUID resolved = uuid.get();
+            PlayerSkin playerSkin = awaitLookup(() -> lookupSkin(resolved), timeoutSeconds);
+            Optional<String> skin = Optional.ofNullable(CustomGameProfile.getBase64Texture(playerSkin.getProfile()));
+            if (!gitHubService.runIfActive(() -> skins.put(contributor.getMinecraftName(), skin.orElse("")))) {
+                throw new CancellationException("GitHub service stopped before skin publication");
+            }
             return skin.orElse(null);
         } else {
             return null;
         }
+    }
+
+    private boolean canContinue() {
+        return gitHubService.isActive() && !Thread.currentThread().isInterrupted();
+    }
+
+    CompletableFuture<UUID> lookupUuid(String minecraftName) {
+        return UUIDLookup.getUuidFromUsername(gitHubService.getOwner(), minecraftName);
+    }
+
+    CompletableFuture<PlayerSkin> lookupSkin(UUID uuid) {
+        return PlayerSkin.fromPlayerUUID(gitHubService.getOwner(), uuid);
+    }
+
+    /** Starts a lookup under the service gate, but never holds that gate while awaiting its result. */
+    private <T> T awaitLookup(@Nonnull Supplier<CompletableFuture<T>> lookup, int timeoutSeconds)
+            throws InterruptedException, ExecutionException, TimeoutException {
+        if (!canContinue()) {
+            throw new CancellationException("GitHub service stopped before profile lookup");
+        }
+
+        AtomicReference<CompletableFuture<T>> future = new AtomicReference<>();
+        if (!gitHubService.runIfActive(() -> future.set(lookup.get()))) {
+            throw new CancellationException("GitHub service stopped before profile lookup");
+        }
+
+        T result = future.get().get(timeoutSeconds, TimeUnit.SECONDS);
+        if (!canContinue()) {
+            throw new CancellationException("GitHub service stopped during profile lookup");
+        }
+        return result;
     }
 }

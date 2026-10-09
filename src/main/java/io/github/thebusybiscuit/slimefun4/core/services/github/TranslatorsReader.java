@@ -52,7 +52,7 @@ final class TranslatorsReader {
                 }
             }
         } catch (Exception e) {
-            Slimefun.logger().log(Level.SEVERE, "Failed to load translators.json file", e);
+            github.getLogger().log(Level.SEVERE, "Failed to load translators.json file", e);
         }
     }
 }

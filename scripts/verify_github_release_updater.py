@@ -29,7 +29,7 @@ def main() -> int:
     require("releaseUpdateService.start();" in github, "release updater must start during Slimefun GitHub service startup")
     require('recipient.sendMessage("§6[Slimefun Legacy] §eUpdate available: §f"' in github,
             "notice must use the compact Slimefun Legacy update prefix")
-    require("displayVersion(Slimefun.getVersion())" in github, "notice must include installed version")
+    require("displayVersion(context.installedVersion())" in github, "notice must include the captured installed version")
     require('" §7→ §a" + displayVersion(latestTag)' in github, "notice must include latest release version")
     require('recipient.sendMessage("§7https://github.com/" + repository + "/releases/latest");' in github,
             "notice must include the latest-release destination")

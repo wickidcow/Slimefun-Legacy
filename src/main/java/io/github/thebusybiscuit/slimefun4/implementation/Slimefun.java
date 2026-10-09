@@ -194,7 +194,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
      * Our static instance of {@link Slimefun}.
      * Make sure to clean this up in {@link #onDisable()}!
      */
-    private static Slimefun instance;
+    private static volatile Slimefun instance;
 
     /**
      * Keep track of which {@link MinecraftVersion} we are on.
@@ -577,6 +577,9 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
      */
     @Override
     public void onDisable() {
+        // Stop callbacks even after partial startup or in the retained unit-test lifecycle.
+        lifecycleService.runShutdownStep("github", gitHubService::shutdown);
+
         // Slimefun never loaded successfully, so we don't even bother doing stuff here
         if (instance() == null || minecraftVersion == MinecraftVersion.UNIT_TEST) {
             return;
