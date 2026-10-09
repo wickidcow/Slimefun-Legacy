@@ -97,6 +97,8 @@ dependencies {
     testImplementation("io.papermc.paper:paper-api:$mockBukkitPaperApiVersion")
     testImplementation(libs.sqlite.jdbc)
     testImplementation(libs.jsr305)
+    // Controlled contributor-profile tests execute Dough's GameProfile conversion without a real server.
+    testImplementation(libs.authlib) { exclude(group = "*", module = "*") }
     testRuntimeOnly(libs.junit.platform.launcher)
     implementation(libs.dough.api)
     implementation(libs.unirest.java) {

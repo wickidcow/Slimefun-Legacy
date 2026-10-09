@@ -3,7 +3,6 @@ package io.github.thebusybiscuit.slimefun4.core.services.github;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -38,7 +37,6 @@ abstract class GitHubConnector {
 
     protected final GitHubService github;
     private final String url;
-    private File file;
 
     /**
      * This creates a new {@link GitHubConnector} for the given repository.
@@ -99,10 +97,14 @@ abstract class GitHubConnector {
      * Make sure to call this method asynchronously!
      */
     void download() {
-        file = new File("plugins/Slimefun/cache/github/" + getFileName() + ".json");
+        if (!github.isActive() || Thread.currentThread().isInterrupted()) {
+            return;
+        }
+        File file = getCacheFile();
 
         if (github.isLoggingEnabled()) {
-            Slimefun.logger().log(Level.INFO, "Retrieving {0}.json from GitHub...", getFileName());
+            github.runIfActive(
+                    () -> github.getLogger().log(Level.INFO, "Retrieving {0}.json from GitHub...", getFileName()));
         }
 
         try {
@@ -113,67 +115,93 @@ abstract class GitHubConnector {
                     .orElse("");
             URI uri = new URI(url + params);
 
-            HttpResponse<String> response = client.send(
-                    HttpRequest.newBuilder(uri).header("User-Agent", USER_AGENT).build(),
-                    HttpResponse.BodyHandlers.ofString());
+            // Do not hold the publication gate while a remote endpoint is pending.
+            HttpResponse<String> response = send(
+                    HttpRequest.newBuilder(uri).header("User-Agent", USER_AGENT).build());
+            if (!github.isActive() || Thread.currentThread().isInterrupted()) {
+                return;
+            }
             JsonElement element = JsonParser.parseString(response.body());
 
             if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                onSuccess(element);
-                writeCacheFile(element);
+                github.runIfActive(() -> {
+                    if (!Thread.currentThread().isInterrupted()) {
+                        onSuccess(element);
+                        // A callback can itself stop the service; do not commit a cache after that boundary.
+                        if (github.isActive()) {
+                            writeCacheFile(file, element);
+                        }
+                    }
+                });
             } else {
                 if (github.isLoggingEnabled()) {
-                    Slimefun.logger().log(Level.WARNING, "Failed to fetch {0}: {1} - {2}", new Object[] {
-                        url, response.statusCode(), element
-                    });
+                    github.runIfActive(() -> github.getLogger()
+                            .log(Level.WARNING, "Failed to fetch {0}: {1} - {2}", new Object[] {
+                                url, response.statusCode(), element
+                            }));
                 }
 
-                // It has the cached file, let's just read that then
-                if (file.exists()) {
-                    JsonElement cache = readCacheFile();
-
-                    if (cache != null) {
-                        onSuccess(cache);
-                    }
-                }
+                useCache(file, false);
             }
-        } catch (IOException | InterruptedException | JsonParseException | URISyntaxException e) {
+        } catch (InterruptedException e) {
+            // Cancellation is not an ordinary fetch failure: never turn it into cached publication or retries.
+            Thread.currentThread().interrupt();
+        } catch (IOException | JsonParseException | URISyntaxException e) {
             if (github.isLoggingEnabled()) {
-                Slimefun.logger().log(Level.WARNING, "Could not connect to GitHub in time.", e);
+                github.runIfActive(
+                        () -> github.getLogger().log(Level.WARNING, "Could not connect to GitHub in time.", e));
             }
 
-            // It has the cached file, let's just read that then
+            useCache(file, true);
+        }
+    }
+
+    HttpResponse<String> send(HttpRequest request) throws IOException, InterruptedException {
+        return client.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    File getCacheFile() {
+        return new File("plugins/Slimefun/cache/github/" + getFileName() + ".json");
+    }
+
+    private void useCache(File file, boolean reportFailure) {
+        github.runIfActive(() -> {
+            if (Thread.currentThread().isInterrupted()) {
+                return;
+            }
             if (file.exists()) {
-                JsonElement cache = readCacheFile();
+                JsonElement cache = readCacheFile(file);
 
                 if (cache != null) {
-                    onSuccess(cache);
+                    github.runIfActive(() -> onSuccess(cache));
                     return;
                 }
             }
 
             // If the request failed and it failed to read the cache then call onFailure.
-            onFailure();
-        }
+            if (reportFailure) {
+                github.runIfActive(this::onFailure);
+            }
+        });
     }
 
-    @Nullable private JsonElement readCacheFile() {
+    @Nullable private JsonElement readCacheFile(File file) {
         try (BufferedReader reader =
                 new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
             return JsonParser.parseString(reader.readLine());
         } catch (IOException | JsonParseException e) {
-            Slimefun.logger().log(Level.WARNING, "Failed to read Github cache file: {0} - {1}: {2}", new Object[] {
+            github.getLogger().log(Level.WARNING, "Failed to read Github cache file: {0} - {1}: {2}", new Object[] {
                 file.getName(), e.getClass().getSimpleName(), e.getMessage()
             });
             return null;
         }
     }
 
-    private void writeCacheFile(@Nonnull JsonElement node) {
+    private void writeCacheFile(File file, @Nonnull JsonElement node) {
         try (FileOutputStream output = new FileOutputStream(file)) {
             output.write(node.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            Slimefun.logger().log(Level.WARNING, "Failed to populate GitHub cache: {0} - {1}", new Object[] {
+            github.getLogger().log(Level.WARNING, "Failed to populate GitHub cache: {0} - {1}", new Object[] {
                 e.getClass().getSimpleName(), e.getMessage()
             });
         }

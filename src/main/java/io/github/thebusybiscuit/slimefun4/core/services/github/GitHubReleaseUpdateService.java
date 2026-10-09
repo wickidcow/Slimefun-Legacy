@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.core.services.github;
 
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 
@@ -25,12 +24,12 @@ final class GitHubReleaseUpdateService {
 
     /** Starts the release-only updater without blocking server startup. */
     void start() {
-        Slimefun.getSchedulerService().runAsync(this::checkLatestRelease);
-        Slimefun.getSchedulerService().runAsyncAtFixedRate(this::checkLatestRelease, HOURLY_TICKS, HOURLY_TICKS);
+        github.runAsync(this::checkLatestRelease);
+        github.runAsyncAtFixedRate(this::checkLatestRelease, HOURLY_TICKS, HOURLY_TICKS);
     }
 
     private void checkLatestRelease() {
-        if (Slimefun.instance() == null || !Slimefun.instance().isEnabled()) {
+        if (!github.isActive()) {
             return;
         }
 
