@@ -22,8 +22,10 @@ case "$SOFTWARE" in
         ;;
 esac
 
-if [[ "$MC_VERSION" != "26.2" ]]; then
-    echo "This runtime harness is intentionally pinned to Minecraft 26.2; got ${MC_VERSION}." >&2
+# Keep all existing Paper-family 26.2 lanes intact; 26.3 is currently a
+# deliberately scoped Purpur-only compatibility candidate (not Folia/Leaf).
+if [[ "$MC_VERSION" != "26.2" && ( "$SOFTWARE" != "purpur" || "$MC_VERSION" != "26.3" ) ]]; then
+    echo "Unsupported server/version combination: ${SOFTWARE} ${MC_VERSION} (allowed: Paper-family 26.2 or Purpur 26.3)." >&2
     exit 1
 fi
 
@@ -60,7 +62,7 @@ simulation-distance=2
 pause-when-empty-seconds=-1
 enable-query=false
 enable-rcon=false
-motd=Slimefun Legacy 26.2 paper-family runtime smoke
+motd=Slimefun Legacy paper-family runtime smoke
 PROPERTIES
 
 SERVER_BUILD=""
@@ -70,13 +72,27 @@ SERVER_CHANNEL=""
 if [[ "$SOFTWARE" == "purpur" ]]; then
     PURPUR_META_URL="https://api.purpurmc.org/v2/purpur/${MC_VERSION}"
     PURPUR_META="$(runtime_download "$PURPUR_META_URL")"
-    SERVER_BUILD="$(jq -r '.builds.latest // empty' <<<"$PURPUR_META")"
-    if [[ -z "$SERVER_BUILD" ]]; then
+    LATEST_PURPUR_BUILD="$(jq -r '.builds.latest // empty' <<<"$PURPUR_META")"
+    if [[ -z "$LATEST_PURPUR_BUILD" ]]; then
         echo "Purpur downloads service did not report a latest build for Minecraft ${MC_VERSION}." >&2
         exit 1
     fi
-    SERVER_URL="https://api.purpurmc.org/v2/purpur/${MC_VERSION}/${SERVER_BUILD}/download"
+    SERVER_BUILD="$LATEST_PURPUR_BUILD"
     SERVER_CHANNEL="latest"
+    # An explicit, verified build pin makes an experimental 26.3 milestone reproducible.
+    if [[ -n "${PURPUR_SMOKE_BUILD:-}" ]]; then
+        if [[ ! "$PURPUR_SMOKE_BUILD" =~ ^[0-9]+$ ]]; then
+            echo "Purpur build pin must be numeric: $PURPUR_SMOKE_BUILD" >&2
+            exit 1
+        fi
+        if ! jq -e --arg build "$PURPUR_SMOKE_BUILD" 'any(.builds.all[]?; tostring == $build)' <<<"$PURPUR_META" >/dev/null; then
+            echo "Purpur build $PURPUR_SMOKE_BUILD is not listed for Minecraft ${MC_VERSION}." >&2
+            exit 1
+        fi
+        SERVER_BUILD="$PURPUR_SMOKE_BUILD"
+        SERVER_CHANNEL="pinned"
+    fi
+    SERVER_URL="https://api.purpurmc.org/v2/purpur/${MC_VERSION}/${SERVER_BUILD}/download"
 elif [[ "$SOFTWARE" == "leaf" ]]; then
     LEAF_VERSION_URL="https://api.leafmc.one/v2/projects/leaf/versions/${MC_VERSION}"
     LEAF_VERSION="$(runtime_download "$LEAF_VERSION_URL")"
@@ -233,7 +249,7 @@ run_cycle "first" false
 run_cycle "second" true
 
 cat > "$WORK_DIR/smoke-result.txt" <<EOF
-Slimefun Legacy ${SOFTWARE_NAME} 26.2 runtime smoke: PASS
+Slimefun Legacy ${SOFTWARE_NAME} ${MC_VERSION} runtime smoke: PASS
 Slimefun Legacy: ${EXPECTED_PLUGIN_VERSION}
 Minecraft: ${MC_VERSION}
 ${SOFTWARE_NAME} build: ${SERVER_BUILD}
