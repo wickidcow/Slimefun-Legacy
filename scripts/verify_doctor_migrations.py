@@ -125,6 +125,17 @@ reject("registerLegacySlimefunItemId(" in correlation, "normal scan correlation 
 reject("setItemData(" in correlation, "normal scan correlation must not rewrite item IDs")
 
 require("KnownLegacyItemIdCatalog" in catalog, "historical legacy-ID catalog is missing")
+require('"SHULKER_HELMET"' in catalog and 'ENDER_PANDA_SOURCE' in catalog,
+        "EnderPanda historical Shulker Helmet ownership evidence is missing")
+require('"PANDA_HELMET"' in catalog and '"ENDER_GENERATOR"' in catalog,
+        "EnderPanda recovery catalog must identify original armor and machine IDs")
+require('"LUCKY_BLOCK"' in catalog and '"PANDORAS_BOX"' in catalog,
+        "LuckyBlocks historical registered block IDs are missing")
+require('DOCUMENTED_ITEM_ID' in catalog,
+        "historical item identities need a distinct non-migration evidence level")
+reject('"LUCKY_SWORD"' in catalog or '"LUCKY_HELMET"' in catalog,
+       "Lucky equipment surprise drops are vanilla item stacks, not Slimefun IDs")
+
 require("diagnostic evidence only" in catalog, "historical catalog must document its non-authoritative boundary")
 require('add(hints, "DIGITAL_MINER", "INDUSTRIAL_MINER", SLIMEFUN4_MINER_SOURCE, Evidence.DOCUMENTED_REPLACEMENT)' in catalog,
         "documented Slimefun4 Digital Miner replacement is missing from the historical catalog")
