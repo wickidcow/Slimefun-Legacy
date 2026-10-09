@@ -5,6 +5,20 @@ SLIMEFUN_JAR="${1:?Usage: full_stack_runtime_smoke.sh <slimefun-jar> <addon-bund
 ADDON_BUNDLE="${2:?Usage: full_stack_runtime_smoke.sh <slimefun-jar> <addon-bundle.zip> [work-directory]}"
 WORK_DIR="${3:-build/full-stack-runtime-smoke}"
 MC_VERSION="${SERVER_MINECRAFT_VERSION:-26.3}"
+SOFTWARE="${SERVER_SOFTWARE:-paper}"
+case "$SOFTWARE" in
+    paper) SOFTWARE_NAME="Paper" ;;
+    purpur) SOFTWARE_NAME="Purpur" ;;
+    *) echo "Unsupported full-stack server software: $SOFTWARE" >&2; exit 1 ;;
+esac
+if [[ "$SOFTWARE" == "purpur" && "$MC_VERSION" != "26.3" ]]; then
+    echo "Unsupported full-stack server/version combination: ${SOFTWARE} ${MC_VERSION} (Purpur full-stack milestone is 26.3 only)." >&2
+    exit 1
+fi
+if [[ "$SOFTWARE" == "paper" && "$MC_VERSION" != "1.21.11" && "$MC_VERSION" != "26.2" && "$MC_VERSION" != "26.3" ]]; then
+    echo "Unsupported full-stack server/version combination: ${SOFTWARE} ${MC_VERSION}." >&2
+    exit 1
+fi
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$REPO_ROOT/scripts/runtime_download.sh"
 EXPECTED_SLIMEFUN_VERSION="${SLIMEFUN_SMOKE_VERSION:-$(sed -n 's/^projectVersion=//p' "$REPO_ROOT/gradle.properties" | head -n 1 | tr -d '\r')}"
@@ -184,31 +198,53 @@ enable-rcon=false
 motd=Slimefun Legacy full-stack runtime smoke
 PROPERTIES
 
-BUILDS_URL="https://fill.papermc.io/v3/projects/paper/versions/${MC_VERSION}/builds"
-BUILDS_RESPONSE="$(runtime_download "$BUILDS_URL")"
-if jq -e '.ok == false' >/dev/null 2>&1 <<<"$BUILDS_RESPONSE"; then
-    jq -r '.message // "Paper downloads service returned an unknown error"' <<<"$BUILDS_RESPONSE" >&2
-    exit 1
-fi
-
-if [[ "$MC_VERSION" == "26.2" ]]; then
-    SERVER_URL="$(jq -r 'first(.[] | select(.channel == "STABLE") | .downloads."server:default".url) // empty' <<<"$BUILDS_RESPONSE")"
-    SERVER_BUILD="$(jq -r 'first(.[] | select(.channel == "STABLE") | .id) // empty' <<<"$BUILDS_RESPONSE")"
-    SERVER_CHANNEL="STABLE"
+SERVER_URL=""
+SERVER_BUILD=""
+SERVER_CHANNEL=""
+if [[ "$SOFTWARE" == "purpur" ]]; then
+    # The experimental Purpur milestone must use the same reviewed build on
+    # every run. Never silently swap in the latest build.
+    : "${PURPUR_SMOKE_BUILD:?Purpur 26.3 full-stack requires an explicit reviewed build pin}"
+    if [[ ! "$PURPUR_SMOKE_BUILD" =~ ^[0-9]+$ ]]; then
+        echo "Purpur 26.3 full-stack build pin must be numeric." >&2
+        exit 1
+    fi
+    PURPUR_META="$(runtime_download "https://api.purpurmc.org/v2/purpur/26.3")"
+    if ! jq -e --arg build "$PURPUR_SMOKE_BUILD" 'any(.builds.all[]?; tostring == $build)' <<<"$PURPUR_META" >/dev/null; then
+        echo "Pinned Purpur 26.3 build $PURPUR_SMOKE_BUILD was not listed by the official Purpur downloads API." >&2
+        exit 1
+    fi
+    SERVER_BUILD="$PURPUR_SMOKE_BUILD"
+    SERVER_CHANNEL="pinned-experimental"
+    SERVER_URL="https://api.purpurmc.org/v2/purpur/26.3/${SERVER_BUILD}/download"
 else
-    SERVER_URL="$(jq -r 'if type == "array" and length > 0 then (max_by(.id) | .downloads."server:default".url // empty) else empty end' <<<"$BUILDS_RESPONSE")"
-    SERVER_BUILD="$(jq -r 'if type == "array" and length > 0 then (max_by(.id) | .id // empty) else empty end' <<<"$BUILDS_RESPONSE")"
-    SERVER_CHANNEL="$(jq -r 'if type == "array" and length > 0 then (max_by(.id) | .channel // "unknown") else "unknown" end' <<<"$BUILDS_RESPONSE")"
+    # Preserve the existing three Paper full-stack lanes and their build
+    # selection policies unchanged.
+    BUILDS_URL="https://fill.papermc.io/v3/projects/paper/versions/${MC_VERSION}/builds"
+    BUILDS_RESPONSE="$(runtime_download "$BUILDS_URL")"
+    if jq -e '.ok == false' >/dev/null 2>&1 <<<"$BUILDS_RESPONSE"; then
+        jq -r '.message // "Paper downloads service returned an unknown error"' <<<"$BUILDS_RESPONSE" >&2
+        exit 1
+    fi
+    if [[ "$MC_VERSION" == "26.2" ]]; then
+        SERVER_URL="$(jq -r 'first(.[] | select(.channel == "STABLE") | .downloads."server:default".url) // empty' <<<"$BUILDS_RESPONSE")"
+        SERVER_BUILD="$(jq -r 'first(.[] | select(.channel == "STABLE") | .id) // empty' <<<"$BUILDS_RESPONSE")"
+        SERVER_CHANNEL="STABLE"
+    else
+        SERVER_URL="$(jq -r 'if type == "array" and length > 0 then (max_by(.id) | .downloads."server:default".url // empty) else empty end' <<<"$BUILDS_RESPONSE")"
+        SERVER_BUILD="$(jq -r 'if type == "array" and length > 0 then (max_by(.id) | .id // empty) else empty end' <<<"$BUILDS_RESPONSE")"
+        SERVER_CHANNEL="$(jq -r 'if type == "array" and length > 0 then (max_by(.id) | .channel // "unknown") else "unknown" end' <<<"$BUILDS_RESPONSE")"
+    fi
 fi
 if [[ -z "$SERVER_URL" || -z "$SERVER_BUILD" ]]; then
-    echo "No usable Paper build available for Minecraft ${MC_VERSION}." >&2
+    echo "No usable ${SOFTWARE_NAME} build available for Minecraft ${MC_VERSION}." >&2
     exit 1
 fi
 
 runtime_download "$SERVER_URL" "$WORK_DIR/server.jar"
 MANIFEST_ADDON_COUNT=$(( $(wc -l < "$WORK_DIR/expected-addons.txt") + $(wc -l < "$WORK_DIR/dependency-gated-addons.txt") ))
-printf 'Minecraft: %s\nPaper build: %s\nChannel: %s\nManifest addons: %s\nRequired-enable addons: %s\nDependency-gated addons: %s\n' \
-    "$MC_VERSION" "$SERVER_BUILD" "$SERVER_CHANNEL" "$MANIFEST_ADDON_COUNT" \
+printf 'Software: %s\nMinecraft: %s\n%s build: %s\nChannel: %s\nManifest addons: %s\nRequired-enable addons: %s\nDependency-gated addons: %s\n' \
+    "$SOFTWARE_NAME" "$MC_VERSION" "$SOFTWARE_NAME" "$SERVER_BUILD" "$SERVER_CHANNEL" "$MANIFEST_ADDON_COUNT" \
     "$(wc -l < "$WORK_DIR/expected-addons.txt")" "$(wc -l < "$WORK_DIR/dependency-gated-addons.txt")" > "$WORK_DIR/runtime-build.txt"
 
 normalize_log() {
@@ -266,7 +302,7 @@ run_cycle() {
         echo "Expected Slimefun ${EXPECTED_SLIMEFUN_VERSION} did not enable" >&2; return 1
     fi
     if grep -Eq 'Error occurred while enabling|NoClassDefFoundError|NoSuchMethodError|AbstractMethodError|IncompatibleClassChangeError' "$normalized"; then
-        echo "Full-stack linkage/enable failure detected on ${MC_VERSION}/${label}" >&2
+        echo "Full-stack linkage/enable failure detected on ${SOFTWARE_NAME} ${MC_VERSION}/${label}" >&2
         grep -E 'Error occurred while enabling|NoClassDefFoundError|NoSuchMethodError|AbstractMethodError|IncompatibleClassChangeError' "$normalized" >&2 || true
         return 1
     fi
@@ -293,8 +329,9 @@ run_cycle second true
 
 cat > "$WORK_DIR/smoke-result.txt" <<EOF
 Slimefun Legacy full-stack runtime smoke: PASS
+Software: ${SOFTWARE_NAME}
 Minecraft: ${MC_VERSION}
-Paper build: ${SERVER_BUILD}
+${SOFTWARE_NAME} build: ${SERVER_BUILD}
 Channel: ${SERVER_CHANNEL}
 Slimefun Legacy: ${EXPECTED_SLIMEFUN_VERSION}
 Manifest source: SF_ADDON_MANIFEST.json
