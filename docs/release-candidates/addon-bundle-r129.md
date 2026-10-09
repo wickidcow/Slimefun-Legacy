@@ -1,11 +1,22 @@
 # Addon bundle r129 candidate: DynaTech 1.1.04
 
 This candidate advances the addon release matrix from revision 128 to 129 and pins
-DynaTech 1.1.04. It is based on Slimefun Legacy master commit
+DynaTech 1.1.04. Initial preparation used Slimefun Legacy master commit
 `9e80ba889cbddd45fc6456f6199a6607252503d3`, which contains the r128 FluffyMachines
-update. Public Slimefun Legacy 4.1.71 and its r127 addon bundle remain unchanged.
-This document records candidate preparation; r129 is not a published replacement
-for those release assets.
+update. The current integration base is
+`5c5e092577ae716dd38ae0e0d09b6b09b9ea4707`, including
+[PR #357](https://github.com/wickidcow/Slimefun-Legacy/pull/357)'s read-only
+historical Doctor hints. That master update is incorporated without rewriting
+the candidate's initial history. Public Slimefun Legacy 4.1.71 and its r127 addon
+bundle remain unchanged. This document records candidate preparation; r129 is
+not a published replacement for those release assets.
+
+The initial core PR head `449c0bee322fba004b1bcb8e858142c48de09936` and its GitHub
+merge commit `786b68f8c8a8f0007247eb259beae259b3af66ce` preceded the master update.
+Their core, bundle and full-stack CI results, including bundle run 37867207502,
+are superseded historical evidence and provide no acceptance for the refreshed
+combined source. The unchanged DynaTech publication and fixture evidence below
+retains its separate attribution to the addon and pinned public core.
 
 ## Source and artifact identity
 
@@ -105,30 +116,36 @@ Those observations remain unresolved; passing acceptance runs do not close them.
 
 ## r129 validation and release gates
 
-Local checks used the checked-in Gradle 9.4.1 wrapper, the existing JDK 25
-toolchain and the normal credential-free proxy. The results are:
+The following local checks were rerun on the combined source using current
+integration base `5c5e092577ae716dd38ae0e0d09b6b09b9ea4707`, the checked-in Gradle
+9.4.1 wrapper, the existing JDK 25 toolchain and the normal credential-free proxy.
+Initial preparation logs remain in `r129-core-local`; refreshed logs, XML reports
+and audits are retained separately in `r129-core-local/refreshed-5c5e092`.
 
 | Local check | Actual result |
 | --- | --- |
-| Matrix/source scope audit and `git diff --check` | Passed; only the matrix and this note changed. |
+| Matrix/source scope audit and `git diff --check` | Passed; only the matrix and this note differ from the current integration base. |
 | `python3 scripts/verify_legacy.py .` with JDK 25 on `PATH` | Passed all repository invariant checks. |
 | `./gradlew --no-daemon --console=plain test` | Passed: 705 tests total, 704 passed, one skipped, zero failures/errors; 141 XML reports. |
-| `./gradlew --no-daemon --console=plain build` | Failed at `spotlessJavaCheck` after compilation, tests and JAR assembly completed. |
+| `./gradlew --no-daemon --console=plain build` | Failed at `spotlessJavaCheck`; test outputs were current, and `sourcesJar` and `shadowJar` completed. |
 | `./gradlew --no-daemon --console=plain spotlessCheck` | Failed on the same 283 inherited Java formatting violations. |
 
 The skipped test is the existing
 `DatabasePatchV3RealDatabaseTest.migratesAndDeserializesEveryInventoryItem()`;
-its setup requires the optional `slimefun.realDatabase` system property. The first
-test attempt reached production compilation and exhausted its 180-second bound;
-the follow-up completed in 21 seconds using the populated normal dependency cache.
-Build and explicit formatting checks completed in 50 and seven seconds,
-respectively, within their separate 60-second bounds.
+its setup requires the optional `slimefun.realDatabase` system property. Refreshed
+production compilation and the test task both executed; the test command passed
+in 15.1 seconds. The invariant verifier passed in 23.2 seconds. Build and explicit
+formatting checks failed in 9.2 and 6.5 seconds, respectively. No refreshed command
+hit its bound: tests/invariants allowed 90 seconds each, and build/formatting
+allowed 60 seconds each.
 
-All 283 files reported by Spotless match their Git blobs at the r128 base commit
-above. No Java, runtime script or Gradle configuration file changed in this
-candidate. The complete violation paths, proposed formatting diffs and per-file
-base/source hashes are retained in `r129-core-local/formatting-violations.json`,
-`formatting-violations.txt` and `formatting-violations.diff`, alongside the full
+The refreshed comparison independently found 283 Spotless violations; every
+affected source file matches its Git blob at the current `5c5e092` base. Java,
+runtime scripts and Gradle configuration are unchanged relative to that base,
+and PR #357's incoming catalog, verifier and API documentation match master
+exactly. The refreshed evidence directory contains `formatting-violations.json`,
+`formatting-violations.txt` and `formatting-violations.diff`, with every violation
+path, proposed formatting difference and base/source hash, alongside the full
 command logs and `junit-summary.json`. The existing CI build workflow runs
 `spotlessApply` before building; success through that workflow is distinct from
 a passing `spotlessCheck` on an untouched source checkout. The local formatting

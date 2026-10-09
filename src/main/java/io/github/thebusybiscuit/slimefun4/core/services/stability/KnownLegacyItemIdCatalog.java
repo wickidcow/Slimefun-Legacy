@@ -19,6 +19,8 @@ public final class KnownLegacyItemIdCatalog {
 
     private static final String SLIMEFUN4_MINER_SOURCE = "Slimefun4 Digital Miner -> Industrial Miner replacement";
     private static final String IE1_SOURCE = "InfinityExpansion v1 -> InfinityExpansion2";
+    private static final String ENDER_PANDA_SOURCE = "EnderPanda (balugaq/EnderPanda) historical item";
+    private static final String LUCKY_BLOCKS_SOURCE = "Slimefun LuckyBlocks (Slimefun-Addon-Community/luckyblocks) historical block";
     private static final Map<String, Hint> EXACT_HINTS = createExactHints();
 
     private KnownLegacyItemIdCatalog() {}
@@ -80,6 +82,23 @@ public final class KnownLegacyItemIdCatalog {
 
     private static Map<String, Hint> createExactHints() {
         Map<String, Hint> hints = new LinkedHashMap<>();
+
+        // Exact historical IDs confirmed from EnderPanda's Items.java and registration code.
+        // These are identity hints, NOT replacements: installing the restored addon is the safe path.
+        for (String id : new String[] {
+            "SHULKER_HELMET", "PANDA_HELMET", "PANDA_CHESTPLATE", "PANDA_LEGGINGS",
+            "PANDA_BOOTS", "PANDA_FRAGMENT", "SPECIAL_BAMBOO", "ENDER_REPLACER", "ENDER_GENERATOR"
+        }) {
+            add(hints, id, id, ENDER_PANDA_SOURCE, Evidence.DOCUMENTED_ITEM_ID);
+        }
+
+        // Only the four LuckyBlocks block variants have Slimefun IDs.
+        // Lucky armor, tools and weapons are enchanted vanilla drops, not registrable IDs.
+        for (String id : new String[] {
+            "LUCKY_BLOCK", "LUCKY_BLOCK_LUCKY", "LUCKY_BLOCK_UNLUCKY", "PANDORAS_BOX"
+        }) {
+            add(hints, id, id, LUCKY_BLOCKS_SOURCE, Evidence.DOCUMENTED_ITEM_ID);
+        }
 
         // Slimefun4 explicitly removed the long-deprecated Digital Miners when the Industrial Miner family replaced
         // them. This is useful historical identification only: the machine designs/semantics are not treated as a
@@ -158,6 +177,7 @@ public final class KnownLegacyItemIdCatalog {
 
     public enum Evidence {
         DOCUMENTED_REPLACEMENT("documented replacement"),
+        DOCUMENTED_ITEM_ID("verified historical identity; reinstall or restore owning addon"),
         VERIFIED_EXPLICIT_MAPPING("verified explicit mapping"),
         VERIFIED_COMPATIBILITY_PATTERN("verified compatibility pattern"),
         RUNTIME_VERIFIED_COMPATIBILITY_RULE("runtime-verified compatibility rule");
