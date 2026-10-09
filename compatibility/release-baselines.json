@@ -2,16 +2,16 @@
   "schema": 1,
   "project": "Slimefun Legacy",
   "candidate": {
-    "version": "4.1.71"
+    "version": "4.1.72"
   },
   "previous_stable": {
-    "version": "4.1.70",
+    "version": "4.1.71",
     "source": {
       "mode": "git-ref",
-      "ref": "682f26ef1c6a71c905091fb178bf4b3763bc1652"
+      "ref": "f68544e47d8489704d0e9d34adc65f0114b07153"
     },
     "release_blocking": true,
-    "purpose": "Primary regression baseline: the published 4.1.70 core at its exact source commit, not newer master builds. Required addons that work here but fail against the candidate block release. Historical 4.1.69 refresh upgrade evidence remains separately preserved."
+    "purpose": "Primary regression baseline: the exact published 4.1.71 core source, not a later master build. Required addon regressions against that stable release block 4.1.72. The earlier 4.1.69-to-4.1.70 persistence fixture remains historical and unchanged."
   },
   "legacy_floor": {
     "version": "4.1.15",

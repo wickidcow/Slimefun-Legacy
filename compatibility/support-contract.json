@@ -1,5 +1,5 @@
 {
-  "release": "4.1.71",
+  "release": "4.1.72",
   "project": "Slimefun Legacy",
   "plugin_name": "Slimefun",
   "primary_platform": {
@@ -55,6 +55,13 @@
       "runtime_java": 25,
       "status": "experimental",
       "validation": "two-boot real-server runtime smoke; full gameplay and addon region-safety remain experimental"
+    },
+    {
+      "software": "Purpur",
+      "basis": "Paper 26.3",
+      "runtime_java": 25,
+      "status": "experimental",
+      "validation": "Actual experimental Purpur 26.3 build 2646 double-boot with the complete 45-addon canonical bundle; site-specific plugins and old-world upgrades are not certified"
     }
   ],
   "unsupported_platforms": [

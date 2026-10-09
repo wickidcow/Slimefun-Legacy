@@ -17,7 +17,11 @@ def probe(software: str, minecraft: str) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env["SERVER_SOFTWARE"] = software
     env["SERVER_MINECRAFT_VERSION"] = minecraft
-    env["SLIMEFUN_SMOKE_VERSION"] = "4.1.71"
+    env["SLIMEFUN_SMOKE_VERSION"] = next(
+        row.split("=", 1)[1]
+        for row in (ROOT / "gradle.properties").read_text(encoding="utf-8").splitlines()
+        if row.startswith("projectVersion=")
+    )
     # The fake JAR fails before any download or world creation is attempted.
     return subprocess.run(
         ["bash", str(SCRIPT), str(ROOT / "missing-purpur-milestone-test.jar")],
