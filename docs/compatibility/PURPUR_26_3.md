@@ -1,6 +1,6 @@
 # Purpur 26.3 experimental compatibility milestone
 
-**Status: candidate / CI validation. Not yet production certified.**
+**Status: core runtime CI passed; canonical addon-bundle CI in progress. Not production certified.**
 
 Purpur publishes Minecraft 26.3 as **experimental**. Slimefun Legacy continues to support Minecraft **1.21.11 and newer**, retaining existing Paper/Purpur 1.21.11 and Paper/Purpur/Folia/Leaf 26.2 checks. This milestone adds a **Purpur-only 26.3** validation lane, without assuming Folia or Leaf 26.3 support.
 
@@ -23,6 +23,20 @@ The [Purpur 26.3 Experimental Runtime Milestone](../../.github/workflows/purpur-
 6. Publish runtime build metadata, console logs and smoke results as GitHub Actions artifacts.
 
 Green checks indicate an initial **core-only** Purpur 26.3 runtime compatibility milestone, not validation of every Slimefun addon or the complete AlbionMC plugin stack. Canonical addon-bundle runtime verification on Purpur 26.3 is a separate follow-on milestone.
+
+## Full-stack canonical addon-bundle milestone
+
+The separate [Paper/Purpur full-stack runtime workflow](../../.github/workflows/paper-26.3-full-stack.yml) now includes a dedicated **Purpur 26.3 build 2646 (experimental)** test. It reuses the same exact-source Slimefun Legacy core candidate and canonical `SF_Addons_1.21.11-26.3.zip` artifact required by the Paper 1.21.11, 26.2 and 26.3 lanes. The addon bundle is validated against its manifest/source provenance; the test never substitutes a convenient older release when an exact candidate is missing.
+
+The full-stack Purpur gate:
+
+1. Rejects unreviewed or unavailable Purpur builds by checking the pinned **2646** against the official Purpur builds API.
+2. Installs the manifest-listed addon JARs plus an independently verified WorldEdit dependency, with external missing hard dependencies reported explicitly as dependency-gated rather than silently counted as tested.
+3. Boots a disposable server **twice**, verifying required addon enable lines, WorldEdit + WorldEditSlimefun, configuration-load errors, Java linkage errors, and persistence of a clean shutdown.
+4. Uploads the actual Purpur build, source/bundle provenance, required-enable and dependency-gated addon lists, normalized logs and smoke results.
+5. Keeps the original three Paper lanes running unchanged; **Folia 26.3 is not certified** merely by passing this Purpur test.
+
+This gate is the **canonical maintained Slimefun addon ZIP**, not the complete AlbionMC production plugin stack. ItemsAdder, MythicMobs, world data and all site-specific integrations still require testing on a cloned server before any production upgrade. A green workflow is necessary but not sufficient for a production-world migration.
 
 ## Production safety
 

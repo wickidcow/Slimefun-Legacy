@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/paper-26.3-full-stack.yml'
       - 'scripts/full_stack_runtime_smoke.sh'
+      - 'scripts/test_full_stack_purpur_26_3.py'
       - 'scripts/prepare_worldedit_runtime.py'
       - 'scripts/test_prepare_worldedit_runtime.py'
       - 'scripts/test_worldedit_stack_integration.py'
@@ -27,6 +28,7 @@ on:
     paths:
       - '.github/workflows/paper-26.3-full-stack.yml'
       - 'scripts/full_stack_runtime_smoke.sh'
+      - 'scripts/test_full_stack_purpur_26_3.py'
       - 'scripts/prepare_worldedit_runtime.py'
       - 'scripts/test_prepare_worldedit_runtime.py'
       - 'scripts/test_worldedit_stack_integration.py'
@@ -61,6 +63,8 @@ jobs:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
       - name: Verify WorldEdit setup contracts offline
         run: python3 -m unittest discover -s scripts -p 'test_*worldedit*.py' -v
+      - name: Verify Purpur full-stack offline contracts
+        run: python3 -m unittest discover -s scripts -p 'test_full_stack_purpur_26_3.py' -v
       - name: Resolve latest Paper 26.3 API
         id: paper
         shell: bash
@@ -243,4 +247,71 @@ jobs:
             build/full-stack-${{ matrix.minecraft }}/dependency-gated-addons.txt
             build/full-stack-${{ matrix.minecraft }}/smoke-result.txt
             build/full-stack-${{ matrix.minecraft }}/plugins/worldedit-runtime.json
+          if-no-files-found: warn
+
+  purpur-26-3-full-stack:
+    name: Full stack experimental Purpur 26.3 build 2646
+    needs: [build-core, fetch-bundle]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/download-artifact@v8
+        with:
+          name: full-stack-core
+          path: candidate
+      - uses: actions/download-artifact@v8
+        with:
+          name: full-stack-addon-bundle
+          path: bundle
+      - name: Boot canonical addon bundle twice on pinned Purpur 26.3
+        env:
+          SERVER_SOFTWARE: purpur
+          SERVER_MINECRAFT_VERSION: '26.3'
+          PURPUR_SMOKE_BUILD: '2646'
+          SERVER_DOWNLOAD_USER_AGENT: Slimefun-Legacy-Purpur-26.3-Full-Stack/1.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x scripts/full_stack_runtime_smoke.sh
+          bash scripts/full_stack_runtime_smoke.sh \
+            candidate/Slimefun-Legacy-full-stack.jar \
+            bundle/SF_Addons_1.21.11-26.3.zip \
+            build/full-stack-purpur-26.3
+      - name: Publish Purpur build and bundle provenance
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f build/full-stack-purpur-26.3/runtime-build.txt ]]; then
+            echo '### Experimental Purpur 26.3 build and manifest evidence' >> "$GITHUB_STEP_SUMMARY"
+            cat build/full-stack-purpur-26.3/runtime-build.txt >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -f build/full-stack-purpur-26.3/smoke-result.txt ]]; then
+            echo '### Full-stack runtime result' >> "$GITHUB_STEP_SUMMARY"
+            cat build/full-stack-purpur-26.3/smoke-result.txt >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -f bundle/bundle-source.txt ]]; then
+            echo '### Exact addon bundle provenance' >> "$GITHUB_STEP_SUMMARY"
+            sed 's/^/- /' bundle/bundle-source.txt >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo 'Experimental test only; this does not certify an AlbionMC production-world upgrade.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: full-stack-runtime-purpur-26.3
+          path: |
+            build/full-stack-purpur-26.3/*.console.log
+            build/full-stack-purpur-26.3/*.normalized.log
+            build/full-stack-purpur-26.3/runtime-build.txt
+            build/full-stack-purpur-26.3/expected-addons.txt
+            build/full-stack-purpur-26.3/dependency-gated-addons.txt
+            build/full-stack-purpur-26.3/smoke-result.txt
+            build/full-stack-purpur-26.3/plugins/worldedit-runtime.json
+            bundle/bundle-source.txt
           if-no-files-found: warn
