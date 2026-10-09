@@ -6,6 +6,8 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorReport;
+import io.github.thebusybiscuit.slimefun4.core.services.stability.KnownLegacyItemIdCatalog;
+import io.github.thebusybiscuit.slimefun4.core.services.stability.LegacyItemRecoveryPreview;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.LegacyItemMigrationPlan;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.LegacyItemMigrationService;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
@@ -94,13 +96,14 @@ final class DoctorRouterCommand extends SubCommand {
             case "status" -> sendMigrationStatus(sender);
             case "list" -> sendMigrationList(sender, parsePage(args));
             case "unknown", "unknowns" -> sendUnknownIds(sender);
+            case "recovery", "recoveries" -> sendRecoveryPreview(sender, parsePage(args));
             case "plan", "dryrun", "dry-run" -> sendMigrationPlan(sender);
             case "providers", "provider" -> sendMigrationProviders(sender);
             case "scan" -> runMigrationProvider(sender, args, false);
             case "execute" -> runMigrationProvider(sender, args, true);
             case "schemas", "schema" -> schemaMigrations.execute(sender, args);
             default -> send(sender,
-                    "&eUsage: /sf doctor migrations <status|list|unknown|plan|providers|scan|execute|schemas>");
+                    "&eUsage: /sf doctor migrations <status|list|unknown|recovery|plan|providers|scan|execute|schemas>");
         }
     }
 
@@ -209,6 +212,67 @@ final class DoctorRouterCommand extends SubCommand {
                     + (targetPresent ? " &7(ready)" : " &7(target missing)"));
         }
         send(sender, "&8Correlation only. Core does not migrate addon persistence itself.");
+    }
+
+    /**
+     * Read-only recovery preview that groups observed IDs by historically verified addon.
+     * Declared migrations have exact per-ID stack counts; unknown IDs are bounded samples.
+     */
+    private void sendRecoveryPreview(@Nonnull CommandSender sender, int requestedPage) {
+        ItemDoctorReport report = latestReport();
+        send(sender, "&6Slimefun Doctor Legacy Item Recovery Preview");
+        if (report == null) {
+            send(sender, "&7No server-wide item scan yet. Run &e/sf doctor scan&7 first.");
+            send(sender, "&8Read-only. No items or storage were changed.");
+            return;
+        }
+
+        List<LegacyItemRecoveryPreview.Entry> entries = LegacyItemRecoveryPreview.build(
+                report.getLegacyMigrationCandidateCounts(),
+                report.getUnknownIdSamples(),
+                Slimefun.getRegistry().getLegacySlimefunItemIds(),
+                KnownLegacyItemIdCatalog::find,
+                id -> SlimefunItem.getById(id) != null);
+
+        send(sender, "&7Source: &e" + report.getModeName()
+                + (report.isComplete() ? " &a(complete)" : " &e(in progress; counts provisional)"));
+        send(sender, "&7Declared legacy candidate stacks: &e" + report.getLegacyMigrationCandidates()
+                + " &8| &7unknown CJK-presentation stacks: &e" + report.getUnknownIds());
+        send(sender, "&7Unknown IDs are sampled (at most 12 distinct IDs), not counted per ID.");
+        if (entries.isEmpty()) {
+            send(sender, "&aNo unresolved legacy IDs or unknown ID samples were available for this preview.");
+            send(sender, "&8Read-only. No items or storage were changed.");
+            return;
+        }
+
+        int pages = Math.max(1, (entries.size() + PAGE_SIZE - 1) / PAGE_SIZE);
+        int page = Math.max(1, Math.min(requestedPage, pages));
+        int from = (page - 1) * PAGE_SIZE;
+        int to = Math.min(entries.size(), from + PAGE_SIZE);
+        send(sender, "&7Historical owners and safe next steps &8- &7page &e" + page + "&7/&e" + pages
+                + " &8(" + entries.size() + " observed IDs)");
+
+        String group = null;
+        for (int i = from; i < to; i++) {
+            LegacyItemRecoveryPreview.Entry entry = entries.get(i);
+            if (!entry.addon().equals(group)) {
+                group = entry.addon();
+                send(sender, "&6" + group);
+            }
+            String count = entry.exactCount()
+                    ? " &8x&e" + entry.stackCount() + (report.isComplete() ? " &8(exact)" : " &8(so far)")
+                    : " &8(sample only)";
+            String target = entry.targetId() == null || entry.targetId().equals(entry.itemId())
+                    ? ""
+                    : " &8-> &e" + entry.targetId();
+            send(sender, "&8- &f" + entry.itemId() + target + count
+                    + " &8[&e" + entry.status() + "&8]");
+            send(sender, "&8  &7Next: " + entry.nextStep());
+        }
+        if (pages > 1) {
+            send(sender, "&7More: &e/sf doctor migrations recovery <page>&7.");
+        }
+        send(sender, "&8Identification only. No automatic repair, ID rewrite, world scan, or inventory change.");
     }
 
     private void sendMigrationPlan(@Nonnull CommandSender sender) {
