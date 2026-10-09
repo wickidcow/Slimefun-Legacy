@@ -48,7 +48,11 @@ public final class LegacyItemRecoveryPreview {
         Objects.requireNonNull(currentlyRegistered);
 
         TreeSet<String> ids = new TreeSet<>();
-        ids.addAll(exactCandidates.keySet());
+        for (String id : exactCandidates.keySet()) {
+            if (id != null && !id.isBlank()) {
+                ids.add(id);
+            }
+        }
         for (String id : unknownSamples) {
             if (id != null && !id.isBlank()) {
                 ids.add(id);
@@ -74,7 +78,8 @@ public final class LegacyItemRecoveryPreview {
                     ? (declared ? "Unattributed declared mapping" : "Unknown addon")
                     : groupFor(historical.source());
             String declaredTarget = declaredMappings.get(id);
-            String target = declared ? declaredTarget : historical == null ? null : historical.targetId();
+            // Never present a historical hint as the replacement target of a stale declared mapping.
+            String target = declared ? declaredTarget : (!exact && historical != null ? historical.targetId() : null);
             long stackCount = exact && exactCandidates.get(id) != null ? exactCandidates.get(id) : 0L;
             String status;
             String nextStep;
