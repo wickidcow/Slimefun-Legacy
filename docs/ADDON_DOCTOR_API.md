@@ -68,6 +68,7 @@ Migration providers must not force-load chunks solely to perform a migration. A 
 - `/sf doctor migrations status` summarizes registered legacy mappings and providers.
 - `/sf doctor migrations list [page]` lists declared legacy-to-current ID replacements.
 - `/sf doctor migrations unknown` correlates sampled unknown IDs from Item Doctor with declared mappings.
+- `/sf doctor migrations recovery [page]` groups observed legacy IDs by their historically verified addon and gives read-only recovery guidance; declared-mapping stack counts are exact only after scan completion, while unknown-ID entries are sample-only.
 - `/sf doctor migrations plan` produces a generic read-only migration plan from the latest Item Doctor evidence.
 - `/sf doctor migrations providers` lists enabled migration providers and validation state.
 - `/sf doctor migrations scan <plugin>` runs a provider read-only scan and, when clean, creates a short-lived execution fingerprint.
@@ -86,3 +87,9 @@ The historical-ID catalog used by `/sf doctor scan` now identifies the nine orig
 LuckyBlocks' Lucky Armor and weapons are enchanted vanilla drops rather than registered Slimefun item IDs. Their Chinese-name restoration is intentionally handled separately by `/luckyrestore check` and `/luckyrestore hand` in SF_LuckyBlocks v1.0.4. The command matches item type, original enchantments and Chinese display text; do not infer any Lucky Armor Slimefun IDs.
 
 For orphaned EnderPanda items, install a compatible owning addon or use a deliberately verified restoration. Only `SHULKER_HELMET` is currently restored in Slimefun Legacy core; the other eight EnderPanda IDs remain identification-only unless a compatible addon is installed.
+
+### Recovery preview workflow
+
+Run `/sf doctor scan`, then `/sf doctor migrations recovery`. Add a page number if necessary. The preview reads the last/current Doctor snapshot and groups observed IDs by verified historical addon ownership (EnderPanda, LuckyBlocks, InfinityExpansion, etc.) or **Unknown addon**. It reports **exact per-ID stack counts only for addon-declared migration candidates after the scan completes**. Other unknown IDs are sampled (the scan retains at most 12 distinct sample IDs), so their per-ID populations cannot be inferred.
+
+A historical ID is identification evidence, not a registered replacement or repair permission. `SHULKER_HELMET` can be restored by updating Slimefun Legacy; other EnderPanda IDs require a compatible owning addon. LuckyBlocks registered block IDs require SF_LuckyBlocks; old Lucky Armor and weapon display names are handled separately by the opt-in `/luckyrestore` command. The preview does not load chunks, edit inventories, convert blocks, rename items, or execute migration providers.

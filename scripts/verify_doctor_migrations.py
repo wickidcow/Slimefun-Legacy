@@ -31,6 +31,8 @@ router = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/su
 scan = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorScanWithLegacyCorrelation.java")
 correlation = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorLegacyIdCorrelation.java")
 catalog = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/KnownLegacyItemIdCatalog.java")
+recovery = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/LegacyItemRecoveryPreview.java")
+recovery_test = read("src/test/java/io/github/thebusybiscuit/slimefun4/core/services/stability/TestLegacyItemRecoveryPreview.java")
 subcommands = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/SlimefunSubCommands.java")
 tabs = read("src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/SlimefunTabCompleter.java")
 provider_api = read("src/main/java/io/github/thebusybiscuit/slimefun4/api/diagnostics/LegacyItemMigrationProvider.java")
@@ -82,6 +84,30 @@ require('case "providers", "provider" -> sendMigrationProviders(sender);' in rou
 require('case "scan" -> runMigrationProvider(sender, args, false);' in router, "read-only provider migration scan is missing")
 require('case "execute" -> runMigrationProvider(sender, args, true);' in router, "provider-owned migration execution route is missing")
 require("getUnknownIdSamples()" in router, "Doctor migration correlation must use Item Doctor unknown-ID samples")
+require('case "recovery", "recoveries" -> sendRecoveryPreview(sender, parsePage(args));' in router,
+        "read-only recovery preview command route is missing")
+require("LegacyItemRecoveryPreview.build(" in router, "Doctor recovery preview must use the grouped snapshot service")
+require("KnownLegacyItemIdCatalog::find" in router,
+        "Doctor recovery must use verified historical evidence, not invented ID mappings")
+require("getLegacyMigrationCandidateCounts()" in router and "getUnknownIdSamples()" in router,
+        "Doctor recovery must distinguish exact declared counts from bounded unknown samples")
+require("at most 12 distinct IDs" in router, "Doctor recovery preview must disclose sampling limits")
+require('"recovery"' in tabs, "Doctor recovery tab completion is missing")
+require("class LegacyItemRecoveryPreview" in recovery and "List.copyOf(results)" in recovery,
+        "Doctor recovery preview must return immutable sorted entries")
+require("results.sort(Comparator.comparing(Entry::addon).thenComparing(Entry::itemId))" in recovery,
+        "Doctor recovery preview must be grouped by addon then ID")
+require("currentlyRegistered.test(id)" in recovery,
+        "Doctor recovery preview must suppress old unknown samples after item restoration")
+require("SF_LuckyBlocks v1.0.4+" in recovery,
+        "Doctor recovery preview must direct vanilla Lucky gear to its owning addon")
+require("groupsByOriginalAddonWithoutInventingExactSampleCounts" in recovery_test,
+        "Doctor recovery preview grouping regression test is missing")
+require("skipsAlreadyRegisteredIdsFromAnOldUnknownSample" in recovery_test,
+        "Doctor recovery preview must test stale scan results")
+reject("setItemData(" in recovery or "setItemMeta(" in recovery or "registerLegacySlimefunItemId(" in recovery,
+       "Doctor recovery preview must not rewrite item IDs or register executable mappings")
+
 require("getLegacySlimefunItemIds()" in router, "Doctor migration command must use addon-declared mappings")
 require("getLegacyMigrationCandidateCounts()" in router, "Doctor migration dry-run must use exact declared-candidate counts")
 require("Additional unmapped unknown IDs remain sample-only" in router,
