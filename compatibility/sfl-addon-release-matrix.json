@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 128,
+  "bundle_revision": 129,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -96,7 +96,7 @@
     {
       "repository": "wickidcow/SF_DynaTech",
       "slug": "dynatech",
-      "source_commit": "8dbc4a4967b943cfddd1d0677713a932a8ce45ba"
+      "source_commit": "f4289dbbd61fcc93ae8c6bcfde5b9e3892d371bc"
     },
     {
       "repository": "wickidcow/SF_ElectricSpawners",
