@@ -1,0 +1,145 @@
+name: Purpur 26.3 Experimental Runtime Milestone
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'gradle.properties'
+      - 'scripts/paper_family_26_2_runtime_smoke.sh'
+      - 'scripts/test_purpur_26_3_runtime_contract.py'
+      - 'scripts/paper_candidate_versions.py'
+      - 'scripts/verify_legacy.py'
+      - '.github/workflows/purpur-26.3-runtime-smoke.yml'
+      - 'docs/compatibility/PURPUR_26_3.md'
+  push:
+    branches: [master]
+    paths:
+      - 'src/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'gradle.properties'
+      - 'scripts/paper_family_26_2_runtime_smoke.sh'
+      - 'scripts/test_purpur_26_3_runtime_contract.py'
+      - 'scripts/paper_candidate_versions.py'
+      - 'scripts/verify_legacy.py'
+      - '.github/workflows/purpur-26.3-runtime-smoke.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '29 9 * * 4'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: purpur-26-3-milestone-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SERVER_SOFTWARE: purpur
+  SERVER_MINECRAFT_VERSION: '26.3'
+  # Baseline is an *experimental* official Purpur 26.3 download.
+  # Move this pin only through a reviewed PR with fresh CI evidence.
+  PURPUR_SMOKE_BUILD: '2646'
+  SERVER_DOWNLOAD_USER_AGENT: Slimefun-Legacy-Purpur-26.3-Milestone/1.0
+
+jobs:
+  purpur-26-3-smoke:
+    name: Boot twice on experimental Purpur 26.3 build 2646
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Check out exact Slimefun source
+        uses: actions/checkout@v6
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Test supported version boundaries
+        run: |
+          set -euo pipefail
+          bash -n scripts/paper_family_26_2_runtime_smoke.sh
+          python3 -m unittest scripts/test_purpur_26_3_runtime_contract.py -v
+
+      - name: Verify core compatibility invariants
+        run: python3 scripts/verify_legacy.py .
+
+      - name: Resolve official Paper 26.3 compile API
+        id: paper
+        shell: bash
+        run: |
+          set -euo pipefail
+          METADATA='https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/maven-metadata.xml'
+          VERSION="$(curl --fail --silent --show-error --location --retry 3 "$METADATA" | python3 scripts/paper_candidate_versions.py --target 26.3)"
+          if [[ -z "$VERSION" ]]; then
+            echo 'Official Paper 26.3 API is unavailable; cannot certify Purpur 26.3 compatibility.' >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Paper compile API: $VERSION" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build universal Slimefun Legacy JAR on Paper 26.3 API
+        env:
+          PAPER_API_VERSION: ${{ steps.paper.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew scripts/paper_family_26_2_runtime_smoke.sh
+          export SOURCE_COMMIT="$(git rev-parse HEAD)"
+          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          ./gradlew clean shadowJar -PpaperApiVersion="$PAPER_API_VERSION" --no-daemon --no-build-cache --no-configuration-cache
+          JAR="$(find build/libs -maxdepth 1 -type f -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          test -s "$JAR"
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+          python3 scripts/verify_release_artifact.py "$JAR" --root .
+          mkdir -p build/purpur-26.3-candidate
+          cp "$JAR" build/purpur-26.3-candidate/Slimefun-Legacy-candidate.jar
+
+      - name: Boot experimental Purpur 26.3 twice and run Doctor checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/paper_family_26_2_runtime_smoke.sh \
+            build/purpur-26.3-candidate/Slimefun-Legacy-candidate.jar \
+            build/purpur-26.3-runtime-smoke
+
+      - name: Summarize actual tested build and startup result
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Purpur 26.3 experimental compatibility milestone'
+            echo
+            echo 'Baseline target: official Purpur 26.3 build 2646 (experimental).'
+            echo 'This is a compatibility candidate, not approval to upgrade a production world.'
+            echo
+            if [[ -f build/purpur-26.3-runtime-smoke/runtime-build.txt ]]; then
+              echo '### Tested server'
+              echo '\`\`\`text'
+              cat build/purpur-26.3-runtime-smoke/runtime-build.txt
+              echo '\`\`\`'
+            fi
+            if [[ -f build/purpur-26.3-runtime-smoke/smoke-result.txt ]]; then
+              echo '### Double boot and Doctor readiness'
+              echo '\`\`\`text'
+              cat build/purpur-26.3-runtime-smoke/smoke-result.txt
+              echo '\`\`\`'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: purpur-26.3-milestone-evidence
+          path: |
+            build/purpur-26.3-runtime-smoke/*.console.log
+            build/purpur-26.3-runtime-smoke/runtime-build.txt
+            build/purpur-26.3-runtime-smoke/smoke-result.txt
+          if-no-files-found: warn
