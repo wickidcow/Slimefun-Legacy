@@ -121,15 +121,15 @@ jobs:
             echo
             if [[ -f build/purpur-26.3-runtime-smoke/runtime-build.txt ]]; then
               echo '### Tested server'
-              echo '\`\`\`text'
+              echo '```text'
               cat build/purpur-26.3-runtime-smoke/runtime-build.txt
-              echo '\`\`\`'
+              echo '```'
             fi
             if [[ -f build/purpur-26.3-runtime-smoke/smoke-result.txt ]]; then
               echo '### Double boot and Doctor readiness'
-              echo '\`\`\`text'
+              echo '```text'
               cat build/purpur-26.3-runtime-smoke/smoke-result.txt
-              echo '\`\`\`'
+              echo '```'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
