@@ -1,4 +1,4 @@
-name: Published 4.1.69 to 4.1.70 Upgrade Fixture
+name: Published Release Upgrade Fixture
 
 on:
   pull_request:
@@ -7,6 +7,7 @@ on:
       - 'scripts/published_upgrade_smoke.py'
       - 'scripts/test_published_upgrade_smoke.py'
       - 'tests/published-upgrade/**'
+      - 'docs/published-upgrade-fixture.md'
   workflow_dispatch:
 
 # Read-only evidence production. Never publish, change tags, or use owner server data.
@@ -29,14 +30,37 @@ jobs:
         run: python3 -m unittest discover -s scripts -p 'test_published_upgrade_smoke.py' -v
 
   upgrade:
-    name: Published plugin upgrade on Paper ${{ matrix.minecraft }}
+    name: ${{ matrix.scenario }} on ${{ matrix.platform }} ${{ matrix.minecraft }}
     needs: driver-tests
     runs-on: ubuntu-latest
     timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
-        minecraft: ['1.21.11', '26.2', '26.3']
+        include:
+          - scenario: '4.1.69-to-4.1.70'
+            platform: paper
+            minecraft: '1.21.11'
+          - scenario: '4.1.69-to-4.1.70'
+            platform: paper
+            minecraft: '26.2'
+          - scenario: '4.1.69-to-4.1.70'
+            platform: paper
+            minecraft: '26.3'
+          - scenario: '4.1.71-to-4.1.72'
+            platform: paper
+            minecraft: '1.21.11'
+          - scenario: '4.1.71-to-4.1.72'
+            platform: paper
+            minecraft: '26.2'
+          - scenario: '4.1.71-to-4.1.72'
+            platform: paper
+            minecraft: '26.3'
+          - scenario: '4.1.71-to-4.1.72'
+            platform: purpur
+            minecraft: '26.3'
+            # Reviewed experimental build; never substitute a latest build.
+            purpur-build: '2646'
     steps:
       - uses: actions/checkout@v6
         with:
@@ -46,19 +70,36 @@ jobs:
           distribution: temurin
           java-version: ${{ matrix.minecraft == '1.21.11' && '21' || '25' }}
       - name: Seed old release, validate control, upgrade, and verify re-save
-        run: >-
-          python3 scripts/published_upgrade_smoke.py
-          --minecraft '${{ matrix.minecraft }}'
-          --work-dir 'build/published-upgrade-${{ matrix.minecraft }}'
+        shell: bash
+        env:
+          SCENARIO: ${{ matrix.scenario }}
+          PLATFORM: ${{ matrix.platform }}
+          MC: ${{ matrix.minecraft }}
+          PURPUR_BUILD: ${{ matrix.purpur-build }}
+        run: |
+          set -euo pipefail
+          args=(
+            --scenario "$SCENARIO"
+            --platform "$PLATFORM"
+            --minecraft "$MC"
+            --work-dir "build/published-upgrade-$SCENARIO-$PLATFORM-$MC"
+          )
+          if [[ "$PLATFORM" == purpur ]]; then
+            args+=(--purpur-build "$PURPUR_BUILD")
+          fi
+          python3 scripts/published_upgrade_smoke.py "${args[@]}"
       - name: Show actual result, never infer success from an incomplete report
         if: always()
         shell: python
         env:
+          SCENARIO: ${{ matrix.scenario }}
+          PLATFORM: ${{ matrix.platform }}
           MC: ${{ matrix.minecraft }}
         run: |
           import json, os
           from pathlib import Path
-          report = Path('build') / ('published-upgrade-' + os.environ['MC']) / 'upgrade-evidence.json'
+          lane = '-'.join(os.environ[key] for key in ('SCENARIO', 'PLATFORM', 'MC'))
+          report = Path('build') / ('published-upgrade-' + lane) / 'upgrade-evidence.json'
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
               out.write('## Synthetic published-release upgrade fixture\n\n')
               if report.is_file():
@@ -70,13 +111,14 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: published-upgrade-${{ matrix.minecraft }}
+          name: published-upgrade-${{ matrix.scenario }}-${{ matrix.platform }}-${{ matrix.minecraft }}
           retention-days: 30
           path: |
-            build/published-upgrade-${{ matrix.minecraft }}/compile.log
-            build/published-upgrade-${{ matrix.minecraft }}/*.console.log
-            build/published-upgrade-${{ matrix.minecraft }}/upgrade-evidence.json
-            build/published-upgrade-${{ matrix.minecraft }}/server/fixture-*-result.txt
-            build/published-upgrade-${{ matrix.minecraft }}/server/fixture-coverage.tsv
-            build/published-upgrade-${{ matrix.minecraft }}/server/plugins/worldedit-runtime.json
+            build/published-upgrade-${{ matrix.scenario }}-${{ matrix.platform }}-${{ matrix.minecraft }}/compile.log
+            build/published-upgrade-${{ matrix.scenario }}-${{ matrix.platform }}-${{ matrix.minecraft }}/*.console.log
+            build/published-upgrade-${{ matrix.scenario }}-${{ matrix.platform }}-${{ matrix.minecraft }}/upgrade-evidence.json
+            build/published-upgrade-${{ matrix.scenario }}-${{ matrix.platform }}-${{ matrix.minecraft }}/server/fixture-*-result.txt
+            build/published-upgrade-${{ matrix.scenario }}-${{ matrix.platform }}-${{ matrix.minecraft }}/server/fixture-scenario.properties
+            build/published-upgrade-${{ matrix.scenario }}-${{ matrix.platform }}-${{ matrix.minecraft }}/server/fixture-coverage.tsv
+            build/published-upgrade-${{ matrix.scenario }}-${{ matrix.platform }}-${{ matrix.minecraft }}/server/plugins/worldedit-runtime.json
           if-no-files-found: warn
