@@ -43,10 +43,16 @@ public final class PublishedUpgradeFixture extends JavaPlugin {
     private static final UUID OWNER = UUID.nameUUIDFromBytes(("OfflinePlayer:" + OWNER_NAME).getBytes(StandardCharsets.UTF_8));
     private static final String WORLD = "sfl-upgrade-fixture";
     private static final NamespacedKey ROUNDTRIP = new NamespacedKey("sflupgradefixture", "roundtrip");
+    private static final Path SCENARIO_FILE = Path.of("fixture-scenario.properties");
     private final Path expectedFile = Path.of("fixture-expected.properties");
     private final List<PlayerBackpack> heldBackpacks = new ArrayList<>();
     private boolean started;
     private String phase;
+    private String scenario = "unverified";
+    private String oldCoreVersion = "unverified";
+    private String newCoreVersion = "unverified";
+    private String expectedCoreVersion = "unverified";
+    private String scenarioDeclaration;
     private int checkedSlots;
     private int checkedItems;
     private int expectedPluginCount;
@@ -68,6 +74,48 @@ public final class PublishedUpgradeFixture extends JavaPlugin {
         require(Files.readString(Path.of("fixture-authorization.txt")).trim().equals(OWNER.toString()),
                 "Missing synthetic fixture marker");
         require(Bukkit.getWorld(WORLD) != null, "Dedicated generated fixture world is absent");
+        if (scenarioDeclaration != null) {
+            require(scenarioDeclaration.equals(Files.readString(SCENARIO_FILE, StandardCharsets.UTF_8)),
+                    "Fixture scenario changed during phase");
+        }
+    }
+
+    private void readScenario() throws Exception {
+        String declaration = Files.readString(SCENARIO_FILE, StandardCharsets.UTF_8);
+        String[] lines = declaration.split("\n", -1);
+        require(lines.length == 4 && lines[3].isEmpty() && !declaration.contains("\r"),
+                "Fixture scenario must contain exactly three LF-terminated properties");
+        List<String> keys = List.of("scenario", "old-core-version", "new-core-version");
+        Map<String, String> values = new TreeMap<>();
+        for (int i = 0; i < 3; i++) {
+            String line = lines[i];
+            int separator = line.indexOf('=');
+            require(separator > 0 && separator == line.lastIndexOf('='), "Malformed fixture scenario property");
+            String key = line.substring(0, separator);
+            require(keys.contains(key), "Unexpected fixture scenario property");
+            require(values.putIfAbsent(key, line.substring(separator + 1)) == null,
+                    "Duplicate fixture scenario property");
+        }
+        require(values.size() == keys.size(), "Incomplete fixture scenario");
+        String selected = values.get("scenario");
+        List<String> versions = switch (selected) {
+            case "4.1.69-to-4.1.70" -> List.of("4.1.69", "4.1.70");
+            case "4.1.71-to-4.1.72" -> List.of("4.1.71", "4.1.72");
+            default -> throw new IllegalStateException("Unreviewed fixture scenario");
+        };
+        require(versions.get(0).equals(values.get("old-core-version"))
+                        && versions.get(1).equals(values.get("new-core-version")),
+                "Fixture scenario versions do not match the reviewed release pair");
+        scenario = selected;
+        oldCoreVersion = versions.get(0);
+        newCoreVersion = versions.get(1);
+        expectedCoreVersion = phase.equals("seed") || phase.equals("baseline") ? oldCoreVersion : newCoreVersion;
+        scenarioDeclaration = declaration;
+    }
+
+    private String scenarioEvidence() {
+        return "\nscenario=" + scenario + "\nold_core_version=" + oldCoreVersion
+                + "\nnew_core_version=" + newCoreVersion + "\nexpected_core_version=" + expectedCoreVersion;
     }
 
     @Override
@@ -78,8 +126,9 @@ public final class PublishedUpgradeFixture extends JavaPlugin {
             guard();
             require(List.of("seed", "baseline", "upgrade", "restart").contains(phase), "Unknown phase");
             require(Files.readString(Path.of("fixture-phase.txt")).trim().equals(phase), "Phase authorization mismatch");
-            require(Slimefun.getVersion().equals((phase.equals("seed") || phase.equals("baseline"))
-                    ? "4.1.69" : "4.1.70"), "Wrong running core version: " + Slimefun.getVersion());
+            readScenario();
+            require(Slimefun.getVersion().equals(expectedCoreVersion),
+                    "Wrong running core version: " + Slimefun.getVersion() + "; expected " + expectedCoreVersion);
             started = true;
             verifyPlugins();
             // The UUID-only lookup creates a nameless never-joined profile on Paper.
@@ -127,6 +176,9 @@ public final class PublishedUpgradeFixture extends JavaPlugin {
         }
         require(groups.containsKey("Slimefun"), "No registered core items");
         Properties expected = new Properties();
+        expected.setProperty("fixture.scenario", scenario);
+        expected.setProperty("fixture.old-core-version", oldCoreVersion);
+        expected.setProperty("fixture.new-core-version", newCoreVersion);
         List<ItemStack> samples = new ArrayList<>();
         StringBuilder coverage = new StringBuilder("plugin\tregistered_items\tsampled_ids\n");
         for (Map.Entry<String, List<SlimefunItem>> entry : groups.entrySet()) {
@@ -217,13 +269,19 @@ public final class PublishedUpgradeFixture extends JavaPlugin {
             snapshot(expected, "barrel." + index + ".", barrel.getInventory());
         }
         Files.writeString(Path.of("fixture-coverage.tsv"), coverage, StandardCharsets.UTF_8);
-        try (OutputStream out = Files.newOutputStream(expectedFile)) { expected.store(out, "Synthetic 4.1.69 fixture; never owner data"); }
+        try (OutputStream out = Files.newOutputStream(expectedFile)) {
+            expected.store(out, "Synthetic " + oldCoreVersion + " fixture; never owner data");
+        }
         persistAndFinish(expected);
     }
 
     private void loadAndVerify(PlayerProfile profile) throws Exception {
         Properties expected = new Properties();
         try (InputStream in = Files.newInputStream(expectedFile)) { expected.load(in); }
+        require(scenario.equals(expected.getProperty("fixture.scenario"))
+                        && oldCoreVersion.equals(expected.getProperty("fixture.old-core-version"))
+                        && newCoreVersion.equals(expected.getProperty("fixture.new-core-version")),
+                "Baseline snapshots belong to a different fixture scenario");
         require(profile.getBackpackCount() == number(expected, "profile.backpacks"), "Profile backpack count changed");
         List<CompletableFuture<PlayerBackpack>> loads = new ArrayList<>();
         for (int i = 0; i < number(expected, "packs.count"); i++) {
@@ -312,6 +370,9 @@ public final class PublishedUpgradeFixture extends JavaPlugin {
                     guard();
                     Bukkit.getWorld(WORLD).save();
                     String result = "status=PASS\nphase=" + phase + "\ncore=" + Slimefun.getVersion()
+                            + scenarioEvidence()
+                            + "\nminecraft=" + Bukkit.getMinecraftVersion()
+                            + "\nserver_name=" + Bukkit.getName() + "\nserver_version=" + Bukkit.getVersion()
                             + "\naddons_enabled=" + expectedPluginCount
                             + "\nsampled_groups=" + expected.getProperty("sampled.groups")
                             + "\nsampled_registered_items=" + expected.getProperty("sampled.registered")
@@ -355,7 +416,8 @@ public final class PublishedUpgradeFixture extends JavaPlugin {
         getLogger().log(Level.SEVERE, "SFL_UPGRADE_FIXTURE_FAIL phase=" + phase, failure);
         try {
             Files.writeString(Path.of("fixture-" + phase + "-result.txt"),
-                    "status=FAIL\nphase=" + phase + "\nerror=" + failure.getClass().getName() + "\n");
+                    "status=FAIL\nphase=" + phase + scenarioEvidence()
+                            + "\nerror=" + failure.getClass().getName() + "\n");
         } catch (Exception writeFailure) { getLogger().log(Level.SEVERE, "Could not persist failure report", writeFailure); }
     }
     @FunctionalInterface private interface CheckedRunnable { void run() throws Exception; }
