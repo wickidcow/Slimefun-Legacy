@@ -340,8 +340,14 @@ public final class ItemStackService {
                 }
 
                 int movedAmount = Math.min(amountLeft, freeSpace);
-                itemInSlot.setAmount(itemInSlot.getAmount() + movedAmount);
-                amountLeft -= movedAmount;
+                if (movedAmount > 0) {
+                    itemInSlot.setAmount(itemInSlot.getAmount() + movedAmount);
+                    // Inventory#getItem may return a detached stack. Persist
+                    // every successful vanilla merge explicitly, like inserts
+                    // into empty slots, instead of relying on aliasing.
+                    inventory.setItem(slot, itemInSlot);
+                    amountLeft -= movedAmount;
+                }
             }
 
             if (amountLeft <= 0) {
