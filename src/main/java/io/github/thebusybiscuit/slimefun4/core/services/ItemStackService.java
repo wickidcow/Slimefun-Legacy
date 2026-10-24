@@ -150,22 +150,21 @@ public final class ItemStackService {
         // the whole output. For vanilla items that fit a single stack, a
         // positive answer is sufficient. A negative answer is not: multiple
         // partially filled stacks may collectively have enough free space.
-        boolean vanillaItem = !hasVirtualItemsInSlots(inventory, slots)
-                && !isVirtualItem(item)
-                && SlimefunItem.getByItem(item) == null;
-        if (vanillaItem) {
-            // Preserve Dough's inventory-type admission rules on the fallback.
-            if (!InvUtils.isItemAllowed(item.getType(), inventory.getType())) {
-                return false;
-            }
+        boolean vanillaItem = !isVirtualItem(item) && SlimefunItem.getByItem(item) == null;
+        // Existing virtual stacks must not bypass a vanilla incoming item's
+        // inventory-type restriction. Keep admission consistent with addItem.
+        if (vanillaItem && !InvUtils.isItemAllowed(item.getType(), inventory.getType())) {
+            return false;
+        }
 
-            if (item.getAmount() <= Math.min(item.getMaxStackSize(), inventory.getMaxStackSize())) {
-                boolean fitsSingleSlot = slots.length == 0
-                        ? InvUtils.fits(inventory, item)
-                        : InvUtils.fits(inventory, ItemStackWrapper.wrap(item), slots);
-                if (fitsSingleSlot) {
-                    return true;
-                }
+        if (vanillaItem
+                && !hasVirtualItemsInSlots(inventory, slots)
+                && item.getAmount() <= Math.min(item.getMaxStackSize(), inventory.getMaxStackSize())) {
+            boolean fitsSingleSlot = slots.length == 0
+                    ? InvUtils.fits(inventory, item)
+                    : InvUtils.fits(inventory, ItemStackWrapper.wrap(item), slots);
+            if (fitsSingleSlot) {
+                return true;
             }
         }
 
