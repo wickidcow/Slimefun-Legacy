@@ -203,14 +203,16 @@ def main() -> int:
         "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/electric/machines/FluidPump.java",
     )
     require(fluid_pump, "BlockData originalFluid = source.getBlockData().clone();", "FluidPump source snapshot")
-    require(fluid_pump, "source.setType(Material.AIR, false);", "FluidPump source consumption before output")
+    require(fluid_pump, "source.setType(Material.AIR, true);", "FluidPump source consumption before output")
+    if "source.setType(Material.AIR, false);" in fluid_pump:
+        raise SystemExit("Runtime/gameplay correctness failed: FluidPump removed fluid without physics")
     require(fluid_pump, "ItemStack remainder = menu.pushItem(output, getOutputSlots());", "FluidPump output remainder capture")
     require(fluid_pump, "source.setBlockData(originalFluid, false);", "FluidPump source rollback")
     require(fluid_pump, "menu.replaceExistingItem(inputSlot, originalInput);", "FluidPump input rollback")
     require(fluid_pump, "addCharge(machine.getLocation(), (long) ENERGY_CONSUMPTION);", "FluidPump energy rollback")
     require_before(
         fluid_pump,
-        "source.setType(Material.AIR, false);",
+        "source.setType(Material.AIR, true);",
         "ItemStack remainder = menu.pushItem(output, getOutputSlots());",
         "FluidPump consumes fluid source before bucket output commit",
     )
