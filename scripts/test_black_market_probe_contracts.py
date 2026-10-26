@@ -122,7 +122,7 @@ class AdmissionTests(unittest.TestCase):
         self.assertEqual(evidence["magic_version"], "1.1.15")
 
     def test_bad_or_noninteger_revision_refused(self):
-        for revision in (136, 152, "141", 141.0, "142", 142.0, "143", 143.0, "144", 144.0, "145", 145.0, "146", 146.0, "147", 147.0, "148", 148.0, "149", 149.0, "150", 150.0, "151", 151.0, True):
+        for revision in (136, 153, "141", 141.0, "142", 142.0, "143", 143.0, "144", 144.0, "145", 145.0, "146", 146.0, "147", 147.0, "148", 148.0, "149", 149.0, "150", 150.0, "151", 151.0, "152", 152.0, True):
             with self.subTest(revision=revision):
                 self.manifest["bundle_revision"] = revision
                 self.write_bundle()
@@ -323,6 +323,25 @@ class AdmissionTests(unittest.TestCase):
         (self.work / "plugins" / published_jar).write_bytes(blob)
         self.rows[0].update(jar=published_jar, commit=published_commit)
         self.manifest["bundle_revision"] = 151
+        self.write_bundle()
+        self.rejects()
+
+    def test_r152_requires_final_merged_magic_1_1_19_source(self):
+        commit, jar = probe.MAGIC_RELEASES[152]
+        old_jar = self.rows[0]["jar"]
+        blob = self.blobs.pop(old_jar)
+        (self.work / "plugins" / old_jar).unlink()
+        self.blobs[jar] = blob
+        (self.work / "plugins" / jar).write_bytes(blob)
+        self.rows[0].update(jar=jar, commit=commit)
+        self.manifest["bundle_revision"] = 152
+        self.write_bundle()
+        evidence = self.validate()
+        self.assertEqual(evidence["bundle_revision"], 152)
+        self.assertEqual(evidence["magic_version"], "1.1.19")
+        self.assertEqual(evidence["tested_addons"][probe.MAGIC]["commit"], commit)
+        self.assertEqual(evidence["tested_addons"][probe.MAGIC]["jar"], jar)
+        self.rows[0]["commit"] = probe.MAGIC_RELEASES[151][0]
         self.write_bundle()
         self.rejects()
 
