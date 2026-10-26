@@ -17,7 +17,7 @@ The candidate source is from draft [Magic Expansion #41](https://github.com/wick
 - Provisional Networks 1.0.62 and InfinityExpansion2 2.0.16 source-locked storage pair with preview-only receipts. Native storage and Fluffy conservation must still pass; no preview may be eligible for publication.
 - BuildingStaff 1.0.36 native dependency projection is still a draft source, not an immutable published binary.
 - HotbarPets 1.0.4 opt-in per-pet permission feature defaults disabled.
-- No changes to the other 43 source pins, existing SlimeHUD behavior, Black Market receipts, or attached resource-pack files.
+- No changes to the other 43 source pins, existing SlimeHUD behavior, persisted Black Market receipts, or attached resource-pack files. The disposable four-JVM Black Market probe's **diagnostic-only** r151 source/JAR lock now recognizes exact Magic 1.1.19 preview bytes; master and official candidate #470 retain the published 1.1.18 lock.
 
 ## Required before official release
 

@@ -293,7 +293,7 @@ class AdmissionTests(unittest.TestCase):
         self.write_bundle()
         self.rejects()
 
-    def test_r151_retains_magic_1_1_18_and_its_exact_published_source(self):
+    def test_r151_preview_requires_magic_1_1_19_and_exact_source(self):
         commit, jar = probe.MAGIC_RELEASES[151]
         old_jar = self.rows[0]["jar"]
         blob = self.blobs.pop(old_jar)
@@ -305,11 +305,24 @@ class AdmissionTests(unittest.TestCase):
         self.write_bundle()
         evidence = self.validate()
         self.assertEqual(evidence["bundle_revision"], 151)
-        self.assertEqual(evidence["magic_version"], "1.1.18")
+        self.assertEqual(evidence["magic_version"], "1.1.19")
         self.assertEqual(evidence["tested_addons"][probe.MAGIC]["commit"], commit)
         self.assertEqual(evidence["tested_addons"][probe.MAGIC]["jar"], jar)
         self.assertEqual(evidence["result"], "STARTED")
-        self.rows[0]["commit"] = probe.MAGIC_RELEASES[149][0]
+        self.rows[0]["commit"] = probe.MAGIC_RELEASES[150][0]
+        self.write_bundle()
+        self.rejects()
+
+    def test_r151_preview_rejects_the_published_magic_1_1_18_pair(self):
+        # An official r151 source is not the unpublished 1.1.19 test fixture.
+        published_commit, published_jar = probe.MAGIC_RELEASES[150]
+        old_jar = self.rows[0]["jar"]
+        blob = self.blobs.pop(old_jar)
+        (self.work / "plugins" / old_jar).unlink()
+        self.blobs[published_jar] = blob
+        (self.work / "plugins" / published_jar).write_bytes(blob)
+        self.rows[0].update(jar=published_jar, commit=published_commit)
+        self.manifest["bundle_revision"] = 151
         self.write_bundle()
         self.rejects()
 
