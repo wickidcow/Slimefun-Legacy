@@ -36,7 +36,10 @@ class RetiredAddonExclusionTest(unittest.TestCase):
     def test_curated_docs_do_not_advertise_it(self):
         for path in ("docs/ADDONS.md", "docs/wiki/Addons.md"):
             with self.subTest(path=path):
-                self.assertNotIn("buildingstaff", (ROOT / path).read_text(encoding="utf-8").lower())
+                document = (ROOT / path).read_text(encoding="utf-8").lower()
+                # An explicit retirement notice is not an advertised addon.
+                self.assertNotIn("| buildingstaff |", document)
+                self.assertNotIn("https://github.com/wickidcow/sf_buildingstaff", document)
 
 
 if __name__ == "__main__":
