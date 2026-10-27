@@ -227,9 +227,6 @@ jobs:
             git -C addon checkout --detach "$SOURCE_COMMIT"
           fi
           git -C addon rev-parse HEAD
-      - name: Install BuildingStaff optional compile-only provider API
-        if: matrix.slug == 'buildingstaff'
-        run: bash addon/scripts/install_rebar_api.sh
       - name: Check out verified English MobCapturer source
         if: matrix.slug == 'mobcapturer'
         uses: actions/checkout@v6
@@ -524,31 +521,6 @@ jobs:
                   record['unpublished_pr_preview'] = proof
               else:
                   raise SystemExit('Exactly one immutable published or PR-only preview proof is required')
-          if slug == 'buildingstaff':
-              # DIAGNOSTIC ONLY: this standalone 1.0.36 Java preview has no
-              # published artifact and has not passed live visual verification.
-              # Keep the override isolated on this draft test branch and
-              # fail closed on any push, release or unreviewed source.
-              expected_source = 'b6d0ff960e9a2bd2d9ef59f955117497052232f0'
-              if (os.environ.get('GITHUB_EVENT_NAME') != 'pull_request'
-                  or repo != 'wickidcow/SF_BuildingStaff'
-                  or record['commit'] != expected_source
-                  or version != '1.0.36'
-                  or canonical != 'SF_BuildingStaff1.0.36.jar'
-                  or not any(line.strip().lower() == 'name: buildingstaff'
-                             for line in descriptor.splitlines())):
-                  raise SystemExit('Unreviewed BuildingStaff candidate cannot enter a release bundle')
-              record['unpublished_pr_preview'] = {
-                  'schema': 1,
-                  'mode': 'unpublished-pr-preview',
-                  'eligible_for_release': False,
-                  'source': record['commit'],
-                  'repository': repo,
-                  'event': 'pull_request',
-                  'version': version,
-                  'sha256': sha256,
-                  'bytes': destination.stat().st_size,
-              }
           if slug == 'mobcapturer':
               record['english_adapter_source'] = {
                   'repository': 'Slimefun-Addon-Community/MobCapturer',
