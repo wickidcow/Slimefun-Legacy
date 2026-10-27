@@ -1,0 +1,112 @@
+name: Authorize one-time Slimefun Legacy 4.1.78 release
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/authorize-slimefun-4.1.78.yml'
+
+# Source-pinned owner authorization; no publication for future pushes.
+# The existing official reproducible-release workflow owns ALL release gates.
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch-after-verified-master:
+    name: Validate exact candidate then authorize protected publication
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/master' &&
+      github.event.before == '3c433c0e54126abc34cfb3f156963357f4af009a'
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Check out candidate for source comparison
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Refuse anything but the approved consolidated source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPROVED_SOURCE: 3b1f4fc02d5296ec82c4d3b978d9932f9c2e7c35
+          APPROVED_PARENT: 3c433c0e54126abc34cfb3f156963357f4af009a
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = push
+          test "$GITHUB_REF" = refs/heads/master
+          test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
+          test "$GITHUB_SHA" = "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/master" --jq .object.sha)"
+          test "$(git rev-parse HEAD^)" = "$APPROVED_PARENT"
+          git fetch --no-tags --depth 1 origin "$APPROVED_SOURCE"
+          changed="$(git diff --name-only "$APPROVED_SOURCE" "$GITHUB_SHA")"
+          test "$changed" = '.github/workflows/authorize-slimefun-4.1.78.yml' || {
+            echo "Merged release candidate differs from approved source: $changed" >&2
+            exit 1
+          }
+          test "$(grep -E '^projectVersion=' gradle.properties)" = 'projectVersion=4.1.78'
+          grep -Fq 'Coordinated addon source manifest revision: 153' gradle.properties
+          test "$(python3 -c "import json; r=json.load(open('compatibility/sfl-addon-release-matrix.json')); print(len(r['addons']))")" = 44
+          if gh release view v4.1.78 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'v4.1.78 already published; refusing a second publication' >&2
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin refs/tags/v4.1.78 >/dev/null 2>&1; then
+            echo 'v4.1.78 tag already exists; refusing overwrite' >&2
+            exit 1
+          fi
+      - name: Wait for official reproducible release dry-run on same master source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 400); do
+            test "$GITHUB_SHA" = "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/master" --jq .object.sha)" || {
+              echo 'Master changed before publication authorization' >&2
+              exit 1
+            }
+            runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/reproducible-release.yml/runs?head_sha=$GITHUB_SHA&per_page=50")"
+            state="$(printf '%s' "$runs" | jq -r --arg sha "$GITHUB_SHA" '
+              [.workflow_runs[] | select(.head_sha == $sha and .event == "push" and .head_branch == "master")]
+              | sort_by(.id) | last | .conclusion // ""')"
+            case "$state" in
+              success)
+                echo "Exact-master official release validation is green: $GITHUB_SHA"
+                break
+                ;;
+              failure|cancelled|timed_out|action_required)
+                echo "Official exact-source release validation ended $state; refusing publication" >&2
+                exit 1
+                ;;
+              *)
+                if [[ "$attempt" == 400 ]]; then
+                  echo 'Official release validation incomplete; refusing publication' >&2
+                  exit 1
+                fi
+                sleep 18
+                ;;
+            esac
+          done
+      - name: Dispatch owner-authorized protected publication once
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_SHA" = "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/master" --jq .object.sha)"
+          if gh release view v4.1.78 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'Publication already exists; refusing duplicate' >&2
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin refs/tags/v4.1.78 >/dev/null 2>&1; then
+            echo 'Publication tag already exists; refusing duplicate' >&2
+            exit 1
+          fi
+          # The official workflow independently re-verifies the exact source,
+          # reproducible core JAR, published addon bytes, multi-boot native
+          # receipts, and Java pack before it may create a release.
+          gh workflow run reproducible-release.yml --ref master -f publish=true --repo "$GITHUB_REPOSITORY"
+          echo "Requested owner-approved v4.1.78 publication after exact-source release validation." >> "$GITHUB_STEP_SUMMARY"
