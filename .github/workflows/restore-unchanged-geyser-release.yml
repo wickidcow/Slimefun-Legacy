@@ -1,0 +1,175 @@
+name: Restore unchanged optional Geyser ZIP to Slimefun 4.1.78
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/restore-unchanged-geyser-release.yml'
+      - 'scripts/verify_v4178_bedrock_carry.py'
+      - 'scripts/test_verify_v4178_bedrock_carry.py'
+      - 'scripts/verify_sfl_release_assets.py'
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/restore-unchanged-geyser-release.yml'
+      - 'scripts/verify_v4178_bedrock_carry.py'
+      - 'scripts/test_verify_v4178_bedrock_carry.py'
+      - 'scripts/verify_sfl_release_assets.py'
+  workflow_dispatch:
+
+# Carry-forward only. Never modify the archive, mappings, other assets, or tags.
+permissions:
+  contents: read
+
+concurrency:
+  group: preserve-existing-v4178-geyser-asset
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify unchanged v4.1.77 ZIP and existing v4.1.78 files
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Regression-check no-clobber carry and release preservation policy
+        run: |
+          set -euo pipefail
+          python3 scripts/test_verify_sfl_release_assets.py
+          python3 scripts/test_verify_v4178_bedrock_carry.py
+      - name: Validate pinned source, latest target, and current Java asset IDs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p work/source work/evidence
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v4.1.77" > work/evidence/source.json
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v4.1.78" > work/evidence/target-before.json
+          gh api "repos/$GITHUB_REPOSITORY/releases/latest" > work/evidence/latest.json
+          python3 scripts/verify_v4178_bedrock_carry.py \
+            --source work/evidence/source.json \
+            --target work/evidence/target-before.json \
+            --latest work/evidence/latest.json \
+            --output work/evidence/verified-preflight.json
+      - name: Verify prior public ZIP bytes without rewriting it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release download v4.1.77 --repo "$GITHUB_REPOSITORY" \
+            --pattern SlimefunLegacyRP_Geyser.zip --dir work/source
+          FILE=work/source/SlimefunLegacyRP_Geyser.zip
+          test -s "$FILE"
+          test "$(stat -c %s "$FILE")" -eq 1339867
+          printf '%s  %s\n' \
+            e11e5f8e6ede75a17421039e50178e83e11e9cf7f020e99596cfc078801b8c58 \
+            "$FILE" | sha256sum --check --strict
+          unzip -tqq "$FILE"
+          sha256sum "$FILE" > work/evidence/source.sha256
+      - name: Save read-only ZIP provenance evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unchanged-geyser-zip-carry-preflight
+          path: work/evidence/
+          retention-days: 14
+          if-no-files-found: warn
+
+  append-only:
+    name: Append original optional ZIP without changing Java assets
+    needs: verify
+    if: >-
+      github.repository == 'wickidcow/Slimefun-Legacy' &&
+      github.ref == 'refs/heads/master' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Revalidate all source/target release metadata before mutation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p work/source work/target work/evidence
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v4.1.77" > work/evidence/source.json
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v4.1.78" > work/evidence/target-before.json
+          gh api "repos/$GITHUB_REPOSITORY/releases/latest" > work/evidence/latest.json
+          python3 scripts/verify_v4178_bedrock_carry.py \
+            --source work/evidence/source.json \
+            --target work/evidence/target-before.json \
+            --latest work/evidence/latest.json \
+            --output work/evidence/verified-before.json
+      - name: Download and checksum the byte-identical prior pack
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release download v4.1.77 --repo "$GITHUB_REPOSITORY" \
+            --pattern SlimefunLegacyRP_Geyser.zip --dir work/source
+          FILE=work/source/SlimefunLegacyRP_Geyser.zip
+          test -s "$FILE"
+          test "$(stat -c %s "$FILE")" -eq 1339867
+          printf '%s  %s\n' \
+            e11e5f8e6ede75a17421039e50178e83e11e9cf7f020e99596cfc078801b8c58 \
+            "$FILE" | sha256sum --check --strict
+          unzip -tqq "$FILE"
+      - name: Attach only if absent; never clobber a release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PRESENT="$(python3 -c 'import json; print(str(json.load(open("work/evidence/verified-before.json"))["already_present"]).lower())')"
+          if [[ "$PRESENT" == true ]]; then
+            echo "Reviewed unchanged ZIP already exists. No new upload."
+          elif [[ "$PRESENT" == false ]]; then
+            gh release upload v4.1.78 work/source/SlimefunLegacyRP_Geyser.zip \
+              --repo "$GITHUB_REPOSITORY"
+          else
+            echo "Invalid release preflight state" >&2
+            exit 1
+          fi
+      - name: Verify all four original identities and byte-identical redownload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v4.1.78" > work/evidence/target-after.json
+          gh api "repos/$GITHUB_REPOSITORY/releases/latest" > work/evidence/latest-after.json
+          python3 scripts/verify_v4178_bedrock_carry.py \
+            --source work/evidence/source.json \
+            --target work/evidence/target-after.json \
+            --latest work/evidence/latest-after.json \
+            --require-present \
+            --output work/evidence/verified-after.json
+          gh release download v4.1.78 --repo "$GITHUB_REPOSITORY" \
+            --pattern SlimefunLegacyRP_Geyser.zip --dir work/target
+          cmp work/source/SlimefunLegacyRP_Geyser.zip \
+              work/target/SlimefunLegacyRP_Geyser.zip
+          printf '%s  %s\n' \
+            e11e5f8e6ede75a17421039e50178e83e11e9cf7f020e99596cfc078801b8c58 \
+            work/target/SlimefunLegacyRP_Geyser.zip | sha256sum --check --strict
+          {
+            echo '## Unchanged optional Geyser ZIP successfully carried forward'
+            echo
+            echo '- Source: v4.1.77 asset 669444618'
+            echo '- Target: existing v4.1.78 release; tag unchanged'
+            echo '- File: SlimefunLegacyRP_Geyser.zip; 1,339,867 bytes'
+            echo '- SHA-256: e11e5f8e6ede75a17421039e50178e83e11e9cf7f020e99596cfc078801b8c58'
+            echo '- Source and target downloads are byte-for-byte identical'
+            echo '- Original core JAR, 44-addon ZIP and Java resource pack IDs/digests unchanged'
+            echo '- Optional Geyser drop-in only; no Bedrock development'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Keep verified before/after release receipts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: restored-geyser-zip-immutable-release-receipt
+          path: work/evidence/
+          retention-days: 14
+          if-no-files-found: warn
