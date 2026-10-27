@@ -26,14 +26,13 @@ Slimefun Legacy releases: https://github.com/wickidcow/Slimefun-Legacy/releases
 
 ## Maintained Legacy addon repositories
 
-The repositories below are currently present and not archived under the `wickidcow` account. This list describes maintenance status only; it does not claim that every exact build has been validated against every Minecraft, Paper, Purpur, or Folia version.
+The repositories below form the curated, maintained Slimefun Legacy addon list. Intentionally retired addons are excluded from this list and from the coordinated build matrix. Listing does not mean every exact build has been validated against every Minecraft, Paper, Purpur, or Folia version.
 
 | Addon | Repository |
 | --- | --- |
 | AlchimiaVitae | https://github.com/wickidcow/SF_AlchimiaVitae |
 | BetterChests | https://github.com/wickidcow/SF_BetterChests |
 | BetterFarming | https://github.com/wickidcow/SF_BetterFarming |
-| BuildingStaff | https://github.com/wickidcow/SF_BuildingStaff |
 | Cultivation Legacy | https://github.com/wickidcow/SF_CultivationLegacy |
 | DankTech2 | https://github.com/wickidcow/SF_DankTech2 |
 | DracFun Reborn | https://github.com/wickidcow/SF_DracFun2 |

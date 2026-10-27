@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 150,
+  "bundle_revision": 153,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -65,11 +65,6 @@
       "repository": "wickidcow/SF_BetterFarming",
       "slug": "betterfarming",
       "source_commit": "ba363e64d6401c89e3bd9c765bac273e0fa8b40a"
-    },
-    {
-      "repository": "wickidcow/SF_BuildingStaff",
-      "slug": "buildingstaff",
-      "source_commit": "290c14bc4822c81598a267b7191731bcf5f23a0b"
     },
     {
       "repository": "wickidcow/SF_CultivationLegacy",
@@ -286,6 +281,7 @@
     }
   ],
   "excluded_from_bundle": {
+    "wickidcow/SF_BuildingStaff": "Retired from the bundled Legacy addons and coordinated build at maintainer request.",
     "wickidcow/SF_Magic8Ball": "Integrated into Slimefun Legacy; do not ship a duplicate standalone plugin.",
     "wickidcow/SF_DracFun": "Incorrect historical addon; replaced by SF_DracFun2 (DracFun Reborn).",
     "wickidcow/SF_Magic_RSC": "Magic Legacy is no longer shipped in the SF Addons bundle. MagicExpansion remains bundled; install Magic Legacy separately only if desired."

@@ -60,6 +60,8 @@ jobs:
       - uses: actions/checkout@v6
       - name: Verify published pair staging rejection controls
         run: python3 -m unittest scripts/test_stage_published_pair.py -v
+      - name: Validate retired addon exclusion
+        run: python3 scripts/test_retired_addon_exclusion.py
       - name: Validate manifest and create matrix
         id: matrix
         shell: bash
@@ -226,9 +228,6 @@ jobs:
             git -C addon checkout --detach "$SOURCE_COMMIT"
           fi
           git -C addon rev-parse HEAD
-      - name: Install BuildingStaff optional compile-only provider API
-        if: matrix.slug == 'buildingstaff'
-        run: bash addon/scripts/install_rebar_api.sh
       - name: Check out verified English MobCapturer source
         if: matrix.slug == 'mobcapturer'
         uses: actions/checkout@v6
@@ -581,7 +580,6 @@ jobs:
                   raise SystemExit(f'Forbidden public qualifier in addon JAR name: {name}')
           required_slugs = {
               'betterchests',
-              'buildingstaff',
               'crystamaehistoria',
               'dracfunreborn',
               'fastmachines',
