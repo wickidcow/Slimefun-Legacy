@@ -44,6 +44,13 @@ MAGIC_RELEASES = {
     149: ("e0097f1d8e984e8d19692fcc5a28729366b72d48", "SF_MagicExpansion1.1.17.jar"),
     # r150 changes only MagicExpansion; retain all r149 source selections otherwise.
     150: ("7c2c1a927176ebd0aaab4481dcc21a51320f7f10", "SF_MagicExpansion1.1.18.jar"),
+    # DIAGNOSTIC BRANCH ONLY: r151 full-addon preview uses unpublished Magic 1.1.19.
+    # Do not copy this source lock into the official r151 release candidate or master.
+    151: ("c9be11af6b32f3e0d517803b9362c7c88312b150", "SF_MagicExpansion1.1.19.jar"),
+    # r152 recognizes final merged Magic 1.1.19 source, not the prior staging PR.
+    152: ("b28c304f2909f15b43da53910ce7650886cc0e6f", "SF_MagicExpansion1.1.19.jar"),
+    # r153 drops BuildingStaff and updates DankTech2; Magic stays at the same merged source.
+    153: ("b28c304f2909f15b43da53910ce7650886cc0e6f", "SF_MagicExpansion1.1.19.jar"),
 }
 MAGIC_VERSIONS = {
     137: "1.1.13",
@@ -60,6 +67,9 @@ MAGIC_VERSIONS = {
     148: "1.1.17",
     149: "1.1.17",
     150: "1.1.18",
+    151: "1.1.19",
+    152: "1.1.19",
+    153: "1.1.19",
 }
 DIRECTORIES = {"full-stack-1.21.11", "full-stack-26.2", "full-stack-26.3", "full-stack-purpur-26.3"}
 PLUGIN = "BlackMarketRestartProbe"
@@ -121,13 +131,16 @@ def validate_fixture(work: Path, bundle: Path) -> dict:
         manifest = json.loads(archive.read("SF_ADDON_MANIFEST.json"))
         revision = manifest.get("bundle_revision")
         if type(revision) is not int or revision not in MAGIC_RELEASES:
-            raise RuntimeError("This exact-source probe requires candidate r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149 or r150")
+            raise RuntimeError("This exact-source probe requires candidate r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153")
         magic_commit, magic_jar = MAGIC_RELEASES[revision]
         rows = manifest.get("addons", [])
-        if len(rows) != 45 or len({r["repository"] for r in rows}) != 45:
-            raise RuntimeError("Expected 45 unique canonical addon repositories")
-        if len({r["jar"] for r in rows}) != 45:
+        expected_addons = 44 if revision >= 153 else 45
+        if len(rows) != expected_addons or len({r["repository"] for r in rows}) != expected_addons:
+            raise RuntimeError(f"Expected {expected_addons} unique canonical addon repositories")
+        if len({r["jar"] for r in rows}) != expected_addons:
             raise RuntimeError("Duplicate addon filenames")
+        if revision >= 153 and any(r["repository"] == "wickidcow/SF_BuildingStaff" for r in rows):
+            raise RuntimeError("BuildingStaff is excluded from r153 and newer bundles")
         magic = [r for r in rows if r["repository"] == MAGIC]
         if len(magic) != 1 or magic[0].get("commit") != magic_commit or magic[0].get("jar") != magic_jar:
             raise RuntimeError("Wrong MagicExpansion source or JAR for bundle revision")

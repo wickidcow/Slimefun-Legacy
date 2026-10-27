@@ -42,7 +42,7 @@ concurrency:
 
 jobs:
   audit:
-    name: Audit exact 45-addon Folia admission metadata
+    name: Audit exact 44-addon Folia admission metadata
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -98,7 +98,7 @@ jobs:
           set -euo pipefail
           python3 scripts/audit_folia_addon_admission.py \
             build/bundle/SF_Addons_1.21.11-26.3.zip \
-            --expect-addons 45 --expect-source "$GITHUB_SHA" \
+            --expect-addons 44 --expect-source "$GITHUB_SHA" \
             --output build/folia-26.3-addon-admission.json
 
       - name: Prepare exact declared-Folia runtime subset

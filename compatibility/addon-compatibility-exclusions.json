@@ -2,6 +2,10 @@
   "schema": 1,
   "exclusions": [
     {
+      "repository": "wickidcow/SF_BuildingStaff",
+      "reason": "Retired by maintainer request; excluded from the coordinated addon ZIP and compatibility CI."
+    },
+    {
       "repository": "wickidcow/SF_Magic_RSC",
       "reason": "RykenSlimeCustomizer content pack; not a standalone Slimefun addon"
     },

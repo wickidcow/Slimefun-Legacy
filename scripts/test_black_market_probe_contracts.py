@@ -122,7 +122,7 @@ class AdmissionTests(unittest.TestCase):
         self.assertEqual(evidence["magic_version"], "1.1.15")
 
     def test_bad_or_noninteger_revision_refused(self):
-        for revision in (136, 151, "141", 141.0, "142", 142.0, "143", 143.0, "144", 144.0, "145", 145.0, "146", 146.0, "147", 147.0, "148", 148.0, "149", 149.0, "150", 150.0, True):
+        for revision in (136, 154, "141", 141.0, "142", 142.0, "143", 143.0, "144", 144.0, "145", 145.0, "146", 146.0, "147", 147.0, "148", 148.0, "149", 149.0, "150", 150.0, "151", 151.0, "152", 152.0, "153", 153.0, True):
             with self.subTest(revision=revision):
                 self.manifest["bundle_revision"] = revision
                 self.write_bundle()
@@ -290,6 +290,125 @@ class AdmissionTests(unittest.TestCase):
         self.assertEqual(evidence["tested_addons"][probe.MAGIC]["jar"], jar)
         self.assertEqual(evidence["result"], "STARTED")
         self.rows[0]["commit"] = probe.MAGIC_RELEASES[149][0]
+        self.write_bundle()
+        self.rejects()
+
+    def test_r151_preview_requires_magic_1_1_19_and_exact_source(self):
+        commit, jar = probe.MAGIC_RELEASES[151]
+        old_jar = self.rows[0]["jar"]
+        blob = self.blobs.pop(old_jar)
+        (self.work / "plugins" / old_jar).unlink()
+        self.blobs[jar] = blob
+        (self.work / "plugins" / jar).write_bytes(blob)
+        self.rows[0].update(jar=jar, commit=commit)
+        self.manifest["bundle_revision"] = 151
+        self.write_bundle()
+        evidence = self.validate()
+        self.assertEqual(evidence["bundle_revision"], 151)
+        self.assertEqual(evidence["magic_version"], "1.1.19")
+        self.assertEqual(evidence["tested_addons"][probe.MAGIC]["commit"], commit)
+        self.assertEqual(evidence["tested_addons"][probe.MAGIC]["jar"], jar)
+        self.assertEqual(evidence["result"], "STARTED")
+        self.rows[0]["commit"] = probe.MAGIC_RELEASES[150][0]
+        self.write_bundle()
+        self.rejects()
+
+    def test_r151_preview_rejects_the_published_magic_1_1_18_pair(self):
+        # An official r151 source is not the unpublished 1.1.19 test fixture.
+        published_commit, published_jar = probe.MAGIC_RELEASES[150]
+        old_jar = self.rows[0]["jar"]
+        blob = self.blobs.pop(old_jar)
+        (self.work / "plugins" / old_jar).unlink()
+        self.blobs[published_jar] = blob
+        (self.work / "plugins" / published_jar).write_bytes(blob)
+        self.rows[0].update(jar=published_jar, commit=published_commit)
+        self.manifest["bundle_revision"] = 151
+        self.write_bundle()
+        self.rejects()
+
+    def test_r152_requires_final_merged_magic_1_1_19_source(self):
+        commit, jar = probe.MAGIC_RELEASES[152]
+        old_jar = self.rows[0]["jar"]
+        blob = self.blobs.pop(old_jar)
+        (self.work / "plugins" / old_jar).unlink()
+        self.blobs[jar] = blob
+        (self.work / "plugins" / jar).write_bytes(blob)
+        self.rows[0].update(jar=jar, commit=commit)
+        self.manifest["bundle_revision"] = 152
+        self.write_bundle()
+        evidence = self.validate()
+        self.assertEqual(evidence["bundle_revision"], 152)
+        self.assertEqual(evidence["magic_version"], "1.1.19")
+        self.assertEqual(evidence["tested_addons"][probe.MAGIC]["commit"], commit)
+        self.assertEqual(evidence["tested_addons"][probe.MAGIC]["jar"], jar)
+        self.rows[0]["commit"] = probe.MAGIC_RELEASES[151][0]
+        self.write_bundle()
+        self.rejects()
+
+
+    def select_r153_roster(self):
+        """Use the exact reviewed 44-addon roster and merged Magic 1.1.19 source."""
+        commit, jar = probe.MAGIC_RELEASES[153]
+        old_jar = self.rows[0]["jar"]
+        if old_jar != jar:
+            blob = self.blobs.pop(old_jar)
+            (self.work / "plugins" / old_jar).unlink()
+            self.blobs[jar] = blob
+            (self.work / "plugins" / jar).write_bytes(blob)
+        self.rows[0].update(jar=jar, commit=commit)
+        retired = self.rows.pop()
+        self.blobs.pop(retired["jar"])
+        (self.work / "plugins" / retired["jar"]).unlink()
+        self.manifest["bundle_revision"] = 153
+        self.write_bundle()
+
+    def test_r153_admits_exact_44_addon_roster_without_buildingstaff(self):
+        self.select_r153_roster()
+        evidence = self.validate()
+        self.assertEqual(evidence["bundle_revision"], 153)
+        self.assertEqual(evidence["magic_version"], "1.1.19")
+        self.assertEqual(len(evidence["tested_addons"]), 44)
+        self.assertNotIn("wickidcow/SF_BuildingStaff", evidence["tested_addons"])
+        self.assertEqual(evidence["tested_addons"][probe.MAGIC]["commit"],
+                         probe.MAGIC_RELEASES[153][0])
+        self.assertEqual(evidence["tested_addons"][probe.MAGIC]["jar"],
+                         "SF_MagicExpansion1.1.19.jar")
+        self.assertEqual(evidence["result"], "STARTED")
+
+    def test_r153_rejects_retired_45_addon_roster(self):
+        self.select_r153_roster()
+        self.rows.append({"repository": "fixture/Addon44", "jar": "Addon44.jar",
+                          "commit": "a" * 40, "sha256": "b" * 64})
+        self.write_bundle()
+        self.rejects()
+
+    def test_r153_rejects_buildingstaff_reintroduced_in_44_rows(self):
+        self.select_r153_roster()
+        self.rows[1]["repository"] = "wickidcow/SF_BuildingStaff"
+        self.write_bundle()
+        self.rejects()
+
+    def test_r153_rejects_obsolete_magic_1_1_18_source(self):
+        self.select_r153_roster()
+        self.rows[0]["commit"] = probe.MAGIC_RELEASES[150][0]
+        self.write_bundle()
+        self.rejects()
+
+    def test_r153_rejects_obsolete_magic_jar_filename(self):
+        self.select_r153_roster()
+        self.rows[0]["jar"] = probe.MAGIC_RELEASES[150][1]
+        self.write_bundle()
+        self.rejects()
+
+    def test_r153_rejects_missing_addon(self):
+        self.select_r153_roster()
+        self.rows.pop()
+        self.write_bundle()
+        self.rejects()
+
+    def test_r153_rejects_checksum_drift(self):
+        self.select_r153_roster()
+        self.rows[2]["sha256"] = "0" * 64
         self.write_bundle()
         self.rejects()
 

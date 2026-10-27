@@ -6,6 +6,8 @@ import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
+import io.github.thebusybiscuit.slimefun4.core.limiting.ChunkMachineLimitPolicy;
+import io.github.thebusybiscuit.slimefun4.core.ticker.ChunkTickerBudgetPolicy;
 import io.github.thebusybiscuit.slimefun4.core.ticker.TickLocation;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.ArrayList;
@@ -132,6 +134,18 @@ final class ChunkInfoCommand extends SubCommand {
         lines.add("&6&lSlimefun Ticker Hotspots");
         lines.add("&7Scope: &f" + (worldFilter == null ? "all worlds" : worldFilter.getName()));
         lines.add("&7Registered ticker locations: &f" + totalRegistrations);
+        boolean quotaEnabled = Slimefun.getCfg().getBoolean("machine-limiter.enabled");
+        int quota = ChunkMachineLimitPolicy.effectiveLimit(
+                Slimefun.getCfg().getInt("machine-limiter.max-ticking-machines-per-chunk"));
+        lines.add(quotaEnabled
+                ? "&7New ticking machine quota per chunk: &f" + quota + " &a(enabled)"
+                : "&7New ticking machine quota per chunk: &8disabled");
+        boolean tickerBudgetEnabled = Slimefun.getCfg().getBoolean("stability.chunk-ticker-budget.enabled");
+        int tickerBudget = ChunkTickerBudgetPolicy.effectiveLimit(
+                Slimefun.getCfg().getInt("stability.chunk-ticker-budget.max-tickers-per-chunk-per-cycle"));
+        lines.add(tickerBudgetEnabled
+                ? "&7Existing chunk ticker budget per Slimefun cycle: &f" + tickerBudget + " &a(enabled)"
+                : "&7Existing chunk ticker budget: &8disabled");
         lines.add("&7Chunks with ticker registrations: &f" + counts.size());
 
         if (ranked.isEmpty()) {
@@ -170,6 +184,13 @@ final class ChunkInfoCommand extends SubCommand {
 
         Chunk chunk = world.getChunkAt(chunkX, chunkZ);
         Set<TickLocation> tickingLocations = new HashSet<>(Slimefun.getTickerTask().getTickLocations(chunk));
+        // Capture only immutable settings before asynchronous chunk-data loading.
+        boolean quotaEnabled = Slimefun.getCfg().getBoolean("machine-limiter.enabled");
+        int quota = ChunkMachineLimitPolicy.effectiveLimit(
+                Slimefun.getCfg().getInt("machine-limiter.max-ticking-machines-per-chunk"));
+        boolean tickerBudgetEnabled = Slimefun.getCfg().getBoolean("stability.chunk-ticker-budget.enabled");
+        int tickerBudget = ChunkTickerBudgetPolicy.effectiveLimit(
+                Slimefun.getCfg().getInt("stability.chunk-ticker-budget.max-tickers-per-chunk-per-cycle"));
         List<TickerSnapshot> tickerSnapshot = new ArrayList<>(tickingLocations.size());
 
         // Resolve ticker IDs while we still own the target region. The asynchronous storage completion below only
@@ -194,12 +215,15 @@ final class ChunkInfoCommand extends SubCommand {
                         return;
                     }
 
-                    deliver(sender, buildReport(world.getName(), chunkX, chunkZ, chunkData, tickerSnapshot));
+                    deliver(sender, buildReport(world.getName(), chunkX, chunkZ, chunkData, tickerSnapshot,
+                            quotaEnabled, quota, tickerBudgetEnabled, tickerBudget));
                 });
     }
 
     private List<String> buildReport(
-            String worldName, int chunkX, int chunkZ, SlimefunChunkData chunkData, List<TickerSnapshot> tickerLocations) {
+            String worldName, int chunkX, int chunkZ, SlimefunChunkData chunkData,
+            List<TickerSnapshot> tickerLocations, boolean quotaEnabled, int quota,
+            boolean tickerBudgetEnabled, int tickerBudget) {
         Map<String, Integer> items = new HashMap<>();
         Map<String, Integer> addons = new HashMap<>();
         int pendingRemoval = 0;
@@ -243,6 +267,22 @@ final class ChunkInfoCommand extends SubCommand {
         lines.add("&7Unique item types: &f" + items.size());
         lines.add("&7Registered ticking locations: &f" + tickerLocations.size() + " &8(&f" + synchronizedTickers
                 + " sync&8, &f" + asynchronousTickers + " async&8)");
+        if (quotaEnabled) {
+            lines.add("&7Chunk machine placement quota: &f" + tickerLocations.size() + "/" + quota
+                    + (tickerLocations.size() >= quota ? " &c(at or above limit)" : " &a(available)"));
+        } else {
+            lines.add("&7Chunk machine placement quota: &8disabled &7(config.yml)");
+        }
+
+        if (tickerBudgetEnabled) {
+            int selected = Math.min(tickerLocations.size(), tickerBudget);
+            int cycles = ChunkTickerBudgetPolicy.cyclesToVisitAll(tickerLocations.size(), tickerBudget);
+            lines.add("&7Ticker callback budget: &f" + selected + " &7of &f" + tickerLocations.size()
+                    + " &7per Slimefun cycle");
+            lines.add("&7Full rotation estimate: &f" + cycles + " &7Slimefun cycle(s)");
+        } else {
+            lines.add("&7Ticker callback budget: &8disabled &7(config.yml)");
+        }
 
         if (universalTickers > 0) {
             lines.add("&7Universal ticker registrations: &f" + universalTickers

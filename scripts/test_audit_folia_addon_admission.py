@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 import warnings
@@ -59,6 +60,16 @@ class TestFoliaAddonAdmissionAudit(unittest.TestCase):
                     warnings.simplefilter("ignore", UserWarning)
                     jar.writestr(name, content)
         self.write_bundle([row], {row["jar"]: raw.getvalue()})
+
+    def test_cli_supports_variable_bundle_rosters(self):
+        self.write_single()
+        args = [sys.executable, str(Path(audit.__file__)), str(self.bundle)]
+        okay = subprocess.run(args, text=True, capture_output=True, timeout=15)
+        self.assertEqual(0, okay.returncode, okay.stderr)
+        self.assertEqual(1, json.loads(okay.stdout)["addon_count"])
+        failed = subprocess.run(args + ["--expect-addons", "45"], text=True, capture_output=True, timeout=15)
+        self.assertEqual(1, failed.returncode)
+        self.assertIn("Expected 45 addons, found 1", failed.stderr)
 
     def test_classifies_true_false_and_undeclared(self):
         rows = [

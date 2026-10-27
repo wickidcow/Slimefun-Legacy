@@ -138,6 +138,23 @@ public class SlimefunConfigManager {
             pluginConfig.setDefaultValue("researches.auto-convert", false);
             researchAutoConvert = pluginConfig.getBoolean("researches.auto-convert");
 
+            pluginConfig.setDefaultValue("machine-limiter.enabled", false);
+            pluginConfig.setDefaultValue("machine-limiter.max-ticking-machines-per-chunk", 256);
+            pluginConfig.setDefaultValue("machine-limiter.allow-bypass-permission", false);
+            if (pluginConfig.getBoolean("machine-limiter.enabled")
+                    && pluginConfig.getInt("machine-limiter.max-ticking-machines-per-chunk") < 1) {
+                plugin.getLogger().warning(
+                        "Invalid machine-limiter.max-ticking-machines-per-chunk: using safe default 256.");
+            }
+
+            pluginConfig.setDefaultValue("stability.chunk-ticker-budget.enabled", false);
+            pluginConfig.setDefaultValue("stability.chunk-ticker-budget.max-tickers-per-chunk-per-cycle", 512);
+            if (pluginConfig.getBoolean("stability.chunk-ticker-budget.enabled")
+                    && pluginConfig.getInt("stability.chunk-ticker-budget.max-tickers-per-chunk-per-cycle") < 1) {
+                plugin.getLogger().warning(
+                        "Invalid stability.chunk-ticker-budget.max-tickers-per-chunk-per-cycle; using 512.");
+            }
+
             pluginConfig.setDefaultValue("stability.machine-circuit-breaker-cooldown-seconds", 300);
             pluginConfig.setDefaultValue("stability.machine-circuit-breaker-failure-threshold", 4);
             pluginConfig.setDefaultValue("stability.ticker-lifecycle-log-cooldown-seconds", 60);

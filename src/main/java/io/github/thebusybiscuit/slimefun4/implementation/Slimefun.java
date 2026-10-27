@@ -83,6 +83,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.listeners.AutoCrafterLi
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.BackpackListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.BeeWingsListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.BlockListener;
+import io.github.thebusybiscuit.slimefun4.implementation.listeners.ChunkMachineLimiter;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.BlockPhysicsListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.ButcherAndroidListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.CargoNodeListener;
@@ -814,6 +815,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
         new GadgetsListener(this);
         new DispenserListener(this);
         new BlockListener(this);
+        new ChunkMachineLimiter(this);
         new EnhancedFurnaceListener(this);
         new ItemPickupListener(this);
         new ItemDropListener(this);

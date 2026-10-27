@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 150,
+  "bundle_revision": 153,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -67,11 +67,6 @@
       "source_commit": "ba363e64d6401c89e3bd9c765bac273e0fa8b40a"
     },
     {
-      "repository": "wickidcow/SF_BuildingStaff",
-      "slug": "buildingstaff",
-      "source_commit": "290c14bc4822c81598a267b7191731bcf5f23a0b"
-    },
-    {
       "repository": "wickidcow/SF_CultivationLegacy",
       "slug": "cultivationlegacy",
       "artifact_base": "Cultivation",
@@ -85,7 +80,7 @@
     {
       "repository": "wickidcow/SF_DankTech2",
       "slug": "danktech2",
-      "source_commit": "d7113f001f57d2ff8076023a454fd4b49985a341"
+      "source_commit": "410aff9e4dae5372a5ac148684ba5eeec01c0f48"
     },
     {
       "repository": "wickidcow/SF_DracFun2",
@@ -161,7 +156,7 @@
     {
       "repository": "wickidcow/SF_HotbarPets",
       "slug": "hotbarpets",
-      "source_commit": "ac1e2213686a83acd52d82c01434ab12b48e64f3"
+      "source_commit": "e50c64641f961bf5da14ca839b435fdefa39b4db"
     },
     {
       "repository": "wickidcow/SF_IDreamOfEasy",
@@ -172,7 +167,7 @@
       "repository": "wickidcow/SF_InfinityExpansion2",
       "slug": "infinityexpansion2",
       "artifact_base": "InfinityExpansion",
-      "source_commit": "168815bb99e5701d3680095a9eb9170d83a19740"
+      "source_commit": "a9b105e5cf3e8c69b3edb135c615eb3710f72158"
     },
     {
       "repository": "wickidcow/SF_LiteXpansion",
@@ -188,12 +183,12 @@
       "repository": "wickidcow/SF_JustEnoughGuide",
       "slug": "justenoughguide",
       "artifact_base": "JustEnoughGuide",
-      "source_commit": "9355dd512f2061be6258c54bc714673b179c6252"
+      "source_commit": "a05fda6c5ce3310fa339ebe0f2f00801197e6d9b"
     },
     {
       "repository": "wickidcow/SF_MagicExpansion",
       "slug": "magicexpansion",
-      "source_commit": "7c2c1a927176ebd0aaab4481dcc21a51320f7f10"
+      "source_commit": "b28c304f2909f15b43da53910ce7650886cc0e6f"
     },
     {
       "repository": "wickidcow/SF_MilitaryArsenal",
@@ -214,7 +209,7 @@
       "repository": "wickidcow/SF_NetworksExp",
       "slug": "networksexp",
       "artifact_base": "Networks",
-      "source_commit": "9bf9f48b49dbedbf9e617ca840d9ccd57cf0c717"
+      "source_commit": "79e4c0116cc4b4683c668a4920e67692f925b83f"
     },
     {
       "repository": "wickidcow/SF_RelicsOfCthonia",
@@ -288,7 +283,8 @@
   "excluded_from_bundle": {
     "wickidcow/SF_Magic8Ball": "Integrated into Slimefun Legacy; do not ship a duplicate standalone plugin.",
     "wickidcow/SF_DracFun": "Incorrect historical addon; replaced by SF_DracFun2 (DracFun Reborn).",
-    "wickidcow/SF_Magic_RSC": "Magic Legacy is no longer shipped in the SF Addons bundle. MagicExpansion remains bundled; install Magic Legacy separately only if desired."
+    "wickidcow/SF_Magic_RSC": "Magic Legacy is no longer shipped in the SF Addons bundle. MagicExpansion remains bundled; install Magic Legacy separately only if desired.",
+    "wickidcow/SF_BuildingStaff": "Excluded from coordinated Slimefun Legacy releases at the operator's request. Optional compatibility with the original developer plugin is independent and not a maintained addon JAR."
   },
   "excluded_archived": [
     "wickidcow/SF_ExtraTools",

@@ -5,28 +5,28 @@
   "addons": {
     "networks": {
       "repository": "wickidcow/SF_NetworksExp",
-      "source": "9bf9f48b49dbedbf9e617ca840d9ccd57cf0c717",
-      "tree": "4845dcab4bc7c50dab9e38c6c66c7ae564defe6f",
+      "source": "79e4c0116cc4b4683c668a4920e67692f925b83f",
+      "tree": "742559083bd714caaefefa00255c3d6eac94ff95",
       "plugin": "Networks",
-      "version": "1.0.61",
-      "jar": "build/libs/SF_Networks1.0.61.jar",
+      "version": "1.0.62",
+      "jar": "build/libs/SF_Networks1.0.62.jar",
       "published_artifact": {
-        "url": "https://github.com/wickidcow/SF_NetworksExp/releases/download/v1.0.61/SF_Networks1.0.61.jar",
-        "bytes": 1680856,
-        "sha256": "760d8941ee3e332342a06939d78fad0af4fff072bd16157eae8d0ce46366db2b"
+        "url": "https://github.com/wickidcow/SF_NetworksExp/releases/download/v1.0.62/SF_Networks1.0.62.jar",
+        "bytes": 1681978,
+        "sha256": "61ffee5b4a2da264f61e02a9a4831310877b9b0fe180d4ab69814f13640889c4"
       }
     },
     "ie2": {
       "repository": "wickidcow/SF_InfinityExpansion2",
-      "source": "168815bb99e5701d3680095a9eb9170d83a19740",
-      "tree": "7b75e0628e98e0594b79bc4af06950e8ed5af955",
+      "source": "a9b105e5cf3e8c69b3edb135c615eb3710f72158",
+      "tree": "1f541a9f409d503b5a1af6d8af7754fd615b10f2",
       "plugin": "InfinityExpansion2",
-      "version": "2.0.15",
-      "jar": "build/libs/SF_InfinityExpansion2.0.15.jar",
+      "version": "2.0.16",
+      "jar": "build/libs/SF_InfinityExpansion2.0.16.jar",
       "published_artifact": {
-        "url": "https://github.com/wickidcow/SF_InfinityExpansion2/releases/download/v2.0.15/SF_InfinityExpansion2.0.15.jar",
-        "bytes": 1707539,
-        "sha256": "897bd4de70c9219217ecfb0f8cf68f0147b6c38758a239085db39718dd686eef"
+        "url": "https://github.com/wickidcow/SF_InfinityExpansion2/releases/download/v2.0.16/SF_InfinityExpansion2.0.16.jar",
+        "bytes": 1722317,
+        "sha256": "0ee8037249f25e912d26b510f838869fd892ccde469eb32cbd980e3a66010ac3"
       }
     }
   },

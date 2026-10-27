@@ -58,8 +58,11 @@ jobs:
       paper_api: ${{ steps.paper.outputs.paper_api }}
     steps:
       - uses: actions/checkout@v6
-      - name: Verify published pair staging rejection controls
-        run: python3 -m unittest scripts/test_stage_published_pair.py -v
+      - name: Verify published and unpublished pair staging rejection controls
+        run: |
+          python3 -m unittest scripts/test_stage_published_pair.py scripts/test_stage_unpublished_pair_candidate.py -v
+      - name: Validate retired addon exclusion
+        run: python3 scripts/test_retired_addon_exclusion.py
       - name: Validate manifest and create matrix
         id: matrix
         shell: bash
@@ -226,9 +229,6 @@ jobs:
             git -C addon checkout --detach "$SOURCE_COMMIT"
           fi
           git -C addon rev-parse HEAD
-      - name: Install BuildingStaff optional compile-only provider API
-        if: matrix.slug == 'buildingstaff'
-        run: bash addon/scripts/install_rebar_api.sh
       - name: Check out verified English MobCapturer source
         if: matrix.slug == 'mobcapturer'
         uses: actions/checkout@v6
@@ -426,11 +426,27 @@ jobs:
           if [[ "$ADDON_SLUG" == 'networksexp' || "$ADDON_SLUG" == 'infinityexpansion2' ]]; then
             PAIR_KEY=networks
             if [[ "$ADDON_SLUG" == 'infinityexpansion2' ]]; then PAIR_KEY=ie2; fi
-            # Keep the 26.3 compile evidence, but distribute the released universal bytes.
-            python3 tools/scripts/stage_published_pair.py --addon "$PAIR_KEY" \
-              --source "$(git -C addon rev-parse HEAD)" --repository "$ADDON_REPOSITORY" \
-              --output "published/$PAIR_KEY.jar" --report "staged/evidence/$ADDON_SLUG-published.json"
-            SELECTED="published/$PAIR_KEY.jar"
+            SOURCE_SHA="$(git -C addon rev-parse HEAD)"
+            # The historical published pair stays immutable. Only a PR can
+            # separately preview a manifest-pinned, not-yet-published addon JAR.
+            # A push/master/release build with different source still fails closed.
+            PAIR_MODE="$(python3 tools/scripts/stage_unpublished_pair_candidate.py \
+              --manifest tools/compatibility/sfl-addon-release-matrix.json \
+              --addon "$ADDON_SLUG" --repository "$ADDON_REPOSITORY" \
+              --source "$SOURCE_SHA" --event "$GITHUB_EVENT_NAME" \
+              --jar "$SELECTED" \
+              --report "staged/evidence/$ADDON_SLUG-unpublished-preview.json")"
+            if [[ "$PAIR_MODE" == 'published' ]]; then
+              python3 tools/scripts/stage_published_pair.py --addon "$PAIR_KEY" \
+                --source "$SOURCE_SHA" --repository "$ADDON_REPOSITORY" \
+                --output "published/$PAIR_KEY.jar" --report "staged/evidence/$ADDON_SLUG-published.json"
+              SELECTED="published/$PAIR_KEY.jar"
+            elif [[ "$PAIR_MODE" == 'unpublished-pr-preview' ]]; then
+              echo "CI-only unpublished pair preview for $ADDON_REPOSITORY@$SOURCE_SHA"
+            else
+              echo "Unexpected pair stage mode: $PAIR_MODE" >&2
+              exit 1
+            fi
           fi
           export SELECTED
           export ADDON_REPOSITORY ADDON_SLUG ARTIFACT_BASE PAPER_API_VERSION
@@ -489,7 +505,24 @@ jobs:
               'secondary_platforms': [] if slug in ('networksexp', 'infinityexpansion2') else ['Folia', 'Leaf'],
           }
           if slug in ('networksexp', 'infinityexpansion2'):
-              record['published_artifact'] = json.loads(Path(f'staged/evidence/{slug}-published.json').read_text())
+              published = Path(f'staged/evidence/{slug}-published.json')
+              preview = Path(f'staged/evidence/{slug}-unpublished-preview.json')
+              if published.is_file() and not preview.exists():
+                  record['published_artifact'] = json.loads(published.read_text(encoding='utf-8'))
+              elif preview.is_file() and not published.exists():
+                  proof = json.loads(preview.read_text(encoding='utf-8'))
+                  if (os.environ.get('GITHUB_EVENT_NAME') != 'pull_request'
+                      or proof.get('mode') != 'unpublished-pr-preview'
+                      or proof.get('eligible_for_release') is not False
+                      or proof.get('source') != record['commit']
+                      or proof.get('repository') != repo
+                      or proof.get('sha256') != sha256
+                      or proof.get('bytes') != destination.stat().st_size
+                      or proof.get('version') != version):
+                      raise SystemExit('Unpublished addon preview provenance mismatch')
+                  record['unpublished_pr_preview'] = proof
+              else:
+                  raise SystemExit('Exactly one immutable published or PR-only preview proof is required')
           if slug == 'mobcapturer':
               record['english_adapter_source'] = {
                   'repository': 'Slimefun-Addon-Community/MobCapturer',
@@ -581,7 +614,6 @@ jobs:
                   raise SystemExit(f'Forbidden public qualifier in addon JAR name: {name}')
           required_slugs = {
               'betterchests',
-              'buildingstaff',
               'crystamaehistoria',
               'dracfunreborn',
               'fastmachines',
@@ -634,6 +666,25 @@ jobs:
               'compatibility': source['compatibility'],
               'addons': records,
           }
+          previews = [row for row in records if 'unpublished_pr_preview' in row]
+          if previews:
+              if os.environ.get('GITHUB_EVENT_NAME') != 'pull_request':
+                  raise SystemExit('Unpublished addon previews cannot enter a release bundle')
+              for row in previews:
+                  proof = row['unpublished_pr_preview']
+                  candidate = Path('collected/jars') / row['jar']
+                  if (proof.get('mode') != 'unpublished-pr-preview'
+                      or proof.get('eligible_for_release') is not False
+                      or proof.get('event') != 'pull_request'
+                      or proof.get('source') != row['commit']
+                      or proof.get('repository') != row['repository']
+                      or proof.get('sha256') != row['sha256']
+                      or proof.get('version') != row['version']
+                      or proof.get('bytes') != candidate.stat().st_size):
+                      raise SystemExit('Invalid final unpublished-addon preview receipt')
+              out['build_mode'] = 'unpublished-pr-preview'
+              out['eligible_for_release'] = False
+              out['unpublished_addons'] = [row['repository'] for row in previews]
           Path('bundle/SF_ADDON_MANIFEST.json').write_text(json.dumps(out, indent=2) + '\n', encoding='utf-8')
           PY
           cat > bundle/COMPATIBILITY.txt <<EOF
@@ -664,9 +715,25 @@ jobs:
           / Slimefun Legacy candidate stack. Distributable JARs keep their intended baseline
           bytecode; DracFun Reborn is separately validated on Java 25 / Paper 26.3, then rebuilt
           as Java-21 bytecode against the 1.21.11 baseline for universal deployment.
-          Networks and InfinityExpansion2 use their checksum-pinned published universal JARs;
-          their newer-API compile probe outputs are not distributed.
+          Networks and InfinityExpansion2 carry exact-source proof in SF_ADDON_MANIFEST.json.
+          Published builds use checksum-pinned universal JARs; PR-only CI previews may
+          contain source-locked unpublished candidates with release-ineligible receipts.
+          A green CI preview is NOT proof that an official addon release was published.
           EOF
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path('bundle/SF_ADDON_MANIFEST.json').read_text(encoding='utf-8'))
+          if manifest.get('build_mode') == 'unpublished-pr-preview':
+              names = ', '.join(manifest['unpublished_addons'])
+              notice = (
+                  'WARNING: CI-ONLY UNPUBLISHED ADDON PREVIEW — NOT A RELEASE.\n'
+                  'Contains unapproved source-locked addon JARs: ' + names + '\n'
+                  'Do not distribute, publish or install this as an official release.\n\n'
+              )
+              file = Path('bundle/COMPATIBILITY.txt')
+              file.write_text(notice + file.read_text(encoding='utf-8'), encoding='utf-8')
+          PY
           (cd bundle && sha256sum *.jar | sort > SHA256SUMS.txt)
           (cd bundle && zip -9 -q "../${BUNDLE_NAME}" ./*)
           unzip -tqq "$BUNDLE_NAME"

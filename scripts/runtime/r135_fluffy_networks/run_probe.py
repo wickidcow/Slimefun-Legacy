@@ -48,6 +48,12 @@ NETWORK_VERSIONS = {
     149: ("SF_Networks1.0.61.jar", "9bf9f48b49dbedbf9e617ca840d9ccd57cf0c717"),
     # r150 changes only MagicExpansion; keep exact published Networks 1.0.61.
     150: ("SF_Networks1.0.61.jar", "9bf9f48b49dbedbf9e617ca840d9ccd57cf0c717"),
+    # Diagnostic r151 integrates tested 1.0.62 transfer and Auto Crafter dirty-write fixes.
+    151: ("SF_Networks1.0.62.jar", "288640e6dbf907a6ba238d98af206aab2d56f92b"),
+    # r152 recognizes final merged Networks 1.0.62, not the staging PR SHA.
+    152: ("SF_Networks1.0.62.jar", "79e4c0116cc4b4683c668a4920e67692f925b83f"),
+    # r153 changes only DankTech2 and the BuildingStaff roster; Networks stays unchanged.
+    153: ("SF_Networks1.0.62.jar", "79e4c0116cc4b4683c668a4920e67692f925b83f"),
 }
 
 
@@ -76,7 +82,7 @@ def prepare(work: Path, bundle: Path, java: Path, runtime_core_version: str | No
         manifest = json.loads(archive.read("SF_ADDON_MANIFEST.json"))
     revision = manifest.get("bundle_revision")
     if type(revision) is not int or revision not in NETWORK_VERSIONS:
-        raise RuntimeError(f"Native conservation test requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149 or r150; found bundle revision {revision!r}")
+        raise RuntimeError(f"Native conservation test requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153; found bundle revision {revision!r}")
     expected_versions = dict(EXPECTED_VERSIONS)
     expected_versions["wickidcow/SF_NetworksExp"] = NETWORK_VERSIONS[revision]
 

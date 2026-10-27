@@ -1,7 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.implementation.tasks;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -27,12 +26,10 @@ class TestTickerTaskSnapshotCache {
         assertFalse(dirtyField.getBoolean(task));
         assertSame(first, snapshotMethod.invoke(task));
 
+        // An unknown UniversalBlock UUID is not a registration change.
+        // It must not force a full snapshot copy for a 7,454-machine chunk.
         task.disableTicker(UUID.randomUUID());
-        assertTrue(dirtyField.getBoolean(task));
-
-        Object rebuilt = snapshotMethod.invoke(task);
-        assertNotSame(first, rebuilt);
         assertFalse(dirtyField.getBoolean(task));
-        assertSame(rebuilt, snapshotMethod.invoke(task));
+        assertSame(first, snapshotMethod.invoke(task));
     }
 }
