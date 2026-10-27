@@ -20,6 +20,18 @@ BEDROCK_PACK = "SFL_GEYSER_RP_experimental_v1.0.3_complete.zip"
 BEDROCK_OVERLAY = "SFL_GEYSER_RP_experimental_v1.0.3.zip"
 BEDROCK_PIN_PATH = Path(__file__).resolve().parents[1] / "compatibility/bedrock-resource-pack-release.json"
 BEDROCK_ARCHIVE_PATH = "compatibility/bedrock/" + BEDROCK_PACK
+# Preserve only the unchanged optional drop-in ZIP already published on 4.1.77.
+# This is a release-asset identity rule, not Bedrock/Geyser functionality.
+CARRIED_GEYSER_PACK = "SlimefunLegacyRP_Geyser.zip"
+CARRIED_GEYSER_PIN = {
+    "source_tag": "v4.1.77",
+    "source_release_id": 421464301,
+    "source_asset_id": 669444618,
+    "target_tag": "v4.1.78",
+    "target_release_id": 425012427,
+    "size": 1339867,
+    "digest": "sha256:e11e5f8e6ede75a17421039e50178e83e11e9cf7f020e99596cfc078801b8c58",
+}
 # The historical base contributes unchanged components, but is not approved as
 # a live asset. Only the current overlay may remain on its exact origin release.
 BEDROCK_SOURCE_ASSETS = (
@@ -122,6 +134,24 @@ def retained_bedrock_identity(release: dict[str, Any], asset: dict[str, Any]) ->
     return identity
 
 
+def retained_carried_geyser_identity(release: dict[str, Any], asset: dict[str, Any]) -> dict[str, Any]:
+    """Only the original v4.1.77 asset or its unchanged v4.1.78 copy qualifies."""
+    pin = CARRIED_GEYSER_PIN
+    tag = release["tag_name"]
+    if tag == pin["source_tag"]:
+        if release["id"] != pin["source_release_id"] or asset["id"] != pin["source_asset_id"]:
+            raise PolicyError("Original Geyser ZIP release/asset identity changed")
+    elif tag == pin["target_tag"]:
+        if release["id"] != pin["target_release_id"] or asset["id"] == pin["source_asset_id"]:
+            raise PolicyError("Carried Geyser ZIP must be a separate asset on the exact successor")
+    else:
+        raise PolicyError("Geyser ZIP is approved on v4.1.77 and v4.1.78 only")
+    identity = retained_identity(asset)
+    if identity["size"] != pin["size"] or identity["digest"] != pin["digest"]:
+        raise PolicyError("Optional Geyser ZIP does not match unchanged v4.1.77 source bytes")
+    return identity
+
+
 def plan_release(release: Any, *, allow_legacy: bool = True) -> dict[str, Any]:
     if not isinstance(release, dict) or not positive_int(release.get("id")):
         raise PolicyError("Expected a GitHub release object with a positive numeric ID")
@@ -152,6 +182,8 @@ def plan_release(release: Any, *, allow_legacy: bool = True) -> dict[str, Any]:
             raise PolicyError(f"Asset is not fully uploaded: {name}")
         if name in {core, BUNDLE, PACK}:
             keep[name] = retained_identity(asset)
+        elif name == CARRIED_GEYSER_PACK:
+            keep[name] = retained_carried_geyser_identity(release, asset)
         elif name in {BEDROCK_PACK, BEDROCK_OVERLAY}:
             keep[name] = retained_bedrock_identity(release, asset)
         elif name == ROLLBACK:
