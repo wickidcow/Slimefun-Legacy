@@ -31,6 +31,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           APPROVED_SOURCE: 3b1f4fc02d5296ec82c4d3b978d9932f9c2e7c35
+          APPROVED_NOTES_BLOB: d3b8f80f6d08bb30ee7b16b597a40dff8621a579
           APPROVED_PARENT: 3c433c0e54126abc34cfb3f156963357f4af009a
         shell: bash
         run: |
@@ -42,10 +43,17 @@ jobs:
           test "$(git rev-parse HEAD^)" = "$APPROVED_PARENT"
           git fetch --no-tags --depth 1 origin "$APPROVED_SOURCE"
           changed="$(git diff --name-only "$APPROVED_SOURCE" "$GITHUB_SHA")"
-          test "$changed" = '.github/workflows/authorize-slimefun-4.1.78.yml' || {
+          expected_changes="$(printf '%s\n' '.github/workflows/authorize-slimefun-4.1.78.yml' 'docs/releases/4.1.78.md')"
+          test "$changed" = "$expected_changes" || {
             echo "Merged release candidate differs from approved source: $changed" >&2
             exit 1
           }
+          test "$(git rev-parse HEAD:docs/releases/4.1.78.md)" = "$APPROVED_NOTES_BLOB" || {
+            echo 'The owner-approved contributor acknowledgment and release notes changed' >&2
+            exit 1
+          }
+          grep -Fq 'Special thanks — @Dellrall' docs/releases/4.1.78.md
+          grep -Fq 'Slimefun-Legacy/pull/485' docs/releases/4.1.78.md
           test "$(grep -E '^projectVersion=' gradle.properties)" = 'projectVersion=4.1.78'
           grep -Fq 'Coordinated addon source manifest revision: 153' gradle.properties
           test "$(python3 -c "import json; r=json.load(open('compatibility/sfl-addon-release-matrix.json')); print(len(r['addons']))")" = 44
