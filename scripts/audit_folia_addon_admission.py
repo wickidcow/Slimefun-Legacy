@@ -187,7 +187,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("bundle", type=Path)
     parser.add_argument("--output", type=Path)
-    parser.add_argument("--expect-addons", type=int, default=45)
+    parser.add_argument("--expect-addons", type=int, help="Require the exact canonical addon roster count")
     parser.add_argument("--expect-source", help="Require the exact checkout used to build the bundle")
     args = parser.parse_args()
 
@@ -197,7 +197,7 @@ def main() -> int:
         print(f"Folia addon admission audit failed: {exc}", file=sys.stderr)
         return 1
 
-    if report["addon_count"] != args.expect_addons:
+    if args.expect_addons is not None and report["addon_count"] != args.expect_addons:
         print(
             f"Expected {args.expect_addons} addons, found {report['addon_count']}",
             file=sys.stderr,

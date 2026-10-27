@@ -11,7 +11,7 @@ on:
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'scripts/compile_addon_paper_26_3.py'
       - 'scripts/test_compile_addon_paper_26_3.py'
-      - 'scripts/test_addon_provider_bootstrap.py'
+      - 'scripts/test_retired_addon_exclusion.py'
       - 'scripts/paper_candidate_versions.py'
       - 'scripts/test_paper_candidate_versions.py'
       - 'build.gradle.kts'
@@ -25,7 +25,7 @@ on:
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'scripts/compile_addon_paper_26_3.py'
       - 'scripts/test_compile_addon_paper_26_3.py'
-      - 'scripts/test_addon_provider_bootstrap.py'
+      - 'scripts/test_retired_addon_exclusion.py'
       - 'scripts/paper_candidate_versions.py'
       - 'scripts/test_paper_candidate_versions.py'
       - 'build.gradle.kts'
@@ -51,7 +51,7 @@ jobs:
         run: |
           python3 scripts/test_compile_addon_paper_26_3.py
           python3 scripts/test_paper_candidate_versions.py
-          python3 scripts/test_addon_provider_bootstrap.py
+          python3 scripts/test_retired_addon_exclusion.py
 
   detect-paper-api:
     name: Resolve Paper 26.3 primary API
@@ -219,10 +219,6 @@ jobs:
                   and addon.get('tier') == 'required'
                   and addon.get('compile_enabled', True)
               ]
-              # Exercise the optional-provider bootstrap before changes reach master.
-              if not any(addon.get('repository') == 'wickidcow/SF_BuildingStaff' for addon in source):
-                  source.extend(addon for addon in release.get('addons', [])
-                                if addon.get('repository') == 'wickidcow/SF_BuildingStaff')
           else:
               source = release.get('addons', [])
 
@@ -239,9 +235,9 @@ jobs:
                   'slug': addon.get('slug') or repository.split('/', 1)[1].lower(),
                   'tier': addon.get('tier', 'required') if pull_request_mode else 'maintained-release',
               }
-              if repository in ('wickidcow/SF_BuildingStaff', 'wickidcow/SF_NetworksExp') and pull_request_mode:
-                  # Diagnostic PR #474 must compile the same unpublished Networks
-                  # and BuildingStaff sources the r151 ZIP packages, never floating master.
+              if repository == 'wickidcow/SF_NetworksExp' and pull_request_mode:
+                  # Exact-source PR smoke must compile the same Networks commit
+                  # as the candidate ZIP, not floating default-branch HEAD.
                   matches = [pin for pin in release.get('addons', [])
                              if pin.get('repository') == repository]
                   if len(matches) != 1:
@@ -269,7 +265,7 @@ jobs:
             echo '- Mode: `${{ steps.matrix.outputs.mode }}`'
             echo '- Targets: **${{ steps.matrix.outputs.count }}**'
             if [[ '${{ github.event_name }}' == 'pull_request' ]]; then
-              echo '- Pull requests compile the release-blocking `required` tier and the BuildingStaff provider-bootstrap smoke target.'
+              echo '- Pull requests compile the release-blocking `required` tier with exact Networks source pinning.'
               echo '- Scheduled/manual runs compile every addon in the canonical release-bundle matrix.'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
@@ -305,7 +301,7 @@ jobs:
           set -euo pipefail
           git clone --depth 1 "https://github.com/${ADDON_REPOSITORY}.git" addon
           if [[ -n "$ADDON_SOURCE_COMMIT" ]]; then
-            if [[ "$GITHUB_EVENT_NAME" != "pull_request" || ( "$ADDON_REPOSITORY" != "wickidcow/SF_BuildingStaff" && "$ADDON_REPOSITORY" != "wickidcow/SF_NetworksExp" ) ]]; then
+            if [[ "$GITHUB_EVENT_NAME" != "pull_request" || "$ADDON_REPOSITORY" != "wickidcow/SF_NetworksExp" ]]; then
               echo "Refusing unreviewed source override outside the maintained diagnostic PR" >&2
               exit 1
             fi
@@ -317,9 +313,6 @@ jobs:
             fi
             echo "Exact unpublished maintained source checked out: $ADDON_REPOSITORY@$ADDON_SOURCE_COMMIT"
           fi
-      - name: Install BuildingStaff optional compile-only provider API
-        if: matrix.repository == 'wickidcow/SF_BuildingStaff'
-        run: bash addon/scripts/install_rebar_api.sh
       - name: Compile addon against candidate stack
         id: probe
         env:

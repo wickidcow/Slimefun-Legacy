@@ -61,6 +61,8 @@ jobs:
       - name: Verify published and unpublished pair staging rejection controls
         run: |
           python3 -m unittest scripts/test_stage_published_pair.py scripts/test_stage_unpublished_pair_candidate.py -v
+      - name: Validate retired addon exclusion
+        run: python3 scripts/test_retired_addon_exclusion.py
       - name: Validate manifest and create matrix
         id: matrix
         shell: bash
@@ -612,7 +614,6 @@ jobs:
                   raise SystemExit(f'Forbidden public qualifier in addon JAR name: {name}')
           required_slugs = {
               'betterchests',
-              'buildingstaff',
               'crystamaehistoria',
               'dracfunreborn',
               'fastmachines',
