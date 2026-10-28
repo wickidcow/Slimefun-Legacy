@@ -1,0 +1,100 @@
+name: Gradle Spotless Deprecation Regression
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/gradle-spotless-deprecation.yml'
+      - 'gradle/libs.versions.toml'
+      - 'gradle/wrapper/**'
+      - 'build.gradle.kts'
+      - 'gradle.properties'
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/gradle-spotless-deprecation.yml'
+      - 'gradle/libs.versions.toml'
+      - 'gradle/wrapper/**'
+      - 'build.gradle.kts'
+      - 'gradle.properties'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  spotless-deprecation:
+    name: Check formatter and Gradle Configuration.visible warnings
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@v6
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Verify Spotless and reject removed Gradle API
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          # Verify plugin configuration separately: formatting drift must not hide deprecation evidence.
+          ./gradlew help --warning-mode all --console=plain --no-daemon 2>&1 | tee spotless-deprecation.log
+          if grep -Fq 'Configuration.setVisible(boolean) method has been deprecated' spotless-deprecation.log; then
+            echo 'Spotless/Gradle configuration still calls the deprecated Configuration.setVisible API.' >&2
+            exit 1
+          fi
+          echo 'Spotless plugin configured without the Configuration.setVisible deprecation.' >> "$GITHUB_STEP_SUMMARY"
+          # Compare the formatted output of both plugins in disposable worktrees.
+          # The tracked source and public Java artifacts are never modified.
+          baseline="$RUNNER_TEMP/spotless-legacy"
+          candidate="$RUNNER_TEMP/spotless-upgraded"
+          git worktree add --detach "$baseline" HEAD
+          git worktree add --detach "$candidate" HEAD
+          sed -i 's/spotless = "8.10.4"/spotless = "7.0.2"/' "$baseline/gradle/libs.versions.toml"
+          grep -Fxq 'spotless = "7.0.2"' "$baseline/gradle/libs.versions.toml"
+          grep -Fxq 'spotless = "8.10.4"' "$candidate/gradle/libs.versions.toml"
+          (
+            cd "$baseline"
+            ./gradlew spotlessApply --warning-mode all --console=plain --no-daemon
+            ./gradlew spotlessCheck --console=plain --no-daemon
+          ) 2>&1 | tee -a spotless-deprecation.log
+          (
+            cd "$candidate"
+            ./gradlew spotlessApply --warning-mode all --console=plain --no-daemon
+            ./gradlew spotlessCheck --console=plain --no-daemon
+          ) 2>&1 | tee -a spotless-deprecation.log
+          python3 - "$baseline" "$candidate" <<'PY' | tee -a spotless-deprecation.log
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          baseline = Path(sys.argv[1])
+          candidate = Path(sys.argv[2])
+          tracked = subprocess.run(
+              ["git", "-C", str(baseline), "ls-files", "-z", "--", "*.java"],
+              capture_output=True, check=True,
+          ).stdout.split(b"\0")
+          different = [
+              name.decode("utf-8") for name in tracked if name and
+              (baseline / name.decode("utf-8")).read_bytes() !=
+              (candidate / name.decode("utf-8")).read_bytes()
+          ]
+          print("Spotless 7.0.2 vs 8.10.4 formatted Java differences:", len(different))
+          for name in different[:30]:
+              print("  ", name)
+          if different:
+              print("FAIL: The formatter upgrade changes source bytes; review independently.")
+              sys.exit(1)
+          print("PASS: Both formatter versions produce byte-identical tracked Java files.")
+          PY
+          echo 'Spotless 7.0.2 and 8.10.4 format tracked Java identically.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain exact-head diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: spotless-deprecation-log
+          path: spotless-deprecation.log
+          if-no-files-found: warn

@@ -1,5 +1,5 @@
 [versions]
-spotless = "7.0.2"
+spotless = "8.10.4"
 shadow = "9.3.2"
 gitProperties = "2.5.7"
 junit = "5.12.2"
