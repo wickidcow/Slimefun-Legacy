@@ -6,10 +6,38 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import shutil
 import socket
 import subprocess
 import time
+
+
+
+def confirmed_retirement_reset(exit_code: int, client_output: str, server_output: str, proof_text: str) -> bool:
+    """Only accept a TCP reset when a specific server-side Doctor retirement is proven.
+
+    The server forcibly disconnects the retired fixture player. Some pinned client
+    transports surface the resulting TCP close as ECONNRESET rather than normal end.
+    Never forgive a failed login, unknown kick, other client error, or missing proof.
+    """
+    if exit_code == 0:
+        return False
+    if not re.search(r"(?m)^Doctor client reached play: SFLDoctorBot [0-9a-f-]{36}$", client_output):
+        return False
+    if re.findall(r"(?m)^Error: .+$", client_output) != ["Error: read ECONNRESET"]:
+        return False
+    if "Unexpected client disconnect:" in client_output or "Doctor client failed" in client_output:
+        return False
+    kick = "SFLDoctorBot lost connection: Doctor retirement probe"
+    retired = "RESOURCE_PACK_DOCTOR_PROBE_PASS player-retire | "
+    if "RESOURCE_PACK_DOCTOR_PROBE_FAIL" in server_output:
+        return False
+    if kick not in server_output or "SFLDoctorBot left the game" not in server_output:
+        return False
+    if not proof_text.startswith(retired) or retired not in server_output:
+        return False
+    return server_output.index(kick) < server_output.index(retired)
 
 
 def main() -> None:
@@ -139,7 +167,13 @@ def main() -> None:
         client.wait(timeout=15)
         client_log.close()
         if client.returncode != 0:
-            raise RuntimeError("Connected-player client failed; inspect client log")
+            output = Path(client_log.name).read_text(encoding="utf-8", errors="replace")
+            server = (root / f"console-{number}.log").read_text(encoding="utf-8", errors="replace")
+            marker = proof / "player-retire.pass"
+            retirement_proof = marker.read_text(encoding="utf-8") if retired and marker.is_file() else ""
+            if not retired or not confirmed_retirement_reset(client.returncode, output, server, retirement_proof):
+                raise RuntimeError("Connected-player client failed; inspect client and server logs")
+            print("Server-confirmed Doctor retirement closed the connected client with ECONNRESET", flush=True)
         wait(lambda: (proof / "player-disconnected.ready").is_file(), process, root / f"console-{number}.log")
 
     def stop(process, log):
