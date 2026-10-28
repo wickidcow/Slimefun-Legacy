@@ -189,17 +189,19 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x gradlew
-          mkdir -p build/reports/paper-26.1.2
+          # Keep diagnostics outside build/: Gradle clean removes that directory
+          # while tee is writing, leaving no file for upload-artifact.
+          mkdir -p ci-logs/paper-26.1.2
           ./gradlew clean compileJava -PpaperApiVersion=26.1.2.build.74-stable \
             --no-daemon --no-configuration-cache \
-            2>&1 | tee build/reports/paper-26.1.2/compile.log
+            2>&1 | tee ci-logs/paper-26.1.2/compile.log
       - name: Retain warnings and failure diagnostics
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: advisory-paper-26.1.2-api
-          path: build/reports/paper-26.1.2/compile.log
-          if-no-files-found: warn
+          path: ci-logs/paper-26.1.2/compile.log
+          if-no-files-found: error
 
   paper-candidate-api:
     name: Candidate Paper API
