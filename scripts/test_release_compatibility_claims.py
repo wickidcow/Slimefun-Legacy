@@ -15,19 +15,23 @@ class CompatibilityClaimsTest(unittest.TestCase):
     def test_live_matrix_preserves_runtime_floor_and_separate_advisory(self):
         validate_scope(self.matrix)
 
-    def test_r153_release_safety_sources_are_current_reviewed_mains(self):
+    def test_r153_source_pins_match_versioned_draft_preview(self):
         self.assertEqual(153, self.matrix["bundle_revision"])
         rows = self.matrix["addons"]
         self.assertEqual(44, len(rows))
         pins = {row["repository"]: row["source_commit"] for row in rows}
         self.assertEqual(len(rows), len(pins), "Duplicate addon repository source lock")
         expected = {
-            "wickidcow/SF_FlowerPower": "b1b691c45138065dfc6688a43f6af4a26709745e",
-            "wickidcow/SF_ExtraHeads": "bc0ea212f4889e494462ba22f1604206079cbd3d",
+            "wickidcow/SF_FlowerPower": "f74950f9c901ffd4b866a58fa5ca6591aa9d00e8",
+            "wickidcow/SF_ExtraHeads": "26861f9e1ca5cab305678c39f10630a61d6f38f0",
         }
         for repository, commit in expected.items():
             with self.subTest(repository=repository):
                 self.assertEqual(commit, pins[repository])
+        self.assertNotEqual("b1b691c45138065dfc6688a43f6af4a26709745e",
+                            pins["wickidcow/SF_FlowerPower"])
+        self.assertNotEqual("bc0ea212f4889e494462ba22f1604206079cbd3d",
+                            pins["wickidcow/SF_ExtraHeads"])
 
     def test_generated_notice_carries_the_same_explicit_scope(self):
         text = (ROOT / ".github/workflows/build-sfl-addons-compat-bundle.yml").read_text()
