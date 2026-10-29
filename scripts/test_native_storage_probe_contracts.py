@@ -69,7 +69,7 @@ class NativeStorageProbeContracts(unittest.TestCase):
             if revision == 140 else
             ("SF_Networks1.0.59.jar", "560d590095206a8159d82c70e7cabe6d16aaa0d8")
             if revision in (141, 142) else
-            ("SF_Networks1.0.63.jar", "ea5777ce58c45c3c3cd4789bd155164ccbb5336b")
+            ("SF_Networks1.0.63.jar", "f7b08661cdbdd2e6653fcc72295a4abef4c2ac70")
             if revision == 153 else
             ("SF_Networks1.0.62.jar", "79e4c0116cc4b4683c668a4920e67692f925b83f")
             if revision == 152 else
@@ -262,7 +262,7 @@ class NativeStorageProbeContracts(unittest.TestCase):
         self.manifest["addons"][1]["commit"] = probe.NETWORK_VERSIONS[151][1]
         self.reject("addon source mismatch")
 
-    def test_r153_previews_networks_1_0_63_exact_unmerged_source(self):
+    def test_r153_requires_merged_networks_1_0_63_main_source(self):
         (self.root / "gradle.properties").write_text("projectVersion=4.1.78\n", encoding="utf-8")
         self.populate(153)
         evidence = self.prepare()
@@ -270,9 +270,14 @@ class NativeStorageProbeContracts(unittest.TestCase):
         self.assertEqual(evidence["expected_core_version"], "4.1.78")
         networks = evidence["tested_addons"]["wickidcow/SF_NetworksExp"]
         self.assertEqual(networks["jar"], "SF_Networks1.0.63.jar")
+        self.assertEqual(networks["commit"], "f7b08661cdbdd2e6653fcc72295a4abef4c2ac70")
         self.assertEqual(networks["commit"], probe.NETWORK_VERSIONS[153][1])
         self.assertNotIn("result", evidence)
         self.compile.reset_mock()
+        # Reject the prior PR-head pin even though it has the same version and JAR name.
+        self.manifest["addons"][1]["commit"] = "ea5777ce58c45c3c3cd4789bd155164ccbb5336b"
+        self.reject("addon source mismatch")
+        # Historical r151 data is still checked against its exact older source.
         self.manifest["addons"][1]["commit"] = probe.NETWORK_VERSIONS[151][1]
         self.reject("addon source mismatch")
 
