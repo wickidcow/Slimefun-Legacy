@@ -45,6 +45,9 @@ jobs:
       - name: Verify Java-only core release scope
         run: python3 -m unittest scripts.test_java_only_release_scope -v
       - name: Build
+        # Enable Gradle's detailed diagnostics without changing the verified release command.
+        env:
+          GRADLE_OPTS: -Dorg.gradle.warning.mode=all
         run: |
           set -euo pipefail
           chmod +x gradlew
