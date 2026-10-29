@@ -58,6 +58,8 @@ class NativeStorageProbeContracts(unittest.TestCase):
     def populate(self, revision):
         self.manifest["bundle_revision"] = revision
         expected = dict(probe.EXPECTED_VERSIONS)
+        if revision == 153:
+            expected["wickidcow/SF_FluffyMachines"] = probe.R153_FLUFFY
         expected["wickidcow/SF_NetworksExp"] = (
             ("SF_Networks1.0.54.jar", "c24064cbeafe4f112c7d46bf3de5617fa151d88d")
             if revision == 135 else
@@ -67,8 +69,10 @@ class NativeStorageProbeContracts(unittest.TestCase):
             if revision == 140 else
             ("SF_Networks1.0.59.jar", "560d590095206a8159d82c70e7cabe6d16aaa0d8")
             if revision in (141, 142) else
+            ("SF_Networks1.0.63.jar", "ea5777ce58c45c3c3cd4789bd155164ccbb5336b")
+            if revision == 153 else
             ("SF_Networks1.0.62.jar", "79e4c0116cc4b4683c668a4920e67692f925b83f")
-            if revision in (152, 153) else
+            if revision == 152 else
             ("SF_Networks1.0.62.jar", "288640e6dbf907a6ba238d98af206aab2d56f92b")
             if revision == 151 else
             ("SF_Networks1.0.61.jar", "9bf9f48b49dbedbf9e617ca840d9ccd57cf0c717")
@@ -258,18 +262,27 @@ class NativeStorageProbeContracts(unittest.TestCase):
         self.manifest["addons"][1]["commit"] = probe.NETWORK_VERSIONS[151][1]
         self.reject("addon source mismatch")
 
-    def test_r153_requires_the_final_merged_networks_source(self):
+    def test_r153_previews_networks_1_0_63_exact_unmerged_source(self):
         (self.root / "gradle.properties").write_text("projectVersion=4.1.78\n", encoding="utf-8")
         self.populate(153)
         evidence = self.prepare()
         self.assertEqual(evidence["bundle_revision"], 153)
         self.assertEqual(evidence["expected_core_version"], "4.1.78")
         networks = evidence["tested_addons"]["wickidcow/SF_NetworksExp"]
-        self.assertEqual(networks["jar"], "SF_Networks1.0.62.jar")
+        self.assertEqual(networks["jar"], "SF_Networks1.0.63.jar")
         self.assertEqual(networks["commit"], probe.NETWORK_VERSIONS[153][1])
         self.assertNotIn("result", evidence)
         self.compile.reset_mock()
         self.manifest["addons"][1]["commit"] = probe.NETWORK_VERSIONS[151][1]
+        self.reject("addon source mismatch")
+
+    def test_r153_uses_reviewed_fluffy_source_not_historical_one(self):
+        self.populate(153)
+        evidence = self.prepare()
+        self.assertEqual(evidence["tested_addons"]["wickidcow/SF_FluffyMachines"]["commit"],
+                         probe.R153_FLUFFY[1])
+        self.compile.reset_mock()
+        self.manifest["addons"][0]["commit"] = probe.EXPECTED_VERSIONS["wickidcow/SF_FluffyMachines"][1]
         self.reject("addon source mismatch")
 
     def test_wrong_fluffy_pin_is_rejected(self):
