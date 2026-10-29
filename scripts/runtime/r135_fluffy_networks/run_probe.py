@@ -55,9 +55,9 @@ NETWORK_VERSIONS = {
     151: ("SF_Networks1.0.62.jar", "288640e6dbf907a6ba238d98af206aab2d56f92b"),
     # r152 recognizes final merged Networks 1.0.62, not the staging PR SHA.
     152: ("SF_Networks1.0.62.jar", "79e4c0116cc4b4683c668a4920e67692f925b83f"),
-    # r153 updated-source rehearsal: new unpublished Networks 1.0.63 exact PR head.
-    # This is not a published source lock; update only after independently reviewed merge.
-    153: ("SF_Networks1.0.63.jar", "ea5777ce58c45c3c3cd4789bd155164ccbb5336b"),
+    # r153 exact reviewed, merged Networks 1.0.63 main (same immutable JAR version).
+    # Fail closed on a staging-branch or historical source even when filename matches.
+    153: ("SF_Networks1.0.63.jar", "f7b08661cdbdd2e6653fcc72295a4abef4c2ac70"),
 }
 
 
