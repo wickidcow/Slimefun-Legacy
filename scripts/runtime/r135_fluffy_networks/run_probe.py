@@ -23,6 +23,9 @@ HERE = Path(__file__).resolve().parent
 EXPECTED_VERSIONS = {
     "wickidcow/SF_FluffyMachines": ("SF_FluffyMachines26.2.16.jar", "3d5286877e2307b4b9bc48be886d14d75e6889c6"),
 }
+# Preserve all historical r135-r152 receipts; r153 previews a separately reviewed
+# Fluffy source at the same plugin version with distinct distributable bytes.
+R153_FLUFFY = ("SF_FluffyMachines26.2.16.jar", "5cb23e8758482d5fa1bb2917ba54f80a37288bc6")
 NETWORK_VERSIONS = {
     135: ("SF_Networks1.0.54.jar", "c24064cbeafe4f112c7d46bf3de5617fa151d88d"),
     136: ("SF_Networks1.0.55.jar", "bcdef34d362dc74aa1aab23c8961a629daa79950"),
@@ -52,8 +55,9 @@ NETWORK_VERSIONS = {
     151: ("SF_Networks1.0.62.jar", "288640e6dbf907a6ba238d98af206aab2d56f92b"),
     # r152 recognizes final merged Networks 1.0.62, not the staging PR SHA.
     152: ("SF_Networks1.0.62.jar", "79e4c0116cc4b4683c668a4920e67692f925b83f"),
-    # r153 changes only DankTech2 and the BuildingStaff roster; Networks stays unchanged.
-    153: ("SF_Networks1.0.62.jar", "79e4c0116cc4b4683c668a4920e67692f925b83f"),
+    # r153 updated-source rehearsal: new unpublished Networks 1.0.63 exact PR head.
+    # This is not a published source lock; update only after independently reviewed merge.
+    153: ("SF_Networks1.0.63.jar", "c2edbd77483f8b4846d2b18254fb188a1d104657"),
 }
 
 
@@ -84,6 +88,8 @@ def prepare(work: Path, bundle: Path, java: Path, runtime_core_version: str | No
     if type(revision) is not int or revision not in NETWORK_VERSIONS:
         raise RuntimeError(f"Native conservation test requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153; found bundle revision {revision!r}")
     expected_versions = dict(EXPECTED_VERSIONS)
+    if revision == 153:
+        expected_versions["wickidcow/SF_FluffyMachines"] = R153_FLUFFY
     expected_versions["wickidcow/SF_NetworksExp"] = NETWORK_VERSIONS[revision]
 
     workspace = (Path.cwd() / "build").resolve()
