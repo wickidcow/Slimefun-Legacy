@@ -57,7 +57,7 @@ NETWORK_VERSIONS = {
     152: ("SF_Networks1.0.62.jar", "79e4c0116cc4b4683c668a4920e67692f925b83f"),
     # r153 updated-source rehearsal: new unpublished Networks 1.0.63 exact PR head.
     # This is not a published source lock; update only after independently reviewed merge.
-    153: ("SF_Networks1.0.63.jar", "c2edbd77483f8b4846d2b18254fb188a1d104657"),
+    153: ("SF_Networks1.0.63.jar", "977ab45e8d35ffe5939848b5cf6f0de1aec129ae"),
 }
 
 
