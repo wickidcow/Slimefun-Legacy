@@ -122,7 +122,7 @@
     {
       "repository": "wickidcow/SF_FinalTECH",
       "slug": "finaltech",
-      "source_commit": "cd967e62b5042e850599a8d723431dc9d4c2f063"
+      "source_commit": "36790ccd9519a22eb5fc0ce4b858b00ba4f1df4a"
     },
     {
       "repository": "wickidcow/SF_FlowerPower",
@@ -132,7 +132,7 @@
     {
       "repository": "wickidcow/SF_FluffyMachines",
       "slug": "fluffymachines",
-      "source_commit": "3d5286877e2307b4b9bc48be886d14d75e6889c6"
+      "source_commit": "5cb23e8758482d5fa1bb2917ba54f80a37288bc6"
     },
     {
       "repository": "wickidcow/SF_FNAmplifications",
@@ -194,7 +194,7 @@
     {
       "repository": "wickidcow/SF_MagicExpansion",
       "slug": "magicexpansion",
-      "source_commit": "b28c304f2909f15b43da53910ce7650886cc0e6f"
+      "source_commit": "258f6941de328202611bdfc4e34e23973356adad"
     },
     {
       "repository": "wickidcow/SF_MilitaryArsenal",
@@ -204,7 +204,7 @@
     {
       "repository": "wickidcow/SF_MobCapturer",
       "slug": "mobcapturer",
-      "source_commit": "34e7f85233007f7d93036aa92f0fd53ff463f1c4"
+      "source_commit": "4419b2d6f9a1d93951de90c49c387d66ce9fb292"
     },
     {
       "repository": "wickidcow/SF_MobDrops",
@@ -215,7 +215,7 @@
       "repository": "wickidcow/SF_NetworksExp",
       "slug": "networksexp",
       "artifact_base": "Networks",
-      "source_commit": "79e4c0116cc4b4683c668a4920e67692f925b83f"
+      "source_commit": "e9524b153a9cccff42a4bd0e6ede2d1b830382b0"
     },
     {
       "repository": "wickidcow/SF_RelicsOfCthonia",
@@ -225,7 +225,7 @@
     {
       "repository": "wickidcow/SF_RykenSlimeCustomizer",
       "slug": "rykenslimecustomizer",
-      "source_commit": "e62b10423a64d1940ee4bc87947e2ff42b0ee3df"
+      "source_commit": "b74e0c55aabcec36721d37b5bf4333ee3b08ed9c"
     },
     {
       "repository": "wickidcow/SF_SlimeEasy",
@@ -262,7 +262,7 @@
     {
       "repository": "wickidcow/SF_SlimyTreeTaps",
       "slug": "slimytreetaps",
-      "source_commit": "ac1680260503ae7ba8070797069923f983d080c6"
+      "source_commit": "104282d78d4ff9c86e12adf7fd5b37ea2bb70e8c"
     },
     {
       "repository": "wickidcow/SF_SMG",
@@ -277,13 +277,13 @@
     {
       "repository": "wickidcow/SF_Supreme",
       "slug": "supreme",
-      "source_commit": "17693b1eec0ef15f198c86a5803f6e5dbd085074"
+      "source_commit": "9d7dd77a445cf26288afcc5b52c8dfc2177e228e"
     },
     {
       "repository": "wickidcow/WorldEditSlimefun",
       "slug": "worldeditslimefun",
       "artifact_base": "SFWorldEdit",
-      "source_commit": "c1d4d98d4a2796debb9d01055a5011d793f69aea"
+      "source_commit": "2e64fad013fdfe94f9a27e28f36887c5784700d8"
     }
   ],
   "excluded_from_bundle": {
