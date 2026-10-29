@@ -24,6 +24,7 @@ class CompatibilityClaimsTest(unittest.TestCase):
         expected = {
             "wickidcow/SF_FlowerPower": "d8c3f2c8ec66b7c08e0ceb8b23f710f020b5c36f",
             "wickidcow/SF_ExtraHeads": "b1e8a1f11692b44d359eec863f3be5be0f061516",
+            "wickidcow/SF_InfinityExpansion2": "fdadfa67bc68fb18e34ccfed773a23ba2efbd4ef",
         }
         # Do not accept unmerged candidate branches as canonical bundle provenance.
         self.assertNotEqual("f74950f9c901ffd4b866a58fa5ca6591aa9d00e8", pins["wickidcow/SF_FlowerPower"])
@@ -35,6 +36,16 @@ class CompatibilityClaimsTest(unittest.TestCase):
                             pins["wickidcow/SF_FlowerPower"])
         self.assertNotEqual("bc0ea212f4889e494462ba22f1604206079cbd3d",
                             pins["wickidcow/SF_ExtraHeads"])
+
+    def test_ie2_2017_release_pin_keeps_existing_bundle_jar_identity(self):
+        matches = [row for row in self.matrix["addons"]
+                   if row["repository"] == "wickidcow/SF_InfinityExpansion2"]
+        self.assertEqual(1, len(matches), "InfinityExpansion2 must appear exactly once")
+        self.assertEqual("infinityexpansion2", matches[0]["slug"])
+        self.assertEqual("InfinityExpansion", matches[0]["artifact_base"])
+        self.assertEqual("fdadfa67bc68fb18e34ccfed773a23ba2efbd4ef", matches[0]["source_commit"])
+        self.assertNotEqual("a9b105e5cf3e8c69b3edb135c615eb3710f72158", matches[0]["source_commit"],
+                            "Do not rebuild the 2.0.16 source in the 2.0.17 bundle preview")
 
     def test_generated_notice_carries_the_same_explicit_scope(self):
         text = (ROOT / ".github/workflows/build-sfl-addons-compat-bundle.yml").read_text()
