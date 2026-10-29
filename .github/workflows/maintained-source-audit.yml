@@ -1,0 +1,48 @@
+name: Maintained Java Source and CI Inventory
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/maintained-source-audit.yml'
+      - 'scripts/audit_maintained_sources.py'
+      - 'scripts/test_audit_maintained_sources.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Verify scope and exact-head CI classification
+        run: python3 -m unittest scripts.test_audit_maintained_sources -v
+      - name: Inventory public maintained sources without executing addon code
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/audit_maintained_sources.py --output maintenance-audit
+      - name: Verify public workflow evidence is present and contains no Git credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f maintenance-audit/Slimefun-Legacy/source/.github/workflows/build-ci.yml
+          if find maintenance-audit -type d -name .git -print -quit | grep -q .; then
+            echo 'Git metadata must never be included in the source inventory.' >&2
+            exit 1
+          fi
+      - name: Retain exact-source inventory and review inputs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: maintained-java-source-ci-inventory
+          path: maintenance-audit/
+          # Only reviewed, tracked public text files are copied here; no .git or runner credentials.
+          # Required to retain the public .github workflows for release-safety review.
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
