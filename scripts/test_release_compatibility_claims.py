@@ -37,6 +37,30 @@ class CompatibilityClaimsTest(unittest.TestCase):
         self.assertNotEqual("bc0ea212f4889e494462ba22f1604206079cbd3d",
                             pins["wickidcow/SF_ExtraHeads"])
 
+    def test_next_reviewed_merged_main_locks_keep_44_addon_names_and_sources(self):
+        expected = {
+            "wickidcow/SF_FinalTECH": (
+                "finaltech", None, "60ac405d40292e24bee93bbd522b582f1ea5bc84",
+                "36790ccd9519a22eb5fc0ce4b858b00ba4f1df4a"),
+            "wickidcow/SF_NetworksExp": (
+                "networksexp", "Networks", "f7b08661cdbdd2e6653fcc72295a4abef4c2ac70",
+                "ea5777ce58c45c3c3cd4789bd155164ccbb5336b"),
+            "wickidcow/WorldEditSlimefun": (
+                "worldeditslimefun", "SFWorldEdit", "26714bc20ccd78f1d811664bf1b3b15a83673981",
+                "2e64fad013fdfe94f9a27e28f36887c5784700d8"),
+        }
+        self.assertEqual(153, self.matrix["bundle_revision"], "Preview cannot publish a new revision")
+        self.assertEqual(44, len(self.matrix["addons"]))
+        for repository, (slug, artifact_base, source, superseded) in expected.items():
+            with self.subTest(repository=repository):
+                rows = [row for row in self.matrix["addons"] if row["repository"] == repository]
+                self.assertEqual(1, len(rows), "A canonical addon must be bundled exactly once")
+                row = rows[0]
+                self.assertEqual(slug, row["slug"])
+                self.assertEqual(artifact_base, row.get("artifact_base"))
+                self.assertEqual(source, row["source_commit"])
+                self.assertNotEqual(superseded, row["source_commit"])
+
     def test_ie2_2017_release_pin_keeps_existing_bundle_jar_identity(self):
         matches = [row for row in self.matrix["addons"]
                    if row["repository"] == "wickidcow/SF_InfinityExpansion2"]
