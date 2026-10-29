@@ -122,7 +122,7 @@
     {
       "repository": "wickidcow/SF_FinalTECH",
       "slug": "finaltech",
-      "source_commit": "36790ccd9519a22eb5fc0ce4b858b00ba4f1df4a"
+      "source_commit": "60ac405d40292e24bee93bbd522b582f1ea5bc84"
     },
     {
       "repository": "wickidcow/SF_FlowerPower",
@@ -215,7 +215,7 @@
       "repository": "wickidcow/SF_NetworksExp",
       "slug": "networksexp",
       "artifact_base": "Networks",
-      "source_commit": "ea5777ce58c45c3c3cd4789bd155164ccbb5336b"
+      "source_commit": "f7b08661cdbdd2e6653fcc72295a4abef4c2ac70"
     },
     {
       "repository": "wickidcow/SF_RelicsOfCthonia",
@@ -283,7 +283,7 @@
       "repository": "wickidcow/WorldEditSlimefun",
       "slug": "worldeditslimefun",
       "artifact_base": "SFWorldEdit",
-      "source_commit": "2e64fad013fdfe94f9a27e28f36887c5784700d8"
+      "source_commit": "26714bc20ccd78f1d811664bf1b3b15a83673981"
     }
   ],
   "excluded_from_bundle": {
