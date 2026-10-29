@@ -388,6 +388,12 @@ class AdmissionTests(unittest.TestCase):
         self.write_bundle()
         self.rejects()
 
+    def test_r153_rejects_prior_merged_magic_1_1_19_source(self):
+        self.select_r153_roster()
+        self.rows[0]["commit"] = probe.MAGIC_RELEASES[152][0]
+        self.write_bundle()
+        self.rejects()
+
     def test_r153_rejects_obsolete_magic_1_1_18_source(self):
         self.select_r153_roster()
         self.rows[0]["commit"] = probe.MAGIC_RELEASES[150][0]
