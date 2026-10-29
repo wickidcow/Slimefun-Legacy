@@ -61,6 +61,8 @@ jobs:
       - name: Verify published and unpublished pair staging rejection controls
         run: |
           python3 -m unittest scripts/test_stage_published_pair.py scripts/test_stage_unpublished_pair_candidate.py -v
+      - name: Reject unsupported compatibility and world-data claims
+        run: python3 -m unittest scripts.test_release_compatibility_claims -v
       - name: Validate retired addon exclusion
         run: python3 scripts/test_retired_addon_exclusion.py
       - name: Validate manifest and create matrix
@@ -700,9 +702,9 @@ jobs:
           - MagicExpansion remains bundled; its optional MagicLegacy integration is used only when Magic Legacy is installed separately
           - No Legacy, Legacy-English, SNAPSHOT, compatibility suffixes, or repo-only suffixes except the approved WorldEdit support-range suffix
 
-          Supported Minecraft/Paper generations:
+          Minecraft/Paper validation scope:
           - 1.21.11: minimum/base compatibility
-          - 26.1.x: supported
+          - 26.1.2: advisory source compilation only; no runtime or world-migration/rollback certification
           - 26.2: supported backwards-compatibility line
           - 26.3: PRIMARY API/support target; bundle compile validation is required
 

@@ -21,13 +21,19 @@
       "minimum": "1.21.11",
       "supported": [
         "1.21.11",
-        "26.1.x",
         "26.2",
         "26.3"
       ],
       "primary": "26.3",
       "candidate": null,
-      "candidate_status": "promoted-to-primary-api"
+      "candidate_status": "promoted-to-primary-api",
+      "advisory": {
+        "26.1.2": {
+          "validation": "source-compile-only",
+          "runtime_support": false,
+          "world_migration_or_rollback_verified": false
+        }
+      }
     },
     "server_platforms": {
       "primary": [
@@ -106,7 +112,7 @@
     {
       "repository": "wickidcow/SF_ExtraHeads",
       "slug": "extraheads",
-      "source_commit": "72e7d9bc3ee2ac01bd75b147df39f018bffe544d"
+      "source_commit": "b1e8a1f11692b44d359eec863f3be5be0f061516"
     },
     {
       "repository": "wickidcow/SF_FastMachines",
@@ -116,17 +122,17 @@
     {
       "repository": "wickidcow/SF_FinalTECH",
       "slug": "finaltech",
-      "source_commit": "cd967e62b5042e850599a8d723431dc9d4c2f063"
+      "source_commit": "60ac405d40292e24bee93bbd522b582f1ea5bc84"
     },
     {
       "repository": "wickidcow/SF_FlowerPower",
       "slug": "flowerpower",
-      "source_commit": "65f441e6a540d12193fe792ec46d03961f2690ad"
+      "source_commit": "d8c3f2c8ec66b7c08e0ceb8b23f710f020b5c36f"
     },
     {
       "repository": "wickidcow/SF_FluffyMachines",
       "slug": "fluffymachines",
-      "source_commit": "3d5286877e2307b4b9bc48be886d14d75e6889c6"
+      "source_commit": "5cb23e8758482d5fa1bb2917ba54f80a37288bc6"
     },
     {
       "repository": "wickidcow/SF_FNAmplifications",
@@ -167,7 +173,7 @@
       "repository": "wickidcow/SF_InfinityExpansion2",
       "slug": "infinityexpansion2",
       "artifact_base": "InfinityExpansion",
-      "source_commit": "a9b105e5cf3e8c69b3edb135c615eb3710f72158"
+      "source_commit": "fdadfa67bc68fb18e34ccfed773a23ba2efbd4ef"
     },
     {
       "repository": "wickidcow/SF_LiteXpansion",
@@ -188,7 +194,7 @@
     {
       "repository": "wickidcow/SF_MagicExpansion",
       "slug": "magicexpansion",
-      "source_commit": "b28c304f2909f15b43da53910ce7650886cc0e6f"
+      "source_commit": "258f6941de328202611bdfc4e34e23973356adad"
     },
     {
       "repository": "wickidcow/SF_MilitaryArsenal",
@@ -198,7 +204,7 @@
     {
       "repository": "wickidcow/SF_MobCapturer",
       "slug": "mobcapturer",
-      "source_commit": "34e7f85233007f7d93036aa92f0fd53ff463f1c4"
+      "source_commit": "4419b2d6f9a1d93951de90c49c387d66ce9fb292"
     },
     {
       "repository": "wickidcow/SF_MobDrops",
@@ -209,7 +215,7 @@
       "repository": "wickidcow/SF_NetworksExp",
       "slug": "networksexp",
       "artifact_base": "Networks",
-      "source_commit": "79e4c0116cc4b4683c668a4920e67692f925b83f"
+      "source_commit": "f7b08661cdbdd2e6653fcc72295a4abef4c2ac70"
     },
     {
       "repository": "wickidcow/SF_RelicsOfCthonia",
@@ -219,7 +225,7 @@
     {
       "repository": "wickidcow/SF_RykenSlimeCustomizer",
       "slug": "rykenslimecustomizer",
-      "source_commit": "e62b10423a64d1940ee4bc87947e2ff42b0ee3df"
+      "source_commit": "b74e0c55aabcec36721d37b5bf4333ee3b08ed9c"
     },
     {
       "repository": "wickidcow/SF_SlimeEasy",
@@ -256,7 +262,7 @@
     {
       "repository": "wickidcow/SF_SlimyTreeTaps",
       "slug": "slimytreetaps",
-      "source_commit": "ac1680260503ae7ba8070797069923f983d080c6"
+      "source_commit": "104282d78d4ff9c86e12adf7fd5b37ea2bb70e8c"
     },
     {
       "repository": "wickidcow/SF_SMG",
@@ -271,13 +277,13 @@
     {
       "repository": "wickidcow/SF_Supreme",
       "slug": "supreme",
-      "source_commit": "17693b1eec0ef15f198c86a5803f6e5dbd085074"
+      "source_commit": "9d7dd77a445cf26288afcc5b52c8dfc2177e228e"
     },
     {
       "repository": "wickidcow/WorldEditSlimefun",
       "slug": "worldeditslimefun",
       "artifact_base": "SFWorldEdit",
-      "source_commit": "c1d4d98d4a2796debb9d01055a5011d793f69aea"
+      "source_commit": "26714bc20ccd78f1d811664bf1b3b15a83673981"
     }
   ],
   "excluded_from_bundle": {
