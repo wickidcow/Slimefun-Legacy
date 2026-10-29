@@ -71,6 +71,19 @@ class CompatibilityClaimsTest(unittest.TestCase):
         self.assertNotEqual("a9b105e5cf3e8c69b3edb135c615eb3710f72158", matches[0]["source_commit"],
                             "Do not rebuild the 2.0.16 source in the 2.0.17 bundle preview")
 
+    def test_supreme_1021_unmerged_candidate_is_preview_only(self):
+        """This is a draft source preview, not yet a reviewed merged-main release lock."""
+        rows = self.matrix["addons"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(rows))
+        self.assertEqual(44, len({row["repository"] for row in rows}))
+        supreme = [row for row in rows if row["repository"] == "wickidcow/SF_Supreme"]
+        self.assertEqual(1, len(supreme))
+        self.assertEqual("supreme", supreme[0]["slug"])
+        self.assertEqual("9edef3c74fc254e633e8aacc524b0f2ea1e9f0ee", supreme[0]["source_commit"])
+        self.assertNotEqual("9d7dd77a445cf26288afcc5b52c8dfc2177e228e", supreme[0]["source_commit"])
+        self.assertNotEqual("f68b1790a84ac0831fdfe15251be3ee6adebe07c", supreme[0]["source_commit"])
+
     def test_generated_notice_carries_the_same_explicit_scope(self):
         text = (ROOT / ".github/workflows/build-sfl-addons-compat-bundle.yml").read_text()
         start = text.index("cat > bundle/COMPATIBILITY.txt <<EOF")
