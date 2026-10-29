@@ -112,7 +112,7 @@
     {
       "repository": "wickidcow/SF_ExtraHeads",
       "slug": "extraheads",
-      "source_commit": "72e7d9bc3ee2ac01bd75b147df39f018bffe544d"
+      "source_commit": "bc0ea212f4889e494462ba22f1604206079cbd3d"
     },
     {
       "repository": "wickidcow/SF_FastMachines",
@@ -127,7 +127,7 @@
     {
       "repository": "wickidcow/SF_FlowerPower",
       "slug": "flowerpower",
-      "source_commit": "65f441e6a540d12193fe792ec46d03961f2690ad"
+      "source_commit": "b1b691c45138065dfc6688a43f6af4a26709745e"
     },
     {
       "repository": "wickidcow/SF_FluffyMachines",
