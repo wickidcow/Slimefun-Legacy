@@ -62,7 +62,16 @@ public class FarmerAndroid extends ProgrammableAndroid {
         if (!event.isCancelled()) {
             drop = event.getDrop();
 
-            if (drop != null && menu.fits(drop, getOutputSlots()) && data instanceof Ageable ageable) {
+            if (drop != null && !(data instanceof Ageable)) {
+                // Non-crop drops come from AndroidFarmEvent listeners (e.g. ExoticGarden), which have
+                // already harvested the plant. The world source is gone, so the drop must not be discarded.
+                ItemStack remainder = menu.pushItem(drop, getOutputSlots());
+                if (remainder != null) {
+                    block.getWorld().dropItemNaturally(block.getLocation(), remainder);
+                }
+
+                VisualEffectUtils.playBlockBreakEffect(block);
+            } else if (drop != null && menu.fits(drop, getOutputSlots()) && data instanceof Ageable ageable) {
                 BlockData originalCrop = data.clone();
                 int[] outputSlots = getOutputSlots();
                 ItemStack[] originalOutputs = snapshotSlots(menu, outputSlots);
