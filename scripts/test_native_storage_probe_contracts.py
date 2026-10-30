@@ -69,7 +69,7 @@ class NativeStorageProbeContracts(unittest.TestCase):
             if revision == 140 else
             ("SF_Networks1.0.59.jar", "560d590095206a8159d82c70e7cabe6d16aaa0d8")
             if revision in (141, 142) else
-            ("SF_Networks1.0.63.jar", "f7b08661cdbdd2e6653fcc72295a4abef4c2ac70")
+            ("SF_Networks1.0.63.jar", "c8f222e41510f5ac65913bb4510ed8cba9fc9490")
             if revision == 153 else
             ("SF_Networks1.0.62.jar", "79e4c0116cc4b4683c668a4920e67692f925b83f")
             if revision == 152 else
@@ -270,10 +270,13 @@ class NativeStorageProbeContracts(unittest.TestCase):
         self.assertEqual(evidence["expected_core_version"], "4.1.78")
         networks = evidence["tested_addons"]["wickidcow/SF_NetworksExp"]
         self.assertEqual(networks["jar"], "SF_Networks1.0.63.jar")
-        self.assertEqual(networks["commit"], "f7b08661cdbdd2e6653fcc72295a4abef4c2ac70")
+        self.assertEqual(networks["commit"], "c8f222e41510f5ac65913bb4510ed8cba9fc9490")
         self.assertEqual(networks["commit"], probe.NETWORK_VERSIONS[153][1])
         self.assertNotIn("result", evidence)
         self.compile.reset_mock()
+        # Reject the previous published 1.0.63 source: this candidate pins the merged main.
+        self.manifest["addons"][1]["commit"] = "f7b08661cdbdd2e6653fcc72295a4abef4c2ac70"
+        self.reject("addon source mismatch")
         # Reject the prior PR-head pin even though it has the same version and JAR name.
         self.manifest["addons"][1]["commit"] = "ea5777ce58c45c3c3cd4789bd155164ccbb5336b"
         self.reject("addon source mismatch")
