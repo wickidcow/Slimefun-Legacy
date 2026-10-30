@@ -119,6 +119,20 @@ class CompatibilityClaimsTest(unittest.TestCase):
                             rows[0]["source_commit"],
                             "Reject source predating stable Paper 26.3 native runtime checks")
 
+    def test_dynatech_verified_main_source_preserves_bundle_identity(self):
+        """Require reviewed Maven and immutable manual publisher source without changing DynaTech identity."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_DynaTech"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "DynaTech must appear exactly once")
+        self.assertEqual("dynatech", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Keep the existing DynaTech JAR naming")
+        self.assertEqual("cfa07188b8813e3c7d19611aaa37c105fe418af0", rows[0]["source_commit"])
+        self.assertNotEqual("f4289dbbd61fcc93ae8c6bcfde5b9e3892d371bc", rows[0]["source_commit"],
+                            "Reject DynaTech source before SHA-verified Maven and manual-only immutable release gate")
+
     def test_supreme_1021_unmerged_candidate_is_preview_only(self):
         """This is a draft source preview, not yet a reviewed merged-main release lock."""
         rows = self.matrix["addons"]
