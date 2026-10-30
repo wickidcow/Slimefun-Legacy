@@ -94,6 +94,7 @@ jobs:
           [[ -n "$SOURCE_REPO" && "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
           mkdir -p scripts compatibility
           gh api "repos/$GITHUB_REPOSITORY/contents/scripts/summarize_addon_compatibility_artifacts.py?ref=$GITHUB_SHA" --jq '.content' | base64 --decode > scripts/summarize_addon_compatibility_artifacts.py
+          gh api "repos/$GITHUB_REPOSITORY/contents/compatibility/addon-compatibility-exclusions.json?ref=$GITHUB_SHA" --jq '.content' | base64 --decode > compatibility/addon-compatibility-exclusions.json
           gh api "repos/$SOURCE_REPO/contents/compatibility/addon-compatibility-matrix.json?ref=$SOURCE_SHA" --jq '.content' | base64 --decode > compatibility/addon-compatibility-matrix.json
       - name: Download every addon compatibility artifact
         uses: actions/download-artifact@v8
