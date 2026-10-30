@@ -89,6 +89,21 @@ class CompatibilityClaimsTest(unittest.TestCase):
                             rows[0]["source_commit"],
                             "Reject the old main before Java 21 and raw-JAR transfer checks")
 
+    def test_ryken_immutable_main_source_preserves_bundle_identity(self):
+        """Require reviewed resource-expansion and immutable-gate source, not old release code."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_RykenSlimeCustomizer"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "Ryken must appear exactly once")
+        self.assertEqual("rykenslimecustomizer", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Keep the existing Ryken JAR naming")
+        self.assertEqual("eb4fb9f6acb50c436f8db1efef5df639a19bd6e2", rows[0]["source_commit"])
+        self.assertNotEqual("b74e0c55aabcec36721d37b5bf4333ee3b08ed9c",
+                            rows[0]["source_commit"],
+                            "Reject Ryken before retained compiler diagnostics and resource-expansion fixes")
+
     def test_supreme_1021_unmerged_candidate_is_preview_only(self):
         """This is a draft source preview, not yet a reviewed merged-main release lock."""
         rows = self.matrix["addons"]
