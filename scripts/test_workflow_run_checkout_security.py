@@ -41,6 +41,7 @@ class WorkflowRunForkIsolationTest(unittest.TestCase):
         source = (ROOT / '.github/workflows/addon-compatibility-audit.yml').read_text()
         self.assertIn("steps.source.outputs.source_event != 'pull_request'", source)
         self.assertIn('repos/$GITHUB_REPOSITORY/contents/scripts/summarize_addon_compatibility_artifacts.py', source)
+        self.assertIn('repos/$GITHUB_REPOSITORY/contents/compatibility/addon-compatibility-exclusions.json', source)
         self.assertIn('repos/$SOURCE_REPO/contents/compatibility/addon-compatibility-matrix.json', source)
         self.assertNotIn('allow-unsafe-pr-checkout', source)
 
