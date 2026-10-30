@@ -89,6 +89,21 @@ class CompatibilityClaimsTest(unittest.TestCase):
                             rows[0]["source_commit"],
                             "Reject the old main before Java 21 and raw-JAR transfer checks")
 
+    def test_betterchests_stable_263_main_source_preserves_bundle_identity(self):
+        """Require reviewed stable 26.3 source without renaming BetterChests or the bundle."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_BetterChests"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "BetterChests must appear exactly once")
+        self.assertEqual("betterchests", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Preserve the existing BetterChests JAR name")
+        self.assertEqual("ab65d71cec6c0949ca835b156ca05c3e2413d0be", rows[0]["source_commit"])
+        self.assertNotEqual("51fd6616d8ad6d8a6153237d5274235f61a6f277",
+                            rows[0]["source_commit"],
+                            "Reject source predating stable Paper 26.3 native runtime checks")
+
     def test_supreme_1021_unmerged_candidate_is_preview_only(self):
         """This is a draft source preview, not yet a reviewed merged-main release lock."""
         rows = self.matrix["addons"]
