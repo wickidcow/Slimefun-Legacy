@@ -64,7 +64,9 @@ public class MobDropListener implements Listener {
 
         if (sfItem == null) {
             return true;
-        } else if (sfItem.canUse(p, true)) {
+        } else if (sfItem.canUse(p, false)) {
+            // Silent check: this runs for every registered drop of the mob on every kill, so sending the
+            // not-researched / no-permission / disabled message here spams chat. The drop is still withheld.
             if (sfItem instanceof RandomMobDrop randomMobDrop) {
                 int random = ThreadLocalRandom.current().nextInt(100);
 
