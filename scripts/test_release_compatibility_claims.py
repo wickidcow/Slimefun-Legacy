@@ -133,6 +133,20 @@ class CompatibilityClaimsTest(unittest.TestCase):
         self.assertNotEqual("f4289dbbd61fcc93ae8c6bcfde5b9e3892d371bc", rows[0]["source_commit"],
                             "Reject DynaTech source before SHA-verified Maven and manual-only immutable release gate")
 
+    def test_justenoughguide_resource_parity_main_preserves_bundle_identity(self):
+        """Require reviewed Gradle resource-expansion parity source without changing the guide JAR."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_JustEnoughGuide"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "JustEnoughGuide must appear exactly once")
+        self.assertEqual("justenoughguide", rows[0]["slug"])
+        self.assertEqual("JustEnoughGuide", rows[0]["artifact_base"])
+        self.assertEqual("2ba3c9d7ed324a7214fca865a23628c423b9e408", rows[0]["source_commit"])
+        self.assertNotEqual("a05fda6c5ce3310fa339ebe0f2f00801197e6d9b", rows[0]["source_commit"],
+                            "Reject source before SHA-verified Gradle and byte-exact resource expansion parity")
+
     def test_supreme_1021_unmerged_candidate_is_preview_only(self):
         """This is a draft source preview, not yet a reviewed merged-main release lock."""
         rows = self.matrix["addons"]
