@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/paper-26.3-full-stack.yml'
       - 'scripts/full_stack_runtime_smoke.sh'
+      - 'scripts/runtime/r135_fluffy_networks/**'
+      - 'scripts/test_native_storage_probe_contracts.py'
       - 'scripts/runtime/black_market/**'
       - 'scripts/test_black_market_probe_contracts.py'
       - 'scripts/test_full_stack_purpur_26_3.py'
@@ -30,6 +32,8 @@ on:
     paths:
       - '.github/workflows/paper-26.3-full-stack.yml'
       - 'scripts/full_stack_runtime_smoke.sh'
+      - 'scripts/runtime/r135_fluffy_networks/**'
+      - 'scripts/test_native_storage_probe_contracts.py'
       - 'scripts/runtime/black_market/**'
       - 'scripts/test_black_market_probe_contracts.py'
       - 'scripts/test_full_stack_purpur_26_3.py'
