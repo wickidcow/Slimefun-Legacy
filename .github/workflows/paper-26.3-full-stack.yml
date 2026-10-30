@@ -29,6 +29,9 @@ on:
   pull_request:
     paths:
       - '.github/workflows/paper-26.3-full-stack.yml'
+      - '.github/workflows/build-sfl-addons-compat-bundle.yml'
+      - 'docs/releases/**'
+      - 'scripts/**'
       - 'scripts/full_stack_runtime_smoke.sh'
       - 'scripts/runtime/black_market/**'
       - 'scripts/test_black_market_probe_contracts.py'
@@ -56,7 +59,10 @@ concurrency:
 jobs:
   resolve-paper-26-3:
     name: Resolve real Paper 26.3 API
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    if: >-
+      ${{ github.event_name != 'workflow_run' ||
+          (github.event.workflow_run.conclusion == 'success' &&
+           github.event.workflow_run.event != 'pull_request') }}
     runs-on: ubuntu-latest
     outputs:
       available: ${{ steps.paper.outputs.available }}
@@ -71,6 +77,8 @@ jobs:
         run: python3 -m unittest discover -s scripts -p 'test_full_stack_purpur_26_3.py' -v
       - name: Verify native Black Market admission contracts
         run: python3 -m unittest discover -s scripts -p 'test_black_market_probe_contracts.py' -v
+      - name: Verify workflow_run fork isolation and PR coverage
+        run: python3 scripts/test_workflow_run_checkout_security.py
       - name: Resolve latest Paper 26.3 API
         id: paper
         shell: bash
@@ -130,7 +138,10 @@ jobs:
           if-no-files-found: error
 
   fetch-bundle:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    if: >-
+      ${{ github.event_name != 'workflow_run' ||
+          (github.event.workflow_run.conclusion == 'success' &&
+           github.event.workflow_run.event != 'pull_request') }}
     name: Fetch exact addon bundle under test
     runs-on: ubuntu-latest
     timeout-minutes: 70
