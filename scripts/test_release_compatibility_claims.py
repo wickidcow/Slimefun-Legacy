@@ -43,7 +43,7 @@ class CompatibilityClaimsTest(unittest.TestCase):
                 "finaltech", None, "71cc3879bb56071d91b4f6539040c5eb3c8903bd",
                 "36790ccd9519a22eb5fc0ce4b858b00ba4f1df4a"),
             "wickidcow/SF_NetworksExp": (
-                "networksexp", "Networks", "e46ff048951c90c5c2bf935ea359ce681fb2bad4",
+                "networksexp", "Networks", "94972869e5951c4afad276e531da23700c7a846a",
                 "ea5777ce58c45c3c3cd4789bd155164ccbb5336b"),
             "wickidcow/WorldEditSlimefun": (
                 "worldeditslimefun", "SFWorldEdit", "c530185c5e4058757a6b9ea9c3970f93fcd19575",
@@ -61,6 +61,8 @@ class CompatibilityClaimsTest(unittest.TestCase):
                 self.assertEqual(source, row["source_commit"])
                 self.assertNotEqual(superseded, row["source_commit"])
                 if repository == "wickidcow/SF_NetworksExp":
+                    self.assertNotEqual("e46ff048951c90c5c2bf935ea359ce681fb2bad4", row["source_commit"],
+                                        "Reject prior axolotl-only merged main")
                     self.assertNotEqual("c8f222e41510f5ac65913bb4510ed8cba9fc9490", row["source_commit"])
 
     def test_ie2_2017_release_pin_keeps_existing_bundle_jar_identity(self):
@@ -90,7 +92,7 @@ class CompatibilityClaimsTest(unittest.TestCase):
         expected = {
             "wickidcow/SF_InfinityExpansion2": "3245d94231424adbb8795a4d3f2e9fc0eb336fa4",
             "wickidcow/SF_FinalTECH": "71cc3879bb56071d91b4f6539040c5eb3c8903bd",
-            "wickidcow/SF_NetworksExp": "e46ff048951c90c5c2bf935ea359ce681fb2bad4",
+            "wickidcow/SF_NetworksExp": "94972869e5951c4afad276e531da23700c7a846a",
             "wickidcow/WorldEditSlimefun": "c530185c5e4058757a6b9ea9c3970f93fcd19575",
             "wickidcow/SF_Supreme": "3c9b1c7cfc80cae3c0da950f072ee017dd53955d",
         }
@@ -102,6 +104,9 @@ class CompatibilityClaimsTest(unittest.TestCase):
         for repo, sha in expected.items():
             with self.subTest(repository=repo):
                 self.assertEqual(sha, pins[repo])
+        self.assertNotEqual("e46ff048951c90c5c2bf935ea359ce681fb2bad4",
+                            pins["wickidcow/SF_NetworksExp"],
+                            "Reject previous merged Networks source before BlockStateMeta fix")
         self.assertNotEqual("c8f222e41510f5ac65913bb4510ed8cba9fc9490",
                             pins["wickidcow/SF_NetworksExp"],
                             "Reject superseded Networks source with unchanged plugin version")
