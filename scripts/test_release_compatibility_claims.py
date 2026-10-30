@@ -75,6 +75,20 @@ class CompatibilityClaimsTest(unittest.TestCase):
         self.assertNotEqual("a9b105e5cf3e8c69b3edb135c615eb3710f72158", matches[0]["source_commit"],
                             "Do not rebuild the 2.0.16 source in the 2.0.17 bundle preview")
 
+    def test_mobcapturer_raw_jar_verified_main_source_preserves_bundle_identity(self):
+        """Pin reviewed raw-JAR transfer checks without changing MobCapturer identity."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_MobCapturer"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(1, len(rows), "MobCapturer must appear exactly once")
+        self.assertEqual("mobcapturer", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Keep the existing MobCapturer JAR naming")
+        self.assertEqual("779b6fabb73d4385e5f41de24e5ab40a0fc32843", rows[0]["source_commit"])
+        self.assertNotEqual("4419b2d6f9a1d93951de90c49c387d66ce9fb292",
+                            rows[0]["source_commit"],
+                            "Reject the old main before Java 21 and raw-JAR transfer checks")
+
     def test_supreme_1021_unmerged_candidate_is_preview_only(self):
         """This is a draft source preview, not yet a reviewed merged-main release lock."""
         rows = self.matrix["addons"]
