@@ -24,7 +24,7 @@ class CompatibilityClaimsTest(unittest.TestCase):
         expected = {
             "wickidcow/SF_FlowerPower": "d8c3f2c8ec66b7c08e0ceb8b23f710f020b5c36f",
             "wickidcow/SF_ExtraHeads": "b1e8a1f11692b44d359eec863f3be5be0f061516",
-            "wickidcow/SF_InfinityExpansion2": "fdadfa67bc68fb18e34ccfed773a23ba2efbd4ef",
+            "wickidcow/SF_InfinityExpansion2": "3245d94231424adbb8795a4d3f2e9fc0eb336fa4",
         }
         # Do not accept unmerged candidate branches as canonical bundle provenance.
         self.assertNotEqual("f74950f9c901ffd4b866a58fa5ca6591aa9d00e8", pins["wickidcow/SF_FlowerPower"])
@@ -40,13 +40,13 @@ class CompatibilityClaimsTest(unittest.TestCase):
     def test_next_reviewed_merged_main_locks_keep_44_addon_names_and_sources(self):
         expected = {
             "wickidcow/SF_FinalTECH": (
-                "finaltech", None, "60ac405d40292e24bee93bbd522b582f1ea5bc84",
+                "finaltech", None, "71cc3879bb56071d91b4f6539040c5eb3c8903bd",
                 "36790ccd9519a22eb5fc0ce4b858b00ba4f1df4a"),
             "wickidcow/SF_NetworksExp": (
-                "networksexp", "Networks", "f7b08661cdbdd2e6653fcc72295a4abef4c2ac70",
+                "networksexp", "Networks", "c8f222e41510f5ac65913bb4510ed8cba9fc9490",
                 "ea5777ce58c45c3c3cd4789bd155164ccbb5336b"),
             "wickidcow/WorldEditSlimefun": (
-                "worldeditslimefun", "SFWorldEdit", "26714bc20ccd78f1d811664bf1b3b15a83673981",
+                "worldeditslimefun", "SFWorldEdit", "c530185c5e4058757a6b9ea9c3970f93fcd19575",
                 "2e64fad013fdfe94f9a27e28f36887c5784700d8"),
         }
         self.assertEqual(153, self.matrix["bundle_revision"], "Preview cannot publish a new revision")
@@ -67,7 +67,7 @@ class CompatibilityClaimsTest(unittest.TestCase):
         self.assertEqual(1, len(matches), "InfinityExpansion2 must appear exactly once")
         self.assertEqual("infinityexpansion2", matches[0]["slug"])
         self.assertEqual("InfinityExpansion", matches[0]["artifact_base"])
-        self.assertEqual("fdadfa67bc68fb18e34ccfed773a23ba2efbd4ef", matches[0]["source_commit"])
+        self.assertEqual("3245d94231424adbb8795a4d3f2e9fc0eb336fa4", matches[0]["source_commit"])
         self.assertNotEqual("a9b105e5cf3e8c69b3edb135c615eb3710f72158", matches[0]["source_commit"],
                             "Do not rebuild the 2.0.16 source in the 2.0.17 bundle preview")
 
@@ -80,9 +80,29 @@ class CompatibilityClaimsTest(unittest.TestCase):
         supreme = [row for row in rows if row["repository"] == "wickidcow/SF_Supreme"]
         self.assertEqual(1, len(supreme))
         self.assertEqual("supreme", supreme[0]["slug"])
-        self.assertEqual("9edef3c74fc254e633e8aacc524b0f2ea1e9f0ee", supreme[0]["source_commit"])
+        self.assertEqual("3c9b1c7cfc80cae3c0da950f072ee017dd53955d", supreme[0]["source_commit"])
         self.assertNotEqual("9d7dd77a445cf26288afcc5b52c8dfc2177e228e", supreme[0]["source_commit"])
-        self.assertNotEqual("f68b1790a84ac0831fdfe15251be3ee6adebe07c", supreme[0]["source_commit"])
+        self.assertNotEqual("f93fd7ed3b14f7420f2c3d9c922d58b3aeb5a3d3", supreme[0]["source_commit"])
+
+    def test_refreshed_source_pins_are_exact_and_do_not_change_bundle_identity(self):
+        expected = {
+            "wickidcow/SF_InfinityExpansion2": "3245d94231424adbb8795a4d3f2e9fc0eb336fa4",
+            "wickidcow/SF_FinalTECH": "71cc3879bb56071d91b4f6539040c5eb3c8903bd",
+            "wickidcow/SF_NetworksExp": "c8f222e41510f5ac65913bb4510ed8cba9fc9490",
+            "wickidcow/WorldEditSlimefun": "c530185c5e4058757a6b9ea9c3970f93fcd19575",
+            "wickidcow/SF_Supreme": "3c9b1c7cfc80cae3c0da950f072ee017dd53955d",
+        }
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        rows = self.matrix["addons"]
+        self.assertEqual(44, len(rows))
+        self.assertEqual(44, len({row["repository"] for row in rows}))
+        pins = {row["repository"]: row["source_commit"] for row in rows}
+        for repo, sha in expected.items():
+            with self.subTest(repository=repo):
+                self.assertEqual(sha, pins[repo])
+        self.assertNotEqual("f93fd7ed3b14f7420f2c3d9c922d58b3aeb5a3d3",
+                            pins["wickidcow/SF_Supreme"],
+                            "Unmerged Supreme 1.0.21 must remain an explicit draft preview")
 
     def test_generated_notice_carries_the_same_explicit_scope(self):
         text = (ROOT / ".github/workflows/build-sfl-addons-compat-bundle.yml").read_text()
