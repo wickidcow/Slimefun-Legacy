@@ -55,9 +55,9 @@ NETWORK_VERSIONS = {
     151: ("SF_Networks1.0.62.jar", "288640e6dbf907a6ba238d98af206aab2d56f92b"),
     # r152 recognizes final merged Networks 1.0.62, not the staging PR SHA.
     152: ("SF_Networks1.0.62.jar", "79e4c0116cc4b4683c668a4920e67692f925b83f"),
-    # r153 uses the exact current merged Networks 1.0.63 source, not its earlier release commit.
+    # r153 previews the reviewed post-axolotl-fix merged Networks 1.0.63 source.
     # Fail closed on a staging-branch or historical source even when filename matches.
-    153: ("SF_Networks1.0.63.jar", "c8f222e41510f5ac65913bb4510ed8cba9fc9490"),
+    153: ("SF_Networks1.0.63.jar", "e46ff048951c90c5c2bf935ea359ce681fb2bad4"),
 }
 
 
