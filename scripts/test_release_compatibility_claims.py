@@ -184,7 +184,7 @@ class CompatibilityClaimsTest(unittest.TestCase):
         self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
         self.assertEqual(1, len(rows), "SlimeTinker must appear exactly once")
         self.assertEqual("slimetinkerie2", rows[0]["slug"])
-        self.assertNotIn("artifact_base", rows[0], "Preserve canonical SF_SlimeTinker2.0.7.jar identity")
+        self.assertEqual("SlimeTinker", rows[0]["artifact_base"], "Preserve canonical SF_SlimeTinker2.0.7.jar identity")
         self.assertEqual("ac14d9f373466ed1f779ecd87f947f930c1a915b", rows[0]["source_commit"])
         self.assertNotEqual("bfb072fedb9f9135a27a93483d69da2bcdfb927a", rows[0]["source_commit"],
                             "Reject source before exact cast-lore parity and immutable release gates")
