@@ -76,6 +76,8 @@ jobs:
         run: python3 -m unittest scripts.test_collect_release_runtime_evidence -v
       - name: Verify Java-only release scope
         run: python3 -m unittest scripts.test_java_only_release_scope -v
+      - name: Verify unchanged optional resource ZIP policy
+        run: python3 -m unittest scripts.test_verify_next_release_geyser_carry -v
 
       - name: First clean release build
         shell: bash
