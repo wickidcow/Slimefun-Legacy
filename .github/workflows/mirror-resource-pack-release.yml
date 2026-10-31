@@ -10,6 +10,9 @@ on:
       - 'compatibility/resource-pack-release.json'
       - 'scripts/verify_release_resource_pack.py'
       - 'scripts/test_resource_pack_mirror_immutability.py'
+      - 'scripts/test_release_asset_immutability.py'
+      - 'scripts/test_verify_next_release_geyser_carry.py'
+      - 'scripts/verify_sfl_release_assets.py'
       - 'scripts/verify_legacy.py'
       - 'docs/RESOURCE_PACK.md'
   push:
@@ -20,6 +23,9 @@ on:
       - 'compatibility/resource-pack-release.json'
       - 'scripts/verify_release_resource_pack.py'
       - 'scripts/test_resource_pack_mirror_immutability.py'
+      - 'scripts/test_release_asset_immutability.py'
+      - 'scripts/test_verify_next_release_geyser_carry.py'
+      - 'scripts/verify_sfl_release_assets.py'
       - 'scripts/verify_legacy.py'
       - 'docs/RESOURCE_PACK.md'
   workflow_dispatch:
@@ -44,7 +50,10 @@ jobs:
       - name: Verify release wiring and pin
         run: python3 scripts/verify_release_resource_pack.py .
       - name: Enforce immutable published-release contract
-        run: python3 -m unittest scripts.test_resource_pack_mirror_immutability -v
+        run: |
+          python3 -m unittest scripts.test_resource_pack_mirror_immutability -v
+          python3 -m unittest scripts.test_release_asset_immutability -v
+          python3 -m unittest scripts.test_verify_next_release_geyser_carry -v
 
       - name: Download exact pinned stable resource pack
         env:
