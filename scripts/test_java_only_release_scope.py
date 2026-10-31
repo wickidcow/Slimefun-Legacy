@@ -14,6 +14,16 @@ class JavaOnlyReleaseScope(unittest.TestCase):
     def setUpClass(cls):
         cls.text = WORKFLOW.read_text(encoding="utf-8")
 
+    def test_published_v4178_guidance_cannot_revert_to_candidate_status(self):
+        guidance = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertIn(
+            "Slimefun Legacy 4.1.78 and its coordinated 44-addon archive were published on 2026-10-27",
+            guidance,
+        )
+        self.assertIn("That published release and all its assets are immutable", guidance)
+        self.assertIn("Prepare only a **distinct new version**", guidance)
+        self.assertNotRegex(guidance, r"4\\.1\\.78 is [^\\n.]*candidate")
+
     def test_no_external_platform_pack_handlers(self):
         self.assertNotRegex(self.text.lower(), r"bedrock|geyser")
         self.assertNotIn("--clobber", self.text)
