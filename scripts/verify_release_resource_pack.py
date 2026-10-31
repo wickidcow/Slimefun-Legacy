@@ -78,7 +78,7 @@ def verify_static(root: Path, pin: dict) -> None:
             and "pinned-slimefun-resource-pack" in mirror_workflow
         ),
         "mirror never mutates published releases": (
-            not re.search(r"\\bgh\\s+release\\s+(?:create|upload|edit|delete(?:-asset)?)\\b", mirror_workflow)
+            not re.search(r"\bgh\s+release\s+(?:create|upload|edit|delete(?:-asset)?)\b", mirror_workflow)
             and "contents: write" not in mirror_workflow
             and "publish-current-release:" not in mirror_workflow
         ),
