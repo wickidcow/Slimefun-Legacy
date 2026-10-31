@@ -22,7 +22,7 @@ class JavaOnlyReleaseScope(unittest.TestCase):
         )
         self.assertIn("That published release and all its assets are immutable", guidance)
         self.assertIn("Prepare only a **distinct new version**", guidance)
-        self.assertNotRegex(guidance, r"4\\.1\\.78 is [^\\n.]*candidate")
+        self.assertNotRegex(guidance, r"4\.1\.78 is [^\n.]*candidate")
 
     def test_no_external_platform_pack_handlers(self):
         self.assertNotRegex(self.text.lower(), r"bedrock|geyser")
