@@ -159,6 +159,8 @@ For numeric packs, the client ZIP and the server-side `plugins/Slimefun/item-mod
 
 Each Slimefun Legacy GitHub release also publishes the pinned stable official pack as a **separate** `SlimefunLegacyRP.zip` asset beside the core JAR and the maintained-addon ZIP. The release workflow never rebuilds or modifies that ZIP: it downloads the exact approved release from `wickidcow/SFL_RP_Official`, verifies the pinned GitHub asset metadata, byte size, SHA-256, ZIP integrity, `pack.mcmeta`, `pack.png`, and the presence of resource namespaces, then uploads those exact bytes.
 
+The auxiliary resource-pack workflow only verifies and retains the pinned ZIP as a CI artifact. It never uploads to, deletes from, or replaces assets in an already-published Slimefun Legacy release. New versions include the pinned pack during their separately gated, immutable release creation.
+
 The source selection is recorded in `compatibility/resource-pack-release.json`. Stable Slimefun releases deliberately ignore resource-pack prereleases unless that pin is reviewed and advanced. This mirror is for convenient versioned downloads; the default automatic sender can continue using the dedicated resource-pack repository's stable `releases/latest/download/SlimefunLegacyRP.zip` URL so the pack can be maintained independently of core releases.
 
 On modern Paper/Minecraft, Slimefun Legacy stores the historical numeric model ID as the first float in Minecraft's CustomModelData component. Additional component floats, flags, strings, and colors supplied by other integrations are preserved.

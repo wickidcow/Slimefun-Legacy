@@ -72,8 +72,16 @@ def verify_static(root: Path, pin: dict) -> None:
         "release creation contains pack": 'gh release create "$TAG" "$JAR" "$BUNDLE" "$RESOURCE_PACK"' in release_workflow,
         "release layout requires pack": 'grep -Fxq "$RESOURCE_PACK" assets-after.txt' in release_workflow,
         "release layout requires three Java assets": 'if [[ "$ASSET_COUNT" -ne 3 ]]' in release_workflow,
-        "mirror workflow uploads pack": 'gh release upload "$TARGET_TAG" "$PACK"' in mirror_workflow,
-        "mirror workflow verifies published digest": "Published Slimefun release resource-pack digest mismatch" in mirror_workflow,
+        "mirror workflow verifies pinned source bytes": (
+            'gh release download "$PACK_TAG"' in mirror_workflow
+            and "python3 scripts/verify_release_resource_pack.py ." in mirror_workflow
+            and "pinned-slimefun-resource-pack" in mirror_workflow
+        ),
+        "mirror never mutates published releases": (
+            not re.search(r"\bgh\s+release\s+(?:create|upload|edit|delete(?:-asset)?)\b", mirror_workflow)
+            and "contents: write" not in mirror_workflow
+            and "publish-current-release:" not in mirror_workflow
+        ),
         "cleanup uses preflight policy": "python3 scripts/verify_sfl_release_assets.py plan" in cleanup_workflow,
         "cleanup verifies retained assets": "python3 scripts/verify_sfl_release_assets.py verify" in cleanup_workflow,
         "cleanup policy names canonical pack": 'PACK = "SlimefunLegacyRP.zip"' in cleanup_policy,
