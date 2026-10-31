@@ -60,7 +60,8 @@ class JavaOnlyReleaseScope(unittest.TestCase):
         self.assertNotIn('OPTIONAL_', self.text)
         java_pack_gate = (ROOT / 'scripts/verify_release_resource_pack.py').read_text(encoding='utf-8')
         self.assertIn('release layout requires three Java assets plus one unchanged server drop-in', java_pack_gate)
-        self.assertIn('if [[ "$ASSET_COUNT" -ne 3 ]]', java_pack_gate)
+        self.assertIn('if [[ "$ASSET_COUNT" -ne 4 ]]', java_pack_gate)
+        self.assertNotIn('if [[ "$ASSET_COUNT" -ne 3 ]]', java_pack_gate)
 
     def test_release_verification_cannot_modify_published_assets(self):
         self.assertNotRegex(self.text, r"gh\s+release\s+(?:delete(?:-asset)?|edit|upload)\b")
