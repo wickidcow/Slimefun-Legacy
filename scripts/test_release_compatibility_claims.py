@@ -67,6 +67,21 @@ class CompatibilityClaimsTest(unittest.TestCase):
                     self.assertNotEqual("94972869e5951c4afad276e531da23700c7a846a", row["source_commit"],
                                         "Reject source before real map-tint binary serialization regressions")
 
+    def test_cultivation_1124_merged_main_source_preserves_bundle_identity(self):
+        """Preview the separately verified 1.1.24 source without rewriting historical ledger evidence."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_CultivationLegacy"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "Cultivation must appear exactly once")
+        self.assertEqual("cultivationlegacy", rows[0]["slug"])
+        self.assertEqual("Cultivation", rows[0]["artifact_base"])
+        self.assertEqual("2e73d67b102bf0900c51b8a75deb0b04d5f85630", rows[0]["source_commit"])
+        self.assertNotEqual("4d2ad689ec70c04bfc1dfbe37c8dfd9c59a4fec0",
+                            rows[0]["source_commit"],
+                            "Reject pre-1.1.24 source before SeF color parity and native restart checks")
+
     def test_ie2_2017_release_pin_keeps_existing_bundle_jar_identity(self):
         matches = [row for row in self.matrix["addons"]
                    if row["repository"] == "wickidcow/SF_InfinityExpansion2"]
