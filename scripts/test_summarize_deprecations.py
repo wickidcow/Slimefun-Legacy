@@ -77,6 +77,30 @@ def main() -> int:
         require("Compatibility warning gate: PASS" in clean.stdout, "success gate output is missing")
         cases += 1
 
+        # javac sometimes emits a generic note instead of a source/line warning.
+        # Preserve that ambiguity; do not fabricate a precise compiler diagnosis.
+        generic_log = temp / "generic-note.log"
+        generic_report = temp / "generic-note.md"
+        generic_log.write_text(
+            "Note: Some input files use or override a deprecated API.\\n"
+            "BUILD SUCCESSFUL in 2s\\n",
+            encoding="utf-8",
+        )
+        generic = run(
+            script, generic_log, generic_report,
+            fail_on_warnings=True, require_successful_build=True,
+        )
+        require(generic.returncode == 0, "generic note was incorrectly treated as an explicit warning")
+        generic_text = generic_report.read_text(encoding="utf-8")
+        require(
+            "Generic deprecated-API notes (no source location): **1**" in generic_text,
+            "generic javac note was silently omitted",
+        )
+        require("Unresolved compiler notes" in generic_text, "unresolved evidence was not disclosed")
+        require("Detected **0** explicit javac compatibility warning(s)." in generic_text,
+                "generic note was misclassified as a precise warning")
+        cases += 1
+
         # Missing/unreadable/empty logs must fail, even for informational reports.
         empty = temp / "empty.log"
         empty.touch()
