@@ -294,6 +294,16 @@ def main() -> int:
         "ItemStack remainder = menu.pushItem(drop, outputSlots);",
         "Farmer Android crop consumption before harvest output",
     )
+    require(
+        farmer,
+        "if (drop != null && !(data instanceof Ageable)) {",
+        "Farmer Android delivers listener-harvested (non-crop) drops",
+    )
+    require(
+        farmer,
+        "block.getWorld().dropItemNaturally(block.getLocation(), remainder);",
+        "Farmer Android listener-harvest overflow preservation",
+    )
 
     miner = read(
         root,
