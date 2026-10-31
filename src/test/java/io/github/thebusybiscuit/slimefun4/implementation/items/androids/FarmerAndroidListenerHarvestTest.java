@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.implementation.items.androids;
 
-import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -25,7 +24,6 @@ class FarmerAndroidListenerHarvestTest {
     void completeListenerHarvestDeliveryDoesNotSpawnAnExtraDrop() {
         UniversalMenu menu = mock(UniversalMenu.class);
         Block block = mock(Block.class);
-        World world = mock(World.class);
         int[] slots = {10, 11};
         ItemStack harvest = new ItemStack(Material.SWEET_BERRIES, 4);
 
@@ -34,7 +32,7 @@ class FarmerAndroidListenerHarvestTest {
         FarmerAndroid.deliverListenerHarvest(menu, block, harvest, slots);
 
         verify(menu).pushItem(harvest, slots);
-        verify(world, never()).dropItemNaturally(any(Location.class), any(ItemStack.class));
+        verify(block, never()).getWorld();
     }
 
     @Test
