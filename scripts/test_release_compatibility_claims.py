@@ -132,6 +132,20 @@ class CompatibilityClaimsTest(unittest.TestCase):
         self.assertNotEqual("913a609c10871afb67c57f0d2be75a77e13d1d36",
                             rows[0]["source_commit"], "Reject source before maintained Gradle CI verification")
 
+    def test_mobdrops_104_reviewed_main_preserves_bundle_identity(self):
+        """Preview checksum-verified Maven source without changing MobDrops gameplay identity."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_MobDrops"]
+        self.assertEqual(153, self.matrix["bundle_revision"], "Unpublished source review only")
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "MobDrops must appear exactly once")
+        self.assertEqual("mobdrops", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Preserve SF_MobDrops1.0.4.jar naming")
+        self.assertEqual("ee35a4ffb9771f632641c43b9ab7ae78c8adbbe7", rows[0]["source_commit"])
+        self.assertNotEqual("8943594f006a443ce8a77113f76709c871d03697",
+                            rows[0]["source_commit"], "Reject pre-Maven-3.10 safety source")
+
     def test_cultivation_1124_merged_main_source_preserves_bundle_identity(self):
         """Preview the separately verified 1.1.24 source without rewriting historical ledger evidence."""
         rows = [row for row in self.matrix["addons"]
