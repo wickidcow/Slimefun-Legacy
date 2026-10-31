@@ -35,7 +35,7 @@ class ResourcePackMirrorImmutabilityTest(unittest.TestCase):
         self.assertIn("scripts.test_resource_pack_mirror_immutability -v", self.mirror)
 
     def test_new_release_still_contains_approved_pack(self):
-        self.assertIn('gh release create "$TAG" "$JAR" "$BUNDLE" "$RESOURCE_PACK"', self.release)
+        self.assertIn('gh release create "$TAG" "$JAR" "$BUNDLE" "$RESOURCE_PACK" "$GEYSER_RESOURCE_PACK"', self.release)
         self.assertNotIn("--clobber", self.release)
         self.assertIn("mirror never mutates published releases", self.verifier)
         self.assertIn("mirror workflow verifies pinned source bytes", self.verifier)
