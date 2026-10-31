@@ -82,8 +82,8 @@ def main() -> int:
         generic_log = temp / "generic-note.log"
         generic_report = temp / "generic-note.md"
         generic_log.write_text(
-            "Note: Some input files use or override a deprecated API.\\n"
-            "BUILD SUCCESSFUL in 2s\\n",
+            "Note: Some input files use or override a deprecated API.\n"
+            "BUILD SUCCESSFUL in 2s\n",
             encoding="utf-8",
         )
         generic = run(
