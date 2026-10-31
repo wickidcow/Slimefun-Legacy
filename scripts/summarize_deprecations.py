@@ -8,6 +8,7 @@ from collections import Counter
 from pathlib import Path
 
 WARNING = re.compile(r"^(.*?\.java):(\d+): warning: \[(deprecation|removal)\] (.*)$")
+GENERIC_DEPRECATION_NOTE = re.compile(r"^Note: Some input files use or override a deprecated API\\.$")
 BUILD_SUCCESS = re.compile(r"^BUILD SUCCESSFUL(?:\s|$)", re.MULTILINE)
 BUILD_FAILURE = re.compile(r"^BUILD FAILED(?:\s|$)", re.MULTILINE)
 
@@ -64,6 +65,12 @@ def main() -> int:
         if match:
             warnings.append((match.group(1), int(match.group(2)), match.group(3), match.group(4)))
 
+    # A generic javac note lacks a source location; never mislabel it as an
+    # explicit warning, but preserve it as unresolved audit evidence.
+    generic_notes = sum(
+        bool(GENERIC_DEPRECATION_NOTE.match(line.strip())) for line in text.splitlines()
+    )
+
     per_file = Counter(path for path, _, _, _ in warnings)
     per_category = Counter(category for _, _, category, _ in warnings)
     lines = [
@@ -72,8 +79,17 @@ def main() -> int:
         f"Detected **{len(warnings)}** explicit javac compatibility warning(s).",
         f"- Deprecation: **{per_category.get('deprecation', 0)}**",
         f"- Removal: **{per_category.get('removal', 0)}**",
+        f"- Generic deprecated-API notes (no source location): **{generic_notes}**",
         "",
     ]
+    if generic_notes:
+        lines.extend([
+            "**Unresolved compiler notes:** javac reported deprecated-API usage without",
+            "source locations. These notes are not proof of specific deprecated",
+            "calls and are not counted as explicit warnings; inspect compiler flags",
+            "and retained build logs before claiming a deprecation-clean build.",
+            "",
+        ])
     if warnings:
         lines.extend(["## Warnings by source file", ""])
         lines.extend(f"- `{path}`: {count}" for path, count in sorted(per_file.items()))
