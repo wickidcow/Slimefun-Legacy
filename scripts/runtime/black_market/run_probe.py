@@ -49,9 +49,10 @@ MAGIC_RELEASES = {
     151: ("c9be11af6b32f3e0d517803b9362c7c88312b150", "SF_MagicExpansion1.1.19.jar"),
     # r152 recognizes final merged Magic 1.1.19 source, not the prior staging PR.
     152: ("b28c304f2909f15b43da53910ce7650886cc0e6f", "SF_MagicExpansion1.1.19.jar"),
-    # The r153 updated-source preview uses the reviewed MagicExpansion #48 main commit.
+    # The r153 updated-source preview uses reviewed MagicExpansion main #51,
+    # including Adventure title/shop parity and the StandardCharsets UTF-8 fix.
     # Older r152 source remains independently pinned above.
-    153: ("258f6941de328202611bdfc4e34e23973356adad", "SF_MagicExpansion1.1.19.jar"),
+    153: ("fc6d4236623556ebcddaa749e2e98a1f6ab8e7dc", "SF_MagicExpansion1.1.19.jar"),
 }
 MAGIC_VERSIONS = {
     137: "1.1.13",

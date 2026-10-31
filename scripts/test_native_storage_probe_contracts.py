@@ -69,7 +69,7 @@ class NativeStorageProbeContracts(unittest.TestCase):
             if revision == 140 else
             ("SF_Networks1.0.59.jar", "560d590095206a8159d82c70e7cabe6d16aaa0d8")
             if revision in (141, 142) else
-            ("SF_Networks1.0.63.jar", "f7b08661cdbdd2e6653fcc72295a4abef4c2ac70")
+            ("SF_Networks1.0.63.jar", "786924b48b099968dfedb82f255282eaf9e4603e")
             if revision == 153 else
             ("SF_Networks1.0.62.jar", "79e4c0116cc4b4683c668a4920e67692f925b83f")
             if revision == 152 else
@@ -270,10 +270,22 @@ class NativeStorageProbeContracts(unittest.TestCase):
         self.assertEqual(evidence["expected_core_version"], "4.1.78")
         networks = evidence["tested_addons"]["wickidcow/SF_NetworksExp"]
         self.assertEqual(networks["jar"], "SF_Networks1.0.63.jar")
-        self.assertEqual(networks["commit"], "f7b08661cdbdd2e6653fcc72295a4abef4c2ac70")
+        self.assertEqual(networks["commit"], "786924b48b099968dfedb82f255282eaf9e4603e")
         self.assertEqual(networks["commit"], probe.NETWORK_VERSIONS[153][1])
         self.assertNotIn("result", evidence)
         self.compile.reset_mock()
+        # Reject the previously merged axolotl source before the BlockStateMeta fix.
+        self.manifest["addons"][1]["commit"] = "e46ff048951c90c5c2bf935ea359ce681fb2bad4"
+        self.reject("addon source mismatch")
+        # Reject the previous merged main, before the reviewed axolotl metadata fix.
+        self.manifest["addons"][1]["commit"] = "c8f222e41510f5ac65913bb4510ed8cba9fc9490"
+        self.reject("addon source mismatch")
+        # Reject previous merged main, which lacks the three binary map-tint roundtrip regressions.
+        self.manifest["addons"][1]["commit"] = "94972869e5951c4afad276e531da23700c7a846a"
+        self.reject("addon source mismatch")
+        # Reject the previous published 1.0.63 source: this candidate pins the merged main.
+        self.manifest["addons"][1]["commit"] = "f7b08661cdbdd2e6653fcc72295a4abef4c2ac70"
+        self.reject("addon source mismatch")
         # Reject the prior PR-head pin even though it has the same version and JAR name.
         self.manifest["addons"][1]["commit"] = "ea5777ce58c45c3c3cd4789bd155164ccbb5336b"
         self.reject("addon source mismatch")
