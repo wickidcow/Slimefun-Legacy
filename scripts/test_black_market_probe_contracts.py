@@ -367,6 +367,7 @@ class AdmissionTests(unittest.TestCase):
         evidence = self.validate()
         self.assertEqual(evidence["bundle_revision"], 153)
         self.assertEqual(evidence["magic_version"], "1.1.19")
+        self.assertEqual(probe.MAGIC_RELEASES[153][0], "fc6d4236623556ebcddaa749e2e98a1f6ab8e7dc")
         self.assertEqual(len(evidence["tested_addons"]), 44)
         self.assertNotIn("wickidcow/SF_BuildingStaff", evidence["tested_addons"])
         self.assertEqual(evidence["tested_addons"][probe.MAGIC]["commit"],
@@ -391,6 +392,12 @@ class AdmissionTests(unittest.TestCase):
     def test_r153_rejects_prior_merged_magic_1_1_19_source(self):
         self.select_r153_roster()
         self.rows[0]["commit"] = probe.MAGIC_RELEASES[152][0]
+        self.write_bundle()
+        self.rejects()
+
+    def test_r153_rejects_pre_adventure_utf8_main_source(self):
+        self.select_r153_roster()
+        self.rows[0]["commit"] = "258f6941de328202611bdfc4e34e23973356adad"
         self.write_bundle()
         self.rejects()
 

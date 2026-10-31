@@ -175,6 +175,20 @@ class CompatibilityClaimsTest(unittest.TestCase):
         self.assertNotEqual("695ac4e5a8a0b3dcfc114c97b6a4f43c6254d1b6", rows[0]["source_commit"],
                             "Reject pre-stable-26.3 and pre-immutable-release-gate source")
 
+    def test_magicexpansion_adventure_utf8_main_preserves_bundle_identity(self):
+        """Pin reviewed color/charset modernization without altering MagicExpansion IDs or JAR naming."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_MagicExpansion"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "MagicExpansion must appear exactly once")
+        self.assertEqual("magicexpansion", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Preserve MagicExpansion canonical JAR naming")
+        self.assertEqual("fc6d4236623556ebcddaa749e2e98a1f6ab8e7dc", rows[0]["source_commit"])
+        self.assertNotEqual("258f6941de328202611bdfc4e34e23973356adad", rows[0]["source_commit"],
+                            "Reject source before reviewed Adventure title/shop parity and UTF-8 regression tests")
+
     def test_justenoughguide_resource_parity_main_preserves_bundle_identity(self):
         """Require reviewed Gradle resource-expansion parity source without changing the guide JAR."""
         rows = [row for row in self.matrix["addons"]
