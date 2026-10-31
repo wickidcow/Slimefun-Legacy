@@ -25,6 +25,14 @@ env:
   CANONICAL_ADDON_BUNDLE: SF_Addons_1.21.11-26.3.zip
   CANONICAL_RESOURCE_PACK: SlimefunLegacyRP.zip
   RESOURCE_PACK_PIN: compatibility/resource-pack-release.json
+  # Optional drop-in files, carried unchanged from the verified 4.1.78 release.
+  # This is packaging only; core/addon code remains Java-only.
+  CANONICAL_GEYSER_PACK: SlimefunLegacyRP_Geyser.zip
+  GEYSER_SOURCE_TAG: v4.1.78
+  GEYSER_SOURCE_RELEASE_ID: "425012427"
+  GEYSER_SOURCE_ASSET_ID: "682983055"
+  GEYSER_SOURCE_SIZE: "1339867"
+  GEYSER_SOURCE_SHA256: e11e5f8e6ede75a17421039e50178e83e11e9cf7f020e99596cfc078801b8c58
 
 concurrency:
   group: reproducible-release-${{ github.ref }}
@@ -300,6 +308,38 @@ jobs:
             echo "Official resource pack bytes: ${PACK_SIZE}"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Carry unchanged optional server-side resource ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE="$GEYSER_SOURCE_TAG"
+          ASSET="$CANONICAL_GEYSER_PACK"
+          rm -rf geyser-pack-artifact
+          mkdir -p geyser-pack-artifact
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$SOURCE" > "$RUNNER_TEMP/geyser-source-release.json"
+          jq -e \
+            --arg tag "$SOURCE" \
+            --arg name "$ASSET" \
+            --arg digest "sha256:$GEYSER_SOURCE_SHA256" \
+            --argjson release_id "$GEYSER_SOURCE_RELEASE_ID" \
+            --argjson asset_id "$GEYSER_SOURCE_ASSET_ID" \
+            --argjson size "$GEYSER_SOURCE_SIZE" \
+            '.tag_name == $tag and .id == $release_id and .draft == false and .prerelease == false and ([.assets[] | select(.name == $name and .id == $asset_id and .size == $size and .digest == $digest and .state == "uploaded")] | length == 1)' \
+            "$RUNNER_TEMP/geyser-source-release.json" >/dev/null
+          gh release download "$SOURCE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "$ASSET" --dir geyser-pack-artifact
+          FILE="geyser-pack-artifact/$ASSET"
+          test -s "$FILE"
+          test "$(stat -c %s "$FILE")" -eq "$GEYSER_SOURCE_SIZE"
+          printf '%s  %s\n' "$GEYSER_SOURCE_SHA256" "$FILE" | sha256sum --check --strict
+          unzip -tqq "$FILE"
+          cp "$FILE" "dist/$ASSET"
+          cmp "$FILE" "dist/$ASSET"
+          echo "Optional server drop-in carried unchanged from $SOURCE; SHA-256 $GEYSER_SOURCE_SHA256" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Retain reproducible Java 21 and byte-identity verification
         if: always()
         uses: actions/upload-artifact@v7
@@ -346,12 +386,13 @@ jobs:
           JAR="dist/${OUTPUT_NAME}"
           BUNDLE="dist/${CANONICAL_ADDON_BUNDLE}"
           RESOURCE_PACK="dist/${CANONICAL_RESOURCE_PACK}"
+          GEYSER_RESOURCE_PACK="dist/${CANONICAL_GEYSER_PACK}"
           NOTES_FILE="docs/releases/${LEGACY_ARTIFACT_VERSION}.md"
           TITLE="Slimefun Legacy ${LEGACY_ARTIFACT_VERSION}"
           test "$GITHUB_REF" = refs/heads/master
           test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
           test "$GITHUB_SHA" = "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/master" --jq .object.sha)"
-          test -s "$JAR" && test -s "$BUNDLE" && test -s "$RESOURCE_PACK"
+          test -s "$JAR" && test -s "$BUNDLE" && test -s "$RESOURCE_PACK" && test -s "$GEYSER_RESOURCE_PACK"
           test -s "$NOTES_FILE"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             TAG_SHA="$(git rev-list -n 1 "$TAG")"
@@ -368,7 +409,7 @@ jobs:
               exit 1
             }
           fi
-          gh release create "$TAG" "$JAR" "$BUNDLE" "$RESOURCE_PACK" \
+          gh release create "$TAG" "$JAR" "$BUNDLE" "$RESOURCE_PACK" "$GEYSER_RESOURCE_PACK" \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --notes-file "$NOTES_FILE" --title "$TITLE"
           echo "Java-only $TAG release published from exact validated source $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
@@ -393,6 +434,7 @@ jobs:
           CORE_JAR="${OUTPUT_NAME}"
           BUNDLE="$CANONICAL_ADDON_BUNDLE"
           RESOURCE_PACK="$CANONICAL_RESOURCE_PACK"
+          GEYSER_PACK="$CANONICAL_GEYSER_PACK"
 
           # Existing releases are immutable, even when their layout is unexpected.
           # Validate and fail closed; never delete, replace or normalize assets.
@@ -400,8 +442,9 @@ jobs:
           grep -Fxq "$CORE_JAR" assets-after.txt
           grep -Fxq "$BUNDLE" assets-after.txt
           grep -Fxq "$RESOURCE_PACK" assets-after.txt
+          grep -Fxq "$GEYSER_PACK" assets-after.txt
           gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" > "$RUNNER_TEMP/published-java-assets.json"
-          for file in "$CORE_JAR" "$BUNDLE" "$RESOURCE_PACK"; do
+          for file in "$CORE_JAR" "$BUNDLE" "$RESOURCE_PACK" "$GEYSER_PACK"; do
             local_sha="$(sha256sum "dist/$file" | awk '{print $1}')"
             remote_sha="$(jq -r --arg name "$file" '.assets[] | select(.name == $name) | .digest' "$RUNNER_TEMP/published-java-assets.json")"
             test "$remote_sha" = "sha256:$local_sha" || {
@@ -410,7 +453,7 @@ jobs:
             }
           done
           mkdir -p verify-release-bytes
-          for file in "$CORE_JAR" "$BUNDLE" "$RESOURCE_PACK"; do
+          for file in "$CORE_JAR" "$BUNDLE" "$RESOURCE_PACK" "$GEYSER_PACK"; do
             gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$file" --dir verify-release-bytes
             cmp "dist/$file" "verify-release-bytes/$file" || {
               echo "Published Java release bytes changed: $file" >&2
@@ -430,8 +473,8 @@ jobs:
           fi
 
           ASSET_COUNT="$(wc -l < assets-after.txt | tr -d ' ')"
-          if [[ "$ASSET_COUNT" -ne 3 ]]; then
-            echo "Expected exactly three Java release assets (core + canonical addon bundle + Java pack); found ${ASSET_COUNT}." >&2
+          if [[ "$ASSET_COUNT" -ne 4 ]]; then
+            echo "Expected exactly four release assets (Java core + addon bundle + player pack + unchanged server drop-in); found ${ASSET_COUNT}." >&2
             cat assets-after.txt >&2
             exit 1
           fi
@@ -442,7 +485,8 @@ jobs:
             echo "- Core: ${CORE_JAR}"
             echo "- Addon bundle: ${BUNDLE}"
             echo "- Resource pack: ${RESOURCE_PACK}"
+            echo "- Optional unchanged server drop-in: ${GEYSER_PACK}"
             echo '- Individual addon JARs: not published here'
             echo '- Obsolete SFL_Addons* bundles: absent (verified without mutation)'
-            echo '- Release assets: exactly three (Java core, addons, Java pack)'
+            echo '- Release assets: exactly four (Java core, addons, Java pack, unchanged server drop-in)'
           } >> "$GITHUB_STEP_SUMMARY"
