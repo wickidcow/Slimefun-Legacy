@@ -118,6 +118,20 @@ class CompatibilityClaimsTest(unittest.TestCase):
                             rows[0]["source_commit"],
                             "Reject the source before checksum-verified Maven 3.10 CI")
 
+    def test_slimeeasy_105_reviewed_main_source_preserves_bundle_identity(self):
+        """Preview the exact maintained build source without changing gameplay or addon identity."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_SlimeEasy"]
+        self.assertEqual(153, self.matrix["bundle_revision"], "Do not publish from this preview")
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "SlimeEasy must appear exactly once")
+        self.assertEqual("slimeeasy", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Preserve SF_SlimeEasy1.0.5.jar naming")
+        self.assertEqual("b54864e0860e301a14d98db23600b79b28554735", rows[0]["source_commit"])
+        self.assertNotEqual("913a609c10871afb67c57f0d2be75a77e13d1d36",
+                            rows[0]["source_commit"], "Reject source before maintained Gradle CI verification")
+
     def test_cultivation_1124_merged_main_source_preserves_bundle_identity(self):
         """Preview the separately verified 1.1.24 source without rewriting historical ledger evidence."""
         rows = [row for row in self.matrix["addons"]
