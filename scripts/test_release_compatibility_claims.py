@@ -146,6 +146,21 @@ class CompatibilityClaimsTest(unittest.TestCase):
         self.assertNotEqual("8943594f006a443ce8a77113f76709c871d03697",
                             rows[0]["source_commit"], "Reject pre-Maven-3.10 safety source")
 
+    def test_hotbarpets_106_maintained_source_preserves_bundle_identity(self):
+        """Preview the 1.0.6 permissions-default fix without altering bundle membership."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_HotbarPets"]
+        self.assertEqual(153, self.matrix["bundle_revision"], "Unpublished source preview only")
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "HotbarPets must appear exactly once")
+        self.assertEqual("hotbarpets", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Preserve canonical SF_HotbarPets naming")
+        self.assertEqual("4bb23b56d5f320ae8b9ea8e0ceb515384d339fd9",
+                         rows[0]["source_commit"])
+        self.assertNotEqual("e50c64641f961bf5da14ca839b435fdefa39b4db",
+                            rows[0]["source_commit"], "Reject pre-1.0.6 permission defaults")
+
     def test_smg_105_reviewed_main_preserves_bundle_identity(self):
         """Require checksum-verified Maven and stable Paper 26.3 source without renaming SMG."""
         rows = [row for row in self.matrix["addons"]
