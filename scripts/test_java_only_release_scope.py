@@ -1,4 +1,4 @@
-"""Release contract: Slimefun Legacy must not handle Geyser/Bedrock assets."""
+"""Release contract: Java-only runtime plus unchanged optional ZIP carry."""
 from pathlib import Path
 import re
 import unittest
