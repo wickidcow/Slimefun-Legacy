@@ -67,6 +67,21 @@ class CompatibilityClaimsTest(unittest.TestCase):
                     self.assertNotEqual("94972869e5951c4afad276e531da23700c7a846a", row["source_commit"],
                                         "Reject source before real map-tint binary serialization regressions")
 
+    def test_fluffymachines_26216_merged_main_preserves_bundle_identity(self):
+        """Require the maintained Java 21/native-backpack-tested source without renaming the addon."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_FluffyMachines"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "FluffyMachines must appear exactly once")
+        self.assertEqual("fluffymachines", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Preserve SF_FluffyMachines26.2.16.jar naming")
+        self.assertEqual("ded6700d6f854407b9700baa080c00707a92e009", rows[0]["source_commit"])
+        self.assertNotEqual("5cb23e8758482d5fa1bb2917ba54f80a37288bc6",
+                            rows[0]["source_commit"],
+                            "Reject the source before portable-charger title parity and raw-JAR checks")
+
     def test_cultivation_1124_merged_main_source_preserves_bundle_identity(self):
         """Preview the separately verified 1.1.24 source without rewriting historical ledger evidence."""
         rows = [row for row in self.matrix["addons"]
