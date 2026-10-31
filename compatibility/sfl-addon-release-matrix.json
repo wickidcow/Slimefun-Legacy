@@ -167,7 +167,7 @@
       "repository": "wickidcow/SF_InfinityExpansion2",
       "slug": "infinityexpansion2",
       "artifact_base": "InfinityExpansion",
-      "source_commit": "a9b105e5cf3e8c69b3edb135c615eb3710f72158"
+      "source_commit": "fdadfa67bc68fb18e34ccfed773a23ba2efbd4ef"
     },
     {
       "repository": "wickidcow/SF_LiteXpansion",
@@ -209,7 +209,7 @@
       "repository": "wickidcow/SF_NetworksExp",
       "slug": "networksexp",
       "artifact_base": "Networks",
-      "source_commit": "79e4c0116cc4b4683c668a4920e67692f925b83f"
+      "source_commit": "ea5777ce58c45c3c3cd4789bd155164ccbb5336b"
     },
     {
       "repository": "wickidcow/SF_RelicsOfCthonia",
