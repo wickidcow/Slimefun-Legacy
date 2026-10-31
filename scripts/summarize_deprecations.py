@@ -8,7 +8,7 @@ from collections import Counter
 from pathlib import Path
 
 WARNING = re.compile(r"^(.*?\.java):(\d+): warning: \[(deprecation|removal)\] (.*)$")
-GENERIC_DEPRECATION_NOTE = re.compile(r"^Note: Some input files use or override a deprecated API\\.$")
+GENERIC_DEPRECATION_NOTE = re.compile(r"^Note: Some input files use or override a deprecated API\.$")
 BUILD_SUCCESS = re.compile(r"^BUILD SUCCESSFUL(?:\s|$)", re.MULTILINE)
 BUILD_FAILURE = re.compile(r"^BUILD FAILED(?:\s|$)", re.MULTILINE)
 
