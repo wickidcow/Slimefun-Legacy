@@ -88,6 +88,7 @@ class ReleaseAssetImmutability(unittest.TestCase):
             "OUTPUT_NAME": "Slimefun-Legacy4.1.78.jar",
             "CANONICAL_ADDON_BUNDLE": "SF_Addons_1.21.11-26.3.zip",
             "CANONICAL_RESOURCE_PACK": "SlimefunLegacyRP.zip",
+            "CANONICAL_GEYSER_PACK": "SlimefunLegacyRP_Geyser.zip",
             "GH_TOKEN": "fixture-only-no-network",
         }
         (self.root / "docs/releases/4.1.78.md").write_text("Fixture notes", encoding="utf-8")
@@ -99,7 +100,7 @@ class ReleaseAssetImmutability(unittest.TestCase):
             path.write_text(content, encoding="utf-8")
             path.chmod(0o755)
         self.state = {"assets": []}
-        for key in ("OUTPUT_NAME", "CANONICAL_ADDON_BUNDLE", "CANONICAL_RESOURCE_PACK"):
+        for key in ("OUTPUT_NAME", "CANONICAL_ADDON_BUNDLE", "CANONICAL_RESOURCE_PACK", "CANONICAL_GEYSER_PACK"):
             name = self.env[key]
             data = ("immutable fixture: " + name).encode("utf-8")
             (self.root / "dist" / name).write_bytes(data)
@@ -150,19 +151,19 @@ class ReleaseAssetImmutability(unittest.TestCase):
         self.assert_read_only(before)
         self.assertNotEqual(0, result.returncode, "Unexpected existing asset layout must fail without repair")
 
-    def test_expected_three_assets_pass_without_mutation(self):
+    def test_expected_four_assets_pass_without_mutation(self):
         before = self.remote_snapshot()
         result = self.verify_assets()
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assert_read_only(before)
-        self.assertEqual(3, len(list((self.root / "verify-release-bytes").iterdir())))
+        self.assertEqual(4, len(list((self.root / "verify-release-bytes").iterdir())))
 
     def test_extra_custom_asset_fails_without_mutation(self):
         self.add_asset("operator-notes.txt", b"keep this exact published file")
         before = self.remote_snapshot()
         result = self.verify_assets()
         self.assertNotEqual(0, result.returncode)
-        self.assertIn("Expected exactly three Java release assets", result.stderr)
+        self.assertIn("Expected exactly four release assets", result.stderr)
         self.assert_read_only(before)
 
     def test_missing_asset_fails_without_mutation(self):
