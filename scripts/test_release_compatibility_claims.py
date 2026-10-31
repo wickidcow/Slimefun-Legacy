@@ -24,7 +24,7 @@ class CompatibilityClaimsTest(unittest.TestCase):
         expected = {
             "wickidcow/SF_FlowerPower": "d8c3f2c8ec66b7c08e0ceb8b23f710f020b5c36f",
             "wickidcow/SF_ExtraHeads": "b1e8a1f11692b44d359eec863f3be5be0f061516",
-            "wickidcow/SF_InfinityExpansion2": "fdadfa67bc68fb18e34ccfed773a23ba2efbd4ef",
+            "wickidcow/SF_InfinityExpansion2": "3245d94231424adbb8795a4d3f2e9fc0eb336fa4",
         }
         # Do not accept unmerged candidate branches as canonical bundle provenance.
         self.assertNotEqual("f74950f9c901ffd4b866a58fa5ca6591aa9d00e8", pins["wickidcow/SF_FlowerPower"])
@@ -40,13 +40,13 @@ class CompatibilityClaimsTest(unittest.TestCase):
     def test_next_reviewed_merged_main_locks_keep_44_addon_names_and_sources(self):
         expected = {
             "wickidcow/SF_FinalTECH": (
-                "finaltech", None, "60ac405d40292e24bee93bbd522b582f1ea5bc84",
+                "finaltech", None, "71cc3879bb56071d91b4f6539040c5eb3c8903bd",
                 "36790ccd9519a22eb5fc0ce4b858b00ba4f1df4a"),
             "wickidcow/SF_NetworksExp": (
-                "networksexp", "Networks", "f7b08661cdbdd2e6653fcc72295a4abef4c2ac70",
+                "networksexp", "Networks", "94972869e5951c4afad276e531da23700c7a846a",
                 "ea5777ce58c45c3c3cd4789bd155164ccbb5336b"),
             "wickidcow/WorldEditSlimefun": (
-                "worldeditslimefun", "SFWorldEdit", "26714bc20ccd78f1d811664bf1b3b15a83673981",
+                "worldeditslimefun", "SFWorldEdit", "c530185c5e4058757a6b9ea9c3970f93fcd19575",
                 "2e64fad013fdfe94f9a27e28f36887c5784700d8"),
         }
         self.assertEqual(153, self.matrix["bundle_revision"], "Preview cannot publish a new revision")
@@ -60,6 +60,10 @@ class CompatibilityClaimsTest(unittest.TestCase):
                 self.assertEqual(artifact_base, row.get("artifact_base"))
                 self.assertEqual(source, row["source_commit"])
                 self.assertNotEqual(superseded, row["source_commit"])
+                if repository == "wickidcow/SF_NetworksExp":
+                    self.assertNotEqual("e46ff048951c90c5c2bf935ea359ce681fb2bad4", row["source_commit"],
+                                        "Reject prior axolotl-only merged main")
+                    self.assertNotEqual("c8f222e41510f5ac65913bb4510ed8cba9fc9490", row["source_commit"])
 
     def test_ie2_2017_release_pin_keeps_existing_bundle_jar_identity(self):
         matches = [row for row in self.matrix["addons"]
@@ -67,9 +71,190 @@ class CompatibilityClaimsTest(unittest.TestCase):
         self.assertEqual(1, len(matches), "InfinityExpansion2 must appear exactly once")
         self.assertEqual("infinityexpansion2", matches[0]["slug"])
         self.assertEqual("InfinityExpansion", matches[0]["artifact_base"])
-        self.assertEqual("fdadfa67bc68fb18e34ccfed773a23ba2efbd4ef", matches[0]["source_commit"])
+        self.assertEqual("3245d94231424adbb8795a4d3f2e9fc0eb336fa4", matches[0]["source_commit"])
         self.assertNotEqual("a9b105e5cf3e8c69b3edb135c615eb3710f72158", matches[0]["source_commit"],
                             "Do not rebuild the 2.0.16 source in the 2.0.17 bundle preview")
+
+    def test_mobcapturer_raw_jar_verified_main_source_preserves_bundle_identity(self):
+        """Pin reviewed raw-JAR transfer checks without changing MobCapturer identity."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_MobCapturer"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(1, len(rows), "MobCapturer must appear exactly once")
+        self.assertEqual("mobcapturer", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Keep the existing MobCapturer JAR naming")
+        self.assertEqual("779b6fabb73d4385e5f41de24e5ab40a0fc32843", rows[0]["source_commit"])
+        self.assertNotEqual("4419b2d6f9a1d93951de90c49c387d66ce9fb292",
+                            rows[0]["source_commit"],
+                            "Reject the old main before Java 21 and raw-JAR transfer checks")
+
+    def test_ryken_immutable_main_source_preserves_bundle_identity(self):
+        """Require reviewed resource-expansion and immutable-gate source, not old release code."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_RykenSlimeCustomizer"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "Ryken must appear exactly once")
+        self.assertEqual("rykenslimecustomizer", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Keep the existing Ryken JAR naming")
+        self.assertEqual("eb4fb9f6acb50c436f8db1efef5df639a19bd6e2", rows[0]["source_commit"])
+        self.assertNotEqual("b74e0c55aabcec36721d37b5bf4333ee3b08ed9c",
+                            rows[0]["source_commit"],
+                            "Reject Ryken before retained compiler diagnostics and resource-expansion fixes")
+
+    def test_betterchests_stable_263_main_source_preserves_bundle_identity(self):
+        """Require reviewed stable 26.3 source without renaming BetterChests or the bundle."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_BetterChests"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "BetterChests must appear exactly once")
+        self.assertEqual("betterchests", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Preserve the existing BetterChests JAR name")
+        self.assertEqual("ab65d71cec6c0949ca835b156ca05c3e2413d0be", rows[0]["source_commit"])
+        self.assertNotEqual("51fd6616d8ad6d8a6153237d5274235f61a6f277",
+                            rows[0]["source_commit"],
+                            "Reject source predating stable Paper 26.3 native runtime checks")
+
+    def test_dynatech_verified_main_source_preserves_bundle_identity(self):
+        """Require reviewed Maven and immutable manual publisher source without changing DynaTech identity."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_DynaTech"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "DynaTech must appear exactly once")
+        self.assertEqual("dynatech", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Keep the existing DynaTech JAR naming")
+        self.assertEqual("cfa07188b8813e3c7d19611aaa37c105fe418af0", rows[0]["source_commit"])
+        self.assertNotEqual("f4289dbbd61fcc93ae8c6bcfde5b9e3892d371bc", rows[0]["source_commit"],
+                            "Reject DynaTech source before SHA-verified Maven and manual-only immutable release gate")
+
+    def test_betterfarming_stable_263_main_preserves_bundle_identity(self):
+        """Require reviewed stable Paper 26.3 source and preserve BetterFarming's release identity."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_BetterFarming"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "BetterFarming must appear exactly once")
+        self.assertEqual("betterfarming", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Keep the existing BetterFarming JAR naming")
+        self.assertEqual("03bf73395071a14021441625ea71e15667d7962b", rows[0]["source_commit"])
+        self.assertNotEqual("ba363e64d6401c89e3bd9c765bac273e0fa8b40a", rows[0]["source_commit"],
+                            "Reject the previous alpha-only Paper 26.3 compile source")
+
+    def test_galactifun_immutable_gradle_main_preserves_bundle_identity(self):
+        """Pin reviewed Galactifun build/release policy without changing the addon identity."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_Galactifun"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "Galactifun must appear exactly once")
+        self.assertEqual("galactifun", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Preserve Galactifun canonical JAR naming")
+        self.assertEqual("2552ac08c794503ca2e52e66bee052392391c7a0", rows[0]["source_commit"])
+        self.assertNotEqual("82bdf5254b42a14f38c98590a8b6ebf708c5be22",
+                            rows[0]["source_commit"], "Reject pre-immutable-release-policy source")
+
+    def test_fastmachines_stable_263_main_preserves_bundle_identity(self):
+        """Pin verified Java 21 and stable Paper 26.3 source without changing FastMachines identity."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_FastMachines"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "FastMachines must appear exactly once")
+        self.assertEqual("fastmachines", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Preserve FastMachines canonical JAR naming")
+        self.assertEqual("2c55fa5adf1378b0c4973cb4e26bd0ec5eedbbe9", rows[0]["source_commit"])
+        self.assertNotEqual("695ac4e5a8a0b3dcfc114c97b6a4f43c6254d1b6", rows[0]["source_commit"],
+                            "Reject pre-stable-26.3 and pre-immutable-release-gate source")
+
+    def test_slimetinker_cast_lore_main_preserves_bundle_identity(self):
+        """Pin reviewed legacy-white cast lore parity and disabled historical publisher."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_SlimeTinkerIE2"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "SlimeTinker must appear exactly once")
+        self.assertEqual("slimetinkerie2", rows[0]["slug"])
+        self.assertEqual("SlimeTinker", rows[0]["artifact_base"], "Preserve canonical SF_SlimeTinker2.0.7.jar identity")
+        self.assertEqual("ac14d9f373466ed1f779ecd87f947f930c1a915b", rows[0]["source_commit"])
+        self.assertNotEqual("bfb072fedb9f9135a27a93483d69da2bcdfb927a", rows[0]["source_commit"],
+                            "Reject source before exact cast-lore parity and immutable release gates")
+
+    def test_magicexpansion_adventure_utf8_main_preserves_bundle_identity(self):
+        """Pin reviewed color/charset modernization without altering MagicExpansion IDs or JAR naming."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_MagicExpansion"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "MagicExpansion must appear exactly once")
+        self.assertEqual("magicexpansion", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Preserve MagicExpansion canonical JAR naming")
+        self.assertEqual("fc6d4236623556ebcddaa749e2e98a1f6ab8e7dc", rows[0]["source_commit"])
+        self.assertNotEqual("258f6941de328202611bdfc4e34e23973356adad", rows[0]["source_commit"],
+                            "Reject source before reviewed Adventure title/shop parity and UTF-8 regression tests")
+
+    def test_justenoughguide_resource_parity_main_preserves_bundle_identity(self):
+        """Require reviewed Gradle resource-expansion parity source without changing the guide JAR."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_JustEnoughGuide"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "JustEnoughGuide must appear exactly once")
+        self.assertEqual("justenoughguide", rows[0]["slug"])
+        self.assertEqual("JustEnoughGuide", rows[0]["artifact_base"])
+        self.assertEqual("2ba3c9d7ed324a7214fca865a23628c423b9e408", rows[0]["source_commit"])
+        self.assertNotEqual("a05fda6c5ce3310fa339ebe0f2f00801197e6d9b", rows[0]["source_commit"],
+                            "Reject source before SHA-verified Gradle and byte-exact resource expansion parity")
+
+    def test_supreme_1021_unmerged_candidate_is_preview_only(self):
+        """This is a draft source preview, not yet a reviewed merged-main release lock."""
+        rows = self.matrix["addons"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(rows))
+        self.assertEqual(44, len({row["repository"] for row in rows}))
+        supreme = [row for row in rows if row["repository"] == "wickidcow/SF_Supreme"]
+        self.assertEqual(1, len(supreme))
+        self.assertEqual("supreme", supreme[0]["slug"])
+        self.assertEqual("3c9b1c7cfc80cae3c0da950f072ee017dd53955d", supreme[0]["source_commit"])
+        self.assertNotEqual("9d7dd77a445cf26288afcc5b52c8dfc2177e228e", supreme[0]["source_commit"])
+        self.assertNotEqual("f93fd7ed3b14f7420f2c3d9c922d58b3aeb5a3d3", supreme[0]["source_commit"])
+
+    def test_refreshed_source_pins_are_exact_and_do_not_change_bundle_identity(self):
+        expected = {
+            "wickidcow/SF_InfinityExpansion2": "3245d94231424adbb8795a4d3f2e9fc0eb336fa4",
+            "wickidcow/SF_FinalTECH": "71cc3879bb56071d91b4f6539040c5eb3c8903bd",
+            "wickidcow/SF_NetworksExp": "94972869e5951c4afad276e531da23700c7a846a",
+            "wickidcow/WorldEditSlimefun": "c530185c5e4058757a6b9ea9c3970f93fcd19575",
+            "wickidcow/SF_Supreme": "3c9b1c7cfc80cae3c0da950f072ee017dd53955d",
+        }
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        rows = self.matrix["addons"]
+        self.assertEqual(44, len(rows))
+        self.assertEqual(44, len({row["repository"] for row in rows}))
+        pins = {row["repository"]: row["source_commit"] for row in rows}
+        for repo, sha in expected.items():
+            with self.subTest(repository=repo):
+                self.assertEqual(sha, pins[repo])
+        self.assertNotEqual("e46ff048951c90c5c2bf935ea359ce681fb2bad4",
+                            pins["wickidcow/SF_NetworksExp"],
+                            "Reject previous merged Networks source before BlockStateMeta fix")
+        self.assertNotEqual("c8f222e41510f5ac65913bb4510ed8cba9fc9490",
+                            pins["wickidcow/SF_NetworksExp"],
+                            "Reject superseded Networks source with unchanged plugin version")
+        self.assertNotEqual("f93fd7ed3b14f7420f2c3d9c922d58b3aeb5a3d3",
+                            pins["wickidcow/SF_Supreme"],
+                            "Unmerged Supreme 1.0.21 must remain an explicit draft preview")
 
     def test_generated_notice_carries_the_same_explicit_scope(self):
         text = (ROOT / ".github/workflows/build-sfl-addons-compat-bundle.yml").read_text()
