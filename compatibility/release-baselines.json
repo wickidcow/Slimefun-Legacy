@@ -2,16 +2,16 @@
   "schema": 1,
   "project": "Slimefun Legacy",
   "candidate": {
-    "version": "4.1.78"
+    "version": "4.1.79"
   },
   "previous_stable": {
-    "version": "4.1.77",
+    "version": "4.1.78",
     "source": {
       "mode": "git-ref",
-      "ref": "a8b62908e6fb8fd949f585faa7de30e863c6deaa"
+      "ref": "b14a3bcc5ef221c013f93d49b6b3a1bbdb3101e9"
     },
     "release_blocking": true,
-    "purpose": "Primary regression baseline: exact published Slimefun Legacy v4.1.77 source/tag (a8b6290). Required addon regressions against the previous Java core release block candidate 4.1.78. This validates repository-scoped Paper, mcMMO and Orebfuscator dependency resolution plus fail-closed physical output-slot capacity checks without changing persisted data. The 4.1.15 historical floor remains advisory and older saved item formats remain supported."
+    "purpose": "Primary regression baseline: exact published Slimefun Legacy v4.1.78 source/tag (b14a3bc). Required addon regressions against the previous Java core release block candidate 4.1.79. The 4.1.15 historical floor remains advisory; legacy saved item, block, world, inventory and storage formats must remain readable. The previous release source and assets are immutable."
   },
   "legacy_floor": {
     "version": "4.1.15",
