@@ -175,6 +175,20 @@ class CompatibilityClaimsTest(unittest.TestCase):
         self.assertNotEqual("695ac4e5a8a0b3dcfc114c97b6a4f43c6254d1b6", rows[0]["source_commit"],
                             "Reject pre-stable-26.3 and pre-immutable-release-gate source")
 
+    def test_slimetinker_cast_lore_main_preserves_bundle_identity(self):
+        """Pin reviewed legacy-white cast lore parity and disabled historical publisher."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_SlimeTinkerIE2"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "SlimeTinker must appear exactly once")
+        self.assertEqual("slimetinkerie2", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Preserve canonical SF_SlimeTinker2.0.7.jar identity")
+        self.assertEqual("ac14d9f373466ed1f779ecd87f947f930c1a915b", rows[0]["source_commit"])
+        self.assertNotEqual("bfb072fedb9f9135a27a93483d69da2bcdfb927a", rows[0]["source_commit"],
+                            "Reject source before exact cast-lore parity and immutable release gates")
+
     def test_magicexpansion_adventure_utf8_main_preserves_bundle_identity(self):
         """Pin reviewed color/charset modernization without altering MagicExpansion IDs or JAR naming."""
         rows = [row for row in self.matrix["addons"]
