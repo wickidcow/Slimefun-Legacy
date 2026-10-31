@@ -103,6 +103,21 @@ class CompatibilityClaimsTest(unittest.TestCase):
                           "3d5286877e2307b4b9bc48be886d14d75e6889c6"),
                          historical["wickidcow/SF_FluffyMachines"])
 
+    def test_slimehud_207_reviewed_maven_main_preserves_bundle_identity(self):
+        """Preview the reviewed Maven 3.10 build source without changing HUD plugin identity."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_SlimeHUD"]
+        self.assertEqual(153, self.matrix["bundle_revision"], "Do not publish from this preview")
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "SlimeHUD must appear exactly once")
+        self.assertEqual("slimehud", rows[0]["slug"])
+        self.assertEqual("SlimeHUD", rows[0]["artifact_base"])
+        self.assertEqual("b865442f355ed38daa5ae83f797e30a712171272", rows[0]["source_commit"])
+        self.assertNotEqual("72ba3ca673beb2b48c15b5dc77bf1d1880f8a1e3",
+                            rows[0]["source_commit"],
+                            "Reject the source before checksum-verified Maven 3.10 CI")
+
     def test_cultivation_1124_merged_main_source_preserves_bundle_identity(self):
         """Preview the separately verified 1.1.24 source without rewriting historical ledger evidence."""
         rows = [row for row in self.matrix["addons"]
