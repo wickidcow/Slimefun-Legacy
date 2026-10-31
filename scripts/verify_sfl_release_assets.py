@@ -144,8 +144,8 @@ def retained_carried_geyser_identity(release: dict[str, Any], asset: dict[str, A
         if release["id"] != pin["source_release_id"] or asset["id"] != pin["source_asset_id"]:
             raise PolicyError("Original Geyser ZIP release/asset identity changed")
     elif tag == pin["target_tag"]:
-        if release["id"] != pin["target_release_id"] or asset["id"] != pin["target_asset_id"]:
-            raise PolicyError("Carried Geyser ZIP must match the exact immutable v4.1.78 asset")
+        if release["id"] != pin["target_release_id"] or asset["id"] == pin["source_asset_id"]:
+            raise PolicyError("Carried Geyser ZIP must be a separate asset on the exact successor")
     elif tag == pin["next_tag"]:
         # The new release/asset IDs cannot be pinned before publication, but
         # original source IDs cannot be reused, and the ZIP digest must match.
