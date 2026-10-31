@@ -147,6 +147,20 @@ class CompatibilityClaimsTest(unittest.TestCase):
         self.assertNotEqual("ba363e64d6401c89e3bd9c765bac273e0fa8b40a", rows[0]["source_commit"],
                             "Reject the previous alpha-only Paper 26.3 compile source")
 
+    def test_galactifun_immutable_gradle_main_preserves_bundle_identity(self):
+        """Pin reviewed Galactifun build/release policy without changing the addon identity."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_Galactifun"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "Galactifun must appear exactly once")
+        self.assertEqual("galactifun", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Preserve Galactifun canonical JAR naming")
+        self.assertEqual("2552ac08c794503ca2e52e66bee052392391c7a0", rows[0]["source_commit"])
+        self.assertNotEqual("82bdf5254b42a14f38c98590a8b6ebf708c5be22",
+                            rows[0]["source_commit"], "Reject pre-immutable-release-policy source")
+
     def test_fastmachines_stable_263_main_preserves_bundle_identity(self):
         """Pin verified Java 21 and stable Paper 26.3 source without changing FastMachines identity."""
         rows = [row for row in self.matrix["addons"]
