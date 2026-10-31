@@ -133,6 +133,20 @@ class CompatibilityClaimsTest(unittest.TestCase):
         self.assertNotEqual("f4289dbbd61fcc93ae8c6bcfde5b9e3892d371bc", rows[0]["source_commit"],
                             "Reject DynaTech source before SHA-verified Maven and manual-only immutable release gate")
 
+    def test_betterfarming_stable_263_main_preserves_bundle_identity(self):
+        """Require reviewed stable Paper 26.3 source and preserve BetterFarming's release identity."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_BetterFarming"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "BetterFarming must appear exactly once")
+        self.assertEqual("betterfarming", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Keep the existing BetterFarming JAR naming")
+        self.assertEqual("03bf73395071a14021441625ea71e15667d7962b", rows[0]["source_commit"])
+        self.assertNotEqual("ba363e64d6401c89e3bd9c765bac273e0fa8b40a", rows[0]["source_commit"],
+                            "Reject the previous alpha-only Paper 26.3 compile source")
+
     def test_justenoughguide_resource_parity_main_preserves_bundle_identity(self):
         """Require reviewed Gradle resource-expansion parity source without changing the guide JAR."""
         rows = [row for row in self.matrix["addons"]
