@@ -146,6 +146,20 @@ class CompatibilityClaimsTest(unittest.TestCase):
         self.assertNotEqual("8943594f006a443ce8a77113f76709c871d03697",
                             rows[0]["source_commit"], "Reject pre-Maven-3.10 safety source")
 
+    def test_smg_105_reviewed_main_preserves_bundle_identity(self):
+        """Require checksum-verified Maven and stable Paper 26.3 source without renaming SMG."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_SMG"]
+        self.assertEqual(153, self.matrix["bundle_revision"], "Unpublished source preview only")
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "SMG must appear exactly once")
+        self.assertEqual("smg", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Preserve SF_SMG1.0.5.jar naming")
+        self.assertEqual("7a8304338c7bd69d89a152c8d63bdcc0a832de2e", rows[0]["source_commit"])
+        self.assertNotEqual("014a7e55a832255e6dd7fc4677b05480624a0fd7",
+                            rows[0]["source_commit"], "Reject source before stable 26.3 and immutable release CI")
+
     def test_cultivation_1124_merged_main_source_preserves_bundle_identity(self):
         """Preview the separately verified 1.1.24 source without rewriting historical ledger evidence."""
         rows = [row for row in self.matrix["addons"]
