@@ -147,6 +147,20 @@ class CompatibilityClaimsTest(unittest.TestCase):
         self.assertNotEqual("ba363e64d6401c89e3bd9c765bac273e0fa8b40a", rows[0]["source_commit"],
                             "Reject the previous alpha-only Paper 26.3 compile source")
 
+    def test_fastmachines_stable_263_main_preserves_bundle_identity(self):
+        """Pin verified Java 21 and stable Paper 26.3 source without changing FastMachines identity."""
+        rows = [row for row in self.matrix["addons"]
+                if row["repository"] == "wickidcow/SF_FastMachines"]
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(44, len({row["repository"] for row in self.matrix["addons"]}))
+        self.assertEqual(1, len(rows), "FastMachines must appear exactly once")
+        self.assertEqual("fastmachines", rows[0]["slug"])
+        self.assertNotIn("artifact_base", rows[0], "Preserve FastMachines canonical JAR naming")
+        self.assertEqual("2c55fa5adf1378b0c4973cb4e26bd0ec5eedbbe9", rows[0]["source_commit"])
+        self.assertNotEqual("695ac4e5a8a0b3dcfc114c97b6a4f43c6254d1b6", rows[0]["source_commit"],
+                            "Reject pre-stable-26.3 and pre-immutable-release-gate source")
+
     def test_justenoughguide_resource_parity_main_preserves_bundle_identity(self):
         """Require reviewed Gradle resource-expansion parity source without changing the guide JAR."""
         rows = [row for row in self.matrix["addons"]
