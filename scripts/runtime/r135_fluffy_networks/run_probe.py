@@ -57,7 +57,7 @@ NETWORK_VERSIONS = {
     152: ("SF_Networks1.0.62.jar", "79e4c0116cc4b4683c668a4920e67692f925b83f"),
     # r153 previews reviewed merged Networks 1.0.63 with absent BlockStateMeta guard.
     # Fail closed on a staging-branch or historical source even when filename matches.
-    153: ("SF_Networks1.0.63.jar", "94972869e5951c4afad276e531da23700c7a846a"),
+    153: ("SF_Networks1.0.63.jar", "786924b48b099968dfedb82f255282eaf9e4603e"),
 }
 
 
