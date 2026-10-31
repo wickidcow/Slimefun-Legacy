@@ -25,7 +25,7 @@ EXPECTED_VERSIONS = {
 }
 # Preserve all historical r135-r152 receipts; r153 previews a separately reviewed
 # Fluffy source at the same plugin version with distinct distributable bytes.
-R153_FLUFFY = ("SF_FluffyMachines26.2.16.jar", "5cb23e8758482d5fa1bb2917ba54f80a37288bc6")
+R153_FLUFFY = ("SF_FluffyMachines26.2.16.jar", "ded6700d6f854407b9700baa080c00707a92e009")
 NETWORK_VERSIONS = {
     135: ("SF_Networks1.0.54.jar", "c24064cbeafe4f112c7d46bf3de5617fa151d88d"),
     136: ("SF_Networks1.0.55.jar", "bcdef34d362dc74aa1aab23c8961a629daa79950"),

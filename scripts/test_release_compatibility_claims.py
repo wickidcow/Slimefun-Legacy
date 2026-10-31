@@ -1,3 +1,4 @@
+import ast
 import copy
 import json
 from pathlib import Path
@@ -81,6 +82,26 @@ class CompatibilityClaimsTest(unittest.TestCase):
         self.assertNotEqual("5cb23e8758482d5fa1bb2917ba54f80a37288bc6",
                             rows[0]["source_commit"],
                             "Reject the source before portable-charger title parity and raw-JAR checks")
+
+    def test_r153_native_fluffy_probe_matches_bundle_source_without_rewriting_history(self):
+        """The native conservation gate must follow the reviewed r153 source pin."""
+        source = (ROOT / "scripts/runtime/r135_fluffy_networks/run_probe.py").read_text()
+        assignments = {
+            target.id: node.value
+            for node in ast.walk(ast.parse(source))
+            if isinstance(node, ast.Assign)
+            for target in node.targets
+            if isinstance(target, ast.Name) and target.id in ("R153_FLUFFY", "EXPECTED_VERSIONS")
+        }
+        self.assertEqual({"R153_FLUFFY", "EXPECTED_VERSIONS"}, set(assignments))
+        current = ast.literal_eval(assignments["R153_FLUFFY"])
+        historical = ast.literal_eval(assignments["EXPECTED_VERSIONS"])
+        row = next(row for row in self.matrix["addons"]
+                   if row["repository"] == "wickidcow/SF_FluffyMachines")
+        self.assertEqual(("SF_FluffyMachines26.2.16.jar", row["source_commit"]), current)
+        self.assertEqual(("SF_FluffyMachines26.2.16.jar",
+                          "3d5286877e2307b4b9bc48be886d14d75e6889c6"),
+                         historical["wickidcow/SF_FluffyMachines"])
 
     def test_cultivation_1124_merged_main_source_preserves_bundle_identity(self):
         """Preview the separately verified 1.1.24 source without rewriting historical ledger evidence."""
