@@ -38,6 +38,8 @@ jobs:
           echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
       - name: Verify Slimefun Legacy invariants
         run: python3 scripts/verify_legacy.py .
+      - name: Verify exact 4.1.79 candidate metadata and published baseline
+        run: python3 -m unittest scripts.test_release_candidate_metadata -v
       - name: Verify release runtime evidence rejection controls
         run: |
           python3 -m unittest scripts/test_release_runtime_evidence.py scripts/test_release_full_stack_evidence.py scripts/test_collect_release_runtime_evidence.py -v
