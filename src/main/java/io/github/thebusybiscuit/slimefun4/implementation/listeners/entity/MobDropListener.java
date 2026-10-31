@@ -59,12 +59,13 @@ public class MobDropListener implements Listener {
         }
     }
 
-    private boolean canDrop(@Nonnull Player p, @Nonnull ItemStack item) {
+    // Package-private to exercise the passive mob-drop gate without triggering player-facing messages.
+    boolean canDrop(@Nonnull Player p, @Nonnull ItemStack item) {
         SlimefunItem sfItem = SlimefunItem.getByItem(item);
 
         if (sfItem == null) {
             return true;
-        } else if (sfItem.canUse(p, true)) {
+        } else if (sfItem.canUse(p, false)) {
             if (sfItem instanceof RandomMobDrop randomMobDrop) {
                 int random = ThreadLocalRandom.current().nextInt(100);
 
