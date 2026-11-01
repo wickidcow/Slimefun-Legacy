@@ -42,5 +42,30 @@ class ReleaseCandidateMetadataTest(unittest.TestCase):
         self.assertNotIn("4.1.79 was published", self.readme)
 
 
+    def test_merged_prerequisites_are_not_described_as_unmerged(self):
+        self.assertIn("have merged into master", self.notes)
+        self.assertIn("has merged into master", self.notes)
+        self.assertIn("/pull/555", self.notes)
+        self.assertIn("/pull/556", self.notes)
+        self.assertIn("/pull/557", self.notes)
+        self.assertNotIn("proposed changes pending final review and merge", self.notes)
+        self.assertNotIn("publisher/checksum guard is proposed", self.notes)
+        self.assertIn("exact-head regression and full-stack validation", self.notes)
+
+    def test_historical_purpur_bundle_is_not_current_release_proof(self):
+        matrix = json.loads(
+            (ROOT / "compatibility/sfl-addon-release-matrix.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(44, len(matrix["addons"]))
+        purpur = next(
+            platform for platform in self.support["secondary_platforms"]
+            if platform["software"] == "Purpur" and platform["basis"] == "Paper 26.3"
+        )
+        evidence = purpur["validation"]
+        self.assertIn("then-current 45-addon canonical bundle", evidence)
+        self.assertIn("new 44-addon release must pass its own exact-source runtime checks", evidence)
+        self.assertEqual("experimental", purpur["status"])
+
+
 if __name__ == "__main__":
     unittest.main()
