@@ -16,7 +16,8 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from scripts.runtime.paired_addon_storage.run_probe import load_lock, require, validate_jar
+from scripts.runtime.paired_addon_storage.run_probe import require, validate_jar
+from scripts.stage_published_pair import load_release_lock
 
 PAIR_SLUGS = {"networksexp": "networks", "infinityexpansion2": "ie2"}
 
@@ -100,7 +101,7 @@ def main() -> None:
 
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
     mode, proof = preview_mode(
-        manifest, load_lock(), args.addon, args.source,
+        manifest, load_release_lock(), args.addon, args.source,
         args.repository, args.event, args.jar,
     )
     if mode == "unpublished-pr-preview":

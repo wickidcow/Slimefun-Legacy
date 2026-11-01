@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "purpose": "published-distribution",
+  "distribution_selection": true,
+  "note": "Independent of the immutable historical paired storage/restart fixture-lock.json; exact published release sources and assets only.",
+  "addons": {
+    "networks": {
+      "repository": "wickidcow/SF_NetworksExp",
+      "source": "ea5777ce58c45c3c3cd4789bd155164ccbb5336b",
+      "tree": "e166cf9b148bd436951e647489f93df8c69e0b21",
+      "plugin": "Networks",
+      "version": "1.0.63",
+      "jar": "build/libs/SF_Networks1.0.63.jar",
+      "published_artifact": {
+        "url": "https://github.com/wickidcow/SF_NetworksExp/releases/download/v1.0.63/SF_Networks1.0.63.jar",
+        "bytes": 1684638,
+        "sha256": "90eef4b7b6fa07bec4c2ebf89425dfc5a5f52c93421bf9de058c30c68198bd68"
+      }
+    },
+    "ie2": {
+      "repository": "wickidcow/SF_InfinityExpansion2",
+      "source": "fdadfa67bc68fb18e34ccfed773a23ba2efbd4ef",
+      "tree": "e311f563aeb9a16d921e166d318cdf323dec2db7",
+      "plugin": "InfinityExpansion2",
+      "version": "2.0.17",
+      "jar": "build/libs/SF_InfinityExpansion2.0.17.jar",
+      "published_artifact": {
+        "url": "https://github.com/wickidcow/SF_InfinityExpansion2/releases/download/v2.0.17/SF_InfinityExpansion2.0.17.jar",
+        "bytes": 1734055,
+        "sha256": "02aa79bc84444a28aa292cc216450a9a44ae62fa7377b86787a70d2c5758f33a"
+      }
+    }
+  }
+}
