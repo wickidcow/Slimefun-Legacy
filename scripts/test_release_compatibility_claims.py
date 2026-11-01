@@ -61,8 +61,8 @@ class CompatibilityClaimsTest(unittest.TestCase):
         self.assertEqual(before, self.matrix)
 
 
-    def test_maintained_build_only_repin_is_exact_and_preserves_native_pairs(self):
-        # Source-only candidate: intentionally preserve historical native storage
+    def test_maintained_repin_is_exact_and_preserves_native_pairs(self):
+        # Reviewed source-only candidate: preserve historical native storage
         # fixtures, immutable published Networks/IE2 source and Supreme 1.0.20.
         self.assertEqual(153, self.matrix["bundle_revision"])
         self.assertEqual(44, len(self.matrix["addons"]))
@@ -86,6 +86,7 @@ class CompatibilityClaimsTest(unittest.TestCase):
             "wickidcow/SF_SlimefunWarfare": "2a6ef2801e212720b623d8db3b668be9b9f3f450",
             "wickidcow/SF_SlimeGlue": "c3b024944c6520ef1f4ba51c21f02606fffd39a6",
             "wickidcow/SF_SoulJars": "8fbd6befc477bbbf9970afc79e538c6b1f028cd3",
+            "wickidcow/SF_SlimeHUD": "cb3479646fe8be343cbb55f122cf0e45b1cbc201",
         }
         for repository, sha in expected.items():
             with self.subTest(repository=repository):
