@@ -288,7 +288,7 @@ def package_inputs(args: argparse.Namespace, lock: dict) -> None:
             and prepared.get("core_sha256") == digest(output / "core.jar")
             and prepared.get("local_maven_core_sha256") == digest(output / "core.jar"),
             "Prepared inputs changed")
-    manifest = {"schema": 1, "purpose": "integration-test-fixture", "source": args.expected_source,
+    manifest = {"schema": 1, "purpose": lock["purpose"], "source": args.expected_source,
                 "core_version": version, "lock_sha256": digest(LOCK_PATH),
                 "receipt_source_sha256": digest(RECEIPT_SOURCE), "inputs": {},
                 "compiled_inputs": {}, "addon_checkouts": {}, "classpath_receipts": {}}
@@ -344,7 +344,7 @@ def validate_compiled_inputs(directory: Path, manifest: dict, lock: dict) -> Non
 
 def validate_inputs(directory: Path, expected_source: str, lock: dict) -> dict:
     manifest = read_json(directory / "inputs.json")
-    require(manifest.get("schema") == 1 and manifest.get("purpose") == "integration-test-fixture"
+    require(manifest.get("schema") == 1 and manifest.get("purpose") == lock["purpose"]
             and manifest.get("source") == expected_source, "Paired input source mismatch")
     require(manifest.get("lock_sha256") == digest(LOCK_PATH) == digest(directory / "fixture-lock.json")
             and manifest.get("receipt_source_sha256") == digest(RECEIPT_SOURCE), "Fixture code/lock mismatch")
