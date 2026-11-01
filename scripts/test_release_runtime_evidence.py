@@ -283,6 +283,58 @@ class ReleaseNativeEvidenceTests(unittest.TestCase):
             self.assertNotEqual(self.fixture.manifest["inputs"][key]["sha256"],
                                 self.fixture.manifest["compiled_inputs"][key]["sha256"])
 
+    def test_historical_only_evidence_never_authorizes_current_release(self):
+        f = self.fixture
+        shutil.rmtree(f.release_inputs)
+        with self.assertRaises(ReleaseRuntimeEvidenceError):
+            f.verify()
+
+    def test_current_pair_artifacts_and_both_runtime_lanes_are_mandatory(self):
+        for key in ("paired-storage-release-inputs",
+                    "paired-storage-release-purpur-1.21.11-2568",
+                    "paired-storage-release-purpur-26.3-2652"):
+            f = self.fresh("current-missing-" + key)
+            shutil.rmtree(f.native / key)
+            with self.subTest(key=key), self.assertRaises(ReleaseRuntimeEvidenceError):
+                f.verify()
+
+    def test_current_pair_source_version_and_bytes_cannot_diverge_from_bundle(self):
+        for field in ("source", "version", "sha256"):
+            f = self.fresh("current-change-" + field)
+            if field == "source":
+                f.release_lock["addons"]["networks"]["source"] = "0" * 40
+            elif field == "version":
+                f.release_lock["addons"]["networks"]["version"] = "9.9.9"
+            else:
+                f.release_lock["addons"]["ie2"]["published_artifact"]["sha256"] = "0" * 64
+            write_json(f.release_lock_path, f.release_lock)
+            # Alter the *distribution* source too to prove that even coherent
+            # changes to both pins cannot silently rewrite the native inputs.
+            with self.subTest(field=field), self.assertRaises(ReleaseRuntimeEvidenceError):
+                f.verify()
+
+    def test_current_installed_plugin_and_database_receipts_must_be_exact(self):
+        for field in ("installed", "database"):
+            f = self.fresh("current-proof-" + field)
+            folder = f.native / "paired-storage-release-purpur-26.3-2652"
+            if field == "installed":
+                f.alter_json(folder / "verification.json", lambda value:
+                             value["seed"]["installed_after"]["plugins/Networks.jar"].update(sha256="0" * 64))
+            else:
+                f.alter_json(folder / "verification.json", lambda value:
+                             value["verify"]["database_snapshot"].update(status="FAIL"))
+            with self.subTest(field=field), self.assertRaises(ReleaseRuntimeEvidenceError):
+                f.verify()
+
+    def test_historical_and_release_phase_tokens_must_not_be_reused(self):
+        f = self.fixture
+        previous = f.native / "paired-storage-purpur-1.21.11-2568" / "verification.json"
+        duplicate = f.native / "paired-storage-release-purpur-1.21.11-2568" / "verification.json"
+        historic = json.loads(previous.read_text())
+        f.alter_json(duplicate, lambda value: value.update(run_id=historic["run_id"]))
+        with self.assertRaisesRegex(ReleaseRuntimeEvidenceError, "Reused native lane receipt"):
+            f.verify()
+
     def test_packaging_keeps_published_runtime_separate_from_candidate_compilation(self):
         f = self.fixture
         output = f.root / "packaged"
