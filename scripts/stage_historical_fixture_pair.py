@@ -10,6 +10,10 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
 from scripts.runtime.paired_addon_storage.run_probe import load_lock, require
 from scripts.stage_published_pair import stage
