@@ -28,6 +28,9 @@ NATIVE_ARTIFACT_JOBS = {
     "paired-storage-inputs": "Build fixed paired storage test inputs",
     "paired-storage-purpur-1.21.11-2568": "Paired storage and restart on purpur-1.21.11-2568",
     "paired-storage-purpur-26.3-2652": "Paired storage and restart on purpur-26.3-2652",
+    "paired-storage-release-inputs": "Build exact published paired storage test inputs",
+    "paired-storage-release-purpur-1.21.11-2568": "Current published storage and restart on purpur-1.21.11-2568",
+    "paired-storage-release-purpur-26.3-2652": "Current published storage and restart on purpur-26.3-2652",
 }
 FULL_STACK_ARTIFACT_JOBS = {
     "full-stack-core": "Build universal candidate against 26.3",

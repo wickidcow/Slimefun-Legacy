@@ -14,6 +14,10 @@ on:
       - 'scripts/test_entity_retirement_probe.py'
       - 'scripts/runtime/paired_addon_storage/**'
       - 'scripts/test_paired_addon_storage_probe.py'
+      - 'scripts/test_current_native_pair_lock.py'
+      - 'scripts/test_release_runtime_evidence.py'
+      - 'scripts/verify_release_runtime_evidence.py'
+      - 'scripts/stage_current_release_pair.py'
       - 'scripts/stage_published_pair.py'
       - 'scripts/stage_historical_fixture_pair.py'
       - 'scripts/test_stage_published_pair.py'
@@ -41,6 +45,10 @@ on:
       - 'scripts/test_entity_retirement_probe.py'
       - 'scripts/runtime/paired_addon_storage/**'
       - 'scripts/test_paired_addon_storage_probe.py'
+      - 'scripts/test_current_native_pair_lock.py'
+      - 'scripts/test_release_runtime_evidence.py'
+      - 'scripts/verify_release_runtime_evidence.py'
+      - 'scripts/stage_current_release_pair.py'
       - 'scripts/stage_published_pair.py'
       - 'scripts/stage_historical_fixture_pair.py'
       - 'scripts/test_stage_published_pair.py'
@@ -81,6 +89,8 @@ jobs:
         run: |
           python3 -m unittest scripts/test_entity_retirement_probe.py -v
           python3 -m unittest scripts/test_paired_addon_storage_probe.py scripts/test_stage_published_pair.py -v
+          python3 -m unittest scripts.test_current_native_pair_lock -v
+          python3 -m unittest scripts.test_release_runtime_evidence -v
           python3 -O -m unittest scripts/test_paired_addon_storage_probe.py -v
       - name: Build and identify the universal core
         shell: bash
@@ -321,4 +331,160 @@ jobs:
             ${{ runner.temp }}/paired-storage-${{ matrix.platform }}/*.log
             ${{ runner.temp }}/paired-storage-${{ matrix.platform }}/*-result.txt
             ${{ runner.temp }}/paired-storage-${{ matrix.platform }}/phase-database-snapshots/**
+          if-no-files-found: warn
+
+  # Preserve the historical fixture jobs above. This independent lane tests
+  # the *currently distributed* Networks/IE2 JAR bytes and source checkouts.
+  paired_release_build:
+    name: Build exact published paired storage test inputs
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      SFL_PAIRED_LOCK_MODE: release
+    timeout-minutes: 35
+    outputs:
+      platforms: ${{ steps.pins.outputs.platforms }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Read explicit test-only source pins
+        id: pins
+        run: |
+          python3 scripts/runtime/paired_addon_storage/run_probe.py pins \
+            --github-env "$GITHUB_ENV" --github-output "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ env.NETWORKS_FIXTURE_REPOSITORY }}
+          ref: ${{ env.NETWORKS_FIXTURE_HEAD }}
+          path: .ci/paired-networks
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ env.IE2_FIXTURE_REPOSITORY }}
+          ref: ${{ env.IE2_FIXTURE_HEAD }}
+          path: .ci/paired-ie2
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - uses: actions/download-artifact@v8
+        with:
+          name: entity-retirement-core
+          path: candidate
+      - name: Bind the current core to both addon builds
+        run: |
+          python3 scripts/runtime/paired_addon_storage/run_probe.py prepare \
+            --core candidate/Slimefun-Legacy-retirement.jar --core-metadata candidate/metadata.json \
+            --expected-source "$GITHUB_SHA" --networks-checkout .ci/paired-networks \
+            --ie2-checkout .ci/paired-ie2 --maven-dir "$RUNNER_TEMP/paired-maven" \
+            --output-dir "$RUNNER_TEMP/paired-inputs" --github-env "$GITHUB_ENV"
+      - name: Verify existing paired source contracts
+        working-directory: .ci/paired-networks
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_legacy_compatibility.py
+          python3 "$GITHUB_WORKSPACE/.ci/paired-ie2/scripts/verify_transport_contracts.py" \
+            --slimefun "$GITHUB_WORKSPACE" --networks "$PWD"
+      - name: Build and test fixed Networks source against this core
+        working-directory: .ci/paired-networks
+        run: |
+          set -euo pipefail
+          bash scripts/download_jeg.sh
+          bash ./gradlew clean verifyPairedCoreDependency build --no-daemon \
+            --init-script "$PAIRED_INPUTS_DIR/verify-core-classpath.gradle" \
+            -Dsfl.paired.core.sha256="$PAIRED_CORE_SHA256" \
+            -Dsfl.paired.classpath.receipt="$PAIRED_INPUTS_DIR/networks-core-classpath.json" \
+            -PslimefunCoreJar="$PAIRED_CORE_JAR" -PjegJar="$PWD/$JEG_COMPILE_JAR" \
+            -PstrictDeprecation=true
+          python3 scripts/verify_java21_bytecode.py "$NETWORKS_FIXTURE_JAR"
+          python3 scripts/verify_universal_jar.py "$NETWORKS_FIXTURE_JAR" "$NETWORKS_FIXTURE_VERSION"
+      - name: Build and test fixed IE2 source against the same core
+        working-directory: .ci/paired-ie2
+        run: |
+          set -euo pipefail
+          bash ./gradlew clean verifyPairedCoreDependency build --no-daemon \
+            --init-script "$PAIRED_INPUTS_DIR/verify-core-classpath.gradle" \
+            -Dmaven.repo.local="$PAIRED_MAVEN_REPO" \
+            -Dsfl.paired.core.sha256="$PAIRED_CORE_SHA256" \
+            -Dsfl.paired.classpath.receipt="$PAIRED_INPUTS_DIR/ie2-core-classpath.json" \
+            -PpaperApiVersion=1.21.11-R0.1-SNAPSHOT -PtargetJvm=21 \
+            -PslimefunApiCoordinate="$PAIRED_CORE_COORDINATE"
+      - name: Stage exact candidate published distribution pair
+        run: |
+          set -euo pipefail
+          python3 scripts/stage_current_release_pair.py --addon networks \
+            --source "$NETWORKS_FIXTURE_HEAD" --repository "$NETWORKS_FIXTURE_REPOSITORY" \
+            --output "$PAIRED_INPUTS_DIR/published/networks.jar" \
+            --report "$PAIRED_INPUTS_DIR/networks-published.json"
+          python3 scripts/stage_current_release_pair.py --addon ie2 \
+            --source "$IE2_FIXTURE_HEAD" --repository "$IE2_FIXTURE_REPOSITORY" \
+            --output "$PAIRED_INPUTS_DIR/published/ie2.jar" \
+            --report "$PAIRED_INPUTS_DIR/ie2-published.json"
+      - name: Freeze exact test artifact and fixture identities
+        run: |
+          python3 scripts/runtime/paired_addon_storage/run_probe.py package \
+            --inputs-dir "$PAIRED_INPUTS_DIR" --expected-source "$GITHUB_SHA" \
+            --networks-checkout .ci/paired-networks --ie2-checkout .ci/paired-ie2
+      - uses: actions/upload-artifact@v7
+        with:
+          name: paired-storage-release-inputs
+          path: ${{ runner.temp }}/paired-inputs/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: paired-storage-release-build-failure
+          path: |
+            ${{ runner.temp }}/paired-inputs/*.json
+          if-no-files-found: warn
+
+  paired_release_storage:
+    name: Current published storage and restart on ${{ matrix.platform }}
+    needs: [build, paired_release_build]
+    runs-on: ubuntu-latest
+    env:
+      SFL_PAIRED_LOCK_MODE: release
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ fromJSON(needs.paired_release_build.outputs.platforms) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/download-artifact@v8
+        with:
+          name: paired-storage-release-inputs
+          path: candidate/paired
+      - name: Download the pinned native server
+        env:
+          PAIRED_PLATFORM: ${{ matrix.platform }}
+        run: |
+          python3 scripts/runtime/paired_addon_storage/run_probe.py download-server \
+            --platform "$PAIRED_PLATFORM" --destination candidate/server.jar
+      - name: Run original physical storage assertions through two JVMs
+        env:
+          PAIRED_PLATFORM: ${{ matrix.platform }}
+        run: |
+          python3 scripts/runtime/paired_addon_storage/run_probe.py run \
+            --inputs-dir candidate/paired --expected-source "$GITHUB_SHA" \
+            --platform "$PAIRED_PLATFORM" --server-jar candidate/server.jar \
+            --work-dir "$RUNNER_TEMP/paired-storage-release-$PAIRED_PLATFORM" --allow-disposable-writes
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: paired-storage-release-${{ matrix.platform }}
+          path: |
+            ${{ runner.temp }}/paired-storage-release-${{ matrix.platform }}/*.json
+            ${{ runner.temp }}/paired-storage-release-${{ matrix.platform }}/*.log
+            ${{ runner.temp }}/paired-storage-release-${{ matrix.platform }}/*-result.txt
+            ${{ runner.temp }}/paired-storage-release-${{ matrix.platform }}/phase-database-snapshots/**
           if-no-files-found: warn

@@ -26,6 +26,11 @@ RELEASE_INPUTS = (
     "scripts/stage_published_pair.py",
     "scripts/stage_unpublished_pair_candidate.py",
     "scripts/collect_release_runtime_evidence.py",
+    "scripts/verify_release_runtime_evidence.py",
+    "scripts/test_release_runtime_evidence.py",
+    "scripts/runtime/paired_addon_storage/**",
+    "scripts/stage_current_release_pair.py",
+    "scripts/test_current_native_pair_lock.py",
     "scripts/verify_release_resource_pack.py",
     "scripts/verify_sfl_release_assets.py",
 )
