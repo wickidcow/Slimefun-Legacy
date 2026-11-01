@@ -2,12 +2,14 @@
 """Reject source, binary and support-identity drift before canonical staging."""
 import copy
 import hashlib
+import json
 from pathlib import Path
 import tempfile
 import unittest
 import zipfile
 
-from scripts.stage_published_pair import stage
+from scripts.stage_published_pair import load_release_lock, stage
+from scripts.runtime.paired_addon_storage.run_probe import load_lock as load_historical_fixture
 
 
 class PublishedPairTest(unittest.TestCase):
@@ -35,6 +37,45 @@ class PublishedPairTest(unittest.TestCase):
     def stage(self, **kwargs):
         return stage(kwargs.get("pin", self.pin), kwargs.get("source", self.pin["source"]),
                      kwargs.get("repository", self.pin["repository"]), self.output, local=self.source)
+
+
+    def test_distribution_pair_matches_exact_manifest_without_changing_native_fixtures(self):
+        release = load_release_lock()
+        fixture = load_historical_fixture()
+        matrix = json.loads((Path(__file__).resolve().parents[1]
+                             / "compatibility/sfl-addon-release-matrix.json").read_text(encoding="utf-8"))
+        self.assertEqual("published-distribution", release["purpose"])
+        self.assertTrue(release["distribution_selection"])
+        self.assertEqual("integration-test-fixture", fixture["purpose"])
+        self.assertFalse(fixture["distribution_selection"])
+        rows = {row["repository"]: row for row in matrix["addons"]}
+        for key in ("networks", "ie2"):
+            with self.subTest(addon=key):
+                pin = release["addons"][key]
+                old = fixture["addons"][key]
+                self.assertEqual(rows[pin["repository"]]["source_commit"], pin["source"])
+                self.assertNotEqual(old["source"], pin["source"])
+                self.assertGreater(tuple(map(int, pin["version"].split("."))),
+                                   tuple(map(int, old["version"].split("."))))
+                self.assertEqual(
+                    f'https://github.com/{pin["repository"]}/releases/download/v{pin["version"]}/'
+                    + Path(pin["jar"]).name, pin["published_artifact"]["url"])
+
+    def test_release_lock_rejects_fixture_identity_and_missing_pair(self):
+        valid = load_release_lock()
+        for change in ("fixture", "missing-pair", "missing-digest"):
+            with self.subTest(change=change):
+                copy_of_lock = copy.deepcopy(valid)
+                if change == "fixture":
+                    copy_of_lock["purpose"] = "integration-test-fixture"
+                elif change == "missing-pair":
+                    del copy_of_lock["addons"]["ie2"]
+                else:
+                    copy_of_lock["addons"]["networks"]["published_artifact"]["sha256"] = ""
+                path = self.root / "candidate-lock.json"
+                path.write_text(json.dumps(copy_of_lock), encoding="utf-8")
+                with self.assertRaisesRegex(RuntimeError, "published distribution"):
+                    load_release_lock(path)
 
     def test_stages_identical_bytes_and_records_exact_published_identity(self):
         result = self.stage()
