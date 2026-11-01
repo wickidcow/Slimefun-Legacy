@@ -32,6 +32,7 @@ ADDONS = {
 FIXED_JOBS = {
     "Build exact-source retirement candidate",
     "Build fixed paired storage test inputs",
+    "Build exact published paired storage test inputs",
     "Native retirement on Folia 26.3 build 3",
     "Native retirement on Purpur 26.3 build 2646",
 }
@@ -125,8 +126,10 @@ def _verify_run(directory: Path, expected_source: str, platforms: dict) -> dict:
     payload = _json(directory / "jobs.json")
     rows = payload.get("jobs")
     _require(isinstance(rows, list) and payload.get("total_count") == len(rows), "Incomplete native job pages")
-    required = FIXED_JOBS | {"Paired storage and restart on " + key for key in platforms}
-    _require(len(rows) == len(required), "Native run must contain all six required jobs")
+    required = (FIXED_JOBS
+                | {"Paired storage and restart on " + key for key in platforms}
+                | {"Current published storage and restart on " + key for key in platforms})
+    _require(len(rows) == len(required), "Native run must contain all historical and release jobs")
     jobs, ids = {}, set()
     for job in rows:
         _require(isinstance(job, dict) and job.get("name") in required, "Unexpected native job")
@@ -147,8 +150,13 @@ def _verify_run(directory: Path, expected_source: str, platforms: dict) -> dict:
     payload = _json(directory / "artifacts.json")
     rows = payload.get("artifacts")
     _require(isinstance(rows, list) and payload.get("total_count") == len(rows), "Incomplete native artifact pages")
-    producers = {"paired-storage-inputs": "Build fixed paired storage test inputs",
-                 **{"paired-storage-" + key: "Paired storage and restart on " + key for key in platforms}}
+    producers = {
+        "paired-storage-inputs": "Build fixed paired storage test inputs",
+        "paired-storage-release-inputs": "Build exact published paired storage test inputs",
+        **{"paired-storage-" + key: "Paired storage and restart on " + key for key in platforms},
+        **{"paired-storage-release-" + key: "Current published storage and restart on " + key
+           for key in platforms},
+    }
     artifacts, ids = {}, set()
     for artifact in rows:
         _require(isinstance(artifact, dict) and _positive(artifact.get("id"))
@@ -230,11 +238,11 @@ def _bundle_pair(bundle: Path, matrix: dict, expected_source: str) -> tuple[dict
 
 
 def _verify_inputs(directory: Path, core: Path, pair: dict, lock: dict, lock_bytes: bytes,
-                   expected_source: str) -> tuple[dict, bytes]:
+                   expected_source: str, match_candidate: bool) -> tuple[dict, bytes]:
     raw = _read(directory / "inputs.json", MAX_JSON)
     manifest = _json_bytes(raw)
-    _require(_schema_one(manifest.get("schema")) and manifest.get("purpose") == "integration-test-fixture"
-             and manifest.get("source") == expected_source, "Native paired input source mismatch")
+    _require(_schema_one(manifest.get("schema")) and manifest.get("purpose") == lock["purpose"]
+             and manifest.get("source") == expected_source, "Native paired input source or purpose mismatch")
     _require(manifest.get("lock_sha256") == _sha(lock_bytes)
              and _read(directory / "fixture-lock.json", MAX_JSON) == lock_bytes,
              "Native paired fixture lock differs from the release checkout")
@@ -267,13 +275,18 @@ def _verify_inputs(directory: Path, core: Path, pair: dict, lock: dict, lock_byt
         _require(manifest["addon_checkouts"][key] == {
             field: pin[field] for field in ("repository", "source", "tree")},
             "Native checkout provenance differs from its reviewed fixture")
-        _require(selected["commit"] == pin["source"], "Native tested addon source differs from the canonical candidate: " + key)
-        _require(selected.get("version") == pin["version"] == manifest["inputs"][key]["version"],
-                 "Native tested addon version differs from the canonical candidate: " + key)
-        _require(pair[key]["bytes"] == _read(directory / (key + ".jar"))
-                 and _identity(pair[key]["bytes"]) == {
-                     field: manifest["inputs"][key][field] for field in ("bytes", "sha256")},
-                 "Native tested addon bytes differ from the canonical candidate: " + key)
+        # Historical fixture results remain independently checked against their
+        # original immutable published artifacts, *not* misrepresented as the
+        # newly distributed pair. Only the second release lane matches the ZIP.
+        if match_candidate:
+            _require(selected["commit"] == pin["source"],
+                     "Native tested addon source differs from the canonical candidate: " + key)
+            _require(selected.get("version") == pin["version"] == manifest["inputs"][key]["version"],
+                     "Native tested addon version differs from the canonical candidate: " + key)
+            _require(pair[key]["bytes"] == _read(directory / (key + ".jar"))
+                     and _identity(pair[key]["bytes"]) == {
+                         field: manifest["inputs"][key][field] for field in ("bytes", "sha256")},
+                     "Native tested addon bytes differ from the canonical candidate: " + key)
         proof_path = directory / (key + "-core-classpath.json")
         _require(_schema_one(_json(proof_path).get("schema")), "Invalid native classpath proof schema")
         _require(manifest["classpath_receipts"][key] == paired.validate_classpath_receipt(
@@ -343,50 +356,103 @@ def _verify_lane(directory: Path, manifest: dict, input_bytes: bytes, platform: 
 
 
 def verify_native_evidence(evidence_dir: Path, core: Path, bundle: Path, matrix: Path,
-                           fixture_lock: Path, expected_source: str) -> dict:
-    """Require complete native evidence for the exact release core and addon pair."""
+                           fixture_lock: Path, expected_source: str,
+                           release_lock: Path | None = None,
+                           distribution_lock: Path | None = None) -> dict:
+    """Require two independent native recovery pairs: historical and exact release.
+
+    Optional lock parameters support offline synthetic tests; production caller
+    uses the committed immutable lock files, never a downloaded workflow file.
+    """
     try:
         _require(isinstance(expected_source, str) and HEX40.fullmatch(expected_source) is not None,
                  "Expected source must be a complete Git commit")
-        lock_bytes = _read(fixture_lock, MAX_JSON)
-        lock = _json_bytes(lock_bytes)
-        _require(_schema_one(lock.get("schema")) and lock.get("purpose") == "integration-test-fixture"
-                 and lock.get("distribution_selection") is False and set(lock.get("addons", {})) == set(ADDONS),
-                 "Invalid reviewed paired fixture lock")
-        platforms = lock.get("platforms", {})
-        _require(set(platforms) == {"purpur-1.21.11-2568", "purpur-26.3-2652"}, "Missing required native platform")
+        historical_bytes = _read(fixture_lock, MAX_JSON)
+        historical = _json_bytes(historical_bytes)
+        _require(_schema_one(historical.get("schema"))
+                 and historical.get("purpose") == "integration-test-fixture"
+                 and historical.get("distribution_selection") is False
+                 and set(historical.get("addons", {})) == set(ADDONS),
+                 "Invalid historical paired storage fixture lock")
+
+        release_path = (Path(release_lock) if release_lock is not None
+                        else ROOT / "scripts/runtime/paired_addon_storage/release-lock.json")
+        distribution_path = (Path(distribution_lock) if distribution_lock is not None
+                             else ROOT / "scripts/published_storage_pair_lock.json")
+        current_bytes = _read(release_path, MAX_JSON)
+        current = _json_bytes(current_bytes)
+        distributed = _json(distribution_path)
+        _require(_schema_one(current.get("schema"))
+                 and current.get("purpose") == "exact-published-release-storage-pair"
+                 and current.get("distribution_selection") is True
+                 and current.get("distribution_lock_path") == "scripts/published_storage_pair_lock.json"
+                 and distributed.get("purpose") == "published-distribution"
+                 and distributed.get("distribution_selection") is True
+                 and set(current.get("addons", {})) == set(ADDONS)
+                 and current["addons"] == distributed.get("addons"),
+                 "Current release storage pair differs from immutable published distribution lock")
+        for key in ("fixture_sources", "jeg_compile_dependency", "platforms"):
+            _require(current.get(key) == historical.get(key),
+                     "Current release pair cannot alter historical native fixture contract: " + key)
+        platforms = historical.get("platforms", {})
+        _require(set(platforms) == {"purpur-1.21.11-2568", "purpur-26.3-2652"},
+                 "Missing required native platform")
         for key, platform in platforms.items():
             _require(platform.get("software") == "Purpur"
                      and key == "purpur-" + platform["minecraft"] + "-" + platform["build"]
                      and isinstance(platform.get("launcher_sha256"), str)
                      and HEX64.fullmatch(platform["launcher_sha256"]) is not None,
                      "Invalid reviewed native platform")
-        _require(len(lock.get("fixture_sources", [])) == 2, "Both reviewed Java fixtures are required")
+        _require(len(historical.get("fixture_sources", [])) == 2,
+                 "Both reviewed Java fixtures are required")
+
         directory = Path(evidence_dir) / "native"
         metadata = _verify_run(directory, expected_source, platforms)
         bundle_manifest, pair = _bundle_pair(Path(bundle), _json(Path(matrix)), expected_source)
-        manifest, input_bytes = _verify_inputs(directory / "paired-storage-inputs", Path(core), pair, lock,
-                                              lock_bytes, expected_source)
+        old_manifest, old_bytes = _verify_inputs(
+            directory / "paired-storage-inputs", Path(core), pair, historical,
+            historical_bytes, expected_source, match_candidate=False)
+        current_manifest, current_input_bytes = _verify_inputs(
+            directory / "paired-storage-release-inputs", Path(core), pair, current,
+            current_bytes, expected_source, match_candidate=True)
+        _require(old_manifest["core_version"] == current_manifest["core_version"],
+                 "Current and historical paired fixtures used different core versions")
         used_tokens, used_runs = set(), set()
-        lanes = [_verify_lane(directory / ("paired-storage-" + key), manifest, input_bytes, platform,
-                              used_tokens, used_runs) for key, platform in platforms.items()]
+        historical_lanes = [
+            _verify_lane(directory / ("paired-storage-" + key), old_manifest,
+                         old_bytes, platform, used_tokens, used_runs)
+            for key, platform in platforms.items()
+        ]
+        release_lanes = [
+            _verify_lane(directory / ("paired-storage-release-" + key), current_manifest,
+                         current_input_bytes, platform, used_tokens, used_runs)
+            for key, platform in platforms.items()
+        ]
         return {
             "schema": 1, "status": "PASS_EXACT_RELEASE_NATIVE_PAIR",
-            "source": expected_source, "core_version": manifest["core_version"],
+            "source": expected_source, "core_version": current_manifest["core_version"],
             "core": _identity(_read(Path(core))), "bundle": _identity(_read(Path(bundle))),
             "bundle_revision": bundle_manifest.get("bundle_revision"),
             "native_run": {"id": metadata["run"]["id"], "attempt": metadata["run"]["run_attempt"]},
             "required_jobs": len(metadata["jobs"]),
             "artifacts": {name: {"id": row["id"], "digest": row["digest"]}
                           for name, row in metadata["artifacts"].items()},
-            "addons": {key: {"repository": row["record"]["repository"], "source": row["record"]["commit"],
-                             "version": row["record"]["version"], **_identity(row["bytes"])}
+            "addons": {key: {"repository": row["record"]["repository"],
+                            "source": row["record"]["commit"],
+                            "version": row["record"]["version"], **_identity(row["bytes"])}
                        for key, row in pair.items()},
-            "lanes": lanes,
-            "scope": "Exact release core and canonical paired addon bytes passed the original two-JVM storage fixtures. This is not full-stack, client, crash or universal duplication-prevention certification.",
+            "historical_addons": {key: {"source": historical["addons"][key]["source"],
+                                       "version": historical["addons"][key]["version"],
+                                       "sha256": historical["addons"][key]["published_artifact"]["sha256"]}
+                                  for key in ADDONS},
+            "historical_lanes": historical_lanes,
+            "lanes": release_lanes,
+            "scope": "Both immutable historical fixture and exact released Networks/IE2 JARs "
+                     "passed independent two-JVM storage/restart and database tests. This "
+                     "does not certify live customer worlds, crashes, or universal anti-dupe.",
         }
     except ReleaseRuntimeEvidenceError:
         raise
-    except (OSError, KeyError, AttributeError, TypeError, ValueError, RuntimeError, zipfile.BadZipFile) as error:
+    except (OSError, KeyError, AttributeError, TypeError, ValueError, RuntimeError,
+            zipfile.BadZipFile) as error:
         raise ReleaseRuntimeEvidenceError("Invalid native release evidence: " + str(error)) from error
-
