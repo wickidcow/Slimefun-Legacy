@@ -33,13 +33,30 @@ class ReleaseCandidateMetadataTest(unittest.TestCase):
         self.assertEqual("4.1.15", self.baselines["legacy_floor"]["version"])
         self.assertIs(False, self.baselines["legacy_floor"]["release_blocking"])
 
-    def test_readme_and_notes_never_claim_candidate_was_published(self):
+    def test_unpublished_readme_and_protected_publisher_notes_are_distinct(self):
+        # README accurately tracks the not-yet-published repository state.
+        # The protected publisher embeds docs/releases/4.1.79.md verbatim in
+        # the published GitHub release, so those final notes must not claim
+        # to be an unfinished draft once the workflow publishes them.
         self.assertIn("Slimefun Legacy 4.1.79 is undergoing exact-source validation primarily", self.readme)
         self.assertIn("4.1.78 was published on 2026-10-27", self.readme)
         self.assertIn("unpublished candidate", self.readme)
-        self.assertIn("unreleased candidate", self.notes)
-        self.assertIn("Status: candidate only", self.notes)
         self.assertNotIn("4.1.79 was published", self.readme)
+        self.assertNotIn("4.1.79 was published", self.notes)
+        self.assertNotIn("unreleased candidate", self.notes)
+        self.assertNotIn("Status: candidate only", self.notes)
+        self.assertIn("**Release integrity:**", self.notes)
+        self.assertIn("protected GitHub workflow publishes these notes only after", self.notes)
+        self.assertIn("exact-source builds, runtime checks, and asset checksums pass", self.notes)
+        self.assertIn("Only publish `v4.1.79` via the authorized manual release workflow", self.notes)
+        self.assertIn("Historical v4.1.78 tags and release assets remain immutable", self.notes)
+        for asset in (
+                "Slimefun-Legacy4.1.79.jar",
+                "SF_Addons_1.21.11-26.3.zip",
+                "SlimefunLegacyRP.zip",
+                "SlimefunLegacyRP_Geyser.zip"):
+            with self.subTest(asset=asset):
+                self.assertIn(asset, self.notes)
 
 
     def test_merged_prerequisites_are_not_described_as_unmerged(self):
