@@ -74,7 +74,7 @@ class PublishedPairTest(unittest.TestCase):
                     copy_of_lock["addons"]["networks"]["published_artifact"]["sha256"] = ""
                 path = self.root / "candidate-lock.json"
                 path.write_text(json.dumps(copy_of_lock), encoding="utf-8")
-                with self.assertRaisesRegex(RuntimeError, "published distribution"):
+                with self.assertRaisesRegex(RuntimeError, "(?i)published distribution"):
                     load_release_lock(path)
 
     def test_stages_identical_bytes_and_records_exact_published_identity(self):
