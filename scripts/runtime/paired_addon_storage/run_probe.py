@@ -22,7 +22,10 @@ sys.path.insert(0, str(ROOT))
 from scripts.runtime.entity_retirement.run_probe import validate_core
 from scripts.runtime.paired_addon_storage.paired_database_snapshot import snapshot_database
 
-LOCK_PATH = HERE / "fixture-lock.json"
+# The historical storage fixture remains the default and cannot silently become a
+# release candidate test. CI must opt into the separately pinned published pair.
+PAIR_MODE = os.environ.get("SFL_PAIRED_LOCK_MODE", "historical")
+LOCK_PATH = HERE / ("release-lock.json" if PAIR_MODE == "release" else "fixture-lock.json")
 RECEIPT_SOURCE = HERE / "PairedStorageReceipt.java"
 PHASE_RESULTS = {
     "seed": "PASS: seed real IE2 storage roundtrips=24 total=192 no-viewer=true "
@@ -115,8 +118,21 @@ def relative_file(root: Path, name: str) -> Path:
 
 def load_lock() -> dict:
     lock = read_json(LOCK_PATH)
-    require(lock.get("schema") == 1 and lock.get("purpose") == "integration-test-fixture"
-            and lock.get("distribution_selection") is False, "Invalid test-only fixture lock")
+    require(PAIR_MODE in {"historical", "release"}, "Unknown paired storage source mode")
+    expected_purpose = ("exact-published-release-storage-pair"
+                        if PAIR_MODE == "release" else "integration-test-fixture")
+    require(lock.get("schema") == 1 and lock.get("purpose") == expected_purpose
+            and lock.get("distribution_selection") is (PAIR_MODE == "release"),
+            "Paired storage lock purpose or distribution mode mismatch")
+    if PAIR_MODE == "release":
+        # The native release candidate may select only immutable published
+        # sources and byte receipts, never branch heads or historical fixtures.
+        published = read_json(ROOT / "scripts/published_storage_pair_lock.json")
+        require(published.get("purpose") == "published-distribution"
+                and published.get("distribution_selection") is True
+                and lock.get("distribution_lock_path") == "scripts/published_storage_pair_lock.json"
+                and lock.get("addons") == published.get("addons"),
+                "Native release pair differs from immutable distribution lock")
     require(set(lock.get("addons", {})) == {"networks", "ie2"}, "Exactly two test addon pins are required")
     for addon in lock["addons"].values():
         require(re.fullmatch(r"[\w.-]+/[\w.-]+", addon["repository"]) is not None
