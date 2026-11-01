@@ -60,12 +60,12 @@
     {
       "repository": "wickidcow/SF_AlchimiaVitae",
       "slug": "alchimiavitae",
-      "source_commit": "f858ab053acb03599c9d30c7692f550b6c56f02d"
+      "source_commit": "5b1f9b2d5191243a18ff29f7601587bd01f31c70"
     },
     {
       "repository": "wickidcow/SF_BetterChests",
       "slug": "betterchests",
-      "source_commit": "51fd6616d8ad6d8a6153237d5274235f61a6f277"
+      "source_commit": "e80e395ca331bad234fd5733eb106da3b5656545"
     },
     {
       "repository": "wickidcow/SF_BetterFarming",
@@ -86,7 +86,7 @@
     {
       "repository": "wickidcow/SF_DankTech2",
       "slug": "danktech2",
-      "source_commit": "410aff9e4dae5372a5ac148684ba5eeec01c0f48"
+      "source_commit": "d718633ab28c312360e90dd43aeb3a9f25dc3c2e"
     },
     {
       "repository": "wickidcow/SF_DracFun2",
@@ -102,12 +102,12 @@
     {
       "repository": "wickidcow/SF_ElectricSpawners",
       "slug": "electricspawners",
-      "source_commit": "60d40ed661a8cb25d6bf77c73f188cb5651c9ca5"
+      "source_commit": "d28daba4fa77d7c927fc2716207c837602edd9cc"
     },
     {
       "repository": "wickidcow/SF_ExoticGarden",
       "slug": "exoticgarden",
-      "source_commit": "05dc15a2bd5137369ebdf320be4219c1e3bb6734"
+      "source_commit": "3bd282d2a951d883d1dc222e53e35e7fc4e0a6f2"
     },
     {
       "repository": "wickidcow/SF_ExtraHeads",
@@ -137,7 +137,7 @@
     {
       "repository": "wickidcow/SF_FNAmplifications",
       "slug": "fnamplifications",
-      "source_commit": "24856fcb4efabb4edf900bf5d3e6a23cb9ba827f"
+      "source_commit": "017ee6a2008e618201ccb1a114b42aa9a7296be9"
     },
     {
       "repository": "wickidcow/SF_FoxyMachines",
@@ -152,12 +152,12 @@
     {
       "repository": "wickidcow/SF_Gastronomicon",
       "slug": "gastronomicon",
-      "source_commit": "9a30f11ac7dcde5b2d0d04523ca84d2e28891575"
+      "source_commit": "31df51f791cccdad03a21df6186d327e58b6a468"
     },
     {
       "repository": "wickidcow/SF_GeneticChickEngineering",
       "slug": "geneticchickengineering",
-      "source_commit": "a46359e675fe21b509642698fd77d75580436155"
+      "source_commit": "5ce3c185c343d128f2b0ba033e908c56cebd5bb0"
     },
     {
       "repository": "wickidcow/SF_HotbarPets",
@@ -167,7 +167,7 @@
     {
       "repository": "wickidcow/SF_IDreamOfEasy",
       "slug": "idreamofeasy",
-      "source_commit": "303b09694f577dc960052e7ae962515e043c27e5"
+      "source_commit": "91090c398ece30dbf90ddde6124a7f1faf0f05bb"
     },
     {
       "repository": "wickidcow/SF_InfinityExpansion2",
@@ -183,7 +183,7 @@
     {
       "repository": "wickidcow/SF_LuckyBlocks",
       "slug": "luckyblocks",
-      "source_commit": "75705ac24dbda146dc8c0557e6aba4c03fab022b"
+      "source_commit": "9038919c7f8c9c143fec373230ca5847c326729f"
     },
     {
       "repository": "wickidcow/SF_JustEnoughGuide",
@@ -199,7 +199,7 @@
     {
       "repository": "wickidcow/SF_MilitaryArsenal",
       "slug": "militaryarsenal",
-      "source_commit": "3b01f9df260406770190eb942da04fdf420d3e2e"
+      "source_commit": "4f9d366e65be68b106c124f7dade2e78a5569490"
     },
     {
       "repository": "wickidcow/SF_MobCapturer",
@@ -230,28 +230,28 @@
     {
       "repository": "wickidcow/SF_SlimeEasy",
       "slug": "slimeeasy",
-      "source_commit": "913a609c10871afb67c57f0d2be75a77e13d1d36"
+      "source_commit": "40e052a98a484bddd107d9a8564a7fbaf0da0b62"
     },
     {
       "repository": "wickidcow/SF_SlimefunAdvancements",
       "slug": "slimefunadvancements",
-      "source_commit": "279446eaac5bb7bbb2599a10b5637fa8c87b36f0"
+      "source_commit": "0dc1c98dda87803b9be65d2a97d6c328079473f0"
     },
     {
       "repository": "wickidcow/SF_SlimefunWarfare",
       "slug": "slimefunwarfare",
-      "source_commit": "8984425c56d12ec11ca9ae7d5a084a97b0f990d2"
+      "source_commit": "2a6ef2801e212720b623d8db3b668be9b9f3f450"
     },
     {
       "repository": "wickidcow/SF_SlimeGlue",
       "slug": "slimeglue",
-      "source_commit": "32db74f9b50317aab96163642ad4b5ed2d62471f"
+      "source_commit": "c3b024944c6520ef1f4ba51c21f02606fffd39a6"
     },
     {
       "repository": "wickidcow/SF_SlimeHUD",
       "slug": "slimehud",
       "artifact_base": "SlimeHUD",
-      "source_commit": "72ba3ca673beb2b48c15b5dc77bf1d1880f8a1e3"
+      "source_commit": "cb3479646fe8be343cbb55f122cf0e45b1cbc201"
     },
     {
       "repository": "wickidcow/SF_SlimeTinkerIE2",
@@ -272,7 +272,7 @@
     {
       "repository": "wickidcow/SF_SoulJars",
       "slug": "souljars",
-      "source_commit": "43121c07131e9b2baf4f1b6672fa03cdd3dfe196"
+      "source_commit": "8fbd6befc477bbbf9970afc79e538c6b1f028cd3"
     },
     {
       "repository": "wickidcow/SF_Supreme",
