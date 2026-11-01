@@ -18,6 +18,10 @@ on:
       - 'scripts/test_paper_candidate_versions.py'
       - 'scripts/verify_addon_bytecode.py'
       - 'scripts/test_verify_addon_bytecode.py'
+      - '.github/workflows/reproducible-release.yml'
+      - 'compatibility/release-baselines.json'
+      - 'compatibility/support-contract.json'
+      - 'compatibility/resource-pack-release.json'
   pull_request:
     paths:
       - 'gradle.properties'
@@ -34,6 +38,10 @@ on:
       - 'scripts/test_paper_candidate_versions.py'
       - 'scripts/verify_addon_bytecode.py'
       - 'scripts/test_verify_addon_bytecode.py'
+      - '.github/workflows/reproducible-release.yml'
+      - 'compatibility/release-baselines.json'
+      - 'compatibility/support-contract.json'
+      - 'compatibility/resource-pack-release.json'
   workflow_dispatch:
   schedule:
     - cron: '17 6 * * *'
