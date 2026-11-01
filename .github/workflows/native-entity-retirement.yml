@@ -14,6 +14,10 @@ on:
       - 'scripts/test_entity_retirement_probe.py'
       - 'scripts/runtime/paired_addon_storage/**'
       - 'scripts/test_paired_addon_storage_probe.py'
+      - 'scripts/test_current_native_pair_lock.py'
+      - 'scripts/test_release_runtime_evidence.py'
+      - 'scripts/verify_release_runtime_evidence.py'
+      - 'scripts/stage_current_release_pair.py'
       - 'scripts/stage_published_pair.py'
       - 'scripts/stage_historical_fixture_pair.py'
       - 'scripts/test_stage_published_pair.py'
@@ -41,6 +45,10 @@ on:
       - 'scripts/test_entity_retirement_probe.py'
       - 'scripts/runtime/paired_addon_storage/**'
       - 'scripts/test_paired_addon_storage_probe.py'
+      - 'scripts/test_current_native_pair_lock.py'
+      - 'scripts/test_release_runtime_evidence.py'
+      - 'scripts/verify_release_runtime_evidence.py'
+      - 'scripts/stage_current_release_pair.py'
       - 'scripts/stage_published_pair.py'
       - 'scripts/stage_historical_fixture_pair.py'
       - 'scripts/test_stage_published_pair.py'
@@ -82,6 +90,7 @@ jobs:
           python3 -m unittest scripts/test_entity_retirement_probe.py -v
           python3 -m unittest scripts/test_paired_addon_storage_probe.py scripts/test_stage_published_pair.py -v
           python3 -m unittest scripts.test_current_native_pair_lock -v
+          python3 -m unittest scripts.test_release_runtime_evidence -v
           python3 -O -m unittest scripts/test_paired_addon_storage_probe.py -v
       - name: Build and identify the universal core
         shell: bash
