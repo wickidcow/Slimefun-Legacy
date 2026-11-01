@@ -61,7 +61,7 @@
       "basis": "Paper 26.3",
       "runtime_java": 25,
       "status": "experimental",
-      "validation": "Actual experimental Purpur 26.3 build 2646 double-boot with the complete 45-addon canonical bundle; site-specific plugins and old-world upgrades are not certified"
+      "validation": "Historical experimental Purpur 26.3 build 2646 double-boot with a then-current 45-addon canonical bundle; the new 44-addon release must pass its own exact-source runtime checks; site-specific plugins and old-world upgrades are not certified"
     },
     {
       "software": "Folia",
