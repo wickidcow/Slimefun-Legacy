@@ -81,6 +81,7 @@ jobs:
         run: |
           python3 -m unittest scripts/test_entity_retirement_probe.py -v
           python3 -m unittest scripts/test_paired_addon_storage_probe.py scripts/test_stage_published_pair.py -v
+          python3 -m unittest scripts.test_current_native_pair_lock -v
           python3 -O -m unittest scripts/test_paired_addon_storage_probe.py -v
       - name: Build and identify the universal core
         shell: bash
