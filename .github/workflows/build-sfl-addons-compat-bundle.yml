@@ -63,6 +63,8 @@ jobs:
           python3 -m unittest scripts/test_stage_published_pair.py scripts/test_stage_unpublished_pair_candidate.py -v
       - name: Validate retired addon exclusion
         run: python3 scripts/test_retired_addon_exclusion.py
+      - name: Validate conservative Minecraft compatibility claims
+        run: python3 -m unittest scripts.test_release_compatibility_claims -v
       - name: Validate manifest and create matrix
         id: matrix
         shell: bash
@@ -702,7 +704,7 @@ jobs:
 
           Supported Minecraft/Paper generations:
           - 1.21.11: minimum/base compatibility
-          - 26.1.x: supported
+          - 26.1.2: advisory source compilation only; no runtime or world-migration/rollback certification
           - 26.2: supported backwards-compatibility line
           - 26.3: PRIMARY API/support target; bundle compile validation is required
 

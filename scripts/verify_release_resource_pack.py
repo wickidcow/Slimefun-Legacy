@@ -69,9 +69,9 @@ def verify_static(root: Path, pin: dict) -> None:
         "release workflow pin": "RESOURCE_PACK_PIN: compatibility/resource-pack-release.json" in release_workflow,
         "release workflow verification": "Require pinned official resource pack" in release_workflow,
         "immutable Java release publication": "Refusing to overwrite an existing release at another source" in release_workflow and "--clobber" not in release_workflow,
-        "release creation contains pack": 'gh release create "$TAG" "$JAR" "$BUNDLE" "$RESOURCE_PACK"' in release_workflow,
+        "release creation contains pack": 'gh release create "$TAG" "$JAR" "$BUNDLE" "$RESOURCE_PACK" "$GEYSER_RESOURCE_PACK"' in release_workflow,
         "release layout requires pack": 'grep -Fxq "$RESOURCE_PACK" assets-after.txt' in release_workflow,
-        "release layout requires three Java assets": 'if [[ "$ASSET_COUNT" -ne 3 ]]' in release_workflow,
+        "release layout requires three Java assets plus one unchanged server drop-in": 'if [[ "$ASSET_COUNT" -ne 4 ]]' in release_workflow,
         "mirror workflow verifies pinned source bytes": (
             'gh release download "$PACK_TAG"' in mirror_workflow
             and "python3 scripts/verify_release_resource_pack.py ." in mirror_workflow

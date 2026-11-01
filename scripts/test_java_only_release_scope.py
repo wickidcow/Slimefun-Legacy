@@ -1,4 +1,4 @@
-"""Release contract: Slimefun Legacy must not handle Geyser/Bedrock assets."""
+"""Release contract: Java-only runtime plus unchanged optional ZIP carry."""
 from pathlib import Path
 import re
 import unittest
@@ -25,7 +25,8 @@ class JavaOnlyReleaseScope(unittest.TestCase):
         self.assertNotRegex(guidance, r"4\.1\.78 is [^\n.]*candidate")
 
     def test_no_external_platform_pack_handlers(self):
-        self.assertNotRegex(self.text.lower(), r"bedrock|geyser")
+        self.assertNotRegex(self.text.lower(), r"bedrock")
+        self.assertIn("CANONICAL_GEYSER_PACK: SlimefunLegacyRP_Geyser.zip", self.text)
         self.assertNotIn("--clobber", self.text)
         # The legacy script runner appends its source-root path as an argument.
         # unittest.main() interprets that argument as a test selector, not a
@@ -39,9 +40,9 @@ class JavaOnlyReleaseScope(unittest.TestCase):
         self.assertNotIn('"test_optional_bedrock_release_workflow.py"', active_verifier)
         self.assertNotIn('"test_verify_release_bedrock_pack.py"', active_verifier)
 
-    def test_three_java_release_assets_only(self):
-        self.assertIn('gh release create "$TAG" "$JAR" "$BUNDLE" "$RESOURCE_PACK"', self.text)
-        self.assertIn('if [[ "$ASSET_COUNT" -ne 3 ]]; then', self.text)
+    def test_three_java_assets_plus_one_unchanged_server_drop_in(self):
+        self.assertIn('gh release create "$TAG" "$JAR" "$BUNDLE" "$RESOURCE_PACK" "$GEYSER_RESOURCE_PACK"', self.text)
+        self.assertIn('if [[ "$ASSET_COUNT" -ne 4 ]]; then', self.text)
         self.assertIn('Canonical addon bundle', self.text)
 
     def test_publish_requires_current_source_and_native_evidence(self):
@@ -55,11 +56,12 @@ class JavaOnlyReleaseScope(unittest.TestCase):
         self.assertIn('Published Java release digest mismatch', self.text)
         self.assertIn('Published Java release bytes changed', self.text)
         self.assertIn('Release $TAG already exists at identical source', self.text)
-        self.assertIn('if [[ "$ASSET_COUNT" -ne 3 ]]; then', self.text)
+        self.assertIn('if [[ "$ASSET_COUNT" -ne 4 ]]; then', self.text)
         self.assertNotIn('OPTIONAL_', self.text)
         java_pack_gate = (ROOT / 'scripts/verify_release_resource_pack.py').read_text(encoding='utf-8')
-        self.assertIn('release layout requires three Java assets', java_pack_gate)
-        self.assertIn('if [[ "$ASSET_COUNT" -ne 3 ]]', java_pack_gate)
+        self.assertIn('release layout requires three Java assets plus one unchanged server drop-in', java_pack_gate)
+        self.assertIn('if [[ "$ASSET_COUNT" -ne 4 ]]', java_pack_gate)
+        self.assertNotIn('if [[ "$ASSET_COUNT" -ne 3 ]]', java_pack_gate)
 
     def test_release_verification_cannot_modify_published_assets(self):
         self.assertNotRegex(self.text, r"gh\s+release\s+(?:delete(?:-asset)?|edit|upload)\b")

@@ -21,13 +21,19 @@
       "minimum": "1.21.11",
       "supported": [
         "1.21.11",
-        "26.1.x",
         "26.2",
         "26.3"
       ],
       "primary": "26.3",
       "candidate": null,
-      "candidate_status": "promoted-to-primary-api"
+      "candidate_status": "promoted-to-primary-api",
+      "advisory": {
+        "26.1.2": {
+          "validation": "source-compile-only",
+          "runtime_support": false,
+          "world_migration_or_rollback_verified": false
+        }
+      }
     },
     "server_platforms": {
       "primary": [

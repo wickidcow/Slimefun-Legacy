@@ -7,7 +7,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from verify_sfl_release_assets import CARRIED_GEYSER_PACK, CARRIED_GEYSER_PIN, PolicyError, plan_release  # noqa: E402
-from verify_v4178_bedrock_carry import CORE_ASSETS, TARGET_SOURCE, verify_releases  # noqa: E402
+from verify_v4178_bedrock_carry import CORE_ASSETS, INITIAL_PLAYER_PACK_ASSET_ID, TARGET_SOURCE, verify_releases  # noqa: E402
 
 
 def asset(name, identity, size, digest):
@@ -40,6 +40,17 @@ def fixtures(present=False):
 
 
 class CarryForwardTests(unittest.TestCase):
+    def test_original_player_asset_replacement_is_explicit_and_bytes_still_pinned(self):
+        self.assertEqual(680344840, INITIAL_PLAYER_PACK_ASSET_ID)
+        current_id, size, digest = CORE_ASSETS["SlimefunLegacyRP.zip"]
+        self.assertEqual(689863571, current_id)
+        self.assertNotEqual(INITIAL_PLAYER_PACK_ASSET_ID, current_id)
+        self.assertEqual(9143959, size)
+        self.assertEqual(
+            "sha256:1b856fff90fe78b7d5964a86a8ed281517d073a082db485d73f31cd07aa64a83",
+            digest,
+        )
+
     def test_missing_optional_pack_is_a_valid_read_only_preflight(self):
         s, t, l = fixtures()
         report = verify_releases(s, t, l)
