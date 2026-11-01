@@ -18,6 +18,15 @@ on:
       - 'scripts/stage_historical_fixture_pair.py'
       - 'scripts/test_stage_published_pair.py'
       - '.github/workflows/native-entity-retirement.yml'
+      - 'compatibility/release-baselines.json'
+      - 'compatibility/support-contract.json'
+      - 'compatibility/resource-pack-release.json'
+      - 'scripts/runtime_download.sh'
+      - 'scripts/published_storage_pair_lock.json'
+      - 'scripts/stage_unpublished_pair_candidate.py'
+      - 'scripts/collect_release_runtime_evidence.py'
+      - 'scripts/verify_release_resource_pack.py'
+      - 'scripts/verify_sfl_release_assets.py'
   push:
     branches: [master]
     paths:
@@ -36,6 +45,15 @@ on:
       - 'scripts/stage_historical_fixture_pair.py'
       - 'scripts/test_stage_published_pair.py'
       - '.github/workflows/native-entity-retirement.yml'
+      - 'compatibility/release-baselines.json'
+      - 'compatibility/support-contract.json'
+      - 'compatibility/resource-pack-release.json'
+      - 'scripts/runtime_download.sh'
+      - 'scripts/published_storage_pair_lock.json'
+      - 'scripts/stage_unpublished_pair_candidate.py'
+      - 'scripts/collect_release_runtime_evidence.py'
+      - 'scripts/verify_release_resource_pack.py'
+      - 'scripts/verify_sfl_release_assets.py'
   workflow_dispatch:
 
 permissions:
