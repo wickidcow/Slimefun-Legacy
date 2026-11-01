@@ -58,6 +58,8 @@ class NativeStorageProbeContracts(unittest.TestCase):
     def populate(self, revision):
         self.manifest["bundle_revision"] = revision
         expected = dict(probe.EXPECTED_VERSIONS)
+        if revision == 153:
+            expected["wickidcow/SF_FluffyMachines"] = probe.FLUFFY_R153
         expected["wickidcow/SF_NetworksExp"] = (
             ("SF_Networks1.0.54.jar", "c24064cbeafe4f112c7d46bf3de5617fa151d88d")
             if revision == 135 else
@@ -276,6 +278,24 @@ class NativeStorageProbeContracts(unittest.TestCase):
         self.manifest["addons"][1]["commit"] = probe.NETWORK_VERSIONS[153][1]
         self.manifest["addons"][1]["jar"] = probe.NETWORK_VERSIONS[152][0]
         self.reject("addon source mismatch")
+
+    def test_r153_requires_new_merged_fluffy_source_and_keeps_old_history(self):
+        self.populate(153)
+        evidence = self.prepare()
+        fluffy = evidence["tested_addons"]["wickidcow/SF_FluffyMachines"]
+        self.assertEqual("SF_FluffyMachines26.2.16.jar", fluffy["jar"])
+        self.assertEqual(probe.FLUFFY_R153[1], fluffy["commit"])
+        self.compile.reset_mock()
+        # Even with the same numeric JAR version, the older source bytes
+        # must not be silently substituted for the coordinated new r153.
+        self.manifest["addons"][0]["commit"] = probe.EXPECTED_VERSIONS[
+            "wickidcow/SF_FluffyMachines"][1]
+        self.reject("addon source mismatch")
+        # Historical native fixture revisions keep the old Fluffy identity.
+        self.populate(152)
+        self.assertEqual(
+            probe.EXPECTED_VERSIONS["wickidcow/SF_FluffyMachines"][1],
+            self.prepare()["tested_addons"]["wickidcow/SF_FluffyMachines"]["commit"])
 
     def test_wrong_fluffy_pin_is_rejected(self):
         self.manifest["addons"][0]["commit"] = "0" * 40
