@@ -147,10 +147,13 @@ class CollectionControls(unittest.TestCase):
     def test_skipped_trigger_does_not_mask_successful_exact_source_execution(self):
         completed = run_fixture()
         skipped = run_fixture(18, conclusion="skipped", started="2026-10-18T11:00:00Z")
+        for row in (completed, skipped):
+            row["path"] = collector.FULL_STACK_WORKFLOW
+            row["event"] = "workflow_run"
         with patch.object(collector, "collection", return_value={"workflow_runs": [completed, skipped]}), \
                 patch.object(collector, "github_json", side_effect=[completed, completed]):
             selected = collector.latest_run(collector.REPOSITORY, SOURCE,
-                                            collector.NATIVE_WORKFLOW, {"push"})
+                                            collector.FULL_STACK_WORKFLOW, {"workflow_run"})
         self.assertEqual(completed["id"], selected["id"])
 
     def test_skipped_trigger_cannot_hide_newer_failure_or_pending_execution(self):
