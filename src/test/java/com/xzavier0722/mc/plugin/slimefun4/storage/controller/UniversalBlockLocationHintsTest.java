@@ -109,21 +109,65 @@ class UniversalBlockLocationHintsTest {
     }
 
     @Test
-    void boundedHintsCanEvictWithoutLosingTheOriginalLookup() {
-        var hints = new UniversalBlockLocationHints(2);
+    void capacityEvictsOneHintInsteadOfForgettingEveryExistingBlock() {
+        var hints = new UniversalBlockLocationHints(3);
         UUID id = UUID.randomUUID();
-        hints.remember("world;1:64:1", id);
-        hints.remember("world;2:64:2", id);
-        hints.remember("world;3:64:3", id);
-        assertTrue(hints.size() <= 2);
+        String[] originals = {"world;1:64:1", "world;2:64:2", "world;3:64:3"};
+        for (String key : originals) {
+            hints.remember(key, id);
+        }
+        hints.remember("world;4:64:4", id);
+        assertEquals(3, hints.size(), "Capacity turnover should evict only one hint");
+
+        int retained = 0;
+        int cold = 0;
+        for (String key : originals) {
+            // An absent entry intentionally yields an empty fallback so probing
+            // retained hints cannot itself rewarm or evict other tested entries.
+            if (hints.resolve(key, Optional::of, Optional::empty, value -> value).isPresent()) {
+                retained++;
+            } else {
+                cold++;
+            }
+        }
+        assertEquals(2, retained, "Eviction must not cause a mass cold-scan burst");
+        assertEquals(1, cold);
+        assertEquals(id, hints.resolve("world;4:64:4",
+                Optional::of, Optional::empty, value -> value).orElseThrow());
+
+        // The legacy scan is still authoritative for an evicted location.
         AtomicInteger scans = new AtomicInteger();
-        assertEquals(id, hints.resolve(
-                "world;1:64:1", Optional::of, () -> {
-                    scans.incrementAndGet();
-                    return Optional.of(id);
-                }, ignored -> id).orElseThrow());
+        String evicted = null;
+        for (String key : originals) {
+            if (hints.resolve(key, Optional::of, Optional::empty, value -> value).isEmpty()) {
+                evicted = key;
+                break;
+            }
+        }
+        assertTrue(evicted != null);
+        assertEquals(id, hints.resolve(evicted, Optional::of, () -> {
+            scans.incrementAndGet();
+            return Optional.of(id);
+        }, value -> value).orElseThrow());
         assertEquals(1, scans.get());
+        assertEquals(3, hints.size());
         hints.clear();
         assertEquals(0, hints.size());
     }
+
+    @Test
+    void replacingAnExistingHintAtCapacityNeverEvictsAnotherLocation() {
+        var hints = new UniversalBlockLocationHints(2);
+        UUID original = UUID.randomUUID();
+        UUID replacement = UUID.randomUUID();
+        hints.remember("world;1:64:1", original);
+        hints.remember("world;2:64:2", original);
+        hints.remember("world;1:64:1", replacement);
+        assertEquals(2, hints.size());
+        assertEquals(replacement, hints.resolve("world;1:64:1",
+                Optional::of, Optional::empty, value -> value).orElseThrow());
+        assertEquals(original, hints.resolve("world;2:64:2",
+                Optional::of, Optional::empty, value -> value).orElseThrow());
+    }
+
 }
