@@ -6,10 +6,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.ArrayList;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.RepeatedTest;
@@ -104,6 +106,35 @@ class UniversalBlockLocationHintsFailureTest {
         }
         assertEquals(3, scans.get());
         assertEquals(0, hints.size());
+    }
+
+    @Test
+    void simultaneousWarmupsStayWithinTheConfiguredCapacity() throws Exception {
+        var hints = new UniversalBlockLocationHints(4);
+        var pool = Executors.newFixedThreadPool(6);
+        var start = new CountDownLatch(1);
+        var results = new ArrayList<Future<?>>();
+        try {
+            for (int i = 0; i < 96; i++) {
+                int index = i;
+                results.add(pool.submit(() -> {
+                    await(start);
+                    hints.remember("world;" + index + ":64:1", UUID.randomUUID());
+                }));
+            }
+            start.countDown();
+            for (var task : results) {
+                task.get(10, TimeUnit.SECONDS);
+            }
+            assertTrue(hints.size() <= 4,
+                    "Concurrent cache warmups must not overshoot the configured hint cap");
+            assertTrue(hints.size() > 0);
+        } finally {
+            start.countDown();
+            pool.shutdownNow();
+            assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS),
+                    "Concurrent hint warmup workers leaked");
+        }
     }
 
     private static void await(CountDownLatch latch) {
