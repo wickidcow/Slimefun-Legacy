@@ -144,6 +144,35 @@ class CollectionControls(unittest.TestCase):
                     collector.latest_run(collector.REPOSITORY, SOURCE,
                                          collector.NATIVE_WORKFLOW, {"push"})
 
+    def test_skipped_trigger_does_not_mask_successful_exact_source_execution(self):
+        completed = run_fixture()
+        skipped = run_fixture(18, conclusion="skipped", started="2026-10-18T11:00:00Z")
+        with patch.object(collector, "collection", return_value={"workflow_runs": [completed, skipped]}), \
+                patch.object(collector, "github_json", side_effect=[completed, completed]):
+            selected = collector.latest_run(collector.REPOSITORY, SOURCE,
+                                            collector.NATIVE_WORKFLOW, {"push"})
+        self.assertEqual(completed["id"], selected["id"])
+
+    def test_skipped_trigger_cannot_hide_newer_failure_or_pending_execution(self):
+        for status, conclusion in [("completed", "failure"), ("in_progress", None)]:
+            latest = run_fixture(18, status=status, conclusion=conclusion,
+                                 started="2026-10-18T11:00:00Z")
+            skipped = run_fixture(19, conclusion="skipped", started="2026-10-18T12:00:00Z")
+            with self.subTest(status=status, conclusion=conclusion), \
+                    patch.object(collector, "collection",
+                                 return_value={"workflow_runs": [run_fixture(), latest, skipped]}), \
+                    patch.object(collector, "github_json", return_value=latest):
+                with self.assertRaisesRegex(ValueError, "not completed successfully"):
+                    collector.latest_run(collector.REPOSITORY, SOURCE,
+                                         collector.NATIVE_WORKFLOW, {"push"})
+
+    def test_skipped_only_does_not_supply_runtime_evidence(self):
+        skipped = run_fixture(conclusion="skipped")
+        with patch.object(collector, "collection", return_value={"workflow_runs": [skipped]}):
+            with self.assertRaisesRegex(ValueError, "No eligible non-skipped runtime workflow"):
+                collector.latest_run(collector.REPOSITORY, SOURCE,
+                                     collector.NATIVE_WORKFLOW, {"push"})
+
     def test_a_later_rerun_of_an_older_run_is_not_hidden_by_a_newer_id(self):
         rerun = run_fixture(16, conclusion="failure", attempt=2,
                             started="2026-10-18T11:00:00Z")
@@ -565,6 +594,13 @@ class ReleaseDispatchControls(unittest.TestCase):
         self.assertEqual(sorted(positions), positions)
         self.assertLess(positions[-1], self.workflow.index(
             "      - name: Publish exact validated Java-only core release"))
+
+    def test_runtime_wait_ignores_only_skipped_triggers_and_keeps_fail_closed_outcomes(self):
+        step = self.steps["Await exact-source native and full-stack runtime results"]
+        self.assertIn('select(.conclusion != "skipped")', step)
+        self.assertIn('if [[ "$state" == success ]]', step)
+        self.assertIn('if [[ "$state" == failure || "$state" == cancelled', step)
+        self.assertIn('No successful exact-source $label runtime run; release refused', step)
 
     def test_runtime_evidence_failure_is_always_retained(self):
         name = "Preserve release runtime evidence"
