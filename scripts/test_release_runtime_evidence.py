@@ -128,6 +128,31 @@ class Fixture:
         write_json(self.inputs / "inputs.json", self.manifest)
         self.input_bytes = (self.inputs / "inputs.json").read_bytes()
 
+        # Synthetic *second* published-release pair. Both fake releases share
+        # source identity only in this happy-path fixture; negative tests vary
+        # the release source and installed bytes independently.
+        self.release_lock = deepcopy(self.lock)
+        self.release_lock.update(
+            purpose="exact-published-release-storage-pair",
+            distribution_selection=True,
+            distribution_lock_path="scripts/published_storage_pair_lock.json",
+        )
+        self.release_lock_path = root / "release-lock.json"
+        self.distribution_path = root / "published-storage-pair-lock.json"
+        write_json(self.release_lock_path, self.release_lock)
+        write_json(self.distribution_path, {
+            "schema": 1, "purpose": "published-distribution",
+            "distribution_selection": True, "addons": deepcopy(self.release_lock["addons"]),
+        })
+        self.release_inputs = self.native / "paired-storage-release-inputs"
+        shutil.copytree(self.inputs, self.release_inputs)
+        (self.release_inputs / "fixture-lock.json").write_bytes(self.release_lock_path.read_bytes())
+        self.release_manifest = deepcopy(self.manifest)
+        self.release_manifest["purpose"] = self.release_lock["purpose"]
+        self.release_manifest["lock_sha256"] = identity(self.release_lock_path.read_bytes())["sha256"]
+        write_json(self.release_inputs / "inputs.json", self.release_manifest)
+        self.release_input_bytes = (self.release_inputs / "inputs.json").read_bytes()
+
         self.matrix = {"addons": [{"repository": repository, "source_commit": self.lock["addons"][key]["source"]}
                                   for key, (repository, _) in ADDONS.items()]}
         self.bundle_manifest = {
@@ -141,6 +166,7 @@ class Fixture:
         self.write_api_metadata()
         for index, (key, platform) in enumerate(self.lock["platforms"].items()):
             self.write_lane(key, platform, 1000 + index * 10)
+            self.write_lane(key, platform, 3000 + index * 10, release=True)
 
     def write_bundle(self):
         write_json(self.matrix_path, self.matrix)
@@ -155,23 +181,30 @@ class Fixture:
                "repository": {"id": 100, "full_name": REPOSITORY},
                "head_repository": {"id": 100, "full_name": REPOSITORY}}
         write_json(self.native / "run.json", run)
-        names = sorted(FIXED_JOBS | {"Paired storage and restart on " + key for key in self.lock["platforms"]})
+        names = sorted(FIXED_JOBS
+                       | {"Paired storage and restart on " + key for key in self.lock["platforms"]}
+                       | {"Current published storage and restart on " + key
+                          for key in self.lock["platforms"]})
         jobs = [{"id": 200 + index, "run_id": run["id"], "run_attempt": 1, "head_sha": SOURCE,
                  "name": name, "status": "completed", "conclusion": "success",
                  "started_at": "2026-10-18T04:00:00Z", "completed_at": "2026-10-18T04:10:00Z"}
                 for index, name in enumerate(names)]
         write_json(self.native / "jobs.json", {"total_count": len(jobs), "jobs": jobs})
-        names = ["paired-storage-inputs", *["paired-storage-" + key for key in self.lock["platforms"]]]
+        names = ["paired-storage-inputs", "paired-storage-release-inputs",
+                 *["paired-storage-" + key for key in self.lock["platforms"]],
+                 *["paired-storage-release-" + key for key in self.lock["platforms"]]]
         artifacts = [{"id": 300 + index, "name": name, "size_in_bytes": 100, "digest": "sha256:" + "a" * 64,
                       "expired": False, "created_at": "2026-10-18T04:05:00Z",
                       "workflow_run": {"id": run["id"], "head_sha": SOURCE, "repository_id": 100, "head_repository_id": 100}}
                      for index, name in enumerate(names)]
         write_json(self.native / "artifacts.json", {"total_count": len(artifacts), "artifacts": artifacts})
 
-    def write_lane(self, key, platform, pid):
-        directory = self.native / ("paired-storage-" + key)
+    def write_lane(self, key, platform, pid, release=False):
+        directory = self.native / (("paired-storage-release-" if release else "paired-storage-") + key)
         directory.mkdir()
-        (directory / "inputs.json").write_bytes(self.input_bytes)
+        manifest = self.release_manifest if release else self.manifest
+        source_bytes = self.release_input_bytes if release else self.input_bytes
+        (directory / "inputs.json").write_bytes(source_bytes)
         bound = {"server.jar": {"bytes": 100, "sha256": platform["launcher_sha256"]},
                  "plugins/Slimefun.jar": identity(self.jars["core"]),
                  "plugins/Networks.jar": identity(self.jars["networks"]),
@@ -179,7 +212,7 @@ class Fixture:
                  "plugins/PairedIE2StorageProbe.jar": {"bytes": 100, "sha256": "c" * 64},
                  "plugins/PairedStorageReceipt.jar": {"bytes": 100, "sha256": "d" * 64}}
         proof = {"schema": 1, "status": "PASS", "source": SOURCE, "platform": platform,
-                 "run_id": str(uuid.uuid4()), "input_manifest_sha256": identity(self.input_bytes)["sha256"],
+                 "run_id": str(uuid.uuid4()), "input_manifest_sha256": identity(source_bytes)["sha256"],
                  "bound_files": bound}
         for index, phase in enumerate(("seed", "verify")):
             token = str(uuid.uuid4())
@@ -195,7 +228,7 @@ class Fixture:
                       + phase + " token=" + token + "\n").encode()
             console = b"Bootstrap output\n"
             snapshot = database_receipt(phase, pid + index)
-            snapshot["inputs_receipt_sha256"] = identity(self.input_bytes)["sha256"]
+            snapshot["inputs_receipt_sha256"] = identity(source_bytes)["sha256"]
             result = {"schema": 1, "phase": phase, "token": token, "pid": pid + index, "exit_code": 0,
                       "timed_out": False, "status": "PASS", "installed_before": deepcopy(bound),
                       "installed_after": deepcopy(bound), "startup": started, "shutdown": stopped,
@@ -210,7 +243,10 @@ class Fixture:
         write_json(directory / "verification.json", proof)
 
     def verify(self):
-        return verify_native_evidence(self.evidence, self.core, self.bundle, self.matrix_path, self.lock_path, SOURCE)
+        return verify_native_evidence(self.evidence, self.core, self.bundle, self.matrix_path,
+                                      self.lock_path, SOURCE,
+                                      release_lock=self.release_lock_path,
+                                      distribution_lock=self.distribution_path)
 
     def alter_json(self, path, change):
         value = json.loads(path.read_text())
@@ -238,8 +274,9 @@ class ReleaseNativeEvidenceTests(unittest.TestCase):
     def test_complete_matching_candidate_is_accepted(self):
         result = self.fixture.verify()
         self.assertEqual(result["status"], "PASS_EXACT_RELEASE_NATIVE_PAIR")
-        self.assertEqual(result["required_jobs"], 6)
+        self.assertEqual(result["required_jobs"], 9)
         self.assertEqual(len(result["lanes"]), 2)
+        self.assertEqual(len(result["historical_lanes"]), 2)
         self.assertEqual(result["core"], identity(self.fixture.core.read_bytes()))
         self.assertEqual(result["bundle"], identity(self.fixture.bundle.read_bytes()))
         for key in ADDONS:
@@ -355,8 +392,8 @@ class ReleaseNativeEvidenceTests(unittest.TestCase):
             with self.subTest(marker=marker, source=source), self.assertRaises(ReleaseRuntimeEvidenceError):
                 f.verify()
 
-    def test_all_six_required_jobs_must_succeed(self):
-        for index in range(6):
+    def test_all_nine_required_jobs_must_succeed(self):
+        for index in range(9):
             f = self.fresh("job-" + str(index))
             f.alter_json(f.native / "jobs.json", lambda value: value["jobs"][index].update(conclusion="skipped"))
             with self.subTest(index=index), self.assertRaisesRegex(ReleaseRuntimeEvidenceError, "did not succeed"):
