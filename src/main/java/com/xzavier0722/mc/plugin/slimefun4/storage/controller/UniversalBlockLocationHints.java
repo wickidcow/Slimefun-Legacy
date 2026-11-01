@@ -67,14 +67,20 @@ final class UniversalBlockLocationHints {
         return found;
     }
 
-    void remember(String locationKey, UUID uuid) {
+    synchronized void remember(String locationKey, UUID uuid) {
         if (locationKey == null || uuid == null) {
             return;
         }
-        // Clear only optional acceleration hints, never authoritative records.
-        // No unbounded stale keys after mass machine relocation/restarts.
-        if (hints.size() >= maxSize) {
-            hints.clear();
+        // Avoid clearing every hint at once when a large base reaches capacity.
+        // Only a missing key needs a spare slot; replacing a known identity does
+        // not increase the cache size. Reads and invalidations remain lock-free.
+        if (!hints.containsKey(locationKey) && hints.size() >= maxSize) {
+            var entries = hints.entrySet().iterator();
+            if (entries.hasNext()) {
+                var victim = entries.next();
+                // Identity-sensitive removal never deletes a concurrent update.
+                hints.remove(victim.getKey(), victim.getValue());
+            }
         }
         hints.put(locationKey, uuid);
     }
