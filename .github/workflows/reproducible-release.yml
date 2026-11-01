@@ -24,6 +24,11 @@ on:
       - 'scripts/stage_published_pair.py'
       - 'scripts/stage_unpublished_pair_candidate.py'
       - 'scripts/collect_release_runtime_evidence.py'
+      - 'scripts/verify_release_runtime_evidence.py'
+      - 'scripts/test_release_runtime_evidence.py'
+      - 'scripts/runtime/paired_addon_storage/**'
+      - 'scripts/stage_current_release_pair.py'
+      - 'scripts/test_current_native_pair_lock.py'
       - 'scripts/verify_release_resource_pack.py'
       - 'scripts/verify_sfl_release_assets.py'
 
@@ -86,6 +91,8 @@ jobs:
         run: python3 -m unittest scripts.test_collect_release_runtime_evidence -v
       - name: Verify automatic release evidence trigger coverage
         run: python3 -m unittest scripts.test_release_validation_triggers -v
+      - name: Verify historical and current paired-storage release evidence controls
+        run: python3 -m unittest scripts.test_release_runtime_evidence -v
       - name: Verify Java-only release scope
         run: python3 -m unittest scripts.test_java_only_release_scope -v
       - name: Verify unchanged optional resource ZIP policy
