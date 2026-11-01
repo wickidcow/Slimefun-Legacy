@@ -52,8 +52,8 @@ NETWORK_VERSIONS = {
     151: ("SF_Networks1.0.62.jar", "288640e6dbf907a6ba238d98af206aab2d56f92b"),
     # r152 recognizes final merged Networks 1.0.62, not the staging PR SHA.
     152: ("SF_Networks1.0.62.jar", "79e4c0116cc4b4683c668a4920e67692f925b83f"),
-    # r153 changes only DankTech2 and the BuildingStaff roster; Networks stays unchanged.
-    153: ("SF_Networks1.0.62.jar", "79e4c0116cc4b4683c668a4920e67692f925b83f"),
+    # r153 candidate uses the published Networks 1.0.63 release source.
+    153: ("SF_Networks1.0.63.jar", "ea5777ce58c45c3c3cd4789bd155164ccbb5336b"),
 }
 
 
