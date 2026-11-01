@@ -75,6 +75,8 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: gradle
+      - name: Verify exact-source release trigger parity
+        run: python3 -m unittest scripts.test_release_validation_triggers -v
       - name: Verify native receipt and artifact rejection controls
         run: |
           python3 -m unittest scripts/test_entity_retirement_probe.py -v
