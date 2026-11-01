@@ -232,7 +232,8 @@ jobs:
             for attempt in $(seq 1 150); do
               results="$(gh api "repos/$REPO/actions/workflows/$workflow/runs?head_sha=$GITHUB_SHA&per_page=60")"
               state="$(printf '%s' "$results" | jq -r --arg sha "$GITHUB_SHA" --arg ev "$event" '
-                [.workflow_runs[] | select(.head_sha == $sha and .event == $ev and .head_branch == "master")]
+                [.workflow_runs[] | select(.head_sha == $sha and .event == $ev and .head_branch == "master")
+                  | select(.conclusion != "skipped")]
                 | sort_by(.created_at, .id) | last | .conclusion // ""')"
               if [[ "$state" == success ]]; then
                 echo "$label completed successfully at exact source $GITHUB_SHA"
