@@ -16,6 +16,16 @@ on:
       - 'docs/releases/**'
       - '.github/workflows/reproducible-release.yml'
       - 'scripts/runtime_download.sh'
+      - 'compatibility/sfl-addon-release-matrix.json'
+      - 'compatibility/release-baselines.json'
+      - 'compatibility/support-contract.json'
+      - 'compatibility/resource-pack-release.json'
+      - 'scripts/published_storage_pair_lock.json'
+      - 'scripts/stage_published_pair.py'
+      - 'scripts/stage_unpublished_pair_candidate.py'
+      - 'scripts/collect_release_runtime_evidence.py'
+      - 'scripts/verify_release_resource_pack.py'
+      - 'scripts/verify_sfl_release_assets.py'
 
 permissions:
   contents: write
@@ -74,6 +84,8 @@ jobs:
 
       - name: Verify release dispatch and evidence controls
         run: python3 -m unittest scripts.test_collect_release_runtime_evidence -v
+      - name: Verify automatic release evidence trigger coverage
+        run: python3 -m unittest scripts.test_release_validation_triggers -v
       - name: Verify Java-only release scope
         run: python3 -m unittest scripts.test_java_only_release_scope -v
       - name: Verify unchanged optional resource ZIP policy
