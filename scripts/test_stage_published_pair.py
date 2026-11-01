@@ -10,6 +10,7 @@ import zipfile
 
 from scripts.stage_published_pair import load_release_lock, stage
 from scripts.runtime.paired_addon_storage.run_probe import load_lock as load_historical_fixture
+from scripts.stage_historical_fixture_pair import fixture_pin
 
 
 class PublishedPairTest(unittest.TestCase):
@@ -38,6 +39,27 @@ class PublishedPairTest(unittest.TestCase):
         return stage(kwargs.get("pin", self.pin), kwargs.get("source", self.pin["source"]),
                      kwargs.get("repository", self.pin["repository"]), self.output, local=self.source)
 
+
+    def test_native_storage_uses_immutable_historical_fixture_pins(self):
+        release = load_release_lock()
+        for key in ("networks", "ie2"):
+            with self.subTest(addon=key):
+                historical = fixture_pin(key)
+                self.assertEqual(load_historical_fixture()["addons"][key], historical)
+                self.assertNotEqual(release["addons"][key]["source"], historical["source"])
+                self.assertNotEqual(release["addons"][key]["published_artifact"]["sha256"],
+                                    historical["published_artifact"]["sha256"])
+                with self.assertRaisesRegex(RuntimeError, "Selected source"):
+                    stage(historical, release["addons"][key]["source"], historical["repository"],
+                          self.output, local=self.source)
+                self.assertFalse(self.output.exists())
+
+    def test_native_workflow_never_stages_distribution_pair_as_historical_fixture(self):
+        workflow = (Path(__file__).resolve().parents[1]
+                    / ".github/workflows/native-entity-retirement.yml").read_text(encoding="utf-8")
+        for key in ("networks", "ie2"):
+            self.assertIn(f"scripts/stage_historical_fixture_pair.py --addon {key}", workflow)
+        self.assertNotIn("scripts/stage_published_pair.py --addon", workflow)
 
     def test_distribution_pair_matches_exact_manifest_without_changing_native_fixtures(self):
         release = load_release_lock()
