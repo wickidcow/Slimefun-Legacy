@@ -250,7 +250,7 @@ def main() -> int:
         req(
             any(
                 f"Slimefun Legacy {current} {status}" in readme
-                for status in ("is tested primarily", "is undergoing exact-source validation primarily")
+                for status in ("is tested primarily", "is undergoing exact-source validation primarily", "was published on")
             ),
             "README current release marker missing",
             failures,
