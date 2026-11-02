@@ -24,6 +24,26 @@ class ReleaseCandidateMetadataTest(unittest.TestCase):
         self.assertEqual(match.group(1), self.support["release"])
         self.assertEqual(match.group(1), self.baselines["candidate"]["version"])
 
+    def test_historical_verifiers_accept_current_published_and_candidate_status(self):
+        # Static verifiers enforce compatibility, not GitHub publication itself.
+        # Preserve the historical candidate phrases while allowing an already
+        # published version to be described truthfully in README.md.
+        scripts = (
+            "verify_release_4_1_18.py",
+            "verify_core_platform_phase1d.py",
+            "verify_core_platform_phase1g.py",
+            "verify_core_platform_phase1h.py",
+            "verify_core_platform_phase1i.py",
+            "verify_core_platform_phase1j.py",
+            "verify_core_platform_phase1k.py",
+        )
+        for name in scripts:
+            with self.subTest(name=name):
+                source = (ROOT / "scripts" / name).read_text(encoding="utf-8")
+                self.assertIn("is tested primarily", source)
+                self.assertIn("is undergoing exact-source validation primarily", source)
+                self.assertIn("was published on", source)
+
     def test_previous_stable_is_exact_published_v4178_source(self):
         previous = self.baselines["previous_stable"]
         self.assertEqual("4.1.78", previous["version"])
