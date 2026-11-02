@@ -93,6 +93,38 @@ class UniversalBlockLocationHintsFailureTest {
     }
 
     @Test
+    void incompleteLegacyRecordWithoutUuidStillReturnsFromOriginalScan() {
+        var hints = new UniversalBlockLocationHints();
+        var scans = new AtomicInteger();
+        String key = "world;21:64:32";
+        for (int i = 0; i < 3; i++) {
+            assertEquals("recovered", hints.resolve(
+                    key,
+                    id -> fail("No hint may be published for a record without UUID"),
+                    () -> { scans.incrementAndGet(); return Optional.of("recovered"); },
+                    record -> null).orElseThrow());
+        }
+        assertEquals(3, scans.get(), "A missing UUID must leave the historic scan authoritative");
+        assertEquals(0, hints.size(), "Do not cache an unidentifiable legacy record");
+    }
+
+    @Test
+    void staleHintFallbackToUnidentifiedRecordDoesNotThrowOrKeepStaleUuid() {
+        var hints = new UniversalBlockLocationHints();
+        UUID stale = UUID.randomUUID();
+        String key = "world;21:64:33";
+        hints.remember(key, stale);
+        var scans = new AtomicInteger();
+        assertEquals("recovered", hints.resolve(
+                key,
+                id -> { assertEquals(stale, id); return Optional.<String>empty(); },
+                () -> { scans.incrementAndGet(); return Optional.of("recovered"); },
+                record -> null).orElseThrow());
+        assertEquals(1, scans.get());
+        assertEquals(0, hints.size(), "A stale UUID must not persist as a valid hint");
+    }
+
+    @Test
     void nullLocationAlwaysUsesTheOriginalReadWithoutProducingAHint() {
         var hints = new UniversalBlockLocationHints();
         UUID id = UUID.randomUUID();

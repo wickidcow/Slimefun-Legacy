@@ -62,7 +62,13 @@ final class UniversalBlockLocationHints {
 
         Optional<T> found = Objects.requireNonNull(originalScan.get(), "originalScan result");
         if (locationKey != null && found.isPresent()) {
-            remember(locationKey, Objects.requireNonNull(recordId.apply(found.get()), "record ID"));
+            // Some old/incompletely hydrated records lack a cacheable UUID. The
+            // original scan remains authoritative: return its result unchanged
+            // rather than turning a successful legacy lookup into an exception.
+            UUID id = recordId.apply(found.get());
+            if (id != null) {
+                remember(locationKey, id);
+            }
         }
         return found;
     }
