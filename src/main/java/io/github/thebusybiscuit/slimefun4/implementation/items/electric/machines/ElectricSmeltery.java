@@ -69,45 +69,62 @@ public class ElectricSmeltery extends AContainer implements NotHopperable {
                     return getOutputSlots();
                 }
 
-                /*
-                 * This method is queried heavily by cargo/Networks. The old path allocated two
-                 * LinkedLists, boxed every slot and sorted through a Comparator on every request.
-                 * There are only six input slots, so fixed primitive arrays are cheaper and keep
-                 * the exact same preference: partial matching stacks first, smallest stack first,
-                 * then empty slots in normal input-slot order.
-                 */
-                int[] matchingSlots = new int[INPUT_SLOTS.length];
-                int[] matchingAmounts = new int[INPUT_SLOTS.length];
-                int[] emptySlots = new int[INPUT_SLOTS.length];
-                int matchingCount = 0;
-                int emptyCount = 0;
-
-                for (int slot : INPUT_SLOTS) {
-                    ItemStack stack = menu.getItemInSlot(slot);
-
-                    if (stack == null || stack.getType().isAir()) {
-                        emptySlots[emptyCount++] = slot;
-                    } else if (stack.getAmount() < stack.getMaxStackSize()
-                            && SlimefunUtils.isItemSimilar(stack, item, true, false)) {
-                        int insertAt = matchingCount;
-                        while (insertAt > 0 && matchingAmounts[insertAt - 1] > stack.getAmount()) {
-                            matchingSlots[insertAt] = matchingSlots[insertAt - 1];
-                            matchingAmounts[insertAt] = matchingAmounts[insertAt - 1];
-                            insertAt--;
-                        }
-                        matchingSlots[insertAt] = slot;
-                        matchingAmounts[insertAt] = stack.getAmount();
-                        matchingCount++;
-                    }
-                }
-
-                if (matchingCount > 0) {
-                    return Arrays.copyOf(matchingSlots, matchingCount);
-                }
-
-                return Arrays.copyOf(emptySlots, emptyCount);
+                return getCargoInputSlots(menu, item);
             }
         };
+    }
+
+    /**
+     * Chooses the input slots cargo may insert {@code item} into.
+     */
+    static int[] getCargoInputSlots(DirtyChestMenu menu, ItemStack item) {
+        /*
+         * This method is queried heavily by cargo/Networks. The old path allocated two
+         * LinkedLists, boxed every slot and sorted through a Comparator on every request.
+         * There are only six input slots, so fixed primitive arrays are cheaper.
+         *
+         * Smart fill: an ingredient that is already in the smeltery may only be topped up
+         * in the slots it occupies (smallest stack first). Once those stacks are full it is
+         * refused, so one ingredient cannot flood every input slot and starve the other
+         * ingredients of an alloy recipe. A new ingredient may use any empty slot.
+         */
+        int[] matchingSlots = new int[INPUT_SLOTS.length];
+        int[] matchingAmounts = new int[INPUT_SLOTS.length];
+        int[] emptySlots = new int[INPUT_SLOTS.length];
+        int matchingCount = 0;
+        int emptyCount = 0;
+        boolean alreadyPresent = false;
+
+        for (int slot : INPUT_SLOTS) {
+            ItemStack stack = menu.getItemInSlot(slot);
+
+            if (stack == null || stack.getType().isAir()) {
+                emptySlots[emptyCount++] = slot;
+            } else if (SlimefunUtils.isItemSimilar(stack, item, true, false)) {
+                alreadyPresent = true;
+
+                if (stack.getAmount() >= stack.getMaxStackSize()) {
+                    continue;
+                }
+
+                int insertAt = matchingCount;
+                while (insertAt > 0 && matchingAmounts[insertAt - 1] > stack.getAmount()) {
+                    matchingSlots[insertAt] = matchingSlots[insertAt - 1];
+                    matchingAmounts[insertAt] = matchingAmounts[insertAt - 1];
+                    insertAt--;
+                }
+                matchingSlots[insertAt] = slot;
+                matchingAmounts[insertAt] = stack.getAmount();
+                matchingCount++;
+            }
+        }
+
+        if (alreadyPresent) {
+            // Empty when every stack of this ingredient is full: the cap.
+            return Arrays.copyOf(matchingSlots, matchingCount);
+        }
+
+        return Arrays.copyOf(emptySlots, emptyCount);
     }
 
     @Override
