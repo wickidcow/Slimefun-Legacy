@@ -77,7 +77,9 @@ require("menu.replaceExistingItem(itemSlot, null)" not in disenchanter, "Auto Di
 require("# Slimefun Legacy 4.1.18" in changelog, "4.1.18 changelog section is missing")
 # Candidates should not claim completed validation before their exact-source CI passes.
 # Both release states must still advertise the exact version from gradle.properties.
-readme_statuses = ("is tested primarily", "is undergoing exact-source validation primarily")
+# Preserve the historic candidate checks, but allow the same version to be
+# documented accurately after the immutable GitHub release has been published.
+readme_statuses = ("is tested primarily", "is undergoing exact-source validation primarily", "was published on")
 require(
     bool(current_version)
     and any(f"Slimefun Legacy {current_version} {status}" in readme for status in readme_statuses),
