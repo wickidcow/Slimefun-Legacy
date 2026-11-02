@@ -138,6 +138,8 @@ dependencies {
 
     compileOnly(libs.log4j.core)
     testImplementation(libs.junit.jupiter)
+    // Executable Android listener-harvest remainder tests mock the menu/world boundary.
+    testImplementation("org.mockito:mockito-core:5.18.0")
     testImplementation(libs.mockbukkit)
     // Test-harness target: exact Paper API declared by MockBukkit 4.110.0.
     // This is intentionally independent from selectedPaperApiVersion; Paper 26.2

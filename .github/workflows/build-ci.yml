@@ -38,6 +38,8 @@ jobs:
           echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
       - name: Verify Slimefun Legacy invariants
         run: python3 scripts/verify_legacy.py .
+      - name: Verify exact 4.1.79 candidate metadata and published baseline
+        run: python3 -m unittest scripts.test_release_candidate_metadata -v
       - name: Verify release runtime evidence rejection controls
         run: |
           python3 -m unittest scripts/test_release_runtime_evidence.py scripts/test_release_full_stack_evidence.py scripts/test_collect_release_runtime_evidence.py -v
@@ -45,6 +47,9 @@ jobs:
       - name: Verify Java-only core release scope
         run: python3 -m unittest scripts.test_java_only_release_scope -v
       - name: Build
+        # Enable Gradle's detailed diagnostics without changing the verified release command.
+        env:
+          GRADLE_OPTS: -Dorg.gradle.warning.mode=all
         run: |
           set -euo pipefail
           chmod +x gradlew
@@ -83,9 +88,19 @@ jobs:
       - name: Verify Java 21 bytecode target
         shell: bash
         run: |
+          set -euo pipefail
           JAR="$(find build/libs -name 'Slimefun-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
           test -n "$JAR"
           python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21
+          python3 scripts/check_bytecode_target.py "$JAR" --expected-java 21 --all-classes --report build/reports/bytecode-all-packaged.txt
+          cat build/reports/bytecode-all-packaged.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain Java 21 bytecode reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: java21-bytecode-reports
+          path: build/reports/bytecode*.txt
+          if-no-files-found: warn
       - name: Verify release artifact metadata and packaging
         shell: bash
         run: |

@@ -183,7 +183,7 @@ def main() -> int:
             any(
                 f"Slimefun Legacy {current} {status} against" in readme
                 for status in ("is tested primarily", "is undergoing exact-source validation primarily")
-            ),
+            ) or f"Slimefun Legacy {current} was published on" in readme,
             "README compatibility release text is missing",
             failures,
         )

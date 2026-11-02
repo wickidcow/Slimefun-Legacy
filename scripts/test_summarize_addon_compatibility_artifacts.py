@@ -135,5 +135,32 @@ class AggregateCompatibilityAuditTest(unittest.TestCase):
         self.assertIn(audit.BASELINE_BUILD_FAILED, summary)
 
 
+
+class AggregateWorkflowAdmissionTest(unittest.TestCase):
+    """Guard against reporting incomplete artifacts from superseded PR runs."""
+
+    @staticmethod
+    def workflow_text() -> str:
+        return (
+            Path(__file__).resolve().parents[1]
+            / ".github"
+            / "workflows"
+            / "addon-compatibility-audit.yml"
+        ).read_text(encoding="utf-8")
+
+    def test_cancelled_and_skipped_runs_do_not_trigger_aggregate(self) -> None:
+        job = self.workflow_text().split("  audit-completed-run:", 1)[1]
+        admission = job.split("    runs-on:", 1)[0]
+        self.assertIn("github.event_name == 'workflow_dispatch'", admission)
+        self.assertIn("github.event.workflow_run.conclusion != 'cancelled'", admission)
+        self.assertIn("github.event.workflow_run.conclusion != 'skipped'", admission)
+
+    def test_failed_source_runs_remain_fail_closed(self) -> None:
+        workflow = self.workflow_text()
+        admission = workflow.split("  audit-completed-run:", 1)[1].split("    runs-on:", 1)[0]
+        self.assertNotIn("github.event.workflow_run.conclusion == 'success'", admission)
+        self.assertIn("steps.audit.outcome", workflow)
+        self.assertIn("Enforce aggregate result", workflow)
+
 if __name__ == "__main__":
     unittest.main()

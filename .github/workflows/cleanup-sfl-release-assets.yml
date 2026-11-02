@@ -7,17 +7,27 @@ on:
       - '.github/workflows/cleanup-sfl-release-assets.yml'
       - 'scripts/verify_sfl_release_assets.py'
       - 'scripts/test_verify_sfl_release_assets.py'
+      - 'scripts/release_cleanup_authorization.py'
+      - 'scripts/test_release_cleanup_authorization.py'
       - 'compatibility/bedrock-resource-pack-release.json'
   pull_request:
     paths:
       - '.github/workflows/cleanup-sfl-release-assets.yml'
       - 'scripts/verify_sfl_release_assets.py'
       - 'scripts/test_verify_sfl_release_assets.py'
+      - 'scripts/release_cleanup_authorization.py'
+      - 'scripts/test_release_cleanup_authorization.py'
       - 'compatibility/bedrock-resource-pack-release.json'
   workflow_run:
     workflows: ['Build SF Addons 1.21.11-26.3 Bundle']
     types: [completed]
   workflow_dispatch:
+    inputs:
+      confirm_existing_release_asset_cleanup:
+        description: 'Explicitly authorize the preservation-checked cleanup of existing release assets'
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
@@ -36,11 +46,17 @@ jobs:
         with:
           persist-credentials: false
       - run: python3 scripts/test_verify_sfl_release_assets.py
+      - name: Reject automatic or unconfirmed release cleanup
+        run: python3 -m unittest scripts.test_release_cleanup_authorization -v
 
   clean:
     name: Keep Slimefun Legacy release core-focused
     needs: policy-tests
+    # Keep the prior PR/origin protections as defense in depth, but automatic
+    # events are never sufficient: only a separately confirmed dispatch may run.
     if: >-
+      github.event_name == 'workflow_dispatch' &&
+      inputs.confirm_existing_release_asset_cleanup == true &&
       github.event_name != 'pull_request' &&
       github.ref == 'refs/heads/master' &&
       (github.event_name != 'workflow_run' ||
@@ -56,6 +72,10 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+      - name: Require explicit cleanup authorization before any release access
+        env:
+          CONFIRM_RELEASE_CLEANUP: ${{ inputs.confirm_existing_release_asset_cleanup }}
+        run: python3 scripts/release_cleanup_authorization.py
       - name: Normalize latest stable Slimefun Legacy release assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -81,6 +101,7 @@ jobs:
           {
             echo '## Slimefun Legacy release cleanup'
             echo
+            echo '- Cleanup requires an explicit, confirmed master workflow dispatch.'
             echo '- Exact tag-matching core JAR and canonical addon bundle are required.'
             echo '- The Java resource pack, pinned optional Bedrock pack and pinned r136 rollback are preserved.'
             echo '- Bedrock bytes and approved release tags must match the reviewed carry-forward pin.'

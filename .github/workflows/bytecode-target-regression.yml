@@ -1,0 +1,37 @@
+name: Bytecode Target Regression
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/check_bytecode_target.py'
+      - 'scripts/test_check_bytecode_target.py'
+      - '.github/workflows/bytecode-target-regression.yml'
+  push:
+    branches: ['master']
+    paths:
+      - 'scripts/check_bytecode_target.py'
+      - 'scripts/test_check_bytecode_target.py'
+      - '.github/workflows/bytecode-target-regression.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  bytecode-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Reject preview and invalid class versions without changing stable bytecode
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest scripts.test_check_bytecode_target -v 2>&1 | tee bytecode-tests.log
+          python3 -O -m unittest scripts.test_check_bytecode_target -v 2>&1 | tee bytecode-tests-optimized.log
+      - name: Retain regression results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: bytecode-target-regression
+          path: bytecode-tests*.log
+          if-no-files-found: error

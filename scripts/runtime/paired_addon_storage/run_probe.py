@@ -22,7 +22,10 @@ sys.path.insert(0, str(ROOT))
 from scripts.runtime.entity_retirement.run_probe import validate_core
 from scripts.runtime.paired_addon_storage.paired_database_snapshot import snapshot_database
 
-LOCK_PATH = HERE / "fixture-lock.json"
+# The historical storage fixture remains the default and cannot silently become a
+# release candidate test. CI must opt into the separately pinned published pair.
+PAIR_MODE = os.environ.get("SFL_PAIRED_LOCK_MODE", "historical")
+LOCK_PATH = HERE / ("release-lock.json" if PAIR_MODE == "release" else "fixture-lock.json")
 RECEIPT_SOURCE = HERE / "PairedStorageReceipt.java"
 PHASE_RESULTS = {
     "seed": "PASS: seed real IE2 storage roundtrips=24 total=192 no-viewer=true "
@@ -115,8 +118,21 @@ def relative_file(root: Path, name: str) -> Path:
 
 def load_lock() -> dict:
     lock = read_json(LOCK_PATH)
-    require(lock.get("schema") == 1 and lock.get("purpose") == "integration-test-fixture"
-            and lock.get("distribution_selection") is False, "Invalid test-only fixture lock")
+    require(PAIR_MODE in {"historical", "release"}, "Unknown paired storage source mode")
+    expected_purpose = ("exact-published-release-storage-pair"
+                        if PAIR_MODE == "release" else "integration-test-fixture")
+    require(lock.get("schema") == 1 and lock.get("purpose") == expected_purpose
+            and lock.get("distribution_selection") is (PAIR_MODE == "release"),
+            "Paired storage lock purpose or distribution mode mismatch")
+    if PAIR_MODE == "release":
+        # The native release candidate may select only immutable published
+        # sources and byte receipts, never branch heads or historical fixtures.
+        published = read_json(ROOT / "scripts/published_storage_pair_lock.json")
+        require(published.get("purpose") == "published-distribution"
+                and published.get("distribution_selection") is True
+                and lock.get("distribution_lock_path") == "scripts/published_storage_pair_lock.json"
+                and lock.get("addons") == published.get("addons"),
+                "Native release pair differs from immutable distribution lock")
     require(set(lock.get("addons", {})) == {"networks", "ie2"}, "Exactly two test addon pins are required")
     for addon in lock["addons"].values():
         require(re.fullmatch(r"[\w.-]+/[\w.-]+", addon["repository"]) is not None
@@ -272,7 +288,7 @@ def package_inputs(args: argparse.Namespace, lock: dict) -> None:
             and prepared.get("core_sha256") == digest(output / "core.jar")
             and prepared.get("local_maven_core_sha256") == digest(output / "core.jar"),
             "Prepared inputs changed")
-    manifest = {"schema": 1, "purpose": "integration-test-fixture", "source": args.expected_source,
+    manifest = {"schema": 1, "purpose": lock["purpose"], "source": args.expected_source,
                 "core_version": version, "lock_sha256": digest(LOCK_PATH),
                 "receipt_source_sha256": digest(RECEIPT_SOURCE), "inputs": {},
                 "compiled_inputs": {}, "addon_checkouts": {}, "classpath_receipts": {}}
@@ -328,7 +344,7 @@ def validate_compiled_inputs(directory: Path, manifest: dict, lock: dict) -> Non
 
 def validate_inputs(directory: Path, expected_source: str, lock: dict) -> dict:
     manifest = read_json(directory / "inputs.json")
-    require(manifest.get("schema") == 1 and manifest.get("purpose") == "integration-test-fixture"
+    require(manifest.get("schema") == 1 and manifest.get("purpose") == lock["purpose"]
             and manifest.get("source") == expected_source, "Paired input source mismatch")
     require(manifest.get("lock_sha256") == digest(LOCK_PATH) == digest(directory / "fixture-lock.json")
             and manifest.get("receipt_source_sha256") == digest(RECEIPT_SOURCE), "Fixture code/lock mismatch")

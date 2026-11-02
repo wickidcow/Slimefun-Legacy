@@ -26,7 +26,7 @@ public final class NumberUtils {
 
     /**
      * This is our {@link DecimalFormat} for decimal values.
-     * This instance is not thread-safe!
+     * All access to this mutable formatter is synchronized in formatCompactNumber.
      */
     private static final DecimalFormat DECIMAL_FORMAT =
             new DecimalFormat("#.##", DecimalFormatSymbols.getInstance(Locale.ROOT));
@@ -35,6 +35,17 @@ public final class NumberUtils {
      * We do not want any instance of this to be created.
      */
     private NumberUtils() {}
+
+    /**
+     * Avoid mutating a shared DecimalFormat concurrently on Folia regions.
+     * Keep the exact established pattern and ROOT locale with no thread-local
+     * plugin object retained by the server's long-lived workers.
+     */
+    private static String formatCompactNumber(double value) {
+        synchronized (DECIMAL_FORMAT) {
+            return DECIMAL_FORMAT.format(value);
+        }
+    }
 
     /**
      * This method formats a given {@link Integer} to be displayed nicely with
@@ -59,22 +70,22 @@ public final class NumberUtils {
 
         if (value < 1000.0) {
             // Below 1K
-            return DECIMAL_FORMAT.format(value);
+            return formatCompactNumber(value);
         } else if (value < 1000000.0) {
             // Thousands
-            return DECIMAL_FORMAT.format(value / 1000.0) + 'K';
+            return formatCompactNumber(value / 1000.0) + 'K';
         } else if (value < 1000000000.0) {
             // Million
-            return DECIMAL_FORMAT.format(value / 1000000.0) + 'M';
+            return formatCompactNumber(value / 1000000.0) + 'M';
         } else if (value < 1000000000000.0) {
             // Billion
-            return DECIMAL_FORMAT.format(value / 1000000000.0) + 'B';
+            return formatCompactNumber(value / 1000000000.0) + 'B';
         } else if (value < 1000000000000000.0) {
             // Trillion
-            return DECIMAL_FORMAT.format(value / 1000000000000.0) + 'T';
+            return formatCompactNumber(value / 1000000000000.0) + 'T';
         } else {
             // Quadrillion
-            return DECIMAL_FORMAT.format(value / 1000000000000000.0) + 'Q';
+            return formatCompactNumber(value / 1000000000000000.0) + 'Q';
         }
     }
 
@@ -242,7 +253,7 @@ public final class NumberUtils {
     }
 
     public static @Nonnull String roundDecimalNumber(double number) {
-        return DECIMAL_FORMAT.format(number);
+        return formatCompactNumber(number);
     }
 
     public static double reparseDouble(double number) {

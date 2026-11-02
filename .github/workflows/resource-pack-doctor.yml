@@ -8,6 +8,7 @@ on:
       - 'gradle/**'
       - 'gradle.properties'
       - 'scripts/resource_pack_doctor_probe.py'
+      - 'scripts/test_resource_pack_doctor_probe.py'
       - 'scripts/resource_pack_doctor_client.js'
       - 'scripts/resource-pack-fixture/**'
       - 'scripts/runtime_download.sh'
@@ -21,6 +22,7 @@ on:
       - 'gradle/**'
       - 'gradle.properties'
       - 'scripts/resource_pack_doctor_probe.py'
+      - 'scripts/test_resource_pack_doctor_probe.py'
       - 'scripts/resource_pack_doctor_client.js'
       - 'scripts/resource-pack-fixture/**'
       - 'scripts/runtime_download.sh'
@@ -48,6 +50,8 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: gradle
+      - name: Verify connected-player retirement reset requires server proof
+        run: python3 -m unittest scripts.test_resource_pack_doctor_probe -v
       - name: Read pinned runtime matrix
         id: matrix
         run: echo "value=$(jq -c '{include:.runtimes}' compatibility/resource-pack-doctor-runtimes.json)" >> "$GITHUB_OUTPUT"

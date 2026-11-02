@@ -16,6 +16,21 @@ on:
       - 'docs/releases/**'
       - '.github/workflows/reproducible-release.yml'
       - 'scripts/runtime_download.sh'
+      - 'compatibility/sfl-addon-release-matrix.json'
+      - 'compatibility/release-baselines.json'
+      - 'compatibility/support-contract.json'
+      - 'compatibility/resource-pack-release.json'
+      - 'scripts/published_storage_pair_lock.json'
+      - 'scripts/stage_published_pair.py'
+      - 'scripts/stage_unpublished_pair_candidate.py'
+      - 'scripts/collect_release_runtime_evidence.py'
+      - 'scripts/verify_release_runtime_evidence.py'
+      - 'scripts/test_release_runtime_evidence.py'
+      - 'scripts/runtime/paired_addon_storage/**'
+      - 'scripts/stage_current_release_pair.py'
+      - 'scripts/test_current_native_pair_lock.py'
+      - 'scripts/verify_release_resource_pack.py'
+      - 'scripts/verify_sfl_release_assets.py'
 
 permissions:
   contents: write
@@ -25,6 +40,14 @@ env:
   CANONICAL_ADDON_BUNDLE: SF_Addons_1.21.11-26.3.zip
   CANONICAL_RESOURCE_PACK: SlimefunLegacyRP.zip
   RESOURCE_PACK_PIN: compatibility/resource-pack-release.json
+  # Optional drop-in files, carried unchanged from the verified 4.1.78 release.
+  # This is packaging only; core/addon code remains Java-only.
+  CANONICAL_GEYSER_PACK: SlimefunLegacyRP_Geyser.zip
+  GEYSER_SOURCE_TAG: v4.1.78
+  GEYSER_SOURCE_RELEASE_ID: "425012427"
+  GEYSER_SOURCE_ASSET_ID: "682983055"
+  GEYSER_SOURCE_SIZE: "1339867"
+  GEYSER_SOURCE_SHA256: e11e5f8e6ede75a17421039e50178e83e11e9cf7f020e99596cfc078801b8c58
 
 concurrency:
   group: reproducible-release-${{ github.ref }}
@@ -66,8 +89,14 @@ jobs:
 
       - name: Verify release dispatch and evidence controls
         run: python3 -m unittest scripts.test_collect_release_runtime_evidence -v
+      - name: Verify automatic release evidence trigger coverage
+        run: python3 -m unittest scripts.test_release_validation_triggers -v
+      - name: Verify historical and current paired-storage release evidence controls
+        run: python3 -m unittest scripts.test_release_runtime_evidence -v
       - name: Verify Java-only release scope
         run: python3 -m unittest scripts.test_java_only_release_scope -v
+      - name: Verify unchanged optional resource ZIP policy
+        run: python3 -m unittest scripts.test_verify_next_release_geyser_carry -v
 
       - name: First clean release build
         shell: bash
@@ -80,6 +109,7 @@ jobs:
           cp "$JAR" "$RUNNER_TEMP/Slimefun-first.jar"
           sha256sum "$RUNNER_TEMP/Slimefun-first.jar" | tee "$RUNNER_TEMP/first.sha256"
           python3 scripts/check_bytecode_target.py "$RUNNER_TEMP/Slimefun-first.jar" --expected-java 21 --report "$RUNNER_TEMP/bytecode-first.txt"
+          python3 scripts/check_bytecode_target.py "$RUNNER_TEMP/Slimefun-first.jar" --expected-java 21 --all-classes --report "$RUNNER_TEMP/bytecode-first-packaged.txt"
           python3 scripts/verify_release_artifact.py "$RUNNER_TEMP/Slimefun-first.jar" --root . --json-report "$RUNNER_TEMP/release-artifact-first.json" --summary "$RUNNER_TEMP/release-artifact-first.md"
 
       - name: Second clean release build
@@ -92,6 +122,7 @@ jobs:
           cp "$JAR" "$RUNNER_TEMP/Slimefun-second.jar"
           sha256sum "$RUNNER_TEMP/Slimefun-second.jar" | tee "$RUNNER_TEMP/second.sha256"
           python3 scripts/check_bytecode_target.py "$RUNNER_TEMP/Slimefun-second.jar" --expected-java 21 --report "$RUNNER_TEMP/bytecode-second.txt"
+          python3 scripts/check_bytecode_target.py "$RUNNER_TEMP/Slimefun-second.jar" --expected-java 21 --all-classes --report "$RUNNER_TEMP/bytecode-second-packaged.txt"
           python3 scripts/verify_release_artifact.py "$RUNNER_TEMP/Slimefun-second.jar" --root . --json-report "$RUNNER_TEMP/release-artifact-second.json" --summary "$RUNNER_TEMP/release-artifact-second.md"
 
       - name: Require byte-for-byte reproducibility
@@ -105,6 +136,7 @@ jobs:
           mkdir -p dist build/release-verification
           cp "$RUNNER_TEMP/Slimefun-first.jar" "dist/${OUTPUT_NAME}"
           cp "$RUNNER_TEMP/first.sha256" "$RUNNER_TEMP/second.sha256" "$RUNNER_TEMP/bytecode-first.txt" "$RUNNER_TEMP/bytecode-second.txt" build/release-verification/
+          cp "$RUNNER_TEMP/bytecode-first-packaged.txt" "$RUNNER_TEMP/bytecode-second-packaged.txt" build/release-verification/
           cp "$RUNNER_TEMP/release-artifact-first.json" "$RUNNER_TEMP/release-artifact-first.md" "$RUNNER_TEMP/release-artifact-second.json" "$RUNNER_TEMP/release-artifact-second.md" build/release-verification/
           printf '# Reproducible release verification\n\n- Source: `%s`\n- SHA-256: `%s`\n- Result: **PASS — byte-for-byte identical**\n' "$GITHUB_SHA" "$FIRST_SHA" | tee build/release-verification/reproducible-release.md >> "$GITHUB_STEP_SUMMARY"
 
@@ -219,7 +251,8 @@ jobs:
             for attempt in $(seq 1 150); do
               results="$(gh api "repos/$REPO/actions/workflows/$workflow/runs?head_sha=$GITHUB_SHA&per_page=60")"
               state="$(printf '%s' "$results" | jq -r --arg sha "$GITHUB_SHA" --arg ev "$event" '
-                [.workflow_runs[] | select(.head_sha == $sha and .event == $ev and .head_branch == "master")]
+                [.workflow_runs[] | select(.head_sha == $sha and .event == $ev and .head_branch == "master")
+                  | select(.conclusion != "skipped")]
                 | sort_by(.created_at, .id) | last | .conclusion // ""')"
               if [[ "$state" == success ]]; then
                 echo "$label completed successfully at exact source $GITHUB_SHA"
@@ -286,7 +319,7 @@ jobs:
             --repo "$PACK_REPO" \
             --pattern "$PACK_ASSET" \
             --dir resource-pack-artifact
-          PACK="resource-pack-artifact/$PACK_ASSET"
+          PACK="resource-pack-artifact/$CANONICAL_RESOURCE_PACK"
           test -s "$PACK"
           python3 scripts/verify_release_resource_pack.py . --pin "$PIN" --zip "$PACK"
           cp "$PACK" "dist/$CANONICAL_RESOURCE_PACK"
@@ -296,6 +329,46 @@ jobs:
             echo "Official resource pack SHA-256: ${PACK_SHA256}"
             echo "Official resource pack bytes: ${PACK_SIZE}"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Carry unchanged optional server-side resource ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE="$GEYSER_SOURCE_TAG"
+          ASSET="$CANONICAL_GEYSER_PACK"
+          rm -rf geyser-pack-artifact
+          mkdir -p geyser-pack-artifact
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$SOURCE" > "$RUNNER_TEMP/geyser-source-release.json"
+          jq -e \
+            --arg tag "$SOURCE" \
+            --arg name "$ASSET" \
+            --arg digest "sha256:$GEYSER_SOURCE_SHA256" \
+            --argjson release_id "$GEYSER_SOURCE_RELEASE_ID" \
+            --argjson asset_id "$GEYSER_SOURCE_ASSET_ID" \
+            --argjson size "$GEYSER_SOURCE_SIZE" \
+            '.tag_name == $tag and .id == $release_id and .draft == false and .prerelease == false and ([.assets[] | select(.name == $name and .id == $asset_id and .size == $size and .digest == $digest and .state == "uploaded")] | length == 1)' \
+            "$RUNNER_TEMP/geyser-source-release.json" >/dev/null
+          gh release download "$SOURCE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "$ASSET" --dir geyser-pack-artifact
+          FILE="geyser-pack-artifact/$ASSET"
+          test -s "$FILE"
+          test "$(stat -c %s "$FILE")" -eq "$GEYSER_SOURCE_SIZE"
+          printf '%s  %s\n' "$GEYSER_SOURCE_SHA256" "$FILE" | sha256sum --check --strict
+          unzip -tqq "$FILE"
+          cp "$FILE" "dist/$ASSET"
+          cmp "$FILE" "dist/$ASSET"
+          echo "Optional server drop-in carried unchanged from $SOURCE; SHA-256 $GEYSER_SOURCE_SHA256" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Retain reproducible Java 21 and byte-identity verification
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: reproducible-release-validation
+          path: build/release-verification/
+          if-no-files-found: warn
 
       - name: Upload raw reproducible JAR artifact
         uses: actions/upload-artifact@v7
@@ -335,12 +408,13 @@ jobs:
           JAR="dist/${OUTPUT_NAME}"
           BUNDLE="dist/${CANONICAL_ADDON_BUNDLE}"
           RESOURCE_PACK="dist/${CANONICAL_RESOURCE_PACK}"
+          GEYSER_RESOURCE_PACK="dist/${CANONICAL_GEYSER_PACK}"
           NOTES_FILE="docs/releases/${LEGACY_ARTIFACT_VERSION}.md"
           TITLE="Slimefun Legacy ${LEGACY_ARTIFACT_VERSION}"
           test "$GITHUB_REF" = refs/heads/master
           test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
           test "$GITHUB_SHA" = "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/master" --jq .object.sha)"
-          test -s "$JAR" && test -s "$BUNDLE" && test -s "$RESOURCE_PACK"
+          test -s "$JAR" && test -s "$BUNDLE" && test -s "$RESOURCE_PACK" && test -s "$GEYSER_RESOURCE_PACK"
           test -s "$NOTES_FILE"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             TAG_SHA="$(git rev-list -n 1 "$TAG")"
@@ -357,12 +431,12 @@ jobs:
               exit 1
             }
           fi
-          gh release create "$TAG" "$JAR" "$BUNDLE" "$RESOURCE_PACK" \
+          gh release create "$TAG" "$JAR" "$BUNDLE" "$RESOURCE_PACK" "$GEYSER_RESOURCE_PACK" \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --notes-file "$NOTES_FILE" --title "$TITLE"
           echo "Java-only $TAG release published from exact validated source $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Normalize and verify release assets
+      - name: Verify release assets without mutation
         # Publication is never automatic. Master pushes run release validation only.
         if: >-
           github.event_name == 'workflow_dispatch' &&
@@ -382,24 +456,17 @@ jobs:
           CORE_JAR="${OUTPUT_NAME}"
           BUNDLE="$CANONICAL_ADDON_BUNDLE"
           RESOURCE_PACK="$CANONICAL_RESOURCE_PACK"
+          GEYSER_PACK="$CANONICAL_GEYSER_PACK"
 
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' > assets-before.txt
-
-          while IFS= read -r asset; do
-            case "$asset" in
-              SF_*.jar|SFL_DracFun-Reborn*.jar|SFL_AddonsNDependencies.zip|SFL_AddonsNDependencies.sha256|SFL_Addons_1.21.11-26.3.zip|SlimefunLegacy-ResourcePack-*.zip)
-                echo "Removing obsolete/non-core release asset: $asset"
-                gh release delete-asset "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" -y
-                ;;
-            esac
-          done < assets-before.txt
-
+          # Existing releases are immutable, even when their layout is unexpected.
+          # Validate and fail closed; never delete, replace or normalize assets.
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | sort > assets-after.txt
           grep -Fxq "$CORE_JAR" assets-after.txt
           grep -Fxq "$BUNDLE" assets-after.txt
           grep -Fxq "$RESOURCE_PACK" assets-after.txt
+          grep -Fxq "$GEYSER_PACK" assets-after.txt
           gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" > "$RUNNER_TEMP/published-java-assets.json"
-          for file in "$CORE_JAR" "$BUNDLE" "$RESOURCE_PACK"; do
+          for file in "$CORE_JAR" "$BUNDLE" "$RESOURCE_PACK" "$GEYSER_PACK"; do
             local_sha="$(sha256sum "dist/$file" | awk '{print $1}')"
             remote_sha="$(jq -r --arg name "$file" '.assets[] | select(.name == $name) | .digest' "$RUNNER_TEMP/published-java-assets.json")"
             test "$remote_sha" = "sha256:$local_sha" || {
@@ -408,7 +475,7 @@ jobs:
             }
           done
           mkdir -p verify-release-bytes
-          for file in "$CORE_JAR" "$BUNDLE" "$RESOURCE_PACK"; do
+          for file in "$CORE_JAR" "$BUNDLE" "$RESOURCE_PACK" "$GEYSER_PACK"; do
             gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$file" --dir verify-release-bytes
             cmp "dist/$file" "verify-release-bytes/$file" || {
               echo "Published Java release bytes changed: $file" >&2
@@ -428,8 +495,8 @@ jobs:
           fi
 
           ASSET_COUNT="$(wc -l < assets-after.txt | tr -d ' ')"
-          if [[ "$ASSET_COUNT" -ne 3 ]]; then
-            echo "Expected exactly three Java release assets (core + canonical addon bundle + Java pack); found ${ASSET_COUNT}." >&2
+          if [[ "$ASSET_COUNT" -ne 4 ]]; then
+            echo "Expected exactly four release assets (Java core + addon bundle + player pack + unchanged server drop-in); found ${ASSET_COUNT}." >&2
             cat assets-after.txt >&2
             exit 1
           fi
@@ -440,7 +507,8 @@ jobs:
             echo "- Core: ${CORE_JAR}"
             echo "- Addon bundle: ${BUNDLE}"
             echo "- Resource pack: ${RESOURCE_PACK}"
+            echo "- Optional unchanged server drop-in: ${GEYSER_PACK}"
             echo '- Individual addon JARs: not published here'
-            echo '- Obsolete SFL_Addons* bundles: removed'
-            echo '- Release assets: exactly three (Java core, addons, Java pack)'
+            echo '- Obsolete SFL_Addons* bundles: absent (verified without mutation)'
+            echo '- Release assets: exactly four (Java core, addons, Java pack, unchanged server drop-in)'
           } >> "$GITHUB_STEP_SUMMARY"

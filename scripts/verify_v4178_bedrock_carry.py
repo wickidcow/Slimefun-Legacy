@@ -15,6 +15,8 @@ from verify_sfl_release_assets import (
     load_json, plan_release,
 )
 
+INITIAL_PLAYER_PACK_ASSET_ID = 680344840
+
 CORE_ASSETS = {
     "Slimefun-Legacy4.1.78.jar": (
         680344841, 8696630,
@@ -24,8 +26,11 @@ CORE_ASSETS = {
         680344842, 26473157,
         "sha256:46b199845904e64d144afa5adaa1170ef391bbfc9f3493fab91481f1565c0d04",
     ),
+    # The player ZIP was re-attached under a new GitHub asset ID after publication;
+    # its original SHA-256 and 9,143,959 bytes remain identical. Keep the
+    # original ID for audit rather than falsely asserting it never changed.
     PACK: (
-        680344840, 9143959,
+        689863571, 9143959,
         "sha256:1b856fff90fe78b7d5964a86a8ed281517d073a082db485d73f31cd07aa64a83",
     ),
 }

@@ -14,6 +14,7 @@ on:
       - 'scripts/test_worldedit_stack_integration.py'
       - 'scripts/download_candidate_bundle.py'
       - 'scripts/test_download_candidate_bundle.py'
+      - 'scripts/test_workflow_run_trust_boundary.py'
       - 'scripts/paper_candidate_versions.py'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'build.gradle.kts'
@@ -38,6 +39,7 @@ on:
       - 'scripts/test_worldedit_stack_integration.py'
       - 'scripts/download_candidate_bundle.py'
       - 'scripts/test_download_candidate_bundle.py'
+      - 'scripts/test_workflow_run_trust_boundary.py'
       - 'scripts/paper_candidate_versions.py'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'build.gradle.kts'
@@ -56,7 +58,11 @@ concurrency:
 jobs:
   resolve-paper-26-3:
     name: Resolve real Paper 26.3 API
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    if: >-
+      ${{ github.event_name != 'workflow_run' ||
+          (github.event.workflow_run.conclusion == 'success' &&
+           github.event.workflow_run.event == 'push' &&
+           github.event.workflow_run.head_repository.full_name == github.repository) }}
     runs-on: ubuntu-latest
     outputs:
       available: ${{ steps.paper.outputs.available }}
@@ -65,6 +71,8 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - name: Verify trusted workflow-run admission
+        run: python3 scripts/test_workflow_run_trust_boundary.py
       - name: Verify WorldEdit setup contracts offline
         run: python3 -m unittest discover -s scripts -p 'test_*worldedit*.py' -v
       - name: Verify Purpur full-stack offline contracts
@@ -130,7 +138,11 @@ jobs:
           if-no-files-found: error
 
   fetch-bundle:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    if: >-
+      ${{ github.event_name != 'workflow_run' ||
+          (github.event.workflow_run.conclusion == 'success' &&
+           github.event.workflow_run.event == 'push' &&
+           github.event.workflow_run.head_repository.full_name == github.repository) }}
     name: Fetch exact addon bundle under test
     runs-on: ubuntu-latest
     timeout-minutes: 70

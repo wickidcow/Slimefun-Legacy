@@ -167,6 +167,42 @@ jobs:
             !build/libs/*-sources.jar
           if-no-files-found: error
 
+  paper-26-1-2-api:
+    name: Advisory Paper 26.1.2 source compile (Java 25)
+    # Paper 26.1 changed world storage. Source compilation does not prove
+    # old-world safety, so this lane is advisory until runtime tests exist.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Compile against exact Paper 26.1.2 stable API
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          # Keep diagnostics outside build/: Gradle clean removes that directory
+          # while tee is writing, leaving no file for upload-artifact.
+          mkdir -p ci-logs/paper-26.1.2
+          ./gradlew clean compileJava -PpaperApiVersion=26.1.2.build.74-stable \
+            --no-daemon --no-configuration-cache \
+            2>&1 | tee ci-logs/paper-26.1.2/compile.log
+      - name: Retain warnings and failure diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: advisory-paper-26.1.2-api
+          path: ci-logs/paper-26.1.2/compile.log
+          if-no-files-found: error
+
   paper-candidate-api:
     name: Candidate Paper API
     if: ${{ vars.PAPER_API_CANDIDATE != '' }}

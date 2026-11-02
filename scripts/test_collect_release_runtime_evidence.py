@@ -144,6 +144,38 @@ class CollectionControls(unittest.TestCase):
                     collector.latest_run(collector.REPOSITORY, SOURCE,
                                          collector.NATIVE_WORKFLOW, {"push"})
 
+    def test_skipped_trigger_does_not_mask_successful_exact_source_execution(self):
+        completed = run_fixture()
+        skipped = run_fixture(18, conclusion="skipped", started="2026-10-18T11:00:00Z")
+        for row in (completed, skipped):
+            row["path"] = collector.FULL_STACK_WORKFLOW
+            row["event"] = "workflow_run"
+        with patch.object(collector, "collection", return_value={"workflow_runs": [completed, skipped]}), \
+                patch.object(collector, "github_json", side_effect=[completed, completed]):
+            selected = collector.latest_run(collector.REPOSITORY, SOURCE,
+                                            collector.FULL_STACK_WORKFLOW, {"workflow_run"})
+        self.assertEqual(completed["id"], selected["id"])
+
+    def test_skipped_trigger_cannot_hide_newer_failure_or_pending_execution(self):
+        for status, conclusion in [("completed", "failure"), ("in_progress", None)]:
+            latest = run_fixture(18, status=status, conclusion=conclusion,
+                                 started="2026-10-18T11:00:00Z")
+            skipped = run_fixture(19, conclusion="skipped", started="2026-10-18T12:00:00Z")
+            with self.subTest(status=status, conclusion=conclusion), \
+                    patch.object(collector, "collection",
+                                 return_value={"workflow_runs": [run_fixture(), latest, skipped]}), \
+                    patch.object(collector, "github_json", return_value=latest):
+                with self.assertRaisesRegex(ValueError, "not completed successfully"):
+                    collector.latest_run(collector.REPOSITORY, SOURCE,
+                                         collector.NATIVE_WORKFLOW, {"push"})
+
+    def test_skipped_only_does_not_supply_runtime_evidence(self):
+        skipped = run_fixture(conclusion="skipped")
+        with patch.object(collector, "collection", return_value={"workflow_runs": [skipped]}):
+            with self.assertRaisesRegex(ValueError, "No eligible non-skipped runtime workflow"):
+                collector.latest_run(collector.REPOSITORY, SOURCE,
+                                     collector.NATIVE_WORKFLOW, {"push"})
+
     def test_a_later_rerun_of_an_older_run_is_not_hidden_by_a_newer_id(self):
         rerun = run_fixture(16, conclusion="failure", attempt=2,
                             started="2026-10-18T11:00:00Z")
@@ -477,13 +509,18 @@ class ReleaseDispatchControls(unittest.TestCase):
         mutation_steps = {name for name, body in self.steps.items()
                           if re.search(r"\bgh\s+release\s+(create|upload|edit|delete|delete-asset)\b", body)}
         self.assertEqual(
-            {"Publish exact validated Java-only core release", "Normalize and verify release assets"},
+            {"Publish exact validated Java-only core release"},
             mutation_steps, "Release mutation moved beyond the reviewed guarded steps",
         )
+        verifier = "Verify release assets without mutation"
+        self.assertIn(verifier, self.steps, "Must retain read-only post-publication verification")
+        # Keep the existing authorization truth table on both steps while
+        # narrowing the allowed mutation surface to the create-only publisher.
+        guarded_steps = mutation_steps | {verifier}
         publish_step = self.steps["Publish exact validated Java-only core release"]
         self.assertIn('test "$GITHUB_REF" = refs/heads/master', publish_step)
         self.assertIn('test "$GITHUB_SHA" = "$(gh api', publish_step)
-        for name in mutation_steps:
+        for name in guarded_steps:
             step = self.steps[name]
             self.assertIn('RELEASE_APPROVED: ${{ inputs.publish }}', step)
             self.assertIn('test "$GITHUB_EVENT_NAME" = workflow_dispatch', step)
@@ -491,7 +528,7 @@ class ReleaseDispatchControls(unittest.TestCase):
             self.assertIn('test "$GITHUB_REF" = refs/heads/master', step)
         # Even a fully green master push must never publish or edit release assets.
         # A manual dispatch must opt in explicitly and target the current master.
-        for name in mutation_steps:
+        for name in guarded_steps:
             for event in ("workflow_dispatch", "push", "pull_request", "schedule"):
                 for publish in ("", False, True, "false", "true"):
                     for outcome in ("", None, "success", "failure", "cancelled", "skipped"):
@@ -509,6 +546,22 @@ class ReleaseDispatchControls(unittest.TestCase):
                                     self.allows(self.condition(name), event=event,
                                                 publish=publish, outcome=outcome, ref=ref),
                                 )
+
+    def test_reintroduced_verifier_mutations_fail_closed(self):
+        name = "Verify release assets without mutation"
+        original = self.steps[name]
+        for command in ("create", "upload", "edit", "delete", "delete-asset"):
+            with self.subTest(command=command), patch.dict(
+                    self.steps, {name: original + f'\n          gh release {command} "$TAG"\n'}):
+                with self.assertRaisesRegex(AssertionError, "Release mutation moved"):
+                    self.test_all_release_mutations_require_successful_exact_master_evidence()
+
+    def test_missing_readonly_verifier_fails_closed(self):
+        steps = dict(self.steps)
+        del steps["Verify release assets without mutation"]
+        with patch.dict(self.steps, steps, clear=True):
+            with self.assertRaisesRegex(AssertionError, "Must retain read-only"):
+                self.test_all_release_mutations_require_successful_exact_master_evidence()
 
     def test_unknown_or_broken_release_guards_fail_closed(self):
         for expr in ("github.unsupported == true", "inputs.publish == yes",
@@ -544,6 +597,13 @@ class ReleaseDispatchControls(unittest.TestCase):
         self.assertEqual(sorted(positions), positions)
         self.assertLess(positions[-1], self.workflow.index(
             "      - name: Publish exact validated Java-only core release"))
+
+    def test_runtime_wait_ignores_only_skipped_triggers_and_keeps_fail_closed_outcomes(self):
+        step = self.steps["Await exact-source native and full-stack runtime results"]
+        self.assertIn('select(.conclusion != "skipped")', step)
+        self.assertIn('if [[ "$state" == success ]]', step)
+        self.assertIn('if [[ "$state" == failure || "$state" == cancelled', step)
+        self.assertIn('No successful exact-source $label runtime run; release refused', step)
 
     def test_runtime_evidence_failure_is_always_retained(self):
         name = "Preserve release runtime evidence"
