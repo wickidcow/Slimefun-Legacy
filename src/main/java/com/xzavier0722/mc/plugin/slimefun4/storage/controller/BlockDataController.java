@@ -75,6 +75,8 @@ public class BlockDataController extends ADataController {
      * 通用数据缓存
      */
     private final Map<UUID, SlimefunUniversalData> loadedUniversalData;
+    /** Bounded, advisory hints only: authoritative universal storage remains loadedUniversalData. */
+    private final UniversalBlockLocationHints universalBlockLocationHints;
     /**
      * 方块物品栏快照
      */
@@ -116,6 +118,7 @@ public class BlockDataController extends ADataController {
         delayedWriteTasks = new ConcurrentHashMap<>();
         loadedChunk = new ConcurrentHashMap<>();
         loadedUniversalData = new ConcurrentHashMap<>();
+        universalBlockLocationHints = new UniversalBlockLocationHints();
         invSnapshots = new ConcurrentHashMap<>();
         inventorySaveChains = new ConcurrentHashMap<>();
         uncertainInventoryBaselines = ConcurrentHashMap.newKeySet();
@@ -395,6 +398,7 @@ public class BlockDataController extends ADataController {
         }
 
         uniData.initLastPresent();
+        universalBlockLocationHints.remember(LocationUtils.getLocKey(l), uuid);
 
         return uniData;
     }
@@ -555,6 +559,9 @@ public class BlockDataController extends ADataController {
             }
         }
 
+        if (toRemove instanceof SlimefunUniversalBlockData ubd) {
+            universalBlockLocationHints.forget(ubd.getKnownLocationKey(), uuid);
+        }
         loadedUniversalData.remove(uuid);
     }
 
@@ -770,19 +777,37 @@ public class BlockDataController extends ADataController {
     public Optional<SlimefunUniversalBlockData> getUniversalBlockDataFromCache(@Nonnull Location l) {
         checkDestroy();
 
-        for (SlimefunUniversalData uniData : loadedUniversalData.values()) {
-            if (uniData instanceof SlimefunUniversalBlockData ubd) {
-                if (!ubd.isDataLoaded() || ubd.getLastPresent() == null) {
-                    continue;
-                }
-
-                if (l.equals(ubd.getLastPresent().toLocation())) {
-                    return Optional.of(ubd);
-                }
-            }
-        }
-
-        return Optional.empty();
+        // This is an advisory hint, never a new storage source of truth. An
+        // absent/invalidated hint falls back to the exact legacy scan, so old
+        // records, incomplete inventory reads and migration retries keep their
+        // established behavior. A null-world probe also takes that path.
+        String key = l.getWorld() == null ? null : LocationUtils.getLocKey(l);
+        return universalBlockLocationHints.resolve(
+                key,
+                uuid -> {
+                    SlimefunUniversalData data = loadedUniversalData.get(uuid);
+                    if (data instanceof SlimefunUniversalBlockData block
+                            && block.isDataLoaded()
+                            && block.getLastPresent() != null
+                            && l.equals(block.getLastPresent().toLocation())) {
+                        return Optional.of(block);
+                    }
+                    return Optional.empty();
+                },
+                () -> {
+                    for (SlimefunUniversalData uniData : loadedUniversalData.values()) {
+                        if (uniData instanceof SlimefunUniversalBlockData block) {
+                            if (!block.isDataLoaded() || block.getLastPresent() == null) {
+                                continue;
+                            }
+                            if (l.equals(block.getLastPresent().toLocation())) {
+                                return Optional.of(block);
+                            }
+                        }
+                    }
+                    return Optional.empty();
+                },
+                SlimefunUniversalBlockData::getUUID);
     }
 
     /**
@@ -930,6 +955,8 @@ public class BlockDataController extends ADataController {
             if (hasTicker) {
                 Slimefun.getTickerTask().enableTicker(target, uniData.getUUID());
             }
+            universalBlockLocationHints.forget(LocationUtils.getLocKey(loc), uniData.getUUID());
+            universalBlockLocationHints.remember(LocationUtils.getLocKey(target), uniData.getUUID());
         } finally {
             if (menu != null) {
                 menu.unlock();
@@ -1292,6 +1319,12 @@ public class BlockDataController extends ADataController {
             }
             incompleteInventoryLoads.remove(uniData.getKey());
             inventoryRecoveryLocations.clear(uniData.getKey());
+            // Publish a fast hint only after all persisted inventory records
+            // decode and menus/tickers are fully installed without errors.
+            if (uniData instanceof SlimefunUniversalBlockData block
+                    && block.getLastPresent() != null) {
+                universalBlockLocationHints.remember(block.getKnownLocationKey(), block.getUUID());
+            }
         } catch (Exception | LinkageError failure) {
             incompleteInventoryLoads.add(uniData.getKey());
             uniData.setIsDataLoaded(false);
@@ -1302,6 +1335,9 @@ public class BlockDataController extends ADataController {
             uniData.setMenu(null);
             invSnapshots.remove(uniData.getKey());
             loadedUniversalData.remove(uniData.getUUID(), uniData);
+            if (uniData instanceof SlimefunUniversalBlockData block) {
+                universalBlockLocationHints.forget(block.getKnownLocationKey(), block.getUUID());
+            }
             throw StoredInventoryReader.refused("universal " + uniData.getKey(), "load did not complete", failure);
         } finally {
             lock.unlock(key);
@@ -1851,7 +1887,11 @@ public class BlockDataController extends ADataController {
             executeAllDelayedTasks();
         }
         awaitInventorySaveChains();
-        super.shutdown();
+        try {
+            super.shutdown();
+        } finally {
+            universalBlockLocationHints.clear();
+        }
     }
 
     private void awaitInventorySaveChains() {
