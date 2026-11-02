@@ -24,6 +24,26 @@ class ReleaseCandidateMetadataTest(unittest.TestCase):
         self.assertEqual(match.group(1), self.support["release"])
         self.assertEqual(match.group(1), self.baselines["candidate"]["version"])
 
+    def test_historical_verifiers_accept_current_published_and_candidate_status(self):
+        # Static verifiers enforce compatibility, not GitHub publication itself.
+        # Preserve the historical candidate phrases while allowing an already
+        # published version to be described truthfully in README.md.
+        scripts = (
+            "verify_release_4_1_18.py",
+            "verify_core_platform_phase1d.py",
+            "verify_core_platform_phase1g.py",
+            "verify_core_platform_phase1h.py",
+            "verify_core_platform_phase1i.py",
+            "verify_core_platform_phase1j.py",
+            "verify_core_platform_phase1k.py",
+        )
+        for name in scripts:
+            with self.subTest(name=name):
+                source = (ROOT / "scripts" / name).read_text(encoding="utf-8")
+                self.assertIn("is tested primarily", source)
+                self.assertIn("is undergoing exact-source validation primarily", source)
+                self.assertIn("was published on", source)
+
     def test_previous_stable_is_exact_published_v4178_source(self):
         previous = self.baselines["previous_stable"]
         self.assertEqual("4.1.78", previous["version"])
@@ -33,15 +53,16 @@ class ReleaseCandidateMetadataTest(unittest.TestCase):
         self.assertEqual("4.1.15", self.baselines["legacy_floor"]["version"])
         self.assertIs(False, self.baselines["legacy_floor"]["release_blocking"])
 
-    def test_unpublished_readme_and_protected_publisher_notes_are_distinct(self):
-        # README accurately tracks the not-yet-published repository state.
-        # The protected publisher embeds docs/releases/4.1.79.md verbatim in
-        # the published GitHub release, so those final notes must not claim
-        # to be an unfinished draft once the workflow publishes them.
-        self.assertIn("Slimefun Legacy 4.1.79 is undergoing exact-source validation primarily", self.readme)
-        self.assertIn("4.1.78 was published on 2026-10-27", self.readme)
-        self.assertIn("unpublished candidate", self.readme)
-        self.assertNotIn("4.1.79 was published", self.readme)
+    def test_published_readme_and_protected_publisher_notes_are_distinct(self):
+        # The protected manual workflow published the immutable 4.1.79 tag
+        # from this reviewed exact source. A subsequent README update must
+        # report reality without mutating the release notes or its assets.
+        self.assertIn("Slimefun Legacy 4.1.79 was published on", self.readme)
+        self.assertIn("0844c216fdc27f6414c185957e93a2047b3fb027", self.readme)
+        self.assertIn("/releases/tag/v4.1.79", self.readme)
+        self.assertNotIn("4.1.79 is undergoing exact-source validation", self.readme)
+        self.assertNotIn("it remains an **unpublished candidate**", self.readme)
+        self.assertNotIn("Slimefun Legacy 4.1.80 was published", self.readme)
         self.assertNotIn("4.1.79 was published", self.notes)
         self.assertNotIn("unreleased candidate", self.notes)
         self.assertNotIn("Status: candidate only", self.notes)
