@@ -100,5 +100,29 @@ class CompatibilityClaimsTest(unittest.TestCase):
 
 
 
+    def test_three_addon_release_candidate_is_merged_and_storage_pins_unchanged(self):
+        # These three commits are verified merged default-branch HEADs.
+        # FlowerPower / ExtraHeads raise only their distinct plugin versions
+        # (no production Java changes); Fluffy adds bounded Paxel/elevator
+        # fixes and regression tests. Do not alter published storage pairs.
+        selected = {row["repository"]: row["source_commit"]
+                    for row in self.matrix["addons"]}
+        self.assertEqual(44, len(selected))
+        self.assertEqual(153, self.matrix["bundle_revision"])
+        expected = {
+            "wickidcow/SF_FlowerPower": "d8c3f2c8ec66b7c08e0ceb8b23f710f020b5c36f",
+            "wickidcow/SF_ExtraHeads": "b1e8a1f11692b44d359eec863f3be5be0f061516",
+            "wickidcow/SF_FluffyMachines": "9ce05a228a0ce14e69254115b90ec46e54eac6d9",
+            "wickidcow/SF_NetworksExp": "ea5777ce58c45c3c3cd4789bd155164ccbb5336b",
+            "wickidcow/SF_InfinityExpansion2": "fdadfa67bc68fb18e34ccfed773a23ba2efbd4ef",
+            "wickidcow/SF_Supreme": "17693b1eec0ef15f198c86a5803f6e5dbd085074",
+        }
+        for repository, sha in expected.items():
+            with self.subTest(repository=repository):
+                self.assertEqual(sha, selected[repository])
+        self.assertNotIn("wickidcow/SF_BuildingStaff", selected)
+
+
+
 if __name__ == "__main__":
     unittest.main()
