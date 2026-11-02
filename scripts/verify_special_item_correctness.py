@@ -140,8 +140,8 @@ def main() -> int:
     require(smeltery, "int[] emptySlots = new int[INPUT_SLOTS.length];", "Electric Smeltery primitive empty-slot tracking")
     require(
         smeltery,
-        "if (matchingCount > 0) {\n                    return Arrays.copyOf(matchingSlots, matchingCount);\n                }\n\n                return Arrays.copyOf(emptySlots, emptyCount);",
-        "Electric Smeltery matching-stack then empty-slot cargo fallback",
+        "if (alreadyPresent) {\n            // Empty when every stack of this ingredient is full: the cap.\n            return Arrays.copyOf(matchingSlots, matchingCount);\n        }\n\n        return Arrays.copyOf(emptySlots, emptyCount);",
+        "Electric Smeltery caps a present ingredient to its own stacks, new ingredients use empty slots",
     )
     require(
         smeltery,
