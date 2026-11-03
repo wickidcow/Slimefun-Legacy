@@ -66,6 +66,10 @@ class TestBlockMenuPresetHandlerOrder {
         var menu = new BlockMenu(preset, new Location(world, 20, 64, 10), physical);
 
         assertSame(physical, menu.toInventory(), "Hydrated menus own their original physical inventory");
+        assertSame(HandlerPreset.INSTANCE_HANDLER, menu.getMenuClickHandler(23),
+                "Restored menus must recover the real handler before any player opens the GUI");
+        assertEquals(diamonds, physical.getItem(10),
+                "Restoring actions must not overwrite a persisted ingredient");
         menu.reload();
         assertSame(physical, menu.toInventory(), "Click handler restoration must not replace inventory backing");
         assertEquals(diamonds, physical.getItem(10),
