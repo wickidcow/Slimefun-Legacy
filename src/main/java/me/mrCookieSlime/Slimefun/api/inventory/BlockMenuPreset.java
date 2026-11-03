@@ -253,10 +253,6 @@ public abstract class BlockMenuPreset extends ChestMenu {
             menu.addItem(slot, getItemInSlot(slot));
         }
 
-        if (menu instanceof BlockMenu blockMenu) {
-            newInstance(blockMenu, blockMenu.getLocation());
-        }
-
         for (int slot = 0; slot < 54; slot++) {
             if (getMenuClickHandler(slot) != null) {
                 menu.addMenuClickHandler(slot, getMenuClickHandler(slot));
@@ -265,6 +261,14 @@ public abstract class BlockMenuPreset extends ChestMenu {
 
         menu.addMenuOpeningHandler(getMenuOpeningHandler());
         menu.addMenuCloseHandler(getMenuCloseHandler());
+
+        // Per-block handlers must win over the preset's decorative click
+        // handlers, including when a stored menu is hydrated and reloaded.
+        // Initialize them last; this does not alter any physical inventory
+        // slot, stored item or inventory-persistence snapshot.
+        if (menu instanceof BlockMenu blockMenu) {
+            newInstance(blockMenu, blockMenu.getLocation());
+        }
     }
 
     public void newInstance(@Nonnull BlockMenu menu, @Nonnull Location l) {
