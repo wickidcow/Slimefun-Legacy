@@ -41,6 +41,7 @@ import io.github.thebusybiscuit.slimefun4.core.services.AnalyticsService;
 import io.github.thebusybiscuit.slimefun4.core.services.AutoSavingService;
 import io.github.thebusybiscuit.slimefun4.core.services.BackupService;
 import io.github.thebusybiscuit.slimefun4.core.services.BlockDataService;
+import io.github.thebusybiscuit.slimefun4.core.services.CraftingRestrictionService;
 import io.github.thebusybiscuit.slimefun4.core.services.CustomItemDataService;
 import io.github.thebusybiscuit.slimefun4.core.services.CustomTextureService;
 import io.github.thebusybiscuit.slimefun4.core.services.ItemStackService;
@@ -120,6 +121,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.listeners.crafting.Anvi
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.crafting.BrewingStandListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.crafting.CartographyTableListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.crafting.CauldronListener;
+import io.github.thebusybiscuit.slimefun4.implementation.listeners.crafting.CraftingRestrictionListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.crafting.CraftingTableListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.crafting.GrindstoneListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.crafting.SmithingTableListener;
@@ -228,6 +230,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     private final PermissionsService permissionsService = new PermissionsService(this);
     private final PerWorldSettingsService worldSettingsService = new PerWorldSettingsService(this);
     private final MinecraftRecipeService recipeService = new MinecraftRecipeService(this);
+    private final CraftingRestrictionService craftingRestrictionService = new CraftingRestrictionService(this);
     private final HologramsService hologramsService = new HologramsService(this);
     private final SoundService soundService = new SoundService(this);
     private final ThreadService threadService = new ThreadService(this);
@@ -830,6 +833,7 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
         new VillagerTradingListener(this);
         new ElytraImpactListener(this);
         new CraftingTableListener(this);
+        new CraftingRestrictionListener(this);
         new AnvilListener(this);
         new BrewingStandListener(this);
         new CauldronListener(this);
@@ -1329,6 +1333,12 @@ public final class Slimefun extends JavaPlugin implements SlimefunAddon, ICompat
     public static @Nonnull SlimefunConfigManager getConfigManager() {
         validateInstance();
         return instance.cfgManager;
+    }
+
+    /** Read-only crafting policy for core and addon recipe producers. */
+    public static @Nonnull CraftingRestrictionService getCraftingRestrictionService() {
+        validateInstance();
+        return instance.craftingRestrictionService;
     }
 
     public static @Nonnull SlimefunDatabaseManager getDatabaseManager() {
