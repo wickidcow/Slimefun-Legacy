@@ -1,0 +1,18 @@
+# Slimefun Legacy crafting restrictions
+# All items stay registered, usable and obtainable from commands, quests, crates, trades and
+# other reward systems. This file ONLY restricts crafting through supported recipe paths.
+#
+# This file is read on startup and whenever Slimefun reloads its configuration.
+# Item IDs are the registered Slimefun IDs (including IDs from addons), not display names.
+# Set crafting-enabled: false to block production; true to allow production.
+# %item% becomes the registered display name; %id% becomes the exact Slimefun item ID.
+# Messages support standard & colour codes. An empty message uses default-message.
+
+enabled: true
+default-message: "&cCrafting is disabled for %item%!"
+
+items:
+  # If your flight gem uses a different ID, replace FLIGHT_GEM with its actual registered ID.
+  FLIGHT_GEM:
+    crafting-enabled: false
+    message: "&6Flight Gems can only be earned through server rewards!"
