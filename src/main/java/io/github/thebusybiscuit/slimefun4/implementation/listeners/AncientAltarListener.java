@@ -228,6 +228,16 @@ public class AncientAltarListener implements Listener {
         Optional<ItemStack> result = getRecipeOutput(catalyst, input);
 
         if (result.isPresent()) {
+            // Reject restricted rituals before the catalyst or pedestal items are consumed.
+            if (Slimefun.getCraftingRestrictionService().denyIfBlocked(p, result.get())) {
+                altars.remove(b);
+                for (Block block : pedestals) {
+                    altarsInUse.remove(block.getLocation());
+                }
+                altarsInUse.remove(b.getLocation());
+                return;
+            }
+
             if (SlimefunUtils.canPlayerUseItem(p, result.get(), true)) {
                 List<ItemStack> consumed = new ArrayList<>();
 
