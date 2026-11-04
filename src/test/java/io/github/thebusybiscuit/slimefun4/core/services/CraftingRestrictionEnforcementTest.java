@@ -14,6 +14,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.Player;
@@ -32,6 +33,7 @@ class CraftingRestrictionEnforcementTest {
     void rejectsConfiguredAddonOutputButLeavesOtherItemsAndRewardsAlone() throws IOException {
         Slimefun plugin = mock(Slimefun.class);
         when(plugin.getDataFolder()).thenReturn(pluginFolder.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("CraftingRestrictionEnforcementTest"));
         Files.writeString(
                 pluginFolder.resolve("CraftingRestrictions.yml"),
                 """
@@ -76,6 +78,7 @@ class CraftingRestrictionEnforcementTest {
     void keepsPreviouslyLoadedRestrictionsAfterMalformedReload() throws IOException {
         Slimefun plugin = mock(Slimefun.class);
         when(plugin.getDataFolder()).thenReturn(pluginFolder.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("CraftingRestrictionEnforcementTest"));
 
         Path policy = pluginFolder.resolve("CraftingRestrictions.yml");
         Files.writeString(
