@@ -500,7 +500,7 @@ public abstract class AbstractAutoCrafter extends SlimefunItem implements Energy
         Validate.notNull(recipe, "The Recipe shall not be null");
 
         // Make sure that the Recipe is actually enabled
-        if (!recipe.isEnabled()) {
+        if (!recipe.isEnabled() || Slimefun.getCraftingRestrictionService().isBlocked(recipe.getResult())) {
             return false;
         }
 
