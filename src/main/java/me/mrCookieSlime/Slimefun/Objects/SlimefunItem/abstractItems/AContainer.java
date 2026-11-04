@@ -624,6 +624,11 @@ public abstract class AContainer extends SlimefunItem
             }
 
             if (found == recipeInputs.length) {
+                // Check only matched recipes; hot machine scans must not resolve every candidate's item identity.
+                if (Slimefun.getCraftingRestrictionService().isBlockedAny(recipe.getOutput())) {
+                    continue;
+                }
+
                 if (!itemStackService.fitAll(
                                 inv.toInventory(),
                                 recipe.getOutput(),
