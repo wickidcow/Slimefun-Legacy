@@ -104,6 +104,11 @@ public class SlimefunConfigManager {
     public boolean load(boolean reload) {
         boolean isSuccessful = true;
 
+        // Independent policy file; keep the previous valid policy if an edited YAML is malformed.
+        if (!Slimefun.getCraftingRestrictionService().reload()) {
+            isSuccessful = false;
+        }
+
         try {
             pluginConfig.reload();
             itemsConfig.reload();
