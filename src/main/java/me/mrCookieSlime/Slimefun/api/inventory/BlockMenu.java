@@ -80,6 +80,12 @@ public class BlockMenu extends DirtyChestMenu {
             prepareExternalInventorySlots(inv.getSize());
         }
         this.inventory = inv;
+        if (inv != null && l != null) {
+            // Stored inventories are already hydrated and must not be rebuilt
+            // from the preset. Restore click/open/close callbacks only, after
+            // adopting the exact original physical inventory.
+            preset.initializeLoadedMenu(this);
+        }
     }
 
     public void save(Location l) {

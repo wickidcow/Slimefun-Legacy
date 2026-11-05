@@ -258,6 +258,27 @@ run_cycle() {
     done
 
     if [[ "$started" != true ]]; then
+        # Current Leaf builds may exit once to generate the loader configuration
+        # before their first real server boot. Accept only this exact, isolated
+        # bootstrap lifecycle, never a generic startup failure or missing Done.
+        # The recursive retry is bounded to one attempt and must still satisfy
+        # both normal Slimefun boot/shutdown cycles below.
+        if [[ "$SOFTWARE" == "leaf" && "$label" == "first" && "${LEAF_BOOTSTRAP_CONSUMED:-false}" == false
+              && -s "$WORK_DIR/config/leaf-loader.yml" ]] \
+              && grep -Fq 'leaf-loader.yml with the default settings.' "$console_log" \
+              && grep -Fq 'Check it first, then start the server again.' "$console_log" \
+              && ! grep -Eq 'Exception|NoClassDefFoundError|Error occurred while enabling|Could not load' "$console_log" \
+              && ! grep -Fq 'Done (' "$console_log" \
+              && ! grep -Fq 'Enabling Slimefun' "$console_log"; then
+            LEAF_BOOTSTRAP_CONSUMED=true
+            stop_process "$server_pid" 3
+            wait "$server_pid" >/dev/null 2>&1 || true
+            exec 3>&-
+            mv "$console_log" "$WORK_DIR/leaf-loader.bootstrap.console.log"
+            echo "Leaf generated its loader config; starting both full smoke cycles now." >&2
+            run_cycle "$label" "$require_previous_clean"
+            return
+        fi
         echo "${SOFTWARE_NAME} runtime smoke ${label}: server did not reach Done." >&2
         stop_process "$server_pid" 3
         wait "$server_pid" >/dev/null 2>&1 || true

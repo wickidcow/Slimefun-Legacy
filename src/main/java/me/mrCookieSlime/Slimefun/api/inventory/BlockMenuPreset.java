@@ -253,16 +253,34 @@ public abstract class BlockMenuPreset extends ChestMenu {
             menu.addItem(slot, getItemInSlot(slot));
         }
 
+        installPresetHandlers(menu);
+
+        // Per-block handlers must win over the preset's decorative click
+        // handlers, including when a stored menu is hydrated and reloaded.
         if (menu instanceof BlockMenu blockMenu) {
             newInstance(blockMenu, blockMenu.getLocation());
         }
+    }
 
+    /**
+     * Reattach actions to a menu loaded from an existing physical inventory.
+     * Deliberately do not call clone(): that would copy preset UI items over
+     * saved slots and risk changing the only copy of historical machine data.
+     */
+    void initializeLoadedMenu(@Nonnull BlockMenu menu) {
+        // Restored menus must preserve the same player-inventory access policy
+        // as freshly cloned menus, before machine-specific overrides run.
+        menu.setPlayerInventoryClickable(true);
+        installPresetHandlers(menu);
+        newInstance(menu, menu.getLocation());
+    }
+
+    private void installPresetHandlers(@Nonnull DirtyChestMenu menu) {
         for (int slot = 0; slot < 54; slot++) {
             if (getMenuClickHandler(slot) != null) {
                 menu.addMenuClickHandler(slot, getMenuClickHandler(slot));
             }
         }
-
         menu.addMenuOpeningHandler(getMenuOpeningHandler());
         menu.addMenuCloseHandler(getMenuCloseHandler());
     }
