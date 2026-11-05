@@ -63,6 +63,11 @@ class TestBlockMenuPresetHandlerOrder {
         Inventory physical = Bukkit.createInventory(null, 54);
         var diamonds = new ItemStack(Material.DIAMOND, 37);
         physical.setItem(10, diamonds.clone());
+        // A saved physical slot may contain historical data even where the
+        // preset normally draws a decorative button. Reattaching callbacks
+        // must not replace the saved item during hydration.
+        var savedButtonSlot = new ItemStack(Material.EMERALD, 3);
+        physical.setItem(23, savedButtonSlot.clone());
         var menu = new BlockMenu(preset, new Location(world, 20, 64, 10), physical);
 
         assertSame(physical, menu.toInventory(), "Hydrated menus own their original physical inventory");
@@ -70,6 +75,8 @@ class TestBlockMenuPresetHandlerOrder {
                 "Restored menus must recover the real handler before any player opens the GUI");
         assertEquals(diamonds, physical.getItem(10),
                 "Restoring actions must not overwrite a persisted ingredient");
+        assertEquals(savedButtonSlot, physical.getItem(23),
+                "Hydrating click handlers must not redraw a preset button over historical inventory data");
         menu.reload();
         assertSame(physical, menu.toInventory(), "Click handler restoration must not replace inventory backing");
         assertEquals(diamonds, physical.getItem(10),
