@@ -2,6 +2,7 @@ package me.mrCookieSlime.Slimefun.api.inventory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.InventoryReadTestPlugin;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu.MenuClickHandler;
@@ -51,6 +52,7 @@ class TestBlockMenuPresetHandlerOrder {
         var menu = new BlockMenu(preset, new Location(world, 10, 64, 10));
 
         assertSame(HandlerPreset.INSTANCE_HANDLER, menu.getMenuClickHandler(23));
+        assertTrue(menu.isPlayerInventoryClickable(), "Fresh menus allow player-inventory interaction");
         menu.reload();
         assertSame(HandlerPreset.INSTANCE_HANDLER, menu.getMenuClickHandler(23),
                 "A decorative preset button must not override its machine's real click action");
@@ -71,6 +73,8 @@ class TestBlockMenuPresetHandlerOrder {
         var menu = new BlockMenu(preset, new Location(world, 20, 64, 10), physical);
 
         assertSame(physical, menu.toInventory(), "Hydrated menus own their original physical inventory");
+        assertTrue(menu.isPlayerInventoryClickable(),
+                "Rehydration must restore player-inventory access without replacing saved items");
         assertSame(HandlerPreset.INSTANCE_HANDLER, menu.getMenuClickHandler(23),
                 "Restored menus must recover the real handler before any player opens the GUI");
         assertEquals(diamonds, physical.getItem(10),
@@ -79,6 +83,7 @@ class TestBlockMenuPresetHandlerOrder {
                 "Hydrating click handlers must not redraw a preset button over historical inventory data");
         menu.reload();
         assertSame(physical, menu.toInventory(), "Click handler restoration must not replace inventory backing");
+        assertTrue(menu.isPlayerInventoryClickable(), "Preset reload must preserve player-inventory access");
         assertEquals(diamonds, physical.getItem(10),
                 "Click handler restoration must not consume or recreate any saved inventory item");
         assertSame(HandlerPreset.INSTANCE_HANDLER, menu.getMenuClickHandler(23));

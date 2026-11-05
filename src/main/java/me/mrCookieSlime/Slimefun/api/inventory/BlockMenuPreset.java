@@ -268,6 +268,9 @@ public abstract class BlockMenuPreset extends ChestMenu {
      * saved slots and risk changing the only copy of historical machine data.
      */
     void initializeLoadedMenu(@Nonnull BlockMenu menu) {
+        // Restored menus must preserve the same player-inventory access policy
+        // as freshly cloned menus, before machine-specific overrides run.
+        menu.setPlayerInventoryClickable(true);
         installPresetHandlers(menu);
         newInstance(menu, menu.getLocation());
     }
