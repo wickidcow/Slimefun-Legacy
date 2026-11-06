@@ -2,6 +2,7 @@ package io.github.thebusybiscuit.slimefun4.implementation.tasks;
 
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.ASlimefunDataContainer;
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.attributes.UniversalBlock;
+import com.xzavier0722.mc.plugin.slimefun4.storage.util.LocationUtils;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.bakedlibs.dough.blocks.BlockPosition;
 import io.github.bakedlibs.dough.blocks.ChunkPosition;
@@ -253,13 +254,20 @@ public class TickerTask implements Runnable {
 
             // On Folia this check executes on the owning region. Paper preserves the legacy asynchronous check.
             if (chunk.isLoaded()) {
+                // Every ordinary machine in this group shares one chunk key. Avoid
+                // rebuilding that world/chunk string for each machine callback.
+                // Universal blocks use their UUID cache and need no chunk key.
+                String chunkCacheKey = null;
                 for (TickLocation tickLocation : selectTickersForChunk(chunk, locations)) {
                     BlockPosition position = tickLocation.getPosition();
                     Location location = position.toLocation();
                     if (tickLocation.isUniversal()) {
                         tickUniversalLocation(tickLocation.getUuid(), location, position, tickers, regionOwned);
                     } else {
-                        tickLocation(tickers, location, position, regionOwned);
+                        if (chunkCacheKey == null) {
+                            chunkCacheKey = LocationUtils.getChunkKey(location);
+                        }
+                        tickLocation(tickers, location, position, regionOwned, chunkCacheKey);
                     }
                 }
             } else {
@@ -317,8 +325,9 @@ public class TickerTask implements Runnable {
     }
 
     @ParametersAreNonnullByDefault
-    private void tickLocation(Set<BlockTicker> tickers, Location location, BlockPosition position, boolean regionOwned) {
-        var data = StorageCacheUtils.getBlock(location);
+    private void tickLocation(
+            Set<BlockTicker> tickers, Location location, BlockPosition position, boolean regionOwned, String chunkCacheKey) {
+        var data = StorageCacheUtils.getBlock(location, chunkCacheKey);
         if (data == null || !data.isDataLoaded() || data.isPendingRemove()) {
             clearFailureState(position);
             return;
