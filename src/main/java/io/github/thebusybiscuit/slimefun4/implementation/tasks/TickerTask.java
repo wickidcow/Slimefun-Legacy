@@ -362,14 +362,17 @@ public class TickerTask implements Runnable {
             ASlimefunDataContainer data,
             boolean regionOwned) {
         SlimefunItem item = SlimefunItem.getById(data.getSfId());
-        if (item == null || item.getBlockTicker() == null || item.isDisabledIn(location.getWorld())) {
+        if (item == null) {
+            return;
+        }
+        BlockTicker ticker = item.getBlockTicker();
+        if (ticker == null || item.isDisabledIn(location.getWorld())) {
             return;
         }
         if (isTargetedPaused(position, item.getId()) || !canAttemptTick(position)) {
             return;
         }
 
-        BlockTicker ticker = item.getBlockTicker();
         boolean owedProfilerEntry = false;
         AtomicBoolean scheduledTickClaimed = null;
 
@@ -390,7 +393,7 @@ public class TickerTask implements Runnable {
                         ticker.update();
                         long timestamp = Slimefun.getProfiler().newEntry();
                         owedProfilerEntry = timestamp != 0;
-                        if (tickBlock(location, item, data, timestamp)) {
+                        if (tickBlock(location, item, ticker, data, timestamp)) {
                             markTickSuccess(position);
                         }
                         owedProfilerEntry = false;
@@ -435,7 +438,7 @@ public class TickerTask implements Runnable {
                         }
 
                         long timestamp = profilerScheduled ? System.nanoTime() : 0L;
-                        if (tickBlock(location, item, data, timestamp)) {
+                        if (tickBlock(location, item, ticker, data, timestamp)) {
                             markTickSuccess(position);
                         }
                     } catch (Exception | LinkageError throwable) {
@@ -462,7 +465,7 @@ public class TickerTask implements Runnable {
                 long timestamp = Slimefun.getProfiler().newEntry();
                 owedProfilerEntry = timestamp != 0;
                 ticker.update();
-                if (tickBlock(location, item, data, timestamp)) {
+                if (tickBlock(location, item, ticker, data, timestamp)) {
                     markTickSuccess(position);
                 }
                 owedProfilerEntry = false;
@@ -507,9 +510,10 @@ public class TickerTask implements Runnable {
     }
 
     @ParametersAreNonnullByDefault
-    private boolean tickBlock(Location location, SlimefunItem item, ASlimefunDataContainer data, long timestamp) {
+    private boolean tickBlock(
+            Location location, SlimefunItem item, BlockTicker ticker, ASlimefunDataContainer data, long timestamp) {
         try {
-            item.getBlockTicker().tick(location.getBlock(), item, data);
+            ticker.tick(location.getBlock(), item, data);
             return true;
         } catch (Exception | LinkageError throwable) {
             reportErrors(location, item, throwable);
