@@ -1,8 +1,10 @@
 package io.github.thebusybiscuit.slimefun4.core.ticker;
 
+import com.xzavier0722.mc.plugin.slimefun4.storage.util.LocationUtils;
 import io.github.bakedlibs.dough.blocks.BlockPosition;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.AccessLevel;
 import lombok.Getter;
 import org.bukkit.Location;
 
@@ -10,6 +12,10 @@ import org.bukkit.Location;
 public class TickLocation {
     private final BlockPosition position;
     private final UUID uuid;
+    // A ticker's immutable position needs the same database key for every callback.
+    // Cache the string only, not block data or a mutable Location.
+    @Getter(AccessLevel.NONE)
+    private volatile String cachedBlockStorageKey;
 
     public TickLocation(BlockPosition position) {
         this.position = position;
@@ -41,6 +47,19 @@ public class TickLocation {
     @Override
     public int hashCode() {
         return 31 * position.hashCode() + Objects.hashCode(uuid);
+    }
+
+    /**
+     * Canonical legacy block key for this immutable machine registration.
+     * Replacement registrations build a new key, while storage stays authoritative.
+     */
+    public String getBlockStorageKey() {
+        String key = cachedBlockStorageKey;
+        if (key == null) {
+            key = LocationUtils.getLocKey(position.toLocation());
+            cachedBlockStorageKey = key;
+        }
+        return key;
     }
 
     public boolean isUniversal() {
