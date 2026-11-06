@@ -13,6 +13,7 @@ import com.xzavier0722.mc.plugin.slimefun4.storage.common.ScopeKey;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.DataUtils;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.ItemStackDataCodec;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.LocationUtils;
+import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.BlockListener;
 import java.lang.reflect.Field;
@@ -109,6 +110,24 @@ class InventoryLifecycleSafetyTest {
         } finally {
             MockBukkit.unmock();
         }
+    }
+
+    @Test
+    void tickerChunkKeyFastPathPreservesCacheIdentityAndChunkIsolation() {
+        String chunkKey = LocationUtils.getChunkKey(location);
+        assertSame(data, controller.getBlockDataFromCache(location));
+        assertSame(data, controller.getBlockDataFromCache(location, chunkKey));
+        assertSame(data, StorageCacheUtils.getBlock(location, chunkKey));
+
+        // This fixture uses a negative chunk Z; the optimized key must follow
+        // exactly the same Minecraft floor-division semantics as the old path.
+        Location emptySlot = location.clone().add(1, 0, 0);
+        assertNull(controller.getBlockDataFromCache(emptySlot, chunkKey));
+        Location anotherChunk = location.clone().add(32, 0, 0);
+        String otherKey = LocationUtils.getChunkKey(anotherChunk);
+        assertNull(controller.getBlockDataFromCache(anotherChunk, otherKey));
+        assertNull(controller.getBlockDataFromCache(location, otherKey));
+        assertSame(data, controller.getBlockDataFromCache(location, chunkKey));
     }
 
     @Test
