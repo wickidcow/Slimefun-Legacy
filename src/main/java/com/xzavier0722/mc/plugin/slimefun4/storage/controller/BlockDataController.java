@@ -690,6 +690,15 @@ public class BlockDataController extends ADataController {
     }
 
     /**
+     * Read-only cache fast path for callers already traversing a known chunk (for example, the
+     * Slimefun machine ticker). The supplied key must identify the chunk containing the location.
+     * This does not load a chunk or touch the persisted storage format.
+     */
+    @Nullable public SlimefunBlockData getBlockDataFromCache(Location l, String chunkKey) {
+        return getBlockDataFromCache(chunkKey, LocationUtils.getLocKey(l));
+    }
+
+    /**
      * 从数据库中获取 {@link SlimefunUniversalData}
      */
     @Nullable public SlimefunUniversalData getUniversalData(@Nonnull UUID uuid) {

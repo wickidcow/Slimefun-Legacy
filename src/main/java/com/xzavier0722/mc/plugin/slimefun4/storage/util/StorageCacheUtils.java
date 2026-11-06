@@ -64,6 +64,15 @@ public class StorageCacheUtils {
         return Slimefun.getDatabaseManager().getBlockDataController().getBlockDataFromCache(l);
     }
 
+    /**
+     * Cached block lookup with a chunk key already computed by a chunk-ordered caller.
+     * Keep the standard one-argument API for addons and unrelated block-event lookups.
+     */
+    @ParametersAreNonnullByDefault
+    @Nullable public static SlimefunBlockData getBlock(Location l, String chunkKey) {
+        return Slimefun.getDatabaseManager().getBlockDataController().getBlockDataFromCache(l, chunkKey);
+    }
+
     @ParametersAreNonnullByDefault
     @Nullable public static ASlimefunDataContainer getDataContainer(Location l) {
         var blockData = getBlock(l);
