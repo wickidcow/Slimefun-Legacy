@@ -73,6 +73,17 @@ public class StorageCacheUtils {
         return Slimefun.getDatabaseManager().getBlockDataController().getBlockDataFromCache(l, chunkKey);
     }
 
+    /**
+     * Lookup using keys pinned to a ticker registration. The existing loaded
+     * chunk cache remains the sole source of truth for the returned data.
+     */
+    @ParametersAreNonnullByDefault
+    @Nullable public static SlimefunBlockData getBlockFromCacheKeys(String chunkKey, String blockKey) {
+        return Slimefun.getDatabaseManager()
+                .getBlockDataController()
+                .getBlockDataFromCacheByKeys(chunkKey, blockKey);
+    }
+
     @ParametersAreNonnullByDefault
     @Nullable public static ASlimefunDataContainer getDataContainer(Location l) {
         var blockData = getBlock(l);
