@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.xzavier0722.mc.plugin.slimefun4.storage.util.LocationUtils;
 import io.github.bakedlibs.dough.blocks.BlockPosition;
 import io.github.thebusybiscuit.slimefun4.core.ticker.TickLocation;
 import java.lang.reflect.Field;
@@ -36,6 +37,39 @@ class TestTickerTaskRegistrationDedup {
     @AfterEach
     void tearDown() {
         MockBukkit.unmock();
+    }
+
+    @Test
+    void registeredTickerReusesCanonicalLegacyBlockKey() {
+        Location center = new Location(world, -5313.5, -56.5, -5568.5, 139.0F, -20.0F);
+        TickLocation registered = new TickLocation(new BlockPosition(center));
+        String key = registered.getBlockStorageKey();
+
+        assertEquals(LocationUtils.getLocKey(center), key);
+        assertSame(key, registered.getBlockStorageKey(), "Repeated callbacks should reuse the canonical key");
+        assertEquals("world;-5314:-57:-5569", key);
+
+        TickLocation copy = new TickLocation(new BlockPosition(center.clone()));
+        assertEquals(registered, copy);
+        assertEquals(registered.hashCode(), copy.hashCode());
+        assertEquals(key, copy.getBlockStorageKey());
+    }
+
+    @Test
+    void movingOrRemovingTickerRequiresASeparateStorageKey() {
+        TickerTask task = new TickerTask();
+        Location oldLocation = new Location(world, 17, 64, 17);
+        Location newLocation = new Location(world, 18, 64, 17);
+        task.enableTicker(oldLocation);
+        TickLocation oldRegistration = task.getTickLocations(oldLocation.getChunk()).iterator().next();
+        String oldKey = oldRegistration.getBlockStorageKey();
+
+        task.disableTicker(oldLocation);
+        task.enableTicker(newLocation);
+        TickLocation movedRegistration = task.getTickLocations(newLocation.getChunk()).iterator().next();
+        assertNotSame(oldRegistration, movedRegistration);
+        assertNotEquals(oldKey, movedRegistration.getBlockStorageKey());
+        assertEquals(LocationUtils.getLocKey(newLocation), movedRegistration.getBlockStorageKey());
     }
 
     @Test

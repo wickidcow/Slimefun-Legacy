@@ -699,6 +699,14 @@ public class BlockDataController extends ADataController {
     }
 
     /**
+     * Read-only fast path for machine registrations holding exact canonical
+     * chunk and block keys. Cache identity and incomplete reads are unchanged.
+     */
+    @Nullable public SlimefunBlockData getBlockDataFromCacheByKeys(String chunkKey, String blockKey) {
+        return getBlockDataFromCache(chunkKey, blockKey);
+    }
+
+    /**
      * 从数据库中获取 {@link SlimefunUniversalData}
      */
     @Nullable public SlimefunUniversalData getUniversalData(@Nonnull UUID uuid) {

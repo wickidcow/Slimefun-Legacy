@@ -118,6 +118,10 @@ class InventoryLifecycleSafetyTest {
         assertSame(data, controller.getBlockDataFromCache(location));
         assertSame(data, controller.getBlockDataFromCache(location, chunkKey));
         assertSame(data, StorageCacheUtils.getBlock(location, chunkKey));
+        String blockKey = LocationUtils.getLocKey(location);
+        assertSame(data, controller.getBlockDataFromCacheByKeys(chunkKey, blockKey));
+        assertSame(data, StorageCacheUtils.getBlockFromCacheKeys(chunkKey, blockKey));
+        assertNull(controller.getBlockDataFromCacheByKeys("other_world;0:-2", blockKey));
 
         // This fixture uses a negative chunk Z; the optimized key must follow
         // exactly the same Minecraft floor-division semantics as the old path.

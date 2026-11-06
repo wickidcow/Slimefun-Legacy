@@ -267,7 +267,8 @@ public class TickerTask implements Runnable {
                         if (chunkCacheKey == null) {
                             chunkCacheKey = LocationUtils.getChunkKey(location);
                         }
-                        tickLocation(tickers, location, position, regionOwned, chunkCacheKey);
+                        tickLocation(tickers, location, position, regionOwned, chunkCacheKey,
+                                tickLocation.getBlockStorageKey());
                     }
                 }
             } else {
@@ -326,8 +327,13 @@ public class TickerTask implements Runnable {
 
     @ParametersAreNonnullByDefault
     private void tickLocation(
-            Set<BlockTicker> tickers, Location location, BlockPosition position, boolean regionOwned, String chunkCacheKey) {
-        var data = StorageCacheUtils.getBlock(location, chunkCacheKey);
+            Set<BlockTicker> tickers,
+            Location location,
+            BlockPosition position,
+            boolean regionOwned,
+            String chunkCacheKey,
+            String blockCacheKey) {
+        var data = StorageCacheUtils.getBlockFromCacheKeys(chunkCacheKey, blockCacheKey);
         if (data == null || !data.isDataLoaded() || data.isPendingRemove()) {
             clearFailureState(position);
             return;
