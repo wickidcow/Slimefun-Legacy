@@ -165,9 +165,9 @@ def main():
     # This isolated runtime fixture must opt in to register the REAL Beacon
     # rather than claiming an unregistered item is a runtime regression.
     config_text = config.read_text(encoding="utf-8")
-    if not re.search(r"(?m)^enabled: false[ \\t]*$", config_text):
+    if not re.search(r"(?m)^enabled: false[ \t]*$", config_text):
         raise RuntimeError("Expected fresh Curios master switch to default OFF")
-    config_text = re.sub(r"(?m)^enabled: false[ \\t]*$", "enabled: true",
+    config_text = re.sub(r"(?m)^enabled: false[ \t]*$", "enabled: true",
                          config_text, count=1)
     config.write_text(config_text, encoding="utf-8")
     for phase in PHASES:
