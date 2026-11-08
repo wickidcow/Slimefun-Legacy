@@ -181,6 +181,19 @@ Activator coverage is derived from its effective tier:
 
 Activator retains hard server safety caps of 64 active Resonance Beacon loaders and 256 unique ticketed chunks. Overlapping loaders are reference-counted, and disabling Activator releases its coverage instead of allowing the stored chunk mode to re-enable the selection.
 
+### Global chunk-loader policy (Slimefun Legacy)
+
+`plugins/Slimefun/configSFLAddons.yml` includes
+`SlimefunLegacyAddition.PoweredBeacon.chunk-loading-mode: ONLINE`.
+
+- `ONLINE` (**default**): reserve plugin chunk tickets only while at least one player is connected to the server; release tickets after the last player disconnects and restore configured beacons when someone joins.
+- `ALWAYS`: reserve configured tickets while the server runs, including when no players are connected.
+- `OFF`: release every Resonance Beacon ticket and hide the Activator power from the beacon's GUI. Existing beacon items, placed blocks, purchased tiers, and stored Activator choices are **not deleted**.
+
+The operator command `/beacon mode online|always|off` applies and persists this setting immediately. Legacy `/beacon enable` now selects `ONLINE`; `/beacon disable` selects `OFF`. `/beacon status` reports the active policy and ticket count. Upgrading an existing configuration automatically migrates `chunk-loading-enabled: false` to `OFF`, and `true` to `ONLINE`. Explicit `chunk-loading-mode` overrides the retired boolean.
+
+**FoxyMachines compatibility:** FoxyMachines' older `ChunkLoader` uses vanilla persistent `setForceLoaded` flags rather than Beacon plugin tickets. The matching maintained FoxyMachines release must apply the same policy separately, and historical forced chunks require a verified ownership-aware migration. Slimefun Legacy does not indiscriminately clear any other plugin's or administrator's forced chunks.
+
 ### Runtime pulse behavior
 
 The gameplay field uses one elapsed-game-time pulse gate per beacon. The first eligible Slimefun block tick can run immediately and subsequent gameplay/energy pulses are limited to once per 20 game ticks. Pulse timing is independent of beacon X/Z coordinates, so a beacon cannot become permanently stuck between modulo phases when the global Slimefun ticker runs at a different cadence.
