@@ -192,7 +192,7 @@ Activator retains hard server safety caps of 64 active Resonance Beacon loaders 
 
 The operator command `/beacon mode online|always|off` applies and persists this setting immediately. Legacy `/beacon enable` now selects `ONLINE`; `/beacon disable` selects `OFF`. `/beacon status` reports the active policy and ticket count. Upgrading an existing configuration automatically migrates `chunk-loading-enabled: false` to `OFF`, and `true` to `ONLINE`. Explicit `chunk-loading-mode` overrides the retired boolean.
 
-**FoxyMachines compatibility:** FoxyMachines' older `ChunkLoader` uses vanilla persistent `setForceLoaded` flags rather than Beacon plugin tickets. The matching maintained FoxyMachines release must apply the same policy separately, and historical forced chunks require a verified ownership-aware migration. Slimefun Legacy does not indiscriminately clear any other plugin's or administrator's forced chunks.
+**Independent FoxyMachines setting:** FoxyMachines has its own `plugins/FoxyMachines/config.yml` `chunk-loading-mode` setting. Changing Resonance Beacon's mode does **not** alter FoxyMachines loaders. Historical FoxyMachines chunks used persistent vanilla `setForceLoaded` flags, so that addon requires a separate, guarded migration; Slimefun Legacy never clears these or administrator-owned forced chunks.
 
 ### Runtime pulse behavior
 
