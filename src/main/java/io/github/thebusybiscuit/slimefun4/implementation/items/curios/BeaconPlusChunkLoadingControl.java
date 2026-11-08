@@ -6,8 +6,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.util.Locale;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.StandardCopyOption;
 import java.util.logging.Level;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -24,11 +24,9 @@ final class BeaconPlusChunkLoadingControl {
     static final String LEGACY_CONFIG_PATH = BeaconPlusConfig.ROOT + ".chunk-loading-enabled";
 
     private static final Pattern MODE_LINE = Pattern.compile(
-            "(?m)^(\\s{4})chunk-loading-mode\\s*:\\s*(?:ONLINE|ALWAYS|OFF)\\s*(?:#.*)?$",
-            Pattern.CASE_INSENSITIVE);
+            "(?mi)^([ \t]{4}chunk-loading-mode[ \t]*:[ \t]*)(ONLINE|ALWAYS|OFF)([ \t]*(?:#.*)?)$");
     private static final Pattern LEGACY_LINE = Pattern.compile(
-            "(?m)^(\\s{4})chunk-loading-enabled\\s*:\\s*(?:true|false)\\s*(?:#.*)?$",
-            Pattern.CASE_INSENSITIVE);
+            "(?mi)^([ \t]{4}chunk-loading-enabled[ \t]*:[ \t]*)(true|false)([ \t]*(?:#.*)?)$");
 
     private static volatile BeaconPlusChunkLoadingPolicy mode = BeaconPlusChunkLoadingPolicy.ONLINE;
 
@@ -71,28 +69,26 @@ final class BeaconPlusChunkLoadingControl {
         Path path = plugin.getDataFolder().toPath().resolve(CuriositiesConfig.FILE_NAME);
         try {
             String contents = Files.readString(path, StandardCharsets.UTF_8);
-            Matcher modeMatcher = MODE_LINE.matcher(contents);
-            if (!modeMatcher.find()) {
+            String updated = rewriteMode(contents, requested);
+            if (updated == null) {
                 plugin.getLogger().severe("Cannot find '" + CONFIG_PATH + "' in "
                         + CuriositiesConfig.FILE_NAME + "; beacon policy unchanged.");
                 return false;
             }
-            String updated = modeMatcher.replaceFirst(Matcher.quoteReplacement(
-                    modeMatcher.group(1) + "chunk-loading-mode: " + requested.name()));
 
-            Matcher legacy = LEGACY_LINE.matcher(updated);
-            if (legacy.find()) {
-                String legacyLine = legacy.group(1) + "chunk-loading-enabled: "
-                        + (requested != BeaconPlusChunkLoadingPolicy.OFF);
-                updated = legacy.replaceFirst(Matcher.quoteReplacement(legacyLine));
+            // A failure must not truncate the operator's existing YAML.
+            Path pending = Files.createTempFile(path.getParent(), "configSFLAddons-", ".tmp");
+            try {
+                Files.writeString(pending, updated, StandardCharsets.UTF_8);
+                try {
+                    Files.move(pending, path, StandardCopyOption.REPLACE_EXISTING,
+                            StandardCopyOption.ATOMIC_MOVE);
+                } catch (AtomicMoveNotSupportedException unsupported) {
+                    Files.move(pending, path, StandardCopyOption.REPLACE_EXISTING);
+                }
+            } finally {
+                Files.deleteIfExists(pending);
             }
-
-            Files.writeString(
-                    path,
-                    updated,
-                    StandardCharsets.UTF_8,
-                    StandardOpenOption.TRUNCATE_EXISTING,
-                    StandardOpenOption.WRITE);
             CuriositiesConfig.getConfig().reload();
             mode = requested;
             return true;
@@ -102,6 +98,27 @@ final class BeaconPlusChunkLoadingControl {
                             + CuriositiesConfig.FILE_NAME + ".", exception);
             return false;
         }
+    }
+
+    /**
+     * Pure YAML line rewrite used by the operator command and its unit tests.
+     * Match spaces/tabs only: Java regex \\s can consume an adjacent newline
+     * and erase the operator's next comment or setting.
+     */
+    static String rewriteMode(String contents, BeaconPlusChunkLoadingPolicy requested) {
+        Matcher modeMatcher = MODE_LINE.matcher(contents);
+        if (!modeMatcher.find()) {
+            return null;
+        }
+        String updated = modeMatcher.replaceFirst(Matcher.quoteReplacement(
+                modeMatcher.group(1) + requested.name() + modeMatcher.group(3)));
+
+        Matcher legacy = LEGACY_LINE.matcher(updated);
+        if (legacy.find()) {
+            updated = legacy.replaceFirst(Matcher.quoteReplacement(
+                    legacy.group(1) + (requested != BeaconPlusChunkLoadingPolicy.OFF) + legacy.group(3)));
+        }
+        return updated;
     }
 
     static String stateWord(boolean enabled) {
