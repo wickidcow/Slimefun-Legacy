@@ -194,7 +194,7 @@ def main() -> int:
             'new ChestMenu("&6&lResonance Beacon", 54)', "purchaseNextTier", "action.isRightClicked()",
             "action.isShiftClicked()", "BeaconPlusPyramid.inspect", "BeaconPlusConfig.installDefaults()",
             "BeaconPlusLegacyDataStore.start", "BeaconPlusRuntime.reconcileActivator", "Enabled powers:",
-            'enabled.size() + "/29"', "37", "EnergyNetComponent", "ELECTRIC_OPERATION_SLOT", "isEnergyNetActive",
+            "visiblePowers", "BeaconPlusChunkLoadingControl.isEnabled()", "37", "EnergyNetComponent", "ELECTRIC_OPERATION_SLOT", "isEnergyNetActive",
             "BeaconPlusEffect.RADIATION_ABSORBER", "Tier I absorbs 25 exposure",
             "Disabled in configSFLAddons.yml", "potentialTiers", "DORMANT (ENERGY)",
         ):
