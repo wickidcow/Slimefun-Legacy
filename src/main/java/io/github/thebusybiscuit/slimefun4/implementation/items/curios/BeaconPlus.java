@@ -217,6 +217,11 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         BeaconPlusEffect[] effects = BeaconPlusEffect.configurableValues();
         for (int index = 0; index < effects.length; index++) {
             BeaconPlusEffect effect = effects[index];
+            // OFF removes Activator from the player menu without deleting the
+            // saved power, purchased tiers, or old BeaconData coverage.
+            if (effect == BeaconPlusEffect.ACTIVATOR && !BeaconPlusChunkLoadingControl.isEnabled()) {
+                continue;
+            }
             int slot = EFFECT_SLOTS[index];
             menu.addItem(
                     slot,
@@ -278,6 +283,11 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
             return;
         }
         if (!validateMenuAction(player, block, owner)) {
+            return;
+        }
+        if (effect == BeaconPlusEffect.ACTIVATOR && !BeaconPlusChunkLoadingControl.isEnabled()) {
+            message(player, "&c" + "Activator is disabled by the server administrator.");
+            openMenu(player, block, owner);
             return;
         }
         if (!BeaconPlusConfig.isPowerEnabled(effect)) {
@@ -455,7 +465,11 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
         lore.add("&7" + "Dominant mineral: " + "&b" + profile.dominantMaterialName());
         lore.add("&7" + "Average mineral power: " + "&b"
                 + String.format(java.util.Locale.ROOT, "%.2f", profile.averageMaterialPower()));
-        lore.add("&7" + "Enabled powers: " + "&6" + enabled.size() + "/29");
+        long visiblePowers = enabled.stream()
+                .filter(effect -> effect != BeaconPlusEffect.ACTIVATOR || BeaconPlusChunkLoadingControl.isEnabled())
+                .count();
+        lore.add("&7" + "Enabled powers: " + "&6" + visiblePowers + "/"
+                + (BeaconPlusChunkLoadingControl.isEnabled() ? 29 : 28));
         lore.add("&7" + "Activator coverage: " + "&b" + chunkMode.getDisplayName());
         lore.add("");
         if (BeaconPlusLegacyDataStore.isLegacyImported(block.getLocation())) {
