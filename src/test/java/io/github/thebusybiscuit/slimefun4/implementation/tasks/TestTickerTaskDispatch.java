@@ -50,6 +50,7 @@ class TestTickerTaskDispatch {
     private static final String ID = "TICK_DISPATCH_FIXTURE";
     private final List<Runnable> callbacks = new ArrayList<>();
     private final AtomicInteger ticks = new AtomicInteger();
+    private final AtomicInteger tickerLookups = new AtomicInteger();
     private InventoryReadTestPlugin fixture;
     private TickerTask task;
     private Location location;
@@ -125,6 +126,24 @@ class TestTickerTaskDispatch {
         assertEquals(0, ticks.get());
         assertEquals(0, task.getFailingMachineCount());
         assertEquals("retained", data.getData("sentinel"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void eachMachineResolvesItsTickerOnceEvenWhenDispatched(boolean synchronizedMachine) throws Exception {
+        synchronizedTicker = synchronizedMachine;
+        dispatch = callback -> new Handle(false);
+
+        tick();
+        if (synchronizedMachine) {
+            assertEquals(1, callbacks.size());
+            callbacks.getFirst().run();
+        }
+
+        assertEquals(1, ticks.get());
+        assertEquals(1, tickerLookups.get(),
+                "Resolve the handler once and use that same instance for update and execution");
+        assertFalse(queued.contains(position));
     }
 
     @Test
@@ -318,6 +337,7 @@ class TestTickerTaskDispatch {
 
         @Override
         public BlockTicker getBlockTicker() {
+            tickerLookups.incrementAndGet();
             return ticker;
         }
 
