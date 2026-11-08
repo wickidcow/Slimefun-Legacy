@@ -5,7 +5,7 @@
 # Fresh installs default Curiosities OFF. Existing enabled installations are migrated and stay enabled.
 # This schema version changes only when configSFLAddons.yml itself needs a one-time migration.
 # Normal Slimefun Legacy updates do not rewrite this file just because the plugin version changed.
-config-version: 2
+config-version: 3
 
 enabled: false
 
@@ -79,8 +79,14 @@ SlimefunLegacyAddition:
     # Master switch for the Resonance Beacon runtime. The item remains registered for data safety.
     enabled: true
 
-    # Global safety switch for the Activator power's Paper chunk tickets.
-    # /beacon enable|disable changes this at runtime and preserves each beacon's Activator selection.
+    # Global policy for the Resonance Beacon Activator (shared with maintained
+    # FoxyMachines when its matching compatibility update is installed).
+    # ONLINE (default) = tickets only while at least one player is connected.
+    # ALWAYS = continue running chunk loaders without any online players.
+    # OFF = no tickets; hide Activator from the Resonance Beacon menu.
+    # Admins can use /beacon mode online|always|off. Per-beacon saved choices stay intact.
+    chunk-loading-mode: ONLINE
+    # Legacy setting kept as a compatibility mirror; chunk-loading-mode wins.
     chunk-loading-enabled: true
 
     # Optional per-beacon Slimefun Energy Network operation. Existing/native/imported beacons default OFF.
