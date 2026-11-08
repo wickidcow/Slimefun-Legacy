@@ -7,6 +7,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.HashSet;
@@ -533,11 +535,26 @@ public final class BeaconPlusManager {
 
         try {
             Files.createDirectories(registryPath.getParent());
-            try (OutputStream output = Files.newOutputStream(registryPath)) {
-                properties.store(output, "Slimefun Legacy Adventurer's Curios - Beacon Plus registry");
+            Path pending = Files.createTempFile(registryPath.getParent(), "beacon-plus-registry-", ".tmp");
+            try {
+                try (OutputStream output = Files.newOutputStream(pending)) {
+                    properties.store(output, "Slimefun Legacy Adventurer's Curios - Beacon Plus registry");
+                }
+                try {
+                    Files.move(pending, registryPath,
+                            StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                } catch (AtomicMoveNotSupportedException unsupported) {
+                    Files.move(pending, registryPath, StandardCopyOption.REPLACE_EXISTING);
+                }
+            } finally {
+                Files.deleteIfExists(pending);
             }
         } catch (IOException exception) {
-            plugin.getLogger().log(Level.WARNING, "Could not save the Beacon Plus registry.", exception);
+            // Never truncate the original registry before its replacement is
+            // completely written. Failed writes preserve saved owner and
+            // Activator selections for operator recovery.
+            plugin.getLogger().log(Level.SEVERE,
+                    "Could not safely save Beacon Plus owner registry; original file retained.", exception);
         }
     }
 
