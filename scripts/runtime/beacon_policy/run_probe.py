@@ -50,12 +50,12 @@ def download_paper(mc: str, dest: Path) -> str:
     return str(stable["id"])
 
 
-def compile_probe(root: Path, legacy: Path, paper_api: Path):
+def compile_probe(root: Path, legacy: Path, paper_api: Path, extra_classpath: str):
     classes = root / "beacon-probe-classes"
     classes.mkdir(parents=True)
     source = Path("scripts/runtime/beacon_policy/BeaconTicketProbe.java")
     subprocess.run(["javac", "--release", "21", "-cp",
-                    os.pathsep.join([str(legacy), str(paper_api)]),
+                    os.pathsep.join([str(legacy), str(paper_api)]) + os.pathsep + extra_classpath,
                     "-d", str(classes), str(source)], check=True, timeout=120)
     with zipfile.ZipFile(root / "plugins" / "BeaconTicketProbe.jar", "w",
                          zipfile.ZIP_DEFLATED) as jar:
@@ -125,11 +125,17 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--slimefun-jar", type=Path, required=True)
     parser.add_argument("--paper-api-jar", type=Path, required=True)
+    parser.add_argument("--compile-classpath-file", type=Path, required=True)
     parser.add_argument("--minecraft", choices=("1.21.11", "26.3"), required=True)
     args = parser.parse_args()
 
     slimefun, api = (path.resolve(strict=True) for path in
                      (args.slimefun_jar, args.paper_api_jar))
+    extra_classpath = args.compile_classpath_file.resolve(strict=True).read_text(
+        encoding="utf-8").strip().splitlines()
+    if not extra_classpath:
+        raise RuntimeError("Expected Gradle's resolved Paper/Adventure compile classpath")
+    all_dependencies = os.pathsep.join(extra_classpath)
     repo = Path.cwd().resolve()
     fixture_parent = repo / "build" / "beacon-native-policy"
     if fixture_parent.is_symlink():
@@ -142,7 +148,7 @@ def main():
     paper_build = download_paper(args.minecraft, root / "paper.jar")
     (root / "plugins").mkdir()
     shutil.copyfile(slimefun, root / "plugins" / "Slimefun-Legacy.jar")
-    compile_probe(root, slimefun, api)
+    compile_probe(root, slimefun, api, all_dependencies)
     (root / "eula.txt").write_text("eula=true\n", encoding="utf-8")
     (root / "server.properties").write_text(
         "online-mode=false\nmax-players=2\n"
