@@ -16,6 +16,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.inventory.EquipmentSlot;
 
@@ -136,6 +138,33 @@ final class BeaconPlusLifecycleListener implements Listener {
             return player.isOp();
         }
         return owner.equals(player.getUniqueId()) || player.isOp();
+    }
+
+    /**
+     * Apply ONLINE ticket policy after the server's player count changes.
+     * A one-tick deferral is necessary for PlayerQuitEvent, where the departing
+     * player may still be present in Bukkit.getOnlinePlayers().
+     */
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        scheduleChunkLoadingRefresh();
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        scheduleChunkLoadingRefresh();
+    }
+
+    private void scheduleChunkLoadingRefresh() {
+        if (BeaconPlusChunkLoadingControl.getMode() != BeaconPlusChunkLoadingPolicy.ONLINE) {
+            return;
+        }
+        Slimefun.getSchedulerService().runLater(() -> {
+            BeaconPlusManager manager = BeaconPlusManager.getInstance();
+            if (manager != null) {
+                manager.applyGlobalChunkLoadingState();
+            }
+        }, 1L);
     }
 
     @EventHandler
