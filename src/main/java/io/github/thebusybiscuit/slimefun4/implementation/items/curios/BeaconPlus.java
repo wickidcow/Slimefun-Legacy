@@ -152,6 +152,12 @@ public final class BeaconPlus extends SlimefunItem implements EnergyNetComponent
                 return;
             }
 
+            if (!manager.isRegistryHealthy()) {
+                message(player, "&c" + "Resonance Beacon owner registry could not be loaded. "
+                        + "&7" + "Configuration is blocked to protect saved unlocks and ownership.");
+                return;
+            }
+
             UUID owner = manager.getOwner(block.getLocation());
             if (!canConfigure(player, owner)) {
                 message(player, 
