@@ -55,7 +55,7 @@ def main() -> int:
         "runtime stale SHA-1 suppression",
     )
 
-    require(config_source, "CURRENT_CONFIG_VERSION = 2", "versioned addon config schema")
+    require(config_source, "CURRENT_CONFIG_VERSION = 3", "versioned addon config schema")
     require(config_source, "migrateConfigVersion();", "one-time addon config migration")
     require(config_source, "writeResourcePackSafetyGuide", "resource-pack operator note injection")
     require(config_source, "writeResourcePackOwnershipGuide", "resource-pack ownership note injection")
