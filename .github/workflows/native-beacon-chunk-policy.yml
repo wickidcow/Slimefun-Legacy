@@ -43,7 +43,7 @@ jobs:
           # Formatting is enforced by the regular build workflow; this
           # isolated native test must not be blocked by unrelated baseline
           # formatting issues elsewhere in the repository.
-          ./gradlew --no-daemon test shadowJar writeCompatibilityCompileClasspath writeCompatibilityCompileClasspath
+          ./gradlew --no-daemon test shadowJar writeCompatibilityCompileClasspath
 
       - name: Verify test probe syntax and Paper 1.21.11 API
         shell: bash
@@ -58,7 +58,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          CORE_JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-Legacy*.jar' \
+          CORE_JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' \
             ! -name '*sources*' ! -name '*javadoc*' -size +1M -print -quit)"
           PAPER_API_JAR="$(find "$HOME/.gradle/caches/modules-2/files-2.1/io.papermc.paper/paper-api/1.21.11-R0.1-SNAPSHOT" \
             -type f -name 'paper-api-*.jar' -print -quit)"
