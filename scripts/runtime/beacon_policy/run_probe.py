@@ -126,7 +126,7 @@ def main():
     parser.add_argument("--slimefun-jar", type=Path, required=True)
     parser.add_argument("--paper-api-jar", type=Path, required=True)
     parser.add_argument("--compile-classpath-file", type=Path, required=True)
-    parser.add_argument("--minecraft", choices=("1.21.11", "26.3"), required=True)
+    parser.add_argument("--minecraft", choices=("1.21.11", "26.2", "26.3"), required=True)
     args = parser.parse_args()
 
     slimefun, api = (path.resolve(strict=True) for path in
