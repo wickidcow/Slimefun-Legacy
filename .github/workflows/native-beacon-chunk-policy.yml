@@ -40,13 +40,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew --no-daemon test shadowJar spotlessCheck
+          ./gradlew --no-daemon test shadowJar spotlessCheck writeCompatibilityCompileClasspath
 
       - name: Verify test probe syntax and Paper 1.21.11 API
         shell: bash
         run: |
           set -euo pipefail
           python3 -m py_compile scripts/runtime/beacon_policy/run_probe.py
+          test -s build/compatibility/compile-classpath.txt
           find "$HOME/.gradle/caches/modules-2/files-2.1/io.papermc.paper/paper-api/1.21.11-R0.1-SNAPSHOT" \
             -type f -name 'paper-api-*.jar' -print -quit | grep -q .
 
@@ -63,6 +64,7 @@ jobs:
           python3 scripts/runtime/beacon_policy/run_probe.py \
             --slimefun-jar "$CORE_JAR" \
             --paper-api-jar "$PAPER_API_JAR" \
+            --compile-classpath-file build/compatibility/compile-classpath.txt \
             --minecraft "${{ matrix.minecraft }}"
 
       - name: Preserve failed runtime logs for diagnosis
