@@ -79,8 +79,8 @@ SlimefunLegacyAddition:
     # Master switch for the Resonance Beacon runtime. The item remains registered for data safety.
     enabled: true
 
-    # Global policy for the Resonance Beacon Activator (shared with maintained
-    # FoxyMachines when its matching compatibility update is installed).
+    # Only controls the Slimefun Legacy Resonance Beacon Activator.
+    # FoxyMachines has its own independent config.yml setting.
     # ONLINE (default) = tickets only while at least one player is connected.
     # ALWAYS = continue running chunk loaders without any online players.
     # OFF = no tickets; hide Activator from the Resonance Beacon menu.
