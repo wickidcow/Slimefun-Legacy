@@ -161,6 +161,15 @@ def main():
     plugin_dir.mkdir()
     config = plugin_dir / "configSFLAddons.yml"
     shutil.copyfile("src/main/resources/configSFLAddons.yml", config)
+    # Fresh production installs intentionally default Adventurer's Curios OFF.
+    # This isolated runtime fixture must opt in to register the REAL Beacon
+    # rather than claiming an unregistered item is a runtime regression.
+    config_text = config.read_text(encoding="utf-8")
+    if not re.search(r"(?m)^enabled: false[ \\t]*$", config_text):
+        raise RuntimeError("Expected fresh Curios master switch to default OFF")
+    config_text = re.sub(r"(?m)^enabled: false[ \\t]*$", "enabled: true",
+                         config_text, count=1)
+    config.write_text(config_text, encoding="utf-8")
     for phase in PHASES:
         set_mode(config, "ALWAYS" if phase.startswith("ALWAYS") else phase)
         (root / "beacon-policy-phase.txt").write_text(phase, encoding="utf-8")
