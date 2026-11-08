@@ -192,6 +192,11 @@ public final class BeaconPlusManager {
 
         if (ticketReferences.isEmpty()) {
             restoreTickets();
+            // Startup validation deliberately skips intentionally unloaded
+            // ONLINE chunks. When the first player returns and we restore
+            // tickets, revalidate the now-loading beacon records rather than
+            // keeping an obsolete entry ticketed forever.
+            scheduleValidation();
         }
     }
 
