@@ -41,6 +41,9 @@ public final class BeaconPlusManager {
     private final Path registryPath;
     private final Map<LocationKey, BeaconRecord> records = new HashMap<>();
     private final Map<ChunkKey, Integer> ticketReferences = new HashMap<>();
+    // A malformed or unreadable saved registry must never be replaced by a
+    // partial in-memory copy on restart, shutdown or later admin changes.
+    private boolean registryHealthy = true;
 
     private BeaconPlusManager(Slimefun plugin) {
         this.plugin = plugin;
@@ -71,6 +74,11 @@ public final class BeaconPlusManager {
     }
 
     public synchronized void register(@Nonnull Location location, @Nonnull UUID owner) {
+        if (!registryHealthy) {
+            plugin.getLogger().severe("Refusing new Resonance Beacon registration while saved owner "
+                    + "registry is unreadable; restore the file before allowing placements.");
+            return;
+        }
         LocationKey key = LocationKey.from(location);
         BeaconRecord previous = records.get(key);
         if (previous != null) {
@@ -84,6 +92,9 @@ public final class BeaconPlusManager {
     }
 
     public synchronized void unregister(@Nonnull Location location) {
+        if (!registryHealthy) {
+            return;
+        }
         BeaconRecord record = records.remove(LocationKey.from(location));
         if (record != null) {
             releaseCoverage(record);
@@ -159,6 +170,9 @@ public final class BeaconPlusManager {
             @Nonnull UUID owner,
             @Nonnull BeaconPlusChunkMode chunkMode,
             @Nonnull BeaconPlusSupportMode supportMode) {
+        if (!registryHealthy) {
+            return false;
+        }
         LocationKey key = LocationKey.from(location);
         BeaconRecord previous = records.getOrDefault(
                 key, new BeaconRecord(key, owner, BeaconPlusChunkMode.OFF, BeaconPlusSupportMode.OFF));
@@ -208,6 +222,10 @@ public final class BeaconPlusManager {
 
     public synchronized int getLoadedChunkCount() {
         return ticketReferences.size();
+    }
+
+    public synchronized boolean isRegistryHealthy() {
+        return registryHealthy;
     }
 
     private boolean canActivate(BeaconRecord previous, BeaconRecord replacement) {
@@ -443,40 +461,59 @@ public final class BeaconPlusManager {
         data.setData(SUPPORT_MODE_KEY, record.supportMode().name());
     }
 
+    /** Parse the entire saved registry before modifying live state. */
+    private static Map<LocationKey, BeaconRecord> parseRegistry(Properties properties) {
+        Map<LocationKey, BeaconRecord> parsed = new HashMap<>();
+        for (String keyText : properties.stringPropertyNames()) {
+            LocationKey location = LocationKey.parse(keyText);
+            String[] parts = properties.getProperty(keyText, "").split(";", -1);
+            if (parts.length != 3) {
+                throw new IllegalArgumentException("Malformed saved beacon record at " + keyText);
+            }
+            BeaconRecord record = new BeaconRecord(location, UUID.fromString(parts[0]),
+                    BeaconPlusChunkMode.fromStored(parts[1]),
+                    BeaconPlusSupportMode.fromStored(parts[2]));
+            if (parsed.putIfAbsent(location, record) != null) {
+                throw new IllegalArgumentException("Duplicate Beacon Plus saved position " + keyText);
+            }
+        }
+        return parsed;
+    }
+
+    /** Pure parser contract for owner-preservation tests; never touches Bukkit. */
+    static int validatedRegistryEntryCount(Properties properties) {
+        return parseRegistry(properties).size();
+    }
+
     private void loadRegistry() {
         if (!Files.isRegularFile(registryPath)) {
+            if (Files.exists(registryPath)) {
+                registryHealthy = false;
+                plugin.getLogger().severe("Beacon Plus owner registry is not a regular file: "
+                        + registryPath + ". Refusing to overwrite it.");
+            }
             return;
         }
 
         Properties properties = new Properties();
         try (InputStream input = Files.newInputStream(registryPath)) {
             properties.load(input);
-        } catch (IOException exception) {
-            plugin.getLogger().log(Level.WARNING, "Could not read the Beacon Plus registry.", exception);
-            return;
-        }
-
-        for (String keyText : properties.stringPropertyNames()) {
-            try {
-                LocationKey location = LocationKey.parse(keyText);
-                String[] parts = properties.getProperty(keyText, "").split(";", -1);
-                if (parts.length < 3) {
-                    continue;
-                }
-                records.put(
-                        location,
-                        new BeaconRecord(
-                                location,
-                                UUID.fromString(parts[0]),
-                                BeaconPlusChunkMode.fromStored(parts[1]),
-                                BeaconPlusSupportMode.fromStored(parts[2])));
-            } catch (IllegalArgumentException exception) {
-                plugin.getLogger().warning("Ignored malformed Beacon Plus registry entry: " + keyText);
-            }
+            records.putAll(parseRegistry(properties));
+        } catch (IOException | IllegalArgumentException exception) {
+            records.clear();
+            registryHealthy = false;
+            plugin.getLogger().log(Level.SEVERE,
+                    "Could not safely load Beacon Plus saved owners/Activator selections from "
+                            + registryPath + ". Refusing placements, breaks and registry rewrites "
+                            + "until the original file is recovered.", exception);
         }
     }
 
     private synchronized void saveRegistry() {
+        if (!registryHealthy) {
+            plugin.getLogger().severe("Refusing to overwrite unreadable Beacon Plus owner registry.");
+            return;
+        }
         Properties properties = new Properties();
         for (BeaconRecord record : records.values()) {
             properties.setProperty(
