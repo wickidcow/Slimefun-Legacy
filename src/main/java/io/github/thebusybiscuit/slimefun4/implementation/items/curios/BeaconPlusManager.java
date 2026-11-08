@@ -185,7 +185,7 @@ public final class BeaconPlusManager {
 
     /** Applies the global admin switch without changing any beacon's saved Activator selection. */
     public synchronized void applyGlobalChunkLoadingState() {
-        if (!BeaconPlusChunkLoadingControl.isEnabled()) {
+        if (!BeaconPlusChunkLoadingControl.shouldHoldTickets()) {
             releaseAllChunkTickets();
             return;
         }
@@ -215,7 +215,7 @@ public final class BeaconPlusManager {
             return false;
         }
 
-        if (!BeaconPlusChunkLoadingControl.isEnabled()) {
+        if (!BeaconPlusChunkLoadingControl.shouldHoldTickets()) {
             Set<ChunkKey> configuredCoverage = new HashSet<>();
             for (BeaconRecord record : records.values()) {
                 if (!record.location().equals(replacement.location())) {
@@ -244,7 +244,7 @@ public final class BeaconPlusManager {
     }
 
     private void restoreTickets() {
-        if (!BeaconPlusChunkLoadingControl.isEnabled()) {
+        if (!BeaconPlusChunkLoadingControl.shouldHoldTickets()) {
             return;
         }
 
@@ -300,6 +300,13 @@ public final class BeaconPlusManager {
             return;
         }
 
+        // With ONLINE and no players there may intentionally be no tickets.
+        // An unloaded chunk is not evidence the beacon was removed: never
+        // erase a valid persisted registry entry because its chunk is dormant.
+        if (!world.isChunkLoaded(key.x() >> 4, key.z() >> 4)) {
+            return;
+        }
+
         Location location = key.toLocation(world);
         var data = StorageCacheUtils.getBlock(location);
         if (data == null) {
@@ -339,7 +346,7 @@ public final class BeaconPlusManager {
     }
 
     private void acquireCoverage(BeaconRecord record) {
-        if (!BeaconPlusChunkLoadingControl.isEnabled() || !record.chunkMode().isActive()) {
+        if (!BeaconPlusChunkLoadingControl.shouldHoldTickets() || !record.chunkMode().isActive()) {
             return;
         }
 
