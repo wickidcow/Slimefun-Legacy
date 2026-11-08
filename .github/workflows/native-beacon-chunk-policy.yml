@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        minecraft: ['1.21.11', '26.3']
+        minecraft: ['1.21.11', '26.2', '26.3']
     steps:
       - name: Checkout exact PR source
         uses: actions/checkout@v6
