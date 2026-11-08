@@ -58,27 +58,31 @@ final class BeaconPlusAdminCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        boolean desired;
+        BeaconPlusChunkLoadingPolicy requested;
         if (args[0].equalsIgnoreCase("enable")) {
-            desired = true;
+            requested = BeaconPlusChunkLoadingPolicy.ONLINE;
         } else if (args[0].equalsIgnoreCase("disable")) {
-            desired = false;
+            requested = BeaconPlusChunkLoadingPolicy.OFF;
+        } else if (args[0].equalsIgnoreCase("mode") && args.length == 2) {
+            try {
+                requested = BeaconPlusChunkLoadingPolicy.valueOf(args[1].toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException ex) {
+                message(sender, "&eUsage: /beacon mode <online|always|off>");
+                return true;
+            }
         } else {
-            message(sender, "&e" + "Usage: /beacon <enable|disable|status|perf>");
+            message(sender, "&eUsage: /beacon <enable|disable|mode|status|perf>");
             return true;
         }
 
-        boolean current = BeaconPlusChunkLoadingControl.isEnabled();
-        if (current == desired) {
-            message(sender, "&7" + "Resonance Beacon chunk loading is already " + colorState(desired)
-                    + BeaconPlusChunkLoadingControl.stateWord(desired) + "&7" + ".");
+        if (BeaconPlusChunkLoadingControl.getMode() == requested) {
+            message(sender, "&7Resonance Beacon chunk loading is already " + requested + ".");
             sendStatus(sender);
             return true;
         }
 
-        if (!BeaconPlusChunkLoadingControl.setEnabled(plugin, desired)) {
-            message(sender, 
-                    "&c" + "Could not save the Resonance Beacon chunk-loading setting. Check console.");
+        if (!BeaconPlusChunkLoadingControl.setMode(plugin, requested)) {
+            message(sender, "&cCould not save the Resonance Beacon chunk-loading mode. Check console.");
             return true;
         }
 
@@ -86,31 +90,26 @@ final class BeaconPlusAdminCommand implements CommandExecutor, TabCompleter {
         if (manager != null) {
             manager.applyGlobalChunkLoadingState();
         }
-
-        if (desired) {
-            message(sender, "&a" + "Resonance Beacon chunk loading ENABLED." + "&7"
-                    + " Configured Activators were restored within the global safety caps.");
-        } else {
-            message(sender, "&c" + "Resonance Beacon chunk loading DISABLED." + "&7"
-                    + " All Resonance Beacon chunk tickets were released; Activator selections were preserved.");
-        }
+        message(sender, "&aResonance Beacon policy is now " + requested
+                + "&7; existing beacon Activator selections are preserved.");
         sendStatus(sender);
         return true;
     }
 
     private void sendStatus(CommandSender sender) {
-        boolean enabled = BeaconPlusChunkLoadingControl.isEnabled();
+        BeaconPlusChunkLoadingPolicy mode = BeaconPlusChunkLoadingControl.getMode();
         BeaconPlusManager manager = BeaconPlusManager.getInstance();
-        message(sender, "&6" + "Resonance Beacon chunk loading: " + colorState(enabled)
-                + BeaconPlusChunkLoadingControl.stateWord(enabled));
+        message(sender, "&6Resonance Beacon chunk loading: &b" + mode.name());
+        message(sender, "&7Holding tickets now: "
+                + (BeaconPlusChunkLoadingControl.shouldHoldTickets() ? "&aYES" : "&cNO"));
         if (manager == null) {
-            message(sender, "&7" + "Beacon manager is still initializing.");
+            message(sender, "&7Beacon manager is still initializing.");
             return;
         }
-        message(sender, "&7" + "Configured Activator beacons: " + "&b"
-                + manager.getActiveBeaconCount() + "&8" + "/64");
-        message(sender, "&7" + "Currently ticketed chunks: " + "&b"
-                + manager.getLoadedChunkCount() + "&8" + "/256");
+        message(sender, "&7Configured Activator beacons: &b"
+                + manager.getActiveBeaconCount() + "&8/64");
+        message(sender, "&7Currently ticketed chunks: &b"
+                + manager.getLoadedChunkCount() + "&8/256");
     }
 
     private void sendPerformance(CommandSender sender, boolean reset) {
@@ -135,9 +134,14 @@ final class BeaconPlusAdminCommand implements CommandExecutor, TabCompleter {
         }
         if (args.length == 1) {
             String prefix = args[0].toLowerCase(Locale.ROOT);
-            return Stream.of("enable", "disable", "status", "perf")
+            return Stream.of("enable", "disable", "mode", "status", "perf")
                     .filter(value -> value.startsWith(prefix))
                     .toList();
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("mode")) {
+            String prefix = args[1].toLowerCase(Locale.ROOT);
+            return Stream.of("online", "always", "off")
+                    .filter(value -> value.startsWith(prefix)).toList();
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("perf")) {
             String prefix = args[1].toLowerCase(Locale.ROOT);
