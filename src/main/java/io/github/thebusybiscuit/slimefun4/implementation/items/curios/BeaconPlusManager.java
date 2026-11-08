@@ -8,6 +8,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
@@ -470,6 +471,14 @@ public final class BeaconPlusManager {
             if (parts.length != 3) {
                 throw new IllegalArgumentException("Malformed saved beacon record at " + keyText);
             }
+            String savedChunkMode = parts[1].trim().toUpperCase(Locale.ROOT);
+            if (!savedChunkMode.equals("KEEP_CHUNK_LOADED") && !savedChunkMode.equals("CHUNK_ACTIVATOR")) {
+                // fromStored is intentionally permissive for incomplete block
+                // data, but the OWNER REGISTRY must never turn an unknown
+                // newer saved mode into OFF and overwrite it during shutdown.
+                BeaconPlusChunkMode.valueOf(savedChunkMode);
+            }
+            BeaconPlusSupportMode.valueOf(parts[2].trim().toUpperCase(Locale.ROOT));
             BeaconRecord record = new BeaconRecord(location, UUID.fromString(parts[0]),
                     BeaconPlusChunkMode.fromStored(parts[1]),
                     BeaconPlusSupportMode.fromStored(parts[2]));
