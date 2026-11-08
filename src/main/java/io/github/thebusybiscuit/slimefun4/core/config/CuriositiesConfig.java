@@ -183,7 +183,7 @@ public final class CuriositiesConfig {
      * An existing false selection becomes OFF; every other existing server
      * receives the safer ONLINE policy rather than retaining offline tickets.
      */
-    private String writeBeaconChunkLoadingGuide(@Nonnull String contents) {
+    static String writeBeaconChunkLoadingGuide(@Nonnull String contents) {
         if (java.util.regex.Pattern.compile("(?m)^    chunk-loading-mode\\s*:")
                 .matcher(contents)
                 .find()) {
