@@ -253,7 +253,6 @@ public final class BeaconPlusManager {
             return;
         }
 
-        boolean changed = false;
         int restoredActive = 0;
 
         for (Map.Entry<LocationKey, BeaconRecord> entry : new HashMap<>(records).entrySet()) {
@@ -267,14 +266,15 @@ public final class BeaconPlusManager {
                     .filter(key -> !ticketReferences.containsKey(key))
                     .count();
             if (restoredActive >= MAX_ACTIVE_BEACONS || ticketReferences.size() + newChunks > MAX_UNIQUE_CHUNKS) {
-                records.put(
-                        entry.getKey(),
-                        new BeaconRecord(
-                                record.location(), record.owner(), BeaconPlusChunkMode.OFF, record.supportMode()));
+                // Limits apply to the LIVE ticket set, never to saved player
+                // purchases or configured Activator coverage. An overloaded
+                // server may have older beacon data or a changed safety cap;
+                // overwriting its chunk mode to OFF would permanently erase
+                // valid owner settings across every later restart.
                 plugin.getLogger()
                         .warning("Resonance Beacon at " + record.location().describe()
-                                + " restored with Activator disabled because the global safety cap was reached.");
-                changed = true;
+                                + " has no restored Activator tickets because the runtime safety cap was reached. "
+                                + "Its saved chunk mode and owner remain unchanged.");
                 continue;
             }
 
@@ -282,9 +282,6 @@ public final class BeaconPlusManager {
             restoredActive++;
         }
 
-        if (changed) {
-            saveRegistry();
-        }
     }
 
     private void scheduleValidation() {
