@@ -65,13 +65,13 @@ final class AdventurersToolsSetup {
                         RecipeType.ENHANCED_CRAFTING_TABLE,
                         new ItemStack[] {
                             SlimefunItems.SYNTHETIC_EMERALD,
-                            new ItemStack(Material.DIAMOND_PICKAXE),
+                            new ItemStack(Material.DIAMOND_SHOVEL),
                             SlimefunItems.SYNTHETIC_EMERALD,
                             SlimefunItems.REINFORCED_ALLOY_INGOT,
                             new ItemStack(Material.DIAMOND_AXE),
                             SlimefunItems.REINFORCED_ALLOY_INGOT,
                             SlimefunItems.SYNTHETIC_DIAMOND,
-                            new ItemStack(Material.DIAMOND_SHOVEL),
+                            new ItemStack(Material.DIAMOND_PICKAXE),
                             SlimefunItems.SYNTHETIC_DIAMOND
                         })
                 .register(plugin);
