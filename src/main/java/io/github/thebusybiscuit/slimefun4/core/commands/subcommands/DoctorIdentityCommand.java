@@ -1,7 +1,8 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
+import java.util.Objects;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import javax.annotation.Nonnull;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -35,35 +36,54 @@ final class DoctorIdentityCommand {
             return;
         }
 
-        ItemStack mainCopy = main.clone();
-        ItemStack offCopy = off.clone();
-        mainCopy.setAmount(1);
-        offCopy.setAmount(1);
         SlimefunItem mainItem = SlimefunItem.getByItem(main);
         SlimefunItem offItem = SlimefunItem.getByItem(off);
         String mainId = mainItem == null ? "(unregistered)" : mainItem.getId();
         String offId = offItem == null ? "(unregistered)" : offItem.getId();
+        Comparison comparison = inspect(main, off);
 
-        ItemMeta mainMeta = mainCopy.getItemMeta();
-        ItemMeta offMeta = offCopy.getItemMeta();
         send(sender, "&6Slimefun Item Identity Doctor &8(read-only)");
         send(sender, "&7Main ID: &e" + mainId + " &8| &7Offhand ID: &e" + offId);
-        send(sender, "&7Material: " + flag(mainCopy.getType() == offCopy.getType()));
-        send(sender, "&7Actual stack compatibility: " + flag(mainCopy.isSimilar(offCopy)));
-        send(sender, "&7Display name: " + flag(
-                mainMeta == null ? offMeta == null
-                        : offMeta != null && java.util.Objects.equals(mainMeta.displayName(), offMeta.displayName())));
-        send(sender, "&7Adventure lore: " + flag(
-                mainMeta == null ? offMeta == null
-                        : offMeta != null && java.util.Objects.equals(mainMeta.lore(), offMeta.lore())));
-        send(sender, "&7Full Bukkit item metadata: " + flag(java.util.Objects.equals(mainMeta, offMeta)));
+        send(sender, "&7Material: " + flag(comparison.materialSame()));
+        send(sender, "&7Actual stack compatibility: " + flag(comparison.isSimilar()));
+        send(sender, "&7Display name: " + flag(comparison.displayNameSame()));
+        send(sender, "&7Adventure lore: " + flag(comparison.loreSame()));
+        send(sender, "&7Full Bukkit item metadata: " + flag(comparison.itemMetaSame()));
         send(sender, "&7Effective max stack size: &e" + main.getMaxStackSize()
                 + " &8/ &e" + off.getMaxStackSize());
-        if (!mainCopy.isSimilar(offCopy)) {
+        if (!comparison.isSimilar()) {
             send(sender, "&eMismatch confirmed. No item was modified; inspect producer metadata before repair.");
         }
         send(sender, "&8This compares actual held items, not all possible crafting/machine sources.");
     }
+
+    /**
+     * Compare one-item copies without normalizing Adventure components or changing inputs.
+     * Quantity differences alone must never produce a false identity mismatch.
+     */
+    static Comparison inspect(@Nonnull ItemStack main, @Nonnull ItemStack off) {
+        ItemStack mainCopy = main.clone();
+        ItemStack offCopy = off.clone();
+        mainCopy.setAmount(1);
+        offCopy.setAmount(1);
+        ItemMeta mainMeta = mainCopy.getItemMeta();
+        ItemMeta offMeta = offCopy.getItemMeta();
+        return new Comparison(
+                mainCopy.getType() == offCopy.getType(),
+                mainCopy.isSimilar(offCopy),
+                mainMeta == null ? offMeta == null
+                        : offMeta != null && Objects.equals(mainMeta.displayName(), offMeta.displayName()),
+                mainMeta == null ? offMeta == null
+                        : offMeta != null && Objects.equals(mainMeta.lore(), offMeta.lore()),
+                Objects.equals(mainMeta, offMeta));
+    }
+
+    record Comparison(
+            boolean materialSame,
+            boolean isSimilar,
+            boolean displayNameSame,
+            boolean loreSame,
+            boolean itemMetaSame) {}
 
     private static String flag(boolean equal) {
         return equal ? "&aMATCH" : "&cDIFFERENT";
