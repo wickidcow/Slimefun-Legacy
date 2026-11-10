@@ -3,9 +3,9 @@ package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import java.util.Objects;
 import java.util.Set;
-import org.bukkit.NamespacedKey;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import javax.annotation.Nonnull;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.bukkit.NamespacedKey;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -97,10 +97,20 @@ final class DoctorIdentityCommand {
         return meta == null ? Set.of() : Set.copyOf(meta.getPersistentDataContainer().getKeys());
     }
 
-    @SuppressWarnings("deprecation")
     private static Object modelData(ItemMeta meta) {
-        return meta == null || !meta.hasCustomModelData() ? null : meta.getCustomModelData();
+        if (meta == null || !meta.hasCustomModelData()) {
+            return null;
+        }
+        var component = meta.getCustomModelDataComponent();
+        return new ModelData(
+                component.getFloats(), component.getFlags(), component.getStrings(), component.getColors());
     }
+
+    private record ModelData(
+            java.util.List<Float> floats,
+            java.util.List<Boolean> flags,
+            java.util.List<String> strings,
+            java.util.List<org.bukkit.Color> colors) {}
 
     private static String flag(boolean equal) {
         return equal ? "&aMATCH" : "&cDIFFERENT";
