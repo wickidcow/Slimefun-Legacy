@@ -81,7 +81,7 @@ final class DoctorIdentityCommand {
                         : offMeta != null && Objects.equals(mainMeta.lore(), offMeta.lore()),
                 Objects.equals(mainMeta, offMeta),
                 pdcKeys(mainMeta).equals(pdcKeys(offMeta)),
-                modelData(mainMeta).equals(modelData(offMeta)));
+                Objects.equals(modelData(mainMeta), modelData(offMeta)));
     }
 
     record Comparison(
