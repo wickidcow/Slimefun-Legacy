@@ -1,6 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
-import io.github.bakedlibs.dough.common.ChatColors;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import javax.annotation.Nonnull;
 import org.bukkit.command.CommandSender;
@@ -70,6 +70,6 @@ final class DoctorIdentityCommand {
     }
 
     private static void send(CommandSender sender, String message) {
-        sender.sendMessage(ChatColors.color(message));
+        sender.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(message));
     }
 }
