@@ -112,12 +112,19 @@ class TestDoctorIdentityCommand {
     }
 
     @Test
-    @SuppressWarnings("deprecation")
     void customModelDataDifferenceIsReportedWithoutChangingInputs() {
         ItemStack cheat = uranium();
         ItemStack produced = uranium();
-        cheat.editMeta(meta -> meta.setCustomModelData(2200094));
-        produced.editMeta(meta -> meta.setCustomModelData(2200095));
+        cheat.editMeta(meta -> {
+            var component = meta.getCustomModelDataComponent();
+            component.setFloats(java.util.List.of(2200094.0F));
+            meta.setCustomModelDataComponent(component);
+        });
+        produced.editMeta(meta -> {
+            var component = meta.getCustomModelDataComponent();
+            component.setFloats(java.util.List.of(2200095.0F));
+            meta.setCustomModelDataComponent(component);
+        });
         ItemStack before = produced.clone();
 
         var result = DoctorIdentityCommand.inspect(cheat, produced);
