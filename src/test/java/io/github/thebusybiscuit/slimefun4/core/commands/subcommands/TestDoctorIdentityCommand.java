@@ -93,5 +93,38 @@ class TestDoctorIdentityCommand {
         assertTrue(result.displayNameSame());
         assertTrue(result.loreSame());
         assertFalse(result.itemMetaSame());
+        assertFalse(result.pdcKeysSame());
+        assertTrue(result.customModelDataSame());
+    }
+
+    @Test
+    void differentPdcValueWithSameKeysIsNotMistakenForKeySetDifference() {
+        ItemStack cheat = uranium();
+        ItemStack produced = uranium();
+        produced.editMeta(meta -> meta.getPersistentDataContainer()
+                .set(new NamespacedKey("slimefun", "slimefun_item"), PersistentDataType.STRING, "OTHER_ID"));
+
+        var result = DoctorIdentityCommand.inspect(cheat, produced);
+
+        assertFalse(result.isSimilar());
+        assertTrue(result.pdcKeysSame());
+        assertFalse(result.itemMetaSame());
+    }
+
+    @Test
+    @SuppressWarnings("deprecation")
+    void customModelDataDifferenceIsReportedWithoutChangingInputs() {
+        ItemStack cheat = uranium();
+        ItemStack produced = uranium();
+        cheat.editMeta(meta -> meta.setCustomModelData(2200094));
+        produced.editMeta(meta -> meta.setCustomModelData(2200095));
+        ItemStack before = produced.clone();
+
+        var result = DoctorIdentityCommand.inspect(cheat, produced);
+
+        assertFalse(result.isSimilar());
+        assertFalse(result.customModelDataSame());
+        assertTrue(result.pdcKeysSame());
+        assertEquals(before, produced);
     }
 }
