@@ -2,6 +2,8 @@ package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import java.util.Objects;
+import java.util.Set;
+import org.bukkit.NamespacedKey;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import javax.annotation.Nonnull;
 import org.bukkit.command.CommandSender;
@@ -49,6 +51,8 @@ final class DoctorIdentityCommand {
         send(sender, "&7Display name: " + flag(comparison.displayNameSame()));
         send(sender, "&7Adventure lore: " + flag(comparison.loreSame()));
         send(sender, "&7Full Bukkit item metadata: " + flag(comparison.itemMetaSame()));
+        send(sender, "&7PDC key set: " + flag(comparison.pdcKeysSame()));
+        send(sender, "&7Custom model data: " + flag(comparison.customModelDataSame()));
         send(sender, "&7Effective max stack size: &e" + main.getMaxStackSize()
                 + " &8/ &e" + off.getMaxStackSize());
         if (!comparison.isSimilar()) {
@@ -75,7 +79,9 @@ final class DoctorIdentityCommand {
                         : offMeta != null && Objects.equals(mainMeta.displayName(), offMeta.displayName()),
                 mainMeta == null ? offMeta == null
                         : offMeta != null && Objects.equals(mainMeta.lore(), offMeta.lore()),
-                Objects.equals(mainMeta, offMeta));
+                Objects.equals(mainMeta, offMeta),
+                pdcKeys(mainMeta).equals(pdcKeys(offMeta)),
+                modelData(mainMeta).equals(modelData(offMeta)));
     }
 
     record Comparison(
@@ -83,7 +89,18 @@ final class DoctorIdentityCommand {
             boolean isSimilar,
             boolean displayNameSame,
             boolean loreSame,
-            boolean itemMetaSame) {}
+            boolean itemMetaSame,
+            boolean pdcKeysSame,
+            boolean customModelDataSame) {}
+
+    private static Set<NamespacedKey> pdcKeys(ItemMeta meta) {
+        return meta == null ? Set.of() : Set.copyOf(meta.getPersistentDataContainer().getKeys());
+    }
+
+    @SuppressWarnings("deprecation")
+    private static Object modelData(ItemMeta meta) {
+        return meta == null || !meta.hasCustomModelData() ? null : meta.getCustomModelData();
+    }
 
     private static String flag(boolean equal) {
         return equal ? "&aMATCH" : "&cDIFFERENT";
