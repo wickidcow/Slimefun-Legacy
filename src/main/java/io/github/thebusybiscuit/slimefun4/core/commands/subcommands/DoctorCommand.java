@@ -37,7 +37,6 @@ import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorRepo
 import io.github.thebusybiscuit.slimefun4.core.services.stability.ItemDoctorService;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.MachineFailureSnapshot;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
