@@ -12,6 +12,7 @@ PRODUCERS = ("cheat", "crafting", "machine", "cargo", "storage_restart", "unclas
 STATUSES = ("PASS", "FAIL", "UNTESTED", "NOT_APPLICABLE", "BLOCKED")
 ENDER_PHASES = tuple("player-identity-ender-" + stage for stage in ("seed", "retire", "join", "restart"))
 
+BACKPACK_PHASES = tuple("player-identity-backpack-" + stage for stage in ("saved", "opened", "restart"))
 
 def attach_native_evidence(report, evidence, captures):
     """Record narrowly defined executed cases without promoting whole producer categories."""
@@ -28,7 +29,7 @@ def attach_native_evidence(report, evidence, captures):
     if evidence.get("connected_player_checks") is not True:
         raise ValueError("Missing connected-player scope")
     phases = evidence.get("phases", {})
-    for phase in ("player-identity-give", "player-identity-craft", "identity-output-restart") + ENDER_PHASES:
+    for phase in ("player-identity-give", "player-identity-craft", "identity-output-restart") + ENDER_PHASES + BACKPACK_PHASES:
         expected = "RESOURCE_PACK_DOCTOR_PROBE_PASS " + phase + " | " + report["runtime"]["server_version"]
         if phases.get(phase) != expected:
             raise ValueError("Missing or wrong-runtime native phase: " + phase)
@@ -43,7 +44,8 @@ def attach_native_evidence(report, evidence, captures):
              for item in ("SMALL_URANIUM", "COPPER_DUST", "CARBONADO")]
     cases += [("COPPER_WIRE", "enhanced_crafting_handler_given_ingredients", "player-identity-craft"),
               ("COPPER_WIRE", "native_item_bytes_process_restart", "identity-output-restart"),
-              ("COPPER_WIRE", "player_ender_chest_reconnect_and_restart", "player-identity-ender-restart")]
+              ("COPPER_WIRE", "player_ender_chest_reconnect_and_restart", "player-identity-ender-restart"),
+              ("COPPER_WIRE", "backpack_database_save_and_restart", "player-identity-backpack-restart")]
     for item, case, phase in cases:
         if item not in items:
             raise ValueError("Evidence item missing from registry: " + item)
@@ -51,7 +53,8 @@ def attach_native_evidence(report, evidence, captures):
         result["actual_cases"].append({
             **{key: row[key] for key in ("item_id", "plugin", "plugin_version")},
             "case": case, "status": "PASS", "phase": phase,
-            "required_phases": list(ENDER_PHASES) if phase == "player-identity-ender-restart" else [phase],
+            "required_phases": (list(ENDER_PHASES) if phase == "player-identity-ender-restart" else
+                                list(BACKPACK_PHASES) if phase == "player-identity-backpack-restart" else [phase]),
             "captured_sha256": hashes if item == "COPPER_WIRE" else {},
             "scope": "Specific fixture only; broad producer rows remain UNTESTED"})
     result["actual_case_counts"]["PASS"] = len(cases)
