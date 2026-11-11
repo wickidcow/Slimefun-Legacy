@@ -5,6 +5,7 @@ import static io.github.wickidcow.validation.ResourcePackDoctorProbe.require;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataScope;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.FieldKey;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerBackpack;
+import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.nio.file.Files;
 import java.util.Arrays;
@@ -126,6 +127,7 @@ final class ResourcePackPlayerProbe implements Listener {
         }
         later(player, 1L, () -> {
             switch (action) {
+                case "player-identity-give" -> verifyGiveOutput(player);
                 case "player-seed" -> {
                     require(stage.equals("seed"), "Player seed requested after authorization");
                     player.getInventory().clear();
@@ -147,6 +149,45 @@ final class ResourcePackPlayerProbe implements Listener {
             }
         });
         return true;
+    }
+
+    private void verifyGiveOutput(Player player) throws Exception {
+        require(stage.equals("seed"), "Give probe requested outside disposable seed phase");
+        var permission = player.addAttachment(plugin, "slimefun.cheat.items", true);
+        try {
+            for (String id : java.util.List.of("SMALL_URANIUM", "COPPER_DUST", "CARBONADO")) {
+                owned(player);
+                SlimefunItem registered = SlimefunItem.getById(id);
+                require(registered != null, "Missing give fixture: " + id);
+                ItemStack template = registered.getItem();
+                byte[] before = template.serializeAsBytes();
+                player.getInventory().clear();
+                require(player.performCommand("sf give " + NAME + " " + id + " 17"), "Give command rejected");
+                verifyGivenStack(player, template, 17);
+                require(player.performCommand("sf give " + NAME + " " + id + " 31"), "Second give rejected");
+                verifyGivenStack(player, template, 48);
+                require(Arrays.equals(before, template.serializeAsBytes()), "Give mutated template: " + id);
+                plugin.getLogger().info("IDENTITY_ACTUAL_GIVE_PASS " + id
+                        + " amounts=17+31 merged=48 runtime=" + Bukkit.getVersion());
+            }
+        } finally {
+            player.removeAttachment(permission);
+            player.getInventory().clear();
+        }
+        // This proves only the give command for these three items on connected-player runtimes.
+        // It does not promote cheat-menu, recipe, machine, cargo or restart coverage.
+        plugin.pass("player-identity-give");
+    }
+
+    private void verifyGivenStack(Player player, ItemStack template, int amount) {
+        var stacks = Arrays.stream(player.getInventory().getStorageContents())
+                .filter(item -> item != null && !item.getType().isAir())
+                .toList();
+        require(stacks.size() == 1, "Give output did not form exactly one stack");
+        ItemStack actual = stacks.getFirst();
+        require(actual.getAmount() == amount, "Give output lost or duplicated items");
+        require(template.isSimilar(actual) && actual.isSimilar(template), "Give output differs from template");
+        require(template.getItemMeta().equals(actual.getItemMeta()), "Give metadata differs from template");
     }
 
     private void disconnectBeforeCleanup(Player player) {

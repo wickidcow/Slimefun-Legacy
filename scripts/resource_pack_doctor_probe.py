@@ -209,6 +209,7 @@ def main() -> None:
         probe(process, 1, "prepare")
         if args.protocol_module:
             client, client_log = connect_player(process, 1, "seed")
+            probe(process, 1, "player-identity-give")
             probe(process, 1, "player-seed")
             disconnect_player(client, client_log, process, 1)
         command(process, "sf doctor resource-pack install scan")
