@@ -24,6 +24,34 @@ final class ItemIdentityProbe {
 
     private ItemIdentityProbe() {}
 
+    static void verifyOutputRestart(Path folder) throws Exception {
+        // Missing or unreadable captured outputs must fail, never fall back to registered templates.
+        byte[] craftedBytes = Files.readAllBytes(folder.resolve("identity-crafted-wire.bin"));
+        byte[] givenBytes = Files.readAllBytes(folder.resolve("identity-given-wire.bin"));
+        ItemStack crafted = ItemStack.deserializeBytes(craftedBytes);
+        ItemStack given = ItemStack.deserializeBytes(givenBytes);
+        var registered = SlimefunItem.getById("COPPER_WIRE");
+        require(registered != null, "missing wire registration after restart");
+        ItemStack template = registered.getItem();
+        byte[] before = template.serializeAsBytes();
+        require(crafted.getAmount() == 8 && given.getAmount() == 8, "persisted actual output quantities");
+        require(crafted.isSimilar(given) && given.isSimilar(crafted), "persisted craft/give identity");
+        require(template.isSimilar(crafted) && crafted.isSimilar(template)
+                        && template.getItemMeta().equals(crafted.getItemMeta()),
+                "persisted crafted output differs from current template");
+        require(flag(inspect(crafted, given), "isSimilar"), "doctor persisted producer identity");
+        var inventory = Bukkit.createInventory(null, 9);
+        require(inventory.addItem(crafted, given).isEmpty(), "persisted outputs overflowed");
+        var stacks = Arrays.stream(inventory.getContents())
+                .filter(item -> item != null && !item.getType().isAir()).toList();
+        require(stacks.size() == 1 && stacks.getFirst().getAmount() == 16,
+                "persisted actual outputs did not merge without loss/duplication");
+        require(Arrays.equals(before, template.serializeAsBytes()), "restart mutated wire template");
+        require(Arrays.equals(craftedBytes, Files.readAllBytes(folder.resolve("identity-crafted-wire.bin")))
+                        && Arrays.equals(givenBytes, Files.readAllBytes(folder.resolve("identity-given-wire.bin"))),
+                "restart verification rewrote saved producer evidence");
+    }
+
     static void verify(Path folder, boolean restart) throws Exception {
         ItemStack reference = fixture();
         if (restart) {
