@@ -36,6 +36,9 @@ final class ResourcePackPlayerProbe implements Listener {
     private boolean cancelPickup;
     private volatile boolean disconnectedWorkSettled;
     private String stage;
+    private boolean craftProbeActive;
+    private boolean cancelCraft;
+    private int craftEvents;
 
     ResourcePackPlayerProbe(ResourcePackDoctorProbe plugin) {
         this.plugin = plugin;
@@ -218,8 +221,27 @@ final class ResourcePackPlayerProbe implements Listener {
             player.getInventory().clear();
             // Invoke the real production handler, including matching, event, consumption and output service.
             // This does not simulate or claim network right-click/multiblock discovery coverage.
-            ((io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.EnhancedCraftingTable) machine)
-                    .onInteract(player, tableBlock);
+            var table = (io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.EnhancedCraftingTable) machine;
+            craftProbeActive = true;
+            craftEvents = 0;
+            ItemStack middle = inventory.getItem(4);
+            inventory.setItem(4, null);
+            byte[][] incomplete = inventoryBytes(inventory);
+            table.onInteract(player, tableBlock);
+            require(craftEvents == 0, "Incomplete recipe emitted a craft event");
+            require(Arrays.deepEquals(incomplete, inventoryBytes(inventory)),
+                    "Incomplete recipe consumed or produced items");
+            inventory.setItem(4, middle);
+            byte[][] complete = inventoryBytes(inventory);
+            cancelCraft = true;
+            table.onInteract(player, tableBlock);
+            require(craftEvents == 1, "Cancelled craft did not reach the native event");
+            require(Arrays.deepEquals(complete, inventoryBytes(inventory)),
+                    "Cancelled craft consumed or produced items");
+            require(player.getInventory().isEmpty(), "Rejected craft leaked output to player");
+            cancelCraft = false;
+            table.onInteract(player, tableBlock);
+            require(craftEvents == 2, "Successful craft did not reach the native event");
             var outputs = Arrays.stream(inventory.getContents())
                     .filter(item -> item != null && !item.getType().isAir()).toList();
             require(outputs.size() == 1, "Craft left ingredients or unexpected outputs");
@@ -235,6 +257,8 @@ final class ResourcePackPlayerProbe implements Listener {
                             && Arrays.equals(copperBefore, copper.getItem().serializeAsBytes()),
                     "Craft mutated registered template");
         } finally {
+            craftProbeActive = false;
+            cancelCraft = false;
             dispenserBlock.setType(org.bukkit.Material.AIR);
             tableBlock.setType(org.bukkit.Material.AIR);
             player.getInventory().clear();
@@ -242,6 +266,29 @@ final class ResourcePackPlayerProbe implements Listener {
             if (!researched) profile.setResearched(research, false);
         }
         plugin.pass("player-identity-craft");
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onIdentityCraft(io.github.thebusybiscuit.slimefun4.api.events.MultiBlockCraftEvent event) {
+        if (!craftProbeActive || !NAME.equals(event.getPlayer().getName())) return;
+        try {
+            owned(event.getPlayer());
+            require("ENHANCED_CRAFTING_TABLE".equals(event.getMachine().getId()), "Unexpected craft machine");
+            require(SlimefunItem.getById("COPPER_WIRE").getItem().isSimilar(event.getOutput())
+                            && event.getOutput().getAmount() == 8, "Unexpected craft event output");
+            require(!event.isCancelled(), "Craft was cancelled before probe control");
+            craftEvents++;
+            if (cancelCraft) event.setCancelled(true);
+        } catch (Throwable failure) {
+            event.setCancelled(true);
+            plugin.fail(failure);
+        }
+    }
+
+    private byte[][] inventoryBytes(org.bukkit.inventory.Inventory inventory) {
+        return Arrays.stream(inventory.getContents())
+                .map(item -> item == null ? null : item.serializeAsBytes())
+                .toArray(byte[][]::new);
     }
 
     private void verifyGivenStack(Player player, ItemStack template, int amount) {
