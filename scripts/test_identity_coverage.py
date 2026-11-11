@@ -65,23 +65,23 @@ class NativeEvidenceTest(unittest.TestCase):
         self.attach = attach_native_evidence
         registry = {"schema": 1, "software": "Paper", "minecraft": "26.2", "server_version": "26.2-129",
                     "items": [{"item_id": item, "plugin": "Slimefun", "plugin_version": "test"}
-                              for item in ("SMALL_URANIUM", "COPPER_DUST", "CARBONADO", "COPPER_WIRE")]}
+                              for item in ("SMALL_URANIUM", "COPPER_DUST", "CARBONADO", "COPPER_WIRE", "CARBON")]}
         self.report = build_report(registry, "a" * 40, "b" * 64, "c" * 64)
         self.evidence = {"result": "PASS", "boots": 3, "connected_player_checks": True,
                          "core_sha256": "b" * 64, "server_sha256": "c" * 64,
                          "phases": {phase: "RESOURCE_PACK_DOCTOR_PROBE_PASS " + phase + " | 26.2-129"
-                                    for phase in ("player-identity-give", "player-identity-craft",
+                                    for phase in ("player-identity-give", "player-identity-craft", "player-identity-compressor",
                                                   "identity-output-restart") + ENDER_PHASES + BACKPACK_PHASES}}
         self.captures = {"identity-crafted-wire.bin": b"crafted", "identity-given-wire.bin": b"given"}
 
     def test_specific_cases_do_not_promote_broad_coverage_or_mutate_input(self):
         before = copy.deepcopy(self.report)
         result = self.attach(self.report, self.evidence, self.captures)
-        self.assertEqual(8, result["actual_case_counts"]["PASS"])
+        self.assertEqual(9, result["actual_case_counts"]["PASS"])
         self.assertEqual(0, result["counts"]["PASS"])
         self.assertEqual(before, self.report)
         self.assertEqual(before["rows"], result["rows"])
-        self.assertEqual(64, len(result["actual_cases"][-1]["captured_sha256"]["identity-crafted-wire.bin"]))
+        self.assertEqual(64, len(result["actual_cases"][-2]["captured_sha256"]["identity-crafted-wire.bin"]))
 
     def test_wrong_source_artifacts_and_runtime_rejected(self):
         for key in ("core_sha256", "server_sha256"):
@@ -95,7 +95,7 @@ class NativeEvidenceTest(unittest.TestCase):
 
     def test_ender_storage_requires_all_stages_from_same_runtime(self):
         result = self.attach(self.report, self.evidence, self.captures)
-        storage = result["actual_cases"][-3]
+        storage = result["actual_cases"][-4]
         self.assertEqual("player_ender_chest_reconnect_and_restart", storage["case"])
         self.assertEqual(list(ENDER_PHASES), storage["required_phases"])
         for phase in ENDER_PHASES:
@@ -106,7 +106,7 @@ class NativeEvidenceTest(unittest.TestCase):
 
     def test_backpack_storage_requires_all_stages_from_same_runtime(self):
         result = self.attach(self.report, self.evidence, self.captures)
-        storage = result["actual_cases"][-2]
+        storage = result["actual_cases"][-3]
         self.assertEqual("backpack_database_save_and_restart", storage["case"])
         self.assertEqual(list(BACKPACK_PHASES), storage["required_phases"])
         for phase in BACKPACK_PHASES:
@@ -117,11 +117,19 @@ class NativeEvidenceTest(unittest.TestCase):
 
     def test_loaded_backpack_case_requires_restart_and_load_receipts(self):
         result = self.attach(self.report, self.evidence, self.captures)
-        loaded = result["actual_cases"][-1]
+        loaded = result["actual_cases"][-2]
         self.assertEqual("backpack_public_api_reload_after_restart", loaded["case"])
         self.assertEqual(list(BACKPACK_PHASES), loaded["required_phases"])
         self.assertIn("player-identity-backpack-restart", loaded["required_phases"])
         self.assertIn("player-identity-backpack-loaded", loaded["required_phases"])
+
+    def test_compressor_case_is_separate_from_wire_storage(self):
+        result = self.attach(self.report, self.evidence, self.captures)
+        compressor = result["actual_cases"][-1]
+        self.assertEqual("CARBON", compressor["item_id"])
+        self.assertEqual("compressor_handler_coal_blocks_delayed_output", compressor["case"])
+        self.assertEqual(["player-identity-compressor"], compressor["required_phases"])
+        self.assertEqual({}, compressor["captured_sha256"])
 
     def test_missing_phase_capture_or_registry_item_rejected(self):
         for phase in self.evidence["phases"]:

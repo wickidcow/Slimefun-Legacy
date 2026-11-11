@@ -138,6 +138,7 @@ final class ResourcePackPlayerProbe implements Listener {
             switch (action) {
                 case "player-identity-give" -> verifyGiveOutput(player);
                 case "player-identity-craft" -> verifyCraftOutput(player);
+                case "player-identity-compressor" -> verifyCompressorOutput(player);
                 case "player-seed" -> {
                     require(stage.equals("seed"), "Player seed requested after authorization");
                     require(craftedForStorage != null && givenForStorage != null,
@@ -192,6 +193,65 @@ final class ResourcePackPlayerProbe implements Listener {
         // This proves only the give command for these three items on connected-player runtimes.
         // It does not promote cheat-menu, recipe, machine, cargo or restart coverage.
         plugin.pass("player-identity-give");
+    }
+
+    private void verifyCompressorOutput(Player player) throws Exception {
+        require(stage.equals("seed"), "Compressor probe outside disposable seed phase");
+        owned(player);
+        var carbon = SlimefunItem.getById("CARBON");
+        var machine = SlimefunItem.getById("COMPRESSOR");
+        require(carbon != null && machine instanceof io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.Compressor,
+                "Missing compressor fixture registrations");
+        byte[] templateBefore = carbon.getItem().serializeAsBytes();
+        var dispenser = player.getLocation().getBlock().getRelative(0, 3, 0);
+        var fence = dispenser.getRelative(0, 1, 0);
+        require(Bukkit.isOwnedByCurrentRegion(dispenser) && Bukkit.isOwnedByCurrentRegion(fence),
+                "Compressor fixture outside player region");
+        require(dispenser.getType().isAir() && fence.getType().isAir(), "Compressor fixture space occupied");
+        dispenser.setType(org.bukkit.Material.DISPENSER);
+        fence.setType(org.bukkit.Material.NETHER_BRICK_FENCE);
+        var inventory = ((org.bukkit.block.Dispenser) dispenser.getState(false)).getInventory();
+        try {
+            inventory.setItem(0, new ItemStack(org.bukkit.Material.COAL_BLOCK, 8));
+            player.getInventory().clear();
+            // Real production handler and delayed output service; not multiblock discovery/network interaction.
+            ((io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.Compressor) machine)
+                    .onInteract(player, fence);
+            require(inventory.isEmpty(), "Compressor did not consume exactly eight coal blocks");
+            later(player, 100L, () -> {
+                var permission = player.addAttachment(plugin, "slimefun.cheat.items", true);
+                try {
+                    require(Bukkit.isOwnedByCurrentRegion(dispenser), "Compressor completion outside player region");
+                    var outputs = Arrays.stream(inventory.getContents())
+                            .filter(item -> item != null && !item.getType().isAir()).toList();
+                    require(outputs.size() == 1, "Compressor left unexpected outputs");
+                    ItemStack actual = outputs.getFirst();
+                    require(actual.getAmount() == 9 && actual.isSimilar(carbon.getItem())
+                                    && carbon.getItem().isSimilar(actual), "Compressor output identity/quantity");
+                    require(player.getInventory().isEmpty(), "Compressor leaked output to player");
+                    require(player.performCommand("sf give " + NAME + " CARBON 9"), "Carbon reference give rejected");
+                    verifyGivenStack(player, carbon.getItem(), 9);
+                    var given = player.getInventory().getItem(0);
+                    require(actual.isSimilar(given) && given.isSimilar(actual)
+                                    && actual.getItemMeta().equals(given.getItemMeta()), "Compressor/give metadata mismatch");
+                    inventory.clear();
+                    require(player.getInventory().addItem(actual).isEmpty(), "Compressor/give merge overflow");
+                    verifyGivenStack(player, carbon.getItem(), 18);
+                    require(Arrays.equals(templateBefore, carbon.getItem().serializeAsBytes()),
+                            "Compressor mutated registered Carbon template");
+                    plugin.pass("player-identity-compressor");
+                } finally {
+                    player.removeAttachment(permission);
+                    player.getInventory().clear();
+                    dispenser.setType(org.bukkit.Material.AIR);
+                    fence.setType(org.bukkit.Material.AIR);
+                }
+            });
+        } catch (Throwable failure) {
+            dispenser.setType(org.bukkit.Material.AIR);
+            fence.setType(org.bukkit.Material.AIR);
+            throw failure;
+        }
     }
 
     private void verifyCraftOutput(Player player) throws Exception {

@@ -29,7 +29,7 @@ def attach_native_evidence(report, evidence, captures):
     if evidence.get("connected_player_checks") is not True:
         raise ValueError("Missing connected-player scope")
     phases = evidence.get("phases", {})
-    for phase in ("player-identity-give", "player-identity-craft", "identity-output-restart") + ENDER_PHASES + BACKPACK_PHASES:
+    for phase in ("player-identity-give", "player-identity-craft", "player-identity-compressor", "identity-output-restart") + ENDER_PHASES + BACKPACK_PHASES:
         expected = "RESOURCE_PACK_DOCTOR_PROBE_PASS " + phase + " | " + report["runtime"]["server_version"]
         if phases.get(phase) != expected:
             raise ValueError("Missing or wrong-runtime native phase: " + phase)
@@ -46,7 +46,8 @@ def attach_native_evidence(report, evidence, captures):
               ("COPPER_WIRE", "native_item_bytes_process_restart", "identity-output-restart"),
               ("COPPER_WIRE", "player_ender_chest_reconnect_and_restart", "player-identity-ender-restart"),
               ("COPPER_WIRE", "backpack_database_save_and_restart", "player-identity-backpack-restart"),
-              ("COPPER_WIRE", "backpack_public_api_reload_after_restart", "player-identity-backpack-loaded")]
+              ("COPPER_WIRE", "backpack_public_api_reload_after_restart", "player-identity-backpack-loaded"),
+              ("CARBON", "compressor_handler_coal_blocks_delayed_output", "player-identity-compressor")]
     for item, case, phase in cases:
         if item not in items:
             raise ValueError("Evidence item missing from registry: " + item)
