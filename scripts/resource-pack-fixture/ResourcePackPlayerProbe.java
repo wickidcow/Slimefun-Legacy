@@ -39,6 +39,8 @@ final class ResourcePackPlayerProbe implements Listener {
     private boolean craftProbeActive;
     private boolean cancelCraft;
     private int craftEvents;
+    private ItemStack craftedForStorage;
+    private ItemStack givenForStorage;
 
     ResourcePackPlayerProbe(ResourcePackDoctorProbe plugin) {
         this.plugin = plugin;
@@ -55,6 +57,7 @@ final class ResourcePackPlayerProbe implements Listener {
             player.setInvulnerable(true);
             player.setAllowFlight(true);
             player.setFlying(true);
+            if (!stage.equals("seed")) verifyStoredOutputs(player);
             if (stage.equals("join") || stage.equals("retire")) {
                 verifySavedPlayer(player, false);
             } else if (stage.equals("restart")) {
@@ -84,6 +87,7 @@ final class ResourcePackPlayerProbe implements Listener {
                                                 id)),
                                 "Opened backpack cleanup did not survive restart");
                     }
+                    verifyStoredOutputs(player);
                     plugin.pass("player-" + stage);
                 });
             }
@@ -134,14 +138,19 @@ final class ResourcePackPlayerProbe implements Listener {
                 case "player-identity-craft" -> verifyCraftOutput(player);
                 case "player-seed" -> {
                     require(stage.equals("seed"), "Player seed requested after authorization");
+                    require(craftedForStorage != null && givenForStorage != null,
+                            "Missing actual producer outputs for ender storage");
                     player.getInventory().clear();
                     player.getEnderChest().clear();
+                    player.getEnderChest().setItem(10, craftedForStorage);
+                    player.getEnderChest().setItem(11, givenForStorage);
                     player.getInventory().setItem(0, plugin.expected("old-0"));
                     player.getInventory().setItem(1, plugin.expected("clean-1"));
                     player.getInventory().setItem(2, plugin.expected("clean-5"));
                     player.getEnderChest().setItem(0, plugin.expected("old-0"));
                     later(player, 40L, () -> {
                         verifySavedPlayer(player, false);
+                        verifyStoredOutputs(player);
                         plugin.pass(action);
                     });
                 }
@@ -254,6 +263,8 @@ final class ResourcePackPlayerProbe implements Listener {
             Files.write(folder.resolve("identity-crafted-wire.bin"), crafted.serializeAsBytes());
             Files.write(folder.resolve("identity-given-wire.bin"),
                     player.getInventory().getItem(0).serializeAsBytes());
+            craftedForStorage = crafted.clone();
+            givenForStorage = player.getInventory().getItem(0).clone();
             inventory.clear();
             require(player.getInventory().addItem(crafted).isEmpty(), "Craft/give merge overflow");
             verifyGivenStack(player, wire.getItem(), 16);
@@ -287,6 +298,26 @@ final class ResourcePackPlayerProbe implements Listener {
             event.setCancelled(true);
             plugin.fail(failure);
         }
+    }
+
+    private void verifyStoredOutputs(Player player) throws Exception {
+        owned(player);
+        var folder = plugin.getDataFolder().toPath();
+        ItemStack crafted = player.getEnderChest().getItem(10);
+        ItemStack given = player.getEnderChest().getItem(11);
+        require(crafted != null && given != null, "Actual producer outputs missing from saved ender chest");
+        require(Arrays.equals(crafted.serializeAsBytes(), Files.readAllBytes(folder.resolve("identity-crafted-wire.bin")))
+                        && Arrays.equals(given.serializeAsBytes(), Files.readAllBytes(folder.resolve("identity-given-wire.bin"))),
+                "Saved ender outputs changed identity or quantity");
+        byte[][] before = inventoryBytes(player.getEnderChest());
+        var merge = Bukkit.createInventory(null, 9);
+        require(crafted.getAmount() == 8 && given.getAmount() == 8
+                        && crafted.isSimilar(given) && given.isSimilar(crafted), "Stored output identity/quantity");
+        require(merge.addItem(crafted.clone(), given.clone()).isEmpty(), "Stored output merge overflow");
+        var stacks = Arrays.stream(merge.getContents()).filter(item -> item != null && !item.getType().isAir()).toList();
+        require(stacks.size() == 1 && stacks.getFirst().getAmount() == 16, "Stored outputs lost or duplicated on merge");
+        require(Arrays.deepEquals(before, inventoryBytes(player.getEnderChest())), "Storage inspection mutated ender chest");
+        plugin.pass("player-identity-ender-" + stage);
     }
 
     private byte[][] inventoryBytes(org.bukkit.inventory.Inventory inventory) {
