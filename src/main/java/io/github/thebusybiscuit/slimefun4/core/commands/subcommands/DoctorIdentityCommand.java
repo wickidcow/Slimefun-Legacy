@@ -115,8 +115,8 @@ final class DoctorIdentityCommand {
                 : Set.copyOf(meta.getPersistentDataContainer().getKeys());
     }
 
-    private static Object modelData(ItemMeta meta) {
-        if (meta == null || !meta.hasCustomModelData()) {
+    static Object modelData(ItemMeta meta) {
+        if (meta == null || !meta.hasCustomModelDataComponent()) {
             return null;
         }
         var component = meta.getCustomModelDataComponent();
