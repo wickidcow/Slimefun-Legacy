@@ -201,6 +201,7 @@ def main() -> None:
 
     try:
         process, log = boot(1)
+        probe(process, 1, "identity")
         probe(process, 1, "prepare")
         if args.protocol_module:
             client, client_log = connect_player(process, 1, "seed")
@@ -214,6 +215,7 @@ def main() -> None:
         probe(process, 1, "checkpoint")
         stop(process, log)
         process, log = boot(2)
+        probe(process, 2, "identity-restart")
         time.sleep(4)
         probe(process, 2, "installed")
         probe(process, 2, "deferred")
