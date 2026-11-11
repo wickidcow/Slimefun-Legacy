@@ -276,6 +276,10 @@ def main() -> None:
             "phases": {p.stem: p.read_text().strip() for p in sorted(proof.glob("*.pass"))},
         }
         (root / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+        subprocess.run(["python3", str(repo / "scripts/identity_coverage.py"),
+                        "--registry", str(proof / "identity-registry.json"), "--core", str(core),
+                        "--server", str(root / "server.jar"), "--output", str(root / "identity-coverage.json"),
+                        "--native-evidence", str(root / "evidence.json"), "--captures-dir", str(proof)], check=True)
         print(result, flush=True)
     finally:
         for client in clients:
