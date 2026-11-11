@@ -64,10 +64,9 @@ class TestDoctorIdentityCommand {
     void sameVisibleNameWithDifferentBoldDecorationDoesNotStack() {
         ItemStack cheat = uranium();
         ItemStack produced = uranium();
-        produced.editMeta(meta -> meta.displayName(
-                Component.text("Small Uranium", NamedTextColor.RED)
-                        .decoration(TextDecoration.ITALIC, false)
-                        .decoration(TextDecoration.BOLD, false)));
+        produced.editMeta(meta -> meta.displayName(Component.text("Small Uranium", NamedTextColor.RED)
+                .decoration(TextDecoration.ITALIC, false)
+                .decoration(TextDecoration.BOLD, false)));
         ItemStack before = produced.clone();
 
         var result = DoctorIdentityCommand.inspect(cheat, produced);
@@ -109,6 +108,40 @@ class TestDoctorIdentityCommand {
         assertFalse(result.isSimilar());
         assertTrue(result.pdcKeysSame());
         assertFalse(result.itemMetaSame());
+    }
+
+    @Test
+    void matchingHeldItemsCanBothDifferFromCurrentTemplateWithoutMutatingIt() {
+        ItemStack template = uranium();
+        ItemStack main = template.clone();
+        main.editMeta(meta -> meta.displayName(Component.text("Historical uranium")));
+        ItemStack off = main.clone();
+        off.setAmount(32);
+        ItemStack beforeTemplate = template.clone();
+        ItemStack beforeMain = main.clone();
+        ItemStack beforeOff = off.clone();
+
+        assertTrue(DoctorIdentityCommand.inspect(main, off).isSimilar());
+        assertFalse(DoctorIdentityCommand.inspect(main, template).isSimilar());
+        assertFalse(DoctorIdentityCommand.inspect(off, template).displayNameSame());
+        assertEquals(beforeTemplate, template);
+        assertEquals(beforeMain, main);
+        assertEquals(beforeOff, off);
+    }
+
+    @Test
+    void samePdcKeyAndNumericValueWithDifferentPrimitiveTypesRemainDifferent() {
+        ItemStack reference = uranium();
+        ItemStack produced = uranium();
+        NamespacedKey key = new NamespacedKey("addon", "generation");
+        reference.editMeta(meta -> meta.getPersistentDataContainer().set(key, PersistentDataType.INTEGER, 77));
+        produced.editMeta(meta -> meta.getPersistentDataContainer().set(key, PersistentDataType.LONG, 77L));
+
+        var result = DoctorIdentityCommand.inspect(reference, produced);
+
+        assertTrue(result.pdcKeysSame());
+        assertFalse(result.itemMetaSame());
+        assertFalse(result.isSimilar());
     }
 
     @Test

@@ -53,12 +53,28 @@ final class DoctorIdentityCommand {
         send(sender, "&7Full Bukkit item metadata: " + flag(comparison.itemMetaSame()));
         send(sender, "&7PDC key set: " + flag(comparison.pdcKeysSame()));
         send(sender, "&7Custom model data: " + flag(comparison.customModelDataSame()));
-        send(sender, "&7Effective max stack size: &e" + main.getMaxStackSize()
-                + " &8/ &e" + off.getMaxStackSize());
+        send(sender, "&7Effective max stack size: &e" + main.getMaxStackSize() + " &8/ &e" + off.getMaxStackSize());
+        reportTemplate(sender, "Main hand", main, mainItem);
+        reportTemplate(sender, "Offhand", off, offItem);
         if (!comparison.isSimilar()) {
             send(sender, "&eMismatch confirmed. No item was modified; inspect producer metadata before repair.");
         }
         send(sender, "&8This compares actual held items, not all possible crafting/machine sources.");
+    }
+
+    private static void reportTemplate(CommandSender sender, String label, ItemStack actual, SlimefunItem item) {
+        if (item == null) {
+            send(sender, "&7" + label + " vs registered template: &eUNAVAILABLE (unregistered item)");
+            return;
+        }
+        Comparison comparison = inspect(actual, item.getItem());
+        send(sender, "&6" + label + " vs registered template:");
+        send(sender, "&7Stack compatibility: " + flag(comparison.isSimilar()));
+        send(sender, "&7Display name: " + flag(comparison.displayNameSame()));
+        send(sender, "&7Adventure lore: " + flag(comparison.loreSame()));
+        send(sender, "&7Full Bukkit item metadata: " + flag(comparison.itemMetaSame()));
+        send(sender, "&7PDC key set: " + flag(comparison.pdcKeysSame()));
+        send(sender, "&7Custom model data: " + flag(comparison.customModelDataSame()));
     }
 
     /**
@@ -75,10 +91,10 @@ final class DoctorIdentityCommand {
         return new Comparison(
                 mainCopy.getType() == offCopy.getType(),
                 mainCopy.isSimilar(offCopy),
-                mainMeta == null ? offMeta == null
+                mainMeta == null
+                        ? offMeta == null
                         : offMeta != null && Objects.equals(mainMeta.displayName(), offMeta.displayName()),
-                mainMeta == null ? offMeta == null
-                        : offMeta != null && Objects.equals(mainMeta.lore(), offMeta.lore()),
+                mainMeta == null ? offMeta == null : offMeta != null && Objects.equals(mainMeta.lore(), offMeta.lore()),
                 Objects.equals(mainMeta, offMeta),
                 pdcKeys(mainMeta).equals(pdcKeys(offMeta)),
                 Objects.equals(modelData(mainMeta), modelData(offMeta)));
@@ -94,7 +110,9 @@ final class DoctorIdentityCommand {
             boolean customModelDataSame) {}
 
     private static Set<NamespacedKey> pdcKeys(ItemMeta meta) {
-        return meta == null ? Set.of() : Set.copyOf(meta.getPersistentDataContainer().getKeys());
+        return meta == null
+                ? Set.of()
+                : Set.copyOf(meta.getPersistentDataContainer().getKeys());
     }
 
     private static Object modelData(ItemMeta meta) {
