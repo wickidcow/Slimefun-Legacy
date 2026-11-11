@@ -128,6 +128,7 @@ final class ResourcePackPlayerProbe implements Listener {
         later(player, 1L, () -> {
             switch (action) {
                 case "player-identity-give" -> verifyGiveOutput(player);
+                case "player-identity-craft" -> verifyCraftOutput(player);
                 case "player-seed" -> {
                     require(stage.equals("seed"), "Player seed requested after authorization");
                     player.getInventory().clear();
@@ -177,6 +178,70 @@ final class ResourcePackPlayerProbe implements Listener {
         // This proves only the give command for these three items on connected-player runtimes.
         // It does not promote cheat-menu, recipe, machine, cargo or restart coverage.
         plugin.pass("player-identity-give");
+    }
+
+    private void verifyCraftOutput(Player player) throws Exception {
+        require(stage.equals("seed"), "Craft probe outside disposable seed phase");
+        owned(player);
+        var wire = SlimefunItem.getById("COPPER_WIRE");
+        var copper = SlimefunItem.getById("COPPER_INGOT");
+        var machine = SlimefunItem.getById("ENHANCED_CRAFTING_TABLE");
+        require(wire != null && copper != null
+                        && machine instanceof io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.EnhancedCraftingTable,
+                "Missing crafting fixture registrations");
+        var profile = io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile.find(player).orElseThrow();
+        var research = wire.getResearch();
+        boolean researched = research == null || profile.hasUnlocked(research);
+        byte[] wireBefore = wire.getItem().serializeAsBytes();
+        byte[] copperBefore = copper.getItem().serializeAsBytes();
+        var dispenserBlock = player.getLocation().getBlock().getRelative(0, 3, 0);
+        var tableBlock = dispenserBlock.getRelative(0, 1, 0);
+        require(Bukkit.isOwnedByCurrentRegion(dispenserBlock) && Bukkit.isOwnedByCurrentRegion(tableBlock),
+                "Craft fixture outside player region");
+        require(dispenserBlock.getType().isAir() && tableBlock.getType().isAir(), "Craft fixture space occupied");
+        var permission = player.addAttachment(plugin, "slimefun.cheat.items", true);
+        try {
+            if (!researched) profile.setResearched(research, true);
+            dispenserBlock.setType(org.bukkit.Material.DISPENSER);
+            tableBlock.setType(org.bukkit.Material.CRAFTING_TABLE);
+            var inventory = ((org.bukkit.block.Dispenser) dispenserBlock.getState(false)).getInventory();
+            player.getInventory().clear();
+            require(player.performCommand("sf give " + NAME + " COPPER_INGOT 3"), "Ingredient give rejected");
+            verifyGivenStack(player, copper.getItem(), 3);
+            ItemStack ingredient = player.getInventory().getItem(0);
+            require(ingredient != null, "Missing actual given ingredients");
+            for (int slot = 3; slot <= 5; slot++) {
+                ItemStack one = ingredient.clone();
+                one.setAmount(1);
+                inventory.setItem(slot, one);
+            }
+            player.getInventory().clear();
+            // Invoke the real production handler, including matching, event, consumption and output service.
+            // This does not simulate or claim network right-click/multiblock discovery coverage.
+            ((io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.EnhancedCraftingTable) machine)
+                    .onInteract(player, tableBlock);
+            var outputs = Arrays.stream(inventory.getContents())
+                    .filter(item -> item != null && !item.getType().isAir()).toList();
+            require(outputs.size() == 1, "Craft left ingredients or unexpected outputs");
+            ItemStack crafted = outputs.getFirst();
+            require(crafted.getAmount() == 8 && wire.getItem().isSimilar(crafted)
+                            && crafted.isSimilar(wire.getItem()), "Craft output identity/quantity mismatch");
+            require(player.performCommand("sf give " + NAME + " COPPER_WIRE 8"), "Reference give rejected");
+            verifyGivenStack(player, wire.getItem(), 8);
+            inventory.clear();
+            require(player.getInventory().addItem(crafted).isEmpty(), "Craft/give merge overflow");
+            verifyGivenStack(player, wire.getItem(), 16);
+            require(Arrays.equals(wireBefore, wire.getItem().serializeAsBytes())
+                            && Arrays.equals(copperBefore, copper.getItem().serializeAsBytes()),
+                    "Craft mutated registered template");
+        } finally {
+            dispenserBlock.setType(org.bukkit.Material.AIR);
+            tableBlock.setType(org.bukkit.Material.AIR);
+            player.getInventory().clear();
+            player.removeAttachment(permission);
+            if (!researched) profile.setResearched(research, false);
+        }
+        plugin.pass("player-identity-craft");
     }
 
     private void verifyGivenStack(Player player, ItemStack template, int amount) {
