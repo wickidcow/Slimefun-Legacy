@@ -9,6 +9,8 @@ on:
       - 'gradle.properties'
       - 'scripts/resource_pack_doctor_probe.py'
       - 'scripts/test_resource_pack_doctor_probe.py'
+      - 'scripts/identity_coverage.py'
+      - 'scripts/test_identity_coverage.py'
       - 'scripts/resource_pack_doctor_client.js'
       - 'scripts/resource-pack-fixture/**'
       - 'scripts/runtime_download.sh'
@@ -23,6 +25,8 @@ on:
       - 'gradle.properties'
       - 'scripts/resource_pack_doctor_probe.py'
       - 'scripts/test_resource_pack_doctor_probe.py'
+      - 'scripts/identity_coverage.py'
+      - 'scripts/test_identity_coverage.py'
       - 'scripts/resource_pack_doctor_client.js'
       - 'scripts/resource-pack-fixture/**'
       - 'scripts/runtime_download.sh'
@@ -50,8 +54,8 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: gradle
-      - name: Verify connected-player retirement reset requires server proof
-        run: python3 -m unittest scripts.test_resource_pack_doctor_probe -v
+      - name: Verify Doctor and coverage report rejection controls
+        run: python3 -m unittest scripts.test_resource_pack_doctor_probe scripts.test_identity_coverage -v
       - name: Read pinned runtime matrix
         id: matrix
         run: echo "value=$(jq -c '{include:.runtimes}' compatibility/resource-pack-doctor-runtimes.json)" >> "$GITHUB_OUTPUT"
@@ -158,5 +162,7 @@ jobs:
             ${{ runner.temp }}/resource-pack-doctor/*.log
             ${{ runner.temp }}/resource-pack-doctor/PASS.txt
             ${{ runner.temp }}/resource-pack-doctor/evidence.json
+            ${{ runner.temp }}/resource-pack-doctor/identity-coverage.json
+            ${{ runner.temp }}/resource-pack-doctor/plugins/ResourcePackDoctorProbe/identity-registry.json
             ${{ runner.temp }}/resource-pack-doctor/plugins/ResourcePackDoctorProbe/*.pass
           if-no-files-found: warn

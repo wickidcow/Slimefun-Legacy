@@ -202,6 +202,10 @@ def main() -> None:
     try:
         process, log = boot(1)
         probe(process, 1, "identity")
+        subprocess.run(["python3", str(repo / "scripts/identity_coverage.py"),
+                        "--registry", str(proof / "identity-registry.json"), "--core", str(core),
+                        "--server", str(root / "server.jar"),
+                        "--output", str(root / "identity-coverage.json")], check=True)
         probe(process, 1, "prepare")
         if args.protocol_module:
             client, client_log = connect_player(process, 1, "seed")
