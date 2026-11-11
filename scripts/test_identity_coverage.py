@@ -70,7 +70,7 @@ class NativeEvidenceTest(unittest.TestCase):
         self.evidence = {"result": "PASS", "boots": 3, "connected_player_checks": True,
                          "core_sha256": "b" * 64, "server_sha256": "c" * 64,
                          "phases": {phase: "RESOURCE_PACK_DOCTOR_PROBE_PASS " + phase + " | 26.2-129"
-                                    for phase in ("player-identity-give", "player-identity-craft", "player-identity-compressor",
+                                    for phase in ("player-identity-give", "player-identity-craft", "player-identity-compressor", "player-identity-compressor-rejected",
                                                   "identity-output-restart") + ENDER_PHASES + BACKPACK_PHASES}}
         self.captures = {"identity-crafted-wire.bin": b"crafted", "identity-given-wire.bin": b"given"}
 
@@ -128,8 +128,15 @@ class NativeEvidenceTest(unittest.TestCase):
         compressor = result["actual_cases"][-1]
         self.assertEqual("CARBON", compressor["item_id"])
         self.assertEqual("compressor_handler_coal_blocks_delayed_output", compressor["case"])
-        self.assertEqual(["player-identity-compressor"], compressor["required_phases"])
+        self.assertEqual(["player-identity-compressor-rejected", "player-identity-compressor"], compressor["required_phases"])
         self.assertEqual({}, compressor["captured_sha256"])
+
+    def test_each_native_phase_rejects_wrong_runtime(self):
+        for phase in self.evidence["phases"]:
+            evidence = copy.deepcopy(self.evidence)
+            evidence["phases"][phase] += " other runtime"
+            with self.subTest(phase=phase), self.assertRaises(ValueError):
+                self.attach(self.report, evidence, self.captures)
 
     def test_missing_phase_capture_or_registry_item_rejected(self):
         for phase in self.evidence["phases"]:

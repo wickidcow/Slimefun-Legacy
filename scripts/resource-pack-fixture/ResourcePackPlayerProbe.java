@@ -37,6 +37,8 @@ final class ResourcePackPlayerProbe implements Listener {
     private volatile boolean disconnectedWorkSettled;
     private String stage;
     private boolean craftProbeActive;
+    private boolean compressorRejectActive;
+    private int compressorRejectEvents;
     private boolean cancelCraft;
     private int craftEvents;
     private ItemStack craftedForStorage;
@@ -139,6 +141,7 @@ final class ResourcePackPlayerProbe implements Listener {
                 case "player-identity-give" -> verifyGiveOutput(player);
                 case "player-identity-craft" -> verifyCraftOutput(player);
                 case "player-identity-compressor" -> verifyCompressorOutput(player);
+                case "player-identity-compressor-rejected" -> verifyCompressorRejection(player);
                 case "player-seed" -> {
                     require(stage.equals("seed"), "Player seed requested after authorization");
                     require(craftedForStorage != null && givenForStorage != null,
@@ -195,6 +198,81 @@ final class ResourcePackPlayerProbe implements Listener {
         plugin.pass("player-identity-give");
     }
 
+    private void verifyCompressorRejection(Player player) throws Exception {
+        require(stage.equals("seed"), "Compressor rejection outside disposable seed phase");
+        owned(player);
+        var machine = SlimefunItem.getById("COMPRESSOR");
+        var carbon = SlimefunItem.getById("CARBON");
+        require(carbon != null, "Missing Carbon registration");
+        byte[] templateBefore = carbon.getItem().serializeAsBytes();
+        require(machine instanceof io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.Compressor,
+                "Missing compressor registration");
+        var compressor = (io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.Compressor) machine;
+        var dispenser = player.getLocation().getBlock().getRelative(0, 3, 0);
+        var fence = dispenser.getRelative(0, 1, 0);
+        require(Bukkit.isOwnedByCurrentRegion(dispenser) && Bukkit.isOwnedByCurrentRegion(fence),
+                "Compressor rejection outside player region");
+        require(dispenser.getType().isAir() && fence.getType().isAir(), "Compressor rejection space occupied");
+        dispenser.setType(org.bukkit.Material.DISPENSER);
+        fence.setType(org.bukkit.Material.NETHER_BRICK_FENCE);
+        var inventory = ((org.bukkit.block.Dispenser) dispenser.getState(false)).getInventory();
+        compressorRejectActive = true;
+        compressorRejectEvents = 0;
+        try {
+            player.getInventory().clear();
+            inventory.setItem(0, new ItemStack(org.bukkit.Material.COAL_BLOCK, 7));
+            byte[][] insufficient = inventoryBytes(inventory);
+            compressor.onInteract(player, fence);
+            require(compressorRejectEvents == 0, "Insufficient Compressor input emitted craft event");
+            require(Arrays.deepEquals(insufficient, inventoryBytes(inventory)), "Insufficient input mutated inventory");
+            inventory.setItem(0, new ItemStack(org.bukkit.Material.COAL_BLOCK, 8));
+            byte[][] cancelled = inventoryBytes(inventory);
+            compressor.onInteract(player, fence);
+            require(compressorRejectEvents == 1, "Cancelled Compressor craft event missing");
+            require(Arrays.deepEquals(cancelled, inventoryBytes(inventory)), "Cancelled craft consumed ingredients");
+            later(player, 100L, () -> {
+                try {
+                    require(Bukkit.isOwnedByCurrentRegion(dispenser), "Rejected completion outside player region");
+                    require(compressorRejectEvents == 1 && Arrays.deepEquals(cancelled, inventoryBytes(inventory)),
+                            "Rejected Compressor craft queued output or changed ingredients");
+                    require(player.getInventory().isEmpty(), "Rejected Compressor craft leaked player output: " + inventorySummary(player.getInventory()));
+                    require(Arrays.equals(templateBefore, carbon.getItem().serializeAsBytes()),
+                            "Rejected Compressor craft mutated registered Carbon template");
+                    plugin.pass("player-identity-compressor-rejected");
+                } finally {
+                    compressorRejectActive = false;
+                    inventory.clear();
+                    fence.setType(org.bukkit.Material.AIR, false);
+                    dispenser.setType(org.bukkit.Material.AIR, false);
+                }
+            });
+        } catch (Throwable failure) {
+            compressorRejectActive = false;
+            inventory.clear();
+            fence.setType(org.bukkit.Material.AIR, false);
+            dispenser.setType(org.bukkit.Material.AIR, false);
+            throw failure;
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onRejectedCompressor(io.github.thebusybiscuit.slimefun4.api.events.MultiBlockCraftEvent event) {
+        if (!compressorRejectActive || !NAME.equals(event.getPlayer().getName())) return;
+        try {
+            owned(event.getPlayer());
+            require("COMPRESSOR".equals(event.getMachine().getId()), "Unexpected rejection machine");
+            require(event.getOutput().getAmount() == 9
+                            && SlimefunItem.getById("CARBON").getItem().isSimilar(event.getOutput()),
+                    "Unexpected rejection output");
+            require(!event.isCancelled(), "Compressor event already cancelled");
+            compressorRejectEvents++;
+            event.setCancelled(true);
+        } catch (Throwable failure) {
+            event.setCancelled(true);
+            plugin.fail(failure);
+        }
+    }
+
     private void verifyCompressorOutput(Player player) throws Exception {
         require(stage.equals("seed"), "Compressor probe outside disposable seed phase");
         owned(player);
@@ -228,7 +306,7 @@ final class ResourcePackPlayerProbe implements Listener {
                     ItemStack actual = outputs.getFirst();
                     require(actual.getAmount() == 9 && actual.isSimilar(carbon.getItem())
                                     && carbon.getItem().isSimilar(actual), "Compressor output identity/quantity");
-                    require(player.getInventory().isEmpty(), "Compressor leaked output to player");
+                    require(player.getInventory().isEmpty(), "Compressor leaked output to player: " + inventorySummary(player.getInventory()));
                     require(player.performCommand("sf give " + NAME + " CARBON 9"), "Carbon reference give rejected");
                     verifyGivenStack(player, carbon.getItem(), 9);
                     var given = player.getInventory().getItem(0);
@@ -243,13 +321,15 @@ final class ResourcePackPlayerProbe implements Listener {
                 } finally {
                     player.removeAttachment(permission);
                     player.getInventory().clear();
-                    dispenser.setType(org.bukkit.Material.AIR);
-                    fence.setType(org.bukkit.Material.AIR);
+                    inventory.clear();
+                    fence.setType(org.bukkit.Material.AIR, false);
+                    dispenser.setType(org.bukkit.Material.AIR, false);
                 }
             });
         } catch (Throwable failure) {
-            dispenser.setType(org.bukkit.Material.AIR);
-            fence.setType(org.bukkit.Material.AIR);
+            inventory.clear();
+            fence.setType(org.bukkit.Material.AIR, false);
+            dispenser.setType(org.bukkit.Material.AIR, false);
             throw failure;
         }
     }
@@ -380,6 +460,18 @@ final class ResourcePackPlayerProbe implements Listener {
         require(stacks.size() == 1 && stacks.getFirst().getAmount() == 16, "Stored outputs lost or duplicated on merge");
         require(Arrays.deepEquals(before, inventoryBytes(player.getEnderChest())), "Storage inspection mutated ender chest");
         plugin.pass("player-identity-ender-" + stage);
+    }
+
+    private String inventorySummary(org.bukkit.inventory.Inventory inventory) {
+        // Report only slot/material/quantity, never player identifiers or metadata/PDC values.
+        var entries = new java.util.ArrayList<String>();
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            var item = inventory.getItem(slot);
+            if (item != null && !item.getType().isAir()) {
+                entries.add(slot + ":" + item.getType() + "x" + item.getAmount());
+            }
+        }
+        return entries.toString();
     }
 
     private byte[][] inventoryBytes(org.bukkit.inventory.Inventory inventory) {
