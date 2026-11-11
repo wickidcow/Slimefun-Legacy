@@ -222,6 +222,8 @@ def main() -> None:
         stop(process, log)
         process, log = boot(2)
         probe(process, 2, "identity-restart")
+        if args.protocol_module:
+            probe(process, 2, "identity-output-restart")
         time.sleep(4)
         probe(process, 2, "installed")
         probe(process, 2, "deferred")

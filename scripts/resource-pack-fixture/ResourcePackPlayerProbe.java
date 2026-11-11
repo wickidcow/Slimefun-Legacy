@@ -250,6 +250,10 @@ final class ResourcePackPlayerProbe implements Listener {
                             && crafted.isSimilar(wire.getItem()), "Craft output identity/quantity mismatch");
             require(player.performCommand("sf give " + NAME + " COPPER_WIRE 8"), "Reference give rejected");
             verifyGivenStack(player, wire.getItem(), 8);
+            var folder = plugin.getDataFolder().toPath();
+            Files.write(folder.resolve("identity-crafted-wire.bin"), crafted.serializeAsBytes());
+            Files.write(folder.resolve("identity-given-wire.bin"),
+                    player.getInventory().getItem(0).serializeAsBytes());
             inventory.clear();
             require(player.getInventory().addItem(crafted).isEmpty(), "Craft/give merge overflow");
             verifyGivenStack(player, wire.getItem(), 16);

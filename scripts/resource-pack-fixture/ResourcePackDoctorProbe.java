@@ -73,6 +73,7 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
                 switch (args[0]) {
                     case "identity" -> ItemIdentityProbe.verify(getDataFolder().toPath(), false);
                     case "identity-restart" -> ItemIdentityProbe.verify(getDataFolder().toPath(), true);
+                    case "identity-output-restart" -> ItemIdentityProbe.verifyOutputRestart(getDataFolder().toPath());
                     case "prepare" -> {
                         prepare();
                         at(FAR_CHUNK, FAR_CHUNK, 1L, () -> {
