@@ -2,16 +2,16 @@
   "schema": 1,
   "project": "Slimefun Legacy",
   "candidate": {
-    "version": "4.1.79"
+    "version": "4.1.80"
   },
   "previous_stable": {
-    "version": "4.1.78",
+    "version": "4.1.79",
     "source": {
       "mode": "git-ref",
-      "ref": "b14a3bcc5ef221c013f93d49b6b3a1bbdb3101e9"
+      "ref": "0844c216fdc27f6414c185957e93a2047b3fb027"
     },
     "release_blocking": true,
-    "purpose": "Primary regression baseline: exact published Slimefun Legacy v4.1.78 source/tag (b14a3bc). Required addon regressions against the previous Java core release block candidate 4.1.79. The 4.1.15 historical floor remains advisory; legacy saved item, block, world, inventory and storage formats must remain readable. The previous release source and assets are immutable."
+    "purpose": "Primary regression baseline: exact published Slimefun Legacy v4.1.79 source (0844c216). Required addon regressions against the previous Java core release block candidate 4.1.80. The 4.1.15 historical floor remains advisory; legacy saved item, block, world, inventory and storage formats must remain readable. Published release sources and assets are immutable."
   },
   "legacy_floor": {
     "version": "4.1.15",
