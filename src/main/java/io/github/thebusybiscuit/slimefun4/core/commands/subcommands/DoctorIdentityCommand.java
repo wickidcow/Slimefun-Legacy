@@ -78,19 +78,16 @@ final class DoctorIdentityCommand {
     }
 
     /**
-     * Compare one-item copies without normalizing Adventure components or changing inputs.
-     * Quantity differences alone must never produce a false identity mismatch.
+     * Read actual metadata without invoking producer-specific clone hooks or changing inputs.
+     * Bukkit isSimilar already ignores quantity; cloning a registered SlimefunItemStack
+     * would reapply item data and textures before the diagnostic could observe them.
      */
     static Comparison inspect(@Nonnull ItemStack main, @Nonnull ItemStack off) {
-        ItemStack mainCopy = main.clone();
-        ItemStack offCopy = off.clone();
-        mainCopy.setAmount(1);
-        offCopy.setAmount(1);
-        ItemMeta mainMeta = mainCopy.getItemMeta();
-        ItemMeta offMeta = offCopy.getItemMeta();
+        ItemMeta mainMeta = main.getItemMeta();
+        ItemMeta offMeta = off.getItemMeta();
         return new Comparison(
-                mainCopy.getType() == offCopy.getType(),
-                mainCopy.isSimilar(offCopy),
+                main.getType() == off.getType(),
+                main.isSimilar(off),
                 mainMeta == null
                         ? offMeta == null
                         : offMeta != null && Objects.equals(mainMeta.displayName(), offMeta.displayName()),

@@ -43,6 +43,25 @@ class TestDoctorIdentityCommand {
     }
 
     @Test
+    void diagnosticDoesNotInvokeSubclassCloneHooks() {
+        ItemStack reference = uranium();
+        ItemStack registered = new ItemStack(reference) {
+            @Override
+            public ItemStack clone() {
+                throw new AssertionError("Diagnostic must not invoke producer clone hooks");
+            }
+        };
+        registered.setAmount(19);
+
+        assertTrue(DoctorIdentityCommand.inspect(reference, registered).isSimilar());
+        registered.editMeta(meta -> meta.displayName(Component.text("Different registered name")));
+        var mismatch = DoctorIdentityCommand.inspect(reference, registered);
+        assertFalse(mismatch.isSimilar());
+        assertFalse(mismatch.displayNameSame());
+        assertEquals(19, registered.getAmount());
+    }
+
+    @Test
     void identicalItemIdentityIgnoresQuantityAndNeverMutatesInputs() {
         ItemStack cheat = uranium();
         ItemStack produced = cheat.clone();

@@ -31,6 +31,13 @@ final class ItemIdentityProbe {
         }
 
         byte[] untouched = reference.serializeAsBytes();
+        ItemStack noClone = new ItemStack(reference) {
+            @Override
+            public ItemStack clone() {
+                throw new AssertionError("Diagnostic invoked subclass clone hook");
+            }
+        };
+        require(flag(inspect(reference, noClone), "isSimilar"), "read without subclass clone hooks");
         ItemStack copy = reference.clone();
         copy.setAmount(31);
         Object equal = inspect(reference, copy);
