@@ -36,6 +36,7 @@ final class ResourcePackPlayerProbe implements Listener {
     private boolean cancelPickup;
     private volatile boolean disconnectedWorkSettled;
     private String stage;
+    private ItemStack producedCarbon;
     private boolean craftProbeActive;
     private boolean compressorRejectActive;
     private int compressorRejectEvents;
@@ -141,6 +142,7 @@ final class ResourcePackPlayerProbe implements Listener {
                 case "player-identity-give" -> verifyGiveOutput(player);
                 case "player-identity-craft" -> verifyCraftOutput(player);
                 case "player-identity-compressor" -> verifyCompressorOutput(player);
+                case "player-identity-compressor-chain" -> verifyCompressorChain(player);
                 case "player-identity-compressor-rejected" -> verifyCompressorRejection(player);
                 case "player-seed" -> {
                     require(stage.equals("seed"), "Player seed requested after authorization");
@@ -312,12 +314,83 @@ final class ResourcePackPlayerProbe implements Listener {
                     var given = player.getInventory().getItem(0);
                     require(actual.isSimilar(given) && given.isSimilar(actual)
                                     && actual.getItemMeta().equals(given.getItemMeta()), "Compressor/give metadata mismatch");
+                    producedCarbon = actual.clone();
                     inventory.clear();
                     require(player.getInventory().addItem(actual).isEmpty(), "Compressor/give merge overflow");
                     verifyGivenStack(player, carbon.getItem(), 18);
                     require(Arrays.equals(templateBefore, carbon.getItem().serializeAsBytes()),
                             "Compressor mutated registered Carbon template");
                     plugin.pass("player-identity-compressor");
+                } finally {
+                    player.removeAttachment(permission);
+                    player.getInventory().clear();
+                    inventory.clear();
+                    fence.setType(org.bukkit.Material.AIR, false);
+                    dispenser.setType(org.bukkit.Material.AIR, false);
+                }
+            });
+        } catch (Throwable failure) {
+            inventory.clear();
+            fence.setType(org.bukkit.Material.AIR, false);
+            dispenser.setType(org.bukkit.Material.AIR, false);
+            throw failure;
+        }
+    }
+
+    private void verifyCompressorChain(Player player) throws Exception {
+        require(stage.equals("seed"), "Compressor probe outside disposable seed phase");
+        owned(player);
+        var carbon = SlimefunItem.getById("COMPRESSED_CARBON");
+        var machine = SlimefunItem.getById("COMPRESSOR");
+        require(carbon != null && machine instanceof io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.Compressor,
+                "Missing compressor fixture registrations");
+        require(producedCarbon != null && producedCarbon.getAmount() == 9, "Missing actual upstream Carbon");
+        byte[] upstreamBefore = producedCarbon.serializeAsBytes();
+        byte[] carbonTemplateBefore = SlimefunItem.getById("CARBON").getItem().serializeAsBytes();
+        byte[] templateBefore = carbon.getItem().serializeAsBytes();
+        var dispenser = player.getLocation().getBlock().getRelative(0, 3, 0);
+        var fence = dispenser.getRelative(0, 1, 0);
+        require(Bukkit.isOwnedByCurrentRegion(dispenser) && Bukkit.isOwnedByCurrentRegion(fence),
+                "Compressor fixture outside player region");
+        require(dispenser.getType().isAir() && fence.getType().isAir(), "Compressor fixture space occupied");
+        dispenser.setType(org.bukkit.Material.DISPENSER);
+        fence.setType(org.bukkit.Material.NETHER_BRICK_FENCE);
+        var inventory = ((org.bukkit.block.Dispenser) dispenser.getState(false)).getInventory();
+        try {
+            inventory.setItem(0, producedCarbon.clone());
+            player.getInventory().clear();
+            // Real production handler and delayed output service; not multiblock discovery/network interaction.
+            ((io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.Compressor) machine)
+                    .onInteract(player, fence);
+            require(inventory.getItem(0) != null && inventory.getItem(0).getAmount() == 5
+                            && inventory.getItem(0).isSimilar(producedCarbon), "Chain did not consume exactly four Carbon");
+            later(player, 100L, () -> {
+                var permission = player.addAttachment(plugin, "slimefun.cheat.items", true);
+                try {
+                    require(Bukkit.isOwnedByCurrentRegion(dispenser), "Compressor completion outside player region");
+                    var outputs = Arrays.stream(inventory.getContents())
+                            .filter(item -> item != null && !item.getType().isAir()).toList();
+                    require(outputs.size() == 2, "Chain lost residual Carbon or added unexpected outputs");
+                    var residual = outputs.stream().filter(item -> item.isSimilar(producedCarbon)).toList();
+                    require(residual.size() == 1 && residual.getFirst().getAmount() == 5, "Chain residual Carbon mismatch");
+                    ItemStack actual = outputs.stream().filter(item -> item.isSimilar(carbon.getItem())).findFirst().orElseThrow();
+                    require(actual.getAmount() == 1 && actual.isSimilar(carbon.getItem())
+                                    && carbon.getItem().isSimilar(actual), "Compressor output identity/quantity");
+                    require(player.getInventory().isEmpty(), "Compressor leaked output to player: " + inventorySummary(player.getInventory()));
+                    require(player.performCommand("sf give " + NAME + " COMPRESSED_CARBON 1"), "Carbon reference give rejected");
+                    verifyGivenStack(player, carbon.getItem(), 1);
+                    var given = player.getInventory().getItem(0);
+                    require(actual.isSimilar(given) && given.isSimilar(actual)
+                                    && actual.getItemMeta().equals(given.getItemMeta()), "Compressor/give metadata mismatch");
+                    inventory.clear();
+                    require(player.getInventory().addItem(actual).isEmpty(), "Compressor/give merge overflow");
+                    verifyGivenStack(player, carbon.getItem(), 2);
+                    require(Arrays.equals(templateBefore, carbon.getItem().serializeAsBytes()),
+                            "Compressor mutated registered Carbon template");
+                    require(Arrays.equals(upstreamBefore, producedCarbon.serializeAsBytes())
+                                    && Arrays.equals(carbonTemplateBefore, SlimefunItem.getById("CARBON").getItem().serializeAsBytes()),
+                            "Chain mutated captured upstream output or Carbon template");
+                    plugin.pass("player-identity-compressor-chain");
                 } finally {
                     player.removeAttachment(permission);
                     player.getInventory().clear();

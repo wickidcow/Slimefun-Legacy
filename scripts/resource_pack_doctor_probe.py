@@ -213,6 +213,7 @@ def main() -> None:
             probe(process, 1, "player-identity-craft")
             probe(process, 1, "player-identity-compressor-rejected")
             probe(process, 1, "player-identity-compressor")
+            probe(process, 1, "player-identity-compressor-chain")
             probe(process, 1, "player-seed")
             disconnect_player(client, client_log, process, 1)
         command(process, "sf doctor resource-pack install scan")

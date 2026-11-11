@@ -29,7 +29,7 @@ def attach_native_evidence(report, evidence, captures):
     if evidence.get("connected_player_checks") is not True:
         raise ValueError("Missing connected-player scope")
     phases = evidence.get("phases", {})
-    for phase in ("player-identity-give", "player-identity-craft", "player-identity-compressor", "player-identity-compressor-rejected", "identity-output-restart") + ENDER_PHASES + BACKPACK_PHASES:
+    for phase in ("player-identity-give", "player-identity-craft", "player-identity-compressor", "player-identity-compressor-rejected", "player-identity-compressor-chain", "identity-output-restart") + ENDER_PHASES + BACKPACK_PHASES:
         expected = "RESOURCE_PACK_DOCTOR_PROBE_PASS " + phase + " | " + report["runtime"]["server_version"]
         if phases.get(phase) != expected:
             raise ValueError("Missing or wrong-runtime native phase: " + phase)
@@ -47,7 +47,8 @@ def attach_native_evidence(report, evidence, captures):
               ("COPPER_WIRE", "player_ender_chest_reconnect_and_restart", "player-identity-ender-restart"),
               ("COPPER_WIRE", "backpack_database_save_and_restart", "player-identity-backpack-restart"),
               ("COPPER_WIRE", "backpack_public_api_reload_after_restart", "player-identity-backpack-loaded"),
-              ("CARBON", "compressor_handler_coal_blocks_delayed_output", "player-identity-compressor")]
+              ("CARBON", "compressor_handler_coal_blocks_delayed_output", "player-identity-compressor"),
+              ("COMPRESSED_CARBON", "compressor_handler_actual_carbon_input", "player-identity-compressor-chain")]
     for item, case, phase in cases:
         if item not in items:
             raise ValueError("Evidence item missing from registry: " + item)
@@ -56,7 +57,7 @@ def attach_native_evidence(report, evidence, captures):
             **{key: row[key] for key in ("item_id", "plugin", "plugin_version")},
             "case": case, "status": "PASS", "phase": phase,
             "required_phases": (list(ENDER_PHASES) if phase == "player-identity-ender-restart" else
-                                list(BACKPACK_PHASES) if phase in ("player-identity-backpack-restart", "player-identity-backpack-loaded") else ["player-identity-compressor-rejected", phase] if phase == "player-identity-compressor" else [phase]),
+                                list(BACKPACK_PHASES) if phase in ("player-identity-backpack-restart", "player-identity-backpack-loaded") else ["player-identity-compressor-rejected", phase] if phase == "player-identity-compressor" else ["player-identity-compressor", phase] if phase == "player-identity-compressor-chain" else [phase]),
             "captured_sha256": hashes if item == "COPPER_WIRE" else {},
             "scope": "Specific fixture only; broad producer rows remain UNTESTED"})
     result["actual_case_counts"]["PASS"] = len(cases)
