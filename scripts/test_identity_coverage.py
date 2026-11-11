@@ -1,7 +1,7 @@
 import copy
 import unittest
 
-from scripts.identity_coverage import PRODUCERS, build_report
+from scripts.identity_coverage import ENDER_PHASES, PRODUCERS, build_report
 
 
 class IdentityCoverageTest(unittest.TestCase):
@@ -71,13 +71,13 @@ class NativeEvidenceTest(unittest.TestCase):
                          "core_sha256": "b" * 64, "server_sha256": "c" * 64,
                          "phases": {phase: "RESOURCE_PACK_DOCTOR_PROBE_PASS " + phase + " | 26.2-129"
                                     for phase in ("player-identity-give", "player-identity-craft",
-                                                  "identity-output-restart")}}
+                                                  "identity-output-restart") + ENDER_PHASES}}
         self.captures = {"identity-crafted-wire.bin": b"crafted", "identity-given-wire.bin": b"given"}
 
     def test_specific_cases_do_not_promote_broad_coverage_or_mutate_input(self):
         before = copy.deepcopy(self.report)
         result = self.attach(self.report, self.evidence, self.captures)
-        self.assertEqual(5, result["actual_case_counts"]["PASS"])
+        self.assertEqual(6, result["actual_case_counts"]["PASS"])
         self.assertEqual(0, result["counts"]["PASS"])
         self.assertEqual(before, self.report)
         self.assertEqual(before["rows"], result["rows"])
@@ -92,6 +92,17 @@ class NativeEvidenceTest(unittest.TestCase):
         self.evidence["phases"]["identity-output-restart"] += " other runtime"
         with self.assertRaises(ValueError):
             self.attach(self.report, self.evidence, self.captures)
+
+    def test_ender_storage_requires_all_stages_from_same_runtime(self):
+        result = self.attach(self.report, self.evidence, self.captures)
+        storage = result["actual_cases"][-1]
+        self.assertEqual("player_ender_chest_reconnect_and_restart", storage["case"])
+        self.assertEqual(list(ENDER_PHASES), storage["required_phases"])
+        for phase in ENDER_PHASES:
+            evidence = copy.deepcopy(self.evidence)
+            evidence["phases"][phase] += " different runtime"
+            with self.subTest(phase=phase), self.assertRaises(ValueError):
+                self.attach(self.report, evidence, self.captures)
 
     def test_missing_phase_capture_or_registry_item_rejected(self):
         for phase in self.evidence["phases"]:
