@@ -77,7 +77,7 @@ class NativeEvidenceTest(unittest.TestCase):
     def test_specific_cases_do_not_promote_broad_coverage_or_mutate_input(self):
         before = copy.deepcopy(self.report)
         result = self.attach(self.report, self.evidence, self.captures)
-        self.assertEqual(7, result["actual_case_counts"]["PASS"])
+        self.assertEqual(8, result["actual_case_counts"]["PASS"])
         self.assertEqual(0, result["counts"]["PASS"])
         self.assertEqual(before, self.report)
         self.assertEqual(before["rows"], result["rows"])
@@ -95,7 +95,7 @@ class NativeEvidenceTest(unittest.TestCase):
 
     def test_ender_storage_requires_all_stages_from_same_runtime(self):
         result = self.attach(self.report, self.evidence, self.captures)
-        storage = result["actual_cases"][-2]
+        storage = result["actual_cases"][-3]
         self.assertEqual("player_ender_chest_reconnect_and_restart", storage["case"])
         self.assertEqual(list(ENDER_PHASES), storage["required_phases"])
         for phase in ENDER_PHASES:
@@ -106,7 +106,7 @@ class NativeEvidenceTest(unittest.TestCase):
 
     def test_backpack_storage_requires_all_stages_from_same_runtime(self):
         result = self.attach(self.report, self.evidence, self.captures)
-        storage = result["actual_cases"][-1]
+        storage = result["actual_cases"][-2]
         self.assertEqual("backpack_database_save_and_restart", storage["case"])
         self.assertEqual(list(BACKPACK_PHASES), storage["required_phases"])
         for phase in BACKPACK_PHASES:
@@ -114,6 +114,14 @@ class NativeEvidenceTest(unittest.TestCase):
             evidence["phases"][phase] += " different runtime"
             with self.subTest(phase=phase), self.assertRaises(ValueError):
                 self.attach(self.report, evidence, self.captures)
+
+    def test_loaded_backpack_case_requires_restart_and_load_receipts(self):
+        result = self.attach(self.report, self.evidence, self.captures)
+        loaded = result["actual_cases"][-1]
+        self.assertEqual("backpack_public_api_reload_after_restart", loaded["case"])
+        self.assertEqual(list(BACKPACK_PHASES), loaded["required_phases"])
+        self.assertIn("player-identity-backpack-restart", loaded["required_phases"])
+        self.assertIn("player-identity-backpack-loaded", loaded["required_phases"])
 
     def test_missing_phase_capture_or_registry_item_rejected(self):
         for phase in self.evidence["phases"]:

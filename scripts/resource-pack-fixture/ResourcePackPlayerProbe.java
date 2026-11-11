@@ -87,6 +87,7 @@ final class ResourcePackPlayerProbe implements Listener {
                                                 id)),
                                 "Opened backpack cleanup did not survive restart");
                         verifyBackpackOutputs(player, id, "restart");
+                        verifyLoadedBackpack(player, id);
                     }
                     verifyStoredOutputs(player);
                     plugin.pass("player-" + stage);
@@ -417,6 +418,40 @@ final class ResourcePackPlayerProbe implements Listener {
                     "Backpack verification rewrote producer row");
         }
         plugin.pass("player-identity-backpack-" + phase);
+    }
+
+    private void verifyLoadedBackpack(Player player, String id) throws Exception {
+        owned(player);
+        require(backpack == null, "Restart probe retained a backpack from an earlier process");
+        var profiles = Slimefun.getDatabaseManager().getProfileDataController();
+        var loaded = profiles.getBackpack(id);
+        require(loaded != null && loaded.getUniqueId().toString().equals(id), "Backpack UUID reload mismatch");
+        require(loaded.getOwner().getUniqueId().equals(player.getUniqueId()) && loaded.getId() == 77,
+                "Backpack owner/number reload mismatch");
+        require(loaded.getSize() == 9 && loaded.getName().equals("Connected Doctor fixture"),
+                "Backpack size/name reload mismatch");
+        var inventory = loaded.getInventory();
+        require(inventory.getSize() == 9 && inventory.getHolder() == loaded, "Loaded backpack inventory holder/size");
+        require(plugin.expected("clean-0").equals(inventory.getItem(0)), "Loaded backpack control slot changed");
+        for (int slot = 3; slot < inventory.getSize(); slot++) {
+            require(inventory.getItem(slot) == null, "Unexpected item in loaded backpack");
+        }
+        byte[][] before = inventoryBytes(inventory);
+        var folder = plugin.getDataFolder().toPath();
+        var crafted = inventory.getItem(1);
+        var given = inventory.getItem(2);
+        require(crafted != null && given != null && crafted.getAmount() == 8 && given.getAmount() == 8,
+                "Loaded backpack output quantities");
+        require(Arrays.equals(crafted.serializeAsBytes(), Files.readAllBytes(folder.resolve("identity-crafted-wire.bin")))
+                        && Arrays.equals(given.serializeAsBytes(), Files.readAllBytes(folder.resolve("identity-given-wire.bin"))),
+                "Loaded backpack output identity changed");
+        require(crafted.isSimilar(given) && given.isSimilar(crafted), "Loaded backpack cross-source similarity");
+        var merge = Bukkit.createInventory(null, 9);
+        require(merge.addItem(crafted.clone(), given.clone()).isEmpty(), "Loaded backpack merge overflow");
+        var stacks = Arrays.stream(merge.getContents()).filter(item -> item != null && !item.getType().isAir()).toList();
+        require(stacks.size() == 1 && stacks.getFirst().getAmount() == 16, "Loaded backpack merge conservation");
+        require(Arrays.deepEquals(before, inventoryBytes(inventory)), "Inspection mutated loaded backpack");
+        verifyBackpackOutputs(player, id, "loaded");
     }
 
     private byte[] backpackBytes() throws Exception {
