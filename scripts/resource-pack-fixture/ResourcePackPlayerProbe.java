@@ -86,6 +86,7 @@ final class ResourcePackPlayerProbe implements Listener {
                                                 FieldKey.BACKPACK_ID,
                                                 id)),
                                 "Opened backpack cleanup did not survive restart");
+                        verifyBackpackOutputs(player, id, "restart");
                     }
                     verifyStoredOutputs(player);
                     plugin.pass("player-" + stage);
@@ -377,10 +378,45 @@ final class ResourcePackPlayerProbe implements Listener {
         var profiles = Slimefun.getDatabaseManager().getProfileDataController();
         backpack = profiles.createBackpack(player, "Connected Doctor fixture", 77, 9);
         backpack.getInventory().setItem(0, plugin.expected("old-0"));
+        verifyStoredOutputs(player);
+        backpack.getInventory().setItem(1, player.getEnderChest().getItem(10).clone());
+        backpack.getInventory().setItem(2, player.getEnderChest().getItem(11).clone());
         profiles.saveBackpackInventoryAsync(backpack).get(10, TimeUnit.SECONDS);
+        verifyBackpackOutputs(player, backpack.getUniqueId().toString(), "saved");
         Files.writeString(
                 plugin.getDataFolder().toPath().resolve("player-backpack.uuid"),
                 backpack.getUniqueId().toString());
+    }
+
+    private void verifyBackpackOutputs(Player player, String id, String phase) throws Exception {
+        owned(player);
+        var profiles = Slimefun.getDatabaseManager().getProfileDataController();
+        var folder = plugin.getDataFolder().toPath();
+        ItemStack[] actual = new ItemStack[2];
+        String[] captures = {"identity-crafted-wire.bin", "identity-given-wire.bin"};
+        byte[][] rowsBefore = new byte[2][];
+        for (int index = 0; index < 2; index++) {
+            var row = plugin.readSlot(profiles, DataScope.BACKPACK_INVENTORY, FieldKey.BACKPACK_ID, id, index + 1);
+            Object raw = row.getValue(FieldKey.INVENTORY_ITEM);
+            require(raw instanceof byte[], "Expected native backpack producer payload");
+            rowsBefore[index] = ((byte[]) raw).clone();
+            actual[index] = row.getItemStack(FieldKey.INVENTORY_ITEM);
+            require(actual[index] != null && actual[index].getAmount() == 8
+                            && Arrays.equals(actual[index].serializeAsBytes(), Files.readAllBytes(folder.resolve(captures[index]))),
+                    "Backpack producer row identity/quantity changed");
+        }
+        require(actual[0].isSimilar(actual[1]) && actual[1].isSimilar(actual[0]), "Backpack cross-source identity");
+        var merge = Bukkit.createInventory(null, 9);
+        require(merge.addItem(actual).isEmpty(), "Backpack producer merge overflow");
+        var stacks = Arrays.stream(merge.getContents()).filter(item -> item != null && !item.getType().isAir()).toList();
+        require(stacks.size() == 1 && stacks.getFirst().getAmount() == 16, "Backpack producer merge lost or duplicated items");
+        for (int index = 0; index < 2; index++) {
+            Object after = plugin.readSlot(profiles, DataScope.BACKPACK_INVENTORY, FieldKey.BACKPACK_ID, id, index + 1)
+                    .getValue(FieldKey.INVENTORY_ITEM);
+            require(after instanceof byte[] && Arrays.equals(rowsBefore[index], (byte[]) after),
+                    "Backpack verification rewrote producer row");
+        }
+        plugin.pass("player-identity-backpack-" + phase);
     }
 
     private byte[] backpackBytes() throws Exception {
@@ -450,6 +486,7 @@ final class ResourcePackPlayerProbe implements Listener {
                     "Open backpack cleanup was not saved");
             player.setItemOnCursor(null);
             player.closeInventory();
+            verifyBackpackOutputs(player, backpack.getUniqueId().toString(), "opened");
             plugin.pass("player-open");
         });
     }
