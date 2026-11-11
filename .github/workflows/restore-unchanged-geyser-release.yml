@@ -54,7 +54,7 @@ jobs:
             --source work/evidence/source.json \
             --target work/evidence/target-before.json \
             --latest work/evidence/latest.json \
-            --require-present \
+            --require-present --read-only \
             --output work/evidence/verified-preflight.json
       - name: Verify prior public ZIP bytes without rewriting it
         env:

@@ -1,5 +1,9 @@
 """Exact candidate metadata regressions for distinct Slimefun Legacy 4.1.80."""
 import json
+import io
+import zipfile
+
+from scripts.verify_release_artifact import REQUIRED_FEATURE_ENTRIES, verify_feature_entries
 from pathlib import Path
 import re
 import unittest
@@ -28,12 +32,28 @@ class ReleaseCandidateMetadataTest(unittest.TestCase):
                 data = json.loads((ROOT / "compatibility" / name).read_text(encoding="utf-8"))
                 self.assertEqual(match.group(1), data["release"])
 
+    def test_release_jar_requires_crafting_restrictions_and_identity_diagnostics(self):
+        def check(omitted=None, empty=None):
+            data = io.BytesIO()
+            with zipfile.ZipFile(data, "w") as archive:
+                for entry in REQUIRED_FEATURE_ENTRIES:
+                    if entry != omitted:
+                        archive.writestr(entry, b"" if entry == empty else b"fixture")
+            with zipfile.ZipFile(data) as archive:
+                return verify_feature_entries(archive)
+        self.assertEqual([], check())
+        for entry in REQUIRED_FEATURE_ENTRIES:
+            with self.subTest(entry=entry):
+                self.assertEqual(1, len(check(omitted=entry)))
+                self.assertIn(entry, check(omitted=entry)[0])
+                self.assertEqual(1, len(check(empty=entry)))
+
     def test_new_candidate_notes_preserve_scope_and_release_gate(self):
         notes = (ROOT / "docs/releases/4.1.80.md").read_text(encoding="utf-8")
         for required in (
             "Slimefun-Legacy4.1.80.jar", "SF_Addons_1.21.11-26.3.zip",
             "SlimefunLegacyRP.zip", "SlimefunLegacyRP_Geyser.zip",
-            "UNTESTED", "Historical inventories are not rewritten",
+            "UNTESTED", "Historical inventories are not rewritten", "CraftingRestrictions.yml",
             "exact-source", "unpublished candidate",
         ):
             with self.subTest(required=required):
