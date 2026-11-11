@@ -71,7 +71,10 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
             try {
                 Files.createDirectories(getDataFolder().toPath());
                 switch (args[0]) {
-                    case "identity" -> ItemIdentityProbe.verify(getDataFolder().toPath(), false);
+                    case "identity" -> {
+                        CraftingRestrictionProbe.verify();
+                        ItemIdentityProbe.verify(getDataFolder().toPath(), false);
+                    }
                     case "identity-restart" -> ItemIdentityProbe.verify(getDataFolder().toPath(), true);
                     case "identity-output-restart" -> ItemIdentityProbe.verifyOutputRestart(getDataFolder().toPath());
                     case "prepare" -> {
