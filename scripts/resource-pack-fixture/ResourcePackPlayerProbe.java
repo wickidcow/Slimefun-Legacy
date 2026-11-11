@@ -235,20 +235,22 @@ final class ResourcePackPlayerProbe implements Listener {
                     require(Bukkit.isOwnedByCurrentRegion(dispenser), "Rejected completion outside player region");
                     require(compressorRejectEvents == 1 && Arrays.deepEquals(cancelled, inventoryBytes(inventory)),
                             "Rejected Compressor craft queued output or changed ingredients");
-                    require(player.getInventory().isEmpty(), "Rejected Compressor craft leaked player output");
+                    require(player.getInventory().isEmpty(), "Rejected Compressor craft leaked player output: " + inventorySummary(player.getInventory()));
                     require(Arrays.equals(templateBefore, carbon.getItem().serializeAsBytes()),
                             "Rejected Compressor craft mutated registered Carbon template");
                     plugin.pass("player-identity-compressor-rejected");
                 } finally {
                     compressorRejectActive = false;
-                    dispenser.setType(org.bukkit.Material.AIR);
-                    fence.setType(org.bukkit.Material.AIR);
+                    inventory.clear();
+                    fence.setType(org.bukkit.Material.AIR, false);
+                    dispenser.setType(org.bukkit.Material.AIR, false);
                 }
             });
         } catch (Throwable failure) {
             compressorRejectActive = false;
-            dispenser.setType(org.bukkit.Material.AIR);
-            fence.setType(org.bukkit.Material.AIR);
+            inventory.clear();
+            fence.setType(org.bukkit.Material.AIR, false);
+            dispenser.setType(org.bukkit.Material.AIR, false);
             throw failure;
         }
     }
@@ -304,7 +306,7 @@ final class ResourcePackPlayerProbe implements Listener {
                     ItemStack actual = outputs.getFirst();
                     require(actual.getAmount() == 9 && actual.isSimilar(carbon.getItem())
                                     && carbon.getItem().isSimilar(actual), "Compressor output identity/quantity");
-                    require(player.getInventory().isEmpty(), "Compressor leaked output to player");
+                    require(player.getInventory().isEmpty(), "Compressor leaked output to player: " + inventorySummary(player.getInventory()));
                     require(player.performCommand("sf give " + NAME + " CARBON 9"), "Carbon reference give rejected");
                     verifyGivenStack(player, carbon.getItem(), 9);
                     var given = player.getInventory().getItem(0);
@@ -319,13 +321,15 @@ final class ResourcePackPlayerProbe implements Listener {
                 } finally {
                     player.removeAttachment(permission);
                     player.getInventory().clear();
-                    dispenser.setType(org.bukkit.Material.AIR);
-                    fence.setType(org.bukkit.Material.AIR);
+                    inventory.clear();
+                    fence.setType(org.bukkit.Material.AIR, false);
+                    dispenser.setType(org.bukkit.Material.AIR, false);
                 }
             });
         } catch (Throwable failure) {
-            dispenser.setType(org.bukkit.Material.AIR);
-            fence.setType(org.bukkit.Material.AIR);
+            inventory.clear();
+            fence.setType(org.bukkit.Material.AIR, false);
+            dispenser.setType(org.bukkit.Material.AIR, false);
             throw failure;
         }
     }
@@ -456,6 +460,18 @@ final class ResourcePackPlayerProbe implements Listener {
         require(stacks.size() == 1 && stacks.getFirst().getAmount() == 16, "Stored outputs lost or duplicated on merge");
         require(Arrays.deepEquals(before, inventoryBytes(player.getEnderChest())), "Storage inspection mutated ender chest");
         plugin.pass("player-identity-ender-" + stage);
+    }
+
+    private String inventorySummary(org.bukkit.inventory.Inventory inventory) {
+        // Report only slot/material/quantity, never player identifiers or metadata/PDC values.
+        var entries = new java.util.ArrayList<String>();
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            var item = inventory.getItem(slot);
+            if (item != null && !item.getType().isAir()) {
+                entries.add(slot + ":" + item.getType() + "x" + item.getAmount());
+            }
+        }
+        return entries.toString();
     }
 
     private byte[][] inventoryBytes(org.bukkit.inventory.Inventory inventory) {
