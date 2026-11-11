@@ -202,6 +202,9 @@ final class ResourcePackPlayerProbe implements Listener {
         require(stage.equals("seed"), "Compressor rejection outside disposable seed phase");
         owned(player);
         var machine = SlimefunItem.getById("COMPRESSOR");
+        var carbon = SlimefunItem.getById("CARBON");
+        require(carbon != null, "Missing Carbon registration");
+        byte[] templateBefore = carbon.getItem().serializeAsBytes();
         require(machine instanceof io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.Compressor,
                 "Missing compressor registration");
         var compressor = (io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.Compressor) machine;
@@ -233,6 +236,8 @@ final class ResourcePackPlayerProbe implements Listener {
                     require(compressorRejectEvents == 1 && Arrays.deepEquals(cancelled, inventoryBytes(inventory)),
                             "Rejected Compressor craft queued output or changed ingredients");
                     require(player.getInventory().isEmpty(), "Rejected Compressor craft leaked player output");
+                    require(Arrays.equals(templateBefore, carbon.getItem().serializeAsBytes()),
+                            "Rejected Compressor craft mutated registered Carbon template");
                     plugin.pass("player-identity-compressor-rejected");
                 } finally {
                     compressorRejectActive = false;

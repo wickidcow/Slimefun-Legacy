@@ -131,6 +131,13 @@ class NativeEvidenceTest(unittest.TestCase):
         self.assertEqual(["player-identity-compressor-rejected", "player-identity-compressor"], compressor["required_phases"])
         self.assertEqual({}, compressor["captured_sha256"])
 
+    def test_each_native_phase_rejects_wrong_runtime(self):
+        for phase in self.evidence["phases"]:
+            evidence = copy.deepcopy(self.evidence)
+            evidence["phases"][phase] += " other runtime"
+            with self.subTest(phase=phase), self.assertRaises(ValueError):
+                self.attach(self.report, evidence, self.captures)
+
     def test_missing_phase_capture_or_registry_item_rejected(self):
         for phase in self.evidence["phases"]:
             evidence = copy.deepcopy(self.evidence)
