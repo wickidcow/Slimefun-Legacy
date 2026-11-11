@@ -1,11 +1,14 @@
 package io.github.wickidcow.validation;
 
+import com.google.gson.GsonBuilder;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
+import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
@@ -90,6 +93,15 @@ final class ItemIdentityProbe {
         require(Arrays.equals(templateBefore, template.serializeAsBytes()), "registered template mutated");
         require(Arrays.equals(untouched, reference.serializeAsBytes()), "reference mutated by control cases");
         Files.write(folder.resolve("identity-item.bin"), untouched);
+        var items = Slimefun.getRegistry().getAllSlimefunItems().stream()
+                .map(item -> Map.of("item_id", item.getId(), "plugin", item.getAddon().getName(),
+                        "plugin_version", item.getAddon().getPluginVersion()))
+                .sorted(java.util.Comparator.comparing(item -> item.get("item_id")))
+                .toList();
+        var registry = Map.of("schema", 1, "software", Bukkit.getName(),
+                "minecraft", Bukkit.getMinecraftVersion(), "server_version", Bukkit.getVersion(), "items", items);
+        Files.writeString(folder.resolve("identity-registry.json"),
+                new GsonBuilder().setPrettyPrinting().create().toJson(registry));
     }
 
     private static ItemStack fixture() {
