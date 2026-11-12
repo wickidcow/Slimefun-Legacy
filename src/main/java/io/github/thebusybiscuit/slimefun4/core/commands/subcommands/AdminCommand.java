@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
-import io.github.bakedlibs.dough.common.ChatColors;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.commands.SlimefunCommand;
 import io.github.thebusybiscuit.slimefun4.core.commands.SubCommand;
@@ -8,6 +7,7 @@ import io.github.thebusybiscuit.slimefun4.core.services.CraftingRestrictionServi
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.Locale;
 import javax.annotation.Nonnull;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 
@@ -77,6 +77,6 @@ final class AdminCommand extends SubCommand {
     }
 
     private void send(CommandSender sender, String message) {
-        sender.sendMessage(ChatColors.color(message));
+        sender.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(message));
     }
 }
