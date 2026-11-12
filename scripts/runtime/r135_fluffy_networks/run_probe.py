@@ -167,11 +167,19 @@ def run(work: Path, java: Path, evidence: dict, timeout: int) -> None:
     if result_file.exists():
         raise RuntimeError("Stale probe evidence is forbidden")
     version = NETWORK_VERSIONS[evidence["bundle_revision"]][0].removeprefix("SF_Networks").removesuffix(".jar")
+    fluffy_jar = evidence["tested_addons"]["wickidcow/SF_FluffyMachines"]["jar"]
+    fluffy_match = (
+        re.fullmatch(r"SF_FluffyMachines([0-9]+\.[0-9]+\.[0-9]+)\.jar", fluffy_jar)
+        if isinstance(fluffy_jar, str) else None
+    )
+    if fluffy_match is None:
+        raise RuntimeError("Native conservation test is missing a valid FluffyMachines bundle version")
     core_version = evidence.get("expected_core_version")
     if not isinstance(core_version, str) or re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", core_version) is None:
         raise RuntimeError("Native conservation test is missing a valid expected core version")
     command = [str(java), f"-Dalbion.probe.slimefun.version={core_version}",
                f"-Dalbion.probe.networks.version={version}",
+               f"-Dalbion.probe.fluffy.version={fluffy_match.group(1)}",
                "-Dterminal.jline=false", "-Dterminal.ansi=false",
                "-Xms768M", "-Xmx3G", "-jar", "server.jar", "--nogui"]
 

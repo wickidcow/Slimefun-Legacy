@@ -430,8 +430,36 @@ class NativeStorageProbeContracts(unittest.TestCase):
         expected_networks_jar = probe.NETWORK_VERSIONS[evidence["bundle_revision"]][0]
         expected_networks_version = expected_networks_jar.removeprefix("SF_Networks").removesuffix(".jar")
         self.assertIn(f"-Dalbion.probe.networks.version={expected_networks_version}", command)
+        expected_fluffy_jar = evidence["tested_addons"]["wickidcow/SF_FluffyMachines"]["jar"]
+        expected_fluffy_version = expected_fluffy_jar.removeprefix("SF_FluffyMachines").removesuffix(".jar")
+        self.assertIn(f"-Dalbion.probe.fluffy.version={expected_fluffy_version}", command)
         self.assertNotIn("-Dalbion.probe.slimefun.version=4.1.74", command)
         self.assertEqual(self.work, self.launch.call_args.kwargs["cwd"])
+
+    def test_r153_java_command_preserves_historical_fluffy_version(self):
+        self.populate(153)
+        evidence = self.prepare()
+        with self.assertRaisesRegex(AssertionError, "No server may run"):
+            probe.run(self.work, self.java, evidence, 1)
+        command = self.launch.call_args.args[0]
+        self.assertIn("-Dalbion.probe.fluffy.version=26.2.16", command)
+        self.assertNotIn("-Dalbion.probe.fluffy.version=26.2.18", command)
+
+    def test_r154_java_command_pins_verified_updated_fluffy_version(self):
+        self.populate(154)
+        evidence = self.prepare()
+        with self.assertRaisesRegex(AssertionError, "No server may run"):
+            probe.run(self.work, self.java, evidence, 1)
+        command = self.launch.call_args.args[0]
+        self.assertIn("-Dalbion.probe.fluffy.version=26.2.18", command)
+        self.assertNotIn("-Dalbion.probe.fluffy.version=26.2.16", command)
+
+    def test_invalid_fluffy_jar_version_is_refused_before_server_launch(self):
+        evidence = self.prepare()
+        evidence["tested_addons"]["wickidcow/SF_FluffyMachines"]["jar"] = "SF_FluffyMachines26.2.18.jar -Dunsafe=true"
+        with self.assertRaisesRegex(RuntimeError, "valid FluffyMachines bundle version"):
+            probe.run(self.work, self.java, evidence, 1)
+        self.launch.assert_not_called()
 
     def test_invalid_launch_version_is_refused_without_starting_a_server(self):
         evidence = self.prepare()
@@ -446,6 +474,8 @@ class NativeStorageProbeContracts(unittest.TestCase):
         java = (SOURCE.parent / "R135FluffyNetworksProbe.java").read_text(encoding="utf-8")
         self.assertIn('requireVersion("Slimefun", System.getProperty("albion.probe.slimefun.version"));', java)
         self.assertNotIn('requireVersion("Slimefun", "4.1.74");', java)
+        self.assertIn('requireVersion("FluffyMachines", System.getProperty("albion.probe.fluffy.version"));', java)
+        self.assertNotIn('requireVersion("FluffyMachines", "26.2.16");', java)
         self.assertIn('check(expected != null && expected.equals(plugin.getPluginMeta().getVersion()),', java)
         self.assertIn('check(plugin != null && plugin.isEnabled(),', java)
 
