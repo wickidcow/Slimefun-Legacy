@@ -9,7 +9,7 @@ It must never target an existing production Minecraft installation.
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import hashlib
 import json
 import os
@@ -178,7 +178,7 @@ def enabled_curios_fixture(work: Path):
         config.write_bytes(before)
 
 
-def run(work: Path, java: Path, evidence: dict, timeout: int) -> None:
+def run(work: Path, java: Path, evidence: dict, timeout: int, verify_paxel: bool = False) -> None:
     log_file = work / "native-r135.console.log"
     result_file = work / "plugins" / "R135FluffyNetworksProbe" / "result.txt"
     if result_file.exists():
@@ -187,7 +187,9 @@ def run(work: Path, java: Path, evidence: dict, timeout: int) -> None:
     core_version = evidence.get("expected_core_version")
     if not isinstance(core_version, str) or re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", core_version) is None:
         raise RuntimeError("Native conservation test is missing a valid expected core version")
-    command = [str(java), f"-Dalbion.probe.slimefun.version={core_version}",
+    evidence["paxel_recipe_selection"] = "REQUIRED" if verify_paxel else "NOT_TESTED"
+    command = [str(java), f"-Dalbion.probe.paxel={str(verify_paxel).lower()}",
+               f"-Dalbion.probe.slimefun.version={core_version}",
                f"-Dalbion.probe.networks.version={version}",
                "-Dterminal.jline=false", "-Dterminal.ansi=false",
                "-Xms768M", "-Xmx3G", "-jar", "server.jar", "--nogui"]
@@ -234,6 +236,10 @@ def run(work: Path, java: Path, evidence: dict, timeout: int) -> None:
             if proc.stdin:
                 proc.stdin.close()
 
+    if verify_paxel and "PAXEL_NATIVE_RECIPE_SELECTION PASS:" not in log_file.read_text(encoding="utf-8"):
+        raise RuntimeError("Required native Paxel recipe selection receipt missing")
+    if verify_paxel:
+        evidence["paxel_recipe_selection"] = "PASS"
     evidence["process_exit_code"] = proc.returncode
     evidence["server_log_sha256"] = sha256(log_file)
     if proc.returncode != 0 or evidence.get("result") != "PASS":
@@ -249,6 +255,8 @@ def main() -> int:
         "--expected-core-version",
         help="Exact Slimefun version staged in the disposable runtime; defaults to projectVersion",
     )
+    parser.add_argument("--verify-paxel-recipes", action="store_true",
+                        help="Require new candidate Paxel patterns; never use for historical released core")
     args = parser.parse_args()
     work = args.runtime_dir.resolve()
     java = Path(os.environ["JAVA_HOME"]) / "bin" / "java"
@@ -257,8 +265,8 @@ def main() -> int:
     evidence = prepare(work, args.bundle.resolve(), java, args.expected_core_version)
     out = work / "native-r135-result.json"
     try:
-        with enabled_curios_fixture(work):
-            run(work, java, evidence, args.timeout)
+        with enabled_curios_fixture(work) if args.verify_paxel_recipes else nullcontext():
+            run(work, java, evidence, args.timeout, args.verify_paxel_recipes)
     except Exception as error:
         evidence["result"] = "FAIL"
         evidence["error"] = str(error)

@@ -73,7 +73,9 @@ public final class R135FluffyNetworksProbe extends JavaPlugin {
         requireVersion("Networks", System.getProperty("albion.probe.networks.version"));
         requireVersion("FluffyMachines", "26.2.16");
 
-        verifyPaxelRecipeSelection();
+        if (Boolean.getBoolean("albion.probe.paxel")) {
+            verifyPaxelRecipeSelection();
+        }
 
         World world = Bukkit.getWorlds().getFirst();
         Location location = new Location(world, 4096, 72, 4096);

@@ -450,6 +450,20 @@ class NativeStorageProbeContracts(unittest.TestCase):
         self.assertNotIn("-Dalbion.probe.slimefun.version=4.1.74", command)
         self.assertEqual(self.work, self.launch.call_args.kwargs["cwd"])
 
+    def test_paxel_probe_is_explicit_and_historical_runs_report_untested(self):
+        evidence = self.prepare()
+        for required in (False, True):
+            with self.assertRaisesRegex(AssertionError, "No server may run"):
+                probe.run(self.work, self.java, evidence, 1, required)
+            self.assertIn(f"-Dalbion.probe.paxel={str(required).lower()}", self.launch.call_args.args[0])
+            self.assertEqual("REQUIRED" if required else "NOT_TESTED", evidence["paxel_recipe_selection"])
+
+    def test_candidate_workflow_requires_paxel_but_historical_core_does_not(self):
+        root = SOURCE.parents[3]
+        self.assertIn("--verify-paxel-recipes", (root / ".github/workflows/paper-26.3-full-stack.yml").read_text())
+        for name in ("addons-r140-candidate.yml", "r137-release-candidate.yml"):
+            self.assertNotIn("--verify-paxel-recipes", (root / ".github/workflows" / name).read_text())
+
     def test_invalid_launch_version_is_refused_without_starting_a_server(self):
         evidence = self.prepare()
         for value in (None, "", "4.1.75 -Devil=true", 475):
