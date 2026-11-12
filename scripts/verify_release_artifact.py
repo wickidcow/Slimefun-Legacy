@@ -60,6 +60,7 @@ REQUIRED_RUNTIME_CLASSES = {
 REQUIRED_FEATURE_ENTRIES = (
     "CraftingRestrictions.yml",
     "io/github/thebusybiscuit/slimefun4/core/services/CraftingRestrictionService.class",
+    "io/github/thebusybiscuit/slimefun4/core/commands/subcommands/AdminCommand.class",
     "io/github/thebusybiscuit/slimefun4/implementation/listeners/crafting/CraftingRestrictionListener.class",
     "io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorIdentityCommand.class",
 )
