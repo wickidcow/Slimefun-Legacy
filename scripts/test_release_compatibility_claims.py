@@ -94,7 +94,7 @@ class CompatibilityClaimsTest(unittest.TestCase):
                 self.assertEqual(sha, selected[repository])
         self.assertEqual("1d46a1afd04ceae7f04c7e0849397350ce273ec5",
                          selected["wickidcow/SF_NetworksExp"])
-        self.assertEqual("172c046250d75b7aaae7072fbc9e9148f0791210",
+        self.assertEqual("7bd579e2b67243002571e95b8a2d00bea2187efd",
                          selected["wickidcow/SF_InfinityExpansion2"])
         self.assertEqual("f03ed0c75f1df16aa484d25bf3a1b8bcd20d9b7c",
                          selected["wickidcow/SF_Supreme"])
@@ -114,7 +114,7 @@ class CompatibilityClaimsTest(unittest.TestCase):
             "wickidcow/SF_ExtraHeads": "b1e8a1f11692b44d359eec863f3be5be0f061516",
             "wickidcow/SF_FluffyMachines": "bb1a50387e8dfe34c4c4e3b592038c81c51f53f0",
             "wickidcow/SF_NetworksExp": "1d46a1afd04ceae7f04c7e0849397350ce273ec5",
-            "wickidcow/SF_InfinityExpansion2": "172c046250d75b7aaae7072fbc9e9148f0791210",
+            "wickidcow/SF_InfinityExpansion2": "7bd579e2b67243002571e95b8a2d00bea2187efd",
             "wickidcow/SF_Supreme": "f03ed0c75f1df16aa484d25bf3a1b8bcd20d9b7c",
         }
         for repository, sha in expected.items():
