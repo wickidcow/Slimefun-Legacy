@@ -81,7 +81,7 @@ class PublishedPairTest(unittest.TestCase):
                 # commits without changing published artifact bytes or fixture pins.
                 if matrix["bundle_revision"] == 154:
                     latest_sources = {
-                        "networks": "ed1ba235701b3e5ea5e47b74d855376c084aba8e",
+                        "networks": "1d46a1afd04ceae7f04c7e0849397350ce273ec5",
                         "ie2": "172c046250d75b7aaae7072fbc9e9148f0791210",
                     }
                     self.assertEqual(rows[pin["repository"]]["source_commit"], latest_sources[key])
