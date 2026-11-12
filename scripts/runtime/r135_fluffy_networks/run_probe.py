@@ -24,8 +24,10 @@ EXPECTED_VERSIONS = {
     "wickidcow/SF_FluffyMachines": ("SF_FluffyMachines26.2.16.jar", "3d5286877e2307b4b9bc48be886d14d75e6889c6"),
 }
 # Preserve published/historical r135-r152 Fluffy source identity. Only the
-# as-yet-unpublished r153 coordinated bundle advances to reviewed merged main.
+# published r153 coordinated bundle advances to reviewed merged main.
 FLUFFY_R153 = ("SF_FluffyMachines26.2.16.jar", "9ce05a228a0ce14e69254115b90ec46e54eac6d9")
+# 4.1.80/r154: merged Fluffy 26.2.18 including Quick Withdraw #39.
+FLUFFY_R154 = ("SF_FluffyMachines26.2.18.jar", "bb1a50387e8dfe34c4c4e3b592038c81c51f53f0")
 NETWORK_VERSIONS = {
     135: ("SF_Networks1.0.54.jar", "c24064cbeafe4f112c7d46bf3de5617fa151d88d"),
     136: ("SF_Networks1.0.55.jar", "bcdef34d362dc74aa1aab23c8961a629daa79950"),
@@ -57,6 +59,8 @@ NETWORK_VERSIONS = {
     152: ("SF_Networks1.0.62.jar", "79e4c0116cc4b4683c668a4920e67692f925b83f"),
     # r153 candidate uses the published Networks 1.0.63 release source.
     153: ("SF_Networks1.0.63.jar", "ea5777ce58c45c3c3cd4789bd155164ccbb5336b"),
+    # r154 retains version 1.0.63, advances to merged identity/storage parity tests.
+    154: ("SF_Networks1.0.63.jar", "ed1ba235701b3e5ea5e47b74d855376c084aba8e"),
 }
 
 
@@ -85,10 +89,10 @@ def prepare(work: Path, bundle: Path, java: Path, runtime_core_version: str | No
         manifest = json.loads(archive.read("SF_ADDON_MANIFEST.json"))
     revision = manifest.get("bundle_revision")
     if type(revision) is not int or revision not in NETWORK_VERSIONS:
-        raise RuntimeError(f"Native conservation test requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153; found bundle revision {revision!r}")
+        raise RuntimeError(f"Native conservation test requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154; found bundle revision {revision!r}")
     expected_versions = dict(EXPECTED_VERSIONS)
-    if revision == 153:
-        expected_versions["wickidcow/SF_FluffyMachines"] = FLUFFY_R153
+    if revision in (153, 154):
+        expected_versions["wickidcow/SF_FluffyMachines"] = FLUFFY_R154 if revision == 154 else FLUFFY_R153
     expected_versions["wickidcow/SF_NetworksExp"] = NETWORK_VERSIONS[revision]
 
     workspace = (Path.cwd() / "build").resolve()
