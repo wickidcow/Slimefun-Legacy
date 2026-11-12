@@ -64,7 +64,11 @@ class SlimefunTabCompleter implements TabCompleter {
             return Collections.emptyList();
         }
         if (args.length == 1) {
-            return createReturnList(command.getSubCommandNames(), args[0]);
+            List<String> names = new ArrayList<>(command.getSubCommandNames());
+            if (!sender.hasPermission("slimefun.command.admin") && !(sender instanceof ConsoleCommandSender)) {
+                names.remove("admin");
+            }
+            return createReturnList(names, args[0]);
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("banitem")) {
                 return createReturnList(getSlimefunItems(), args[1]);

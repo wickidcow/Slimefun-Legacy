@@ -44,7 +44,7 @@ public final class CraftingRestrictionService {
      *
      * @return true if the configuration was read successfully
      */
-    public boolean reload() {
+    public synchronized boolean reload() {
         File file = new File(plugin.getDataFolder(), FILE_NAME);
 
         try {
