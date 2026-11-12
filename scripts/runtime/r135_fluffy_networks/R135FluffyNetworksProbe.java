@@ -68,10 +68,12 @@ public final class R135FluffyNetworksProbe extends JavaPlugin {
         return true;
     }
 
-    private void runNativeCase() {
+    private void runNativeCase() throws Exception {
         requireVersion("Slimefun", System.getProperty("albion.probe.slimefun.version"));
         requireVersion("Networks", System.getProperty("albion.probe.networks.version"));
         requireVersion("FluffyMachines", "26.2.16");
+
+        verifyPaxelRecipeSelection();
 
         World world = Bukkit.getWorlds().getFirst();
         Location location = new Location(world, 4096, 72, 4096);
@@ -153,6 +155,58 @@ public final class R135FluffyNetworksProbe extends JavaPlugin {
         check(retrievedEmerald != null && retrievedEmerald.getAmount() == 6
                 && retrievedEmerald.isSimilar(emerald), "Reassigned emerald retrieval changed count or PDC");
         check(quantity(barrel, block, menu) == 0L, "Final emerald quantity was not conserved");
+    }
+
+    /** Native recipe selection only: does not simulate player crafting or guide clicks. */
+    private void verifyPaxelRecipeSelection() throws Exception {
+        var registeredMachine = SlimefunItem.getById("ENHANCED_CRAFTING_TABLE");
+        var type = io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.EnhancedCraftingTable.class;
+        check(type.isInstance(registeredMachine), "Registered Enhanced Crafting Table missing");
+        var machine = type.cast(registeredMachine);
+        var matcher = type.getDeclaredMethod("isCraftable", org.bukkit.inventory.Inventory.class, ItemStack[].class);
+        matcher.setAccessible(true);
+        var inputs = io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType.getRecipeInputList(machine);
+        for (String id : List.of("ADVENTURERS_PAXEL", "PAXEL")) {
+            var item = SlimefunItem.getById(id);
+            check(item != null, "Registered Paxel missing: " + id);
+            check(item.getRecipeType() == io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType.ENHANCED_CRAFTING_TABLE,
+                    "Unexpected Paxel recipe type: " + id);
+            ItemStack[] recipe = item.getRecipe();
+            check(recipe.length == 9, "Paxel recipe must have nine slots: " + id);
+            Material top = id.equals("ADVENTURERS_PAXEL") ? Material.DIAMOND_SHOVEL : Material.DIAMOND_PICKAXE;
+            Material bottom = id.equals("ADVENTURERS_PAXEL") ? Material.DIAMOND_PICKAXE : Material.DIAMOND_SHOVEL;
+            check(recipe[1].getType() == top && recipe[7].getType() == bottom,
+                    "Registered Paxel tool positions differ from reviewed recipe: " + id);
+            byte[] templateBefore = item.getItem().serializeAsBytes();
+            byte[][] recipeBefore = new byte[9][];
+            var inventory = Bukkit.createInventory(null, 9);
+            for (int slot = 0; slot < 9; slot++) {
+                check(recipe[slot] != null, "Missing Paxel ingredient: " + id + "/" + slot);
+                recipeBefore[slot] = recipe[slot].serializeAsBytes();
+                inventory.setItem(slot, recipe[slot].clone());
+            }
+            int matches = 0;
+            for (ItemStack[] input : inputs) {
+                if ((boolean) matcher.invoke(machine, inventory, input)) {
+                    matches++;
+                    var output = io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType.getRecipeOutputList(machine, input);
+                    check(SlimefunItem.getByItem(output) == item,
+                            "Paxel pattern selected another registered output: " + id);
+                    check(output.getAmount() == 1 && output.isSimilar(item.getItem()) && item.getItem().isSimilar(output),
+                            "Paxel selected output identity or amount changed: " + id);
+                }
+            }
+            check(matches == 1, "Expected exactly one registered matching recipe for " + id + ", got " + matches);
+            for (int slot = 0; slot < 9; slot++) {
+                check(java.util.Arrays.equals(recipeBefore[slot], recipe[slot].serializeAsBytes()),
+                        "Recipe inspection changed registered ingredient: " + id);
+                check(java.util.Arrays.equals(recipeBefore[slot], inventory.getItem(slot).serializeAsBytes()),
+                        "Recipe matcher changed input inventory: " + id);
+            }
+            check(java.util.Arrays.equals(templateBefore, item.getItem().serializeAsBytes()),
+                    "Recipe inspection changed output template: " + id);
+        }
+        getLogger().info("PAXEL_NATIVE_RECIPE_SELECTION PASS: both registered patterns select unique intended outputs; templates unchanged");
     }
 
     private void requireVersion(String name, String expected) {
