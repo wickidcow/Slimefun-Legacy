@@ -65,7 +65,7 @@ class CraftingRestrictionServiceTest {
     @Test
     void commandEditsExistingCaseInsensitiveYamlKey() throws IOException {
         Path file = tempDir.resolve("CraftingRestrictions.yml");
-        Files.writeString(file, "enabled: true\\nitems:\\n  addon_item:\\n    crafting-enabled: false\n");
+        Files.writeString(file, "enabled: true\nitems:\n  addon_item:\n    crafting-enabled: false\n");
         Slimefun plugin = mock(Slimefun.class);
         when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
         when(plugin.getLogger()).thenReturn(Logger.getLogger("crafting-restriction-test"));
