@@ -51,6 +51,8 @@ MAGIC_RELEASES = {
     152: ("b28c304f2909f15b43da53910ce7650886cc0e6f", "SF_MagicExpansion1.1.19.jar"),
     # r153 drops BuildingStaff and updates DankTech2; Magic stays at the same merged source.
     153: ("b28c304f2909f15b43da53910ce7650886cc0e6f", "SF_MagicExpansion1.1.19.jar"),
+    # r154 changes other addons, while Magic stays at the same merged release.
+    154: ("b28c304f2909f15b43da53910ce7650886cc0e6f", "SF_MagicExpansion1.1.19.jar"),
 }
 MAGIC_VERSIONS = {
     137: "1.1.13",
@@ -70,6 +72,7 @@ MAGIC_VERSIONS = {
     151: "1.1.19",
     152: "1.1.19",
     153: "1.1.19",
+    154: "1.1.19",
 }
 DIRECTORIES = {"full-stack-1.21.11", "full-stack-26.2", "full-stack-26.3", "full-stack-purpur-26.3"}
 PLUGIN = "BlackMarketRestartProbe"
@@ -131,7 +134,7 @@ def validate_fixture(work: Path, bundle: Path) -> dict:
         manifest = json.loads(archive.read("SF_ADDON_MANIFEST.json"))
         revision = manifest.get("bundle_revision")
         if type(revision) is not int or revision not in MAGIC_RELEASES:
-            raise RuntimeError("This exact-source probe requires candidate r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153")
+            raise RuntimeError("This exact-source probe requires candidate r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154")
         magic_commit, magic_jar = MAGIC_RELEASES[revision]
         rows = manifest.get("addons", [])
         expected_addons = 44 if revision >= 153 else 45

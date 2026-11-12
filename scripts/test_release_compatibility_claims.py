@@ -62,9 +62,10 @@ class CompatibilityClaimsTest(unittest.TestCase):
 
 
     def test_maintained_repin_is_exact_and_preserves_native_pairs(self):
-        # Reviewed source-only candidate: preserve historical native storage
-        # fixtures, immutable published Networks/IE2 source and Supreme 1.0.20.
-        self.assertEqual(153, self.matrix["bundle_revision"])
+        # Reviewed r154 source selection: preserve historical native storage
+        # fixtures and immutable published Networks/IE2 artifact locks. The
+        # candidate matrix intentionally advances beyond those release sources.
+        self.assertEqual(154, self.matrix["bundle_revision"])
         self.assertEqual(44, len(self.matrix["addons"]))
         selected = {row["repository"]: row["source_commit"]
                     for row in self.matrix["addons"]}
@@ -91,31 +92,30 @@ class CompatibilityClaimsTest(unittest.TestCase):
         for repository, sha in expected.items():
             with self.subTest(repository=repository):
                 self.assertEqual(sha, selected[repository])
-        self.assertEqual("ea5777ce58c45c3c3cd4789bd155164ccbb5336b",
+        self.assertEqual("1d46a1afd04ceae7f04c7e0849397350ce273ec5",
                          selected["wickidcow/SF_NetworksExp"])
-        self.assertEqual("fdadfa67bc68fb18e34ccfed773a23ba2efbd4ef",
+        self.assertEqual("172c046250d75b7aaae7072fbc9e9148f0791210",
                          selected["wickidcow/SF_InfinityExpansion2"])
-        self.assertEqual("17693b1eec0ef15f198c86a5803f6e5dbd085074",
+        self.assertEqual("f03ed0c75f1df16aa484d25bf3a1b8bcd20d9b7c",
                          selected["wickidcow/SF_Supreme"])
 
 
 
-    def test_three_addon_release_candidate_is_merged_and_storage_pins_unchanged(self):
-        # These three commits are verified merged default-branch HEADs.
-        # FlowerPower / ExtraHeads raise only their distinct plugin versions
-        # (no production Java changes); Fluffy adds bounded Paxel/elevator
-        # fixes and regression tests. Do not alter published storage pairs.
+    def test_r154_four_updated_addons_remain_pinned_to_merged_sources(self):
+        # FlowerPower / ExtraHeads keep existing reviewed source identities.
+        # The four r154 addon pins point only to independently merged code,
+        # never draft commits. Published/historical storage locks are separate.
         selected = {row["repository"]: row["source_commit"]
                     for row in self.matrix["addons"]}
         self.assertEqual(44, len(selected))
-        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(154, self.matrix["bundle_revision"])
         expected = {
             "wickidcow/SF_FlowerPower": "d8c3f2c8ec66b7c08e0ceb8b23f710f020b5c36f",
             "wickidcow/SF_ExtraHeads": "b1e8a1f11692b44d359eec863f3be5be0f061516",
-            "wickidcow/SF_FluffyMachines": "9ce05a228a0ce14e69254115b90ec46e54eac6d9",
-            "wickidcow/SF_NetworksExp": "ea5777ce58c45c3c3cd4789bd155164ccbb5336b",
-            "wickidcow/SF_InfinityExpansion2": "fdadfa67bc68fb18e34ccfed773a23ba2efbd4ef",
-            "wickidcow/SF_Supreme": "17693b1eec0ef15f198c86a5803f6e5dbd085074",
+            "wickidcow/SF_FluffyMachines": "bb1a50387e8dfe34c4c4e3b592038c81c51f53f0",
+            "wickidcow/SF_NetworksExp": "1d46a1afd04ceae7f04c7e0849397350ce273ec5",
+            "wickidcow/SF_InfinityExpansion2": "172c046250d75b7aaae7072fbc9e9148f0791210",
+            "wickidcow/SF_Supreme": "f03ed0c75f1df16aa484d25bf3a1b8bcd20d9b7c",
         }
         for repository, sha in expected.items():
             with self.subTest(repository=repository):
