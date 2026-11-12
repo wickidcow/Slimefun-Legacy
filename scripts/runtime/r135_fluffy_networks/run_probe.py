@@ -248,14 +248,24 @@ def run(work: Path, java: Path, evidence: dict, timeout: int, verify_paxel: bool
             if proc.stdin:
                 proc.stdin.close()
 
-    if verify_paxel and "PAXEL_NATIVE_RECIPE_SELECTION PASS:" not in log_file.read_text(encoding="utf-8"):
-        raise RuntimeError("Required native Paxel recipe selection receipt missing")
-    if verify_paxel:
-        evidence["paxel_recipe_selection"] = "PASS"
+    record_paxel_receipts(log_file.read_text(encoding="utf-8"), evidence, verify_paxel)
     evidence["process_exit_code"] = proc.returncode
     evidence["server_log_sha256"] = sha256(log_file)
     if proc.returncode != 0 or evidence.get("result") != "PASS":
         raise RuntimeError(f"Native Networks-Fluffy integration failed: {evidence.get('detail', 'unknown')}; see {log_file}")
+
+
+def record_paxel_receipts(log: str, evidence: dict, required: bool) -> None:
+    evidence["paxel_input_consumption"] = "REQUIRED" if required else "NOT_TESTED"
+    if not required:
+        return
+    receipts = ["PAXEL_NATIVE_RECIPE_SELECTION PASS:"] + [
+        f"PAXEL_NATIVE_INPUT_CONSUMPTION PASS: {item};" for item in ("ADVENTURERS_PAXEL", "PAXEL")
+    ]
+    if any(receipt not in log for receipt in receipts):
+        raise RuntimeError("Required native Paxel selection/consumption receipt missing")
+    evidence["paxel_recipe_selection"] = "PASS"
+    evidence["paxel_input_consumption"] = "PASS"
 
 
 def main() -> int:

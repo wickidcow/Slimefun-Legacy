@@ -159,7 +159,7 @@ public final class R135FluffyNetworksProbe extends JavaPlugin {
         check(quantity(barrel, block, menu) == 0L, "Final emerald quantity was not conserved");
     }
 
-    /** Native recipe selection only: does not simulate player crafting or guide clicks. */
+    /** Native selection and consumption stages; no player interaction or guide clicks. */
     private void verifyPaxelRecipeSelection() throws Exception {
         var registeredMachine = SlimefunItem.getById("ENHANCED_CRAFTING_TABLE");
         var type = io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.EnhancedCraftingTable.class;
@@ -205,10 +205,51 @@ public final class R135FluffyNetworksProbe extends JavaPlugin {
                 check(java.util.Arrays.equals(recipeBefore[slot], inventory.getItem(slot).serializeAsBytes()),
                         "Recipe matcher changed input inventory: " + id);
             }
+            verifyPaxelInputConsumption(machine, recipe, id);
+            for (int slot = 0; slot < 9; slot++) {
+                check(java.util.Arrays.equals(recipeBefore[slot], recipe[slot].serializeAsBytes()),
+                        "Consumption changed registered ingredient: " + id + "/" + slot);
+            }
             check(java.util.Arrays.equals(templateBefore, item.getItem().serializeAsBytes()),
-                    "Recipe inspection changed output template: " + id);
+                    "Recipe inspection or consumption changed output template: " + id);
         }
         getLogger().info("PAXEL_NATIVE_RECIPE_SELECTION PASS: both registered patterns select unique intended outputs; templates unchanged");
+    }
+
+    /** Exercise the same consumption method used by craft, without claiming onInteract acceptance. */
+    private void verifyPaxelInputConsumption(Object machine, ItemStack[] recipe, String id) throws Exception {
+        var type = io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.AbstractCraftingTable.class;
+        var consume = type.getDeclaredMethod("consumeInputs", org.bukkit.inventory.Inventory.class, ItemStack[].class);
+        consume.setAccessible(true);
+        for (boolean surplus : List.of(false, true)) {
+            var inventory = Bukkit.createInventory(null, 9);
+            byte[][] expectedResidual = new byte[9][];
+            int surplusSlots = 0;
+            for (int slot = 0; slot < 9; slot++) {
+                ItemStack input = recipe[slot].clone();
+                if (surplus && input.getAmount() < input.getMaxStackSize()) {
+                    input.setAmount(input.getAmount() + 1);
+                    ItemStack residual = recipe[slot].clone();
+                    residual.setAmount(1);
+                    expectedResidual[slot] = residual.serializeAsBytes();
+                    surplusSlots++;
+                }
+                inventory.setItem(slot, input);
+            }
+            check(!surplus || surplusSlots > 0, "No stackable Paxel ingredients tested: " + id);
+            consume.invoke(machine, inventory, recipe);
+            for (int slot = 0; slot < 9; slot++) {
+                ItemStack actual = inventory.getItem(slot);
+                if (expectedResidual[slot] == null) {
+                    check(actual == null || actual.getType().isAir(),
+                            "Paxel ingredient not fully consumed: " + id + "/" + slot);
+                } else {
+                    check(actual != null && java.util.Arrays.equals(expectedResidual[slot], actual.serializeAsBytes()),
+                            "Paxel surplus amount or native metadata changed: " + id + "/" + slot);
+                }
+            }
+        }
+        getLogger().info("PAXEL_NATIVE_INPUT_CONSUMPTION PASS: " + id + "; exact inputs and surplus checked");
     }
 
     private void requireVersion(String name, String expected) {

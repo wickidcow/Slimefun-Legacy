@@ -478,6 +478,27 @@ class NativeStorageProbeContracts(unittest.TestCase):
             self.assertIn(f"-Dalbion.probe.paxel={str(required).lower()}", self.launch.call_args.args[0])
             self.assertEqual("REQUIRED" if required else "NOT_TESTED", evidence["paxel_recipe_selection"])
 
+    def test_paxel_receipts_require_selection_and_both_consumption_cases(self):
+        receipts = ["PAXEL_NATIVE_RECIPE_SELECTION PASS:",
+                    "PAXEL_NATIVE_INPUT_CONSUMPTION PASS: ADVENTURERS_PAXEL;",
+                    "PAXEL_NATIVE_INPUT_CONSUMPTION PASS: PAXEL;"]
+        for omitted in receipts:
+            evidence = {"paxel_recipe_selection": "REQUIRED"}
+            with self.assertRaisesRegex(RuntimeError, "receipt missing"):
+                probe.record_paxel_receipts("\n".join(r for r in receipts if r != omitted), evidence, True)
+            self.assertNotEqual("PASS", evidence["paxel_recipe_selection"])
+            self.assertNotEqual("PASS", evidence["paxel_input_consumption"])
+        evidence = {}
+        probe.record_paxel_receipts("\n".join(receipts), evidence, True)
+        self.assertEqual("PASS", evidence["paxel_recipe_selection"])
+        self.assertEqual("PASS", evidence["paxel_input_consumption"])
+
+    def test_historical_core_does_not_claim_paxel_consumption(self):
+        evidence = {"paxel_recipe_selection": "NOT_TESTED"}
+        probe.record_paxel_receipts("", evidence, False)
+        self.assertEqual("NOT_TESTED", evidence["paxel_input_consumption"])
+        self.assertEqual("NOT_TESTED", evidence["paxel_recipe_selection"])
+
     def test_candidate_workflow_requires_paxel_but_historical_core_does_not(self):
         root = SOURCE.parents[3]
         self.assertIn("--verify-paxel-recipes", (root / ".github/workflows/paper-26.3-full-stack.yml").read_text())
