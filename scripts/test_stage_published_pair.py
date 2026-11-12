@@ -75,17 +75,23 @@ class PublishedPairTest(unittest.TestCase):
             with self.subTest(addon=key):
                 pin = release["addons"][key]
                 old = fixture["addons"][key]
-                # The immutable published distribution-pair lock is a historical
-                # verification fixture, NOT the source selector for a new r154
-                # core/addon bundle. Require the exact reviewed merged r154
-                # commits without changing published artifact bytes or fixture pins.
+                # Distribution pins advance only after independent publication.
+                # The historical native fixture remains separate and immutable.
+                # Networks 1.0.64 is published; IE2 2.0.18 remains release-blocked.
                 if matrix["bundle_revision"] == 154:
                     latest_sources = {
                         "networks": "1d46a1afd04ceae7f04c7e0849397350ce273ec5",
                         "ie2": "172c046250d75b7aaae7072fbc9e9148f0791210",
                     }
                     self.assertEqual(rows[pin["repository"]]["source_commit"], latest_sources[key])
-                    self.assertNotEqual(latest_sources[key], pin["source"])
+                    if key == "networks":
+                        self.assertEqual(latest_sources[key], pin["source"])
+                        self.assertEqual("1.0.64", pin["version"])
+                        self.assertEqual(1684690, pin["published_artifact"]["bytes"])
+                        self.assertEqual("8d5784711b3c7a1051a0200da520b5d5c752f3e65327a240cc5452542b446d48",
+                                         pin["published_artifact"]["sha256"])
+                    else:
+                        self.assertNotEqual(latest_sources[key], pin["source"])
                 else:
                     self.assertEqual(rows[pin["repository"]]["source_commit"], pin["source"])
                 self.assertNotEqual(old["source"], pin["source"])
