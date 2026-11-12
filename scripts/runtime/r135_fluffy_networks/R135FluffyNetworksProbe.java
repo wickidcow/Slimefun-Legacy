@@ -218,7 +218,9 @@ public final class R135FluffyNetworksProbe extends JavaPlugin {
 
     /** Exercise the same consumption method used by craft, without claiming onInteract acceptance. */
     private void verifyPaxelInputConsumption(Object machine, ItemStack[] recipe, String id) throws Exception {
-        var type = io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.AbstractCraftingTable.class;
+        var type = io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.EnhancedCraftingTable.class
+                .getSuperclass();
+        check(type.getSimpleName().equals("AbstractCraftingTable"), "Unexpected crafting superclass");
         var consume = type.getDeclaredMethod("consumeInputs", org.bukkit.inventory.Inventory.class, ItemStack[].class);
         consume.setAccessible(true);
         for (boolean surplus : List.of(false, true)) {
