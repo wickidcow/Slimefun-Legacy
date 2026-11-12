@@ -1,6 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.core.commands;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
@@ -13,7 +14,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
-import static org.mockito.Mockito.mockStatic;
 
 class TestSlimefunTabCompleter {
 
