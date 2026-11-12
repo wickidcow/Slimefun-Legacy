@@ -80,7 +80,17 @@ public final class CraftingRestrictionService {
             yaml.load(file);
             parse(yaml); // Never overwrite a policy that an admin has accidentally malformed.
 
-            yaml.set("items." + normalizeId(itemId) + ".crafting-enabled", craftingEnabled);
+            String key = normalizeId(itemId);
+            ConfigurationSection items = yaml.getConfigurationSection("items");
+            if (items != null) {
+                for (String existingKey : items.getKeys(false)) {
+                    if (normalizeId(existingKey).equals(key)) {
+                        key = existingKey;
+                        break;
+                    }
+                }
+            }
+            yaml.set("items." + key + ".crafting-enabled", craftingEnabled);
             Snapshot updated = parse(yaml);
             Path target = file.toPath();
             Path temporary = Files.createTempFile(target.getParent(), "CraftingRestrictions-", ".tmp");

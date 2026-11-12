@@ -63,6 +63,22 @@ class CraftingRestrictionServiceTest {
     }
 
     @Test
+    void commandEditsExistingCaseInsensitiveYamlKey() throws IOException {
+        Path file = tempDir.resolve("CraftingRestrictions.yml");
+        Files.writeString(file, "enabled: true\\nitems:\\n  addon_item:\\n    crafting-enabled: false\n");
+        Slimefun plugin = mock(Slimefun.class);
+        when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("crafting-restriction-test"));
+        CraftingRestrictionService service = new CraftingRestrictionService(plugin);
+
+        assertTrue(service.reload());
+        assertTrue(service.isBlocked("ADDON_ITEM"));
+        assertTrue(service.setCraftingEnabled("ADDON_ITEM", true));
+        assertFalse(service.isBlocked("addon_item"));
+        assertFalse(Files.readString(file).contains("ADDON_ITEM:"));
+    }
+
+    @Test
     void invalidConfigurationIsNotOverwritten() throws IOException {
         Path file = tempDir.resolve("CraftingRestrictions.yml");
         String invalid = "items: [broken]\n";
