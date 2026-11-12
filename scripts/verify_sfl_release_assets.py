@@ -29,6 +29,9 @@ CARRIED_GEYSER_PIN = {
     "source_asset_id": 669444618,
     "target_tag": "v4.1.78",
     "next_tag": "v4.1.79",
+    "next_release_id": 431031092,
+    "next_asset_id": 700332537,
+    "candidate_tag": "v4.1.80",
     "target_asset_id": 682983055,
     "target_release_id": 425012427,
     "size": 1339867,
@@ -147,14 +150,17 @@ def retained_carried_geyser_identity(release: dict[str, Any], asset: dict[str, A
         if release["id"] != pin["target_release_id"] or asset["id"] == pin["source_asset_id"]:
             raise PolicyError("Carried Geyser ZIP must be a separate asset on the exact successor")
     elif tag == pin["next_tag"]:
+        if release["id"] != pin["next_release_id"] or asset["id"] != pin["next_asset_id"]:
+            raise PolicyError("Published v4.1.79 Geyser release/asset identity changed")
+    elif tag == pin["candidate_tag"]:
         # The new release/asset IDs cannot be pinned before publication, but
         # original source IDs cannot be reused, and the ZIP digest must match.
-        if release["id"] in {pin["source_release_id"], pin["target_release_id"]} or asset["id"] in {
-            pin["source_asset_id"], pin["target_asset_id"]
+        if release["id"] in {pin["source_release_id"], pin["target_release_id"], pin["next_release_id"]} or asset["id"] in {
+            pin["source_asset_id"], pin["target_asset_id"], pin["next_asset_id"]
         }:
             raise PolicyError("New release must have distinct Geyser archive identity")
     else:
-        raise PolicyError("Optional Geyser ZIP is approved only through v4.1.79")
+        raise PolicyError("Optional Geyser ZIP is approved only through v4.1.80")
     identity = retained_identity(asset)
     if identity["size"] != pin["size"] or identity["digest"] != pin["digest"]:
         raise PolicyError("Optional Geyser ZIP does not match unchanged v4.1.77 source bytes")

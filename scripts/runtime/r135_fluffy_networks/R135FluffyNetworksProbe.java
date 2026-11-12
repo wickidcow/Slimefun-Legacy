@@ -71,7 +71,7 @@ public final class R135FluffyNetworksProbe extends JavaPlugin {
     private void runNativeCase() throws Exception {
         requireVersion("Slimefun", System.getProperty("albion.probe.slimefun.version"));
         requireVersion("Networks", System.getProperty("albion.probe.networks.version"));
-        requireVersion("FluffyMachines", "26.2.16");
+        requireVersion("FluffyMachines", System.getProperty("albion.probe.fluffy.version"));
 
         if (Boolean.getBoolean("albion.probe.paxel")) {
             verifyPaxelRecipeSelection();

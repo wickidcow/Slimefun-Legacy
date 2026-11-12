@@ -1,11 +1,15 @@
-"""Exact candidate metadata regressions for distinct Slimefun Legacy 4.1.79."""
+"""Exact candidate metadata regressions for distinct Slimefun Legacy 4.1.80."""
 import json
+import io
+import zipfile
+
+from scripts.verify_release_artifact import REQUIRED_FEATURE_ENTRIES, verify_feature_entries
 from pathlib import Path
 import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-PUBLISHED_V4178_SOURCE = "b14a3bcc5ef221c013f93d49b6b3a1bbdb3101e9"
+PUBLISHED_V4179_SOURCE = "0844c216fdc27f6414c185957e93a2047b3fb027"
 
 
 class ReleaseCandidateMetadataTest(unittest.TestCase):
@@ -20,9 +24,40 @@ class ReleaseCandidateMetadataTest(unittest.TestCase):
     def test_candidate_version_matches_both_release_registries(self):
         match = re.search(r"^projectVersion=(\d+\.\d+\.\d+)$", self.properties, re.M)
         self.assertIsNotNone(match)
-        self.assertEqual("4.1.79", match.group(1))
+        self.assertEqual("4.1.80", match.group(1))
         self.assertEqual(match.group(1), self.support["release"])
         self.assertEqual(match.group(1), self.baselines["candidate"]["version"])
+        for name in ("addon-compatibility-matrix.json", "cross-fork-api-matrix.json", "core-api-registry.json"):
+            with self.subTest(registry=name):
+                data = json.loads((ROOT / "compatibility" / name).read_text(encoding="utf-8"))
+                self.assertEqual(match.group(1), data["release"])
+
+    def test_release_jar_requires_crafting_restrictions_and_identity_diagnostics(self):
+        def check(omitted=None, empty=None):
+            data = io.BytesIO()
+            with zipfile.ZipFile(data, "w") as archive:
+                for entry in REQUIRED_FEATURE_ENTRIES:
+                    if entry != omitted:
+                        archive.writestr(entry, b"" if entry == empty else b"fixture")
+            with zipfile.ZipFile(data) as archive:
+                return verify_feature_entries(archive)
+        self.assertEqual([], check())
+        for entry in REQUIRED_FEATURE_ENTRIES:
+            with self.subTest(entry=entry):
+                self.assertEqual(1, len(check(omitted=entry)))
+                self.assertIn(entry, check(omitted=entry)[0])
+                self.assertEqual(1, len(check(empty=entry)))
+
+    def test_new_candidate_notes_preserve_scope_and_release_gate(self):
+        notes = (ROOT / "docs/releases/4.1.80.md").read_text(encoding="utf-8")
+        for required in (
+            "Slimefun-Legacy4.1.80.jar", "SF_Addons_1.21.11-26.3.zip",
+            "SlimefunLegacyRP.zip", "SlimefunLegacyRP_Geyser.zip",
+            "UNTESTED", "Historical inventories are not rewritten", "CraftingRestrictions.yml",
+            "exact-source", "unpublished candidate",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, notes)
 
     def test_historical_verifiers_accept_current_published_and_candidate_status(self):
         # Static verifiers enforce compatibility, not GitHub publication itself.
@@ -44,11 +79,11 @@ class ReleaseCandidateMetadataTest(unittest.TestCase):
                 self.assertIn("is undergoing exact-source validation primarily", source)
                 self.assertIn("was published on", source)
 
-    def test_previous_stable_is_exact_published_v4178_source(self):
+    def test_previous_stable_is_exact_published_v4179_source(self):
         previous = self.baselines["previous_stable"]
-        self.assertEqual("4.1.78", previous["version"])
+        self.assertEqual("4.1.79", previous["version"])
         self.assertEqual("git-ref", previous["source"]["mode"])
-        self.assertEqual(PUBLISHED_V4178_SOURCE, previous["source"]["ref"])
+        self.assertEqual(PUBLISHED_V4179_SOURCE, previous["source"]["ref"])
         self.assertIs(True, previous["release_blocking"])
         self.assertEqual("4.1.15", self.baselines["legacy_floor"]["version"])
         self.assertIs(False, self.baselines["legacy_floor"]["release_blocking"])

@@ -64,6 +64,9 @@ permissions:
   slimefun.machine-limiter.bypass:
     description: Bypasses the optional per-chunk Slimefun ticking-machine placement limit when enabled in config.yml
     default: op
+  slimefun.command.admin:
+    description: Allows management of per-item Slimefun and addon crafting restrictions
+    default: op
   slimefun.command.owner:
     description: Allows use of /sf owner block ownership diagnostics and management
     default: op

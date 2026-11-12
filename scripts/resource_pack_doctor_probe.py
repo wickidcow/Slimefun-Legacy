@@ -201,9 +201,19 @@ def main() -> None:
 
     try:
         process, log = boot(1)
+        probe(process, 1, "identity")
+        subprocess.run(["python3", str(repo / "scripts/identity_coverage.py"),
+                        "--registry", str(proof / "identity-registry.json"), "--core", str(core),
+                        "--server", str(root / "server.jar"),
+                        "--output", str(root / "identity-coverage.json")], check=True)
         probe(process, 1, "prepare")
         if args.protocol_module:
             client, client_log = connect_player(process, 1, "seed")
+            probe(process, 1, "player-identity-give")
+            probe(process, 1, "player-identity-craft")
+            probe(process, 1, "player-identity-compressor-rejected")
+            probe(process, 1, "player-identity-compressor")
+            probe(process, 1, "player-identity-compressor-chain")
             probe(process, 1, "player-seed")
             disconnect_player(client, client_log, process, 1)
         command(process, "sf doctor resource-pack install scan")
@@ -214,6 +224,9 @@ def main() -> None:
         probe(process, 1, "checkpoint")
         stop(process, log)
         process, log = boot(2)
+        probe(process, 2, "identity-restart")
+        if args.protocol_module:
+            probe(process, 2, "identity-output-restart")
         time.sleep(4)
         probe(process, 2, "installed")
         probe(process, 2, "deferred")
@@ -266,6 +279,10 @@ def main() -> None:
             "phases": {p.stem: p.read_text().strip() for p in sorted(proof.glob("*.pass"))},
         }
         (root / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+        subprocess.run(["python3", str(repo / "scripts/identity_coverage.py"),
+                        "--registry", str(proof / "identity-registry.json"), "--core", str(core),
+                        "--server", str(root / "server.jar"), "--output", str(root / "identity-coverage.json"),
+                        "--native-evidence", str(root / "evidence.json"), "--captures-dir", str(proof)], check=True)
         print(result, flush=True)
     finally:
         for client in clients:

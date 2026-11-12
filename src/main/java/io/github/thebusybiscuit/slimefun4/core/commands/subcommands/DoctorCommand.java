@@ -77,6 +77,7 @@ final class DoctorCommand extends SubCommand {
             case "registry" -> sendRegistryHealth(sender);
             case "chunks", "worlds", "blocks" -> sendChunkHealth(sender);
             case "hand" -> repairHand(sender, service);
+            case "identity" -> DoctorIdentityCommand.run(sender, args);
             case "inventory" -> repairInventory(sender, args, service);
             case "item-models", "itemmodels", "models" -> runItemModelDoctor(sender, args, service);
             case "resource-pack", "resourcepack", "rp" -> DoctorResourcePackCommand.run(plugin, sender, args);
@@ -1472,7 +1473,7 @@ final class DoctorCommand extends SubCommand {
     private void sendUsage(CommandSender sender) {
         send(
                 sender,
-                "&eUsage: /slimefun doctor [status|upgrade|core|registry|chunks|storage|report|hand|inventory [player]|scan|repair confirm|item-models|resource-pack|addons]");
+                "&eUsage: /slimefun doctor [status|upgrade|core|registry|chunks|storage|report|hand|identity|inventory [player]|scan|repair confirm|item-models|resource-pack|addons]");
         send(
                 sender,
                 "&e       /slimefun doctor [compatibility [api <plugin>]|dependencies [plugin]|runtime [retry [all]]]");

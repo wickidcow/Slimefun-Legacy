@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Candidate-only source preview never substitutes for immutable published-pair evidence."""
 import hashlib
+import json
+from scripts.stage_published_pair import load_release_lock
 from pathlib import Path
 import tempfile
 import unittest
@@ -47,6 +49,21 @@ class UnpublishedPairPreviewTest(unittest.TestCase):
                     event="pull_request", jar=self.jar)
         args.update(updates)
         return preview_mode(**args)
+
+    def test_current_master_accepts_published_networks_but_rejects_unpublished_ie2(self):
+        root = Path(__file__).resolve().parents[1]
+        manifest = json.loads((root / "compatibility/sfl-addon-release-matrix.json").read_text())
+        lock = load_release_lock()
+        for row in manifest["addons"]:
+            if row["slug"] == "networksexp":
+                mode, proof = preview_mode(manifest, lock, row["slug"], row["source_commit"],
+                                           row["repository"], "push")
+                self.assertEqual("published", mode)
+                self.assertIsNone(proof)
+            elif row["slug"] == "infinityexpansion2":
+                with self.assertRaisesRegex(RuntimeError, "master or release"):
+                    preview_mode(manifest, lock, row["slug"], row["source_commit"],
+                                 row["repository"], "push")
 
     def test_only_exact_pinned_pr_candidate_is_previewable(self):
         mode, proof = self.preview()
