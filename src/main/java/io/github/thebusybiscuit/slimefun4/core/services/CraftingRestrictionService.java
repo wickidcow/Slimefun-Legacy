@@ -4,6 +4,11 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -39,13 +44,11 @@ public final class CraftingRestrictionService {
      *
      * @return true if the configuration was read successfully
      */
-    public boolean reload() {
+    public synchronized boolean reload() {
         File file = new File(plugin.getDataFolder(), FILE_NAME);
 
         try {
-            if (!file.isFile()) {
-                plugin.saveResource(FILE_NAME, false);
-            }
+            ensureConfigurationExists(file);
 
             YamlConfiguration yaml = new YamlConfiguration();
             yaml.load(file);
@@ -56,6 +59,80 @@ public final class CraftingRestrictionService {
             plugin.getLogger().log(Level.SEVERE, "Unable to load " + FILE_NAME + "; retaining previous policy", exception);
             return false;
         }
+    }
+
+    /**
+     * Persists an administrator's per-item crafting decision, then updates the live snapshot.
+     * The existing policy remains in force if the YAML is malformed or a write fails.
+     *
+     * @return true only after the policy was successfully saved
+     */
+    public synchronized boolean setCraftingEnabled(String itemId, boolean craftingEnabled) {
+        if (itemId == null || !itemId.matches("[A-Za-z0-9_:-]+")) {
+            throw new IllegalArgumentException("A registered Slimefun item ID is required");
+        }
+
+        File file = new File(plugin.getDataFolder(), FILE_NAME);
+        try {
+            ensureConfigurationExists(file);
+            YamlConfiguration yaml = new YamlConfiguration();
+            yaml.options().parseComments(true);
+            yaml.load(file);
+            parse(yaml); // Never overwrite a policy that an admin has accidentally malformed.
+
+            String key = normalizeId(itemId);
+            ConfigurationSection items = yaml.getConfigurationSection("items");
+            if (items != null) {
+                for (String existingKey : items.getKeys(false)) {
+                    if (normalizeId(existingKey).equals(key)) {
+                        key = existingKey;
+                        break;
+                    }
+                }
+            }
+            yaml.set("items." + key + ".crafting-enabled", craftingEnabled);
+            Snapshot updated = parse(yaml);
+            Path target = file.toPath();
+            Path temporary = Files.createTempFile(target.getParent(), "CraftingRestrictions-", ".tmp");
+            try {
+                Files.writeString(temporary, yaml.saveToString(), StandardCharsets.UTF_8);
+                try {
+                    Files.move(
+                            temporary,
+                            target,
+                            StandardCopyOption.ATOMIC_MOVE,
+                            StandardCopyOption.REPLACE_EXISTING);
+                } catch (AtomicMoveNotSupportedException ignored) {
+                    Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
+                }
+            } finally {
+                Files.deleteIfExists(temporary);
+            }
+
+            snapshot = updated;
+            return true;
+        } catch (IOException | InvalidConfigurationException | IllegalArgumentException exception) {
+            plugin.getLogger().log(Level.SEVERE, "Unable to update " + FILE_NAME + "; retaining previous policy", exception);
+            return false;
+        }
+    }
+
+    private void ensureConfigurationExists(File file) throws IOException {
+        if (file.isFile()) {
+            return;
+        }
+
+        Files.createDirectories(file.getParentFile().toPath());
+        plugin.saveResource(FILE_NAME, false);
+        if (!file.isFile()) {
+            throw new IOException(FILE_NAME + " could not be created in " + plugin.getDataFolder());
+        }
+        plugin.getLogger().info("Created " + file.getAbsolutePath());
+    }
+
+    /** Whether the global crafting-restriction switch is enabled. */
+    public boolean isEnabled() {
+        return snapshot.enabled;
     }
 
     /**
