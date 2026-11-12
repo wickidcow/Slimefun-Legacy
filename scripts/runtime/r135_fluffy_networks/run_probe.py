@@ -59,8 +59,8 @@ NETWORK_VERSIONS = {
     152: ("SF_Networks1.0.62.jar", "79e4c0116cc4b4683c668a4920e67692f925b83f"),
     # r153 candidate uses the published Networks 1.0.63 release source.
     153: ("SF_Networks1.0.63.jar", "ea5777ce58c45c3c3cd4789bd155164ccbb5336b"),
-    # r154 retains version 1.0.63, advances to merged identity/storage parity tests.
-    154: ("SF_Networks1.0.63.jar", "ed1ba235701b3e5ea5e47b74d855376c084aba8e"),
+    # r154 uses separately validated Networks 1.0.64 with distinct post-v1.0.63 source.
+    154: ("SF_Networks1.0.64.jar", "1d46a1afd04ceae7f04c7e0849397350ce273ec5"),
 }
 
 
