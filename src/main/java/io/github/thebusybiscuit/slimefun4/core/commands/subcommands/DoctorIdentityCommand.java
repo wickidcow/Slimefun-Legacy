@@ -4,7 +4,9 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.NamespacedKey;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -54,10 +56,21 @@ final class DoctorIdentityCommand {
         send(sender, "&7PDC key set: " + flag(comparison.pdcKeysSame()));
         send(sender, "&7Custom model data: " + flag(comparison.customModelDataSame()));
         send(sender, "&7Effective max stack size: &e" + main.getMaxStackSize() + " &8/ &e" + off.getMaxStackSize());
+        int freeOffhand = availableCapacity(off);
+        send(sender, "&7Offhand available capacity: &e" + freeOffhand);
+        if (comparison.isSimilar() && freeOffhand == 0) {
+            send(sender, "&eItems match, but offhand is full. A full stack cannot accept another item.");
+        }
         reportTemplate(sender, "Main hand", main, mainItem);
         reportTemplate(sender, "Offhand", off, offItem);
         if (!comparison.isSimilar()) {
-            send(sender, "&eMismatch confirmed. No item was modified; inspect producer metadata before repair.");
+            HistoricalPresentation historical = inspectHistoricalPresentation(main, off);
+            send(sender, "&7Same plain text (ignores styling): " + flag(historical.plainTextSame()));
+            send(sender, "&7Non-presentation Bukkit metadata: " + flag(historical.nonPresentationSame()));
+            send(sender, historical.candidate()
+                    ? "&ePresentation-only candidate on detached copies; NOT an approved repair. No item changed."
+                    : "&eNot a verified presentation-only candidate. No item changed.");
+            send(sender, "&eMismatch confirmed. Inspect producer metadata before repair.");
         }
         send(sender, "&8This compares actual held items, not all possible crafting/machine sources.");
     }
@@ -96,6 +109,51 @@ final class DoctorIdentityCommand {
                 pdcKeys(mainMeta).equals(pdcKeys(offMeta)),
                 Objects.equals(modelData(mainMeta), modelData(offMeta)));
     }
+
+    /**
+     * Purely read-only historical triage. Removing text from ordinary detached ItemStack
+     * copies tests whether the remaining Bukkit metadata differs, including typed PDC,
+     * skull profile, model components and enchantments. It is NOT a repair eligibility
+     * decision: plain text ignores styling, and native saved-world acceptance is still
+     * required before any opt-in historical conversion can be permitted.
+     */
+    static HistoricalPresentation inspectHistoricalPresentation(ItemStack old, ItemStack fresh) {
+        ItemMeta oldMeta = old.getItemMeta();
+        ItemMeta freshMeta = fresh.getItemMeta();
+        if (old.getType() != fresh.getType() || oldMeta == null || freshMeta == null) {
+            return new HistoricalPresentation(false, false, false);
+        }
+
+        boolean plainTextSame = Objects.equals(plain(oldMeta.displayName()), plain(freshMeta.displayName()))
+                && Objects.equals(plainLore(oldMeta.lore()), plainLore(freshMeta.lore()));
+        ItemStack oldCopy = new ItemStack(old);
+        ItemStack freshCopy = new ItemStack(fresh);
+        oldCopy.editMeta(meta -> {
+            meta.displayName(null);
+            meta.lore(null);
+        });
+        freshCopy.editMeta(meta -> {
+            meta.displayName(null);
+            meta.lore(null);
+        });
+        boolean nonPresentationSame = oldCopy.isSimilar(freshCopy);
+        return new HistoricalPresentation(
+                plainTextSame, nonPresentationSame, !old.isSimilar(fresh) && plainTextSame && nonPresentationSame);
+    }
+
+    static int availableCapacity(ItemStack stack) {
+        return Math.max(0, stack.getMaxStackSize() - stack.getAmount());
+    }
+
+    private static String plain(Component component) {
+        return component == null ? null : PlainTextComponentSerializer.plainText().serialize(component);
+    }
+
+    private static java.util.List<String> plainLore(java.util.List<Component> lore) {
+        return lore == null ? null : lore.stream().map(DoctorIdentityCommand::plain).toList();
+    }
+
+    record HistoricalPresentation(boolean plainTextSame, boolean nonPresentationSame, boolean candidate) {}
 
     record Comparison(
             boolean materialSame,
