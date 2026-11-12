@@ -21,6 +21,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.bukkit.generator.WorldInfo;
@@ -39,8 +40,35 @@ class SlimefunTabCompleter implements TabCompleter {
 
     @Nullable @Override
     public List<String> onTabComplete(CommandSender sender, Command cmd, String label, String[] args) {
+        if (args.length > 1 && args[0].equalsIgnoreCase("admin")) {
+            if (!sender.hasPermission("slimefun.command.admin") && !(sender instanceof ConsoleCommandSender)) {
+                return Collections.emptyList();
+            }
+            if (args.length == 2) {
+                return createReturnList(List.of("crafting"), args[1]);
+            }
+            if (!args[1].equalsIgnoreCase("crafting")) {
+                return Collections.emptyList();
+            }
+            if (args.length == 3) {
+                return createReturnList(
+                        Slimefun.getRegistry().getAllSlimefunItems().stream()
+                                .map(SlimefunItem::getId)
+                                .sorted(String.CASE_INSENSITIVE_ORDER)
+                                .toList(),
+                        args[2]);
+            }
+            if (args.length == 4) {
+                return createReturnList(List.of("disable", "enable", "status"), args[3]);
+            }
+            return Collections.emptyList();
+        }
         if (args.length == 1) {
-            return createReturnList(command.getSubCommandNames(), args[0]);
+            List<String> names = new ArrayList<>(command.getSubCommandNames());
+            if (!sender.hasPermission("slimefun.command.admin") && !(sender instanceof ConsoleCommandSender)) {
+                names.remove("admin");
+            }
+            return createReturnList(names, args[0]);
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("banitem")) {
                 return createReturnList(getSlimefunItems(), args[1]);

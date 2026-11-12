@@ -37,6 +37,7 @@ public final class SlimefunSubCommands {
         commands.add(new TickCommand(plugin, cmd));
         commands.add(new ChunkInfoCommand(plugin, cmd));
         commands.add(new OwnerCommand(plugin, cmd));
+        commands.add(new AdminCommand(plugin, cmd));
         commands.add(new TeleporterCommand(plugin, cmd));
         commands.add(new OpenGuideCommand(plugin, cmd));
         commands.add(new SearchCommand(plugin, cmd));
