@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -27,7 +26,7 @@ class CraftingRestrictionServiceTest {
     @Test
     void adminChangesPersistAndTakeEffectWithoutRestart() throws IOException {
         Path file = tempDir.resolve("CraftingRestrictions.yml");
-        Files.writeString(file, "enabled: true\\nitems: {}\\n");
+        Files.writeString(file, "enabled: true\nitems: {}\n");
         Slimefun plugin = mock(Slimefun.class);
         when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
         when(plugin.getLogger()).thenReturn(Logger.getLogger("crafting-restriction-test"));
@@ -51,7 +50,7 @@ class CraftingRestrictionServiceTest {
         when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
         when(plugin.getLogger()).thenReturn(Logger.getLogger("crafting-restriction-test"));
         doAnswer(invocation -> {
-                    Files.writeString(tempDir.resolve("CraftingRestrictions.yml"), "enabled: true\\nitems: {}\\n");
+                    Files.writeString(tempDir.resolve("CraftingRestrictions.yml"), "enabled: true\nitems: {}\n");
                     return null;
                 })
                 .when(plugin)
@@ -66,7 +65,7 @@ class CraftingRestrictionServiceTest {
     @Test
     void invalidConfigurationIsNotOverwritten() throws IOException {
         Path file = tempDir.resolve("CraftingRestrictions.yml");
-        String invalid = "items: [broken]\\n";
+        String invalid = "items: [broken]\n";
         Files.writeString(file, invalid);
         Slimefun plugin = mock(Slimefun.class);
         when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
