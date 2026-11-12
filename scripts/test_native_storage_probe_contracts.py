@@ -55,6 +55,40 @@ class NativeStorageProbeContracts(unittest.TestCase):
             probe.subprocess, "Popen", side_effect=AssertionError("No server may run in offline contract tests")
         ).start()
 
+    def test_curios_fixture_enables_root_only_and_restores_exact_bytes(self):
+        config = self.plugins / "Slimefun/configSFLAddons.yml"
+        config.parent.mkdir()
+        before = b"# preserved\r\nenabled: false\r\nresource-pack:\r\n  enabled: false\r\n"
+        config.write_bytes(before)
+        with probe.enabled_curios_fixture(self.work):
+            self.assertEqual(before.replace(b"enabled: false", b"enabled: true", 1), config.read_bytes())
+        self.assertEqual(before, config.read_bytes())
+        with self.assertRaisesRegex(RuntimeError, "simulated boot failure"):
+            with probe.enabled_curios_fixture(self.work):
+                raise RuntimeError("simulated boot failure")
+        self.assertEqual(before, config.read_bytes())
+
+    def test_curios_fixture_rejects_missing_ambiguous_and_external_config(self):
+        config = self.plugins / "Slimefun/configSFLAddons.yml"
+        config.parent.mkdir()
+        with self.assertRaisesRegex(RuntimeError, "regular local"):
+            with probe.enabled_curios_fixture(self.work):
+                self.fail("Missing config accepted")
+        for before in (b"resource-pack:\n  enabled: false\n", b"enabled: false\nenabled: true\n"):
+            config.write_bytes(before)
+            with self.assertRaisesRegex(RuntimeError, "exactly one"):
+                with probe.enabled_curios_fixture(self.work):
+                    self.fail("Ambiguous config accepted")
+            self.assertEqual(before, config.read_bytes())
+        config.unlink()
+        external = self.root / "external.yml"
+        external.write_bytes(b"enabled: false\n")
+        config.symlink_to(external)
+        with self.assertRaisesRegex(RuntimeError, "regular local"):
+            with probe.enabled_curios_fixture(self.work):
+                self.fail("External config accepted")
+        self.assertEqual(b"enabled: false\n", external.read_bytes())
+
     def populate(self, revision):
         self.manifest["bundle_revision"] = revision
         expected = dict(probe.EXPECTED_VERSIONS)

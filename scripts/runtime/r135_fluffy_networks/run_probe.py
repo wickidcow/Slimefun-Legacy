@@ -9,6 +9,7 @@ It must never target an existing production Minecraft installation.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -157,6 +158,26 @@ def prepare(work: Path, bundle: Path, java: Path, runtime_core_version: str | No
     }
 
 
+@contextmanager
+def enabled_curios_fixture(work: Path):
+    """Opt in only the already validated disposable boot, restoring exact config bytes."""
+    workspace = (Path.cwd() / "build").resolve()
+    if not work.resolve().is_relative_to(workspace) or work.name != "full-stack-26.3":
+        raise RuntimeError("Refusing Curios fixture outside disposable full-stack directory")
+    config = work / "plugins/Slimefun/configSFLAddons.yml"
+    if not config.is_file() or config.is_symlink() or config.resolve().parent != (work / "plugins/Slimefun").absolute():
+        raise RuntimeError("Curios fixture requires a regular local existing config")
+    before = config.read_bytes()
+    pattern = rb"(?m)^enabled:[ \t]*(?:true|false)[ \t]*(?=\r?$)"
+    if len(re.findall(pattern, before)) != 1:
+        raise RuntimeError("Curios fixture requires exactly one explicit root enabled boolean")
+    try:
+        config.write_bytes(re.sub(pattern, b"enabled: true", before))
+        yield
+    finally:
+        config.write_bytes(before)
+
+
 def run(work: Path, java: Path, evidence: dict, timeout: int) -> None:
     log_file = work / "native-r135.console.log"
     result_file = work / "plugins" / "R135FluffyNetworksProbe" / "result.txt"
@@ -236,7 +257,8 @@ def main() -> int:
     evidence = prepare(work, args.bundle.resolve(), java, args.expected_core_version)
     out = work / "native-r135-result.json"
     try:
-        run(work, java, evidence, args.timeout)
+        with enabled_curios_fixture(work):
+            run(work, java, evidence, args.timeout)
     except Exception as error:
         evidence["result"] = "FAIL"
         evidence["error"] = str(error)
