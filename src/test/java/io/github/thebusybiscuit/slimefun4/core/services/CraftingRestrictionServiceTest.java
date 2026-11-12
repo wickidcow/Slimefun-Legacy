@@ -5,11 +5,78 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.logging.Logger;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class CraftingRestrictionServiceTest {
+
+    @TempDir
+    Path tempDir;
+
+    @Test
+    void adminChangesPersistAndTakeEffectWithoutRestart() throws IOException {
+        Path file = tempDir.resolve("CraftingRestrictions.yml");
+        Files.writeString(file, "enabled: true\\nitems: {}\\n");
+        Slimefun plugin = mock(Slimefun.class);
+        when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("crafting-restriction-test"));
+        CraftingRestrictionService service = new CraftingRestrictionService(plugin);
+
+        assertTrue(service.reload());
+        assertTrue(service.setCraftingEnabled("addon_item", false));
+        assertTrue(service.isBlocked("ADDON_ITEM"));
+        assertTrue(Files.readString(file).contains("crafting-enabled: false"));
+
+        CraftingRestrictionService nextBoot = new CraftingRestrictionService(plugin);
+        assertTrue(nextBoot.reload());
+        assertTrue(nextBoot.isBlocked("addon_item"));
+        assertTrue(nextBoot.setCraftingEnabled("ADDON_ITEM", true));
+        assertFalse(nextBoot.isBlocked("addon_item"));
+    }
+
+    @Test
+    void missingConfigurationIsGeneratedAndUpdated() throws IOException {
+        Slimefun plugin = mock(Slimefun.class);
+        when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("crafting-restriction-test"));
+        doAnswer(invocation -> {
+                    Files.writeString(tempDir.resolve("CraftingRestrictions.yml"), "enabled: true\\nitems: {}\\n");
+                    return null;
+                })
+                .when(plugin)
+                .saveResource("CraftingRestrictions.yml", false);
+
+        CraftingRestrictionService service = new CraftingRestrictionService(plugin);
+        assertTrue(service.setCraftingEnabled("SOME_ADDON_ITEM", false));
+        assertTrue(Files.isRegularFile(tempDir.resolve("CraftingRestrictions.yml")));
+        assertTrue(service.isBlocked("some_addon_item"));
+    }
+
+    @Test
+    void invalidConfigurationIsNotOverwritten() throws IOException {
+        Path file = tempDir.resolve("CraftingRestrictions.yml");
+        String invalid = "items: [broken]\\n";
+        Files.writeString(file, invalid);
+        Slimefun plugin = mock(Slimefun.class);
+        when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("crafting-restriction-test"));
+        CraftingRestrictionService service = new CraftingRestrictionService(plugin);
+
+        assertFalse(service.setCraftingEnabled("FLIGHT_GEM", false));
+        assertEquals(invalid, Files.readString(file));
+        assertFalse(service.isBlocked("FLIGHT_GEM"));
+    }
 
     @Test
     void blocksOnlyExplicitlyDisabledItemIdsRegardlessOfCase() throws InvalidConfigurationException {

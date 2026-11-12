@@ -64,3 +64,28 @@ separately rather than assuming that a general inventory transfer ban is safe.
 craft in every enabled recipe path, check that the inputs remain and the configured message
 appears when a player crafts. Test a permitted addon item and a disabled one, then edit
 and reload the YAML. Confirm that player gifts and existing item data are unchanged.
+
+### Live administration
+
+On Slimefun Legacy builds containing this feature, administrators and the server console can
+change an individual registered Slimefun or addon item's crafting policy immediately:
+
+```text
+/sf admin crafting FLIGHT_GEM disable
+/sf admin crafting FLIGHT_GEM enable
+/sf admin crafting FLIGHT_GEM status
+```
+
+The `/slimefun` alias works as well. The item ID argument tab-completes from all registered
+core and addon IDs; the final argument tab-completes `disable`, `enable`, and `status`.
+Only `slimefun.command.admin` (default: OP) can use or tab-complete these commands.
+
+Each change is persisted to `plugins/Slimefun/CraftingRestrictions.yml` before it
+takes effect; no restart or reload is needed. A missing file is generated from the
+bundled resource. If an existing YAML file is malformed or the write fails, the
+old in-memory policy remains active and the admin receives an error. The
+`enabled: false` global switch still takes precedence over item-level blocks.
+
+**Version note:** The original crafting-restriction implementation was developed for
+the successor to 4.1.79. If the YAML file is missing on an older release, confirm
+which JAR is installed before assuming file generation has failed.
