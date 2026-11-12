@@ -30,14 +30,21 @@ final class AdminCommand extends SubCommand {
             return;
         }
 
-        String id = args[2].toUpperCase(Locale.ROOT);
-        SlimefunItem item = SlimefunItem.getById(id);
+        String requestedId = args[2];
+        SlimefunItem item = SlimefunItem.getById(requestedId);
         if (item == null) {
-            send(sender, "&cUnknown Slimefun item ID: &f" + id);
+            item = Slimefun.getRegistry().getAllSlimefunItems().stream()
+                    .filter(candidate -> candidate.getId().equalsIgnoreCase(requestedId))
+                    .findFirst()
+                    .orElse(null);
+        }
+        if (item == null) {
+            send(sender, "&cUnknown Slimefun item ID: &f" + requestedId);
             send(sender, "&7Press Tab after /sf admin crafting to select a registered item.");
             return;
         }
 
+        String id = item.getId();
         CraftingRestrictionService restrictions = Slimefun.getCraftingRestrictionService();
         String action = args[3].toLowerCase(Locale.ROOT);
         if (action.equals("status")) {
