@@ -1,8 +1,10 @@
 import copy
 import hashlib
+from pathlib import Path
+import tempfile
 import unittest
 
-from scripts.identity_coverage import BACKPACK_PHASES, ENDER_PHASES, PRODUCERS, build_report
+from scripts.identity_coverage import BACKPACK_PHASES, ENDER_PHASES, PRODUCERS, build_report, read_native_captures
 
 
 class IdentityCoverageTest(unittest.TestCase):
@@ -79,6 +81,16 @@ class NativeEvidenceTest(unittest.TestCase):
         self.evidence["captures_sha256"] = {
             name: hashlib.sha256(data).hexdigest() for name, data in self.captures.items()
         }
+
+    def test_native_capture_loader_requires_real_compressor_outputs(self):
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            for name, data in self.captures.items():
+                (directory / name).write_bytes(data)
+            self.assertEqual(self.captures, read_native_captures(directory))
+            (directory / "identity-produced-carbon.bin").unlink()
+            with self.assertRaisesRegex(ValueError, "identity-produced-carbon.bin"):
+                read_native_captures(directory)
 
     def test_missing_malformed_or_extra_hash_receipts_fail_closed(self):
         for invalid in (None, {}, {"identity-crafted-wire.bin": "0" * 64},
