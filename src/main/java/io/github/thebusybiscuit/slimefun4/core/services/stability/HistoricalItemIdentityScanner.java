@@ -35,6 +35,11 @@ final class HistoricalItemIdentityScanner {
         // Round-trip exact native item bytes instead; nothing is written back.
         ItemStack actualCopy = ItemStack.deserializeBytes(actual.serializeAsBytes());
         ItemStack templateCopy = ItemStack.deserializeBytes(registeredTemplate.serializeAsBytes());
+        // A future Bukkit/addon serializer may omit identity-bearing components.
+        // Refuse classification unless BOTH detached copies retain strict identity.
+        if (!actual.isSimilar(actualCopy) || !registeredTemplate.isSimilar(templateCopy)) {
+            return Result.TEMPLATE_UNAVAILABLE;
+        }
         if (actualCopy.isSimilar(templateCopy)) {
             return Result.MATCH;
         }
