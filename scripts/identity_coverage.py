@@ -16,6 +16,18 @@ ENDER_PHASES = tuple("player-identity-ender-" + stage for stage in ("seed", "ret
 
 BACKPACK_PHASES = tuple("player-identity-backpack-" + stage for stage in ("saved", "opened", "restart", "loaded"))
 
+
+def read_native_captures(captures_dir):
+    """Fail closed if any required source-specific native capture is missing."""
+    captures = {}
+    for name in CAPTURE_NAMES:
+        path = captures_dir / name
+        if not path.is_file():
+            raise ValueError("Missing captured actual output: " + name)
+        captures[name] = path.read_bytes()
+    return captures
+
+
 def attach_native_evidence(report, evidence, captures):
     """Record narrowly defined executed cases without promoting whole producer categories."""
     if evidence.get("result") != "PASS" or evidence.get("boots") != 3:
@@ -142,8 +154,7 @@ def main():
         if evidence.get("connected_player_checks") is True:
             if args.captures_dir is None:
                 raise ValueError("Missing captures directory")
-            captures = {name: (args.captures_dir / name).read_bytes()
-                        for name in CAPTURE_NAMES}
+            captures = read_native_captures(args.captures_dir)
         report = attach_native_evidence(report, evidence, captures)
     args.output.write_text(json.dumps(report, indent=2) + "\n")
     print(f"Identity coverage inventory: {report['registered_items']} registered items; "
