@@ -97,6 +97,79 @@ def attach_native_evidence(report, evidence, captures):
     return result
 
 
+
+def attach_ie2_geo_evidence(report, evidence, capture, addon_bytes):
+    """Accept only a source-specific, same-artifact native IE2 GEO Quarry proof.
+
+    A PASS here covers one SMALL_URANIUM fixture, not the broad machine row.
+    A different core/server pair, a static GEO template check, or a capture
+    from another run must never promote producer coverage.
+    """
+    if not isinstance(evidence, dict):
+        raise ValueError("IE2 native evidence must be an object")
+    for key in ("core_sha256", "server_sha256"):
+        if evidence.get(key) != report.get(key):
+            raise ValueError("IE2 GEO provenance mismatch: " + key)
+    if not isinstance(addon_bytes, bytes) or not addon_bytes:
+        raise ValueError("Missing exact IE2 addon artifact")
+    addon_digest = hashlib.sha256(addon_bytes).hexdigest()
+    if evidence.get("ie2_sha256") != addon_digest:
+        raise ValueError("IE2 GEO addon artifact mismatch")
+    if not re.fullmatch(r"[0-9a-f]{64}", str(evidence.get("probe_sha256", ""))):
+        raise ValueError("Missing IE2 GEO native probe source digest")
+
+    geo = evidence.get("geo_quarry")
+    expected_fields = {"schema", "item_id", "producer", "scope", "status", "phases", "capture"}
+    if not isinstance(geo, dict) or set(geo) != expected_fields:
+        raise ValueError("Missing or unexpected GEO producer evidence fields")
+    if (geo.get("schema") != 1 or geo.get("item_id") != "SMALL_URANIUM"
+            or geo.get("producer") != "IE2_GEO_QUARRY" or geo.get("status") != "PASS"
+            or geo.get("scope") != "actual registered machine output; disposable fixture only"
+            or geo.get("phases") != ["seed", "verify"]):
+        raise ValueError("Invalid GEO source-specific producer claim")
+    phases = evidence.get("phases")
+    if not isinstance(phases, dict) or set(phases) != {"seed", "verify"}:
+        raise ValueError("Incomplete IE2 GEO native restart phases")
+    for phase in ("seed", "verify"):
+        result = phases[phase]
+        marker = ("PASS " + phase + ": real SMALL_URANIUM cheat, GEO guide display, "
+                  "GeoQuarry.process,")
+        if (not isinstance(result, str) or result.count(marker) != 1
+                or "failures: 0" not in result):
+            raise ValueError("Missing genuine IE2 GEO native phase: " + phase)
+
+    receipt = geo.get("capture")
+    if not isinstance(receipt, dict) or set(receipt) != {"filename", "sha256", "size_bytes"}:
+        raise ValueError("Malformed IE2 GEO output capture receipt")
+    if receipt["filename"] != "native-geo-uranium.bin":
+        raise ValueError("Unexpected IE2 GEO capture filename")
+    if (not isinstance(capture, bytes) or not capture or len(capture) > 1024 * 1024
+            or type(receipt["size_bytes"]) is not int or receipt["size_bytes"] != len(capture)
+            or receipt["sha256"] != hashlib.sha256(capture).hexdigest()):
+        raise ValueError("IE2 GEO captured output bytes do not match native receipt")
+
+    source = [row for row in report.get("rows", [])
+              if row.get("item_id") == "SMALL_URANIUM" and row.get("producer") == "machine"]
+    if len(source) != 1:
+        raise ValueError("IE2 GEO registered item absent or ambiguous")
+    result = copy.deepcopy(report)
+    cases = result.setdefault("actual_cases", [])
+    if any(case.get("case") == "ie2_geo_quarry_actual_output_restart" for case in cases):
+        raise ValueError("Duplicate IE2 GEO native case")
+    cases.append({
+        **{key: source[0][key] for key in ("item_id", "plugin", "plugin_version")},
+        "case": "ie2_geo_quarry_actual_output_restart",
+        "status": "PASS", "required_phases": ["seed", "verify"],
+        "captured_sha256": {"native-geo-uranium.bin": receipt["sha256"]},
+        "addon_sha256": addon_digest, "probe_sha256": evidence["probe_sha256"],
+        "scope": "Specific actual IE2 GEO fixture only; broad machine rows remain UNTESTED",
+    })
+    counts = result.setdefault("actual_case_counts", {"PASS": 0})
+    counts["PASS"] = len(cases)
+    return result
+
+
+
 def build_report(registry, source, core_sha256, server_sha256):
     if registry.get("schema") != 1:
         raise ValueError("Unsupported registry schema")
@@ -138,6 +211,9 @@ def main():
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--native-evidence", type=Path)
     parser.add_argument("--captures-dir", type=Path)
+    parser.add_argument("--ie2-geo-evidence", type=Path)
+    parser.add_argument("--ie2-geo-capture", type=Path)
+    parser.add_argument("--ie2-geo-addon-jar", type=Path)
     args = parser.parse_args()
     with zipfile.ZipFile(args.core) as jar:
         props = dict(line.split("=", 1) for line in jar.read("git.properties").decode().splitlines()
@@ -156,6 +232,15 @@ def main():
                 raise ValueError("Missing captures directory")
             captures = read_native_captures(args.captures_dir)
         report = attach_native_evidence(report, evidence, captures)
+    ie2_inputs = (args.ie2_geo_evidence, args.ie2_geo_capture, args.ie2_geo_addon_jar)
+    if any(path is not None for path in ie2_inputs):
+        if any(path is None for path in ie2_inputs):
+            raise ValueError("IE2 GEO external evidence requires evidence, capture and addon artifact")
+        if any(path.is_symlink() or not path.is_file() for path in ie2_inputs):
+            raise ValueError("IE2 GEO external evidence requires ordinary local files")
+        report = attach_ie2_geo_evidence(
+            report, json.loads(args.ie2_geo_evidence.read_text()),
+            args.ie2_geo_capture.read_bytes(), args.ie2_geo_addon_jar.read_bytes())
     args.output.write_text(json.dumps(report, indent=2) + "\n")
     print(f"Identity coverage inventory: {report['registered_items']} registered items; "
           f"{report['counts']['UNTESTED']} UNTESTED combinations; 0 validated producers")
