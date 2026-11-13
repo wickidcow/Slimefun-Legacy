@@ -129,8 +129,16 @@ class AdmissionTests(unittest.TestCase):
         self.assertEqual(evidence["bundle_revision"], 154)
         self.assertEqual(evidence["magic_version"], "1.1.19")
 
+    def test_r155_retains_r154_magic_and_44_addons(self):
+        self.select_r153_roster()
+        self.manifest["bundle_revision"] = 155
+        self.write_bundle()
+        evidence = self.validate()
+        self.assertEqual(evidence["bundle_revision"], 155)
+        self.assertEqual(evidence["magic_version"], "1.1.19")
+
     def test_bad_or_noninteger_revision_refused(self):
-        for revision in (136, 155, "141", 141.0, "142", 142.0, "143", 143.0, "144", 144.0, "145", 145.0, "146", 146.0, "147", 147.0, "148", 148.0, "149", 149.0, "150", 150.0, "151", 151.0, "152", 152.0, "153", 153.0, "154", 154.0, True):
+        for revision in (136, 156, "141", 141.0, "142", 142.0, "143", 143.0, "144", 144.0, "145", 145.0, "146", 146.0, "147", 147.0, "148", 148.0, "149", 149.0, "150", 150.0, "151", 151.0, "152", 152.0, "153", 153.0, "154", 154.0, "155", 155.0, True):
             with self.subTest(revision=revision):
                 self.manifest["bundle_revision"] = revision
                 self.write_bundle()
