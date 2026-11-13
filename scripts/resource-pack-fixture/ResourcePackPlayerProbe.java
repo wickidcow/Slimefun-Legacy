@@ -429,8 +429,25 @@ final class ResourcePackPlayerProbe implements Listener {
         for (int i = 0; i < 9; i++) before[i] = recipe[i].serializeAsBytes();
         byte[] template = paxel.getItem().serializeAsBytes();
         byte[][] playerBefore = inventoryBytes(player.getInventory());
-        new io.github.thebusybiscuit.slimefun4.implementation.guide.SurvivalSlimefunGuide()
-                .displayItem(profile, paxel, false);
+        var unlocked = new java.util.HashSet<io.github.thebusybiscuit.slimefun4.api.researches.Research>();
+        try {
+            for (var ingredient : recipe) {
+                var item = SlimefunItem.getByItem(ingredient);
+                if (item == null) continue;
+                var research = item.getResearch();
+                if (research != null && !profile.hasUnlocked(research)) {
+                    unlocked.add(research);
+                    profile.setResearched(research, true);
+                }
+                require(item.canUse(player, false), "Guide ingredient remains unavailable: " + item.getId());
+            }
+            new io.github.thebusybiscuit.slimefun4.implementation.guide.SurvivalSlimefunGuide()
+                    .displayItem(profile, paxel, false);
+        } catch (Throwable failure) {
+            for (var research : unlocked) profile.setResearched(research, false);
+            player.closeInventory();
+            throw failure;
+        }
         later(player, 2L, () -> {
             try {
                 owned(player);
@@ -442,7 +459,7 @@ final class ResourcePackPlayerProbe implements Listener {
                     require(shown != null && shown.getType() == recipe[i].getType()
                                     && shown.getAmount() == recipe[i].getAmount()
                                     && SlimefunItem.getByItem(shown) == SlimefunItem.getByItem(recipe[i]),
-                            "Paxel guide ingredient identity/amount/slot mismatch: " + i);
+                            "Paxel guide ingredient identity/amount/slot mismatch: " + i + " shown=" + shown);
                     require(Arrays.equals(before[i], recipe[i].serializeAsBytes()),
                             "Paxel guide mutated registered ingredient: " + i);
                 }
@@ -457,6 +474,7 @@ final class ResourcePackPlayerProbe implements Listener {
                         "Guide rendering changed player inventory");
             } finally {
                 player.closeInventory();
+                for (var research : unlocked) profile.setResearched(research, false);
             }
             plugin.pass("player-paxel-guide");
         });
