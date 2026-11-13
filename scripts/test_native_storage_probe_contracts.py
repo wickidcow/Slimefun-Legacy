@@ -58,9 +58,9 @@ class NativeStorageProbeContracts(unittest.TestCase):
     def populate(self, revision):
         self.manifest["bundle_revision"] = revision
         expected = dict(probe.EXPECTED_VERSIONS)
-        if revision in (153, 154):
+        if revision in (153, 154, 155):
             expected["wickidcow/SF_FluffyMachines"] = (
-                probe.FLUFFY_R154 if revision == 154 else probe.FLUFFY_R153)
+                probe.FLUFFY_R154 if revision in (154, 155) else probe.FLUFFY_R153)
         expected["wickidcow/SF_NetworksExp"] = (
             ("SF_Networks1.0.54.jar", "c24064cbeafe4f112c7d46bf3de5617fa151d88d")
             if revision == 135 else
@@ -73,7 +73,7 @@ class NativeStorageProbeContracts(unittest.TestCase):
             ("SF_Networks1.0.63.jar", "ea5777ce58c45c3c3cd4789bd155164ccbb5336b")
             if revision == 153 else
             ("SF_Networks1.0.64.jar", "1d46a1afd04ceae7f04c7e0849397350ce273ec5")
-            if revision == 154 else
+            if revision in (154, 155) else
             ("SF_Networks1.0.62.jar", "79e4c0116cc4b4683c668a4920e67692f925b83f")
             if revision == 152 else
             ("SF_Networks1.0.62.jar", "288640e6dbf907a6ba238d98af206aab2d56f92b")
@@ -153,15 +153,23 @@ class NativeStorageProbeContracts(unittest.TestCase):
         self.manifest["addons"][0]["commit"] = probe.FLUFFY_R153[1]
         self.reject("addon source mismatch")
 
+    def test_r155_retains_native_storage_pair(self):
+        (self.root / "gradle.properties").write_text("projectVersion=4.1.80\n", encoding="utf-8")
+        self.populate(155)
+        evidence = self.prepare()
+        self.assertEqual(evidence["bundle_revision"], 155)
+        self.assertEqual(evidence["tested_addons"]["wickidcow/SF_FluffyMachines"]["commit"], probe.FLUFFY_R154[1])
+        self.assertEqual(evidence["tested_addons"]["wickidcow/SF_NetworksExp"]["commit"], probe.NETWORK_VERSIONS[155][1])
+
     def test_unknown_revision_is_rejected_instead_of_skipped(self):
-        self.manifest["bundle_revision"] = 155
-        self.reject("requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154")
+        self.manifest["bundle_revision"] = 156
+        self.reject("requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154 or r155")
 
     def test_non_integer_revisions_are_rejected(self):
-        for value in (141.0, "141", 142.0, "142", 143.0, "143", 144.0, "144", 145.0, "145", 146.0, "146", 147.0, "147", 148.0, "148", 149.0, "149", 150.0, "150", 151.0, "151", 152.0, "152", 153.0, "153", 154.0, "154", True, None):
+        for value in (141.0, "141", 142.0, "142", 143.0, "143", 144.0, "144", 145.0, "145", 146.0, "146", 147.0, "147", 148.0, "148", 149.0, "149", 150.0, "150", 151.0, "151", 152.0, "152", 153.0, "153", 154.0, "154", 155.0, "155", True, None):
             with self.subTest(value=value):
                 self.manifest["bundle_revision"] = value
-                self.reject("requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154")
+                self.reject("requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154 or r155")
 
     def test_r141_requires_networks_1_0_59_and_its_exact_source(self):
         self.populate(141)
