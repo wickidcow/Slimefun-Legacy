@@ -83,3 +83,21 @@ class RetirementResetProofTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PaxelPlayerGuardTest(unittest.TestCase):
+    def test_paxel_requires_connected_player_before_creating_fixture(self):
+        import contextlib
+        import io
+        from unittest.mock import patch
+        from resource_pack_doctor_probe import main
+        args = ["probe", "--core", "unused.jar", "--work-dir", "unused-world",
+                "--java-home", "unused-java", "--server-jar", "unused-server.jar",
+                "--verify-paxel-player"]
+        with patch("sys.argv", args), patch("pathlib.Path.mkdir") as mkdir:
+            with contextlib.redirect_stderr(io.StringIO()) as error:
+                with self.assertRaises(SystemExit) as caught:
+                    main()
+            self.assertEqual(2, caught.exception.code)
+            self.assertIn("requires --protocol-module", error.getvalue())
+            mkdir.assert_not_called()

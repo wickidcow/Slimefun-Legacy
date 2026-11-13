@@ -42,6 +42,8 @@ final class ResourcePackPlayerProbe implements Listener {
     private int compressorRejectEvents;
     private boolean cancelCraft;
     private int craftEvents;
+    private boolean paxelCraftActive;
+    private int paxelCraftEvents;
     private ItemStack craftedForStorage;
     private ItemStack givenForStorage;
 
@@ -141,6 +143,7 @@ final class ResourcePackPlayerProbe implements Listener {
             switch (action) {
                 case "player-identity-give" -> verifyGiveOutput(player);
                 case "player-identity-craft" -> verifyCraftOutput(player);
+                case "player-paxel-craft" -> verifyPaxelCraft(player);
                 case "player-identity-compressor" -> verifyCompressorOutput(player);
                 case "player-identity-compressor-chain" -> verifyCompressorChain(player);
                 case "player-identity-compressor-rejected" -> verifyCompressorRejection(player);
@@ -411,6 +414,82 @@ final class ResourcePackPlayerProbe implements Listener {
             dispenser.setType(org.bukkit.Material.AIR, false);
             throw failure;
         }
+    }
+
+    /** Real handler and output delivery for core Curios only; no socket click or guide claim. */
+    private void verifyPaxelCraft(Player player) throws Exception {
+        require(stage.equals("seed"), "Paxel craft outside disposable seed phase");
+        owned(player);
+        var paxel = SlimefunItem.getById("ADVENTURERS_PAXEL");
+        require(paxel != null, "Core Curios Paxel is not registered");
+        var table = (io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.EnhancedCraftingTable)
+                SlimefunItem.getById("ENHANCED_CRAFTING_TABLE");
+        var profile = io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile.find(player).orElseThrow();
+        var research = paxel.getResearch();
+        boolean researched = research == null || profile.hasUnlocked(research);
+        byte[] templateBefore = paxel.getItem().serializeAsBytes();
+        var recipe = paxel.getRecipe();
+        byte[][] recipeBefore = new byte[9][];
+        require(recipe.length == 9 && recipe[1].getType() == org.bukkit.Material.DIAMOND_SHOVEL
+                        && recipe[7].getType() == org.bukkit.Material.DIAMOND_PICKAXE,
+                "Paxel handler fixture has wrong tool positions");
+        var dispenser = player.getLocation().getBlock().getRelative(0, 3, 0);
+        var tableBlock = dispenser.getRelative(0, 1, 0);
+        require(Bukkit.isOwnedByCurrentRegion(dispenser) && Bukkit.isOwnedByCurrentRegion(tableBlock),
+                "Paxel fixture outside player region");
+        require(dispenser.getType().isAir() && tableBlock.getType().isAir(), "Paxel fixture space occupied");
+        var permission = player.addAttachment(plugin, "slimefun.cheat.items", true);
+        try {
+            if (!researched) profile.setResearched(research, true);
+            player.getInventory().clear();
+            dispenser.setType(org.bukkit.Material.DISPENSER);
+            tableBlock.setType(org.bukkit.Material.CRAFTING_TABLE);
+            var inventory = ((org.bukkit.block.Dispenser) dispenser.getState(false)).getInventory();
+            for (int slot = 0; slot < 9; slot++) {
+                recipeBefore[slot] = recipe[slot].serializeAsBytes();
+                inventory.setItem(slot, recipe[slot].clone());
+            }
+            paxelCraftActive = true;
+            paxelCraftEvents = 0;
+            table.onInteract(player, tableBlock);
+            require(paxelCraftEvents == 1, "Paxel did not produce exactly one real craft event");
+            var outputs = Arrays.stream(inventory.getContents())
+                    .filter(item -> item != null && !item.getType().isAir()).toList();
+            require(outputs.size() == 1, "Paxel left ingredients or unexpected outputs");
+            var crafted = outputs.getFirst();
+            require(crafted.getAmount() == 1 && crafted.isSimilar(paxel.getItem())
+                            && paxel.getItem().isSimilar(crafted)
+                            && crafted.getItemMeta().equals(paxel.getItem().getItemMeta()),
+                    "Paxel delivered output identity/quantity mismatch");
+            require(player.getInventory().isEmpty(), "Paxel leaked extra output to player");
+            require(player.performCommand("sf give " + NAME + " ADVENTURERS_PAXEL 1"), "Paxel reference give rejected");
+            verifyGivenStack(player, paxel.getItem(), 1);
+            var given = player.getInventory().getItem(0);
+            require(crafted.isSimilar(given) && given.isSimilar(crafted), "Crafted/given Paxel differ");
+            require(Arrays.equals(templateBefore, paxel.getItem().serializeAsBytes()), "Paxel template mutated");
+            for (int slot = 0; slot < 9; slot++) {
+                require(Arrays.equals(recipeBefore[slot], recipe[slot].serializeAsBytes()), "Paxel ingredient template mutated");
+            }
+        } finally {
+            paxelCraftActive = false;
+            dispenser.setType(org.bukkit.Material.AIR);
+            tableBlock.setType(org.bukkit.Material.AIR);
+            player.getInventory().clear();
+            player.removeAttachment(permission);
+            if (!researched) profile.setResearched(research, false);
+        }
+        plugin.pass("player-paxel-craft");
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPaxelCraft(io.github.thebusybiscuit.slimefun4.api.events.MultiBlockCraftEvent event) {
+        if (!paxelCraftActive || !NAME.equals(event.getPlayer().getName())) return;
+        owned(event.getPlayer());
+        require(!event.isCancelled() && "ENHANCED_CRAFTING_TABLE".equals(event.getMachine().getId()),
+                "Paxel craft cancelled or wrong machine");
+        require(SlimefunItem.getByItem(event.getOutput()) == SlimefunItem.getById("ADVENTURERS_PAXEL")
+                        && event.getOutput().getAmount() == 1, "Paxel craft event output differs");
+        paxelCraftEvents++;
     }
 
     private void verifyCraftOutput(Player player) throws Exception {
