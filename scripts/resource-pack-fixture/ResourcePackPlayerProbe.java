@@ -472,6 +472,11 @@ final class ResourcePackPlayerProbe implements Listener {
             }
         } finally {
             paxelCraftActive = false;
+            // Remove disposable test contents before removing their container: otherwise
+            // native block removal can drop the crafted Paxel into the next probe.
+            if (dispenser.getState(false) instanceof org.bukkit.block.Dispenser state) {
+                state.getInventory().clear();
+            }
             dispenser.setType(org.bukkit.Material.AIR);
             tableBlock.setType(org.bukkit.Material.AIR);
             player.getInventory().clear();
