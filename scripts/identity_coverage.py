@@ -143,7 +143,7 @@ def main():
             if args.captures_dir is None:
                 raise ValueError("Missing captures directory")
             captures = {name: (args.captures_dir / name).read_bytes()
-                        for name in ("identity-crafted-wire.bin", "identity-given-wire.bin")}
+                        for name in CAPTURE_NAMES}
         report = attach_native_evidence(report, evidence, captures)
     args.output.write_text(json.dumps(report, indent=2) + "\n")
     print(f"Identity coverage inventory: {report['registered_items']} registered items; "
