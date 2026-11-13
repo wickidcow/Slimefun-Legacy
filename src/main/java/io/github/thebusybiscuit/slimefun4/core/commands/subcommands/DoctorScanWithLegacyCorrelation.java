@@ -55,8 +55,8 @@ final class DoctorScanWithLegacyCorrelation {
         send(sender, "&aStarted a batched server-wide Slimefun Doctor migration scan.");
         send(sender, "&7This is a dry run. It reports legacy IDs, placed-block identity and addon-owned schema candidates without changing data.");
         send(sender, "&7It covers online inventories, loaded Slimefun blocks/machines, nested containers, and all backpacks.");
-        send(sender, "&7Schema probes use cloned items; a bounded read-only identity summary compares registered templates.");
-        send(sender, "&7Any historical identity candidate is a diagnostic only; this scan never repairs it.");
+        send(sender, "&7Schema probes receive cloned items; persistent-state validators are read-only and run after traversal.");
+        send(sender, "&7Bounded read-only identity comparisons use registered templates; candidates never authorize repair.");
         send(sender, "&7The scan does not force-load the world. Offline/unloaded data is handled only when loaded normally.");
     }
 
