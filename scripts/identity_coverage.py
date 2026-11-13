@@ -10,6 +10,8 @@ import zipfile
 
 PRODUCERS = ("cheat", "crafting", "machine", "cargo", "storage_restart", "unclassified")
 STATUSES = ("PASS", "FAIL", "UNTESTED", "NOT_APPLICABLE", "BLOCKED")
+CAPTURE_NAMES = ("identity-crafted-wire.bin", "identity-given-wire.bin",
+                 "identity-produced-carbon.bin", "identity-produced-compressed-carbon.bin")
 ENDER_PHASES = tuple("player-identity-ender-" + stage for stage in ("seed", "retire", "join", "restart"))
 
 BACKPACK_PHASES = tuple("player-identity-backpack-" + stage for stage in ("saved", "opened", "restart", "loaded"))
@@ -36,7 +38,7 @@ def attach_native_evidence(report, evidence, captures):
     # Bind each actual captured item to the *same* native execution receipt.
     # Phase names or nonempty files alone do not prove the captured bytes belong
     # to this invocation. Never promote template-only/synthetic evidence to PASS.
-    required_names = ("identity-crafted-wire.bin", "identity-given-wire.bin")
+    required_names = CAPTURE_NAMES
     declared_hashes = evidence.get("captures_sha256")
     if not isinstance(declared_hashes, dict) or set(declared_hashes) != set(required_names):
         raise ValueError("Missing or extra native capture hash receipts")
@@ -67,8 +69,17 @@ def attach_native_evidence(report, evidence, captures):
             **{key: row[key] for key in ("item_id", "plugin", "plugin_version")},
             "case": case, "status": "PASS", "phase": phase,
             "required_phases": (list(ENDER_PHASES) if phase == "player-identity-ender-restart" else
-                                list(BACKPACK_PHASES) if phase in ("player-identity-backpack-restart", "player-identity-backpack-loaded") else ["player-identity-compressor-rejected", phase] if phase == "player-identity-compressor" else ["player-identity-compressor", phase] if phase == "player-identity-compressor-chain" else [phase]),
-            "captured_sha256": hashes if item == "COPPER_WIRE" else {},
+                                list(BACKPACK_PHASES) if phase in ("player-identity-backpack-restart", "player-identity-backpack-loaded") else
+                                ["player-identity-compressor-rejected", phase, "identity-output-restart"]
+                                if phase == "player-identity-compressor" else
+                                ["player-identity-compressor", phase, "identity-output-restart"]
+                                if phase == "player-identity-compressor-chain" else [phase]),
+            "captured_sha256": (hashes if item == "COPPER_WIRE" else
+                                {"identity-produced-carbon.bin": hashes["identity-produced-carbon.bin"]}
+                                if item == "CARBON" else
+                                {"identity-produced-compressed-carbon.bin":
+                                    hashes["identity-produced-compressed-carbon.bin"]}
+                                if item == "COMPRESSED_CARBON" else {}),
             "scope": "Specific fixture only; broad producer rows remain UNTESTED"})
     result["actual_case_counts"]["PASS"] = len(cases)
     return result
