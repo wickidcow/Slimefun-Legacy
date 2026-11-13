@@ -219,6 +219,7 @@ def main() -> None:
             probe(process, 1, "player-identity-craft")
             if args.verify_paxel_player:
                 probe(process, 1, "player-paxel-craft")
+                probe(process, 1, "player-paxel-guide")
             probe(process, 1, "player-identity-compressor-rejected")
             probe(process, 1, "player-identity-compressor")
             probe(process, 1, "player-identity-compressor-chain")
@@ -281,6 +282,7 @@ def main() -> None:
             "result": "PASS", "boots": 3, "folia_ownership_checks": args.expect_folia,
             "connected_player_checks": bool(args.protocol_module),
             "core_paxel_player_craft": "PASS" if args.verify_paxel_player else "NOT_TESTED",
+            "core_paxel_survival_guide": "PASS" if args.verify_paxel_player else "NOT_TESTED",
             "core_sha256": hashlib.sha256(core.read_bytes()).hexdigest(),
             "server_sha256": hashlib.sha256((root / "server.jar").read_bytes()).hexdigest(),
             "java": subprocess.run([str(runtime_java), "-version"], capture_output=True,

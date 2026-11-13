@@ -144,6 +144,7 @@ final class ResourcePackPlayerProbe implements Listener {
                 case "player-identity-give" -> verifyGiveOutput(player);
                 case "player-identity-craft" -> verifyCraftOutput(player);
                 case "player-paxel-craft" -> verifyPaxelCraft(player);
+                case "player-paxel-guide" -> verifyPaxelGuide(player);
                 case "player-identity-compressor" -> verifyCompressorOutput(player);
                 case "player-identity-compressor-chain" -> verifyCompressorChain(player);
                 case "player-identity-compressor-rejected" -> verifyCompressorRejection(player);
@@ -414,6 +415,51 @@ final class ResourcePackPlayerProbe implements Listener {
             dispenser.setType(org.bukkit.Material.AIR, false);
             throw failure;
         }
+    }
+
+    /** Inspect the actual opened core survival guide, not a reconstructed recipe inventory. */
+    private void verifyPaxelGuide(Player player) throws Exception {
+        require(stage.equals("seed"), "Paxel guide outside disposable seed phase");
+        owned(player);
+        var paxel = SlimefunItem.getById("ADVENTURERS_PAXEL");
+        require(paxel != null, "Core Curios Paxel missing for guide");
+        var profile = io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile.find(player).orElseThrow();
+        var recipe = paxel.getRecipe();
+        byte[][] before = new byte[9][];
+        for (int i = 0; i < 9; i++) before[i] = recipe[i].serializeAsBytes();
+        byte[] template = paxel.getItem().serializeAsBytes();
+        byte[][] playerBefore = inventoryBytes(player.getInventory());
+        new io.github.thebusybiscuit.slimefun4.implementation.guide.SurvivalSlimefunGuide()
+                .displayItem(profile, paxel, false);
+        later(player, 2L, () -> {
+            try {
+                owned(player);
+                var menu = player.getOpenInventory().getTopInventory();
+                require(menu.getSize() >= 27, "Paxel survival guide did not open");
+                int[] slots = {3, 4, 5, 12, 13, 14, 21, 22, 23};
+                for (int i = 0; i < 9; i++) {
+                    var shown = menu.getItem(slots[i]);
+                    require(shown != null && shown.getType() == recipe[i].getType()
+                                    && shown.getAmount() == recipe[i].getAmount()
+                                    && SlimefunItem.getByItem(shown) == SlimefunItem.getByItem(recipe[i]),
+                            "Paxel guide ingredient identity/amount/slot mismatch: " + i);
+                    require(Arrays.equals(before[i], recipe[i].serializeAsBytes()),
+                            "Paxel guide mutated registered ingredient: " + i);
+                }
+                require(menu.getItem(4).getType() == org.bukkit.Material.DIAMOND_SHOVEL
+                                && menu.getItem(22).getType() == org.bukkit.Material.DIAMOND_PICKAXE,
+                        "Paxel guide shows old conflicting tool positions");
+                var output = menu.getItem(16);
+                require(output != null && output.getAmount() == 1 && SlimefunItem.getByItem(output) == paxel,
+                        "Paxel guide output identity/amount mismatch");
+                require(Arrays.equals(template, paxel.getItem().serializeAsBytes()), "Guide mutated Paxel template");
+                require(Arrays.deepEquals(playerBefore, inventoryBytes(player.getInventory())),
+                        "Guide rendering changed player inventory");
+            } finally {
+                player.closeInventory();
+            }
+            plugin.pass("player-paxel-guide");
+        });
     }
 
     /** Real handler and output delivery for core Curios only; no socket click or guide claim. */
