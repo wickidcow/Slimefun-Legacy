@@ -30,10 +30,11 @@ final class HistoricalItemIdentityScanner {
         if (registeredTemplate == null || registeredTemplate.getType().isAir()) {
             return Result.TEMPLATE_UNAVAILABLE;
         }
-        // Copy using the plain Bukkit copy constructor, never the addon item's
-        // polymorphic clone() method (which may reapply current presentation).
-        ItemStack actualCopy = new ItemStack(actual);
-        ItemStack templateCopy = new ItemStack(registeredTemplate);
+        // Bukkit's ItemStack copy constructor can delegate to an overridden
+        // clone() on addon subclasses, which might rewrite their presentation.
+        // Round-trip exact native item bytes instead; nothing is written back.
+        ItemStack actualCopy = ItemStack.deserializeBytes(actual.serializeAsBytes());
+        ItemStack templateCopy = ItemStack.deserializeBytes(registeredTemplate.serializeAsBytes());
         if (actualCopy.isSimilar(templateCopy)) {
             return Result.MATCH;
         }
