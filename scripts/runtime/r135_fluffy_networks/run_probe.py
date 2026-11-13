@@ -62,6 +62,8 @@ NETWORK_VERSIONS = {
     153: ("SF_Networks1.0.63.jar", "ea5777ce58c45c3c3cd4789bd155164ccbb5336b"),
     # r154 uses separately validated Networks 1.0.64 with distinct post-v1.0.63 source.
     154: ("SF_Networks1.0.64.jar", "1d46a1afd04ceae7f04c7e0849397350ce273ec5"),
+    # r155 changes only Cultivation / HotbarPets, retaining the verified storage pair.
+    155: ("SF_Networks1.0.64.jar", "1d46a1afd04ceae7f04c7e0849397350ce273ec5"),
 }
 
 
@@ -90,10 +92,10 @@ def prepare(work: Path, bundle: Path, java: Path, runtime_core_version: str | No
         manifest = json.loads(archive.read("SF_ADDON_MANIFEST.json"))
     revision = manifest.get("bundle_revision")
     if type(revision) is not int or revision not in NETWORK_VERSIONS:
-        raise RuntimeError(f"Native conservation test requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154; found bundle revision {revision!r}")
+        raise RuntimeError(f"Native conservation test requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154 or r155; found bundle revision {revision!r}")
     expected_versions = dict(EXPECTED_VERSIONS)
-    if revision in (153, 154):
-        expected_versions["wickidcow/SF_FluffyMachines"] = FLUFFY_R154 if revision == 154 else FLUFFY_R153
+    if revision in (153, 154, 155):
+        expected_versions["wickidcow/SF_FluffyMachines"] = FLUFFY_R154 if revision in (154, 155) else FLUFFY_R153
     expected_versions["wickidcow/SF_NetworksExp"] = NETWORK_VERSIONS[revision]
 
     workspace = (Path.cwd() / "build").resolve()

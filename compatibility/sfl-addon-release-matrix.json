@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 154,
+  "bundle_revision": 155,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -76,7 +76,7 @@
       "repository": "wickidcow/SF_CultivationLegacy",
       "slug": "cultivationlegacy",
       "artifact_base": "Cultivation",
-      "source_commit": "4d2ad689ec70c04bfc1dfbe37c8dfd9c59a4fec0"
+      "source_commit": "ab97e9d1a89a57bfca3801fce7cef75020fd9bf0"
     },
     {
       "repository": "wickidcow/SF_CrystamaeHistoria",
@@ -162,7 +162,7 @@
     {
       "repository": "wickidcow/SF_HotbarPets",
       "slug": "hotbarpets",
-      "source_commit": "e50c64641f961bf5da14ca839b435fdefa39b4db"
+      "source_commit": "54c802438a6819e6f3b0eea411e675a3eb0855dc"
     },
     {
       "repository": "wickidcow/SF_IDreamOfEasy",
@@ -173,7 +173,7 @@
       "repository": "wickidcow/SF_InfinityExpansion2",
       "slug": "infinityexpansion2",
       "artifact_base": "InfinityExpansion",
-      "source_commit": "172c046250d75b7aaae7072fbc9e9148f0791210"
+      "source_commit": "7bd579e2b67243002571e95b8a2d00bea2187efd"
     },
     {
       "repository": "wickidcow/SF_LiteXpansion",

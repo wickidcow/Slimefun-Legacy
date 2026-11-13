@@ -56,6 +56,7 @@ final class DoctorScanWithLegacyCorrelation {
         send(sender, "&7This is a dry run. It reports legacy IDs, placed-block identity and addon-owned schema candidates without changing data.");
         send(sender, "&7It covers online inventories, loaded Slimefun blocks/machines, nested containers, and all backpacks.");
         send(sender, "&7Schema probes receive cloned items; persistent-state validators are read-only and run after traversal.");
+        send(sender, "&7Bounded read-only identity comparisons use registered templates; candidates never authorize repair.");
         send(sender, "&7The scan does not force-load the world. Offline/unloaded data is handled only when loaded normally.");
     }
 
@@ -73,6 +74,21 @@ final class DoctorScanWithLegacyCorrelation {
                 + " &8| &7Distinct IDs: &e" + report.getLegacyMigrationCandidateCounts().size());
         send(sender, "&7Same-ID schema candidates: &e" + report.getSchemaMigrationCandidates()
                 + " &8| &7Validated candidate stacks: &e" + report.getSchemaValidatedCandidates());
+        send(sender, "&6Historical item identity vs registered template &8(read-only, bounded)");
+        send(sender, "&7Registered stacks encountered: &e" + report.getIdentityObserved()
+                + " &8| &7Compared: &e" + report.getIdentityCompared()
+                + " &8| &7Deferred (safety budget): &e" + report.getIdentityDeferred());
+        send(sender, "&7Exact template match: &a" + report.getIdentityTemplateMatches()
+                + " &8| &7Presentation-only candidates: &e" + report.getIdentityPresentationCandidates()
+                + " &8| &7Other differences: &c" + report.getIdentityOtherDifferences()
+                + " &8| &7Unavailable: &e" + report.getIdentityUnavailable());
+        if (!report.getIdentityPresentationCandidateIds().isEmpty()) {
+            send(sender, "&7Presentation candidate item ID samples: &e"
+                    + String.join(", ", report.getIdentityPresentationCandidateIds()));
+        }
+        send(sender, "&8A template difference can be intentional addon state. This is NOT a repair plan");
+        send(sender, "&8or validation of every machine producer. Compare actual old/new held items with");
+        send(sender, "&e/sf doctor identity compare &8before considering a backed-up, opt-in repair.");
         send(sender, "&7Item-model candidates: &e" + report.getItemModelCandidates());
         send(sender, "&7Unknown item IDs: &e" + report.getUnknownIds() + " &8| &7No English template: &e"
                 + report.getUnresolvedTemplates() + " &8| &7Failures: &c" + report.getFailures());

@@ -50,6 +50,46 @@ final class ItemIdentityProbe {
         require(Arrays.equals(craftedBytes, Files.readAllBytes(folder.resolve("identity-crafted-wire.bin")))
                         && Arrays.equals(givenBytes, Files.readAllBytes(folder.resolve("identity-given-wire.bin"))),
                 "restart verification rewrote saved producer evidence");
+        verifyCapturedCompressorRestart(folder, "CARBON", "identity-produced-carbon.bin", 9);
+        verifyCapturedCompressorRestart(
+                folder, "COMPRESSED_CARBON", "identity-produced-compressed-carbon.bin", 1);
+    }
+
+    /**
+     * Only genuine captured Compressor output slots from the connected-player handler.
+     * Verify their typed metadata, exact quantities and vanilla stacking after a JVM restart.
+     * No world, player, item, or saved capture is modified.
+     */
+    private static void verifyCapturedCompressorRestart(Path folder, String itemId, String filename, int amount)
+            throws Exception {
+        byte[] capturedBytes = Files.readAllBytes(folder.resolve(filename));
+        ItemStack produced = ItemStack.deserializeBytes(capturedBytes);
+        SlimefunItem registered = SlimefunItem.getById(itemId);
+        require(registered != null, "missing registered Compressor result after restart: " + itemId);
+        ItemStack template = registered.getItem();
+        byte[] templateBefore = template.serializeAsBytes();
+        require(
+                produced.getAmount() == amount
+                        && produced.isSimilar(template)
+                        && template.isSimilar(produced)
+                        && produced.getItemMeta().equals(template.getItemMeta()),
+                "persisted Compressor output identity/quantity: " + itemId);
+        ItemStack currentReference = ItemStack.deserializeBytes(templateBefore);
+        currentReference.setAmount(amount);
+        var inventory = Bukkit.createInventory(null, 9);
+        require(
+                inventory.addItem(produced, currentReference).isEmpty(),
+                "persisted Compressor output merge overflow: " + itemId);
+        var stacks = Arrays.stream(inventory.getContents())
+                .filter(item -> item != null && !item.getType().isAir())
+                .toList();
+        require(
+                stacks.size() == 1 && stacks.getFirst().getAmount() == amount * 2,
+                "persisted Compressor output merge lost or duplicated items: " + itemId);
+        require(
+                Arrays.equals(templateBefore, template.serializeAsBytes())
+                        && Arrays.equals(capturedBytes, Files.readAllBytes(folder.resolve(filename))),
+                "Compressor restart validation modified template or captured item: " + itemId);
     }
 
     static void verify(Path folder, boolean restart) throws Exception {
@@ -58,6 +98,7 @@ final class ItemIdentityProbe {
             ItemStack persisted = ItemStack.deserializeBytes(Files.readAllBytes(folder.resolve("identity-item.bin")));
             require(reference.isSimilar(persisted) && persisted.getAmount() == 17, "saved item identity/quantity");
             require(flag(inspect(reference, persisted), "isSimilar"), "doctor saved item identity");
+            verifyHistoricalPresentation(folder, true);
             return;
         }
 
@@ -120,6 +161,7 @@ final class ItemIdentityProbe {
         require(flag(inspect(template, template.clone()), "isSimilar"), "registered template clone");
         require(Arrays.equals(templateBefore, template.serializeAsBytes()), "registered template mutated");
         require(Arrays.equals(untouched, reference.serializeAsBytes()), "reference mutated by control cases");
+        verifyHistoricalPresentation(folder, false);
         Files.write(folder.resolve("identity-item.bin"), untouched);
         var items = Slimefun.getRegistry().getAllSlimefunItems().stream()
                 .map(item -> Map.of("item_id", item.getId(), "plugin", item.getAddon().getName(),
@@ -130,6 +172,72 @@ final class ItemIdentityProbe {
                 "minecraft", Bukkit.getMinecraftVersion(), "server_version", Bukkit.getVersion(), "items", items);
         Files.writeString(folder.resolve("identity-registry.json"),
                 new GsonBuilder().setPrettyPrinting().create().toJson(registry));
+    }
+
+    /** Native Paper demonstration for #578: classification only, never a historical repair. */
+    private static void verifyHistoricalPresentation(Path folder, boolean restart) throws Exception {
+        Path oldFile = folder.resolve("identity-historical-old.bin");
+        Path freshFile = folder.resolve("identity-historical-fresh.bin");
+        if (restart) {
+            byte[] oldBytes = Files.readAllBytes(oldFile);
+            byte[] freshBytes = Files.readAllBytes(freshFile);
+            ItemStack old = ItemStack.deserializeBytes(oldBytes);
+            ItemStack fresh = ItemStack.deserializeBytes(freshBytes);
+            require(old.getAmount() == 63 && fresh.getAmount() == 1, "historical restart quantities");
+            require(!old.isSimilar(fresh), "historical mismatch survived restart");
+            Object check = historical(old, fresh);
+            require(flag(check, "plainTextSame") && flag(check, "nonPresentationSame")
+                            && flag(check, "candidate"),
+                    "historical cosmetic candidate survived persisted item bytes");
+            require(capacity(old) == 1, "historical restart free-capacity check");
+            require(Arrays.equals(oldBytes, Files.readAllBytes(oldFile))
+                            && Arrays.equals(freshBytes, Files.readAllBytes(freshFile)),
+                    "read-only historical restart modified persisted evidence");
+            return;
+        }
+
+        ItemStack fresh = fixture();
+        fresh.setAmount(1);
+        ItemStack old = new ItemStack(fresh);
+        old.setAmount(63);
+        old.editMeta(meta -> meta.displayName(meta.displayName().decoration(TextDecoration.BOLD, false)));
+        byte[] oldBytes = old.serializeAsBytes();
+        byte[] freshBytes = fresh.serializeAsBytes();
+        require(!old.isSimilar(fresh), "historical decoration mismatch must prevent vanilla stacking");
+        Object check = historical(old, fresh);
+        require(flag(check, "plainTextSame") && flag(check, "nonPresentationSame")
+                        && flag(check, "candidate"),
+                "historical display-only candidate has strict non-presentation equality");
+        require(capacity(old) == 1, "historical 63/64 has exactly one free space");
+        ItemStack full = new ItemStack(old);
+        full.setAmount(64);
+        require(capacity(full) == 0, "historical 64/64 full-capacity control");
+
+        ItemStack typed = new ItemStack(old);
+        typed.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.INTEGER, 77));
+        Object unsafe = historical(typed, fresh);
+        require(flag(unsafe, "plainTextSame") && !flag(unsafe, "nonPresentationSame")
+                        && !flag(unsafe, "candidate"),
+                "typed PDC difference was incorrectly marked cosmetic");
+        require(Arrays.equals(oldBytes, old.serializeAsBytes())
+                        && Arrays.equals(freshBytes, fresh.serializeAsBytes()),
+                "read-only historical diagnostic mutated actual stack data");
+        Files.write(oldFile, oldBytes);
+        Files.write(freshFile, freshBytes);
+    }
+
+    private static Object historical(ItemStack old, ItemStack fresh) throws Exception {
+        Class<?> doctor = Class.forName("io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorIdentityCommand");
+        Method method = doctor.getDeclaredMethod("inspectHistoricalPresentation", ItemStack.class, ItemStack.class);
+        method.setAccessible(true);
+        return method.invoke(null, old, fresh);
+    }
+
+    private static int capacity(ItemStack stack) throws Exception {
+        Class<?> doctor = Class.forName("io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorIdentityCommand");
+        Method method = doctor.getDeclaredMethod("availableCapacity", ItemStack.class);
+        method.setAccessible(true);
+        return (int) method.invoke(null, stack);
     }
 
     private static ItemStack fixture() {

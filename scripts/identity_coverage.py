@@ -10,9 +10,23 @@ import zipfile
 
 PRODUCERS = ("cheat", "crafting", "machine", "cargo", "storage_restart", "unclassified")
 STATUSES = ("PASS", "FAIL", "UNTESTED", "NOT_APPLICABLE", "BLOCKED")
+CAPTURE_NAMES = ("identity-crafted-wire.bin", "identity-given-wire.bin",
+                 "identity-produced-carbon.bin", "identity-produced-compressed-carbon.bin")
 ENDER_PHASES = tuple("player-identity-ender-" + stage for stage in ("seed", "retire", "join", "restart"))
 
 BACKPACK_PHASES = tuple("player-identity-backpack-" + stage for stage in ("saved", "opened", "restart", "loaded"))
+
+
+def read_native_captures(captures_dir):
+    """Fail closed if any required source-specific native capture is missing."""
+    captures = {}
+    for name in CAPTURE_NAMES:
+        path = captures_dir / name
+        if not path.is_file():
+            raise ValueError("Missing captured actual output: " + name)
+        captures[name] = path.read_bytes()
+    return captures
+
 
 def attach_native_evidence(report, evidence, captures):
     """Record narrowly defined executed cases without promoting whole producer categories."""
@@ -33,12 +47,22 @@ def attach_native_evidence(report, evidence, captures):
         expected = "RESOURCE_PACK_DOCTOR_PROBE_PASS " + phase + " | " + report["runtime"]["server_version"]
         if phases.get(phase) != expected:
             raise ValueError("Missing or wrong-runtime native phase: " + phase)
+    # Bind each actual captured item to the *same* native execution receipt.
+    # Phase names or nonempty files alone do not prove the captured bytes belong
+    # to this invocation. Never promote template-only/synthetic evidence to PASS.
+    required_names = CAPTURE_NAMES
+    declared_hashes = evidence.get("captures_sha256")
+    if not isinstance(declared_hashes, dict) or set(declared_hashes) != set(required_names):
+        raise ValueError("Missing or extra native capture hash receipts")
     hashes = {}
-    for filename in ("identity-crafted-wire.bin", "identity-given-wire.bin"):
+    for filename in required_names:
         payload = captures.get(filename)
         if not isinstance(payload, bytes) or not payload:
             raise ValueError("Missing captured actual output: " + filename)
-        hashes[filename] = hashlib.sha256(payload).hexdigest()
+        digest = hashlib.sha256(payload).hexdigest()
+        if not re.fullmatch(r"[0-9a-f]{64}", str(declared_hashes[filename])) or declared_hashes[filename] != digest:
+            raise ValueError("Native capture does not match execution receipt: " + filename)
+        hashes[filename] = digest
     items = {row["item_id"]: row for row in report["rows"]}
     cases = [(item, "give_command_17_plus_31", "player-identity-give")
              for item in ("SMALL_URANIUM", "COPPER_DUST", "CARBONADO")]
@@ -57,8 +81,17 @@ def attach_native_evidence(report, evidence, captures):
             **{key: row[key] for key in ("item_id", "plugin", "plugin_version")},
             "case": case, "status": "PASS", "phase": phase,
             "required_phases": (list(ENDER_PHASES) if phase == "player-identity-ender-restart" else
-                                list(BACKPACK_PHASES) if phase in ("player-identity-backpack-restart", "player-identity-backpack-loaded") else ["player-identity-compressor-rejected", phase] if phase == "player-identity-compressor" else ["player-identity-compressor", phase] if phase == "player-identity-compressor-chain" else [phase]),
-            "captured_sha256": hashes if item == "COPPER_WIRE" else {},
+                                list(BACKPACK_PHASES) if phase in ("player-identity-backpack-restart", "player-identity-backpack-loaded") else
+                                ["player-identity-compressor-rejected", phase, "identity-output-restart"]
+                                if phase == "player-identity-compressor" else
+                                ["player-identity-compressor", phase, "identity-output-restart"]
+                                if phase == "player-identity-compressor-chain" else [phase]),
+            "captured_sha256": (hashes if item == "COPPER_WIRE" else
+                                {"identity-produced-carbon.bin": hashes["identity-produced-carbon.bin"]}
+                                if item == "CARBON" else
+                                {"identity-produced-compressed-carbon.bin":
+                                    hashes["identity-produced-compressed-carbon.bin"]}
+                                if item == "COMPRESSED_CARBON" else {}),
             "scope": "Specific fixture only; broad producer rows remain UNTESTED"})
     result["actual_case_counts"]["PASS"] = len(cases)
     return result
@@ -121,8 +154,7 @@ def main():
         if evidence.get("connected_player_checks") is True:
             if args.captures_dir is None:
                 raise ValueError("Missing captures directory")
-            captures = {name: (args.captures_dir / name).read_bytes()
-                        for name in ("identity-crafted-wire.bin", "identity-given-wire.bin")}
+            captures = read_native_captures(args.captures_dir)
         report = attach_native_evidence(report, evidence, captures)
     args.output.write_text(json.dumps(report, indent=2) + "\n")
     print(f"Identity coverage inventory: {report['registered_items']} registered items; "

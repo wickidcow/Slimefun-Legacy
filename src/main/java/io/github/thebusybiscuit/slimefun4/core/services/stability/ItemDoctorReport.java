@@ -19,6 +19,7 @@ import javax.annotation.Nullable;
 public final class ItemDoctorReport {
 
     private static final int SAMPLE_LIMIT = 12;
+    private static final long MAX_IDENTITY_INSPECTIONS = 20_000L;
 
     private final boolean repairMode;
     private final long startedAtNanos = System.nanoTime();
@@ -43,6 +44,11 @@ public final class ItemDoctorReport {
     private final AtomicLong itemModelRepairs = new AtomicLong();
     private final AtomicLong itemModelConflicts = new AtomicLong();
     private final AtomicLong failures = new AtomicLong();
+    private final AtomicLong identityObserved = new AtomicLong();
+    private final AtomicLong identityTemplateMatches = new AtomicLong();
+    private final AtomicLong identityPresentationCandidates = new AtomicLong();
+    private final AtomicLong identityOtherDifferences = new AtomicLong();
+    private final AtomicLong identityUnavailable = new AtomicLong();
     private final Map<String, AtomicLong> legacyMigrationCandidateCounts = new ConcurrentHashMap<>();
     private final Map<SchemaMigrationKey, AtomicLong> schemaMigrationCandidateCounts = new ConcurrentHashMap<>();
     private final Map<SchemaValidationKey, AtomicLong> schemaValidationCounts = new ConcurrentHashMap<>();
@@ -52,6 +58,7 @@ public final class ItemDoctorReport {
     private final Set<String> unknownBlockIdSamples = Collections.synchronizedSet(new LinkedHashSet<>());
     private final Set<String> unknownIdSamples = Collections.synchronizedSet(new LinkedHashSet<>());
     private final Set<String> unresolvedTemplateSamples = Collections.synchronizedSet(new LinkedHashSet<>());
+    private final Set<String> identityPresentationCandidateIds = Collections.synchronizedSet(new LinkedHashSet<>());
     private volatile LegacyItemSchemaProbeService.Session schemaProbeSession;
     private volatile long completedAtNanos;
 
@@ -97,6 +104,26 @@ public final class ItemDoctorReport {
 
     void slimefunStackFound() {
         slimefunStacks.incrementAndGet();
+    }
+
+    /**
+     * Bound expensive Bukkit metadata comparisons in a full server traversal.
+     * Every encountered registered stack is counted, including those beyond the budget.
+     */
+    boolean reserveIdentityInspection() {
+        return identityObserved.incrementAndGet() <= MAX_IDENTITY_INSPECTIONS;
+    }
+
+    void identityCompared(@Nonnull String itemId, @Nonnull HistoricalItemIdentityScanner.Result result) {
+        switch (result) {
+            case MATCH -> identityTemplateMatches.incrementAndGet();
+            case PRESENTATION_ONLY_CANDIDATE -> {
+                identityPresentationCandidates.incrementAndGet();
+                addSample(identityPresentationCandidateIds, itemId);
+            }
+            case OTHER_DIFFERENCE -> identityOtherDifferences.incrementAndGet();
+            case TEMPLATE_UNAVAILABLE -> identityUnavailable.incrementAndGet();
+        }
     }
 
     void cjkStackFound() {
@@ -378,6 +405,43 @@ public final class ItemDoctorReport {
 
     public long getFailures() {
         return failures.get();
+    }
+
+    /** Registered stacks encountered in the scan; this is not an actual-producer coverage metric. */
+    public long getIdentityObserved() {
+        return identityObserved.get();
+    }
+
+    public long getIdentityCompared() {
+        return identityTemplateMatches.get()
+                + identityPresentationCandidates.get()
+                + identityOtherDifferences.get()
+                + identityUnavailable.get();
+    }
+
+    public long getIdentityDeferred() {
+        return Math.max(0L, identityObserved.get() - MAX_IDENTITY_INSPECTIONS);
+    }
+
+    public long getIdentityTemplateMatches() {
+        return identityTemplateMatches.get();
+    }
+
+    public long getIdentityPresentationCandidates() {
+        return identityPresentationCandidates.get();
+    }
+
+    public long getIdentityOtherDifferences() {
+        return identityOtherDifferences.get();
+    }
+
+    public long getIdentityUnavailable() {
+        return identityUnavailable.get();
+    }
+
+    /** Bounded item IDs only, never PDC values, item payloads or player locations. */
+    public @Nonnull List<String> getIdentityPresentationCandidateIds() {
+        return snapshot(identityPresentationCandidateIds);
     }
 
     public long getDurationMillis() {

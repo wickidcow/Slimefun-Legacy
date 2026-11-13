@@ -1,7 +1,10 @@
 import copy
+import hashlib
+from pathlib import Path
+import tempfile
 import unittest
 
-from scripts.identity_coverage import BACKPACK_PHASES, ENDER_PHASES, PRODUCERS, build_report
+from scripts.identity_coverage import BACKPACK_PHASES, ENDER_PHASES, PRODUCERS, build_report, read_native_captures
 
 
 class IdentityCoverageTest(unittest.TestCase):
@@ -72,7 +75,51 @@ class NativeEvidenceTest(unittest.TestCase):
                          "phases": {phase: "RESOURCE_PACK_DOCTOR_PROBE_PASS " + phase + " | 26.2-129"
                                     for phase in ("player-identity-give", "player-identity-craft", "player-identity-compressor", "player-identity-compressor-rejected", "player-identity-compressor-chain",
                                                   "identity-output-restart") + ENDER_PHASES + BACKPACK_PHASES}}
-        self.captures = {"identity-crafted-wire.bin": b"crafted", "identity-given-wire.bin": b"given"}
+        self.captures = {"identity-crafted-wire.bin": b"crafted", "identity-given-wire.bin": b"given",
+                         "identity-produced-carbon.bin": b"real carbon output",
+                         "identity-produced-compressed-carbon.bin": b"real compressed output"}
+        self.evidence["captures_sha256"] = {
+            name: hashlib.sha256(data).hexdigest() for name, data in self.captures.items()
+        }
+
+    def test_native_capture_loader_requires_real_compressor_outputs(self):
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            for name, data in self.captures.items():
+                (directory / name).write_bytes(data)
+            self.assertEqual(self.captures, read_native_captures(directory))
+            (directory / "identity-produced-carbon.bin").unlink()
+            with self.assertRaisesRegex(ValueError, "identity-produced-carbon.bin"):
+                read_native_captures(directory)
+
+    def test_missing_malformed_or_extra_hash_receipts_fail_closed(self):
+        for invalid in (None, {}, {"identity-crafted-wire.bin": "0" * 64},
+                        {**self.evidence["captures_sha256"], "extra.bin": "a" * 64},
+                        {**self.evidence["captures_sha256"], "identity-given-wire.bin": "NOT_SHA256"}):
+            evidence = copy.deepcopy(self.evidence)
+            if invalid is None:
+                del evidence["captures_sha256"]
+            else:
+                evidence["captures_sha256"] = invalid
+            with self.subTest(receipts=invalid), self.assertRaises(ValueError):
+                self.attach(self.report, evidence, self.captures)
+
+    def test_swapped_or_tampered_capture_bytes_are_never_marked_pass(self):
+        swapped = {
+            "identity-crafted-wire.bin": self.captures["identity-given-wire.bin"],
+            "identity-given-wire.bin": self.captures["identity-crafted-wire.bin"],
+        }
+        with self.assertRaises(ValueError):
+            self.attach(self.report, self.evidence, swapped)
+        changed = dict(self.captures)
+        changed["identity-crafted-wire.bin"] += b"-tampered"
+        with self.assertRaises(ValueError):
+            self.attach(self.report, self.evidence, changed)
+        for filename in ("identity-produced-carbon.bin", "identity-produced-compressed-carbon.bin"):
+            changed = dict(self.captures)
+            changed[filename] += b"-tampered"
+            with self.subTest(filename=filename), self.assertRaises(ValueError):
+                self.attach(self.report, self.evidence, changed)
 
     def test_specific_cases_do_not_promote_broad_coverage_or_mutate_input(self):
         before = copy.deepcopy(self.report)
@@ -128,15 +175,22 @@ class NativeEvidenceTest(unittest.TestCase):
         compressor = result["actual_cases"][-2]
         self.assertEqual("CARBON", compressor["item_id"])
         self.assertEqual("compressor_handler_coal_blocks_delayed_output", compressor["case"])
-        self.assertEqual(["player-identity-compressor-rejected", "player-identity-compressor"], compressor["required_phases"])
-        self.assertEqual({}, compressor["captured_sha256"])
+        self.assertEqual(["player-identity-compressor-rejected", "player-identity-compressor",
+                          "identity-output-restart"], compressor["required_phases"])
+        self.assertEqual(
+            {"identity-produced-carbon.bin": self.evidence["captures_sha256"]["identity-produced-carbon.bin"]},
+            compressor["captured_sha256"])
 
     def test_chain_requires_actual_upstream_producer_receipt(self):
         result = self.attach(self.report, self.evidence, self.captures)
         chain = result["actual_cases"][-1]
         self.assertEqual("COMPRESSED_CARBON", chain["item_id"])
-        self.assertEqual(["player-identity-compressor", "player-identity-compressor-chain"], chain["required_phases"])
-        self.assertEqual({}, chain["captured_sha256"])
+        self.assertEqual(["player-identity-compressor", "player-identity-compressor-chain",
+                          "identity-output-restart"], chain["required_phases"])
+        self.assertEqual(
+            {"identity-produced-compressed-carbon.bin":
+                self.evidence["captures_sha256"]["identity-produced-compressed-carbon.bin"]},
+            chain["captured_sha256"])
 
     def test_each_native_phase_rejects_wrong_runtime(self):
         for phase in self.evidence["phases"]:
