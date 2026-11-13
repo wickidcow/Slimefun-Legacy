@@ -33,12 +33,22 @@ def attach_native_evidence(report, evidence, captures):
         expected = "RESOURCE_PACK_DOCTOR_PROBE_PASS " + phase + " | " + report["runtime"]["server_version"]
         if phases.get(phase) != expected:
             raise ValueError("Missing or wrong-runtime native phase: " + phase)
+    # Bind each actual captured item to the *same* native execution receipt.
+    # Phase names or nonempty files alone do not prove the captured bytes belong
+    # to this invocation. Never promote template-only/synthetic evidence to PASS.
+    required_names = ("identity-crafted-wire.bin", "identity-given-wire.bin")
+    declared_hashes = evidence.get("captures_sha256")
+    if not isinstance(declared_hashes, dict) or set(declared_hashes) != set(required_names):
+        raise ValueError("Missing or extra native capture hash receipts")
     hashes = {}
-    for filename in ("identity-crafted-wire.bin", "identity-given-wire.bin"):
+    for filename in required_names:
         payload = captures.get(filename)
         if not isinstance(payload, bytes) or not payload:
             raise ValueError("Missing captured actual output: " + filename)
-        hashes[filename] = hashlib.sha256(payload).hexdigest()
+        digest = hashlib.sha256(payload).hexdigest()
+        if not re.fullmatch(r"[0-9a-f]{64}", str(declared_hashes[filename])) or declared_hashes[filename] != digest:
+            raise ValueError("Native capture does not match execution receipt: " + filename)
+        hashes[filename] = digest
     items = {row["item_id"]: row for row in report["rows"]}
     cases = [(item, "give_command_17_plus_31", "player-identity-give")
              for item in ("SMALL_URANIUM", "COPPER_DUST", "CARBONADO")]
