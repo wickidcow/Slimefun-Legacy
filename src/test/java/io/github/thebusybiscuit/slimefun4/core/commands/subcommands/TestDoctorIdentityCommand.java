@@ -186,4 +186,89 @@ class TestDoctorIdentityCommand {
                 java.util.List.of(2200095.0F),
                 produced.getCustomModelDataComponent().getFloats());
     }
+
+    @Test
+    void historicalBoldMismatchIsReadOnlyPresentationCandidate() {
+        ItemStack historical = uranium();
+        ItemStack fresh = uranium();
+        historical.editMeta(meta -> meta.displayName(Component.text("Small Uranium", NamedTextColor.RED)
+                .decoration(TextDecoration.ITALIC, false)
+                .decoration(TextDecoration.BOLD, false)));
+        historical.setAmount(37);
+        ItemStack beforeOld = new ItemStack(historical);
+        ItemStack beforeFresh = new ItemStack(fresh);
+
+        var result = DoctorIdentityCommand.inspectHistoricalPresentation(historical, fresh);
+
+        assertTrue(result.plainTextSame());
+        assertTrue(result.nonPresentationSame());
+        assertTrue(result.candidate());
+        assertFalse(DoctorIdentityCommand.inspect(historical, fresh).isSimilar());
+        assertEquals(beforeOld, historical);
+        assertEquals(beforeFresh, fresh);
+        assertEquals(37, historical.getAmount());
+    }
+
+    @Test
+    void typedPersistentDataDifferenceCannotBeClassifiedAsCosmetic() {
+        ItemStack historical = uranium();
+        ItemStack fresh = uranium();
+        historical.editMeta(meta -> meta.displayName(Component.text("Small Uranium", NamedTextColor.RED)
+                .decoration(TextDecoration.ITALIC, false)
+                .decoration(TextDecoration.BOLD, false)));
+        historical.editMeta(meta -> meta.getPersistentDataContainer()
+                .set(new NamespacedKey("addon", "owner"), PersistentDataType.INTEGER, 4));
+        fresh.editMeta(meta -> meta.getPersistentDataContainer()
+                .set(new NamespacedKey("addon", "owner"), PersistentDataType.LONG, 4L));
+        ItemStack beforeOld = new ItemStack(historical);
+        ItemStack beforeFresh = new ItemStack(fresh);
+
+        var result = DoctorIdentityCommand.inspectHistoricalPresentation(historical, fresh);
+
+        assertTrue(result.plainTextSame());
+        assertFalse(result.nonPresentationSame());
+        assertFalse(result.candidate());
+        assertEquals(beforeOld, historical);
+        assertEquals(beforeFresh, fresh);
+    }
+
+    @Test
+    void genuinelyDifferentTextIsNotPresentationOnlyCandidate() {
+        ItemStack historical = uranium();
+        ItemStack fresh = uranium();
+        historical.editMeta(meta -> meta.displayName(Component.text("Unknown historical resource")));
+        var result = DoctorIdentityCommand.inspectHistoricalPresentation(historical, fresh);
+        assertFalse(result.plainTextSame());
+        assertTrue(result.nonPresentationSame());
+        assertFalse(result.candidate());
+    }
+
+    @Test
+    void fullLegacyStackIsCapacityBlockNotIdentityFailure() {
+        ItemStack historical = uranium();
+        ItemStack fresh = uranium();
+        historical.setAmount(64);
+        assertTrue(DoctorIdentityCommand.inspect(historical, fresh).isSimilar());
+        assertEquals(0, DoctorIdentityCommand.availableCapacity(historical));
+        historical.setAmount(63);
+        assertEquals(1, DoctorIdentityCommand.availableCapacity(historical));
+        assertTrue(DoctorIdentityCommand.inspect(historical, fresh).isSimilar());
+    }
+
+    @Test
+    void historicalPreviewNeverCallsProducerSpecificCloneOverride() {
+        ItemStack original = uranium();
+        ItemStack old = new ItemStack(original) {
+            @Override
+            public ItemStack clone() {
+                throw new AssertionError("Read-only historical triage must avoid producer clone hooks");
+            }
+        };
+        old.editMeta(meta -> meta.displayName(Component.text("Small Uranium", NamedTextColor.RED)
+                .decoration(TextDecoration.ITALIC, false)
+                .decoration(TextDecoration.BOLD, false)));
+        var result = DoctorIdentityCommand.inspectHistoricalPresentation(old, original);
+        assertTrue(result.candidate());
+        assertFalse(DoctorIdentityCommand.inspect(old, original).isSimilar());
+    }
 }
