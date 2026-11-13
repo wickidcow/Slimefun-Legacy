@@ -136,6 +136,20 @@ public final class ItemPresentationDoctor {
             report.legacyMigrationCandidateFound(itemId);
         }
 
+        // Read-only, bounded template comparison alongside the existing batched
+        // Doctor traversal. No canonicalization or historical-storage mutation.
+        // A candidate is NOT approval to repair: addons can have dynamic lore.
+        if (!repair && sfItem != null && report.reserveIdentityInspection()) {
+            try {
+                report.identityCompared(itemId, HistoricalItemIdentityScanner.inspect(item, sfItem.getItem()));
+            } catch (RuntimeException | LinkageError ex) {
+                // An unsafe or unsupported addon item never prevents the existing
+                // migration and CJK checks from inspecting the rest of the stack.
+                report.identityCompared(itemId, HistoricalItemIdentityScanner.Result.TEMPLATE_UNAVAILABLE);
+                Slimefun.logger().log(Level.FINE, "Could not compare item identity for " + itemId + '.', ex);
+            }
+        }
+
         LegacyItemSchemaProbeService.Session schemaProbes = report.getSchemaProbeSession();
         if (schemaProbes != null) {
             schemaProbes.inspect(item, itemId, report);
