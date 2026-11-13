@@ -126,8 +126,14 @@ final class DoctorIdentityCommand {
 
         boolean plainTextSame = Objects.equals(plain(oldMeta.displayName()), plain(freshMeta.displayName()))
                 && Objects.equals(plainLore(oldMeta.lore()), plainLore(freshMeta.lore()));
-        ItemStack oldCopy = new ItemStack(old);
-        ItemStack freshCopy = new ItemStack(fresh);
+        // ItemStack(ItemStack) delegates to the source clone() on some Bukkit
+        // implementations. Avoid producer-specific clone hooks and reject any
+        // detached representation which cannot first round-trip strict identity.
+        ItemStack oldCopy = detachedCopy(old);
+        ItemStack freshCopy = detachedCopy(fresh);
+        if (oldCopy == null || freshCopy == null) {
+            return new HistoricalPresentation(plainTextSame, false, false);
+        }
         oldCopy.editMeta(meta -> {
             meta.displayName(null);
             meta.lore(null);
@@ -139,6 +145,17 @@ final class DoctorIdentityCommand {
         boolean nonPresentationSame = oldCopy.isSimilar(freshCopy);
         return new HistoricalPresentation(
                 plainTextSame, nonPresentationSame, !old.isSimilar(fresh) && plainTextSame && nonPresentationSame);
+    }
+
+    private static ItemStack detachedCopy(ItemStack source) {
+        ItemStack detached = new ItemStack(source.getType(), source.getAmount());
+        ItemMeta meta = source.getItemMeta();
+        if (meta != null && !detached.setItemMeta(meta)) {
+            return null;
+        }
+        // Never classify if Bukkit lost a typed PDC entry, profile, model
+        // component, enchantment or other identity field during detachment.
+        return source.isSimilar(detached) ? detached : null;
     }
 
     static int availableCapacity(ItemStack stack) {
