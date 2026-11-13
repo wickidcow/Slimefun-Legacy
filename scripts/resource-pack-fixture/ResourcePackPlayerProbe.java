@@ -314,6 +314,10 @@ final class ResourcePackPlayerProbe implements Listener {
                     var given = player.getInventory().getItem(0);
                     require(actual.isSimilar(given) && given.isSimilar(actual)
                                     && actual.getItemMeta().equals(given.getItemMeta()), "Compressor/give metadata mismatch");
+                    // Capture the genuine delayed machine-slot output before inventory transfer.
+                    // The next JVM boot verifies its full native identity and exact count.
+                    Files.write(plugin.getDataFolder().toPath().resolve("identity-produced-carbon.bin"),
+                            actual.serializeAsBytes());
                     producedCarbon = actual.clone();
                     inventory.clear();
                     require(player.getInventory().addItem(actual).isEmpty(), "Compressor/give merge overflow");
@@ -382,6 +386,8 @@ final class ResourcePackPlayerProbe implements Listener {
                     var given = player.getInventory().getItem(0);
                     require(actual.isSimilar(given) && given.isSimilar(actual)
                                     && actual.getItemMeta().equals(given.getItemMeta()), "Compressor/give metadata mismatch");
+                    Files.write(plugin.getDataFolder().toPath().resolve("identity-produced-compressed-carbon.bin"),
+                            actual.serializeAsBytes());
                     inventory.clear();
                     require(player.getInventory().addItem(actual).isEmpty(), "Compressor/give merge overflow");
                     verifyGivenStack(player, carbon.getItem(), 2);

@@ -165,6 +165,8 @@ jobs:
             ${{ runner.temp }}/resource-pack-doctor/identity-coverage.json
             ${{ runner.temp }}/resource-pack-doctor/plugins/ResourcePackDoctorProbe/identity-crafted-wire.bin
             ${{ runner.temp }}/resource-pack-doctor/plugins/ResourcePackDoctorProbe/identity-given-wire.bin
+            ${{ runner.temp }}/resource-pack-doctor/plugins/ResourcePackDoctorProbe/identity-produced-carbon.bin
+            ${{ runner.temp }}/resource-pack-doctor/plugins/ResourcePackDoctorProbe/identity-produced-compressed-carbon.bin
             ${{ runner.temp }}/resource-pack-doctor/plugins/ResourcePackDoctorProbe/identity-registry.json
             ${{ runner.temp }}/resource-pack-doctor/plugins/ResourcePackDoctorProbe/*.pass
           if-no-files-found: warn

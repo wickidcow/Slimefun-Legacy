@@ -283,7 +283,8 @@ def main() -> None:
             # The coverage reader must verify these same-run hashes before PASS.
             evidence["captures_sha256"] = {
                 name: hashlib.sha256((proof / name).read_bytes()).hexdigest()
-                for name in ("identity-crafted-wire.bin", "identity-given-wire.bin")
+                for name in ("identity-crafted-wire.bin", "identity-given-wire.bin",
+                             "identity-produced-carbon.bin", "identity-produced-compressed-carbon.bin")
             }
         (root / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
         subprocess.run(["python3", str(repo / "scripts/identity_coverage.py"),

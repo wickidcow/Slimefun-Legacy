@@ -50,6 +50,46 @@ final class ItemIdentityProbe {
         require(Arrays.equals(craftedBytes, Files.readAllBytes(folder.resolve("identity-crafted-wire.bin")))
                         && Arrays.equals(givenBytes, Files.readAllBytes(folder.resolve("identity-given-wire.bin"))),
                 "restart verification rewrote saved producer evidence");
+        verifyCapturedCompressorRestart(folder, "CARBON", "identity-produced-carbon.bin", 9);
+        verifyCapturedCompressorRestart(
+                folder, "COMPRESSED_CARBON", "identity-produced-compressed-carbon.bin", 1);
+    }
+
+    /**
+     * Only genuine captured Compressor output slots from the connected-player handler.
+     * Verify their typed metadata, exact quantities and vanilla stacking after a JVM restart.
+     * No world, player, item, or saved capture is modified.
+     */
+    private static void verifyCapturedCompressorRestart(Path folder, String itemId, String filename, int amount)
+            throws Exception {
+        byte[] capturedBytes = Files.readAllBytes(folder.resolve(filename));
+        ItemStack produced = ItemStack.deserializeBytes(capturedBytes);
+        SlimefunItem registered = SlimefunItem.getById(itemId);
+        require(registered != null, "missing registered Compressor result after restart: " + itemId);
+        ItemStack template = registered.getItem();
+        byte[] templateBefore = template.serializeAsBytes();
+        require(
+                produced.getAmount() == amount
+                        && produced.isSimilar(template)
+                        && template.isSimilar(produced)
+                        && produced.getItemMeta().equals(template.getItemMeta()),
+                "persisted Compressor output identity/quantity: " + itemId);
+        ItemStack currentReference = ItemStack.deserializeBytes(templateBefore);
+        currentReference.setAmount(amount);
+        var inventory = Bukkit.createInventory(null, 9);
+        require(
+                inventory.addItem(produced, currentReference).isEmpty(),
+                "persisted Compressor output merge overflow: " + itemId);
+        var stacks = Arrays.stream(inventory.getContents())
+                .filter(item -> item != null && !item.getType().isAir())
+                .toList();
+        require(
+                stacks.size() == 1 && stacks.getFirst().getAmount() == amount * 2,
+                "persisted Compressor output merge lost or duplicated items: " + itemId);
+        require(
+                Arrays.equals(templateBefore, template.serializeAsBytes())
+                        && Arrays.equals(capturedBytes, Files.readAllBytes(folder.resolve(filename))),
+                "Compressor restart validation modified template or captured item: " + itemId);
     }
 
     static void verify(Path folder, boolean restart) throws Exception {
