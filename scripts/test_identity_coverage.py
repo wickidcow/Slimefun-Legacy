@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import unittest
 
 from scripts.identity_coverage import BACKPACK_PHASES, ENDER_PHASES, PRODUCERS, build_report
@@ -73,6 +74,33 @@ class NativeEvidenceTest(unittest.TestCase):
                                     for phase in ("player-identity-give", "player-identity-craft", "player-identity-compressor", "player-identity-compressor-rejected", "player-identity-compressor-chain",
                                                   "identity-output-restart") + ENDER_PHASES + BACKPACK_PHASES}}
         self.captures = {"identity-crafted-wire.bin": b"crafted", "identity-given-wire.bin": b"given"}
+        self.evidence["captures_sha256"] = {
+            name: hashlib.sha256(data).hexdigest() for name, data in self.captures.items()
+        }
+
+    def test_missing_malformed_or_extra_hash_receipts_fail_closed(self):
+        for invalid in (None, {}, {"identity-crafted-wire.bin": "0" * 64},
+                        {**self.evidence["captures_sha256"], "extra.bin": "a" * 64},
+                        {**self.evidence["captures_sha256"], "identity-given-wire.bin": "NOT_SHA256"}):
+            evidence = copy.deepcopy(self.evidence)
+            if invalid is None:
+                del evidence["captures_sha256"]
+            else:
+                evidence["captures_sha256"] = invalid
+            with self.subTest(receipts=invalid), self.assertRaises(ValueError):
+                self.attach(self.report, evidence, self.captures)
+
+    def test_swapped_or_tampered_capture_bytes_are_never_marked_pass(self):
+        swapped = {
+            "identity-crafted-wire.bin": self.captures["identity-given-wire.bin"],
+            "identity-given-wire.bin": self.captures["identity-crafted-wire.bin"],
+        }
+        with self.assertRaises(ValueError):
+            self.attach(self.report, self.evidence, swapped)
+        changed = dict(self.captures)
+        changed["identity-crafted-wire.bin"] += b"-tampered"
+        with self.assertRaises(ValueError):
+            self.attach(self.report, self.evidence, changed)
 
     def test_specific_cases_do_not_promote_broad_coverage_or_mutate_input(self):
         before = copy.deepcopy(self.report)

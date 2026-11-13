@@ -278,6 +278,13 @@ def main() -> None:
                                    text=True, check=True).stderr.strip(),
             "phases": {p.stem: p.read_text().strip() for p in sorted(proof.glob("*.pass"))},
         }
+        if args.protocol_module:
+            # Native bytes are output by the connected-player producer fixture.
+            # The coverage reader must verify these same-run hashes before PASS.
+            evidence["captures_sha256"] = {
+                name: hashlib.sha256((proof / name).read_bytes()).hexdigest()
+                for name in ("identity-crafted-wire.bin", "identity-given-wire.bin")
+            }
         (root / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
         subprocess.run(["python3", str(repo / "scripts/identity_coverage.py"),
                         "--registry", str(proof / "identity-registry.json"), "--core", str(core),
