@@ -58,6 +58,7 @@ final class ItemIdentityProbe {
             ItemStack persisted = ItemStack.deserializeBytes(Files.readAllBytes(folder.resolve("identity-item.bin")));
             require(reference.isSimilar(persisted) && persisted.getAmount() == 17, "saved item identity/quantity");
             require(flag(inspect(reference, persisted), "isSimilar"), "doctor saved item identity");
+            verifyHistoricalPresentation(folder, true);
             return;
         }
 
@@ -120,6 +121,7 @@ final class ItemIdentityProbe {
         require(flag(inspect(template, template.clone()), "isSimilar"), "registered template clone");
         require(Arrays.equals(templateBefore, template.serializeAsBytes()), "registered template mutated");
         require(Arrays.equals(untouched, reference.serializeAsBytes()), "reference mutated by control cases");
+        verifyHistoricalPresentation(folder, false);
         Files.write(folder.resolve("identity-item.bin"), untouched);
         var items = Slimefun.getRegistry().getAllSlimefunItems().stream()
                 .map(item -> Map.of("item_id", item.getId(), "plugin", item.getAddon().getName(),
@@ -130,6 +132,72 @@ final class ItemIdentityProbe {
                 "minecraft", Bukkit.getMinecraftVersion(), "server_version", Bukkit.getVersion(), "items", items);
         Files.writeString(folder.resolve("identity-registry.json"),
                 new GsonBuilder().setPrettyPrinting().create().toJson(registry));
+    }
+
+    /** Native Paper demonstration for #578: classification only, never a historical repair. */
+    private static void verifyHistoricalPresentation(Path folder, boolean restart) throws Exception {
+        Path oldFile = folder.resolve("identity-historical-old.bin");
+        Path freshFile = folder.resolve("identity-historical-fresh.bin");
+        if (restart) {
+            byte[] oldBytes = Files.readAllBytes(oldFile);
+            byte[] freshBytes = Files.readAllBytes(freshFile);
+            ItemStack old = ItemStack.deserializeBytes(oldBytes);
+            ItemStack fresh = ItemStack.deserializeBytes(freshBytes);
+            require(old.getAmount() == 63 && fresh.getAmount() == 1, "historical restart quantities");
+            require(!old.isSimilar(fresh), "historical mismatch survived restart");
+            Object check = historical(old, fresh);
+            require(flag(check, "plainTextSame") && flag(check, "nonPresentationSame")
+                            && flag(check, "candidate"),
+                    "historical cosmetic candidate survived persisted item bytes");
+            require(capacity(old) == 1, "historical restart free-capacity check");
+            require(Arrays.equals(oldBytes, Files.readAllBytes(oldFile))
+                            && Arrays.equals(freshBytes, Files.readAllBytes(freshFile)),
+                    "read-only historical restart modified persisted evidence");
+            return;
+        }
+
+        ItemStack fresh = fixture();
+        fresh.setAmount(1);
+        ItemStack old = new ItemStack(fresh);
+        old.setAmount(63);
+        old.editMeta(meta -> meta.displayName(meta.displayName().decoration(TextDecoration.BOLD, false)));
+        byte[] oldBytes = old.serializeAsBytes();
+        byte[] freshBytes = fresh.serializeAsBytes();
+        require(!old.isSimilar(fresh), "historical decoration mismatch must prevent vanilla stacking");
+        Object check = historical(old, fresh);
+        require(flag(check, "plainTextSame") && flag(check, "nonPresentationSame")
+                        && flag(check, "candidate"),
+                "historical display-only candidate has strict non-presentation equality");
+        require(capacity(old) == 1, "historical 63/64 has exactly one free space");
+        ItemStack full = new ItemStack(old);
+        full.setAmount(64);
+        require(capacity(full) == 0, "historical 64/64 full-capacity control");
+
+        ItemStack typed = new ItemStack(old);
+        typed.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.INTEGER, 77));
+        Object unsafe = historical(typed, fresh);
+        require(flag(unsafe, "plainTextSame") && !flag(unsafe, "nonPresentationSame")
+                        && !flag(unsafe, "candidate"),
+                "typed PDC difference was incorrectly marked cosmetic");
+        require(Arrays.equals(oldBytes, old.serializeAsBytes())
+                        && Arrays.equals(freshBytes, fresh.serializeAsBytes()),
+                "read-only historical diagnostic mutated actual stack data");
+        Files.write(oldFile, oldBytes);
+        Files.write(freshFile, freshBytes);
+    }
+
+    private static Object historical(ItemStack old, ItemStack fresh) throws Exception {
+        Class<?> doctor = Class.forName("io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorIdentityCommand");
+        Method method = doctor.getDeclaredMethod("inspectHistoricalPresentation", ItemStack.class, ItemStack.class);
+        method.setAccessible(true);
+        return method.invoke(null, old, fresh);
+    }
+
+    private static int capacity(ItemStack stack) throws Exception {
+        Class<?> doctor = Class.forName("io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorIdentityCommand");
+        Method method = doctor.getDeclaredMethod("availableCapacity", ItemStack.class);
+        method.setAccessible(true);
+        return (int) method.invoke(null, stack);
     }
 
     private static ItemStack fixture() {
