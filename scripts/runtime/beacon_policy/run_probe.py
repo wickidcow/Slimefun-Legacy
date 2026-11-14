@@ -29,9 +29,9 @@ depend: [Slimefun]
 """
 
 
-def download_paper(mc: str, dest: Path) -> str:
+def download_server(mc: str, dest: Path, software: str) -> str:
     headers = {"User-Agent": "Slimefun-Legacy-Native-Beacon-CI/1.0"}
-    url = f"https://fill.papermc.io/v3/projects/paper/versions/{mc}/builds"
+    url = f"https://fill.papermc.io/v3/projects/{software}/versions/{mc}/builds"
     with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=45) as resp:
         builds = json.load(resp)
     if not isinstance(builds, list):
@@ -40,7 +40,7 @@ def download_paper(mc: str, dest: Path) -> str:
                    if b.get("channel") == "STABLE"
                    and b.get("downloads", {}).get("server:default", {}).get("url")), None)
     if not stable:
-        raise RuntimeError(f"Paper {mc}: no STABLE server build")
+        raise RuntimeError(f"{software} {mc}: no STABLE server build")
     uri = stable["downloads"]["server:default"]["url"]
     with urllib.request.urlopen(urllib.request.Request(uri, headers=headers), timeout=120) as response, \
             dest.open("wb") as out:
@@ -50,7 +50,7 @@ def download_paper(mc: str, dest: Path) -> str:
     return str(stable["id"])
 
 
-def compile_probe(root: Path, legacy: Path, paper_api: Path, extra_classpath: str):
+def compile_probe(root: Path, legacy: Path, paper_api: Path, extra_classpath: str, software: str):
     classes = root / "beacon-probe-classes"
     classes.mkdir(parents=True)
     source = Path("scripts/runtime/beacon_policy/BeaconTicketProbe.java")
@@ -61,7 +61,7 @@ def compile_probe(root: Path, legacy: Path, paper_api: Path, extra_classpath: st
                          zipfile.ZIP_DEFLATED) as jar:
         for item in classes.rglob("*.class"):
             jar.write(item, item.relative_to(classes).as_posix())
-        jar.writestr("plugin.yml", PLUGIN_YML)
+        jar.writestr("plugin.yml", PLUGIN_YML + ("folia-supported: true\n" if software == "folia" else ""))
 
 
 def set_mode(config: Path, new_mode: str):
@@ -127,7 +127,10 @@ def main():
     parser.add_argument("--paper-api-jar", type=Path, required=True)
     parser.add_argument("--compile-classpath-file", type=Path, required=True)
     parser.add_argument("--minecraft", choices=("1.21.11", "26.2", "26.3"), required=True)
+    parser.add_argument("--software", choices=("paper", "folia"), default="paper")
     args = parser.parse_args()
+    if args.software == "folia" and args.minecraft != "26.2":
+        raise RuntimeError("Folia native ticket safety is pinned to 26.2 until further runtime evidence")
 
     slimefun, api = (path.resolve(strict=True) for path in
                      (args.slimefun_jar, args.paper_api_jar))
@@ -141,14 +144,14 @@ def main():
     if fixture_parent.is_symlink():
         raise RuntimeError("Refusing linked native test directory")
     fixture_parent.mkdir(parents=True, exist_ok=True)
-    root = fixture_parent / args.minecraft
+    root = fixture_parent / (args.software + "-" + args.minecraft)
     if root.exists() or root.is_symlink():
         raise RuntimeError(f"Expected fresh disposable test directory: {root}")
     root.mkdir()
-    paper_build = download_paper(args.minecraft, root / "paper.jar")
+    paper_build = download_server(args.minecraft, root / "paper.jar", args.software)
     (root / "plugins").mkdir()
     shutil.copyfile(slimefun, root / "plugins" / "Slimefun-Legacy.jar")
-    compile_probe(root, slimefun, api, all_dependencies)
+    compile_probe(root, slimefun, api, all_dependencies, args.software)
     (root / "eula.txt").write_text("eula=true\n", encoding="utf-8")
     (root / "server.properties").write_text(
         "online-mode=false\nmax-players=2\n"
@@ -174,7 +177,7 @@ def main():
         set_mode(config, "ALWAYS" if phase.startswith("ALWAYS") else phase)
         (root / "beacon-policy-phase.txt").write_text(phase, encoding="utf-8")
         run_phase(root, phase)
-    print(f"PASS native Paper {args.minecraft} build {paper_build}: "
+    print(f"PASS native {args.software} {args.minecraft} build {paper_build}: "
           "zero-player tickets, admin mode, owner registry and restarts", flush=True)
 
 

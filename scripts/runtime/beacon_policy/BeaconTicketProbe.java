@@ -1,5 +1,6 @@
 package audit;
 
+import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlusChunkMode;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlusManager;
 import io.github.thebusybiscuit.slimefun4.implementation.items.curios.BeaconPlusSupportMode;
@@ -24,7 +25,14 @@ public final class BeaconTicketProbe extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        Bukkit.getScheduler().runTaskLater(this, this::verify, 80L);
+        // Region-owned servers prohibit Bukkit's global synchronous scheduler.
+        // Schedule the probe on the actual beacon chunk's owning region.
+        if (Slimefun.getSchedulerService().isFolia()) {
+            World world = Bukkit.getWorlds().get(0);
+            Bukkit.getRegionScheduler().runDelayed(this, world, X >> 4, Z >> 4, ignored -> verify(), 80L);
+        } else {
+            Bukkit.getScheduler().runTaskLater(this, this::verify, 80L);
+        }
     }
 
     private static void require(boolean condition, String message) {
@@ -41,6 +49,9 @@ public final class BeaconTicketProbe extends JavaPlugin {
             require(slimefun != null && slimefun.isEnabled(), "Real Slimefun Legacy must be enabled");
             require(SlimefunItem.getById("BEACON_PLUS") != null, "The actual Resonance Beacon must register");
             World world = Bukkit.getWorlds().get(0);
+            boolean regionized = Slimefun.getSchedulerService().isFolia();
+            require(!regionized || Bukkit.isOwnedByCurrentRegion(world, X >> 4, Z >> 4),
+                    "Folia probe did not run on owning region");
             Block block = world.getBlockAt(X, Y, Z);
             Location location = block.getLocation();
             BeaconPlusManager manager = BeaconPlusManager.getInstance();
@@ -51,26 +62,35 @@ public final class BeaconTicketProbe extends JavaPlugin {
                 manager.register(location, OWNER);
                 require(manager.updateModes(location, OWNER, BeaconPlusChunkMode.SINGLE, BeaconPlusSupportMode.OFF),
                         "Could not register a real native Beacon Plus Activator mode");
-                world.setChunkForceLoaded(EXTERNAL_X, EXTERNAL_Z, true);
+                if (!regionized) {
+                    world.setChunkForceLoaded(EXTERNAL_X, EXTERNAL_Z, true);
+                }
             }
             require(block.getType() == Material.BEACON, "Old placed beacon was lost across restart");
             require(manager.getChunkMode(location) == BeaconPlusChunkMode.SINGLE,
                     "Saved Activator mode changed unexpectedly");
             int cx = X >> 4, cz = Z >> 4;
-            boolean expect = phase.startsWith("ALWAYS");
+            // Paper must hold tickets for ALWAYS. Folia must preserve the
+            // saved Activator but never issue unverified cross-region tickets.
+            boolean expect = !regionized && phase.startsWith("ALWAYS");
             boolean actual = world.getPluginChunkTickets(cx, cz).contains(slimefun);
             require(expect == actual, "Paper plugin chunk ticket mismatch on " + phase
                     + ": expected=" + expect + " actual=" + actual);
             require(!world.isChunkForceLoaded(cx, cz), "New Beacon must not set persistent vanilla force-loaded flag");
-            require(world.isChunkForceLoaded(EXTERNAL_X, EXTERNAL_Z),
-                    "Unrelated operator force-loaded chunk was modified");
+            if (!regionized) {
+                require(world.isChunkForceLoaded(EXTERNAL_X, EXTERNAL_Z),
+                        "Unrelated operator force-loaded chunk was modified");
+            } else {
+                require(manager.getLoadedChunkCount() == 0,
+                        "Region-owned runtime incorrectly accounted for chunk tickets");
+            }
             Path registry = slimefun.getDataFolder().toPath().resolve("adventurers-curios-beacons.properties");
             require(Files.isRegularFile(registry), "Beacon Plus owner registry was not persisted");
             String saved = Files.readString(registry);
             require(saved.contains(OWNER.toString()) && saved.contains(";SINGLE;"),
                     "Stored Beacon Plus owner and Activator mode missing after restart");
 
-            if (phase.equals("ALWAYS_FIRST")) {
+            if (phase.equals("ALWAYS_FIRST") && !regionized) {
                 require(Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "beacon mode off"),
                         "Admin command /beacon mode off is not registered");
                 require(!world.getPluginChunkTickets(cx, cz).contains(slimefun),
@@ -84,7 +104,8 @@ public final class BeaconTicketProbe extends JavaPlugin {
             }
 
             getLogger().info("BEACON_NATIVE_CHUNK_POLICY_PASS " + phase
-                    + " ticket=" + actual + " mode=SINGLE owner=preserved players=0 forceLoaded=false");
+                    + " ticket=" + actual + " mode=SINGLE owner=preserved players=0 forceLoaded=false"
+                    + " regionized=" + regionized);
         } catch (Throwable error) {
             getLogger().severe("BEACON_NATIVE_CHUNK_POLICY_FAIL "
                     + error.getClass().getSimpleName() + ": " + error.getMessage());

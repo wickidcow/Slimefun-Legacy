@@ -16,13 +16,17 @@ permissions:
 
 jobs:
   native-beacon:
-    name: Native Beacon policy / Paper ${{ matrix.minecraft }}
+    name: Native Beacon policy / ${{ matrix.software }} ${{ matrix.minecraft }}
     runs-on: ubuntu-latest
     timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:
-        minecraft: ['1.21.11', '26.2', '26.3']
+        include:
+          - { minecraft: '1.21.11', software: 'paper' }
+          - { minecraft: '26.2', software: 'paper' }
+          - { minecraft: '26.3', software: 'paper' }
+          - { minecraft: '26.2', software: 'folia' }
     steps:
       - name: Checkout exact PR source
         uses: actions/checkout@v6
@@ -68,12 +72,13 @@ jobs:
             --slimefun-jar "$CORE_JAR" \
             --paper-api-jar "$PAPER_API_JAR" \
             --compile-classpath-file build/compatibility/compile-classpath.txt \
-            --minecraft "${{ matrix.minecraft }}"
+            --minecraft "${{ matrix.minecraft }}" \
+            --software "${{ matrix.software }}"
 
       - name: Preserve failed runtime logs for diagnosis
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: beacon-native-logs-${{ matrix.minecraft }}
-          path: build/beacon-native-policy/${{ matrix.minecraft }}/*.log
+          name: beacon-native-logs-${{ matrix.software }}-${{ matrix.minecraft }}
+          path: build/beacon-native-policy/${{ matrix.software }}-${{ matrix.minecraft }}/*.log
           if-no-files-found: ignore
