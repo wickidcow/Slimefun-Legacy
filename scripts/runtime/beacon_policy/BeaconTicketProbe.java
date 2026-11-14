@@ -80,8 +80,12 @@ public final class BeaconTicketProbe extends JavaPlugin {
             boolean actual = world.getPluginChunkTickets(cx, cz).contains(slimefun);
             require(expect == actual, "Paper plugin chunk ticket mismatch on " + phase
                     + ": expected=" + expect + " actual=" + actual);
-            require(!world.isChunkForceLoaded(cx, cz), "New Beacon must not set persistent vanilla force-loaded flag");
             if (!regionized) {
+                // Folia restricts vanilla force-loaded state to the global region.
+                // The Folia fixture already verifies zero plugin tickets and saved
+                // Activator ownership on the beacon's actual owning region.
+                require(!world.isChunkForceLoaded(cx, cz),
+                        "New Beacon must not set persistent vanilla force-loaded flag");
                 require(world.isChunkForceLoaded(EXTERNAL_X, EXTERNAL_Z),
                         "Unrelated operator force-loaded chunk was modified");
             } else {
