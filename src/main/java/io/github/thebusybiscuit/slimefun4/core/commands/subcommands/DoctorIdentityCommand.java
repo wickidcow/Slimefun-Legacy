@@ -103,9 +103,11 @@ final class DoctorIdentityCommand {
     static Comparison inspect(@Nonnull ItemStack main, @Nonnull ItemStack off) {
         ItemMeta mainMeta = main.getItemMeta();
         ItemMeta offMeta = off.getItemMeta();
+        ItemStack mainNative = detachedCopy(main);
+        ItemStack offNative = detachedCopy(off);
         return new Comparison(
                 main.getType() == off.getType(),
-                main.isSimilar(off),
+                mainNative != null && offNative != null && mainNative.isSimilar(offNative),
                 mainMeta == null
                         ? offMeta == null
                         : offMeta != null && Objects.equals(mainMeta.displayName(), offMeta.displayName()),

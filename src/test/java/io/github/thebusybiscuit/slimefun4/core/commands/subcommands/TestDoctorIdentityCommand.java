@@ -165,6 +165,20 @@ class TestDoctorIdentityCommand {
     }
 
     @Test
+    void nativeSnapshotComparisonDoesNotInvokeRegisteredSubclassCloneHook() {
+        ItemStack actual = uranium();
+        ItemStack registered = new ItemStack(actual) {
+            @Override
+            public ItemStack clone() {
+                throw new AssertionError("Doctor compare cannot invoke registered template clone hooks");
+            }
+        };
+        assertTrue(DoctorIdentityCommand.inspect(actual, registered).isSimilar());
+        registered.editMeta(meta -> meta.displayName(Component.text("Historical different name")));
+        assertFalse(DoctorIdentityCommand.inspect(actual, registered).isSimilar());
+    }
+
+    @Test
     void customModelDataDifferenceIsReportedWithoutChangingInputs() {
         // MockBukkit 4.110.0 does not preserve modern model components through all
         // ItemStack copies or include them in ItemMetaMock.equals. Test extraction

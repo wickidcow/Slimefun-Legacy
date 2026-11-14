@@ -238,6 +238,9 @@ final class ResourcePackPlayerProbe implements Listener {
             player.getInventory().clear();
             player.getInventory().setItemInMainHand(historical);
             player.getInventory().setItemInOffHand(reference);
+            // Includes comparison of each held CraftItemStack against the
+            // specialized registered SlimefunItemStack template.
+            require(player.performCommand("sf doctor identity compare"), "Doctor identity compare command rejected");
             require(player.performCommand("sf doctor identity repair scan"), "Doctor repair scan command rejected");
             require(Arrays.equals(originalBytes, player.getInventory().getItemInMainHand().serializeAsBytes())
                             && Arrays.equals(referenceBytes, player.getInventory().getItemInOffHand().serializeAsBytes())
