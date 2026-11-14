@@ -1,6 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
+import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -22,7 +23,11 @@ final class DoctorIdentityCommand {
 
     private DoctorIdentityCommand() {}
 
-    static void run(@Nonnull CommandSender sender, @Nonnull String[] args) {
+    static void run(@Nonnull Slimefun plugin, @Nonnull CommandSender sender, @Nonnull String[] args) {
+        if (args.length > 2 && args[2].equalsIgnoreCase("repair")) {
+            DoctorHistoricalStackRepair.run(plugin, sender, args);
+            return;
+        }
         if (!(sender instanceof Player player)) {
             send(sender, "&cIdentity comparison requires a player with two held items.");
             return;
