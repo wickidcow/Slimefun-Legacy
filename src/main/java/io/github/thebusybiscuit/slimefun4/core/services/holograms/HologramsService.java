@@ -207,7 +207,7 @@ public class HologramsService {
             armorStand.setMarker(true);
             armorStand.setAI(false);
             armorStand.setGravity(false);
-            armorStand.setRemoveWhenFarAway(false);
+            preventHologramDespawn(armorStand);
 
             // Set a persistent tag to re-identify the correct hologram later
             container.set(persistentDataKey, PersistentDataType.LONG, position.getPosition());
@@ -221,6 +221,13 @@ public class HologramsService {
             // This should never be reached
             return null;
         }
+    }
+
+    // Keep the legacy despawn policy. Entity#setPersistent controls saving,
+    // not distance despawning; it is not a substitute on newer Paper APIs.
+    @SuppressWarnings("deprecation")
+    private static void preventHologramDespawn(ArmorStand armorStand) {
+        armorStand.setRemoveWhenFarAway(false);
     }
 
     /**
