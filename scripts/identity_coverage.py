@@ -98,7 +98,7 @@ def attach_native_evidence(report, evidence, captures):
 
 
 
-def attach_ie2_geo_evidence(report, evidence, capture, addon_bytes):
+def attach_ie2_geo_evidence(report, evidence, capture, addon_bytes, probe_source):
     """Accept only a source-specific, same-artifact native IE2 GEO Quarry proof.
 
     A PASS here covers one SMALL_URANIUM fixture, not the broad machine row.
@@ -115,8 +115,11 @@ def attach_ie2_geo_evidence(report, evidence, capture, addon_bytes):
     addon_digest = hashlib.sha256(addon_bytes).hexdigest()
     if evidence.get("ie2_sha256") != addon_digest:
         raise ValueError("IE2 GEO addon artifact mismatch")
-    if not re.fullmatch(r"[0-9a-f]{64}", str(evidence.get("probe_sha256", ""))):
-        raise ValueError("Missing IE2 GEO native probe source digest")
+    if (not isinstance(probe_source, bytes) or not probe_source
+            or len(probe_source) > 1024 * 1024):
+        raise ValueError("Missing or oversized IE2 GEO native probe source")
+    if evidence.get("probe_sha256") != hashlib.sha256(probe_source).hexdigest():
+        raise ValueError("IE2 GEO native probe source digest mismatch")
 
     geo = evidence.get("geo_quarry")
     expected_fields = {"schema", "item_id", "producer", "scope", "status", "phases", "capture"}
@@ -214,6 +217,7 @@ def main():
     parser.add_argument("--ie2-geo-evidence", type=Path)
     parser.add_argument("--ie2-geo-capture", type=Path)
     parser.add_argument("--ie2-geo-addon-jar", type=Path)
+    parser.add_argument("--ie2-geo-probe-source", type=Path)
     args = parser.parse_args()
     with zipfile.ZipFile(args.core) as jar:
         props = dict(line.split("=", 1) for line in jar.read("git.properties").decode().splitlines()
@@ -232,15 +236,17 @@ def main():
                 raise ValueError("Missing captures directory")
             captures = read_native_captures(args.captures_dir)
         report = attach_native_evidence(report, evidence, captures)
-    ie2_inputs = (args.ie2_geo_evidence, args.ie2_geo_capture, args.ie2_geo_addon_jar)
+    ie2_inputs = (args.ie2_geo_evidence, args.ie2_geo_capture,
+                  args.ie2_geo_addon_jar, args.ie2_geo_probe_source)
     if any(path is not None for path in ie2_inputs):
         if any(path is None for path in ie2_inputs):
-            raise ValueError("IE2 GEO external evidence requires evidence, capture and addon artifact")
+            raise ValueError("IE2 GEO external evidence requires evidence, capture, addon and native probe source")
         if any(path.is_symlink() or not path.is_file() for path in ie2_inputs):
             raise ValueError("IE2 GEO external evidence requires ordinary local files")
         report = attach_ie2_geo_evidence(
             report, json.loads(args.ie2_geo_evidence.read_text()),
-            args.ie2_geo_capture.read_bytes(), args.ie2_geo_addon_jar.read_bytes())
+            args.ie2_geo_capture.read_bytes(), args.ie2_geo_addon_jar.read_bytes(),
+            args.ie2_geo_probe_source.read_bytes())
     args.output.write_text(json.dumps(report, indent=2) + "\n")
     print(f"Identity coverage inventory: {report['registered_items']} registered items; "
           f"{report['counts']['UNTESTED']} UNTESTED combinations; 0 validated producers")
