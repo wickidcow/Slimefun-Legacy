@@ -262,7 +262,9 @@ final class ResourcePackPlayerProbe implements Listener {
             require(Arrays.equals(referenceBytes, player.getInventory().getItemInOffHand().serializeAsBytes()),
                     "Native Doctor repair modified offhand reference");
             var storage = Bukkit.createInventory(null, 9);
-            require(storage.addItem(repaired, reference).isEmpty()
+            require(storage.addItem(
+                            ItemStack.deserializeBytes(repaired.serializeAsBytes()),
+                            ItemStack.deserializeBytes(reference.serializeAsBytes())).isEmpty()
                             && storage.getItem(0).getAmount() == 64 && storage.getItem(1) == null,
                     "Native confirmed historical repair failed actual vanilla 63+1 merge");
 
