@@ -19,7 +19,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 /** A disposable native-Paper regression plugin. Never package into Slimefun. */
 public final class BeaconTicketProbe extends JavaPlugin {
-    private static final int X = 2048, Y = 96, Z = 2048;
+    // Keep the entire valid tier-I beacon pyramid inside the owning Folia region.
+    private static final int X = 2056, Y = 96, Z = 2056;
     private static final int EXTERNAL_X = 144, EXTERNAL_Z = 144;
     private static final UUID OWNER = UUID.fromString("984c4ff4-6ff7-4d36-99a9-64d3e15400bf");
 
@@ -57,6 +58,14 @@ public final class BeaconTicketProbe extends JavaPlugin {
             BeaconPlusManager manager = BeaconPlusManager.getInstance();
             require(manager != null && manager.isRegistryHealthy(), "Beacon Plus owner manager must be initialized");
             if ("ALWAYS_FIRST".equals(phase)) {
+                // The native ticker will correctly drop invalid, unpowered
+                // activations to OFF. Give this disposable test a *real*
+                // tier-I pyramid rather than asserting a bare beacon stays active.
+                for (int dx = -1; dx <= 1; dx++) {
+                    for (int dz = -1; dz <= 1; dz++) {
+                        world.getBlockAt(X + dx, Y - 1, Z + dz).setType(Material.IRON_BLOCK);
+                    }
+                }
                 block.setType(Material.BEACON);
                 BlockStorage.store(block, "BEACON_PLUS");
                 manager.register(location, OWNER);
@@ -67,6 +76,12 @@ public final class BeaconTicketProbe extends JavaPlugin {
                 }
             }
             require(block.getType() == Material.BEACON, "Old placed beacon was lost across restart");
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    require(world.getBlockAt(X + dx, Y - 1, Z + dz).getType() == Material.IRON_BLOCK,
+                            "Tier-I mineral pyramid changed across restart");
+                }
+            }
             BeaconPlusChunkMode restoredMode = manager.getChunkMode(location);
             require(restoredMode == BeaconPlusChunkMode.SINGLE,
                     "Saved Activator mode changed unexpectedly: current=" + restoredMode
