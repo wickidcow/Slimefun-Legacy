@@ -30,8 +30,10 @@ final class DoctorHistoricalStackRepair {
 
     private static final long PLAN_TTL_MILLIS = 5L * 60L * 1000L;
     private static final int MAX_PLANS = 128;
+    private static final int MAX_RESTORATIONS_PER_PLAYER = 32;
     private static final Map<UUID, Plan> PLANS = new ConcurrentHashMap<>();
-    private static final Map<UUID, Restoration> RESTORATIONS = new ConcurrentHashMap<>();
+    // Track independent recent repairs by the complete repaired item fingerprint.
+    private static final Map<UUID, Map<String, Restoration>> RESTORATIONS = new ConcurrentHashMap<>();
 
     private DoctorHistoricalStackRepair() {}
 
@@ -43,7 +45,12 @@ final class DoctorHistoricalStackRepair {
 
         long now = System.currentTimeMillis();
         PLANS.entrySet().removeIf(entry -> entry.getValue().expiresAt() < now);
-        RESTORATIONS.entrySet().removeIf(entry -> entry.getValue().expiresAt() < now);
+        RESTORATIONS.forEach((playerId, records) -> {
+            records.entrySet().removeIf(entry -> entry.getValue().expiresAt() < now);
+            if (records.isEmpty()) {
+                RESTORATIONS.remove(playerId, records);
+            }
+        });
 
         String action = args.length > 3 ? args[3].toLowerCase(java.util.Locale.ROOT) : "help";
         switch (action) {
@@ -128,6 +135,18 @@ final class DoctorHistoricalStackRepair {
                 send(player, "&cHeld item, amount, template or metadata changed since preview. No repair.");
                 return;
             }
+            // Identical repaired stacks cannot safely map to two different
+            // historical originals. Refuse rather than pick an ambiguous backup.
+            Map<String, Restoration> records =
+                    RESTORATIONS.computeIfAbsent(player.getUniqueId(), ignored -> new ConcurrentHashMap<>());
+            if (records.containsKey(plan.repairedHash())) {
+                send(player, "&cA rollback for an identical repaired stack is already pending. No repair made.");
+                return;
+            }
+            if (records.size() >= MAX_RESTORATIONS_PER_PLAYER) {
+                send(player, "&cToo many active rollback records. Let one expire or undo it first.");
+                return;
+            }
 
             // Write and verify a full original native ItemStack snapshot BEFORE the first mutation.
             byte[] originalBytes = pair.old().serializeAsBytes();
@@ -151,9 +170,12 @@ final class DoctorHistoricalStackRepair {
                 return;
             }
 
-            RESTORATIONS.put(
-                    player.getUniqueId(),
-                    new Restoration(backup, plan.oldHash(), plan.repairedHash(), now + PLAN_TTL_MILLIS));
+            Restoration saved = new Restoration(backup, plan.oldHash(), plan.repairedHash(), now + PLAN_TTL_MILLIS);
+            if (records.putIfAbsent(plan.repairedHash(), saved) != null) {
+                player.getInventory().setItemInMainHand(original);
+                send(player, "&cAn identical rollback was registered during confirmation; original restored.");
+                return;
+            }
             send(player, "&aOnly the historical name/lore styling was updated; amount and functional data retained.");
             send(player, "&7Original serialized item saved under plugins/Slimefun/recovery/identity.");
             send(player, "&eUndo within five minutes while still holding this stack:");
@@ -176,22 +198,26 @@ final class DoctorHistoricalStackRepair {
     }
 
     private static void rollback(Player player, long now) {
-        // Keep the rollback token after a mistaken hand selection, changed stack,
-        // or temporary backup read failure. Consume it only after proven restoration.
-        Restoration restore = RESTORATIONS.get(player.getUniqueId());
-        if (restore == null || restore.expiresAt() < now) {
+        Map<String, Restoration> records = RESTORATIONS.get(player.getUniqueId());
+        if (records == null || records.isEmpty()) {
             send(player, "&cNo recent repair can be rolled back in this session.");
             return;
         }
         try {
             ItemStack current = player.getInventory().getItemInMainHand();
-            if (!fingerprint(current).equals(restore.repairedHash())) {
-                send(player, "&cThe repaired stack has changed or moved. Nothing was overwritten.");
+            String currentHash = fingerprint(current);
+            Restoration restore = records.get(currentHash);
+            if (restore == null || restore.expiresAt() < now) {
+                send(player, "&cNo rollback matches the item in your main hand. Other backups remain available.");
                 return;
             }
             ItemStack original = ItemStack.deserializeBytes(Files.readAllBytes(restore.backup()));
             if (!fingerprint(original).equals(restore.originalHash())) {
                 send(player, "&cOriginal backup failed verification. No change made.");
+                return;
+            }
+            if (!fingerprint(player.getInventory().getItemInMainHand()).equals(currentHash)) {
+                send(player, "&cThe held item changed while checking the backup. No change made.");
                 return;
             }
             player.getInventory().setItemInMainHand(original);
@@ -201,7 +227,10 @@ final class DoctorHistoricalStackRepair {
                 send(player, "&cOriginal backup remains on disk.");
                 return;
             }
-            RESTORATIONS.remove(player.getUniqueId(), restore);
+            records.remove(currentHash, restore);
+            if (records.isEmpty()) {
+                RESTORATIONS.remove(player.getUniqueId(), records);
+            }
             send(player, "&aOriginal historical item restored exactly from the saved backup.");
         } catch (IOException | RuntimeException exception) {
             send(player, "&cRollback failed. The original saved-item backup was not deleted.");

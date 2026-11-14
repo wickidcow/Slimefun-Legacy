@@ -312,9 +312,36 @@ final class ResourcePackPlayerProbe implements Listener {
                         "Native original Doctor backup lost item identity");
             }
 
-            // An accidental attempt with another stack must not consume the
-            // five-minute rollback token. Restoring the repaired main hand and
-            // retrying should still restore the byte-exact original backup.
+            // A second historical stack with another amount must retain a
+            // separate rollback token and a separate byte-exact disk backup.
+            ItemStack secondOld = ItemStack.deserializeBytes(templateBytes);
+            secondOld.setAmount(17);
+            secondOld.editMeta(meta -> meta.displayName(meta.displayName().decoration(TextDecoration.BOLD, oppositeBold)));
+            byte[] secondOriginalBytes = secondOld.serializeAsBytes();
+            player.getInventory().setItemInMainHand(secondOld);
+            player.getInventory().setItemInOffHand(reference);
+            require(player.performCommand("sf doctor identity repair scan"),
+                    "Second held item Doctor repair preview rejected");
+            require(player.performCommand("sf doctor identity repair confirm"),
+                    "Second held item Doctor repair confirm rejected");
+            ItemStack secondRepaired = player.getInventory().getItemInMainHand();
+            require(secondRepaired.getAmount() == 17 && secondRepaired.isSimilar(reference)
+                            && Arrays.equals(referenceBytes,
+                                    player.getInventory().getItemInOffHand().serializeAsBytes()),
+                    "Second historical held repair changed quantity, reference, or item identity");
+            try (var secondBackups = Files.list(backupDirectory)) {
+                var stored = secondBackups.filter(Files::isRegularFile).toList();
+                require(stored.size() == 2 && stored.stream().anyMatch(file -> {
+                    try {
+                        return Arrays.equals(secondOriginalBytes, Files.readAllBytes(file));
+                    } catch (java.io.IOException exception) {
+                        return false;
+                    }
+                }), "Both independent original item backups were not retained");
+            }
+
+            // A wrong held item must not consume either of the two rollback
+            // tokens; then both should be restorable in either order.
             player.getInventory().setItemInMainHand(reference);
             require(player.performCommand("sf doctor identity repair rollback confirm"),
                     "Mismatched-stack rollback command rejected");
@@ -324,13 +351,21 @@ final class ResourcePackPlayerProbe implements Listener {
                     "Mismatched-stack rollback overwrote an item instead of refusing");
             player.getInventory().setItemInMainHand(repaired);
             require(player.performCommand("sf doctor identity repair rollback confirm"),
-                    "Doctor rollback retry after mismatched main hand was rejected");
+                    "First Doctor rollback retry after mismatched main hand was rejected");
             require(Arrays.equals(originalBytes, player.getInventory().getItemInMainHand().serializeAsBytes())
                             && Arrays.equals(referenceBytes, player.getInventory().getItemInOffHand().serializeAsBytes())
                             && Arrays.equals(templateBytes, template.serializeAsBytes()),
-                    "Native rollback failed to restore old item or modified reference/template");
-            plugin.getLogger().info("IDENTITY_DOCTOR_HELD_REPAIR_PASS SMALL_URANIUM old=63 fresh=1"
-                    + " verified-backup=true rollback=true runtime=" + Bukkit.getVersion());
+                    "First native rollback failed to restore old item or modified reference/template");
+            player.getInventory().setItemInMainHand(secondRepaired);
+            require(player.performCommand("sf doctor identity repair rollback confirm"),
+                    "Second native Doctor rollback was lost when first repair was rolled back");
+            require(Arrays.equals(secondOriginalBytes,
+                            player.getInventory().getItemInMainHand().serializeAsBytes())
+                            && Arrays.equals(referenceBytes, player.getInventory().getItemInOffHand().serializeAsBytes())
+                            && Arrays.equals(templateBytes, template.serializeAsBytes()),
+                    "Second native rollback did not restore exact original bytes and quantities");
+            plugin.getLogger().info("IDENTITY_DOCTOR_HELD_REPAIR_PASS SMALL_URANIUM old=63+17 fresh=1"
+                    + " verified-backups=2 rollback-both=true runtime=" + Bukkit.getVersion());
         } finally {
             player.removeAttachment(doctorPermission);
             player.getInventory().clear();
