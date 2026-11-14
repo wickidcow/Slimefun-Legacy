@@ -15,6 +15,7 @@ class Ie2GeoIdentityEvidenceTest(unittest.TestCase):
         self.report = build_report(registry, "a" * 40, "b" * 64, "c" * 64)
         self.item = b"actual native GEO output fixture"
         self.addon = b"exact IE2 CI addon JAR bytes"
+        self.probe_source = b"exact original IE2 NativeModernizationProbe.java bytes"
         self.receipt = {
             "filename": "native-geo-uranium.bin",
             "sha256": hashlib.sha256(self.item).hexdigest(),
@@ -24,7 +25,7 @@ class Ie2GeoIdentityEvidenceTest(unittest.TestCase):
             "core_sha256": self.report["core_sha256"],
             "server_sha256": self.report["server_sha256"],
             "ie2_sha256": hashlib.sha256(self.addon).hexdigest(),
-            "probe_sha256": "d" * 64,
+            "probe_sha256": hashlib.sha256(self.probe_source).hexdigest(),
             "phases": {
                 phase: ("PASS " + phase + ": real SMALL_URANIUM cheat, GEO guide display, "
                         "GeoQuarry.process, world entity and inventory transfer "
@@ -40,12 +41,13 @@ class Ie2GeoIdentityEvidenceTest(unittest.TestCase):
             },
         }
 
-    def attach(self, evidence=None, item=None, addon=None, report=None):
+    def attach(self, evidence=None, item=None, addon=None, report=None, probe_source=None):
         return attach_ie2_geo_evidence(
             self.report if report is None else report,
             self.evidence if evidence is None else evidence,
             self.item if item is None else item,
-            self.addon if addon is None else addon)
+            self.addon if addon is None else addon,
+            self.probe_source if probe_source is None else probe_source)
 
     def test_native_producer_case_does_not_promote_all_machine_rows(self):
         before = copy.deepcopy(self.report)
@@ -77,6 +79,18 @@ class Ie2GeoIdentityEvidenceTest(unittest.TestCase):
             self.attach(addon=b"another IE2 JAR")
         with self.assertRaisesRegex(ValueError, "Missing exact IE2 addon"):
             self.attach(addon=b"")
+
+    def test_reject_different_native_probe_source_bytes(self):
+        with self.assertRaisesRegex(ValueError, "probe source digest mismatch"):
+            self.attach(probe_source=b"modified Java native probe source")
+        with self.assertRaisesRegex(ValueError, "probe source digest mismatch"):
+            self.attach(probe_source=b"other file with a plausible source name")
+
+    def test_reject_empty_or_oversized_native_probe_source(self):
+        for payload in (b"", b"!" * (1024 * 1024 + 1)):
+            with self.subTest(length=len(payload)), self.assertRaisesRegex(
+                    ValueError, "Missing or oversized IE2 GEO native probe source"):
+                self.attach(probe_source=payload)
 
     def test_reject_wrong_capture_bytes_length_or_checksum(self):
         for item in (b"changed native output", b"", b"!" * (1024 * 1024 + 1)):
