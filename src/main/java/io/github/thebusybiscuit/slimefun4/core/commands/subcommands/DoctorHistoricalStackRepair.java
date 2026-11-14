@@ -205,8 +205,11 @@ final class DoctorHistoricalStackRepair {
      * current registered template reference, never just visually equivalent.
      */
     static ItemStack prepare(ItemStack old, ItemStack fresh, ItemStack template) {
-        if (old == null || fresh == null || template == null
-                || old.getType().isAir() || fresh.getType().isAir()) {
+        if (old == null
+                || fresh == null
+                || template == null
+                || old.getType().isAir()
+                || fresh.getType().isAir()) {
             return null;
         }
         // A registered SlimefunItemStack is not a CraftItemStack. Comparing it
@@ -215,9 +218,13 @@ final class DoctorHistoricalStackRepair {
         ItemStack oldNative = nativeSnapshot(old);
         ItemStack freshNative = nativeSnapshot(fresh);
         ItemStack templateNative = nativeSnapshot(template);
-        if (oldNative == null || freshNative == null || templateNative == null
-                || oldNative.isSimilar(freshNative) || !freshNative.isSimilar(templateNative)
-                || !DoctorIdentityCommand.inspectHistoricalPresentation(oldNative, freshNative).candidate()) {
+        if (oldNative == null
+                || freshNative == null
+                || templateNative == null
+                || oldNative.isSimilar(freshNative)
+                || !freshNative.isSimilar(templateNative)
+                || !DoctorIdentityCommand.inspectHistoricalPresentation(oldNative, freshNative)
+                        .candidate()) {
             return null;
         }
         ItemMeta referenceMeta = freshNative.getItemMeta();
@@ -277,7 +284,8 @@ final class DoctorHistoricalStackRepair {
     static String fingerprint(ItemStack item) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            digest.update(ByteBuffer.allocate(Integer.BYTES).putInt(item.getAmount()).array());
+            digest.update(
+                    ByteBuffer.allocate(Integer.BYTES).putInt(item.getAmount()).array());
             digest.update(item.serializeAsBytes());
             return HexFormat.of().formatHex(digest.digest());
         } catch (NoSuchAlgorithmException exception) {

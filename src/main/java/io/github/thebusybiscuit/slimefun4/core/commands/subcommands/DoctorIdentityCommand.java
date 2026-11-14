@@ -72,9 +72,11 @@ final class DoctorIdentityCommand {
             HistoricalPresentation historical = inspectHistoricalPresentation(main, off);
             send(sender, "&7Same plain text (ignores styling): " + flag(historical.plainTextSame()));
             send(sender, "&7Non-presentation Bukkit metadata: " + flag(historical.nonPresentationSame()));
-            send(sender, historical.candidate()
-                    ? "&ePresentation-only candidate on detached copies; NOT an approved repair. No item changed."
-                    : "&eNot a verified presentation-only candidate. No item changed.");
+            send(
+                    sender,
+                    historical.candidate()
+                            ? "&ePresentation-only candidate on detached copies; NOT an approved repair. No item changed."
+                            : "&eNot a verified presentation-only candidate. No item changed.");
             send(sender, "&eMismatch confirmed. Inspect producer metadata before repair.");
         }
         send(sender, "&8This compares actual held items, not all possible crafting/machine sources.");
@@ -179,11 +181,15 @@ final class DoctorIdentityCommand {
     }
 
     private static String plain(Component component) {
-        return component == null ? null : PlainTextComponentSerializer.plainText().serialize(component);
+        return component == null
+                ? null
+                : PlainTextComponentSerializer.plainText().serialize(component);
     }
 
     private static java.util.List<String> plainLore(java.util.List<Component> lore) {
-        return lore == null ? null : lore.stream().map(DoctorIdentityCommand::plain).toList();
+        return lore == null
+                ? null
+                : lore.stream().map(DoctorIdentityCommand::plain).toList();
     }
 
     record HistoricalPresentation(boolean plainTextSame, boolean nonPresentationSame, boolean candidate) {}
