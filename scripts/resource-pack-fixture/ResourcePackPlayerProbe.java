@@ -214,9 +214,11 @@ final class ResourcePackPlayerProbe implements Listener {
         require(registered != null, "Missing registered SMALL_URANIUM item for native Doctor repair");
         ItemStack template = registered.getItem();
         byte[] templateBytes = template.serializeAsBytes();
-        ItemStack reference = new ItemStack(template);
+        // Native CraftItemStack snapshots avoid comparing Craft to the
+        // specialized SlimefunItemStack registered as a template.
+        ItemStack reference = ItemStack.deserializeBytes(templateBytes);
         reference.setAmount(1);
-        ItemStack historical = new ItemStack(template);
+        ItemStack historical = ItemStack.deserializeBytes(templateBytes);
         historical.setAmount(63);
 
         var displayName = historical.getItemMeta().displayName();

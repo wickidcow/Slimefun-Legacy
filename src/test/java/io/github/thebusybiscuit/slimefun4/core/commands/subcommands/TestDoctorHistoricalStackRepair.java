@@ -104,6 +104,22 @@ class TestDoctorHistoricalStackRepair {
     }
 
     @Test
+    void specializedTemplateCloneIsNeverUsedOrReliedUponForComparison() {
+        ItemStack normal = current();
+        ItemStack registered = new ItemStack(normal) {
+            @Override
+            public ItemStack clone() {
+                throw new AssertionError("Doctor must not invoke registered item clone hooks");
+            }
+        };
+        ItemStack old = historical(normal);
+        ItemStack candidate = DoctorHistoricalStackRepair.prepare(old, normal, registered);
+        assertNotNull(candidate);
+        assertEquals(37, candidate.getAmount());
+        assertTrue(candidate.isSimilar(normal));
+    }
+
+    @Test
     void refusesReferenceWhichDoesNotMatchTheRegisteredTemplate() {
         ItemStack template = current();
         ItemStack old = historical(template);

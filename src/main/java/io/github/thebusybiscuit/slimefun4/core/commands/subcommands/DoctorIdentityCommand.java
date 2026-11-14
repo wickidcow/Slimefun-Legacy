@@ -153,14 +153,20 @@ final class DoctorIdentityCommand {
     }
 
     private static ItemStack detachedCopy(ItemStack source) {
-        ItemStack detached = new ItemStack(source.getType(), source.getAmount());
-        ItemMeta meta = source.getItemMeta();
-        if (meta != null && !detached.setItemMeta(meta)) {
+        // Paper CraftItemStack.isSimilar cannot accept arbitrary ItemStack
+        // subclasses. Verify lossless native serialization instead of comparing
+        // a CraftItemStack with a SlimefunItemStack or invoking clone hooks.
+        try {
+            byte[] bytes = source.serializeAsBytes();
+            ItemStack detached = ItemStack.deserializeBytes(bytes);
+            return source.getType() == detached.getType()
+                            && source.getAmount() == detached.getAmount()
+                            && java.util.Arrays.equals(bytes, detached.serializeAsBytes())
+                    ? detached
+                    : null;
+        } catch (RuntimeException exception) {
             return null;
         }
-        // Never classify if Bukkit lost a typed PDC entry, profile, model
-        // component, enchantment or other identity field during detachment.
-        return source.isSimilar(detached) ? detached : null;
     }
 
     static int availableCapacity(ItemStack stack) {

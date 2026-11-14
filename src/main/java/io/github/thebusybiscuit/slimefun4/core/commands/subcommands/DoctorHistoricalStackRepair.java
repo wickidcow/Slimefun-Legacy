@@ -10,6 +10,7 @@ import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -204,38 +205,72 @@ final class DoctorHistoricalStackRepair {
      */
     static ItemStack prepare(ItemStack old, ItemStack fresh, ItemStack template) {
         if (old == null || fresh == null || template == null
-                || old.getType().isAir() || fresh.getType().isAir()
-                || old.isSimilar(fresh) || !fresh.isSimilar(template)
-                || !DoctorIdentityCommand.inspectHistoricalPresentation(old, fresh).candidate()) {
+                || old.getType().isAir() || fresh.getType().isAir()) {
             return null;
         }
-        ItemStack candidate = new ItemStack(old.getType(), old.getAmount());
-        ItemMeta originalMeta = old.getItemMeta();
-        ItemMeta referenceMeta = fresh.getItemMeta();
-        if (originalMeta == null || referenceMeta == null || !candidate.setItemMeta(originalMeta)
-                || !old.isSimilar(candidate)) {
+        // A registered SlimefunItemStack is not a CraftItemStack. Comparing it
+        // directly with a Paper inventory stack can throw ClassCastException.
+        // Round-trip all three to verified native bytes BEFORE strict matching.
+        ItemStack oldNative = nativeSnapshot(old);
+        ItemStack freshNative = nativeSnapshot(fresh);
+        ItemStack templateNative = nativeSnapshot(template);
+        if (oldNative == null || freshNative == null || templateNative == null
+                || oldNative.isSimilar(freshNative) || !freshNative.isSimilar(templateNative)
+                || !DoctorIdentityCommand.inspectHistoricalPresentation(oldNative, freshNative).candidate()) {
             return null;
         }
-        candidate.editMeta(meta -> {
+        ItemMeta referenceMeta = freshNative.getItemMeta();
+        if (oldNative.getItemMeta() == null || referenceMeta == null) {
+            return null;
+        }
+        oldNative.editMeta(meta -> {
             meta.displayName(referenceMeta.displayName());
             meta.lore(referenceMeta.lore());
         });
-        return candidate.getAmount() == old.getAmount() && candidate.isSimilar(fresh) ? candidate : null;
+        return oldNative.getAmount() == old.getAmount() && oldNative.isSimilar(freshNative) ? oldNative : null;
     }
 
     private static Pair eligiblePair(Player player) {
-        ItemStack old = player.getInventory().getItemInMainHand();
-        ItemStack fresh = player.getInventory().getItemInOffHand();
-        if (old.getType().isAir() || fresh.getType().isAir()) {
+        try {
+            ItemStack old = player.getInventory().getItemInMainHand();
+            ItemStack fresh = player.getInventory().getItemInOffHand();
+            if (old.getType().isAir() || fresh.getType().isAir()) {
+                return null;
+            }
+            SlimefunItem oldItem = SlimefunItem.getByItem(old);
+            SlimefunItem newItem = SlimefunItem.getByItem(fresh);
+            if (oldItem == null || oldItem != newItem || !Objects.equals(oldItem.getId(), newItem.getId())) {
+                return null;
+            }
+            // The source may be an addon SlimefunItemStack subclass; never pass
+            // it directly to CraftItemStack.isSimilar.
+            ItemStack template = nativeSnapshot(oldItem.getItem());
+            ItemStack freshNative = nativeSnapshot(fresh);
+            return template != null && freshNative != null && freshNative.isSimilar(template)
+                    ? new Pair(old, fresh, template, oldItem.getId())
+                    : null;
+        } catch (RuntimeException exception) {
+            // Unknown addon/native serialization must not authorize any repair.
             return null;
         }
-        SlimefunItem oldItem = SlimefunItem.getByItem(old);
-        SlimefunItem newItem = SlimefunItem.getByItem(fresh);
-        if (oldItem == null || oldItem != newItem || !Objects.equals(oldItem.getId(), newItem.getId())) {
+    }
+
+    /**
+     * Full native byte round trip, not ItemStack's polymorphic clone hook.
+     * Reject snapshots which lose even a non-comparing serialized component.
+     */
+    private static ItemStack nativeSnapshot(ItemStack original) {
+        try {
+            byte[] bytes = original.serializeAsBytes();
+            ItemStack copy = ItemStack.deserializeBytes(bytes);
+            return original.getType() == copy.getType()
+                            && original.getAmount() == copy.getAmount()
+                            && Arrays.equals(bytes, copy.serializeAsBytes())
+                    ? copy
+                    : null;
+        } catch (RuntimeException exception) {
             return null;
         }
-        ItemStack template = oldItem.getItem();
-        return fresh.isSimilar(template) ? new Pair(old, fresh, template, oldItem.getId()) : null;
     }
 
     static String fingerprint(ItemStack item) {
