@@ -36,18 +36,29 @@ def download_server(mc: str, dest: Path, software: str) -> str:
         builds = json.load(resp)
     if not isinstance(builds, list):
         raise RuntimeError(f"Unexpected Paper builds payload: {str(builds)[:350]}")
-    stable = next((b for b in builds
-                   if b.get("channel") == "STABLE"
-                   and b.get("downloads", {}).get("server:default", {}).get("url")), None)
-    if not stable:
-        raise RuntimeError(f"{software} {mc}: no STABLE server build")
-    uri = stable["downloads"]["server:default"]["url"]
+    available = [b for b in builds if isinstance(b, dict)
+                 and b.get("downloads", {}).get("server:default", {}).get("url")
+                 and isinstance(b.get("id"), int)]
+    if software == "folia":
+        # Folia 26.2 is experimental; unlike Paper it has no STABLE build.
+        # Select the latest advertised build, record its exact ID and JAR
+        # digest, and never describe it as a stable target.
+        selected = max(available, key=lambda b: b["id"], default=None)
+    else:
+        selected = next((b for b in available if b.get("channel") == "STABLE"), None)
+    if not selected:
+        raise RuntimeError(f"{software} {mc}: no eligible server build")
+    uri = selected["downloads"]["server:default"]["url"]
     with urllib.request.urlopen(urllib.request.Request(uri, headers=headers), timeout=120) as response, \
             dest.open("wb") as out:
         shutil.copyfileobj(response, out)
     if dest.stat().st_size < 20_000_000:
-        raise RuntimeError(f"Paper {mc} server download was unusually small")
-    return str(stable["id"])
+        raise RuntimeError(f"{software} {mc} server download was unusually small")
+    import hashlib
+    digest = hashlib.sha256(dest.read_bytes()).hexdigest()
+    print(f"Native server: {software} {mc} build={selected['id']} "
+          f"channel={selected.get('channel', 'unknown')} SHA256={digest}", flush=True)
+    return str(selected["id"])
 
 
 def compile_probe(root: Path, legacy: Path, paper_api: Path, extra_classpath: str, software: str):

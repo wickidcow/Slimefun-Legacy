@@ -29,6 +29,15 @@ class BeaconPlusRegistryPreservationTest {
     }
 
     @Test
+    void mirroredLegacyBeaconDataCannotOverrideNativeSavedOwnerAndMode() {
+        UUID nativeOwner = UUID.fromString("984c4ff4-6ff7-4d36-99a9-64d3e15400bf");
+        org.junit.jupiter.api.Assertions.assertFalse(BeaconPlusLegacyDataStore.mayImportForOwner(nativeOwner));
+        org.junit.jupiter.api.Assertions.assertTrue(BeaconPlusLegacyDataStore.mayImportForOwner(null));
+        org.junit.jupiter.api.Assertions.assertTrue(
+                BeaconPlusLegacyDataStore.mayImportForOwner(BeaconPlusLegacyDataStore.LEGACY_IMPORTED_OWNER));
+    }
+
+    @Test
     void oneMalformedEntryRejectsTheEntireSavedRegistry() {
         UUID world = UUID.randomUUID();
         UUID owner = UUID.randomUUID();

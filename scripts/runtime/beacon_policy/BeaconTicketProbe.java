@@ -67,8 +67,12 @@ public final class BeaconTicketProbe extends JavaPlugin {
                 }
             }
             require(block.getType() == Material.BEACON, "Old placed beacon was lost across restart");
-            require(manager.getChunkMode(location) == BeaconPlusChunkMode.SINGLE,
-                    "Saved Activator mode changed unexpectedly");
+            BeaconPlusChunkMode restoredMode = manager.getChunkMode(location);
+            require(restoredMode == BeaconPlusChunkMode.SINGLE,
+                    "Saved Activator mode changed unexpectedly: current=" + restoredMode
+                            + " owner=" + manager.getOwner(location)
+                            + " registry=" + Files.readString(slimefun.getDataFolder().toPath()
+                                    .resolve("adventurers-curios-beacons.properties")));
             int cx = X >> 4, cz = Z >> 4;
             // Paper must hold tickets for ALWAYS. Folia must preserve the
             // saved Activator but never issue unverified cross-region tickets.

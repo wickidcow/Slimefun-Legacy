@@ -257,6 +257,11 @@ final class BeaconPlusLegacyDataStore implements Listener {
         }
     }
 
+    /** A native, player-owned registry entry always outranks mirrored legacy BeaconData. */
+    static boolean mayImportForOwner(@Nullable UUID existingOwner) {
+        return existingOwner == null || LEGACY_IMPORTED_OWNER.equals(existingOwner);
+    }
+
     private void importBeacon(World world, JsonObject legacy) {
         Integer x = getInt(legacy, "x");
         Integer y = getInt(legacy, "y");
@@ -271,6 +276,16 @@ final class BeaconPlusLegacyDataStore implements Listener {
         }
         Block block = world.getBlockAt(x, y, z);
         if (block.getType() != Material.BEACON) {
+            return;
+        }
+
+        // A fresh native block may not yet have its Slimefun database row
+        // hydrated when its chunk first loads. The mirrored BeaconData file
+        // must NEVER bootstrap a substitute legacy block or turn a preserved
+        // native Activator mode to OFF merely because that row is momentarily
+        // unavailable. The owner's original registry is authoritative.
+        BeaconPlusManager registry = BeaconPlusManager.getInstance();
+        if (registry != null && !mayImportForOwner(registry.getOwner(location))) {
             return;
         }
 
