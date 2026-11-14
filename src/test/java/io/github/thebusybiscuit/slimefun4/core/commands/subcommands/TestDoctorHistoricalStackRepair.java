@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -50,8 +50,7 @@ class TestDoctorHistoricalStackRepair {
             meta.lore(List.of(Component.text("Radioactive", NamedTextColor.YELLOW)));
             meta.getPersistentDataContainer()
                     .set(new NamespacedKey("slimefun", "slimefun_item"), PersistentDataType.STRING, "SMALL_URANIUM");
-            meta.getPersistentDataContainer()
-                    .set(new NamespacedKey("addon", "owner"), PersistentDataType.LONG, 12345L);
+            meta.getPersistentDataContainer().set(new NamespacedKey("addon", "owner"), PersistentDataType.LONG, 12345L);
         });
         return item;
     }
@@ -62,8 +61,8 @@ class TestDoctorHistoricalStackRepair {
             meta.displayName(Component.text("Small Uranium", NamedTextColor.RED)
                     .decoration(TextDecoration.ITALIC, false)
                     .decoration(TextDecoration.BOLD, false));
-            meta.lore(List.of(Component.text("Radioactive", NamedTextColor.YELLOW)
-                    .decoration(TextDecoration.ITALIC, false)));
+            meta.lore(List.of(
+                    Component.text("Radioactive", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false)));
         });
         old.setAmount(37);
         return old;
@@ -85,9 +84,13 @@ class TestDoctorHistoricalStackRepair {
         assertFalse(old.isSimilar(reference));
         assertArrayEquals(originalBytes, old.serializeAsBytes());
         assertArrayEquals(referenceBytes, reference.serializeAsBytes());
-        assertEquals(12345L, repaired.getItemMeta()
-                .getPersistentDataContainer().get(new NamespacedKey("addon", "owner"), PersistentDataType.LONG));
-        assertNotEquals(DoctorHistoricalStackRepair.fingerprint(old), DoctorHistoricalStackRepair.fingerprint(repaired));
+        assertEquals(
+                12345L,
+                repaired.getItemMeta()
+                        .getPersistentDataContainer()
+                        .get(new NamespacedKey("addon", "owner"), PersistentDataType.LONG));
+        assertNotEquals(
+                DoctorHistoricalStackRepair.fingerprint(old), DoctorHistoricalStackRepair.fingerprint(repaired));
     }
 
     @Test
@@ -169,11 +172,12 @@ class TestDoctorHistoricalStackRepair {
     void backupFailureNeverCreatesOrModifiesOriginalItem() throws Exception {
         ItemStack old = historical(current());
         byte[] original = old.serializeAsBytes();
-        Files.write(folder.resolve("recovery"), new byte[] { 0x21 });
-        assertThrows(java.io.IOException.class,
+        Files.write(folder.resolve("recovery"), new byte[] {0x21});
+        assertThrows(
+                java.io.IOException.class,
                 () -> DoctorHistoricalStackRepair.backup(folder, UUID.randomUUID(), original));
         assertArrayEquals(original, old.serializeAsBytes());
-        assertArrayEquals(new byte[] { 0x21 }, Files.readAllBytes(folder.resolve("recovery")));
+        assertArrayEquals(new byte[] {0x21}, Files.readAllBytes(folder.resolve("recovery")));
     }
 
     @Test
