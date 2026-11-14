@@ -312,8 +312,19 @@ final class ResourcePackPlayerProbe implements Listener {
                         "Native original Doctor backup lost item identity");
             }
 
+            // An accidental attempt with another stack must not consume the
+            // five-minute rollback token. Restoring the repaired main hand and
+            // retrying should still restore the byte-exact original backup.
+            player.getInventory().setItemInMainHand(reference);
             require(player.performCommand("sf doctor identity repair rollback confirm"),
-                    "Doctor rollback confirmation command rejected");
+                    "Mismatched-stack rollback command rejected");
+            require(Arrays.equals(referenceBytes, player.getInventory().getItemInMainHand().serializeAsBytes())
+                            && Arrays.equals(referenceBytes,
+                                    player.getInventory().getItemInOffHand().serializeAsBytes()),
+                    "Mismatched-stack rollback overwrote an item instead of refusing");
+            player.getInventory().setItemInMainHand(repaired);
+            require(player.performCommand("sf doctor identity repair rollback confirm"),
+                    "Doctor rollback retry after mismatched main hand was rejected");
             require(Arrays.equals(originalBytes, player.getInventory().getItemInMainHand().serializeAsBytes())
                             && Arrays.equals(referenceBytes, player.getInventory().getItemInOffHand().serializeAsBytes())
                             && Arrays.equals(templateBytes, template.serializeAsBytes()),

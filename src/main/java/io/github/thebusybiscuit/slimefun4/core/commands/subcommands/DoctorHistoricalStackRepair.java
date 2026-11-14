@@ -176,7 +176,9 @@ final class DoctorHistoricalStackRepair {
     }
 
     private static void rollback(Player player, long now) {
-        Restoration restore = RESTORATIONS.remove(player.getUniqueId());
+        // Keep the rollback token after a mistaken hand selection, changed stack,
+        // or temporary backup read failure. Consume it only after proven restoration.
+        Restoration restore = RESTORATIONS.get(player.getUniqueId());
         if (restore == null || restore.expiresAt() < now) {
             send(player, "&cNo recent repair can be rolled back in this session.");
             return;
@@ -199,6 +201,7 @@ final class DoctorHistoricalStackRepair {
                 send(player, "&cOriginal backup remains on disk.");
                 return;
             }
+            RESTORATIONS.remove(player.getUniqueId(), restore);
             send(player, "&aOriginal historical item restored exactly from the saved backup.");
         } catch (IOException | RuntimeException exception) {
             send(player, "&cRollback failed. The original saved-item backup was not deleted.");
