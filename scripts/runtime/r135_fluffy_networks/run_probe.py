@@ -9,6 +9,7 @@ It must never target an existing production Minecraft installation.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager, nullcontext
 import hashlib
 import json
 import os
@@ -163,7 +164,27 @@ def prepare(work: Path, bundle: Path, java: Path, runtime_core_version: str | No
     }
 
 
-def run(work: Path, java: Path, evidence: dict, timeout: int) -> None:
+@contextmanager
+def enabled_curios_fixture(work: Path):
+    """Opt in only the already validated disposable boot, restoring exact config bytes."""
+    workspace = (Path.cwd() / "build").resolve()
+    if not work.resolve().is_relative_to(workspace) or work.name != "full-stack-26.3":
+        raise RuntimeError("Refusing Curios fixture outside disposable full-stack directory")
+    config = work / "plugins/Slimefun/configSFLAddons.yml"
+    if not config.is_file() or config.is_symlink() or config.resolve().parent != (work / "plugins/Slimefun").absolute():
+        raise RuntimeError("Curios fixture requires a regular local existing config")
+    before = config.read_bytes()
+    pattern = rb"(?m)^enabled:[ \t]*(?:true|false)[ \t]*(?=\r?$)"
+    if len(re.findall(pattern, before)) != 1:
+        raise RuntimeError("Curios fixture requires exactly one explicit root enabled boolean")
+    try:
+        config.write_bytes(re.sub(pattern, b"enabled: true", before))
+        yield
+    finally:
+        config.write_bytes(before)
+
+
+def run(work: Path, java: Path, evidence: dict, timeout: int, verify_paxel: bool = False) -> None:
     log_file = work / "native-r135.console.log"
     result_file = work / "plugins" / "R135FluffyNetworksProbe" / "result.txt"
     if result_file.exists():
@@ -179,7 +200,9 @@ def run(work: Path, java: Path, evidence: dict, timeout: int) -> None:
     core_version = evidence.get("expected_core_version")
     if not isinstance(core_version, str) or re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", core_version) is None:
         raise RuntimeError("Native conservation test is missing a valid expected core version")
-    command = [str(java), f"-Dalbion.probe.slimefun.version={core_version}",
+    evidence["paxel_recipe_selection"] = "REQUIRED" if verify_paxel else "NOT_TESTED"
+    command = [str(java), f"-Dalbion.probe.paxel={str(verify_paxel).lower()}",
+               f"-Dalbion.probe.slimefun.version={core_version}",
                f"-Dalbion.probe.networks.version={version}",
                f"-Dalbion.probe.fluffy.version={fluffy_match.group(1)}",
                "-Dterminal.jline=false", "-Dterminal.ansi=false",
@@ -227,10 +250,24 @@ def run(work: Path, java: Path, evidence: dict, timeout: int) -> None:
             if proc.stdin:
                 proc.stdin.close()
 
+    record_paxel_receipts(log_file.read_text(encoding="utf-8"), evidence, verify_paxel)
     evidence["process_exit_code"] = proc.returncode
     evidence["server_log_sha256"] = sha256(log_file)
     if proc.returncode != 0 or evidence.get("result") != "PASS":
         raise RuntimeError(f"Native Networks-Fluffy integration failed: {evidence.get('detail', 'unknown')}; see {log_file}")
+
+
+def record_paxel_receipts(log: str, evidence: dict, required: bool) -> None:
+    evidence["paxel_input_consumption"] = "REQUIRED" if required else "NOT_TESTED"
+    if not required:
+        return
+    receipts = ["PAXEL_NATIVE_RECIPE_SELECTION PASS:"] + [
+        f"PAXEL_NATIVE_INPUT_CONSUMPTION PASS: {item};" for item in ("ADVENTURERS_PAXEL", "PAXEL")
+    ]
+    if any(receipt not in log for receipt in receipts):
+        raise RuntimeError("Required native Paxel selection/consumption receipt missing")
+    evidence["paxel_recipe_selection"] = "PASS"
+    evidence["paxel_input_consumption"] = "PASS"
 
 
 def main() -> int:
@@ -242,6 +279,8 @@ def main() -> int:
         "--expected-core-version",
         help="Exact Slimefun version staged in the disposable runtime; defaults to projectVersion",
     )
+    parser.add_argument("--verify-paxel-recipes", action="store_true",
+                        help="Require new candidate Paxel patterns; never use for historical released core")
     args = parser.parse_args()
     work = args.runtime_dir.resolve()
     java = Path(os.environ["JAVA_HOME"]) / "bin" / "java"
@@ -250,7 +289,8 @@ def main() -> int:
     evidence = prepare(work, args.bundle.resolve(), java, args.expected_core_version)
     out = work / "native-r135-result.json"
     try:
-        run(work, java, evidence, args.timeout)
+        with enabled_curios_fixture(work) if args.verify_paxel_recipes else nullcontext():
+            run(work, java, evidence, args.timeout, args.verify_paxel_recipes)
     except Exception as error:
         evidence["result"] = "FAIL"
         evidence["error"] = str(error)

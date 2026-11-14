@@ -65,7 +65,10 @@ def main() -> None:
                         help="Require Folia and test live-inventory ownership deferrals")
     parser.add_argument("--protocol-module", type=Path,
                         help="Pinned Minecraft 26.2 client module; enables real connected-player checks")
+    parser.add_argument("--verify-paxel-player", action="store_true")
     args = parser.parse_args()
+    if args.verify_paxel_player and not args.protocol_module:
+        parser.error("--verify-paxel-player requires --protocol-module")
     if args.server_cache and not args.server_jar:
         parser.error("--server-cache requires --server-jar")
     runtime_java = (args.runtime_java_home or args.java_home).resolve() / "bin/java"
@@ -95,6 +98,9 @@ def main() -> None:
     if args.protocol_module:
         proof.mkdir()
         (proof / "players.enabled").touch()
+    if args.verify_paxel_player:
+        # Only this freshly created disposable fixture opts into Curios; production defaults stay off.
+        (root / "plugins/Slimefun/configSFLAddons.yml").write_text("enabled: true\n", encoding="utf-8")
     core = root / "plugins/Slimefun.jar"
     shutil.copy2(args.core.resolve(), core)
     port = 0
@@ -211,6 +217,9 @@ def main() -> None:
             client, client_log = connect_player(process, 1, "seed")
             probe(process, 1, "player-identity-give")
             probe(process, 1, "player-identity-craft")
+            if args.verify_paxel_player:
+                probe(process, 1, "player-paxel-craft")
+                probe(process, 1, "player-paxel-guide")
             probe(process, 1, "player-identity-compressor-rejected")
             probe(process, 1, "player-identity-compressor")
             probe(process, 1, "player-identity-compressor-chain")
@@ -272,6 +281,8 @@ def main() -> None:
         evidence = {
             "result": "PASS", "boots": 3, "folia_ownership_checks": args.expect_folia,
             "connected_player_checks": bool(args.protocol_module),
+            "core_paxel_player_craft": "PASS" if args.verify_paxel_player else "NOT_TESTED",
+            "core_paxel_survival_guide": "PASS" if args.verify_paxel_player else "NOT_TESTED",
             "core_sha256": hashlib.sha256(core.read_bytes()).hexdigest(),
             "server_sha256": hashlib.sha256((root / "server.jar").read_bytes()).hexdigest(),
             "java": subprocess.run([str(runtime_java), "-version"], capture_output=True,

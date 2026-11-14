@@ -140,7 +140,7 @@ jobs:
           set -euo pipefail
           PLAYER_ARGS=()
           if [[ -n "${DOCTOR_PROTOCOL_MODULE:-}" ]]; then
-            PLAYER_ARGS+=(--protocol-module "$DOCTOR_PROTOCOL_MODULE")
+            PLAYER_ARGS+=(--protocol-module "$DOCTOR_PROTOCOL_MODULE" --verify-paxel-player)
           fi
           python3 scripts/resource_pack_doctor_probe.py \
             --server-jar candidate/server.jar \

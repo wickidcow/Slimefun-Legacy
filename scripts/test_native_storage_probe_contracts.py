@@ -55,6 +55,40 @@ class NativeStorageProbeContracts(unittest.TestCase):
             probe.subprocess, "Popen", side_effect=AssertionError("No server may run in offline contract tests")
         ).start()
 
+    def test_curios_fixture_enables_root_only_and_restores_exact_bytes(self):
+        config = self.plugins / "Slimefun/configSFLAddons.yml"
+        config.parent.mkdir()
+        before = b"# preserved\r\nenabled: false\r\nresource-pack:\r\n  enabled: false\r\n"
+        config.write_bytes(before)
+        with probe.enabled_curios_fixture(self.work):
+            self.assertEqual(before.replace(b"enabled: false", b"enabled: true", 1), config.read_bytes())
+        self.assertEqual(before, config.read_bytes())
+        with self.assertRaisesRegex(RuntimeError, "simulated boot failure"):
+            with probe.enabled_curios_fixture(self.work):
+                raise RuntimeError("simulated boot failure")
+        self.assertEqual(before, config.read_bytes())
+
+    def test_curios_fixture_rejects_missing_ambiguous_and_external_config(self):
+        config = self.plugins / "Slimefun/configSFLAddons.yml"
+        config.parent.mkdir()
+        with self.assertRaisesRegex(RuntimeError, "regular local"):
+            with probe.enabled_curios_fixture(self.work):
+                self.fail("Missing config accepted")
+        for before in (b"resource-pack:\n  enabled: false\n", b"enabled: false\nenabled: true\n"):
+            config.write_bytes(before)
+            with self.assertRaisesRegex(RuntimeError, "exactly one"):
+                with probe.enabled_curios_fixture(self.work):
+                    self.fail("Ambiguous config accepted")
+            self.assertEqual(before, config.read_bytes())
+        config.unlink()
+        external = self.root / "external.yml"
+        external.write_bytes(b"enabled: false\n")
+        config.symlink_to(external)
+        with self.assertRaisesRegex(RuntimeError, "regular local"):
+            with probe.enabled_curios_fixture(self.work):
+                self.fail("External config accepted")
+        self.assertEqual(b"enabled: false\n", external.read_bytes())
+
     def populate(self, revision):
         self.manifest["bundle_revision"] = revision
         expected = dict(probe.EXPECTED_VERSIONS)
@@ -443,6 +477,41 @@ class NativeStorageProbeContracts(unittest.TestCase):
         self.assertIn(f"-Dalbion.probe.fluffy.version={expected_fluffy_version}", command)
         self.assertNotIn("-Dalbion.probe.slimefun.version=4.1.74", command)
         self.assertEqual(self.work, self.launch.call_args.kwargs["cwd"])
+
+    def test_paxel_probe_is_explicit_and_historical_runs_report_untested(self):
+        evidence = self.prepare()
+        for required in (False, True):
+            with self.assertRaisesRegex(AssertionError, "No server may run"):
+                probe.run(self.work, self.java, evidence, 1, required)
+            self.assertIn(f"-Dalbion.probe.paxel={str(required).lower()}", self.launch.call_args.args[0])
+            self.assertEqual("REQUIRED" if required else "NOT_TESTED", evidence["paxel_recipe_selection"])
+
+    def test_paxel_receipts_require_selection_and_both_consumption_cases(self):
+        receipts = ["PAXEL_NATIVE_RECIPE_SELECTION PASS:",
+                    "PAXEL_NATIVE_INPUT_CONSUMPTION PASS: ADVENTURERS_PAXEL;",
+                    "PAXEL_NATIVE_INPUT_CONSUMPTION PASS: PAXEL;"]
+        for omitted in receipts:
+            evidence = {"paxel_recipe_selection": "REQUIRED"}
+            with self.assertRaisesRegex(RuntimeError, "receipt missing"):
+                probe.record_paxel_receipts("\n".join(r for r in receipts if r != omitted), evidence, True)
+            self.assertNotEqual("PASS", evidence["paxel_recipe_selection"])
+            self.assertNotEqual("PASS", evidence["paxel_input_consumption"])
+        evidence = {}
+        probe.record_paxel_receipts("\n".join(receipts), evidence, True)
+        self.assertEqual("PASS", evidence["paxel_recipe_selection"])
+        self.assertEqual("PASS", evidence["paxel_input_consumption"])
+
+    def test_historical_core_does_not_claim_paxel_consumption(self):
+        evidence = {"paxel_recipe_selection": "NOT_TESTED"}
+        probe.record_paxel_receipts("", evidence, False)
+        self.assertEqual("NOT_TESTED", evidence["paxel_input_consumption"])
+        self.assertEqual("NOT_TESTED", evidence["paxel_recipe_selection"])
+
+    def test_candidate_workflow_requires_paxel_but_historical_core_does_not(self):
+        root = SOURCE.parents[3]
+        self.assertIn("--verify-paxel-recipes", (root / ".github/workflows/paper-26.3-full-stack.yml").read_text())
+        for name in ("addons-r140-candidate.yml", "r137-release-candidate.yml"):
+            self.assertNotIn("--verify-paxel-recipes", (root / ".github/workflows" / name).read_text())
 
     def test_r153_java_command_preserves_historical_fluffy_version(self):
         self.populate(153)
