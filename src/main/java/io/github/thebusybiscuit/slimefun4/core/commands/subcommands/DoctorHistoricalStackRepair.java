@@ -4,13 +4,14 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -131,7 +132,7 @@ final class DoctorHistoricalStackRepair {
             byte[] originalBytes = pair.old().serializeAsBytes();
             Path backup = backup(plugin.getDataFolder().toPath(), player.getUniqueId(), originalBytes);
             ItemStack original = ItemStack.deserializeBytes(Files.readAllBytes(backup));
-            if (!original.isSimilar(pair.old())
+            if (!Arrays.equals(originalBytes, original.serializeAsBytes())
                     || original.getAmount() != pair.old().getAmount()
                     || !fingerprint(original).equals(plan.oldHash())) {
                 send(player, "&cBackup readback did not preserve item identity. No repair was made.");
@@ -295,7 +296,16 @@ final class DoctorHistoricalStackRepair {
         Path directory = pluginFolder.resolve("recovery").resolve("identity");
         Files.createDirectories(directory);
         Path destination = directory.resolve(playerId + "-" + UUID.randomUUID() + ".bin");
-        Files.write(destination, originalBytes, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+        // CREATE_NEW refuses overwrites; force() makes the original item bytes
+        // durable before the held inventory is even considered for mutation.
+        try (FileChannel channel =
+                FileChannel.open(destination, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+            ByteBuffer bytes = ByteBuffer.wrap(originalBytes);
+            while (bytes.hasRemaining()) {
+                channel.write(bytes);
+            }
+            channel.force(true);
+        }
         return destination;
     }
 

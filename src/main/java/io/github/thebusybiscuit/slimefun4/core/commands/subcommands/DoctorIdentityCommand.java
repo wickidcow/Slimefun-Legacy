@@ -141,6 +141,9 @@ final class DoctorIdentityCommand {
         if (oldCopy == null || freshCopy == null) {
             return new HistoricalPresentation(plainTextSame, false, false);
         }
+        // An actual old CraftItemStack may be compared against an addon-owned
+        // SlimefunItemStack. Never call isSimilar on either raw subclass.
+        boolean originallySimilar = oldCopy.isSimilar(freshCopy);
         oldCopy.editMeta(meta -> {
             meta.displayName(null);
             meta.lore(null);
@@ -151,7 +154,7 @@ final class DoctorIdentityCommand {
         });
         boolean nonPresentationSame = oldCopy.isSimilar(freshCopy);
         return new HistoricalPresentation(
-                plainTextSame, nonPresentationSame, !old.isSimilar(fresh) && plainTextSame && nonPresentationSame);
+                plainTextSame, nonPresentationSame, !originallySimilar && plainTextSame && nonPresentationSame);
     }
 
     private static ItemStack detachedCopy(ItemStack source) {

@@ -159,6 +159,20 @@ final class ItemIdentityProbe {
         ItemStack template = registered.getItem();
         byte[] templateBefore = template.serializeAsBytes();
         require(flag(inspect(template, template.clone()), "isSimilar"), "registered template clone");
+        // SlimefunItemStack is a registered subclass, not CraftItemStack.
+        // Native Paper must classify a Craft held item against this raw template
+        // without calling CraftItemStack.isSimilar(SlimefunItemStack).
+        ItemStack historicAgainstRegistered = ItemStack.deserializeBytes(templateBefore);
+        historicAgainstRegistered.editMeta(meta -> {
+            var name = meta.displayName();
+            if (name == null) throw new IllegalStateException("registered SMALL_URANIUM lacks display name");
+            meta.displayName(name.decoration(TextDecoration.BOLD,
+                    name.decoration(TextDecoration.BOLD) == TextDecoration.State.TRUE
+                            ? TextDecoration.State.FALSE
+                            : TextDecoration.State.TRUE));
+        });
+        require(flag(historical(historicAgainstRegistered, template), "candidate"),
+                "native historical classification rejected safe registered subclass template");
         require(Arrays.equals(templateBefore, template.serializeAsBytes()), "registered template mutated");
         require(Arrays.equals(untouched, reference.serializeAsBytes()), "reference mutated by control cases");
         verifyHistoricalPresentation(folder, false);

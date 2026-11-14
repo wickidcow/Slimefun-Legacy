@@ -224,6 +224,26 @@ class TestDoctorIdentityCommand {
     }
 
     @Test
+    void historicalPresentationClassificationUsesDetachedSubclasses() {
+        ItemStack original = uranium();
+        ItemStack registered = new ItemStack(original) {
+            @Override
+            public ItemStack clone() {
+                throw new AssertionError("Doctor must not use the registered item clone hook");
+            }
+        };
+        ItemStack historical = uranium();
+        historical.editMeta(meta -> meta.displayName(Component.text("Small Uranium", NamedTextColor.RED)
+                .decoration(TextDecoration.ITALIC, false)
+                .decoration(TextDecoration.BOLD, false)));
+        var result = DoctorIdentityCommand.inspectHistoricalPresentation(historical, registered);
+        assertTrue(result.plainTextSame());
+        assertTrue(result.nonPresentationSame());
+        assertTrue(result.candidate());
+        assertFalse(DoctorIdentityCommand.inspect(historical, registered).isSimilar());
+    }
+
+    @Test
     void typedPersistentDataDifferenceCannotBeClassifiedAsCosmetic() {
         ItemStack historical = uranium();
         ItemStack fresh = uranium();
