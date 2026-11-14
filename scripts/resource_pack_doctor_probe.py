@@ -216,6 +216,7 @@ def main() -> None:
         if args.protocol_module:
             client, client_log = connect_player(process, 1, "seed")
             probe(process, 1, "player-identity-give")
+            probe(process, 1, "player-identity-repair")
             probe(process, 1, "player-identity-craft")
             if args.verify_paxel_player:
                 probe(process, 1, "player-paxel-craft")

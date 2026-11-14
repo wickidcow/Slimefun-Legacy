@@ -8,9 +8,11 @@ import io.github.thebusybiscuit.slimefun4.api.player.PlayerBackpack;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
@@ -142,6 +144,7 @@ final class ResourcePackPlayerProbe implements Listener {
         later(player, 1L, () -> {
             switch (action) {
                 case "player-identity-give" -> verifyGiveOutput(player);
+                case "player-identity-repair" -> verifyHistoricalHeldRepair(player);
                 case "player-identity-craft" -> verifyCraftOutput(player);
                 case "player-paxel-craft" -> verifyPaxelCraft(player);
                 case "player-paxel-guide" -> verifyPaxelGuide(player);
@@ -202,6 +205,88 @@ final class ResourcePackPlayerProbe implements Listener {
         // This proves only the give command for these three items on connected-player runtimes.
         // It does not promote cheat-menu, recipe, machine, cargo or restart coverage.
         plugin.pass("player-identity-give");
+    }
+
+    private void verifyHistoricalHeldRepair(Player player) throws Exception {
+        require(stage.equals("seed"), "Historical repair only allowed in disposable connected-player seed phase");
+        owned(player);
+        SlimefunItem registered = SlimefunItem.getById("SMALL_URANIUM");
+        require(registered != null, "Missing registered SMALL_URANIUM item for native Doctor repair");
+        ItemStack template = registered.getItem();
+        byte[] templateBytes = template.serializeAsBytes();
+        ItemStack reference = new ItemStack(template);
+        reference.setAmount(1);
+        ItemStack historical = new ItemStack(template);
+        historical.setAmount(63);
+
+        var displayName = historical.getItemMeta().displayName();
+        require(displayName != null, "Current uranium template is missing its expected display name");
+        TextDecoration.State oppositeBold = displayName.decoration(TextDecoration.BOLD) == TextDecoration.State.TRUE
+                ? TextDecoration.State.FALSE : TextDecoration.State.TRUE;
+        historical.editMeta(meta -> meta.displayName(meta.displayName().decoration(TextDecoration.BOLD, oppositeBold)));
+        require(!historical.isSimilar(reference), "Historical decoration control did not cause identity mismatch");
+        byte[] originalBytes = historical.serializeAsBytes();
+        byte[] referenceBytes = reference.serializeAsBytes();
+        Path backupDirectory = Bukkit.getPluginManager().getPlugin("Slimefun")
+                .getDataFolder().toPath().resolve("recovery/identity");
+        require(!Files.exists(backupDirectory), "Historical repair fixture reused an existing backup directory");
+
+        var doctorPermission = player.addAttachment(plugin, "slimefun.command.doctor", true);
+        try {
+            player.getInventory().clear();
+            player.getInventory().setItemInMainHand(historical);
+            player.getInventory().setItemInOffHand(reference);
+            require(player.performCommand("sf doctor identity repair scan"), "Doctor repair scan command rejected");
+            require(Arrays.equals(originalBytes, player.getInventory().getItemInMainHand().serializeAsBytes())
+                            && Arrays.equals(referenceBytes, player.getInventory().getItemInOffHand().serializeAsBytes())
+                            && !Files.exists(backupDirectory),
+                    "Historical preview mutated items or created an early backup");
+
+            ItemStack changedAmount = new ItemStack(historical);
+            changedAmount.setAmount(62);
+            player.getInventory().setItemInMainHand(changedAmount);
+            require(player.performCommand("sf doctor identity repair confirm"),
+                    "Doctor stale confirmation command rejected");
+            require(Arrays.equals(changedAmount.serializeAsBytes(),
+                            player.getInventory().getItemInMainHand().serializeAsBytes())
+                            && !Files.exists(backupDirectory),
+                    "Stale preview modified item or performed backup despite changed amount");
+
+            player.getInventory().setItemInMainHand(historical);
+            require(player.performCommand("sf doctor identity repair scan"), "Fresh Doctor repair preview rejected");
+            require(player.performCommand("sf doctor identity repair confirm"),
+                    "Native held Doctor repair confirmation rejected");
+            ItemStack repaired = player.getInventory().getItemInMainHand();
+            require(repaired.getAmount() == 63 && repaired.isSimilar(reference),
+                    "Native confirmed historical repair lost amount or did not match the current template");
+            require(Arrays.equals(referenceBytes, player.getInventory().getItemInOffHand().serializeAsBytes()),
+                    "Native Doctor repair modified offhand reference");
+            var storage = Bukkit.createInventory(null, 9);
+            require(storage.addItem(repaired, reference).isEmpty()
+                            && storage.getItem(0).getAmount() == 64 && storage.getItem(1) == null,
+                    "Native confirmed historical repair failed actual vanilla 63+1 merge");
+
+            try (var entries = Files.list(backupDirectory)) {
+                var files = entries.filter(Files::isRegularFile).toList();
+                require(files.size() == 1 && Arrays.equals(originalBytes, Files.readAllBytes(files.getFirst())),
+                        "Doctor did not save exactly one original item backup before repair");
+                require(ItemStack.deserializeBytes(Files.readAllBytes(files.getFirst())).isSimilar(historical),
+                        "Native original Doctor backup lost item identity");
+            }
+
+            require(player.performCommand("sf doctor identity repair rollback confirm"),
+                    "Doctor rollback confirmation command rejected");
+            require(Arrays.equals(originalBytes, player.getInventory().getItemInMainHand().serializeAsBytes())
+                            && Arrays.equals(referenceBytes, player.getInventory().getItemInOffHand().serializeAsBytes())
+                            && Arrays.equals(templateBytes, template.serializeAsBytes()),
+                    "Native rollback failed to restore old item or modified reference/template");
+            plugin.getLogger().info("IDENTITY_DOCTOR_HELD_REPAIR_PASS SMALL_URANIUM old=63 fresh=1"
+                    + " verified-backup=true rollback=true runtime=" + Bukkit.getVersion());
+        } finally {
+            player.removeAttachment(doctorPermission);
+            player.getInventory().clear();
+        }
+        plugin.pass("player-identity-repair");
     }
 
     private void verifyCompressorRejection(Player player) throws Exception {
