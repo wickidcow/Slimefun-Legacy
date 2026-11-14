@@ -19,6 +19,7 @@ on:
       - 'scripts/verify_machine_processor_correctness.py'
       - 'scripts/verify_special_item_correctness.py'
       - 'scripts/verify_tool_correctness.py'
+      - 'scripts/verify_curios_paxel_recipe.py'
       - 'scripts/verify_magical_item_correctness.py'
       - 'scripts/verify_movement_gear_correctness.py'
       - 'scripts/verify_armor_correctness.py'
@@ -52,6 +53,7 @@ on:
       - 'scripts/verify_machine_processor_correctness.py'
       - 'scripts/verify_special_item_correctness.py'
       - 'scripts/verify_tool_correctness.py'
+      - 'scripts/verify_curios_paxel_recipe.py'
       - 'scripts/verify_magical_item_correctness.py'
       - 'scripts/verify_movement_gear_correctness.py'
       - 'scripts/verify_armor_correctness.py'
@@ -78,6 +80,14 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v6
+
+      - name: Check out exact FluffyMachines Paxel recipe for collision verification
+        uses: actions/checkout@v6
+        with:
+          repository: wickidcow/SF_FluffyMachines
+          ref: faab1b9995d887abdfa0a95668e55ec67e213452
+          path: .deps/SF_FluffyMachines
+          persist-credentials: false
 
       - name: Set up Java 25
         uses: actions/setup-java@v5
@@ -121,6 +131,9 @@ jobs:
 
       - name: Verify player-tool runtime invariants
         run: python3 scripts/verify_tool_correctness.py .
+
+      - name: Verify Adventurer's Curios Paxel against pinned actual FluffyMachines recipe
+        run: python3 scripts/verify_curios_paxel_recipe.py .deps/SF_FluffyMachines
 
       - name: Verify magical-item runtime invariants
         run: python3 scripts/verify_magical_item_correctness.py .

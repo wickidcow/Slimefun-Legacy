@@ -19,7 +19,7 @@ That permission defaults to operators. The related `/sf tick ...` performance co
 | --- | --- | --- |
 | `/sf doctor status` | No | Shows Doctor state, previous clean shutdown, pending database writes, backpack save state, machine isolation, integration failures and the current/last server-wide run. |
 | `/sf doctor report` | No | Prints the public-safe support summary for issue reports. `/sf doctor support` is an alias. |
-| `/sf doctor scan` | No | Runs the batched server-wide dry run across reachable inventories, loaded storage/machines, dropped/nested items and backpacks. Ends with **Doctor Next Steps**. |
+| `/sf doctor scan` | No | Runs the batched server-wide dry run across reachable inventories, loaded storage/machines, dropped/nested items and backpacks. Includes a bounded, read-only historical identity comparison against current registered item templates. Ends with **Doctor Next Steps**. |
 | `/sf doctor repair confirm` | **Yes** | Applies the conservative server-wide item presentation repair after a reviewed scan and backup. It does not replace the specialist migration/resource-pack lanes below. |
 
 Recommended general sequence:
@@ -29,6 +29,20 @@ Recommended general sequence:
 3. `/sf doctor scan`
 4. Follow the **Doctor Next Steps** command for the specific finding.
 5. Re-run `/sf doctor scan` after any repair or migration.
+
+### Historical item stacking and identity triage
+
+The scan now reports how many registered Slimefun stacks it encountered, how many it could compare with the
+current registered template, how many matched, and how many were **presentation-only diagnostic candidates**.
+It separately counts other metadata differences, unavailable templates and checks deferred beyond a 20,000-stack
+safety budget. A short list of candidate item **IDs only** is displayed, not private PDC, player or location data.
+
+These are **not** registry-wide actual producer PASS results: intentional addon-specific lore, saved ownership or
+machine state may differ from the template. A presentation-only candidate **is not eligible for automatic repair**.
+For an actual historical item and newly generated item, hold the older item in the main hand, the new one in the
+offhand, and run `/sf doctor identity compare` to inspect the real pair (including capacity). Do not infer
+nonstacking from a full 64/64 stack. No historical stacking repair is performed by `/sf doctor scan`, `/sf doctor
+repair confirm` or the general CJK presentation-repair path.
 
 ## Player and item repair
 

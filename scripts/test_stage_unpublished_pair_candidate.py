@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Candidate-only source preview never substitutes for immutable published-pair evidence."""
 import hashlib
+import json
+from scripts.stage_published_pair import load_release_lock
 from pathlib import Path
 import tempfile
 import unittest
@@ -47,6 +49,28 @@ class UnpublishedPairPreviewTest(unittest.TestCase):
                     event="pull_request", jar=self.jar)
         args.update(updates)
         return preview_mode(**args)
+
+    def test_current_master_accepts_both_exact_published_pair_sources(self):
+        root = Path(__file__).resolve().parents[1]
+        manifest = json.loads((root / "compatibility/sfl-addon-release-matrix.json").read_text())
+        lock = load_release_lock()
+        for row in manifest["addons"]:
+            if row["slug"] in {"networksexp", "infinityexpansion2"}:
+                mode, proof = preview_mode(manifest, lock, row["slug"], row["source_commit"],
+                                           row["repository"], "push")
+                self.assertEqual("published", mode)
+                self.assertIsNone(proof)
+
+    def test_superseded_unpublished_ie2_candidate_stays_release_ineligible(self):
+        root = Path(__file__).resolve().parents[1]
+        manifest = json.loads((root / "compatibility/sfl-addon-release-matrix.json").read_text())
+        old = "172c046250d75b7aaae7072fbc9e9148f0791210"
+        for row in manifest["addons"]:
+            if row["slug"] == "infinityexpansion2":
+                row["source_commit"] = old
+        with self.assertRaisesRegex(RuntimeError, "master or release"):
+            preview_mode(manifest, load_release_lock(), "infinityexpansion2", old,
+                         "wickidcow/SF_InfinityExpansion2", "push")
 
     def test_only_exact_pinned_pr_candidate_is_previewable(self):
         mode, proof = self.preview()

@@ -37,7 +37,7 @@ CORE_ASSETS = {
 TARGET_SOURCE = "b14a3bcc5ef221c013f93d49b6b3a1bbdb3101e9"
 
 
-def verify_releases(source: dict, target: dict, latest: dict, *, require_present: bool = False) -> dict:
+def verify_releases(source: dict, target: dict, latest: dict, *, require_present: bool = False, read_only: bool = False) -> dict:
     pin = CARRIED_GEYSER_PIN
     if source.get("id") != pin["source_release_id"] or source.get("tag_name") != pin["source_tag"]:
         raise PolicyError("Wrong original Geyser ZIP release")
@@ -45,9 +45,11 @@ def verify_releases(source: dict, target: dict, latest: dict, *, require_present
         raise PolicyError("Wrong target release; v4.1.78 only")
     if target.get("target_commitish") != TARGET_SOURCE:
         raise PolicyError("Published core release source commit is not the reviewed v4.1.78")
-    if (latest.get("id"), latest.get("tag_name")) != (target.get("id"), target.get("tag_name")):
+    if read_only and not require_present:
+        raise PolicyError("Read-only historical verification requires the archive already present")
+    if not read_only and (latest.get("id"), latest.get("tag_name")) != (target.get("id"), target.get("tag_name")):
         raise PolicyError("A newer release exists: do not alter historical releases")
-    if source.get("immutable") is True or target.get("immutable") is True:
+    if not read_only and (source.get("immutable") is True or target.get("immutable") is True):
         raise PolicyError("Refusing asset upload against an immutable release")
     source_plan = plan_release(source, allow_legacy=False)
     target_plan = plan_release(target, allow_legacy=False)
@@ -65,6 +67,8 @@ def verify_releases(source: dict, target: dict, latest: dict, *, require_present
     carried = required.get(CARRIED_GEYSER_PACK)
     if require_present and not carried:
         raise PolicyError("The exact unchanged Geyser ZIP has not been attached")
+    if read_only and carried and carried["id"] != pin["target_asset_id"]:
+        raise PolicyError("Historical carried archive identity changed")
     if carried and carried["id"] == original["id"]:
         raise PolicyError("Geyser ZIP must have a new asset identity on target release")
     return {
@@ -87,12 +91,13 @@ def main() -> int:
     parser.add_argument("--target", type=Path, required=True)
     parser.add_argument("--latest", type=Path, required=True)
     parser.add_argument("--require-present", action="store_true")
+    parser.add_argument("--read-only", action="store_true", help="Verify already-published historical assets without upload eligibility")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     try:
         report = verify_releases(
             load_json(args.source), load_json(args.target), load_json(args.latest),
-            require_present=args.require_present,
+            require_present=args.require_present, read_only=args.read_only,
         )
         output = json.dumps(report, indent=2, sort_keys=True) + "\n"
         if args.output:

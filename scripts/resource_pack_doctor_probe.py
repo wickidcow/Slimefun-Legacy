@@ -65,7 +65,10 @@ def main() -> None:
                         help="Require Folia and test live-inventory ownership deferrals")
     parser.add_argument("--protocol-module", type=Path,
                         help="Pinned Minecraft 26.2 client module; enables real connected-player checks")
+    parser.add_argument("--verify-paxel-player", action="store_true")
     args = parser.parse_args()
+    if args.verify_paxel_player and not args.protocol_module:
+        parser.error("--verify-paxel-player requires --protocol-module")
     if args.server_cache and not args.server_jar:
         parser.error("--server-cache requires --server-jar")
     runtime_java = (args.runtime_java_home or args.java_home).resolve() / "bin/java"
@@ -95,6 +98,9 @@ def main() -> None:
     if args.protocol_module:
         proof.mkdir()
         (proof / "players.enabled").touch()
+    if args.verify_paxel_player:
+        # Only this freshly created disposable fixture opts into Curios; production defaults stay off.
+        (root / "plugins/Slimefun/configSFLAddons.yml").write_text("enabled: true\n", encoding="utf-8")
     core = root / "plugins/Slimefun.jar"
     shutil.copy2(args.core.resolve(), core)
     port = 0
@@ -201,9 +207,22 @@ def main() -> None:
 
     try:
         process, log = boot(1)
+        probe(process, 1, "identity")
+        subprocess.run(["python3", str(repo / "scripts/identity_coverage.py"),
+                        "--registry", str(proof / "identity-registry.json"), "--core", str(core),
+                        "--server", str(root / "server.jar"),
+                        "--output", str(root / "identity-coverage.json")], check=True)
         probe(process, 1, "prepare")
         if args.protocol_module:
             client, client_log = connect_player(process, 1, "seed")
+            probe(process, 1, "player-identity-give")
+            probe(process, 1, "player-identity-craft")
+            if args.verify_paxel_player:
+                probe(process, 1, "player-paxel-craft")
+                probe(process, 1, "player-paxel-guide")
+            probe(process, 1, "player-identity-compressor-rejected")
+            probe(process, 1, "player-identity-compressor")
+            probe(process, 1, "player-identity-compressor-chain")
             probe(process, 1, "player-seed")
             disconnect_player(client, client_log, process, 1)
         command(process, "sf doctor resource-pack install scan")
@@ -214,6 +233,9 @@ def main() -> None:
         probe(process, 1, "checkpoint")
         stop(process, log)
         process, log = boot(2)
+        probe(process, 2, "identity-restart")
+        if args.protocol_module:
+            probe(process, 2, "identity-output-restart")
         time.sleep(4)
         probe(process, 2, "installed")
         probe(process, 2, "deferred")
@@ -259,13 +281,27 @@ def main() -> None:
         evidence = {
             "result": "PASS", "boots": 3, "folia_ownership_checks": args.expect_folia,
             "connected_player_checks": bool(args.protocol_module),
+            "core_paxel_player_craft": "PASS" if args.verify_paxel_player else "NOT_TESTED",
+            "core_paxel_survival_guide": "PASS" if args.verify_paxel_player else "NOT_TESTED",
             "core_sha256": hashlib.sha256(core.read_bytes()).hexdigest(),
             "server_sha256": hashlib.sha256((root / "server.jar").read_bytes()).hexdigest(),
             "java": subprocess.run([str(runtime_java), "-version"], capture_output=True,
                                    text=True, check=True).stderr.strip(),
             "phases": {p.stem: p.read_text().strip() for p in sorted(proof.glob("*.pass"))},
         }
+        if args.protocol_module:
+            # Native bytes are output by the connected-player producer fixture.
+            # The coverage reader must verify these same-run hashes before PASS.
+            evidence["captures_sha256"] = {
+                name: hashlib.sha256((proof / name).read_bytes()).hexdigest()
+                for name in ("identity-crafted-wire.bin", "identity-given-wire.bin",
+                             "identity-produced-carbon.bin", "identity-produced-compressed-carbon.bin")
+            }
         (root / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+        subprocess.run(["python3", str(repo / "scripts/identity_coverage.py"),
+                        "--registry", str(proof / "identity-registry.json"), "--core", str(core),
+                        "--server", str(root / "server.jar"), "--output", str(root / "identity-coverage.json"),
+                        "--native-evidence", str(root / "evidence.json"), "--captures-dir", str(proof)], check=True)
         print(result, flush=True)
     finally:
         for client in clients:

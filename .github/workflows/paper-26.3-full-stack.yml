@@ -245,6 +245,7 @@ jobs:
         if: matrix.minecraft == '26.3'
         run: |
           python3 scripts/runtime/r135_fluffy_networks/run_probe.py \
+            --verify-paxel-recipes \
             --runtime-dir build/full-stack-26.3 \
             --bundle bundle/SF_Addons_1.21.11-26.3.zip
       - name: Probe native Black Market receipts across four JVM boots

@@ -57,6 +57,26 @@ REQUIRED_RUNTIME_CLASSES = {
     "Dough Minecraft recipe adapter": "io/github/thebusybiscuit/slimefun4/libraries/dough/recipes/MinecraftRecipe.class",
     "bStats custom chart": "io/github/thebusybiscuit/slimefun4/libraries/bstats/charts/CustomChart.class",
 }
+REQUIRED_FEATURE_ENTRIES = (
+    "CraftingRestrictions.yml",
+    "io/github/thebusybiscuit/slimefun4/core/services/CraftingRestrictionService.class",
+    "io/github/thebusybiscuit/slimefun4/core/commands/subcommands/AdminCommand.class",
+    "io/github/thebusybiscuit/slimefun4/implementation/listeners/crafting/CraftingRestrictionListener.class",
+    "io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorIdentityCommand.class",
+)
+
+
+def verify_feature_entries(archive: zipfile.ZipFile) -> list[str]:
+    failures = []
+    for entry in REQUIRED_FEATURE_ENTRIES:
+        try:
+            if not archive.read(entry):
+                failures.append(f"Release JAR has empty required feature entry: {entry}")
+        except KeyError:
+            failures.append(f"Release JAR is missing required feature entry: {entry}")
+    return failures
+
+
 FULL_SHA = re.compile(r"[0-9a-fA-F]{40}")
 
 
@@ -159,6 +179,7 @@ def main() -> int:
     if jar.is_file():
         try:
             with zipfile.ZipFile(jar) as archive:
+                failures.extend(verify_feature_entries(archive))
                 names = archive.namelist()
                 name_set = set(names)
                 if len(names) != len(name_set):

@@ -62,9 +62,10 @@ class CompatibilityClaimsTest(unittest.TestCase):
 
 
     def test_maintained_repin_is_exact_and_preserves_native_pairs(self):
-        # Reviewed source-only candidate: preserve historical native storage
-        # fixtures, immutable published Networks/IE2 source and Supreme 1.0.20.
-        self.assertEqual(153, self.matrix["bundle_revision"])
+        # Reviewed r155 source selection: preserve historical native storage
+        # fixtures and immutable published Networks/IE2 artifact locks. The
+        # candidate matrix intentionally advances beyond those release sources.
+        self.assertEqual(155, self.matrix["bundle_revision"])
         self.assertEqual(44, len(self.matrix["addons"]))
         selected = {row["repository"]: row["source_commit"]
                     for row in self.matrix["addons"]}
@@ -72,6 +73,8 @@ class CompatibilityClaimsTest(unittest.TestCase):
         expected = {
             "wickidcow/SF_AlchimiaVitae": "5b1f9b2d5191243a18ff29f7601587bd01f31c70",
             "wickidcow/SF_BetterChests": "e80e395ca331bad234fd5733eb106da3b5656545",
+            "wickidcow/SF_CultivationLegacy": "ab97e9d1a89a57bfca3801fce7cef75020fd9bf0",
+            "wickidcow/SF_HotbarPets": "54c802438a6819e6f3b0eea411e675a3eb0855dc",
             "wickidcow/SF_DankTech2": "d718633ab28c312360e90dd43aeb3a9f25dc3c2e",
             "wickidcow/SF_ElectricSpawners": "d28daba4fa77d7c927fc2716207c837602edd9cc",
             "wickidcow/SF_ExoticGarden": "3bd282d2a951d883d1dc222e53e35e7fc4e0a6f2",
@@ -91,31 +94,32 @@ class CompatibilityClaimsTest(unittest.TestCase):
         for repository, sha in expected.items():
             with self.subTest(repository=repository):
                 self.assertEqual(sha, selected[repository])
-        self.assertEqual("ea5777ce58c45c3c3cd4789bd155164ccbb5336b",
+        self.assertEqual("1d46a1afd04ceae7f04c7e0849397350ce273ec5",
                          selected["wickidcow/SF_NetworksExp"])
-        self.assertEqual("fdadfa67bc68fb18e34ccfed773a23ba2efbd4ef",
+        self.assertEqual("7bd579e2b67243002571e95b8a2d00bea2187efd",
                          selected["wickidcow/SF_InfinityExpansion2"])
-        self.assertEqual("17693b1eec0ef15f198c86a5803f6e5dbd085074",
+        self.assertEqual("f03ed0c75f1df16aa484d25bf3a1b8bcd20d9b7c",
                          selected["wickidcow/SF_Supreme"])
 
 
 
-    def test_three_addon_release_candidate_is_merged_and_storage_pins_unchanged(self):
-        # These three commits are verified merged default-branch HEADs.
-        # FlowerPower / ExtraHeads raise only their distinct plugin versions
-        # (no production Java changes); Fluffy adds bounded Paxel/elevator
-        # fixes and regression tests. Do not alter published storage pairs.
+    def test_r155_six_updated_addons_remain_pinned_to_merged_release_sources(self):
+        # FlowerPower / ExtraHeads keep existing reviewed source identities.
+        # The six r155 addon pins point to reviewed, published commits,
+        # never draft commits. Published/historical storage locks are separate.
         selected = {row["repository"]: row["source_commit"]
                     for row in self.matrix["addons"]}
         self.assertEqual(44, len(selected))
-        self.assertEqual(153, self.matrix["bundle_revision"])
+        self.assertEqual(155, self.matrix["bundle_revision"])
         expected = {
+            "wickidcow/SF_CultivationLegacy": "ab97e9d1a89a57bfca3801fce7cef75020fd9bf0",
+            "wickidcow/SF_HotbarPets": "54c802438a6819e6f3b0eea411e675a3eb0855dc",
             "wickidcow/SF_FlowerPower": "d8c3f2c8ec66b7c08e0ceb8b23f710f020b5c36f",
             "wickidcow/SF_ExtraHeads": "b1e8a1f11692b44d359eec863f3be5be0f061516",
-            "wickidcow/SF_FluffyMachines": "9ce05a228a0ce14e69254115b90ec46e54eac6d9",
-            "wickidcow/SF_NetworksExp": "ea5777ce58c45c3c3cd4789bd155164ccbb5336b",
-            "wickidcow/SF_InfinityExpansion2": "fdadfa67bc68fb18e34ccfed773a23ba2efbd4ef",
-            "wickidcow/SF_Supreme": "17693b1eec0ef15f198c86a5803f6e5dbd085074",
+            "wickidcow/SF_FluffyMachines": "bb1a50387e8dfe34c4c4e3b592038c81c51f53f0",
+            "wickidcow/SF_NetworksExp": "1d46a1afd04ceae7f04c7e0849397350ce273ec5",
+            "wickidcow/SF_InfinityExpansion2": "7bd579e2b67243002571e95b8a2d00bea2187efd",
+            "wickidcow/SF_Supreme": "f03ed0c75f1df16aa484d25bf3a1b8bcd20d9b7c",
         }
         for repository, sha in expected.items():
             with self.subTest(repository=repository):

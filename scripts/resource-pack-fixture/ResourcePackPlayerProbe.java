@@ -5,6 +5,7 @@ import static io.github.wickidcow.validation.ResourcePackDoctorProbe.require;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.DataScope;
 import com.xzavier0722.mc.plugin.slimefun4.storage.common.FieldKey;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerBackpack;
+import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.nio.file.Files;
 import java.util.Arrays;
@@ -35,6 +36,16 @@ final class ResourcePackPlayerProbe implements Listener {
     private boolean cancelPickup;
     private volatile boolean disconnectedWorkSettled;
     private String stage;
+    private ItemStack producedCarbon;
+    private boolean craftProbeActive;
+    private boolean compressorRejectActive;
+    private int compressorRejectEvents;
+    private boolean cancelCraft;
+    private int craftEvents;
+    private boolean paxelCraftActive;
+    private int paxelCraftEvents;
+    private ItemStack craftedForStorage;
+    private ItemStack givenForStorage;
 
     ResourcePackPlayerProbe(ResourcePackDoctorProbe plugin) {
         this.plugin = plugin;
@@ -51,6 +62,7 @@ final class ResourcePackPlayerProbe implements Listener {
             player.setInvulnerable(true);
             player.setAllowFlight(true);
             player.setFlying(true);
+            if (!stage.equals("seed")) verifyStoredOutputs(player);
             if (stage.equals("join") || stage.equals("retire")) {
                 verifySavedPlayer(player, false);
             } else if (stage.equals("restart")) {
@@ -79,7 +91,10 @@ final class ResourcePackPlayerProbe implements Listener {
                                                 FieldKey.BACKPACK_ID,
                                                 id)),
                                 "Opened backpack cleanup did not survive restart");
+                        verifyBackpackOutputs(player, id, "restart");
+                        verifyLoadedBackpack(player, id);
                     }
+                    verifyStoredOutputs(player);
                     plugin.pass("player-" + stage);
                 });
             }
@@ -126,16 +141,28 @@ final class ResourcePackPlayerProbe implements Listener {
         }
         later(player, 1L, () -> {
             switch (action) {
+                case "player-identity-give" -> verifyGiveOutput(player);
+                case "player-identity-craft" -> verifyCraftOutput(player);
+                case "player-paxel-craft" -> verifyPaxelCraft(player);
+                case "player-paxel-guide" -> verifyPaxelGuide(player);
+                case "player-identity-compressor" -> verifyCompressorOutput(player);
+                case "player-identity-compressor-chain" -> verifyCompressorChain(player);
+                case "player-identity-compressor-rejected" -> verifyCompressorRejection(player);
                 case "player-seed" -> {
                     require(stage.equals("seed"), "Player seed requested after authorization");
+                    require(craftedForStorage != null && givenForStorage != null,
+                            "Missing actual producer outputs for ender storage");
                     player.getInventory().clear();
                     player.getEnderChest().clear();
+                    player.getEnderChest().setItem(10, craftedForStorage);
+                    player.getEnderChest().setItem(11, givenForStorage);
                     player.getInventory().setItem(0, plugin.expected("old-0"));
                     player.getInventory().setItem(1, plugin.expected("clean-1"));
                     player.getInventory().setItem(2, plugin.expected("clean-5"));
                     player.getEnderChest().setItem(0, plugin.expected("old-0"));
                     later(player, 40L, () -> {
                         verifySavedPlayer(player, false);
+                        verifyStoredOutputs(player);
                         plugin.pass(action);
                     });
                 }
@@ -147,6 +174,548 @@ final class ResourcePackPlayerProbe implements Listener {
             }
         });
         return true;
+    }
+
+    private void verifyGiveOutput(Player player) throws Exception {
+        require(stage.equals("seed"), "Give probe requested outside disposable seed phase");
+        var permission = player.addAttachment(plugin, "slimefun.cheat.items", true);
+        try {
+            for (String id : java.util.List.of("SMALL_URANIUM", "COPPER_DUST", "CARBONADO")) {
+                owned(player);
+                SlimefunItem registered = SlimefunItem.getById(id);
+                require(registered != null, "Missing give fixture: " + id);
+                ItemStack template = registered.getItem();
+                byte[] before = template.serializeAsBytes();
+                player.getInventory().clear();
+                require(player.performCommand("sf give " + NAME + " " + id + " 17"), "Give command rejected");
+                verifyGivenStack(player, template, 17);
+                require(player.performCommand("sf give " + NAME + " " + id + " 31"), "Second give rejected");
+                verifyGivenStack(player, template, 48);
+                require(Arrays.equals(before, template.serializeAsBytes()), "Give mutated template: " + id);
+                plugin.getLogger().info("IDENTITY_ACTUAL_GIVE_PASS " + id
+                        + " amounts=17+31 merged=48 runtime=" + Bukkit.getVersion());
+            }
+        } finally {
+            player.removeAttachment(permission);
+            player.getInventory().clear();
+        }
+        // This proves only the give command for these three items on connected-player runtimes.
+        // It does not promote cheat-menu, recipe, machine, cargo or restart coverage.
+        plugin.pass("player-identity-give");
+    }
+
+    private void verifyCompressorRejection(Player player) throws Exception {
+        require(stage.equals("seed"), "Compressor rejection outside disposable seed phase");
+        owned(player);
+        var machine = SlimefunItem.getById("COMPRESSOR");
+        var carbon = SlimefunItem.getById("CARBON");
+        require(carbon != null, "Missing Carbon registration");
+        byte[] templateBefore = carbon.getItem().serializeAsBytes();
+        require(machine instanceof io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.Compressor,
+                "Missing compressor registration");
+        var compressor = (io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.Compressor) machine;
+        var dispenser = player.getLocation().getBlock().getRelative(0, 3, 0);
+        var fence = dispenser.getRelative(0, 1, 0);
+        require(Bukkit.isOwnedByCurrentRegion(dispenser) && Bukkit.isOwnedByCurrentRegion(fence),
+                "Compressor rejection outside player region");
+        require(dispenser.getType().isAir() && fence.getType().isAir(), "Compressor rejection space occupied");
+        dispenser.setType(org.bukkit.Material.DISPENSER);
+        fence.setType(org.bukkit.Material.NETHER_BRICK_FENCE);
+        var inventory = ((org.bukkit.block.Dispenser) dispenser.getState(false)).getInventory();
+        compressorRejectActive = true;
+        compressorRejectEvents = 0;
+        try {
+            player.getInventory().clear();
+            inventory.setItem(0, new ItemStack(org.bukkit.Material.COAL_BLOCK, 7));
+            byte[][] insufficient = inventoryBytes(inventory);
+            compressor.onInteract(player, fence);
+            require(compressorRejectEvents == 0, "Insufficient Compressor input emitted craft event");
+            require(Arrays.deepEquals(insufficient, inventoryBytes(inventory)), "Insufficient input mutated inventory");
+            inventory.setItem(0, new ItemStack(org.bukkit.Material.COAL_BLOCK, 8));
+            byte[][] cancelled = inventoryBytes(inventory);
+            compressor.onInteract(player, fence);
+            require(compressorRejectEvents == 1, "Cancelled Compressor craft event missing");
+            require(Arrays.deepEquals(cancelled, inventoryBytes(inventory)), "Cancelled craft consumed ingredients");
+            later(player, 100L, () -> {
+                try {
+                    require(Bukkit.isOwnedByCurrentRegion(dispenser), "Rejected completion outside player region");
+                    require(compressorRejectEvents == 1 && Arrays.deepEquals(cancelled, inventoryBytes(inventory)),
+                            "Rejected Compressor craft queued output or changed ingredients");
+                    require(player.getInventory().isEmpty(), "Rejected Compressor craft leaked player output: " + inventorySummary(player.getInventory()));
+                    require(Arrays.equals(templateBefore, carbon.getItem().serializeAsBytes()),
+                            "Rejected Compressor craft mutated registered Carbon template");
+                    plugin.pass("player-identity-compressor-rejected");
+                } finally {
+                    compressorRejectActive = false;
+                    inventory.clear();
+                    fence.setType(org.bukkit.Material.AIR, false);
+                    dispenser.setType(org.bukkit.Material.AIR, false);
+                }
+            });
+        } catch (Throwable failure) {
+            compressorRejectActive = false;
+            inventory.clear();
+            fence.setType(org.bukkit.Material.AIR, false);
+            dispenser.setType(org.bukkit.Material.AIR, false);
+            throw failure;
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onRejectedCompressor(io.github.thebusybiscuit.slimefun4.api.events.MultiBlockCraftEvent event) {
+        if (!compressorRejectActive || !NAME.equals(event.getPlayer().getName())) return;
+        try {
+            owned(event.getPlayer());
+            require("COMPRESSOR".equals(event.getMachine().getId()), "Unexpected rejection machine");
+            require(event.getOutput().getAmount() == 9
+                            && SlimefunItem.getById("CARBON").getItem().isSimilar(event.getOutput()),
+                    "Unexpected rejection output");
+            require(!event.isCancelled(), "Compressor event already cancelled");
+            compressorRejectEvents++;
+            event.setCancelled(true);
+        } catch (Throwable failure) {
+            event.setCancelled(true);
+            plugin.fail(failure);
+        }
+    }
+
+    private void verifyCompressorOutput(Player player) throws Exception {
+        require(stage.equals("seed"), "Compressor probe outside disposable seed phase");
+        owned(player);
+        var carbon = SlimefunItem.getById("CARBON");
+        var machine = SlimefunItem.getById("COMPRESSOR");
+        require(carbon != null && machine instanceof io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.Compressor,
+                "Missing compressor fixture registrations");
+        byte[] templateBefore = carbon.getItem().serializeAsBytes();
+        var dispenser = player.getLocation().getBlock().getRelative(0, 3, 0);
+        var fence = dispenser.getRelative(0, 1, 0);
+        require(Bukkit.isOwnedByCurrentRegion(dispenser) && Bukkit.isOwnedByCurrentRegion(fence),
+                "Compressor fixture outside player region");
+        require(dispenser.getType().isAir() && fence.getType().isAir(), "Compressor fixture space occupied");
+        dispenser.setType(org.bukkit.Material.DISPENSER);
+        fence.setType(org.bukkit.Material.NETHER_BRICK_FENCE);
+        var inventory = ((org.bukkit.block.Dispenser) dispenser.getState(false)).getInventory();
+        try {
+            inventory.setItem(0, new ItemStack(org.bukkit.Material.COAL_BLOCK, 8));
+            player.getInventory().clear();
+            // Real production handler and delayed output service; not multiblock discovery/network interaction.
+            ((io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.Compressor) machine)
+                    .onInteract(player, fence);
+            require(inventory.isEmpty(), "Compressor did not consume exactly eight coal blocks");
+            later(player, 100L, () -> {
+                var permission = player.addAttachment(plugin, "slimefun.cheat.items", true);
+                try {
+                    require(Bukkit.isOwnedByCurrentRegion(dispenser), "Compressor completion outside player region");
+                    var outputs = Arrays.stream(inventory.getContents())
+                            .filter(item -> item != null && !item.getType().isAir()).toList();
+                    require(outputs.size() == 1, "Compressor left unexpected outputs");
+                    ItemStack actual = outputs.getFirst();
+                    require(actual.getAmount() == 9 && actual.isSimilar(carbon.getItem())
+                                    && carbon.getItem().isSimilar(actual), "Compressor output identity/quantity");
+                    require(player.getInventory().isEmpty(), "Compressor leaked output to player: " + inventorySummary(player.getInventory()));
+                    require(player.performCommand("sf give " + NAME + " CARBON 9"), "Carbon reference give rejected");
+                    verifyGivenStack(player, carbon.getItem(), 9);
+                    var given = player.getInventory().getItem(0);
+                    require(actual.isSimilar(given) && given.isSimilar(actual)
+                                    && actual.getItemMeta().equals(given.getItemMeta()), "Compressor/give metadata mismatch");
+                    // Capture the genuine delayed machine-slot output before inventory transfer.
+                    // The next JVM boot verifies its full native identity and exact count.
+                    Files.write(plugin.getDataFolder().toPath().resolve("identity-produced-carbon.bin"),
+                            actual.serializeAsBytes());
+                    producedCarbon = actual.clone();
+                    inventory.clear();
+                    require(player.getInventory().addItem(actual).isEmpty(), "Compressor/give merge overflow");
+                    verifyGivenStack(player, carbon.getItem(), 18);
+                    require(Arrays.equals(templateBefore, carbon.getItem().serializeAsBytes()),
+                            "Compressor mutated registered Carbon template");
+                    plugin.pass("player-identity-compressor");
+                } finally {
+                    player.removeAttachment(permission);
+                    player.getInventory().clear();
+                    inventory.clear();
+                    fence.setType(org.bukkit.Material.AIR, false);
+                    dispenser.setType(org.bukkit.Material.AIR, false);
+                }
+            });
+        } catch (Throwable failure) {
+            inventory.clear();
+            fence.setType(org.bukkit.Material.AIR, false);
+            dispenser.setType(org.bukkit.Material.AIR, false);
+            throw failure;
+        }
+    }
+
+    private void verifyCompressorChain(Player player) throws Exception {
+        require(stage.equals("seed"), "Compressor probe outside disposable seed phase");
+        owned(player);
+        var carbon = SlimefunItem.getById("COMPRESSED_CARBON");
+        var machine = SlimefunItem.getById("COMPRESSOR");
+        require(carbon != null && machine instanceof io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.Compressor,
+                "Missing compressor fixture registrations");
+        require(producedCarbon != null && producedCarbon.getAmount() == 9, "Missing actual upstream Carbon");
+        byte[] upstreamBefore = producedCarbon.serializeAsBytes();
+        byte[] carbonTemplateBefore = SlimefunItem.getById("CARBON").getItem().serializeAsBytes();
+        byte[] templateBefore = carbon.getItem().serializeAsBytes();
+        var dispenser = player.getLocation().getBlock().getRelative(0, 3, 0);
+        var fence = dispenser.getRelative(0, 1, 0);
+        require(Bukkit.isOwnedByCurrentRegion(dispenser) && Bukkit.isOwnedByCurrentRegion(fence),
+                "Compressor fixture outside player region");
+        require(dispenser.getType().isAir() && fence.getType().isAir(), "Compressor fixture space occupied");
+        dispenser.setType(org.bukkit.Material.DISPENSER);
+        fence.setType(org.bukkit.Material.NETHER_BRICK_FENCE);
+        var inventory = ((org.bukkit.block.Dispenser) dispenser.getState(false)).getInventory();
+        try {
+            inventory.setItem(0, producedCarbon.clone());
+            player.getInventory().clear();
+            // Real production handler and delayed output service; not multiblock discovery/network interaction.
+            ((io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.Compressor) machine)
+                    .onInteract(player, fence);
+            require(inventory.getItem(0) != null && inventory.getItem(0).getAmount() == 5
+                            && inventory.getItem(0).isSimilar(producedCarbon), "Chain did not consume exactly four Carbon");
+            later(player, 100L, () -> {
+                var permission = player.addAttachment(plugin, "slimefun.cheat.items", true);
+                try {
+                    require(Bukkit.isOwnedByCurrentRegion(dispenser), "Compressor completion outside player region");
+                    var outputs = Arrays.stream(inventory.getContents())
+                            .filter(item -> item != null && !item.getType().isAir()).toList();
+                    require(outputs.size() == 2, "Chain lost residual Carbon or added unexpected outputs");
+                    var residual = outputs.stream().filter(item -> item.isSimilar(producedCarbon)).toList();
+                    require(residual.size() == 1 && residual.getFirst().getAmount() == 5, "Chain residual Carbon mismatch");
+                    ItemStack actual = outputs.stream().filter(item -> item.isSimilar(carbon.getItem())).findFirst().orElseThrow();
+                    require(actual.getAmount() == 1 && actual.isSimilar(carbon.getItem())
+                                    && carbon.getItem().isSimilar(actual), "Compressor output identity/quantity");
+                    require(player.getInventory().isEmpty(), "Compressor leaked output to player: " + inventorySummary(player.getInventory()));
+                    require(player.performCommand("sf give " + NAME + " COMPRESSED_CARBON 1"), "Carbon reference give rejected");
+                    verifyGivenStack(player, carbon.getItem(), 1);
+                    var given = player.getInventory().getItem(0);
+                    require(actual.isSimilar(given) && given.isSimilar(actual)
+                                    && actual.getItemMeta().equals(given.getItemMeta()), "Compressor/give metadata mismatch");
+                    Files.write(plugin.getDataFolder().toPath().resolve("identity-produced-compressed-carbon.bin"),
+                            actual.serializeAsBytes());
+                    inventory.clear();
+                    require(player.getInventory().addItem(actual).isEmpty(), "Compressor/give merge overflow");
+                    verifyGivenStack(player, carbon.getItem(), 2);
+                    require(Arrays.equals(templateBefore, carbon.getItem().serializeAsBytes()),
+                            "Compressor mutated registered Carbon template");
+                    require(Arrays.equals(upstreamBefore, producedCarbon.serializeAsBytes())
+                                    && Arrays.equals(carbonTemplateBefore, SlimefunItem.getById("CARBON").getItem().serializeAsBytes()),
+                            "Chain mutated captured upstream output or Carbon template");
+                    plugin.pass("player-identity-compressor-chain");
+                } finally {
+                    player.removeAttachment(permission);
+                    player.getInventory().clear();
+                    inventory.clear();
+                    fence.setType(org.bukkit.Material.AIR, false);
+                    dispenser.setType(org.bukkit.Material.AIR, false);
+                }
+            });
+        } catch (Throwable failure) {
+            inventory.clear();
+            fence.setType(org.bukkit.Material.AIR, false);
+            dispenser.setType(org.bukkit.Material.AIR, false);
+            throw failure;
+        }
+    }
+
+    /** Inspect the actual opened core survival guide, not a reconstructed recipe inventory. */
+    private void verifyPaxelGuide(Player player) throws Exception {
+        require(stage.equals("seed"), "Paxel guide outside disposable seed phase");
+        owned(player);
+        var paxel = SlimefunItem.getById("ADVENTURERS_PAXEL");
+        require(paxel != null, "Core Curios Paxel missing for guide");
+        var profile = io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile.find(player).orElseThrow();
+        var recipe = paxel.getRecipe();
+        byte[][] before = new byte[9][];
+        for (int i = 0; i < 9; i++) before[i] = recipe[i].serializeAsBytes();
+        byte[] template = paxel.getItem().serializeAsBytes();
+        byte[][] playerBefore = inventoryBytes(player.getInventory());
+        var unlocked = new java.util.HashSet<io.github.thebusybiscuit.slimefun4.api.researches.Research>();
+        try {
+            for (var ingredient : recipe) {
+                var item = SlimefunItem.getByItem(ingredient);
+                if (item == null) continue;
+                var research = item.getResearch();
+                if (research != null && !profile.hasUnlocked(research)) {
+                    unlocked.add(research);
+                    profile.setResearched(research, true);
+                }
+                require(item.canUse(player, false), "Guide ingredient remains unavailable: " + item.getId());
+            }
+            new io.github.thebusybiscuit.slimefun4.implementation.guide.SurvivalSlimefunGuide()
+                    .displayItem(profile, paxel, false);
+        } catch (Throwable failure) {
+            for (var research : unlocked) profile.setResearched(research, false);
+            player.closeInventory();
+            throw failure;
+        }
+        later(player, 2L, () -> {
+            try {
+                owned(player);
+                var menu = player.getOpenInventory().getTopInventory();
+                require(menu.getSize() >= 27, "Paxel survival guide did not open");
+                int[] slots = {3, 4, 5, 12, 13, 14, 21, 22, 23};
+                for (int i = 0; i < 9; i++) {
+                    var shown = menu.getItem(slots[i]);
+                    require(shown != null && shown.getType() == recipe[i].getType()
+                                    && shown.getAmount() == recipe[i].getAmount()
+                                    && SlimefunItem.getByItem(shown) == SlimefunItem.getByItem(recipe[i]),
+                            "Paxel guide ingredient identity/amount/slot mismatch: " + i + " shown=" + shown);
+                    require(Arrays.equals(before[i], recipe[i].serializeAsBytes()),
+                            "Paxel guide mutated registered ingredient: " + i);
+                }
+                require(menu.getItem(4).getType() == org.bukkit.Material.DIAMOND_SHOVEL
+                                && menu.getItem(22).getType() == org.bukkit.Material.DIAMOND_PICKAXE,
+                        "Paxel guide shows old conflicting tool positions");
+                var output = menu.getItem(16);
+                require(output != null && output.getAmount() == 1 && SlimefunItem.getByItem(output) == paxel,
+                        "Paxel guide output identity/amount mismatch");
+                require(Arrays.equals(template, paxel.getItem().serializeAsBytes()), "Guide mutated Paxel template");
+                require(Arrays.deepEquals(playerBefore, inventoryBytes(player.getInventory())),
+                        "Guide rendering changed player inventory");
+            } finally {
+                player.closeInventory();
+                for (var research : unlocked) profile.setResearched(research, false);
+            }
+            plugin.pass("player-paxel-guide");
+        });
+    }
+
+    /** Real handler and output delivery for core Curios only; no socket click or guide claim. */
+    private void verifyPaxelCraft(Player player) throws Exception {
+        require(stage.equals("seed"), "Paxel craft outside disposable seed phase");
+        owned(player);
+        var paxel = SlimefunItem.getById("ADVENTURERS_PAXEL");
+        require(paxel != null, "Core Curios Paxel is not registered");
+        var table = (io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.EnhancedCraftingTable)
+                SlimefunItem.getById("ENHANCED_CRAFTING_TABLE");
+        var profile = io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile.find(player).orElseThrow();
+        var research = paxel.getResearch();
+        boolean researched = research == null || profile.hasUnlocked(research);
+        byte[] templateBefore = paxel.getItem().serializeAsBytes();
+        var recipe = paxel.getRecipe();
+        byte[][] recipeBefore = new byte[9][];
+        require(recipe.length == 9 && recipe[1].getType() == org.bukkit.Material.DIAMOND_SHOVEL
+                        && recipe[7].getType() == org.bukkit.Material.DIAMOND_PICKAXE,
+                "Paxel handler fixture has wrong tool positions");
+        var dispenser = player.getLocation().getBlock().getRelative(0, 3, 0);
+        var tableBlock = dispenser.getRelative(0, 1, 0);
+        require(Bukkit.isOwnedByCurrentRegion(dispenser) && Bukkit.isOwnedByCurrentRegion(tableBlock),
+                "Paxel fixture outside player region");
+        require(dispenser.getType().isAir() && tableBlock.getType().isAir(), "Paxel fixture space occupied");
+        var permission = player.addAttachment(plugin, "slimefun.cheat.items", true);
+        try {
+            if (!researched) profile.setResearched(research, true);
+            player.getInventory().clear();
+            dispenser.setType(org.bukkit.Material.DISPENSER);
+            tableBlock.setType(org.bukkit.Material.CRAFTING_TABLE);
+            var inventory = ((org.bukkit.block.Dispenser) dispenser.getState(false)).getInventory();
+            for (int slot = 0; slot < 9; slot++) {
+                recipeBefore[slot] = recipe[slot].serializeAsBytes();
+                inventory.setItem(slot, recipe[slot].clone());
+            }
+            paxelCraftActive = true;
+            paxelCraftEvents = 0;
+            table.onInteract(player, tableBlock);
+            require(paxelCraftEvents == 1, "Paxel did not produce exactly one real craft event");
+            var outputs = Arrays.stream(inventory.getContents())
+                    .filter(item -> item != null && !item.getType().isAir()).toList();
+            require(outputs.size() == 1, "Paxel left ingredients or unexpected outputs");
+            var crafted = outputs.getFirst();
+            require(crafted.getAmount() == 1 && crafted.isSimilar(paxel.getItem())
+                            && paxel.getItem().isSimilar(crafted)
+                            && crafted.getItemMeta().equals(paxel.getItem().getItemMeta()),
+                    "Paxel delivered output identity/quantity mismatch");
+            require(player.getInventory().isEmpty(), "Paxel leaked extra output to player");
+            require(player.performCommand("sf give " + NAME + " ADVENTURERS_PAXEL 1"), "Paxel reference give rejected");
+            verifyGivenStack(player, paxel.getItem(), 1);
+            var given = player.getInventory().getItem(0);
+            require(crafted.isSimilar(given) && given.isSimilar(crafted), "Crafted/given Paxel differ");
+            require(Arrays.equals(templateBefore, paxel.getItem().serializeAsBytes()), "Paxel template mutated");
+            for (int slot = 0; slot < 9; slot++) {
+                require(Arrays.equals(recipeBefore[slot], recipe[slot].serializeAsBytes()), "Paxel ingredient template mutated");
+            }
+        } finally {
+            paxelCraftActive = false;
+            // Remove disposable test contents before removing their container: otherwise
+            // native block removal can drop the crafted Paxel into the next probe.
+            if (dispenser.getState(false) instanceof org.bukkit.block.Dispenser state) {
+                state.getInventory().clear();
+            }
+            dispenser.setType(org.bukkit.Material.AIR);
+            tableBlock.setType(org.bukkit.Material.AIR);
+            player.getInventory().clear();
+            player.removeAttachment(permission);
+            if (!researched) profile.setResearched(research, false);
+        }
+        plugin.pass("player-paxel-craft");
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPaxelCraft(io.github.thebusybiscuit.slimefun4.api.events.MultiBlockCraftEvent event) {
+        if (!paxelCraftActive || !NAME.equals(event.getPlayer().getName())) return;
+        owned(event.getPlayer());
+        require(!event.isCancelled() && "ENHANCED_CRAFTING_TABLE".equals(event.getMachine().getId()),
+                "Paxel craft cancelled or wrong machine");
+        require(SlimefunItem.getByItem(event.getOutput()) == SlimefunItem.getById("ADVENTURERS_PAXEL")
+                        && event.getOutput().getAmount() == 1, "Paxel craft event output differs");
+        paxelCraftEvents++;
+    }
+
+    private void verifyCraftOutput(Player player) throws Exception {
+        require(stage.equals("seed"), "Craft probe outside disposable seed phase");
+        owned(player);
+        var wire = SlimefunItem.getById("COPPER_WIRE");
+        var copper = SlimefunItem.getById("COPPER_INGOT");
+        var machine = SlimefunItem.getById("ENHANCED_CRAFTING_TABLE");
+        require(wire != null && copper != null
+                        && machine instanceof io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.EnhancedCraftingTable,
+                "Missing crafting fixture registrations");
+        var profile = io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile.find(player).orElseThrow();
+        var research = wire.getResearch();
+        boolean researched = research == null || profile.hasUnlocked(research);
+        byte[] wireBefore = wire.getItem().serializeAsBytes();
+        byte[] copperBefore = copper.getItem().serializeAsBytes();
+        var dispenserBlock = player.getLocation().getBlock().getRelative(0, 3, 0);
+        var tableBlock = dispenserBlock.getRelative(0, 1, 0);
+        require(Bukkit.isOwnedByCurrentRegion(dispenserBlock) && Bukkit.isOwnedByCurrentRegion(tableBlock),
+                "Craft fixture outside player region");
+        require(dispenserBlock.getType().isAir() && tableBlock.getType().isAir(), "Craft fixture space occupied");
+        var permission = player.addAttachment(plugin, "slimefun.cheat.items", true);
+        try {
+            if (!researched) profile.setResearched(research, true);
+            dispenserBlock.setType(org.bukkit.Material.DISPENSER);
+            tableBlock.setType(org.bukkit.Material.CRAFTING_TABLE);
+            var inventory = ((org.bukkit.block.Dispenser) dispenserBlock.getState(false)).getInventory();
+            player.getInventory().clear();
+            require(player.performCommand("sf give " + NAME + " COPPER_INGOT 3"), "Ingredient give rejected");
+            verifyGivenStack(player, copper.getItem(), 3);
+            ItemStack ingredient = player.getInventory().getItem(0);
+            require(ingredient != null, "Missing actual given ingredients");
+            for (int slot = 3; slot <= 5; slot++) {
+                ItemStack one = ingredient.clone();
+                one.setAmount(1);
+                inventory.setItem(slot, one);
+            }
+            player.getInventory().clear();
+            // Invoke the real production handler, including matching, event, consumption and output service.
+            // This does not simulate or claim network right-click/multiblock discovery coverage.
+            var table = (io.github.thebusybiscuit.slimefun4.implementation.items.multiblocks.EnhancedCraftingTable) machine;
+            craftProbeActive = true;
+            craftEvents = 0;
+            ItemStack middle = inventory.getItem(4);
+            inventory.setItem(4, null);
+            byte[][] incomplete = inventoryBytes(inventory);
+            table.onInteract(player, tableBlock);
+            require(craftEvents == 0, "Incomplete recipe emitted a craft event");
+            require(Arrays.deepEquals(incomplete, inventoryBytes(inventory)),
+                    "Incomplete recipe consumed or produced items");
+            inventory.setItem(4, middle);
+            byte[][] complete = inventoryBytes(inventory);
+            cancelCraft = true;
+            table.onInteract(player, tableBlock);
+            require(craftEvents == 1, "Cancelled craft did not reach the native event");
+            require(Arrays.deepEquals(complete, inventoryBytes(inventory)),
+                    "Cancelled craft consumed or produced items");
+            require(player.getInventory().isEmpty(), "Rejected craft leaked output to player");
+            cancelCraft = false;
+            table.onInteract(player, tableBlock);
+            require(craftEvents == 2, "Successful craft did not reach the native event");
+            var outputs = Arrays.stream(inventory.getContents())
+                    .filter(item -> item != null && !item.getType().isAir()).toList();
+            require(outputs.size() == 1, "Craft left ingredients or unexpected outputs");
+            ItemStack crafted = outputs.getFirst();
+            require(crafted.getAmount() == 8 && wire.getItem().isSimilar(crafted)
+                            && crafted.isSimilar(wire.getItem()), "Craft output identity/quantity mismatch");
+            require(player.performCommand("sf give " + NAME + " COPPER_WIRE 8"), "Reference give rejected");
+            verifyGivenStack(player, wire.getItem(), 8);
+            var folder = plugin.getDataFolder().toPath();
+            Files.write(folder.resolve("identity-crafted-wire.bin"), crafted.serializeAsBytes());
+            Files.write(folder.resolve("identity-given-wire.bin"),
+                    player.getInventory().getItem(0).serializeAsBytes());
+            craftedForStorage = crafted.clone();
+            givenForStorage = player.getInventory().getItem(0).clone();
+            inventory.clear();
+            require(player.getInventory().addItem(crafted).isEmpty(), "Craft/give merge overflow");
+            verifyGivenStack(player, wire.getItem(), 16);
+            require(Arrays.equals(wireBefore, wire.getItem().serializeAsBytes())
+                            && Arrays.equals(copperBefore, copper.getItem().serializeAsBytes()),
+                    "Craft mutated registered template");
+        } finally {
+            craftProbeActive = false;
+            cancelCraft = false;
+            dispenserBlock.setType(org.bukkit.Material.AIR);
+            tableBlock.setType(org.bukkit.Material.AIR);
+            player.getInventory().clear();
+            player.removeAttachment(permission);
+            if (!researched) profile.setResearched(research, false);
+        }
+        plugin.pass("player-identity-craft");
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onIdentityCraft(io.github.thebusybiscuit.slimefun4.api.events.MultiBlockCraftEvent event) {
+        if (!craftProbeActive || !NAME.equals(event.getPlayer().getName())) return;
+        try {
+            owned(event.getPlayer());
+            require("ENHANCED_CRAFTING_TABLE".equals(event.getMachine().getId()), "Unexpected craft machine");
+            require(SlimefunItem.getById("COPPER_WIRE").getItem().isSimilar(event.getOutput())
+                            && event.getOutput().getAmount() == 8, "Unexpected craft event output");
+            require(!event.isCancelled(), "Craft was cancelled before probe control");
+            craftEvents++;
+            if (cancelCraft) event.setCancelled(true);
+        } catch (Throwable failure) {
+            event.setCancelled(true);
+            plugin.fail(failure);
+        }
+    }
+
+    private void verifyStoredOutputs(Player player) throws Exception {
+        owned(player);
+        var folder = plugin.getDataFolder().toPath();
+        ItemStack crafted = player.getEnderChest().getItem(10);
+        ItemStack given = player.getEnderChest().getItem(11);
+        require(crafted != null && given != null, "Actual producer outputs missing from saved ender chest");
+        require(Arrays.equals(crafted.serializeAsBytes(), Files.readAllBytes(folder.resolve("identity-crafted-wire.bin")))
+                        && Arrays.equals(given.serializeAsBytes(), Files.readAllBytes(folder.resolve("identity-given-wire.bin"))),
+                "Saved ender outputs changed identity or quantity");
+        byte[][] before = inventoryBytes(player.getEnderChest());
+        var merge = Bukkit.createInventory(null, 9);
+        require(crafted.getAmount() == 8 && given.getAmount() == 8
+                        && crafted.isSimilar(given) && given.isSimilar(crafted), "Stored output identity/quantity");
+        require(merge.addItem(crafted.clone(), given.clone()).isEmpty(), "Stored output merge overflow");
+        var stacks = Arrays.stream(merge.getContents()).filter(item -> item != null && !item.getType().isAir()).toList();
+        require(stacks.size() == 1 && stacks.getFirst().getAmount() == 16, "Stored outputs lost or duplicated on merge");
+        require(Arrays.deepEquals(before, inventoryBytes(player.getEnderChest())), "Storage inspection mutated ender chest");
+        plugin.pass("player-identity-ender-" + stage);
+    }
+
+    private String inventorySummary(org.bukkit.inventory.Inventory inventory) {
+        // Report only slot/material/quantity, never player identifiers or metadata/PDC values.
+        var entries = new java.util.ArrayList<String>();
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            var item = inventory.getItem(slot);
+            if (item != null && !item.getType().isAir()) {
+                entries.add(slot + ":" + item.getType() + "x" + item.getAmount());
+            }
+        }
+        return entries.toString();
+    }
+
+    private byte[][] inventoryBytes(org.bukkit.inventory.Inventory inventory) {
+        return Arrays.stream(inventory.getContents())
+                .map(item -> item == null ? null : item.serializeAsBytes())
+                .toArray(byte[][]::new);
+    }
+
+    private void verifyGivenStack(Player player, ItemStack template, int amount) {
+        var stacks = Arrays.stream(player.getInventory().getStorageContents())
+                .filter(item -> item != null && !item.getType().isAir())
+                .toList();
+        require(stacks.size() == 1, "Give output did not form exactly one stack");
+        ItemStack actual = stacks.getFirst();
+        require(actual.getAmount() == amount, "Give output lost or duplicated items");
+        require(template.isSimilar(actual) && actual.isSimilar(template), "Give output differs from template");
+        require(template.getItemMeta().equals(actual.getItemMeta()), "Give metadata differs from template");
     }
 
     private void disconnectBeforeCleanup(Player player) {
@@ -189,10 +758,79 @@ final class ResourcePackPlayerProbe implements Listener {
         var profiles = Slimefun.getDatabaseManager().getProfileDataController();
         backpack = profiles.createBackpack(player, "Connected Doctor fixture", 77, 9);
         backpack.getInventory().setItem(0, plugin.expected("old-0"));
+        verifyStoredOutputs(player);
+        backpack.getInventory().setItem(1, player.getEnderChest().getItem(10).clone());
+        backpack.getInventory().setItem(2, player.getEnderChest().getItem(11).clone());
         profiles.saveBackpackInventoryAsync(backpack).get(10, TimeUnit.SECONDS);
+        verifyBackpackOutputs(player, backpack.getUniqueId().toString(), "saved");
         Files.writeString(
                 plugin.getDataFolder().toPath().resolve("player-backpack.uuid"),
                 backpack.getUniqueId().toString());
+    }
+
+    private void verifyBackpackOutputs(Player player, String id, String phase) throws Exception {
+        owned(player);
+        var profiles = Slimefun.getDatabaseManager().getProfileDataController();
+        var folder = plugin.getDataFolder().toPath();
+        ItemStack[] actual = new ItemStack[2];
+        String[] captures = {"identity-crafted-wire.bin", "identity-given-wire.bin"};
+        byte[][] rowsBefore = new byte[2][];
+        for (int index = 0; index < 2; index++) {
+            var row = plugin.readSlot(profiles, DataScope.BACKPACK_INVENTORY, FieldKey.BACKPACK_ID, id, index + 1);
+            Object raw = row.getValue(FieldKey.INVENTORY_ITEM);
+            require(raw instanceof byte[], "Expected native backpack producer payload");
+            rowsBefore[index] = ((byte[]) raw).clone();
+            actual[index] = row.getItemStack(FieldKey.INVENTORY_ITEM);
+            require(actual[index] != null && actual[index].getAmount() == 8
+                            && Arrays.equals(actual[index].serializeAsBytes(), Files.readAllBytes(folder.resolve(captures[index]))),
+                    "Backpack producer row identity/quantity changed");
+        }
+        require(actual[0].isSimilar(actual[1]) && actual[1].isSimilar(actual[0]), "Backpack cross-source identity");
+        var merge = Bukkit.createInventory(null, 9);
+        require(merge.addItem(actual).isEmpty(), "Backpack producer merge overflow");
+        var stacks = Arrays.stream(merge.getContents()).filter(item -> item != null && !item.getType().isAir()).toList();
+        require(stacks.size() == 1 && stacks.getFirst().getAmount() == 16, "Backpack producer merge lost or duplicated items");
+        for (int index = 0; index < 2; index++) {
+            Object after = plugin.readSlot(profiles, DataScope.BACKPACK_INVENTORY, FieldKey.BACKPACK_ID, id, index + 1)
+                    .getValue(FieldKey.INVENTORY_ITEM);
+            require(after instanceof byte[] && Arrays.equals(rowsBefore[index], (byte[]) after),
+                    "Backpack verification rewrote producer row");
+        }
+        plugin.pass("player-identity-backpack-" + phase);
+    }
+
+    private void verifyLoadedBackpack(Player player, String id) throws Exception {
+        owned(player);
+        require(backpack == null, "Restart probe retained a backpack from an earlier process");
+        var profiles = Slimefun.getDatabaseManager().getProfileDataController();
+        var loaded = profiles.getBackpack(id);
+        require(loaded != null && loaded.getUniqueId().toString().equals(id), "Backpack UUID reload mismatch");
+        require(loaded.getOwner().getUniqueId().equals(player.getUniqueId()) && loaded.getId() == 77,
+                "Backpack owner/number reload mismatch");
+        require(loaded.getSize() == 9 && loaded.getName().equals("Connected Doctor fixture"),
+                "Backpack size/name reload mismatch");
+        var inventory = loaded.getInventory();
+        require(inventory.getSize() == 9 && inventory.getHolder() == loaded, "Loaded backpack inventory holder/size");
+        require(plugin.expected("clean-0").equals(inventory.getItem(0)), "Loaded backpack control slot changed");
+        for (int slot = 3; slot < inventory.getSize(); slot++) {
+            require(inventory.getItem(slot) == null, "Unexpected item in loaded backpack");
+        }
+        byte[][] before = inventoryBytes(inventory);
+        var folder = plugin.getDataFolder().toPath();
+        var crafted = inventory.getItem(1);
+        var given = inventory.getItem(2);
+        require(crafted != null && given != null && crafted.getAmount() == 8 && given.getAmount() == 8,
+                "Loaded backpack output quantities");
+        require(Arrays.equals(crafted.serializeAsBytes(), Files.readAllBytes(folder.resolve("identity-crafted-wire.bin")))
+                        && Arrays.equals(given.serializeAsBytes(), Files.readAllBytes(folder.resolve("identity-given-wire.bin"))),
+                "Loaded backpack output identity changed");
+        require(crafted.isSimilar(given) && given.isSimilar(crafted), "Loaded backpack cross-source similarity");
+        var merge = Bukkit.createInventory(null, 9);
+        require(merge.addItem(crafted.clone(), given.clone()).isEmpty(), "Loaded backpack merge overflow");
+        var stacks = Arrays.stream(merge.getContents()).filter(item -> item != null && !item.getType().isAir()).toList();
+        require(stacks.size() == 1 && stacks.getFirst().getAmount() == 16, "Loaded backpack merge conservation");
+        require(Arrays.deepEquals(before, inventoryBytes(inventory)), "Inspection mutated loaded backpack");
+        verifyBackpackOutputs(player, id, "loaded");
     }
 
     private byte[] backpackBytes() throws Exception {
@@ -262,6 +900,7 @@ final class ResourcePackPlayerProbe implements Listener {
                     "Open backpack cleanup was not saved");
             player.setItemOnCursor(null);
             player.closeInventory();
+            verifyBackpackOutputs(player, backpack.getUniqueId().toString(), "opened");
             plugin.pass("player-open");
         });
     }

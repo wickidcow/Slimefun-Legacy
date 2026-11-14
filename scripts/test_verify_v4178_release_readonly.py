@@ -20,7 +20,7 @@ class HistoricalReleaseReadOnlyTest(unittest.TestCase):
     def test_no_historical_release_mutation_commands(self):
         self.assertNotRegex(self.workflow, r"gh\s+release\s+(?:upload|delete|delete-asset|edit|create)\b")
         self.assertNotRegex(self.workflow, r"gh\s+api\s+(?:--method|-[XP])\s*(?:POST|PATCH|DELETE)")
-        self.assertIn("--require-present", self.workflow)
+        self.assertIn("--require-present --read-only", self.workflow)
 
     def test_preserve_exact_original_zip_and_read_only_receipts(self):
         self.assertIn("gh release download v4.1.77", self.workflow)

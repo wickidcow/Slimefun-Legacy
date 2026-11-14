@@ -40,6 +40,31 @@ def fixtures(present=False):
 
 
 class CarryForwardTests(unittest.TestCase):
+    def test_read_only_historical_verification_after_new_release(self):
+        s, t, l = fixtures(True)
+        t["assets"][-1]["id"] = CARRIED_GEYSER_PIN["target_asset_id"]
+        s["immutable"] = t["immutable"] = True
+        l["tag_name"], l["id"] = "v4.1.79", 431031092
+        before = copy.deepcopy((s, t, l))
+        report = verify_releases(s, t, l, require_present=True, read_only=True)
+        self.assertTrue(report["already_present"])
+        self.assertEqual(before, (s, t, l))
+        with self.assertRaises(PolicyError):
+            verify_releases(s, t, l, require_present=True)
+
+    def test_read_only_mode_keeps_historical_identity_and_byte_guards(self):
+        for field, value in (("id", 123), ("size", 1), ("digest", "sha256:" + "0" * 64)):
+            with self.subTest(field=field):
+                s, t, l = fixtures(True)
+                t["assets"][-1]["id"] = CARRIED_GEYSER_PIN["target_asset_id"]
+                t["assets"][-1][field] = value
+                with self.assertRaises(PolicyError):
+                    verify_releases(s, t, l, require_present=True, read_only=True)
+        s, t, l = fixtures()
+        for required in (False, True):
+            with self.assertRaises(PolicyError):
+                verify_releases(s, t, l, require_present=required, read_only=True)
+
     def test_original_player_asset_replacement_is_explicit_and_bytes_still_pinned(self):
         self.assertEqual(680344840, INITIAL_PLAYER_PACK_ASSET_ID)
         current_id, size, digest = CORE_ASSETS["SlimefunLegacyRP.zip"]
