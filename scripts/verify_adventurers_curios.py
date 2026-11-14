@@ -164,9 +164,14 @@ def main() -> int:
         chunk_control = read(root, files["chunk_control"])
         for token in (
             "resolve(CuriositiesConfig.FILE_NAME)", "CuriositiesConfig.getConfig().reload()",
-            '"Could not persist Resonance Beacon chunk-loading state to " + CuriositiesConfig.FILE_NAME',
+            '"Could not persist Resonance Beacon chunk policy to "',
+            'BeaconPlusChunkLoadingPolicy', 'shouldHoldTickets()',
         ):
             req(token in chunk_control, f"Resonance Beacon addons config persistence invariant missing: {token}", failures)
+
+        for token in ("chunk-loading-mode: ONLINE", "chunk-loading-enabled: true"):
+            req(token in addons_config,
+                f"Bundled Resonance Beacon policy default missing: {token}", failures)
 
         for source_name, source in (
             ("AdventurersCuriosSetup", setup),
@@ -189,7 +194,7 @@ def main() -> int:
             'new ChestMenu("&6&lResonance Beacon", 54)', "purchaseNextTier", "action.isRightClicked()",
             "action.isShiftClicked()", "BeaconPlusPyramid.inspect", "BeaconPlusConfig.installDefaults()",
             "BeaconPlusLegacyDataStore.start", "BeaconPlusRuntime.reconcileActivator", "Enabled powers:",
-            'enabled.size() + "/29"', "37", "EnergyNetComponent", "ELECTRIC_OPERATION_SLOT", "isEnergyNetActive",
+            "visiblePowers", "BeaconPlusChunkLoadingControl.isEnabled()", "37", "EnergyNetComponent", "ELECTRIC_OPERATION_SLOT", "isEnergyNetActive",
             "BeaconPlusEffect.RADIATION_ABSORBER", "Tier I absorbs 25 exposure",
             "Disabled in configSFLAddons.yml", "potentialTiers", "DORMANT (ENERGY)",
         ):

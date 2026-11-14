@@ -1,0 +1,84 @@
+name: Native Resonance Beacon Chunk Policy
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - 'src/main/java/io/github/thebusybiscuit/slimefun4/implementation/items/curios/BeaconPlus*.java'
+      - 'src/main/java/io/github/thebusybiscuit/slimefun4/core/config/CuriositiesConfig.java'
+      - 'src/main/resources/configSFLAddons.yml'
+      - 'scripts/runtime/beacon_policy/**'
+      - '.github/workflows/native-beacon-chunk-policy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-beacon:
+    name: Native Beacon policy / ${{ matrix.software }} ${{ matrix.minecraft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { minecraft: '1.21.11', software: 'paper' }
+          - { minecraft: '26.2', software: 'paper' }
+          - { minecraft: '26.3', software: 'paper' }
+          - { minecraft: '26.2', software: 'folia' }
+    steps:
+      - name: Checkout exact PR source
+        uses: actions/checkout@v6
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Setup Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Validate and build exact current Slimefun source
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Formatting is enforced by the regular build workflow; this
+          # isolated native test must not be blocked by unrelated baseline
+          # formatting issues elsewhere in the repository.
+          ./gradlew --no-daemon test shadowJar writeCompatibilityCompileClasspath
+
+      - name: Verify test probe syntax and Paper 1.21.11 API
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/runtime/beacon_policy/run_probe.py
+          test -s build/compatibility/compile-classpath.txt
+          find "$HOME/.gradle/caches/modules-2/files-2.1/io.papermc.paper/paper-api/1.21.11-R0.1-SNAPSHOT" \
+            -type f -name 'paper-api-*.jar' -print -quit | grep -q .
+
+      - name: Run real saved-world policy and ticket lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          CORE_JAR="$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' \
+            ! -name '*sources*' ! -name '*javadoc*' -size +1M -print -quit)"
+          PAPER_API_JAR="$(find "$HOME/.gradle/caches/modules-2/files-2.1/io.papermc.paper/paper-api/1.21.11-R0.1-SNAPSHOT" \
+            -type f -name 'paper-api-*.jar' -print -quit)"
+          test -s "$CORE_JAR"
+          test -s "$PAPER_API_JAR"
+          python3 scripts/runtime/beacon_policy/run_probe.py \
+            --slimefun-jar "$CORE_JAR" \
+            --paper-api-jar "$PAPER_API_JAR" \
+            --compile-classpath-file build/compatibility/compile-classpath.txt \
+            --minecraft "${{ matrix.minecraft }}" \
+            --software "${{ matrix.software }}"
+
+      - name: Preserve failed runtime logs for diagnosis
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: beacon-native-logs-${{ matrix.software }}-${{ matrix.minecraft }}
+          path: build/beacon-native-policy/${{ matrix.software }}-${{ matrix.minecraft }}/*.log
+          if-no-files-found: ignore

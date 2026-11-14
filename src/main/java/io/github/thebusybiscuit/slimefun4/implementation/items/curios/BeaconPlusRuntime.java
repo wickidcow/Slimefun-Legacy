@@ -443,6 +443,12 @@ final class BeaconPlusRuntime {
     }
 
     static boolean reconcileActivator(Block block, int tier) {
+        // OFF is a global runtime gate, not a migration of saved beacon powers.
+        // Do not rewrite stored chunk-mode selections while the operator has
+        // the loader hidden and disabled.
+        if (!BeaconPlusChunkLoadingControl.isEnabled()) {
+            return true;
+        }
         BeaconPlusManager manager = BeaconPlusManager.getInstance();
         if (manager == null) {
             return false;

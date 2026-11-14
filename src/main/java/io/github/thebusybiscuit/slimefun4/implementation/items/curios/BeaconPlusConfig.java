@@ -21,6 +21,9 @@ final class BeaconPlusConfig {
         var config = CuriositiesConfig.getConfig();
         config.setDefaultValue(ROOT + ".enabled", true);
         config.setDefaultValue(ROOT + ".chunk-loading-enabled", true);
+        config.setDefaultValue(
+                ROOT + ".chunk-loading-mode",
+                config.getBoolean(ROOT + ".chunk-loading-enabled") ? "ONLINE" : "OFF");
         config.setDefaultValue(ROOT + ".electric-operation.enabled", true);
         config.setDefaultValue(ROOT + ".electric-operation.capacity", 4096);
         config.setDefaultValue(ROOT + ".electric-operation.base-joules-per-pulse", 16);
@@ -72,6 +75,7 @@ final class BeaconPlusConfig {
 
     static boolean isPowerEnabled(BeaconPlusEffect effect) {
         return effect.isConfigurable()
+                && (effect != BeaconPlusEffect.ACTIVATOR || BeaconPlusChunkLoadingControl.isEnabled())
                 && CuriositiesConfig.getConfig().getBoolean(powerPath(effect) + ".enabled");
     }
 

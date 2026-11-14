@@ -28,7 +28,7 @@ public final class CuriositiesConfig {
 
     public static final String FILE_NAME = "configSFLAddons.yml";
 
-    private static final int CURRENT_CONFIG_VERSION = 2;
+    private static final int CURRENT_CONFIG_VERSION = 3;
     private static final String CONFIG_VERSION_PATH = "config-version";
     private static final String RESOURCE_PACK_GUIDE_MARKER =
             "# Slimefun Legacy resource-pack safety guide (config-version 1)";
@@ -144,6 +144,7 @@ public final class CuriositiesConfig {
             contents = writeConfigVersion(contents);
             contents = writeResourcePackSafetyGuide(contents);
             contents = writeResourcePackOwnershipGuide(contents);
+            contents = writeBeaconChunkLoadingGuide(contents);
             Files.writeString(file.toPath(), contents, StandardCharsets.UTF_8);
 
             yaml = YamlConfiguration.loadConfiguration(file);
@@ -175,6 +176,46 @@ public final class CuriositiesConfig {
             return contents.substring(0, insertAt) + versionLine + "\n\n" + contents.substring(insertAt);
         }
         return versionLine + "\n\n" + contents;
+    }
+
+    /**
+     * One-time, text-preserving migration of the historical global boolean.
+     * An existing false selection becomes OFF; every other existing server
+     * receives the safer ONLINE policy rather than retaining offline tickets.
+     */
+    static String writeBeaconChunkLoadingGuide(@Nonnull String contents) {
+        if (java.util.regex.Pattern.compile("(?m)^    chunk-loading-mode\\s*:")
+                .matcher(contents)
+                .find()) {
+            return contents;
+        }
+
+        var oldSwitch = java.util.regex.Pattern.compile(
+                "(?mi)^    chunk-loading-enabled:[ \\t]*(true|false)(?:[ \\t]*#.*)?$")
+                .matcher(contents);
+        String guide = """
+                \n    # Activator chunk tickets: ONLINE (default, any player on server), ALWAYS, or OFF.
+                    # ONLINE releases beacon chunk tickets when the last player leaves.
+                    # ALWAYS keeps selected beacon chunks running while the server is online.
+                    # OFF removes Activator from the beacon GUI and releases its tickets.
+                    # Old beacon settings, purchases and stored chunk selections remain intact.
+                """;
+        if (oldSwitch.find()) {
+            String migrated = "false".equalsIgnoreCase(oldSwitch.group(1)) ? "OFF" : "ONLINE";
+            int end = oldSwitch.end();
+            return contents.substring(0, end) + guide + "    chunk-loading-mode: " + migrated + "\n"
+                    + contents.substring(end);
+        }
+
+        // Very old custom configs may not contain the previous boolean.
+        var beacon = java.util.regex.Pattern.compile("(?m)^  PoweredBeacon:[ \\t]*$")
+                .matcher(contents);
+        if (beacon.find()) {
+            int end = beacon.end();
+            return contents.substring(0, end) + guide + "    chunk-loading-mode: ONLINE\n"
+                    + contents.substring(end);
+        }
+        return contents;
     }
 
     private String writeResourcePackSafetyGuide(@Nonnull String contents) {

@@ -7,7 +7,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
@@ -41,6 +44,9 @@ public final class BeaconPlusManager {
     private final Path registryPath;
     private final Map<LocationKey, BeaconRecord> records = new HashMap<>();
     private final Map<ChunkKey, Integer> ticketReferences = new HashMap<>();
+    // A malformed or unreadable saved registry must never be replaced by a
+    // partial in-memory copy on restart, shutdown or later admin changes.
+    private boolean registryHealthy = true;
 
     private BeaconPlusManager(Slimefun plugin) {
         this.plugin = plugin;
@@ -71,6 +77,11 @@ public final class BeaconPlusManager {
     }
 
     public synchronized void register(@Nonnull Location location, @Nonnull UUID owner) {
+        if (!registryHealthy) {
+            plugin.getLogger().severe("Refusing new Resonance Beacon registration while saved owner "
+                    + "registry is unreadable; restore the file before allowing placements.");
+            return;
+        }
         LocationKey key = LocationKey.from(location);
         BeaconRecord previous = records.get(key);
         if (previous != null) {
@@ -84,6 +95,9 @@ public final class BeaconPlusManager {
     }
 
     public synchronized void unregister(@Nonnull Location location) {
+        if (!registryHealthy) {
+            return;
+        }
         BeaconRecord record = records.remove(LocationKey.from(location));
         if (record != null) {
             releaseCoverage(record);
@@ -159,6 +173,9 @@ public final class BeaconPlusManager {
             @Nonnull UUID owner,
             @Nonnull BeaconPlusChunkMode chunkMode,
             @Nonnull BeaconPlusSupportMode supportMode) {
+        if (!registryHealthy) {
+            return false;
+        }
         LocationKey key = LocationKey.from(location);
         BeaconRecord previous = records.getOrDefault(
                 key, new BeaconRecord(key, owner, BeaconPlusChunkMode.OFF, BeaconPlusSupportMode.OFF));
@@ -185,13 +202,18 @@ public final class BeaconPlusManager {
 
     /** Applies the global admin switch without changing any beacon's saved Activator selection. */
     public synchronized void applyGlobalChunkLoadingState() {
-        if (!BeaconPlusChunkLoadingControl.isEnabled()) {
+        if (!BeaconPlusChunkLoadingControl.shouldHoldTickets()) {
             releaseAllChunkTickets();
             return;
         }
 
         if (ticketReferences.isEmpty()) {
             restoreTickets();
+            // Startup validation deliberately skips intentionally unloaded
+            // ONLINE chunks. When the first player returns and we restore
+            // tickets, revalidate the now-loading beacon records rather than
+            // keeping an obsolete entry ticketed forever.
+            scheduleValidation();
         }
     }
 
@@ -205,6 +227,10 @@ public final class BeaconPlusManager {
         return ticketReferences.size();
     }
 
+    public synchronized boolean isRegistryHealthy() {
+        return registryHealthy;
+    }
+
     private boolean canActivate(BeaconRecord previous, BeaconRecord replacement) {
         if (!replacement.chunkMode().isActive()) {
             return true;
@@ -215,7 +241,7 @@ public final class BeaconPlusManager {
             return false;
         }
 
-        if (!BeaconPlusChunkLoadingControl.isEnabled()) {
+        if (!BeaconPlusChunkLoadingControl.shouldHoldTickets()) {
             Set<ChunkKey> configuredCoverage = new HashSet<>();
             for (BeaconRecord record : records.values()) {
                 if (!record.location().equals(replacement.location())) {
@@ -244,11 +270,10 @@ public final class BeaconPlusManager {
     }
 
     private void restoreTickets() {
-        if (!BeaconPlusChunkLoadingControl.isEnabled()) {
+        if (!BeaconPlusChunkLoadingControl.shouldHoldTickets()) {
             return;
         }
 
-        boolean changed = false;
         int restoredActive = 0;
 
         for (Map.Entry<LocationKey, BeaconRecord> entry : new HashMap<>(records).entrySet()) {
@@ -262,14 +287,15 @@ public final class BeaconPlusManager {
                     .filter(key -> !ticketReferences.containsKey(key))
                     .count();
             if (restoredActive >= MAX_ACTIVE_BEACONS || ticketReferences.size() + newChunks > MAX_UNIQUE_CHUNKS) {
-                records.put(
-                        entry.getKey(),
-                        new BeaconRecord(
-                                record.location(), record.owner(), BeaconPlusChunkMode.OFF, record.supportMode()));
+                // Limits apply to the LIVE ticket set, never to saved player
+                // purchases or configured Activator coverage. An overloaded
+                // server may have older beacon data or a changed safety cap;
+                // overwriting its chunk mode to OFF would permanently erase
+                // valid owner settings across every later restart.
                 plugin.getLogger()
                         .warning("Resonance Beacon at " + record.location().describe()
-                                + " restored with Activator disabled because the global safety cap was reached.");
-                changed = true;
+                                + " has no restored Activator tickets because the runtime safety cap was reached. "
+                                + "Its saved chunk mode and owner remain unchanged.");
                 continue;
             }
 
@@ -277,9 +303,6 @@ public final class BeaconPlusManager {
             restoredActive++;
         }
 
-        if (changed) {
-            saveRegistry();
-        }
     }
 
     private void scheduleValidation() {
@@ -297,6 +320,13 @@ public final class BeaconPlusManager {
     private void validateRecord(LocationKey key, int attempt) {
         World world = Bukkit.getWorld(key.worldId());
         if (world == null) {
+            return;
+        }
+
+        // With ONLINE and no players there may intentionally be no tickets.
+        // An unloaded chunk is not evidence the beacon was removed: never
+        // erase a valid persisted registry entry because its chunk is dormant.
+        if (!world.isChunkLoaded(key.x() >> 4, key.z() >> 4)) {
             return;
         }
 
@@ -339,7 +369,7 @@ public final class BeaconPlusManager {
     }
 
     private void acquireCoverage(BeaconRecord record) {
-        if (!BeaconPlusChunkLoadingControl.isEnabled() || !record.chunkMode().isActive()) {
+        if (!BeaconPlusChunkLoadingControl.shouldHoldTickets() || !record.chunkMode().isActive()) {
             return;
         }
 
@@ -434,40 +464,67 @@ public final class BeaconPlusManager {
         data.setData(SUPPORT_MODE_KEY, record.supportMode().name());
     }
 
+    /** Parse the entire saved registry before modifying live state. */
+    private static Map<LocationKey, BeaconRecord> parseRegistry(Properties properties) {
+        Map<LocationKey, BeaconRecord> parsed = new HashMap<>();
+        for (String keyText : properties.stringPropertyNames()) {
+            LocationKey location = LocationKey.parse(keyText);
+            String[] parts = properties.getProperty(keyText, "").split(";", -1);
+            if (parts.length != 3) {
+                throw new IllegalArgumentException("Malformed saved beacon record at " + keyText);
+            }
+            String savedChunkMode = parts[1].trim().toUpperCase(Locale.ROOT);
+            if (!savedChunkMode.equals("KEEP_CHUNK_LOADED") && !savedChunkMode.equals("CHUNK_ACTIVATOR")) {
+                // fromStored is intentionally permissive for incomplete block
+                // data, but the OWNER REGISTRY must never turn an unknown
+                // newer saved mode into OFF and overwrite it during shutdown.
+                BeaconPlusChunkMode.valueOf(savedChunkMode);
+            }
+            BeaconPlusSupportMode.valueOf(parts[2].trim().toUpperCase(Locale.ROOT));
+            BeaconRecord record = new BeaconRecord(location, UUID.fromString(parts[0]),
+                    BeaconPlusChunkMode.fromStored(parts[1]),
+                    BeaconPlusSupportMode.fromStored(parts[2]));
+            if (parsed.putIfAbsent(location, record) != null) {
+                throw new IllegalArgumentException("Duplicate Beacon Plus saved position " + keyText);
+            }
+        }
+        return parsed;
+    }
+
+    /** Pure parser contract for owner-preservation tests; never touches Bukkit. */
+    static int validatedRegistryEntryCount(Properties properties) {
+        return parseRegistry(properties).size();
+    }
+
     private void loadRegistry() {
         if (!Files.isRegularFile(registryPath)) {
+            if (Files.exists(registryPath)) {
+                registryHealthy = false;
+                plugin.getLogger().severe("Beacon Plus owner registry is not a regular file: "
+                        + registryPath + ". Refusing to overwrite it.");
+            }
             return;
         }
 
         Properties properties = new Properties();
         try (InputStream input = Files.newInputStream(registryPath)) {
             properties.load(input);
-        } catch (IOException exception) {
-            plugin.getLogger().log(Level.WARNING, "Could not read the Beacon Plus registry.", exception);
-            return;
-        }
-
-        for (String keyText : properties.stringPropertyNames()) {
-            try {
-                LocationKey location = LocationKey.parse(keyText);
-                String[] parts = properties.getProperty(keyText, "").split(";", -1);
-                if (parts.length < 3) {
-                    continue;
-                }
-                records.put(
-                        location,
-                        new BeaconRecord(
-                                location,
-                                UUID.fromString(parts[0]),
-                                BeaconPlusChunkMode.fromStored(parts[1]),
-                                BeaconPlusSupportMode.fromStored(parts[2])));
-            } catch (IllegalArgumentException exception) {
-                plugin.getLogger().warning("Ignored malformed Beacon Plus registry entry: " + keyText);
-            }
+            records.putAll(parseRegistry(properties));
+        } catch (IOException | IllegalArgumentException exception) {
+            records.clear();
+            registryHealthy = false;
+            plugin.getLogger().log(Level.SEVERE,
+                    "Could not safely load Beacon Plus saved owners/Activator selections from "
+                            + registryPath + ". Refusing placements, breaks and registry rewrites "
+                            + "until the original file is recovered.", exception);
         }
     }
 
     private synchronized void saveRegistry() {
+        if (!registryHealthy) {
+            plugin.getLogger().severe("Refusing to overwrite unreadable Beacon Plus owner registry.");
+            return;
+        }
         Properties properties = new Properties();
         for (BeaconRecord record : records.values()) {
             properties.setProperty(
@@ -478,11 +535,26 @@ public final class BeaconPlusManager {
 
         try {
             Files.createDirectories(registryPath.getParent());
-            try (OutputStream output = Files.newOutputStream(registryPath)) {
-                properties.store(output, "Slimefun Legacy Adventurer's Curios - Beacon Plus registry");
+            Path pending = Files.createTempFile(registryPath.getParent(), "beacon-plus-registry-", ".tmp");
+            try {
+                try (OutputStream output = Files.newOutputStream(pending)) {
+                    properties.store(output, "Slimefun Legacy Adventurer's Curios - Beacon Plus registry");
+                }
+                try {
+                    Files.move(pending, registryPath,
+                            StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                } catch (AtomicMoveNotSupportedException unsupported) {
+                    Files.move(pending, registryPath, StandardCopyOption.REPLACE_EXISTING);
+                }
+            } finally {
+                Files.deleteIfExists(pending);
             }
         } catch (IOException exception) {
-            plugin.getLogger().log(Level.WARNING, "Could not save the Beacon Plus registry.", exception);
+            // Never truncate the original registry before its replacement is
+            // completely written. Failed writes preserve saved owner and
+            // Activator selections for operator recovery.
+            plugin.getLogger().log(Level.SEVERE,
+                    "Could not safely save Beacon Plus owner registry; original file retained.", exception);
         }
     }
 

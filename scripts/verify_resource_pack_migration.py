@@ -55,7 +55,7 @@ def main() -> int:
         "runtime stale SHA-1 suppression",
     )
 
-    require(config_source, "CURRENT_CONFIG_VERSION = 2", "versioned addon config schema")
+    require(config_source, "CURRENT_CONFIG_VERSION = 3", "versioned addon config schema")
     require(config_source, "migrateConfigVersion();", "one-time addon config migration")
     require(config_source, "writeResourcePackSafetyGuide", "resource-pack operator note injection")
     require(config_source, "writeResourcePackOwnershipGuide", "resource-pack ownership note injection")
@@ -63,7 +63,7 @@ def main() -> int:
     require(config_source, "migrateConfigVersion();\n        migrateRetiredResourcePackUrl();\n        ensureResourcePackDefaults();", "schema migration must run before normal default persistence")
     require(config_source, '"\\n  ownership-mode: auto"', "text-preserving ownership key insertion")
     require(config_source, 'Pattern.compile("(?m)^\\\\s{2}ownership-mode\\\\s*:")', "ownership-key duplicate guard")
-    require(config_yaml, "config-version: 2", "bundled addon config version")
+    require(config_yaml, "config-version: 3", "bundled addon config version")
     require(config_yaml, "Slimefun Legacy resource-pack safety guide (config-version 1)", "versioned pack safety guide")
     require(config_yaml, "/sf doctor item-models enable-pack scan", "pack enable scan instruction")
     require(config_yaml, "/sf doctor item-models enable-pack confirm", "pack enable confirm instruction")

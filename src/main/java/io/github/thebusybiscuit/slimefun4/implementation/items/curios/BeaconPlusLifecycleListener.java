@@ -15,7 +15,10 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.inventory.EquipmentSlot;
 
@@ -68,12 +71,36 @@ final class BeaconPlusLifecycleListener implements Listener {
             return;
         }
 
+        if (!manager.isRegistryHealthy()) {
+            event.setCancelled(true);
+            message(player, "&c" + "Resonance Beacon saved owners could not be loaded. "
+                    + "&7" + "Placement is blocked until the original registry is recovered.");
+            return;
+        }
+
         if (manager.isBeaconWithinChunkRadius(
                 event.getBlockPlaced().getLocation(), MINIMUM_BEACON_CHUNK_SPACING)) {
             event.setCancelled(true);
             message(player, "&c" + "Cannot place Resonance Beacon: " + "&7"
                     + "it is too close to another Resonance Beacon. Beacons must be more than 3 chunks apart.");
         }
+    }
+
+    /**
+     * Refuse a real Beacon Plus removal when its saved-owner registry failed
+     * to load, before the SimpleBlockBreakHandler can mutate world data.
+     * Other blocks are entirely unaffected.
+     */
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onBeaconBreak(BlockBreakEvent event) {
+        BeaconPlusManager manager = BeaconPlusManager.getInstance();
+        if (manager == null || manager.isRegistryHealthy()
+                || !StorageCacheUtils.isBlock(event.getBlock().getLocation(), BeaconPlusManager.ITEM_ID)) {
+            return;
+        }
+        event.setCancelled(true);
+        message(event.getPlayer(), "&c" + "Resonance Beacon owner registry is unreadable. "
+                + "&7" + "Removal is blocked to preserve saved data; check the console.");
     }
 
     /**
@@ -136,6 +163,34 @@ final class BeaconPlusLifecycleListener implements Listener {
             return player.isOp();
         }
         return owner.equals(player.getUniqueId()) || player.isOp();
+    }
+
+    /**
+     * Apply ONLINE ticket policy after the server's player count changes.
+     * A one-tick deferral is necessary for PlayerQuitEvent, where the departing
+     * player may still be present in Bukkit.getOnlinePlayers().
+     */
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        scheduleChunkLoadingRefresh();
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        scheduleChunkLoadingRefresh();
+    }
+
+    private void scheduleChunkLoadingRefresh() {
+        if (BeaconPlusChunkLoadingControl.getMode() != BeaconPlusChunkLoadingPolicy.ONLINE
+                || !BeaconPlusChunkLoadingControl.isEnabled()) {
+            return;
+        }
+        Slimefun.getSchedulerService().runLater(() -> {
+            BeaconPlusManager manager = BeaconPlusManager.getInstance();
+            if (manager != null) {
+                manager.applyGlobalChunkLoadingState();
+            }
+        }, 1L);
     }
 
     @EventHandler
