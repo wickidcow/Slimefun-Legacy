@@ -42,6 +42,17 @@ final class DoctorNextSteps {
             any = true;
         }
 
+        if (!report.isRepairMode() && report.getIdentityPresentationCandidates() > 0) {
+            send(sender, "&eRead-only historical presentation candidates: &f"
+                    + report.getIdentityPresentationCandidates());
+            send(sender, "&6  /sf doctor identity compare");
+            send(sender, "&8  Use a genuine old item in main hand and a current item in offhand.");
+            send(sender, "&6  /sf doctor identity repair scan");
+            send(sender, "&8  Single held-stack preview only. Confirm requires an exact backup and unchanged items.");
+            send(sender, "&8  Bulk Doctor repair does NOT convert historical stacking mismatches.");
+            any = true;
+        }
+
         if (report.getSchemaMigrationCandidates() > 0) {
             send(sender, "&eAddon-owned same-ID schema candidates: &f" + report.getSchemaMigrationCandidates());
             send(sender, "&6  /sf doctor migrations schemas scan");

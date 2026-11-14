@@ -117,10 +117,11 @@ final class DoctorHistoricalStackRepair {
             return;
         }
 
+        ItemStack originalForRollback = null;
+        boolean attemptedWrite = false;
         try {
             ItemStack candidate = prepare(pair.old(), pair.fresh(), pair.template());
-            if (candidate == null
-                    || !matches(plan, pair, candidate)) {
+            if (candidate == null || !matches(plan, pair, candidate)) {
                 send(player, "&cHeld item, amount, template or metadata changed since preview. No repair.");
                 return;
             }
@@ -136,6 +137,8 @@ final class DoctorHistoricalStackRepair {
                 return;
             }
 
+            originalForRollback = original;
+            attemptedWrite = true;
             player.getInventory().setItemInMainHand(candidate);
             if (!fingerprint(player.getInventory().getItemInMainHand()).equals(plan.repairedHash())) {
                 player.getInventory().setItemInMainHand(original);
@@ -152,8 +155,15 @@ final class DoctorHistoricalStackRepair {
             send(player, "&eUndo within five minutes while still holding this stack:");
             send(player, "&6/sf doctor identity repair rollback confirm");
         } catch (IOException | RuntimeException exception) {
+            if (attemptedWrite && originalForRollback != null) {
+                try {
+                    player.getInventory().setItemInMainHand(originalForRollback);
+                } catch (RuntimeException ignored) {
+                    // The independently verified on-disk backup remains for operator recovery.
+                }
+            }
             send(player, "&cRepair aborted due to backup or item verification failure.");
-            send(player, "&cNo stored inventories were touched. Inspect the main-hand item before retrying.");
+            send(player, "&cOriginal saved bytes are retained. Check the main hand before retrying.");
         }
     }
 
@@ -176,7 +186,9 @@ final class DoctorHistoricalStackRepair {
             }
             player.getInventory().setItemInMainHand(original);
             if (!fingerprint(player.getInventory().getItemInMainHand()).equals(restore.originalHash())) {
-                send(player, "&cRollback readback failed. Original backup remains on disk.");
+                player.getInventory().setItemInMainHand(current);
+                send(player, "&cRollback readback failed; repaired stack restored when possible.");
+                send(player, "&cOriginal backup remains on disk.");
                 return;
             }
             send(player, "&aOriginal historical item restored exactly from the saved backup.");
