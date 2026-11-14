@@ -1,0 +1,71 @@
+name: Doctor Raw Source Formatting
+
+on:
+  pull_request:
+    paths:
+      - 'src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorHistoricalStackRepair.java'
+      - 'src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorIdentityCommand.java'
+      - 'src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorNextSteps.java'
+      - 'src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java'
+      - 'src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorHistoricalStackRepair.java'
+      - 'src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorIdentityCommand.java'
+      - 'src/main/java/io/github/thebusybiscuit/slimefun4/core/services/holograms/HologramsService.java'
+      - 'src/main/java/io/github/thebusybiscuit/slimefun4/utils/ArmorStandUtils.java'
+      - '.github/workflows/doctor-source-format-gate.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorHistoricalStackRepair.java'
+      - 'src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorIdentityCommand.java'
+      - 'src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorHistoricalStackRepair.java'
+      - 'src/main/java/io/github/thebusybiscuit/slimefun4/core/services/holograms/HologramsService.java'
+      - 'src/main/java/io/github/thebusybiscuit/slimefun4/utils/ArmorStandUtils.java'
+      - '.github/workflows/doctor-source-format-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: doctor-raw-format-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  raw-source-spotless:
+    name: Verify changed Doctor Java matches Spotless
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out immutable PR head
+        uses: actions/checkout@v6
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Reject Spotless changes to committed Doctor source
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          # The existing baseline contains 325+ unrelated Java format violations.
+          # Compare formatted output ONLY against source files changed by this PR.
+          # Runner workspace is disposable; never commit broad spotlessApply changes.
+          ./gradlew spotlessApply --no-daemon --console=plain
+          git diff --exit-code -- src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorHistoricalStackRepair.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorIdentityCommand.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorNextSteps.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorHistoricalStackRepair.java src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorIdentityCommand.java src/main/java/io/github/thebusybiscuit/slimefun4/core/services/holograms/HologramsService.java src/main/java/io/github/thebusybiscuit/slimefun4/utils/ArmorStandUtils.java
+          echo 'Doctor PR source matches the configured Spotless formatter.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Produce Doctor-only formatter patch if source failed the gate
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew spotlessApply --no-daemon --console=plain || true
+          git diff --binary -- src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorHistoricalStackRepair.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorIdentityCommand.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorNextSteps.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorHistoricalStackRepair.java src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorIdentityCommand.java src/main/java/io/github/thebusybiscuit/slimefun4/core/services/holograms/HologramsService.java src/main/java/io/github/thebusybiscuit/slimefun4/utils/ArmorStandUtils.java > doctor-source-format.patch
+      - name: Retain formatter correction evidence
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: doctor-raw-source-format-correction
+          path: doctor-source-format.patch
+          if-no-files-found: warn

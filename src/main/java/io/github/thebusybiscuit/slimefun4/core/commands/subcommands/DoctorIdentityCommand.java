@@ -1,6 +1,7 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
+import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -22,7 +23,11 @@ final class DoctorIdentityCommand {
 
     private DoctorIdentityCommand() {}
 
-    static void run(@Nonnull CommandSender sender, @Nonnull String[] args) {
+    static void run(@Nonnull Slimefun plugin, @Nonnull CommandSender sender, @Nonnull String[] args) {
+        if (args.length > 2 && args[2].equalsIgnoreCase("repair")) {
+            DoctorHistoricalStackRepair.run(plugin, sender, args);
+            return;
+        }
         if (!(sender instanceof Player player)) {
             send(sender, "&cIdentity comparison requires a player with two held items.");
             return;
@@ -67,9 +72,11 @@ final class DoctorIdentityCommand {
             HistoricalPresentation historical = inspectHistoricalPresentation(main, off);
             send(sender, "&7Same plain text (ignores styling): " + flag(historical.plainTextSame()));
             send(sender, "&7Non-presentation Bukkit metadata: " + flag(historical.nonPresentationSame()));
-            send(sender, historical.candidate()
-                    ? "&ePresentation-only candidate on detached copies; NOT an approved repair. No item changed."
-                    : "&eNot a verified presentation-only candidate. No item changed.");
+            send(
+                    sender,
+                    historical.candidate()
+                            ? "&ePresentation-only candidate on detached copies; NOT an approved repair. No item changed."
+                            : "&eNot a verified presentation-only candidate. No item changed.");
             send(sender, "&eMismatch confirmed. Inspect producer metadata before repair.");
         }
         send(sender, "&8This compares actual held items, not all possible crafting/machine sources.");
@@ -98,9 +105,11 @@ final class DoctorIdentityCommand {
     static Comparison inspect(@Nonnull ItemStack main, @Nonnull ItemStack off) {
         ItemMeta mainMeta = main.getItemMeta();
         ItemMeta offMeta = off.getItemMeta();
+        ItemStack mainNative = detachedCopy(main);
+        ItemStack offNative = detachedCopy(off);
         return new Comparison(
                 main.getType() == off.getType(),
-                main.isSimilar(off),
+                mainNative != null && offNative != null && mainNative.isSimilar(offNative),
                 mainMeta == null
                         ? offMeta == null
                         : offMeta != null && Objects.equals(mainMeta.displayName(), offMeta.displayName()),
@@ -134,6 +143,9 @@ final class DoctorIdentityCommand {
         if (oldCopy == null || freshCopy == null) {
             return new HistoricalPresentation(plainTextSame, false, false);
         }
+        // An actual old CraftItemStack may be compared against an addon-owned
+        // SlimefunItemStack. Never call isSimilar on either raw subclass.
+        boolean originallySimilar = oldCopy.isSimilar(freshCopy);
         oldCopy.editMeta(meta -> {
             meta.displayName(null);
             meta.lore(null);
@@ -144,18 +156,24 @@ final class DoctorIdentityCommand {
         });
         boolean nonPresentationSame = oldCopy.isSimilar(freshCopy);
         return new HistoricalPresentation(
-                plainTextSame, nonPresentationSame, !old.isSimilar(fresh) && plainTextSame && nonPresentationSame);
+                plainTextSame, nonPresentationSame, !originallySimilar && plainTextSame && nonPresentationSame);
     }
 
     private static ItemStack detachedCopy(ItemStack source) {
-        ItemStack detached = new ItemStack(source.getType(), source.getAmount());
-        ItemMeta meta = source.getItemMeta();
-        if (meta != null && !detached.setItemMeta(meta)) {
+        // Paper CraftItemStack.isSimilar cannot accept arbitrary ItemStack
+        // subclasses. Verify lossless native serialization instead of comparing
+        // a CraftItemStack with a SlimefunItemStack or invoking clone hooks.
+        try {
+            byte[] bytes = source.serializeAsBytes();
+            ItemStack detached = ItemStack.deserializeBytes(bytes);
+            return source.getType() == detached.getType()
+                            && source.getAmount() == detached.getAmount()
+                            && java.util.Arrays.equals(bytes, detached.serializeAsBytes())
+                    ? detached
+                    : null;
+        } catch (RuntimeException exception) {
             return null;
         }
-        // Never classify if Bukkit lost a typed PDC entry, profile, model
-        // component, enchantment or other identity field during detachment.
-        return source.isSimilar(detached) ? detached : null;
     }
 
     static int availableCapacity(ItemStack stack) {
@@ -163,11 +181,15 @@ final class DoctorIdentityCommand {
     }
 
     private static String plain(Component component) {
-        return component == null ? null : PlainTextComponentSerializer.plainText().serialize(component);
+        return component == null
+                ? null
+                : PlainTextComponentSerializer.plainText().serialize(component);
     }
 
     private static java.util.List<String> plainLore(java.util.List<Component> lore) {
-        return lore == null ? null : lore.stream().map(DoctorIdentityCommand::plain).toList();
+        return lore == null
+                ? null
+                : lore.stream().map(DoctorIdentityCommand::plain).toList();
     }
 
     record HistoricalPresentation(boolean plainTextSame, boolean nonPresentationSame, boolean candidate) {}

@@ -18,7 +18,7 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 
-/** Native diagnostic acceptance in a disposable server; never a repair or producer-coverage claim. */
+/** Native identity acceptance in a disposable server; synthetic repair is not proof of live historical data. */
 final class ItemIdentityProbe {
     private static final NamespacedKey OWNER = new NamespacedKey("identity_probe", "owner");
 
@@ -159,6 +159,20 @@ final class ItemIdentityProbe {
         ItemStack template = registered.getItem();
         byte[] templateBefore = template.serializeAsBytes();
         require(flag(inspect(template, template.clone()), "isSimilar"), "registered template clone");
+        // SlimefunItemStack is a registered subclass, not CraftItemStack.
+        // Native Paper must classify a Craft held item against this raw template
+        // without calling CraftItemStack.isSimilar(SlimefunItemStack).
+        ItemStack historicAgainstRegistered = ItemStack.deserializeBytes(templateBefore);
+        historicAgainstRegistered.editMeta(meta -> {
+            var name = meta.displayName();
+            if (name == null) throw new IllegalStateException("registered SMALL_URANIUM lacks display name");
+            meta.displayName(name.decoration(TextDecoration.BOLD,
+                    name.decoration(TextDecoration.BOLD) == TextDecoration.State.TRUE
+                            ? TextDecoration.State.FALSE
+                            : TextDecoration.State.TRUE));
+        });
+        require(flag(historical(historicAgainstRegistered, template), "candidate"),
+                "native historical classification rejected safe registered subclass template");
         require(Arrays.equals(templateBefore, template.serializeAsBytes()), "registered template mutated");
         require(Arrays.equals(untouched, reference.serializeAsBytes()), "reference mutated by control cases");
         verifyHistoricalPresentation(folder, false);
@@ -190,6 +204,20 @@ final class ItemIdentityProbe {
                             && flag(check, "candidate"),
                     "historical cosmetic candidate survived persisted item bytes");
             require(capacity(old) == 1, "historical restart free-capacity check");
+            ItemStack repaired = ItemStack.deserializeBytes(
+                    Files.readAllBytes(folder.resolve("identity-historical-repaired.bin")));
+            require(repaired.getAmount() == 63 && repaired.isSimilar(fresh),
+                    "repaired historical item retained amount and current identity after separate Paper boot");
+            var merged = Bukkit.createInventory(null, 9);
+            require(merged.addItem(repaired, fresh).isEmpty(), "repaired native restart inventory merge overflow");
+            require(merged.getItem(0).getAmount() == 64 && merged.getItem(1) == null,
+                    "repaired historical stack did not natively merge into exact 64");
+            var backupDirectory = folder.resolve("recovery/identity");
+            try (var entries = Files.list(backupDirectory)) {
+                var backups = entries.filter(Files::isRegularFile).toList();
+                require(backups.size() == 1 && Arrays.equals(oldBytes, Files.readAllBytes(backups.get(0))),
+                        "persisted original historical backup did not survive restart byte-for-byte");
+            }
             require(Arrays.equals(oldBytes, Files.readAllBytes(oldFile))
                             && Arrays.equals(freshBytes, Files.readAllBytes(freshFile)),
                     "read-only historical restart modified persisted evidence");
@@ -219,11 +247,42 @@ final class ItemIdentityProbe {
         require(flag(unsafe, "plainTextSame") && !flag(unsafe, "nonPresentationSame")
                         && !flag(unsafe, "candidate"),
                 "typed PDC difference was incorrectly marked cosmetic");
+        require(repairCandidate(typed, fresh, fresh) == null,
+                "repair allowed a historical typed PDC difference");
+        require(repairCandidate(old, fresh, old) == null,
+                "repair accepted a reference which does not match the registered template");
+        ItemStack repaired = repairCandidate(old, fresh, fresh);
+        require(repaired != null && repaired.getAmount() == 63 && repaired.isSimilar(fresh),
+                "synthetic historical presentation repair did not preserve strict identity and quantity");
+        require(!old.isSimilar(fresh), "repair mutated original historical input");
+        Path backup = backupHistorical(folder, oldBytes);
+        require(Arrays.equals(oldBytes, Files.readAllBytes(backup)),
+                "repair backup changed the original bytes");
+        require(ItemStack.deserializeBytes(Files.readAllBytes(backup)).isSimilar(old),
+                "repair backup lost original native metadata");
         require(Arrays.equals(oldBytes, old.serializeAsBytes())
                         && Arrays.equals(freshBytes, fresh.serializeAsBytes()),
-                "read-only historical diagnostic mutated actual stack data");
+                "synthetic repair mutated historical or reference input");
+        Files.write(folder.resolve("identity-historical-repaired.bin"), repaired.serializeAsBytes());
         Files.write(oldFile, oldBytes);
         Files.write(freshFile, freshBytes);
+    }
+
+    private static ItemStack repairCandidate(ItemStack old, ItemStack fresh, ItemStack template)
+            throws Exception {
+        Class<?> doctor = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorHistoricalStackRepair");
+        Method method = doctor.getDeclaredMethod("prepare", ItemStack.class, ItemStack.class, ItemStack.class);
+        method.setAccessible(true);
+        return (ItemStack) method.invoke(null, old, fresh, template);
+    }
+
+    private static Path backupHistorical(Path folder, byte[] original) throws Exception {
+        Class<?> doctor = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorHistoricalStackRepair");
+        Method method = doctor.getDeclaredMethod("backup", Path.class, java.util.UUID.class, byte[].class);
+        method.setAccessible(true);
+        return (Path) method.invoke(null, folder, java.util.UUID.randomUUID(), original);
     }
 
     private static Object historical(ItemStack old, ItemStack fresh) throws Exception {

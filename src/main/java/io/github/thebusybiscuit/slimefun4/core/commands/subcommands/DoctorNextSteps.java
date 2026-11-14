@@ -17,17 +17,23 @@ final class DoctorNextSteps {
 
         int packEnableMappings = Slimefun.getItemTextureService().getHostedPackEnableCandidateCount();
         if (CuriositiesConfig.getConfig().getBoolean("resource-pack.enabled") && packEnableMappings > 0) {
-            send(sender, "&eResource-pack delivery is enabled but bundled item mappings are still disabled: &f"
-                    + packEnableMappings);
+            send(
+                    sender,
+                    "&eResource-pack delivery is enabled but bundled item mappings are still disabled: &f"
+                            + packEnableMappings);
             send(sender, "&6  /sf doctor item-models enable-pack scan");
-            send(sender, "&8  This opt-in audit prevents new resource-pack items from silently splitting from old stored items.");
+            send(
+                    sender,
+                    "&8  This opt-in audit prevents new resource-pack items from silently splitting from old stored items.");
             any = true;
         }
 
         int v52Mappings = Slimefun.getItemTextureService().getHostedPackRollbackCandidateCount();
         if (Slimefun.getItemTextureService().wasHostedPackModelMigrationApplied() && v52Mappings > 0) {
             send(sender, "&eHistorical v4.1.52 bundled item-model mappings are still active: &f" + v52Mappings);
-            send(sender, "&8  Active mappings may be intentional when a custom/combined pack still uses Slimefun models.");
+            send(
+                    sender,
+                    "&8  Active mappings may be intentional when a custom/combined pack still uses Slimefun models.");
             send(sender, "&8  Legacy's sender being disabled is not evidence that these mappings should be removed.");
             send(sender, "&7  Only if you intentionally want to unwind the bundled mappings, inspect:");
             send(sender, "&6  /sf doctor item-models remove-resourcepack-texture-ids");
@@ -38,7 +44,21 @@ final class DoctorNextSteps {
         if (!report.isRepairMode() && presentationFound) {
             send(sender, "&eCore-safe name/lore cleanup is available:");
             send(sender, "&6  /sf doctor repair confirm");
-            send(sender, "&8  This repairs only presentation Doctor can prove safe; specialized lanes below remain separate.");
+            send(
+                    sender,
+                    "&8  This repairs only presentation Doctor can prove safe; specialized lanes below remain separate.");
+            any = true;
+        }
+
+        if (!report.isRepairMode() && report.getIdentityPresentationCandidates() > 0) {
+            send(
+                    sender,
+                    "&eRead-only historical presentation candidates: &f" + report.getIdentityPresentationCandidates());
+            send(sender, "&6  /sf doctor identity compare");
+            send(sender, "&8  Use a genuine old item in main hand and a current item in offhand.");
+            send(sender, "&6  /sf doctor identity repair scan");
+            send(sender, "&8  Single held-stack preview only. Confirm requires an exact backup and unchanged items.");
+            send(sender, "&8  Bulk Doctor repair does NOT convert historical stacking mismatches.");
             any = true;
         }
 
@@ -46,7 +66,9 @@ final class DoctorNextSteps {
             send(sender, "&eAddon-owned same-ID schema candidates: &f" + report.getSchemaMigrationCandidates());
             send(sender, "&6  /sf doctor migrations schemas scan");
             send(sender, "&8  Then run the exact schemas execute <plugin> <fingerprint> command it prints.");
-            send(sender, "&8  Re-scan between providers. /sf doctor repair confirm does not run addon schema migrators.");
+            send(
+                    sender,
+                    "&8  Re-scan between providers. /sf doctor repair confirm does not run addon schema migrators.");
             any = true;
         }
 
@@ -62,28 +84,36 @@ final class DoctorNextSteps {
             send(sender, "&eDeclared legacy item-ID candidates: &f" + report.getLegacyMigrationCandidates());
             send(sender, "&6  /sf doctor migrations plan");
             send(sender, "&6  /sf doctor migrations providers");
-            send(sender, "&8  Then run /sf doctor migrations scan <plugin> and its printed fingerprinted execute command.");
+            send(
+                    sender,
+                    "&8  Then run /sf doctor migrations scan <plugin> and its printed fingerprinted execute command.");
             any = true;
         }
 
         if (report.getLegacyBlockIds() > 0) {
             send(sender, "&eLegacy/alias placed-block IDs: &f" + report.getLegacyBlockIds());
             send(sender, "&6  /sf doctor upgrade plan");
-            send(sender, "&8  The upgrade plan identifies the correct block/provider migration lane; core repair does not rewrite identity.");
+            send(
+                    sender,
+                    "&8  The upgrade plan identifies the correct block/provider migration lane; core repair does not rewrite identity.");
             any = true;
         }
 
         if (report.getUnknownIds() > 0) {
             send(sender, "&eUnknown Slimefun item IDs: &f" + report.getUnknownIds());
             send(sender, "&6  /sf doctor migrations unknown");
-            send(sender, "&8  Unknown IDs are not guessed or rewritten until an addon mapping/provider establishes ownership.");
+            send(
+                    sender,
+                    "&8  Unknown IDs are not guessed or rewritten until an addon mapping/provider establishes ownership.");
             any = true;
         }
 
         if (report.getUnknownBlockIds() > 0) {
             send(sender, "&eUnknown placed-block IDs: &f" + report.getUnknownBlockIds());
             send(sender, "&6  /sf doctor upgrade plan");
-            send(sender, "&8  Doctor will not guess a block identity; review the migration/provider lane shown by the plan.");
+            send(
+                    sender,
+                    "&8  Doctor will not guess a block identity; review the migration/provider lane shown by the plan.");
             any = true;
         }
 
@@ -103,7 +133,9 @@ final class DoctorNextSteps {
                     || report.getUnknownIds() > 0) {
                 send(sender, "&eCore repair left protected or unresolved data.");
                 send(sender, "&6  /sf doctor scan");
-                send(sender, "&8  Re-scan classifies what remains and prints the specialized command for each repair lane.");
+                send(
+                        sender,
+                        "&8  Re-scan classifies what remains and prints the specialized command for each repair lane.");
                 any = true;
             }
         } else if (report.getUnresolvedTemplates() > 0
@@ -111,7 +143,9 @@ final class DoctorNextSteps {
                 && report.getUnknownIds() == 0) {
             send(sender, "&eProtected presentation remains without an executable schema candidate.");
             send(sender, "&6  /sf doctor report");
-            send(sender, "&8  Keep the item unchanged until its addon provides a safe Doctor migration/repair provider.");
+            send(
+                    sender,
+                    "&8  Keep the item unchanged until its addon provides a safe Doctor migration/repair provider.");
             any = true;
         }
 
