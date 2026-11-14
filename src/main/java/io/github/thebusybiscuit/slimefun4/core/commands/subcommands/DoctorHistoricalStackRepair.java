@@ -121,6 +121,7 @@ final class DoctorHistoricalStackRepair {
 
         ItemStack originalForRollback = null;
         boolean attemptedWrite = false;
+        boolean backupVerified = false;
         try {
             ItemStack candidate = prepare(pair.old(), pair.fresh(), pair.template());
             if (candidate == null || !matches(plan, pair, candidate)) {
@@ -139,6 +140,7 @@ final class DoctorHistoricalStackRepair {
                 return;
             }
 
+            backupVerified = true;
             originalForRollback = original;
             attemptedWrite = true;
             player.getInventory().setItemInMainHand(candidate);
@@ -165,7 +167,11 @@ final class DoctorHistoricalStackRepair {
                 }
             }
             send(player, "&cRepair aborted due to backup or item verification failure.");
-            send(player, "&cOriginal saved bytes are retained. Check the main hand before retrying.");
+            if (backupVerified) {
+                send(player, "&cVerified original backup is retained under Slimefun/recovery/identity.");
+            } else {
+                send(player, "&cNo verified disk backup was produced. Check your original stack before retrying.");
+            }
         }
     }
 
