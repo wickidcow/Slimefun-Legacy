@@ -38,6 +38,19 @@ class BeaconPlusRegistryPreservationTest {
     }
 
     @Test
+    void unreadableOrMissingOwnerRegistryMustNotImportMirroredBeaconData() {
+        UUID owner = UUID.fromString("984c4ff4-6ff7-4d36-99a9-64d3e15400bf");
+        assertEquals(false, BeaconPlusLegacyDataStore.mayImportFromRegistry(false, null));
+        assertEquals(false, BeaconPlusLegacyDataStore.mayImportFromRegistry(false, owner));
+        assertEquals(false, BeaconPlusLegacyDataStore.mayImportFromRegistry(
+                false, BeaconPlusLegacyDataStore.LEGACY_IMPORTED_OWNER));
+        assertEquals(false, BeaconPlusLegacyDataStore.mayImportFromRegistry(true, owner));
+        assertEquals(true, BeaconPlusLegacyDataStore.mayImportFromRegistry(true, null));
+        assertEquals(true, BeaconPlusLegacyDataStore.mayImportFromRegistry(
+                true, BeaconPlusLegacyDataStore.LEGACY_IMPORTED_OWNER));
+    }
+
+    @Test
     void oneMalformedEntryRejectsTheEntireSavedRegistry() {
         UUID world = UUID.randomUUID();
         UUID owner = UUID.randomUUID();

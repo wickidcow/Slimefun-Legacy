@@ -262,6 +262,11 @@ final class BeaconPlusLegacyDataStore implements Listener {
         return existingOwner == null || LEGACY_IMPORTED_OWNER.equals(existingOwner);
     }
 
+    /** Refuse imports when the authoritative owner registry cannot be inspected safely. */
+    static boolean mayImportFromRegistry(boolean registryHealthy, @Nullable UUID existingOwner) {
+        return registryHealthy && mayImportForOwner(existingOwner);
+    }
+
     private void importBeacon(World world, JsonObject legacy) {
         Integer x = getInt(legacy, "x");
         Integer y = getInt(legacy, "y");
@@ -285,7 +290,12 @@ final class BeaconPlusLegacyDataStore implements Listener {
         // native Activator mode to OFF merely because that row is momentarily
         // unavailable. The owner's original registry is authoritative.
         BeaconPlusManager registry = BeaconPlusManager.getInstance();
-        if (registry != null && !mayImportForOwner(registry.getOwner(location))) {
+        if (registry == null || !registry.isRegistryHealthy()) {
+            // A missing/unreadable owner registry must never trigger a destructive
+            // legacy import while an existing native owner could be saved there.
+            return;
+        }
+        if (!mayImportFromRegistry(true, registry.getOwner(location))) {
             return;
         }
 
