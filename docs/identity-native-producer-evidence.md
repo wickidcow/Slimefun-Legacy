@@ -19,6 +19,9 @@ Use the files from the **same exact CI run**, retaining their original bytes:
 - `plugins/NativeModernizationProbe/native-geo-uranium.bin` — actual captured
   one-item-type output from the machine, not a copy of the registered template.
 - The exact built IE2 JAR referenced by that run.
+- The exact `scripts/runtime/release/NativeModernizationProbe.java` source bytes
+  checked out by that IE2 run (its SHA-256 must equal `probe_sha256` in the
+  native receipt). Do not supply a different checkout or a rewritten source.
 - The exact Slimefun Legacy core JAR and Paper server JAR used by the run.
 - A Slimefun registry inventory from that **same** core/server pair.
 
@@ -39,12 +42,13 @@ python3 scripts/identity_coverage.py \
   --output path/to/identity-coverage.json \
   --ie2-geo-evidence path/to/release-runtime-evidence.json \
   --ie2-geo-capture path/to/native-geo-uranium.bin \
-  --ie2-geo-addon-jar path/to/SF_InfinityExpansion2.jar
+  --ie2-geo-addon-jar path/to/SF_InfinityExpansion2.jar \
+  --ie2-geo-probe-source path/to/NativeModernizationProbe.java
 ```
 
-All three `--ie2-geo-*` arguments are required together. Incomplete,
-symlinked, missing, modified, cross-core, cross-Paper, or mismatched addon
-evidence fails closed. If the optional inputs are omitted, the normal report
+All four `--ie2-geo-*` arguments are required together. Incomplete,
+symlinked, missing, modified, cross-core, cross-Paper, mismatched addon, or
+mismatched native-probe source evidence fails closed. If the optional inputs are omitted, the normal report
 remains unchanged.
 
 The importer records a single `actual_cases` PASS only for the verified
