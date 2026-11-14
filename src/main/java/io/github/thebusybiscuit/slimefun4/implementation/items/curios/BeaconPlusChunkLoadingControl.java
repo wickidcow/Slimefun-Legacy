@@ -37,6 +37,11 @@ final class BeaconPlusChunkLoadingControl {
         mode = BeaconPlusChunkLoadingPolicy.fromConfig(
                 config.getString(CONFIG_PATH), config.getBoolean(LEGACY_CONFIG_PATH));
         plugin.getLogger().info("Resonance Beacon chunk-loading policy: " + mode + ".");
+        if (Slimefun.getSchedulerService().isFolia()) {
+            plugin.getLogger().warning("Resonance Beacon chunk tickets are disabled on region-owned runtimes. "
+                    + "The configured mode and saved Activator selections are preserved; "
+                    + "Paper-style cross-region ticket calls will not be attempted.");
+        }
     }
 
     static BeaconPlusChunkLoadingPolicy getMode() {
@@ -44,11 +49,12 @@ final class BeaconPlusChunkLoadingControl {
     }
 
     static boolean isEnabled() {
-        return mode != BeaconPlusChunkLoadingPolicy.OFF;
+        return mode != BeaconPlusChunkLoadingPolicy.OFF && !Slimefun.getSchedulerService().isFolia();
     }
 
     static boolean shouldHoldTickets() {
-        return mode.shouldHoldTickets(!Bukkit.getOnlinePlayers().isEmpty());
+        return mode.shouldHoldTickets(
+                !Bukkit.getOnlinePlayers().isEmpty(), Slimefun.getSchedulerService().isFolia());
     }
 
     /** Legacy administrator command: enable now means the safer ONLINE policy. */
@@ -62,6 +68,11 @@ final class BeaconPlusChunkLoadingControl {
      * active gate. Explicit mode always takes precedence over it.
      */
     static synchronized boolean setMode(@Nonnull Slimefun plugin, @Nonnull BeaconPlusChunkLoadingPolicy requested) {
+        if (requested != BeaconPlusChunkLoadingPolicy.OFF && Slimefun.getSchedulerService().isFolia()) {
+            plugin.getLogger().warning("Refusing region-unsafe Resonance Beacon chunk ticket mode " + requested
+                    + "; no saved beacon or configuration data was changed.");
+            return false;
+        }
         if (mode == requested) {
             return true;
         }

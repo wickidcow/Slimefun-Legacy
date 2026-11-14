@@ -192,6 +192,16 @@ Activator retains hard server safety caps of 64 active Resonance Beacon loaders 
 
 The operator command `/beacon mode online|always|off` applies and persists this setting immediately. Legacy `/beacon enable` now selects `ONLINE`; `/beacon disable` selects `OFF`. `/beacon status` reports the active policy and ticket count. Upgrading an existing configuration automatically migrates `chunk-loading-enabled: false` to `OFF`, and `true` to `ONLINE`. Explicit `chunk-loading-mode` overrides the retired boolean.
 
+**Regionized runtime safety:** Paper/Purpur use the three modes above. On Folia or any
+region-owned runtime, Resonance Beacon chunk tickets are **suspended** until
+region-ownership-safe ticket operations can be verified end to end. This is a
+fail-closed safety policy, not a claim that `ALWAYS` keeps Folia regions loaded.
+The configured `ONLINE` / `ALWAYS` / `OFF` setting, existing beacon ownership,
+purchased powers and saved Activator selections remain untouched, while the
+Activator GUI option is hidden and `/beacon mode online|always` is refused.
+The operator can still select `/beacon mode off`. Switching back to supported
+Paper/Purpur restores normal behavior from the preserved configuration.
+
 **Independent FoxyMachines setting:** FoxyMachines has its own `plugins/FoxyMachines/config.yml` `chunk-loading-mode` setting. Changing Resonance Beacon's mode does **not** alter FoxyMachines loaders. Historical FoxyMachines chunks used persistent vanilla `setForceLoaded` flags, so that addon requires a separate, guarded migration; Slimefun Legacy never clears these or administrator-owned forced chunks.
 
 ### Runtime pulse behavior

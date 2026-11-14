@@ -181,7 +181,8 @@ final class BeaconPlusLifecycleListener implements Listener {
     }
 
     private void scheduleChunkLoadingRefresh() {
-        if (BeaconPlusChunkLoadingControl.getMode() != BeaconPlusChunkLoadingPolicy.ONLINE) {
+        if (BeaconPlusChunkLoadingControl.getMode() != BeaconPlusChunkLoadingPolicy.ONLINE
+                || !BeaconPlusChunkLoadingControl.isEnabled()) {
             return;
         }
         Slimefun.getSchedulerService().runLater(() -> {

@@ -37,6 +37,20 @@ class BeaconPlusChunkLoadingPolicyTest {
     }
 
     @Test
+    void regionOwnedRuntimeFailsClosedWithoutChangingAnyStoredMode() {
+        for (BeaconPlusChunkLoadingPolicy configured : BeaconPlusChunkLoadingPolicy.values()) {
+            assertFalse(configured.shouldHoldTickets(false, true));
+            assertFalse(configured.shouldHoldTickets(true, true));
+        }
+        assertTrue(BeaconPlusChunkLoadingPolicy.ONLINE.shouldHoldTickets(true, false));
+        assertFalse(BeaconPlusChunkLoadingPolicy.ONLINE.shouldHoldTickets(false, false));
+        assertTrue(BeaconPlusChunkLoadingPolicy.ALWAYS.shouldHoldTickets(false, false));
+        assertFalse(BeaconPlusChunkLoadingPolicy.OFF.shouldHoldTickets(true, false));
+        assertEquals(BeaconPlusChunkLoadingPolicy.ALWAYS,
+                BeaconPlusChunkLoadingPolicy.fromConfig("ALWAYS", false));
+    }
+
+    @Test
     void invalidValuesFailClosedWithoutAnOfflineTicket() {
         assertEquals(BeaconPlusChunkLoadingPolicy.OFF,
                 BeaconPlusChunkLoadingPolicy.fromConfig("true", true));

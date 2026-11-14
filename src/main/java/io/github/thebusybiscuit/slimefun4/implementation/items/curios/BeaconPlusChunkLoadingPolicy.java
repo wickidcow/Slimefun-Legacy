@@ -24,6 +24,11 @@ enum BeaconPlusChunkLoadingPolicy {
         }
     }
 
+    /** Regionized runtimes must not execute cross-region chunk-ticket mutations. */
+    boolean shouldHoldTickets(boolean anyPlayerOnline, boolean regionOwned) {
+        return !regionOwned && shouldHoldTickets(anyPlayerOnline);
+    }
+
     boolean shouldHoldTickets(boolean anyPlayerOnline) {
         return switch (this) {
             case ONLINE -> anyPlayerOnline;

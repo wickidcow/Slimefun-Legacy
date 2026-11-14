@@ -75,6 +75,13 @@ final class BeaconPlusAdminCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if (requested != BeaconPlusChunkLoadingPolicy.OFF && Slimefun.getSchedulerService().isFolia()) {
+            message(sender, "&cResonance Beacon chunk tickets are unavailable on region-owned runtimes. "
+                    + "&7The saved mode and existing Activator purchases are preserved.");
+            sendStatus(sender);
+            return true;
+        }
+
         if (BeaconPlusChunkLoadingControl.getMode() == requested) {
             message(sender, "&7Resonance Beacon chunk loading is already " + requested + ".");
             sendStatus(sender);
@@ -100,6 +107,9 @@ final class BeaconPlusAdminCommand implements CommandExecutor, TabCompleter {
         BeaconPlusChunkLoadingPolicy mode = BeaconPlusChunkLoadingControl.getMode();
         BeaconPlusManager manager = BeaconPlusManager.getInstance();
         message(sender, "&6Resonance Beacon chunk loading: &b" + mode.name());
+        if (Slimefun.getSchedulerService().isFolia()) {
+            message(sender, "&cRegion-owned runtime: chunk ticketing is safely suspended; saved modes unchanged.");
+        }
         message(sender, "&7Holding tickets now: "
                 + (BeaconPlusChunkLoadingControl.shouldHoldTickets() ? "&aYES" : "&cNO"));
         if (manager == null) {
