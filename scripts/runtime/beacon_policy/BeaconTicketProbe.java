@@ -20,7 +20,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 /** A disposable native-Paper regression plugin. Never package into Slimefun. */
 public final class BeaconTicketProbe extends JavaPlugin {
     // Keep the entire valid tier-I beacon pyramid inside the owning Folia region.
-    private static final int X = 2056, Y = 96, Z = 2056;
+    private static final int X = 2056, Y = 200, Z = 2056;
     private static final int EXTERNAL_X = 144, EXTERNAL_Z = 144;
     private static final UUID OWNER = UUID.fromString("984c4ff4-6ff7-4d36-99a9-64d3e15400bf");
 
