@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   raw-source-spotless:
-    name: Verify committed Java before formatting
+    name: Verify changed Doctor Java matches Spotless
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -40,23 +40,24 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: gradle
-      - name: Reject unformatted committed source
+      - name: Reject Spotless changes to committed Doctor source
         shell: bash
         run: |
           set -euo pipefail
           chmod +x gradlew
-          # Unlike build-ci.yml, this gate checks checked-in bytes BEFORE
-          # spotlessApply has a chance to mask changes in a temporary runner.
-          ./gradlew spotlessCheck --no-daemon --console=plain
-          git diff --exit-code
-          echo 'Raw checked-out Java source passes Spotless without auto-formatting.' >> "$GITHUB_STEP_SUMMARY"
-      - name: Produce reviewable formatter patch if source failed the gate
+          # The existing baseline contains 325+ unrelated Java format violations.
+          # Compare formatted output ONLY against source files changed by this PR.
+          # Runner workspace is disposable; never commit broad spotlessApply changes.
+          ./gradlew spotlessApply --no-daemon --console=plain
+          git diff --exit-code -- src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorHistoricalStackRepair.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorIdentityCommand.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorNextSteps.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorHistoricalStackRepair.java src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorIdentityCommand.java
+          echo 'Doctor PR source matches the configured Spotless formatter.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Produce Doctor-only formatter patch if source failed the gate
         if: failure()
         shell: bash
         run: |
           set -euo pipefail
           ./gradlew spotlessApply --no-daemon --console=plain || true
-          git diff --binary -- src/main/java src/test/java > doctor-source-format.patch
+          git diff --binary -- src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorHistoricalStackRepair.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorIdentityCommand.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorNextSteps.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorHistoricalStackRepair.java src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorIdentityCommand.java > doctor-source-format.patch
       - name: Retain formatter correction evidence
         if: failure()
         uses: actions/upload-artifact@v7
