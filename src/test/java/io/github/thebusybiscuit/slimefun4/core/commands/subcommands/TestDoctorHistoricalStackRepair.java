@@ -124,6 +124,27 @@ class TestDoctorHistoricalStackRepair {
     }
 
     @Test
+    void presentationRepairRequiresExactNonPresentationSerializedBytes() {
+        ItemStack reference = current();
+        ItemStack old = historical(reference);
+        ItemStack candidate = DoctorHistoricalStackRepair.prepare(old, reference, reference);
+        assertNotNull(candidate);
+        assertTrue(DoctorHistoricalStackRepair.preservesNonPresentationBytes(old, candidate));
+
+        // Equal visible text cannot justify losing or rewriting typed addon data.
+        ItemStack changed = new ItemStack(candidate);
+        changed.editMeta(meta -> meta.getPersistentDataContainer()
+                .set(new NamespacedKey("addon", "owner"), PersistentDataType.INTEGER, 12345));
+        assertFalse(DoctorHistoricalStackRepair.preservesNonPresentationBytes(old, changed));
+
+        changed = new ItemStack(candidate);
+        changed.setAmount(old.getAmount() - 1);
+        assertFalse(DoctorHistoricalStackRepair.preservesNonPresentationBytes(old, changed));
+        assertNotEquals(
+                DoctorHistoricalStackRepair.fingerprint(old), DoctorHistoricalStackRepair.fingerprint(candidate));
+    }
+
+    @Test
     void refusesReferenceWhichDoesNotMatchTheRegisteredTemplate() {
         ItemStack template = current();
         ItemStack old = historical(template);

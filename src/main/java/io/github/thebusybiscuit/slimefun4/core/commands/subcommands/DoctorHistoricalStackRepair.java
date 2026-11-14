@@ -235,7 +235,35 @@ final class DoctorHistoricalStackRepair {
             meta.displayName(referenceMeta.displayName());
             meta.lore(referenceMeta.lore());
         });
-        return oldNative.getAmount() == old.getAmount() && oldNative.isSimilar(freshNative) ? oldNative : null;
+        // ItemStack.isSimilar is necessary for vanilla stacking but can ignore
+        // opaque data components. After removing ONLY display name and lore from
+        // both copies, the complete serialized bytes must still be identical.
+        return oldNative.getAmount() == old.getAmount()
+                        && oldNative.isSimilar(freshNative)
+                        && preservesNonPresentationBytes(old, oldNative)
+                ? oldNative
+                : null;
+    }
+
+    /**
+     * Fail closed if updating visible text would change any other stored bytes,
+     * including opaque future Minecraft or addon item components.
+     */
+    static boolean preservesNonPresentationBytes(ItemStack original, ItemStack repaired) {
+        ItemStack oldCopy = nativeSnapshot(original);
+        ItemStack repairedCopy = nativeSnapshot(repaired);
+        if (oldCopy == null || repairedCopy == null) {
+            return false;
+        }
+        oldCopy.editMeta(meta -> {
+            meta.displayName(null);
+            meta.lore(null);
+        });
+        repairedCopy.editMeta(meta -> {
+            meta.displayName(null);
+            meta.lore(null);
+        });
+        return Arrays.equals(oldCopy.serializeAsBytes(), repairedCopy.serializeAsBytes());
     }
 
     private static Pair eligiblePair(Player player) {
