@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -162,6 +163,17 @@ class TestDoctorHistoricalStackRepair {
         assertTrue(recovered.isSimilar(old));
         assertEquals(37, recovered.getAmount());
         assertEquals(DoctorHistoricalStackRepair.fingerprint(old), DoctorHistoricalStackRepair.fingerprint(recovered));
+    }
+
+    @Test
+    void backupFailureNeverCreatesOrModifiesOriginalItem() throws Exception {
+        ItemStack old = historical(current());
+        byte[] original = old.serializeAsBytes();
+        Files.write(folder.resolve("recovery"), new byte[] { 0x21 });
+        assertThrows(java.io.IOException.class,
+                () -> DoctorHistoricalStackRepair.backup(folder, UUID.randomUUID(), original));
+        assertArrayEquals(original, old.serializeAsBytes());
+        assertArrayEquals(new byte[] { 0x21 }, Files.readAllBytes(folder.resolve("recovery")));
     }
 
     @Test

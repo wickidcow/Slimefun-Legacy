@@ -233,11 +233,26 @@ final class ResourcePackPlayerProbe implements Listener {
                 .getDataFolder().toPath().resolve("recovery/identity");
         require(!Files.exists(backupDirectory), "Historical repair fixture reused an existing backup directory");
 
+        player.getInventory().clear();
+        player.getInventory().setItemInMainHand(historical);
+        player.getInventory().setItemInOffHand(reference);
+        var deniedPermission = player.addAttachment(plugin, "slimefun.command.doctor", false);
+        try {
+            player.performCommand("sf doctor identity repair scan");
+            require(Arrays.equals(originalBytes, player.getInventory().getItemInMainHand().serializeAsBytes())
+                            && !Files.exists(backupDirectory),
+                    "Unpermitted Doctor scan created a repair or modified the main-hand stack");
+        } finally {
+            player.removeAttachment(deniedPermission);
+        }
+
         var doctorPermission = player.addAttachment(plugin, "slimefun.command.doctor", true);
         try {
-            player.getInventory().clear();
-            player.getInventory().setItemInMainHand(historical);
-            player.getInventory().setItemInOffHand(reference);
+            require(player.performCommand("sf doctor identity repair confirm"),
+                    "Initial confirmation after denied preview command rejected");
+            require(Arrays.equals(originalBytes, player.getInventory().getItemInMainHand().serializeAsBytes())
+                            && !Files.exists(backupDirectory),
+                    "Denied scan created a valid repair plan or an early backup");
             // Includes comparison of each held CraftItemStack against the
             // specialized registered SlimefunItemStack template.
             require(player.performCommand("sf doctor identity compare"), "Doctor identity compare command rejected");
@@ -258,6 +273,22 @@ final class ResourcePackPlayerProbe implements Listener {
                     "Stale preview modified item or performed backup despite changed amount");
 
             player.getInventory().setItemInMainHand(historical);
+            require(player.performCommand("sf doctor identity repair scan"),
+                    "Blocked-backup Doctor repair preview rejected");
+            Files.createDirectories(backupDirectory.getParent());
+            Files.write(backupDirectory, new byte[] { 0x21 });
+            try {
+                require(player.performCommand("sf doctor identity repair confirm"),
+                        "Blocked-backup Doctor confirmation command rejected");
+                require(Arrays.equals(originalBytes, player.getInventory().getItemInMainHand().serializeAsBytes())
+                                && Arrays.equals(referenceBytes,
+                                        player.getInventory().getItemInOffHand().serializeAsBytes())
+                                && Arrays.equals(new byte[] { 0x21 }, Files.readAllBytes(backupDirectory)),
+                        "Failed backup modified items or overwritten the blocked recovery path");
+            } finally {
+                Files.delete(backupDirectory);
+            }
+
             require(player.performCommand("sf doctor identity repair scan"), "Fresh Doctor repair preview rejected");
             require(player.performCommand("sf doctor identity repair confirm"),
                     "Native held Doctor repair confirmation rejected");
