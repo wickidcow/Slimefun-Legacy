@@ -70,6 +70,45 @@ class TestHistoricalItemIdentityScanner {
     }
 
     @Test
+    void scannedTemplateSubclassNeverCallsPolymorphicSimilarityOrClone() {
+        ItemStack canonical = registered();
+        ItemStack customTemplate = new ItemStack(canonical) {
+            @Override
+            public boolean isSimilar(ItemStack other) {
+                throw new AssertionError("Scanner must not call registered addon isSimilar hooks");
+            }
+
+            @Override
+            public ItemStack clone() {
+                throw new AssertionError("Scanner must not call registered addon clone hooks");
+            }
+        };
+        ItemStack old = new ItemStack(canonical);
+        old.editMeta(meta -> meta.displayName(Component.text("Small Uranium", NamedTextColor.RED)
+                .decoration(TextDecoration.ITALIC, false)
+                .decoration(TextDecoration.BOLD, false)));
+        assertEquals(
+                HistoricalItemIdentityScanner.Result.PRESENTATION_ONLY_CANDIDATE,
+                HistoricalItemIdentityScanner.inspect(old, customTemplate));
+    }
+
+    @Test
+    void corruptedOrLossyNativeSerializationIsNeverAnIdentityCandidate() {
+        ItemStack canonical = registered();
+        ItemStack lossy = new ItemStack(canonical) {
+            @Override
+            public byte[] serializeAsBytes() {
+                byte[] serialized = super.serializeAsBytes();
+                serialized[serialized.length - 1] ^= 0x01;
+                return serialized;
+            }
+        };
+        assertEquals(
+                HistoricalItemIdentityScanner.Result.TEMPLATE_UNAVAILABLE,
+                HistoricalItemIdentityScanner.inspect(lossy, canonical));
+    }
+
+    @Test
     void typedPersistentDataDifferenceCannotBeClassifiedAsPresentationOnly() {
         ItemStack template = registered();
         ItemStack old = new ItemStack(template);
