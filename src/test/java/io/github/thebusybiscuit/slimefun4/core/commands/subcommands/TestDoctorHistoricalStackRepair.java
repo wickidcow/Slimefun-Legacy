@@ -223,7 +223,6 @@ class TestDoctorHistoricalStackRepair {
         assertArrayEquals(original, old.serializeAsBytes());
     }
 
-
     @Test
     void persistedOwnerScopedReceiptVerifiesExactCandidateAcrossRestartWithoutItemMutation() throws Exception {
         ItemStack reference = current();
@@ -257,9 +256,11 @@ class TestDoctorHistoricalStackRepair {
         String name = saved.getFileName().toString();
         UUID receipt = UUID.fromString(name.substring(owner.toString().length() + 1, name.length() - 4));
 
-        assertThrows(java.io.IOException.class,
+        assertThrows(
+                java.io.IOException.class,
                 () -> DoctorHistoricalStackRepair.readVerifiedBackup(folder, UUID.randomUUID(), receipt));
-        assertThrows(java.io.IOException.class,
+        assertThrows(
+                java.io.IOException.class,
                 () -> DoctorHistoricalStackRepair.readVerifiedBackup(folder, owner, UUID.randomUUID()));
         ItemStack backed = DoctorHistoricalStackRepair.readVerifiedBackup(folder, owner, receipt);
         ItemStack altered = new ItemStack(repaired);
@@ -283,7 +284,8 @@ class TestDoctorHistoricalStackRepair {
         String name = saved.getFileName().toString();
         UUID receipt = UUID.fromString(name.substring(owner.toString().length() + 1, name.length() - 4));
         Files.write(saved, new byte[] {0x21, 0x22, 0x23});
-        assertThrows(java.io.IOException.class,
+        assertThrows(
+                java.io.IOException.class,
                 () -> DoctorHistoricalStackRepair.readVerifiedBackup(folder, owner, receipt));
 
         Path unrelated = folder.resolve("outside-original.bin");
@@ -294,7 +296,8 @@ class TestDoctorHistoricalStackRepair {
         } catch (UnsupportedOperationException | java.io.IOException | SecurityException exception) {
             Assumptions.abort("Test environment does not permit symbolic links");
         }
-        assertThrows(java.io.IOException.class,
+        assertThrows(
+                java.io.IOException.class,
                 () -> DoctorHistoricalStackRepair.readVerifiedBackup(folder, owner, receipt));
         assertArrayEquals(old.serializeAsBytes(), Files.readAllBytes(unrelated));
     }

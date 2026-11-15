@@ -192,7 +192,8 @@ final class DoctorHistoricalStackRepair {
             send(player, "&aOnly the historical name/lore styling was updated; amount and functional data retained.");
             send(player, "&7Original serialized item saved under plugins/Slimefun/recovery/identity.");
             String backupName = backup.getFileName().toString();
-            String backupId = backupName.substring(player.getUniqueId().toString().length() + 1, backupName.length() - 4);
+            String backupId =
+                    backupName.substring(player.getUniqueId().toString().length() + 1, backupName.length() - 4);
             send(player, "&7Private rollback receipt: &e" + backupId);
             send(player, "&eUndo within five minutes while still holding this stack:");
             send(player, "&6/sf doctor identity repair rollback confirm");
@@ -255,7 +256,6 @@ final class DoctorHistoricalStackRepair {
         }
     }
 
-
     /**
      * Deliberately explicit post-restart verification/rollback: the in-memory
      * five-minute plan is lost on reboot, but the original native item bytes
@@ -279,7 +279,9 @@ final class DoctorHistoricalStackRepair {
             }
 
             if (!restore) {
-                send(player, "&aOriginal backup verified after reload; candidate bytes, typed metadata and amount match.");
+                send(
+                        player,
+                        "&aOriginal backup verified after reload; candidate bytes, typed metadata and amount match.");
                 send(player, "&7Only the original held-stack presentation differs; no item was changed.");
                 send(player, "&eRestore on an isolated server clone only:");
                 send(player, "&6/sf doctor identity repair rollback " + receipt + " confirm");
