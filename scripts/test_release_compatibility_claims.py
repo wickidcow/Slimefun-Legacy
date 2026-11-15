@@ -62,10 +62,10 @@ class CompatibilityClaimsTest(unittest.TestCase):
 
 
     def test_maintained_repin_is_exact_and_preserves_native_pairs(self):
-        # Reviewed r155 source selection: preserve historical native storage
+        # Reviewed r156 source selection: preserve historical native storage
         # fixtures and immutable published Networks/IE2 artifact locks. The
         # candidate matrix intentionally advances beyond those release sources.
-        self.assertEqual(155, self.matrix["bundle_revision"])
+        self.assertEqual(156, self.matrix["bundle_revision"])
         self.assertEqual(44, len(self.matrix["addons"]))
         selected = {row["repository"]: row["source_commit"]
                     for row in self.matrix["addons"]}
@@ -103,14 +103,14 @@ class CompatibilityClaimsTest(unittest.TestCase):
 
 
 
-    def test_r155_six_updated_addons_remain_pinned_to_merged_release_sources(self):
+    def test_r156_retains_previous_merged_release_sources(self):
         # FlowerPower / ExtraHeads keep existing reviewed source identities.
         # The six r155 addon pins point to reviewed, published commits,
         # never draft commits. Published/historical storage locks are separate.
         selected = {row["repository"]: row["source_commit"]
                     for row in self.matrix["addons"]}
         self.assertEqual(44, len(selected))
-        self.assertEqual(155, self.matrix["bundle_revision"])
+        self.assertEqual(156, self.matrix["bundle_revision"])
         expected = {
             "wickidcow/SF_CultivationLegacy": "ab97e9d1a89a57bfca3801fce7cef75020fd9bf0",
             "wickidcow/SF_HotbarPets": "54c802438a6819e6f3b0eea411e675a3eb0855dc",
@@ -124,6 +124,12 @@ class CompatibilityClaimsTest(unittest.TestCase):
         for repository, sha in expected.items():
             with self.subTest(repository=repository):
                 self.assertEqual(sha, selected[repository])
+        # Separate r156 verified native Paper 26.3 source candidates, not yet
+        # declared published release assets. Full bundle provenance remains gated.
+        self.assertEqual("d04f6b147580bc31426a96e894d65a72c5088f48",
+                         selected["wickidcow/SF_CrystamaeHistoria"])
+        self.assertEqual("c52a1a2c705e58ba3adafb0e8cab6171358efd80",
+                         selected["wickidcow/SF_Galactifun"])
         self.assertNotIn("wickidcow/SF_BuildingStaff", selected)
 
 
