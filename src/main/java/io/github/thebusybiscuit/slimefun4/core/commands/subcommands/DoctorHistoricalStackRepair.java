@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
@@ -367,13 +368,27 @@ final class DoctorHistoricalStackRepair {
     }
 
     static Path backup(Path pluginFolder, UUID playerId, byte[] originalBytes) throws IOException {
-        Path directory = pluginFolder.resolve("recovery").resolve("identity");
+        Path recovery = pluginFolder.resolve("recovery");
+        Path directory = recovery.resolve("identity");
+        // Backup paths are owner-controlled plugin storage. Refuse symlinked
+        // components instead of silently writing original PDC outside this tree.
+        if (!Files.isDirectory(pluginFolder, LinkOption.NOFOLLOW_LINKS)
+                || (Files.exists(recovery, LinkOption.NOFOLLOW_LINKS)
+                        && !Files.isDirectory(recovery, LinkOption.NOFOLLOW_LINKS))
+                || (Files.exists(directory, LinkOption.NOFOLLOW_LINKS)
+                        && !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS))) {
+            throw new IOException("Doctor identity backup path is not a real local directory");
+        }
         Files.createDirectories(directory);
+        if (!Files.isDirectory(recovery, LinkOption.NOFOLLOW_LINKS)
+                || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Doctor identity backup directory must not be a symlink");
+        }
         Path destination = directory.resolve(playerId + "-" + UUID.randomUUID() + ".bin");
         // CREATE_NEW refuses overwrites; force() makes the original item bytes
         // durable before the held inventory is even considered for mutation.
         try (FileChannel channel =
-                FileChannel.open(destination, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                FileChannel.open(destination, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
             ByteBuffer bytes = ByteBuffer.wrap(originalBytes);
             while (bytes.hasRemaining()) {
                 channel.write(bytes);

@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.junit.jupiter.api.Assumptions;
 import java.util.List;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
@@ -199,6 +200,25 @@ class TestDoctorHistoricalStackRepair {
                 () -> DoctorHistoricalStackRepair.backup(folder, UUID.randomUUID(), original));
         assertArrayEquals(original, old.serializeAsBytes());
         assertArrayEquals(new byte[] {0x21}, Files.readAllBytes(folder.resolve("recovery")));
+    }
+
+    @Test
+    void refusesSymlinkedIdentityBackupDirectoryWithoutEscapingPluginData() throws Exception {
+        ItemStack old = historical(current());
+        byte[] original = old.serializeAsBytes();
+        Path external = folder.resolve("external");
+        Files.createDirectories(external);
+        Files.createDirectories(folder.resolve("recovery"));
+        try {
+            Files.createSymbolicLink(folder.resolve("recovery/identity"), external);
+        } catch (UnsupportedOperationException | java.io.IOException | SecurityException exception) {
+            Assumptions.abort("Test environment does not support creating symbolic links");
+        }
+        assertThrows(
+                java.io.IOException.class,
+                () -> DoctorHistoricalStackRepair.backup(folder, UUID.randomUUID(), original));
+        assertEquals(0L, Files.list(external).count());
+        assertArrayEquals(original, old.serializeAsBytes());
     }
 
     @Test
