@@ -11,6 +11,8 @@ on:
       - 'src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorIdentityCommand.java'
       - 'src/main/java/io/github/thebusybiscuit/slimefun4/core/services/holograms/HologramsService.java'
       - 'src/main/java/io/github/thebusybiscuit/slimefun4/utils/ArmorStandUtils.java'
+      - 'src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/HistoricalItemIdentityScanner.java'
+      - 'src/test/java/io/github/thebusybiscuit/slimefun4/core/services/stability/TestHistoricalItemIdentityScanner.java'
       - '.github/workflows/doctor-source-format-gate.yml'
   push:
     branches: [master]
@@ -20,6 +22,8 @@ on:
       - 'src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorHistoricalStackRepair.java'
       - 'src/main/java/io/github/thebusybiscuit/slimefun4/core/services/holograms/HologramsService.java'
       - 'src/main/java/io/github/thebusybiscuit/slimefun4/utils/ArmorStandUtils.java'
+      - 'src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/HistoricalItemIdentityScanner.java'
+      - 'src/test/java/io/github/thebusybiscuit/slimefun4/core/services/stability/TestHistoricalItemIdentityScanner.java'
       - '.github/workflows/doctor-source-format-gate.yml'
   workflow_dispatch:
 
@@ -53,7 +57,7 @@ jobs:
           # Compare formatted output ONLY against source files changed by this PR.
           # Runner workspace is disposable; never commit broad spotlessApply changes.
           ./gradlew spotlessApply --no-daemon --console=plain
-          git diff --exit-code -- src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorHistoricalStackRepair.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorIdentityCommand.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorNextSteps.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorHistoricalStackRepair.java src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorIdentityCommand.java src/main/java/io/github/thebusybiscuit/slimefun4/core/services/holograms/HologramsService.java src/main/java/io/github/thebusybiscuit/slimefun4/utils/ArmorStandUtils.java
+          git diff --exit-code -- src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorHistoricalStackRepair.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorIdentityCommand.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorNextSteps.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorHistoricalStackRepair.java src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorIdentityCommand.java src/main/java/io/github/thebusybiscuit/slimefun4/core/services/holograms/HologramsService.java src/main/java/io/github/thebusybiscuit/slimefun4/utils/ArmorStandUtils.java src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/HistoricalItemIdentityScanner.java src/test/java/io/github/thebusybiscuit/slimefun4/core/services/stability/TestHistoricalItemIdentityScanner.java
           echo 'Doctor PR source matches the configured Spotless formatter.' >> "$GITHUB_STEP_SUMMARY"
       - name: Produce Doctor-only formatter patch if source failed the gate
         if: failure()
@@ -61,7 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           ./gradlew spotlessApply --no-daemon --console=plain || true
-          git diff --binary -- src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorHistoricalStackRepair.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorIdentityCommand.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorNextSteps.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorHistoricalStackRepair.java src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorIdentityCommand.java src/main/java/io/github/thebusybiscuit/slimefun4/core/services/holograms/HologramsService.java src/main/java/io/github/thebusybiscuit/slimefun4/utils/ArmorStandUtils.java > doctor-source-format.patch
+          git diff --binary -- src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorHistoricalStackRepair.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorIdentityCommand.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorNextSteps.java src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorCommand.java src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorHistoricalStackRepair.java src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorIdentityCommand.java src/main/java/io/github/thebusybiscuit/slimefun4/core/services/holograms/HologramsService.java src/main/java/io/github/thebusybiscuit/slimefun4/utils/ArmorStandUtils.java > doctor-source-format.patch src/main/java/io/github/thebusybiscuit/slimefun4/core/services/stability/HistoricalItemIdentityScanner.java src/test/java/io/github/thebusybiscuit/slimefun4/core/services/stability/TestHistoricalItemIdentityScanner.java
       - name: Retain formatter correction evidence
         if: failure()
         uses: actions/upload-artifact@v7
