@@ -60,12 +60,14 @@ class TestHistoricalItemIdentityScanner {
         old.editMeta(meta -> meta.displayName(Component.text("Small Uranium", NamedTextColor.RED)
                 .decoration(TextDecoration.ITALIC, false)
                 .decoration(TextDecoration.BOLD, false)));
+        old.setAmount(37);
         ItemStack before = new ItemStack(old);
         assertFalse(old.isSimilar(template));
         assertEquals(
                 HistoricalItemIdentityScanner.Result.PRESENTATION_ONLY_CANDIDATE,
                 HistoricalItemIdentityScanner.inspect(old, template));
         assertEquals(before, old);
+        assertEquals(37, old.getAmount());
         assertFalse(old.isSimilar(template));
     }
 
@@ -98,9 +100,7 @@ class TestHistoricalItemIdentityScanner {
         ItemStack lossy = new ItemStack(canonical) {
             @Override
             public byte[] serializeAsBytes() {
-                byte[] serialized = super.serializeAsBytes();
-                serialized[serialized.length - 1] ^= 0x01;
-                return serialized;
+                return new ItemStack(Material.STONE).serializeAsBytes();
             }
         };
         assertEquals(

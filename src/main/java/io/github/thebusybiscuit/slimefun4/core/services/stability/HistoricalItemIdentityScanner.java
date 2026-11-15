@@ -66,6 +66,10 @@ final class HistoricalItemIdentityScanner {
             meta.displayName(null);
             meta.lore(null);
         });
+        // A registered item is normally a one-item template, while old storage
+        // stacks may contain more. Stack identity ignores quantity.
+        // Normalize only the detached template amount before strict byte comparison.
+        templateCopy.setAmount(actualCopy.getAmount());
         return Arrays.equals(actualCopy.serializeAsBytes(), templateCopy.serializeAsBytes())
                 ? Result.PRESENTATION_ONLY_CANDIDATE
                 : Result.OTHER_DIFFERENCE;
