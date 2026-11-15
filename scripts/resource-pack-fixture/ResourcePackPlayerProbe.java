@@ -304,12 +304,18 @@ final class ResourcePackPlayerProbe implements Listener {
                             && storage.getItem(0).getAmount() == 64 && storage.getItem(1) == null,
                     "Native confirmed historical repair failed actual vanilla 63+1 merge");
 
+            String firstReceipt;
             try (var entries = Files.list(backupDirectory)) {
                 var files = entries.filter(Files::isRegularFile).toList();
                 require(files.size() == 1 && Arrays.equals(originalBytes, Files.readAllBytes(files.getFirst())),
                         "Doctor did not save exactly one original item backup before repair");
                 require(ItemStack.deserializeBytes(Files.readAllBytes(files.getFirst())).isSimilar(historical),
                         "Native original Doctor backup lost item identity");
+                String name = files.getFirst().getFileName().toString();
+                String ownerPrefix = player.getUniqueId() + "-";
+                require(name.startsWith(ownerPrefix) && name.endsWith(".bin"),
+                        "Original Doctor backup did not use current player ownership");
+                firstReceipt = name.substring(ownerPrefix.length(), name.length() - 4);
             }
 
             // A second historical stack with another amount must retain a
@@ -364,6 +370,30 @@ final class ResourcePackPlayerProbe implements Listener {
                             && Arrays.equals(referenceBytes, player.getInventory().getItemInOffHand().serializeAsBytes())
                             && Arrays.equals(templateBytes, template.serializeAsBytes()),
                     "Second native rollback did not restore exact original bytes and quantities");
+
+            // Exercise the distinct explicit receipt workflow with a real
+            // connected player. Separate native boot checks persist the backup.
+            player.getInventory().setItemInMainHand(repaired);
+            require(player.performCommand("sf doctor identity repair verify " + firstReceipt),
+                    "Native owner-scoped Doctor backup verify command rejected");
+            require(Arrays.equals(repaired.serializeAsBytes(),
+                            player.getInventory().getItemInMainHand().serializeAsBytes())
+                            && Arrays.equals(referenceBytes, player.getInventory().getItemInOffHand().serializeAsBytes()),
+                    "Read-only owner receipt verification mutated held stacks");
+            ItemStack altered = ItemStack.deserializeBytes(repaired.serializeAsBytes());
+            altered.setAmount(62);
+            player.getInventory().setItemInMainHand(altered);
+            require(player.performCommand("sf doctor identity repair rollback " + firstReceipt + " confirm"),
+                    "Changed-quantity owner receipt rollback command rejected");
+            require(Arrays.equals(altered.serializeAsBytes(),
+                            player.getInventory().getItemInMainHand().serializeAsBytes()),
+                    "Owner receipt rollback overwrote a changed-quantity stack");
+            player.getInventory().setItemInMainHand(repaired);
+            require(player.performCommand("sf doctor identity repair rollback " + firstReceipt + " confirm"),
+                    "Owner receipt rollback command rejected");
+            require(Arrays.equals(originalBytes, player.getInventory().getItemInMainHand().serializeAsBytes())
+                            && Arrays.equals(referenceBytes, player.getInventory().getItemInOffHand().serializeAsBytes()),
+                    "Owner receipt rollback changed original item count, typed data, or offhand");
             plugin.getLogger().info("IDENTITY_DOCTOR_HELD_REPAIR_PASS SMALL_URANIUM old=63+17 fresh=1"
                     + " verified-backups=2 rollback-both=true runtime=" + Bukkit.getVersion());
         } finally {
