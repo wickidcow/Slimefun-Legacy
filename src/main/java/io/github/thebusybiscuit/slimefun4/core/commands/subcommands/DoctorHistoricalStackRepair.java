@@ -67,7 +67,7 @@ final class DoctorHistoricalStackRepair {
             }
             case "rollback" -> {
                 if (args.length == 5 && args[4].equalsIgnoreCase("confirm")) {
-                    rollback(player, now);
+                    rollback(plugin, player, now);
                 } else if (args.length == 6 && args[5].equalsIgnoreCase("confirm")) {
                     verifySavedBackup(plugin, player, args[4], true);
                 } else {
@@ -164,7 +164,10 @@ final class DoctorHistoricalStackRepair {
             // Write and verify a full original native ItemStack snapshot BEFORE the first mutation.
             byte[] originalBytes = pair.old().serializeAsBytes();
             Path backup = backup(plugin.getDataFolder().toPath(), player.getUniqueId(), originalBytes);
-            ItemStack original = ItemStack.deserializeBytes(Files.readAllBytes(backup));
+            String backupName = backup.getFileName().toString();
+            String ownerPrefix = player.getUniqueId().toString() + "-";
+            UUID backupId = UUID.fromString(backupName.substring(ownerPrefix.length(), backupName.length() - 4));
+            ItemStack original = readVerifiedBackup(plugin.getDataFolder().toPath(), player.getUniqueId(), backupId);
             if (!Arrays.equals(originalBytes, original.serializeAsBytes())
                     || original.getAmount() != pair.old().getAmount()
                     || !fingerprint(original).equals(plan.oldHash())) {
@@ -183,7 +186,7 @@ final class DoctorHistoricalStackRepair {
                 return;
             }
 
-            Restoration saved = new Restoration(backup, plan.oldHash(), plan.repairedHash(), now + PLAN_TTL_MILLIS);
+            Restoration saved = new Restoration(backupId, plan.oldHash(), plan.repairedHash(), now + PLAN_TTL_MILLIS);
             if (records.putIfAbsent(plan.repairedHash(), saved) != null) {
                 player.getInventory().setItemInMainHand(original);
                 send(player, "&cAn identical rollback was registered during confirmation; original restored.");
@@ -191,9 +194,6 @@ final class DoctorHistoricalStackRepair {
             }
             send(player, "&aOnly the historical name/lore styling was updated; amount and functional data retained.");
             send(player, "&7Original serialized item saved under plugins/Slimefun/recovery/identity.");
-            String backupName = backup.getFileName().toString();
-            String backupId =
-                    backupName.substring(player.getUniqueId().toString().length() + 1, backupName.length() - 4);
             send(player, "&7Private rollback receipt: &e" + backupId);
             send(player, "&eUndo within five minutes while still holding this stack:");
             send(player, "&6/sf doctor identity repair rollback confirm");
@@ -216,7 +216,7 @@ final class DoctorHistoricalStackRepair {
         }
     }
 
-    private static void rollback(Player player, long now) {
+    private static void rollback(Slimefun plugin, Player player, long now) {
         Map<String, Restoration> records = RESTORATIONS.get(player.getUniqueId());
         if (records == null || records.isEmpty()) {
             send(player, "&cNo recent repair can be rolled back in this session.");
@@ -230,7 +230,8 @@ final class DoctorHistoricalStackRepair {
                 send(player, "&cNo rollback matches the item in your main hand. Other backups remain available.");
                 return;
             }
-            ItemStack original = ItemStack.deserializeBytes(Files.readAllBytes(restore.backup()));
+            ItemStack original =
+                    readVerifiedBackup(plugin.getDataFolder().toPath(), player.getUniqueId(), restore.receipt());
             if (!fingerprint(original).equals(restore.originalHash())) {
                 send(player, "&cOriginal backup failed verification. No change made.");
                 return;
@@ -320,7 +321,7 @@ final class DoctorHistoricalStackRepair {
             Map<String, Restoration> recent = RESTORATIONS.get(player.getUniqueId());
             if (recent != null) {
                 Restoration saved = recent.get(repairedHash);
-                if (saved != null && saved.backup().getFileName().toString().endsWith(receipt + ".bin")) {
+                if (saved != null && saved.receipt().equals(receipt)) {
                     recent.remove(repairedHash, saved);
                 }
             }
@@ -541,5 +542,5 @@ final class DoctorHistoricalStackRepair {
     private record Plan(
             String oldHash, String referenceHash, String templateHash, String repairedHash, long expiresAt) {}
 
-    private record Restoration(Path backup, String originalHash, String repairedHash, long expiresAt) {}
+    private record Restoration(UUID receipt, String originalHash, String repairedHash, long expiresAt) {}
 }
