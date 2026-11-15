@@ -32,6 +32,7 @@ final class DoctorHistoricalStackRepair {
     private static final long PLAN_TTL_MILLIS = 5L * 60L * 1000L;
     private static final int MAX_PLANS = 128;
     private static final int MAX_RESTORATIONS_PER_PLAYER = 32;
+    private static final long MAX_BACKUP_BYTES = 16L * 1024L * 1024L;
     private static final Map<UUID, Plan> PLANS = new ConcurrentHashMap<>();
     // Track independent recent repairs by the complete repaired item fingerprint.
     private static final Map<UUID, Map<String, Restoration>> RESTORATIONS = new ConcurrentHashMap<>();
@@ -57,17 +58,28 @@ final class DoctorHistoricalStackRepair {
         switch (action) {
             case "scan" -> scan(player, now);
             case "confirm" -> confirm(plugin, player, now);
-            case "rollback" -> {
-                if (args.length < 5 || !args[4].equalsIgnoreCase("confirm")) {
-                    send(sender, "&eUsage: /sf doctor identity repair rollback confirm");
+            case "verify" -> {
+                if (args.length == 5) {
+                    verifySavedBackup(plugin, player, args[4], false);
                 } else {
+                    send(sender, "&eUsage: /sf doctor identity repair verify <backup-uuid>");
+                }
+            }
+            case "rollback" -> {
+                if (args.length == 5 && args[4].equalsIgnoreCase("confirm")) {
                     rollback(player, now);
+                } else if (args.length == 6 && args[5].equalsIgnoreCase("confirm")) {
+                    verifySavedBackup(plugin, player, args[4], true);
+                } else {
+                    send(sender, "&eUsage: /sf doctor identity repair rollback confirm");
+                    send(sender, "&eAfter restart: /sf doctor identity repair rollback <backup-uuid> confirm");
                 }
             }
             default -> {
                 send(sender, "&eHistorical styling repair is opt-in, one held stack at a time.");
                 send(sender, "&eHold the OLD item in your main hand, a matching NEW item in your offhand.");
                 send(sender, "&eRun /sf doctor identity repair scan then /sf doctor identity repair confirm.");
+                send(sender, "&eAfter restart: /sf doctor identity repair verify <backup-uuid>.");
                 send(sender, "&cNo barrel, backpack, machine or other inventory is rewritten by this command.");
             }
         }
@@ -179,8 +191,13 @@ final class DoctorHistoricalStackRepair {
             }
             send(player, "&aOnly the historical name/lore styling was updated; amount and functional data retained.");
             send(player, "&7Original serialized item saved under plugins/Slimefun/recovery/identity.");
+            String backupName = backup.getFileName().toString();
+            String backupId = backupName.substring(player.getUniqueId().toString().length() + 1, backupName.length() - 4);
+            send(player, "&7Private rollback receipt: &e" + backupId);
             send(player, "&eUndo within five minutes while still holding this stack:");
             send(player, "&6/sf doctor identity repair rollback confirm");
+            send(player, "&eAfter restart keep a fresh reference in the offhand and use:");
+            send(player, "&6/sf doctor identity repair verify " + backupId);
         } catch (IOException | RuntimeException exception) {
             if (attemptedWrite && originalForRollback != null) {
                 try {
@@ -236,6 +253,121 @@ final class DoctorHistoricalStackRepair {
         } catch (IOException | RuntimeException exception) {
             send(player, "&cRollback failed. The original saved-item backup was not deleted.");
         }
+    }
+
+
+    /**
+     * Deliberately explicit post-restart verification/rollback: the in-memory
+     * five-minute plan is lost on reboot, but the original native item bytes
+     * remain on disk. No automatic inventory search or restoration is allowed.
+     */
+    private static void verifySavedBackup(Slimefun plugin, Player player, String receiptText, boolean restore) {
+        UUID receipt;
+        try {
+            receipt = UUID.fromString(receiptText);
+        } catch (IllegalArgumentException exception) {
+            send(player, "&cInvalid backup UUID. No item was changed.");
+            return;
+        }
+        try {
+            ItemStack original = readVerifiedBackup(plugin.getDataFolder().toPath(), player.getUniqueId(), receipt);
+            Pair pair = eligiblePair(player);
+            if (pair == null || !matchesSavedBackup(original, pair.old(), pair.fresh(), pair.template())) {
+                send(player, "&cBackup and held item/reference do not match exactly; no change made.");
+                send(player, "&eKeep the unchanged repaired stack in main hand and a fresh template in offhand.");
+                return;
+            }
+
+            if (!restore) {
+                send(player, "&aOriginal backup verified after reload; candidate bytes, typed metadata and amount match.");
+                send(player, "&7Only the original held-stack presentation differs; no item was changed.");
+                send(player, "&eRestore on an isolated server clone only:");
+                send(player, "&6/sf doctor identity repair rollback " + receipt + " confirm");
+                return;
+            }
+
+            String repairedHash = fingerprint(pair.old());
+            String originalHash = fingerprint(original);
+            // Fail closed if another inventory operation altered the main hand
+            // during disk verification. Do not replace another item or amount.
+            if (!repairedHash.equals(fingerprint(player.getInventory().getItemInMainHand()))) {
+                send(player, "&cMain-hand item changed during rollback verification; no change made.");
+                return;
+            }
+            ItemStack repaired = nativeSnapshot(pair.old());
+            if (repaired == null) {
+                send(player, "&cUnable to preserve the current repaired stack; no change made.");
+                return;
+            }
+            try {
+                player.getInventory().setItemInMainHand(original);
+                if (!originalHash.equals(fingerprint(player.getInventory().getItemInMainHand()))) {
+                    player.getInventory().setItemInMainHand(repaired);
+                    send(player, "&cRollback readback failed; original backup retained on disk.");
+                    return;
+                }
+            } catch (RuntimeException exception) {
+                try {
+                    player.getInventory().setItemInMainHand(repaired);
+                } catch (RuntimeException ignored) {
+                    // Native original bytes also remain on disk for operator recovery.
+                }
+                send(player, "&cRollback write failed; verify the held stack before attempting another repair.");
+                return;
+            }
+            Map<String, Restoration> recent = RESTORATIONS.get(player.getUniqueId());
+            if (recent != null) {
+                Restoration saved = recent.get(repairedHash);
+                if (saved != null && saved.backup().getFileName().toString().endsWith(receipt + ".bin")) {
+                    recent.remove(repairedHash, saved);
+                }
+            }
+            send(player, "&aOriginal item presentation and exact quantity restored from the verified backup.");
+            send(player, "&7Backup remains on disk. No other inventory was modified.");
+        } catch (IOException | RuntimeException exception) {
+            send(player, "&cBackup missing, unsafe, or unreadable. No item was changed.");
+        }
+    }
+
+    /**
+     * Owner-scoped receipt lookup, with no path strings supplied by callers and
+     * no symlinks or oversized/unreadable serialized stacks accepted.
+     */
+    static ItemStack readVerifiedBackup(Path pluginFolder, UUID playerId, UUID receipt) throws IOException {
+        Path recovery = pluginFolder.resolve("recovery");
+        Path directory = recovery.resolve("identity");
+        if (!Files.isDirectory(pluginFolder, LinkOption.NOFOLLOW_LINKS)
+                || !Files.isDirectory(recovery, LinkOption.NOFOLLOW_LINKS)
+                || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Doctor identity backup folder is missing or redirected");
+        }
+        Path source = directory.resolve(playerId + "-" + receipt + ".bin");
+        if (!Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)
+                || Files.size(source) == 0
+                || Files.size(source) > MAX_BACKUP_BYTES) {
+            throw new IOException("Doctor identity backup is not a bounded regular file");
+        }
+        byte[] data = Files.readAllBytes(source);
+        try {
+            ItemStack original = ItemStack.deserializeBytes(data);
+            if (original.getType().isAir()
+                    || original.getAmount() <= 0
+                    || !Arrays.equals(data, original.serializeAsBytes())) {
+                throw new IOException("Doctor identity backup failed exact native serialization");
+            }
+            return original;
+        } catch (RuntimeException exception) {
+            throw new IOException("Doctor identity backup cannot be deserialized safely", exception);
+        }
+    }
+
+    /** Only exact original styling may be restored, never a different typed item. */
+    static boolean matchesSavedBackup(ItemStack original, ItemStack held, ItemStack fresh, ItemStack template) {
+        ItemStack candidate = prepare(original, fresh, template);
+        return candidate != null
+                && fingerprint(candidate).equals(fingerprint(held))
+                && original.getAmount() == held.getAmount()
+                && preservesNonPresentationBytes(original, held);
     }
 
     /**
