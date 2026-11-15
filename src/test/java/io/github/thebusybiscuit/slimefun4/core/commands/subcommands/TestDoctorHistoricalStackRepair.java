@@ -11,7 +11,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.junit.jupiter.api.Assumptions;
 import java.util.List;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
@@ -22,6 +21,7 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -217,7 +217,9 @@ class TestDoctorHistoricalStackRepair {
         assertThrows(
                 java.io.IOException.class,
                 () -> DoctorHistoricalStackRepair.backup(folder, UUID.randomUUID(), original));
-        assertEquals(0L, Files.list(external).count());
+        try (var entries = Files.list(external)) {
+            assertEquals(0L, entries.count());
+        }
         assertArrayEquals(original, old.serializeAsBytes());
     }
 
