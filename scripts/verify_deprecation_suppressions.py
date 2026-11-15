@@ -25,11 +25,20 @@ ALLOWED = {
     "src/main/java/io/github/thebusybiscuit/slimefun4/utils/compatibility/LegacyBukkitCompatibility.java": 2,
     "src/main/java/io/github/thebusybiscuit/slimefun4/utils/compatibility/VersionedItemFlag.java": 1,
     "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/Slimefun.java": 1,
+    # Preserve legacy distance despawn semantics through two exact one-call API shims.
+    "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/holograms/HologramsService.java": 1,
+    "src/main/java/io/github/thebusybiscuit/slimefun4/utils/ArmorStandUtils.java": 1,
     # Existing Networks/InfinityLib folders still implement ItemGroup.isHidden(Player).
     "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/SurvivalSlimefunGuide.java": 1,
 }
 
 PATTERN = re.compile(r'@SuppressWarnings\s*\((?:\{[^)]*\}|[^)]*)\)')
+
+# Whitelist is exact: do not allow other deprecation sites within these classes.
+DESPAWN_SHIMS = {
+    "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/holograms/HologramsService.java": "preventHologramDespawn",
+    "src/main/java/io/github/thebusybiscuit/slimefun4/utils/ArmorStandUtils.java": "preventArmorStandDespawn",
+}
 
 
 def main() -> int:
@@ -68,6 +77,16 @@ def main() -> int:
         guide,
     ):
         failures.append("Guide hiding compatibility suppression must stay on the single legacy visibility check")
+
+    for rel, method in DESPAWN_SHIMS.items():
+        source = (root / rel).read_text(encoding="utf-8")
+        exact = (
+            r'@SuppressWarnings\("deprecation"\)\s+'
+            + rf'private static void {method}\(ArmorStand armorStand\)\s*\{{\s*'
+            + r'armorStand\.setRemoveWhenFarAway\(false\);\s*\}'
+        )
+        if not re.search(exact, source):
+            failures.append(f"{rel} deprecated distance-despawn shim no longer matches its one approved call")
 
     if failures:
         print("Deprecation suppression verification: FAIL")
