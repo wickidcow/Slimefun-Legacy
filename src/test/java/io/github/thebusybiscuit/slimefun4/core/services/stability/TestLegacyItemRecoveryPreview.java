@@ -16,7 +16,6 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
-
 class TestLegacyItemRecoveryPreview {
 
     private static Optional<Hint> known(String id) {
