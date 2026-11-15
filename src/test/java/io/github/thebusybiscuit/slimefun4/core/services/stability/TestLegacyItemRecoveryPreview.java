@@ -4,13 +4,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mockStatic;
 
+import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.KnownLegacyItemIdCatalog.Evidence;
 import io.github.thebusybiscuit.slimefun4.core.services.stability.KnownLegacyItemIdCatalog.Hint;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import static org.mockito.Mockito.mock;
 
 class TestLegacyItemRecoveryPreview {
 
@@ -79,6 +83,28 @@ class TestLegacyItemRecoveryPreview {
         assertTrue(results.stream().allMatch(e -> e.targetId().equals(e.itemId())));
         assertTrue(results.stream().allMatch(e -> !e.exactCount() && e.stackCount() == 0L));
         assertTrue(results.stream().allMatch(e -> e.nextStep().contains("no automatic talisman migration")));
+    }
+
+    @Test
+    void catalogUsesOriginalInfernalProvenanceWithoutRegisteringReplacement() {
+        try (MockedStatic<SlimefunItem> registry = mockStatic(SlimefunItem.class)) {
+            Hint hint = KnownLegacyItemIdCatalog.find("ENDER_PIGLIN_TALISMAN").orElseThrow();
+            assertEquals("ENDER_PIGLIN_TALISMAN", hint.legacyId());
+            assertEquals(hint.legacyId(), hint.targetId());
+            assertTrue(hint.source().startsWith("InfernalExpansion"));
+            assertEquals(Evidence.DOCUMENTED_ITEM_ID, hint.evidence());
+        }
+    }
+
+    @Test
+    void catalogDoesNotTreatCurrentlyRegisteredInfernalTalismanAsOrphan() {
+        try (MockedStatic<SlimefunItem> registry = mockStatic(SlimefunItem.class)) {
+            SlimefunItem registered = mock(SlimefunItem.class);
+            registry.when(() -> SlimefunItem.getById("ENDER_PIGLIN_TALISMAN")).thenReturn(registered);
+            org.mockito.Mockito.when(registered.getId()).thenReturn("ENDER_PIGLIN_TALISMAN");
+
+            assertTrue(KnownLegacyItemIdCatalog.find("ENDER_PIGLIN_TALISMAN").isEmpty());
+        }
     }
 
     @Test
