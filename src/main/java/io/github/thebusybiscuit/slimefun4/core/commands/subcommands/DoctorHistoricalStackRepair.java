@@ -387,8 +387,8 @@ final class DoctorHistoricalStackRepair {
         Path destination = directory.resolve(playerId + "-" + UUID.randomUUID() + ".bin");
         // CREATE_NEW refuses overwrites; force() makes the original item bytes
         // durable before the held inventory is even considered for mutation.
-        try (FileChannel channel =
-                FileChannel.open(destination, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
+        try (FileChannel channel = FileChannel.open(
+                destination, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
             ByteBuffer bytes = ByteBuffer.wrap(originalBytes);
             while (bytes.hasRemaining()) {
                 channel.write(bytes);
