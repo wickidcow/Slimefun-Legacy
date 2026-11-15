@@ -51,12 +51,19 @@ public class ArmorStandUtils {
         return location.getWorld().spawn(location, ArmorStand.class, ArmorStandUtils::setupArmorStand);
     }
 
+    // Keep the legacy despawn policy. Entity#setPersistent controls saving,
+    // not distance despawning; it is not a substitute on newer Paper APIs.
+    @SuppressWarnings("deprecation")
+    private static void preventArmorStandDespawn(ArmorStand armorStand) {
+        armorStand.setRemoveWhenFarAway(false);
+    }
+
     private static void setupArmorStand(ArmorStand armorStand) {
         armorStand.setVisible(false);
         armorStand.setSilent(true);
         armorStand.setMarker(true);
         armorStand.setGravity(false);
         armorStand.setBasePlate(false);
-        armorStand.setRemoveWhenFarAway(false);
+        preventArmorStandDespawn(armorStand);
     }
 }
