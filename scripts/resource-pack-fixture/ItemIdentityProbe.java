@@ -173,6 +173,21 @@ final class ItemIdentityProbe {
         });
         require(flag(historical(historicAgainstRegistered, template), "candidate"),
                 "native historical classification rejected safe registered subclass template");
+        // The server-wide scanner runs across real machine/storage inventories,
+        // not only held stacks. Test a counted old CraftItemStack against the
+        // live addon-owned registered SlimefunItemStack without clone hooks.
+        historicAgainstRegistered.setAmount(37);
+        require(
+                "PRESENTATION_ONLY_CANDIDATE".equals(scanHistorical(historicAgainstRegistered, template)),
+                "native read-only scanner rejected registered subclass / 37-count cosmetic candidate");
+        ItemStack differentTypedPdc = ItemStack.deserializeBytes(historicAgainstRegistered.serializeAsBytes());
+        differentTypedPdc.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.LONG, 99L));
+        require(
+                "OTHER_DIFFERENCE".equals(scanHistorical(differentTypedPdc, template)),
+                "native scanner mislabeled a typed-PDC mismatch as cosmetic");
+        require(
+                historicAgainstRegistered.getAmount() == 37 && template.getAmount() == 1,
+                "native read-only scanner changed source/reference quantity");
         require(Arrays.equals(templateBefore, template.serializeAsBytes()), "registered template mutated");
         require(Arrays.equals(untouched, reference.serializeAsBytes()), "reference mutated by control cases");
         verifyHistoricalPresentation(folder, false);
@@ -290,6 +305,14 @@ final class ItemIdentityProbe {
         Method method = doctor.getDeclaredMethod("inspectHistoricalPresentation", ItemStack.class, ItemStack.class);
         method.setAccessible(true);
         return method.invoke(null, old, fresh);
+    }
+
+    private static String scanHistorical(ItemStack actual, ItemStack template) throws Exception {
+        Class<?> scanner = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.services.stability.HistoricalItemIdentityScanner");
+        Method method = scanner.getDeclaredMethod("inspect", ItemStack.class, ItemStack.class);
+        method.setAccessible(true);
+        return String.valueOf(method.invoke(null, actual, template));
     }
 
     private static int capacity(ItemStack stack) throws Exception {
