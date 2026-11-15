@@ -232,6 +232,22 @@ final class ItemIdentityProbe {
                 var backups = entries.filter(Files::isRegularFile).toList();
                 require(backups.size() == 1 && Arrays.equals(oldBytes, Files.readAllBytes(backups.get(0))),
                         "persisted original historical backup did not survive restart byte-for-byte");
+                String name = backups.getFirst().getFileName().toString();
+                java.util.UUID owner = java.util.UUID.fromString(name.substring(0, 36));
+                java.util.UUID receipt = java.util.UUID.fromString(name.substring(37, 73));
+                ItemStack verified = readDoctorBackup(folder, owner, receipt);
+                require(Arrays.equals(oldBytes, verified.serializeAsBytes()),
+                        "native postrestart owner-scoped backup did not restore exact original bytes");
+                require(matchesDoctorBackup(verified, repaired, fresh, fresh),
+                        "native postrestart backup/held-item verification failed");
+                ItemStack modified = ItemStack.deserializeBytes(repaired.serializeAsBytes());
+                modified.setAmount(62);
+                require(!matchesDoctorBackup(verified, modified, fresh, fresh),
+                        "postrestart backup verification ignored changed quantity");
+                modified = ItemStack.deserializeBytes(repaired.serializeAsBytes());
+                modified.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.INTEGER, 77));
+                require(!matchesDoctorBackup(verified, modified, fresh, fresh),
+                        "postrestart backup verification ignored typed PDC mismatch");
             }
             require(Arrays.equals(oldBytes, Files.readAllBytes(oldFile))
                             && Arrays.equals(freshBytes, Files.readAllBytes(freshFile)),
@@ -298,6 +314,26 @@ final class ItemIdentityProbe {
         Method method = doctor.getDeclaredMethod("backup", Path.class, java.util.UUID.class, byte[].class);
         method.setAccessible(true);
         return (Path) method.invoke(null, folder, java.util.UUID.randomUUID(), original);
+    }
+
+    private static ItemStack readDoctorBackup(Path folder, java.util.UUID owner, java.util.UUID receipt)
+            throws Exception {
+        Class<?> doctor = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorHistoricalStackRepair");
+        Method method = doctor.getDeclaredMethod(
+                "readVerifiedBackup", Path.class, java.util.UUID.class, java.util.UUID.class);
+        method.setAccessible(true);
+        return (ItemStack) method.invoke(null, folder, owner, receipt);
+    }
+
+    private static boolean matchesDoctorBackup(
+            ItemStack original, ItemStack repaired, ItemStack fresh, ItemStack template) throws Exception {
+        Class<?> doctor = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorHistoricalStackRepair");
+        Method method = doctor.getDeclaredMethod(
+                "matchesSavedBackup", ItemStack.class, ItemStack.class, ItemStack.class, ItemStack.class);
+        method.setAccessible(true);
+        return (boolean) method.invoke(null, original, repaired, fresh, template);
     }
 
     private static Object historical(ItemStack old, ItemStack fresh) throws Exception {
