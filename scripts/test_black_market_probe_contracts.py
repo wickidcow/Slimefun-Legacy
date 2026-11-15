@@ -137,8 +137,22 @@ class AdmissionTests(unittest.TestCase):
         self.assertEqual(evidence["bundle_revision"], 155)
         self.assertEqual(evidence["magic_version"], "1.1.19")
 
+    def test_r156_retains_magic_source_and_exact_44_addon_receipts(self):
+        self.select_r153_roster()
+        self.manifest["bundle_revision"] = 156
+        self.write_bundle()
+        evidence = self.validate()
+        self.assertEqual(evidence["bundle_revision"], 156)
+        self.assertEqual(evidence["magic_version"], "1.1.19")
+        self.assertEqual(len(evidence["tested_addons"]), 44)
+        self.assertEqual(evidence["tested_addons"][probe.MAGIC]["commit"],
+                         probe.MAGIC_RELEASES[156][0])
+        self.rows[0]["commit"] = probe.MAGIC_RELEASES[150][0]
+        self.write_bundle()
+        self.rejects()
+
     def test_bad_or_noninteger_revision_refused(self):
-        for revision in (136, 156, "141", 141.0, "142", 142.0, "143", 143.0, "144", 144.0, "145", 145.0, "146", 146.0, "147", 147.0, "148", 148.0, "149", 149.0, "150", 150.0, "151", 151.0, "152", 152.0, "153", 153.0, "154", 154.0, "155", 155.0, True):
+        for revision in (136, 157, "141", 141.0, "142", 142.0, "143", 143.0, "144", 144.0, "145", 145.0, "146", 146.0, "147", 147.0, "148", 148.0, "149", 149.0, "150", 150.0, "151", 151.0, "152", 152.0, "153", 153.0, "154", 154.0, "155", 155.0, "156", 156.0, True):
             with self.subTest(revision=revision):
                 self.manifest["bundle_revision"] = revision
                 self.write_bundle()
