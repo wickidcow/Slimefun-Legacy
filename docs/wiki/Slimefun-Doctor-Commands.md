@@ -53,11 +53,13 @@ A separate, deliberately narrow command is available **only after this change ha
 /sf doctor identity repair scan
 /sf doctor identity repair confirm
 /sf doctor identity repair rollback confirm
+/sf doctor identity repair verify <backup-uuid>
+/sf doctor identity repair rollback <backup-uuid> confirm
 ```
 
 Keep the **old item in main hand** and a **current item matching the registered template in offhand**. Preview is read-only and expires in five minutes. Confirmation requires unchanged snapshots of both held stacks (including each separate amount and all metadata) and an unchanged registered template; it writes and verifies the exact original native item bytes under `plugins/Slimefun/recovery/identity/` before touching the main hand. Only the Adventure display name and lore are copied. The result must pass strict `ItemStack.isSimilar` against the new item while retaining the original quantity and all other data. The offhand is never modified.
 
-Rollback is available for five minutes while still holding the unchanged repaired stack. Saved original bytes are retained on disk even after that timeout for administrator recovery. Make an offline backup first. Fail-closed cases include non-presentation metadata differences, intentional/dynamic addon lore, changed items between scan and confirm, mismatched IDs, model/profile/typed-PDC differences, loss during detachment, or any unsafe backup. This does **not** scan or repair backpacks, Fluffy Barrels, Cargo, offline inventories or placed storage; those require separate native conservation and restart evidence. It does not claim a repair for live #578 data until actual AlbionMC samples pass.
+The immediate in-session rollback is available for five minutes while still holding the unchanged repaired stack. Successful confirmation displays a private backup UUID. On an isolated backup clone after a clean restart, use `/sf doctor identity repair verify <backup-uuid>` to authenticate the original owner-scoped backup against the unchanged repaired main-hand stack and a fresh registered-template reference in the offhand. Verification is read-only. Only if it passes, `/sf doctor identity repair rollback <backup-uuid> confirm` explicitly restores the held item's original serialized bytes across restart; the backup remains on disk. These commands do not search inventories or recreate missing stacks. Keep the receipt and raw backup private. Make an offline backup first. Fail-closed cases include non-presentation metadata differences, intentional/dynamic addon lore, changed items between scan and confirm, mismatched IDs, model/profile/typed-PDC differences, loss during detachment, or any unsafe backup. This does **not** scan or repair backpacks, Fluffy Barrels, Cargo, offline inventories or placed storage; those require separate native conservation and restart evidence. It does not claim a repair for live #578 data until actual AlbionMC samples pass.
 
 ## Player and item repair
 
