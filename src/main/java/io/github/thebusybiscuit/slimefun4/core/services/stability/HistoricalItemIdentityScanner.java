@@ -50,7 +50,8 @@ final class HistoricalItemIdentityScanner {
         }
         ItemMeta actualMeta = actualCopy.getItemMeta();
         ItemMeta templateMeta = templateCopy.getItemMeta();
-        if (actualMeta == null || templateMeta == null
+        if (actualMeta == null
+                || templateMeta == null
                 || !Objects.equals(plain(actualMeta.displayName()), plain(templateMeta.displayName()))
                 || !Objects.equals(plainLore(actualMeta.lore()), plainLore(templateMeta.lore()))) {
             return Result.OTHER_DIFFERENCE;
@@ -92,10 +93,14 @@ final class HistoricalItemIdentityScanner {
     }
 
     private static String plain(Component component) {
-        return component == null ? null : PlainTextComponentSerializer.plainText().serialize(component);
+        return component == null
+                ? null
+                : PlainTextComponentSerializer.plainText().serialize(component);
     }
 
     private static List<String> plainLore(List<Component> lore) {
-        return lore == null ? null : lore.stream().map(HistoricalItemIdentityScanner::plain).toList();
+        return lore == null
+                ? null
+                : lore.stream().map(HistoricalItemIdentityScanner::plain).toList();
     }
 }
