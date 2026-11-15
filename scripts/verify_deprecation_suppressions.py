@@ -25,9 +25,7 @@ ALLOWED = {
     "src/main/java/io/github/thebusybiscuit/slimefun4/utils/compatibility/LegacyBukkitCompatibility.java": 2,
     "src/main/java/io/github/thebusybiscuit/slimefun4/utils/compatibility/VersionedItemFlag.java": 1,
     "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/Slimefun.java": 1,
-    # Paper 26.3 can mark distance-despawn configuration deprecated even though
-    # Entity#setPersistent controls world saving, not this behavior. Keep two
-    # single-call, private compatibility shims until the API has an equivalent.
+    # Preserve legacy distance despawn semantics through two exact one-call API shims.
     "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/holograms/HologramsService.java": 1,
     "src/main/java/io/github/thebusybiscuit/slimefun4/utils/ArmorStandUtils.java": 1,
     # Existing Networks/InfinityLib folders still implement ItemGroup.isHidden(Player).
@@ -36,8 +34,7 @@ ALLOWED = {
 
 PATTERN = re.compile(r'@SuppressWarnings\s*\((?:\{[^)]*\}|[^)]*)\)')
 
-# Approved ONLY for these exact single-call despan-policy shims. The whitelist
-# must not become permission to hide unrelated deprecations in either class.
+# Whitelist is exact: do not allow other deprecation sites within these classes.
 DESPAWN_SHIMS = {
     "src/main/java/io/github/thebusybiscuit/slimefun4/core/services/holograms/HologramsService.java": "preventHologramDespawn",
     "src/main/java/io/github/thebusybiscuit/slimefun4/utils/ArmorStandUtils.java": "preventArmorStandDespawn",
@@ -89,9 +86,7 @@ def main() -> int:
             + r'armorStand\.setRemoveWhenFarAway\(false\);\s*\}'
         )
         if not re.search(exact, source):
-            failures.append(
-                f"{rel} deprecated distance-despawn shim no longer matches its one approved call"
-            )
+            failures.append(f"{rel} deprecated distance-despawn shim no longer matches its one approved call")
 
     if failures:
         print("Deprecation suppression verification: FAIL")
