@@ -112,8 +112,8 @@ class PublishedR156JarStageTest(unittest.TestCase):
     def test_workflow_replaces_before_packaging_and_rechecks(self):
         workflow = (Path(__file__).resolve().parents[1]
                     / ".github/workflows/build-sfl-addons-compat-bundle.yml").read_text(encoding="utf-8")
-        stage_step = workflow.index("python3 scripts/stage_r156_official_addons.py --jars collected/jars --metadata collected/metadata")
-        final_check = workflow.index("python3 scripts/stage_r156_official_addons.py --jars collected/jars --metadata collected/metadata --verify-only")
+        stage_step = workflow.index("python3 -m scripts.stage_r156_official_addons --jars collected/jars --metadata collected/metadata")
+        final_check = workflow.index("python3 -m scripts.stage_r156_official_addons --jars collected/jars --metadata collected/metadata --verify-only")
         bundle_step = workflow.index("name: Verify complete maintained set and canonical names")
         self.assertLess(stage_step, final_check)
         self.assertLess(final_check, bundle_step)
