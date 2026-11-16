@@ -116,6 +116,9 @@ public final class LegacyItemRecoveryPreview {
         if (source.startsWith("EnderPanda")) {
             return "EnderPanda";
         }
+        if (source.startsWith("InfernalExpansion")) {
+            return "InfernalExpansion";
+        }
         if (source.startsWith("Slimefun LuckyBlocks")) {
             return "LuckyBlocks";
         }
@@ -133,6 +136,8 @@ public final class LegacyItemRecoveryPreview {
             case "EnderPanda" -> "SHULKER_HELMET".equals(id)
                     ? "Use Slimefun Legacy with the restored helmet ID, then re-scan."
                     : "Install a compatible EnderPanda addon; no substitute ID is approved.";
+            case "InfernalExpansion" ->
+                    "Restore a compatible InfernalExpansion addon; no automatic talisman migration is approved.";
             case "LuckyBlocks" ->
                     "Install SF_LuckyBlocks v1.0.4+; Lucky gear name repair uses /luckyrestore.";
             case "InfinityExpansion" ->

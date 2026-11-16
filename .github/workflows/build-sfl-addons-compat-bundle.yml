@@ -16,6 +16,8 @@ on:
       - 'compatibility/r156-official-addon-releases.json'
       - 'scripts/verify_r156_addon_publications.py'
       - 'scripts/test_r156_addon_publications.py'
+      - 'scripts/stage_r156_official_addons.py'
+      - 'scripts/test_stage_r156_official_addons.py'
       - 'scripts/compile_addon_paper_26_3.py'
       - 'scripts/paper_candidate_versions.py'
       - 'scripts/test_paper_candidate_versions.py'
@@ -39,6 +41,8 @@ on:
       - 'compatibility/r156-official-addon-releases.json'
       - 'scripts/verify_r156_addon_publications.py'
       - 'scripts/test_r156_addon_publications.py'
+      - 'scripts/stage_r156_official_addons.py'
+      - 'scripts/test_stage_r156_official_addons.py'
       - 'scripts/compile_addon_paper_26_3.py'
       - 'scripts/paper_candidate_versions.py'
       - 'scripts/test_paper_candidate_versions.py'
@@ -586,6 +590,18 @@ jobs:
           pattern: sf-addon-*
           path: collected
           merge-multiple: true
+      - name: Stage exact published r156 official JAR bytes after successful source compilation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest scripts.test_stage_r156_official_addons -v
+          python3 scripts/test_verify_published_addon_bundle.py -v
+          python3 -m scripts.stage_r156_official_addons --jars collected/jars --metadata collected/metadata
+          python3 -m scripts.stage_r156_official_addons --jars collected/jars --metadata collected/metadata --verify-only
+          python3 scripts/verify_addon_bytecode.py collected/jars/SF_CrystamaeHistoria1.0.3.jar --expected-java 21
+          python3 scripts/verify_addon_bytecode.py collected/jars/SF_Galactifun1.0.8.jar --expected-java 21
       - name: Verify complete maintained set and canonical names
         env:
           EXPECTED: ${{ needs.prepare.outputs.count }}
@@ -759,6 +775,8 @@ jobs:
           (cd bundle && sha256sum *.jar | sort > SHA256SUMS.txt)
           (cd bundle && zip -9 -q "../${BUNDLE_NAME}" ./*)
           unzip -tqq "$BUNDLE_NAME"
+          # Independently reject rebuilt same-version JARs or missing published raw receipts.
+          python3 scripts/verify_published_addon_bundle.py "$BUNDLE_NAME"
           test -s "$BUNDLE_NAME"
           echo "Created $BUNDLE_NAME with ${#JARS[@]} verified addons"
       - uses: actions/upload-artifact@v7

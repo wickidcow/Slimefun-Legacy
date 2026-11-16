@@ -20,6 +20,8 @@ public final class KnownLegacyItemIdCatalog {
     private static final String SLIMEFUN4_MINER_SOURCE = "Slimefun4 Digital Miner -> Industrial Miner replacement";
     private static final String IE1_SOURCE = "InfinityExpansion v1 -> InfinityExpansion2";
     private static final String ENDER_PANDA_SOURCE = "EnderPanda (balugaq/EnderPanda) historical item";
+    private static final String INFERNAL_EXPANSION_SOURCE =
+            "InfernalExpansion (NotKirzu/InfernalExpansion) historical talisman";
     private static final String LUCKY_BLOCKS_SOURCE = "Slimefun LuckyBlocks (Slimefun-Addon-Community/luckyblocks) historical block";
     private static final Map<String, Hint> EXACT_HINTS = createExactHints();
 
@@ -90,6 +92,13 @@ public final class KnownLegacyItemIdCatalog {
             "PANDA_BOOTS", "PANDA_FRAGMENT", "SPECIAL_BAMBOO", "ENDER_REPLACER", "ENDER_GENERATOR"
         }) {
             add(hints, id, id, ENDER_PANDA_SOURCE, Evidence.DOCUMENTED_ITEM_ID);
+        }
+
+        // Not EnderPanda: InfernalExpansion (NotKirzu/InfernalExpansion) registers PIGLIN_TALISMAN.
+        // Slimefun's Talisman registration derives ENDER_PIGLIN_TALISMAN as its Ender Chest variant.
+        // The original source does not declare a replacement ID. These are hints only, not migrations.
+        for (String id : new String[] {"PIGLIN_TALISMAN", "ENDER_PIGLIN_TALISMAN"}) {
+            add(hints, id, id, INFERNAL_EXPANSION_SOURCE, Evidence.DOCUMENTED_ITEM_ID);
         }
 
         // Only the four LuckyBlocks block variants have Slimefun IDs.
