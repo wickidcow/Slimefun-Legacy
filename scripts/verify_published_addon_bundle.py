@@ -20,6 +20,54 @@ def valid_public_name(name: str, minimum: str, primary: str) -> bool:
     return re.fullmatch(pattern, name) is not None
 
 
+
+def verify_r156_official_records(manifest: dict, release_lock: dict, read_jar) -> None:
+    """Independent final ZIP gate: same version/source is NOT the same official JAR."""
+    if manifest.get("bundle_revision") != 156:
+        return
+    required = {
+        "wickidcow/SF_CrystamaeHistoria": ("v1.0.3", "SF_CrystamaeHistoria1.0.3.jar"),
+        "wickidcow/SF_Galactifun": ("v1.0.8", "SF_Galactifun1.0.8.jar"),
+    }
+    if release_lock.get("schema") != 1 or release_lock.get("bundle_revision") != 156:
+        raise ValueError("Wrong official source/release lock revision")
+    rows = release_lock.get("releases")
+    if not isinstance(rows, list) or len(rows) != 2 or {
+        row.get("repository") for row in rows
+    } != set(required):
+        raise ValueError("Both exact official addon releases are mandatory")
+    by_repo = {row.get("repository"): row for row in manifest["addons"]}
+    if len(by_repo) != len(manifest["addons"]):
+        raise ValueError("Duplicate addon source in bundled manifest")
+    for row in rows:
+        repo = row["repository"]
+        tag, asset = required[repo]
+        if (row.get("tag"), row.get("asset")) != (tag, asset):
+            raise ValueError(f"Unexpected released addon tag/name: {repo}")
+        rec = by_repo.get(repo)
+        if not isinstance(rec, dict):
+            raise ValueError(f"Required published addon missing from ZIP: {repo}")
+        receipt = {
+            "tag": tag,
+            "source_commit": row["source_commit"],
+            "url": f"https://github.com/{repo}/releases/download/{tag}/{asset}",
+            "sha256": row["sha256"],
+            "bytes": row["bytes"],
+            "verified_download": True,
+        }
+        if (rec.get("commit") != row["source_commit"] or rec.get("jar") != asset
+                or rec.get("version") != tag.removeprefix("v")
+                or rec.get("sha256") != row["sha256"]
+                or rec.get("published_artifact") != receipt
+                or rec.get("distributable_api") != "1.21.11-R0.1-SNAPSHOT"
+                or not re.fullmatch(r"[0-9a-f]{64}", str(rec.get("source_build_sha256", "")))):
+            raise ValueError(f"Missing exact official raw-release receipt: {repo}")
+        data = read_jar(asset)
+        if (len(data) != row["bytes"]
+                or hashlib.sha256(data).hexdigest() != row["sha256"]):
+            raise ValueError(f"Rebuilt JAR is not byte-identical to published release: {repo}")
+
+
 def validate_bundle(path: Path) -> dict:
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
@@ -61,6 +109,9 @@ def validate_bundle(path: Path) -> dict:
                     raise ValueError(f"Corrupt or ambiguous plugin JAR: {name}")
                 if not any(d in members for d in ("plugin.yml", "paper-plugin.yml", "paper-plugin.yaml")):
                     raise ValueError(f"Plugin descriptor missing: {name}")
+        if manifest.get("bundle_revision") == 156:
+            lock_file = Path(__file__).resolve().parents[1] / "compatibility/r156-official-addon-releases.json"
+            verify_r156_official_records(manifest, json.loads(lock_file.read_text(encoding="utf-8")), archive.read)
         actual = {name for name in names if name.endswith(".jar")}
         if actual != expected:
             raise ValueError(f"Addon JAR set mismatch: extra={sorted(actual - expected)}, missing={sorted(expected - actual)}")
