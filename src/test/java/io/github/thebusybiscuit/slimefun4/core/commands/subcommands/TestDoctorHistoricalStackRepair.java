@@ -306,8 +306,7 @@ class TestDoctorHistoricalStackRepair {
     void refusesOversizedSavedBackupBeforeWritingAndDuringReadback() throws Exception {
         UUID owner = UUID.randomUUID();
         byte[] oversized = new byte[16 * 1024 * 1024 + 1];
-        assertThrows(
-                java.io.IOException.class, () -> DoctorHistoricalStackRepair.backup(folder, owner, oversized));
+        assertThrows(java.io.IOException.class, () -> DoctorHistoricalStackRepair.backup(folder, owner, oversized));
         assertFalse(Files.exists(folder.resolve("recovery")));
 
         ItemStack old = historical(current());
