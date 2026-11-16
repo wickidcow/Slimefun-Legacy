@@ -97,6 +97,7 @@ final class ResourcePackPlayerProbe implements Listener {
                         verifyLoadedBackpack(player, id);
                     }
                     verifyStoredOutputs(player);
+                    if (stage.equals("join")) verifyHistoricalRepairRestart(player);
                     plugin.pass("player-" + stage);
                 });
             }
@@ -394,6 +395,13 @@ final class ResourcePackPlayerProbe implements Listener {
             require(Arrays.equals(originalBytes, player.getInventory().getItemInMainHand().serializeAsBytes())
                             && Arrays.equals(referenceBytes, player.getInventory().getItemInOffHand().serializeAsBytes()),
                     "Owner receipt rollback changed original item count, typed data, or offhand");
+            // Keep private synthetic snapshots and the actual receipt for the
+            // next separate JVM boot. Never use a production player or old world.
+            Path evidence = plugin.getDataFolder().toPath();
+            Files.write(evidence.resolve("doctor-held-original.bin"), originalBytes);
+            Files.write(evidence.resolve("doctor-held-repaired.bin"), repaired.serializeAsBytes());
+            Files.write(evidence.resolve("doctor-held-reference.bin"), referenceBytes);
+            Files.writeString(evidence.resolve("doctor-held-receipt.txt"), firstReceipt);
             plugin.getLogger().info("IDENTITY_DOCTOR_HELD_REPAIR_PASS SMALL_URANIUM old=63+17 fresh=1"
                     + " verified-backups=2 rollback-both=true runtime=" + Bukkit.getVersion());
         } finally {
@@ -401,6 +409,83 @@ final class ResourcePackPlayerProbe implements Listener {
             player.getInventory().clear();
         }
         plugin.pass("player-identity-repair");
+    }
+
+    /**
+     * Prove the real player-facing receipt commands still work after the server
+     * process has fully restarted. The historical sample is synthetic fixture
+     * data; this never accepts or modifies an AlbionMC world.
+     */
+    private void verifyHistoricalRepairRestart(Player player) throws Exception {
+        owned(player);
+        require(stage.equals("join"), "Historical receipt restart outside second boot");
+        Path evidence = plugin.getDataFolder().toPath();
+        byte[] originalBytes = Files.readAllBytes(evidence.resolve("doctor-held-original.bin"));
+        byte[] repairedBytes = Files.readAllBytes(evidence.resolve("doctor-held-repaired.bin"));
+        byte[] referenceBytes = Files.readAllBytes(evidence.resolve("doctor-held-reference.bin"));
+        String receipt = Files.readString(evidence.resolve("doctor-held-receipt.txt")).trim();
+        ItemStack original = ItemStack.deserializeBytes(originalBytes);
+        ItemStack repaired = ItemStack.deserializeBytes(repairedBytes);
+        ItemStack reference = ItemStack.deserializeBytes(referenceBytes);
+        require(original.getAmount() == 63 && repaired.getAmount() == 63 && reference.getAmount() == 1,
+                "Restart receipt fixture quantities changed");
+        Path backup = Bukkit.getPluginManager().getPlugin("Slimefun")
+                .getDataFolder().toPath().resolve("recovery/identity")
+                .resolve(player.getUniqueId() + "-" + receipt + ".bin");
+        require(Files.isRegularFile(backup) && Arrays.equals(originalBytes, Files.readAllBytes(backup)),
+                "Owner-scoped original Doctor backup was lost on server restart");
+
+        ItemStack previousMain = player.getInventory().getItemInMainHand();
+        ItemStack previousOff = player.getInventory().getItemInOffHand();
+        byte[] previousMainBytes = previousMain.serializeAsBytes();
+        byte[] previousOffBytes = previousOff.serializeAsBytes();
+        var registered = SlimefunItem.getById("SMALL_URANIUM");
+        require(registered != null, "Restart Doctor registered template missing");
+        byte[] templateBytes = registered.getItem().serializeAsBytes();
+        var permission = player.addAttachment(plugin, "slimefun.command.doctor", true);
+        try {
+            player.getInventory().setItemInMainHand(repaired);
+            player.getInventory().setItemInOffHand(reference);
+            require(player.performCommand("sf doctor identity repair verify " + receipt),
+                    "Postrestart owner-bound verify command rejected");
+            require(Arrays.equals(repairedBytes, player.getInventory().getItemInMainHand().serializeAsBytes())
+                            && Arrays.equals(referenceBytes,
+                                    player.getInventory().getItemInOffHand().serializeAsBytes()),
+                    "Postrestart verify changed either held item");
+
+            ItemStack changedCount = ItemStack.deserializeBytes(repairedBytes);
+            changedCount.setAmount(62);
+            player.getInventory().setItemInMainHand(changedCount);
+            require(player.performCommand("sf doctor identity repair rollback " + receipt + " confirm"),
+                    "Postrestart changed-count rollback command rejected");
+            require(Arrays.equals(changedCount.serializeAsBytes(),
+                            player.getInventory().getItemInMainHand().serializeAsBytes()),
+                    "Postrestart rollback overwrote an altered quantity");
+            player.getInventory().setItemInMainHand(repaired);
+            require(player.performCommand("sf doctor identity repair rollback " + receipt + " confirm"),
+                    "Postrestart exact owner receipt rollback command rejected");
+            require(Arrays.equals(originalBytes, player.getInventory().getItemInMainHand().serializeAsBytes())
+                            && Arrays.equals(referenceBytes,
+                                    player.getInventory().getItemInOffHand().serializeAsBytes()),
+                    "Postrestart rollback lost original bytes, quantity or reference");
+            require(Arrays.equals(originalBytes, Files.readAllBytes(backup))
+                            && Arrays.equals(templateBytes, registered.getItem().serializeAsBytes()),
+                    "Postrestart receipt restore changed original backup or registered template");
+            var merge = Bukkit.createInventory(null, 9);
+            require(merge.addItem(ItemStack.deserializeBytes(repairedBytes),
+                            ItemStack.deserializeBytes(referenceBytes)).isEmpty()
+                            && merge.getItem(0).getAmount() == 64 && merge.getItem(1) == null,
+                    "Postrestart repaired item failed physical 63+1 conservation");
+        } finally {
+            player.getInventory().setItemInMainHand(previousMain);
+            player.getInventory().setItemInOffHand(previousOff);
+            player.removeAttachment(permission);
+        }
+        require(Arrays.equals(previousMainBytes, player.getInventory().getItemInMainHand().serializeAsBytes())
+                        && Arrays.equals(previousOffBytes,
+                                player.getInventory().getItemInOffHand().serializeAsBytes()),
+                "Postrestart Doctor receipt probe did not restore saved player inventory");
+        plugin.pass("player-identity-repair-postrestart");
     }
 
     private void verifyCompressorRejection(Player player) throws Exception {
