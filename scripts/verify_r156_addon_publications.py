@@ -90,7 +90,8 @@ def read_json(url: str) -> dict:
     raise RuntimeError(f"Official release API unavailable: {last}")
 
 
-def verify_remote(rows: list[dict]) -> None:
+def verify_remote(rows: list[dict]) -> dict[str, bytes]:
+    downloaded: dict[str, bytes] = {}
     for row in rows:
         repo, tag, expected = row["repository"], row["tag"], row["source_commit"]
         prefix = f"https://api.github.com/repos/{repo}"
@@ -129,7 +130,9 @@ def verify_remote(rows: list[dict]) -> None:
         version = re.escape(tag.removeprefix("v"))
         if not re.search(rf"(?m)^version:\s*['\"]?{version}['\"]?\s*$", descriptor):
             raise ValueError(f"Official plugin descriptor/version mismatch: {repo}")
+        downloaded[repo] = data
         print(f"Verified official raw JAR: {repo} {tag}, {row['bytes']} bytes, sha256:{row['sha256']}")
+    return downloaded
 
 
 def main() -> int:
