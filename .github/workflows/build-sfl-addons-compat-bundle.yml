@@ -597,6 +597,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest scripts.test_stage_r156_official_addons -v
+          python3 scripts/test_verify_published_addon_bundle.py -v
           python3 scripts/stage_r156_official_addons.py --jars collected/jars --metadata collected/metadata
           python3 scripts/stage_r156_official_addons.py --jars collected/jars --metadata collected/metadata --verify-only
           python3 scripts/verify_addon_bytecode.py collected/jars/SF_CrystamaeHistoria1.0.3.jar --expected-java 21
