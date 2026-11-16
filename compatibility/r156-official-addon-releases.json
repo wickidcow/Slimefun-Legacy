@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "bundle_revision": 156,
+  "releases": [
+    {
+      "repository": "wickidcow/SF_CrystamaeHistoria",
+      "tag": "v1.0.3",
+      "source_commit": "0eb00ea7516be822a3b50b9872400d9892996b8e",
+      "asset": "SF_CrystamaeHistoria1.0.3.jar",
+      "bytes": 1200147,
+      "sha256": "f3da97dc760853f0cd166dd154b977a58f0f404a302087d878ef562bac72a470"
+    },
+    {
+      "repository": "wickidcow/SF_Galactifun",
+      "tag": "v1.0.8",
+      "source_commit": "1fff7080cb8bcd00eeb1555f433cc0bf8e99c172",
+      "asset": "SF_Galactifun1.0.8.jar",
+      "bytes": 1522385,
+      "sha256": "ee6a5d3816dc228a4b1db02c3961f58df8633166e519b238d3c8a4f366db9d1e"
+    }
+  ]
+}

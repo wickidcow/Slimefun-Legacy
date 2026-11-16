@@ -62,10 +62,10 @@ class CompatibilityClaimsTest(unittest.TestCase):
 
 
     def test_maintained_repin_is_exact_and_preserves_native_pairs(self):
-        # Reviewed r155 source selection: preserve historical native storage
+        # Reviewed r156 source selection: preserve historical native storage
         # fixtures and immutable published Networks/IE2 artifact locks. The
         # candidate matrix intentionally advances beyond those release sources.
-        self.assertEqual(155, self.matrix["bundle_revision"])
+        self.assertEqual(156, self.matrix["bundle_revision"])
         self.assertEqual(44, len(self.matrix["addons"]))
         selected = {row["repository"]: row["source_commit"]
                     for row in self.matrix["addons"]}
@@ -103,14 +103,14 @@ class CompatibilityClaimsTest(unittest.TestCase):
 
 
 
-    def test_r155_six_updated_addons_remain_pinned_to_merged_release_sources(self):
+    def test_r156_retains_previous_merged_release_sources(self):
         # FlowerPower / ExtraHeads keep existing reviewed source identities.
         # The six r155 addon pins point to reviewed, published commits,
         # never draft commits. Published/historical storage locks are separate.
         selected = {row["repository"]: row["source_commit"]
                     for row in self.matrix["addons"]}
         self.assertEqual(44, len(selected))
-        self.assertEqual(155, self.matrix["bundle_revision"])
+        self.assertEqual(156, self.matrix["bundle_revision"])
         expected = {
             "wickidcow/SF_CultivationLegacy": "ab97e9d1a89a57bfca3801fce7cef75020fd9bf0",
             "wickidcow/SF_HotbarPets": "54c802438a6819e6f3b0eea411e675a3eb0855dc",
@@ -124,6 +124,13 @@ class CompatibilityClaimsTest(unittest.TestCase):
         for repository, sha in expected.items():
             with self.subTest(repository=repository):
                 self.assertEqual(sha, selected[repository])
+        # r156 selects the immutable official v1.0.3/v1.0.8 Git tag commits,
+        # not the earlier postmerge pre-release source or mutable master.
+        # Native bundle byte receipts and release asset digest acceptance stay gated.
+        self.assertEqual("0eb00ea7516be822a3b50b9872400d9892996b8e",
+                         selected["wickidcow/SF_CrystamaeHistoria"])
+        self.assertEqual("1fff7080cb8bcd00eeb1555f433cc0bf8e99c172",
+                         selected["wickidcow/SF_Galactifun"])
         self.assertNotIn("wickidcow/SF_BuildingStaff", selected)
 
 

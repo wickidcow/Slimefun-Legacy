@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 155,
+  "bundle_revision": 156,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -81,7 +81,7 @@
     {
       "repository": "wickidcow/SF_CrystamaeHistoria",
       "slug": "crystamaehistoria",
-      "source_commit": "584db74db1dd9d108cf658bdaf2a09c9132b0d47"
+      "source_commit": "0eb00ea7516be822a3b50b9872400d9892996b8e"
     },
     {
       "repository": "wickidcow/SF_DankTech2",
@@ -147,7 +147,7 @@
     {
       "repository": "wickidcow/SF_Galactifun",
       "slug": "galactifun",
-      "source_commit": "82bdf5254b42a14f38c98590a8b6ebf708c5be22"
+      "source_commit": "1fff7080cb8bcd00eeb1555f433cc0bf8e99c172"
     },
     {
       "repository": "wickidcow/SF_Gastronomicon",
