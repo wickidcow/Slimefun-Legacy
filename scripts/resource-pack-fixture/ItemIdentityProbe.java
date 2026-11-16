@@ -203,8 +203,93 @@ final class ItemIdentityProbe {
                 new GsonBuilder().setPrettyPrinting().create().toJson(registry));
     }
 
+    private static void verifyRegisteredCarbonHistory(Path folder, String id, boolean restart)
+            throws Exception {
+        var registered = SlimefunItem.getById(id);
+        require(registered != null, "Core must register actual historical item ID: " + id);
+        Path caseFolder = folder.resolve("identity-history-" + id.toLowerCase(java.util.Locale.ROOT));
+        Path oldFile = caseFolder.resolve("old.bin");
+        Path referenceFile = caseFolder.resolve("current.bin");
+        Path repairedFile = caseFolder.resolve("repaired.bin");
+
+        if (restart) {
+            byte[] oldBytes = Files.readAllBytes(oldFile);
+            byte[] currentBytes = Files.readAllBytes(referenceFile);
+            ItemStack old = ItemStack.deserializeBytes(oldBytes);
+            ItemStack current = ItemStack.deserializeBytes(currentBytes);
+            ItemStack repaired = ItemStack.deserializeBytes(Files.readAllBytes(repairedFile));
+            require(old.getAmount() == 63 && current.getAmount() == 1 && repaired.getAmount() == 63,
+                    "native " + id + " quantity changed on second boot");
+            require(!old.isSimilar(current) && repaired.isSimilar(current),
+                    "native " + id + " lost old-vs-current identity across restart");
+            var storage = Bukkit.createInventory(null, 9);
+            require(storage.addItem(repaired, current).isEmpty()
+                            && storage.getItem(0).getAmount() == 64 && storage.getItem(1) == null,
+                    "native " + id + " could not physically merge 63+1 into 64 after restart");
+            try (var entries = Files.list(caseFolder.resolve("recovery/identity"))) {
+                var backups = entries.filter(Files::isRegularFile).toList();
+                require(backups.size() == 1 && Arrays.equals(oldBytes, Files.readAllBytes(backups.getFirst())),
+                        "native " + id + " old source bytes not intact across restart");
+                String filename = backups.getFirst().getFileName().toString();
+                java.util.UUID owner = java.util.UUID.fromString(filename.substring(0, 36));
+                java.util.UUID receipt = java.util.UUID.fromString(filename.substring(37, 73));
+                ItemStack verified = readDoctorBackup(caseFolder, owner, receipt);
+                require(Arrays.equals(oldBytes, verified.serializeAsBytes())
+                                && matchesDoctorBackup(verified, repaired, current, current),
+                        "native " + id + " verified rollback identity or amount changed after restart");
+                ItemStack changedQuantity = ItemStack.deserializeBytes(repaired.serializeAsBytes());
+                changedQuantity.setAmount(62);
+                require(!matchesDoctorBackup(verified, changedQuantity, current, current),
+                        "native " + id + " rollback would accept changed quantity");
+                require(!matchesDoctorBackup(verified, repaired, old, current),
+                        "native " + id + " rollback would accept unregistered old reference");
+            }
+            require(Arrays.equals(oldBytes, Files.readAllBytes(oldFile))
+                            && Arrays.equals(currentBytes, Files.readAllBytes(referenceFile)),
+                    "native " + id + " test changed its immutable old/current snapshots");
+            return;
+        }
+
+        Files.createDirectories(caseFolder);
+        byte[] templateBytes = registered.getItem().serializeAsBytes();
+        ItemStack current = ItemStack.deserializeBytes(templateBytes);
+        current.setAmount(1);
+        ItemStack old = ItemStack.deserializeBytes(templateBytes);
+        old.setAmount(63);
+        var display = old.getItemMeta().displayName();
+        require(display != null, "native " + id + " registered item lacks display name");
+        boolean originalBold = display.decoration(TextDecoration.BOLD) == TextDecoration.State.TRUE;
+        old.editMeta(meta -> meta.displayName(meta.displayName()
+                .decoration(TextDecoration.BOLD, !originalBold)));
+        byte[] oldBytes = old.serializeAsBytes();
+        byte[] currentBytes = current.serializeAsBytes();
+        require(!old.isSimilar(current), "native " + id + " synthetic old styling did not differ");
+        Object classification = historical(old, current);
+        require(flag(classification, "candidate") && flag(classification, "nonPresentationSame"),
+                "native " + id + " cosmetic candidate altered functional typed components");
+        ItemStack repaired = repairCandidate(old, current, current);
+        require(repaired != null && repaired.isSimilar(current) && repaired.getAmount() == 63,
+                "native " + id + " exact original typed data could not be styling repaired");
+        Path saved = backupHistorical(caseFolder, oldBytes);
+        require(Arrays.equals(oldBytes, Files.readAllBytes(saved)),
+                "native " + id + " original backing bytes were modified");
+        Files.write(oldFile, oldBytes);
+        Files.write(referenceFile, currentBytes);
+        Files.write(repairedFile, repaired.serializeAsBytes());
+        require(Arrays.equals(templateBytes, registered.getItem().serializeAsBytes())
+                        && Arrays.equals(oldBytes, old.serializeAsBytes())
+                        && Arrays.equals(currentBytes, current.serializeAsBytes()),
+                "native " + id + " altered registered/current/old input item");
+    }
+
     /** Native Paper demonstration for #578: classification only, never a historical repair. */
     private static void verifyHistoricalPresentation(Path folder, boolean restart) throws Exception {
+        // Exercise both reported AlbionMC IDs using current actual registered
+        // Paper item templates in addition to the purpose-built fixture.
+        // These are synthetic styling controls, NOT historic world originals.
+        for (String id : List.of("RAW_CARBONADO", "CARBON_CHUNK")) {
+            verifyRegisteredCarbonHistory(folder, id, restart);
+        }
         Path oldFile = folder.resolve("identity-historical-old.bin");
         Path freshFile = folder.resolve("identity-historical-fresh.bin");
         if (restart) {

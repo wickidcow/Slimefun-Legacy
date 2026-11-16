@@ -1,6 +1,6 @@
 # AlbionMC historical-item Doctor repair: staged acceptance
 
-This document describes the **only real-item acceptance still missing** for draft [Slimefun Legacy PR #607](https://github.com/wickidcow/Slimefun-Legacy/pull/607). CI fixtures with constructed item metadata, even when run through a real connected Paper/Folia player and restart, are **not** proof that all historical player items are eligible.
+This document describes the **only real-item acceptance still missing** for draft [Slimefun Legacy PR #607](https://github.com/wickidcow/Slimefun-Legacy/pull/607). CI fixtures with constructed item metadata, even when run through a real connected Paper/Folia player and restart, are **not** proof that all historical player items are eligible. The candidate now exercises native Paper registered `RAW_CARBONADO` and `CARBON_CHUNK` templates with synthetic old styling, original-byte backup, actual 63+1 merge, and owner-scoped receipt validation after restart. This establishes native *code-path* support for those IDs only; it cannot replace the genuine old Fluffy Barrel item tests below.
 
 ## Before installing any candidate
 
