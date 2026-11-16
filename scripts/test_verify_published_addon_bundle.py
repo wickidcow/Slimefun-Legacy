@@ -9,7 +9,7 @@ import unittest
 import warnings
 import zipfile
 from pathlib import Path
-from verify_published_addon_bundle import main, valid_public_name, validate_bundle
+from verify_published_addon_bundle import main, valid_public_name, validate_bundle, verify_r156_official_records
 
 
 class PublishedBundleTest(unittest.TestCase):
@@ -35,6 +35,49 @@ class PublishedBundleTest(unittest.TestCase):
                 archive.writestr('SF_ADDON_MANIFEST.json', json.dumps(self.manifest))
                 archive.writestr(self.name, self.jar if data is None else data)
                 for name, content in extras: archive.writestr(name, content)
+
+
+    def test_r156_official_releases_reject_same_version_source_rebuilds(self):
+        items = (
+            ("wickidcow/SF_CrystamaeHistoria", "SF_CrystamaeHistoria1.0.3.jar", "v1.0.3", "a" * 40),
+            ("wickidcow/SF_Galactifun", "SF_Galactifun1.0.8.jar", "v1.0.8", "b" * 40),
+        )
+        rows, records, blobs = [], [], {}
+        for repo, asset, tag, sha in items:
+            payload = self.make_jar()
+            blobs[asset] = payload
+            digest = hashlib.sha256(payload).hexdigest()
+            rows.append({"repository": repo, "asset": asset, "tag": tag,
+                         "source_commit": sha, "bytes": len(payload), "sha256": digest})
+            records.append({
+                "repository": repo, "jar": asset, "commit": sha,
+                "version": tag[1:], "sha256": digest,
+                "source_build_sha256": "c" * 64,
+                "distributable_api": "1.21.11-R0.1-SNAPSHOT",
+                "published_artifact": {
+                    "tag": tag, "source_commit": sha,
+                    "url": f"https://github.com/{repo}/releases/download/{tag}/{asset}",
+                    "sha256": digest, "bytes": len(payload), "verified_download": True,
+                },
+            })
+        manifest = {"bundle_revision": 156, "addons": records}
+        lock = {"schema": 1, "bundle_revision": 156, "releases": rows}
+        verify_r156_official_records(manifest, lock, blobs.__getitem__)
+        rebuilt = dict(blobs)
+        first = items[0][1]
+        rebuilt[first] += b"source rebuilt"
+        with self.assertRaisesRegex(ValueError, "Rebuilt JAR"):
+            verify_r156_official_records(manifest, lock, rebuilt.__getitem__)
+        bad = json.loads(json.dumps(manifest))
+        bad["addons"][0]["published_artifact"]["sha256"] = "f" * 64
+        with self.assertRaisesRegex(ValueError, "receipt"):
+            verify_r156_official_records(bad, lock, blobs.__getitem__)
+        bad = json.loads(json.dumps(manifest))
+        bad["addons"][1]["distributable_api"] = "26.3.build.253-stable"
+        with self.assertRaisesRegex(ValueError, "receipt"):
+            verify_r156_official_records(bad, lock, blobs.__getitem__)
+        with self.assertRaisesRegex(ValueError, "Both exact"):
+            verify_r156_official_records(manifest, {**lock, "releases": rows[:1]}, blobs.__getitem__)
 
     def test_current_worldedit_name_is_accepted(self):
         self.write()
