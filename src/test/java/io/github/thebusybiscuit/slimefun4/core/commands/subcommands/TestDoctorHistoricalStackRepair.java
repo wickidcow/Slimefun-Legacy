@@ -311,7 +311,8 @@ class TestDoctorHistoricalStackRepair {
         assertFalse(Files.exists(folder.resolve("recovery")));
 
         ItemStack old = historical(current());
-        Path saved = DoctorHistoricalStackRepair.backup(folder, owner, old.serializeAsBytes());
+        byte[] originalBytes = old.serializeAsBytes();
+        Path saved = DoctorHistoricalStackRepair.backup(folder, owner, originalBytes);
         String name = saved.getFileName().toString();
         UUID receipt = UUID.fromString(name.substring(owner.toString().length() + 1, name.length() - 4));
         // Extending a disposable backup with a sparse tail must be refused
@@ -323,7 +324,7 @@ class TestDoctorHistoricalStackRepair {
         assertThrows(
                 java.io.IOException.class,
                 () -> DoctorHistoricalStackRepair.readVerifiedBackup(folder, owner, receipt));
-        assertArrayEquals(old.serializeAsBytes(), old.serializeAsBytes());
+        assertArrayEquals(originalBytes, old.serializeAsBytes());
     }
 
     @Test
