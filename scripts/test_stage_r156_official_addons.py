@@ -117,6 +117,11 @@ class PublishedR156JarStageTest(unittest.TestCase):
         bundle_step = workflow.index("name: Verify complete maintained set and canonical names")
         self.assertLess(stage_step, final_check)
         self.assertLess(final_check, bundle_step)
+        packed = workflow.index('(cd bundle && zip -9 -q "../${BUNDLE_NAME}" ./*)')
+        verified = workflow.index('python3 scripts/verify_published_addon_bundle.py "$BUNDLE_NAME"')
+        uploaded = workflow.index('name: SF_Addons_1.21.11-26.3', verified)
+        self.assertLess(packed, verified)
+        self.assertLess(verified, uploaded)
 
 
 if __name__ == "__main__":
