@@ -2,16 +2,16 @@
   "schema": 1,
   "project": "Slimefun Legacy",
   "candidate": {
-    "version": "4.1.80"
+    "version": "4.1.81"
   },
   "previous_stable": {
-    "version": "4.1.79",
+    "version": "4.1.80",
     "source": {
       "mode": "git-ref",
-      "ref": "0844c216fdc27f6414c185957e93a2047b3fb027"
+      "ref": "cdb74b69cb972ad8c851ce53f57763fb0640fe4a"
     },
     "release_blocking": true,
-    "purpose": "Primary regression baseline: exact published Slimefun Legacy v4.1.79 source (0844c216). Required addon regressions against the previous Java core release block candidate 4.1.80. The 4.1.15 historical floor remains advisory; legacy saved item, block, world, inventory and storage formats must remain readable. Published release sources and assets are immutable."
+    "purpose": "Primary release-blocking regression baseline: the exact published Slimefun Legacy v4.1.80 tag source (cdb74b69cb972ad8c851ce53f57763fb0640fe4a). Candidate v4.1.81 must pass exact source and addon compatibility checks; this baseline is not evidence of historical AlbionMC player data safety. Historical v4.1.15 remains an advisory read-compatibility floor; previously published tags and assets are immutable."
   },
   "legacy_floor": {
     "version": "4.1.15",
