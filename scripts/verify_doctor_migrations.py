@@ -155,6 +155,9 @@ require('"SHULKER_HELMET"' in catalog and 'ENDER_PANDA_SOURCE' in catalog,
         "EnderPanda historical Shulker Helmet ownership evidence is missing")
 require('"PANDA_HELMET"' in catalog and '"ENDER_GENERATOR"' in catalog,
         "EnderPanda recovery catalog must identify original armor and machine IDs")
+require('"ENDER_PIGLIN_TALISMAN"' in catalog and '"PIGLIN_TALISMAN"' in catalog
+        and "INFERNAL_EXPANSION_SOURCE" in catalog,
+        "InfernalExpansion piglin talismans must be attributed separately from EnderPanda")
 require('"LUCKY_BLOCK"' in catalog and '"PANDORAS_BOX"' in catalog,
         "LuckyBlocks historical registered block IDs are missing")
 require('DOCUMENTED_ITEM_ID' in catalog,

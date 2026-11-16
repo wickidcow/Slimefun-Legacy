@@ -88,6 +88,25 @@ LuckyBlocks' Lucky Armor and weapons are enchanted vanilla drops rather than reg
 
 For orphaned EnderPanda items, install a compatible owning addon or use a deliberately verified restoration. Only `SHULKER_HELMET` is currently restored in Slimefun Legacy core; the other eight EnderPanda IDs remain identification-only unless a compatible addon is installed.
 
+`PIGLIN_TALISMAN` and `ENDER_PIGLIN_TALISMAN` originate from
+[InfernalExpansion](https://github.com/NotKirzu/InfernalExpansion), **not** EnderPanda.
+The original addon registers `PIGLIN_TALISMAN` through Slimefun's
+`Talisman` API; Slimefun's `postRegister()` creates the Ender Chest
+variant as `ENDER_` + that item ID. If the owning addon is absent, the
+historical item may still exist in stored inventories even though it is not
+currently registered. Doctor's catalog now identifies both IDs so
+`/sf doctor migrations recovery` can show the correct owning addon.
+**Identification is not restoration**: installing a compatible addon and
+checking actual item behavior is necessary before claiming the old talisman
+functions. No alias, automatic migration, fabricated template, or lore
+rewrite is authorized by the catalog entry.
+
+For an orphan with Chinese display/lore, the standard orphan-name fallback
+may safely humanize its display name, but without the registered original
+English item template Doctor deliberately leaves potentially stateful lore
+untouched. Keep a complete backup and do not use an unrelated talisman as
+the offhand reference for `/sf doctor identity repair`.
+
 ### Recovery preview workflow
 
 Run `/sf doctor scan`, then `/sf doctor migrations recovery`. Add a page number if necessary. The preview reads the last/current Doctor snapshot and groups observed IDs by verified historical addon ownership (EnderPanda, LuckyBlocks, InfinityExpansion, etc.) or **Unknown addon**. It reports **exact per-ID stack counts only for addon-declared migration candidates after the scan completes**. Other unknown IDs are sampled (the scan retains at most 12 distinct sample IDs), so their per-ID populations cannot be inferred.
