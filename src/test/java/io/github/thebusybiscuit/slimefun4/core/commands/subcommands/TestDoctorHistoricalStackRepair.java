@@ -101,9 +101,11 @@ class TestDoctorHistoricalStackRepair {
             ItemStack merged = new ItemStack(rebooted);
             merged.setAmount(64);
             assertFalse(DoctorHistoricalStackRepair.matchesSavedBackup(original, merged, reference, template));
-            assertEquals(id, original.getItemMeta()
-                    .getPersistentDataContainer()
-                    .get(new NamespacedKey("slimefun", "slimefun_item"), PersistentDataType.STRING));
+            assertEquals(
+                    id,
+                    original.getItemMeta()
+                            .getPersistentDataContainer()
+                            .get(new NamespacedKey("slimefun", "slimefun_item"), PersistentDataType.STRING));
             assertArrayEquals(exactOriginal, Files.readAllBytes(saved));
         }
     }

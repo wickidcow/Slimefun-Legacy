@@ -222,8 +222,8 @@ class TestDoctorIdentityCommand {
             assertArrayEquals(oldBytes, old.serializeAsBytes());
             assertArrayEquals(freshBytes, fresh.serializeAsBytes());
 
-            old.editMeta(meta -> meta.getPersistentDataContainer().set(
-                    new NamespacedKey("addon", "stored_amount"), PersistentDataType.LONG, 123L));
+            old.editMeta(meta -> meta.getPersistentDataContainer()
+                    .set(new NamespacedKey("addon", "stored_amount"), PersistentDataType.LONG, 123L));
             var unsafe = DoctorIdentityCommand.inspectHistoricalPresentation(old, fresh);
             assertTrue(unsafe.plainTextSame());
             assertFalse(unsafe.nonPresentationSame());

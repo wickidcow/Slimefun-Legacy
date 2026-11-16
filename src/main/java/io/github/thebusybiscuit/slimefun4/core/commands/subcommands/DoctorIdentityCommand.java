@@ -71,8 +71,9 @@ final class DoctorIdentityCommand {
         if (!comparison.isSimilar()) {
             HistoricalPresentation historical = inspectHistoricalPresentation(main, off);
             send(sender, "&7Same plain text (ignores styling): " + flag(historical.plainTextSame()));
-            send(sender, "&7Non-presentation native metadata (count ignored): "
-                    + flag(historical.nonPresentationSame()));
+            send(
+                    sender,
+                    "&7Non-presentation native metadata (count ignored): " + flag(historical.nonPresentationSame()));
             send(
                     sender,
                     historical.candidate()
@@ -160,8 +161,7 @@ final class DoctorIdentityCommand {
         // compare the full native serialized identity in detached snapshots.
         oldCopy.setAmount(1);
         freshCopy.setAmount(1);
-        boolean nonPresentationSame =
-                java.util.Arrays.equals(oldCopy.serializeAsBytes(), freshCopy.serializeAsBytes());
+        boolean nonPresentationSame = java.util.Arrays.equals(oldCopy.serializeAsBytes(), freshCopy.serializeAsBytes());
         return new HistoricalPresentation(
                 plainTextSame, nonPresentationSame, !originallySimilar && plainTextSame && nonPresentationSame);
     }
