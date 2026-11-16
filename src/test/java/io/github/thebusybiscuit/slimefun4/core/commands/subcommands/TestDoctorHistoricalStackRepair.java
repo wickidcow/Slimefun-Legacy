@@ -70,6 +70,59 @@ class TestDoctorHistoricalStackRepair {
     }
 
     @Test
+    void rawCarbonadoAndCarbonChunkMockHistoryPreservesSixtyThreePlusOneAndBackupIdentity() throws Exception {
+        for (String id : List.of("RAW_CARBONADO", "CARBON_CHUNK")) {
+            ItemStack template = current();
+            template.editMeta(meta -> meta.getPersistentDataContainer()
+                    .set(new NamespacedKey("slimefun", "slimefun_item"), PersistentDataType.STRING, id));
+            ItemStack reference = new ItemStack(template);
+            reference.setAmount(1);
+            ItemStack old = historical(template);
+            old.setAmount(63);
+            byte[] exactOriginal = old.serializeAsBytes();
+            byte[] exactReference = reference.serializeAsBytes();
+            ItemStack candidate = DoctorHistoricalStackRepair.prepare(old, reference, template);
+            assertNotNull(candidate, id + " synthetic presentation-only candidate");
+            assertEquals(63, candidate.getAmount());
+            assertTrue(candidate.isSimilar(reference));
+            assertTrue(DoctorHistoricalStackRepair.sameNativeBytesIgnoringAmount(candidate, reference));
+            assertEquals(64, candidate.getAmount() + reference.getAmount());
+            assertArrayEquals(exactOriginal, old.serializeAsBytes());
+            assertArrayEquals(exactReference, reference.serializeAsBytes());
+
+            UUID owner = UUID.randomUUID();
+            Path saved = DoctorHistoricalStackRepair.backup(folder, owner, exactOriginal);
+            String file = saved.getFileName().toString();
+            UUID receipt = UUID.fromString(file.substring(owner.toString().length() + 1, file.length() - 4));
+            ItemStack original = DoctorHistoricalStackRepair.readVerifiedBackup(folder, owner, receipt);
+            ItemStack rebooted = ItemStack.deserializeBytes(candidate.serializeAsBytes());
+            assertArrayEquals(exactOriginal, original.serializeAsBytes());
+            assertTrue(DoctorHistoricalStackRepair.matchesSavedBackup(original, rebooted, reference, template));
+            ItemStack merged = new ItemStack(rebooted);
+            merged.setAmount(64);
+            assertFalse(DoctorHistoricalStackRepair.matchesSavedBackup(original, merged, reference, template));
+            assertEquals(id, original.getItemMeta()
+                    .getPersistentDataContainer()
+                    .get(new NamespacedKey("slimefun", "slimefun_item"), PersistentDataType.STRING));
+            assertArrayEquals(exactOriginal, Files.readAllBytes(saved));
+        }
+    }
+
+    @Test
+    void nativeIdentityComparisonIgnoresOnlyStackQuantityNeverTypedMetadata() {
+        ItemStack template = current();
+        ItemStack changedAmount = new ItemStack(template);
+        changedAmount.setAmount(63);
+        assertTrue(DoctorHistoricalStackRepair.sameNativeBytesIgnoringAmount(template, changedAmount));
+        assertEquals(1, template.getAmount());
+        assertEquals(63, changedAmount.getAmount());
+        changedAmount.editMeta(meta -> meta.getPersistentDataContainer()
+                .set(new NamespacedKey("addon", "owner"), PersistentDataType.INTEGER, 12345));
+        assertFalse(DoctorHistoricalStackRepair.sameNativeBytesIgnoringAmount(template, changedAmount));
+        assertEquals(63, changedAmount.getAmount());
+    }
+
+    @Test
     void createsOnlyNewDetachedPresentationAndPreservesAmountTypedPdc() {
         ItemStack template = current();
         ItemStack reference = new ItemStack(template);

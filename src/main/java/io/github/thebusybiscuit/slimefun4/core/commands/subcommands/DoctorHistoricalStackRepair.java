@@ -414,6 +414,7 @@ final class DoctorHistoricalStackRepair {
                 || templateNative == null
                 || oldNative.isSimilar(freshNative)
                 || !freshNative.isSimilar(templateNative)
+                || !sameNativeBytesIgnoringAmount(freshNative, templateNative)
                 || !DoctorIdentityCommand.inspectHistoricalPresentation(oldNative, freshNative)
                         .candidate()) {
             return null;
@@ -431,6 +432,7 @@ final class DoctorHistoricalStackRepair {
         // both copies, the complete serialized bytes must still be identical.
         return oldNative.getAmount() == old.getAmount()
                         && oldNative.isSimilar(freshNative)
+                        && sameNativeBytesIgnoringAmount(oldNative, freshNative)
                         && preservesNonPresentationBytes(old, oldNative)
                 ? oldNative
                 : null;
@@ -473,7 +475,10 @@ final class DoctorHistoricalStackRepair {
             // it directly to CraftItemStack.isSimilar.
             ItemStack template = nativeSnapshot(oldItem.getItem());
             ItemStack freshNative = nativeSnapshot(fresh);
-            return template != null && freshNative != null && freshNative.isSimilar(template)
+            return template != null
+                            && freshNative != null
+                            && freshNative.isSimilar(template)
+                            && sameNativeBytesIgnoringAmount(freshNative, template)
                     ? new Pair(old, fresh, template, oldItem.getId())
                     : null;
         } catch (RuntimeException exception) {
@@ -498,6 +503,23 @@ final class DoctorHistoricalStackRepair {
         } catch (RuntimeException exception) {
             return null;
         }
+    }
+
+    /**
+     * Bukkit similarity can ignore opaque future item components and the
+     * original stack quantity. A safe repair must have the exact registered
+     * source bytes after normalizing only the count, with zero mutation of
+     * either player hand or the registered template.
+     */
+    static boolean sameNativeBytesIgnoringAmount(ItemStack first, ItemStack second) {
+        ItemStack left = nativeSnapshot(first);
+        ItemStack right = nativeSnapshot(second);
+        if (left == null || right == null || left.getAmount() <= 0 || right.getAmount() <= 0) {
+            return false;
+        }
+        left.setAmount(1);
+        right.setAmount(1);
+        return Arrays.equals(left.serializeAsBytes(), right.serializeAsBytes());
     }
 
     static String fingerprint(ItemStack item) {
