@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -199,6 +200,35 @@ class TestDoctorIdentityCommand {
         assertEquals(
                 java.util.List.of(2200095.0F),
                 produced.getCustomModelDataComponent().getFloats());
+    }
+
+    @Test
+    void realWorldItemIdsAreReadOnlyAndStrictlyRejectChangedTypedMetadata() {
+        for (String id : java.util.List.of("RAW_CARBONADO", "CARBON_CHUNK")) {
+            ItemStack fresh = uranium();
+            fresh.editMeta(meta -> meta.getPersistentDataContainer()
+                    .set(new NamespacedKey("slimefun", "slimefun_item"), PersistentDataType.STRING, id));
+            ItemStack old = new ItemStack(fresh);
+            old.setAmount(63);
+            old.editMeta(meta -> meta.displayName(Component.text("Small Uranium", NamedTextColor.RED)
+                    .decoration(TextDecoration.ITALIC, false)
+                    .decoration(TextDecoration.BOLD, false)));
+            byte[] oldBytes = old.serializeAsBytes();
+            byte[] freshBytes = fresh.serializeAsBytes();
+            var readOnly = DoctorIdentityCommand.inspectHistoricalPresentation(old, fresh);
+            assertTrue(readOnly.candidate(), id);
+            assertTrue(readOnly.nonPresentationSame());
+            assertEquals(63, old.getAmount());
+            assertArrayEquals(oldBytes, old.serializeAsBytes());
+            assertArrayEquals(freshBytes, fresh.serializeAsBytes());
+
+            old.editMeta(meta -> meta.getPersistentDataContainer().set(
+                    new NamespacedKey("addon", "stored_amount"), PersistentDataType.LONG, 123L));
+            var unsafe = DoctorIdentityCommand.inspectHistoricalPresentation(old, fresh);
+            assertTrue(unsafe.plainTextSame());
+            assertFalse(unsafe.nonPresentationSame());
+            assertFalse(unsafe.candidate());
+        }
     }
 
     @Test

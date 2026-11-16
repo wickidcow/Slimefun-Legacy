@@ -12,7 +12,7 @@ This document describes the **only real-item acceptance still missing** for draf
 ## Phase A: detection without changing items
 
 1. On the isolated clone, place the **old original stack in the main hand** and **one current reference item in the offhand**. Capture each quantity and item's registered ID. Do not swap hand orientation.
-2. Run `/sf doctor identity compare`. Record `Actual stack compatibility`, name/lore, model, PDC keys, `Non-presentation Bukkit metadata`, and the registered-template comparison. Note that equal **PDC keys alone** do not establish equal typed PDC values.
+2. Run `/sf doctor identity compare`. Record `Actual stack compatibility`, name/lore, model, PDC keys, `Non-presentation native metadata (count ignored)`, and the registered-template comparison. This strict native field is compared after removing display/lore and normalizing count, and may flag hidden typed item components that Bukkit `isSimilar` overlooks. Note that equal **PDC keys alone** do not establish equal typed PDC values.
 3. Run `/sf doctor identity repair scan`. This is read-only and must not create an item backup or modify either hand. The server should either offer `confirm` for a presentation-only candidate or refuse. It also refuses when the reference differs by any serialized field other than quantity from the registered template, or when the candidate cannot exactly match reference bytes after quantity normalization. **If it refuses, stop.** Never force a conversion or weaken PDC/component checks.
 4. Check both item amounts and both serialized items remain unchanged. If a real old sample refuses despite showing a cosmetic candidate, retain the failure details for investigation; do not weaken the PDC/model/profile checks.
 

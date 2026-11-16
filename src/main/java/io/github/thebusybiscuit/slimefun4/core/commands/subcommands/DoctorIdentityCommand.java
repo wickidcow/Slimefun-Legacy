@@ -71,7 +71,8 @@ final class DoctorIdentityCommand {
         if (!comparison.isSimilar()) {
             HistoricalPresentation historical = inspectHistoricalPresentation(main, off);
             send(sender, "&7Same plain text (ignores styling): " + flag(historical.plainTextSame()));
-            send(sender, "&7Non-presentation Bukkit metadata: " + flag(historical.nonPresentationSame()));
+            send(sender, "&7Non-presentation native metadata (count ignored): "
+                    + flag(historical.nonPresentationSame()));
             send(
                     sender,
                     historical.candidate()
@@ -154,7 +155,13 @@ final class DoctorIdentityCommand {
             meta.displayName(null);
             meta.lore(null);
         });
-        boolean nonPresentationSame = oldCopy.isSimilar(freshCopy);
+        // Similarity does not guarantee equality of opaque Paper/Minecraft
+        // components. Ignore only count and Adventure display/lore, then
+        // compare the full native serialized identity in detached snapshots.
+        oldCopy.setAmount(1);
+        freshCopy.setAmount(1);
+        boolean nonPresentationSame =
+                java.util.Arrays.equals(oldCopy.serializeAsBytes(), freshCopy.serializeAsBytes());
         return new HistoricalPresentation(
                 plainTextSame, nonPresentationSame, !originallySimilar && plainTextSame && nonPresentationSame);
     }
