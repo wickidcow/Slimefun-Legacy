@@ -26,7 +26,7 @@ def _asset(name, identity, *, size=200, digest="sha256:" + "a" * 64):
     }
 
 
-def _release(tag="v4.1.80", release_id=500000079, pack_id=700000079):
+def _release(tag="v4.1.81", release_id=500000081, pack_id=700000081):
     pin = CARRIED_GEYSER_PIN
     return {
         "id": release_id,
@@ -49,9 +49,9 @@ def _release(tag="v4.1.80", release_id=500000079, pack_id=700000079):
 class NextReleaseCarryPolicy(unittest.TestCase):
     def test_next_release_preserves_four_distinct_release_assets(self):
         report = plan_release(_release())
-        self.assertEqual("v4.1.80", report["tag"])
+        self.assertEqual("v4.1.81", report["tag"])
         self.assertEqual(
-            {"Slimefun-Legacy4.1.80.jar", BUNDLE, PACK, CARRIED_GEYSER_PACK},
+            {"Slimefun-Legacy4.1.81.jar", BUNDLE, PACK, CARRIED_GEYSER_PACK},
             set(report["retained"]),
         )
         self.assertEqual([], report["remove"])
@@ -73,9 +73,22 @@ class NextReleaseCarryPolicy(unittest.TestCase):
                 with self.assertRaisesRegex(PolicyError, "identity changed"):
                     plan_release(_release("v4.1.79", release_id, asset_id))
 
+    def test_published_v4180_asset_identity_is_fully_pinned(self):
+        pin = CARRIED_GEYSER_PIN
+        report = plan_release(_release(
+            pin["published_tag"], pin["published_release_id"], pin["published_asset_id"]))
+        self.assertIn(CARRIED_GEYSER_PACK, report["retained"])
+        for release_id, asset_id in (
+            (1, pin["published_asset_id"]),
+            (pin["published_release_id"], 1),
+        ):
+            with self.subTest(release_id=release_id, asset_id=asset_id):
+                with self.assertRaisesRegex(PolicyError, "identity changed"):
+                    plan_release(_release("v4.1.80", release_id, asset_id))
+
     def test_unreviewed_future_tag_is_not_implicitly_authorized(self):
         with self.assertRaisesRegex(PolicyError, "approved only"):
-            plan_release(_release("v4.1.81"))
+            plan_release(_release("v4.1.82"))
 
     def test_changed_archive_digest_is_rejected(self):
         candidate = _release()
@@ -91,12 +104,14 @@ class NextReleaseCarryPolicy(unittest.TestCase):
 
     def test_source_and_previous_release_ids_cannot_be_reused(self):
         for release_id, pack_id in (
-            (CARRIED_GEYSER_PIN["next_release_id"], 700000079),
-            (500000079, CARRIED_GEYSER_PIN["next_asset_id"]),
-            (CARRIED_GEYSER_PIN["target_release_id"], 700000079),
-            (500000079, CARRIED_GEYSER_PIN["target_asset_id"]),
-            (CARRIED_GEYSER_PIN["source_release_id"], 700000079),
-            (500000079, CARRIED_GEYSER_PIN["source_asset_id"]),
+            (CARRIED_GEYSER_PIN["published_release_id"], 700000081),
+            (500000081, CARRIED_GEYSER_PIN["published_asset_id"]),
+            (CARRIED_GEYSER_PIN["next_release_id"], 700000081),
+            (500000081, CARRIED_GEYSER_PIN["next_asset_id"]),
+            (CARRIED_GEYSER_PIN["target_release_id"], 700000081),
+            (500000081, CARRIED_GEYSER_PIN["target_asset_id"]),
+            (CARRIED_GEYSER_PIN["source_release_id"], 700000081),
+            (500000081, CARRIED_GEYSER_PIN["source_asset_id"]),
         ):
             with self.subTest(release_id=release_id, pack_id=pack_id):
                 with self.assertRaisesRegex(PolicyError, "distinct"):
