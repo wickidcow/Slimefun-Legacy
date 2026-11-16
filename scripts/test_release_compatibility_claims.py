@@ -124,11 +124,12 @@ class CompatibilityClaimsTest(unittest.TestCase):
         for repository, sha in expected.items():
             with self.subTest(repository=repository):
                 self.assertEqual(sha, selected[repository])
-        # Separate r156 verified native Paper 26.3 source candidates, not yet
-        # declared published release assets. Full bundle provenance remains gated.
-        self.assertEqual("d04f6b147580bc31426a96e894d65a72c5088f48",
+        # r156 selects the immutable official v1.0.3/v1.0.8 Git tag commits,
+        # not the earlier postmerge pre-release source or mutable master.
+        # Native bundle byte receipts and release asset digest acceptance stay gated.
+        self.assertEqual("0eb00ea7516be822a3b50b9872400d9892996b8e",
                          selected["wickidcow/SF_CrystamaeHistoria"])
-        self.assertEqual("c52a1a2c705e58ba3adafb0e8cab6171358efd80",
+        self.assertEqual("1fff7080cb8bcd00eeb1555f433cc0bf8e99c172",
                          selected["wickidcow/SF_Galactifun"])
         self.assertNotIn("wickidcow/SF_BuildingStaff", selected)
 
