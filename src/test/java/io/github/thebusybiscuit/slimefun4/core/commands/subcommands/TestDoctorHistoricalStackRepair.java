@@ -303,6 +303,30 @@ class TestDoctorHistoricalStackRepair {
     }
 
     @Test
+    void refusesOversizedSavedBackupBeforeWritingAndDuringReadback() throws Exception {
+        UUID owner = UUID.randomUUID();
+        byte[] oversized = new byte[16 * 1024 * 1024 + 1];
+        assertThrows(
+                java.io.IOException.class, () -> DoctorHistoricalStackRepair.backup(folder, owner, oversized));
+        assertFalse(Files.exists(folder.resolve("recovery")));
+
+        ItemStack old = historical(current());
+        Path saved = DoctorHistoricalStackRepair.backup(folder, owner, old.serializeAsBytes());
+        String name = saved.getFileName().toString();
+        UUID receipt = UUID.fromString(name.substring(owner.toString().length() + 1, name.length() - 4));
+        // Extending a disposable backup with a sparse tail must be refused
+        // before any unbounded allocation or parsing of unknown NBT data.
+        try (var channel = java.nio.channels.FileChannel.open(saved, java.nio.file.StandardOpenOption.WRITE)) {
+            channel.position(16L * 1024 * 1024);
+            channel.write(java.nio.ByteBuffer.wrap(new byte[] {0x00}));
+        }
+        assertThrows(
+                java.io.IOException.class,
+                () -> DoctorHistoricalStackRepair.readVerifiedBackup(folder, owner, receipt));
+        assertArrayEquals(old.serializeAsBytes(), old.serializeAsBytes());
+    }
+
+    @Test
     void fingerprintIncludesAmountAndAllSerializedIdentity() {
         ItemStack item = historical(current());
         String prior = DoctorHistoricalStackRepair.fingerprint(item);

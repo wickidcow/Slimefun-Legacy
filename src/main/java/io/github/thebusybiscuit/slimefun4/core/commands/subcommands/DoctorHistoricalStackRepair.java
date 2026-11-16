@@ -345,12 +345,29 @@ final class DoctorHistoricalStackRepair {
             throw new IOException("Doctor identity backup folder is missing or redirected");
         }
         Path source = directory.resolve(playerId + "-" + receipt + ".bin");
-        if (!Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)
-                || Files.size(source) == 0
-                || Files.size(source) > MAX_BACKUP_BYTES) {
-            throw new IOException("Doctor identity backup is not a bounded regular file");
+        if (!Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Doctor identity backup is not a regular file");
         }
-        byte[] data = Files.readAllBytes(source);
+        // Open the backing file once, refusing symlinks at open time. Size and
+        // data must come from the same descriptor; never trust a prior
+        // path-based size check followed by a separate unbounded read.
+        byte[] data;
+        try (FileChannel channel = FileChannel.open(source, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+            long size = channel.size();
+            if (size <= 0 || size > MAX_BACKUP_BYTES) {
+                throw new IOException("Doctor identity backup is empty or oversized");
+            }
+            ByteBuffer bytes = ByteBuffer.allocate((int) size);
+            while (bytes.hasRemaining()) {
+                if (channel.read(bytes) <= 0) {
+                    throw new IOException("Doctor identity backup ended or stalled during verification");
+                }
+            }
+            if (channel.read(ByteBuffer.allocate(1)) != -1) {
+                throw new IOException("Doctor identity backup grew during verification");
+            }
+            data = bytes.array();
+        }
         try {
             ItemStack original = ItemStack.deserializeBytes(data);
             if (original.getType().isAir()
@@ -503,6 +520,9 @@ final class DoctorHistoricalStackRepair {
     }
 
     static Path backup(Path pluginFolder, UUID playerId, byte[] originalBytes) throws IOException {
+        if (originalBytes == null || originalBytes.length == 0 || originalBytes.length > MAX_BACKUP_BYTES) {
+            throw new IOException("Doctor identity original bytes must be nonempty and bounded");
+        }
         Path recovery = pluginFolder.resolve("recovery");
         Path directory = recovery.resolve("identity");
         // Backup paths are owner-controlled plugin storage. Refuse symlinked
