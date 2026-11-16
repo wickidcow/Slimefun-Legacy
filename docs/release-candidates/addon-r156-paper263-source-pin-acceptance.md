@@ -17,8 +17,8 @@ Only these two entries change relative to canonical r155:
 
 | Addon | r155 source | Candidate r156 merged source | Evidence |
 | --- | --- | --- | --- |
-| SF_CrystamaeHistoria | `584db74db1dd9d108cf658bdaf2a09c9132b0d47` | `d04f6b147580bc31426a96e894d65a72c5088f48` | [postmerge 43644942571](https://github.com/wickidcow/SF_CrystamaeHistoria/actions/runs/43644942571) |
-| SF_Galactifun | `82bdf5254b42a14f38c98590a8b6ebf708c5be22` | `c52a1a2c705e58ba3adafb0e8cab6171358efd80` | [postmerge 43644986896](https://github.com/wickidcow/SF_Galactifun/actions/runs/43644986896) |
+| SF_CrystamaeHistoria | `584db74db1dd9d108cf658bdaf2a09c9132b0d47` | `0eb00ea7516be822a3b50b9872400d9892996b8e` | [official v1.0.3](https://github.com/wickidcow/SF_CrystamaeHistoria/releases/tag/v1.0.3); [postmerge native source CI](https://github.com/wickidcow/SF_CrystamaeHistoria/actions/runs/43644942571) |
+| SF_Galactifun | `82bdf5254b42a14f38c98590a8b6ebf708c5be22` | `1fff7080cb8bcd00eeb1555f433cc0bf8e99c172` | [official v1.0.8](https://github.com/wickidcow/SF_Galactifun/releases/tag/v1.0.8); [postmerge native source CI](https://github.com/wickidcow/SF_Galactifun/actions/runs/43644986896) |
 
 Both referenced addon postmerge workflows completed successfully, including two-process
 native Paper 26.3 fixture/probe coverage recorded in their respective PRs (#11 and #13).
@@ -33,12 +33,21 @@ Slimefun Legacy `v4.1.80`, the public addon ZIP, resource packs, and historical
 storage release/fixture locks are **unchanged**. A candidate CI artifact must not be
 called or published as a stable addon release.
 
-The two addons have **not** yet published separate, new immutable versioned raw JAR
-releases for these fixes. Do not treat raw rebuilt JARs retaining older plugin
-version numbers as already published distributables or overwrite the existing
-release ZIP. Their official release workflows and checksum/provenance checks must
-produce verifiable, distinct versions first, and any later production bundle must
-be sourced from and validated against those exact releases.
+Both addons now have verified **distinct official published versioned release assets**
+from the exact Git tag commits above (GitHub release/tag APIs confirmed on
+2026-11-16 UTC):
+
+| Addon | Official raw JAR | Published SHA-256 | Size |
+| --- | --- | --- | --- |
+| CrystamaeHistoria v1.0.3 | `SF_CrystamaeHistoria1.0.3.jar` | `f3da97dc760853f0cd166dd154b977a58f0f404a302087d878ef562bac72a470` | 1,200,147 bytes |
+| Galactifun v1.0.8 | `SF_Galactifun1.0.8.jar` | `ee6a5d3816dc228a4b1db02c3961f58df8633166e519b238d3c8a4f366db9d1e` | 1,522,385 bytes |
+
+The asset checksums are **GitHub release metadata** and require independent
+hashing of downloaded raw bytes in release provenance acceptance. Building the
+same source locally is not proof of a byte-identical official uploaded JAR.
+Only an exact-head successful canonical 44-addon build/native full-stack and
+postmerge verification can authorize the new core release ZIP. Never overwrite
+existing v4.1.80 assets.
 
 ## Acceptance
 
@@ -48,9 +57,10 @@ be sourced from and validated against those exact releases.
    Paper 26.3 deprecation or compatibility failure in either addon.
 3. Verify native entity-distance/despawn and restart parity against the
    specific source, with no existing world/item change or data-loss signal.
-4. Separately complete both addons' official immutable versioned releases.
-   Only then consider promoting these pins and packaging a new stable addon ZIP;
-   retain `v4.1.80` release assets and their backups.
+4. Both addon releases now exist; independently hash their released raw JAR bytes,
+   verify official tag ancestry/commit and the matching staged ZIP JAR versions.
+   This proof is separate from local source-based rebuild checks and must fail
+   closed for missing or mismatched assets. Retain `v4.1.80` and backups.
 5. Revalidate Doctor #607 on its own **new exact branch head** after any base change.
    Its historical opt-in repair's real saved-item rollback/restart review remains
    independent and is not satisfied merely by an addon compile fix.
