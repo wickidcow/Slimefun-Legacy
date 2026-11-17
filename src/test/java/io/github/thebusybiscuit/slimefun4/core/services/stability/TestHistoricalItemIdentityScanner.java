@@ -47,7 +47,8 @@ class TestHistoricalItemIdentityScanner {
         ItemStack actual = new ItemStack(template);
         actual.setAmount(63);
         ItemStack before = new ItemStack(actual);
-        assertEquals(HistoricalItemIdentityScanner.Result.MATCH, HistoricalItemIdentityScanner.inspect(actual, template));
+        assertEquals(
+                HistoricalItemIdentityScanner.Result.MATCH, HistoricalItemIdentityScanner.inspect(actual, template));
         assertEquals(before, actual);
         assertEquals(63, actual.getAmount());
         assertEquals(1, template.getAmount());
@@ -60,13 +61,52 @@ class TestHistoricalItemIdentityScanner {
         old.editMeta(meta -> meta.displayName(Component.text("Small Uranium", NamedTextColor.RED)
                 .decoration(TextDecoration.ITALIC, false)
                 .decoration(TextDecoration.BOLD, false)));
+        old.setAmount(37);
         ItemStack before = new ItemStack(old);
         assertFalse(old.isSimilar(template));
         assertEquals(
                 HistoricalItemIdentityScanner.Result.PRESENTATION_ONLY_CANDIDATE,
                 HistoricalItemIdentityScanner.inspect(old, template));
         assertEquals(before, old);
+        assertEquals(37, old.getAmount());
         assertFalse(old.isSimilar(template));
+    }
+
+    @Test
+    void scannedTemplateSubclassNeverCallsPolymorphicSimilarityOrClone() {
+        ItemStack canonical = registered();
+        ItemStack customTemplate = new ItemStack(canonical) {
+            @Override
+            public boolean isSimilar(ItemStack other) {
+                throw new AssertionError("Scanner must not call registered addon isSimilar hooks");
+            }
+
+            @Override
+            public ItemStack clone() {
+                throw new AssertionError("Scanner must not call registered addon clone hooks");
+            }
+        };
+        ItemStack old = new ItemStack(canonical);
+        old.editMeta(meta -> meta.displayName(Component.text("Small Uranium", NamedTextColor.RED)
+                .decoration(TextDecoration.ITALIC, false)
+                .decoration(TextDecoration.BOLD, false)));
+        assertEquals(
+                HistoricalItemIdentityScanner.Result.PRESENTATION_ONLY_CANDIDATE,
+                HistoricalItemIdentityScanner.inspect(old, customTemplate));
+    }
+
+    @Test
+    void corruptedOrLossyNativeSerializationIsNeverAnIdentityCandidate() {
+        ItemStack canonical = registered();
+        ItemStack lossy = new ItemStack(canonical) {
+            @Override
+            public byte[] serializeAsBytes() {
+                return new ItemStack(Material.STONE).serializeAsBytes();
+            }
+        };
+        assertEquals(
+                HistoricalItemIdentityScanner.Result.TEMPLATE_UNAVAILABLE,
+                HistoricalItemIdentityScanner.inspect(lossy, canonical));
     }
 
     @Test
@@ -77,8 +117,7 @@ class TestHistoricalItemIdentityScanner {
             meta.displayName(Component.text("Small Uranium", NamedTextColor.RED)
                     .decoration(TextDecoration.ITALIC, false)
                     .decoration(TextDecoration.BOLD, false));
-            meta.getPersistentDataContainer()
-                    .set(new NamespacedKey("addon", "owner"), PersistentDataType.INTEGER, 77);
+            meta.getPersistentDataContainer().set(new NamespacedKey("addon", "owner"), PersistentDataType.INTEGER, 77);
         });
         template.editMeta(meta -> meta.getPersistentDataContainer()
                 .set(new NamespacedKey("addon", "owner"), PersistentDataType.LONG, 77L));

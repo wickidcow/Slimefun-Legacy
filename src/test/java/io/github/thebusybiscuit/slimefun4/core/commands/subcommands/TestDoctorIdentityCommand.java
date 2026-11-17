@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -165,6 +166,20 @@ class TestDoctorIdentityCommand {
     }
 
     @Test
+    void nativeSnapshotComparisonDoesNotInvokeRegisteredSubclassCloneHook() {
+        ItemStack actual = uranium();
+        ItemStack registered = new ItemStack(actual) {
+            @Override
+            public ItemStack clone() {
+                throw new AssertionError("Doctor compare cannot invoke registered template clone hooks");
+            }
+        };
+        assertTrue(DoctorIdentityCommand.inspect(actual, registered).isSimilar());
+        registered.editMeta(meta -> meta.displayName(Component.text("Historical different name")));
+        assertFalse(DoctorIdentityCommand.inspect(actual, registered).isSimilar());
+    }
+
+    @Test
     void customModelDataDifferenceIsReportedWithoutChangingInputs() {
         // MockBukkit 4.110.0 does not preserve modern model components through all
         // ItemStack copies or include them in ItemMetaMock.equals. Test extraction
@@ -188,6 +203,35 @@ class TestDoctorIdentityCommand {
     }
 
     @Test
+    void realWorldItemIdsAreReadOnlyAndStrictlyRejectChangedTypedMetadata() {
+        for (String id : java.util.List.of("RAW_CARBONADO", "CARBON_CHUNK")) {
+            ItemStack fresh = uranium();
+            fresh.editMeta(meta -> meta.getPersistentDataContainer()
+                    .set(new NamespacedKey("slimefun", "slimefun_item"), PersistentDataType.STRING, id));
+            ItemStack old = new ItemStack(fresh);
+            old.setAmount(63);
+            old.editMeta(meta -> meta.displayName(Component.text("Small Uranium", NamedTextColor.RED)
+                    .decoration(TextDecoration.ITALIC, false)
+                    .decoration(TextDecoration.BOLD, false)));
+            byte[] oldBytes = old.serializeAsBytes();
+            byte[] freshBytes = fresh.serializeAsBytes();
+            var readOnly = DoctorIdentityCommand.inspectHistoricalPresentation(old, fresh);
+            assertTrue(readOnly.candidate(), id);
+            assertTrue(readOnly.nonPresentationSame());
+            assertEquals(63, old.getAmount());
+            assertArrayEquals(oldBytes, old.serializeAsBytes());
+            assertArrayEquals(freshBytes, fresh.serializeAsBytes());
+
+            old.editMeta(meta -> meta.getPersistentDataContainer()
+                    .set(new NamespacedKey("addon", "stored_amount"), PersistentDataType.LONG, 123L));
+            var unsafe = DoctorIdentityCommand.inspectHistoricalPresentation(old, fresh);
+            assertTrue(unsafe.plainTextSame());
+            assertFalse(unsafe.nonPresentationSame());
+            assertFalse(unsafe.candidate());
+        }
+    }
+
+    @Test
     void historicalBoldMismatchIsReadOnlyPresentationCandidate() {
         ItemStack historical = uranium();
         ItemStack fresh = uranium();
@@ -207,6 +251,26 @@ class TestDoctorIdentityCommand {
         assertEquals(beforeOld, historical);
         assertEquals(beforeFresh, fresh);
         assertEquals(37, historical.getAmount());
+    }
+
+    @Test
+    void historicalPresentationClassificationUsesDetachedSubclasses() {
+        ItemStack original = uranium();
+        ItemStack registered = new ItemStack(original) {
+            @Override
+            public ItemStack clone() {
+                throw new AssertionError("Doctor must not use the registered item clone hook");
+            }
+        };
+        ItemStack historical = uranium();
+        historical.editMeta(meta -> meta.displayName(Component.text("Small Uranium", NamedTextColor.RED)
+                .decoration(TextDecoration.ITALIC, false)
+                .decoration(TextDecoration.BOLD, false)));
+        var result = DoctorIdentityCommand.inspectHistoricalPresentation(historical, registered);
+        assertTrue(result.plainTextSame());
+        assertTrue(result.nonPresentationSame());
+        assertTrue(result.candidate());
+        assertFalse(DoctorIdentityCommand.inspect(historical, registered).isSimilar());
     }
 
     @Test
