@@ -71,7 +71,7 @@ class CompatibilityClaimsTest(unittest.TestCase):
                     for row in self.matrix["addons"]}
         self.assertEqual(44, len(selected), "Duplicate addon repository")
         expected = {
-            "wickidcow/SF_AlchimiaVitae": "5b1f9b2d5191243a18ff29f7601587bd01f31c70",
+            "wickidcow/SF_AlchimiaVitae": "f684b1c0b62cd4118db8eb3a536a042d5007c284",
             "wickidcow/SF_BetterChests": "e80e395ca331bad234fd5733eb106da3b5656545",
             "wickidcow/SF_CultivationLegacy": "ab97e9d1a89a57bfca3801fce7cef75020fd9bf0",
             "wickidcow/SF_HotbarPets": "54c802438a6819e6f3b0eea411e675a3eb0855dc",
@@ -96,7 +96,7 @@ class CompatibilityClaimsTest(unittest.TestCase):
                 self.assertEqual(sha, selected[repository])
         self.assertEqual("1d46a1afd04ceae7f04c7e0849397350ce273ec5",
                          selected["wickidcow/SF_NetworksExp"])
-        self.assertEqual("7bd579e2b67243002571e95b8a2d00bea2187efd",
+        self.assertEqual("1cc5d9962ea7d11e282240ef29a741e681a1fbd4",
                          selected["wickidcow/SF_InfinityExpansion2"])
         self.assertEqual("f03ed0c75f1df16aa484d25bf3a1b8bcd20d9b7c",
                          selected["wickidcow/SF_Supreme"])
@@ -116,9 +116,9 @@ class CompatibilityClaimsTest(unittest.TestCase):
             "wickidcow/SF_HotbarPets": "54c802438a6819e6f3b0eea411e675a3eb0855dc",
             "wickidcow/SF_FlowerPower": "d8c3f2c8ec66b7c08e0ceb8b23f710f020b5c36f",
             "wickidcow/SF_ExtraHeads": "b1e8a1f11692b44d359eec863f3be5be0f061516",
-            "wickidcow/SF_FluffyMachines": "bb1a50387e8dfe34c4c4e3b592038c81c51f53f0",
+            "wickidcow/SF_FluffyMachines": "c2646d6ba232e71ce8c4639e414b78a4529790c1",
             "wickidcow/SF_NetworksExp": "1d46a1afd04ceae7f04c7e0849397350ce273ec5",
-            "wickidcow/SF_InfinityExpansion2": "7bd579e2b67243002571e95b8a2d00bea2187efd",
+            "wickidcow/SF_InfinityExpansion2": "1cc5d9962ea7d11e282240ef29a741e681a1fbd4",
             "wickidcow/SF_Supreme": "f03ed0c75f1df16aa484d25bf3a1b8bcd20d9b7c",
         }
         for repository, sha in expected.items():
