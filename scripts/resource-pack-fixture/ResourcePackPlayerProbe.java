@@ -435,10 +435,13 @@ final class ResourcePackPlayerProbe implements Listener {
         require(Files.isRegularFile(backup) && Arrays.equals(originalBytes, Files.readAllBytes(backup)),
                 "Owner-scoped original Doctor backup was lost on server restart");
 
-        ItemStack previousMain = player.getInventory().getItemInMainHand();
-        ItemStack previousOff = player.getInventory().getItemInOffHand();
-        byte[] previousMainBytes = previousMain.serializeAsBytes();
-        byte[] previousOffBytes = previousOff.serializeAsBytes();
+        ItemStack previousMain = player.getInventory().getItemInMainHand().clone();
+        ItemStack previousOff = player.getInventory().getItemInOffHand().clone();
+        // Paper and Folia reject serializeAsBytes() on an empty held item.
+        // A null byte snapshot explicitly represents AIR, preserving both
+        // the item and empty-slot state without ever serializing an empty item.
+        byte[] previousMainBytes = heldBytesOrNull(previousMain);
+        byte[] previousOffBytes = heldBytesOrNull(previousOff);
         var registered = SlimefunItem.getById("SMALL_URANIUM");
         require(registered != null, "Restart Doctor registered template missing");
         byte[] templateBytes = registered.getItem().serializeAsBytes();
@@ -481,11 +484,14 @@ final class ResourcePackPlayerProbe implements Listener {
             player.getInventory().setItemInOffHand(previousOff);
             player.removeAttachment(permission);
         }
-        require(Arrays.equals(previousMainBytes, player.getInventory().getItemInMainHand().serializeAsBytes())
-                        && Arrays.equals(previousOffBytes,
-                                player.getInventory().getItemInOffHand().serializeAsBytes()),
+        require(Arrays.equals(previousMainBytes, heldBytesOrNull(player.getInventory().getItemInMainHand()))
+                        && Arrays.equals(previousOffBytes, heldBytesOrNull(player.getInventory().getItemInOffHand())),
                 "Postrestart Doctor receipt probe did not restore saved player inventory");
         plugin.pass("player-identity-repair-postrestart");
+    }
+
+    private static byte[] heldBytesOrNull(ItemStack item) {
+        return item == null || item.getType().isAir() ? null : item.serializeAsBytes();
     }
 
     private void verifyCompressorRejection(Player player) throws Exception {
