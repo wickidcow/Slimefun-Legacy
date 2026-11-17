@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.services.stability;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -33,11 +34,12 @@ final class HistoricalItemIdentityScanner {
         // Bukkit's ItemStack copy constructor can delegate to an overridden
         // clone() on addon subclasses, which might rewrite their presentation.
         // Round-trip exact native item bytes instead; nothing is written back.
-        ItemStack actualCopy = ItemStack.deserializeBytes(actual.serializeAsBytes());
-        ItemStack templateCopy = ItemStack.deserializeBytes(registeredTemplate.serializeAsBytes());
-        // A future Bukkit/addon serializer may omit identity-bearing components.
-        // Refuse classification unless BOTH detached copies retain strict identity.
-        if (!actual.isSimilar(actualCopy) || !registeredTemplate.isSimilar(templateCopy)) {
+        ItemStack actualCopy = exactNativeSnapshot(actual);
+        ItemStack templateCopy = exactNativeSnapshot(registeredTemplate);
+        // Never compare arbitrary addon ItemStack subclasses directly with
+        // CraftItemStack.isSimilar. The raw source may use an overridden
+        // clone/isSimilar hook or carry opaque data Bukkit cannot round-trip.
+        if (actualCopy == null || templateCopy == null) {
             return Result.TEMPLATE_UNAVAILABLE;
         }
         if (actualCopy.isSimilar(templateCopy)) {
@@ -48,7 +50,8 @@ final class HistoricalItemIdentityScanner {
         }
         ItemMeta actualMeta = actualCopy.getItemMeta();
         ItemMeta templateMeta = templateCopy.getItemMeta();
-        if (actualMeta == null || templateMeta == null
+        if (actualMeta == null
+                || templateMeta == null
                 || !Objects.equals(plain(actualMeta.displayName()), plain(templateMeta.displayName()))
                 || !Objects.equals(plainLore(actualMeta.lore()), plainLore(templateMeta.lore()))) {
             return Result.OTHER_DIFFERENCE;
@@ -64,16 +67,40 @@ final class HistoricalItemIdentityScanner {
             meta.displayName(null);
             meta.lore(null);
         });
-        return actualCopy.isSimilar(templateCopy)
+        // A registered item is normally a one-item template, while old storage
+        // stacks may contain more. Stack identity ignores quantity.
+        // Normalize only the detached template amount before strict byte comparison.
+        templateCopy.setAmount(actualCopy.getAmount());
+        return Arrays.equals(actualCopy.serializeAsBytes(), templateCopy.serializeAsBytes())
                 ? Result.PRESENTATION_ONLY_CANDIDATE
                 : Result.OTHER_DIFFERENCE;
     }
 
+    private static @Nullable ItemStack exactNativeSnapshot(ItemStack item) {
+        try {
+            byte[] original = item.serializeAsBytes();
+            ItemStack detached = ItemStack.deserializeBytes(original);
+            return item.getType() == detached.getType()
+                            && item.getAmount() == detached.getAmount()
+                            && Arrays.equals(original, detached.serializeAsBytes())
+                    ? detached
+                    : null;
+        } catch (RuntimeException exception) {
+            // Missing addon serializer, malformed native bytes or unknown future
+            // components must not produce a repair-eligible scan result.
+            return null;
+        }
+    }
+
     private static String plain(Component component) {
-        return component == null ? null : PlainTextComponentSerializer.plainText().serialize(component);
+        return component == null
+                ? null
+                : PlainTextComponentSerializer.plainText().serialize(component);
     }
 
     private static List<String> plainLore(List<Component> lore) {
-        return lore == null ? null : lore.stream().map(HistoricalItemIdentityScanner::plain).toList();
+        return lore == null
+                ? null
+                : lore.stream().map(HistoricalItemIdentityScanner::plain).toList();
     }
 }

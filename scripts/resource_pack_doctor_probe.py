@@ -216,6 +216,7 @@ def main() -> None:
         if args.protocol_module:
             client, client_log = connect_player(process, 1, "seed")
             probe(process, 1, "player-identity-give")
+            probe(process, 1, "player-identity-repair")
             probe(process, 1, "player-identity-craft")
             if args.verify_paxel_player:
                 probe(process, 1, "player-paxel-craft")
@@ -253,6 +254,12 @@ def main() -> None:
             client, client_log = connect_player(process, 2, "retire")
             disconnect_player(client, client_log, process, 2, retired=True)
             client, client_log = connect_player(process, 2, "join")
+            # The native listener must have executed actual player Doctor
+            # verify + rollback commands against the previous boot's receipt.
+            marker = proof / "player-identity-repair-postrestart.pass"
+            if not marker.is_file():
+                raise RuntimeError("Postrestart owner-scoped Doctor receipt test did not complete")
+            print(marker.read_text().strip(), flush=True)
             probe(process, 2, "player-cancel-open")
             probe(process, 2, "player-open")
             probe(process, 2, "player-cancel-pickup")
@@ -281,6 +288,7 @@ def main() -> None:
         evidence = {
             "result": "PASS", "boots": 3, "folia_ownership_checks": args.expect_folia,
             "connected_player_checks": bool(args.protocol_module),
+            "doctor_owner_receipt_postrestart": "PASS" if args.protocol_module else "NOT_TESTED",
             "core_paxel_player_craft": "PASS" if args.verify_paxel_player else "NOT_TESTED",
             "core_paxel_survival_guide": "PASS" if args.verify_paxel_player else "NOT_TESTED",
             "core_sha256": hashlib.sha256(core.read_bytes()).hexdigest(),
