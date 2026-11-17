@@ -60,7 +60,7 @@
     {
       "repository": "wickidcow/SF_AlchimiaVitae",
       "slug": "alchimiavitae",
-      "source_commit": "5b1f9b2d5191243a18ff29f7601587bd01f31c70"
+      "source_commit": "f684b1c0b62cd4118db8eb3a536a042d5007c284"
     },
     {
       "repository": "wickidcow/SF_BetterChests",
@@ -132,7 +132,7 @@
     {
       "repository": "wickidcow/SF_FluffyMachines",
       "slug": "fluffymachines",
-      "source_commit": "bb1a50387e8dfe34c4c4e3b592038c81c51f53f0"
+      "source_commit": "c2646d6ba232e71ce8c4639e414b78a4529790c1"
     },
     {
       "repository": "wickidcow/SF_FNAmplifications",
@@ -142,7 +142,7 @@
     {
       "repository": "wickidcow/SF_FoxyMachines",
       "slug": "foxymachines",
-      "source_commit": "4222cd4a6aaaface032bd5f7fc20cbb5b927092f"
+      "source_commit": "d9d76b29bea65b6ee55b7abfa3bacdc17bcbd4e7"
     },
     {
       "repository": "wickidcow/SF_Galactifun",
@@ -173,7 +173,7 @@
       "repository": "wickidcow/SF_InfinityExpansion2",
       "slug": "infinityexpansion2",
       "artifact_base": "InfinityExpansion",
-      "source_commit": "7bd579e2b67243002571e95b8a2d00bea2187efd"
+      "source_commit": "1cc5d9962ea7d11e282240ef29a741e681a1fbd4"
     },
     {
       "repository": "wickidcow/SF_LiteXpansion",
