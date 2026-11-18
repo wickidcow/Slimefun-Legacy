@@ -117,12 +117,12 @@
     {
       "repository": "wickidcow/SF_FastMachines",
       "slug": "fastmachines",
-      "source_commit": "695ac4e5a8a0b3dcfc114c97b6a4f43c6254d1b6"
+      "source_commit": "ef56249ca0add00f15d1d5527e310bf5de4811e9"
     },
     {
       "repository": "wickidcow/SF_FinalTECH",
       "slug": "finaltech",
-      "source_commit": "cd967e62b5042e850599a8d723431dc9d4c2f063"
+      "source_commit": "746b35a4c27d2ca496d6ca55b7e0b8c92d9dc087"
     },
     {
       "repository": "wickidcow/SF_FlowerPower",
@@ -152,7 +152,7 @@
     {
       "repository": "wickidcow/SF_Gastronomicon",
       "slug": "gastronomicon",
-      "source_commit": "31df51f791cccdad03a21df6186d327e58b6a468"
+      "source_commit": "547b88916e35f34b683ea61361700ab300a81a72"
     },
     {
       "repository": "wickidcow/SF_GeneticChickEngineering",
@@ -194,7 +194,7 @@
     {
       "repository": "wickidcow/SF_MagicExpansion",
       "slug": "magicexpansion",
-      "source_commit": "b28c304f2909f15b43da53910ce7650886cc0e6f"
+      "source_commit": "1eb30acb5e52b9c7d8a78850fef9a308dda5245e"
     },
     {
       "repository": "wickidcow/SF_MilitaryArsenal",
