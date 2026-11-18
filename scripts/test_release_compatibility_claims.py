@@ -79,7 +79,7 @@ class CompatibilityClaimsTest(unittest.TestCase):
             "wickidcow/SF_ElectricSpawners": "d28daba4fa77d7c927fc2716207c837602edd9cc",
             "wickidcow/SF_ExoticGarden": "3bd282d2a951d883d1dc222e53e35e7fc4e0a6f2",
             "wickidcow/SF_FNAmplifications": "017ee6a2008e618201ccb1a114b42aa9a7296be9",
-            "wickidcow/SF_Gastronomicon": "31df51f791cccdad03a21df6186d327e58b6a468",
+            "wickidcow/SF_Gastronomicon": "547b88916e35f34b683ea61361700ab300a81a72",
             "wickidcow/SF_GeneticChickEngineering": "5ce3c185c343d128f2b0ba033e908c56cebd5bb0",
             "wickidcow/SF_IDreamOfEasy": "91090c398ece30dbf90ddde6124a7f1faf0f05bb",
             "wickidcow/SF_LuckyBlocks": "9038919c7f8c9c143fec373230ca5847c326729f",
@@ -102,6 +102,29 @@ class CompatibilityClaimsTest(unittest.TestCase):
                          selected["wickidcow/SF_Supreme"])
 
 
+
+    def test_v81_eight_new_addon_releases_are_pinned_exactly(self):
+        # These are immutable official v81 source-tag commits, not arbitrary
+        # latest/master snapshots. A later source-only CI change never silently
+        # updates a released JAR, and all 36 remaining pins stay unchanged.
+        self.assertEqual(156, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        selected = {row["repository"]: row["source_commit"]
+                    for row in self.matrix["addons"]}
+        expected_releases = {
+            "wickidcow/SF_AlchimiaVitae": "f684b1c0b62cd4118db8eb3a536a042d5007c284",
+            "wickidcow/SF_FastMachines": "ef56249ca0add00f15d1d5527e310bf5de4811e9",
+            "wickidcow/SF_FinalTECH": "746b35a4c27d2ca496d6ca55b7e0b8c92d9dc087",
+            "wickidcow/SF_FluffyMachines": "365c30bdd9fedd0bb9989c13829341c501150a5a",
+            "wickidcow/SF_FoxyMachines": "d9d76b29bea65b6ee55b7abfa3bacdc17bcbd4e7",
+            "wickidcow/SF_Gastronomicon": "547b88916e35f34b683ea61361700ab300a81a72",
+            "wickidcow/SF_InfinityExpansion2": "1cc5d9962ea7d11e282240ef29a741e681a1fbd4",
+            "wickidcow/SF_MagicExpansion": "1eb30acb5e52b9c7d8a78850fef9a308dda5245e",
+        }
+        self.assertEqual(8, len(expected_releases))
+        for repository, source_sha in expected_releases.items():
+            with self.subTest(repository=repository):
+                self.assertEqual(source_sha, selected[repository])
 
     def test_r156_retains_previous_merged_release_sources(self):
         # FlowerPower / ExtraHeads keep existing reviewed source identities.
