@@ -137,17 +137,36 @@ class AdmissionTests(unittest.TestCase):
         self.assertEqual(evidence["bundle_revision"], 155)
         self.assertEqual(evidence["magic_version"], "1.1.19")
 
-    def test_r156_retains_magic_source_and_exact_44_addon_receipts(self):
-        self.select_r153_roster()
-        self.manifest["bundle_revision"] = 156
-        self.write_bundle()
+    def test_r156_requires_official_magic_1_1_20_source_and_exact_44_addon_receipts(self):
+        self.select_r156_roster()
         evidence = self.validate()
         self.assertEqual(evidence["bundle_revision"], 156)
-        self.assertEqual(evidence["magic_version"], "1.1.19")
+        self.assertEqual(evidence["magic_version"], "1.1.20")
         self.assertEqual(len(evidence["tested_addons"]), 44)
         self.assertEqual(evidence["tested_addons"][probe.MAGIC]["commit"],
-                         probe.MAGIC_RELEASES[156][0])
-        self.rows[0]["commit"] = probe.MAGIC_RELEASES[150][0]
+                         "1eb30acb5e52b9c7d8a78850fef9a308dda5245e")
+        self.assertEqual(evidence["tested_addons"][probe.MAGIC]["jar"],
+                         "SF_MagicExpansion1.1.20.jar")
+        # Keep the fixture anchored to the canonical 44-addon release manifest.
+        matrix = json.loads((SOURCE.parents[3] / "compatibility/sfl-addon-release-matrix.json")
+                            .read_text(encoding="utf-8"))
+        self.assertEqual(156, matrix["bundle_revision"])
+        selected = {r["repository"]: r["source_commit"] for r in matrix["addons"]}
+        self.assertEqual(44, len(selected))
+        self.assertEqual(probe.MAGIC_RELEASES[156][0], selected[probe.MAGIC])
+        self.rows[0]["commit"] = probe.MAGIC_RELEASES[155][0]
+        self.write_bundle()
+        self.rejects()
+
+    def test_r156_rejects_old_magic_jar_name_even_with_new_source(self):
+        self.select_r156_roster()
+        self.rows[0]["jar"] = probe.MAGIC_RELEASES[155][1]
+        self.write_bundle()
+        self.rejects()
+
+    def test_r156_rejects_old_magic_source_even_with_new_jar(self):
+        self.select_r156_roster()
+        self.rows[0]["commit"] = probe.MAGIC_RELEASES[155][0]
         self.write_bundle()
         self.rejects()
 
@@ -390,6 +409,21 @@ class AdmissionTests(unittest.TestCase):
         self.blobs.pop(retired["jar"])
         (self.work / "plugins" / retired["jar"]).unlink()
         self.manifest["bundle_revision"] = 153
+        self.write_bundle()
+
+    def select_r156_roster(self):
+        """Advance only the r156 Magic source to published 1.1.20; retain 44 addons."""
+        self.select_r153_roster()
+        old_jar = self.rows[0]["jar"]
+        commit, jar = probe.MAGIC_RELEASES[156]
+        self.assertNotEqual(old_jar, jar)
+        blob = self.blobs.pop(old_jar)
+        (self.work / "plugins" / old_jar).unlink()
+        self.blobs[jar] = blob
+        (self.work / "plugins" / jar).write_bytes(blob)
+        self.rows[0].update(jar=jar, commit=commit,
+                            sha256=hashlib.sha256(blob).hexdigest())
+        self.manifest["bundle_revision"] = 156
         self.write_bundle()
 
     def test_r153_admits_exact_44_addon_roster_without_buildingstaff(self):
