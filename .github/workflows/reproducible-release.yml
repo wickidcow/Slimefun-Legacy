@@ -12,6 +12,11 @@ on:
     branches:
       - master
     paths:
+      - '.github/workflows/build-sfl-addons-compat-bundle.yml'
+      - 'scripts/compile_addon_paper_26_3.py'
+      - 'scripts/test_compile_addon_paper_26_3.py'
+      - 'scripts/test_release_candidate_metadata.py'
+      - 'scripts/test_release_validation_triggers.py'
       - gradle.properties
       - 'docs/releases/**'
       - '.github/workflows/reproducible-release.yml'

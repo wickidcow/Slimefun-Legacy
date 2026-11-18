@@ -3,6 +3,7 @@ name: Folia 26.3 Experimental Runtime Readiness
 on:
   pull_request:
     paths:
+      - '.github/workflows/reproducible-release.yml'
       - 'src/**'
       - 'gradle/**'
       - 'build.gradle.kts'
@@ -16,6 +17,7 @@ on:
   push:
     branches: [master]
     paths:
+      - '.github/workflows/reproducible-release.yml'
       - 'src/**'
       - 'gradle/**'
       - 'build.gradle.kts'

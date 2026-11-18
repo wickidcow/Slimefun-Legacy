@@ -2,6 +2,10 @@ name: Public API Compatibility
 
 on:
   pull_request:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/reproducible-release.yml'
   workflow_dispatch:
 
 permissions:
