@@ -55,8 +55,9 @@ MAGIC_RELEASES = {
     154: ("b28c304f2909f15b43da53910ce7650886cc0e6f", "SF_MagicExpansion1.1.19.jar"),
     # r155 updates Cultivation / HotbarPets only; preserve Magic 1.1.19.
     155: ("b28c304f2909f15b43da53910ce7650886cc0e6f", "SF_MagicExpansion1.1.19.jar"),
-    # r156 changes CrystamaeHistoria/Galactifun only; preserve exactly Magic 1.1.19 source.
-    156: ("b28c304f2909f15b43da53910ce7650886cc0e6f", "SF_MagicExpansion1.1.19.jar"),
+    # v4.1.81/r156 advances MagicExpansion to the immutable official 1.1.20
+    # release. Keep historical r137-r155 source/JAR pairs unchanged.
+    156: ("1eb30acb5e52b9c7d8a78850fef9a308dda5245e", "SF_MagicExpansion1.1.20.jar"),
 }
 MAGIC_VERSIONS = {
     137: "1.1.13",
@@ -78,7 +79,7 @@ MAGIC_VERSIONS = {
     153: "1.1.19",
     154: "1.1.19",
     155: "1.1.19",
-    156: "1.1.19",
+    156: "1.1.20",
 }
 DIRECTORIES = {"full-stack-1.21.11", "full-stack-26.2", "full-stack-26.3", "full-stack-purpur-26.3"}
 PLUGIN = "BlackMarketRestartProbe"
