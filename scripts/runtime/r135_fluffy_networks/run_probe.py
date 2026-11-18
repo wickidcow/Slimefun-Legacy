@@ -29,9 +29,9 @@ EXPECTED_VERSIONS = {
 FLUFFY_R153 = ("SF_FluffyMachines26.2.16.jar", "9ce05a228a0ce14e69254115b90ec46e54eac6d9")
 # 4.1.80/r154: merged Fluffy 26.2.18 including Quick Withdraw #39.
 FLUFFY_R154 = ("SF_FluffyMachines26.2.18.jar", "bb1a50387e8dfe34c4c4e3b592038c81c51f53f0")
-# v4.1.81/r156: official published Fluffy 26.2.20, source-pinned in
+# v4.1.81/r156: official published Fluffy 26.2.21, source-pinned in
 # compatibility/sfl-addon-release-matrix.json. Keep all older revisions stable.
-FLUFFY_R156 = ("SF_FluffyMachines26.2.20.jar", "c2646d6ba232e71ce8c4639e414b78a4529790c1")
+FLUFFY_R156 = ("SF_FluffyMachines26.2.21.jar", "365c30bdd9fedd0bb9989c13829341c501150a5a")
 NETWORK_VERSIONS = {
     135: ("SF_Networks1.0.54.jar", "c24064cbeafe4f112c7d46bf3de5617fa151d88d"),
     136: ("SF_Networks1.0.55.jar", "bcdef34d362dc74aa1aab23c8961a629daa79950"),

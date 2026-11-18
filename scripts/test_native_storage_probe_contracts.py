@@ -206,7 +206,7 @@ class NativeStorageProbeContracts(unittest.TestCase):
         self.assertNotIn("result", evidence)
         self.assertEqual(evidence["expected_core_version"], "4.1.81")
         self.assertEqual(evidence["tested_addons"]["wickidcow/SF_FluffyMachines"]["jar"],
-                         "SF_FluffyMachines26.2.20.jar")
+                         "SF_FluffyMachines26.2.21.jar")
         self.assertEqual(evidence["tested_addons"]["wickidcow/SF_FluffyMachines"]["commit"], probe.FLUFFY_R156[1])
         self.assertEqual(evidence["tested_addons"]["wickidcow/SF_NetworksExp"]["commit"], probe.NETWORK_VERSIONS[156][1])
         self.compile.reset_mock()
@@ -219,6 +219,16 @@ class NativeStorageProbeContracts(unittest.TestCase):
         self.populate(156)
         self.compile.reset_mock()
         self.manifest["addons"][0]["jar"] = probe.FLUFFY_R154[0]
+        self.reject("addon source mismatch")
+
+    def test_r156_rejects_superseded_fluffy_26_2_20_and_exact_jar_name(self):
+        self.populate(156)
+        old = ("SF_FluffyMachines26.2.20.jar",
+               "c2646d6ba232e71ce8c4639e414b78a4529790c1")
+        self.manifest["addons"][0]["commit"] = old[1]
+        self.reject("addon source mismatch")
+        self.manifest["addons"][0]["commit"] = probe.FLUFFY_R156[1]
+        self.manifest["addons"][0]["jar"] = old[0]
         self.reject("addon source mismatch")
 
     def test_unknown_revision_is_rejected_instead_of_skipped(self):
@@ -563,7 +573,7 @@ class NativeStorageProbeContracts(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, "No server may run"):
             probe.run(self.work, self.java, evidence, 1)
         command = self.launch.call_args.args[0]
-        self.assertIn("-Dalbion.probe.fluffy.version=26.2.20", command)
+        self.assertIn("-Dalbion.probe.fluffy.version=26.2.21", command)
         self.assertNotIn("-Dalbion.probe.fluffy.version=26.2.18", command)
         self.assertIn("-Dalbion.probe.networks.version=1.0.64", command)
 

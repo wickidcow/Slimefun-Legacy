@@ -116,7 +116,7 @@ class CompatibilityClaimsTest(unittest.TestCase):
             "wickidcow/SF_HotbarPets": "54c802438a6819e6f3b0eea411e675a3eb0855dc",
             "wickidcow/SF_FlowerPower": "d8c3f2c8ec66b7c08e0ceb8b23f710f020b5c36f",
             "wickidcow/SF_ExtraHeads": "b1e8a1f11692b44d359eec863f3be5be0f061516",
-            "wickidcow/SF_FluffyMachines": "c2646d6ba232e71ce8c4639e414b78a4529790c1",
+            "wickidcow/SF_FluffyMachines": "365c30bdd9fedd0bb9989c13829341c501150a5a",
             "wickidcow/SF_NetworksExp": "1d46a1afd04ceae7f04c7e0849397350ce273ec5",
             "wickidcow/SF_InfinityExpansion2": "1cc5d9962ea7d11e282240ef29a741e681a1fbd4",
             "wickidcow/SF_Supreme": "f03ed0c75f1df16aa484d25bf3a1b8bcd20d9b7c",
