@@ -89,9 +89,9 @@ def test_maven_retry_backoff_remains_fail_closed() -> None:
         def flaky_maven(command, *, cwd, env, log):
             commands.append(list(command))
             if len(commands) < 5:
-                log.write("HTTP 429 Too Many Requests\\n")
+                log.write("HTTP 429 Too Many Requests\n")
                 return 1
-            log.write("BUILD SUCCESS\\n")
+            log.write("BUILD SUCCESS\n")
             return 0
 
         with (root / "transient.log").open("w+", encoding="utf-8") as log:
@@ -109,7 +109,7 @@ def test_maven_retry_backoff_remains_fail_closed() -> None:
         calls = []
         def real_source_error(command, *, cwd, env, log):
             calls.append(list(command))
-            log.write("COMPILATION ERROR: cannot find symbol SlimefunItem\\n")
+            log.write("COMPILATION ERROR: cannot find symbol SlimefunItem\n")
             return 17
 
         with (root / "compile.log").open("w+", encoding="utf-8") as log:
