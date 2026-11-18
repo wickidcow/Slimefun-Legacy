@@ -60,7 +60,7 @@
     {
       "repository": "wickidcow/SF_AlchimiaVitae",
       "slug": "alchimiavitae",
-      "source_commit": "5b1f9b2d5191243a18ff29f7601587bd01f31c70"
+      "source_commit": "f684b1c0b62cd4118db8eb3a536a042d5007c284"
     },
     {
       "repository": "wickidcow/SF_BetterChests",
@@ -117,12 +117,12 @@
     {
       "repository": "wickidcow/SF_FastMachines",
       "slug": "fastmachines",
-      "source_commit": "695ac4e5a8a0b3dcfc114c97b6a4f43c6254d1b6"
+      "source_commit": "ef56249ca0add00f15d1d5527e310bf5de4811e9"
     },
     {
       "repository": "wickidcow/SF_FinalTECH",
       "slug": "finaltech",
-      "source_commit": "cd967e62b5042e850599a8d723431dc9d4c2f063"
+      "source_commit": "746b35a4c27d2ca496d6ca55b7e0b8c92d9dc087"
     },
     {
       "repository": "wickidcow/SF_FlowerPower",
@@ -132,7 +132,7 @@
     {
       "repository": "wickidcow/SF_FluffyMachines",
       "slug": "fluffymachines",
-      "source_commit": "bb1a50387e8dfe34c4c4e3b592038c81c51f53f0"
+      "source_commit": "365c30bdd9fedd0bb9989c13829341c501150a5a"
     },
     {
       "repository": "wickidcow/SF_FNAmplifications",
@@ -142,7 +142,7 @@
     {
       "repository": "wickidcow/SF_FoxyMachines",
       "slug": "foxymachines",
-      "source_commit": "4222cd4a6aaaface032bd5f7fc20cbb5b927092f"
+      "source_commit": "d9d76b29bea65b6ee55b7abfa3bacdc17bcbd4e7"
     },
     {
       "repository": "wickidcow/SF_Galactifun",
@@ -152,7 +152,7 @@
     {
       "repository": "wickidcow/SF_Gastronomicon",
       "slug": "gastronomicon",
-      "source_commit": "31df51f791cccdad03a21df6186d327e58b6a468"
+      "source_commit": "547b88916e35f34b683ea61361700ab300a81a72"
     },
     {
       "repository": "wickidcow/SF_GeneticChickEngineering",
@@ -173,7 +173,7 @@
       "repository": "wickidcow/SF_InfinityExpansion2",
       "slug": "infinityexpansion2",
       "artifact_base": "InfinityExpansion",
-      "source_commit": "7bd579e2b67243002571e95b8a2d00bea2187efd"
+      "source_commit": "1cc5d9962ea7d11e282240ef29a741e681a1fbd4"
     },
     {
       "repository": "wickidcow/SF_LiteXpansion",
@@ -194,7 +194,7 @@
     {
       "repository": "wickidcow/SF_MagicExpansion",
       "slug": "magicexpansion",
-      "source_commit": "b28c304f2909f15b43da53910ce7650886cc0e6f"
+      "source_commit": "1eb30acb5e52b9c7d8a78850fef9a308dda5245e"
     },
     {
       "repository": "wickidcow/SF_MilitaryArsenal",

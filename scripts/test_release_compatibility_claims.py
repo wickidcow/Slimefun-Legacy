@@ -71,7 +71,7 @@ class CompatibilityClaimsTest(unittest.TestCase):
                     for row in self.matrix["addons"]}
         self.assertEqual(44, len(selected), "Duplicate addon repository")
         expected = {
-            "wickidcow/SF_AlchimiaVitae": "5b1f9b2d5191243a18ff29f7601587bd01f31c70",
+            "wickidcow/SF_AlchimiaVitae": "f684b1c0b62cd4118db8eb3a536a042d5007c284",
             "wickidcow/SF_BetterChests": "e80e395ca331bad234fd5733eb106da3b5656545",
             "wickidcow/SF_CultivationLegacy": "ab97e9d1a89a57bfca3801fce7cef75020fd9bf0",
             "wickidcow/SF_HotbarPets": "54c802438a6819e6f3b0eea411e675a3eb0855dc",
@@ -79,7 +79,7 @@ class CompatibilityClaimsTest(unittest.TestCase):
             "wickidcow/SF_ElectricSpawners": "d28daba4fa77d7c927fc2716207c837602edd9cc",
             "wickidcow/SF_ExoticGarden": "3bd282d2a951d883d1dc222e53e35e7fc4e0a6f2",
             "wickidcow/SF_FNAmplifications": "017ee6a2008e618201ccb1a114b42aa9a7296be9",
-            "wickidcow/SF_Gastronomicon": "31df51f791cccdad03a21df6186d327e58b6a468",
+            "wickidcow/SF_Gastronomicon": "547b88916e35f34b683ea61361700ab300a81a72",
             "wickidcow/SF_GeneticChickEngineering": "5ce3c185c343d128f2b0ba033e908c56cebd5bb0",
             "wickidcow/SF_IDreamOfEasy": "91090c398ece30dbf90ddde6124a7f1faf0f05bb",
             "wickidcow/SF_LuckyBlocks": "9038919c7f8c9c143fec373230ca5847c326729f",
@@ -96,12 +96,35 @@ class CompatibilityClaimsTest(unittest.TestCase):
                 self.assertEqual(sha, selected[repository])
         self.assertEqual("1d46a1afd04ceae7f04c7e0849397350ce273ec5",
                          selected["wickidcow/SF_NetworksExp"])
-        self.assertEqual("7bd579e2b67243002571e95b8a2d00bea2187efd",
+        self.assertEqual("1cc5d9962ea7d11e282240ef29a741e681a1fbd4",
                          selected["wickidcow/SF_InfinityExpansion2"])
         self.assertEqual("f03ed0c75f1df16aa484d25bf3a1b8bcd20d9b7c",
                          selected["wickidcow/SF_Supreme"])
 
 
+
+    def test_v81_eight_new_addon_releases_are_pinned_exactly(self):
+        # These are immutable official v81 source-tag commits, not arbitrary
+        # latest/master snapshots. A later source-only CI change never silently
+        # updates a released JAR, and all 36 remaining pins stay unchanged.
+        self.assertEqual(156, self.matrix["bundle_revision"])
+        self.assertEqual(44, len(self.matrix["addons"]))
+        selected = {row["repository"]: row["source_commit"]
+                    for row in self.matrix["addons"]}
+        expected_releases = {
+            "wickidcow/SF_AlchimiaVitae": "f684b1c0b62cd4118db8eb3a536a042d5007c284",
+            "wickidcow/SF_FastMachines": "ef56249ca0add00f15d1d5527e310bf5de4811e9",
+            "wickidcow/SF_FinalTECH": "746b35a4c27d2ca496d6ca55b7e0b8c92d9dc087",
+            "wickidcow/SF_FluffyMachines": "365c30bdd9fedd0bb9989c13829341c501150a5a",
+            "wickidcow/SF_FoxyMachines": "d9d76b29bea65b6ee55b7abfa3bacdc17bcbd4e7",
+            "wickidcow/SF_Gastronomicon": "547b88916e35f34b683ea61361700ab300a81a72",
+            "wickidcow/SF_InfinityExpansion2": "1cc5d9962ea7d11e282240ef29a741e681a1fbd4",
+            "wickidcow/SF_MagicExpansion": "1eb30acb5e52b9c7d8a78850fef9a308dda5245e",
+        }
+        self.assertEqual(8, len(expected_releases))
+        for repository, source_sha in expected_releases.items():
+            with self.subTest(repository=repository):
+                self.assertEqual(source_sha, selected[repository])
 
     def test_r156_retains_previous_merged_release_sources(self):
         # FlowerPower / ExtraHeads keep existing reviewed source identities.
@@ -116,9 +139,9 @@ class CompatibilityClaimsTest(unittest.TestCase):
             "wickidcow/SF_HotbarPets": "54c802438a6819e6f3b0eea411e675a3eb0855dc",
             "wickidcow/SF_FlowerPower": "d8c3f2c8ec66b7c08e0ceb8b23f710f020b5c36f",
             "wickidcow/SF_ExtraHeads": "b1e8a1f11692b44d359eec863f3be5be0f061516",
-            "wickidcow/SF_FluffyMachines": "bb1a50387e8dfe34c4c4e3b592038c81c51f53f0",
+            "wickidcow/SF_FluffyMachines": "365c30bdd9fedd0bb9989c13829341c501150a5a",
             "wickidcow/SF_NetworksExp": "1d46a1afd04ceae7f04c7e0849397350ce273ec5",
-            "wickidcow/SF_InfinityExpansion2": "7bd579e2b67243002571e95b8a2d00bea2187efd",
+            "wickidcow/SF_InfinityExpansion2": "1cc5d9962ea7d11e282240ef29a741e681a1fbd4",
             "wickidcow/SF_Supreme": "f03ed0c75f1df16aa484d25bf3a1b8bcd20d9b7c",
         }
         for repository, sha in expected.items():

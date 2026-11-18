@@ -94,7 +94,9 @@ class NativeStorageProbeContracts(unittest.TestCase):
         expected = dict(probe.EXPECTED_VERSIONS)
         if revision in (153, 154, 155, 156):
             expected["wickidcow/SF_FluffyMachines"] = (
-                probe.FLUFFY_R154 if revision in (154, 155, 156) else probe.FLUFFY_R153)
+                probe.FLUFFY_R156 if revision == 156
+                else probe.FLUFFY_R154 if revision in (154, 155)
+                else probe.FLUFFY_R153)
         expected["wickidcow/SF_NetworksExp"] = (
             ("SF_Networks1.0.54.jar", "c24064cbeafe4f112c7d46bf3de5617fa151d88d")
             if revision == 135 else
@@ -195,17 +197,38 @@ class NativeStorageProbeContracts(unittest.TestCase):
         self.assertEqual(evidence["tested_addons"]["wickidcow/SF_FluffyMachines"]["commit"], probe.FLUFFY_R154[1])
         self.assertEqual(evidence["tested_addons"]["wickidcow/SF_NetworksExp"]["commit"], probe.NETWORK_VERSIONS[155][1])
 
-    def test_r156_preserves_exact_storage_sources_without_claiming_native_pass(self):
-        (self.root / "gradle.properties").write_text("projectVersion=4.1.80\n", encoding="utf-8")
+    def test_r156_requires_official_fluffy_source_without_claiming_native_pass(self):
+        (self.root / "gradle.properties").write_text("projectVersion=4.1.81\n", encoding="utf-8")
         self.populate(156)
         evidence = self.prepare()
         self.assertEqual(evidence["bundle_revision"], 156)
         self.assertEqual(evidence["status"], "STARTED")
         self.assertNotIn("result", evidence)
-        self.assertEqual(evidence["tested_addons"]["wickidcow/SF_FluffyMachines"]["commit"], probe.FLUFFY_R154[1])
+        self.assertEqual(evidence["expected_core_version"], "4.1.81")
+        self.assertEqual(evidence["tested_addons"]["wickidcow/SF_FluffyMachines"]["jar"],
+                         "SF_FluffyMachines26.2.21.jar")
+        self.assertEqual(evidence["tested_addons"]["wickidcow/SF_FluffyMachines"]["commit"], probe.FLUFFY_R156[1])
         self.assertEqual(evidence["tested_addons"]["wickidcow/SF_NetworksExp"]["commit"], probe.NETWORK_VERSIONS[156][1])
         self.compile.reset_mock()
         self.manifest["addons"][1]["commit"] = probe.NETWORK_VERSIONS[153][1]
+        self.reject("addon source mismatch")
+        self.populate(156)
+        self.compile.reset_mock()
+        self.manifest["addons"][0]["commit"] = probe.FLUFFY_R154[1]
+        self.reject("addon source mismatch")
+        self.populate(156)
+        self.compile.reset_mock()
+        self.manifest["addons"][0]["jar"] = probe.FLUFFY_R154[0]
+        self.reject("addon source mismatch")
+
+    def test_r156_rejects_superseded_fluffy_26_2_20_and_exact_jar_name(self):
+        self.populate(156)
+        old = ("SF_FluffyMachines26.2.20.jar",
+               "c2646d6ba232e71ce8c4639e414b78a4529790c1")
+        self.manifest["addons"][0]["commit"] = old[1]
+        self.reject("addon source mismatch")
+        self.manifest["addons"][0]["commit"] = probe.FLUFFY_R156[1]
+        self.manifest["addons"][0]["jar"] = old[0]
         self.reject("addon source mismatch")
 
     def test_unknown_revision_is_rejected_instead_of_skipped(self):
@@ -543,6 +566,16 @@ class NativeStorageProbeContracts(unittest.TestCase):
         command = self.launch.call_args.args[0]
         self.assertIn("-Dalbion.probe.fluffy.version=26.2.18", command)
         self.assertNotIn("-Dalbion.probe.fluffy.version=26.2.16", command)
+
+    def test_r156_launch_uses_official_fluffy_26_2_20(self):
+        self.populate(156)
+        evidence = self.prepare()
+        with self.assertRaisesRegex(AssertionError, "No server may run"):
+            probe.run(self.work, self.java, evidence, 1)
+        command = self.launch.call_args.args[0]
+        self.assertIn("-Dalbion.probe.fluffy.version=26.2.21", command)
+        self.assertNotIn("-Dalbion.probe.fluffy.version=26.2.18", command)
+        self.assertIn("-Dalbion.probe.networks.version=1.0.64", command)
 
     def test_invalid_fluffy_jar_version_is_refused_before_server_launch(self):
         evidence = self.prepare()
