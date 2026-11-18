@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 import urllib.parse
 import xml.etree.ElementTree as ET
 import zipfile
@@ -74,6 +75,50 @@ def test_transient_repository_classification() -> None:
     assert not probe.is_transient_repository_failure(
         "COMPILATION ERROR: cannot find symbol SlimefunItem"
     )
+
+
+def test_maven_retry_backoff_remains_fail_closed() -> None:
+    # Isolate network/build execution; simulate a transient 429 four times.
+    # All five attempts must use the same Maven source inputs and never
+    # convert a persistent failed build into PASS.
+    with tempfile.TemporaryDirectory() as raw:
+        root = Path(raw)
+        commands = []
+        delays = []
+
+        def flaky_maven(command, *, cwd, env, log):
+            commands.append(list(command))
+            if len(commands) < 5:
+                log.write("HTTP 429 Too Many Requests\\n")
+                return 1
+            log.write("BUILD SUCCESS\\n")
+            return 0
+
+        with (root / "transient.log").open("w+", encoding="utf-8") as log:
+            with patch.object(probe, "stream_command", side_effect=flaky_maven), patch(
+                "time.sleep", side_effect=delays.append
+            ):
+                code = probe.stream_maven_command(["mvn", "install:install-file"],
+                                                  cwd=root, env={}, log=log)
+        assert code == 0
+        assert len(commands) == 5
+        assert commands[0] == ["mvn", "install:install-file"]
+        assert all(cmd == ["mvn", "-U", "install:install-file"] for cmd in commands[1:])
+        assert delays == [10, 20, 30, 40]
+
+        calls = []
+        def real_source_error(command, *, cwd, env, log):
+            calls.append(list(command))
+            log.write("COMPILATION ERROR: cannot find symbol SlimefunItem\\n")
+            return 17
+
+        with (root / "compile.log").open("w+", encoding="utf-8") as log:
+            with patch.object(probe, "stream_command", side_effect=real_source_error), patch(
+                "time.sleep", side_effect=AssertionError("Do not retry source errors")
+            ):
+                code = probe.stream_maven_command(["mvn", "package"], cwd=root, env={}, log=log)
+        assert code == 17
+        assert calls == [["mvn", "package"]]
 
 
 def test_maven_property_rewrite() -> None:
@@ -340,6 +385,7 @@ tasks.register('verifyRouting') {
 def main() -> int:
     test_coordinate_classification()
     test_transient_repository_classification()
+    test_maven_retry_backoff_remains_fail_closed()
     test_maven_property_rewrite()
     test_maven_rewrites_legacy_fork_coordinate()
     test_maven_injects_missing_direct_dependencies()
