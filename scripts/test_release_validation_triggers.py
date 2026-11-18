@@ -14,6 +14,12 @@ WORKFLOW = ROOT / ".github/workflows/reproducible-release.yml"
 BUNDLE = ROOT / ".github/workflows/build-sfl-addons-compat-bundle.yml"
 NATIVE = ROOT / ".github/workflows/native-entity-retirement.yml"
 RELEASE_INPUTS = (
+    ".github/workflows/build-sfl-addons-compat-bundle.yml",
+    "scripts/compile_addon_paper_26_3.py",
+    "scripts/test_compile_addon_paper_26_3.py",
+    "scripts/test_release_candidate_metadata.py",
+    "scripts/test_release_validation_triggers.py",
+
     "gradle.properties",
     "docs/releases/**",
     ".github/workflows/reproducible-release.yml",
@@ -81,6 +87,21 @@ class ReleaseValidationTriggerTest(unittest.TestCase):
                     with self.subTest(workflow=workflow.name, event=event, item=item):
                         self.assertTrue(covered_by(paths, item),
                                         f"{workflow.name} {event} does not cover {item}")
+
+    def test_release_workflow_change_starts_all_acceptance_lanes(self):
+        lanes = (
+            "api-compatibility.yml",
+            "resource-pack-doctor.yml",
+            "runtime-smoke.yml",
+            "paper-family-26.2-runtime-smoke.yml",
+            "legacy-1.21.11-compatibility.yml",
+            "folia-26.3-runtime-smoke.yml",
+            "folia-26.3-addon-admission.yml",
+        )
+        for name in lanes:
+            with self.subTest(workflow=name):
+                paths = event_paths((ROOT / ".github/workflows" / name).read_text(), "push")
+                self.assertTrue(covered_by(paths, ".github/workflows/reproducible-release.yml"))
 
     def test_missing_push_path_is_not_hidden_by_a_pull_request_trigger(self):
         source = BUNDLE.read_text(encoding="utf-8")

@@ -3,6 +3,7 @@ name: Resource Pack Doctor Migration
 on:
   pull_request:
     paths:
+      - '.github/workflows/reproducible-release.yml'
       - 'src/**'
       - 'build.gradle.kts'
       - 'gradle/**'
@@ -20,6 +21,7 @@ on:
   push:
     branches: [master]
     paths:
+      - '.github/workflows/reproducible-release.yml'
       - 'src/**'
       - 'build.gradle.kts'
       - 'gradle/**'

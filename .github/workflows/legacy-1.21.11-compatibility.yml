@@ -5,6 +5,7 @@ on:
   push:
     branches: [ master, main ]
     paths:
+      - '.github/workflows/reproducible-release.yml'
       - 'src/**'
       - 'gradle/**'
       - 'build.gradle.kts'

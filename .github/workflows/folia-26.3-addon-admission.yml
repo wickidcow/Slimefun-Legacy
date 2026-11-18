@@ -3,6 +3,7 @@ name: Folia 26.3 Addon Admission Audit
 on:
   pull_request:
     paths:
+      - '.github/workflows/reproducible-release.yml'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'scripts/audit_folia_addon_admission.py'
       - 'scripts/test_audit_folia_addon_admission.py'
@@ -18,6 +19,7 @@ on:
   push:
     branches: [master]
     paths:
+      - '.github/workflows/reproducible-release.yml'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'scripts/audit_folia_addon_admission.py'
       - 'scripts/test_audit_folia_addon_admission.py'

@@ -4,6 +4,9 @@ on:
   push:
     branches: [master]
     paths:
+      - 'scripts/test_compile_addon_paper_26_3.py'
+      - 'scripts/test_release_candidate_metadata.py'
+      - 'scripts/test_release_validation_triggers.py'
       - 'gradle.properties'
       - 'src/**'
       - 'build.gradle.kts'
@@ -29,6 +32,9 @@ on:
       - 'compatibility/resource-pack-release.json'
   pull_request:
     paths:
+      - 'scripts/test_compile_addon_paper_26_3.py'
+      - 'scripts/test_release_candidate_metadata.py'
+      - 'scripts/test_release_validation_triggers.py'
       - 'gradle.properties'
       - 'src/**'
       - 'build.gradle.kts'
