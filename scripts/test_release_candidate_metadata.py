@@ -54,7 +54,7 @@ class ReleaseCandidateMetadataTest(unittest.TestCase):
             "Slimefun-Legacy4.1.81.jar", "SF_Addons_1.21.11-26.3.zip",
             "SlimefunLegacyRP.zip", "SlimefunLegacyRP_Geyser.zip",
             "UNTESTED", "Historical inventories are not rewritten", "CraftingRestrictions.yml",
-            "exact-source", "unpublished candidate",
+            # Publication wording changes after PR merge and later after tag publication;\n            # assert the durable exact-source gate instead of a transient status label.\n            "exact-source", "The release workflow requires two clean reproducible core builds",
         ):
             with self.subTest(required=required):
                 self.assertIn(required, notes)
