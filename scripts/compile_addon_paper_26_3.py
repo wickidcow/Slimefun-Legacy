@@ -167,7 +167,7 @@ def stream_maven_command(
     cwd: Path,
     env: dict[str, str],
     log: TextIO,
-    max_attempts: int = 3,
+    max_attempts: int = 5,
 ) -> int:
     retry_command = list(command)
     last_code = 1
@@ -192,7 +192,7 @@ def stream_maven_command(
         if "-U" not in retry_command:
             retry_command = [retry_command[0], "-U", *retry_command[1:]]
 
-        delay = attempt * 5
+        # Maven Central's shared-runner 429 limit can outlast a 5s retry;\n        # re-fetch exact dependencies after bounded backoff, never skip compilation.\n        delay = attempt * 10
         message = (
             f"\nTransient Maven repository/network failure detected; retrying "
             f"attempt {attempt + 1}/{max_attempts} in {delay}s.\n"
