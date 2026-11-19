@@ -127,8 +127,7 @@ class TestDoctorHistoricalStackRepair {
         ItemStack differentOwner = new ItemStack(fresh);
         differentOwner.editMeta(meta -> {
             meta.lore(List.of(Component.text("Old shop lore")));
-            meta.getPersistentDataContainer()
-                    .set(new NamespacedKey("addon", "owner"), PersistentDataType.LONG, 99999L);
+            meta.getPersistentDataContainer().set(new NamespacedKey("addon", "owner"), PersistentDataType.LONG, 99999L);
         });
         assertNull(DoctorHistoricalStackRepair.prepareStaticLore(differentOwner, fresh, fresh));
     }
