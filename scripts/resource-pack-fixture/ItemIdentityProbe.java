@@ -490,7 +490,7 @@ final class ItemIdentityProbe {
         oldApi.setAmount(31);
         oldApi.editMeta(meta -> {
             meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&b&lCarbonado"));
-            meta.setLore(List.of("", ChatColor.translateAlternateColorCodes('&', "&7&o\\\"Black Diamond\\\"")));
+            meta.setLore(List.of("", ChatColor.translateAlternateColorCodes('&', "&7&o\"Black Diamond\"")));
         });
         byte[] legacyBytes = oldApi.serializeAsBytes();
         byte[] currentBytes = modern.serializeAsBytes();
