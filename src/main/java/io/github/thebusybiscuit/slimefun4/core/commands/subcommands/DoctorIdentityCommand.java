@@ -28,6 +28,10 @@ final class DoctorIdentityCommand {
             DoctorHistoricalStackRepair.run(plugin, sender, args);
             return;
         }
+        if (args.length > 2 && args[2].equalsIgnoreCase("export")) {
+            DoctorIdentityEvidenceExport.run(plugin, sender, args);
+            return;
+        }
         if (!(sender instanceof Player player)) {
             send(sender, "&cIdentity comparison requires a player with two held items.");
             return;
