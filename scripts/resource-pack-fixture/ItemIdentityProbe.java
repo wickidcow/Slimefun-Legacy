@@ -497,6 +497,7 @@ final class ItemIdentityProbe {
             String observed = classifyOldBukkitTextApi(oldApi, modern);
             Bukkit.getLogger().info("SFL_LEGACY_BUKKIT_TEXT_" + id + "_RESTART=" + observed);
             requireLegacyTextCompatibility(id, observed);
+            verifyLegacyStyleRecovery(caseFolder, id, oldApi, modern, registered.getItem(), true);
             require(expected.equals(observed),
                     "old Bukkit text API fixture provenance classification drifted after restart");
             require(Arrays.equals(legacyBytes, oldApi.serializeAsBytes())
@@ -525,6 +526,7 @@ final class ItemIdentityProbe {
         String classification = classifyOldBukkitTextApi(oldApi, modern);
         Bukkit.getLogger().info("SFL_LEGACY_BUKKIT_TEXT_" + id + "_SEED=" + classification);
         requireLegacyTextCompatibility(id, classification);
+        verifyLegacyStyleRecovery(caseFolder, id, oldApi, modern, registered.getItem(), false);
         // Negative controls make this a semantic regression gate, not merely a
         // record of whatever the current constructor happens to produce.
         ItemStack changedText = ItemStack.deserializeBytes(currentBytes);
@@ -551,6 +553,54 @@ final class ItemIdentityProbe {
         require(Arrays.equals(legacyBytes, oldApi.serializeAsBytes())
                         && Arrays.equals(currentBytes, modern.serializeAsBytes()),
                 "old Bukkit text API probe modified its detached inputs");
+    }
+
+    private static void verifyLegacyStyleRecovery(
+            Path folder, String id, ItemStack old, ItemStack fresh, ItemStack template, boolean restart)
+            throws Exception {
+        // Exercise the existing opt-in candidate/backup code only on disposable
+        // source-derived fixtures. Never grant migration eligibility to real items.
+        if (old.isSimilar(fresh)) {
+            return;
+        }
+        byte[] originalBytes = old.serializeAsBytes();
+        byte[] freshBytes = fresh.serializeAsBytes();
+        byte[] templateBytes = template.serializeAsBytes();
+        Path repairedFile = folder.resolve("style-repaired.bin");
+        Path receiptFile = folder.resolve("style-backup-name.txt");
+        ItemStack repaired;
+        if (restart) {
+            repaired = ItemStack.deserializeBytes(Files.readAllBytes(repairedFile));
+        } else {
+            repaired = repairCandidate(old, fresh, template);
+            require(repaired != null, "legacy style candidate refused: " + id);
+            Path backup = backupHistorical(folder, originalBytes);
+            Files.writeString(receiptFile, backup.getFileName().toString());
+            Files.write(repairedFile, repaired.serializeAsBytes());
+        }
+        String filename = Files.readString(receiptFile);
+        java.util.UUID owner = java.util.UUID.fromString(filename.substring(0, 36));
+        java.util.UUID receipt = java.util.UUID.fromString(filename.substring(37, 73));
+        ItemStack verified = readDoctorBackup(folder, owner, receipt);
+        require(Arrays.equals(originalBytes, verified.serializeAsBytes())
+                        && repaired.getAmount() == 31
+                        && repaired.isSimilar(fresh) && fresh.isSimilar(repaired)
+                        && matchesDoctorBackup(verified, repaired, fresh, template),
+                "legacy style backup/restart/rollback identity mismatch: " + id);
+        ItemStack changedAmount = ItemStack.deserializeBytes(repaired.serializeAsBytes());
+        changedAmount.setAmount(30);
+        require(!matchesDoctorBackup(verified, changedAmount, fresh, template),
+                "legacy style rollback accepted changed quantity: " + id);
+        var inventory = Bukkit.createInventory(null, 9);
+        require(inventory.addItem(ItemStack.deserializeBytes(repaired.serializeAsBytes()),
+                        ItemStack.deserializeBytes(freshBytes)).isEmpty()
+                        && inventory.getItem(0).getAmount() == 32 && inventory.getItem(1) == null,
+                "legacy style repair failed exact 31+1 merge: " + id);
+        require(Arrays.equals(originalBytes, old.serializeAsBytes())
+                        && Arrays.equals(freshBytes, fresh.serializeAsBytes())
+                        && Arrays.equals(templateBytes, template.serializeAsBytes()),
+                "legacy style recovery changed input/template bytes: " + id);
+        Bukkit.getLogger().info("SFL_LEGACY_STYLE_RECOVERY_" + id + (restart ? "_RESTART_PASS" : "_SEED_PASS"));
     }
 
     private static void requireLegacyTextCompatibility(String id, String classification) {
